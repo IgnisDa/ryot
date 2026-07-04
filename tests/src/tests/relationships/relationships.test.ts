@@ -1,6 +1,7 @@
-import { describe, expect, it } from "bun:test";
+import { Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
@@ -10,147 +11,163 @@ import {
 	getBackendClient,
 } from "~/fixtures";
 import { assertTaggedError } from "~/support/assertions";
+import { describe, expect, it } from "~/support/effect-test";
 
-async function makeRelationshipFixture(
-	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"],
-) {
-	const { trackerId } = await createTracker(client, { name: "Relationship Test Tracker" });
-	const { schemaId } = await createEntitySchema(client, {
-		trackerId,
-		name: "Relationship Test Entity",
-	});
-	const source = await createEntity(client, {
-		name: "Source Entity",
-		entitySchemaId: schemaId,
-		properties: { title: "Source" },
-	});
-	const target = await createEntity(client, {
-		name: "Target Entity",
-		entitySchemaId: schemaId,
-		properties: { title: "Target" },
-	});
-	const relSchema = await createRelationshipSchema(client, {
-		name: "Test Relationship",
-		slug: `test-rel-${crypto.randomUUID()}`,
-		propertiesSchema: {
-			fields: {
-				rating: { type: "integer", label: "Rating", description: "Rating" },
-			},
-		},
-	});
-	return { source, target, relSchema };
-}
-
-describe("POST /relationships", () => {
-	it("creates a relationship and returns 201 with wasInserted: true", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { source, target, relSchema } = await makeRelationshipFixture(client);
-
-		const result = await createRelationship(client, {
-			sourceEntityId: source.id,
-			targetEntityId: target.id,
-			relationshipSchemaId: relSchema.id,
-			properties: { rating: 7 },
+const makeRelationshipFixture = (client: Client) =>
+	Effect.gen(function* () {
+		const { trackerId } = yield* createTracker(client, { name: "Relationship Test Tracker" });
+		const { schemaId } = yield* createEntitySchema(client, {
+			trackerId,
+			name: "Relationship Test Entity",
 		});
-
-		expect(result.wasInserted).toBe(true);
-		expect(result.sourceEntityId).toBe(source.id);
-		expect(result.targetEntityId).toBe(target.id);
-		expect(result.relationshipSchemaId).toBe(relSchema.id);
-		expect(result.properties).toMatchObject({ rating: 7 });
-		expect(result.id).toBeDefined();
-		expect(result.createdAt).toBeDefined();
-	});
-
-	it("upserts on duplicate and returns wasInserted: false with updated properties", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { source, target, relSchema } = await makeRelationshipFixture(client);
-
-		await createRelationship(client, {
-			sourceEntityId: source.id,
-			targetEntityId: target.id,
-			relationshipSchemaId: relSchema.id,
-			properties: { rating: 3 },
+		const source = yield* createEntity(client, {
+			name: "Source Entity",
+			entitySchemaId: schemaId,
+			properties: { title: "Source" },
 		});
-
-		const upserted = await createRelationship(client, {
-			sourceEntityId: source.id,
-			targetEntityId: target.id,
-			relationshipSchemaId: relSchema.id,
-			properties: { rating: 9 },
+		const target = yield* createEntity(client, {
+			name: "Target Entity",
+			entitySchemaId: schemaId,
+			properties: { title: "Target" },
 		});
-
-		expect(upserted.wasInserted).toBe(false);
-		expect(upserted.properties).toMatchObject({ rating: 9 });
-	});
-
-	it("returns 404 when the relationship schema belongs to another user", async () => {
-		const owner = await createAuthenticatedClient();
-		const intruder = await createAuthenticatedClient();
-		const { relSchema } = await makeRelationshipFixture(owner.client);
-		const { source, target } = await makeRelationshipFixture(intruder.client);
-
-		const error = await intruder.client.runError((c) =>
-			c.relationships.create({
-				payload: {
-					sourceEntityId: source.id,
-					targetEntityId: target.id,
-					relationshipSchemaId: relSchema.id,
-				},
-			}),
-		);
-
-		assertTaggedError(error, "NotFound");
-		expect(error.message).toBe("Relationship schema not found");
-	});
-
-	it("returns 400 when properties violate the relationship schema", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { source, target } = await makeRelationshipFixture(client);
-		const strictSchema = await createRelationshipSchema(client, {
-			name: "Strict Relationship",
-			slug: `strict-rel-${crypto.randomUUID()}`,
+		const relSchema = yield* createRelationshipSchema(client, {
+			name: "Test Relationship",
+			slug: `test-rel-${crypto.randomUUID()}`,
 			propertiesSchema: {
 				fields: {
-					status: {
-						type: "enum",
-						label: "Status",
-						description: "Status",
-						options: ["active", "inactive"],
-					},
+					rating: { type: "integer", label: "Rating", description: "Rating" },
 				},
 			},
 		});
-
-		const error = await client.runError((c) =>
-			c.relationships.create({
-				payload: {
-					sourceEntityId: source.id,
-					targetEntityId: target.id,
-					relationshipSchemaId: strictSchema.id,
-					properties: { status: "deleted" },
-				},
-			}),
-		);
-
-		assertTaggedError(error, "BadRequest");
+		return { source, target, relSchema };
 	});
 
-	it("returns 401 for unauthenticated requests", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { source, target, relSchema } = await makeRelationshipFixture(client);
-		const unauthClient = getBackendClient();
+describe("POST /relationships", () => {
+	it.live("creates a relationship and returns 201 with wasInserted: true", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { source, target, relSchema } = yield* makeRelationshipFixture(client);
 
-		const error = await unauthClient.runError((c) =>
-			c.relationships.create({
-				payload: {
-					sourceEntityId: source.id,
-					targetEntityId: target.id,
-					relationshipSchemaId: relSchema.id,
+			const result = yield* createRelationship(client, {
+				sourceEntityId: source.id,
+				targetEntityId: target.id,
+				relationshipSchemaId: relSchema.id,
+				properties: { rating: 7 },
+			});
+
+			expect(result.wasInserted).toBe(true);
+			expect(result.sourceEntityId).toBe(source.id);
+			expect(result.targetEntityId).toBe(target.id);
+			expect(result.relationshipSchemaId).toBe(relSchema.id);
+			expect(result.properties).toMatchObject({ rating: 7 });
+			expect(result.id).toBeDefined();
+			expect(result.createdAt).toBeDefined();
+		}),
+	);
+
+	it.live("upserts on duplicate and returns wasInserted: false with updated properties", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { source, target, relSchema } = yield* makeRelationshipFixture(client);
+
+			yield* createRelationship(client, {
+				sourceEntityId: source.id,
+				targetEntityId: target.id,
+				relationshipSchemaId: relSchema.id,
+				properties: { rating: 3 },
+			});
+
+			const upserted = yield* createRelationship(client, {
+				sourceEntityId: source.id,
+				targetEntityId: target.id,
+				relationshipSchemaId: relSchema.id,
+				properties: { rating: 9 },
+			});
+
+			expect(upserted.wasInserted).toBe(false);
+			expect(upserted.properties).toMatchObject({ rating: 9 });
+		}),
+	);
+
+	it.live("returns 404 when the relationship schema belongs to another user", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const intruder = yield* createAuthenticatedClient();
+			const { relSchema } = yield* makeRelationshipFixture(owner.client);
+			const { source, target } = yield* makeRelationshipFixture(intruder.client);
+
+			const error = yield* Effect.flip(
+				intruder.client.call((c) =>
+					c.relationships.create({
+						payload: {
+							sourceEntityId: source.id,
+							targetEntityId: target.id,
+							relationshipSchemaId: relSchema.id,
+						},
+					}),
+				),
+			);
+
+			assertTaggedError(error, "NotFound");
+			expect(error.message).toBe("Relationship schema not found");
+		}),
+	);
+
+	it.live("returns 400 when properties violate the relationship schema", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { source, target } = yield* makeRelationshipFixture(client);
+			const strictSchema = yield* createRelationshipSchema(client, {
+				name: "Strict Relationship",
+				slug: `strict-rel-${crypto.randomUUID()}`,
+				propertiesSchema: {
+					fields: {
+						status: {
+							type: "enum",
+							label: "Status",
+							description: "Status",
+							options: ["active", "inactive"],
+						},
+					},
 				},
-			}),
-		);
+			});
 
-		assertTaggedError(error, "Unauthorized");
-	});
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.relationships.create({
+						payload: {
+							sourceEntityId: source.id,
+							targetEntityId: target.id,
+							relationshipSchemaId: strictSchema.id,
+							properties: { status: "deleted" },
+						},
+					}),
+				),
+			);
+
+			assertTaggedError(error, "BadRequest");
+		}),
+	);
+
+	it.live("returns 401 for unauthenticated requests", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { source, target, relSchema } = yield* makeRelationshipFixture(client);
+			const unauthClient = getBackendClient();
+
+			const error = yield* Effect.flip(
+				unauthClient.call((c) =>
+					c.relationships.create({
+						payload: {
+							sourceEntityId: source.id,
+							targetEntityId: target.id,
+							relationshipSchemaId: relSchema.id,
+						},
+					}),
+				),
+			);
+
+			assertTaggedError(error, "Unauthorized");
+		}),
+	);
 });

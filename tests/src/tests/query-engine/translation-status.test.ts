@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { Effect } from "effect";
 
 import {
 	buildEntityRowsQueryDocument,
@@ -17,6 +17,7 @@ import {
 	type QueryEngineRowsOutput,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
+import { describe, expect, it } from "~/support/effect-test";
 
 type Expr = QueryEngineRowsOutput["orderBy"][number]["expr"];
 
@@ -50,83 +51,88 @@ const statusDoc = (entityId: string, includeStatus: boolean) =>
 			: [{ key: "id", expr: systemRef("e", "id") }],
 	});
 
-async function readStatus(client: Client, entityId: string) {
-	const response = await executeQueryEngine(client, statusDoc(entityId, true));
-	const item = response.data.items[0];
-	assertPresent(item, `Expected a row for entity '${entityId}'`);
-	return requireQueryEngineTextField(item, "translationStatus");
-}
+const readStatus = (client: Client, entityId: string) =>
+	Effect.gen(function* () {
+		const response = yield* executeQueryEngine(client, statusDoc(entityId, true));
+		const item = response.data.items[0];
+		assertPresent(item, `Expected a row for entity '${entityId}'`);
+		return requireQueryEngineTextField(item, "translationStatus");
+	});
 
 describe("query engine — translationStatus computed field", () => {
-	it("returns the right value for every case and is absent when not selected", async () => {
-		const base = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaBySlug(base.client, "movie");
-		const sandboxScriptId = schema.providers.find((provider) => provider.name === "TMDB")?.scriptId;
-		assertPresent(sandboxScriptId, "TMDB movie provider script not found");
+	it.live("returns the right value for every case and is absent when not selected", () =>
+		Effect.gen(function* () {
+			const base = yield* createAuthenticatedClient();
+			const { schema } = yield* findBuiltinSchemaBySlug(base.client, "movie");
+			const sandboxScriptId = schema.providers.find(
+				(provider) => provider.name === "TMDB",
+			)?.scriptId;
+			assertPresent(sandboxScriptId, "TMDB movie provider script not found");
 
-		const seedPopulated = (properties: Record<string, unknown> = {}) =>
-			seedPopulatedProviderEntity({
-				properties,
+			const seedPopulated = (properties: Record<string, unknown> = {}) =>
+				seedPopulatedProviderEntity({
+					properties,
+					sandboxScriptId,
+					entitySchemaId: schema.id,
+					name: `Movie ${crypto.randomUUID()}`,
+					externalId: `tstatus-${crypto.randomUUID()}`,
+				});
+
+			const readyMovie = yield* seedPopulated();
+			const negativeMovie = yield* seedPopulated();
+			const pendingMovie = yield* seedPopulated();
+
+			yield* seedEntityTranslation({
+				language: "es",
+				entityId: readyMovie.id,
+				name: "Película Traducida",
+				properties: { description: "Descripción en español" },
+			});
+			yield* seedEntityTranslation({
+				name: null,
+				language: "es",
+				properties: null,
+				entityId: negativeMovie.id,
+			});
+
+			const unpopulatedMovie = yield* seedMediaEntity({
+				userId: null,
+				properties: {},
 				sandboxScriptId,
+				name: "Unpopulated Movie",
 				entitySchemaId: schema.id,
-				name: `Movie ${crypto.randomUUID()}`,
 				externalId: `tstatus-${crypto.randomUUID()}`,
 			});
 
-		const readyMovie = await seedPopulated();
-		const negativeMovie = await seedPopulated();
-		const pendingMovie = await seedPopulated();
+			const scriptLessMovie = yield* seedMediaEntity({
+				userId: null,
+				properties: {},
+				sandboxScriptId: null,
+				name: "Scriptless Movie",
+				entitySchemaId: schema.id,
+				externalId: `tstatus-${crypto.randomUUID()}`,
+			});
 
-		await seedEntityTranslation({
-			language: "es",
-			entityId: readyMovie.id,
-			name: "Película Traducida",
-			properties: { description: "Descripción en español" },
-		});
-		await seedEntityTranslation({
-			name: null,
-			language: "es",
-			properties: null,
-			entityId: negativeMovie.id,
-		});
+			const { client: viewerEs } = yield* createAuthenticatedClient();
+			yield* setUserLanguage(viewerEs, "es");
+			const { client: viewerCanonical } = yield* createAuthenticatedClient();
+			yield* setUserLanguage(viewerCanonical, MOVIE_CANONICAL_LANGUAGE);
+			const { client: viewerNoLanguage } = yield* createAuthenticatedClient();
 
-		const unpopulatedMovie = await seedMediaEntity({
-			userId: null,
-			properties: {},
-			sandboxScriptId,
-			name: "Unpopulated Movie",
-			entitySchemaId: schema.id,
-			externalId: `tstatus-${crypto.randomUUID()}`,
-		});
+			expect(yield* readStatus(viewerEs, readyMovie.id)).toBe("ready");
+			expect(yield* readStatus(viewerEs, negativeMovie.id)).toBe("none");
+			expect(yield* readStatus(viewerEs, pendingMovie.id)).toBe("pending");
+			expect(yield* readStatus(viewerEs, unpopulatedMovie.id)).toBe("none");
+			expect(yield* readStatus(viewerEs, scriptLessMovie.id)).toBe("none");
 
-		const scriptLessMovie = await seedMediaEntity({
-			userId: null,
-			properties: {},
-			sandboxScriptId: null,
-			name: "Scriptless Movie",
-			entitySchemaId: schema.id,
-			externalId: `tstatus-${crypto.randomUUID()}`,
-		});
+			expect(yield* readStatus(viewerCanonical, pendingMovie.id)).toBe("none");
+			expect(yield* readStatus(viewerNoLanguage, pendingMovie.id)).toBe("none");
 
-		const { client: viewerEs } = await createAuthenticatedClient();
-		await setUserLanguage(viewerEs, "es");
-		const { client: viewerCanonical } = await createAuthenticatedClient();
-		await setUserLanguage(viewerCanonical, MOVIE_CANONICAL_LANGUAGE);
-		const { client: viewerNoLanguage } = await createAuthenticatedClient();
-
-		expect(await readStatus(viewerEs, readyMovie.id)).toBe("ready");
-		expect(await readStatus(viewerEs, negativeMovie.id)).toBe("none");
-		expect(await readStatus(viewerEs, pendingMovie.id)).toBe("pending");
-		expect(await readStatus(viewerEs, unpopulatedMovie.id)).toBe("none");
-		expect(await readStatus(viewerEs, scriptLessMovie.id)).toBe("none");
-
-		expect(await readStatus(viewerCanonical, pendingMovie.id)).toBe("none");
-		expect(await readStatus(viewerNoLanguage, pendingMovie.id)).toBe("none");
-
-		const withoutStatus = await executeQueryEngine(viewerEs, statusDoc(pendingMovie.id, false));
-		const item = withoutStatus.data.items[0];
-		assertPresent(item, "Expected a row for the pending movie");
-		expect(getQueryEngineFieldValue(item, "translationStatus")).toBeUndefined();
-		expect(requireQueryEngineTextField(item, "id")).toBe(pendingMovie.id);
-	});
+			const withoutStatus = yield* executeQueryEngine(viewerEs, statusDoc(pendingMovie.id, false));
+			const item = withoutStatus.data.items[0];
+			assertPresent(item, "Expected a row for the pending movie");
+			expect(getQueryEngineFieldValue(item, "translationStatus")).toBeUndefined();
+			expect(requireQueryEngineTextField(item, "id")).toBe(pendingMovie.id);
+		}),
+	);
 });

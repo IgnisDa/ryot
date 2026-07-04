@@ -1,4 +1,5 @@
 import { NotificationChannelId } from "@ryot/contract/schema/brands";
+import { Effect } from "effect";
 
 import { startFakeHttpServer } from "~/support/fake-http-server";
 
@@ -8,38 +9,33 @@ import type { ContractPayload } from "./contract-client";
 type CreateNotificationChannelBody = ContractPayload<"notifications", "createChannel">;
 type UpdateNotificationChannelBody = ContractPayload<"notifications", "updateChannel">;
 
-export function createNotificationChannel(client: Client, payload: CreateNotificationChannelBody) {
-	return client.run((c) => c.notifications.createChannel({ payload }));
-}
+export const createNotificationChannel = (client: Client, payload: CreateNotificationChannelBody) =>
+	client.call((c) => c.notifications.createChannel({ payload }));
 
-export function listNotificationChannels(client: Client) {
-	return client.run((c) => c.notifications.listChannels());
-}
+export const listNotificationChannels = (client: Client) =>
+	client.call((c) => c.notifications.listChannels());
 
-export function updateNotificationChannel(
+export const updateNotificationChannel = (
 	client: Client,
 	channelId: string,
 	payload: UpdateNotificationChannelBody,
-) {
-	return client.run((c) =>
+) =>
+	client.call((c) =>
 		c.notifications.updateChannel({
 			payload,
 			path: { channelId: NotificationChannelId.make(channelId) },
 		}),
 	);
-}
 
-export function deleteNotificationChannel(client: Client, channelId: string) {
-	return client.run((c) =>
+export const deleteNotificationChannel = (client: Client, channelId: string) =>
+	client.call((c) =>
 		c.notifications.deleteChannel({
 			path: { channelId: NotificationChannelId.make(channelId) },
 		}),
 	);
-}
 
-export function testNotificationChannels(client: Client) {
-	return client.run((c) => c.notifications.testChannels());
-}
+export const testNotificationChannels = (client: Client) =>
+	client.call((c) => c.notifications.testChannels());
 
 export function startFakeAppriseServer() {
 	return startFakeHttpServer((url) =>
@@ -48,3 +44,9 @@ export function startFakeAppriseServer() {
 			: Response.json({ ok: true }),
 	);
 }
+
+export const startFakeAppriseServerScoped = () =>
+	Effect.acquireRelease(
+		Effect.promise(() => startFakeAppriseServer()),
+		(server) => Effect.sync(() => server.stop()),
+	);

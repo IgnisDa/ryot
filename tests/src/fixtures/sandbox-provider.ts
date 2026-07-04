@@ -7,6 +7,7 @@ import type {
 	ProviderSearchResult,
 	ProviderTranslateResult,
 } from "@ryot/sandbox-sdk/provider";
+import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
@@ -19,85 +20,90 @@ export type SeededProviderScript = {
 	entitySchemaScriptId: string | null;
 };
 
-export async function seedBuiltinProviderScript(input: {
+export const seedBuiltinProviderScript = (input: {
 	slug?: string;
 	name?: string;
 	client: Client;
 	drivers: FakeProviderDrivers;
 	linkToEntitySchemaId?: string;
 	providerInformation?: ProviderInformation;
-}): Promise<SeededProviderScript> {
-	const backend = getBackendClient();
-	const slug = input.slug ?? `e2e-provider-${randomUUID()}`;
-	const name = input.name ?? "E2E Provider Script";
-	const script = await createAndPromoteSandboxScript(
-		input.client,
-		providerSandboxSource({
-			name,
-			slug,
-			drivers: input.drivers,
-			providerInformation: input.providerInformation ?? { source: "e2e" },
-		}),
-	);
-	const scriptId = script.id;
+}) =>
+	Effect.gen(function* () {
+		const backend = getBackendClient();
+		const slug = input.slug ?? `e2e-provider-${randomUUID()}`;
+		const name = input.name ?? "E2E Provider Script";
+		const script = yield* createAndPromoteSandboxScript(
+			input.client,
+			providerSandboxSource({
+				name,
+				slug,
+				drivers: input.drivers,
+				providerInformation: input.providerInformation ?? { source: "e2e" },
+			}),
+		);
+		const scriptId = script.id;
 
-	let entitySchemaScriptId: string | null = null;
-	if (input.linkToEntitySchemaId) {
-		const entitySchemaId = EntitySchemaId.make(input.linkToEntitySchemaId);
-		try {
-			const link = await backend.run(
-				(c) =>
-					c.testSupport.linkSandboxScriptToEntitySchema({
-						path: {
-							scriptId: SandboxScriptId.make(scriptId),
-							entitySchemaId,
-						},
-					}),
-				adminHeaders,
-			);
-			const repeatedLink = await backend.run(
-				(c) =>
-					c.testSupport.linkSandboxScriptToEntitySchema({
-						path: { scriptId: SandboxScriptId.make(scriptId), entitySchemaId },
-					}),
-				adminHeaders,
-			);
-			if (repeatedLink.id !== link.id) {
-				throw new Error("Repeated sandbox script link returned a different row");
-			}
-			entitySchemaScriptId = link.id;
-		} catch (error) {
-			await backend
-				.run(
+		let entitySchemaScriptId: string | null = null;
+		if (input.linkToEntitySchemaId) {
+			const entitySchemaId = EntitySchemaId.make(input.linkToEntitySchemaId);
+			entitySchemaScriptId = yield* Effect.gen(function* () {
+				const link = yield* backend.call(
 					(c) =>
-						c.testSupport.deleteSandboxScript({
-							path: { scriptId: SandboxScriptId.make(scriptId) },
+						c.testSupport.linkSandboxScriptToEntitySchema({
+							path: {
+								scriptId: SandboxScriptId.make(scriptId),
+								entitySchemaId,
+							},
 						}),
 					adminHeaders,
-				)
-				.catch((cleanupError) => {
-					console.error("[sandbox-provider] failed link cleanup", cleanupError);
-				});
-			throw error;
+				);
+				const repeatedLink = yield* backend.call(
+					(c) =>
+						c.testSupport.linkSandboxScriptToEntitySchema({
+							path: { scriptId: SandboxScriptId.make(scriptId), entitySchemaId },
+						}),
+					adminHeaders,
+				);
+				if (repeatedLink.id !== link.id) {
+					throw new Error("Repeated sandbox script link returned a different row");
+				}
+				return link.id;
+			}).pipe(
+				Effect.onError(() =>
+					backend
+						.call(
+							(c) =>
+								c.testSupport.deleteSandboxScript({
+									path: { scriptId: SandboxScriptId.make(scriptId) },
+								}),
+							adminHeaders,
+						)
+						.pipe(
+							Effect.catchAll((cleanupError) =>
+								Effect.logError("[sandbox-provider] failed link cleanup", cleanupError),
+							),
+						),
+				),
+			);
 		}
-	}
 
-	return { slug, scriptId, entitySchemaScriptId };
-}
+		return { slug, scriptId, entitySchemaScriptId };
+	});
 
-export async function cleanupBuiltinProviderScript(seeded: SeededProviderScript): Promise<void> {
-	try {
-		await getBackendClient().run(
+export const cleanupBuiltinProviderScript = (seeded: SeededProviderScript) =>
+	getBackendClient()
+		.call(
 			(c) =>
 				c.testSupport.deleteSandboxScript({
 					path: { scriptId: SandboxScriptId.make(seeded.scriptId) },
 				}),
 			adminHeaders,
+		)
+		.pipe(
+			Effect.catchAll((error) =>
+				Effect.logError("[sandbox-provider] cleanup failed (non-fatal)", error),
+			),
 		);
-	} catch (error) {
-		console.error("[sandbox-provider] cleanup failed (non-fatal)", error);
-	}
-}
 
 type FakeSearchItem = { title: string; externalId: string; subtitle?: number | null };
 

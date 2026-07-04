@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -11,429 +11,484 @@ import {
 	waitForEventCount,
 	waitForEventWithSchema,
 } from "~/fixtures";
+import { describe, expect, it } from "~/support/effect-test";
 
 const isoAt = (day: number) => `2024-01-${String(day).padStart(2, "0")}T00:00:00.000Z`;
 
 describe("Event automations", () => {
-	it("logging 100% progress creates a completion event via the built-in subscription", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("logging 100% progress creates a completion event via the built-in subscription", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client);
+			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(client);
 
-		await client.run((c) =>
-			c.events.create({
-				payload: [
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchemaId,
+						},
+					],
+				}),
+			);
+
+			const completionEvent = yield* waitForEventWithSchema(client, entityId, "complete");
+
+			expect(completionEvent.eventSchemaSlug).toBe("complete");
+			expect(completionEvent.properties).toMatchObject({
+				completedOn: isoAt(1),
+				completionMode: "custom_timestamps",
+			});
+			expect(completionEvent.occurredAt).toBe(isoAt(1));
+		}),
+	);
+
+	it.live("logging less than 100% progress does not create a completion event", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(client);
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{ entityId, properties: { progressPercent: 50 }, eventSchemaId: progressEventSchemaId },
+					],
+				}),
+			);
+
+			yield* waitForEventCount(client, entityId, 1);
+
+			const events = yield* listEventsForEntity(client, entityId);
+			const completeEvent = events.find((event) => event.eventSchemaSlug === "complete");
+
+			expect(completeEvent).toBeUndefined();
+		}),
+	);
+
+	it.live("logging 100% progress twice creates two completion events", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(client);
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100 },
+						},
+					],
+				}),
+			);
+
+			yield* waitForEventWithSchema(client, entityId, "complete");
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchemaId,
+						},
+					],
+				}),
+			);
+
+			yield* waitForEventCount(client, entityId, 4);
+
+			const allEvents = yield* listEventsForEntity(client, entityId);
+			const completeEvents = allEvents.filter((event) => event.eventSchemaSlug === "complete");
+
+			expect(completeEvents.length).toBe(2);
+		}),
+	);
+
+	it.live("logging all anime episodes creates a completion event", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+				client,
+				{
+					entitySchemaSlug: "anime",
+					properties: { images: [], episodes: 2 },
+				},
+			);
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, animeEpisode: 1 },
+						},
+						{
+							entityId,
+							occurredAt: isoAt(2),
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, animeEpisode: 2 },
+						},
+					],
+				}),
+			);
+
+			const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
+
+			expect(completeEvent.eventSchemaSlug).toBe("complete");
+			expect(completeEvent.properties).toMatchObject({
+				completionMode: "custom_timestamps",
+				completedOn: isoAt(2),
+			});
+			expect(completeEvent.occurredAt).toBe(isoAt(2));
+
+			const events = yield* listEventsForEntity(client, entityId);
+			expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
+		}),
+	);
+
+	it.live("anime with unknown episode count does not create a completion event", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+				client,
+				{
+					entitySchemaSlug: "anime",
+					properties: { images: [], episodes: null },
+				},
+			);
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, animeEpisode: 1 },
+						},
+					],
+				}),
+			);
+
+			yield* waitForEventCount(client, entityId, 1);
+
+			const events = yield* listEventsForEntity(client, entityId);
+			expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
+		}),
+	);
+
+	it.live("logging all manga chapters creates a completion event", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+				client,
+				{
+					entitySchemaSlug: "manga",
+					properties: { images: [], volumes: null, chapters: 2 },
+				},
+			);
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, mangaChapter: 1 },
+						},
+						{
+							entityId,
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, mangaChapter: 2 },
+						},
+					],
+				}),
+			);
+
+			const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
+
+			expect(completeEvent.eventSchemaSlug).toBe("complete");
+		}),
+	);
+
+	it.live("manga with unknown chapter count does not create a completion event", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+				client,
+				{
+					entitySchemaSlug: "manga",
+					properties: { images: [], volumes: null, chapters: null },
+				},
+			);
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							eventSchemaId: progressEventSchemaId,
+							properties: { progressPercent: 100, mangaChapter: 1 },
+						},
+					],
+				}),
+			);
+
+			yield* waitForEventCount(client, entityId, 1);
+
+			const events = yield* listEventsForEntity(client, entityId);
+			expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
+		}),
+	);
+
+	it.live("logging 100% podcast episode progress creates a completion event", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaId("podcast-episode");
+			const eventSchemas = yield* listEventSchemas(client, podcastEpisodeSchemaId);
+			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
+			const entity = yield* seedMediaEntity({
+				userId: null,
+				sandboxScriptId: null,
+				name: "Podcast Episode 1",
+				entitySchemaId: podcastEpisodeSchemaId,
+				externalId: `podcast-episode-${crypto.randomUUID()}`,
+				properties: {
+					runtime: null,
+					episodeNumber: 1,
+					publishDate: "2024-01-01",
+					description: "First podcast episode",
+				},
+			});
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: entity.id,
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchema.id,
+						},
+					],
+				}),
+			);
+
+			const completeEvent = yield* waitForEventWithSchema(client, entity.id, "complete");
+
+			expect(completeEvent.eventSchemaSlug).toBe("complete");
+		}),
+	);
+
+	it.live("logging 100% show episode progress creates a completion event", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaId("show-episode");
+			const eventSchemas = yield* listEventSchemas(client, showEpisodeSchemaId);
+			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
+			const entity = yield* seedMediaEntity({
+				userId: null,
+				sandboxScriptId: null,
+				name: "Show Episode 1",
+				entitySchemaId: showEpisodeSchemaId,
+				externalId: `show-episode-${crypto.randomUUID()}`,
+				properties: {
+					runtime: 45,
+					seasonNumber: 1,
+					episodeNumber: 1,
+					publishDate: null,
+					description: "First show episode",
+				},
+			});
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: entity.id,
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchema.id,
+						},
+					],
+				}),
+			);
+
+			const completeEvent = yield* waitForEventWithSchema(client, entity.id, "complete");
+
+			expect(completeEvent.eventSchemaSlug).toBe("complete");
+		}),
+	);
+
+	it.live(
+		"logging 100% progress creates a timestamped completion event via the built-in subscription",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+
+				const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+					client,
 					{
-						entityId,
-						occurredAt: isoAt(1),
-						properties: { progressPercent: 100 },
-						eventSchemaId: progressEventSchemaId,
+						entitySchemaSlug: "movie",
+						properties: { images: [] },
 					},
-				],
+				);
+
+				yield* client.call((c) =>
+					c.events.create({
+						payload: [
+							{
+								entityId,
+								occurredAt: isoAt(1),
+								properties: { progressPercent: 100 },
+								eventSchemaId: progressEventSchemaId,
+							},
+						],
+					}),
+				);
+
+				const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
+
+				expect(completeEvent.eventSchemaSlug).toBe("complete");
+				expect(completeEvent.properties).toMatchObject({
+					completedOn: isoAt(1),
+					completionMode: "custom_timestamps",
+				});
+				expect(completeEvent.occurredAt).toBe(isoAt(1));
 			}),
-		);
+	);
 
-		const completionEvent = await waitForEventWithSchema(client, entityId, "complete");
+	it.live(
+		"consumedOn from a progress event is propagated to the auto-generated complete event",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
 
-		expect(completionEvent.eventSchemaSlug).toBe("complete");
-		expect(completionEvent.properties).toMatchObject({
-			completedOn: isoAt(1),
-			completionMode: "custom_timestamps",
-		});
-		expect(completionEvent.occurredAt).toBe(isoAt(1));
-	});
+				const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+					client,
+					{
+						entitySchemaSlug: "movie",
+						properties: { images: [] },
+					},
+				);
 
-	it("logging less than 100% progress does not create a completion event", async () => {
-		const { client } = await createAuthenticatedClient();
+				yield* client.call((c) =>
+					c.events.create({
+						payload: [
+							{
+								entityId,
+								occurredAt: isoAt(1),
+								eventSchemaId: progressEventSchemaId,
+								properties: { progressPercent: 100, consumedOn: "Jellyfin" },
+							},
+						],
+					}),
+				);
 
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client);
+				const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{ entityId, properties: { progressPercent: 50 }, eventSchemaId: progressEventSchemaId },
-				],
+				expect(completeEvent.properties).toMatchObject({
+					consumedOn: "Jellyfin",
+					completedOn: isoAt(1),
+					completionMode: "custom_timestamps",
+				});
+				expect(completeEvent.occurredAt).toBe(isoAt(1));
 			}),
-		);
-
-		await waitForEventCount(client, entityId, 1);
-
-		const events = await listEventsForEntity(client, entityId);
-		const completeEvent = events.find((event) => event.eventSchemaSlug === "complete");
-
-		expect(completeEvent).toBeUndefined();
-	});
-
-	it("logging 100% progress twice creates two completion events", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client);
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId,
-						eventSchemaId: progressEventSchemaId,
-						properties: { progressPercent: 100 },
-					},
-				],
-			}),
-		);
-
-		await waitForEventWithSchema(client, entityId, "complete");
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId,
-						properties: { progressPercent: 100 },
-						eventSchemaId: progressEventSchemaId,
-					},
-				],
-			}),
-		);
-
-		await waitForEventCount(client, entityId, 4);
-
-		const allEvents = await listEventsForEntity(client, entityId);
-		const completeEvents = allEvents.filter((event) => event.eventSchemaSlug === "complete");
-
-		expect(completeEvents.length).toBe(2);
-	});
-
-	it("logging all anime episodes creates a completion event", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-			entitySchemaSlug: "anime",
-			properties: { images: [], episodes: 2 },
-		});
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId,
-						occurredAt: isoAt(1),
-						eventSchemaId: progressEventSchemaId,
-						properties: { progressPercent: 100, animeEpisode: 1 },
-					},
-					{
-						entityId,
-						occurredAt: isoAt(2),
-						eventSchemaId: progressEventSchemaId,
-						properties: { progressPercent: 100, animeEpisode: 2 },
-					},
-				],
-			}),
-		);
-
-		const completeEvent = await waitForEventWithSchema(client, entityId, "complete");
-
-		expect(completeEvent.eventSchemaSlug).toBe("complete");
-		expect(completeEvent.properties).toMatchObject({
-			completionMode: "custom_timestamps",
-			completedOn: isoAt(2),
-		});
-		expect(completeEvent.occurredAt).toBe(isoAt(2));
-
-		const events = await listEventsForEntity(client, entityId);
-		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
-	});
-
-	it("anime with unknown episode count does not create a completion event", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-			entitySchemaSlug: "anime",
-			properties: { images: [], episodes: null },
-		});
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId,
-						occurredAt: isoAt(1),
-						eventSchemaId: progressEventSchemaId,
-						properties: { progressPercent: 100, animeEpisode: 1 },
-					},
-				],
-			}),
-		);
-
-		await waitForEventCount(client, entityId, 1);
-
-		const events = await listEventsForEntity(client, entityId);
-		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
-	});
-
-	it("logging all manga chapters creates a completion event", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-			entitySchemaSlug: "manga",
-			properties: { images: [], volumes: null, chapters: 2 },
-		});
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId,
-						eventSchemaId: progressEventSchemaId,
-						properties: { progressPercent: 100, mangaChapter: 1 },
-					},
-					{
-						entityId,
-						eventSchemaId: progressEventSchemaId,
-						properties: { progressPercent: 100, mangaChapter: 2 },
-					},
-				],
-			}),
-		);
-
-		const completeEvent = await waitForEventWithSchema(client, entityId, "complete");
-
-		expect(completeEvent.eventSchemaSlug).toBe("complete");
-	});
-
-	it("manga with unknown chapter count does not create a completion event", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-			entitySchemaSlug: "manga",
-			properties: { images: [], volumes: null, chapters: null },
-		});
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId,
-						occurredAt: isoAt(1),
-						eventSchemaId: progressEventSchemaId,
-						properties: { progressPercent: 100, mangaChapter: 1 },
-					},
-				],
-			}),
-		);
-
-		await waitForEventCount(client, entityId, 1);
-
-		const events = await listEventsForEntity(client, entityId);
-		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
-	});
-
-	it("logging 100% podcast episode progress creates a completion event", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const podcastEpisodeSchemaId = await getBuiltinEntitySchemaId("podcast-episode");
-		const eventSchemas = await listEventSchemas(client, podcastEpisodeSchemaId);
-		const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
-		const entity = await seedMediaEntity({
-			userId: null,
-			sandboxScriptId: null,
-			name: "Podcast Episode 1",
-			entitySchemaId: podcastEpisodeSchemaId,
-			externalId: `podcast-episode-${crypto.randomUUID()}`,
-			properties: {
-				runtime: null,
-				episodeNumber: 1,
-				publishDate: "2024-01-01",
-				description: "First podcast episode",
-			},
-		});
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId: entity.id,
-						properties: { progressPercent: 100 },
-						eventSchemaId: progressEventSchema.id,
-					},
-				],
-			}),
-		);
-
-		const completeEvent = await waitForEventWithSchema(client, entity.id, "complete");
-
-		expect(completeEvent.eventSchemaSlug).toBe("complete");
-	});
-
-	it("logging 100% show episode progress creates a completion event", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const showEpisodeSchemaId = await getBuiltinEntitySchemaId("show-episode");
-		const eventSchemas = await listEventSchemas(client, showEpisodeSchemaId);
-		const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
-		const entity = await seedMediaEntity({
-			userId: null,
-			sandboxScriptId: null,
-			name: "Show Episode 1",
-			entitySchemaId: showEpisodeSchemaId,
-			externalId: `show-episode-${crypto.randomUUID()}`,
-			properties: {
-				runtime: 45,
-				seasonNumber: 1,
-				episodeNumber: 1,
-				publishDate: null,
-				description: "First show episode",
-			},
-		});
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId: entity.id,
-						properties: { progressPercent: 100 },
-						eventSchemaId: progressEventSchema.id,
-					},
-				],
-			}),
-		);
-
-		const completeEvent = await waitForEventWithSchema(client, entity.id, "complete");
-
-		expect(completeEvent.eventSchemaSlug).toBe("complete");
-	});
-
-	it("logging 100% progress creates a timestamped completion event via the built-in subscription", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-			entitySchemaSlug: "movie",
-			properties: { images: [] },
-		});
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId,
-						occurredAt: isoAt(1),
-						properties: { progressPercent: 100 },
-						eventSchemaId: progressEventSchemaId,
-					},
-				],
-			}),
-		);
-
-		const completeEvent = await waitForEventWithSchema(client, entityId, "complete");
-
-		expect(completeEvent.eventSchemaSlug).toBe("complete");
-		expect(completeEvent.properties).toMatchObject({
-			completedOn: isoAt(1),
-			completionMode: "custom_timestamps",
-		});
-		expect(completeEvent.occurredAt).toBe(isoAt(1));
-	});
-
-	it("consumedOn from a progress event is propagated to the auto-generated complete event", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-			entitySchemaSlug: "movie",
-			properties: { images: [] },
-		});
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId,
-						occurredAt: isoAt(1),
-						eventSchemaId: progressEventSchemaId,
-						properties: { progressPercent: 100, consumedOn: "Jellyfin" },
-					},
-				],
-			}),
-		);
-
-		const completeEvent = await waitForEventWithSchema(client, entityId, "complete");
-
-		expect(completeEvent.properties).toMatchObject({
-			consumedOn: "Jellyfin",
-			completedOn: isoAt(1),
-			completionMode: "custom_timestamps",
-		});
-		expect(completeEvent.occurredAt).toBe(isoAt(1));
-	});
-
-	it("complete event has no consumedOn when progress event omits it", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-			entitySchemaSlug: "movie",
-			properties: { images: [] },
-		});
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId,
-						occurredAt: isoAt(1),
-						properties: { progressPercent: 100 },
-						eventSchemaId: progressEventSchemaId,
-					},
-				],
-			}),
-		);
-
-		const completeEvent = await waitForEventWithSchema(client, entityId, "complete");
-
-		expect(completeEvent.properties).not.toHaveProperty("consumedOn");
-		expect(completeEvent.properties).toMatchObject({
-			completionMode: "custom_timestamps",
-			completedOn: isoAt(1),
-		});
-		expect(completeEvent.occurredAt).toBe(isoAt(1));
-	});
-
-	it("movie completion still fires twice when 100% progress is logged twice", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-			entitySchemaSlug: "movie",
-			properties: { images: [] },
-		});
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId,
-						occurredAt: isoAt(1),
-						properties: { progressPercent: 100 },
-						eventSchemaId: progressEventSchemaId,
-					},
-				],
-			}),
-		);
-
-		await waitForEventWithSchema(client, entityId, "complete");
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId,
-						occurredAt: isoAt(2),
-						properties: { progressPercent: 100 },
-						eventSchemaId: progressEventSchemaId,
-					},
-				],
-			}),
-		);
-
-		await waitForEventCount(client, entityId, 4);
-
-		const events = await listEventsForEntity(client, entityId);
-		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(2);
-	});
+	);
+
+	it.live("complete event has no consumedOn when progress event omits it", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+				client,
+				{
+					entitySchemaSlug: "movie",
+					properties: { images: [] },
+				},
+			);
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchemaId,
+						},
+					],
+				}),
+			);
+
+			const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
+
+			expect(completeEvent.properties).not.toHaveProperty("consumedOn");
+			expect(completeEvent.properties).toMatchObject({
+				completionMode: "custom_timestamps",
+				completedOn: isoAt(1),
+			});
+			expect(completeEvent.occurredAt).toBe(isoAt(1));
+		}),
+	);
+
+	it.live("movie completion still fires twice when 100% progress is logged twice", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+				client,
+				{
+					entitySchemaSlug: "movie",
+					properties: { images: [] },
+				},
+			);
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(1),
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchemaId,
+						},
+					],
+				}),
+			);
+
+			yield* waitForEventWithSchema(client, entityId, "complete");
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoAt(2),
+							properties: { progressPercent: 100 },
+							eventSchemaId: progressEventSchemaId,
+						},
+					],
+				}),
+			);
+
+			yield* waitForEventCount(client, entityId, 4);
+
+			const events = yield* listEventsForEntity(client, entityId);
+			expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(2);
+		}),
+	);
 });

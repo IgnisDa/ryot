@@ -1,6 +1,5 @@
-import { describe, expect, it } from "bun:test";
-
 import { parseFieldPath } from "~/fixtures";
+import { describe, expect, it } from "~/support/effect-test";
 
 describe("parseFieldPath", () => {
 	it("parses entity built-in column references (3 segments, no @)", () => {

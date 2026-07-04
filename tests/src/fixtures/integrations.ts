@@ -1,4 +1,5 @@
 import { IntegrationId } from "@ryot/contract/schema/brands";
+import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
@@ -8,21 +9,21 @@ import type { ContractPayload, ContractUrlParams } from "./contract-client";
 type CreateIntegrationBody = ContractPayload<"integrations", "create">;
 type WebhookPayload = ContractPayload<"integrations", "webhook">;
 
-export async function createIntegration(client: Client, body: CreateIntegrationBody) {
-	const result = await client.run((c) => c.integrations.create({ payload: body }));
-	requirePresent(result.id, "Failed to create integration");
-	return result;
-}
+export const createIntegration = (client: Client, body: CreateIntegrationBody) =>
+	Effect.gen(function* () {
+		const result = yield* client.call((c) => c.integrations.create({ payload: body }));
+		requirePresent(result.id, "Failed to create integration");
+		return result;
+	});
 
-export async function createKodiIntegration(client: Client) {
-	return createIntegration(client, {
+export const createKodiIntegration = (client: Client) =>
+	createIntegration(client, {
 		provider: "kodi",
 		providerSpecifics: { kind: "kodi" },
 	});
-}
 
-export async function createAudiobookshelfIntegration(client: Client) {
-	return createIntegration(client, {
+export const createAudiobookshelfIntegration = (client: Client) =>
+	createIntegration(client, {
 		isDisabled: true,
 		provider: "audiobookshelf",
 		providerSpecifics: {
@@ -31,34 +32,26 @@ export async function createAudiobookshelfIntegration(client: Client) {
 			baseUrl: "https://abs.example.com",
 		},
 	});
-}
 
-export async function listIntegrations(
+export const listIntegrations = (
 	client: Client,
 	query?: ContractUrlParams<"integrations", "list">,
-) {
-	return client.run((c) => c.integrations.list({ urlParams: query ?? {} }));
-}
+) => client.call((c) => c.integrations.list({ urlParams: query ?? {} }));
 
-export async function getIntegration(client: Client, id: string) {
-	return client.run((c) => c.integrations.get({ path: { integrationId: IntegrationId.make(id) } }));
-}
+export const getIntegration = (client: Client, id: string) =>
+	client.call((c) => c.integrations.get({ path: { integrationId: IntegrationId.make(id) } }));
 
-export async function deleteIntegration(client: Client, id: string) {
-	return client.run((c) =>
-		c.integrations.delete({ path: { integrationId: IntegrationId.make(id) } }),
-	);
-}
+export const deleteIntegration = (client: Client, id: string) =>
+	client.call((c) => c.integrations.delete({ path: { integrationId: IntegrationId.make(id) } }));
 
-export async function postIntegrationWebhook(
+export const postIntegrationWebhook = (
 	client: Client,
 	integrationId: string,
 	body: WebhookPayload,
-) {
-	return client.run((c) =>
+) =>
+	client.call((c) =>
 		c.integrations.webhook({
 			payload: body,
 			path: { integrationId: IntegrationId.make(integrationId) },
 		}),
 	);
-}

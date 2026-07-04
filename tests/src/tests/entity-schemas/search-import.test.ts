@@ -1,6 +1,5 @@
-﻿import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-
 import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { DateTime, Effect } from "effect";
 
 import {
 	cleanupBuiltinProviderScript,
@@ -26,6 +25,7 @@ import {
 	requireArray,
 	requireObjectRecord,
 } from "~/support/assertions";
+import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
 const BOOK_IMPORT_NAME = "E2E Imported Book";
 const ANIME_IMPORT_NAME = "E2E Imported Anime";
@@ -39,295 +39,355 @@ let companyProvider: SeededProviderScript;
 const bookScriptId = () => SandboxScriptId.make(bookProvider.scriptId);
 
 beforeAll(async () => {
-	const { client } = await createAuthenticatedClient();
-	const { schema: companySchema } = await findBuiltinSchemaBySlug(client, "company");
+	await Effect.runPromise(
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema: companySchema } = yield* findBuiltinSchemaBySlug(client, "company");
 
-	companyProvider = await seedBuiltinProviderScript({
-		client,
-		linkToEntitySchemaId: companySchema.id,
-		drivers: { details: fakeProviderDetailsResult({ name: RELATED_COMPANY_NAME, properties: {} }) },
-	});
+			companyProvider = yield* seedBuiltinProviderScript({
+				client,
+				linkToEntitySchemaId: companySchema.id,
+				drivers: {
+					details: fakeProviderDetailsResult({ name: RELATED_COMPANY_NAME, properties: {} }),
+				},
+			});
 
-	animeProvider = await seedBuiltinProviderScript({
-		client,
-		drivers: {
-			details: fakeProviderDetailsResult({
-				name: ANIME_IMPORT_NAME,
-				properties: { description: "Imported anime from the e2e fake provider." },
-				relatedEntityGroups: [
-					{
-						direction: "incoming",
-						synchronization: "additive",
-						relationshipSchemaSlug: "company-to-anime",
-						entities: [
+			animeProvider = yield* seedBuiltinProviderScript({
+				client,
+				drivers: {
+					details: fakeProviderDetailsResult({
+						name: ANIME_IMPORT_NAME,
+						properties: { description: "Imported anime from the e2e fake provider." },
+						relatedEntityGroups: [
 							{
-								name: RELATED_COMPANY_NAME,
-								scriptSlug: companyProvider.slug,
-								externalId: RELATED_COMPANY_EXTERNAL_ID,
-								relationshipProperties: { roles: ["E2E Animation Studio"] },
+								direction: "incoming",
+								synchronization: "additive",
+								relationshipSchemaSlug: "company-to-anime",
+								entities: [
+									{
+										name: RELATED_COMPANY_NAME,
+										scriptSlug: companyProvider.slug,
+										externalId: RELATED_COMPANY_EXTERNAL_ID,
+										relationshipProperties: { roles: ["E2E Animation Studio"] },
+									},
+								],
 							},
 						],
-					},
-				],
-			}),
-		},
-	});
+					}),
+				},
+			});
 
-	bookProvider = await seedBuiltinProviderScript({
-		client,
-		drivers: {
-			search: fakeProviderSearchResult([
-				{ externalId: "e2e-book-1", title: "E2E Book One", subtitle: null },
-				{ externalId: "e2e-book-2", title: "E2E Book Two", subtitle: 2 },
-			]),
-			details: fakeProviderDetailsResult({
-				name: BOOK_IMPORT_NAME,
-				properties: { description: "Imported book from the e2e fake provider." },
-			}),
-		},
-	});
+			bookProvider = yield* seedBuiltinProviderScript({
+				client,
+				drivers: {
+					search: fakeProviderSearchResult([
+						{ externalId: "e2e-book-1", title: "E2E Book One", subtitle: null },
+						{ externalId: "e2e-book-2", title: "E2E Book Two", subtitle: 2 },
+					]),
+					details: fakeProviderDetailsResult({
+						name: BOOK_IMPORT_NAME,
+						properties: { description: "Imported book from the e2e fake provider." },
+					}),
+				},
+			});
+		}),
+	);
 });
 
 afterAll(async () => {
-	await cleanupBuiltinProviderScript(animeProvider);
-	await cleanupBuiltinProviderScript(companyProvider);
-	await cleanupBuiltinProviderScript(bookProvider);
+	await Effect.runPromise(
+		Effect.gen(function* () {
+			yield* cleanupBuiltinProviderScript(animeProvider);
+			yield* cleanupBuiltinProviderScript(companyProvider);
+			yield* cleanupBuiltinProviderScript(bookProvider);
+		}),
+	);
 });
 
 describe("POST /entity-schemas/search", () => {
-	it("returns 401 when unauthenticated", async () => {
-		const client = getBackendClient();
-		const error = await client.runError((c) =>
-			c.entitySchemas.search({ payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) } }),
-		);
+	it.live("returns 401 when unauthenticated", () =>
+		Effect.gen(function* () {
+			const client = getBackendClient();
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.entitySchemas.search({
+						payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) },
+					}),
+				),
+			);
 
-		assertTaggedError(error, "Unauthorized");
-	});
+			assertTaggedError(error, "Unauthorized");
+		}),
+	);
 
-	it("returns 404 when the scriptId does not exist", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("returns 404 when the scriptId does not exist", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const error = await client.runError((c) =>
-			c.entitySchemas.search({ payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) } }),
-		);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.entitySchemas.search({
+						payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) },
+					}),
+				),
+			);
 
-		assertTaggedError(error, "NotFound");
-		expect(error.message).toBe("Sandbox script not found");
-	});
+			assertTaggedError(error, "NotFound");
+			expect(error.message).toBe("Sandbox script not found");
+		}),
+	);
 
-	it("returns 200 with a jobId when given a valid script", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("returns 200 with a jobId when given a valid script", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const { jobId } = await enqueueEntitySearch(client, {
-			scriptId: bookScriptId(),
-			context: { page: 1, pageSize: 5, query: "test" },
-		});
+			const { jobId } = yield* enqueueEntitySearch(client, {
+				scriptId: bookScriptId(),
+				context: { page: 1, pageSize: 5, query: "test" },
+			});
 
-		expect(typeof jobId).toBe("string");
-		expect(jobId.length).toBeGreaterThan(0);
-	});
+			expect(typeof jobId).toBe("string");
+			expect(jobId.length).toBeGreaterThan(0);
+		}),
+	);
 });
 
 describe("GET /entity-schemas/search/{jobId}", () => {
-	it("returns 401 when unauthenticated", async () => {
-		const client = getBackendClient();
-		const error = await client.runError((c) =>
-			c.entitySchemas.getSearchResult({ path: { jobId: crypto.randomUUID() } }),
-		);
+	it.live("returns 401 when unauthenticated", () =>
+		Effect.gen(function* () {
+			const client = getBackendClient();
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.entitySchemas.getSearchResult({ path: { jobId: crypto.randomUUID() } }),
+				),
+			);
 
-		assertTaggedError(error, "Unauthorized");
-	});
+			assertTaggedError(error, "Unauthorized");
+		}),
+	);
 
-	it("returns 404 for a non-existent job id", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("returns 404 for a non-existent job id", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const error = await client.runError((c) =>
-			c.entitySchemas.getSearchResult({ path: { jobId: crypto.randomUUID() } }),
-		);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.entitySchemas.getSearchResult({ path: { jobId: crypto.randomUUID() } }),
+				),
+			);
 
-		assertTaggedError(error, "NotFound");
-		expect(error.message).toBe("Sandbox job not found");
-	});
+			assertTaggedError(error, "NotFound");
+			expect(error.message).toBe("Sandbox job not found");
+		}),
+	);
 
-	it("returns 404 when another user polls the job", async () => {
-		const { client: clientA } = await createAuthenticatedClient();
-		const { client: clientB } = await createAuthenticatedClient();
+	it.live("returns 404 when another user polls the job", () =>
+		Effect.gen(function* () {
+			const { client: clientA } = yield* createAuthenticatedClient();
+			const { client: clientB } = yield* createAuthenticatedClient();
 
-		const { jobId } = await enqueueEntitySearch(clientA, {
-			scriptId: bookScriptId(),
-			context: { page: 1, pageSize: 5, query: "test" },
-		});
+			const { jobId } = yield* enqueueEntitySearch(clientA, {
+				scriptId: bookScriptId(),
+				context: { page: 1, pageSize: 5, query: "test" },
+			});
 
-		const error = await clientB.runError((c) =>
-			c.entitySchemas.getSearchResult({ path: { jobId } }),
-		);
+			const error = yield* Effect.flip(
+				clientB.call((c) => c.entitySchemas.getSearchResult({ path: { jobId } })),
+			);
 
-		assertTaggedError(error, "NotFound");
-		expect(error.message).toBe("Sandbox job not found");
-	});
+			assertTaggedError(error, "NotFound");
+			expect(error.message).toBe("Sandbox job not found");
+		}),
+	);
 
-	it("completes a search and returns the seeded results", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("completes a search and returns the seeded results", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const { jobId } = await enqueueEntitySearch(client, {
-			scriptId: bookScriptId(),
-			context: { page: 1, pageSize: 5, query: "test" },
-		});
+			const { jobId } = yield* enqueueEntitySearch(client, {
+				scriptId: bookScriptId(),
+				context: { page: 1, pageSize: 5, query: "test" },
+			});
 
-		const result = await pollEntitySearchResult(client, jobId, { timeoutMs: 30_000 });
-		assertCompleted(result, "search job");
-		const value = requireObjectRecord(result.value, "Expected search result to be an object");
-		const items = requireArray(value.items, "Expected search result items to be an array");
-		expect(items).toHaveLength(2);
-	});
+			const result = yield* pollEntitySearchResult(client, jobId, { timeoutMs: 30_000 });
+			assertCompleted(result, "search job");
+			const value = requireObjectRecord(result.value, "Expected search result to be an object");
+			const items = requireArray(value.items, "Expected search result items to be an array");
+			expect(items).toHaveLength(2);
+		}),
+	);
 });
 
 describe("POST /library/import", () => {
-	it("returns 401 when unauthenticated", async () => {
-		const client = getBackendClient();
-		const error = await client.runError((c) =>
-			c.entityImport.import({
-				payload: {
-					externalId: "test-id",
-					scriptId: SandboxScriptId.make(crypto.randomUUID()),
-					entitySchemaId: EntitySchemaId.make(crypto.randomUUID()),
-				},
-			}),
-		);
+	it.live("returns 401 when unauthenticated", () =>
+		Effect.gen(function* () {
+			const client = getBackendClient();
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.entityImport.import({
+						payload: {
+							externalId: "test-id",
+							scriptId: SandboxScriptId.make(crypto.randomUUID()),
+							entitySchemaId: EntitySchemaId.make(crypto.randomUUID()),
+						},
+					}),
+				),
+			);
 
-		assertTaggedError(error, "Unauthorized");
-	});
+			assertTaggedError(error, "Unauthorized");
+		}),
+	);
 
-	it("returns 200 with a jobId when given a valid script and schema", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client);
+	it.live("returns 200 with a jobId when given a valid script and schema", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 
-		const { jobId } = await enqueueEntityImport(client, {
-			scriptId: bookScriptId(),
-			externalId: "e2e-book-1",
-			entitySchemaId: schema.id,
-		});
+			const { jobId } = yield* enqueueEntityImport(client, {
+				scriptId: bookScriptId(),
+				externalId: "e2e-book-1",
+				entitySchemaId: schema.id,
+			});
 
-		expect(typeof jobId).toBe("string");
-		expect(jobId.length).toBeGreaterThan(0);
-	});
+			expect(typeof jobId).toBe("string");
+			expect(jobId.length).toBeGreaterThan(0);
+		}),
+	);
 });
 
 describe("GET /library/import/{jobId}", () => {
-	it("returns 401 when unauthenticated", async () => {
-		const client = getBackendClient();
-		const error = await client.runError((c) =>
-			c.entityImport.getImportResult({ path: { jobId: crypto.randomUUID() } }),
-		);
+	it.live("returns 401 when unauthenticated", () =>
+		Effect.gen(function* () {
+			const client = getBackendClient();
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.entityImport.getImportResult({ path: { jobId: crypto.randomUUID() } }),
+				),
+			);
 
-		assertTaggedError(error, "Unauthorized");
-	});
+			assertTaggedError(error, "Unauthorized");
+		}),
+	);
 
-	it("returns 404 for a non-existent job id", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("returns 404 for a non-existent job id", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const error = await client.runError((c) =>
-			c.entityImport.getImportResult({ path: { jobId: crypto.randomUUID() } }),
-		);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.entityImport.getImportResult({ path: { jobId: crypto.randomUUID() } }),
+				),
+			);
 
-		assertTaggedError(error, "NotFound");
-		expect(error.message).toBe("Entity import job not found");
-	});
+			assertTaggedError(error, "NotFound");
+			expect(error.message).toBe("Entity import job not found");
+		}),
+	);
 
-	it("returns 404 when another user polls the import job", async () => {
-		const { client: clientA } = await createAuthenticatedClient();
-		const { client: clientB } = await createAuthenticatedClient();
+	it.live("returns 404 when another user polls the import job", () =>
+		Effect.gen(function* () {
+			const { client: clientA } = yield* createAuthenticatedClient();
+			const { client: clientB } = yield* createAuthenticatedClient();
 
-		const { schema } = await findBuiltinSchemaWithProviders(clientA);
+			const { schema } = yield* findBuiltinSchemaWithProviders(clientA);
 
-		const { jobId } = await enqueueEntityImport(clientA, {
-			scriptId: bookScriptId(),
-			externalId: "e2e-book-crossuser",
-			entitySchemaId: schema.id,
-		});
+			const { jobId } = yield* enqueueEntityImport(clientA, {
+				scriptId: bookScriptId(),
+				externalId: "e2e-book-crossuser",
+				entitySchemaId: schema.id,
+			});
 
-		const error = await clientB.runError((c) =>
-			c.entityImport.getImportResult({ path: { jobId } }),
-		);
+			const error = yield* Effect.flip(
+				clientB.call((c) => c.entityImport.getImportResult({ path: { jobId } })),
+			);
 
-		assertTaggedError(error, "NotFound");
-		expect(error.message).toBe("Entity import job not found");
-	});
+			assertTaggedError(error, "NotFound");
+			expect(error.message).toBe("Entity import job not found");
+		}),
+	);
 
-	it("completes an import for a valid details script", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client);
+	it.live("completes an import for a valid details script", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 
-		const { jobId } = await enqueueEntityImport(client, {
-			scriptId: bookScriptId(),
-			externalId: "e2e-book-terminal",
-			entitySchemaId: schema.id,
-		});
+			const { jobId } = yield* enqueueEntityImport(client, {
+				scriptId: bookScriptId(),
+				externalId: "e2e-book-terminal",
+				entitySchemaId: schema.id,
+			});
 
-		const result = await pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
+			const result = yield* pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
 
-		assertCompleted(result, "import job");
-		expect(result.data.name).toBe(BOOK_IMPORT_NAME);
-	});
+			assertCompleted(result, "import job");
+			expect(result.data.name).toBe(BOOK_IMPORT_NAME);
+		}),
+	);
 
-	it("returns entity with populated properties and related entities in the completed result", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaBySlug(client, "anime");
-		const { schema: companySchema } = await findBuiltinSchemaBySlug(client, "company");
+	it.live(
+		"returns entity with populated properties and related entities in the completed result",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const { schema } = yield* findBuiltinSchemaBySlug(client, "anime");
+				const { schema: companySchema } = yield* findBuiltinSchemaBySlug(client, "company");
 
-		const { jobId } = await enqueueEntityImport(client, {
-			externalId: "e2e-anime-1",
-			scriptId: SandboxScriptId.make(animeProvider.scriptId),
-			entitySchemaId: schema.id,
-		});
+				const { jobId } = yield* enqueueEntityImport(client, {
+					externalId: "e2e-anime-1",
+					scriptId: SandboxScriptId.make(animeProvider.scriptId),
+					entitySchemaId: schema.id,
+				});
 
-		const result = await pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
+				const result = yield* pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
 
-		assertCompleted(result, "import job");
+				assertCompleted(result, "import job");
 
-		const properties = requireObjectRecord(
-			result.data.properties,
-			"Expected imported entity properties to be an object",
-		);
-		expect(properties).not.toEqual({});
-		expect(properties.populatedAt).toBeUndefined();
+				const properties = requireObjectRecord(
+					result.data.properties,
+					"Expected imported entity properties to be an object",
+				);
+				expect(properties).not.toEqual({});
+				expect(properties.populatedAt).toBeUndefined();
 
-		const relatedEntity = await getGlobalEntityByProvenance(client, {
-			entitySchemaSlug: companySchema.slug,
-			externalId: RELATED_COMPANY_EXTERNAL_ID,
-			sandboxScriptId: companyProvider.scriptId,
-		});
-		expect(relatedEntity.name).toBe(RELATED_COMPANY_NAME);
-		expect(relatedEntity.populatedAt).toBeNull();
+				const relatedEntity = yield* getGlobalEntityByProvenance(client, {
+					entitySchemaSlug: companySchema.slug,
+					externalId: RELATED_COMPANY_EXTERNAL_ID,
+					sandboxScriptId: companyProvider.scriptId,
+				});
+				expect(relatedEntity.name).toBe(RELATED_COMPANY_NAME);
+				expect(relatedEntity.populatedAt).toBeNull();
 
-		const relationship = await getRelationshipBySchemaSlug(client, {
-			targetEntityId: result.data.id,
-			sourceEntityId: relatedEntity.id,
-			relationshipSchemaSlug: "company-to-anime",
-		});
-		expect(relationship.sourceEntityId).toBe(relatedEntity.id);
-		expect(relationship.targetEntityId).toBe(result.data.id);
-		expect(relationship.properties).toMatchObject({ roles: ["E2E Animation Studio"] });
-	});
+				const relationship = yield* getRelationshipBySchemaSlug(client, {
+					targetEntityId: result.data.id,
+					sourceEntityId: relatedEntity.id,
+					relationshipSchemaSlug: "company-to-anime",
+				});
+				expect(relationship.sourceEntityId).toBe(relatedEntity.id);
+				expect(relationship.targetEntityId).toBe(result.data.id);
+				expect(relationship.properties).toMatchObject({ roles: ["E2E Animation Studio"] });
+			}),
+	);
 
-	it("sets populatedAt as a UTC ISO timestamp column on the imported entity", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client);
+	it.live("sets populatedAt as a UTC ISO timestamp column on the imported entity", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 
-		const { jobId } = await enqueueEntityImport(client, {
-			scriptId: bookScriptId(),
-			entitySchemaId: schema.id,
-			externalId: "e2e-book-populatedat",
-		});
+			const { jobId } = yield* enqueueEntityImport(client, {
+				scriptId: bookScriptId(),
+				entitySchemaId: schema.id,
+				externalId: "e2e-book-populatedat",
+			});
 
-		const result = await pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
+			const result = yield* pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
 
-		assertCompleted(result, "import job");
+			assertCompleted(result, "import job");
 
-		const populatedAt = result.data.populatedAt;
+			const populatedAt = result.data.populatedAt;
 
-		assertPresent(populatedAt, "Expected populatedAt to be present on the imported entity");
-		expect(typeof populatedAt).toBe("string");
-		expect(new Date(populatedAt).toISOString()).toBe(populatedAt);
-	});
+			assertPresent(populatedAt, "Expected populatedAt to be present on the imported entity");
+			expect(typeof populatedAt).toBe("string");
+			expect(DateTime.formatIso(DateTime.unsafeMake(populatedAt))).toBe(populatedAt);
+		}),
+	);
 });
