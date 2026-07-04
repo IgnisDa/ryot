@@ -1,6 +1,7 @@
-import { DateTime, Schema, SchemaGetter } from "effect";
+import { Schema, SchemaGetter } from "effect";
 
 import { EntityId } from "../../schema/brands";
+import { IsoUtcString } from "../../schema/utils";
 
 export const EntityUpdatedReason = Schema.Literals(["populated", "translated"]);
 export type EntityUpdatedReason = typeof EntityUpdatedReason.Type;
@@ -136,13 +137,6 @@ export const decodeEntityInterestServerMessage = Schema.decodeUnknownResult(
 );
 export const encodeEntityInterestServerMessage = Schema.encodeSync(
 	Schema.fromJsonString(EntityInterestServerMessage),
-);
-
-const IsoUtcString = Schema.DateTimeUtcFromString.pipe(
-	Schema.decodeTo(Schema.String, {
-		decode: SchemaGetter.transform(DateTime.formatIso),
-		encode: SchemaGetter.transform(DateTime.makeUnsafe),
-	}),
 );
 
 export const EntityInterestSocketTicketResponse = Schema.Struct({

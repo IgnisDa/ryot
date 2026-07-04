@@ -14,7 +14,7 @@ import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/frontend";
 
 const SHOW_NAME = "Media Entity Tracer Show";
-const SHOW_COVER = "https://images.example.test/media-entity-cover.jpg";
+const SHOW_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#8b5cf6"/></svg>`;
 
 const expectVisibleText = (locator: Playwright.Locator, text: string) =>
 	Effect.gen(function* () {
@@ -29,6 +29,25 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		const frontendUrl = getFrontendUrl();
 		const { token, email, password } = yield* createTestUser(apiUrl);
 		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const intent = yield* client.call((c) =>
+			c.uploads.createIntent({
+				payload: { kind: "permanent", fileName: "show-cover.svg", contentType: "image/svg+xml" },
+			}),
+		);
+		const upload = yield* Effect.promise(() =>
+			fetch(new URL(intent.uploadUrl, `${apiUrl}/`), {
+				body: SHOW_COVER,
+				method: intent.method,
+				headers: intent.headers,
+			}),
+		);
+		expect([200, 204]).toContain(upload.status);
+		const cover = yield* client.call((c) =>
+			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
+		);
+		if (!("key" in cover)) {
+			throw new Error("Expected a permanent Show cover");
+		}
 		const { showId } = yield* seedGlobalShowEpisodeTree(client, {
 			showName: SHOW_NAME,
 			showProperties: {
@@ -37,8 +56,8 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 				publishYear: 2025,
 				genres: ["Drama", "Mystery"],
 				productionStatus: "Returning Series",
+				images: [{ ...cover, purpose: "cover" }],
 				description: "A deterministic browser tracer show.",
-				images: [{ type: "remote", url: SHOW_COVER, purpose: "cover" }],
 			},
 		});
 		yield* insertLibraryMembership(client, { mediaEntityId: showId });
@@ -54,13 +73,25 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		const frame = page.locator('iframe[title="media plugin"]');
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
-		yield* media.getByRole("heading", { level: 2, name: SHOW_NAME }).waitFor({ state: "visible" });
+		yield* media.getByRole("heading", { level: 1, name: SHOW_NAME }).waitFor({ state: "visible" });
 		yield* expectVisibleText(media.locator("body"), "TV Show · TMDB · 2025");
 		yield* expectVisibleText(media.locator("body"), "Returning Series");
 		yield* expectVisibleText(media.locator("body"), "2 seasons");
 		yield* expectVisibleText(media.locator("body"), "12 episodes");
 		yield* expectVisibleText(media.locator("body"), "A deterministic browser tracer show.");
-		expect(yield* media.locator(`img[src="${SHOW_COVER}"]`).getAttribute("alt")).toBe("");
+		const coverImage = media.locator("article img");
+		yield* coverImage.waitFor({ state: "visible" });
+		expect(yield* coverImage.getAttribute("alt")).toBe("");
+		const coverUrl = new URL(
+			requirePresent(yield* coverImage.getAttribute("src"), "Missing cover URL"),
+		);
+		expect(coverUrl.href).toMatch(/^https?:\/\//);
+		expect(coverUrl.searchParams.get("response-content-disposition")).toBe("attachment");
+		expect(
+			yield* coverImage.evaluate((image) =>
+				image instanceof HTMLImageElement ? image.naturalWidth : -1,
+			),
+		).toBe(60);
 		yield* page
 			.locator("html")
 			.waitForFunction((_html, title: string) => document.title === title, `${SHOW_NAME} — Ryot`);

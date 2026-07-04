@@ -3,6 +3,16 @@ import { Result, Schema } from "effect";
 export const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
+export const IsoUtcString = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value) &&
+				!Number.isNaN(Date.parse(value)),
+		),
+	),
+);
+
 const isEmail = (value: string): true | string =>
 	/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? true : "must be a valid email address";
 

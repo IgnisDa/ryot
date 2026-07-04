@@ -5,16 +5,25 @@ import { describe, expect, it } from "vitest";
 import {
 	createRyotClient,
 	RyotClientError,
+	type ManagedAssetLocator,
 	type RyotNavigationTarget,
 	type TemporaryUploadRequest,
 } from "./index";
 
+const theme = { resolvedMode: "light" };
 let notify: () => void = () => undefined;
+const s3Asset = { key: "media/font.woff2", type: "s3" } as const;
 const Greeting = Schema.Struct({ greeting: Schema.String });
 const QueryResponse = Schema.Struct({ value: Schema.String });
+const localAsset = { key: "permanent/image.png", type: "local" } as const;
 const document = { queries: {}, output: {} } as PreparedRecipe<string>["document"];
-const theme = { resolvedMode: "light" };
 const uploadToken = { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
+const assets: ManagedAssetLocator[] = [localAsset, s3Asset];
+const resolutions = assets.map((asset) => ({
+	asset,
+	expiresAt: "2026-01-01T00:15:00.000Z",
+	url: `https://ryot.test/api/uploads/${asset.type}/download?key=${encodeURIComponent(asset.key)}`,
+}));
 
 describe("createRyotClient", () => {
 	it("sends only a recipe document and decodes the response locally", async () => {
@@ -204,6 +213,123 @@ describe("createRyotClient", () => {
 				source: new Blob(["id,title"]),
 			}),
 		).rejects.toEqual(new RyotClientError("malformed-result"));
+	});
+
+	it("delegates one managed asset batch and decodes its resolutions", async () => {
+		const requests: Array<readonly ManagedAssetLocator[]> = [];
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			resolveAssets: (request) => {
+				requests.push(request);
+				return Promise.resolve(resolutions);
+			},
+		});
+
+		await expect(client.assets.resolve(assets)).resolves.toEqual(resolutions);
+		expect(requests).toEqual([assets]);
+	});
+
+	it("rejects empty and non-managed asset input before consulting the adapter", async () => {
+		let calls = 0;
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			resolveAssets: () => {
+				calls += 1;
+				return Promise.resolve([]);
+			},
+		});
+
+		await Promise.all(
+			[
+				[],
+				[{ type: "remote", url: "https://example.com/image.png" }],
+				Array.from({ length: 65 }, (_, index) => ({
+					type: "local",
+					key: `permanent/${index}.png`,
+				})),
+			].map((input) =>
+				expect(Reflect.apply(client.assets.resolve, client.assets, [input])).rejects.toMatchObject({
+					reason: "invalid-input",
+				}),
+			),
+		);
+		expect(calls).toBe(0);
+	});
+
+	it("forwards asset cancellation and preserves the caller abort reason", async () => {
+		const controller = new AbortController();
+		const reason = new DOMException("Caller canceled", "AbortError");
+		let receivedSignal: AbortSignal | undefined;
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			resolveAssets: (_assets, signal) => {
+				receivedSignal = signal;
+				return new Promise((_resolve, reject) =>
+					signal?.addEventListener("abort", () => reject(signal.reason), { once: true }),
+				);
+			},
+		});
+		const resolution = client.assets.resolve(assets, { signal: controller.signal });
+
+		controller.abort(reason);
+
+		expect(receivedSignal).toBe(controller.signal);
+		await expect(resolution).rejects.toBe(reason);
+	});
+
+	it("does not call the adapter for an already canceled asset request", async () => {
+		const controller = new AbortController();
+		const reason = new DOMException("Caller canceled", "AbortError");
+		let calls = 0;
+		controller.abort(reason);
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			resolveAssets: () => {
+				calls += 1;
+				return Promise.resolve(resolutions);
+			},
+		});
+
+		await expect(client.assets.resolve(assets, { signal: controller.signal })).rejects.toBe(reason);
+		expect(calls).toBe(0);
+	});
+
+	it("rejects asset resolution when the environment does not provide that capability", async () => {
+		const client = createRyotClient({ query: () => Promise.resolve({}) });
+
+		await expect(client.assets.resolve(assets)).rejects.toMatchObject({
+			reason: "unsupported-capability",
+		});
+	});
+
+	it("rejects malformed asset expiry, locators, and result batches", async () => {
+		let response: unknown = [{ ...resolutions[0], expiresAt: "not-a-date" }];
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			resolveAssets: () => Promise.resolve(response),
+		});
+
+		await expect(client.assets.resolve([localAsset])).rejects.toEqual(
+			new RyotClientError("malformed-result"),
+		);
+		response = [{ ...resolutions[0], asset: { key: "other.png", type: "local" } }];
+		await expect(client.assets.resolve([localAsset])).rejects.toEqual(
+			new RyotClientError("malformed-result"),
+		);
+		response = [resolutions[0]];
+		await expect(client.assets.resolve(assets)).rejects.toEqual(
+			new RyotClientError("malformed-result"),
+		);
+	});
+
+	it("preserves a canonical asset-failed error from the adapter", async () => {
+		const error = new RyotClientError("asset-failed");
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			resolveAssets: () => Promise.reject(error),
+		});
+
+		await expect(client.assets.resolve(assets)).rejects.toBe(error);
 	});
 
 	it("delegates navigation through the adapter", () => {

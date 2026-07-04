@@ -25,6 +25,11 @@ let fallbackInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructur
 
 const getFallbackApiUrl = () => `http://127.0.0.1:${fallbackApiPort}/api`;
 
+const expectValidExpiry = (expiresAt: string | undefined) => {
+	expect(expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+	expect(Number.isNaN(Date.parse(expiresAt ?? ""))).toBe(false);
+};
+
 beforeAll(async () => {
 	fallbackApiPort = await getPort();
 	fallbackInfrastructure = await startCoreTestInfrastructure({
@@ -65,7 +70,12 @@ afterAll(async () => {
 	}
 });
 
-const uploadAndComplete = (fileName: string, contentType: string, apiUrl = getApiUrl()) =>
+const uploadAndComplete = (
+	fileName: string,
+	contentType: string,
+	apiUrl = getApiUrl(),
+	body = "title\nexample",
+) =>
 	Effect.gen(function* () {
 		const { client } = yield* createAuthenticatedClient(apiUrl);
 		const intent = yield* client.call((c) =>
@@ -73,8 +83,8 @@ const uploadAndComplete = (fileName: string, contentType: string, apiUrl = getAp
 		);
 		const uploadResponse = yield* Effect.promise(() =>
 			fetch(new URL(intent.uploadUrl, `${apiUrl}/`), {
+				body,
 				method: intent.method,
-				body: "title\nexample",
 				headers: intent.headers,
 			}),
 		);
@@ -103,6 +113,7 @@ describe("POST /uploads/intents", () => {
 			expect(completedAgain).toEqual(asset);
 			expect(resolved[0]?.asset).toEqual(asset);
 			expect(resolved[0]?.downloadUrl).toMatch(/^https?:\/\//);
+			expectValidExpiry(resolved[0]?.expiresAt);
 		}),
 	);
 
@@ -117,11 +128,32 @@ describe("POST /uploads/intents", () => {
 			);
 			const downloadUrl = resolved[0]?.downloadUrl;
 			expect(downloadUrl?.startsWith("uploads/local/download?")).toBe(true);
+			expectValidExpiry(resolved[0]?.expiresAt);
 			const downloadResponse = yield* Effect.promise(() =>
 				fetch(new URL(downloadUrl ?? "", `${apiUrl}/`)),
 			);
 			expect(downloadResponse.status).toBe(200);
 			expect(yield* Effect.promise(() => downloadResponse.text())).toBe("title\nexample");
+		}),
+	);
+
+	it.live("serves local SVG artwork as a sandboxed attachment", () =>
+		Effect.gen(function* () {
+			const apiUrl = getFallbackApiUrl();
+			const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" />';
+			const { asset, client } = yield* uploadAndComplete("cover.svg", "image/svg+xml", apiUrl, svg);
+			const [resolved] = yield* client.call((c) =>
+				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
+			);
+			const response = yield* Effect.promise(() =>
+				fetch(new URL(resolved?.downloadUrl ?? "", `${apiUrl}/`)),
+			);
+			expect(response.status).toBe(200);
+			expect(response.headers.get("content-type")).toBe("image/svg+xml");
+			expect(response.headers.get("content-disposition")).toBe("attachment");
+			expect(response.headers.get("content-security-policy")).toBe("sandbox");
+			expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+			expect(yield* Effect.promise(() => response.text())).toBe(svg);
 		}),
 	);
 
@@ -335,6 +367,7 @@ describe("GET /uploads/local/download", () => {
 			const resolved = yield* client.call((c) =>
 				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
 			);
+			expectValidExpiry(resolved[0]?.expiresAt);
 			const downloadUrl = new URL(resolved[0]?.downloadUrl ?? "", `${apiUrl}/`);
 			const head = yield* Effect.promise(() => fetch(downloadUrl, { method: "HEAD" }));
 			expect(head.status).toBe(200);

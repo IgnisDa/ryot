@@ -1,6 +1,8 @@
 import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	PluginBridgeHostMessage,
+	type PluginBridgeAssetCancel,
+	type PluginBridgeAssetRequest,
 	type PluginBridgeHeader,
 	type PluginBridgeInit,
 	type PluginBridgeNavigate,
@@ -15,6 +17,7 @@ import {
 	type PluginThemeSnapshot,
 	type RyotClientErrorReason,
 } from "@ryot-app/contract/modules/plugins/client";
+import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
@@ -73,6 +76,7 @@ export const createPluginRuntime = (
 		root.setAttribute("data-theme", mode);
 	const operations = new Map<string, PendingCall>();
 	const queries = new Map<string, PendingCall>();
+	const assets = new Map<string, PendingCall>();
 	const themeListeners = new Set<() => void>();
 
 	const activate = () => {
@@ -83,9 +87,10 @@ export const createPluginRuntime = (
 	};
 
 	const rejectPending = (reason: RyotClientErrorReason) => {
-		const pendingCalls = [...operations.values(), ...queries.values()];
+		const pendingCalls = [...operations.values(), ...queries.values(), ...assets.values()];
 		operations.clear();
 		queries.clear();
+		assets.clear();
 		for (const pending of pendingCalls) {
 			pending.cleanup?.();
 			pending.reject(new RyotClientError(reason));
@@ -130,7 +135,7 @@ export const createPluginRuntime = (
 	};
 
 	const admit = (pending: Map<string, PendingCall>, requestId: string, call: PendingCall) => {
-		if (operations.size + queries.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
+		if (operations.size + queries.size + assets.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
 			finish("failed", "protocol", true);
 			call.reject(new RyotClientError("protocol"));
 			return false;
@@ -174,6 +179,43 @@ export const createPluginRuntime = (
 				requestId,
 				type: "ryotql-request",
 			} satisfies PluginBridgeRyotQLRequest);
+		});
+
+	const resolveAssets = (requested: readonly ManagedAssetLocator[], signal?: AbortSignal) =>
+		new Promise<unknown>((resolve, reject) => {
+			if (state !== "active") {
+				reject(new RyotClientError(terminalReason ?? "transport"));
+				return;
+			}
+			if (signal?.aborted) {
+				reject(signal.reason);
+				return;
+			}
+			nextRequestId += 1;
+			const requestId = `asset-${nextRequestId}`;
+			const onAbort = () => {
+				if (!assets.delete(requestId)) {
+					return;
+				}
+				signal?.removeEventListener("abort", onAbort);
+				reject(signal?.reason);
+				post({ requestId, type: "asset-cancel" } satisfies PluginBridgeAssetCancel);
+			};
+			if (
+				!admit(assets, requestId, {
+					reject,
+					resolve,
+					cleanup: () => signal?.removeEventListener("abort", onAbort),
+				})
+			) {
+				return;
+			}
+			signal?.addEventListener("abort", onAbort, { once: true });
+			post({
+				assets: [...requested],
+				requestId,
+				type: "asset-request",
+			} satisfies PluginBridgeAssetRequest);
 		});
 
 	const invokeOperation = (request: { readonly slug: string; readonly input: JsonValue }) =>
@@ -222,6 +264,7 @@ export const createPluginRuntime = (
 	const client = createRyotClient({
 		query,
 		navigate,
+		resolveAssets,
 		invokeOperation,
 		theme: {
 			getSnapshot: () => {
@@ -311,6 +354,18 @@ export const createPluginRuntime = (
 						pending.reject(new RyotClientError(result.reason));
 					} else {
 						pending.resolve(result.value);
+					}
+				}),
+				Match.when({ type: "asset-result" }, (result) => {
+					const pending = assets.get(result.requestId);
+					if (!pending || !assets.delete(result.requestId)) {
+						return;
+					}
+					pending.cleanup?.();
+					if (result.outcome === "failure") {
+						pending.reject(new RyotClientError(result.reason));
+					} else {
+						pending.resolve(result.resolutions);
 					}
 				}),
 				Match.when({ type: "ryotql-result" }, (result) => {

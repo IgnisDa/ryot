@@ -3,6 +3,7 @@ import {
 	CLIENT_API_VERSION,
 	PluginBridgeInit,
 	PluginEntityLocation,
+	type PluginAssetOutcome,
 	type PluginLeadingIntent,
 	type PluginThemeSnapshot,
 	type PluginLogicalLocation,
@@ -162,6 +163,7 @@ function renderHost(
 	callbacks: {
 		readonly onStaleSession?: () => void;
 		readonly onQuery?: Parameters<typeof PluginHost>[0]["onQuery"];
+		readonly onAssets?: Parameters<typeof PluginHost>[0]["onAssets"];
 		readonly onHeader?: Parameters<typeof PluginHost>[0]["onHeader"];
 		readonly onScreenState?: Parameters<typeof PluginHost>[0]["onScreenState"];
 		readonly onInvokeOperation?: Parameters<typeof PluginHost>[0]["onInvokeOperation"];
@@ -190,6 +192,9 @@ function renderHost(
 			onRevokeArtifactSession={recorder.onRevokeArtifactSession}
 			onNavigate={(request) => navigations.push(request)}
 			onStaleSession={callbacks.onStaleSession ?? (() => undefined)}
+			onAssets={
+				callbacks.onAssets ?? (() => Promise.resolve({ outcome: "failure", reason: "transport" }))
+			}
 			onScreenState={(screenState) => {
 				screenStates.push(screenState);
 				callbacks.onScreenState?.(screenState);
@@ -483,6 +488,7 @@ describe("plugin artifact session lifecycle", () => {
 					onCreateArtifactSession={recorder.onCreateArtifactSession}
 					onRevokeArtifactSession={recorder.onRevokeArtifactSession}
 					onQuery={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
+					onAssets={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
 					onInvokeOperation={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
 				/>
 			</StrictMode>,
@@ -572,6 +578,43 @@ describe("plugin artifact session lifecycle", () => {
 			"create:artifact-hash",
 		]);
 		expect(screen.getByTitle("fixture plugin")).toBeTruthy();
+	});
+
+	it("forwards asset requests and aborts them when unmounted", async () => {
+		const call = deferred<PluginAssetOutcome>();
+		const requests: unknown[] = [];
+		let signal: AbortSignal | undefined;
+		const host = renderHost(createRecorder(), {}, home, {
+			onAssets: (request, requestSignal) => {
+				requests.push(request);
+				signal = requestSignal;
+				return call.promise;
+			},
+		});
+		await flush();
+		const connected = connectFrame(screen.getByTitle("fixture plugin"));
+		connected.pluginPort.postMessage(connected.ready);
+		await flush();
+		await flush();
+
+		connected.pluginPort.postMessage({
+			requestId: "asset-1",
+			type: "asset-request",
+			assets: [{ type: "local", key: "permanent/cover.png" }],
+		});
+		await flush();
+
+		expect(requests).toEqual([{ assets: [{ type: "local", key: "permanent/cover.png" }] }]);
+		expect(signal).toBeDefined();
+
+		host.unmount();
+		expect(signal?.aborted).toBe(true);
+		call.resolve({ outcome: "success", resolutions: [] });
+		await flush();
+
+		expect(connected.messages).not.toContainEqual(
+			expect.objectContaining({ requestId: "asset-1", type: "asset-result" }),
+		);
 	});
 
 	it("accepts only the current screen's header", async () => {
