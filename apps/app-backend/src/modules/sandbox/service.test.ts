@@ -1,8 +1,8 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { NotFound, SandboxRunError } from "@ryot/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
@@ -46,7 +46,7 @@ const storedWorkflowScript = {
 
 const mockRepository = Layer.mock(SandboxRepository);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
-	mockRepository({ _tag: "SandboxRepository", ...overrides });
+	mockRepository({ ...overrides });
 const makePluginRuntime = (
 	findActiveScriptById: SandboxPluginScriptResolverValue["findActiveScriptById"] = () =>
 		Effect.succeed(null),
@@ -65,13 +65,12 @@ const makeServiceLayer = (
 		makeWorkflowEngine({ execute: () => Effect.succeed(null) }),
 	),
 	workflowReferences = Layer.mock(SandboxWorkflowReferenceRepository)({
-		_tag: "SandboxWorkflowReferenceRepository",
 		lockIngestionShared: () => Effect.void,
 		registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
 		release: () => Effect.void,
 	}),
 ) =>
-	SandboxExecutionService.Default.pipe(
+	SandboxExecutionService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
@@ -86,7 +85,7 @@ const makeServiceLayer = (
 	);
 
 it.effect("executes an installed script as the explicit user", () => {
-	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 	const layer = makeServiceLayer(
 		makeRepository({
 			getScript: () => Effect.succeed(storedScript),
@@ -155,7 +154,7 @@ it.effect("polls a job only for its explicit executing user", () => {
 		Layer.succeed(
 			WorkflowEngine,
 			makeWorkflowEngine({
-				poll: () => Effect.void.pipe(Effect.as(undefined)),
+				poll: () => Effect.succeedNone,
 				execute: () => Effect.succeed(null),
 			}),
 		),
@@ -177,7 +176,7 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 	const executionId = "media-resolution-1";
 	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
 	let capturedWorkflow: unknown;
-	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 	const engine = makeWorkflowActivityEngine(instance, {
 		execute: (workflow, options) =>
 			Effect.sync(() => {
@@ -278,7 +277,6 @@ it.effect("pins a plugin workflow before accepted dispatch can wait for a worker
 	const events: string[] = [];
 	let referenceLive = false;
 	const references = Layer.mock(SandboxWorkflowReferenceRepository)({
-		_tag: "SandboxWorkflowReferenceRepository",
 		lockIngestionShared: () => Effect.sync(() => events.push("lock")),
 		registerInTransaction: () =>
 			Effect.sync(() => {
@@ -353,7 +351,6 @@ it.effect("releases a new dispatch pin when workflow enqueue fails", () => {
 			makeWorkflowEngine({ execute: () => Effect.fail("enqueue failed") }),
 		),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
-			_tag: "SandboxWorkflowReferenceRepository",
 			lockIngestionShared: () => Effect.void,
 			registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
 			release: () => Effect.sync(() => (releases += 1)),
