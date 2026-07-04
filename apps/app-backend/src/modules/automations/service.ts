@@ -2,7 +2,6 @@ import { DbError, badRequest, notFound } from "@ryot/contract/errors";
 import {
 	AutomationRuleMetadata,
 	type AutomationOperation,
-	type AutomationRuleKind,
 	type SubscriptionRunTiming,
 	type SubscriptionRunSourceKind,
 } from "@ryot/contract/modules/automations/schemas";
@@ -18,23 +17,17 @@ import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
+import {
+	PluginRuntimeResolver,
+	type ResolvedAutomationRule,
+} from "#modules/plugins/runtime-resolver";
 
 import {
 	AutomationsRepository,
 	type AutomationRuleTarget,
-	type StoredAutomationRule,
+	type StoredNotificationSubscription,
 } from "./repository";
-
-type RuleDefinition = {
-	name: string;
-	metadata?: unknown;
-	kind: AutomationRuleKind;
-	target: AutomationRuleTarget;
-	position?: number | undefined;
-	operation: AutomationOperation;
-	sandboxScriptId: SandboxScriptId;
-};
 
 type PrepareSubscriptionRunInput = {
 	occurrenceId: string;
@@ -77,10 +70,7 @@ const truncateArtifact = (value: unknown) => {
 			high = midpoint - 1;
 		}
 	}
-	return {
-		marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER,
-		preview: serialized.slice(0, low),
-	};
+	return { marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER, preview: serialized.slice(0, low) };
 };
 
 const makeRunId = (occurrenceId: string, ruleId: AutomationRuleId) =>
@@ -91,7 +81,7 @@ const makeRunId = (occurrenceId: string, ruleId: AutomationRuleId) =>
 	);
 
 const matchesRowOwner = (
-	rule: Pick<StoredAutomationRule, "isBuiltin" | "kind" | "userId">,
+	rule: Pick<ResolvedAutomationRule, "isBuiltin" | "kind" | "userId">,
 	rowUserId: UserId | null,
 ) => {
 	if (rule.kind !== "subscription") {
@@ -104,45 +94,10 @@ const matchesRowOwner = (
 };
 
 const matchesPolicyOwner = (
-	rule: Pick<StoredAutomationRule, "isBuiltin" | "kind" | "userId">,
+	rule: Pick<ResolvedAutomationRule, "isBuiltin" | "kind" | "userId">,
 	rowUserId: UserId,
 ) =>
 	rule.kind === "policy" && (rule.userId === rowUserId || (rule.userId === null && rule.isBuiltin));
-
-const validateDefinition = Effect.fn(function* (definition: RuleDefinition) {
-	if (!definition.name.trim()) {
-		return yield* badRequest("Automation rule name must be non-empty");
-	}
-	if (definition.target.kind === "signal_schema") {
-		if (definition.kind !== "subscription" || definition.operation !== "signal") {
-			return yield* badRequest("Signal rules must be signal subscriptions");
-		}
-	} else if (definition.operation === "signal") {
-		return yield* badRequest("Lifecycle rules cannot use the signal operation");
-	}
-	if (definition.kind === "subscription" && definition.position !== undefined) {
-		return yield* badRequest("Subscription rules cannot have a position");
-	}
-	const metadata =
-		definition.metadata === undefined
-			? null
-			: yield* Schema.decodeUnknown(AutomationRuleMetadata)(definition.metadata).pipe(
-					Effect.mapError(() => badRequest("Invalid automation rule metadata")),
-				);
-	return {
-		metadata,
-		position: definition.kind === "policy" ? (definition.position ?? 1000) : null,
-	};
-});
-
-const validateBuiltinLifecycleOperation = (definition: RuleDefinition) =>
-	definition.operation !== "create" &&
-	definition.operation !== "signal" &&
-	(definition.kind !== "subscription" ||
-		(definition.target.kind !== "entity_schema" &&
-			definition.target.kind !== "relationship_schema"))
-		? badRequest("Only built-in entity and relationship subscriptions support update or delete")
-		: Effect.void;
 
 const sourceMatchesTarget = (sourceKind: SubscriptionRunSourceKind, target: AutomationRuleTarget) =>
 	sourceKind === target.kind.replace("_schema", "");
@@ -150,86 +105,35 @@ const sourceMatchesTarget = (sourceKind: SubscriptionRunSourceKind, target: Auto
 export class AutomationsService extends Effect.Service<AutomationsService>()("AutomationsService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const definitions = yield* DefinitionRegistry;
 		const repository = yield* AutomationsRepository;
 		const runInTransaction = yield* TransactionRunner;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 
-		const loadReferences = Effect.fn("AutomationsService.loadReferences")(function* (
-			definition: RuleDefinition,
-		) {
-			const [target, script] = yield* Effect.all([
-				repository.findTargetScope(definition.target),
-				repository.findScriptScope(definition.sandboxScriptId),
-			]);
-			if (!target) {
-				return yield* notFound("Automation rule target not found");
+		const resolveNotificationSubscription = Effect.fn(
+			"AutomationsService.resolveNotificationSubscription",
+		)(function* (state: StoredNotificationSubscription) {
+			const definition = definitions.getSignalSchema(state.signalSchemaSlug);
+			if (!definition) {
+				return yield* new DbError({ message: "Notification subscription signal schema not found" });
 			}
+			const script = yield* pluginRuntime.findKernelScript(state.scriptSlug);
 			if (!script) {
-				return yield* notFound("Sandbox script not found");
+				return yield* new DbError({ message: "Notification subscription script not found" });
 			}
-			return { script, target };
-		});
-
-		const ensureBuiltin = Effect.fn("AutomationsService.ensureBuiltin")(function* (
-			input: RuleDefinition,
-		) {
-			const validated = yield* validateDefinition(input);
-			yield* validateBuiltinLifecycleOperation(input);
-			return yield* runInTransaction(
-				Effect.gen(function* () {
-					const references = yield* loadReferences(input);
-					if (
-						references.target.userId !== null ||
-						!references.target.isBuiltin ||
-						references.script.userId !== null ||
-						!references.script.isBuiltin
-					) {
-						return yield* badRequest("Built-in rules require built-in global targets and scripts");
-					}
-					if (references.script.capabilities.includes("sendNotification")) {
-						return yield* badRequest("Global built-in rules cannot use sendNotification scripts");
-					}
-					const existing = yield* repository.findByUnique({
-						userId: null,
-						target: input.target,
-						operation: input.operation,
-						sandboxScriptId: input.sandboxScriptId,
-					});
-					if (existing) {
-						const unchanged =
-							existing.name === input.name &&
-							existing.kind === input.kind &&
-							existing.isActive &&
-							existing.isBuiltin &&
-							existing.position === validated.position &&
-							stableStringify(existing.metadata) === stableStringify(validated.metadata);
-						return unchanged
-							? existing
-							: yield* repository.updateBuiltin({
-									...validated,
-									isActive: true,
-									id: existing.id,
-									kind: input.kind,
-									name: input.name,
-								});
-					}
-					const inserted = yield* repository.insertRule({
-						...validated,
-						userId: null,
-						isActive: true,
-						isBuiltin: true,
-						kind: input.kind,
-						name: input.name,
-						target: input.target,
-						operation: input.operation,
-						sandboxScriptId: input.sandboxScriptId,
-					});
-					if (!inserted) {
-						return yield* new DbError({ message: "Built-in automation rule insert conflicted" });
-					}
-					return inserted;
-				}),
-			);
+			return {
+				id: state.id,
+				position: null,
+				isBuiltin: false,
+				operation: "signal",
+				kind: "subscription",
+				userId: state.userId,
+				name: definition.name,
+				metadata: state.metadata,
+				isActive: state.isActive,
+				sandboxScriptId: script.id,
+				target: { kind: "signal_schema", id: state.signalSchemaSlug },
+			} satisfies ResolvedAutomationRule;
 		});
 
 		const resolveActive = Effect.fn("AutomationsService.resolveActive")(function* (input: {
@@ -243,11 +147,15 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 						return [];
 					}
 					const bindings = yield* pluginRuntime.listAutomations({ ...input, kind: "subscription" });
-					const rules =
-						input.target.kind === "signal_schema" ? yield* repository.resolveActive(input) : [];
-					return [...bindings, ...rules.filter((rule) => rule.userId !== null)].filter((rule) =>
-						matchesRowOwner(rule, input.rowUserId),
-					);
+					const states =
+						input.rowUserId && input.target.kind === "signal_schema"
+							? yield* repository.listActiveNotificationSubscriptions({
+									userId: input.rowUserId,
+									signalSchemaSlug: input.target.id,
+								})
+							: [];
+					const rules = yield* Effect.all(states.map(resolveNotificationSubscription));
+					return [...bindings, ...rules].filter((rule) => matchesRowOwner(rule, input.rowUserId));
 				}),
 			);
 		});
@@ -281,14 +189,16 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 						return {
 							run: existing,
 							execution: {
-								ruleId: existing.originalRuleId,
+								ruleId: existing.ruleId,
 								metadata: existing.ruleMetadata,
 								sandboxScriptId: existing.sandboxScriptId,
 							},
 						};
 					}
-					const storedRule = yield* repository.lockActiveSubscription(input.ruleId);
-					const rule = storedRule ?? (yield* pluginRuntime.findAutomation(input.ruleId));
+					const storedState = yield* repository.lockActiveNotificationSubscription(input.ruleId);
+					const rule = storedState
+						? yield* resolveNotificationSubscription(storedState)
+						: yield* pluginRuntime.findAutomation(input.ruleId);
 					if (!rule) {
 						return null;
 					}
@@ -314,7 +224,7 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 						}
 						executionUserId = input.rowUserId;
 						if (executionUserId === null) {
-							const script = yield* repository.findScriptScope(rule.sandboxScriptId);
+							const script = yield* repository.findScriptExecution(rule.sandboxScriptId);
 							if (!script?.isBuiltin || script.userId !== null) {
 								return yield* badRequest("System subscriptions require a built-in global script");
 							}
@@ -324,15 +234,14 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 					const inserted = yield* repository.insertRun({
 						id,
 						executionUserId,
+						ruleId: rule.id,
 						ruleName: rule.name,
-						originalRuleId: rule.id,
 						operation: input.operation,
 						ruleMetadata: rule.metadata,
 						sourceKind: input.sourceKind,
-						occurrenceId: input.occurrenceId,
 						recordId: input.recordId ?? null,
 						signalId: input.signalId ?? null,
-						ruleId: storedRule ? rule.id : null,
+						occurrenceId: input.occurrenceId,
 						sandboxScriptId: rule.sandboxScriptId,
 					});
 					const run = inserted ?? (yield* repository.findRunById(id));
@@ -344,7 +253,7 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 					return {
 						run,
 						execution: {
-							ruleId: run.originalRuleId,
+							ruleId: run.ruleId,
 							metadata: run.ruleMetadata,
 							sandboxScriptId: run.sandboxScriptId,
 						},
@@ -419,31 +328,12 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 			return existing;
 		});
 
-		const setUserRuleActive = Effect.fn("AutomationsService.setUserRuleActive")(function* (input: {
-			userId: UserId;
-			isActive: boolean;
-			ruleId: AutomationRuleId;
-		}) {
-			const rule = yield* runInTransaction(repository.setUserRuleActive(input));
-			return rule ?? (yield* notFound("Automation rule not found"));
-		});
-
-		const deleteUserRule = Effect.fn("AutomationsService.deleteUserRule")(function* (input: {
+		const listRunsByRuleId = Effect.fn("AutomationsService.listRunsByRuleId")(function* (input: {
 			userId: UserId;
 			ruleId: AutomationRuleId;
 		}) {
-			const deleted = yield* runInTransaction(repository.deleteUserRule(input));
-			if (!deleted) {
-				return yield* notFound("Automation rule not found");
-			}
-			return deleted;
+			return yield* runInTransaction(repository.listRunsByRuleId(input));
 		});
-
-		const listRunsByOriginalRuleId = Effect.fn("AutomationsService.listRunsByOriginalRuleId")(
-			function* (input: { userId: UserId; originalRuleId: AutomationRuleId }) {
-				return yield* runInTransaction(repository.listRunsByOriginalRuleId(input));
-			},
-		);
 
 		const listRunsByExecutionUserId = Effect.fn("AutomationsService.listRunsByExecutionUserId")(
 			function* (input: { executionUserId: UserId; signalId?: SignalId | undefined }) {
@@ -457,16 +347,13 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 
 		return {
 			beginRun,
-			countByUser,
 			prepareRun,
 			completeRun,
+			countByUser,
 			resolveActive,
-			ensureBuiltin,
-			deleteUserRule,
-			setUserRuleActive,
+			listRunsByRuleId,
 			resolveActivePolicies,
 			listRunsByExecutionUserId,
-			listRunsByOriginalRuleId,
 		};
 	}),
 }) {}
