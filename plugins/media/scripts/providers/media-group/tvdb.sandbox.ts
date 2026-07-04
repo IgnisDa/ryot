@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, recordsValue, stringValue } from "../../script-helpers/records";
@@ -19,19 +20,23 @@ export const manifest = defineManifest({
 	providerInformation: { source: "tvdb", canonicalLanguage: "en" },
 });
 
-export const search = defineProviderDriver(manifest, "search", () => {
-	throw new Error("TVDB does not support movie group search");
-});
+export const search = defineProviderDriver(manifest, "search", () =>
+	Effect.fail(new Error("TVDB does not support movie group search")),
+);
 
-export const details = defineProviderDriver(manifest, "details", (input, host) => {
-	if (!/^\d+$/.test(input.externalId)) {
-		throw new Error("externalId must be a numeric TVDB list ID");
-	}
-	const language = bcp47ToTvdb(manifest.providerInformation.canonicalLanguage);
-	return Promise.all([
-		tvdbGet(host, `/lists/${input.externalId}/extended`),
-		tvdbGetOptional(host, `/lists/${input.externalId}/translations/${language}`),
-	]).then(([payload, translationData]) => {
+export const details = defineProviderDriver(manifest, "details", (input, host) =>
+	Effect.gen(function* () {
+		if (!/^\d+$/.test(input.externalId)) {
+			return yield* Effect.fail(new Error("externalId must be a numeric TVDB list ID"));
+		}
+		const language = bcp47ToTvdb(manifest.providerInformation.canonicalLanguage);
+		const [payload, translationData] = yield* Effect.all(
+			[
+				tvdbGet(host, `/lists/${input.externalId}/extended`),
+				tvdbGetOptional(host, `/lists/${input.externalId}/translations/${language}`),
+			],
+			{ concurrency: "unbounded" },
+		);
 		const list = asRecord(payload["data"]) ?? payload;
 		const translation = getTranslationFields(translationData);
 		const title = translation.name ?? stringValue(list["name"]) ?? "Unnamed List";
@@ -73,17 +78,20 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 				},
 			],
 		};
-	});
-});
+	}),
+);
 
-export const translate = defineProviderDriver(manifest, "translate", (input, host) => {
-	if (!/^\d+$/.test(input.externalId)) {
-		throw new Error("externalId must be a numeric TVDB list ID");
-	}
-	const providerLanguage = bcp47ToTvdb(input.language);
-	return tvdbGetOptional(host, `/lists/${input.externalId}/translations/${providerLanguage}`).then(
-		(translationData) => buildTranslationResult(translationData, null),
-	);
-});
+export const translate = defineProviderDriver(manifest, "translate", (input, host) =>
+	Effect.gen(function* () {
+		if (!/^\d+$/.test(input.externalId)) {
+			return yield* Effect.fail(new Error("externalId must be a numeric TVDB list ID"));
+		}
+		const providerLanguage = bcp47ToTvdb(input.language);
+		return yield* tvdbGetOptional(
+			host,
+			`/lists/${input.externalId}/translations/${providerLanguage}`,
+		).pipe(Effect.map((translationData) => buildTranslationResult(translationData, null)));
+	}),
+);
 
 export default defineProvider({ manifest, drivers: { search, details, translate } });

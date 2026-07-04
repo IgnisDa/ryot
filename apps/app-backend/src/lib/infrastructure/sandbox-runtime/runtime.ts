@@ -274,10 +274,8 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 					Effect.map((body) => body.args),
 					Effect.mapError(() => badRequest("Invalid request body")),
 				);
-				return yield* Effect.tryPromise({
-					try: () => fn(args),
-					catch: (error) => internalError(unknownToMessage(error)),
-				}).pipe(
+				return yield* fn(args).pipe(
+					Effect.mapError((error) => internalError(unknownToMessage(error))),
 					Effect.flatMap(sandboxBridgeResultResponse),
 					Effect.catchAll((error) =>
 						Effect.succeed(Response.json({ error: unknownToMessage(error) }, { status: 500 })),

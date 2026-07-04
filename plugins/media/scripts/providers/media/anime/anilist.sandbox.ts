@@ -1,5 +1,6 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import {
 	defineProvider,
 	defineProviderDriver,
@@ -134,51 +135,56 @@ const collectStudios = (studios: unknown) => {
 };
 
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
-	const mediaId = parseAnilistId(input.externalId, "media");
 	const titleLanguage =
 		bcp47ToAnilistMode(manifest.providerInformation.canonicalLanguage) ?? "english";
-	return anilistGraphql(host, "anime details", MEDIA_DETAILS_QUERY, { id: mediaId }).then(
-		(data) => {
-			const media = requireAnilistMedia(data, "ANIME");
-			const idValue = numberValue(media["id"]);
-			const payloadIdentifier = idValue === null ? input.externalId : String(Math.trunc(idValue));
-			const title = pickAnilistTitle(media["title"], titleLanguage);
-			if (!title) {
-				throw new Error("Anilist anime payload is missing title");
-			}
-			const episodesValue = numberValue(media["episodes"]);
-			const statusValue = stringValue(media["status"]);
-			return {
-				name: title,
-				relatedEntityGroups: [
-					{
-						direction: "incoming" as const,
-						synchronization: "additive" as const,
-						relationshipSchemaSlug: "company-to-anime",
-						entities: collectStudios(media["studios"]),
-					},
-					{
-						direction: "outgoing" as const,
-						synchronization: "authoritative" as const,
-						relationshipSchemaSlug: "media-suggestion",
-						entities: collectSuggestions(media["recommendations"], titleLanguage),
-					},
-				],
-				properties: {
-					providerRating: numberValue(media["averageScore"]),
-					publishYear: parsePublishYear(media["startDate"]),
-					description: cleanHtmlDescription(media["description"]),
-					genres: collectGenres(media["genres"], media["tags"]),
-					productionStatus: statusValue ? toTitleCase(statusValue) : null,
-					isNsfw: typeof media["isAdult"] === "boolean" ? media["isAdult"] : null,
-					images: collectImages(media["coverImage"], media["bannerImage"]),
-					episodes: episodesValue === null ? null : Math.max(0, Math.trunc(episodesValue)),
-					sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
-					airingSchedule: parseAiringSchedule(media["airingSchedule"], media["nextAiringEpisode"]),
+	return Effect.gen(function* () {
+		const mediaId = yield* Effect.try({
+			try: () => parseAnilistId(input.externalId, "media"),
+			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+		});
+		const data = yield* anilistGraphql(host, "anime details", MEDIA_DETAILS_QUERY, { id: mediaId });
+		const media = yield* Effect.try({
+			try: () => requireAnilistMedia(data, "ANIME"),
+			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+		});
+		const idValue = numberValue(media["id"]);
+		const payloadIdentifier = idValue === null ? input.externalId : String(Math.trunc(idValue));
+		const title = pickAnilistTitle(media["title"], titleLanguage);
+		if (!title) {
+			return yield* Effect.fail({ message: "Anilist anime payload is missing title" });
+		}
+		const episodesValue = numberValue(media["episodes"]);
+		const statusValue = stringValue(media["status"]);
+		return {
+			name: title,
+			relatedEntityGroups: [
+				{
+					direction: "incoming" as const,
+					synchronization: "additive" as const,
+					relationshipSchemaSlug: "company-to-anime",
+					entities: collectStudios(media["studios"]),
 				},
-			};
-		},
-	);
+				{
+					direction: "outgoing" as const,
+					synchronization: "authoritative" as const,
+					relationshipSchemaSlug: "media-suggestion",
+					entities: collectSuggestions(media["recommendations"], titleLanguage),
+				},
+			],
+			properties: {
+				providerRating: numberValue(media["averageScore"]),
+				publishYear: parsePublishYear(media["startDate"]),
+				description: cleanHtmlDescription(media["description"]),
+				genres: collectGenres(media["genres"], media["tags"]),
+				productionStatus: statusValue ? toTitleCase(statusValue) : null,
+				isNsfw: typeof media["isAdult"] === "boolean" ? media["isAdult"] : null,
+				images: collectImages(media["coverImage"], media["bannerImage"]),
+				episodes: episodesValue === null ? null : Math.max(0, Math.trunc(episodesValue)),
+				sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
+				airingSchedule: parseAiringSchedule(media["airingSchedule"], media["nextAiringEpisode"]),
+			},
+		};
+	});
 });
 
 export const translate = defineProviderDriver(manifest, "translate", (input, host) =>

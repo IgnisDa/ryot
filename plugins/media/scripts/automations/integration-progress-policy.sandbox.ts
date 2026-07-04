@@ -5,6 +5,7 @@ import {
 	type JsonValue,
 	type SandboxHost,
 } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 const SUBITEM_KEYS = ["animeEpisode", "mangaVolume", "mangaChapter"] as const;
 const DEFAULT_THRESHOLD_SECONDS = 7200;
@@ -81,44 +82,44 @@ const sortLatestFirst = (left: EventRecord, right: EventRecord) => {
 };
 
 const getThresholdSeconds = (host: AutomationHost) =>
-	host.getAppConfigValue("server.progressUpdateThresholdHours").then((result) => {
-		const hours = result.success ? toFiniteNumber(result.data) : null;
-		return hours !== null && hours > 0 ? Math.round(hours * 3600) : DEFAULT_THRESHOLD_SECONDS;
-	});
+	host.getAppConfigValue("server.progressUpdateThresholdHours").pipe(
+		Effect.map((value) => {
+			const hours = toFiniteNumber(value);
+			return hours !== null && hours > 0 ? Math.round(hours * 3600) : DEFAULT_THRESHOLD_SECONDS;
+		}),
+	);
 
 const getMatchingEvents = (host: AutomationHost, draft: Draft, properties: Properties) =>
-	host.listEvents({ entityId: draft.entityId, eventSchemaSlug: "progress" }).then((result) => {
-		if (!result.success) {
-			return [];
-		}
-		return [...result.data]
-			.filter((event) => {
-				const eventProperties = jsonObject(event.properties);
-				return eventProperties !== null && hasSameIdentity(eventProperties, properties);
-			})
-			.sort(sortLatestFirst);
-	});
+	host.listEvents({ entityId: draft.entityId, eventSchemaSlug: "progress" }).pipe(
+		Effect.map((events) =>
+			[...events]
+				.filter((event) => {
+					const eventProperties = jsonObject(event.properties);
+					return eventProperties !== null && hasSameIdentity(eventProperties, properties);
+				})
+				.sort(sortLatestFirst),
+		),
+	);
 
 export default defineAutomationPolicy({
 	manifest,
 	run: ({ automation }, host) => {
 		if (automation.origin.kind !== "integration") {
-			return Promise.resolve({ action: "allow" });
+			return Effect.succeed({ action: "allow" } as const);
 		}
 
 		const draft = automation.source.draft;
 		const properties = draft.properties;
 		const parsedProgressPercent = parseProgressPercent(properties["progressPercent"]);
 		if (parsedProgressPercent === null) {
-			return Promise.resolve({ action: "skip", reason: "invalid_progress" });
+			return Effect.succeed({ action: "skip", reason: "invalid_progress" } as const);
 		}
+		const integrationId = automation.origin.integrationId;
 		let progressPercent: number = parsedProgressPercent;
-		return host.getIntegration(automation.origin.integrationId).then((integrationResult) => {
-			if (!integrationResult.success) {
-				return { action: "allow" } as const;
-			}
-			const minimumProgress = toFiniteNumber(integrationResult.data.minimumProgress) ?? 0;
-			const maximumProgress = toFiniteNumber(integrationResult.data.maximumProgress) ?? 100;
+		return Effect.gen(function* () {
+			const integration = yield* host.getIntegration(integrationId);
+			const minimumProgress = toFiniteNumber(integration.minimumProgress) ?? 0;
+			const maximumProgress = toFiniteNumber(integration.maximumProgress) ?? 100;
 			if (progressPercent < minimumProgress) {
 				return { action: "skip", reason: "below_minimum_progress" } as const;
 			}
@@ -129,55 +130,52 @@ export default defineAutomationPolicy({
 				replaced = true;
 			}
 
-			return getMatchingEvents(host, draft, properties).then((matchingEvents) => {
-				const latestProperties = matchingEvents[0]
-					? jsonObject(matchingEvents[0].properties)
-					: null;
-				if (
-					latestProperties &&
-					parseProgressPercent(latestProperties["progressPercent"]) === progressPercent
-				) {
-					return { action: "skip", reason: "duplicate_progress" } as const;
+			const matchingEvents = yield* getMatchingEvents(host, draft, properties);
+			const latestProperties = matchingEvents[0] ? jsonObject(matchingEvents[0].properties) : null;
+			if (
+				latestProperties &&
+				parseProgressPercent(latestProperties["progressPercent"]) === progressPercent
+			) {
+				return { action: "skip", reason: "duplicate_progress" } as const;
+			}
+
+			const checkCompletion = () => {
+				if (progressPercent < 100) {
+					return Effect.succeed(false);
 				}
-
-				const checkCompletion = () => {
-					if (progressPercent < 100) {
-						return Promise.resolve(false);
-					}
-					return getThresholdSeconds(host).then((thresholdSeconds) =>
-						host
-							.claimCachedValue(buildFingerprint(draft, properties), true, thresholdSeconds)
-							.then((claim) => {
-								if (!claim.success || claim.data.claimed) {
-									return false;
-								}
-								const recentCompletion = matchingEvents.find((event) => {
-									const eventProperties = jsonObject(event.properties);
-									return (
-										eventProperties !== null &&
-										parseProgressPercent(eventProperties["progressPercent"]) === 100
-									);
-								});
-								return recentCompletion
-									? Date.now() - eventTimestamp(recentCompletion.occurredAt) <=
-											thresholdSeconds * 1000
-									: false;
-							}),
+				return Effect.gen(function* () {
+					const thresholdSeconds = yield* getThresholdSeconds(host);
+					const claim = yield* host.claimCachedValue(
+						buildFingerprint(draft, properties),
+						true,
+						thresholdSeconds,
 					);
-				};
-
-				return checkCompletion().then((completedRecently) => {
-					if (completedRecently) {
-						return { action: "skip", reason: "completed_recently" } as const;
+					if (claim.claimed) {
+						return false;
 					}
-					return replaced
-						? {
-								action: "replace" as const,
-								body: { properties: { ...properties, progressPercent: 100 } },
-							}
-						: ({ action: "allow" } as const);
+					const recentCompletion = matchingEvents.find((event) => {
+						const eventProperties = jsonObject(event.properties);
+						return (
+							eventProperties !== null &&
+							parseProgressPercent(eventProperties["progressPercent"]) === 100
+						);
+					});
+					return recentCompletion
+						? Date.now() - eventTimestamp(recentCompletion.occurredAt) <= thresholdSeconds * 1000
+						: false;
 				});
-			});
+			};
+
+			const completedRecently = yield* checkCompletion();
+			if (completedRecently) {
+				return { action: "skip", reason: "completed_recently" } as const;
+			}
+			return replaced
+				? {
+						action: "replace" as const,
+						body: { properties: { ...properties, progressPercent: 100 } },
+					}
+				: ({ action: "allow" } as const);
 		});
 	},
 });

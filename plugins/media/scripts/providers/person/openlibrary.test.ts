@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,10 +8,7 @@ import { details, manifest } from "./openlibrary.sandbox";
 type OpenLibraryPersonHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: OpenLibraryPersonHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
@@ -31,26 +29,29 @@ describe("person.openlibrary sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "OL1A" }, host, execution).then((result) => {
-			expect(result.name).toBe("Author Name");
-			expect(result.properties).toEqual({
-				images: [],
-				birthDate: "1970",
-				deathDate: "2020",
-				description: "Bio.",
-				website: "https://a.example",
-				sourceUrl: "https://openlibrary.org/authors/OL1A",
-				alternateNames: ["A. Name", "Alt One", "Author Name"],
-			});
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "OL1A" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("Author Name");
+				expect(result.properties).toEqual({
+					images: [],
+					birthDate: "1970",
+					deathDate: "2020",
+					description: "Bio.",
+					website: "https://a.example",
+					sourceUrl: "https://openlibrary.org/authors/OL1A",
+					alternateNames: ["A. Name", "Alt One", "Author Name"],
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("throws when the author payload has no name", () => {
 		const host = makeHost(() => httpSuccess({ bio: "Bio." }));
 
 		return expect(
-			runSandboxTestDriver(details, { externalId: "OL1A" }, host, execution),
+			Effect.runPromise(runSandboxTestDriver(details, { externalId: "OL1A" }, host, execution)),
 		).rejects.toThrow("OpenLibrary author payload is missing name");
 	});
 });

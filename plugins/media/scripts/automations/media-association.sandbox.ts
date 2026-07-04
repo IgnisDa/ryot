@@ -1,5 +1,6 @@
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 import { defineManifest, type JsonValue } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -21,18 +22,18 @@ export default defineAutomation({
 	run: ({ automation }, host) => {
 		const source = automation.source;
 		if (source.kind !== "relationship" || automation.operation === "delete" || !source.after) {
-			return Promise.resolve(null);
+			return Effect.succeed(null);
 		}
 
 		const subject = source.after.source;
 		if (subject.entitySchemaSlug !== "person" && subject.entitySchemaSlug !== "company") {
-			return Promise.resolve(null);
+			return Effect.succeed(null);
 		}
 		if (
 			automation.population?.rootPreviouslyPopulated === false &&
 			automation.population.scopeEntity.id === subject.id
 		) {
-			return Promise.resolve(null);
+			return Effect.succeed(null);
 		}
 
 		const previousRoles = new Set(roles(source.before?.properties));
@@ -44,7 +45,7 @@ export default defineAutomation({
 			? "media-group"
 			: "media";
 
-		return Promise.all(
+		return Effect.all(
 			addedRoles.map((role) =>
 				host.emitSignal({
 					subjectEntityId: subject.id,
@@ -53,6 +54,7 @@ export default defineAutomation({
 					properties: { role, subjectName: subject.name, associatedName: associated.name },
 				}),
 			),
+			{ concurrency: "unbounded" },
 		);
 	},
 });

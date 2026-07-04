@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, stringValue } from "../../script-helpers/records";
@@ -65,41 +66,43 @@ export const search = defineProviderDriver(manifest, "search", (input, host) =>
 			offset: String((input.page - 1) * input.pageSize),
 		},
 		"GiantBomb person search request failed",
-	).then((payload) => {
-		const items = readResults(payload).flatMap((person) => {
-			const record = asRecord(person);
-			if (!record) {
-				return [];
-			}
-			const guid = stringValue(record["guid"]);
-			if (!guid) {
-				const fallback = lastNonEmptySegment(record["api_detail_url"]);
-				if (!fallback || !GUID_PATTERN.test(fallback)) {
+	).pipe(
+		Effect.map((payload) => {
+			const items = readResults(payload).flatMap((person) => {
+				const record = asRecord(person);
+				if (!record) {
 					return [];
 				}
-			}
-			const name = stringValue(record["name"]);
-			if (!name) {
-				return [];
-			}
-			const externalId = guid ?? lastNonEmptySegment(record["api_detail_url"]) ?? "";
-			const birthYear = extractYear(record["birth_date"]);
-			return [
-				{
-					externalId,
-					calloutProperty: { kind: "null" as const, value: null },
-					titleProperty: { kind: "text" as const, value: name },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					imageProperty: imageProperty(getPrioritizedImage(record["image"])),
-					primarySubtitleProperty:
-						birthYear === null
-							? { kind: "null" as const, value: null }
-							: { kind: "number" as const, value: birthYear },
-				},
-			];
-		});
-		return { items, details: paginate(input.page, input.pageSize, readTotalItems(payload)) };
-	}),
+				const guid = stringValue(record["guid"]);
+				if (!guid) {
+					const fallback = lastNonEmptySegment(record["api_detail_url"]);
+					if (!fallback || !GUID_PATTERN.test(fallback)) {
+						return [];
+					}
+				}
+				const name = stringValue(record["name"]);
+				if (!name) {
+					return [];
+				}
+				const externalId = guid ?? lastNonEmptySegment(record["api_detail_url"]) ?? "";
+				const birthYear = extractYear(record["birth_date"]);
+				return [
+					{
+						externalId,
+						calloutProperty: { kind: "null" as const, value: null },
+						titleProperty: { kind: "text" as const, value: name },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						imageProperty: imageProperty(getPrioritizedImage(record["image"])),
+						primarySubtitleProperty:
+							birthYear === null
+								? { kind: "null" as const, value: null }
+								: { kind: "number" as const, value: birthYear },
+					},
+				];
+			});
+			return { items, details: paginate(input.page, input.pageSize, readTotalItems(payload)) };
+		}),
+	),
 );
 
 const FIELD_LIST = [
@@ -148,46 +151,48 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 		`person/${encodeURIComponent(input.externalId)}/`,
 		{ field_list: FIELD_LIST },
 		"GiantBomb person details request failed",
-	).then((payload) => {
-		const person = asRecord(payload?.["results"]);
-		if (!person) {
-			throw new Error("GiantBomb returned no person data");
-		}
-		const name = stringValue(person["name"]);
-		if (!name) {
-			throw new Error("GiantBomb person payload is missing name");
-		}
+	).pipe(
+		Effect.map((payload) => {
+			const person = asRecord(payload?.["results"]);
+			if (!person) {
+				throw new Error("GiantBomb returned no person data");
+			}
+			const name = stringValue(person["name"]);
+			if (!name) {
+				throw new Error("GiantBomb person payload is missing name");
+			}
 
-		const primaryImage = getPrioritizedImage(person["image"]);
-		const hometown = stringValue(person["hometown"]);
+			const primaryImage = getPrioritizedImage(person["image"]);
+			const hometown = stringValue(person["hometown"]);
 
-		return {
-			name,
-			relatedEntityGroups: [
-				{
-					direction: "outgoing" as const,
-					synchronization: "authoritative" as const,
-					relationshipSchemaSlug: "person-to-video-game",
-					entities: collectRelated(person["games"], "video-game.giant-bomb"),
+			return {
+				name,
+				relatedEntityGroups: [
+					{
+						direction: "outgoing" as const,
+						synchronization: "authoritative" as const,
+						relationshipSchemaSlug: "person-to-video-game",
+						entities: collectRelated(person["games"], "video-game.giant-bomb"),
+					},
+					{
+						direction: "outgoing" as const,
+						synchronization: "authoritative" as const,
+						relationshipSchemaSlug: "person-to-video-game-group",
+						entities: collectRelated(person["franchises"], "video-game-group.giant-bomb"),
+					},
+				],
+				properties: {
+					alternateNames: [],
+					birthPlace: hometown,
+					deathDate: formatBirthDate(person["death_date"]),
+					sourceUrl: stringValue(person["site_detail_url"]),
+					birthDate: formatBirthDate(person["birth_date"] ?? person["date_of_birth"]),
+					images: primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [],
+					description: combineDescription(person["deck"], person["description"]),
 				},
-				{
-					direction: "outgoing" as const,
-					synchronization: "authoritative" as const,
-					relationshipSchemaSlug: "person-to-video-game-group",
-					entities: collectRelated(person["franchises"], "video-game-group.giant-bomb"),
-				},
-			],
-			properties: {
-				alternateNames: [],
-				birthPlace: hometown,
-				deathDate: formatBirthDate(person["death_date"]),
-				sourceUrl: stringValue(person["site_detail_url"]),
-				birthDate: formatBirthDate(person["birth_date"] ?? person["date_of_birth"]),
-				images: primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [],
-				description: combineDescription(person["deck"], person["description"]),
-			},
-		};
-	});
+			};
+		}),
+	);
 });
 
 export default defineProvider({ manifest, drivers: { search, details } });

@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, stringValue } from "../../script-helpers/records";
@@ -53,27 +54,29 @@ export const search = defineProviderDriver(manifest, "search", (input, host) =>
 			offset: String((input.page - 1) * input.pageSize),
 		},
 		"GiantBomb company search request failed",
-	).then((payload) => {
-		const items = readResults(payload).flatMap((company) => {
-			const record = asRecord(company);
-			const externalId = stringValue(record?.["guid"]);
-			const name = stringValue(record?.["name"]);
-			if (!externalId || !name) {
-				return [];
-			}
-			return [
-				{
-					externalId,
-					calloutProperty: { kind: "null" as const, value: null },
-					titleProperty: { kind: "text" as const, value: name },
-					primarySubtitleProperty: { kind: "null" as const, value: null },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					imageProperty: imageProperty(getPrioritizedImage(record?.["image"])),
-				},
-			];
-		});
-		return { items, details: paginate(input.page, input.pageSize, readTotalItems(payload)) };
-	}),
+	).pipe(
+		Effect.map((payload) => {
+			const items = readResults(payload).flatMap((company) => {
+				const record = asRecord(company);
+				const externalId = stringValue(record?.["guid"]);
+				const name = stringValue(record?.["name"]);
+				if (!externalId || !name) {
+					return [];
+				}
+				return [
+					{
+						externalId,
+						calloutProperty: { kind: "null" as const, value: null },
+						titleProperty: { kind: "text" as const, value: name },
+						primarySubtitleProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						imageProperty: imageProperty(getPrioritizedImage(record?.["image"])),
+					},
+				];
+			});
+			return { items, details: paginate(input.page, input.pageSize, readTotalItems(payload)) };
+		}),
+	),
 );
 
 const FIELD_LIST = [
@@ -107,74 +110,76 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 		`company/${encodeURIComponent(input.externalId)}/`,
 		{ field_list: FIELD_LIST },
 		"GiantBomb company details request failed",
-	).then((payload) => {
-		const company = asRecord(payload?.["results"]);
-		if (!company) {
-			throw new Error("GiantBomb returned no company data");
-		}
-		const name = stringValue(company["name"]);
-		if (!name) {
-			throw new Error("GiantBomb company payload is missing name");
-		}
-
-		const primaryImage = getPrioritizedImage(company["image"]);
-		const locationParts = [
-			stringValue(company["location_city"]),
-			stringValue(company["location_state"]),
-			stringValue(company["location_country"]),
-		].filter((part) => part !== null);
-		const headquarters = locationParts.length > 0 ? locationParts.join(", ") : null;
-
-		const aliases = company["aliases"];
-		const alternateNames =
-			typeof aliases === "string" && aliases.trim()
-				? aliases
-						.split("\n")
-						.map((alias) => alias.trim())
-						.filter((alias) => alias.length > 0)
-				: [];
-
-		const accumulator = createRoleAccumulator();
-		const addGames = (games: unknown, role: string) => {
-			for (const game of Array.isArray(games) ? games : []) {
-				const record = asRecord(game);
-				const externalId = getGameGuid(record);
-				const gameName = stringValue(record?.["name"]);
-				if (!externalId || !gameName) {
-					continue;
-				}
-				accumulator.add({
-					externalId,
-					name: gameName,
-					scriptSlug: "video-game.giant-bomb",
-					relationshipProperties: { roles: [role] },
-				});
+	).pipe(
+		Effect.map((payload) => {
+			const company = asRecord(payload?.["results"]);
+			if (!company) {
+				throw new Error("GiantBomb returned no company data");
 			}
-		};
-		addGames(company["developed_games"], "Developer");
-		addGames(company["published_games"], "Publisher");
+			const name = stringValue(company["name"]);
+			if (!name) {
+				throw new Error("GiantBomb company payload is missing name");
+			}
 
-		return {
-			name,
-			relatedEntityGroups: [
-				{
-					direction: "outgoing" as const,
-					synchronization: "authoritative" as const,
-					entities: accumulator.entities,
-					relationshipSchemaSlug: "company-to-video-game",
+			const primaryImage = getPrioritizedImage(company["image"]);
+			const locationParts = [
+				stringValue(company["location_city"]),
+				stringValue(company["location_state"]),
+				stringValue(company["location_country"]),
+			].filter((part) => part !== null);
+			const headquarters = locationParts.length > 0 ? locationParts.join(", ") : null;
+
+			const aliases = company["aliases"];
+			const alternateNames =
+				typeof aliases === "string" && aliases.trim()
+					? aliases
+							.split("\n")
+							.map((alias) => alias.trim())
+							.filter((alias) => alias.length > 0)
+					: [];
+
+			const accumulator = createRoleAccumulator();
+			const addGames = (games: unknown, role: string) => {
+				for (const game of Array.isArray(games) ? games : []) {
+					const record = asRecord(game);
+					const externalId = getGameGuid(record);
+					const gameName = stringValue(record?.["name"]);
+					if (!externalId || !gameName) {
+						continue;
+					}
+					accumulator.add({
+						externalId,
+						name: gameName,
+						scriptSlug: "video-game.giant-bomb",
+						relationshipProperties: { roles: [role] },
+					});
+				}
+			};
+			addGames(company["developed_games"], "Developer");
+			addGames(company["published_games"], "Publisher");
+
+			return {
+				name,
+				relatedEntityGroups: [
+					{
+						direction: "outgoing" as const,
+						synchronization: "authoritative" as const,
+						entities: accumulator.entities,
+						relationshipSchemaSlug: "company-to-video-game",
+					},
+				],
+				properties: {
+					headquarters,
+					alternateNames,
+					foundedYear: extractYear(company["date_founded"]),
+					website: stringValue(company["website"]),
+					sourceUrl: stringValue(company["site_detail_url"]),
+					images: primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [],
+					description: combineDescription(company["deck"], company["description"]),
 				},
-			],
-			properties: {
-				headquarters,
-				alternateNames,
-				foundedYear: extractYear(company["date_founded"]),
-				website: stringValue(company["website"]),
-				sourceUrl: stringValue(company["site_detail_url"]),
-				images: primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [],
-				description: combineDescription(company["deck"], company["description"]),
-			},
-		};
-	});
+			};
+		}),
+	);
 });
 
 export default defineProvider({ manifest, drivers: { search, details } });

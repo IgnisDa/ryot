@@ -174,8 +174,8 @@ async function seedSandboxScript(apiClient: APIClient, executingUserId: string) 
 	const value = `seed-script-${dayjs().valueOf()}`;
 	const source = `
 import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
-import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "provider",
@@ -187,9 +187,9 @@ export const manifest = defineManifest({
 });
 
 const main = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.literal(${JSON.stringify(value)}),
-  run: async () => ${JSON.stringify(value)} as const,
+  input: Schema.Struct({}),
+  output: Schema.Literal(${JSON.stringify(value)}),
+  run: () => Effect.succeed(${JSON.stringify(value)} as const),
 });
 
 export default defineProvider({ manifest, drivers: { main } });

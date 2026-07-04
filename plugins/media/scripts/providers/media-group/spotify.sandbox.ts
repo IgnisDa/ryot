@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../script-helpers/records";
@@ -20,52 +21,55 @@ export const search = defineProviderDriver(manifest, "search", (input, host) => 
 		q: input.query,
 		offset: String(offset),
 		limit: String(input.pageSize),
-	}).then((dataValue) => {
-		const albums = asRecord(asRecord(dataValue)?.["albums"]);
-		const totalItems = numberValue(albums?.["total"]) ?? 0;
-		const albumItems = Array.isArray(albums?.["items"]) ? albums["items"] : [];
-		const items = albumItems.flatMap((album) => {
-			const record = asRecord(album);
-			const id = stringValue(record?.["id"]);
-			const name = stringValue(record?.["name"]);
-			if (!id || !name) {
-				return [];
-			}
-			const parts = numberValue(record?.["total_tracks"]);
-			const imageUrl = getImagesSortedBySize(record?.["images"])[0] ?? null;
-			return [
-				{
-					externalId: id,
-					titleProperty: { kind: "text" as const, value: name },
-					calloutProperty: { kind: "null" as const, value: null },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					imageProperty:
-						imageUrl === null
-							? { kind: "null" as const, value: null }
-							: { kind: "image" as const, value: { type: "remote" as const, url: imageUrl } },
-					primarySubtitleProperty:
-						parts === null
-							? { kind: "null" as const, value: null }
-							: { kind: "number" as const, value: parts },
+	}).pipe(
+		Effect.map((dataValue) => {
+			const albums = asRecord(asRecord(dataValue)?.["albums"]);
+			const totalItems = numberValue(albums?.["total"]) ?? 0;
+			const albumItems = Array.isArray(albums?.["items"]) ? albums["items"] : [];
+			const items = albumItems.flatMap((album) => {
+				const record = asRecord(album);
+				const id = stringValue(record?.["id"]);
+				const name = stringValue(record?.["name"]);
+				if (!id || !name) {
+					return [];
+				}
+				const parts = numberValue(record?.["total_tracks"]);
+				const imageUrl = getImagesSortedBySize(record?.["images"])[0] ?? null;
+				return [
+					{
+						externalId: id,
+						titleProperty: { kind: "text" as const, value: name },
+						calloutProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						imageProperty:
+							imageUrl === null
+								? { kind: "null" as const, value: null }
+								: { kind: "image" as const, value: { type: "remote" as const, url: imageUrl } },
+						primarySubtitleProperty:
+							parts === null
+								? { kind: "null" as const, value: null }
+								: { kind: "number" as const, value: parts },
+					},
+				];
+			});
+			return {
+				items,
+				details: {
+					totalItems,
+					nextPage: offset + albumItems.length < totalItems ? input.page + 1 : null,
 				},
-			];
-		});
-		return {
-			items,
-			details: {
-				totalItems,
-				nextPage: offset + albumItems.length < totalItems ? input.page + 1 : null,
-			},
-		};
-	});
+			};
+		}),
+	);
 });
 
 export const details = defineProviderDriver(manifest, "details", (input, host) =>
-	spotifyGet(host, `/albums/${encodeURIComponent(input.externalId)}`).then((albumValue) => {
+	Effect.gen(function* () {
+		const albumValue = yield* spotifyGet(host, `/albums/${encodeURIComponent(input.externalId)}`);
 		const album = asRecord(albumValue);
 		const title = stringValue(album?.["name"]);
 		if (!title) {
-			throw new Error("Spotify album is missing name");
+			return yield* Effect.fail(new Error("Spotify album is missing name"));
 		}
 
 		const parts = numberValue(album?.["total_tracks"]);

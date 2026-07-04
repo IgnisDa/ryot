@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../../script-helpers/records";
@@ -70,60 +71,63 @@ export const search = defineProviderDriver(manifest, "search", (input, host) =>
 			filters: ["search", "=", input.query],
 		},
 		"VNDB VN search request failed",
-	).then((payload) => {
-		const items = readResults(payload).flatMap((vn) => {
-			const record = asRecord(vn);
-			const externalId = stringValue(record?.["id"]);
-			const name = stringValue(record?.["title"]);
-			if (!externalId || !name) {
-				return [];
-			}
-			const image = imageUrl(record?.["image"]);
-			const publishYear = extractYear(record?.["released"]);
-			return [
-				{
-					externalId,
-					calloutProperty: { kind: "null" as const, value: null },
-					titleProperty: { kind: "text" as const, value: name },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					primarySubtitleProperty:
-						publishYear === null
-							? { kind: "null" as const, value: null }
-							: { kind: "number" as const, value: publishYear },
-					imageProperty: image
-						? { kind: "image" as const, value: { type: "remote" as const, url: image } }
-						: { kind: "null" as const, value: null },
+	).pipe(
+		Effect.map((payload) => {
+			const items = readResults(payload).flatMap((vn) => {
+				const record = asRecord(vn);
+				const externalId = stringValue(record?.["id"]);
+				const name = stringValue(record?.["title"]);
+				if (!externalId || !name) {
+					return [];
+				}
+				const image = imageUrl(record?.["image"]);
+				const publishYear = extractYear(record?.["released"]);
+				return [
+					{
+						externalId,
+						calloutProperty: { kind: "null" as const, value: null },
+						titleProperty: { kind: "text" as const, value: name },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						primarySubtitleProperty:
+							publishYear === null
+								? { kind: "null" as const, value: null }
+								: { kind: "number" as const, value: publishYear },
+						imageProperty: image
+							? { kind: "image" as const, value: { type: "remote" as const, url: image } }
+							: { kind: "null" as const, value: null },
+					},
+				];
+			});
+			return {
+				items,
+				details: {
+					totalItems: readTotalItems(payload),
+					nextPage: readNextPage(payload, input.page),
 				},
-			];
-		});
-		return {
-			items,
-			details: {
-				totalItems: readTotalItems(payload),
-				nextPage: readNextPage(payload, input.page),
-			},
-		};
-	}),
+			};
+		}),
+	),
 );
 
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
 	if (!/^v\d+$/.test(input.externalId)) {
-		throw new Error("externalId must be a VNDB VN ID (e.g., 'v17')");
+		return Effect.fail(new Error("externalId must be a VNDB VN ID (e.g., 'v17')"));
 	}
-	return vndbPost(
-		host,
-		"vn",
-		{ fields: DETAIL_FIELDS, filters: ["id", "=", input.externalId] },
-		"VNDB VN details request failed",
-	).then((payload) => {
+	return Effect.gen(function* () {
+		const payload = yield* vndbPost(
+			host,
+			"vn",
+			{ fields: DETAIL_FIELDS, filters: ["id", "=", input.externalId] },
+			"VNDB VN details request failed",
+		);
 		const [first] = readResults(payload);
 		const vn = asRecord(first);
 		if (!vn) {
-			throw new Error("VNDB returned no data for this externalId");
+			return yield* Effect.fail(new Error("VNDB returned no data for this externalId"));
 		}
 		const name = stringValue(vn["title"]);
 		if (!name) {
-			throw new Error("VNDB VN payload is missing title");
+			return yield* Effect.fail(new Error("VNDB VN payload is missing title"));
 		}
 
 		const images: Array<{ type: "remote"; url: string }> = [];

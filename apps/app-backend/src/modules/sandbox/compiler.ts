@@ -189,21 +189,23 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 							);
 						}
 
-						const manifest = sandboxManifestSchema.safeParse(response.value.manifest);
-						if (!manifest.success) {
-							return Effect.fail(
+						return Schema.decodeUnknown(sandboxManifestSchema)(response.value.manifest).pipe(
+							Effect.mapError(() =>
 								processFailure(
 									"RYOT_COMPILER_PROCESS",
 									"Sandbox compiler process returned an invalid manifest",
 								),
-							);
-						}
-						return Effect.succeed({
-							manifest: manifest.data,
-							format: response.value.format,
-							javascript: response.value.javascript,
-							driverNames: response.value.driverNames,
-						} satisfies CompiledSandboxModule);
+							),
+							Effect.map(
+								(manifest) =>
+									({
+										manifest,
+										format: response.value.format,
+										javascript: response.value.javascript,
+										driverNames: response.value.driverNames,
+									}) satisfies CompiledSandboxModule,
+							),
+						);
 					}),
 				),
 			);

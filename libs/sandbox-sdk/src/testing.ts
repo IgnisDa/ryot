@@ -47,6 +47,5 @@ export const runSandboxTestDriver = <
 	return Schema.decodeUnknown(driver.input)(input).pipe(
 		Effect.flatMap((parsedInput) => driver.run(parsedInput, host, execution)),
 		Effect.flatMap(Schema.decodeUnknown(driver.output)),
-		Effect.runPromise,
 	);
 };

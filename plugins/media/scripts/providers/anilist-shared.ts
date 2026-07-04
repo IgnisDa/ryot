@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,
@@ -46,17 +47,17 @@ export const anilistGraphql = (
 			body: JSON.stringify({ query, variables }),
 			headers: { Accept: "application/json", "Content-Type": "application/json" },
 		})
-		.then((response) => {
-			if (!response.success) {
-				throw new Error(response.error || `Anilist ${label} request failed`);
-			}
-			const payload = asRecord(parseJsonResponse(response.data.body, "Anilist"));
-			const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
-			if (graphQlErrorMessage) {
-				throw new Error(`Anilist ${label} GraphQL error: ${graphQlErrorMessage}`);
-			}
-			return asRecord(payload?.["data"]);
-		});
+		.pipe(
+			Effect.mapError((error) => new Error(error.message || `Anilist ${label} request failed`)),
+			Effect.map((response) => {
+				const payload = asRecord(parseJsonResponse(response.body, "Anilist"));
+				const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
+				if (graphQlErrorMessage) {
+					throw new Error(`Anilist ${label} GraphQL error: ${graphQlErrorMessage}`);
+				}
+				return asRecord(payload?.["data"]);
+			}),
+		);
 
 export const normalizeAnilistTitleLanguage = (language: unknown): AnilistTitleLanguage | null => {
 	const normalized = typeof language === "string" ? language.trim().toLowerCase() : "";
@@ -228,9 +229,9 @@ export const searchAnilistMedia = (
 	host: AnilistUserHost,
 	input: ProviderSearchInput,
 	options: { readonly type: AnilistMediaType; readonly label: string },
-): Promise<ProviderSearchResult> =>
-	getUserIsNsfw(host)
-		.then((showNsfw) =>
+): Effect.Effect<ProviderSearchResult, unknown> =>
+	getUserIsNsfw(host).pipe(
+		Effect.flatMap((showNsfw) =>
 			anilistGraphql(host, `${options.label} search`, MEDIA_SEARCH_QUERY, {
 				type: options.type,
 				search: input.query,
@@ -239,8 +240,8 @@ export const searchAnilistMedia = (
 				// null = no isAdult filter (all content); false = non-adult only
 				isAdult: showNsfw ? null : false,
 			}),
-		)
-		.then((data) => {
+		),
+		Effect.map((data) => {
 			const pageData = asRecord(data?.["Page"]);
 			if (!pageData) {
 				throw new Error("Anilist returned invalid response structure");
@@ -288,7 +289,8 @@ export const searchAnilistMedia = (
 					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
 				},
 			};
-		});
+		}),
+	);
 
 const MEDIA_TRANSLATION_QUERY = `
 query MediaTranslationQuery($id: Int!) {
@@ -304,17 +306,19 @@ export const translateAnilistMedia = (
 	host: AnilistHost,
 	input: ProviderTranslateInput,
 	options: { readonly type: AnilistMediaType; readonly label: string },
-): Promise<ProviderTranslateResult> => {
+): Effect.Effect<ProviderTranslateResult, unknown> => {
 	const titleLanguage = bcp47ToAnilistMode(input.language);
 	if (!titleLanguage) {
-		return Promise.resolve({});
+		return Effect.succeed({});
 	}
 	const mediaId = parseAnilistId(input.externalId, "media");
 	return anilistGraphql(host, `${options.label} translation`, MEDIA_TRANSLATION_QUERY, {
 		id: mediaId,
-	}).then((data) => {
-		const media = requireAnilistMedia(data, options.type);
-		const name = pickRequestedAnilistTitle(media["title"], titleLanguage);
-		return name ? { name } : {};
-	});
+	}).pipe(
+		Effect.map((data) => {
+			const media = requireAnilistMedia(data, options.type);
+			const name = pickRequestedAnilistTitle(media["title"], titleLanguage);
+			return name ? { name } : {};
+		}),
+	);
 };
