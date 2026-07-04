@@ -148,7 +148,7 @@ describe("POST /entity-import — provider entity import", () => {
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.entityImport.getImportResult({ path: { jobId: crypto.randomUUID() } }),
+					c.entityImport.getImportResult({ params: { jobId: crypto.randomUUID() } }),
 				),
 			);
 

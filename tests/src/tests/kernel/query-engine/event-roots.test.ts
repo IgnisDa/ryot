@@ -87,7 +87,7 @@ describe("Event roots and first expressions", () => {
 			expect(requireQueryEngineFieldValue(latest, "occurredAt").kind).toBe("date");
 			expect(
 				DateTime.formatIso(
-					DateTime.unsafeMake(String(requireQueryEngineFieldValue(latest, "occurredAt").value)),
+					DateTime.makeUnsafe(String(requireQueryEngineFieldValue(latest, "occurredAt").value)),
 				),
 			).toBe("2026-02-01T00:00:00.000Z");
 			expect(requireQueryEngineFieldValue(latest, "notes").value).toBe("latest completion");
@@ -166,7 +166,7 @@ describe("Event roots and first expressions", () => {
 			assertPresent(lessonB, "Expected Lesson B row");
 			expect(
 				DateTime.formatIso(
-					DateTime.unsafeMake(
+					DateTime.makeUnsafe(
 						String(requireQueryEngineFieldValue(lessonA, "latestCompletionAt").value),
 					),
 				),

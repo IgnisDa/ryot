@@ -30,7 +30,7 @@ const unique = () => randomUUID();
 const getUserIdByEmail = (email: string) =>
 	Effect.gen(function* () {
 		const data = yield* getBackendClient().call(
-			(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+			(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
 		const user = data.users[0];
@@ -66,7 +66,7 @@ describe("Reset user admin token enforcement", () => {
 		Effect.gen(function* () {
 			const client = getBackendClient();
 			const error = yield* Effect.flip(
-				client.call((c) => c.godMode.resetUser({ path: { userId: UserId.make("any-id") } })),
+				client.call((c) => c.godMode.resetUser({ params: { userId: UserId.make("any-id") } })),
 			);
 			assertTaggedError(error, "Unauthorized");
 		}),
@@ -77,7 +77,7 @@ describe("Reset user admin token enforcement", () => {
 			const client = getBackendClient();
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.godMode.resetUser({ path: { userId: UserId.make("any-id") } }),
+					(c) => c.godMode.resetUser({ params: { userId: UserId.make("any-id") } }),
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
@@ -90,7 +90,7 @@ describe("Reset user admin token enforcement", () => {
 			const client = getBackendClient();
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.godMode.resetUser({ path: { userId: UserId.make(`missing-${unique()}`) } }),
+					(c) => c.godMode.resetUser({ params: { userId: UserId.make(`missing-${unique()}`) } }),
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
 			);
@@ -113,10 +113,10 @@ describe("Reset user for credential user", () => {
 			const apiKey = yield* createApiKey(cookies);
 
 			// Both auth methods work before the reset.
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				Cookie: cookies,
 			});
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				"X-Api-Key": apiKey,
 			});
 
@@ -127,7 +127,7 @@ describe("Reset user for credential user", () => {
 			expect(configuredWorkspace.config).toEqual({ fixture: true });
 
 			const resetData = yield* client.call(
-				(c) => c.godMode.resetUser({ path: { userId } }),
+				(c) => c.godMode.resetUser({ params: { userId } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(resetData.userId).toBe(userId);
@@ -136,14 +136,14 @@ describe("Reset user for credential user", () => {
 			expect(resetData.resetUrl).toMatch(/\/reset-password\?token=.+/);
 
 			const oldSession = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 					Cookie: cookies,
 				}),
 			);
 			assertTaggedError(oldSession, "Unauthorized");
 
 			const oldApiKey = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 					"X-Api-Key": apiKey,
 				}),
 			);
@@ -165,7 +165,7 @@ describe("Reset user for credential user", () => {
 			assertPresent(signInRes.cookies, "expected cookies after sign-in");
 
 			const workspaces = yield* client.call(
-				(c) => c.definitions.listWorkspaces({ urlParams: { includeDisabled: true } }),
+				(c) => c.definitions.listWorkspaces({ query: { includeDisabled: true } }),
 				{ Cookie: signInRes.cookies },
 			);
 			expect(workspaces.some((candidate) => candidate.slug === "media")).toBe(true);
@@ -183,7 +183,7 @@ describe("Reset user for no-account user", () => {
 			const { email, userId } = yield* createNoAccountUser("ResetNone");
 
 			const resetData = yield* client.call(
-				(c) => c.godMode.resetUser({ path: { userId } }),
+				(c) => c.godMode.resetUser({ params: { userId } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(resetData.email).toBe(email);
@@ -204,7 +204,7 @@ describe("Reset user for no-account user", () => {
 			expect(signInRes.error).toBeNull();
 
 			const listData = yield* client.call(
-				(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(listData.users[0]?.authState).toBe("credential");
@@ -219,14 +219,14 @@ describe("Reset user for OIDC user", () => {
 			const { email, userId } = yield* createOidcUser("ResetOidc");
 
 			const resetData = yield* client.call(
-				(c) => c.godMode.resetUser({ path: { userId } }),
+				(c) => c.godMode.resetUser({ params: { userId } }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(resetData.email).toBe(email);
 			expect(resetData.resetUrl).toBeNull();
 
 			const listData = yield* client.call(
-				(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),
+				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(listData.users[0]?.authState).toBe("oidc");
@@ -255,7 +255,7 @@ describe("Reset user for mixed-auth user", () => {
 
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.godMode.resetUser({ path: { userId } }),
+					(c) => c.godMode.resetUser({ params: { userId } }),
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
 			);
@@ -263,7 +263,7 @@ describe("Reset user for mixed-auth user", () => {
 			expect(error.message).toMatch(/mixed/i);
 
 			// The reset is rejected before any mutation, so the pre-existing session keeps working.
-			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
 				Cookie: cookies,
 			});
 		}),
