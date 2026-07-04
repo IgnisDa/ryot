@@ -392,6 +392,29 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							eq(schema.plugin.scope, input.scope),
 							eq(schema.plugin.status, "active"),
 							eq(schema.plugin.sourceHash, input.sourceHash),
+							or(
+								and(
+									isNull(schema.plugin.clientArtifactHash),
+									sql`not (${schema.plugin.manifest} ? 'client')`,
+								),
+								exists(
+									db
+										.select({ hash: schema.pluginClientArtifact.hash })
+										.from(schema.pluginClientArtifact)
+										.where(
+											and(
+												eq(schema.pluginClientArtifact.hash, schema.plugin.clientArtifactHash),
+												eq(schema.pluginClientArtifact.format, CLIENT_ARTIFACT_FORMAT),
+												eq(schema.pluginClientArtifact.apiVersion, CLIENT_API_VERSION),
+												eq(
+													schema.pluginClientArtifact.bridgeVersion,
+													CLIENT_BRIDGE_PROTOCOL_VERSION,
+												),
+												eq(schema.pluginClientArtifact.compilerVersion, CLIENT_COMPILER_VERSION),
+											),
+										),
+								),
+							),
 							input.ownerId === null
 								? isNull(schema.plugin.ownerId)
 								: eq(schema.plugin.ownerId, input.ownerId),

@@ -34,8 +34,8 @@ which is why `clientBaseStylesheet` must not redefine them.
 `@ryot-app/client-ui-sdk/palette.css` is inlined after `theme.css` so a plugin document carries real
 token values instead of receiving them over the bridge. It is unlayered, so it outranks the layered
 base rules, and the plugin's own stylesheet is emitted before it. Palette values are therefore baked
-into an artifact: changing one means bumping `CLIENT_COMPILER_VERSION` so installed plugins are
-recompiled.
+into an artifact, so changed values require deliberately compiled current artifacts. The current
+`CLIENT_COMPILER_VERSION` remains exactly 1.
 
 Tailwind scans this package's own `.ts`/`.tsx` sources as well as `@ryot-app/client-ui-sdk`, so a
 class that only ever appears in SDK source still reaches a plugin's stylesheet.
@@ -45,3 +45,9 @@ class that only ever appears in SDK source still reaches a plugin's stylesheet.
 `index.html` is emitted last and excluded from the artifact hash it carries; the hash covers
 `plugin.js`, `plugin.css`, and assets only. Format, versions, and hash are embedded by the compiler
 and can never be declared or overridden by plugin source.
+
+The current constants are bridge protocol 1 and `CLIENT_COMPILER_VERSION = 1`. Cache reuse does not
+follow the compiler number alone: the server reuses a client artifact only when its artifact format,
+client API, bridge protocol, and compiler metadata all match the current constants. Otherwise it
+compiles the client source and records the resulting immutable artifact. This is the current cache
+rule; there is no alternate metadata acceptance or stale-artifact fallback.
