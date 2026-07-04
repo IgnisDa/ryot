@@ -11,6 +11,14 @@ export type CompiledSandboxModule = {
 	readonly format: typeof SANDBOX_COMPILED_FORMAT;
 };
 
+export const CompilerWorkerRequest = Schema.Struct({
+	source: Schema.String,
+	workspaceJobId: Schema.String,
+	workspaceParentPath: Schema.String,
+});
+
+export type CompilerWorkerRequest = Schema.Schema.Type<typeof CompilerWorkerRequest>;
+
 const CompilerWorkerSuccess = Schema.Struct({
 	success: Schema.Literal(true),
 	value: Schema.Struct({

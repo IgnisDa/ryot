@@ -1,3 +1,4 @@
+import type { CompilerWorkspaceOptions } from "@ryot-app/vite-compiler";
 import { Effect } from "effect";
 import { DiagnosticCategory } from "typescript/unstable/async";
 
@@ -15,7 +16,7 @@ import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-
 import { inspectSandboxSource, sandboxDefinitionMismatch } from "./compiler-source";
 import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
-export const compileSandboxSource = (source: string) =>
+export const compileSandboxSource = (source: string, workspaceOptions?: CompilerWorkspaceOptions) =>
 	Effect.gen(function* () {
 		if (utf8ByteLength(source) > SANDBOX_COMPILER_LIMITS.sourceBytes) {
 			return yield* sandboxCompilationFailure([
@@ -82,8 +83,8 @@ export const compileSandboxSource = (source: string) =>
 			]);
 		}
 
-		const bundled = yield* bundleUserScript(source, dependencies.sdkEntries);
-		if ("diagnostics" in bundled) {
+		const bundled = yield* bundleUserScript(source, dependencies.sdkEntries, workspaceOptions);
+		if (!bundled.success) {
 			return yield* sandboxCompilationFailure(bundled.diagnostics);
 		}
 		if (utf8ByteLength(bundled.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
