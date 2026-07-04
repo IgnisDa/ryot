@@ -1,7 +1,7 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { PluginSlug } from "@ryot/contract/schema/brands";
 import type { PluginCron } from "@ryot/plugin-kit/manifest";
-import { Clock, Cron, Duration, Effect, Either, Layer } from "effect";
+import { Clock, Context, Cron, Duration, Effect, Result, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -28,8 +28,8 @@ export const pluginCronExecutionId = (
 	scheduledAt: number | string,
 ) => `plugin-cron-${pluginSlug.length}-${pluginSlug}-${cronSlug.length}-${cronSlug}-${scheduledAt}`;
 
-export class PluginCronService extends Effect.Service<PluginCronService>()("PluginCronService", {
-	effect: Effect.gen(function* () {
+export class PluginCronService extends Context.Service<PluginCronService>()("PluginCronService", {
+	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const runWithDb = yield* DbRunner;
 		const loader = yield* PluginLoader;
@@ -92,7 +92,7 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 				entries,
 				([entry, executionId]) =>
 					dispatch(entry, executionId).pipe(
-						Effect.catchAllCause((cause) =>
+						Effect.catchCause((cause) =>
 							Effect.logError("plugin cron dispatch failed", cause).pipe(
 								Effect.annotateLogs({
 									executionId,
@@ -114,7 +114,7 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 								? entry.cron.schedule.cron
 								: config.scheduler.infrequentCronJobsSchedule;
 						const parsed = Cron.parse(schedule, config.timezone);
-						if (Either.isLeft(parsed)) {
+						if (Result.isFailure(parsed)) {
 							yield* Effect.logWarning("plugin cron schedule invalid").pipe(
 								Effect.annotateLogs({
 									schedule,
@@ -124,7 +124,7 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 							);
 							return [];
 						}
-						const dueAt = Cron.next(parsed.right, scheduledAt - MINUTE_MS).getTime();
+						const dueAt = Cron.next(parsed.success, scheduledAt - MINUTE_MS).getTime();
 						return dueAt === scheduledAt
 							? [
 									[
@@ -159,9 +159,11 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 
 		return { trigger, dispatchDue };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
-export const PluginCronSchedulerLive = Layer.scopedDiscard(
+export const PluginCronSchedulerLive = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
 		if (config.scheduler.disableDispatchers) {
