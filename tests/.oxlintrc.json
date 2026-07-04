@@ -1,0 +1,30 @@
+{
+	"$schema": "../node_modules/oxlint/configuration_schema.json",
+	"extends": ["../.oxlintrc.json"],
+	"overrides": [
+		{
+			"files": ["src/tests/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "vitest",
+								"message": "Import the runner surface from ~/support/effect-test."
+							},
+							{
+								"name": "bun:test",
+								"message": "bun:test is removed; import from ~/support/effect-test."
+							},
+							{
+								"name": "@effect/vitest",
+								"message": "Import the runner surface from ~/support/effect-test."
+							}
+						]
+					}
+				]
+			}
+		}
+	]
+}

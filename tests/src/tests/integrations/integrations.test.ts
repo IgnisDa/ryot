@@ -1,6 +1,5 @@
-import { describe, expect, it } from "bun:test";
-
 import { ImportRunId, IntegrationId } from "@ryot/contract/schema/brands";
+import { Effect } from "effect";
 
 import {
 	createAudiobookshelfIntegration,
@@ -20,428 +19,500 @@ import {
 	waitForEventSlugs,
 	waitForEventWithSchema,
 } from "~/fixtures";
-import { getBackendUrl } from "~/setup";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
+import { getBackendUrl } from "~/support/backend";
+import { describe, expect, it } from "~/support/effect-test";
 
 const kodiPayload = { identifier: "tt1234567", lot: "movie", progress: 50 };
 
 describe("Integration CRUD", () => {
-	it("creates with correct defaults", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client);
-		const integration = await getIntegration(client, id);
+	it.live("creates with correct defaults", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { id } = yield* createKodiIntegration(client);
+			const integration = yield* getIntegration(client, id);
 
-		expect(integration.isDisabled).toBe(false);
-		expect(integration.syncOwnership).toBe(false);
-		expect(integration.minimumProgress).toBe(2);
-		expect(integration.maximumProgress).toBe(95);
-		expect(integration.extraSettings.disableOnContinuousErrors).toBe(false);
-	});
+			expect(integration.isDisabled).toBe(false);
+			expect(integration.syncOwnership).toBe(false);
+			expect(integration.minimumProgress).toBe(2);
+			expect(integration.maximumProgress).toBe(95);
+			expect(integration.extraSettings.disableOnContinuousErrors).toBe(false);
+		}),
+	);
 
-	it("rejects minimumProgress > maximumProgress", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("rejects minimumProgress > maximumProgress", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const error = await client.runError((c) =>
-			c.integrations.create({
-				payload: {
-					provider: "kodi",
-					minimumProgress: 80,
-					maximumProgress: 20,
-					providerSpecifics: { kind: "kodi" },
-				},
-			}),
-		);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.integrations.create({
+						payload: {
+							provider: "kodi",
+							minimumProgress: 80,
+							maximumProgress: 20,
+							providerSpecifics: { kind: "kodi" },
+						},
+					}),
+				),
+			);
 
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("minimumProgress");
-	});
+			assertTaggedError(error, "BadRequest");
+			expect(error.message).toContain("minimumProgress");
+		}),
+	);
 
-	it("rejects provider !== providerSpecifics.kind", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("rejects provider !== providerSpecifics.kind", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const error = await client.runError((c) =>
-			c.integrations.create({
-				payload: { provider: "emby", providerSpecifics: { kind: "kodi" } },
-			}),
-		);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.integrations.create({
+						payload: { provider: "emby", providerSpecifics: { kind: "kodi" } },
+					}),
+				),
+			);
 
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("provider");
-	});
+			assertTaggedError(error, "BadRequest");
+			expect(error.message).toContain("provider");
+		}),
+	);
 
-	it("GET list returns only the authenticated user's integrations", async () => {
-		const { client: clientA } = await createAuthenticatedClient();
-		const { client: clientB } = await createAuthenticatedClient();
+	it.live("GET list returns only the authenticated user's integrations", () =>
+		Effect.gen(function* () {
+			const { client: clientA } = yield* createAuthenticatedClient();
+			const { client: clientB } = yield* createAuthenticatedClient();
 
-		const { id: idA } = await createKodiIntegration(clientA);
-		await createKodiIntegration(clientB);
+			const { id: idA } = yield* createKodiIntegration(clientA);
+			yield* createKodiIntegration(clientB);
 
-		const integrationsA = await listIntegrations(clientA);
-		const ids = integrationsA.map((i) => i.id);
+			const integrationsA = yield* listIntegrations(clientA);
+			const ids = integrationsA.map((i) => i.id);
 
-		expect(ids).toContain(IntegrationId.make(idA));
-		expect(ids).toHaveLength(1);
-	});
+			expect(ids).toContain(IntegrationId.make(idA));
+			expect(ids).toHaveLength(1);
+		}),
+	);
 
-	it("GET list filters by provider", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("GET list filters by provider", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		await createKodiIntegration(client);
-		await createAudiobookshelfIntegration(client);
+			yield* createKodiIntegration(client);
+			yield* createAudiobookshelfIntegration(client);
 
-		const filtered = await listIntegrations(client, { provider: "kodi" });
-		expect(filtered).toHaveLength(1);
-		expect(requirePresent(filtered[0], "Expected filtered integration").provider).toBe("kodi");
-	});
+			const filtered = yield* listIntegrations(client, { provider: "kodi" });
+			expect(filtered).toHaveLength(1);
+			expect(requirePresent(filtered[0], "Expected filtered integration").provider).toBe("kodi");
+		}),
+	);
 
-	it("GET list filters by isDisabled", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("GET list filters by isDisabled", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const { id } = await createKodiIntegration(client);
-		await client.run((c) =>
-			c.integrations.update({
-				payload: { isDisabled: true },
-				path: { integrationId: IntegrationId.make(id) },
-			}),
-		);
+			const { id } = yield* createKodiIntegration(client);
+			yield* client.call((c) =>
+				c.integrations.update({
+					payload: { isDisabled: true },
+					path: { integrationId: IntegrationId.make(id) },
+				}),
+			);
 
-		await createKodiIntegration(client);
+			yield* createKodiIntegration(client);
 
-		const enabled = await listIntegrations(client, {
-			provider: "kodi",
-			isDisabled: false,
-		});
-		expect(enabled).toHaveLength(1);
-		expect(requirePresent(enabled[0], "Expected enabled integration").isDisabled).toBe(false);
-	});
+			const enabled = yield* listIntegrations(client, {
+				provider: "kodi",
+				isDisabled: false,
+			});
+			expect(enabled).toHaveLength(1);
+			expect(requirePresent(enabled[0], "Expected enabled integration").isDisabled).toBe(false);
+		}),
+	);
 
-	it("GET by id returns /_i webhookUrl for all Sink providers", async () => {
-		const { client } = await createAuthenticatedClient();
-		const integrations = [
-			await createKodiIntegration(client),
-			await createIntegration(client, {
-				provider: "emby",
-				providerSpecifics: { kind: "emby" },
-			}),
-			await createIntegration(client, {
-				provider: "plex_sink",
-				providerSpecifics: { kind: "plex_sink" },
-			}),
-			await createIntegration(client, {
-				provider: "generic_json",
-				providerSpecifics: { kind: "generic_json" },
-			}),
-			await createIntegration(client, {
-				provider: "jellyfin_sink",
-				providerSpecifics: { kind: "jellyfin_sink" },
-			}),
-			await createIntegration(client, {
-				provider: "ryot_browser_extension",
-				providerSpecifics: { kind: "ryot_browser_extension" },
-			}),
-		];
+	it.live("GET by id returns /_i webhookUrl for all Sink providers", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const integrations = [
+				yield* createKodiIntegration(client),
+				yield* createIntegration(client, {
+					provider: "emby",
+					providerSpecifics: { kind: "emby" },
+				}),
+				yield* createIntegration(client, {
+					provider: "plex_sink",
+					providerSpecifics: { kind: "plex_sink" },
+				}),
+				yield* createIntegration(client, {
+					provider: "generic_json",
+					providerSpecifics: { kind: "generic_json" },
+				}),
+				yield* createIntegration(client, {
+					provider: "jellyfin_sink",
+					providerSpecifics: { kind: "jellyfin_sink" },
+				}),
+				yield* createIntegration(client, {
+					provider: "ryot_browser_extension",
+					providerSpecifics: { kind: "ryot_browser_extension" },
+				}),
+			];
 
-		const createdIntegrations = await Promise.all(
-			integrations.map(async (created) => ({
-				created,
-				integration: await getIntegration(client, created.id),
-			})),
-		);
+			const createdIntegrations = yield* Effect.all(
+				integrations.map((created) =>
+					Effect.gen(function* () {
+						return {
+							created,
+							integration: yield* getIntegration(client, created.id),
+						};
+					}),
+				),
+			);
 
-		for (const { created, integration } of createdIntegrations) {
-			expect(integration.id).toBe(IntegrationId.make(created.id));
-			expect(integration.webhookUrl).toBeDefined();
-			expect(integration.webhookUrl).toContain(`/_i/${created.id}`);
-			expect(integration.webhookUrl).not.toContain("/api/webhooks/integrations/");
-		}
-	});
+			for (const { created, integration } of createdIntegrations) {
+				expect(integration.id).toBe(IntegrationId.make(created.id));
+				expect(integration.webhookUrl).toBeDefined();
+				expect(integration.webhookUrl).toContain(`/_i/${created.id}`);
+				expect(integration.webhookUrl).not.toContain("/api/webhooks/integrations/");
+			}
+		}),
+	);
 
-	it("GET by id returns no webhookUrl for Yank providers", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("GET by id returns no webhookUrl for Yank providers", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const { id } = await createAudiobookshelfIntegration(client);
-		const integration = await getIntegration(client, id);
+			const { id } = yield* createAudiobookshelfIntegration(client);
+			const integration = yield* getIntegration(client, id);
 
-		expect(integration.webhookUrl).toBeUndefined();
-	});
+			expect(integration.webhookUrl).toBeUndefined();
+		}),
+	);
 
-	it("PATCH updates name and preserves secret fields when omitted", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("PATCH updates name and preserves secret fields when omitted", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const { id } = await createAudiobookshelfIntegration(client);
+			const { id } = yield* createAudiobookshelfIntegration(client);
 
-		const data = await client.run((c) =>
-			c.integrations.update({
-				payload: { name: "My ABS" },
-				path: { integrationId: IntegrationId.make(id) },
-			}),
-		);
+			const data = yield* client.call((c) =>
+				c.integrations.update({
+					payload: { name: "My ABS" },
+					path: { integrationId: IntegrationId.make(id) },
+				}),
+			);
 
-		expect(data.name).toBe("My ABS");
+			expect(data.name).toBe("My ABS");
 
-		const integration = await getIntegration(client, id);
-		const specifics = integration.providerSpecifics;
-		expect(specifics.kind).toBe("audiobookshelf");
-		if (specifics.kind === "audiobookshelf") {
-			expect(specifics.token).toBe("test-token");
-			expect(specifics.baseUrl).toBe("https://abs.example.com");
-		}
-	});
+			const integration = yield* getIntegration(client, id);
+			const specifics = integration.providerSpecifics;
+			expect(specifics.kind).toBe("audiobookshelf");
+			if (specifics.kind === "audiobookshelf") {
+				expect(specifics.token).toBe("test-token");
+				expect(specifics.baseUrl).toBe("https://abs.example.com");
+			}
+		}),
+	);
 
-	it("PATCH rejects threshold violations on update", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("PATCH rejects threshold violations on update", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const { id } = await createKodiIntegration(client);
+			const { id } = yield* createKodiIntegration(client);
 
-		const error = await client.runError((c) =>
-			c.integrations.update({
-				path: { integrationId: IntegrationId.make(id) },
-				payload: { minimumProgress: 90, maximumProgress: 10 },
-			}),
-		);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.integrations.update({
+						path: { integrationId: IntegrationId.make(id) },
+						payload: { minimumProgress: 90, maximumProgress: 10 },
+					}),
+				),
+			);
 
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("minimumProgress");
-	});
+			assertTaggedError(error, "BadRequest");
+			expect(error.message).toContain("minimumProgress");
+		}),
+	);
 
-	it("DELETE removes the integration", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("DELETE removes the integration", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const { id } = await createKodiIntegration(client);
-		await deleteIntegration(client, id);
+			const { id } = yield* createKodiIntegration(client);
+			yield* deleteIntegration(client, id);
 
-		const error = await client.runError((c) =>
-			c.integrations.get({ path: { integrationId: IntegrationId.make(id) } }),
-		);
+			const error = yield* Effect.flip(
+				client.call((c) => c.integrations.get({ path: { integrationId: IntegrationId.make(id) } })),
+			);
 
-		assertTaggedError(error, "NotFound");
-	});
+			assertTaggedError(error, "NotFound");
+		}),
+	);
 });
 
 describe("Webhook routes", () => {
-	it("POST /api/webhooks/integrations/{unknownId} returns NotFound", async () => {
-		const { client } = await createAuthenticatedClient();
+	it.live("POST /api/webhooks/integrations/{unknownId} returns NotFound", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-		const error = await client.runError((c) =>
-			c.integrations.webhook({
-				payload: {},
-				path: { integrationId: IntegrationId.make("nonexistent-id-abc123") },
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.integrations.webhook({
+						payload: {},
+						path: { integrationId: IntegrationId.make("nonexistent-id-abc123") },
+					}),
+				),
+			);
+
+			assertTaggedError(error, "NotFound");
+		}),
+	);
+
+	it.live("POST /api/webhooks/integrations/{validKodiIntegrationId} creates a run", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { id } = yield* createKodiIntegration(client);
+
+			const data = yield* postIntegrationWebhook(client, id, kodiPayload);
+
+			expect(data.runId).toBeDefined();
+		}),
+	);
+
+	it.live("POST /_i/{validKodiIntegrationId} creates a run from a JSON payload", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { id } = yield* createKodiIntegration(client);
+			const backendRootUrl = getBackendUrl().replace(/\/api$/, "");
+
+			const response = yield* Effect.promise(() =>
+				fetch(`${backendRootUrl}/_i/${id}`, {
+					method: "POST",
+					body: JSON.stringify(kodiPayload),
+					headers: { "Content-Type": "application/json" },
+				}),
+			);
+			const data = requireObjectRecord(
+				yield* Effect.promise(() => response.json()),
+				"Expected webhook response",
+			);
+
+			expect(response.status).toBe(202);
+			expect(data.runId).toBeDefined();
+		}),
+	);
+
+	it.live(
+		"POST /api/webhooks/integrations/{validKodiIntegrationId} attaches show progress to the resolved episode",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const { id } = yield* createKodiIntegration(client);
+
+				const { tmdbId, showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
+					showName: "Live Sink Test Show",
+				});
+
+				const data = yield* postIntegrationWebhook(client, id, {
+					lot: "show",
+					progress: 45,
+					identifier: tmdbId,
+					show_season_number: 1,
+					show_episode_number: 2,
+				});
+
+				const runId = requirePresent(data.runId, "Expected runId from webhook");
+				const completedRun = yield* pollImportRunUntilTerminal(client, runId);
+
+				expect(completedRun.status).toBe("completed");
+				expect(completedRun.failedItems).toBe(0);
+
+				const episodeEvents = yield* waitForEventSlugs(client, episodeId, "progress");
+				const showEvents = yield* listEventSlugs(client, showId);
+				expect(showEvents).not.toContain("progress");
+				expect(episodeEvents).toContain("progress");
 			}),
-		);
+	);
 
-		assertTaggedError(error, "NotFound");
-	});
+	it.live("POST to a disabled integration returns 202 with a failed run", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { id } = yield* createKodiIntegration(client);
 
-	it("POST /api/webhooks/integrations/{validKodiIntegrationId} creates a run", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client);
+			yield* client.call((c) =>
+				c.integrations.update({
+					payload: { isDisabled: true },
+					path: { integrationId: IntegrationId.make(id) },
+				}),
+			);
 
-		const data = await postIntegrationWebhook(client, id, kodiPayload);
+			const data = yield* postIntegrationWebhook(client, id, kodiPayload);
 
-		expect(data.runId).toBeDefined();
-	});
+			const runId = requirePresent(data.runId, "Expected runId from webhook");
 
-	it("POST /_i/{validKodiIntegrationId} creates a run from a JSON payload", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client);
-		const backendRootUrl = getBackendUrl().replace(/\/api$/, "");
+			const run = yield* getImportRun(client, runId);
+			expect(run.status).toBe("failed");
+		}),
+	);
 
-		const response = await fetch(`${backendRootUrl}/_i/${id}`, {
-			method: "POST",
-			body: JSON.stringify(kodiPayload),
-			headers: { "Content-Type": "application/json" },
-		});
-		const data = requireObjectRecord(await response.json(), "Expected webhook response");
+	it.live("POST when disableIntegrations preference is true returns 202 with failed run", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { id } = yield* createKodiIntegration(client);
 
-		expect(response.status).toBe(202);
-		expect(data.runId).toBeDefined();
-	});
+			yield* updateUserPreferences(client, { disableIntegrations: true });
 
-	it("POST /api/webhooks/integrations/{validKodiIntegrationId} attaches show progress to the resolved episode", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client);
+			const data = yield* postIntegrationWebhook(client, id, kodiPayload);
 
-		const { tmdbId, showId, episodeId } = await seedGlobalShowEpisodeTree(client, {
-			showName: "Live Sink Test Show",
-		});
+			const runId = requirePresent(data.runId, "Expected runId from webhook");
 
-		const data = await postIntegrationWebhook(client, id, {
-			lot: "show",
-			progress: 45,
-			identifier: tmdbId,
-			show_season_number: 1,
-			show_episode_number: 2,
-		});
+			const run = yield* getImportRun(client, runId);
+			expect(run.status).toBe("failed");
+		}),
+	);
 
-		const runId = requirePresent(data.runId, "Expected runId from webhook");
-		const completedRun = await pollImportRunUntilTerminal(client, runId);
+	it.live("POST to a non-Sink integration returns BadRequest", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { id } = yield* createAudiobookshelfIntegration(client);
 
-		expect(completedRun.status).toBe("completed");
-		expect(completedRun.failedItems).toBe(0);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.integrations.webhook({
+						payload: {},
+						path: { integrationId: IntegrationId.make(id) },
+					}),
+				),
+			);
 
-		const episodeEvents = await waitForEventSlugs(client, episodeId, "progress");
-		const showEvents = await listEventSlugs(client, showId);
-		expect(showEvents).not.toContain("progress");
-		expect(episodeEvents).toContain("progress");
-	});
-
-	it("POST to a disabled integration returns 202 with a failed run", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client);
-
-		await client.run((c) =>
-			c.integrations.update({
-				payload: { isDisabled: true },
-				path: { integrationId: IntegrationId.make(id) },
-			}),
-		);
-
-		const data = await postIntegrationWebhook(client, id, kodiPayload);
-
-		const runId = requirePresent(data.runId, "Expected runId from webhook");
-
-		const run = await getImportRun(client, runId);
-		expect(run.status).toBe("failed");
-	});
-
-	it("POST when disableIntegrations preference is true returns 202 with failed run", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id } = await createKodiIntegration(client);
-
-		await updateUserPreferences(client, { disableIntegrations: true });
-
-		const data = await postIntegrationWebhook(client, id, kodiPayload);
-
-		const runId = requirePresent(data.runId, "Expected runId from webhook");
-
-		const run = await getImportRun(client, runId);
-		expect(run.status).toBe("failed");
-	});
-
-	it("POST to a non-Sink integration returns BadRequest", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id } = await createAudiobookshelfIntegration(client);
-
-		const error = await client.runError((c) =>
-			c.integrations.webhook({
-				payload: {},
-				path: { integrationId: IntegrationId.make(id) },
-			}),
-		);
-
-		assertTaggedError(error, "BadRequest");
-	});
+			assertTaggedError(error, "BadRequest");
+		}),
+	);
 });
 
 describe("Progress normalization", () => {
-	it("clamps progress above the integration's maximum down to 100% and fills the completion timestamp", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id } = await createIntegration(client, {
-			provider: "kodi",
-			maximumProgress: 90,
-			providerSpecifics: { kind: "kodi" },
-		});
+	it.live(
+		"clamps progress above the integration's maximum down to 100% and fills the completion timestamp",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const { id } = yield* createIntegration(client, {
+					provider: "kodi",
+					maximumProgress: 90,
+					providerSpecifics: { kind: "kodi" },
+				});
 
-		const { tmdbId, episodeId } = await seedGlobalShowEpisodeTree(client, {
-			showName: "Progress Clamp Test Show",
-		});
+				const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
+					showName: "Progress Clamp Test Show",
+				});
 
-		const data = await postIntegrationWebhook(client, id, {
-			lot: "show",
-			progress: 97,
-			identifier: tmdbId,
-			show_season_number: 1,
-			show_episode_number: 2,
-		});
+				const data = yield* postIntegrationWebhook(client, id, {
+					lot: "show",
+					progress: 97,
+					identifier: tmdbId,
+					show_season_number: 1,
+					show_episode_number: 2,
+				});
 
-		const runId = requirePresent(data.runId, "Expected runId from webhook");
-		const completedRun = await pollImportRunUntilTerminal(client, runId);
+				const runId = requirePresent(data.runId, "Expected runId from webhook");
+				const completedRun = yield* pollImportRunUntilTerminal(client, runId);
 
-		expect(completedRun.status).toBe("completed");
-		expect(completedRun.failedItems).toBe(0);
+				expect(completedRun.status).toBe("completed");
+				expect(completedRun.failedItems).toBe(0);
 
-		await waitForEventSlugs(client, episodeId, "progress");
-		const progressEvents = await listEventsForEntity(client, episodeId, {
-			eventSchemaSlug: "progress",
-		});
+				yield* waitForEventSlugs(client, episodeId, "progress");
+				const progressEvents = yield* listEventsForEntity(client, episodeId, {
+					eventSchemaSlug: "progress",
+				});
 
-		expect(progressEvents).toHaveLength(1);
-		const progressEvent = requirePresent(progressEvents[0], "Expected progress event");
-		expect(progressEvent.properties).toMatchObject({ progressPercent: 100 });
-		expect(progressEvent.occurredAt).toBeTruthy();
+				expect(progressEvents).toHaveLength(1);
+				const progressEvent = requirePresent(progressEvents[0], "Expected progress event");
+				expect(progressEvent.properties).toMatchObject({ progressPercent: 100 });
+				expect(progressEvent.occurredAt).toBeTruthy();
 
-		// The clamped 100% cascades into the builtin auto-complete trigger on this same
-		// episode entity — assert completedOn to directly prove the completion-timestamp
-		// fill, not just the progress event's own occurredAt.
-		const completeEvent = await waitForEventWithSchema(client, episodeId, "complete");
-		expect(completeEvent.properties).toMatchObject({ completedOn: progressEvent.occurredAt });
-	});
+				// The clamped 100% cascades into the builtin auto-complete trigger on this same
+				// episode entity — assert completedOn to directly prove the completion-timestamp
+				// fill, not just the progress event's own occurredAt.
+				const completeEvent = yield* waitForEventWithSchema(client, episodeId, "complete");
+				expect(completeEvent.properties).toMatchObject({ completedOn: progressEvent.occurredAt });
+			}),
+	);
 
-	it("filters out progress below the integration's minimum threshold without failing the run", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id } = await createIntegration(client, {
-			provider: "kodi",
-			minimumProgress: 10,
-			providerSpecifics: { kind: "kodi" },
-		});
+	it.live(
+		"filters out progress below the integration's minimum threshold without failing the run",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const { id } = yield* createIntegration(client, {
+					provider: "kodi",
+					minimumProgress: 10,
+					providerSpecifics: { kind: "kodi" },
+				});
 
-		const { tmdbId, episodeId } = await seedGlobalShowEpisodeTree(client, {
-			showName: "Progress Filter Test Show",
-		});
+				const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
+					showName: "Progress Filter Test Show",
+				});
 
-		const firstData = await postIntegrationWebhook(client, id, {
-			lot: "show",
-			progress: 5,
-			identifier: tmdbId,
-			show_season_number: 1,
-			show_episode_number: 2,
-		});
-		const firstRunId = requirePresent(firstData.runId, "Expected runId from webhook");
-		const firstRun = await pollImportRunUntilTerminal(client, firstRunId);
-		expect(firstRun.status).toBe("completed");
-		expect(firstRun.failedItems).toBe(0);
+				const firstData = yield* postIntegrationWebhook(client, id, {
+					lot: "show",
+					progress: 5,
+					identifier: tmdbId,
+					show_season_number: 1,
+					show_episode_number: 2,
+				});
+				const firstRunId = requirePresent(firstData.runId, "Expected runId from webhook");
+				const firstRun = yield* pollImportRunUntilTerminal(client, firstRunId);
+				expect(firstRun.status).toBe("completed");
+				expect(firstRun.failedItems).toBe(0);
 
-		const secondData = await postIntegrationWebhook(client, id, {
-			lot: "show",
-			progress: 50,
-			identifier: tmdbId,
-			show_season_number: 1,
-			show_episode_number: 2,
-		});
-		const secondRunId = requirePresent(secondData.runId, "Expected runId from webhook");
-		const secondRun = await pollImportRunUntilTerminal(client, secondRunId);
-		expect(secondRun.status).toBe("completed");
-		expect(secondRun.failedItems).toBe(0);
+				const secondData = yield* postIntegrationWebhook(client, id, {
+					lot: "show",
+					progress: 50,
+					identifier: tmdbId,
+					show_season_number: 1,
+					show_episode_number: 2,
+				});
+				const secondRunId = requirePresent(secondData.runId, "Expected runId from webhook");
+				const secondRun = yield* pollImportRunUntilTerminal(client, secondRunId);
+				expect(secondRun.status).toBe("completed");
+				expect(secondRun.failedItems).toBe(0);
 
-		await waitForEventSlugs(client, episodeId, "progress");
-		const progressEvents = await listEventsForEntity(client, episodeId, {
-			eventSchemaSlug: "progress",
-		});
+				yield* waitForEventSlugs(client, episodeId, "progress");
+				const progressEvents = yield* listEventsForEntity(client, episodeId, {
+					eventSchemaSlug: "progress",
+				});
 
-		expect(progressEvents).toHaveLength(1);
-		expect(requirePresent(progressEvents[0], "Expected progress event").properties).toMatchObject({
-			progressPercent: 50,
-		});
-	});
+				expect(progressEvents).toHaveLength(1);
+				expect(
+					requirePresent(progressEvents[0], "Expected progress event").properties,
+				).toMatchObject({
+					progressPercent: 50,
+				});
+			}),
+	);
 });
 
 describe("Import run visibility", () => {
-	it("GET /imports/runs excludes integration runs; GET /imports/runs/:id and GET /integrations/:id/runs expose them", async () => {
-		const { client } = await createAuthenticatedClient();
-		const { id: integrationId } = await createKodiIntegration(client);
+	it.live(
+		"GET /imports/runs excludes integration runs; GET /imports/runs/:id and GET /integrations/:id/runs expose them",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const { id: integrationId } = yield* createKodiIntegration(client);
 
-		const webhookData = await postIntegrationWebhook(client, integrationId, kodiPayload);
-		const runId = requirePresent(webhookData.runId, "Expected runId from webhook");
+				const webhookData = yield* postIntegrationWebhook(client, integrationId, kodiPayload);
+				const runId = requirePresent(webhookData.runId, "Expected runId from webhook");
 
-		const allRuns = await client.run((c) => c.imports.listRuns());
-		expect(allRuns.find((r) => r.id === runId)).toBeUndefined();
+				const allRuns = yield* client.call((c) => c.imports.listRuns());
+				expect(allRuns.find((r) => r.id === runId)).toBeUndefined();
 
-		const run = await getImportRun(client, runId);
-		expect(run.id).toBe(ImportRunId.make(runId));
+				const run = yield* getImportRun(client, runId);
+				expect(run.id).toBe(ImportRunId.make(runId));
 
-		const integrationRuns = await client.run((c) =>
-			c.integrations.getRuns({ path: { integrationId: IntegrationId.make(integrationId) } }),
-		);
-		expect(integrationRuns.find((r) => r.id === runId)).toBeDefined();
-	});
+				const integrationRuns = yield* client.call((c) =>
+					c.integrations.getRuns({ path: { integrationId: IntegrationId.make(integrationId) } }),
+				);
+				expect(integrationRuns.find((r) => r.id === runId)).toBeDefined();
+			}),
+	);
 });

@@ -3,12 +3,13 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"test": "bun test --timeout 180000",
+		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.1032.0",
 		"@effect/platform": "0.96.2",
+		"@effect/vitest": "0.29.0",
 		"@faker-js/faker": "10.4.0",
 		"@ryot/app-backend": "workspace:*",
 		"@ryot/contract": "workspace:*",
@@ -18,11 +19,12 @@
 		"@testcontainers/postgresql": "11.14.0",
 		"@types/pg": "8.20.0",
 		"better-auth": "1.6.5",
-		"effect": "3.21.3",
+		"effect": "3.21.4",
 		"get-port": "7.2.0",
 		"oauth2-mock-server": "9.1.0",
 		"pg": "8.20.0",
 		"rfc4648": "1.5.4",
-		"testcontainers": "11.14.0"
+		"testcontainers": "11.14.0",
+		"vitest": "4.1.9"
 	}
 }

@@ -1,4 +1,5 @@
 import { EntityId } from "@ryot/contract/schema/brands";
+import { Effect } from "effect";
 
 import { assertPresent } from "~/support/assertions";
 
@@ -55,101 +56,102 @@ const propertiesBySchemaSlug: Record<string, Record<string, unknown>> = {
 	},
 };
 
-export async function waitForEventCount(
+export const waitForEventCount = (
 	client: Client,
 	entityId: string,
 	expectedCount: number,
 	options: PollOptions = {},
-) {
-	return pollUntil(
+) =>
+	pollUntil(
 		`${expectedCount} events on entity ${entityId}`,
-		async () => {
-			const events = await listEventsForEntity(client, entityId);
+		Effect.gen(function* () {
+			const events = yield* listEventsForEntity(client, entityId);
 			return events.length >= expectedCount ? events : null;
-		},
+		}),
 		{ timeoutMs: defaultEventTimeoutMs, intervalMs: 200, ...options },
 	);
-}
 
-export async function createEventTestFixture(client: Client) {
-	const { schemaId: entitySchemaId } = await createTrackerWithSchema(client, {
-		name: "Test Item",
-		slug: `item-${crypto.randomUUID()}`,
-	});
-	const eventSchema = await createEventSchema(client, {
-		entitySchemaId,
-		name: "Finished",
-		slug: `finished-${crypto.randomUUID()}`,
-		propertiesSchema: {
-			fields: {
-				rating: {
-					label: "Rating",
-					type: "number" as const,
-					description: "Rating score",
-					validation: { required: true as const },
-				},
-			},
-		},
-	});
-	const entity = await createEntity(client, {
-		entitySchemaId,
-		name: "Test Book",
-		properties: { title: "Test" },
-	});
-	return { entityId: entity.id, eventSchemaId: eventSchema.id };
-}
-
-export async function createRuleEventFixture(client: Client) {
-	const { schemaId: entitySchemaId } = await createTrackerWithSchema(client, {
-		name: "Rule Test Item",
-		slug: `rule-item-${crypto.randomUUID()}`,
-	});
-	const eventSchema = await createEventSchema(client, {
-		entitySchemaId,
-		name: "Progress Log",
-		slug: `progress-log-${crypto.randomUUID()}`,
-		propertiesSchema: {
-			fields: {
-				progressPercent: {
-					type: "number" as const,
-					label: "Progress Percent",
-					description: "Progress percentage",
-				},
-				status: {
-					label: "Status",
-					type: "string" as const,
-					description: "Workflow status",
-					validation: { required: true as const },
-				},
-			},
-			rules: [
-				{
-					path: ["progressPercent"],
-					kind: "validation" as const,
-					validation: { required: true as const },
-					when: {
-						path: ["status"],
-						value: "completed",
-						operator: "eq" as const,
+export const createEventTestFixture = (client: Client) =>
+	Effect.gen(function* () {
+		const { schemaId: entitySchemaId } = yield* createTrackerWithSchema(client, {
+			name: "Test Item",
+			slug: `item-${crypto.randomUUID()}`,
+		});
+		const eventSchema = yield* createEventSchema(client, {
+			entitySchemaId,
+			name: "Finished",
+			slug: `finished-${crypto.randomUUID()}`,
+			propertiesSchema: {
+				fields: {
+					rating: {
+						label: "Rating",
+						type: "number" as const,
+						description: "Rating score",
+						validation: { required: true as const },
 					},
 				},
-			],
-		},
+			},
+		});
+		const entity = yield* createEntity(client, {
+			entitySchemaId,
+			name: "Test Book",
+			properties: { title: "Test" },
+		});
+		return { entityId: entity.id, eventSchemaId: eventSchema.id };
 	});
-	const entity = await createEntity(client, {
-		entitySchemaId,
-		name: "Rule Test Book",
-		properties: { title: "Rule Test" },
-	});
-	return { entityId: entity.id, eventSchemaId: eventSchema.id };
-}
 
-export async function listEventsForEntity(
+export const createRuleEventFixture = (client: Client) =>
+	Effect.gen(function* () {
+		const { schemaId: entitySchemaId } = yield* createTrackerWithSchema(client, {
+			name: "Rule Test Item",
+			slug: `rule-item-${crypto.randomUUID()}`,
+		});
+		const eventSchema = yield* createEventSchema(client, {
+			entitySchemaId,
+			name: "Progress Log",
+			slug: `progress-log-${crypto.randomUUID()}`,
+			propertiesSchema: {
+				fields: {
+					progressPercent: {
+						type: "number" as const,
+						label: "Progress Percent",
+						description: "Progress percentage",
+					},
+					status: {
+						label: "Status",
+						type: "string" as const,
+						description: "Workflow status",
+						validation: { required: true as const },
+					},
+				},
+				rules: [
+					{
+						path: ["progressPercent"],
+						kind: "validation" as const,
+						validation: { required: true as const },
+						when: {
+							path: ["status"],
+							value: "completed",
+							operator: "eq" as const,
+						},
+					},
+				],
+			},
+		});
+		const entity = yield* createEntity(client, {
+			entitySchemaId,
+			name: "Rule Test Book",
+			properties: { title: "Rule Test" },
+		});
+		return { entityId: entity.id, eventSchemaId: eventSchema.id };
+	});
+
+export const listEventsForEntity = (
 	client: Client,
 	entityId: string,
 	options: { eventSchemaSlug?: string } = {},
-) {
-	return client.run((c) =>
+) =>
+	client.call((c) =>
 		c.events.list({
 			urlParams: {
 				entityId: EntityId.make(entityId),
@@ -157,82 +159,81 @@ export async function listEventsForEntity(
 			},
 		}),
 	);
-}
 
-export async function waitForEventWithSchema(
+export const waitForEventWithSchema = (
 	client: Client,
 	entityId: string,
 	eventSchemaSlug: string,
 	options: PollOptions = {},
-) {
-	return pollUntil(
+) =>
+	pollUntil(
 		`${eventSchemaSlug} event on entity ${entityId}`,
-		async () => {
-			const events = await listEventsForEntity(client, entityId);
+		Effect.gen(function* () {
+			const events = yield* listEventsForEntity(client, entityId);
 			return events.find((event) => event.eventSchemaSlug === eventSchemaSlug) ?? null;
-		},
+		}),
 		{ timeoutMs: defaultEventTimeoutMs, intervalMs: 500, ...options },
 	);
-}
 
-export async function listEventSlugs(client: Client, entityId: string): Promise<string[]> {
-	const events = await listEventsForEntity(client, entityId);
-	return events.map((event) => event.eventSchemaSlug);
-}
+export const listEventSlugs = (client: Client, entityId: string) =>
+	Effect.gen(function* () {
+		const events = yield* listEventsForEntity(client, entityId);
+		return events.map((event) => event.eventSchemaSlug);
+	});
 
-export async function waitForEventSlugs(
+export const waitForEventSlugs = (
 	client: Client,
 	entityId: string,
 	requiredSlug: string,
 	options: PollOptions = {},
-) {
-	return pollUntil(
+) =>
+	pollUntil(
 		`'${requiredSlug}' event on entity ${entityId}`,
-		async () => {
-			const slugs = await listEventSlugs(client, entityId);
+		Effect.gen(function* () {
+			const slugs = yield* listEventSlugs(client, entityId);
 			return slugs.includes(requiredSlug) ? slugs : null;
-		},
+		}),
 		{ timeoutMs: defaultEventTimeoutMs, intervalMs: 250, ...options },
 	);
-}
 
-export async function createBuiltinMediaLifecycleFixture(
+export const createBuiltinMediaLifecycleFixture = (
 	client: Client,
 	options: BuiltinMediaLifecycleFixtureOptions = {},
-) {
-	const entitySchemaSlug = options.entitySchemaSlug ?? "book";
-	const { schema: selectedSchema } = await findBuiltinSchemaBySlug(client, entitySchemaSlug);
+) =>
+	Effect.gen(function* () {
+		const entitySchemaSlug = options.entitySchemaSlug ?? "book";
+		const { schema: selectedSchema } = yield* findBuiltinSchemaBySlug(client, entitySchemaSlug);
 
-	const providerScriptId = selectedSchema.providers[0]?.scriptId;
-	assertPresent(providerScriptId, `Missing built-in ${entitySchemaSlug} provider`);
+		const providerScriptId = selectedSchema.providers[0]?.scriptId;
+		assertPresent(providerScriptId, `Missing built-in ${entitySchemaSlug} provider`);
 
-	const eventSchemas = await listEventSchemas(client, selectedSchema.id);
-	const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
-	const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
-	const completeEventSchema = requireEventSchemaBySlug(eventSchemas, "complete");
-	const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
-	const droppedEventSchema = requireEventSchemaBySlug(eventSchemas, "dropped");
-	const onHoldEventSchema = requireEventSchemaBySlug(eventSchemas, "on_hold");
+		const eventSchemas = yield* listEventSchemas(client, selectedSchema.id);
+		const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
+		const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
+		const completeEventSchema = requireEventSchemaBySlug(eventSchemas, "complete");
+		const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
+		const droppedEventSchema = requireEventSchemaBySlug(eventSchemas, "dropped");
+		const onHoldEventSchema = requireEventSchemaBySlug(eventSchemas, "on_hold");
 
-	const entity = await seedMediaEntity({
-		userId: null,
-		entitySchemaId: selectedSchema.id,
-		sandboxScriptId: providerScriptId,
-		externalId: `${entitySchemaSlug}-${crypto.randomUUID()}`,
-		name: `Built-in ${entitySchemaSlug} ${crypto.randomUUID()}`,
-		properties: {
-			...(propertiesBySchemaSlug[entitySchemaSlug] ?? defaultMediaProperties),
-			...options.properties,
-		},
+		const entity = yield* seedMediaEntity({
+			userId: null,
+			entitySchemaId: selectedSchema.id,
+			sandboxScriptId: providerScriptId,
+			externalId: `${entitySchemaSlug}-${crypto.randomUUID()}`,
+			name: `Built-in ${entitySchemaSlug} ${crypto.randomUUID()}`,
+			properties: {
+				...(propertiesBySchemaSlug[entitySchemaSlug] ?? defaultMediaProperties),
+				...options.properties,
+			},
+		});
+
+		return {
+			entityId: entity.id,
+			reviewEventSchemaId: reviewEventSchema.id,
+			onHoldEventSchemaId: onHoldEventSchema.id,
+			backlogEventSchemaId: backlogEventSchema.id,
+			droppedEventSchemaId: droppedEventSchema.id,
+			completeEventSchemaId: completeEventSchema.id,
+			progressEventSchemaId: progressEventSchema.id,
+		};
 	});
-
-	return {
-		entityId: entity.id,
-		reviewEventSchemaId: reviewEventSchema.id,
-		onHoldEventSchemaId: onHoldEventSchema.id,
-		backlogEventSchemaId: backlogEventSchema.id,
-		droppedEventSchemaId: droppedEventSchema.id,
-		completeEventSchemaId: completeEventSchema.id,
-		progressEventSchemaId: progressEventSchema.id,
-	};
-}

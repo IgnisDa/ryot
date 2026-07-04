@@ -1,79 +1,86 @@
-import { describe, expect, it } from "bun:test";
+import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
 	findBuiltinSchemaBySlug,
-	openInterestStream,
+	openInterestStreamScoped,
 	postBackendJson,
 	seedMediaEntity,
 } from "~/fixtures";
-import { getBackendUrl } from "~/setup";
 import { assertPresent } from "~/support/assertions";
+import { getBackendUrl } from "~/support/backend";
+import { describe, expect, it } from "~/support/effect-test";
 
 describe("interest authorization", () => {
-	it("ignores interest declared in another user's private entity", async () => {
-		const authA = await createAuthenticatedClient();
-		const authB = await createAuthenticatedClient();
+	it.scopedLive("ignores interest declared in another user's private entity", () =>
+		Effect.gen(function* () {
+			const authA = yield* createAuthenticatedClient();
+			const authB = yield* createAuthenticatedClient();
 
-		const { schema } = await findBuiltinSchemaBySlug(authA.client, "company");
-		const sandboxScriptId = schema.providers.find(
-			(provider) => provider.name === "Anilist",
-		)?.scriptId;
-		assertPresent(sandboxScriptId, "Anilist company provider script not found");
+			const { schema } = yield* findBuiltinSchemaBySlug(authA.client, "company");
+			const sandboxScriptId = schema.providers.find(
+				(provider) => provider.name === "Anilist",
+			)?.scriptId;
+			assertPresent(sandboxScriptId, "Anilist company provider script not found");
 
-		const privateEntity = await seedMediaEntity({
-			properties: {},
-			sandboxScriptId,
-			client: authA.client,
-			userId: authA.userId,
-			entitySchemaId: schema.id,
-			name: "A's Private Studio",
-			externalId: `private-${crypto.randomUUID()}`,
-		});
+			const privateEntity = yield* seedMediaEntity({
+				properties: {},
+				sandboxScriptId,
+				client: authA.client,
+				userId: authA.userId,
+				entitySchemaId: schema.id,
+				name: "A's Private Studio",
+				externalId: `private-${crypto.randomUUID()}`,
+			});
 
-		const streamB = await openInterestStream(authB);
-		try {
-			await streamB.declareInterest([privateEntity.id]);
-			await streamB.expectNoEntityUpdated(privateEntity.id, { windowMs: 4000 });
-		} finally {
-			streamB.close();
-		}
+			const streamB = yield* openInterestStreamScoped(authB);
+			yield* Effect.promise(() => streamB.declareInterest([privateEntity.id]));
+			yield* Effect.promise(() =>
+				streamB.expectNoEntityUpdated(privateEntity.id, { windowMs: 4000 }),
+			);
 
-		const entity = await authA.client.run((contract) =>
-			contract.entities.get({ path: { entityId: privateEntity.id } }),
-		);
-		expect(entity.populatedAt).toBeNull();
-	});
+			const entity = yield* authA.client.call((contract) =>
+				contract.entities.get({ path: { entityId: privateEntity.id } }),
+			);
+			expect(entity.populatedAt).toBeNull();
+		}),
+	);
 
-	it("rejects an unauthenticated stream connection", async () => {
-		const response = await fetch(
-			`${getBackendUrl()}/entity-interest/stream?streamId=${crypto.randomUUID()}`,
-		);
-		expect(response.status).toBe(401);
-	});
+	it.live("rejects an unauthenticated stream connection", () =>
+		Effect.gen(function* () {
+			const response = yield* Effect.promise(() =>
+				fetch(`${getBackendUrl()}/entity-interest/stream?streamId=${crypto.randomUUID()}`),
+			);
+			expect(response.status).toBe(401);
+		}),
+	);
 
-	it("rejects an unauthenticated interest declaration", async () => {
-		const response = await postBackendJson("/entity-interest", {
-			entityIds: [],
-			streamId: crypto.randomUUID(),
-		});
-		expect(response.status).toBe(401);
-	});
+	it.live("rejects an unauthenticated interest declaration", () =>
+		Effect.gen(function* () {
+			const response = yield* Effect.promise(() =>
+				postBackendJson("/entity-interest", {
+					entityIds: [],
+					streamId: crypto.randomUUID(),
+				}),
+			);
+			expect(response.status).toBe(401);
+		}),
+	);
 
-	it("rejects declaring interest on another user's stream", async () => {
-		const authA = await createAuthenticatedClient();
-		const authB = await createAuthenticatedClient();
+	it.scopedLive("rejects declaring interest on another user's stream", () =>
+		Effect.gen(function* () {
+			const authA = yield* createAuthenticatedClient();
+			const authB = yield* createAuthenticatedClient();
 
-		const streamA = await openInterestStream(authA);
-		try {
-			const response = await postBackendJson(
-				"/entity-interest",
-				{ streamId: streamA.streamId, entityIds: [] },
-				authB.cookies,
+			const streamA = yield* openInterestStreamScoped(authA);
+			const response = yield* Effect.promise(() =>
+				postBackendJson(
+					"/entity-interest",
+					{ streamId: streamA.streamId, entityIds: [] },
+					authB.cookies,
+				),
 			);
 			expect(response.status).toBe(404);
-		} finally {
-			streamA.close();
-		}
-	});
+		}),
+	);
 });

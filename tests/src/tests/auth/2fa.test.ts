@@ -1,100 +1,113 @@
-import { describe, expect, it } from "bun:test";
+import { Effect } from "effect";
 
-import { getBackendClient } from "~/fixtures";
-import { createTestUser } from "~/fixtures/auth";
-import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "~/fixtures/auth-2fa";
-import { getBackendUrl } from "~/setup";
+import {
+	cookieHeaderFromSetCookies,
+	createTestUser,
+	enableTwoFactorForSession,
+	getBackendClient,
+} from "~/fixtures";
 import { assertTaggedError, requireNonEmptyArray } from "~/support/assertions";
+import { getBackendUrl } from "~/support/backend";
+import { describe, expect, it } from "~/support/effect-test";
 
 const trackersListQuery = { includeDisabled: false };
 
 describe("Two-factor sign-in flow", () => {
-	it("allows a 2FA-enabled user to sign in with a backup code", async () => {
-		const baseUrl = getBackendUrl();
-		const client = getBackendClient();
-		const { cookies, email, password } = await createTestUser();
+	it.live("allows a 2FA-enabled user to sign in with a backup code", () =>
+		Effect.gen(function* () {
+			const baseUrl = getBackendUrl();
+			const client = getBackendClient();
+			const { cookies, email, password } = yield* createTestUser();
 
-		const { backupCodes, cookies: twoFactorCookies } = await enableTwoFactorForSession({
-			baseUrl,
-			cookies,
-			password,
-		});
+			const { backupCodes, cookies: twoFactorCookies } = yield* Effect.promise(() =>
+				enableTwoFactorForSession({ baseUrl, cookies, password }),
+			);
 
-		const [backupCode] = requireNonEmptyArray(
-			backupCodes,
-			"Two-factor setup did not return any backup codes",
-		);
+			const [backupCode] = requireNonEmptyArray(
+				backupCodes,
+				"Two-factor setup did not return any backup codes",
+			);
 
-		await client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), {
-			Cookie: twoFactorCookies,
-		});
+			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+				Cookie: twoFactorCookies,
+			});
 
-		const signInResponse = await fetch(`${baseUrl}/auth/sign-in/email`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email, password }),
-		});
+			const signInResponse = yield* Effect.promise(() =>
+				fetch(`${baseUrl}/auth/sign-in/email`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ email, password }),
+				}),
+			);
 
-		expect(signInResponse.ok).toBe(true);
+			expect(signInResponse.ok).toBe(true);
 
-		const signInSetCookies = signInResponse.headers.getSetCookie();
-		requireNonEmptyArray(signInSetCookies, "Sign in succeeded but no cookies were returned");
+			const signInSetCookies = signInResponse.headers.getSetCookie();
+			requireNonEmptyArray(signInSetCookies, "Sign in succeeded but no cookies were returned");
 
-		const signInCookies = cookieHeaderFromSetCookies(signInSetCookies);
-		const signInData = await signInResponse.json();
-		expect(signInData).toHaveProperty("twoFactorRedirect", true);
+			const signInCookies = cookieHeaderFromSetCookies(signInSetCookies);
+			const signInData = yield* Effect.promise(() => signInResponse.json());
+			expect(signInData).toHaveProperty("twoFactorRedirect", true);
 
-		const unauthorizedError = await client.runError(
-			(c) => c.trackers.list({ urlParams: trackersListQuery }),
-			{ Cookie: signInCookies },
-		);
-		assertTaggedError(unauthorizedError, "Unauthorized");
+			const unauthorizedError = yield* Effect.flip(
+				client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+					Cookie: signInCookies,
+				}),
+			);
+			assertTaggedError(unauthorizedError, "Unauthorized");
 
-		const verifyResponse = await fetch(`${baseUrl}/auth/two-factor/verify-backup-code`, {
-			method: "POST",
-			body: JSON.stringify({ code: backupCode }),
-			headers: { Cookie: signInCookies, "Content-Type": "application/json" },
-		});
+			const verifyResponse = yield* Effect.promise(() =>
+				fetch(`${baseUrl}/auth/two-factor/verify-backup-code`, {
+					method: "POST",
+					body: JSON.stringify({ code: backupCode }),
+					headers: { Cookie: signInCookies, "Content-Type": "application/json" },
+				}),
+			);
 
-		if (!verifyResponse.ok) {
-			const error = await verifyResponse.text();
-			throw new Error(`Backup code verification failed: ${error}`);
-		}
+			if (!verifyResponse.ok) {
+				const error = yield* Effect.promise(() => verifyResponse.text());
+				throw new Error(`Backup code verification failed: ${error}`);
+			}
 
-		const verifySetCookies = verifyResponse.headers.getSetCookie();
-		const verifiedCookies = verifySetCookies.length
-			? cookieHeaderFromSetCookies(verifySetCookies)
-			: signInCookies;
-		await client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), {
-			Cookie: verifiedCookies,
-		});
+			const verifySetCookies = verifyResponse.headers.getSetCookie();
+			const verifiedCookies = verifySetCookies.length
+				? cookieHeaderFromSetCookies(verifySetCookies)
+				: signInCookies;
+			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+				Cookie: verifiedCookies,
+			});
 
-		const secondSignInResponse = await fetch(`${baseUrl}/auth/sign-in/email`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email, password }),
-		});
+			const secondSignInResponse = yield* Effect.promise(() =>
+				fetch(`${baseUrl}/auth/sign-in/email`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ email, password }),
+				}),
+			);
 
-		expect(secondSignInResponse.ok).toBe(true);
+			expect(secondSignInResponse.ok).toBe(true);
 
-		const secondSignInSetCookies = secondSignInResponse.headers.getSetCookie();
-		requireNonEmptyArray(
-			secondSignInSetCookies,
-			"Second sign in succeeded but no cookies were returned",
-		);
+			const secondSignInSetCookies = secondSignInResponse.headers.getSetCookie();
+			requireNonEmptyArray(
+				secondSignInSetCookies,
+				"Second sign in succeeded but no cookies were returned",
+			);
 
-		const secondSignInCookies = cookieHeaderFromSetCookies(secondSignInSetCookies);
-		const secondSignInData = await secondSignInResponse.json();
-		expect(secondSignInData).toHaveProperty("twoFactorRedirect", true);
+			const secondSignInCookies = cookieHeaderFromSetCookies(secondSignInSetCookies);
+			const secondSignInData = yield* Effect.promise(() => secondSignInResponse.json());
+			expect(secondSignInData).toHaveProperty("twoFactorRedirect", true);
 
-		const reuseResponse = await fetch(`${baseUrl}/auth/two-factor/verify-backup-code`, {
-			method: "POST",
-			body: JSON.stringify({ code: backupCode }),
-			headers: { Cookie: secondSignInCookies, "Content-Type": "application/json" },
-		});
+			const reuseResponse = yield* Effect.promise(() =>
+				fetch(`${baseUrl}/auth/two-factor/verify-backup-code`, {
+					method: "POST",
+					body: JSON.stringify({ code: backupCode }),
+					headers: { Cookie: secondSignInCookies, "Content-Type": "application/json" },
+				}),
+			);
 
-		expect(reuseResponse.ok).toBe(false);
-		const reuseError = await reuseResponse.text();
-		expect(reuseError).toMatch(/invalid/i);
-	});
+			expect(reuseResponse.ok).toBe(false);
+			const reuseError = yield* Effect.promise(() => reuseResponse.text());
+			expect(reuseError).toMatch(/invalid/i);
+		}),
+	);
 });

@@ -1,11 +1,12 @@
+import { FetchHttpClient } from "@effect/platform";
 import {
-	runContract,
-	runContractError,
+	makeContractClient,
 	type ContractProgram,
 	type RequestHeaders,
 } from "@ryot/contract/client";
+import { Effect } from "effect";
 
-import { getBackendUrl } from "~/setup";
+import { getBackendUrl } from "~/support/backend";
 
 export type {
 	ContractPayload,
@@ -15,18 +16,18 @@ export type {
 } from "@ryot/contract/client";
 
 export type ContractSession = {
-	run: <A, E>(program: ContractProgram<A, E>, headers?: RequestHeaders) => Promise<A>;
-	runError: <A, E>(program: ContractProgram<A, E>, headers?: RequestHeaders) => Promise<E>;
+	call: <A, E>(program: ContractProgram<A, E>, headers?: RequestHeaders) => Effect.Effect<A, E>;
 };
 
 export const makeSession = (
 	baseUrl = getBackendUrl(),
 	defaultHeaders: RequestHeaders = {},
 ): ContractSession => ({
-	run: (program, headers = {}) =>
-		runContract(program, { baseUrl, headers: { ...defaultHeaders, ...headers } }),
-	runError: (program, headers = {}) =>
-		runContractError(program, { baseUrl, headers: { ...defaultHeaders, ...headers } }),
+	call: (program, headers = {}) =>
+		makeContractClient(baseUrl, { ...defaultHeaders, ...headers }).pipe(
+			Effect.flatMap(program),
+			Effect.provide(FetchHttpClient.layer),
+		),
 });
 
 export const getBackendClient = (): ContractSession => makeSession();
