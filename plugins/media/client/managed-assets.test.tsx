@@ -1,5 +1,3 @@
-// @vitest-environment jsdom
-
 import type { ManagedAssetLocator, RyotClientAdapter } from "@ryot-app/client-sdk";
 import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
 import { waitFor } from "@testing-library/dom";

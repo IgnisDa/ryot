@@ -1,5 +1,3 @@
-// @vitest-environment jsdom
-
 import { disposePluginBridges, mountPluginPage, routeLocation } from "@ryot-app/client-sdk/testing";
 import { waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";

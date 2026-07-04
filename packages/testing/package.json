@@ -7,6 +7,10 @@
 			"types": "./src/vitest.shared.ts",
 			"default": "./src/vitest.shared.ts"
 		},
+		"./vitest.client": {
+			"types": "./src/vitest.client.ts",
+			"default": "./src/vitest.client.ts"
+		},
 		"./jsdom-blob-clone": {
 			"types": "./src/jsdom-blob-clone.ts",
 			"default": "./src/jsdom-blob-clone.ts"

@@ -1,5 +1,3 @@
-// @vitest-environment jsdom
-
 import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 

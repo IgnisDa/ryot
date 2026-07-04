@@ -31,4 +31,5 @@
 - Keep assertions inline; extract duplicated setup, not test intent.
 - Use assertion functions from the package's test surface for test-only narrowing.
 - Do not test schema libraries, TypeScript assignments, or passthrough type checks.
+- Name a test `.test.tsx` when it needs a DOM and `.test.ts` when it must keep node semantics; `@ryot-app/testing/vitest.client` maps those extensions onto the `node` and `dom` vitest projects, so never reach for a `@vitest-environment` docblock.
 - Do not use module mocks, spies, mock functions, or fake timers. Inject dependencies instead: deterministic Effect `Layer` implementations, `TestClock` for time, plain recording functions, and the harnesses on each package's own test surface.
