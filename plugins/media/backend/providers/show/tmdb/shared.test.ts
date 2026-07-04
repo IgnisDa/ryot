@@ -83,6 +83,9 @@ describe("show.tmdb sandbox script", () => {
 			if (url.includes("/tv/1/credits")) {
 				return httpSuccess({ cast: [], crew: [] });
 			}
+			if (url.includes("/tv/1/watch/providers")) {
+				return httpSuccess({ results: {} });
+			}
 			if (url.includes("/tv/1/images")) {
 				return httpSuccess({ posters: [], backdrops: [] });
 			}
@@ -144,6 +147,9 @@ describe("show.tmdb sandbox script", () => {
 			}
 			if (url.includes("/tv/1/credits")) {
 				return httpSuccess({ cast: [], crew: [] });
+			}
+			if (url.includes("/tv/1/watch/providers")) {
+				return httpSuccess({ results: {} });
 			}
 			if (url.includes("/tv/1/images")) {
 				return httpSuccess({ posters: [], backdrops: [] });
@@ -214,6 +220,46 @@ describe("show.tmdb sandbox script", () => {
 							],
 						},
 					]);
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("keeps the offer kinds TMDB reports for a show", () => {
+		const host = makeHost((_method, url) => {
+			if (url.includes("/tv/1/watch/providers")) {
+				return httpSuccess({
+					results: {
+						GB: {
+							ads: [{ provider_name: "Tubi", logo_path: "/tubi.jpg" }],
+							free: [{ provider_name: "Tubi", logo_path: "/tubi.jpg" }],
+						},
+					},
+				});
+			}
+			if (url.includes("/tv/1/recommendations")) {
+				return httpSuccess({ results: [] });
+			}
+			if (url.includes("/tv/1/credits")) {
+				return httpSuccess({ cast: [], crew: [] });
+			}
+			if (url.includes("/tv/1/images")) {
+				return httpSuccess({ posters: [], backdrops: [] });
+			}
+			return httpSuccess({ id: 1, seasons: [], name: "Source" });
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.properties).toMatchObject({
+						watchProviders: [
+							{
+								name: "Tubi",
+								image: "https://image.tmdb.org/t/p/original/tubi.jpg",
+								availability: [{ country: "GB", offers: ["free", "ads"] }],
+							},
+						],
+					});
 					return undefined;
 				}),
 			),

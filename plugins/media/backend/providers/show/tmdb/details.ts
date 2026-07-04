@@ -13,6 +13,7 @@ import {
 	collectImages,
 	collectPeople,
 	collectSuggestions,
+	collectWatchProviders,
 	getImageUrl,
 	tmdbGet,
 	type TmdbHost,
@@ -82,6 +83,7 @@ const buildDetailsResult = (
 	imagesData: UnknownRecord,
 	creditsData: UnknownRecord,
 	recommendationsData: UnknownRecord,
+	watchProvidersData: UnknownRecord,
 	seasonDataList: readonly UnknownRecord[],
 ): ProviderDetailsResult => {
 	const title = stringValue(showData["name"]);
@@ -117,6 +119,7 @@ const buildDetailsResult = (
 			isNsfw: showData["adult"] === true ? true : null,
 			productionStatus: stringValue(showData["status"]),
 			publishYear: parsePublishYear(showData["first_air_date"]),
+			watchProviders: collectWatchProviders(watchProvidersData),
 			sourceUrl: `https://www.themoviedb.org/tv/${input.externalId}`,
 			images: collectImages(
 				showData["poster_path"],
@@ -164,12 +167,14 @@ export const getTmdbShowDetails = (
 		return Effect.fail(new Error("externalId must be a numeric TMDB show ID"));
 	}
 	return Effect.gen(function* () {
-		const [showData, imagesData, creditsData, recommendationsData] = yield* Effect.all([
-			tmdbGet(host, `/tv/${input.externalId}`, { language }, token),
-			tmdbGet(host, `/tv/${input.externalId}/images`, {}, token),
-			tmdbGet(host, `/tv/${input.externalId}/credits`, { language }, token),
-			tmdbGet(host, `/tv/${input.externalId}/recommendations`, { language }, token),
-		]);
+		const [showData, imagesData, creditsData, recommendationsData, watchProvidersData] =
+			yield* Effect.all([
+				tmdbGet(host, `/tv/${input.externalId}`, { language }, token),
+				tmdbGet(host, `/tv/${input.externalId}/images`, {}, token),
+				tmdbGet(host, `/tv/${input.externalId}/credits`, { language }, token),
+				tmdbGet(host, `/tv/${input.externalId}/recommendations`, { language }, token),
+				tmdbGet(host, `/tv/${input.externalId}/watch/providers`, {}, token),
+			]);
 		const seasonNumbers = recordsValue(showData["seasons"]).flatMap((season) => {
 			const value = numberValue(season["season_number"]);
 			return value === null ? [] : [Math.trunc(value)];
@@ -200,6 +205,7 @@ export const getTmdbShowDetails = (
 					imagesData,
 					creditsData,
 					recommendationsData,
+					watchProvidersData,
 					seasonDataList,
 				),
 		});
