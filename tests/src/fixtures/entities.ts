@@ -36,11 +36,11 @@ export async function getEntity(client: Client, entityId: string) {
 }
 
 export async function createTrackerWithSchemaAndEntity(client: Client) {
-	const { schemaId } = await createTrackerWithSchema(client);
+	const { slug, schemaId } = await createTrackerWithSchema(client);
 	const entity = await createEntity(client, {
 		name: "Test Entity",
 		entitySchemaId: schemaId,
 		properties: { title: "Test Title" },
 	});
-	return { entityId: entity.id };
+	return { slug, entityId: entity.id };
 }
