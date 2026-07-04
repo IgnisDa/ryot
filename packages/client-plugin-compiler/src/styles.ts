@@ -1,276 +1,249 @@
+import { posix } from "node:path";
+
 import { pluginClientAssetMimeType } from "@ryot-app/client-plugin-contract";
-import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
-import { Scanner } from "@tailwindcss/oxide";
-import { Effect } from "effect";
 import { parse } from "postcss";
 import valueParser from "postcss-value-parser";
-import { compile } from "tailwindcss";
 
-import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
+import { isNeutralPluginModule, isTrustedClientModule } from "./dependencies";
+import { type ClientPluginCompilerDiagnostic, clientPluginCompilerDiagnostic } from "./diagnostics";
 
-type ScanSource = { readonly content: string; readonly extension: string };
-type StylesheetSource = { readonly content: string; readonly path: string };
+const IMPORT_SPECIFIER =
+	/(?:\bimport|\bexport)\s+(?:type\s+)?(?:(?:[^"'\n;]+?)\s+from\s+)?["']([^"']+)["']/g;
+const DYNAMIC_IMPORT = /\bimport\s*\(/;
+const VITE_SPECIAL_IMPORT = /\bimport\.meta\.(?:glob|globEager)\s*\(/;
+const NEW_URL = /\bnew\s+URL\s*\(\s*["']([^"']+)["']\s*,\s*import\.meta\.url\s*\)/g;
 
-type CompileClientStylesInput = {
-	readonly entry: string;
-	readonly fontStylesheet: string;
-	readonly themeStylesheet: string;
-	readonly paletteStylesheet: string;
-	readonly scanSources: readonly ScanSource[];
-	readonly tailwindStylesheet: StylesheetSource;
-	readonly stylesheets: readonly StylesheetSource[];
-	readonly files: Readonly<Record<string, Uint8Array>>;
-	readonly assetNames: Readonly<Record<string, string>>;
-	readonly sourceFiles: Readonly<Record<string, string>>;
+const sourceRoot = (path: string) => {
+	const client = path.lastIndexOf("/client/");
+	const shared = path.lastIndexOf("/shared/");
+	const boundary = Math.max(client, shared);
+	return boundary === -1 ? "" : path.slice(0, boundary + 1);
 };
 
-const clientBaseStylesheet = `@layer base {
-	/* Vertical only: suppressing the x axis would disable the browser's own back-swipe. */
-	html,
-	body {
-		height: 100%;
-		margin: 0;
-		overflow: hidden;
-		overscroll-behavior-y: none;
-		-webkit-tap-highlight-color: transparent;
-	}
+const isSharedSource = (path: string) => path.startsWith("shared/") || path.includes("/shared/");
 
-	body {
-		background: var(--bg);
-		font-family: var(--font-family-ui);
-	}
+const resolveRelative = (importer: string, specifier: string) =>
+	posix.normalize(posix.join(posix.dirname(importer), specifier));
 
-	#app {
-		height: 100%;
-		isolation: isolate;
-		overflow: hidden;
-		position: relative;
-	}
-}`;
-
-const directoryOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
-
-const clientRoot = (path: string) => {
-	const boundary = path.lastIndexOf("/client/");
-	return boundary === -1 ? "client/" : `${path.slice(0, boundary + 1)}client/`;
+const allowedRelativeRoot = (importer: string, resolved: string) => {
+	const root = sourceRoot(importer);
+	return isSharedSource(importer)
+		? resolved.startsWith(`${root}shared/`)
+		: resolved.startsWith(`${root}client/`) || resolved.startsWith(`${root}shared/`);
 };
 
-const resolveClientStylesheet = (
-	id: string,
-	base: string,
-	files: Readonly<Record<string, string>>,
-) => {
-	if (!/^\.{1,2}\//.test(id)) {
-		return null;
-	}
-
-	const parts = base.split("/").filter(Boolean);
-	for (const part of id.split("/")) {
-		if (!part || part === ".") {
-			continue;
-		}
+const traversesSourceRoot = (importer: string, specifier: string) => {
+	const rootDepth =
+		sourceRoot(importer).split("/").filter(Boolean).length +
+		(isSharedSource(importer) || importer.endsWith(".css") ? 1 : 0);
+	let depth = posix.dirname(importer).split("/").filter(Boolean).length;
+	for (const part of specifier.split("/")) {
 		if (part === "..") {
-			if (parts.length === 0) {
-				return null;
+			depth -= 1;
+			if (depth < rootDepth) {
+				return true;
 			}
-			parts.pop();
-			continue;
+		} else if (part && part !== ".") {
+			depth += 1;
 		}
-		parts.push(part);
 	}
-
-	const path = parts.join("/");
-	return path.startsWith(clientRoot(base)) && path.endsWith(".css") && Object.hasOwn(files, path)
-		? path
-		: null;
+	return false;
 };
 
-class ClientStyleAssetError extends Error {
-	constructor(
-		readonly path: string,
-		message: string,
-	) {
-		super(message);
-	}
-}
+const importFailure = (path: string, message: string) =>
+	clientPluginCompilerDiagnostic("RYOT_CLIENT_IMPORT", path, message);
 
-const resolveAssetPath = (stylesheet: string, specifier: string) => {
-	const suffixIndex = specifier.search(/[?#]/);
-	const sourcePath = suffixIndex === -1 ? specifier : specifier.slice(0, suffixIndex);
-	const suffix = suffixIndex === -1 ? "" : specifier.slice(suffixIndex);
-	const normalized = directoryOf(stylesheet).split("/");
-	const root = clientRoot(stylesheet);
-	for (const part of sourcePath.split("/")) {
-		if (!part || part === ".") {
-			continue;
-		}
-		if (part === "..") {
-			if (normalized.join("/").length <= root.length - 1) {
-				return null;
-			}
-			normalized.pop();
-			continue;
-		}
-		normalized.push(part);
-	}
-	const path = normalized.join("/");
-	return path.startsWith(root) ? { path, suffix } : null;
-};
-
-const rewriteStylesheetAssets = (
+const validateScript = (
 	path: string,
-	content: string,
+	contents: string,
 	files: Readonly<Record<string, Uint8Array>>,
-	assetNames: Readonly<Record<string, string>>,
-	assets: Set<string>,
+	publicExports: Readonly<Record<string, string>>,
+	unresolvedPluginDependencies: ReadonlySet<string>,
 ) => {
-	const root = parse(content, { from: path });
-	root.walkDecls((declaration) => {
-		const parsed = valueParser(declaration.value);
-		parsed.walk((node) => {
-			if (node.type !== "function" || node.value.toLowerCase() !== "url") {
-				return;
-			}
-			const values = node.nodes.filter(
-				(child) => child.type !== "space" && child.type !== "comment" && child.type !== "div",
+	const diagnostics: ClientPluginCompilerDiagnostic[] = [];
+	if (DYNAMIC_IMPORT.test(contents) || VITE_SPECIAL_IMPORT.test(contents)) {
+		diagnostics.push(
+			importFailure(path, "Dynamic imports and Vite import-glob features are not allowed"),
+		);
+	}
+	for (const match of contents.matchAll(IMPORT_SPECIFIER)) {
+		const specifier = match[1];
+		if (!specifier) {
+			continue;
+		}
+		if (specifier.includes("?") || specifier.includes("#") || specifier.startsWith("/")) {
+			diagnostics.push(
+				importFailure(path, `Import "${specifier}" uses an unsupported import form`),
 			);
-			const target = values[0];
-			if (values.length !== 1 || (target?.type !== "string" && target?.type !== "word")) {
-				throw new ClientStyleAssetError(path, `CSS URL in "${path}" must contain one path`);
-			}
-
-			const specifier = target.value;
+			continue;
+		}
+		if (specifier.startsWith(".")) {
+			const resolved = resolveRelative(path, specifier.replace(/\.js$/, ".ts"));
 			if (
-				specifier.startsWith("#") ||
-				specifier.startsWith("//") ||
-				/^[a-z][a-z\d+.-]*:/i.test(specifier)
+				traversesSourceRoot(path, specifier) ||
+				!allowedRelativeRoot(path, resolved) ||
+				canonicalRelativePosixPathIssue(resolved) !== null
 			) {
-				return;
-			}
-			if (specifier.startsWith("/")) {
-				throw new ClientStyleAssetError(
-					path,
-					`CSS asset URL "${specifier}" from "${path}" must not be root-relative`,
+				diagnostics.push(
+					importFailure(
+						path,
+						`Import "${specifier}" could not be resolved inside the plugin ${isSharedSource(path) ? "shared" : "client"} sources`,
+					),
 				);
 			}
-
-			const resolved = resolveAssetPath(path, specifier);
+			continue;
+		}
+		if (specifier.startsWith("@ryot-app/plugins/")) {
+			const slug = /^@ryot-app\/plugins\/([^/]+)\//.exec(specifier)?.[1];
 			if (
-				resolved === null ||
-				!resolved.path.startsWith(clientRoot(path)) ||
-				canonicalRelativePosixPathIssue(resolved.path) !== null
+				isSharedSource(path) ||
+				(publicExports[specifier] === undefined &&
+					(slug === undefined || !unresolvedPluginDependencies.has(slug)))
 			) {
-				throw new ClientStyleAssetError(
-					path,
-					`CSS asset URL "${specifier}" from "${path}" traverses outside the plugin client sources`,
+				diagnostics.push(
+					importFailure(
+						path,
+						isSharedSource(path)
+							? `Import "${specifier}" is not allowed; plugin shared sources may only import Ryot plugin kit entry points`
+							: `Public plugin import "${specifier}" is not present in the authorized export map`,
+					),
 				);
 			}
-			if (pluginClientAssetMimeType(resolved.path) === undefined) {
-				throw new ClientStyleAssetError(
+			continue;
+		}
+		const allowed = isSharedSource(path)
+			? isNeutralPluginModule(specifier)
+			: isTrustedClientModule(specifier);
+		if (!allowed) {
+			diagnostics.push(
+				importFailure(
 					path,
-					`CSS asset URL "${specifier}" from "${path}" does not use an allowed client asset extension`,
-				);
-			}
-			if (!Object.hasOwn(files, resolved.path)) {
-				throw new ClientStyleAssetError(
-					path,
-					`CSS asset URL "${specifier}" from "${path}" does not exist`,
-				);
-			}
-
-			const assetName = assetNames[resolved.path];
-			if (assetName === undefined) {
-				throw new ClientStyleAssetError(path, `CSS asset "${resolved.path}" could not be emitted`);
-			}
-			assets.add(resolved.path);
-			target.value = `./${assetName}${resolved.suffix}`;
-		});
-		declaration.value = valueParser.stringify(parsed.nodes);
-	});
-	return root.toString();
+					isSharedSource(path)
+						? `Import "${specifier}" is not allowed; plugin shared sources may only import Ryot plugin kit entry points`
+						: `Import "${specifier}" is not allowed; client plugins may only import React and Ryot client SDK entry points`,
+				),
+			);
+		}
+	}
+	for (const match of contents.matchAll(NEW_URL)) {
+		const specifier = match[1];
+		const source = specifier?.split(/[?#]/, 1)[0] ?? "";
+		const resolved = resolveRelative(path, source);
+		if (
+			!specifier?.startsWith(".") ||
+			traversesSourceRoot(path, source) ||
+			!allowedRelativeRoot(path, resolved) ||
+			pluginClientAssetMimeType(resolved) === undefined ||
+			files[resolved] === undefined
+		) {
+			diagnostics.push(importFailure(path, `Asset URL "${specifier ?? ""}" is not allowed`));
+		}
+	}
+	return diagnostics;
 };
 
-export const compileClientStyles = ({
-	entry,
-	files,
-	assetNames,
-	sourceFiles,
-	scanSources,
-	stylesheets,
-	fontStylesheet,
-	themeStylesheet,
-	paletteStylesheet,
-	tailwindStylesheet,
-}: CompileClientStylesInput) =>
-	Effect.tryPromise({
-		catch: (error) =>
-			clientPluginCompilationFailure([
-				clientPluginCompilerDiagnostic(
-					"RYOT_CLIENT_STYLES",
-					error instanceof ClientStyleAssetError ? error.path : entry,
-					`Client plugin stylesheet could not be compiled: ${String(error)}`,
-				),
-			]),
-		try: async () => {
-			const assets = new Set<string>();
-			const rewrittenFiles: Record<string, string> = {};
-			const rewrite = (path: string, content: string) =>
-				(rewrittenFiles[path] ??= rewriteStylesheetAssets(
-					path,
-					content,
-					files,
-					assetNames,
-					assets,
-				));
-			const stylesheetImports = stylesheets
-				.map((_, index) => `@import "ryot:stylesheet/${index}";`)
-				.join("\n");
-			const inputStylesheet = `@import "tailwindcss";\n${fontStylesheet}\n${clientBaseStylesheet}\n${stylesheetImports}\n${themeStylesheet}\n${paletteStylesheet}`;
-			let tailwindLoaded = false;
-			const compiled = await compile(inputStylesheet, {
-				base: "client",
-				loadStylesheet: (id, base) =>
-					Promise.resolve().then(() => {
-						if (id === "tailwindcss") {
-							const content = tailwindLoaded ? "" : tailwindStylesheet.content;
-							tailwindLoaded = true;
-							return {
-								content,
-								path: tailwindStylesheet.path,
-								base: directoryOf(tailwindStylesheet.path),
-							};
-						}
-						const generatedIndex = id.match(/^ryot:stylesheet\/(\d+)$/)?.[1];
-						if (generatedIndex !== undefined) {
-							const source = stylesheets[Number(generatedIndex)];
-							if (source !== undefined) {
-								return {
-									path: source.path,
-									base: directoryOf(source.path),
-									content: rewrite(source.path, source.content),
-								};
-							}
-						}
+class StylePolicyError extends Error {}
 
-						const path = resolveClientStylesheet(id, base, sourceFiles);
-						if (path === null) {
-							throw new Error(
-								`Stylesheet import "${id}" from "${base}" is not allowed; client plugins may only import "tailwindcss" and relative CSS files from client sources`,
-							);
-						}
-						return {
-							path,
-							base: directoryOf(path),
-							content: rewrite(path, sourceFiles[path] ?? ""),
-						};
-					}),
+const validateStylesheet = (
+	path: string,
+	contents: string,
+	files: Readonly<Record<string, Uint8Array>>,
+) => {
+	const diagnostics: ClientPluginCompilerDiagnostic[] = [];
+	try {
+		const root = parse(contents, { from: path });
+		root.walkAtRules((rule) => {
+			const name = rule.name.toLowerCase();
+			if (name === "plugin" || name === "config" || name === "source") {
+				throw new StylePolicyError(`Tailwind @${name} is compiler-owned and is not allowed`);
+			}
+			if (name === "import") {
+				const parsed = valueParser(rule.params).nodes.find(
+					(node) => node.type === "string" || node.type === "word",
+				);
+				const specifier = parsed?.value;
+				if (!specifier || !specifier.startsWith(".")) {
+					throw new StylePolicyError(
+						`Stylesheet import "${specifier ?? rule.params}" is not allowed; client plugins may only import relative CSS files from client sources`,
+					);
+				}
+				const resolved = resolveRelative(path, specifier);
+				if (
+					!allowedRelativeRoot(path, resolved) ||
+					!resolved.endsWith(".css") ||
+					files[resolved] === undefined
+				) {
+					throw new StylePolicyError(`Stylesheet import "${specifier}" is not allowed`);
+				}
+			}
+		});
+		root.walkDecls((declaration) => {
+			const parsed = valueParser(declaration.value);
+			parsed.walk((node) => {
+				if (node.type !== "function" || node.value.toLowerCase() !== "url") {
+					return;
+				}
+				const target = node.nodes.find((child) => child.type === "string" || child.type === "word");
+				const specifier = target?.value;
+				if (
+					!specifier ||
+					specifier.startsWith("#") ||
+					specifier.startsWith("//") ||
+					/^[a-z][\w+.-]*:/i.test(specifier)
+				) {
+					return;
+				}
+				if (specifier.startsWith("/")) {
+					throw new StylePolicyError(`CSS asset URL "${specifier}" must not be root-relative`);
+				}
+				const source = specifier.split(/[?#]/, 1)[0] ?? "";
+				const resolved = resolveRelative(path, source);
+				if (traversesSourceRoot(path, source) || !allowedRelativeRoot(path, resolved)) {
+					throw new StylePolicyError(
+						`CSS asset URL "${specifier}" traverses outside the plugin client sources`,
+					);
+				}
+				if (pluginClientAssetMimeType(resolved) === undefined) {
+					throw new StylePolicyError(
+						`CSS asset URL "${specifier}" does not use an allowed client asset extension`,
+					);
+				}
+				if (files[resolved] === undefined) {
+					throw new StylePolicyError(`CSS asset URL "${specifier}" does not exist`);
+				}
 			});
-			const candidates = new Scanner({}).scanFiles([...scanSources]);
-			return {
-				assets: sortBy([...assets]),
-				css: compiled.build(sortBy(candidates)),
-				sources: sortBy(Object.keys(rewrittenFiles)),
-			};
-		},
+		});
+	} catch (error) {
+		diagnostics.push(
+			clientPluginCompilerDiagnostic(
+				"RYOT_CLIENT_STYLES",
+				path,
+				`Client plugin stylesheet is not allowed: ${String(error)}`,
+			),
+		);
+	}
+	return diagnostics;
+};
+
+export const validateClientSourcePolicy = ({
+	files,
+	sourceFiles,
+	publicExports,
+	unresolvedPluginDependencies = [],
+}: {
+	readonly files: Readonly<Record<string, Uint8Array>>;
+	readonly sourceFiles: Readonly<Record<string, string>>;
+	readonly publicExports: Readonly<Record<string, string>>;
+	readonly unresolvedPluginDependencies?: readonly string[];
+}) => {
+	const unresolved = new Set(unresolvedPluginDependencies);
+	return Object.entries(sourceFiles).flatMap(([path, contents]) => {
+		if (/\.(?:test|spec)\.tsx?$/.test(path)) {
+			return [];
+		}
+		return path.endsWith(".css")
+			? validateStylesheet(path, contents, files)
+			: validateScript(path, contents, files, publicExports, unresolved);
 	});
+};

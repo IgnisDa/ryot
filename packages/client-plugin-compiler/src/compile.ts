@@ -1,3 +1,6 @@
+import { relative as relativePath, resolve as resolvePath } from "node:path";
+
+import { BunFileSystem } from "@effect/platform-bun";
 import type {
 	CLIENT_API_VERSION,
 	PluginClientArtifact,
@@ -12,28 +15,33 @@ import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/mani
 import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
-import { Effect } from "effect";
+import {
+	acquireCompilerWorkspace,
+	stageGeneratedFiles,
+	stageSourceFiles,
+	validateRelativePath,
+	ViteBuildService,
+} from "@ryot-app/vite-compiler";
+import { Effect, Layer, Result } from "effect";
 
 import {
 	CLIENT_ARTIFACT_DOCUMENT_NAME,
-	CLIENT_ARTIFACT_SCRIPT_NAME,
-	CLIENT_ARTIFACT_STYLE_NAME,
-	clientArtifactDocument,
+	clientArtifactFile,
 	clientArtifactMetadata,
-	clientAssetArtifactFile,
-	clientAssetName,
-	clientGeneratedArtifactFile,
 } from "./artifact";
 import { bundleClientPlugin } from "./bundle";
 import { resolveClientPluginCompilerDependencies } from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
-import { checkClientPluginTypes } from "./semantic-check";
-import { compileClientStyles } from "./styles";
+import { analyzeClientPluginTypes } from "./semantic-check";
+import { validateClientSourcePolicy } from "./styles";
 
 const CLIENT_SOURCE_ROOT = "client/";
 const SHARED_SOURCE_ROOT = "shared/";
-const SCANNED_EXTENSIONS = new Set(["ts", "tsx"]);
+const ARTIFACT_METADATA_PLACEHOLDER = "__RYOT_CLIENT_ARTIFACT_METADATA__";
+const GENERATED_BOOTSTRAP = "__generated/bootstrap.tsx";
+const GENERATED_VALIDATION = "__generated/validation.tsx";
+const compilerLayer = Layer.merge(BunFileSystem.layer, ViteBuildService.layer);
 
 const isClientSourcePath = (path: string) =>
 	path.startsWith(CLIENT_SOURCE_ROOT) || path.includes(`/${CLIENT_SOURCE_ROOT}`);
@@ -100,9 +108,6 @@ export type ClientPluginCompilerInput =
 	| ClientPluginCompilerPackageInput
 	| ClientPluginCompilerGraphInput;
 
-const GENERATED_PAGE_ENTRY = "client/__ryot_page_entry.tsx";
-const GENERATED_PACKAGE_VALIDATION_ENTRY = "client/__ryot_public_exports_validation__.tsx";
-
 const PUBLIC_EXPORT_SPECIFIER =
 	/^@ryot-app\/plugins\/[a-z0-9]+(?:[._-][a-z0-9]+)*\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const PUBLIC_EXPORT_NAME = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
@@ -118,12 +123,9 @@ const automaticRegistrySource = (
 		)
 		.join(", ")}] }`;
 
-const pageEntrySource = (
-	entry: string,
-	automaticRegistry: readonly ClientPluginAutomaticRegistryEntry[] = [],
-) => `
+const pageEntrySource = (automaticRegistry: readonly ClientPluginAutomaticRegistryEntry[] = []) => `
 import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";
-import Page from ${JSON.stringify(`./${entry.slice(CLIENT_SOURCE_ROOT.length).replace(/\.(?:ts|tsx)$/, "")}`)};
+import Page from "@ryot-internal/application-entry";
 ${automaticRegistry.map(({ exportSpecifier }, index) => `import AutomaticPresentation${index} from ${JSON.stringify(exportSpecifier)};`).join("\n")}
 bootstrapClientPage(Page, ${automaticRegistrySource(automaticRegistry)});
 `;
@@ -185,6 +187,14 @@ const validationSource = (
 	return imports.join("\n");
 };
 
+const packageDependencyDeclarations = (pluginDependencies: readonly string[]) =>
+	pluginDependencies
+		.map(
+			(slug) =>
+				`declare module ${JSON.stringify(`@ryot-app/plugins/${slug}/*`)} { const value: any; export default value; }`,
+		)
+		.join("\n");
+
 const packageValidationSource = (
 	publicExports: Readonly<Record<string, ClientPluginCompilerPackageExport>>,
 ) => {
@@ -196,8 +206,9 @@ const packageValidationSource = (
 		Object.entries(publicExports),
 		([name]) => name,
 	).entries()) {
-		const specifier = `./${declaration.entry.slice(CLIENT_SOURCE_ROOT.length).replace(/\.(?:ts|tsx)$/, "")}`;
-		imports.push(`import PublicExport${index} from ${JSON.stringify(specifier)};`);
+		imports.push(
+			`import PublicExport${index} from ${JSON.stringify(`@ryot-internal/package-export-${index}`)};`,
+		);
 		imports.push(
 			`const publicExport${index}: ${publicExportType(declaration.kind)} = PublicExport${index};`,
 		);
@@ -205,27 +216,6 @@ const packageValidationSource = (
 	}
 	return imports.join("\n");
 };
-
-const packageDependencyDeclarations = (pluginDependencies: readonly string[]) =>
-	pluginDependencies
-		.map(
-			(slug) =>
-				`declare module ${JSON.stringify(`@ryot-app/plugins/${slug}/*`)} { const value: any; export default value; }`,
-		)
-		.join("\n");
-
-const contributorNamespaceOf = (path: string) => path.split("/")[1] ?? "";
-
-const orderContributorSources = (paths: readonly string[], contributorOrder: readonly string[]) => {
-	const order = new Map(contributorOrder.map((namespace, index) => [namespace, index]));
-	return [...paths].sort((left, right) => {
-		const rank = (path: string) =>
-			order.get(contributorNamespaceOf(path)) ?? Number.MAX_SAFE_INTEGER;
-		return rank(left) - rank(right) || left.localeCompare(right);
-	});
-};
-
-const extensionOf = (path: string) => path.slice(path.lastIndexOf(".") + 1);
 
 const failure = (entry: string, code: string, message: string) =>
 	clientPluginCompilationFailure([clientPluginCompilerDiagnostic(code, entry, message)]);
@@ -241,8 +231,87 @@ const duplicateFileName = (files: readonly PluginClientArtifactFile[]) => {
 	})?.name;
 };
 
-const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
-	left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
+const escapeHtmlText = (value: string) =>
+	value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
+const generatedDocument = (name: string) => `<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>${escapeHtmlText(name)}</title>
+		<script type="application/json" id="ryot-client-artifact">${ARTIFACT_METADATA_PLACEHOLDER}</script>
+	</head>
+	<body>
+		<div id="app"></div>
+		<script type="module" src="./bootstrap.tsx"></script>
+	</body>
+</html>
+`;
+
+const baseStylesheet = `@layer base {
+	html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
+	body { background: var(--bg); font-family: var(--font-family-ui); }
+	#app { height: 100%; isolation: isolate; overflow: hidden; position: relative; }
+}`;
+
+const compilerStylesheet = (
+	reachableSources: readonly string[],
+	sourcePath: string,
+	generatedPath: string,
+	clientSdkRoot: string,
+	uiSdkRoot: string,
+) => {
+	const source = (path: string) =>
+		`@source ${JSON.stringify(relativePath(generatedPath, path).replaceAll("\\", "/"))};`;
+	return [
+		'@import "@fontsource-variable/outfit";',
+		'@import "@fontsource-variable/lora";',
+		'@import "tailwindcss" source(none);',
+		'@import "@ryot-app/client-ui-sdk/theme.css";',
+		'@import "@ryot-app/client-ui-sdk/palette.css";',
+		...reachableSources
+			.filter((path) => /\.tsx?$/.test(path))
+			.map((path) => source(resolvePath(sourcePath, path))),
+		source(clientSdkRoot),
+		source(uiSdkRoot),
+		baseStylesheet,
+	].join("\n");
+};
+
+const outputReferenceIssue = (
+	name: string,
+	contents: string,
+	contentType: string,
+	names: ReadonlySet<string>,
+	pluginDependencies: ReadonlySet<string>,
+) => {
+	let pattern = /(?:\bimport\s*\(\s*|\bnew\s+URL\s*\(\s*)["'`]([^"'`]+)["'`]/g;
+	if (contentType.startsWith("text/html")) {
+		pattern = /(?:src|href)=["']([^"']+)["']/g;
+	} else if (contentType.startsWith("text/css")) {
+		pattern = /url\(\s*["']?([^"')]+)/g;
+	}
+	for (const match of contents.matchAll(pattern)) {
+		const reference = match[1];
+		const pluginSlug = reference?.match(PUBLIC_EXPORT_SPECIFIER)?.[0].split("/")[2];
+		if (
+			!reference ||
+			reference.startsWith("#") ||
+			reference.startsWith("data:") ||
+			/^[a-z][\w+.-]*:/i.test(reference) ||
+			reference.startsWith("//") ||
+			(pluginSlug !== undefined && pluginDependencies.has(pluginSlug))
+		) {
+			continue;
+		}
+		const target = reference.split(/[?#]/, 1)[0]?.replace(/^\.\//, "") ?? "";
+		if (target.startsWith("/") || target.includes("..") || !names.has(target)) {
+			return `Emitted file "${name}" references missing or escaping path "${reference}"`;
+		}
+	}
+	return null;
+};
 
 export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 	Effect.gen(function* () {
@@ -385,8 +454,23 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			);
 			automaticExports = automaticRegistry.map(({ exportSpecifier }) => exportSpecifier);
 		} else {
-			entry = GENERATED_PACKAGE_VALIDATION_ENTRY;
+			entry = "client";
 			files = input.files;
+			for (const path of Object.keys(files)) {
+				if (
+					(path.startsWith(CLIENT_SOURCE_ROOT) || path.startsWith(SHARED_SOURCE_ROOT)) &&
+					(canonicalRelativePosixPathIssue(path) !== null ||
+						(path.startsWith(CLIENT_SOURCE_ROOT)
+							? pluginClientFileExtension(path) === undefined
+							: !isPluginSharedSource(path)))
+				) {
+					return yield* failure(
+						path,
+						"RYOT_CLIENT_SOURCE_PATH",
+						`Source "${path}" must be an allowed canonical client/ or shared/ file`,
+					);
+				}
+			}
 			packagePublicExports = input.publicExports;
 			for (const [name, declaration] of Object.entries(packagePublicExports)) {
 				if (
@@ -467,120 +551,90 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				);
 			}
 		}
-		let buildEntry = GENERATED_PACKAGE_VALIDATION_ENTRY;
-		if (graphInput) {
-			const generatedPageEntry = `contributors/${input.entry.contributor}/${GENERATED_PAGE_ENTRY}`;
-			buildEntry = generatedPageEntry;
-			if (Object.hasOwn(sourceFiles, generatedPageEntry)) {
-				return yield* failure(
-					entry,
-					"RYOT_CLIENT_ENTRY",
-					"Client sources use a compiler-owned entry path",
-				);
-			}
-			sourceFiles[generatedPageEntry] =
-				input.application === "plugin-route" && pluginRouteRegistry
-					? pluginRouteEntrySource(pluginRouteRegistry, automaticRegistry)
-					: pageEntrySource(input.entry.path, automaticRegistry);
-		}
-		if (!graphInput) {
-			if (Object.hasOwn(sourceFiles, GENERATED_PACKAGE_VALIDATION_ENTRY)) {
-				return yield* failure(
-					entry,
-					"RYOT_CLIENT_ENTRY",
-					"Client sources use a compiler-owned public export validation path",
-				);
-			}
-			sourceFiles[GENERATED_PACKAGE_VALIDATION_ENTRY] =
-				packageValidationSource(packagePublicExports);
-			const dependencyDeclarations = packageDependencyDeclarations(input.pluginDependencies ?? []);
-			if (dependencyDeclarations.length > 0) {
-				sourceFiles["client/__ryot_plugin_dependencies__.d.ts"] = dependencyDeclarations;
-			}
+		const dependencies = yield* resolveClientPluginCompilerDependencies;
+		const policyDiagnostics = validateClientSourcePolicy({
+			files,
+			sourceFiles,
+			publicExports: publicExportPaths,
+			...(!graphInput ? { unresolvedPluginDependencies: input.pluginDependencies ?? [] } : {}),
+		});
+		if (policyDiagnostics.length > 0) {
+			return yield* clientPluginCompilationFailure(policyDiagnostics);
 		}
 
-		const assetNames = Object.fromEntries(
-			assetSources.map(([path, contents]) => [path, clientAssetName(path, contents)]),
-		);
-		const dependencies = yield* resolveClientPluginCompilerDependencies;
-		const bundled = yield* bundleClientPlugin(
-			{
-				assetNames,
-				entry: buildEntry,
-				files: sourceFiles,
-				publicExports: publicExportPaths,
-				...(!graphInput ? { unresolvedPluginDependencies: input.pluginDependencies ?? [] } : {}),
-			},
-			dependencies.compilerRoot,
-		);
-		if ("diagnostics" in bundled) {
-			return yield* clientPluginCompilationFailure(bundled.diagnostics);
+		let applicationSource: string;
+		if (!graphInput) {
+			applicationSource = packageValidationSource(packagePublicExports);
+		} else if (input.application === "plugin-route" && pluginRouteRegistry) {
+			applicationSource = pluginRouteEntrySource(pluginRouteRegistry, automaticRegistry);
+		} else {
+			applicationSource = pageEntrySource(automaticRegistry);
 		}
-		const reachablePublicExports = sortBy([
-			...new Set([...bundled.publicExports, ...automaticExports]),
-		]);
-		const validationEntry = "__ryot_client_validation__.tsx";
-		const checkedSourceFiles = graphInput
-			? Object.fromEntries(
-					bundled.sources.flatMap((path) =>
-						sourceFiles[path] === undefined ? [] : [[path, sourceFiles[path]]],
+		const bootstrapSource = `${applicationSource}\nimport "./styles.css";\n`;
+		if (!graphInput) {
+			const declarations = packageDependencyDeclarations(input.pluginDependencies ?? []);
+			if (declarations) {
+				sourceFiles["client/__ryot_plugin_dependencies__.d.ts"] = declarations;
+			}
+		}
+		const typeAliases: Record<string, string> = graphInput
+			? { "@ryot-internal/application-entry": entry, ...publicExportPaths }
+			: Object.fromEntries(
+					sortBy(Object.entries(packagePublicExports), ([name]) => name).map(
+						([, declaration], index) => [
+							`@ryot-internal/package-export-${index}`,
+							declaration.entry,
+						],
 					),
-				)
-			: { ...sourceFiles };
-		if (graphInput) {
-			checkedSourceFiles[validationEntry] = validationSource(
-				"@ryot-internal/application-entry",
-				reachablePublicExports,
-				publicExports,
-			);
-		}
-		const typeDiagnostics = yield* checkClientPluginTypes(checkedSourceFiles, dependencies, {
-			...(graphInput ? { "@ryot-internal/application-entry": entry } : {}),
-			...Object.fromEntries(
-				reachablePublicExports.map((specifier) => [specifier, publicExportPaths[specifier] ?? ""]),
-			),
-		}).pipe(
+				);
+		const analysisFiles = { ...sourceFiles, [GENERATED_BOOTSTRAP]: bootstrapSource };
+		const analysis = yield* analyzeClientPluginTypes(
+			analysisFiles,
+			dependencies,
+			typeAliases,
+			graphInput ? [GENERATED_BOOTSTRAP] : undefined,
+		).pipe(
 			Effect.mapError((error) =>
 				clientPluginCompilationFailure([
 					clientPluginCompilerDiagnostic(
 						"RYOT_CLIENT_COMPILER",
-						buildEntry,
+						entry,
 						`TypeScript compiler failed: ${String(error)}`,
 					),
 				]),
 			),
 		);
-		if (typeDiagnostics.length > 0) {
-			return yield* clientPluginCompilationFailure(typeDiagnostics);
+		if (analysis.diagnostics.length > 0) {
+			return yield* clientPluginCompilationFailure(analysis.diagnostics);
 		}
-		const styles = yield* compileClientStyles({
-			entry,
-			files,
-			assetNames,
-			sourceFiles,
-			fontStylesheet: dependencies.fontStylesheet,
-			themeStylesheet: dependencies.themeStylesheet,
-			paletteStylesheet: dependencies.paletteStylesheet,
-			tailwindStylesheet: dependencies.tailwindStylesheet,
-			stylesheets: (graphInput
-				? orderContributorSources(bundled.stylesheets, input.contributorOrder)
-				: bundled.stylesheets
-			).map((path) => ({ path, content: sourceFiles[path] ?? "" })),
-			scanSources: [
-				...(graphInput ? bundled.sources.map((path) => [path, files[path]] as const) : clientFiles)
-					.filter(([path]) => SCANNED_EXTENSIONS.has(extensionOf(path)))
-					.map(([path]) => ({ extension: extensionOf(path), content: sourceFiles[path] ?? "" })),
-				...dependencies.uiSdkScanSources,
-				...dependencies.clientSdkScanSources,
-			],
-		});
-		const reachablePaths = new Set([
-			...bundled.sources,
-			...styles.sources,
-			...bundled.assets,
-			...styles.assets,
-		]);
-		const reachableSourceBytes = [...reachablePaths].reduce(
+		const reachableSources = graphInput
+			? analysis.sources.filter((path) => path !== GENERATED_BOOTSTRAP)
+			: Object.keys(sourceFiles);
+		if (graphInput) {
+			const reachablePublicExports = sortBy([
+				...new Set([
+					...automaticExports,
+					...Object.entries(publicExportPaths).flatMap(([specifier, path]) =>
+						reachableSources.includes(path) ? [specifier] : [],
+					),
+				]),
+			]);
+			const checked = {
+				...sourceFiles,
+				[GENERATED_VALIDATION]: validationSource(
+					"@ryot-internal/application-entry",
+					reachablePublicExports,
+					publicExports,
+				),
+			};
+			const checkedAnalysis = yield* analyzeClientPluginTypes(checked, dependencies, typeAliases, [
+				GENERATED_VALIDATION,
+			]);
+			if (checkedAnalysis.diagnostics.length > 0) {
+				return yield* clientPluginCompilationFailure(checkedAnalysis.diagnostics);
+			}
+		}
+		const reachableSourceBytes = reachableSources.reduce(
 			(total, path) => total + (files[path]?.byteLength ?? 0),
 			0,
 		);
@@ -591,68 +645,144 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				`Client plugin source exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes} bytes`,
 			);
 		}
-		const reachableOversizedAsset = assetSources.find(
-			([path, contents]) =>
-				reachablePaths.has(path) && contents.byteLength > CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes,
+
+		const workspace = yield* acquireCompilerWorkspace({
+			parentPath: dependencies.compilerRoot,
+		}).pipe(
+			Effect.mapError((error) =>
+				clientPluginCompilationFailure([
+					clientPluginCompilerDiagnostic("RYOT_CLIENT_COMPILER", entry, error.message),
+				]),
+			),
 		);
-		if (graphInput && reachableOversizedAsset) {
+		yield* stageSourceFiles(
+			workspace,
+			compiledFiles.map(([path, contents]) => ({ path, contents })),
+		).pipe(
+			Effect.mapError((error) =>
+				clientPluginCompilationFailure([
+					clientPluginCompilerDiagnostic("RYOT_CLIENT_SOURCE_PATH", entry, error.message),
+				]),
+			),
+		);
+		yield* stageGeneratedFiles(workspace, [
+			{ path: "bootstrap.tsx", contents: bootstrapSource },
+			{ path: "index.html", contents: generatedDocument(pluginName) },
+			{
+				path: "styles.css",
+				contents: compilerStylesheet(
+					reachableSources,
+					workspace.sourcePath,
+					workspace.generatedPath,
+					dependencies.clientSdkRoot,
+					dependencies.uiSdkRoot,
+				),
+			},
+		]).pipe(
+			Effect.mapError((error) =>
+				clientPluginCompilationFailure([
+					clientPluginCompilerDiagnostic("RYOT_CLIENT_COMPILER", entry, error.message),
+				]),
+			),
+		);
+		const viteAliases = Object.fromEntries(
+			Object.entries(typeAliases).map(([specifier, path]) => [specifier, path]),
+		);
+		const bundled = yield* bundleClientPlugin({
+			entry,
+			workspace,
+			publicExports: viteAliases,
+			...(!graphInput ? { unresolvedPluginDependencies: input.pluginDependencies ?? [] } : {}),
+		});
+		const emittedErrors = bundled.diagnostics.filter(({ severity }) => severity === "error");
+		if (emittedErrors.length > 0) {
+			return yield* clientPluginCompilationFailure(emittedErrors);
+		}
+		if (bundled.files.length > CLIENT_PLUGIN_COMPILER_LIMITS.artifactFileCount) {
 			return yield* failure(
-				reachableOversizedAsset[0],
-				"RYOT_CLIENT_ASSET_SIZE",
-				`Client plugin asset exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes} bytes`,
+				entry,
+				"RYOT_CLIENT_ARTIFACT_FILE",
+				"Compiled client artifact emits too many files",
 			);
 		}
-
-		const assetsByName = new Map<string, PluginClientArtifactFile>();
-		const emittedAssets: Array<readonly [string, PluginClientArtifactFile]> = [];
-		for (const path of new Set([...bundled.assets, ...styles.assets])) {
-			const contents = files[path];
-			const name = assetNames[path];
-			if (contents === undefined || name === undefined) {
+		const oversizedOutputAsset = bundled.files.find(
+			(file) =>
+				!file.contentType.startsWith("text/") &&
+				file.bytes.byteLength > CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes,
+		);
+		if (oversizedOutputAsset) {
+			return yield* failure(
+				entry,
+				"RYOT_CLIENT_ASSET_SIZE",
+				`Emitted client asset "${oversizedOutputAsset.path}" exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes} bytes`,
+			);
+		}
+		const html = bundled.files.find(({ path }) => path === CLIENT_ARTIFACT_DOCUMENT_NAME);
+		if (!html) {
+			return yield* failure(
+				entry,
+				"RYOT_CLIENT_ARTIFACT_FILE",
+				`Vite did not emit index.html (${bundled.files.map(({ path }) => path).join(", ")})`,
+			);
+		}
+		const hashedFiles = bundled.files
+			.filter(({ path }) => path !== CLIENT_ARTIFACT_DOCUMENT_NAME)
+			.map(clientArtifactFile);
+		const names = new Set(hashedFiles.map(({ name }) => name));
+		names.add(CLIENT_ARTIFACT_DOCUMENT_NAME);
+		const pluginDependencies = new Set(!graphInput ? (input.pluginDependencies ?? []) : []);
+		for (const file of bundled.files) {
+			if (Result.isFailure(validateRelativePath(file.path))) {
 				return yield* failure(
-					path,
+					entry,
 					"RYOT_CLIENT_ARTIFACT_FILE",
-					`Client plugin asset "${path}" could not be emitted`,
+					`Vite emitted invalid path "${file.path}"`,
 				);
 			}
-			emittedAssets.push([path, clientAssetArtifactFile(path, name, contents)]);
-		}
-		for (const file of dependencies.fontAssets) {
-			emittedAssets.push([file.name, file]);
-		}
-		for (const [path, file] of emittedAssets) {
-			const existing = assetsByName.get(file.name);
-			if (existing === undefined) {
-				assetsByName.set(file.name, file);
-			} else if (
-				!bytesEqual(existing.contents, file.contents) ||
-				existing.contentType !== file.contentType
+			if (
+				!/^(?:text\/(?:html|css|javascript); charset=utf-8|image\/(?:png|gif|jpeg|webp|avif|x-icon|svg\+xml)|font\/woff2|application\/wasm)$/.test(
+					file.contentType,
+				)
 			) {
 				return yield* failure(
-					path,
+					entry,
 					"RYOT_CLIENT_ARTIFACT_FILE",
-					`Client plugin assets emitted duplicate file name "${file.name}"`,
+					`Vite emitted unsupported MIME type "${file.contentType}"`,
 				);
 			}
+			if (file.contentType.startsWith("text/")) {
+				const issue = outputReferenceIssue(
+					file.path,
+					decoder.decode(file.bytes),
+					file.contentType,
+					names,
+					pluginDependencies,
+				);
+				if (issue) {
+					return yield* failure(entry, "RYOT_CLIENT_ARTIFACT_FILE", issue);
+				}
+			}
 		}
-
-		const hashedFiles = sortBy(
-			[
-				clientGeneratedArtifactFile(CLIENT_ARTIFACT_SCRIPT_NAME, bundled.javascript),
-				clientGeneratedArtifactFile(CLIENT_ARTIFACT_STYLE_NAME, styles.css),
-				...assetsByName.values(),
-			],
-			(file) => file.name,
-		);
 		const metadata = clientArtifactMetadata(pluginName, hashedFiles);
+		const emittedDocument = decoder.decode(html.bytes);
+		if (!emittedDocument.includes(ARTIFACT_METADATA_PLACEHOLDER)) {
+			return yield* failure(
+				entry,
+				"RYOT_CLIENT_ARTIFACT_FILE",
+				"Vite HTML lost the artifact metadata placeholder",
+			);
+		}
 		const artifact: PluginClientArtifact = {
 			...metadata,
 			files: [
-				...hashedFiles,
-				clientGeneratedArtifactFile(
-					CLIENT_ARTIFACT_DOCUMENT_NAME,
-					clientArtifactDocument(pluginName, metadata),
-				),
+				...sortBy(hashedFiles, ({ name }) => name),
+				clientArtifactFile({
+					contentType: html.contentType,
+					path: CLIENT_ARTIFACT_DOCUMENT_NAME,
+					bytes: new TextEncoder().encode(
+						emittedDocument.replace(ARTIFACT_METADATA_PLACEHOLDER, JSON.stringify(metadata)),
+					),
+				}),
 			],
 		};
 		const duplicateName = duplicateFileName(artifact.files);
@@ -677,4 +807,4 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 		}
 
 		return { artifact };
-	});
+	}).pipe(Effect.provide(compilerLayer), Effect.scoped);

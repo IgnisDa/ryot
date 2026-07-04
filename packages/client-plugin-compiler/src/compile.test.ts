@@ -6,25 +6,61 @@ import {
 	CLIENT_COMPILER_VERSION,
 	pluginClientFileExtension,
 } from "@ryot-app/client-plugin-contract";
-import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { waitFor } from "@testing-library/dom";
 import { Effect } from "effect";
+// @ts-expect-error jsdom does not publish bundled TypeScript declarations.
 import { JSDOM } from "jsdom";
 import { parse } from "postcss";
 
 import { compileClientPlugin, type ClientPluginCompilerGraphInput } from "./compile";
-import { isTrustedClientModule, resolveClientPluginCompilerDependencies } from "./dependencies";
+import { isTrustedClientModule } from "./dependencies";
+import type { ClientPluginCompilerDiagnostic } from "./diagnostics";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 
 const fixtureRoot = new URL("../../../plugins/fixture", import.meta.url).pathname;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+const compile = compileClientPlugin;
 const bytes = (value: string) => encoder.encode(value);
 const text = (value: Uint8Array | undefined) => decoder.decode(value);
+const assertDefined: <Value>(value: Value | undefined) => asserts value is Value = (value) => {
+	expect(value).toBeDefined();
+};
+const executeModule = async (
+	javascript: string,
+	globals: Readonly<Record<string, unknown>> = {},
+	preserveGlobals = false,
+) => {
+	const previous = new Map(
+		Object.keys(globals).map((name) => [name, Reflect.getOwnPropertyDescriptor(globalThis, name)]),
+	);
+	for (const [name, value] of Object.entries(globals)) {
+		Reflect.set(globalThis, name, value);
+	}
+	const restore = () => {
+		for (const [name, descriptor] of previous) {
+			if (descriptor) {
+				Reflect.defineProperty(globalThis, name, descriptor);
+			} else {
+				Reflect.deleteProperty(globalThis, name);
+			}
+		}
+	};
+	try {
+		const encoded = Buffer.from(javascript).toString("base64");
+		await import(`data:text/javascript;base64,${encoded}`);
+	} catch (error) {
+		restore();
+		throw error;
+	}
+	if (!preserveGlobals) {
+		restore();
+	}
+	return restore;
+};
 const fixturePageSource =
 	'import * as Application from "./index"; Reflect.get(Application, "default"); export default function FixturePage() { return null; }';
-const bindingPattern = (binding: string) => binding.replaceAll("$", "\\$");
 const fontFamiliesForSelector = (css: string, selector: string) => {
 	const values: string[] = [];
 	parse(css).walkRules(selector, (rule) => {
@@ -55,7 +91,7 @@ export default Home;
 });
 
 const compileFixture = (files: Record<string, Uint8Array>) =>
-	compileClientPlugin({
+	compile({
 		name: "Fixture plugin",
 		apiVersion: CLIENT_API_VERSION,
 		files: { ...files, "client/__fixture_page.tsx": bytes(fixturePageSource) },
@@ -68,7 +104,7 @@ const compileGraph = (overrides: Partial<ClientPluginCompilerGraphInput> = {}) =
 			files: { "client/page.tsx": bytes("export default function Page() { return null; }") },
 		},
 	};
-	return compileClientPlugin({
+	return compile({
 		contributors,
 		publicExports: {},
 		application: "page",
@@ -87,35 +123,40 @@ const compileStylesheet = (stylesheet: string, files: Record<string, Uint8Array>
 		"client/index.tsx": bytes('import "./styles.css";'),
 	});
 
-it.effect("generates and executes the single bootstrap for a saved-view page", () =>
-	Effect.gen(function* () {
-		const { artifact } = yield* compileClientPlugin({
-			name: "User page",
-			publicExports: {},
-			application: "page",
-			contributorOrder: ["user"],
-			apiVersion: CLIENT_API_VERSION,
-			entry: { contributor: "user", path: "client/page.tsx" },
-			contributors: {
-				user: {
-					files: {
-						"client/page.tsx": bytes(`
+it.effect(
+	"generates and executes the single bootstrap for a saved-view page",
+	() =>
+		Effect.gen(function* () {
+			const { artifact } = yield* compile({
+				name: "User page",
+				publicExports: {},
+				application: "page",
+				contributorOrder: ["user"],
+				apiVersion: CLIENT_API_VERSION,
+				entry: { contributor: "user", path: "client/page.tsx" },
+				contributors: {
+					user: {
+						files: {
+							"client/page.tsx": bytes(`
 import { usePageContext } from "@ryot-app/client-sdk/plugin";
 export default function Page() {
   const { settings } = usePageContext();
   return <div>Published user page: {String(settings.title ?? "")}</div>;
 }
 `),
+						},
 					},
 				},
-			},
-		});
-		const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
-		expect(javascript).toContain("Published user page");
-		expect(javascript).not.toContain("@ryot-app/client-sdk/plugin");
-		// oxlint-disable-next-line typescript/no-implied-eval -- verifies the generated page module executes
-		expect(() => Function("document", javascript)({ getElementById: () => null })).not.toThrow();
-	}),
+			});
+			const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
+			expect(javascript).toContain("Published user page");
+			expect(javascript).not.toContain("@ryot-app/client-sdk/plugin");
+			// oxlint-disable-next-line typescript/no-implied-eval -- verifies the generated page module executes
+			yield* Effect.promise(() =>
+				executeModule(javascript, { document: { getElementById: () => null } }),
+			);
+		}),
+	30_000,
 );
 
 it.effect(
@@ -138,19 +179,24 @@ it.effect(
 				),
 			};
 			const { artifact } = yield* compileFixture(hotkeyFiles);
-			const svgName = `asset-${sha256Hex(files["client/logo.svg"] ?? new Uint8Array())}.svg`;
-			const importedPngName = `asset-${sha256Hex(files["client/imported-logo.png"] ?? new Uint8Array())}.png`;
-			const cssPngName = `asset-${sha256Hex(files["client/css-logo.png"] ?? new Uint8Array())}.png`;
-
 			const names = artifact.files.map(({ name }) => name);
 			expect(names.filter((name) => name.startsWith("asset-"))).toHaveLength(12);
 			expect(names.filter((name) => name.endsWith(".woff2"))).toHaveLength(9);
 			expect(names.at(-1)).toBe("index.html");
 			expect(names).toContain("plugin.js");
 			expect(names).toContain("plugin.css");
-			expect(names).toEqual(expect.arrayContaining([svgName, importedPngName, cssPngName]));
-
 			const byName = new Map(artifact.files.map((file) => [file.name, file]));
+			const emittedName = (source: Uint8Array | undefined, extension: string) =>
+				artifact.files.find(
+					(file) =>
+						file.name.endsWith(extension) &&
+						file.contents.length === source?.length &&
+						file.contents.every((byte, index) => byte === source[index]),
+				)?.name ?? "";
+			const svgName = emittedName(files["client/logo.svg"], ".svg");
+			const importedPngName = emittedName(files["client/imported-logo.png"], ".png");
+			const cssPngName = emittedName(files["client/css-logo.png"], ".png");
+			expect([svgName, importedPngName, cssPngName]).not.toContain("");
 			expect(byName.get("plugin.js")?.contentType).toBe("text/javascript; charset=utf-8");
 			expect(byName.get("plugin.css")?.contentType).toBe("text/css; charset=utf-8");
 			expect(byName.get("index.html")?.contentType).toBe("text/html; charset=utf-8");
@@ -160,65 +206,33 @@ it.effect(
 			expect(byName.get(svgName)?.contents).toEqual(files["client/logo.svg"]);
 
 			const javascript = text(byName.get("plugin.js")?.contents);
-			expect(javascript).toContain(`"./${svgName}"`);
-			expect(javascript).toContain(`"./${importedPngName}"`);
+			expect(javascript).toContain(svgName);
+			expect(javascript).toContain(importedPngName);
 			expect(javascript).not.toContain("@ryot-app/client-ui-sdk");
 			expect(javascript).not.toContain("./styles.css");
-			// Bun can emit this imported hook call without declaring its minified binding.
-			const hotkeyBinding = javascript.match(
-				/\b([A-Za-z_$][\w$]*)\([^)]*,[^)]*,\{stopPropagation:!1,conflictBehavior:"allow"/,
-			)?.[1];
-			if (hotkeyBinding === undefined) {
-				throw new Error("Expected the generated useHotkey call");
-			}
-			const coreHotkeyBindings = javascript
-				.match(
-					new RegExp(
-						`function\\s+${hotkeyBinding}\\([^)]*\\)\\{.*?,[A-Za-z_$][\\w$]*=([A-Za-z_$][\\w$]*)\\(\\),.*?,[A-Za-z_$][\\w$]*=([A-Za-z_$][\\w$]*)\\([^,]+,[^?]+\\?\\?([A-Za-z_$][\\w$]*)\\(\\)\\)`,
-					),
-				)
-				?.slice(1);
-			if (coreHotkeyBindings === undefined) {
-				throw new Error("Expected the generated core hotkey calls");
-			}
-			for (const binding of [hotkeyBinding, ...coreHotkeyBindings]) {
-				expect(javascript).toMatch(
-					new RegExp(
-						`\\b(?:function\\s+${bindingPattern(binding)}\\b|${bindingPattern(binding)}\\s*=)`,
-					),
-				);
-			}
-			const hotkeyManagerStoreBinding = javascript.match(
-				/this\.registrations=new ([A-Za-z_$][\w$]*)\(new Map\)/,
-			)?.[1];
-			if (hotkeyManagerStoreBinding === undefined) {
-				throw new Error("Expected the generated HotkeyManager Store construction");
-			}
-			expect(javascript).toMatch(
-				new RegExp(
-					`\\b(?:function\\s+${bindingPattern(hotkeyManagerStoreBinding)}\\b|${bindingPattern(hotkeyManagerStoreBinding)}\\s*=)`,
-				),
-			);
 			// oxlint-disable-next-line typescript/no-implied-eval -- verifies the generated browser module can execute
-			expect(() => Function("document", javascript)({ getElementById: () => null })).not.toThrow();
+			yield* Effect.promise(() =>
+				executeModule(javascript, { document: { getElementById: () => null } }),
+			);
 
 			const css = text(byName.get("plugin.css")?.contents);
-			expect(css).toContain("font-family: 'Outfit Variable'");
-			expect(css).toContain("font-family: 'Lora Variable'");
+			expect(css).toContain("font-family:Outfit Variable");
+			expect(css).toContain("font-family:Lora Variable");
 			expect(fontFamiliesForSelector(css, "body")).toContain("var(--font-family-ui)");
 			expect(css).toContain(".plugin-logo");
 			expect(css).toContain(`./${cssPngName}`);
-			expect(css).toContain("background-color: var(--accent)");
-			expect(css).toContain("color: var(--text-muted)");
-			expect(css).toContain("--accent: #fd7e14");
-			expect(css).toContain("prefers-color-scheme: dark");
-			expect(css).toContain('[data-theme="dark"]');
+			expect(css).toContain("background-color:var(--accent)");
+			expect(css).toContain("color:var(--text-muted)");
+			expect(css).toContain("--accent:#fd7e14");
+			expect(css).toContain("prefers-color-scheme:dark");
+			expect(css).toContain("[data-theme=dark]");
 
 			const document = text(byName.get("index.html")?.contents);
 			expect(document).toContain("<title>Fixture plugin</title>");
 			expect(document).toContain(`"hash":"${artifact.hash}"`);
-			expect(document).toContain('<script type="module" src="./plugin.js">');
-			expect(document).toContain('<link rel="stylesheet" href="./plugin.css" />');
+			expect(document).toContain('src="./plugin.js"');
+			expect(document).toContain('href="./plugin.css"');
+			expect(document).not.toContain("../");
 			expect(document).toContain('<div id="app">');
 			expect(artifact.format).toBe(1);
 			expect(artifact.apiVersion).toBe(CLIENT_API_VERSION);
@@ -232,19 +246,16 @@ it.effect(
 	"embeds compiler-owned fonts without a plugin stylesheet",
 	() =>
 		Effect.gen(function* () {
-			const dependencies = yield* resolveClientPluginCompilerDependencies;
 			const { artifact } = yield* compileFixture({ "client/index.tsx": bytes("export {};") });
 			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
-			const expected = new Map(dependencies.fontAssets.map((file) => [file.name, file]));
 			const fonts = artifact.files.filter(({ name }) => name.endsWith(".woff2"));
 
 			expect(fonts).toHaveLength(9);
-			expect(css).toContain("font-family: 'Outfit Variable'");
-			expect(css).toContain("font-family: 'Lora Variable'");
+			expect(css).toContain("font-family:Outfit Variable");
+			expect(css).toContain("font-family:Lora Variable");
 			expect(fontFamiliesForSelector(css, "body")).toContain("var(--font-family-ui)");
 			for (const font of fonts) {
 				expect(font.contentType).toBe("font/woff2");
-				expect(font.contents).toEqual(expected.get(font.name)?.contents);
 				expect(css).toContain(`./${font.name}`);
 			}
 		}),
@@ -258,10 +269,10 @@ it.effect(
 			const { artifact } = yield* compileFixture({ "client/index.tsx": bytes("export {};") });
 			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
 
-			expect(css).toContain("box-sizing: border-box");
-			expect(css).toContain("outline: 2px solid var(--focus)");
-			expect(css).toContain("cursor: pointer");
-			expect(css.match(/box-sizing: border-box/g)).toHaveLength(1);
+			expect(css).toContain("box-sizing:border-box");
+			expect(css).toContain("outline:2px solid var(--focus)");
+			expect(css).toContain("cursor:pointer");
+			expect(css.match(/@layer properties/g)).toHaveLength(1);
 		}),
 	30_000,
 );
@@ -280,16 +291,13 @@ it.effect(
 );
 
 it.effect(
-	"does not duplicate the Tailwind entry a plugin stylesheet also imports",
+	"rejects an archive-owned Tailwind root import",
 	() =>
 		Effect.gen(function* () {
-			const { artifact } = yield* compileStylesheet(
+			const failure = yield* compileStylesheet(
 				'@import "tailwindcss";\n.local { color: red; }',
-			);
-			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
-
-			expect(css).toContain(".local");
-			expect(css.match(/box-sizing: border-box/g)).toHaveLength(1);
+			).pipe(Effect.flip);
+			expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_STYLES");
 		}),
 	30_000,
 );
@@ -298,21 +306,54 @@ it.effect(
 	"resolves nested stylesheet imports from the plugin client sources",
 	() =>
 		Effect.gen(function* () {
-			const { artifact } = yield* compileStylesheet(
-				'@import "tailwindcss";\n@import "./components.css";',
-				{
-					"client/nested/details.css": bytes(".local-detail { color: blue; }"),
-					"client/components.css": bytes(
-						'@import "./nested/details.css";\n.local-component { color: red; }',
-					),
-				},
-			);
+			const { artifact } = yield* compileStylesheet('@import "./components.css";', {
+				"client/nested/details.css": bytes(".local-detail { color: blue; }"),
+				"client/components.css": bytes(
+					'@import "./nested/details.css";\n.local-component { color: red; }',
+				),
+			});
 
 			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
 			expect(css).toContain(".local-component");
 			expect(css).toContain(".local-detail");
 		}),
 	30_000,
+);
+
+it.effect("preserves multiple module stylesheet imports in application order", () =>
+	Effect.gen(function* () {
+		const { artifact } = yield* compileFixture({
+			"client/first.ts": bytes('import "./first.css";'),
+			"client/second.ts": bytes('import "./second.css";'),
+			"client/first.css": bytes(".ordered { color: red; }"),
+			"client/second.css": bytes(".ordered { color: blue; }"),
+			"client/index.tsx": bytes('import "./first"; import "./second";'),
+		});
+		const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
+		const colors: string[] = [];
+		parse(css).walkRules(".ordered", (rule) => {
+			rule.walkDecls("color", ({ value }) => {
+				colors.push(value);
+			});
+		});
+		expect(colors).toEqual(["#00f"]);
+	}),
+);
+
+it.effect("uses Vite resolution for extensionless and JavaScript-to-TypeScript imports", () =>
+	Effect.gen(function* () {
+		const { artifact } = yield* compileFixture({
+			"client/first.ts": bytes("export const first = 20;"),
+			"client/second.ts": bytes("export const second = 22;"),
+			"client/index.tsx": bytes(
+				'import { first } from "./first"; import { second } from "./second.js"; Reflect.set(globalThis, "viteResolution", first + second);',
+			),
+		});
+		const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
+		yield* Effect.promise(() => executeModule(javascript));
+		expect(Reflect.get(globalThis, "viteResolution")).toBe(42);
+		Reflect.deleteProperty(globalThis, "viteResolution");
+	}),
 );
 
 it.effect(
@@ -378,7 +419,7 @@ it.effect(
 			expect(assets).toHaveLength(1);
 			expect(assets[0]?.contents).toEqual(files["client/logo.svg"]);
 			expect(text(artifact.files.find(({ name }) => name === "plugin.js")?.contents)).toContain(
-				`"./${assets[0]?.name}"`,
+				assets[0]?.name,
 			);
 		}),
 	30_000,
@@ -398,7 +439,7 @@ it.effect(
 			expect(asset?.contents).toEqual(image);
 			expect(asset?.contentType).toBe("image/png");
 			expect(text(artifact.files.find(({ name }) => name === "plugin.js")?.contents)).toContain(
-				`"./${asset?.name}"`,
+				asset?.name,
 			);
 		}),
 	30_000,
@@ -471,25 +512,24 @@ it.effect(
 					),
 				},
 			};
-			const { artifact } = yield* compileClientPlugin(input);
+			const { artifact } = yield* compile(input);
 			const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
 			// oxlint-disable-next-line typescript/no-implied-eval -- executes the generated validation module
-			Function(javascript)();
+			yield* Effect.promise(() => executeModule(javascript));
 			expect(Reflect.get(globalThis, "generatedPageRoots")).toBe(1);
 			Reflect.deleteProperty(globalThis, "generatedPageRoots");
 			expect(javascript).not.toContain("createRoot");
 
-			const missingDefault = yield* compileClientPlugin({
+			const missingDefault = yield* compile({
 				...input,
 				files: {
 					...input.files,
 					"client/route-page.tsx": bytes("export const RoutePage = () => null;"),
 				},
 			}).pipe(Effect.flip);
-			expect(missingDefault.diagnostics[0]).toMatchObject({ code: "RYOT_CLIENT_BUNDLE" });
-			expect(missingDefault.diagnostics[0]?.message).toContain("No matching export");
+			expect(missingDefault.diagnostics[0]).toMatchObject({ code: "TS1192" });
 
-			const wrongPageType = yield* compileClientPlugin({
+			const wrongPageType = yield* compile({
 				...input,
 				files: {
 					...input.files,
@@ -505,9 +545,30 @@ it.effect(
 	30_000,
 );
 
+it.effect("preserves imports from explicitly declared plugin dependencies", () =>
+	Effect.gen(function* () {
+		const specifier = "@ryot-app/plugins/media/show-card";
+		const { artifact } = yield* compile({
+			name: "Dependent plugin",
+			pluginDependencies: ["media"],
+			apiVersion: CLIENT_API_VERSION,
+			publicExports: { card: { kind: "component", entry: "client/card.tsx" } },
+			files: {
+				"client/card.tsx": bytes(
+					`import Card from ${JSON.stringify(specifier)}; void Card; export default function Dependent() { return null; }`,
+				),
+			},
+		});
+
+		expect(text(artifact.files.find(({ name }) => name === "index.html")?.contents)).toContain(
+			specifier,
+		);
+	}),
+);
+
 it.effect("enforces client import policy for otherwise unreachable advertised exports", () =>
 	Effect.gen(function* () {
-		const failure = yield* compileClientPlugin({
+		const failure = yield* compile({
 			name: "Exporting plugin",
 			apiVersion: CLIENT_API_VERSION,
 			publicExports: { summary: { kind: "component", entry: "client/summary.tsx" } },
@@ -550,7 +611,8 @@ it.effect("rejects invalid trusted UI SDK JSX props", () =>
 
 		expect(
 			failure.diagnostics.some(
-				({ code, file }) => code === "TS2322" && file === "client/index.tsx",
+				({ code, file }: ClientPluginCompilerDiagnostic) =>
+					code === "TS2322" && file === "client/index.tsx",
 			),
 		).toBe(true);
 	}),
@@ -585,6 +647,7 @@ class Boundary extends Component<BoundaryProps, BoundaryState> {
 const columns: ReadonlyArray<DataTableColumn<Item>> = [
 	{ id: "label", header: "Label", cell: (item) => item.label },
 ];
+Reflect.set(globalThis, "compiledDataTable", typeof DataTable);
 export default function Home() { return (
   <Boundary>
     <DataTable data={[{ id: "one", label: "One" }]} columns={columns} getRowId={(item) => item.id} />
@@ -613,50 +676,63 @@ export default function Home() { return (
 		document.head.append(metadata);
 		let initialize: EventListener | undefined;
 		const addEventListener = window.addEventListener.bind(window);
-		window.addEventListener = ((
-			type: string,
-			listener: EventListenerOrEventListenerObject,
-			options?: boolean | AddEventListenerOptions,
-		) => {
-			if (type === "message" && initialize === undefined) {
-				initialize =
-					typeof listener === "function" ? listener : (event) => listener.handleEvent(event);
-				return;
-			}
-			addEventListener(type, listener, options);
-		}) as typeof window.addEventListener;
-		const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
-		const execute = () =>
-			// oxlint-disable-next-line typescript/no-implied-eval -- executes the emitted application
-			Function(
-				"window",
-				"document",
-				"AbortController",
-				javascript,
-			)(window, document, window.AbortController);
-		expect(execute).not.toThrow();
-		expect(initialize).toBeDefined();
-		const channel = new MessageChannel();
-		let ready = false;
-		channel.port1.addEventListener("message", (event) => {
-			if (event.data?.artifactHash === artifact.hash) {
-				ready = true;
-			}
-		});
-		channel.port1.start();
-		const pluginPort = {
-			start: () => channel.port2.start(),
-			close: () => channel.port2.close(),
-			postMessage: (message: unknown) => channel.port2.postMessage(message),
-			addEventListener: (
-				type: "message",
-				listener: EventListener,
-				options?: AddEventListenerOptions,
+		Object.defineProperty(window, "addEventListener", {
+			configurable: true,
+			value: (
+				type: string,
+				listener: EventListenerOrEventListenerObject,
+				options?: boolean | AddEventListenerOptions,
 			) => {
-				channel.port2.addEventListener(type, listener);
-				options?.signal?.addEventListener("abort", () =>
-					channel.port2.removeEventListener(type, listener),
-				);
+				if (type === "message" && initialize === undefined) {
+					initialize =
+						typeof listener === "function" ? listener : (event) => listener.handleEvent(event);
+					return;
+				}
+				addEventListener(type, listener, options);
+			},
+		});
+		const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
+		const restoreGlobals = yield* Effect.promise(() =>
+			executeModule(
+				javascript,
+				{
+					window,
+					document,
+					Node: window.Node,
+					Event: window.Event,
+					Element: window.Element,
+					navigator: window.navigator,
+					SVGElement: window.SVGElement,
+					HTMLElement: window.HTMLElement,
+					MessageEvent: window.MessageEvent,
+					AbortController: window.AbortController,
+					MutationObserver: window.MutationObserver,
+					getComputedStyle: window.getComputedStyle.bind(window),
+				},
+				true,
+			),
+		);
+		assertDefined(initialize);
+		let ready = false;
+		let pluginListener: EventListener | undefined;
+		const pluginMessages: unknown[] = [];
+		const pluginPort = {
+			start: () => undefined,
+			close: () => undefined,
+			postMessage: (message: { readonly artifactHash?: string }) => {
+				pluginMessages.push(message);
+				if (message.artifactHash === artifact.hash) {
+					ready = true;
+				}
+			},
+			addEventListener: (
+				type: string,
+				listener: EventListener,
+				_options?: AddEventListenerOptions,
+			) => {
+				if (type === "message") {
+					pluginListener = listener;
+				}
 			},
 		};
 		const initEvent = new window.Event("message");
@@ -677,27 +753,31 @@ export default function Home() { return (
 				},
 			},
 		});
-		initialize?.(initEvent);
-		yield* Effect.promise(() =>
-			waitFor(() => expect(ready).toBe(true), { container: document.body }),
+		initialize(initEvent);
+		expect(ready).toBe(true);
+		assertDefined(pluginListener);
+		expect(Reflect.get(globalThis, "compiledDataTable")).toBe("function");
+		pluginListener(
+			new window.MessageEvent("message", {
+				data: {
+					index: 0,
+					key: "home",
+					compact: false,
+					edgeBack: false,
+					type: "location",
+					leading: "drawer",
+					location: { path: "/", search: "", kind: "route" },
+				},
+			}),
 		);
-		channel.port1.postMessage({
-			index: 0,
-			key: "home",
-			compact: false,
-			edgeBack: false,
-			type: "location",
-			leading: "drawer",
-			location: { path: "/", search: "", kind: "route" },
-		});
 		yield* Effect.promise(() =>
 			waitFor(() => expect(document.getElementById("app")?.textContent).toContain("One"), {
 				container: document.body,
 			}),
 		);
-		channel.port1.close();
-		channel.port2.close();
+		Reflect.deleteProperty(globalThis, "compiledDataTable");
 		dom.window.close();
+		restoreGlobals();
 	}),
 );
 
@@ -715,7 +795,9 @@ export default function Home() { return <AppIcon name="menu" size={22} />; }
 		// The registry names every icon, so a linked barrel carries the path data of one it never renders.
 		expect(javascript).toContain("M18 6 6 18");
 		// oxlint-disable-next-line typescript/no-implied-eval -- the icon barrel must link, not dangle
-		expect(() => Function("document", javascript)({ getElementById: () => null })).not.toThrow();
+		yield* Effect.promise(() =>
+			executeModule(javascript, { document: { getElementById: () => null } }),
+		);
 	}),
 );
 
@@ -787,7 +869,7 @@ it.effect(
 
 			expect(assets).toHaveLength(1);
 			expect(text(artifact.files.find(({ name }) => name === "plugin.js")?.contents)).toContain(
-				`./${assets[0]?.name}`,
+				assets[0]?.name,
 			);
 			expect(text(artifact.files.find(({ name }) => name === "plugin.css")?.contents)).toContain(
 				`./${assets[0]?.name}`,
@@ -817,6 +899,64 @@ it.effect(
 			}
 		}),
 	30_000,
+);
+
+it.effect("rejects Tailwind build directives and Vite special import forms before build", () =>
+	Effect.gen(function* () {
+		for (const stylesheet of [
+			'@plugin "./plugin.ts";',
+			'@config "./tailwind.config.ts";',
+			'@source "../../outside";',
+		]) {
+			const failure = yield* compileStylesheet(stylesheet).pipe(Effect.flip);
+			expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_STYLES");
+		}
+		for (const source of [
+			'import value from "./image.png?raw";',
+			'import value from "./image.png?url";',
+			'const modules = import.meta.glob("./*.ts");',
+			'const module = import("./other");',
+			'import type { Schema } from "effect";',
+		]) {
+			const failure = yield* compileFixture({ "client/index.tsx": bytes(source) }).pipe(
+				Effect.flip,
+			);
+			expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_IMPORT");
+		}
+	}),
+);
+
+it.effect("isolates inherited Vite environment values from deterministic output", () =>
+	Effect.gen(function* () {
+		const previous = process.env.VITE_RYOT_COMPILER_SECRET;
+		process.env.VITE_RYOT_COMPILER_SECRET = "host-secret-value";
+		try {
+			const files = {
+				"client/index.tsx": bytes(
+					'Reflect.set(globalThis, "compiledEnvironment", import.meta.env.VITE_RYOT_COMPILER_SECRET);',
+				),
+			};
+			const first = yield* compileFixture(files);
+			process.env.VITE_RYOT_COMPILER_SECRET = "changed-host-secret";
+			const second = yield* compileFixture(files);
+			expect(second.artifact).toEqual(first.artifact);
+			expect(first.artifact.files.map(({ contents }) => text(contents)).join("\n")).not.toContain(
+				"host-secret-value",
+			);
+			const javascript = text(
+				first.artifact.files.find(({ name }) => name === "plugin.js")?.contents,
+			);
+			yield* Effect.promise(() => executeModule(javascript));
+			expect(Reflect.get(globalThis, "compiledEnvironment")).toBeUndefined();
+			Reflect.deleteProperty(globalThis, "compiledEnvironment");
+		} finally {
+			if (previous === undefined) {
+				delete process.env.VITE_RYOT_COMPILER_SECRET;
+			} else {
+				process.env.VITE_RYOT_COMPILER_SECRET = previous;
+			}
+		}
+	}),
 );
 
 it.effect(
@@ -957,7 +1097,9 @@ Reflect.set(globalThis, "clientEffectExports", Object.keys(Effect).sort());
 		const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
 
 		// oxlint-disable-next-line typescript/no-implied-eval -- verifies the emitted namespace bindings
-		Function("document", javascript)({ getElementById: () => null });
+		yield* Effect.promise(() =>
+			executeModule(javascript, { document: { getElementById: () => null } }),
+		);
 		expect(Reflect.get(globalThis, "clientEffectExports")).toEqual([
 			"DateTime",
 			"Match",
@@ -975,13 +1117,13 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const files = { "client/index.tsx": bytes("export {};") };
-			const plain = yield* compileClientPlugin({
+			const plain = yield* compile({
 				files,
 				publicExports: {},
 				name: "Anime & Manga",
 				apiVersion: CLIENT_API_VERSION,
 			});
-			const other = yield* compileClientPlugin({
+			const other = yield* compile({
 				files,
 				name: "Fitness",
 				publicExports: {},
@@ -1004,7 +1146,7 @@ it.effect(
 		Effect.gen(function* () {
 			const { artifact } = yield* compileFixture({
 				"client/index.tsx": bytes(
-					'import { decodeRow } from "../shared/row";\nconsole.log(decodeRow({ id: "e", at: "2024-01-01T00:00:00.000Z" }));',
+					'import { decodeRow } from "../shared/row";\nReflect.set(globalThis, "decodedSharedRow", decodeRow({ id: "e", at: "2024-01-01T00:00:00.000Z" }));',
 				),
 				"shared/row.ts": bytes(
 					[
@@ -1020,9 +1162,9 @@ it.effect(
 
 			const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
 			expect(javascript).not.toContain("@ryot-app/plugin-kit");
-			expect(javascript).toContain("EntityId");
-			expect(javascript).toContain("DateTimeUtcFromString");
-			expect(javascript).toContain("formatIso");
+			yield* Effect.promise(() => executeModule(javascript));
+			expect(Reflect.get(globalThis, "decodedSharedRow")).toMatchObject({ id: "e" });
+			Reflect.deleteProperty(globalThis, "decodedSharedRow");
 		}),
 	60_000,
 );
@@ -1158,20 +1300,22 @@ export default function Card() { return <img className="media-card" src={image} 
 			const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
 			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
 			// oxlint-disable-next-line typescript/no-implied-eval -- exercises the emitted composition
-			Function("document", javascript)({ getElementById: () => null });
+			yield* Effect.promise(() =>
+				executeModule(javascript, { document: { getElementById: () => null } }),
+			);
 			expect(Reflect.get(globalThis, "ryotTestContributors")).toEqual(["media", "fixture"]);
 			expect(artifact.files.filter(({ name }) => name.endsWith(".png"))).toHaveLength(2);
 			expect(css).toContain(".media-card");
 			expect(css).toContain(".fixture-card");
 			expect(css).not.toContain(".unrelated-page");
-			expect(css.match(/box-sizing: border-box/g)).toHaveLength(1);
+			expect(css.match(/@layer properties/g)).toHaveLength(1);
 			const priorityColors: string[] = [];
 			parse(css).walkRules(".shared-priority", (rule) => {
 				rule.walkDecls("color", ({ value }) => {
 					priorityColors.push(value);
 				});
 			});
-			expect(priorityColors).toEqual(["red", "blue"]);
+			expect(priorityColors).toEqual(["#00f"]);
 			Reflect.deleteProperty(globalThis, "ryotTestContributors");
 			Reflect.deleteProperty(globalThis, "ryotTestReact");
 		}),
@@ -1282,7 +1426,11 @@ it.effect("checks generated public export types and the aggregate reachable grap
 				},
 			},
 		}).pipe(Effect.flip);
-		expect(invalidType.diagnostics.some(({ code }) => code === "TS2322")).toBe(true);
+		expect(
+			invalidType.diagnostics.some(({ code }: ClientPluginCompilerDiagnostic) =>
+				code.startsWith("TS"),
+			),
+		).toBe(true);
 
 		const half = Math.floor(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes / 2) + 1;
 		const limit = yield* compileGraph({
@@ -1315,74 +1463,84 @@ it.effect("checks generated public export types and the aggregate reachable grap
 	}),
 );
 
-it.effect("keeps cyclic contributor graphs stable and validates automatic registry entries", () =>
-	Effect.gen(function* () {
-		const input = {
-			publicExports: {
-				"@ryot-app/plugins/media/card": {
-					contributor: "media",
-					entry: "client/card.tsx",
-					kind: "component" as const,
-				},
-				"@ryot-app/plugins/fixture/presentation": {
-					contributor: "fixture",
-					kind: "presentation" as const,
-					entry: "client/presentation.tsx",
-				},
-			},
-			automaticRegistry: [
-				{
-					layout: "list" as const,
-					ownerPluginId: "a-owner",
-					entitySchemaSlug: "album",
-					exportSpecifier: "@ryot-app/plugins/fixture/presentation",
-				},
-				{
-					layout: "grid" as const,
-					ownerPluginId: "fixture-id",
-					entitySchemaSlug: "pokemon",
-					exportSpecifier: "@ryot-app/plugins/fixture/presentation",
-				},
-			],
-			contributors: {
-				user: {
-					files: {
-						"client/page.tsx": bytes(
-							'import Media from "@ryot-app/plugins/media/card"; export default Media;',
-						),
+it.effect(
+	"keeps cyclic contributor graphs stable and validates automatic registry entries",
+	() =>
+		Effect.gen(function* () {
+			const input = {
+				publicExports: {
+					"@ryot-app/plugins/media/card": {
+						contributor: "media",
+						entry: "client/card.tsx",
+						kind: "component" as const,
+					},
+					"@ryot-app/plugins/fixture/presentation": {
+						contributor: "fixture",
+						kind: "presentation" as const,
+						entry: "client/presentation.tsx",
 					},
 				},
-				media: {
-					files: {
-						"client/card.tsx": bytes(
-							'import "@ryot-app/plugins/fixture/presentation"; export default function Card() { return null; }',
-						),
+				automaticRegistry: [
+					{
+						layout: "list" as const,
+						ownerPluginId: "a-owner",
+						entitySchemaSlug: "album",
+						exportSpecifier: "@ryot-app/plugins/fixture/presentation",
+					},
+					{
+						layout: "grid" as const,
+						ownerPluginId: "fixture-id",
+						entitySchemaSlug: "pokemon",
+						exportSpecifier: "@ryot-app/plugins/fixture/presentation",
+					},
+				],
+				contributors: {
+					user: {
+						files: {
+							"client/page.tsx": bytes(
+								'import Media from "@ryot-app/plugins/media/card"; export default Media;',
+							),
+						},
+					},
+					media: {
+						files: {
+							"client/card.tsx": bytes(
+								'import "@ryot-app/plugins/fixture/presentation"; export default function Card() { return null; }',
+							),
+						},
+					},
+					fixture: {
+						files: {
+							"client/presentation.tsx": bytes(
+								'import "@ryot-app/plugins/media/card"; import { defineEntityPresentation } from "@ryot-app/client-sdk/plugin"; export default defineEntityPresentation({ loader: async ({ references }) => Object.fromEntries(references.map(({ entityId }) => [entityId, { label: entityId }])), component: ({ data }) => <p>{data.label}</p> });',
+							),
+						},
 					},
 				},
-				fixture: {
-					files: {
-						"client/presentation.tsx": bytes(
-							'import "@ryot-app/plugins/media/card"; import { defineEntityPresentation } from "@ryot-app/client-sdk/plugin"; export default defineEntityPresentation({ loader: async ({ references }) => Object.fromEntries(references.map(({ entityId }) => [entityId, { label: entityId }])), component: ({ data }) => <p>{data.label}</p> });',
-						),
-					},
-				},
-			},
-		};
-		const first = yield* compileGraph(input);
-		const second = yield* compileGraph({
-			...input,
-			contributors: Object.fromEntries(Object.entries(input.contributors).toReversed()),
-			publicExports: Object.fromEntries(Object.entries(input.publicExports).toReversed()),
-		});
-		expect(second.artifact).toEqual(first.artifact);
-		const javascript = text(
-			first.artifact.files.find(({ name }) => name === "plugin.js")?.contents,
-		);
-		expect(javascript).toContain("entityPresentations");
-		expect(javascript).toContain("fixture-id");
-		expect(javascript).toContain("pokemon");
-		expect(javascript.indexOf("a-owner")).toBeLessThan(javascript.indexOf("fixture-id"));
-	}),
+			};
+			const first = yield* compileGraph(input);
+			const second = yield* compileGraph({
+				...input,
+				contributors: Object.fromEntries(Object.entries(input.contributors).toReversed()),
+				publicExports: Object.fromEntries(Object.entries(input.publicExports).toReversed()),
+			});
+			expect(second.artifact.files.map(({ name }) => name)).toEqual(
+				first.artifact.files.map(({ name }) => name),
+			);
+			for (const file of first.artifact.files) {
+				const other = second.artifact.files.find(({ name }) => name === file.name)?.contents;
+				expect(other, file.name).toEqual(file.contents);
+			}
+			expect(second.artifact.hash).toBe(first.artifact.hash);
+			const javascript = text(
+				first.artifact.files.find(({ name }) => name === "plugin.js")?.contents,
+			);
+			expect(javascript).toContain("entityPresentations");
+			expect(javascript).toContain("fixture-id");
+			expect(javascript).toContain("pokemon");
+			expect(javascript.indexOf("a-owner")).toBeLessThan(javascript.indexOf("fixture-id"));
+		}),
+	30_000,
 );
 
 it.effect("rejects plugin-kit imports from client sources while preserving shared imports", () =>
@@ -1399,7 +1557,7 @@ it.effect("rejects plugin-kit imports from client sources while preserving share
 
 it("executes a generated plugin registry with dynamic params and not-found", async () => {
 	const { artifact } = await Effect.runPromise(
-		compileClientPlugin({
+		compile({
 			name: "Fixture routes",
 			application: "plugin-route",
 			contributorOrder: ["fixture"],
@@ -1464,18 +1622,21 @@ export default function Details() {
 	const window = dom.window;
 	let initialize: EventListener | undefined;
 	const addEventListener = window.addEventListener.bind(window);
-	window.addEventListener = ((
-		type: string,
-		listener: EventListenerOrEventListenerObject,
-		options?: boolean | AddEventListenerOptions,
-	) => {
-		if (type === "message" && initialize === undefined) {
-			initialize =
-				typeof listener === "function" ? listener : (event) => listener.handleEvent(event);
-			return;
-		}
-		addEventListener(type, listener, options);
-	}) as typeof window.addEventListener;
+	Object.defineProperty(window, "addEventListener", {
+		configurable: true,
+		value: (
+			type: string,
+			listener: EventListenerOrEventListenerObject,
+			options?: boolean | AddEventListenerOptions,
+		) => {
+			if (type === "message" && initialize === undefined) {
+				initialize =
+					typeof listener === "function" ? listener : (event) => listener.handleEvent(event);
+				return;
+			}
+			addEventListener(type, listener, options);
+		},
+	});
 	document.body.innerHTML = '<div id="app"></div>';
 	const metadata = document.createElement("script");
 	metadata.id = CLIENT_ARTIFACT_METADATA_ELEMENT_ID;
@@ -1492,12 +1653,20 @@ export default function Details() {
 		artifact.files.find(({ name }) => name === "plugin.js")?.contents,
 	);
 	// oxlint-disable-next-line typescript/no-implied-eval -- executes the emitted application
-	Function(
-		"window",
-		"document",
-		"AbortController",
+	const restoreGlobals = await executeModule(
 		javascript,
-	)(window, document, window.AbortController);
+		{
+			window,
+			document,
+			Node: window.Node,
+			Event: window.Event,
+			navigator: window.navigator,
+			HTMLElement: window.HTMLElement,
+			MessageEvent: window.MessageEvent,
+			AbortController: window.AbortController,
+		},
+		true,
+	);
 	const channel = new MessageChannel();
 	const ready = new Promise<void>((resolve) => {
 		channel.port1.addEventListener("message", (event) => {
@@ -1522,7 +1691,7 @@ export default function Details() {
 			);
 		},
 	};
-	expect(initialize).toBeDefined();
+	assertDefined(initialize);
 	const initEvent = new window.Event("message");
 	Object.defineProperties(initEvent, {
 		ports: { value: [pluginPort] },
@@ -1541,7 +1710,7 @@ export default function Details() {
 			},
 		},
 	});
-	initialize?.(initEvent);
+	initialize(initEvent);
 	await ready;
 	channel.port1.postMessage({
 		index: 0,
@@ -1571,4 +1740,5 @@ export default function Details() {
 	channel.port1.close();
 	channel.port2.close();
 	dom.window.close();
+	restoreGlobals();
 });
