@@ -59,30 +59,28 @@ const makeServiceLayer = (
 	} = {},
 	definitions = makeDefinitionRegistry(),
 ) => {
-	return TestSupportService.Default.pipe(
+	return TestSupportService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				mockAuth({ _tag: "AuthService", auth: Object.create(null) }),
-				mockAutomations({ _tag: "AutomationsService" }),
-				mockSignals({ _tag: "SignalsService" }),
-				Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...definitions }),
-				mockEntities({ _tag: "EntitiesService", ...overrides.entities }),
-				mockSandbox({ _tag: "SandboxExecutionService", ...overrides.sandbox }),
+				mockAuth({ auth: Object.create(null) }),
+				mockAutomations({}),
+				mockSignals({}),
+				Layer.succeed(DefinitionRegistry, { ...definitions }),
+				mockEntities({ ...overrides.entities }),
+				mockSandbox({ ...overrides.sandbox }),
 				mockPluginCrons({
-					_tag: "PluginCronService",
 					trigger: (pluginSlug, cronSlug) =>
 						Effect.succeed({ status: "notFound" as const, cronSlug, pluginSlug }),
 					...overrides.pluginCrons,
 				}),
 				mockPluginBoots({
-					_tag: "PluginBootService",
 					triggerAll: () => Effect.void,
 					...overrides.pluginBoots,
 				}),
-				mockInterest({ _tag: "InterestService" }),
-				mockTranslations({ _tag: "TranslationsService" }),
-				mockRelationships({ _tag: "RelationshipsService" }),
-				mockRelationshipSchemas({ _tag: "RelationshipSchemasRepository" }),
+				mockInterest({}),
+				mockTranslations({}),
+				mockRelationships({}),
+				mockRelationshipSchemas({}),
 			),
 		),
 	);
@@ -203,11 +201,10 @@ it.effect("brands provider IDs in stored sandbox script responses", () => {
 	const layer = makeServiceLayer({
 		sandbox: {
 			getStoredScript: () => Effect.succeed({ ...storedSandboxScript, providerId }),
-			listStoredScripts: () =>
-				Effect.succeed([
-					{ ...storedSandboxScript, providerId },
-					{ ...storedSandboxScript, id: SandboxScriptId.make("standalone-id"), providerId: null },
-				]),
+			listStoredScripts: Effect.succeed([
+				{ ...storedSandboxScript, providerId },
+				{ ...storedSandboxScript, id: SandboxScriptId.make("standalone-id"), providerId: null },
+			]),
 		},
 	});
 
@@ -268,7 +265,7 @@ it.effect("triggers plugin boots with the manual boot execution id", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* TestSupportService;
-		const result = yield* service.triggerPluginBoot();
+		const result = yield* service.triggerPluginBoot;
 		expect(result.executionId).toMatch(/^plugin-boot-manual-/);
 		expect(pluginBootExecutionId).toBe(result.executionId);
 	}).pipe(Effect.provide(layer));
