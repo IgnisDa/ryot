@@ -22,6 +22,7 @@
 		"@ryot/ryotql-recipes": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@tailwindcss/postcss": "^4.1.13",
+		"@tanstack/react-hotkeys": "^0.10.0",
 		"better-auth": "1.7.0-rc.6",
 		"clsx": "^2.1.1",
 		"effect": "4.0.0-beta.107",
