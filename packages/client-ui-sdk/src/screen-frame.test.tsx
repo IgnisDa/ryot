@@ -70,10 +70,11 @@ beforeEach(() => {
 });
 
 function Harness(props: {
+	readonly hero?: ReactNode;
 	readonly compact: boolean;
+	readonly hideTitle?: boolean;
 	readonly safeAreaTop?: number;
 	readonly searchRow?: ReactNode;
-	readonly hero?: ReactNode;
 }) {
 	const scrollRootRef = useRef<HTMLDivElement>(null);
 	return (
@@ -83,6 +84,7 @@ function Harness(props: {
 				title="All Shows"
 				compact={props.compact}
 				meta={<p>12 results</p>}
+				hideTitle={props.hideTitle}
 				searchRow={props.searchRow}
 				scrollRootRef={scrollRootRef}
 				safeAreaTop={props.safeAreaTop ?? 0}
@@ -161,6 +163,20 @@ describe("ScreenFrame", () => {
 
 		act(() => observations[1]?.emit(true));
 		expect(bar().hasAttribute("data-solid")).toBe(false);
+	});
+
+	it("leaves the name to the screen that asks to draw it itself", () => {
+		const compact = render(<Harness compact hideTitle hero={<img alt="Cover" src="art.png" />} />);
+
+		expect(screen.queryByRole("heading", { name: "All Shows" })).toBeNull();
+		expect(screen.queryByText("12 results")).toBeNull();
+		expect(bar().hasAttribute("data-solid")).toBe(false);
+		expect(observations).toHaveLength(1);
+		compact.unmount();
+
+		render(<Harness compact={false} hideTitle />);
+
+		expect(screen.queryByRole("heading", { name: "All Shows" })).toBeNull();
 	});
 
 	it("draws the hero at both breakpoints", () => {
