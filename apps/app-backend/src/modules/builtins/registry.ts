@@ -1,8 +1,11 @@
 import {
 	type GeneratedBuiltinSandboxScript,
+	sandboxAutomationDotNotificationScript,
+	sandboxAutomationDotReviewDashCreatedScript,
 	sandboxAutomationDotTestDashPolicyScript,
 	sandboxAutomationDotTestDashNotifierScript,
 	sandboxAutomationDotTestDashTracerScript,
+	sandboxAutomationDotWorkoutDashCreatedScript,
 	sandboxComicDashBookDashGroupDotMetronScript,
 	sandboxComicDashBookDotMetronScript,
 	sandboxCompanyDotVndbScript,
@@ -63,9 +66,12 @@ import {
 } from "./generated-sandbox/registry";
 
 export const builtinSandboxScripts = () => [
+	sandboxAutomationDotNotificationScript,
+	sandboxAutomationDotReviewDashCreatedScript,
 	sandboxAutomationDotTestDashPolicyScript,
 	sandboxAutomationDotTestDashNotifierScript,
 	sandboxAutomationDotTestDashTracerScript,
+	sandboxAutomationDotWorkoutDashCreatedScript,
 	sandboxExerciseDotFreeDashExerciseDashDbScript,
 	sandboxBookDotOpenlibraryScript,
 	sandboxAudiobookDotAudibleScript,
@@ -133,6 +139,14 @@ export const builtinSignalAutomationRuleLinks = () => [
 	},
 ];
 
+export const builtinEntityAutomationRuleLinks = () => [
+	{
+		entitySchemaSlug: "workout",
+		name: sandboxAutomationDotWorkoutDashCreatedScript.name,
+		scriptSlug: sandboxAutomationDotWorkoutDashCreatedScript.slug,
+	},
+];
+
 export const entitySchemaSandboxScriptLinks = () =>
 	[
 		{ schemaSlug: "show", scriptSlug: "show.tmdb" },
@@ -180,6 +194,10 @@ const eventAutomationLink = (
 };
 
 export const builtinEventAutomationRuleLinks = () => [
+	eventAutomationLink(sandboxAutomationDotReviewDashCreatedScript, {
+		kind: "subscription",
+		eventSchemaSlug: "review",
+	}),
 	eventAutomationLink(sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript, {
 		kind: "subscription",
 		eventSchemaSlug: "progress",
