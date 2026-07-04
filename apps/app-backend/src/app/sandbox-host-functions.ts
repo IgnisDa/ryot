@@ -123,15 +123,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	const integrationsRepository = yield* IntegrationsRepository;
 	const relationshipsRepository = yield* RelationshipsRepository;
 
-	const requireReadableEntity = (userId: UserId, entityId: EntityId, notFoundMessage: string) =>
-		runWithDb(
-			entitiesRepository
-				.getEntityScopeForUser({ userId, entityId })
-				.pipe(
-					Effect.flatMap((scope) => (scope ? Effect.succeed(scope) : Effect.fail(notFoundMessage))),
-				),
-		);
-
 	const readUserPreferences = (userId: UserId) =>
 		runWithDb(
 			Effect.gen(function* () {
@@ -413,41 +404,44 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				),
 			);
 		},
-		getEntity: (rawInput, entityId) =>
-			requireUserSandboxRunInput(rawInput, "getEntity").pipe(
+		getEntities: (rawInput, entityIds) =>
+			requireUserSandboxRunInput(rawInput, "getEntities").pipe(
 				Effect.flatMap((input) =>
-					requireNonEmptyString(entityId, "getEntity expects a non-empty entityId").pipe(
-						Effect.flatMap((rawEntityId) =>
-							Effect.gen(function* () {
-								const resolvedEntityId = EntityId.make(rawEntityId);
-								yield* requireReadableEntity(
-									UserId.make(input.authority.userId),
-									resolvedEntityId,
-									entityNotFoundError,
-								);
-								const entity = yield* runWithDb(
-									entitiesRepository.getByIdForUser({
-										entityId: resolvedEntityId,
-										userId: UserId.make(input.authority.userId),
-									}),
-								);
-								if (!entity) {
-									return yield* Effect.fail(entityNotFoundError);
-								}
-
-								return {
-									id: entity.id,
-									name: entity.name,
-									createdAt: entity.createdAt,
-									updatedAt: entity.updatedAt,
-									externalId: entity.externalId,
-									providerId: entity.providerId,
-									populatedAt: entity.populatedAt,
-									entitySchemaSlug: entity.entitySchemaSlug,
-									properties: toSandboxJsonValue(entity.properties),
-								};
-							}),
-						),
+					Effect.forEach(entityIds, (entityId) =>
+						requireNonEmptyString(entityId, "getEntities expects non-empty entityIds"),
+					).pipe(
+						Effect.flatMap((rawEntityIds) => {
+							const resolvedEntityIds = [...new Set(rawEntityIds)].map((entityId) =>
+								EntityId.make(entityId),
+							);
+							if (resolvedEntityIds.length === 0) {
+								return Effect.succeed([]);
+							}
+							return runWithDb(
+								entitiesRepository.getByIdsForUser({
+									entityIds: resolvedEntityIds,
+									userId: UserId.make(input.authority.userId),
+								}),
+							).pipe(
+								Effect.flatMap((items) =>
+									items.length === resolvedEntityIds.length
+										? Effect.succeed(
+												items.map((entity) => ({
+													id: entity.id,
+													name: entity.name,
+													createdAt: entity.createdAt,
+													updatedAt: entity.updatedAt,
+													externalId: entity.externalId,
+													providerId: entity.providerId,
+													populatedAt: entity.populatedAt,
+													entitySchemaSlug: entity.entitySchemaSlug,
+													properties: toSandboxJsonValue(entity.properties),
+												})),
+											)
+										: Effect.fail(entityNotFoundError),
+								),
+							);
+						}),
 					),
 				),
 				sandboxHostEffect,

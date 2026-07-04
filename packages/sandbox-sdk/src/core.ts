@@ -170,7 +170,7 @@ export type CoreSandboxHostImplementationMap<Context> = {
 };
 
 export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
-	"getEntity",
+	"getEntities",
 	"listEvents",
 	"createEvents",
 	"getIntegration",
@@ -204,6 +204,9 @@ export const USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS = {
 } as const;
 export const USER_ENTITY_WRITE_SANDBOX_LIMITS = {
 	items: GLOBAL_WRITE_SANDBOX_LIMITS.entityItems,
+} as const;
+export const USER_ENTITY_READ_SANDBOX_LIMITS = {
+	ids: GLOBAL_WRITE_SANDBOX_LIMITS.entityItems,
 } as const;
 export const SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES = [
 	"upsertGlobalEntities",
@@ -427,12 +430,17 @@ export type ListIntegrationsOptions = Schema.Schema.Type<typeof listIntegrations
 
 export const getIntegrationArgsSchema = Schema.Tuple([]);
 export const executeQueryEngineDataSchema = Schema.Unknown;
-export const getEntityArgsSchema = Schema.Tuple([sandboxIdSchema]);
+export const getEntitiesArgsSchema = Schema.Tuple([
+	Schema.Array(sandboxIdSchema).pipe(
+		Schema.check(Schema.isMaxLength(USER_ENTITY_READ_SANDBOX_LIMITS.ids)),
+	),
+]);
 export const getEntitySchemaArgsSchema = Schema.Tuple([sandboxIdSchema]);
 export const listEventSchemasArgsSchema = Schema.Tuple([sandboxIdSchema]);
 export const listEventsDataSchema = Schema.Array(eventRecordSchema);
 export const executeQueryEngineArgsSchema = Schema.Tuple([queryDocumentSchema]);
-export const getEntityResultSchema = hostResultSchema(entityRecordSchema);
+export const getEntitiesDataSchema = Schema.Array(entityRecordSchema);
+export const getEntitiesResultSchema = hostResultSchema(getEntitiesDataSchema);
 export const listEventsResultSchema = hostResultSchema(listEventsDataSchema);
 export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
 export const listIntegrationsDataSchema = Schema.Array(integrationRecordSchema);
@@ -484,10 +492,10 @@ export const upsertGlobalEntitiesArgsSchema = Schema.Tuple([
 ]);
 
 export const domainSandboxHostContracts = {
-	getEntity: {
-		args: getEntityArgsSchema,
-		success: entityRecordSchema,
-		result: getEntityResultSchema,
+	getEntities: {
+		args: getEntitiesArgsSchema,
+		success: getEntitiesDataSchema,
+		result: getEntitiesResultSchema,
 	},
 	listEvents: {
 		args: listEventsArgsSchema,

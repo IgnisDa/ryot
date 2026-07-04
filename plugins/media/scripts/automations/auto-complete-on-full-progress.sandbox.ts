@@ -14,7 +14,7 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 	name: "Auto-Complete on Full Progress",
 	slug: "trigger.auto-complete-on-full-progress",
-	capabilities: ["getEntity", "listEvents", "createEvents", "listEventSchemas"],
+	capabilities: ["getEntities", "listEvents", "createEvents", "listEventSchemas"],
 });
 
 type Properties = Readonly<Record<string, JsonValue>>;
@@ -126,7 +126,14 @@ const getCompleteSchema = (host: AutomationHost, entitySchemaSlug: string) =>
 			),
 		);
 
-const getEntity = (host: AutomationHost, entityId: string) => host.getEntity(entityId);
+const fetchEntity = (host: AutomationHost, entityId: string) =>
+	host
+		.getEntities([entityId])
+		.pipe(
+			Effect.flatMap(([entity]) =>
+				entity ? Effect.succeed(entity) : Effect.fail({ message: "Entity not found" }),
+			),
+		);
 
 const getProgressEvents = (host: AutomationHost, entityId: string) =>
 	host.listEvents({ entityId, eventSchemaSlug: "progress" });
@@ -182,7 +189,7 @@ export default defineAutomation({
 		const entityId = event.subject.id;
 		const entitySchemaSlug = event.subject.entitySchemaSlug;
 		return Effect.gen(function* () {
-			const entity = yield* getEntity(host, entityId);
+			const entity = yield* fetchEntity(host, entityId);
 			const isEpisodic = entitySchemaSlug === "anime" || entitySchemaSlug === "manga";
 			if (!isEpisodic) {
 				const completeSchema = yield* getCompleteSchema(host, entity.entitySchemaSlug);
