@@ -75,8 +75,9 @@ Content assignment when dissolving `apps/app-backend/src/modules/builtins/` (fro
   `automation.media-association`, `automation.media-entity-updated`,
   `automation.media-relationship-sync`, `automation.review-created`,
   `trigger.auto-complete-on-full-progress`, `trigger.integration-progress-policy`,
-  `trigger.radarr-push`, `trigger.sonarr-push`, `trigger.jellyfin-push`; media signal
-  schemas (`review.created`, `media.status.changed`) and their notification formatter.
+  `trigger.radarr-push`, `trigger.sonarr-push`, `trigger.jellyfin-push`; all media signal
+  schemas (`review.created`, `media.status.changed`, the content/episode/season/release-date
+  change signals, and the person/company association group) and their notification formatter.
 - **fitness**: `exercise`/`workout`/`measurement` schemas + property schemas, fitness saved
   views, `exercise.free-exercise-db` provider, `automation.workout-created`,
   `workout.created` signal schema and its notification formatter.
@@ -99,14 +100,16 @@ catalog concepts out of the kernel while retaining generic collection and notifi
 there.
 
 **Implementation choice (2026-07-24, owner-confirmed):** notification formatting follows signal
-ownership. Each subscribable
-signal-schema definition declares a `notificationScriptSlug`; ingestion validates that it resolves
-to an automation script in the complete prospective snapshot. Media owns a formatter for all
-media signals, fitness owns a formatter for `workout.created`, and source zero retains only the
-formatter for its own `integration.disabled` signal. `NotificationSubscriptionsService` persists
-the signal definition's selected script slug and execution resolves either the active plugin
-script or the content-addressed source-zero script. Existing message text and notification e2e
-assertions are preserved.
+ownership. Each subscribable signal-schema definition declares a `notificationScriptSlug`;
+ingestion validates that it resolves to an automation script in the complete prospective
+snapshot — where "complete" includes the kernel source-zero scripts, which live outside the
+loader snapshot (the static kernel set, persisted as `pluginSlug`-null rows), so the validation
+universe must be extended to cover them explicitly. Media owns a formatter for all media
+signals, fitness owns a formatter for `workout.created`, and source zero retains only the
+formatter for its own `integration.disabled` signal. The formatter is never persisted in
+subscription state: dispatch resolves it from the live signal definition at execution time, to
+the active plugin script or the content-addressed source-zero script (§5). Existing message
+text and notification e2e assertions are preserved.
 
 Multi-file authoring: scripts may import from the package's `shared/` — the compiler bundles
 each script entry point into one compiled module. Single-file `.sandbox.ts` isolation is no
@@ -180,16 +183,20 @@ protects live data under hot swap.
   `ensureDefaultRules` from `user-bootstrap/bootstrap.ts` — consumers also in
   `auth/service.ts` and `god-mode/service.ts`): this is per-user _state_ and moves to a
   dedicated table **[RECOMMENDED]** `notification_subscription_state`
-  `(id, userId, signalSchemaSlug, scriptSlug, isActive, metadata?, timestamps)`, unique on
-  `(userId, signalSchemaSlug, scriptSlug)`, following the same definition-vs-state pattern
+  `(id, userId, signalSchemaSlug, isActive, metadata?, timestamps)`, unique on
+  `(userId, signalSchemaSlug)`, following the same definition-vs-state pattern
   as the per-user workspace state (`plugin_state`, §9). Re-point
   `NotificationSubscriptionsService`, the `automations` rule
   endpoints (surface preserved — plumbing only), `ensureDefaultRules`, and the
-   `tests/src/tests/automations/notification-subscriptions.test.ts` suite (assertions
-   preserved).
+  `tests/src/tests/automations/notification-subscriptions.test.ts` suite (assertions
+  preserved).
 
-The `scriptSlug` is selected from the signal definition's `notificationScriptSlug`. This keeps the
-state table generic while making formatter ownership explicit.
+The state table stores no script slug — persisting a definition-derived slug would re-create the
+definition/state conflation this table exists to remove, and would dangle under plugin hot swap
+or uninstall. Subscription identity is `(userId, signalSchemaSlug)`; dispatch resolves the
+formatter from the subscribed signal definition's `notificationScriptSlug` at execution time. A
+subscription row whose signal definition is no longer registered is inert: dispatch skips it and
+rule listings omit it (never an error), and the row is retained like any other per-user state.
 
 Only after both moves is the `automation_rule` table deleted. `subscription_run` stays with one
 non-null text `ruleId`: the generated notification-subscription-state ID for per-user runs or the
@@ -198,7 +205,7 @@ attribution must survive deleting a subscription state or replacing a plugin sna
 
 **Implementation choice (2026-07-24, owner-confirmed):**
 `notification_subscription_state.id` is a generated primary key and remains the public
-`AutomationRuleId`. Deleting and reinstalling the same `(userId, signalSchemaSlug, scriptSlug)`
+`AutomationRuleId`. Deleting and reinstalling the same `(userId, signalSchemaSlug)`
 subscription therefore produces a new ID, preserving the existing API behavior. The durable run
 record stores that ID, or the manifest binding's existing deterministic `binding:...` ID, directly
 in `subscription_run.ruleId`. This is the run's single durable attribution field.
@@ -238,7 +245,7 @@ plugins in memory, and avoids adding archive extraction machinery and its path-s
 ## 7. New kernel tests (this phase's own coverage)
 
 - Ingestion: manifest validation failures, compile-diagnostic failure, slug collision,
-  dangling binding, `/` in slug.
+  dangling binding, dangling signal `notificationScriptSlug`, `/` in slug.
 - Loader: atomic swap under concurrent reads (unit-level), boot short-circuit on matching
   hash, hot install → new provider immediately usable (e2e, via the new fixture), uninstall
   refusal while entities reference schemas.
