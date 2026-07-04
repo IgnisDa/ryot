@@ -26,6 +26,7 @@ import {
 const slugParam = HttpApiSchema.param("slug", Schema.String);
 const entityIdParam = HttpApiSchema.param("entityId", EntityId);
 const scriptIdParam = HttpApiSchema.param("scriptId", SandboxScriptId);
+const userIdParam = HttpApiSchema.param("userId", UserId);
 const properties = Schema.Record({ key: Schema.String, value: Schema.Unknown });
 const entitySchemaIdParam = HttpApiSchema.param("entitySchemaId", EntitySchemaId);
 
@@ -74,6 +75,13 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		HttpApiEndpoint.get("listSandboxScripts", "/test-support/sandbox-scripts")
 			.setUrlParams(Schema.Struct({ userId: Schema.optional(UserId) }))
 			.addSuccess(Schema.Array(TestSupportStoredSandboxScript)),
+	)
+	.add(
+		HttpApiEndpoint.get(
+			"countAutomationRules",
+		)`/test-support/users/${userIdParam}/automation-rules/count`.addSuccess(
+			Schema.Struct({ count: Schema.Number }),
+		),
 	)
 	.add(
 		HttpApiEndpoint.patch("patchSandboxScript")`/test-support/sandbox-scripts/${scriptIdParam}`
