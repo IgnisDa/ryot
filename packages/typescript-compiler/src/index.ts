@@ -17,13 +17,17 @@ export type TypeScriptCompilerDiagnostic = Schema.Schema.Type<typeof TypeScriptC
 
 export type TypeScriptProjectSources = Readonly<Record<string, string>>;
 
+export type TypeScriptProjectConfiguration = {
+	readonly compilerOptions: Readonly<Record<string, unknown>>;
+};
+
 export type TypeScriptProjectOptions = {
 	readonly projectKind: string;
 	readonly virtualRoot: string;
 	readonly tsserverPath: string;
 	readonly entries: ReadonlyArray<string>;
 	readonly files: TypeScriptProjectSources;
-	readonly compilerOptions: Readonly<Record<string, unknown>>;
+	readonly configuration: TypeScriptProjectConfiguration;
 };
 
 export class TypeScriptProjectError extends Data.TaggedError("TypeScriptProjectError")<{
@@ -86,7 +90,7 @@ export const createTypeScriptProject = (options: TypeScriptProjectOptions) => {
 		...sourceFiles,
 		[virtualConfigFile]: JSON.stringify({
 			files: options.entries.map(virtualPath),
-			compilerOptions: options.compilerOptions,
+			...options.configuration,
 		}),
 	});
 	const fs = {
@@ -133,6 +137,7 @@ export const createTypeScriptProject = (options: TypeScriptProjectOptions) => {
 					[
 						Effect.tryPromise(() => program.getProgramDiagnostics()),
 						Effect.tryPromise(() => program.getGlobalDiagnostics()),
+						Effect.tryPromise(() => program.getSemanticDiagnostics()),
 						Effect.tryPromise(() => program.getConfigFileParsingDiagnostics()),
 					],
 					{ concurrency: "unbounded" },
@@ -141,7 +146,6 @@ export const createTypeScriptProject = (options: TypeScriptProjectOptions) => {
 					Effect.all(
 						[
 							Effect.tryPromise(() => program.getBindDiagnostics(file.fileName)),
-							Effect.tryPromise(() => program.getSemanticDiagnostics(file.fileName)),
 							Effect.tryPromise(() => program.getSyntacticDiagnostics(file.fileName)),
 						],
 						{ concurrency: "unbounded" },

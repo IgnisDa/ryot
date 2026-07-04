@@ -29,13 +29,15 @@ it.effect("collects project and source diagnostics and exposes entry source file
 				"semantic.ts": "const value: string = 1;",
 				"syntactic.ts": "export const broken = ;",
 			},
-			compilerOptions: {
-				types: [],
-				strict: true,
-				noEmit: true,
-				lib: ["ES2022"],
-				target: "ES2022",
-				module: "ESNext",
+			configuration: {
+				compilerOptions: {
+					types: [],
+					strict: true,
+					noEmit: true,
+					lib: ["ES2022"],
+					target: "ES2022",
+					module: "ESNext",
+				},
 			},
 		});
 
@@ -55,13 +57,15 @@ it.effect("normalizes diagnostics with logical files and structural locations", 
 			entries: ["source.ts"],
 			tsserverPath: resolveTypeScriptCompilerPath(from),
 			files: { "source.ts": "\nconst value: string = 1;" },
-			compilerOptions: {
-				types: [],
-				strict: true,
-				noEmit: true,
-				lib: ["ES2022"],
-				target: "ES2022",
-				module: "ESNext",
+			configuration: {
+				compilerOptions: {
+					types: [],
+					strict: true,
+					noEmit: true,
+					lib: ["ES2022"],
+					target: "ES2022",
+					module: "ESNext",
+				},
 			},
 		});
 		const diagnostic = project.diagnostics.find(
