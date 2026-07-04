@@ -1,8 +1,8 @@
-import { Command, CommandExecutor, FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import { Command, CommandExecutor, FileSystem, HttpApp, HttpServer } from "@effect/platform";
+import { BunContext, BunHttpServer } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { CompiledSandboxModule } from "@ryot/sandbox-compiler/protocol";
-import { Effect, Schema, Stream } from "effect";
+import { Effect, Runtime, Schema, Stream } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import {
@@ -578,82 +578,88 @@ const startCoreHostBridge = (
 		readonly appConfigValue?: unknown;
 		readonly httpResponse?: (url: string) => unknown;
 	} = {},
-) => {
-	const calls: Array<{ fnName: string; executionId: string; args: readonly unknown[] }> = [];
-	const executionScripts = new Map<string, string>();
-	const runCache = new Map<string, unknown>();
-	const persistentCache = new Map<string, unknown>();
+) =>
+	Effect.gen(function* () {
+		const calls: Array<{ fnName: string; executionId: string; args: readonly unknown[] }> = [];
+		const executionScripts = new Map<string, string>();
+		const runCache = new Map<string, unknown>();
+		const persistentCache = new Map<string, unknown>();
+		const runtime = yield* Effect.runtime();
 
-	const server = Bun.serve({
-		port: 0,
-		hostname: "127.0.0.1",
-		fetch: (request) =>
-			Effect.runPromise(
-				Effect.gen(function* () {
-					const parts = new URL(request.url).pathname.split("/").filter(Boolean);
-					const executionId = decodeURIComponent(parts[1] ?? "");
-					const fnName = decodeURIComponent(parts[2] ?? "");
-					const body: unknown = yield* Effect.promise(() => request.json());
-					const argsValue =
-						body !== null && typeof body === "object" ? Reflect.get(body, "args") : undefined;
-					const args: readonly unknown[] = Array.isArray(argsValue) ? argsValue : [];
-					const scriptId = executionScripts.get(executionId) ?? "unknown";
-					const key = `${scriptId}:${String(args[0])}`;
-					calls.push({ fnName, executionId, args });
+		const server = yield* BunHttpServer.make({
+			port: 0,
+			hostname: "127.0.0.1",
+		});
+		yield* HttpServer.serveEffect(
+			HttpApp.fromWebHandler((request) =>
+				Runtime.runPromise(runtime)(
+					Effect.gen(function* () {
+						const parts = new URL(request.url).pathname.split("/").filter(Boolean);
+						const executionId = decodeURIComponent(parts[1] ?? "");
+						const fnName = decodeURIComponent(parts[2] ?? "");
+						const body: unknown = yield* Effect.promise(() => request.json());
+						const argsValue =
+							body !== null && typeof body === "object" ? Reflect.get(body, "args") : undefined;
+						const args: readonly unknown[] = Array.isArray(argsValue) ? argsValue : [];
+						const scriptId = executionScripts.get(executionId) ?? "unknown";
+						const key = `${scriptId}:${String(args[0])}`;
+						calls.push({ fnName, executionId, args });
 
-					let result: unknown;
-					if (fnName === "getCachedValue") {
-						result = {
-							data: runCache.has(key) ? runCache.get(key) : null,
-							success: true,
-						};
-					} else if (fnName === "setCachedValue") {
-						runCache.set(key, args[1]);
-						result = { data: null, success: true };
-					} else if (fnName === "claimCachedValue") {
-						if (persistentCache.has(key)) {
+						let result: unknown;
+						if (fnName === "getCachedValue") {
 							result = {
-								data: { claimed: false, value: persistentCache.get(key) ?? null },
+								data: runCache.has(key) ? runCache.get(key) : null,
 								success: true,
 							};
+						} else if (fnName === "setCachedValue") {
+							runCache.set(key, args[1]);
+							result = { data: null, success: true };
+						} else if (fnName === "claimCachedValue") {
+							if (persistentCache.has(key)) {
+								result = {
+									data: { claimed: false, value: persistentCache.get(key) ?? null },
+									success: true,
+								};
+							} else {
+								persistentCache.set(key, args[1]);
+								result = { data: { claimed: true }, success: true };
+							}
+						} else if (fnName === "httpCall") {
+							const customBody = options.httpResponse?.(String(args[1]));
+							result = {
+								data: {
+									status: 200,
+									headers: { "content-type": "application/json" },
+									body:
+										customBody === undefined
+											? encodeRunnerRequest({ url: args[1], method: args[0], options: args[2] })
+											: encodeRunnerRequest(customBody),
+								},
+								success: true,
+							};
+						} else if (fnName === "getAppConfigValue") {
+							result = { data: options.appConfigValue ?? "Etc/GMT", success: true };
+						} else if (fnName === "getUserPreferences") {
+							result = { success: true, data: { isNsfw: false, disableIntegrations: true } };
 						} else {
-							persistentCache.set(key, args[1]);
-							result = { data: { claimed: true }, success: true };
+							result = { error: "Unknown function", success: false };
 						}
-					} else if (fnName === "httpCall") {
-						const customBody = options.httpResponse?.(String(args[1]));
-						result = {
-							data: {
-								status: 200,
-								headers: { "content-type": "application/json" },
-								body:
-									customBody === undefined
-										? encodeRunnerRequest({ url: args[1], method: args[0], options: args[2] })
-										: encodeRunnerRequest(customBody),
-							},
-							success: true,
-						};
-					} else if (fnName === "getAppConfigValue") {
-						result = { data: options.appConfigValue ?? "Etc/GMT", success: true };
-					} else if (fnName === "getUserPreferences") {
-						result = { success: true, data: { isNsfw: false, disableIntegrations: true } };
-					} else {
-						result = { error: "Unknown function", success: false };
-					}
 
-					return Response.json({ result });
-				}),
+						return Response.json({ result });
+					}),
+				),
 			),
-	});
+		).pipe(Effect.provideService(HttpServer.HttpServer, server));
+		const address = server.address;
+		assert(address._tag === "TcpAddress");
 
-	return {
-		calls,
-		port: server.port,
-		stop: () => Promise.resolve(server.stop(true)),
-		register: (executionId: string, scriptId: string) =>
-			executionScripts.set(executionId, scriptId),
-	};
-};
+		return {
+			calls,
+			port: address.port,
+			register: (executionId: string, scriptId: string) =>
+				executionScripts.set(executionId, scriptId),
+		};
+	});
 
 it("loads compiled ESM in Deno and validates driver input and output", () =>
 	Effect.runPromise(
@@ -824,9 +830,7 @@ it("executes typed core host methods and filters the Deno host to declared capab
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(Effect.sync(startCoreHostBridge), (value) =>
-					Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge();
 				const compiler = yield* SandboxCompiler;
 				const compiled = yield* compiler.compile(coreHostSource);
 				const filtered = yield* compiler.compile(filteredHostSource);
@@ -948,29 +952,24 @@ it("loads and executes the generated TMDB Show module in Deno", () =>
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "tmdb-token",
-							httpResponse: (url) => {
-								expect(new URL(url).pathname).toBe("/3/search/tv");
-								return {
-									total_pages: 1,
-									total_results: 1,
-									results: [
-										{
-											id: 42,
-											name: "Generated Show",
-											poster_path: "/poster.jpg",
-											first_air_date: "2024-01-01",
-										},
-									],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "tmdb-token",
+					httpResponse: (url) => {
+						expect(new URL(url).pathname).toBe("/3/search/tv");
+						return {
+							total_pages: 1,
+							total_results: 1,
+							results: [
+								{
+									id: 42,
+									name: "Generated Show",
+									poster_path: "/poster.jpg",
+									first_air_date: "2024-01-01",
+								},
+							],
+						};
+					},
+				});
 				const compiled = {
 					manifest: sandboxShowDotTmdbScript.manifest,
 					format: sandboxShowDotTmdbScript.compiledFormat,
@@ -998,10 +997,7 @@ it("loads and executes the generated TMDB Show module in Deno", () =>
 							secondarySubtitleProperty: { kind: "null", value: null },
 							imageProperty: {
 								kind: "image",
-								value: {
-									type: "remote",
-									url: "https://image.tmdb.org/t/p/original/poster.jpg",
-								},
+								value: { type: "remote", url: "https://image.tmdb.org/t/p/original/poster.jpg" },
 							},
 						},
 					],
@@ -1014,44 +1010,39 @@ it("loads and executes the remaining generated TMDB provider family in Deno", ()
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "tmdb-token",
-							httpResponse: (url) => {
-								const path = new URL(url).pathname;
-								if (path === "/3/search/movie") {
-									return {
-										total_pages: 1,
-										total_results: 1,
-										results: [{ id: 1, title: "Generated Movie", release_date: "2025-01-01" }],
-									};
-								}
-								if (path === "/3/search/person") {
-									return {
-										total_pages: 1,
-										total_results: 1,
-										results: [{ id: 2, name: "Generated Person" }],
-									};
-								}
-								if (path === "/3/search/company") {
-									return {
-										total_pages: 1,
-										total_results: 1,
-										results: [{ id: 3, name: "Generated Company" }],
-									};
-								}
-								expect(path).toBe("/3/search/collection");
-								return {
-									total_pages: 1,
-									total_results: 1,
-									results: [{ id: 4, name: "Generated Collection" }],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "tmdb-token",
+					httpResponse: (url) => {
+						const path = new URL(url).pathname;
+						if (path === "/3/search/movie") {
+							return {
+								total_pages: 1,
+								total_results: 1,
+								results: [{ id: 1, title: "Generated Movie", release_date: "2025-01-01" }],
+							};
+						}
+						if (path === "/3/search/person") {
+							return {
+								total_pages: 1,
+								total_results: 1,
+								results: [{ id: 2, name: "Generated Person" }],
+							};
+						}
+						if (path === "/3/search/company") {
+							return {
+								total_pages: 1,
+								total_results: 1,
+								results: [{ id: 3, name: "Generated Company" }],
+							};
+						}
+						expect(path).toBe("/3/search/collection");
+						return {
+							total_pages: 1,
+							total_results: 1,
+							results: [{ id: 4, name: "Generated Collection" }],
+						};
+					},
+				});
 				const cases = [
 					{ entry: sandboxMovieDotTmdbScript, title: "Generated Movie", externalId: "1" },
 					{ entry: sandboxPersonDotTmdbScript, title: "Generated Person", externalId: "2" },
@@ -1097,32 +1088,27 @@ it("loads and executes the generated TVDB Show module in Deno through the token 
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "tvdb-api-key",
-							httpResponse: (url) => {
-								const path = new URL(url).pathname;
-								if (path === "/v4/login") {
-									return { status: "success", data: { token: "generated-token" } };
-								}
-								expect(path).toBe("/v4/search");
-								return {
-									status: "success",
-									links: { next: null, total_items: 1 },
-									data: [
-										{
-											tvdb_id: "42",
-											name: "Generated Series",
-											poster: "https://example.com/poster.jpg",
-										},
-									],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "tvdb-api-key",
+					httpResponse: (url) => {
+						const path = new URL(url).pathname;
+						if (path === "/v4/login") {
+							return { status: "success", data: { token: "generated-token" } };
+						}
+						expect(path).toBe("/v4/search");
+						return {
+							status: "success",
+							links: { next: null, total_items: 1 },
+							data: [
+								{
+									tvdb_id: "42",
+									name: "Generated Series",
+									poster: "https://example.com/poster.jpg",
+								},
+							],
+						};
+					},
+				});
 				const compiled = {
 					manifest: sandboxShowDotTvdbScript.manifest,
 					format: sandboxShowDotTvdbScript.compiledFormat,
@@ -1145,9 +1131,9 @@ it("loads and executes the generated TVDB Show module in Deno through the token 
 						{
 							externalId: "42",
 							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Generated Series" },
 							primarySubtitleProperty: { kind: "null", value: null },
 							secondarySubtitleProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "Generated Series" },
 							imageProperty: {
 								kind: "image",
 								value: { type: "remote", url: "https://example.com/poster.jpg" },
@@ -1165,42 +1151,37 @@ it("loads and executes the remaining generated TVDB provider family in Deno", ()
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "tvdb-api-key",
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								if (requestUrl.pathname === "/v4/login") {
-									return { status: "success", data: { token: "generated-token" } };
-								}
-								if (requestUrl.pathname === "/v4/lists/4/translations/eng") {
-									return {
-										status: "success",
-										data: [
-											{ isPrimary: true, name: "Generated List", overview: "Translated overview" },
-										],
-									};
-								}
-								expect(requestUrl.pathname).toBe("/v4/search");
-								const searchType = requestUrl.searchParams.get("type");
-								const results: Readonly<Record<string, { tvdb_id: string; name: string }>> = {
-									movie: { tvdb_id: "1", name: "Generated Movie" },
-									person: { tvdb_id: "2", name: "Generated Person" },
-									company: { tvdb_id: "3", name: "Generated Company" },
-								};
-								const result = searchType === null ? undefined : results[searchType];
-								expect(result).toBeDefined();
-								return {
-									status: "success",
-									data: result === undefined ? [] : [result],
-									links: { next: null, total_items: 1 },
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "tvdb-api-key",
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						if (requestUrl.pathname === "/v4/login") {
+							return { status: "success", data: { token: "generated-token" } };
+						}
+						if (requestUrl.pathname === "/v4/lists/4/translations/eng") {
+							return {
+								status: "success",
+								data: [
+									{ isPrimary: true, name: "Generated List", overview: "Translated overview" },
+								],
+							};
+						}
+						expect(requestUrl.pathname).toBe("/v4/search");
+						const searchType = requestUrl.searchParams.get("type");
+						const results: Readonly<Record<string, { tvdb_id: string; name: string }>> = {
+							movie: { tvdb_id: "1", name: "Generated Movie" },
+							person: { tvdb_id: "2", name: "Generated Person" },
+							company: { tvdb_id: "3", name: "Generated Company" },
+						};
+						const result = searchType === null ? undefined : results[searchType];
+						expect(result).toBeDefined();
+						return {
+							status: "success",
+							links: { next: null, total_items: 1 },
+							data: result === undefined ? [] : [result],
+						};
+					},
+				});
 				const apiBase = `http://127.0.0.1:${bridge.port}`;
 				const searchCases = [
 					{ entry: sandboxMovieDotTvdbScript, title: "Generated Movie", externalId: "1" },
@@ -1257,49 +1238,44 @@ it("loads and executes the generated AniList anime module in Deno with bundled h
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							httpResponse: (url) => {
-								expect(new URL(url).host).toBe("graphql.anilist.co");
-								return {
-									data: {
-										Media: {
-											id: 7,
-											episodes: 12,
-											type: "ANIME",
-											isAdult: false,
-											averageScore: 83,
-											status: "FINISHED",
-											genres: ["Action"],
-											tags: [{ name: "Space" }],
-											startDate: { year: 2020 },
-											nextAiringEpisode: null,
-											title: { english: "Generated Anime" },
-											description: "Line one<br>Line two",
-											bannerImage: null,
-											coverImage: { extraLarge: "https://img.example/cover.jpg" },
-											studios: { nodes: [{ id: 11, name: "Generated Studio" }] },
-											airingSchedule: { nodes: [{ episode: 1, airingAt: 1700000000 }] },
-											recommendations: {
-												nodes: [
-													{
-														mediaRecommendation: {
-															id: 8,
-															type: "MANGA",
-															title: { english: "Suggested Manga" },
-														},
-													},
-												],
+				const bridge = yield* startCoreHostBridge({
+					httpResponse: (url) => {
+						expect(new URL(url).host).toBe("graphql.anilist.co");
+						return {
+							data: {
+								Media: {
+									id: 7,
+									episodes: 12,
+									type: "ANIME",
+									isAdult: false,
+									averageScore: 83,
+									bannerImage: null,
+									status: "FINISHED",
+									genres: ["Action"],
+									nextAiringEpisode: null,
+									tags: [{ name: "Space" }],
+									startDate: { year: 2020 },
+									description: "Line one<br>Line two",
+									title: { english: "Generated Anime" },
+									coverImage: { extraLarge: "https://img.example/cover.jpg" },
+									studios: { nodes: [{ id: 11, name: "Generated Studio" }] },
+									airingSchedule: { nodes: [{ episode: 1, airingAt: 1700000000 }] },
+									recommendations: {
+										nodes: [
+											{
+												mediaRecommendation: {
+													id: 8,
+													type: "MANGA",
+													title: { english: "Suggested Manga" },
+												},
 											},
-										},
+										],
 									},
-								};
+								},
 							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+						};
+					},
+				});
 				const entry = sandboxAnimeDotAnilistScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -1346,11 +1322,11 @@ it("loads and executes the generated AniList anime module in Deno with bundled h
 						publishYear: 2020,
 						providerRating: 83,
 						genres: ["Action", "Space"],
-						description: "Line one\nLine two",
 						productionStatus: "Finished",
+						description: "Line one\nLine two",
 						sourceUrl: "https://anilist.co/anime/7/Generated%20Anime",
-						airingSchedule: [{ episode: 1, airingAt: "2023-11-14T22:13:20.000Z" }],
 						images: [{ type: "remote", url: "https://img.example/cover.jpg" }],
+						airingSchedule: [{ episode: 1, airingAt: "2023-11-14T22:13:20.000Z" }],
 					},
 				});
 			}),
@@ -1361,63 +1337,58 @@ it("loads and executes the generated MyAnimeList and MangaUpdates modules in Den
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "mal-client-id",
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								if (requestUrl.host === "api.myanimelist.net") {
-									expect(requestUrl.pathname).toBe("/v2/anime");
-									return {
-										paging: {},
-										data: [
-											{
-												node: {
-													id: 5,
-													start_date: "2021-05-10",
-													title: "Generated MAL Anime",
-													main_picture: { large: "https://img.example/mal.jpg" },
-												},
-											},
-										],
-									};
-								}
-								expect(requestUrl.host).toBe("api.mangaupdates.com");
-								expect(requestUrl.pathname).toBe("/v1/series/search");
-								return {
-									total_hits: 1,
-									results: [
-										{
-											hit_title: "Generated Series",
-											record: {
-												year: "2019",
-												series_id: 9,
-												image: { url: { original: "https://img.example/mu.jpg" } },
-											},
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "mal-client-id",
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						if (requestUrl.host === "api.myanimelist.net") {
+							expect(requestUrl.pathname).toBe("/v2/anime");
+							return {
+								paging: {},
+								data: [
+									{
+										node: {
+											id: 5,
+											start_date: "2021-05-10",
+											title: "Generated MAL Anime",
+											main_picture: { large: "https://img.example/mal.jpg" },
 										},
-									],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+									},
+								],
+							};
+						}
+						expect(requestUrl.host).toBe("api.mangaupdates.com");
+						expect(requestUrl.pathname).toBe("/v1/series/search");
+						return {
+							total_hits: 1,
+							results: [
+								{
+									hit_title: "Generated Series",
+									record: {
+										year: "2019",
+										series_id: 9,
+										image: { url: { original: "https://img.example/mu.jpg" } },
+									},
+								},
+							],
+						};
+					},
+				});
 				const apiBase = `http://127.0.0.1:${bridge.port}`;
 				const searchCases = [
 					{
-						entry: sandboxAnimeDotMyanimelistScript,
 						externalId: "5",
 						publishYear: 2021,
 						title: "Generated MAL Anime",
 						image: "https://img.example/mal.jpg",
+						entry: sandboxAnimeDotMyanimelistScript,
 					},
 					{
-						entry: sandboxMangaDotMangaDashUpdatesScript,
 						externalId: "9",
 						publishYear: 2019,
 						title: "Generated Series",
 						image: "https://img.example/mu.jpg",
+						entry: sandboxMangaDotMangaDashUpdatesScript,
 					},
 				];
 				for (const scenario of searchCases) {
@@ -1443,10 +1414,7 @@ it("loads and executes the generated MyAnimeList and MangaUpdates modules in Den
 								secondarySubtitleProperty: { kind: "null", value: null },
 								titleProperty: { kind: "text", value: scenario.title },
 								primarySubtitleProperty: { kind: "number", value: scenario.publishYear },
-								imageProperty: {
-									kind: "image",
-									value: { type: "remote", url: scenario.image },
-								},
+								imageProperty: { kind: "image", value: { type: "remote", url: scenario.image } },
 							},
 						],
 					});
@@ -1461,37 +1429,32 @@ it("loads and executes the generated Hardcover book module in Deno through the G
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "hardcover-key",
-							httpResponse: (url) => {
-								expect(new URL(url).host).toBe("api.hardcover.app");
-								return {
-									data: {
-										books_by_pk: {
-											id: "42",
-											images: [],
-											pages: 300,
-											book_series: [],
-											slug: "the-book",
-											title: "The Book",
-											release_year: 2020,
-											description: "A book.",
-											release_date: "2020-01-01",
-											image: { url: "https://img/cover.jpg" },
-											cached_tags: { Genre: [{ tag: "science fiction" }] },
-											contributions: [
-												{ contribution: "Author", author_id: 7, author: { name: "Jane Doe" } },
-											],
-										},
-									},
-								};
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "hardcover-key",
+					httpResponse: (url) => {
+						expect(new URL(url).host).toBe("api.hardcover.app");
+						return {
+							data: {
+								books_by_pk: {
+									id: "42",
+									images: [],
+									pages: 300,
+									book_series: [],
+									slug: "the-book",
+									title: "The Book",
+									release_year: 2020,
+									description: "A book.",
+									release_date: "2020-01-01",
+									image: { url: "https://img/cover.jpg" },
+									cached_tags: { Genre: [{ tag: "science fiction" }] },
+									contributions: [
+										{ contribution: "Author", author_id: 7, author: { name: "Jane Doe" } },
+									],
+								},
 							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+						};
+					},
+				});
 				const entry = sandboxBookDotHardcoverScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -1511,6 +1474,7 @@ it("loads and executes the generated Hardcover book module in Deno through the G
 				expect(result).toMatchObject({ success: true });
 				expect(Reflect.get(result, "value")).toMatchObject({
 					name: "The Book",
+					properties: { publishYear: 2020, genres: ["Science Fiction"] },
 					relatedEntityGroups: [
 						{
 							relationshipSchemaSlug: "person-to-book",
@@ -1519,7 +1483,6 @@ it("loads and executes the generated Hardcover book module in Deno through the G
 						{ relationshipSchemaSlug: "company-to-book", entities: [] },
 						{ relationshipSchemaSlug: "book-group-to-book", entities: [] },
 					],
-					properties: { publishYear: 2020, genres: ["Science Fiction"] },
 				});
 				const configCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
 				expect(configCall?.args).toEqual(["books.hardcoverApiKey"]);
@@ -1531,35 +1494,30 @@ it("loads and executes the generated OpenLibrary book module in Deno with custom
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								expect(requestUrl.host).toBe("openlibrary.org");
-								if (requestUrl.pathname.endsWith("/editions.json")) {
-									return {
-										entries: [
-											{ number_of_pages: 320, publish_date: "May 5, 2001" },
-											{ publish_date: "1999" },
-										],
-									};
-								}
-								if (requestUrl.pathname === "/authors/OL1A.json") {
-									return { name: "Author Name" };
-								}
-								return {
-									covers: [111],
-									title: "The Work",
-									key: "/works/OL1W",
-									subjects: ["Fiction"],
-									authors: [{ author: { key: "/authors/OL1A" } }],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						expect(requestUrl.host).toBe("openlibrary.org");
+						if (requestUrl.pathname.endsWith("/editions.json")) {
+							return {
+								entries: [
+									{ number_of_pages: 320, publish_date: "May 5, 2001" },
+									{ publish_date: "1999" },
+								],
+							};
+						}
+						if (requestUrl.pathname === "/authors/OL1A.json") {
+							return { name: "Author Name" };
+						}
+						return {
+							covers: [111],
+							title: "The Work",
+							key: "/works/OL1W",
+							subjects: ["Fiction"],
+							authors: [{ author: { key: "/authors/OL1A" } }],
+						};
+					},
+				});
 				const entry = sandboxBookDotOpenlibraryScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -1579,8 +1537,8 @@ it("loads and executes the generated OpenLibrary book module in Deno with custom
 				expect(result).toMatchObject({ success: true });
 				expect(Reflect.get(result, "value")).toMatchObject({
 					name: "The Work",
-					relatedEntityGroups: [{ entities: [{ externalId: "OL1A", name: "Author Name" }] }],
 					properties: { pages: 320, publishYear: 1999, genres: ["Fiction"] },
+					relatedEntityGroups: [{ entities: [{ externalId: "OL1A", name: "Author Name" }] }],
 				});
 			}),
 		),
@@ -1590,32 +1548,27 @@ it("loads and executes the generated Google Books module in Deno through the RES
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "google-key",
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								expect(requestUrl.host).toBe("www.googleapis.com");
-								expect(requestUrl.pathname).toBe("/books/v1/volumes");
-								return {
-									totalItems: 1,
-									items: [
-										{
-											id: "g1",
-											volumeInfo: {
-												title: "G Book",
-												publishedDate: "2010-06-01",
-												imageLinks: { thumbnail: "https://img/t.jpg" },
-											},
-										},
-									],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "google-key",
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						expect(requestUrl.host).toBe("www.googleapis.com");
+						expect(requestUrl.pathname).toBe("/books/v1/volumes");
+						return {
+							totalItems: 1,
+							items: [
+								{
+									id: "g1",
+									volumeInfo: {
+										title: "G Book",
+										publishedDate: "2010-06-01",
+										imageLinks: { thumbnail: "https://img/t.jpg" },
+									},
+								},
+							],
+						};
+					},
+				});
 				const entry = sandboxBookDotGoogleDashBooksScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -1654,35 +1607,30 @@ it("loads and executes the generated Audible module in Deno with HTML descriptio
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							httpResponse: (url) => {
-								expect(new URL(url).host).toBe("api.audible.com");
-								if (url.includes("/sims?")) {
-									return { similar_products: [] };
-								}
-								return {
-									product: {
-										asin: "B01",
-										title: "The Book",
-										narrators: [],
-										series: [],
-										category_ladders: [],
-										runtime_length_min: 120,
-										release_date: "2020-05-02",
-										is_adult_product: false,
-										product_images: { "2400": "https://img/2400.jpg" },
-										publisher_summary: "<p>Hello<br>World</p>",
-										authors: [{ name: "Jane Doe", asin: "A1" }],
-										rating: { num_reviews: 0, overall_distribution: {} },
-									},
-								};
+				const bridge = yield* startCoreHostBridge({
+					httpResponse: (url) => {
+						expect(new URL(url).host).toBe("api.audible.com");
+						if (url.includes("/sims?")) {
+							return { similar_products: [] };
+						}
+						return {
+							product: {
+								series: [],
+								asin: "B01",
+								narrators: [],
+								title: "The Book",
+								category_ladders: [],
+								is_adult_product: false,
+								runtime_length_min: 120,
+								release_date: "2020-05-02",
+								publisher_summary: "<p>Hello<br>World</p>",
+								authors: [{ name: "Jane Doe", asin: "A1" }],
+								product_images: { "2400": "https://img/2400.jpg" },
+								rating: { num_reviews: 0, overall_distribution: {} },
 							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+						};
+					},
+				});
 				const entry = sandboxAudiobookDotAudibleScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -1720,28 +1668,23 @@ it("loads and executes the generated iTunes podcast module in Deno", () =>
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								expect(requestUrl.host).toBe("itunes.apple.com");
-								expect(requestUrl.pathname).toBe("/search");
-								return {
-									results: [
-										{
-											collectionId: 123,
-											collectionName: "My Podcast",
-											releaseDate: "2021-01-01T00:00:00Z",
-											artworkUrl600: "https://img/600.jpg",
-										},
-									],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						expect(requestUrl.host).toBe("itunes.apple.com");
+						expect(requestUrl.pathname).toBe("/search");
+						return {
+							results: [
+								{
+									collectionId: 123,
+									collectionName: "My Podcast",
+									releaseDate: "2021-01-01T00:00:00Z",
+									artworkUrl600: "https://img/600.jpg",
+								},
+							],
+						};
+					},
+				});
 				const entry = sandboxPodcastDotItunesScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -1781,31 +1724,26 @@ it("loads and executes the generated ListenNotes podcast module in Deno through 
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "listennotes-key",
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								expect(requestUrl.host).toBe("listen-api.listennotes.com");
-								expect(requestUrl.pathname).toBe("/api/v2/search");
-								return {
-									total: 1,
-									next_offset: null,
-									results: [
-										{
-											id: "abc",
-											image: "https://img/ln.jpg",
-											title_original: "LN Podcast",
-											earliest_pub_date_ms: 1609459200000,
-										},
-									],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "listennotes-key",
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						expect(requestUrl.host).toBe("listen-api.listennotes.com");
+						expect(requestUrl.pathname).toBe("/api/v2/search");
+						return {
+							total: 1,
+							next_offset: null,
+							results: [
+								{
+									id: "abc",
+									image: "https://img/ln.jpg",
+									title_original: "LN Podcast",
+									earliest_pub_date_ms: 1609459200000,
+								},
+							],
+						};
+					},
+				});
 				const entry = sandboxPodcastDotListennotesScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -1847,24 +1785,17 @@ it("loads and executes the generated MusicBrainz module in Deno", () =>
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								expect(requestUrl.host).toBe("musicbrainz.org");
-								expect(requestUrl.pathname).toBe("/ws/2/recording");
-								return {
-									count: 1,
-									recordings: [
-										{ id: "rec-1", title: "Song One", "first-release-date": "2020-05-01" },
-									],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						expect(requestUrl.host).toBe("musicbrainz.org");
+						expect(requestUrl.pathname).toBe("/ws/2/recording");
+						return {
+							count: 1,
+							recordings: [{ id: "rec-1", title: "Song One", "first-release-date": "2020-05-01" }],
+						};
+					},
+				});
 				const entry = sandboxMusicDotMusicDashBrainzScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -1900,38 +1831,33 @@ it("loads and executes the generated Spotify module in Deno through the token ca
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "spotify-cred",
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								if (requestUrl.host === "accounts.spotify.com") {
-									expect(requestUrl.pathname).toBe("/api/token");
-									return { access_token: "tok", token_type: "Bearer", expires_in: 3600 };
-								}
-								expect(requestUrl.host).toBe("api.spotify.com");
-								expect(requestUrl.pathname).toBe("/v1/search");
-								return {
-									tracks: {
-										total: 1,
-										items: [
-											{
-												id: "t1",
-												name: "Track One",
-												album: {
-													release_date: "2019-03-03",
-													images: [{ url: "https://img/s.jpg", width: 640, height: 640 }],
-												},
-											},
-										],
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "spotify-cred",
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						if (requestUrl.host === "accounts.spotify.com") {
+							expect(requestUrl.pathname).toBe("/api/token");
+							return { access_token: "tok", token_type: "Bearer", expires_in: 3600 };
+						}
+						expect(requestUrl.host).toBe("api.spotify.com");
+						expect(requestUrl.pathname).toBe("/v1/search");
+						return {
+							tracks: {
+								total: 1,
+								items: [
+									{
+										id: "t1",
+										name: "Track One",
+										album: {
+											release_date: "2019-03-03",
+											images: [{ url: "https://img/s.jpg", width: 640, height: 640 }],
+										},
 									},
-								};
+								],
 							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+						};
+					},
+				});
 				const entry = sandboxMusicDotSpotifyScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -1970,31 +1896,26 @@ it("loads and executes the generated GiantBomb module in Deno", () =>
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "giant-bomb-key",
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								expect(requestUrl.host).toBe("www.giantbomb.com");
-								expect(requestUrl.pathname).toBe("/api/search/");
-								return {
-									error: "OK",
-									number_of_total_results: 1,
-									results: [
-										{
-											guid: "3030-1",
-											name: "My Game",
-											original_release_date: "2015-06-01 00:00:00",
-											image: { original_url: "https://img/gb.jpg" },
-										},
-									],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "giant-bomb-key",
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						expect(requestUrl.host).toBe("www.giantbomb.com");
+						expect(requestUrl.pathname).toBe("/api/search/");
+						return {
+							error: "OK",
+							number_of_total_results: 1,
+							results: [
+								{
+									guid: "3030-1",
+									name: "My Game",
+									original_release_date: "2015-06-01 00:00:00",
+									image: { original_url: "https://img/gb.jpg" },
+								},
+							],
+						};
+					},
+				});
 				const entry = sandboxVideoDashGameDotGiantDashBombScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -2034,31 +1955,26 @@ it("loads and executes the generated IGDB module in Deno through the Twitch OAut
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "twitch-cred",
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								if (requestUrl.host === "id.twitch.tv") {
-									expect(requestUrl.pathname).toBe("/oauth2/token");
-									return { access_token: "tok", token_type: "bearer", expires_in: 3600 };
-								}
-								expect(requestUrl.host).toBe("api.igdb.com");
-								expect(requestUrl.pathname).toBe("/v4/games");
-								return [
-									{
-										id: 1020,
-										name: "IGDB Game",
-										first_release_date: 1433116800,
-										cover: { image_id: "co1" },
-									},
-								];
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "twitch-cred",
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						if (requestUrl.host === "id.twitch.tv") {
+							expect(requestUrl.pathname).toBe("/oauth2/token");
+							return { access_token: "tok", token_type: "bearer", expires_in: 3600 };
+						}
+						expect(requestUrl.host).toBe("api.igdb.com");
+						expect(requestUrl.pathname).toBe("/v4/games");
+						return [
+							{
+								id: 1020,
+								name: "IGDB Game",
+								cover: { image_id: "co1" },
+								first_release_date: 1433116800,
 							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+						];
+					},
+				});
 				const entry = sandboxVideoDashGameDotIgdbScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -2107,31 +2023,26 @@ it("loads and executes the generated Metron module in Deno through Basic auth", 
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							appConfigValue: "metron-cred",
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								expect(requestUrl.host).toBe("metron.cloud");
-								expect(requestUrl.pathname).toBe("/api/issue/");
-								return {
-									count: 1,
-									results: [
-										{
-											id: 5,
-											number: "1",
-											cover_date: "2021-04-01",
-											image: "https://img/m.jpg",
-											series: { name: "My Series" },
-										},
-									],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					appConfigValue: "metron-cred",
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						expect(requestUrl.host).toBe("metron.cloud");
+						expect(requestUrl.pathname).toBe("/api/issue/");
+						return {
+							count: 1,
+							results: [
+								{
+									id: 5,
+									number: "1",
+									cover_date: "2021-04-01",
+									image: "https://img/m.jpg",
+									series: { name: "My Series" },
+								},
+							],
+						};
+					},
+				});
 				const entry = sandboxComicDashBookDotMetronScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -2168,30 +2079,25 @@ it("loads and executes the generated VNDB module in Deno", () =>
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							httpResponse: (url) => {
-								const requestUrl = new URL(url);
-								expect(requestUrl.host).toBe("api.vndb.org");
-								expect(requestUrl.pathname).toBe("/kana/vn");
-								return {
-									count: 1,
-									more: false,
-									results: [
-										{
-											id: "v17",
-											title: "My VN",
-											released: "2015-06-01",
-											image: { url: "https://img/vn.jpg" },
-										},
-									],
-								};
-							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge({
+					httpResponse: (url) => {
+						const requestUrl = new URL(url);
+						expect(requestUrl.host).toBe("api.vndb.org");
+						expect(requestUrl.pathname).toBe("/kana/vn");
+						return {
+							count: 1,
+							more: false,
+							results: [
+								{
+									id: "v17",
+									title: "My VN",
+									released: "2015-06-01",
+									image: { url: "https://img/vn.jpg" },
+								},
+							],
+						};
+					},
+				});
 				const entry = sandboxVisualDashNovelDotVndbScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -2231,30 +2137,25 @@ it("loads and executes the generated Free Exercise DB module in Deno with cache 
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(
-					Effect.sync(() =>
-						startCoreHostBridge({
-							httpResponse: (url) => {
-								expect(new URL(url).host).toBe("raw.githubusercontent.com");
-								return [
-									{
-										name: "Bench Press",
-										category: "strength",
-										force: "push",
-										level: "beginner",
-										mechanic: "compound",
-										equipment: "barbell",
-										primaryMuscles: ["chest"],
-										secondaryMuscles: ["triceps"],
-										instructions: ["Lower the bar", "Press up"],
-										images: ["Bench_Press/0.jpg"],
-									},
-								];
+				const bridge = yield* startCoreHostBridge({
+					httpResponse: (url) => {
+						expect(new URL(url).host).toBe("raw.githubusercontent.com");
+						return [
+							{
+								force: "push",
+								level: "beginner",
+								name: "Bench Press",
+								mechanic: "compound",
+								category: "strength",
+								equipment: "barbell",
+								primaryMuscles: ["chest"],
+								images: ["Bench_Press/0.jpg"],
+								secondaryMuscles: ["triceps"],
+								instructions: ["Lower the bar", "Press up"],
 							},
-						}),
-					),
-					(value) => Effect.promise(value.stop),
-				);
+						];
+					},
+				});
 				const entry = sandboxExerciseDotFreeDashExerciseDashDbScript;
 				const compiled = {
 					manifest: entry.manifest,
@@ -2368,9 +2269,7 @@ it("counts failed host-call attempts against total and HTTP budgets", () =>
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(Effect.sync(startCoreHostBridge), (value) =>
-					Effect.promise(value.stop),
-				);
+				const bridge = yield* startCoreHostBridge();
 				const compiler = yield* SandboxCompiler;
 				const compiled = yield* compiler.compile(hostBudgetSource);
 				const options = {
@@ -2461,64 +2360,68 @@ const domainEventSchemaRecord = {
 	propertiesSchema: { fields: {} },
 };
 
-const startDomainHostBridge = () => {
-	const createdEvents: unknown[][] = [];
-	const server = Bun.serve({
-		port: 0,
-		hostname: "127.0.0.1",
-		fetch: (request) =>
-			Effect.runPromise(
-				Effect.gen(function* () {
-					const parts = new URL(request.url).pathname.split("/").filter(Boolean);
-					const fnName = decodeURIComponent(parts[2] ?? "");
-					const body: unknown = yield* Effect.promise(() => request.json());
-					const argsValue =
-						body !== null && typeof body === "object" ? Reflect.get(body, "args") : undefined;
-					const args: readonly unknown[] = Array.isArray(argsValue) ? argsValue : [];
+const startDomainHostBridge = () =>
+	Effect.gen(function* () {
+		const createdEvents: unknown[][] = [];
+		const runtime = yield* Effect.runtime();
+		const server = yield* BunHttpServer.make({
+			port: 0,
+			hostname: "127.0.0.1",
+		});
+		yield* HttpServer.serveEffect(
+			HttpApp.fromWebHandler((request) =>
+				Runtime.runPromise(runtime)(
+					Effect.gen(function* () {
+						const parts = new URL(request.url).pathname.split("/").filter(Boolean);
+						const fnName = decodeURIComponent(parts[2] ?? "");
+						const body: unknown = yield* Effect.promise(() => request.json());
+						const argsValue =
+							body !== null && typeof body === "object" ? Reflect.get(body, "args") : undefined;
+						const args: readonly unknown[] = Array.isArray(argsValue) ? argsValue : [];
 
-					let result: unknown;
-					if (fnName === "getEntity") {
-						result =
-							args[0] === "missing"
-								? { error: "Entity not found", success: false }
-								: { data: { ...domainEntityRecord, id: args[0] }, success: true };
-					} else if (fnName === "getIntegration") {
-						result = { data: domainIntegrationRecord, success: true };
-					} else if (fnName === "getEntitySchema") {
-						result = { data: domainEntitySchemaRecord, success: true };
-					} else if (fnName === "listEventSchemas") {
-						result = { data: [domainEventSchemaRecord], success: true };
-					} else if (fnName === "listEvents") {
-						result = { data: [domainEventRecord], success: true };
-					} else if (fnName === "createEvents") {
-						const items = args[0];
-						createdEvents.push(Array.isArray(items) ? items : []);
-						result = { data: { count: Array.isArray(items) ? items.length : 0 }, success: true };
-					} else if (fnName === "executeQueryEngine") {
-						result = { data: [{ id: "a" }, { id: "b" }], success: true };
-					} else {
-						result = { error: "Unknown function", success: false };
-					}
+						let result: unknown;
+						if (fnName === "getEntity") {
+							result =
+								args[0] === "missing"
+									? { error: "Entity not found", success: false }
+									: { data: { ...domainEntityRecord, id: args[0] }, success: true };
+						} else if (fnName === "getIntegration") {
+							result = { data: domainIntegrationRecord, success: true };
+						} else if (fnName === "getEntitySchema") {
+							result = { data: domainEntitySchemaRecord, success: true };
+						} else if (fnName === "listEventSchemas") {
+							result = { data: [domainEventSchemaRecord], success: true };
+						} else if (fnName === "listEvents") {
+							result = { data: [domainEventRecord], success: true };
+						} else if (fnName === "createEvents") {
+							const items = args[0];
+							createdEvents.push(Array.isArray(items) ? items : []);
+							result = { data: { count: Array.isArray(items) ? items.length : 0 }, success: true };
+						} else if (fnName === "executeQueryEngine") {
+							result = { data: [{ id: "a" }, { id: "b" }], success: true };
+						} else {
+							result = { error: "Unknown function", success: false };
+						}
 
-					return Response.json({ result });
-				}),
+						return Response.json({ result });
+					}),
+				),
 			),
-	});
+		).pipe(Effect.provideService(HttpServer.HttpServer, server));
+		const address = server.address;
+		assert(address._tag === "TcpAddress");
 
-	return {
-		createdEvents,
-		port: server.port,
-		stop: () => Promise.resolve(server.stop(true)),
-	};
-};
+		return {
+			createdEvents,
+			port: address.port,
+		};
+	});
 
 it("executes typed domain host methods through Deno", () =>
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* Effect.acquireRelease(Effect.sync(startDomainHostBridge), (value) =>
-					Effect.promise(value.stop),
-				);
+				const bridge = yield* startDomainHostBridge();
 				const compiler = yield* SandboxCompiler;
 				const compiled = yield* compiler.compile(domainHostSource);
 				const apiBase = `http://127.0.0.1:${bridge.port}`;
