@@ -1,9 +1,11 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./myanimelist.sandbox";
+import { manifest } from "./myanimelist";
+import details, { manifest as detailsManifest } from "./myanimelist-details.sandbox";
+import search, { manifest as searchManifest } from "./myanimelist-search.sandbox";
 
 type MyAnimeListAnimeHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -16,6 +18,15 @@ const makeHost = (httpCall: MyAnimeListAnimeHost["httpCall"], isNsfw = false) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("anime.myanimelist sandbox script", () => {
+	it("declares one script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+		]).toEqual([
+			["anime.myanimelist.search", "search"],
+			["anime.myanimelist.details", "details"],
+		]);
+	});
 	it("keeps MAL recommendations as related entities", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -35,7 +46,7 @@ describe("anime.myanimelist sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
@@ -43,9 +54,9 @@ describe("anime.myanimelist sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Related Anime", externalId: "3", scriptSlug: "anime.myanimelist" },
-								{ name: "Related Manga", externalId: "4", scriptSlug: "manga.myanimelist" },
-								{ name: "Anime Pick", externalId: "2", scriptSlug: "anime.myanimelist" },
+								{ name: "Related Anime", externalId: "3", providerSlug: "anime.myanimelist" },
+								{ name: "Related Manga", externalId: "4", providerSlug: "manga.myanimelist" },
+								{ name: "Anime Pick", externalId: "2", providerSlug: "anime.myanimelist" },
 							],
 						},
 					]);
@@ -70,7 +81,7 @@ describe("anime.myanimelist sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.properties).toEqual({
 						isNsfw: true,
@@ -101,7 +112,7 @@ describe("anime.myanimelist sandbox script", () => {
 			return emptyPage();
 		};
 		return Effect.runPromise(
-			runSandboxTestDriver(
+			runSandboxTestScript(
 				search,
 				{ query: "hero", page: 1, pageSize: 20 },
 				makeHost((_method, url) => collectUrl(url)),
@@ -109,7 +120,7 @@ describe("anime.myanimelist sandbox script", () => {
 			)
 				.pipe(
 					Effect.flatMap(() =>
-						runSandboxTestDriver(
+						runSandboxTestScript(
 							search,
 							{ query: "hero", page: 1, pageSize: 20 },
 							makeHost((_method, url) => collectUrl(url), true),
@@ -144,7 +155,7 @@ describe("anime.myanimelist sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "found", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "found", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{

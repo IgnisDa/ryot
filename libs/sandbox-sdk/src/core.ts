@@ -228,13 +228,13 @@ export const entityRecordSchema = strictStruct({
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(Schema.String),
 	entitySchemaSlug: Schema.String,
-	sandboxScriptId: Schema.NullOr(Schema.String),
+	providerId: Schema.NullOr(Schema.String),
 });
 export type EntityRecord = Schema.Schema.Type<typeof entityRecordSchema>;
 
 export const entitySchemaProviderSchema = strictStruct({
 	name: Schema.String,
-	scriptId: Schema.String,
+	providerId: Schema.String,
 });
 export const entitySchemaRecordSchema = strictStruct({
 	id: Schema.String,
@@ -539,10 +539,6 @@ const manifestStringSchema = Schema.String.pipe(
 const manifestSlugSchema = Schema.String.pipe(
 	Schema.filter((value) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value)),
 );
-export const providerInformationSchema = strictStruct({
-	source: manifestStringSchema,
-	canonicalLanguage: Schema.optional(manifestStringSchema),
-});
 const sandboxManifestBaseFields = {
 	name: manifestStringSchema,
 	slug: manifestSlugSchema,
@@ -553,16 +549,11 @@ export const sandboxManifestSchema = Schema.Union(
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("script") }),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("operation") }),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("automation") }),
-	strictStruct({
-		...sandboxManifestBaseFields,
-		kind: Schema.Literal("provider"),
-		providerInformation: providerInformationSchema,
-	}),
+	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("provider") }),
 );
 export type SandboxManifest = Schema.Schema.Type<typeof sandboxManifestSchema>;
 export type ScriptManifest = Extract<SandboxManifest, { readonly kind: "script" }>;
 export type OperationManifest = Extract<SandboxManifest, { readonly kind: "operation" }>;
-export type ProviderInformation = Schema.Schema.Type<typeof providerInformationSchema>;
 
 export const executionMetadataSchema = strictStruct({
 	metadata: jsonValueSchema,

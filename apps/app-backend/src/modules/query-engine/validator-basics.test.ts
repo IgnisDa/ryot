@@ -71,7 +71,7 @@ describe("system field validation", () => {
 		"populatedAt",
 		"properties",
 		"entitySchemaSlug",
-		"sandboxScriptId",
+		"providerId",
 	])("accepts valid system field '%s'", (name) => {
 		const doc = makeDoc({
 			output: {

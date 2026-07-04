@@ -9,7 +9,11 @@ describe("buildMovieOrShowImportRef", () => {
 			entitySchemaSlug: "movie",
 			providerIds: { tmdb: "27205", imdb: "tt1375666", tvdb: "12345" },
 		});
-		expect(ref).toMatchObject({ kind: "resolved", externalId: "27205", scriptSlug: "movie.tmdb" });
+		expect(ref).toMatchObject({
+			kind: "resolved",
+			externalId: "27205",
+			providerSlug: "movie.tmdb",
+		});
 	});
 
 	it("falls back to IMDb when TMDB is absent", () => {
@@ -31,7 +35,7 @@ describe("buildMovieOrShowImportRef", () => {
 			sourceLabel: "Breaking Bad",
 			providerIds: { tvdb: "81189" },
 		});
-		expect(ref).toMatchObject({ kind: "resolved", externalId: "81189", scriptSlug: "show.tvdb" });
+		expect(ref).toMatchObject({ kind: "resolved", externalId: "81189", providerSlug: "show.tvdb" });
 	});
 
 	it("returns undefined when all provider ids are absent", () => {
@@ -67,7 +71,7 @@ describe("buildMovieOrShowImportRef", () => {
 			sourceLabel: "Breaking Bad",
 			providerIds: { tmdb: "1396" },
 		});
-		expect(ref).toMatchObject({ scriptSlug: "show.tmdb", entitySchemaSlug: "show" });
+		expect(ref).toMatchObject({ providerSlug: "show.tmdb", entitySchemaSlug: "show" });
 	});
 
 	it("includes the source label in the ref", () => {

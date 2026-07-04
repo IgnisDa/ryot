@@ -94,7 +94,7 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 		execute: runWithDb(
 			repository.findGlobalEntityByExternalId({
 				externalId: payload.externalId,
-				sandboxScriptId: payload.scriptId,
+				providerId: payload.providerId,
 				entitySchemaSlug: payload.entitySchemaSlug,
 			}),
 		).pipe(dieOnDbError),
@@ -145,7 +145,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 					name: details.name,
 					externalId: payload.externalId,
 					properties: details.properties,
-					sandboxScriptId: payload.scriptId,
+					providerId: payload.providerId,
 					entitySchemaSlug: payload.entitySchemaSlug,
 					updateExisting: options.mode !== "refresh",
 				});
@@ -199,7 +199,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 		name: `write-child-entity-set:${scope.parentExternalId}`,
 		execute: runInTransaction(
 			writeChildEntitySet({
-				sandboxScriptId: payload.scriptId,
+				providerId: payload.providerId,
 				childEntities: scope.childEntities,
 				parentEntityId: scope.parentEntityId,
 				syncExisting: options.mode === "refresh",
@@ -233,7 +233,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 					updateExisting: true,
 					properties: details.properties,
 					externalId: payload.externalId,
-					sandboxScriptId: payload.scriptId,
+					providerId: payload.providerId,
 					entitySchemaSlug: payload.entitySchemaSlug,
 				});
 				return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
@@ -558,7 +558,7 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 		}
 		yield* Effect.annotateCurrentSpan({
 			executionId,
-			scriptId: payload.scriptId,
+			providerId: payload.providerId,
 			externalId: payload.externalId,
 			entitySchemaSlug: payload.entitySchemaSlug,
 			...(payload.userId ? { userId: payload.userId } : {}),

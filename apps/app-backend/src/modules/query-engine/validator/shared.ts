@@ -38,7 +38,7 @@ const ENTITY_SYSTEM_FIELDS = new Set([
 	"externalId",
 	"populatedAt",
 	"entitySchemaSlug",
-	"sandboxScriptId",
+	"providerId",
 ]);
 
 const RELATIONSHIP_SYSTEM_FIELDS = new Set(["id", "sourceEntityId", "targetEntityId", "createdAt"]);

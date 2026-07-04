@@ -15,8 +15,7 @@ import { SandboxRepository } from "./repository";
 it("journals plugin resolution without changing the durable queue identity", () => {
 	const payload = {
 		context: {},
-		userId: null,
-		driverName: "details",
+		authority: { type: "system" as const },
 		scriptId: SandboxScriptId.make("historical-script-id"),
 		executionId: "execution-id",
 	};
@@ -32,6 +31,8 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 	const kernelScriptId = SandboxScriptId.make("kernel-script-id");
 	let executedCode: string | undefined;
 	const executedScriptIds: string[] = [];
+	const executedProviderIds: Array<string | null> = [];
+	const executedCacheNamespaces: string[] = [];
 	const executedScriptIsBuiltin: boolean[] = [];
 	const repository = Layer.mock(SandboxRepository)({
 		_tag: "SandboxRepository",
@@ -40,6 +41,7 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 			Effect.succeed({
 				id: scriptId,
 				metadata: {},
+				providerId: scriptId === queuedScriptId ? "provider-id" : null,
 				compiledFormat: 1,
 				compiledCode: "queued-version",
 			}),
@@ -50,6 +52,8 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 			Effect.sync(() => {
 				executedCode = input.compiledCode;
 				executedScriptIds.push(input.scriptId);
+				executedProviderIds.push(input.providerId);
+				executedCacheNamespaces.push(input.cacheNamespace);
 				executedScriptIsBuiltin.push(input.scriptIsBuiltin);
 				return {
 					logs: [],
@@ -66,21 +70,21 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 	return Effect.gen(function* () {
 		const result = yield* executeSandboxExecution({
 			context: {},
-			userId: null,
-			driverName: "details",
+			authority: { type: "system" },
 			scriptId: queuedScriptId,
 			executionId: "execution-id",
 		});
 		yield* executeSandboxExecution({
 			context: {},
-			userId: null,
-			driverName: "automation",
+			authority: { type: "system" },
 			scriptId: kernelScriptId,
 			executionId: "kernel-execution-id",
 		});
 
 		expect(executedCode).toBe("queued-version");
 		expect(executedScriptIds).toEqual([queuedScriptId, kernelScriptId]);
+		expect(executedProviderIds).toEqual(["provider-id", null]);
+		expect(executedCacheNamespaces).toEqual(["provider-id", kernelScriptId]);
 		expect(executedScriptIsBuiltin).toEqual([false, true]);
 		expect(result.value).toBe("queued-result");
 	}).pipe(Effect.provide(layer));

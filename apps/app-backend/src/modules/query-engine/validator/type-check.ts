@@ -31,7 +31,7 @@ const entitySystemTypeMap: Record<string, CoarseType> = {
 	externalId: "string",
 	properties: "unknown",
 	entitySchemaSlug: "string",
-	sandboxScriptId: "string",
+	providerId: "string",
 };
 
 const eventSystemTypeMap: Record<string, CoarseType> = {

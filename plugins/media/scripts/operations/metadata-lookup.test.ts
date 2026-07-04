@@ -1,10 +1,10 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { describe, expect, it } from "vitest";
 
 import { execution, httpSuccess, integrationRecord } from "../automations/automation-test-utils";
-import { manifest, operation } from "./metadata-lookup.sandbox";
+import definition, { manifest } from "./metadata-lookup.sandbox";
 
 const tmdbResults = (pathname: string, query: string): JsonValue[] => {
 	if (pathname.endsWith("/search/tv")) {
@@ -39,8 +39,8 @@ const runLookup = (titles: string[], integration?: ReturnType<typeof integration
 	const { host, queries } = createHost(integration);
 	return {
 		queries,
-		result: runSandboxTestDriver(
-			operation,
+		result: runSandboxTestScript(
+			definition,
 			{ titles, integrationId: "integration-1" },
 			host,
 			execution,

@@ -1,9 +1,11 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./igdb.sandbox";
+import { manifest } from "./igdb";
+import details, { manifest as detailsManifest } from "./igdb-details.sandbox";
+import search, { manifest as searchManifest } from "./igdb-search.sandbox";
 
 type IgdbVideoGameHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown, headers: Record<string, string> = {}) =>
@@ -21,6 +23,23 @@ const makeHost = (overrides: Partial<IgdbVideoGameHost>): IgdbVideoGameHost =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("video-game.igdb sandbox script", () => {
+	it("declares one narrowly scoped script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation, searchManifest.capabilities],
+			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
+		]).toEqual([
+			[
+				"video-game.igdb.search",
+				"search",
+				["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
+			],
+			[
+				"video-game.igdb.details",
+				"details",
+				["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
+			],
+		]);
+	});
 	it("maps search hits and paginates using the x-count header", () => {
 		const host = makeHost({
 			httpCall: (_method, url) => {
@@ -42,7 +61,7 @@ describe("video-game.igdb sandbox script", () => {
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "game", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "game", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -83,7 +102,7 @@ describe("video-game.igdb sandbox script", () => {
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "game", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "game", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(tokenPosts).toBe(1);
 					expect(cacheWrites).toEqual([
@@ -125,7 +144,7 @@ describe("video-game.igdb sandbox script", () => {
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
@@ -144,7 +163,7 @@ describe("video-game.igdb sandbox script", () => {
 							direction: "outgoing",
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
-							entities: [{ name: "Pick One", externalId: "2", scriptSlug: "video-game.igdb" }],
+							entities: [{ name: "Pick One", externalId: "2", providerSlug: "video-game.igdb" }],
 						},
 					]);
 					return undefined;

@@ -127,7 +127,7 @@ const buildDetailsResult = (
 				synchronization: "authoritative",
 				relationshipSchemaSlug: "media-suggestion",
 				entities: collectSuggestions(recommendationsData["results"], {
-					scriptSlug: "show.tmdb",
+					providerSlug: "show.tmdb",
 					nameKeys: ["name", "original_name"],
 				}),
 			},

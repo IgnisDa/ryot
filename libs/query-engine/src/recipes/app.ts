@@ -54,7 +54,7 @@ export const buildEntityDetailQueryDocument = (input: {
 			queryEngineFields.externalId(entityAlias),
 			queryEngineFields.populatedAt(entityAlias),
 			queryEngineField("entitySchemaSlug", queryEngineSystemRef(entityAlias, "entitySchemaSlug")),
-			queryEngineField("sandboxScriptId", queryEngineSystemRef(entityAlias, "sandboxScriptId")),
+			queryEngineField("providerId", queryEngineSystemRef(entityAlias, "providerId")),
 			queryEngineField(
 				"translationStatus",
 				queryEngineComputedRef(entityAlias, "translationStatus"),
@@ -84,7 +84,7 @@ export const buildEntityInterestQueryDocument = (input: {
 			queryEngineFields.externalId(entityAlias),
 			queryEngineFields.properties(entityAlias),
 			queryEngineField("entitySchemaSlug", queryEngineSystemRef(entityAlias, "entitySchemaSlug")),
-			queryEngineField("sandboxScriptId", queryEngineSystemRef(entityAlias, "sandboxScriptId")),
+			queryEngineField("providerId", queryEngineSystemRef(entityAlias, "providerId")),
 			queryEngineField(
 				"translationStatus",
 				queryEngineComputedRef(entityAlias, "translationStatus"),

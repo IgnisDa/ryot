@@ -4,7 +4,7 @@ import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { describe, expect, it } from "vitest";
 
-import { boot, manifest } from "./providers/exercise/free-exercise-db.sandbox";
+import preload, { manifest } from "./providers/exercise/free-exercise-db.preload.sandbox";
 
 type PreloadHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -73,8 +73,8 @@ describe("fitness exercise preload boot", () => {
 	it("batch upserts normalized exercises and remains idempotent", async () => {
 		const { calls, host } = makeHost([exercise], 1);
 
-		const first = await Effect.runPromise(boot.run(null, host, execution));
-		const second = await Effect.runPromise(boot.run(null, host, execution));
+		const first = await Effect.runPromise(preload.run(null, host, execution));
+		const second = await Effect.runPromise(preload.run(null, host, execution));
 
 		expect(first).toEqual({ inserted: 1, processed: 1 });
 		expect(second).toEqual({ inserted: 0, processed: 1 });
@@ -103,7 +103,7 @@ describe("fitness exercise preload boot", () => {
 	it("does not preload exercises when configured to zero", async () => {
 		const { calls, host } = makeHost([exercise], 0);
 
-		const result = await Effect.runPromise(boot.run(null, host, execution));
+		const result = await Effect.runPromise(preload.run(null, host, execution));
 
 		expect(result).toEqual({ inserted: 0, processed: 0 });
 		expect(calls).toEqual([]);
@@ -116,7 +116,7 @@ describe("fitness exercise preload boot", () => {
 		}));
 		const { calls, host } = makeHost(dataset, 101);
 
-		const result = await Effect.runPromise(boot.run(null, host, execution));
+		const result = await Effect.runPromise(preload.run(null, host, execution));
 
 		expect(result).toEqual({ inserted: 101, processed: 101 });
 		expect(calls.map(({ items }) => items.length)).toEqual([100, 1]);
@@ -133,7 +133,7 @@ describe("fitness exercise preload boot", () => {
 		];
 		const { calls, host } = makeHost(dataset, 2, ["Former Prefix Exercise"]);
 
-		const result = await Effect.runPromise(boot.run(null, host, execution));
+		const result = await Effect.runPromise(preload.run(null, host, execution));
 
 		expect(result).toEqual({ inserted: 1, processed: 2 });
 		expect(calls).toHaveLength(1);
@@ -147,7 +147,7 @@ describe("fitness exercise preload boot", () => {
 		}));
 		const { calls, host } = makeHost(dataset, 1_000);
 
-		const result = await Effect.runPromise(boot.run(null, host, execution));
+		const result = await Effect.runPromise(preload.run(null, host, execution));
 
 		expect(result).toEqual({ inserted: 873, processed: 873 });
 		expect(calls.map(({ items }) => items.length)).toEqual([

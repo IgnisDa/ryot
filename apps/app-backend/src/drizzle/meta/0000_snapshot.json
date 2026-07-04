@@ -1,5 +1,5 @@
 {
-	"id": "939f610e-12a4-4e43-8625-3d02a09c1c70",
+	"id": "fa67c75a-dfb1-4852-af8f-5f3c9df5f40f",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -377,8 +377,8 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"sandbox_script_id": {
-					"name": "sandbox_script_id",
+				"provider_id": {
+					"name": "provider_id",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
@@ -428,6 +428,21 @@
 					"method": "btree",
 					"with": {}
 				},
+				"entity_provider_id_idx": {
+					"name": "entity_provider_id_idx",
+					"columns": [
+						{
+							"expression": "provider_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
 				"entity_entity_schema_slug_idx": {
 					"name": "entity_entity_schema_slug_idx",
 					"columns": [
@@ -458,21 +473,6 @@
 					"method": "gin",
 					"with": {}
 				},
-				"entity_sandbox_script_id_idx": {
-					"name": "entity_sandbox_script_id_idx",
-					"columns": [
-						{
-							"expression": "sandbox_script_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
 				"entity_global_external_id_unique": {
 					"name": "entity_global_external_id_unique",
 					"columns": [
@@ -489,7 +489,7 @@
 							"nulls": "last"
 						},
 						{
-							"expression": "sandbox_script_id",
+							"expression": "provider_id",
 							"isExpression": false,
 							"asc": true,
 							"nulls": "last"
@@ -501,8 +501,8 @@
 					"method": "btree",
 					"with": {}
 				},
-				"entity_global_no_script_external_id_unique": {
-					"name": "entity_global_no_script_external_id_unique",
+				"entity_global_no_provider_external_id_unique": {
+					"name": "entity_global_no_provider_external_id_unique",
 					"columns": [
 						{
 							"expression": "external_id",
@@ -518,7 +518,7 @@
 						}
 					],
 					"isUnique": true,
-					"where": "\"entity\".\"user_id\" IS NULL AND \"entity\".\"sandbox_script_id\" IS NULL",
+					"where": "\"entity\".\"user_id\" IS NULL AND \"entity\".\"provider_id\" IS NULL",
 					"concurrently": false,
 					"method": "btree",
 					"with": {}
@@ -534,11 +534,11 @@
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				},
-				"entity_sandbox_script_id_sandbox_script_id_fk": {
-					"name": "entity_sandbox_script_id_sandbox_script_id_fk",
+				"entity_provider_id_sandbox_provider_id_fk": {
+					"name": "entity_provider_id_sandbox_provider_id_fk",
 					"tableFrom": "entity",
-					"tableTo": "sandbox_script",
-					"columnsFrom": ["sandbox_script_id"],
+					"tableTo": "sandbox_provider",
+					"columnsFrom": ["provider_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
@@ -546,10 +546,10 @@
 			},
 			"compositePrimaryKeys": {},
 			"uniqueConstraints": {
-				"entity_user_schema_script_external_id_unique": {
-					"name": "entity_user_schema_script_external_id_unique",
+				"entity_user_schema_provider_external_id_unique": {
+					"name": "entity_user_schema_provider_external_id_unique",
 					"nullsNotDistinct": false,
-					"columns": ["user_id", "external_id", "entity_schema_slug", "sandbox_script_id"]
+					"columns": ["user_id", "external_id", "entity_schema_slug", "provider_id"]
 				}
 			},
 			"policies": {},
@@ -1949,16 +1949,99 @@
 			"checkConstraints": {},
 			"isRLSEnabled": false
 		},
-		"public.sandbox_script": {
-			"name": "sandbox_script",
+		"public.sandbox_provider": {
+			"name": "sandbox_provider",
 			"schema": "",
 			"columns": {
-				"content_hash": {
-					"name": "content_hash",
+				"slug": {
+					"name": "slug",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
 				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"information": {
+					"name": "information",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"plugin_slug": {
+					"name": "plugin_slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"sandbox_provider_plugin_slug_idx": {
+					"name": "sandbox_provider_plugin_slug_idx",
+					"columns": [
+						{
+							"expression": "plugin_slug",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"sandbox_provider_plugin_slug_plugin_slug_fk": {
+					"name": "sandbox_provider_plugin_slug_plugin_slug_fk",
+					"tableFrom": "sandbox_provider",
+					"tableTo": "plugin",
+					"columnsFrom": ["plugin_slug"],
+					"columnsTo": ["slug"],
+					"onDelete": "restrict",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"sandbox_provider_plugin_slug_unique": {
+					"name": "sandbox_provider_plugin_slug_unique",
+					"nullsNotDistinct": false,
+					"columns": ["plugin_slug", "slug"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.sandbox_script": {
+			"name": "sandbox_script",
+			"schema": "",
+			"columns": {
 				"slug": {
 					"name": "slug",
 					"type": "text",
@@ -1973,6 +2056,12 @@
 				},
 				"source": {
 					"name": "source",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"content_hash": {
+					"name": "content_hash",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
@@ -2003,6 +2092,12 @@
 					"notNull": true,
 					"default": "now()"
 				},
+				"provider_id": {
+					"name": "provider_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"plugin_slug": {
 					"name": "plugin_slug",
 					"type": "text",
@@ -2024,6 +2119,21 @@
 				}
 			},
 			"indexes": {
+				"sandbox_script_provider_id_idx": {
+					"name": "sandbox_script_provider_id_idx",
+					"columns": [
+						{
+							"expression": "provider_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
 				"sandbox_script_plugin_slug_idx": {
 					"name": "sandbox_script_plugin_slug_idx",
 					"columns": [
@@ -2063,6 +2173,15 @@
 				}
 			},
 			"foreignKeys": {
+				"sandbox_script_provider_id_sandbox_provider_id_fk": {
+					"name": "sandbox_script_provider_id_sandbox_provider_id_fk",
+					"tableFrom": "sandbox_script",
+					"tableTo": "sandbox_provider",
+					"columnsFrom": ["provider_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
 				"sandbox_script_plugin_slug_plugin_slug_fk": {
 					"name": "sandbox_script_plugin_slug_plugin_slug_fk",
 					"tableFrom": "sandbox_script",

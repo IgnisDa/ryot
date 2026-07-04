@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
-import { EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
 import type { Exit } from "effect";
 import { Effect, Layer } from "effect";
 import { assert } from "vitest";
@@ -16,7 +16,6 @@ import {
 	transactionLayer,
 } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { LibraryImportService } from "./service";
 
@@ -28,25 +27,13 @@ const user: CurrentUserValue = {
 };
 
 const externalId = "ext-123";
-const scriptId = SandboxScriptId.make("script-1");
+const providerId = SandboxProviderId.make("provider-1");
 const entitySchemaSlug = EntitySchemaSlug.make("schema-1");
 
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({ _tag: "EntitiesRepository", ...overrides });
-
-const mockSandboxRepository = Layer.mock(SandboxRepository);
-
-const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxRepository> = {}) =>
-	mockSandboxRepository({ _tag: "SandboxRepository", ...overrides });
-
-const fakeScript = {
-	id: scriptId,
-	compiledFormat: 1,
-	metadata: { capabilities: [] },
-	compiledCode: "// compiled script",
-};
 
 const fakeEntitySchemaScope = {
 	slug: "movie",
@@ -56,11 +43,7 @@ const fakeEntitySchemaScope = {
 	propertiesSchema: { fields: {} },
 };
 
-const makeServiceLayer = (
-	sandboxRepo = makeSandboxRepository(),
-	entitiesRepo = makeEntitiesRepository(),
-	engine = makeWorkflowEngine(),
-) =>
+const makeServiceLayer = (entitiesRepo = makeEntitiesRepository(), engine = makeWorkflowEngine()) =>
 	LibraryImportService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -69,7 +52,6 @@ const makeServiceLayer = (
 				makeAppConfigLayer(),
 				Layer.succeed(WorkflowEngine, engine),
 				entitiesRepo,
-				sandboxRepo,
 			),
 		),
 	);
@@ -81,32 +63,32 @@ const getFailureCause = <A, E>(result: Exit.Exit<A, E>) => {
 	return result.cause;
 };
 
-it.effect("returns BadRequest when scriptId is blank", () =>
+it.effect("returns BadRequest when providerId is blank", () =>
 	Effect.gen(function* () {
 		const service = yield* LibraryImportService;
 		const result = yield* Effect.exit(
 			service.import(user, {
 				externalId,
 				entitySchemaSlug,
-				scriptId: SandboxScriptId.make("   "),
+				providerId: SandboxProviderId.make("   "),
 			}),
 		);
 		const cause = getFailureCause(result);
 		const failure = cause._tag === "Fail" ? cause.error : null;
 		expect(failure).toBeInstanceOf(BadRequest);
-	}).pipe(Effect.provide(makeServiceLayer(makeSandboxRepository(), makeEntitiesRepository()))),
+	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
 it.effect("returns BadRequest when externalId is blank", () =>
 	Effect.gen(function* () {
 		const service = yield* LibraryImportService;
 		const result = yield* Effect.exit(
-			service.import(user, { scriptId, externalId: "  ", entitySchemaSlug }),
+			service.import(user, { providerId, externalId: "  ", entitySchemaSlug }),
 		);
 		const cause = getFailureCause(result);
 		const failure = cause._tag === "Fail" ? cause.error : null;
 		expect(failure).toBeInstanceOf(BadRequest);
-	}).pipe(Effect.provide(makeServiceLayer(makeSandboxRepository(), makeEntitiesRepository()))),
+	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
 it.effect("returns BadRequest when entitySchemaSlug is blank", () =>
@@ -114,7 +96,7 @@ it.effect("returns BadRequest when entitySchemaSlug is blank", () =>
 		const service = yield* LibraryImportService;
 		const result = yield* Effect.exit(
 			service.import(user, {
-				scriptId,
+				providerId,
 				externalId,
 				entitySchemaSlug: EntitySchemaSlug.make(""),
 			}),
@@ -122,33 +104,14 @@ it.effect("returns BadRequest when entitySchemaSlug is blank", () =>
 		const cause = getFailureCause(result);
 		const failure = cause._tag === "Fail" ? cause.error : null;
 		expect(failure).toBeInstanceOf(BadRequest);
-	}).pipe(Effect.provide(makeServiceLayer(makeSandboxRepository(), makeEntitiesRepository()))),
-);
-
-it.effect("returns NotFound when the sandbox script is not found", () =>
-	Effect.gen(function* () {
-		const service = yield* LibraryImportService;
-		const result = yield* Effect.exit(
-			service.import(user, { scriptId, externalId, entitySchemaSlug }),
-		);
-		const cause = getFailureCause(result);
-		const failure = cause._tag === "Fail" ? cause.error : null;
-		expect(failure).toBeInstanceOf(NotFound);
-	}).pipe(
-		Effect.provide(
-			makeServiceLayer(
-				makeSandboxRepository({ getScript: () => Effect.succeed(null) }),
-				makeEntitiesRepository(),
-			),
-		),
-	),
+	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
 it.effect("returns NotFound when the entity schema is not found", () =>
 	Effect.gen(function* () {
 		const service = yield* LibraryImportService;
 		const result = yield* Effect.exit(
-			service.import(user, { scriptId, externalId, entitySchemaSlug }),
+			service.import(user, { providerId, externalId, entitySchemaSlug }),
 		);
 		const cause = getFailureCause(result);
 		const failure = cause._tag === "Fail" ? cause.error : null;
@@ -156,31 +119,37 @@ it.effect("returns NotFound when the entity schema is not found", () =>
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
-				makeSandboxRepository({ getScript: () => Effect.succeed(fakeScript) }),
 				makeEntitiesRepository({ getEntitySchemaScopeForUser: () => Effect.succeed(null) }),
 			),
 		),
 	),
 );
 
-it.effect("returns a jobId string on a successful import dispatch", () =>
-	Effect.gen(function* () {
+it.effect("returns a jobId string on a successful import dispatch", () => {
+	const executeCalls: unknown[] = [];
+
+	return Effect.gen(function* () {
 		const service = yield* LibraryImportService;
-		const result = yield* service.import(user, { scriptId, externalId, entitySchemaSlug });
+		const result = yield* service.import(user, { providerId, externalId, entitySchemaSlug });
 		expect(typeof result.jobId).toBe("string");
 		expect(result.jobId.length).toBeGreaterThan(0);
+		expect(executeCalls).toMatchObject([{ payload: { providerId: "provider-1" } }]);
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
-				makeSandboxRepository({ getScript: () => Effect.succeed(fakeScript) }),
 				makeEntitiesRepository({
 					getEntitySchemaScopeForUser: () => Effect.succeed(fakeEntitySchemaScope),
 				}),
-				makeWorkflowEngine({ execute: () => Effect.void }),
+				makeWorkflowEngine({
+					execute: (_workflow, options) => {
+						executeCalls.push(options);
+						return Effect.void;
+					},
+				}),
 			),
 		),
-	),
-);
+	);
+});
 
 it.effect("returns NotFound for a blank getImportResult jobId", () =>
 	Effect.gen(function* () {
@@ -189,7 +158,7 @@ it.effect("returns NotFound for a blank getImportResult jobId", () =>
 		const cause = getFailureCause(result);
 		const failure = cause._tag === "Fail" ? cause.error : null;
 		expect(failure).toBeInstanceOf(NotFound);
-	}).pipe(Effect.provide(makeServiceLayer(makeSandboxRepository(), makeEntitiesRepository()))),
+	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
 it.effect("returns NotFound for a jobId with an invalid signature", () =>
@@ -199,7 +168,7 @@ it.effect("returns NotFound for a jobId with an invalid signature", () =>
 		const cause = getFailureCause(result);
 		const failure = cause._tag === "Fail" ? cause.error : null;
 		expect(failure).toBeInstanceOf(NotFound);
-	}).pipe(Effect.provide(makeServiceLayer(makeSandboxRepository(), makeEntitiesRepository()))),
+	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
 it.effect("returns pending status when the workflow has not completed", () =>
@@ -214,7 +183,6 @@ it.effect("returns pending status when the workflow has not completed", () =>
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
-				makeSandboxRepository(),
 				makeEntitiesRepository(),
 				makeWorkflowEngine({ poll: () => Effect.sync(() => undefined) }),
 			),

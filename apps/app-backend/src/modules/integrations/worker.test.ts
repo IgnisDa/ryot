@@ -57,7 +57,7 @@ describe("appendOwnedItems", () => {
 						sourceLabel: "A",
 						entitySchemaSlug: "manga",
 						kind: "resolved" as const,
-						scriptSlug: "manga.anilist",
+						providerSlug: "manga.anilist",
 					},
 				},
 			],
@@ -71,7 +71,7 @@ describe("appendOwnedItems", () => {
 					kind: "resolved",
 					sourceLabel: "B",
 					entitySchemaSlug: "manga",
-					scriptSlug: "manga.anilist",
+					providerSlug: "manga.anilist",
 				},
 			},
 		]);
@@ -88,7 +88,7 @@ describe("appendOwnedItems", () => {
 				kind: "resolved",
 				sourceLabel: "B",
 				entitySchemaSlug: "manga",
-				scriptSlug: "manga.anilist",
+				providerSlug: "manga.anilist",
 			},
 		});
 	});

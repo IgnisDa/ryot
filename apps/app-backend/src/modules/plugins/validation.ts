@@ -103,7 +103,7 @@ export const validatePluginManifestReferences = (
 				return yield* fail(`Duplicate boot slug: ${boot.slug}`);
 			}
 			bootSlugs.add(boot.slug);
-			yield* assertReference("Boot", boot.driverRef, scriptSlugs);
+			yield* assertReference("Boot", boot.scriptSlug, scriptSlugs);
 		}
 		for (const cron of manifest.crons) {
 			yield* assertSlug("cron", cron.slug);
@@ -111,7 +111,7 @@ export const validatePluginManifestReferences = (
 				return yield* fail(`Duplicate cron slug: ${cron.slug}`);
 			}
 			cronSlugs.add(cron.slug);
-			yield* assertReference("Cron", cron.driverRef, scriptSlugs);
+			yield* assertReference("Cron", cron.scriptSlug, scriptSlugs);
 			if (Either.isLeft(Cron.parse(cron.schedule))) {
 				return yield* fail(`Cron ${cron.slug} has invalid schedule: ${cron.schedule}`);
 			}
@@ -122,7 +122,7 @@ export const validatePluginManifestReferences = (
 				return yield* fail(`Duplicate operation slug: ${operation.slug}`);
 			}
 			operationSlugs.add(operation.slug);
-			yield* assertReference("Operation", operation.driverRef, scriptSlugs);
+			yield* assertReference("Operation", operation.scriptSlug, scriptSlugs);
 		}
 
 		const eventSchemaSlugs = new Set(
@@ -132,10 +132,9 @@ export const validatePluginManifestReferences = (
 				),
 			),
 		);
-		for (const binding of manifest.bindings.schemaScriptLinks) {
-			yield* assertReference("Schema script binding", binding.scriptSlug, scriptSlugs);
+		for (const binding of manifest.bindings.schemaProviderLinks) {
 			yield* assertReference(
-				"Schema script binding",
+				"Schema provider binding",
 				binding.entitySchemaSlug,
 				new Set(Object.keys(snapshot.entitySchemas)),
 			);
@@ -171,76 +170,26 @@ export const validatePluginManifestReferences = (
 		return yield* Effect.void;
 	});
 
-export const validatePluginCronDrivers = (plugin: {
-	readonly manifest: PluginManifestValue;
-	readonly scripts: ReadonlyArray<{
-		readonly slug: string;
-		readonly metadata: { readonly driverNames?: ReadonlyArray<string> };
-	}>;
-}) =>
-	Effect.gen(function* () {
-		for (const cron of plugin.manifest.crons) {
-			const script = plugin.scripts.find(({ slug }) => slug === cron.driverRef);
-			if (!script) {
-				return yield* fail(
-					`Cron ${cron.slug} references missing compiled script: ${cron.driverRef}`,
-				);
-			}
-			if (!script.metadata.driverNames?.includes("cron")) {
-				return yield* fail(`Cron ${cron.slug} script ${cron.driverRef} must expose driver: cron`);
-			}
-		}
-		return yield* Effect.void;
-	});
-
-export const validatePluginBootDrivers = (plugin: {
-	readonly manifest: PluginManifestValue;
-	readonly scripts: ReadonlyArray<{
-		readonly slug: string;
-		readonly metadata: { readonly driverNames?: ReadonlyArray<string> };
-	}>;
-}) =>
-	Effect.gen(function* () {
-		for (const boot of plugin.manifest.boot) {
-			const script = plugin.scripts.find(({ slug }) => slug === boot.driverRef);
-			if (!script) {
-				return yield* fail(
-					`Boot ${boot.slug} references missing compiled script: ${boot.driverRef}`,
-				);
-			}
-			if (!script.metadata.driverNames?.includes("boot")) {
-				return yield* fail(`Boot ${boot.slug} script ${boot.driverRef} must expose driver: boot`);
-			}
-		}
-		return yield* Effect.void;
-	});
-
-export const validatePluginOperationDrivers = (plugin: {
+export const validatePluginOperationScripts = (plugin: {
 	readonly manifest: PluginManifestValue;
 	readonly scripts: ReadonlyArray<{
 		readonly slug: string;
 		readonly metadata: {
 			readonly kind?: PluginScript["kind"];
-			readonly driverNames?: ReadonlyArray<string>;
 		};
 	}>;
 }) =>
 	Effect.gen(function* () {
 		for (const operation of plugin.manifest.operations) {
-			const script = plugin.scripts.find(({ slug }) => slug === operation.driverRef);
+			const script = plugin.scripts.find(({ slug }) => slug === operation.scriptSlug);
 			if (!script) {
 				return yield* fail(
-					`Operation ${operation.slug} references missing compiled script: ${operation.driverRef}`,
+					`Operation ${operation.slug} references missing compiled script: ${operation.scriptSlug}`,
 				);
 			}
 			if (script.metadata.kind !== "operation") {
 				return yield* fail(
-					`Operation ${operation.slug} script ${operation.driverRef} must be an operation script`,
-				);
-			}
-			if (!script.metadata.driverNames?.includes("operation")) {
-				return yield* fail(
-					`Operation ${operation.slug} script ${operation.driverRef} must expose driver: operation`,
+					`Operation ${operation.slug} script ${operation.scriptSlug} must be an operation script`,
 				);
 			}
 		}

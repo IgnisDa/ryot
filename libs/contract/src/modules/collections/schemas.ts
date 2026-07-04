@@ -5,7 +5,7 @@ import {
 	EntitySchemaSlug,
 	RelationshipId,
 	RelationshipSchemaSlug,
-	SandboxScriptId,
+	SandboxProviderId,
 } from "../../schema/brands";
 
 export const CollectionResponse = Schema.Struct({
@@ -16,7 +16,7 @@ export const CollectionResponse = Schema.Struct({
 	properties: Schema.Unknown,
 	entitySchemaSlug: EntitySchemaSlug,
 	externalId: Schema.NullOr(Schema.String),
-	sandboxScriptId: Schema.NullOr(SandboxScriptId),
+	providerId: Schema.NullOr(SandboxProviderId),
 });
 
 export type CollectionResponse = typeof CollectionResponse.Type;

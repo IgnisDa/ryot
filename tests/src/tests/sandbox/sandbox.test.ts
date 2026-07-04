@@ -21,7 +21,7 @@ describe("sandbox result observability", () => {
 				capabilities: ["log", "span"],
 				source: observabilitySandboxSource({ name: "Observability check", slug }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(result, "sandbox job");

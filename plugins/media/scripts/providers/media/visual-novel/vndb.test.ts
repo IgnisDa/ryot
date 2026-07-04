@@ -1,9 +1,11 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./vndb.sandbox";
+import { manifest } from "./vndb";
+import details, { manifest as detailsManifest } from "./vndb-details.sandbox";
+import search, { manifest as searchManifest } from "./vndb-search.sandbox";
 
 type VndbHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -11,6 +13,15 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: VndbHost["httpCall"]) => defineSandboxTestHost(manifest, { httpCall });
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("visual-novel.vndb sandbox script", () => {
+	it("declares one narrowly scoped script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation, searchManifest.capabilities],
+			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
+		]).toEqual([
+			["visual-novel.vndb.search", "search", ["httpCall"]],
+			["visual-novel.vndb.details", "details", ["httpCall"]],
+		]);
+	});
 	it("maps VN search hits and drops entries missing an id or title", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -30,7 +41,7 @@ describe("visual-novel.vndb sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "ever", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "ever", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -85,7 +96,7 @@ describe("visual-novel.vndb sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "v17" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "v17" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("Ever17");
 					expect(result.relatedEntityGroups).toEqual([
@@ -97,7 +108,7 @@ describe("visual-novel.vndb sandbox script", () => {
 								{
 									name: "KID",
 									externalId: "p1",
-									scriptSlug: "company.vndb",
+									providerSlug: "company.vndb",
 									relationshipProperties: { roles: ["Developer"] },
 								},
 							],
@@ -126,7 +137,7 @@ describe("visual-novel.vndb sandbox script", () => {
 	it("rejects an externalId that is not a VNDB VN id", () => {
 		const host = makeHost(() => httpSuccess({ results: [] }));
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "p1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "p1" }, host, execution).pipe(
 				Effect.flip,
 				Effect.map((error) => expect(String(error)).toContain("externalId must be a VNDB VN ID")),
 			),

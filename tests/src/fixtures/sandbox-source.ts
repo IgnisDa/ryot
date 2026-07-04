@@ -12,7 +12,6 @@ type ScriptModuleSourceInput = SandboxSourceIdentity & {
 	readonly outputSchema: string;
 	readonly declarations?: string;
 	readonly sdkImports?: readonly string[];
-	readonly driverName?: "main" | "trending";
 	readonly requiredAppConfigKeys?: readonly string[];
 	readonly capabilities: readonly SandboxHostCapability[];
 };
@@ -30,28 +29,25 @@ const scriptModuleSource = (input: ScriptModuleSourceInput) => {
 			: "";
 
 	return `
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";${wireImportLine}${coreImportLine}
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";${wireImportLine}${coreImportLine}
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
-  kind: "provider",
+  kind: "script",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: ${JSON.stringify(input.capabilities)},
   requiredAppConfigKeys: ${JSON.stringify(input.requiredAppConfigKeys ?? [])},
-  providerInformation: { source: "e2e" },
 });
 
 ${input.declarations ?? ""}
 
-const main = defineDriver(manifest, {
+export default defineScript({
+  manifest,
   input: ${input.inputSchema},
   output: ${input.outputSchema},
   run: ${input.run},
 });
-
-export default defineProvider({ manifest, drivers: { ${input.driverName ?? "main"}: main } });
 `;
 };
 
@@ -262,17 +258,15 @@ export function trendingSandboxSource(
 	},
 ) {
 	return `
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
-  kind: "provider",
+  kind: "script",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
   requiredAppConfigKeys: [],
-  providerInformation: { source: "e2e" },
 });
 
 const trendingResultSchema = Schema.Struct({
@@ -282,13 +276,8 @@ const trendingResult = Schema.decodeUnknownSync(trendingResultSchema)(JSON.parse
 		JSON.stringify({ items: input.items }),
 	)}));
 
-const trending = defineDriver(manifest, {
-  input: Schema.Struct({}),
-  output: trendingResultSchema,
-  run: () => Effect.succeed(trendingResult),
-});
-
-const cron = defineDriver(manifest, {
+export default defineScript({
+  manifest,
   input: Schema.Struct({}),
   output: Schema.Struct({ count: Schema.Number }),
   run: (_input, host) => Effect.gen(function* () {
@@ -315,8 +304,6 @@ const cron = defineDriver(manifest, {
     return { count: upsertedEntities.length };
   }),
 });
-
-export default defineProvider({ manifest, drivers: { cron, trending } });
 `;
 }
 
@@ -327,20 +314,19 @@ export function bootSandboxSource(
 	},
 ) {
 	return `
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
-  kind: "provider",
+  kind: "script",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: ["upsertGlobalEntities"],
   requiredAppConfigKeys: [],
-  providerInformation: { source: "e2e" },
 });
 
-const boot = defineDriver(manifest, {
+export default defineScript({
+  manifest,
   input: Schema.Unknown,
   output: Schema.Struct({ count: Schema.Number }),
   run: (_input, host) => Effect.gen(function* () {
@@ -356,14 +342,12 @@ const boot = defineDriver(manifest, {
     return { count: entities.filter((entity) => entity.status === "upserted").length };
   }),
 });
-
-export default defineProvider({ manifest, drivers: { boot } });
 `;
 }
 
 export function operationSandboxSource(input: SandboxSourceIdentity) {
 	return `
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { defineOperation } from "@ryot/sandbox-sdk/operation";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
@@ -375,12 +359,11 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(input.slug)},
 });
 
-const operation = defineDriver(manifest, {
+export default defineOperation({
+  manifest,
   input: Schema.Struct({ titles: Schema.Array(Schema.String) }),
   output: Schema.Struct({ results: Schema.Array(Schema.String) }),
   run: (input) => Effect.succeed({ results: input.titles.map((title) => title.toUpperCase()) }),
 });
-
-export default defineOperation({ manifest, drivers: { operation } });
 `;
 }

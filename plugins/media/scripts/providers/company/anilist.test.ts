@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest } from "./anilist.sandbox";
+import { details, manifest } from "./anilist";
 
 type AnilistCompanyHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -36,7 +36,7 @@ describe("company.anilist sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.properties).toEqual({
 					images: [],
@@ -52,7 +52,7 @@ describe("company.anilist sandbox script", () => {
 							{
 								name: "Anime",
 								externalId: "2",
-								scriptSlug: "anime.anilist",
+								providerSlug: "anime.anilist",
 								relationshipProperties: { roles: ["Animation Studio"] },
 							},
 						],
@@ -65,7 +65,7 @@ describe("company.anilist sandbox script", () => {
 							{
 								name: "Manga",
 								externalId: "3",
-								scriptSlug: "manga.anilist",
+								providerSlug: "manga.anilist",
 								relationshipProperties: { roles: ["Animation Studio"] },
 							},
 						],
@@ -102,7 +102,7 @@ describe("company.anilist sandbox script", () => {
 			});
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(requestedPages).toEqual([1, 2]);
 				expect(result.relatedEntityGroups).toEqual([

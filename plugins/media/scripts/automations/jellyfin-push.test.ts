@@ -26,7 +26,7 @@ const movieEntity = entityRecord({
 	externalId: "603",
 	name: "The Matrix",
 	entitySchemaSlug: "es-movie",
-	sandboxScriptId: "script-movie-tmdb",
+	providerId: "script-movie-tmdb",
 });
 
 const jellyfinIntegration = integrationRecord({
@@ -36,7 +36,7 @@ const jellyfinIntegration = integrationRecord({
 
 const schema = entitySchemaRecord({
 	id: "es-movie",
-	providers: [{ name: "TMDB", scriptId: "script-movie-tmdb" }],
+	providers: [{ name: "TMDB", providerId: "script-movie-tmdb" }],
 });
 
 const createAutomation = (overrides: Parameters<typeof eventAutomationContext>[0] = {}) =>
@@ -89,7 +89,7 @@ describe("jellyfin-push sandbox script", () => {
 			]),
 		});
 		return Effect.runPromise(
-			definition.drivers.automation.run(createAutomation(), host, execution).pipe(
+			definition.run(createAutomation(), host, execution).pipe(
 				Effect.map(() => {
 					const markCall = calls.find((call) => call.url.includes("/PlayedItems/"));
 					expect(markCall?.method).toBe("POST");
@@ -107,19 +107,19 @@ describe("jellyfin-push sandbox script", () => {
 		return Effect.runPromise(
 			Effect.all(
 				[
-					definition.drivers.automation.run(
+					definition.run(
 						createAutomation(),
 						createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
 						execution,
 					),
-					definition.drivers.automation.run(
+					definition.run(
 						createAutomation({
 							subject: { id: "book-1", name: "Book", entitySchemaSlug: "book" },
 						}),
 						createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
 						execution,
 					),
-					definition.drivers.automation.run(
+					definition.run(
 						createAutomation(),
 						createHost({
 							httpCall,
@@ -153,7 +153,7 @@ describe("jellyfin-push sandbox script", () => {
 			),
 		});
 		return Effect.runPromise(
-			definition.drivers.automation.run(createAutomation(), host, execution).pipe(
+			definition.run(createAutomation(), host, execution).pipe(
 				Effect.map((result) => {
 					expect(result).toBeNull();
 					expect(warning).toHaveBeenCalledWith("Jellyfin push failed: already played");

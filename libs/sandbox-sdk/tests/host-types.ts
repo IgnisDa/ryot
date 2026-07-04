@@ -2,7 +2,7 @@ import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 
 import type { LogEntry, SpanEntry } from "../src/core.js";
-import { defineDriver, defineManifest } from "../src/driver.js";
+import { defineManifest, defineScript } from "../src/driver.js";
 import { type JsonValue, type SandboxHostError, jsonValueSchema } from "../src/wire.js";
 import type { Equal, Expect } from "./type-assertions.js";
 
@@ -23,7 +23,8 @@ const allCapabilitiesManifest = defineManifest({
 	],
 });
 
-defineDriver(allCapabilitiesManifest, {
+defineScript({
+	manifest: allCapabilitiesManifest,
 	input: Schema.Struct({}),
 	output: Schema.Boolean,
 	run: (_input, host) =>
@@ -83,7 +84,8 @@ const narrowedManifest = defineManifest({
 	slug: "narrowed-capabilities",
 	capabilities: ["getCachedValue"],
 });
-defineDriver(narrowedManifest, {
+defineScript({
+	manifest: narrowedManifest,
 	input: Schema.Struct({}),
 	output: Schema.NullOr(jsonValueSchema),
 	run: (_input, host) => {
@@ -115,7 +117,8 @@ const allDomainManifest = defineManifest({
 		"executeQueryEngine",
 	],
 });
-defineDriver(allDomainManifest, {
+defineScript({
+	manifest: allDomainManifest,
 	input: Schema.Struct({}),
 	output: Schema.Boolean,
 	run: (_input, host) =>
@@ -124,7 +127,7 @@ defineDriver(allDomainManifest, {
 			const properties: JsonValue = entity.properties;
 			const externalId: string | null = entity.externalId;
 			const entitySchema = yield* host.getEntitySchema("schema-1");
-			const providers: ReadonlyArray<{ readonly name: string; readonly scriptId: string }> =
+			const providers: ReadonlyArray<{ readonly name: string; readonly providerId: string }> =
 				entitySchema.providers;
 			const integration = yield* host.getIntegration("integration-1");
 			const lot: "push" | "sink" | "yank" = integration.lot;
@@ -178,16 +181,17 @@ defineDriver(allDomainManifest, {
 		}),
 });
 
-const promiseDriverManifest = defineManifest({
+const promiseScriptManifest = defineManifest({
 	kind: "script",
 	capabilities: [],
 	requiredAppConfigKeys: [],
 	name: "Promise driver rejection",
 	slug: "promise-driver-rejection",
 });
-defineDriver(promiseDriverManifest, {
+defineScript({
+	manifest: promiseScriptManifest,
 	input: Schema.Struct({}),
 	output: Schema.Boolean,
-	// @ts-expect-error drivers must return Effect values.
+	// @ts-expect-error scripts must return Effect values.
 	run: () => Promise.resolve(true),
 });

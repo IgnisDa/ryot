@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest } from "./tmdb.sandbox";
+import { details, manifest } from "./tmdb";
 
 type TmdbHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -31,7 +31,7 @@ describe("company.tmdb sandbox script", () => {
 			return httpSuccess({ name: "Studio", logo_path: null, origin_country: "US" });
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
@@ -42,7 +42,7 @@ describe("company.tmdb sandbox script", () => {
 							{
 								name: "Film",
 								externalId: "2",
-								scriptSlug: "movie.tmdb",
+								providerSlug: "movie.tmdb",
 								relationshipProperties: { roles: ["Production Company"] },
 							},
 						],
@@ -55,7 +55,7 @@ describe("company.tmdb sandbox script", () => {
 							{
 								name: "Show",
 								externalId: "3",
-								scriptSlug: "show.tmdb",
+								providerSlug: "show.tmdb",
 								relationshipProperties: { roles: ["Production Company"] },
 							},
 						],
@@ -91,7 +91,7 @@ describe("company.tmdb sandbox script", () => {
 					});
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(requests).toEqual(
 					expect.arrayContaining([
