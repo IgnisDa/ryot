@@ -27,7 +27,9 @@ async function main() {
 	await buildFixturePlugin();
 	const { cookies, email, password } = await Effect.runPromise(createTestUser(API_BASE_URL));
 	const client: ContractSession = makeSession(API_BASE_URL, { Cookie: cookies });
-	const installation = await Effect.runPromise(installFixtureClientPlugin(client));
+	const installation = await Effect.runPromise(
+		installFixtureClientPlugin(client, "A", "", API_BASE_URL),
+	);
 
 	if (installation.health !== "ready") {
 		throw new Error(
