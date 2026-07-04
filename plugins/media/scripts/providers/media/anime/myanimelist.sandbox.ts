@@ -1,5 +1,5 @@
-import { defineManifest } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 

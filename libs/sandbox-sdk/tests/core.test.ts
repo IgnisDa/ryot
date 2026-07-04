@@ -2,19 +2,22 @@ import { describe, expect, test } from "bun:test";
 
 import {
 	claimCachedValueResultSchema,
-	defineDriver,
-	defineManifest,
-	defineScript,
 	httpCallResultSchema,
-	jsonValueSchema,
 	logArgsSchema,
-	SANDBOX_SCRIPT_DEFINITION,
 	spanArgsSchema,
 	upsertGlobalEntitiesArgsSchema,
 	upsertGlobalRelationshipsArgsSchema,
 } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+
+import {
+	SANDBOX_SCRIPT_DEFINITION,
+	defineDriver,
+	defineManifest,
+	defineScript,
+} from "../src/driver";
+import { jsonValueSchema } from "../src/wire";
 
 const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decodeUnknownSync(schema);
 

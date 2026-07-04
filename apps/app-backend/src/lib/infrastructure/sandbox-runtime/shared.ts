@@ -1,10 +1,7 @@
 import { unknownToMessage } from "@ryot/contract/errors";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
-import type {
-	JsonValue,
-	SandboxHostError,
-	SandboxHostImplementationMap as SdkSandboxHostImplementationMap,
-} from "@ryot/sandbox-sdk/core";
+import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
+import type { JsonValue, SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect } from "effect";
 

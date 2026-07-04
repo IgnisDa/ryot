@@ -173,7 +173,7 @@ export const extractSandboxManifest = (
 			diagnostic: diagnosticAt(
 				declaration,
 				"RYOT_MANIFEST",
-				`The exported manifest must be a direct ${SANDBOX_SDK_ROOT_IMPORT} defineManifest call`,
+				`The exported manifest must be a direct defineManifest call from ${SANDBOX_SDK_ROOT_IMPORT} or @ryot/sandbox-sdk/driver`,
 			),
 		};
 	}
