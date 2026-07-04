@@ -1,4 +1,5 @@
 import type { SandboxRunError } from "@ryot/contract/errors";
+import { Effect } from "effect";
 
 import {
 	type FrequentCronTask,
@@ -27,9 +28,16 @@ const infrequentCronTasks: ReadonlyArray<
 > = [mediaTrendingInfrequentTask, mediaMonitoringInfrequentTask];
 
 export const FrequentCronWorkflowDefinitionsLive = FrequentCronWorkflow.toLayer((_, executionId) =>
-	runTasks(frequentCronTasks, { executionId }),
+	runTasks(frequentCronTasks, { executionId }).pipe(
+		Effect.withSpan("FrequentCronWorkflow", { attributes: { executionId } }),
+		Effect.annotateLogs({ executionId, workflow: "FrequentCronWorkflow" }),
+	),
 );
 
 export const InfrequentCronWorkflowDefinitionsLive = InfrequentCronWorkflow.toLayer(
-	(_, executionId) => runTasks(infrequentCronTasks, { executionId }),
+	(_, executionId) =>
+		runTasks(infrequentCronTasks, { executionId }).pipe(
+			Effect.withSpan("InfrequentCronWorkflow", { attributes: { executionId } }),
+			Effect.annotateLogs({ executionId, workflow: "InfrequentCronWorkflow" }),
+		),
 );

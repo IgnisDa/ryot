@@ -20,8 +20,14 @@ export const runNotificationDeliveryWorkflow = Effect.fn("runNotificationDeliver
 	},
 );
 
-const NotificationDeliveryWorkflowLive = NotificationDeliveryWorkflow.toLayer((payload) =>
-	runNotificationDeliveryWorkflow(payload),
+const NotificationDeliveryWorkflowLive = NotificationDeliveryWorkflow.toLayer(
+	(payload, executionId) =>
+		runNotificationDeliveryWorkflow(payload).pipe(
+			Effect.withSpan("NotificationDeliveryWorkflow", {
+				attributes: { executionId, userId: payload.userId },
+			}),
+			Effect.annotateLogs({ executionId, workflow: "NotificationDeliveryWorkflow" }),
+		),
 );
 
 export const NotificationDeliveryWorkflowDefinitionsLive = Layer.mergeAll(

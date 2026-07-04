@@ -1,6 +1,5 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { unknownToMessage } from "@ryot/contract/errors";
-import { Cause, Clock, Cron, Duration, Effect, Either, Layer } from "effect";
+import { Clock, Cron, Duration, Effect, Either, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 
@@ -12,7 +11,7 @@ export const InfrequentCronSchedulerLive = Layer.scopedDiscard(
 		const config = yield* AppConfig;
 
 		if (config.server.disableBackgroundJobs) {
-			yield* Effect.logInfo("Background jobs disabled; skipping infrequent cron scheduler");
+			yield* Effect.logInfo("infrequent cron scheduler disabled");
 			return;
 		}
 
@@ -23,8 +22,11 @@ export const InfrequentCronSchedulerLive = Layer.scopedDiscard(
 			config.timezone,
 		);
 		if (Either.isLeft(parsed)) {
-			yield* Effect.logWarning(
-				`Invalid SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE '${config.scheduler.infrequentCronJobsSchedule}', defaulting to midnight`,
+			yield* Effect.logWarning("infrequent cron schedule invalid").pipe(
+				Effect.annotateLogs({
+					fallback: "every midnight",
+					configuredSchedule: config.scheduler.infrequentCronJobsSchedule,
+				}),
 			);
 		}
 		const cron = Either.getOrElse(parsed, () =>
@@ -45,11 +47,10 @@ export const InfrequentCronSchedulerLive = Layer.scopedDiscard(
 					payload: { executionId },
 				})
 				.pipe(
-					Effect.catchAllCause((cause) =>
-						Effect.logError(
-							`Failed to enqueue infrequent cron run: ${unknownToMessage(Cause.squash(cause))}`,
-						),
-					),
+					Effect.withSpan("InfrequentCronWorkflow.dispatch", {
+						attributes: { executionId },
+					}),
+					Effect.catchAllCause((cause) => Effect.logError("infrequent cron enqueue failed", cause)),
 				);
 		});
 

@@ -16,7 +16,12 @@ const ProcessImportRunWorkflowLive = ProcessImportRunWorkflow.toLayer((payload, 
 		}
 
 		yield* runOneTimeMediaImportWorkflow(payload, executionId);
-	}),
+	}).pipe(
+		Effect.withSpan("ProcessImportRunWorkflow", {
+			attributes: { runId: payload.runId, userId: payload.userId, executionId },
+		}),
+		Effect.annotateLogs({ executionId, workflow: "ProcessImportRunWorkflow" }),
+	),
 );
 
 export const ImportWorkflowDefinitionsLive = ProcessImportRunWorkflowLive.pipe(

@@ -315,8 +315,18 @@ export const runEventCreateWorkflow = Effect.fn("runEventCreateWorkflow")(functi
 	return { failure, outcomes, count: createdCount };
 });
 
-const EventCreateWorkflowLive = EventCreateWorkflow.toLayer((payload) =>
-	runEventCreateWorkflow(payload),
+const EventCreateWorkflowLive = EventCreateWorkflow.toLayer((payload, executionId) =>
+	runEventCreateWorkflow(payload).pipe(
+		Effect.withSpan("EventCreateWorkflow", {
+			attributes: {
+				executionId,
+				userId: payload.userId,
+				...(payload.importRunId ? { importRunId: payload.importRunId } : {}),
+				...(payload.integrationId ? { integrationId: payload.integrationId } : {}),
+			},
+		}),
+		Effect.annotateLogs({ executionId, workflow: "EventCreateWorkflow" }),
+	),
 );
 
 export const EventCreateWorkflowDefinitionsLive = Layer.mergeAll(EventCreateWorkflowLive);
