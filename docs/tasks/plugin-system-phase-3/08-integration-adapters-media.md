@@ -13,7 +13,8 @@ Before starting, read `docs/plans/plugin-system/00-overview.md` in full and then
 spec. Do not begin until Step 4a (task 07) is done and its gates pass.
 
 Move every native integration adapter into `plugins/media` as scripts declared through the
-`integrationProviders` manifest section task 07 built.
+`integrationProviders` manifest section task 07 built. Prefer using bash commands to move
+files around.
 
 - **Sinks** (webhook receivers, normalization to progress events): plex, jellyfin, emby, kodi,
   browser-extension, generic_json. These come from `modules/integrations/sinks/`.
@@ -36,7 +37,7 @@ switch dispatch in `sinks/sink-adapters.ts` and `worker.ts` and the hardcoded
 enable/disable, auto-disable, webhook endpoint, run bookkeeping.
 
 Adapter unit tests move into `plugins/media` alongside their adapters with assertions preserved.
-Re-point the `integrations/` e2e suites (2 files, 16 tests) with assertions preserved; add new
+Re-point the `tests/src/tests/integrations/` e2e suites (2 files, 16 tests) with assertions preserved; add new
 coverage where the migration exposes a gap.
 
 ## Acceptance criteria
