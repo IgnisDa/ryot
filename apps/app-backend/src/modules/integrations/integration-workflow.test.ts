@@ -1,6 +1,5 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError } from "@ryot/contract/errors";
 import {
 	ImportRunId,
@@ -11,6 +10,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
 import type { MockOverrides, WorkflowEngineOverrides } from "#lib/test-utils/effect";
@@ -64,7 +64,6 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 		getRunById: () => Effect.succeed(null),
 		listRecentStatusesByIntegrationId: () => Effect.succeed([]),
 		...overrides,
-		_tag: "ImportsRepository",
 	});
 
 const makeImportRunFailuresService = (
@@ -73,14 +72,12 @@ const makeImportRunFailuresService = (
 	mockImportRunFailuresService({
 		create: () => Effect.void,
 		...overrides,
-		_tag: "ImportRunFailuresService",
 	});
 
 const makeImportsService = (overrides: MockOverrides<typeof mockImportsService> = {}) =>
 	mockImportsService({
 		update: () => Effect.void,
 		...overrides,
-		_tag: "ImportsService",
 	});
 
 const makeIntegrationsRepository = (
@@ -90,7 +87,6 @@ const makeIntegrationsRepository = (
 		getByIdAnyUser: () => Effect.succeed(makeIntegration()),
 		getUserDisableIntegrations: () => Effect.succeed(false),
 		...overrides,
-		_tag: "IntegrationsRepository",
 	});
 
 const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegrationsService> = {}) =>
@@ -98,14 +94,12 @@ const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegration
 		update: () => Effect.succeed(makeIntegration()),
 		disableIfEnabled: () => Effect.succeed(false),
 		...overrides,
-		_tag: "IntegrationsService",
 	});
 
 const makeSignalEmissionService = (
 	overrides: MockOverrides<typeof mockSignalEmissionService> = {},
 ) =>
 	mockSignalEmissionService({
-		_tag: "SignalEmissionService",
 		emit: () => Effect.die("unexpected signal emission"),
 		...overrides,
 	});
@@ -172,7 +166,6 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		Layer.mock(IntegrationProviderCatalog)({
 			list: () => [],
 			resolveOwned: () => null,
-			_tag: "IntegrationProviderCatalog",
 			find: () => ({
 				lot: "sink",
 				pluginSlug: "media",
@@ -198,7 +191,6 @@ const makeTestLayer = (options: TestLayerOptions) =>
 			},
 		}),
 		Layer.mock(SandboxExecutionService)({
-			_tag: "SandboxExecutionService",
 			resolveWorkflowScript: (input) => {
 				options.workflowResolutions?.push(input);
 				return Effect.succeed(SandboxScriptId.make("workflow.media-import"));

@@ -19,7 +19,7 @@ export const IntegrationReconciliationRun = Schema.Struct({
 
 export type IntegrationReconciliationRun = typeof IntegrationReconciliationRun.Type;
 
-export class IntegrationRunError extends Schema.TaggedError<IntegrationRunError>()(
+export class IntegrationRunError extends Schema.TaggedErrorClass<IntegrationRunError>()(
 	"IntegrationRunError",
 	{ message: Schema.String },
 ) {}
