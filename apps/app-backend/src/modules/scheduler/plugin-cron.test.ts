@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import type { PluginManifest } from "@ryot/plugin-kit/manifest";
+import type { PluginCron, PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Effect, Layer } from "effect";
 import { assert } from "vitest";
 
@@ -16,7 +16,10 @@ import { pluginCronExecutionId, PluginCronService } from "./plugin-cron";
 
 type CapturedRun = Parameters<WorkflowEngine["Type"]["execute"]>[1];
 
-const normalizedPlugin = (pluginSlug: string, schedule = "* * * * *"): NormalizedPlugin => {
+const normalizedPlugin = (
+	pluginSlug: string,
+	schedule: PluginCron["schedule"] = { cron: "* * * * *" },
+): NormalizedPlugin => {
 	const manifest = fixtureManifest();
 	const declared = manifest.scripts[0];
 	assert(declared);
@@ -39,9 +42,9 @@ const normalizedPlugin = (pluginSlug: string, schedule = "* * * * *"): Normalize
 		},
 		crons: [
 			{
-				lot: "script",
 				schedule,
 				scriptSlug,
+				lot: "script",
 				slug: `${pluginSlug}-cron`,
 				description: `${pluginSlug} cron`,
 			},
@@ -76,21 +79,21 @@ const normalizedWorkflowPlugin = (pluginSlug: string): NormalizedPlugin => {
 	const workflowScript = { ...script, kind: "workflow" as const, capabilities: [] as const };
 	return {
 		...plugin,
+		scripts: [{ ...compiled, metadata: workflowScript }],
 		manifest: {
 			...plugin.manifest,
 			scripts: [workflowScript],
 			workflows: [{ slug: workflowSlug, scriptSlug: workflowScript.slug }],
 			crons: [
 				{
-					lot: "workflow",
-					schedule: "* * * * *",
 					workflowSlug,
+					lot: "workflow",
 					slug: `${pluginSlug}-cron`,
+					schedule: { cron: "* * * * *" },
 					description: `${pluginSlug} cron`,
 				},
 			],
 		},
-		scripts: [{ ...compiled, metadata: workflowScript }],
 	};
 };
 
@@ -98,11 +101,12 @@ const makeLayer = (
 	loader: ReturnType<typeof makePluginLoader>,
 	captured: Array<CapturedRun>,
 	failingExecutionId?: string,
+	infrequentCronJobsSchedule = "0 0 * * *",
 ) =>
 	PluginCronService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				makeAppConfigLayer(),
+				makeAppConfigLayer({ scheduler: { infrequentCronJobsSchedule } }),
 				dbRunnerLayer,
 				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader }),
 				Layer.mock(PluginRuntimeResolver)({
@@ -130,16 +134,16 @@ const makeLayer = (
 						}),
 					findActiveWorkflowScript: ({ workflowSlug }) =>
 						Effect.succeed({
-							slug: workflowSlug,
-							name: workflowSlug,
 							source: "source",
 							providerId: null,
 							compiledFormat: 1,
+							slug: workflowSlug,
+							name: workflowSlug,
 							pluginSlug: "fixture",
 							compiledCode: "compiled",
-							contentHash: `${workflowSlug}-hash`,
 							createdAt: new Date(0),
 							updatedAt: new Date(0),
+							contentHash: `${workflowSlug}-hash`,
 							id: SandboxScriptId.make(`${workflowSlug}-id`),
 							metadata: {
 								capabilities: [],
@@ -188,49 +192,28 @@ it.effect("dispatches due plugin crons as deterministic system sandbox runs", ()
 	}).pipe(Effect.provide(makeLayer(loader, captured)));
 });
 
-it.effect("awaits terminal plugin cron runs when manually triggered", () => {
+it.effect("resolves infrequent plugin cron schedules from application config", () => {
 	const captured: Array<CapturedRun> = [];
 	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.load(normalizedPlugin("fixture"));
+	loader.load(normalizedPlugin("fixture", { tier: "infrequent" }));
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
-		yield* service.triggerAll("parent-id");
-		expect(captured).toEqual([
-			{
-				executionId: "plugin-cron-7-fixture-12-fixture-cron-parent-id",
-				payload: {
-					context: {},
-					authority: { type: "system" },
-					scriptId: SandboxScriptId.make("fixture-script-id"),
-					executionId: "plugin-cron-7-fixture-12-fixture-cron-parent-id",
-				},
-			},
-		]);
-	}).pipe(Effect.provide(makeLayer(loader, captured)));
+		yield* service.dispatchDue(60_000);
+		expect(captured).toHaveLength(1);
+	}).pipe(Effect.provide(makeLayer(loader, captured, undefined, "* * * * *")));
 });
 
-it.effect("dispatches workflow crons through the durable workflow shell", () => {
+it.effect("skips infrequent plugin crons when the configured schedule is invalid", () => {
 	const captured: Array<CapturedRun> = [];
 	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.load(normalizedWorkflowPlugin("fixture"));
+	loader.load(normalizedPlugin("fixture", { tier: "infrequent" }));
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
-		yield* service.triggerAll("parent-id");
-		expect(captured).toEqual([
-			{
-				executionId: "plugin-cron-7-fixture-12-fixture-cron-parent-id",
-				payload: {
-					input: {},
-					resolutionMode: "exact",
-					authority: { type: "system" },
-					scriptId: SandboxScriptId.make("fixture-workflow-id"),
-					executionId: "plugin-cron-7-fixture-12-fixture-cron-parent-id",
-				},
-			},
-		]);
-	}).pipe(Effect.provide(makeLayer(loader, captured)));
+		yield* service.dispatchDue(60_000);
+		expect(captured).toEqual([]);
+	}).pipe(Effect.provide(makeLayer(loader, captured, undefined, "not a cron")));
 });
 
 it.effect("targets exactly one script cron", () => {
@@ -242,9 +225,9 @@ it.effect("targets exactly one script cron", () => {
 		const service = yield* PluginCronService;
 		expect(yield* service.trigger("second", "second-cron", "parent-id")).toEqual({
 			lot: "script",
+			status: "executed",
 			pluginSlug: "second",
 			cronSlug: "second-cron",
-			status: "executed",
 			result: "plugin-cron-6-second-11-second-cron-parent-id",
 			executionId: "plugin-cron-6-second-11-second-cron-parent-id",
 		});
@@ -266,9 +249,9 @@ it.effect("targets one workflow cron through the durable workflow shell", () => 
 		const result = yield* service.trigger("fixture", "fixture-cron", "parent-id");
 		expect(result).toMatchObject({
 			lot: "workflow",
+			status: "executed",
 			pluginSlug: "fixture",
 			cronSlug: "fixture-cron",
-			status: "executed",
 			executionId: "plugin-cron-7-fixture-12-fixture-cron-parent-id",
 		});
 		expect(captured).toHaveLength(1);

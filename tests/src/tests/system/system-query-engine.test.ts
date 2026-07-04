@@ -611,64 +611,64 @@ describe("system-authority query engine", () => {
 					workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
 					crons: [
 						{
+							workflowSlug,
 							lot: "workflow",
 							slug: workflowCronSlug,
-							schedule: "0 0 * * *",
-							workflowSlug,
+							schedule: { cron: "0 0 * * *" },
 							description: "Run system query activities",
 						},
 						{
 							lot: "script",
 							slug: collectorCronSlug,
-							schedule: "0 0 * * *",
 							scriptSlug: collectorSlug,
+							schedule: { cron: "0 0 * * *" },
 							description: "Collect system query activity results",
 						},
 					],
 					scripts: [
 						{
-							kind: "provider",
-							entry: detailsEntry,
-							slug: detailsSlug,
 							providerSlug,
+							kind: "provider",
+							capabilities: [],
+							slug: detailsSlug,
+							entry: detailsEntry,
+							requiredAppConfigKeys: [],
 							providerOperation: "details",
 							name: "System query provider details",
-							capabilities: [],
-							requiredAppConfigKeys: [],
 						},
 						{
 							kind: "workflow",
+							capabilities: [],
 							entry: workflowEntry,
 							slug: workflowScriptSlug,
-							name: "System query workflow",
-							capabilities: [],
 							requiredAppConfigKeys: [],
+							name: "System query workflow",
 						},
 						...cases.map((name) => ({
-							kind: "activity" as const,
-							name: `System query ${name}`,
 							providerSlug,
-							entry: activityEntries[name],
 							slug: activitySlug(name),
-							capabilities: ["executeQueryEngine", "setCachedValue"],
+							kind: "activity" as const,
 							requiredAppConfigKeys: [],
+							name: `System query ${name}`,
+							entry: activityEntries[name],
+							capabilities: ["executeQueryEngine", "setCachedValue"],
 						})),
 						{
-							kind: "script",
 							providerSlug,
-							entry: collectorEntry,
+							kind: "script",
 							slug: collectorSlug,
+							entry: collectorEntry,
+							requiredAppConfigKeys: [],
 							name: "System query result collector",
 							capabilities: ["executeQueryEngine", "getCachedValue", "upsertGlobalEntities"],
-							requiredAppConfigKeys: [],
 						},
 					],
 					entitySchemas: [
 						{
-							slug: rootSlug,
 							icon: "box",
-							name: "System query root",
+							slug: rootSlug,
 							accentColor: "#334155",
+							name: "System query root",
 							propertiesSchema: {
 								fields: {
 									score: { type: "integer", label: "Score", description: "Aggregate score" },
@@ -676,38 +676,32 @@ describe("system-authority query engine", () => {
 							},
 							eventSchemas: [
 								{
-									slug: ownEventSlug,
 									name: "Own event",
+									slug: ownEventSlug,
 									propertiesSchema: {
 										fields: {
-											value: {
-												type: "integer",
-												label: "Value",
-												description: "Event value",
-											},
+											value: { label: "Value", type: "integer", description: "Event value" },
 										},
 									},
 								},
 							],
 						},
 						{
-							slug: targetSlug,
 							icon: "circle",
-							name: "System query target",
-							accentColor: "#475569",
-							propertiesSchema: {
-								fields: {
-									rank: { type: "integer", label: "Rank", description: "Target rank" },
-								},
-							},
+							slug: targetSlug,
 							eventSchemas: [],
+							accentColor: "#475569",
+							name: "System query target",
+							propertiesSchema: {
+								fields: { rank: { type: "integer", label: "Rank", description: "Target rank" } },
+							},
 						},
 						{
 							slug: markerSlug,
 							icon: "database",
-							name: "System query marker",
-							accentColor: "#64748b",
 							eventSchemas: [],
+							accentColor: "#64748b",
+							name: "System query marker",
 							propertiesSchema: { fields: {}, unknownKeys: "passthrough" },
 						},
 					],
@@ -728,18 +722,18 @@ describe("system-authority query engine", () => {
 					scripts: [
 						{
 							kind: "activity",
-							slug: `foreign-inert-${suffix}`,
-							name: "Foreign inert activity",
-							entry: "scripts/foreign.sandbox.ts",
 							capabilities: [],
 							requiredAppConfigKeys: [],
+							name: "Foreign inert activity",
+							slug: `foreign-inert-${suffix}`,
+							entry: "scripts/foreign.sandbox.ts",
 						},
 					],
 					entitySchemas: [
 						{
-							slug: foreignRootSlug,
 							icon: "ban",
 							name: "Foreign root",
+							slug: foreignRootSlug,
 							accentColor: "#991b1b",
 							propertiesSchema: { fields: {} },
 							eventSchemas: [
@@ -828,36 +822,36 @@ describe("system-authority query engine", () => {
 				]);
 				expectedRelationships = [
 					{
-						id: relationships[0].id,
 						rank: 2,
-						sourceId: globalRoot.id,
 						targetId: targetA.id,
-						sourceName: "Global Root",
 						targetName: "Target A",
+						id: relationships[0].id,
+						sourceId: globalRoot.id,
+						sourceName: "Global Root",
 					},
 					{
-						id: relationships[2].id,
 						rank: 1,
+						targetId: targetB.id,
+						targetName: "Target B",
+						id: relationships[2].id,
 						sourceId: globalRoot.id,
-						targetId: targetB.id,
 						sourceName: "Global Root",
-						targetName: "Target B",
 					},
 					{
-						id: relationships[1].id,
 						rank: 90,
-						sourceId: userARoot.id,
 						targetId: targetA.id,
-						sourceName: "User A Root",
 						targetName: "Target A",
+						sourceId: userARoot.id,
+						id: relationships[1].id,
+						sourceName: "User A Root",
 					},
 					{
-						id: relationships[3].id,
 						rank: 80,
-						sourceId: userBRoot.id,
 						targetId: targetB.id,
-						sourceName: "User B Root",
 						targetName: "Target B",
+						sourceId: userBRoot.id,
+						id: relationships[3].id,
+						sourceName: "User B Root",
 					},
 				].sort(
 					(left, right) =>
@@ -950,10 +944,10 @@ describe("system-authority query engine", () => {
 			const systemRows = responseItems(markerPayload("event-root"));
 			const userRows = (yield* executeQueryEngine(userA.client, eventRootDocument)).data.items;
 			const values = (row: Record<string, unknown>) => ({
+				value: rowField(row, "value"),
 				userId: rowField(row, "userId"),
 				rootName: rowField(row, "rootName"),
 				occurredAt: rowField(row, "occurredAt"),
-				value: rowField(row, "value"),
 			});
 			const expected = [
 				{
@@ -1010,8 +1004,8 @@ describe("system-authority query engine", () => {
 				{
 					eventTotal: 5,
 					targetCount: 2,
-					latestEventValue: 3,
 					name: "Global Root",
+					latestEventValue: 3,
 					firstTarget: "Target B",
 				},
 			]);
