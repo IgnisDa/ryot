@@ -2,7 +2,7 @@ import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { SyncCountLine } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 
 import type { ShowSyncCounts } from "./sync-counts";
 
@@ -128,10 +128,12 @@ export function ShowLinkButton(props: {
 	readonly label: string;
 	readonly onClick: () => void;
 	readonly tone?: "accent" | "plain";
+	readonly ref?: Ref<HTMLButtonElement>;
 }) {
 	return (
 		<button
 			type="button"
+			ref={props.ref}
 			onClick={props.onClick}
 			className={clsx(
 				"font-ui font-medium text-[13px]",
