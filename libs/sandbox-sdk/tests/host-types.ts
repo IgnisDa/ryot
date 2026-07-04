@@ -40,6 +40,7 @@ defineScript({
 
 			const http = yield* host.httpCall("POST", "https://example.com", {
 				body: "payload",
+				allowInsecureConnections: true,
 				headers: { Accept: "application/json" },
 			});
 			const status: number = http.status;
@@ -69,6 +70,8 @@ defineScript({
 
 			// @ts-expect-error httpCall options require a string body.
 			yield* host.httpCall("POST", "https://example.com", { body: 42 });
+			// @ts-expect-error httpCall insecure connection opt-in requires a boolean.
+			yield* host.httpCall("POST", "https://example.com", { allowInsecureConnections: "yes" });
 			// @ts-expect-error log takes exactly one batch argument.
 			yield* host.log(logs, logs);
 			// @ts-expect-error span entries reject excess fields.

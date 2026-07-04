@@ -14,22 +14,11 @@ const readModule = (path: string) =>
 const readModules = (paths: ReadonlyArray<string>) =>
 	Effect.all(paths.map(readModule)).pipe(Effect.map((sources) => sources.join("\n")));
 
-const mediaImportWorkflowModules = [
-	"../imports/media-workflow.ts",
-	"../imports/media/load-workflow.ts",
-	"../imports/media/normalized-import-workflow.ts",
-	"../imports/media/normalized-import-workflow-live.ts",
-	"../imports/media/plugin-workflows.ts",
-	"../imports/media/writing-workflow.ts",
-	"../imports/media/writing-failures-workflow.ts",
-] as const;
-
 const integrationWorkflowModules = [
 	"../integrations/integration-workflow.ts",
 	"../integrations/integration-workflow-live.ts",
 	"../integrations/operations-workflow.ts",
 	"../integrations/failure-workflow.ts",
-	"../integrations/media-workflow.ts",
 ] as const;
 
 const entityImportWorkflowModules = [
@@ -46,7 +35,6 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			eventCreateWorkflow,
 			entityImportWorkflow,
 			libraryWorkflow,
-			mediaImportWorkflow,
 			integrationWorkflow,
 			subscriptionWorkflow,
 		] = yield* Effect.all([
@@ -56,7 +44,6 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			readModule("../events/event-create-workflow-live.ts"),
 			readModules(entityImportWorkflowModules),
 			readModule("../library-membership/library-entity-import-workflow.ts"),
-			readModules(mediaImportWorkflowModules),
 			readModules(integrationWorkflowModules),
 			readModule("../automations/subscription-execution-workflow-live.ts"),
 		]);
@@ -72,28 +59,20 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		expect(libraryWorkflow).not.toContain("execute(RunSandboxWorkflow");
 		expect(libraryWorkflow).toContain("execute(ProviderEntityPopulationWorkflow");
 
-		for (const source of [entityImportWorkflow, mediaImportWorkflow, integrationWorkflow]) {
+		for (const source of [entityImportWorkflow, integrationWorkflow]) {
 			expect(source).not.toContain("execute(RunSandboxWorkflow");
 		}
 		expect(entityImportWorkflow).not.toMatch(/^import\s+(?!type\b)[^\n;]*\bWorkflowEngine\b/m);
-		expect(
-			mediaImportWorkflow.match(/\.execute\(ProcessNormalizedMediaImportWorkflow,/g)?.length ?? 0,
-		).toBe(1);
-		expect(
-			integrationWorkflow.match(/\.execute\(ProcessNormalizedMediaImportWorkflow,/g)?.length ?? 0,
-		).toBe(1);
 	}).pipe(Effect.provide(BunContext.layer)),
 );
 
 it.effect("keeps parent workflows as orchestrations instead of queue pass-through wrappers", () =>
 	Effect.gen(function* () {
-		const [entityImportWorkflow, libraryWorkflow, mediaImportWorkflow, integrationWorkflow] =
-			yield* Effect.all([
-				readModules(entityImportWorkflowModules),
-				readModule("../library-membership/library-entity-import-workflow.ts"),
-				readModules(mediaImportWorkflowModules),
-				readModules(integrationWorkflowModules),
-			]);
+		const [entityImportWorkflow, libraryWorkflow, integrationWorkflow] = yield* Effect.all([
+			readModules(entityImportWorkflowModules),
+			readModule("../library-membership/library-entity-import-workflow.ts"),
+			readModules(integrationWorkflowModules),
+		]);
 
 		expect(entityImportWorkflow).toContain("validate-entity-details");
 		expect(entityImportWorkflow).toContain("upsert-root-entity");
@@ -101,13 +80,9 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 		expect(libraryWorkflow).toContain("ensureLibraryMembership");
 		expect(libraryWorkflow).not.toContain("ensureEntityInLibrary");
 
-		expect(mediaImportWorkflow).toContain("load-media-import-adapter-result");
-		expect(mediaImportWorkflow).toContain("record-total-items");
-		expect(mediaImportWorkflow).toContain("finalize-import-run");
-
 		expect(integrationWorkflow).toContain("mark-integration-run-started");
 		expect(integrationWorkflow).toContain("finalize-integration-run");
-		expect(integrationWorkflow).toContain("ProcessNormalizedMediaImportWorkflow");
+		expect(integrationWorkflow).toContain("runIntegrationImport");
 	}).pipe(Effect.provide(BunContext.layer)),
 );
 
@@ -134,23 +109,14 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 	Effect.gen(function* () {
 		const paths = yield* Path.Path;
 		const fs = yield* FileSystem.FileSystem;
-		const [
-			populationWorkflow,
-			libraryWorkflow,
-			monitoringWorkflow,
-			mediaOperations,
-			mediaPluginWorkflows,
-			membershipWorker,
-			trigger,
-		] = yield* Effect.all([
-			readModule("../entity-import/provider-entity-population-workflow.ts"),
-			readModule("../library-membership/library-entity-import-workflow.ts"),
-			readModule("../media-monitoring/refresh-workflow.ts"),
-			readModule("../imports/media/operations-workflow.ts"),
-			readModule("../imports/media/plugin-workflows.ts"),
-			readModule("../library-membership/membership-worker.ts"),
-			readModule("../entity-import/population-trigger-live.ts"),
-		]);
+		const [populationWorkflow, libraryWorkflow, monitoringWorkflow, membershipWorker, trigger] =
+			yield* Effect.all([
+				readModule("../entity-import/provider-entity-population-workflow.ts"),
+				readModule("../library-membership/library-entity-import-workflow.ts"),
+				readModule("../media-monitoring/refresh-workflow.ts"),
+				readModule("../library-membership/membership-worker.ts"),
+				readModule("../entity-import/population-trigger-live.ts"),
+			]);
 
 		expect(populationWorkflow).toContain("validate-entity-details");
 		expect(populationWorkflow).toContain("upsert-root-entity");
@@ -162,11 +128,6 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		for (const source of [trigger, libraryWorkflow, monitoringWorkflow]) {
 			expect(source).toContain("ProviderEntityPopulationWorkflow");
 		}
-
-		expect(mediaOperations).not.toContain("LibraryEntityImportWorkflow");
-		expect(mediaOperations).not.toContain("ProviderEntityPopulationWorkflow");
-		expect(mediaPluginWorkflows).toContain('workflowSlug: "media-import-population"');
-		expect(mediaPluginWorkflows).not.toContain("LibraryEntityImportWorkflow");
 
 		expect(membershipWorker).toContain("ensureEntityInLibrary");
 

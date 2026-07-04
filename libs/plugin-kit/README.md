@@ -67,6 +67,40 @@ operations: [
 single driver under the conventional name `operation`. Author the driver module with the
 `defineOperation` helper from `@ryot/sandbox-sdk/operation` wrapping generic `defineDriver` drivers.
 
+## Import Sources
+
+File-backed import sources declare either one artifact or a set of named artifacts:
+
+```ts
+importSources: [
+	{
+		input: "file",
+		lot: "single",
+		allowedFileExtensions: ["csv"],
+		// slug, name, description, workflowSlug, requiredAppConfigKeys
+	},
+	{
+		input: "file",
+		lot: "named",
+		artifacts: [
+			{
+				key: "historyFilePath",
+				required: true,
+				allowedFileExtensions: ["csv"],
+				uploadTokenField: "historyUploadToken",
+			},
+		],
+		// slug, name, description, workflowSlug, requiredAppConfigKeys
+	},
+];
+```
+
+The kernel claims and validates each upload using its declaration, then exposes only declared
+artifacts to the sandbox. Single-file scripts use `readArtifact()`. Named-file scripts use
+`readNamedArtifact(key)`, where `key` is also the stable source-payload path identity. Named keys
+and upload-token fields must be unique within a source. Payload-only sources use `input: "payload"`
+and have no file lot.
+
 ## Recipes
 
 `@ryot/plugin-kit/operations` provides a transport-agnostic, Effect-based typed invoker so callers
