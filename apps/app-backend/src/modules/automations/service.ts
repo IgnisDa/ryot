@@ -428,6 +428,12 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 			},
 		);
 
+		const listRunsByExecutionUserId = Effect.fn("AutomationsService.listRunsByExecutionUserId")(
+			function* (input: { executionUserId: UserId; signalId?: SignalId | undefined }) {
+				return yield* runInTransaction(repository.listRunsByExecutionUserId(input));
+			},
+		);
+
 		return {
 			beginRun,
 			prepareRun,
@@ -437,6 +443,7 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 			deleteUserRule,
 			setUserRuleActive,
 			resolveActivePolicies,
+			listRunsByExecutionUserId,
 			listRunsByOriginalRuleId,
 		};
 	}),

@@ -13,6 +13,7 @@ import { DateTime, Effect } from "effect";
 
 import { TransactionRunner } from "#lib/infrastructure/db/service";
 import { AuthService } from "#modules/auth/service";
+import { AutomationsService } from "#modules/automations/service";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { TranslationsService } from "#modules/entity-translation/service";
@@ -43,6 +44,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		const auth = yield* AuthService;
 		const engine = yield* WorkflowEngine;
 		const signals = yield* SignalsService;
+		const automations = yield* AutomationsService;
 		const entities = yield* EntitiesService;
 		const sandbox = yield* SandboxApiService;
 		const translations = yield* TranslationsService;
@@ -171,6 +173,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			upsertEntityTranslation,
 			upsertGlobalRelationship,
 			listSignals: signals.list,
+			listSubscriptionRuns: automations.listRunsByExecutionUserId,
 			getSandboxScript: sandbox.getStoredScript,
 			deleteGlobalEntities: entities.deleteByIds,
 			listSandboxScripts: sandbox.listStoredScripts,
