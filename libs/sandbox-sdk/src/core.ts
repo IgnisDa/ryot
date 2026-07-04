@@ -547,13 +547,21 @@ const sandboxManifestBaseFields = {
 };
 export const sandboxManifestSchema = Schema.Union(
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("script") }),
+	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("activity") }),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("operation") }),
+	strictStruct({
+		...sandboxManifestBaseFields,
+		kind: Schema.Literal("workflow"),
+		capabilities: Schema.Tuple(),
+	}),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("automation") }),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("provider") }),
 );
 export type SandboxManifest = Schema.Schema.Type<typeof sandboxManifestSchema>;
+export type ActivityManifest = Extract<SandboxManifest, { readonly kind: "activity" }>;
 export type ScriptManifest = Extract<SandboxManifest, { readonly kind: "script" }>;
 export type OperationManifest = Extract<SandboxManifest, { readonly kind: "operation" }>;
+export type WorkflowManifest = Extract<SandboxManifest, { readonly kind: "workflow" }>;
 
 export const executionMetadataSchema = strictStruct({
 	metadata: jsonValueSchema,

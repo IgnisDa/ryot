@@ -1,5 +1,6 @@
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import { eq } from "drizzle-orm";
+import type { WorkflowDurableCallRequest } from "@ryot/sandbox-sdk/workflow";
+import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -25,6 +26,13 @@ const toStoredScript = (row: StoredScriptRow) => ({
 	...row,
 	id: SandboxScriptId.make(row.id),
 });
+
+export const isWorkflowCallTargetKind = (
+	request: WorkflowDurableCallRequest,
+	kind: StoredScriptRow["metadata"]["kind"],
+) =>
+	(request.kind === "child" && kind === "workflow") ||
+	(request.kind === "activity" && kind === "activity");
 
 export class SandboxRepository extends Effect.Service<SandboxRepository>()("SandboxRepository", {
 	sync: () => {
@@ -66,6 +74,91 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			return row?.pluginSlug != null;
 		});
 
+		const getScriptPin = Effect.fn("SandboxRepository.getScriptPin")(function* (
+			scriptId: SandboxScriptId,
+		) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({
+						id: schema.sandboxScript.id,
+						metadata: schema.sandboxScript.metadata,
+						contentHash: schema.sandboxScript.contentHash,
+					})
+					.from(schema.sandboxScript)
+					.where(eq(schema.sandboxScript.id, scriptId))
+					.limit(1),
+			);
+			return row?.metadata.kind === "workflow"
+				? { contentHash: row.contentHash, scriptId: SandboxScriptId.make(row.id) }
+				: null;
+		});
+
+		const resolveWorkflowCallScript = Effect.fn("SandboxRepository.resolveWorkflowCallScript")(
+			function* (workflowScriptId: SandboxScriptId, request: WorkflowDurableCallRequest) {
+				if (
+					request.kind === "sleep" ||
+					(request.kind === "child" && request.args.workflowSlug.startsWith("kernel:"))
+				) {
+					return null;
+				}
+				const db = yield* CurrentDb;
+				const [owner] = yield* dbEffect(() =>
+					db
+						.select({ pluginSlug: schema.sandboxScript.pluginSlug })
+						.from(schema.sandboxScript)
+						.where(eq(schema.sandboxScript.id, workflowScriptId))
+						.limit(1),
+				);
+				if (!owner?.pluginSlug) {
+					return null;
+				}
+				const ownerPluginSlug = owner.pluginSlug;
+				const [plugin] = yield* dbEffect(() =>
+					db
+						.select({
+							manifest: schema.plugin.manifest,
+							compiledHashes: schema.plugin.compiledHashes,
+						})
+						.from(schema.plugin)
+						.where(eq(schema.plugin.slug, ownerPluginSlug))
+						.limit(1),
+				);
+				if (!plugin) {
+					return null;
+				}
+				const scriptSlug =
+					request.kind === "activity"
+						? request.args.scriptSlug
+						: plugin.manifest.workflows.find(({ slug }) => slug === request.args.workflowSlug)
+								?.scriptSlug;
+				if (!scriptSlug) {
+					return null;
+				}
+				const contentHash = plugin.compiledHashes[scriptSlug];
+				if (!contentHash) {
+					return null;
+				}
+				const [target] = yield* dbEffect(() =>
+					db
+						.select({ id: schema.sandboxScript.id, metadata: schema.sandboxScript.metadata })
+						.from(schema.sandboxScript)
+						.where(
+							and(
+								eq(schema.sandboxScript.slug, scriptSlug),
+								eq(schema.sandboxScript.pluginSlug, ownerPluginSlug),
+								eq(schema.sandboxScript.contentHash, contentHash),
+							),
+						)
+						.limit(1),
+				);
+				if (!target || !isWorkflowCallTargetKind(request, target.metadata.kind)) {
+					return null;
+				}
+				return SandboxScriptId.make(target.id);
+			},
+		);
+
 		const getStoredScript = Effect.fn("SandboxRepository.getStoredScript")(function* (
 			scriptId: SandboxScriptId,
 		) {
@@ -88,6 +181,13 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			return rows.map(toStoredScript);
 		});
 
-		return { getScript, isPluginScript, getStoredScript, listStoredScripts };
+		return {
+			getScript,
+			getScriptPin,
+			isPluginScript,
+			getStoredScript,
+			listStoredScripts,
+			resolveWorkflowCallScript,
+		};
 	},
 }) {}
