@@ -45,8 +45,8 @@ describe("company and media-group association variants", () => {
 
 		const { client } = await createAuthenticatedClient();
 		const [companySchemaId, movieSchemaId] = await Promise.all([
-			getBuiltinEntitySchemaId("movie"),
 			getBuiltinEntitySchemaId("company"),
+			getBuiltinEntitySchemaId("movie"),
 		]);
 		const companyProvider = await seedBuiltinProviderScript({
 			client,
