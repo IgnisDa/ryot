@@ -16,6 +16,7 @@ const config = {
 	plugins: [
 		"expo-router",
 		"expo-image",
+		"expo-web-browser",
 		[
 			"expo-splash-screen",
 			{
