@@ -44,7 +44,6 @@ const normalizedPlugin = (pluginSlug: string): PluginRegistryEntry => {
 		ownerId: null,
 		sourceFiles: {},
 		slug: pluginSlug,
-		clientArtifact: null,
 		id: `${pluginSlug}-id`,
 		scope: "system" as const,
 		clientArtifactHash: null,

@@ -259,7 +259,6 @@ it.effect(
 		const plugin: NormalizedPlugin = {
 			sourceFiles: {},
 			clientArtifact: null,
-			clientArtifactHash: null,
 			sourceHash: "source-hash",
 			manifest: {
 				...manifest,
@@ -401,7 +400,6 @@ it.effect("persists provider operation bindings and search options separately", 
 	const normalized: NormalizedPlugin = {
 		sourceFiles: {},
 		clientArtifact: null,
-		clientArtifactHash: null,
 		sourceHash: "source-hash",
 		manifest: {
 			...manifest,

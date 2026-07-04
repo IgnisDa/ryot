@@ -84,6 +84,7 @@ These actions are not tasks in this plan. Implementors may read the legacy clien
 - Each plugin session has one runtime owning its `MessagePort`, `ready`/`active`/`closing`/`failed`/`disposed` state, single dispatcher, location state, query and operation pending calls, listeners, client, and disposal. Task 06 adds theme state to this runtime. All pending calls reject at most once during failure or disposal; kernel abort is best effort and cannot undo committed backend work.
 - Bootstrap validates artifact metadata before accepting one port and owns the bootstrap listener and React root/unmount coordinator; the runtime owns the session listener/dispatcher and client lifecycle, while `PluginHost` owns the iframe.
 - The server compiles client source during plugin installation and update. Package source hash and client artifact hash are separate identities.
+- Client artifact metadata is immutable and keyed by artifact hash; artifact files are immutable and keyed by artifact hash plus file name. A plugin row stores only its active artifact hash. Old artifacts are retained indefinitely, and this tracer adds no garbage collection.
 - The kernel reads installation and artifact metadata through an application-owned named RyotQL recipe with a colocated schema and decoder.
 - `ryot.data.query(recipe)` executes a recipe and decodes its result locally. It uses the existing user-scoped backend authorization and does not introduce a client-specific authorization bypass.
 - Plugin applications run in isolated iframes, receive no Ryot credentials, and communicate through a kernel-created `MessageChannel`.
@@ -104,7 +105,7 @@ This plan does not implement:
 - the complete client SDK or client UI SDK
 - durable plugin client storage
 - files, notifications, audio, haptics, screen, or Live Activity capabilities
-- artifact retention or garbage collection beyond what the active fixture path requires
+- artifact garbage collection or retention expiry
 - broad legacy-client feature parity
 - deletion or cleanup of `crates/**`
 
