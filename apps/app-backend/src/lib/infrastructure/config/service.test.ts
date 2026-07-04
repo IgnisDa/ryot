@@ -1,8 +1,9 @@
-import { Effect, Exit } from "effect";
-import { describe, expect, it } from "vitest";
+import { ConfigProvider, Effect, Exit, LogLevel } from "effect";
+import { assert, describe, expect, it } from "vitest";
 
 import type { AppConfigValue } from "#lib/infrastructure/config/service";
 import { AppConfig, validateSystemConfig } from "#lib/infrastructure/config/service";
+import { SystemConfigSource } from "#lib/infrastructure/config/system";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 type Overrides = Parameters<typeof makeAppConfigLayer>[0];
@@ -14,6 +15,42 @@ const validate = (overrides?: Overrides) =>
 			return yield* validateSystemConfig(config);
 		}).pipe(Effect.provide(makeAppConfigLayer(overrides))),
 	);
+
+const loadSystemConfig = (logLevel?: string) =>
+	Effect.runSyncExit(
+		SystemConfigSource.pipe(
+			Effect.withConfigProvider(
+				ConfigProvider.fromMap(
+					new Map([
+						["REDIS_URL", "unused"],
+						["DATABASE_URL", "unused"],
+						["SERVER_ADMIN_ACCESS_TOKEN", "unused"],
+						...(logLevel === undefined ? [] : [["LOG_LEVEL", logLevel] as const]),
+					]),
+				),
+			),
+		),
+	);
+
+describe("system log level config", () => {
+	it("defaults to info", () => {
+		const result = loadSystemConfig();
+		assert(Exit.isSuccess(result));
+		expect(result.value.server.logLevel).toBe(LogLevel.Info);
+	});
+
+	it("parses values case-insensitively", () => {
+		const result = loadSystemConfig("DeBuG");
+		assert(Exit.isSuccess(result));
+		expect(result.value.server.logLevel).toBe(LogLevel.Debug);
+	});
+
+	it("fails with a config error for unsupported values", () => {
+		const result = loadSystemConfig("verbose");
+		assert(Exit.isFailure(result));
+		expect(JSON.stringify(result.cause)).toContain("Unsupported LOG_LEVEL 'verbose'");
+	});
+});
 
 describe("validateSystemConfig workflow-pool inversion", () => {
 	it("passes with defaults (workerConcurrency 5, workflowPoolMax 10)", () => {
