@@ -78,7 +78,6 @@ const installation = {
 	isDisabled: false,
 	clientApiVersion: 1,
 	pluginId: "plugin-1",
-	clientCapabilities: [],
 	sourceHash: "source-hash",
 	installationId: "installation-1",
 	clientArtifactHash: "artifact-hash",
@@ -452,8 +451,8 @@ describe("plugin host", () => {
 		expect(screen.getByRole("alert").textContent).toBe("This plugin could not be prepared.");
 	});
 
-	it("reports an unsupported client api version", () => {
-		renderHost({ clientApiVersion: 2 });
+	it("reports missing client API version metadata", () => {
+		renderHost({ clientApiVersion: null });
 
 		expect(screen.getByRole("alert").textContent).toBe(
 			"This plugin needs a newer version of Ryot.",

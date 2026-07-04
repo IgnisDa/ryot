@@ -98,12 +98,6 @@ const pluginClientApiVersion: CatalogField = {
 	resolve: ({ sqlAlias }) => sql.raw(`(${sqlAlias}.manifest -> 'client' ->> 'apiVersion')::int`),
 };
 
-const pluginClientCapabilities: CatalogField = {
-	kind: "json",
-	nullable: true,
-	resolve: ({ sqlAlias }) => sql.raw(`${sqlAlias}.manifest -> 'client' -> 'capabilities'`),
-};
-
 const localizedEntityName: CatalogField = {
 	kind: "text",
 	nullable: false,
@@ -223,7 +217,6 @@ const plugin: CatalogTable = {
 		icon: pluginMetadataField("icon"),
 		name: pluginMetadataField("name"),
 		clientApiVersion: pluginClientApiVersion,
-		clientCapabilities: pluginClientCapabilities,
 		id: physicalField("id", "text", false),
 		slug: physicalField("slug", "text", false),
 		scope: physicalField("scope", "text", false),
