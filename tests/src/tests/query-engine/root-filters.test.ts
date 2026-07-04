@@ -4,7 +4,7 @@ import {
 	buildEntityRowsQueryDocument,
 	createAuthenticatedClient,
 	createQueryEngineEntity,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	literalExpr,
 	propertyRef,
@@ -34,7 +34,7 @@ const namesOf = (result: QueryEngineRowsResponse) =>
 const setupItems = () =>
 	Effect.gen(function* () {
 		const { client } = yield* createAuthenticatedClient();
-		const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+		const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 			schemaName: "RootFilterItem",
 			propertiesSchema: {
 				fields: {
@@ -253,15 +253,17 @@ describe("Query engine root property filters", () => {
 				const ratingSchema = {
 					fields: { rating: { type: "integer" as const, label: "Rating", description: "Rating" } },
 				};
-				const { schemaId: bookSchemaId, slug: bookSlug } = yield* createQueryEngineTrackerAndSchema(
+				const { schemaId: bookSchemaId, slug: bookSlug } = yield* createQueryEnginePluginSchema(
 					client,
 					{ schemaName: "MultiFilterBook", propertiesSchema: ratingSchema },
 				);
-				const { schemaId: movieSchemaId, slug: movieSlug } =
-					yield* createQueryEngineTrackerAndSchema(client, {
+				const { schemaId: movieSchemaId, slug: movieSlug } = yield* createQueryEnginePluginSchema(
+					client,
+					{
 						schemaName: "MultiFilterMovie",
 						propertiesSchema: ratingSchema,
-					});
+					},
+				);
 				yield* Effect.all([
 					createQueryEngineEntity(client, {
 						name: "HighBook",
@@ -326,7 +328,7 @@ describe("Query engine root property filters", () => {
 	it.live('orders text under COLLATE "C" (uppercase before lowercase, byte order)', () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "CollationItem",
 			});
 			yield* Effect.all(

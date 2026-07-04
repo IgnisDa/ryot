@@ -11,8 +11,8 @@ import {
 	createEventSchema,
 	createGlobalBookEntityFixture,
 	createRelationship,
-	createTrackerWithSchema,
-	createTrackerWithSchemaAndEntity,
+	createPluginSchema,
+	createPluginSchemaAndEntity,
 	executeQueryEngine,
 	getBackendClient,
 	listEventSchemas,
@@ -215,7 +215,7 @@ describe("POST /user-state/merge", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const entitySchemaSlug = `merge-schema-${crypto.randomUUID()}`;
 			const eventSchemaSlug = `merged-event-${crypto.randomUUID()}`;
-			const { schemaId } = yield* createTrackerWithSchema(client, { slug: entitySchemaSlug });
+			const { schemaId } = yield* createPluginSchema(client, { slug: entitySchemaSlug });
 			const eventSchema = yield* createEventSchema(client, {
 				name: "Merged Event",
 				slug: eventSchemaSlug,
@@ -304,8 +304,8 @@ describe("POST /user-state/merge", () => {
 	it.live("rejects merging entities across schemas", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const first = yield* createTrackerWithSchemaAndEntity(client);
-			const second = yield* createTrackerWithSchemaAndEntity(client);
+			const first = yield* createPluginSchemaAndEntity(client);
+			const second = yield* createPluginSchemaAndEntity(client);
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
