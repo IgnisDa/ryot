@@ -58,7 +58,9 @@ const makeAuthInstance = (args: {
 				.bootstrapNewUser(userId)
 				.pipe(
 					Effect.tapErrorCause((cause) =>
-						Effect.logError("[auth] session bootstrap rerun failed for user", userId, cause),
+						Effect.logError("session bootstrap rerun failed", cause).pipe(
+							Effect.annotateLogs({ userId }),
+						),
 					),
 				),
 		);
@@ -117,7 +119,9 @@ const makeAuthInstance = (args: {
 						);
 					}).pipe(
 						Effect.catchAllCause((cause) =>
-							Effect.logError("[auth] sendResetPassword failed", user.email, cause),
+							Effect.logError("reset password delivery failed", cause).pipe(
+								Effect.annotateLogs({ email: user.email }),
+							),
 						),
 					),
 				),
@@ -134,7 +138,9 @@ const makeAuthInstance = (args: {
 								.bootstrapNewUser(user.id)
 								.pipe(
 									Effect.catchAllCause((cause) =>
-										Effect.logError("[auth] bootstrapNewUser failed for user", user.id, cause),
+										Effect.logError("user bootstrap failed", cause).pipe(
+											Effect.annotateLogs({ userId: user.id }),
+										),
 									),
 								),
 						),
@@ -354,7 +360,9 @@ export const AuthMiddlewareLive = Layer.effect(
 
 		const resolveFromRequest = Effect.gen(function* () {
 			const request = yield* HttpServerRequest.HttpServerRequest;
-			return yield* auth.currentUser(new Headers(request.headers));
+			const user = yield* auth.currentUser(new Headers(request.headers));
+			yield* Effect.annotateLogsScoped({ userId: user.id });
+			return user;
 		});
 
 		const resolveWithToken = (token: Redacted.Redacted) =>
