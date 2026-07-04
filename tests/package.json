@@ -8,6 +8,7 @@
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.1032.0",
+		"@better-auth/api-key": "1.6.15",
 		"@effect/platform": "0.96.2",
 		"@effect/vitest": "0.29.0",
 		"@faker-js/faker": "10.4.0",
@@ -17,7 +18,7 @@
 		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@testcontainers/postgresql": "11.14.0",
-		"better-auth": "1.6.5",
+		"better-auth": "1.6.15",
 		"effect": "3.21.4",
 		"get-port": "7.2.0",
 		"oauth2-mock-server": "9.1.0",

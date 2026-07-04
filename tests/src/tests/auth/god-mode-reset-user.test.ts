@@ -6,15 +6,15 @@ import { Effect } from "effect";
 import {
 	ADMIN_TOKEN,
 	adminAccessTokenHeaders,
-	getBackendClient,
 	createAuthenticatedClient,
+	createApiKey,
 	createTestAuthClient,
 	createTestUser,
-	cookieHeaderFromSetCookies,
 	createTracker,
+	getBackendClient,
+	signInWithPassword,
 } from "~/fixtures";
-import { assertPresent, assertTaggedError, requireNonEmptyArray } from "~/support/assertions";
-import { getBackendUrl } from "~/support/backend";
+import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const WRONG_TOKEN = "wrong-token";
@@ -35,32 +35,6 @@ const getUserIdByEmail = (email: string) =>
 		const user = data.users[0];
 		assertPresent(user, "missing user row");
 		return UserId.make(user.id);
-	});
-
-const signInWithPassword = (email: string, password: string) =>
-	Effect.promise(() =>
-		fetch(`${getBackendUrl()}/auth/sign-in/email`, {
-			method: "POST",
-			body: JSON.stringify({ email, password }),
-			headers: { "Content-Type": "application/json" },
-		}),
-	);
-
-const createApiKey = (cookies: string) =>
-	Effect.gen(function* () {
-		const response = yield* Effect.promise(() =>
-			fetch(`${getBackendUrl()}/auth/api-key/create`, {
-				method: "POST",
-				body: JSON.stringify({ name: "E2E key" }),
-				headers: { Cookie: cookies, "Content-Type": "application/json" },
-			}),
-		);
-		if (!response.ok) {
-			const error = yield* Effect.promise(() => response.text());
-			throw new Error(`API key creation failed: ${error}`);
-		}
-		const data: { key: string } = yield* Effect.promise(() => response.json());
-		return data.key;
 	});
 
 const createNoAccountUser = (name: string) =>
@@ -181,14 +155,12 @@ describe("Reset user for credential user", () => {
 			expect(resetError).toBeNull();
 
 			const signInRes = yield* signInWithPassword(email, newPassword);
-			expect(signInRes.ok).toBe(true);
-			const newCookies = cookieHeaderFromSetCookies(
-				requireNonEmptyArray(signInRes.headers.getSetCookie(), "expected cookies after sign-in"),
-			);
+			expect(signInRes.error).toBeNull();
+			assertPresent(signInRes.cookies, "expected cookies after sign-in");
 
 			const trackers = yield* client.call(
 				(c) => c.trackers.list({ urlParams: { includeDisabled: true } }),
-				{ Cookie: newCookies },
+				{ Cookie: signInRes.cookies },
 			);
 			expect(trackers.some((t) => t.isBuiltin)).toBe(true);
 			expect(trackers.some((t) => t.id === tracker.id)).toBe(false);
@@ -221,7 +193,7 @@ describe("Reset user for no-account user", () => {
 			expect(resetError).toBeNull();
 
 			const signInRes = yield* signInWithPassword(email, newPassword);
-			expect(signInRes.ok).toBe(true);
+			expect(signInRes.error).toBeNull();
 
 			const listData = yield* client.call(
 				(c) => c.godMode.listUsers({ urlParams: godModeListQuery(email) }),

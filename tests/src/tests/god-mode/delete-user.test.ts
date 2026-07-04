@@ -6,6 +6,7 @@ import {
 	adminAccessTokenHeaders,
 	cleanupBuiltinProviderScript,
 	createAuthenticatedClient,
+	createApiKey,
 	createEntity,
 	createNotificationChannel,
 	createTracker,
@@ -27,27 +28,10 @@ import {
 	startFakeAppriseServerScoped,
 } from "~/fixtures";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
-import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";
 
 const WRONG_TOKEN = "wrong-token";
 const trackersListQuery = { includeDisabled: false };
-
-const createApiKey = (cookies: string) =>
-	Effect.gen(function* () {
-		const response = yield* Effect.promise(() =>
-			fetch(`${getBackendUrl()}/auth/api-key/create`, {
-				method: "POST",
-				body: JSON.stringify({ name: "Delete user e2e key" }),
-				headers: { Cookie: cookies, "Content-Type": "application/json" },
-			}),
-		);
-		if (!response.ok) {
-			throw new Error(`API key creation failed: ${yield* Effect.promise(() => response.text())}`);
-		}
-		const data: { key: string } = yield* Effect.promise(() => response.json());
-		return data.key;
-	});
 
 describe("Delete user admin token enforcement", () => {
 	it.live("rejects deletion without an admin token", () =>

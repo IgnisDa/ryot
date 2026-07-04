@@ -47,12 +47,12 @@ export async function stopMockOidcServer(mockOidcServer?: MockOidcServer) {
 	}
 }
 
-export async function oidcSignIn(
+export async function performOidcSignIn(
 	mockOidcServer: MockOidcServer,
 	username: string,
 	backendUrl: string,
 	claims?: Record<string, unknown>,
-): Promise<string> {
+): Promise<Response> {
 	const step1Response = await fetch(`${backendUrl}/auth/sign-in/oauth2`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
@@ -83,10 +83,19 @@ export async function oidcSignIn(
 	);
 
 	const cookieValue = stateCookie ?? "";
-	const step3Response = await fetch(callbackUrl, {
+	return fetch(callbackUrl, {
 		redirect: "manual",
 		headers: { Cookie: cookieValue },
 	});
+}
+
+export async function oidcSignIn(
+	mockOidcServer: MockOidcServer,
+	username: string,
+	backendUrl: string,
+	claims?: Record<string, unknown>,
+): Promise<string> {
+	const step3Response = await performOidcSignIn(mockOidcServer, username, backendUrl, claims);
 	const sessionCookieHeader = requirePresent(
 		step3Response.headers.get("set-cookie"),
 		`oidcSignIn step 3 failed: status=${step3Response.status}, location=${step3Response.headers.get("location")}, no set-cookie header`,

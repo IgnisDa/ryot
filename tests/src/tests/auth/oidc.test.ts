@@ -9,6 +9,7 @@ import {
 	createTestAuthClient,
 	makeSession,
 	oidcSignIn,
+	performOidcSignIn,
 	startMockOidcServer,
 	stopMockOidcServer,
 } from "~/fixtures";
@@ -298,44 +299,8 @@ describe("Registration gating for OIDC (Backend C)", () => {
 			const username = `user-${crypto.randomUUID()}`;
 			const backendUrl = getBackendUrlC();
 
-			const step1Response = yield* Effect.promise(() =>
-				fetch(`${backendUrl}/auth/sign-in/oauth2`, {
-					method: "POST",
-					redirect: "manual",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						providerId: "oidc",
-						callbackURL: `${new URL(backendUrl).origin}/`,
-					}),
-				}),
-			);
-			const step1Data: { url?: string } = yield* Effect.promise(() => step1Response.json());
-			const stateCookieHeader = requirePresent(
-				step1Response.headers.get("set-cookie"),
-				`Step 1 failed: url=${step1Data.url}, cookie=${step1Response.headers.get("set-cookie")}`,
-			);
-			const authorizeUrl = requirePresent(
-				step1Data.url,
-				`Step 1 failed: url=${step1Data.url}, cookie=${stateCookieHeader}`,
-			);
-			const [stateCookie] = stateCookieHeader.split(";");
-
-			requireMockOidcServer().setNextClaims({
-				sub: username,
-				name: username,
-				email: `${username}@example.com`,
-			});
-			const step2Response = yield* Effect.promise(() =>
-				fetch(authorizeUrl, { redirect: "manual" }),
-			);
-			const callbackUrl = requirePresent(
-				step2Response.headers.get("location"),
-				"Step 2 failed: no location header",
-			);
-
-			const cookieValue = stateCookie ?? "";
 			const step3Response = yield* Effect.promise(() =>
-				fetch(callbackUrl, { redirect: "manual", headers: { Cookie: cookieValue } }),
+				performOidcSignIn(requireMockOidcServer(), username, backendUrl),
 			);
 			const step3Location = step3Response.headers.get("location");
 			expect(step3Response.status).toBe(302);
