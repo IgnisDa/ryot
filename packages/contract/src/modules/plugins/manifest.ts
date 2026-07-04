@@ -1,3 +1,4 @@
+import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Result, Schema, SchemaGetter } from "effect";
 
 import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
@@ -6,12 +7,32 @@ import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 import { SavedViewCardMapping, SavedViewTableMapping } from "../saved-views/schemas";
 import { isSupportedUploadFileExtension } from "../uploads/upload-policy";
-import { PluginClientEntry } from "./client";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
 const strictParseOptions = {
 	parseOptions: { onExcessProperty: "error" },
 } satisfies Schema.Annotations.Filter;
+
+export const CLIENT_API_VERSION = 1 as const;
+
+const PluginClientSourceEntry = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((entry) =>
+			canonicalRelativePosixPathIssue(entry) === null &&
+			entry.startsWith("client/") &&
+			(entry.endsWith(".ts") || entry.endsWith(".tsx"))
+				? true
+				: "Expected a canonical client/**/*.ts or client/**/*.tsx entry",
+		),
+	),
+);
+
+export const PluginClientEntry = strictStruct({
+	entry: PluginClientSourceEntry,
+	apiVersion: Schema.Literal(CLIENT_API_VERSION),
+});
+
+export type PluginClientEntry = Schema.Schema.Type<typeof PluginClientEntry>;
 
 const hasDynamicChoices = (property: AppPropertyDefinition): boolean => {
 	if (

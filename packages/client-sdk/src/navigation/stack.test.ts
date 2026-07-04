@@ -1,12 +1,13 @@
-import {
-	PLUGIN_SCREEN_STACK_LIMIT,
-	type PluginLogicalLocation,
-	type PluginRouteLocation,
-} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginLogicalLocation, PluginRouteLocation } from "@ryot-app/client-plugin-contract";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { presentScreens, reconcileStack, type PluginScreen } from "./stack";
+import {
+	PLUGIN_SCREEN_STACK_LIMIT,
+	presentScreens,
+	reconcileStack,
+	type PluginScreen,
+} from "./stack";
 
 const Home = () => null;
 const Detail = () => null;

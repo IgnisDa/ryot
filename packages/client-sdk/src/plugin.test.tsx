@@ -6,7 +6,7 @@ import {
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeInit,
 	type PluginRouteLocation,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
 import { useEffect, useState } from "react";

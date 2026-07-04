@@ -3,7 +3,7 @@ import {
 	CLIENT_API_VERSION,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	pluginClientFileExtension,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";

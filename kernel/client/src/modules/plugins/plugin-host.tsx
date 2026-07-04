@@ -1,8 +1,4 @@
-import { Button, ScreenFrame } from "@ryot-app/client-ui-sdk";
-import {
-	CLIENT_API_VERSION,
-	PLUGIN_BACK_SETTLE_MS,
-} from "@ryot-app/contract/modules/plugins/client";
+import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import type {
 	PluginAssetOutcome,
 	PluginAssetRequest,
@@ -10,7 +6,8 @@ import type {
 	PluginOperationRequest,
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
+import { Button, ScreenFrame } from "@ryot-app/client-ui-sdk";
 import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import clsx from "clsx";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
@@ -31,6 +28,7 @@ import type { ThemeStore } from "#/modules/theme/store";
 
 const ARTIFACT_SESSION_RENEWAL_LEAD_MS = 5 * 60_000;
 const ARTIFACT_SESSION_RETRY_MS = 30_000;
+const PLUGIN_BACK_SETTLE_MS = 500;
 
 export type PluginArtifactSession = {
 	readonly src: string;

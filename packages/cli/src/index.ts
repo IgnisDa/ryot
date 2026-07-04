@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { pluginClientFileExtension } from "@ryot-app/contract/modules/plugins/client";
+import { pluginClientFileExtension } from "@ryot-app/client-plugin-contract";
 import {
 	AuthoredPluginManifest as AuthoredPluginManifestSchema,
 	PluginManifest as PluginManifestSchema,

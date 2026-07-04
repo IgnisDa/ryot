@@ -1,6 +1,6 @@
 # Plugin Archive Package
 
-- Archives contain `manifest.json` first, then `backend/**` and canonically supported `client/**` files sorted by JavaScript code units. Import the client file policy from `@ryot-app/contract/modules/plugins/client`; do not duplicate it here.
+- Archives contain `manifest.json` first, then `backend/**` and canonically supported `client/**` files sorted by JavaScript code units. Import the client file policy from `@ryot-app/client-plugin-contract`; do not duplicate it here.
 - Encode the manifest as tab-indented JSON with one trailing newline and preserve every file's exact bytes.
 - Require fatal UTF-8 validation for `backend/**` and client text sources. Do not decode client assets, including SVG.
 - Keep archive output deterministic: ZIP epoch mtime, OS 0, and deflate level 6.

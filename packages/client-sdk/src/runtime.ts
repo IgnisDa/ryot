@@ -16,7 +16,7 @@ import {
 	type PluginClientArtifactMetadata,
 	type PluginThemeSnapshot,
 	type RyotClientErrorReason,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";

@@ -1,6 +1,6 @@
+import type { PluginThemeSnapshot } from "@ryot-app/client-plugin-contract";
 import { createRyotClient } from "@ryot-app/client-sdk";
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
-import type { PluginThemeSnapshot } from "@ryot-app/contract/modules/plugins/client";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 

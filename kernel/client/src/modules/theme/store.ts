@@ -1,4 +1,4 @@
-import type { PluginThemeSnapshot } from "@ryot-app/contract/modules/plugins/client";
+import type { PluginThemeSnapshot } from "@ryot-app/client-plugin-contract";
 
 import {
 	applyThemePreference,

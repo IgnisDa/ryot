@@ -4,7 +4,7 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { sql, type SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
