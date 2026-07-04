@@ -782,6 +782,14 @@ scroll listener in both documents. The frame creates no scroll container; it sti
 its caller owns, which is the plugin's per-screen scroll div here and the route's `<main>` in the
 kernel.
 
+The frame emits `hero` inside its own positioned zero-height block above the padded content column,
+and positions that column too. Hero art is absolutely positioned, so this gives it a containing box
+that spans the frame's full width and starts at the top of the scroll content: it bleeds past the
+column padding without negative margins, and the content paints over it instead of under it. Without
+the wrapper the art resolves against whatever ancestor happens to be positioned — the plugin's scroll
+div — where negative margins overflow it horizontally and, being positioned, it hides every static
+part of the page below it.
+
 ### Current data, operations, and assets API
 
 The client starts with data, operations, assets, and navigation categories. An explicit client value is shown as `ryot` here:
