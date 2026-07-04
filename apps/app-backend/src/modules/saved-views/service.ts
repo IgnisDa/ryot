@@ -1,8 +1,6 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import { DbError, badRequest, conflict, notFound } from "@ryot/contract/errors";
 import type { BadRequest, Conflict } from "@ryot/contract/errors";
-import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
@@ -11,7 +9,7 @@ import type {
 } from "@ryot/contract/modules/saved-views/schemas";
 import type { TrackerId, UserId } from "@ryot/contract/schema/brands";
 import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { buildReorderedIds } from "#lib/shared/reorder";
@@ -27,8 +25,6 @@ import { SavedViewsRepository } from "./repository";
 const savedViewNotFound = "Saved view not found";
 const builtinViewMutationMessage = "Cannot modify built-in saved views";
 const savedViewDuplicateMessage = "A saved view with this name already exists";
-const queryDocumentEquals = Schema.equivalence(QueryDocument);
-const displayConfigurationEquals = Schema.equivalence(DisplayConfiguration);
 
 const mapDefaultSavedViewCreateError = (
 	error: BadRequest | Conflict | DbError,
@@ -91,8 +87,8 @@ const ensureBuiltinUpdateIsAllowed = (
 		payload.icon !== currentView.icon ||
 		(payload.trackerId ?? null) !== currentView.trackerId ||
 		payload.accentColor !== currentView.accentColor ||
-		!queryDocumentEquals(payload.queryDocument, currentView.queryDocument) ||
-		!displayConfigurationEquals(payload.displayConfiguration, currentView.displayConfiguration);
+		!Bun.deepEquals(payload.queryDocument, currentView.queryDocument) ||
+		!Bun.deepEquals(payload.displayConfiguration, currentView.displayConfiguration);
 
 	if (attemptsMutation) {
 		return badRequest(builtinViewMutationMessage);
