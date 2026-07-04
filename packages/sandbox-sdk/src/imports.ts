@@ -10,7 +10,7 @@ import {
 	SANDBOX_SDK_ROOT_IMPORT,
 	SANDBOX_SDK_WORKFLOW_IMPORT,
 } from "./runtime-registry";
-import { jsonValueSchema } from "./wire";
+import { jsonValueSchema, strictStruct } from "./wire";
 
 export * from "./runtime-registry";
 
@@ -27,9 +27,6 @@ export const SANDBOX_SDK_IMPORTS = [
 	PLUGIN_KIT_SCHEMA_IMPORT,
 	...SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS,
 ] as const;
-
-const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
-	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 const importRecordSchema = Schema.Record(Schema.String, jsonValueSchema);
 
