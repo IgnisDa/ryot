@@ -9,7 +9,7 @@ import {
 import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { UserId } from "@ryot/contract/schema/brands";
-import { buildEntityDetailQueryDocument } from "@ryot/query-engine";
+import { buildEntityDetailQueryDocument } from "@ryot/query-engine/recipes/app";
 import { generateId } from "better-auth";
 import { DateTime, Effect, Schema } from "effect";
 

@@ -3,7 +3,7 @@ import {
 	buildQueryEngineEventRowsDocument,
 	queryEngineEntitySource,
 	queryEngineFields,
-} from "./documents";
+} from "../documents";
 import {
 	queryEngineAnd,
 	queryEngineComparison,
@@ -17,7 +17,7 @@ import {
 	queryEngineSchemaRef,
 	queryEngineSystemRef,
 	type QueryEngineNonEmptyArray,
-} from "./primitives";
+} from "../primitives";
 
 const entityAlias = "entity";
 const eventAlias = "event";

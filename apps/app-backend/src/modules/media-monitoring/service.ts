@@ -2,7 +2,7 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { notFound } from "@ryot/contract/errors";
 import type { IncludedRowsValue, RowValue } from "@ryot/contract/modules/query-engine/language";
 import { EntityId } from "@ryot/contract/schema/brands";
-import { buildMediaMonitoringStatusQueryDocument } from "@ryot/query-engine";
+import { buildMediaMonitoringStatusQueryDocument } from "@ryot/query-engine/recipes/media";
 import { Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
