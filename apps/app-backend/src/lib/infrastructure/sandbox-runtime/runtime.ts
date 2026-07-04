@@ -1,5 +1,6 @@
 import type { CommandExecutor } from "@effect/platform";
-import { Command, FileSystem } from "@effect/platform";
+import { Command, FileSystem, HttpApp, HttpServer } from "@effect/platform";
+import { BunHttpServer } from "@effect/platform-bun";
 import type { PlatformError } from "@effect/platform/Error";
 import { badRequest, internalError, unknownToMessage } from "@ryot/contract/errors";
 import { Clock, Effect, Pool, Queue, Runtime, Schema, Stream } from "effect";
@@ -288,20 +289,25 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 			),
 		);
 
-		const server = Bun.serve({
+		const server = yield* BunHttpServer.make({
 			port: 0,
 			hostname: "127.0.0.1",
-			fetch: (request) => Runtime.runPromise(runtime)(handleRequest(request)),
 		});
+		yield* HttpServer.serveEffect(
+			HttpApp.fromWebHandler((request) => Runtime.runPromise(runtime)(handleRequest(request))),
+		).pipe(Effect.provideService(HttpServer.HttpServer, server));
+		const address = server.address;
+		if (address._tag === "UnixAddress") {
+			return yield* Effect.die("Sandbox bridge unexpectedly bound to a Unix socket");
+		}
 
 		yield* Effect.addFinalizer(() =>
 			Effect.forEach(Array.from(activeSessions.keys()), removeSession, { discard: true }).pipe(
-				Effect.zipRight(Effect.promise(() => server.stop(true))),
 				Effect.orDie,
 			),
 		);
 
-		return { addSession, removeSession, port: server.port ?? 0 };
+		return { addSession, removeSession, port: address.port };
 	}),
 }) {}
 

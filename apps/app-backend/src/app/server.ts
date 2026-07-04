@@ -4,6 +4,7 @@ import {
 	HttpApiScalar,
 	HttpApp,
 	HttpMiddleware,
+	HttpServer,
 } from "@effect/platform";
 import type { HttpApiError } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
@@ -149,9 +150,9 @@ export const ServerLive = Layer.scopedDiscard(
 			return new Response(bytes, { headers: { "Content-Type": mimeType(target) } });
 		});
 
-		const server = Bun.serve({
-			port: config.port,
-			fetch: (request) => {
+		const server = yield* BunHttpServer.make({ port: config.port });
+		yield* HttpServer.serveEffect(
+			HttpApp.fromWebHandler((request) => {
 				const url = new URL(request.url);
 				if (url.pathname.startsWith("/api/auth/")) {
 					return auth.auth.handler(request);
@@ -165,14 +166,11 @@ export const ServerLive = Layer.scopedDiscard(
 					return handler(new Request(url.toString(), request));
 				}
 				return runPromise(serveStatic(url.pathname));
-			},
-		});
+			}),
+		).pipe(Effect.provideService(HttpServer.HttpServer, server));
 
 		yield* Effect.logInfo("app backend listening").pipe(
-			Effect.annotateLogs({ url: String(server.url) }),
-		);
-		yield* Effect.addFinalizer(() =>
-			Effect.promise(() => Promise.resolve(server.stop(true))).pipe(Effect.orDie),
+			Effect.annotateLogs({ url: HttpServer.formatAddress(server.address) }),
 		);
 		return yield* Effect.never;
 	}),
