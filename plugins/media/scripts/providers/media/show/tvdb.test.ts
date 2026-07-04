@@ -74,6 +74,7 @@ describe("show.tvdb sandbox script", () => {
 					data: {
 						slug: "my-show",
 						name: "My Show",
+						status: { id: 2, name: "Ended", recordType: "series" },
 						seasons: [
 							{ id: 101, number: 1 },
 							{ id: 999, number: 1 },
@@ -231,11 +232,12 @@ describe("show.tvdb sandbox script", () => {
 					expect(result.properties).toEqual({
 						genres: [],
 						images: [],
-						publishYear: null,
-						description: null,
 						totalSeasons: 3,
 						totalEpisodes: 3,
+						publishYear: null,
+						description: null,
 						unlinkedCreators: [],
+						productionStatus: "Ended",
 						sourceUrl: "https://thetvdb.com/series/my-show",
 					});
 					return undefined;
@@ -276,12 +278,13 @@ describe("show.tvdb sandbox script", () => {
 					expect(result.properties).toEqual({
 						genres: [],
 						images: [],
-						publishYear: 2015,
 						totalSeasons: 0,
 						totalEpisodes: 0,
+						publishYear: 2015,
+						productionStatus: null,
 						description: "Localized Desc",
-						unlinkedCreators: [{ name: "Bob", role: "Writer" }],
 						sourceUrl: "https://thetvdb.com/series/123",
+						unlinkedCreators: [{ name: "Bob", role: "Writer" }],
 					});
 					expect(result.relatedEntityGroups).toEqual([
 						{
@@ -303,8 +306,8 @@ describe("show.tvdb sandbox script", () => {
 							relationshipSchemaSlug: "company-to-show",
 							entities: [
 								{
-									name: "Studio X",
 									externalId: "7",
+									name: "Studio X",
 									providerSlug: "company.tvdb",
 									relationshipProperties: { roles: ["Studio", "Network"] },
 								},
@@ -380,10 +383,7 @@ describe("show.tvdb sandbox script", () => {
 				)
 				.pipe(
 					Effect.map(() => {
-						expect(requested).toContainEqual({
-							method: "GET",
-							path: "/v4/episodes/777/extended",
-						});
+						expect(requested).toContainEqual({ method: "GET", path: "/v4/episodes/777/extended" });
 						expect(requested).toContainEqual({
 							method: "GET",
 							path: "/v4/episodes/777/translations/eng",
@@ -400,8 +400,8 @@ describe("show.tvdb sandbox script", () => {
 				runSandboxTestScript(
 					translate,
 					{
-						externalId: "1",
 						language: "en",
+						externalId: "1",
 						entitySchemaSlug: "person",
 						properties: { parentShowExternalId: "10" },
 					},
@@ -414,11 +414,11 @@ describe("show.tvdb sandbox script", () => {
 	it("maps search results with name-to-title fallback and pagination", () => {
 		const host = makeHost(() =>
 			httpSuccess({
+				links: { next: "https://api4.thetvdb.com/v4/search?offset=20" },
 				data: [
 					{ tvdb_id: "42", name: "Found Show", poster: "p.jpg" },
 					{ tvdb_id: "43", title: "Title Only" },
 				],
-				links: { next: "https://api4.thetvdb.com/v4/search?offset=20" },
 			}),
 		);
 		return Effect.runPromise(
@@ -427,19 +427,19 @@ describe("show.tvdb sandbox script", () => {
 					expect(result.items).toEqual([
 						{
 							externalId: "42",
-							titleProperty: { kind: "text", value: "Found Show" },
 							calloutProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "Found Show" },
 							primarySubtitleProperty: { kind: "null", value: null },
 							secondarySubtitleProperty: { kind: "null", value: null },
 							imageProperty: { kind: "image", value: { type: "remote", url: "p.jpg" } },
 						},
 						{
 							externalId: "43",
-							titleProperty: { kind: "text", value: "Title Only" },
+							imageProperty: { kind: "null", value: null },
 							calloutProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "Title Only" },
 							primarySubtitleProperty: { kind: "null", value: null },
 							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: { kind: "null", value: null },
 						},
 					]);
 					expect(result.details).toEqual({ totalItems: 2, nextPage: 2 });
