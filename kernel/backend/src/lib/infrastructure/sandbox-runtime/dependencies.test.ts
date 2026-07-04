@@ -67,7 +67,7 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 					.filter(([, file]) => file === "./effect-4.0.0-beta.107.mjs")
 					.map(([specifier]) => specifier)
 					.sort(),
-			).toEqual(["@ryot-app/sandbox-sdk/effect", "effect"]);
+			).toEqual(["@ryot-app/plugin-kit/effect", "@ryot-app/sandbox-sdk/effect", "effect"]);
 
 			const directory = yield* fs.stat(runtime.directory);
 			const importMapInfo = yield* fs.stat(runtime.importMapPath);

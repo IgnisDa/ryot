@@ -60,6 +60,7 @@
         "@effect/platform-bun": "4.0.0-beta.107",
         "@ryot-app/client-plugin-compiler": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
+        "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/sandbox-compiler": "workspace:*",
         "@ryot-app/sandbox-sdk": "workspace:*",
         "@ryot-app/v10-rust-migration": "workspace:*",
@@ -192,6 +193,7 @@
         "@ryot-app/config": "workspace:*",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/plugin-archive": "workspace:*",
+        "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
         "@ryot-app/sandbox-compiler": "workspace:*",
         "@ryot-app/sandbox-sdk": "workspace:*",
@@ -321,6 +323,7 @@
         "@ryot-app/client-sdk": "workspace:*",
         "@ryot-app/client-ui-sdk": "workspace:*",
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "@ryot-app/typescript-compiler": "workspace:*",
         "@tailwindcss/oxide": "^4.1.18",
@@ -452,6 +455,9 @@
     "packages/plugin-kit": {
       "name": "@ryot-app/plugin-kit",
       "dependencies": {
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/ryotql-recipes": "workspace:*",
         "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
@@ -490,6 +496,7 @@
       "name": "@ryot-app/sandbox-compiler",
       "dependencies": {
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/sandbox-sdk": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
         "@ryot-app/typescript-compiler": "workspace:*",

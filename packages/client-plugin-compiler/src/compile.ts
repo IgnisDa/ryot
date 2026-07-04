@@ -7,6 +7,7 @@ import {
 	isPluginClientTextSource,
 	pluginClientAssetMimeType,
 } from "@ryot-app/client-plugin-contract";
+import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
@@ -28,7 +29,11 @@ import { checkClientPluginTypes } from "./semantic-check";
 import { compileClientStyles } from "./styles";
 
 const CLIENT_SOURCE_ROOT = "client/";
+const SHARED_SOURCE_ROOT = "shared/";
 const SCANNED_EXTENSIONS = new Set(["ts", "tsx"]);
+
+const isCompiledTextSource = (path: string) =>
+	path.startsWith(SHARED_SOURCE_ROOT) ? isPluginSharedSource(path) : isPluginClientTextSource(path);
 
 export type ClientPluginCompilerInput = {
 	readonly name: string;
@@ -74,11 +79,17 @@ export const compileClientPlugin = ({
 			);
 		}
 
-		const clientFiles = sortBy(
-			Object.entries(files).filter(([path]) => path.startsWith(CLIENT_SOURCE_ROOT)),
+		const compiledFiles = sortBy(
+			Object.entries(files).filter(
+				([path]) => path.startsWith(CLIENT_SOURCE_ROOT) || path.startsWith(SHARED_SOURCE_ROOT),
+			),
 			([path]) => path,
 		);
-		const sourceBytes = clientFiles.reduce((total, [, contents]) => total + contents.byteLength, 0);
+		const clientFiles = compiledFiles.filter(([path]) => path.startsWith(CLIENT_SOURCE_ROOT));
+		const sourceBytes = compiledFiles.reduce(
+			(total, [, contents]) => total + contents.byteLength,
+			0,
+		);
 		if (sourceBytes > CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes) {
 			return yield* failure(
 				entry,
@@ -103,8 +114,8 @@ export const compileClientPlugin = ({
 
 		const sourceFiles: Record<string, string> = {};
 		const decoder = new TextDecoder("utf-8", { fatal: true });
-		for (const [path, contents] of clientFiles) {
-			if (!isPluginClientTextSource(path)) {
+		for (const [path, contents] of compiledFiles) {
+			if (!isCompiledTextSource(path)) {
 				continue;
 			}
 			try {

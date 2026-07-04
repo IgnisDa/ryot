@@ -1,4 +1,6 @@
 import {
+	PLUGIN_KIT_EFFECT_IMPORT,
+	PLUGIN_KIT_RYOTQL_IMPORT,
 	SANDBOX_RUNTIME_SDK_IMPORTS,
 	SANDBOX_SDK_ROOT_IMPORT,
 } from "@ryot-app/sandbox-sdk/imports";
@@ -12,6 +14,7 @@ class SandboxRuntimeDependencyError extends Data.TaggedError("SandboxRuntimeDepe
 const SANDBOX_RUNTIME_DEPENDENCY_FORMAT = 1 as const;
 
 const EFFECT_RUNTIME_FILE = "effect-4.0.0-beta.107.mjs";
+const RYOTQL_RUNTIME_FILE = "ryotql-workspace.mjs";
 
 export const SANDBOX_APPROVED_DEPENDENCIES = [
 	{
@@ -53,7 +56,7 @@ export const SANDBOX_APPROVED_DEPENDENCIES = [
 	{
 		name: "ryotql",
 		version: "workspace",
-		runtimeFile: "ryotql-workspace.mjs",
+		runtimeFile: RYOTQL_RUNTIME_FILE,
 		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[6],
 	},
 ] as const;
@@ -103,6 +106,8 @@ const runtimeImportMap = {
 			runtimeModules.map(({ runtimeFile, sdkImport }) => [sdkImport, `./${runtimeFile}`]),
 		),
 		effect: `./${EFFECT_RUNTIME_FILE}`,
+		[PLUGIN_KIT_EFFECT_IMPORT]: `./${EFFECT_RUNTIME_FILE}`,
+		[PLUGIN_KIT_RYOTQL_IMPORT]: `./${RYOTQL_RUNTIME_FILE}`,
 	},
 };
 

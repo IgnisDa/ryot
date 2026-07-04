@@ -14,6 +14,7 @@ import {
 import { extractSandboxManifest } from "./compiler-manifest";
 import {
 	createTypeScriptSourcesProjectForEntries,
+	sandboxSourcePath,
 	type SandboxTypeScriptSources,
 } from "./compiler-project";
 import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
@@ -201,7 +202,7 @@ export const compileSandboxPackageEntries = (
 		return yield* Effect.forEach(inspectedEntries, ({ entry, source, sourceFile, inspection }) => {
 			const moduleDiagnostics = project.sourceFiles
 				.filter((file) => file !== sourceFile)
-				.flatMap(inspectSandboxModuleImports);
+				.flatMap((file) => inspectSandboxModuleImports(file, sandboxSourcePath(file.fileName)));
 			if (moduleDiagnostics.length > 0) {
 				return sandboxCompilationFailure(moduleDiagnostics);
 			}
