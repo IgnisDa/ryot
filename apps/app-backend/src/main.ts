@@ -1,4 +1,5 @@
-import { BunFileSystem, BunRuntime } from "@effect/platform-bun";
+import { Path } from "@effect/platform";
+import { BunContext, BunRuntime } from "@effect/platform-bun";
 import { Effect, Layer } from "effect";
 
 import { AppLive, MigrationOnlyLive, SandboxCacheOnlyLive } from "./app/layers";
@@ -29,12 +30,13 @@ if (Bun.env["POPULATE_SANDBOX_CACHE_ONLY"] === "true") {
 
 if (Bun.env.NODE_ENV !== "production") {
 	await Effect.runPromise(
-		generateConfigDocs(
-			[appConfigMeta],
-			Bun.fileURLToPath(
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const outputPath = yield* path.fromFileUrl(
 				new URL("../../../apps/docs/src/includes/app-backend-config-schema.md", import.meta.url),
-			),
-		).pipe(Effect.provide(BunFileSystem.layer)),
+			);
+			yield* generateConfigDocs([appConfigMeta], outputPath);
+		}).pipe(Effect.provide(BunContext.layer)),
 	);
 }
 
