@@ -5,6 +5,14 @@ import { Schema } from "effect";
 import { definePlugin, PluginManifest } from "./manifest";
 
 const manifest = definePlugin({
+	crons: [
+		{
+			slug: "refresh.test",
+			schedule: "0 * * * *",
+			driverRef: "automation.test",
+			description: "Refresh test data",
+		},
+	],
 	savedViews: [],
 	entitySchemas: [],
 	signalSchemas: [
@@ -49,25 +57,27 @@ describe("definePlugin", () => {
 	it("preserves manifest literals", () => {
 		const slug: "test" = manifest.metadata.slug;
 		const scriptKind: "automation" = manifest.scripts[0].kind;
+		const driverRef: "automation.test" = manifest.crons[0].driverRef;
 
 		expect(slug).toBe("test");
+		expect(driverRef).toBe("automation.test");
 		expect(scriptKind).toBe("automation");
 	});
 
-	it("contains only the v1 manifest sections", () => {
+	it("contains only the supported manifest sections", () => {
 		type HasCapabilities = "capabilities" extends keyof PluginManifest ? true : false;
 		type HasCrons = "crons" extends keyof PluginManifest ? true : false;
 		type HasOperations = "operations" extends keyof PluginManifest ? true : false;
 		type HasWorkflows = "workflows" extends keyof PluginManifest ? true : false;
 
-		const phaseThreeSections: [HasCapabilities, HasCrons, HasOperations, HasWorkflows] = [
+		const optionalSections: [HasCapabilities, HasCrons, HasOperations, HasWorkflows] = [
 			false,
-			false,
+			true,
 			false,
 			false,
 		];
 
-		expect(phaseThreeSections).toEqual([false, false, false, false]);
+		expect(optionalSections).toEqual([false, true, false, false]);
 	});
 
 	it("decodes the manifest with the canonical Effect schema", () => {
@@ -107,6 +117,40 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				scripts: [{ ...manifest.scripts[0], requiredAppConfigKeys: [""] }],
+			}),
+		).toThrow();
+	});
+
+	it("strictly validates cron declarations", () => {
+		const cron = manifest.crons[0];
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				crons: [{ ...cron, slug: "Invalid/Slug" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				crons: [{ ...cron, schedule: "" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				crons: [{ ...cron, driverRef: "Invalid/Slug" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				crons: [{ ...cron, description: " " }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				crons: [{ ...cron, timezone: "UTC" }],
 			}),
 		).toThrow();
 	});

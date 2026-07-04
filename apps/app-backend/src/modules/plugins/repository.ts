@@ -30,13 +30,16 @@ const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArr
 		const { entry, ...metadata } = script;
 		currentScripts.push({
 			entry,
-			metadata,
 			contentHash,
 			slug: stored.slug,
 			name: stored.name,
 			source: stored.source,
 			compiledCode: stored.compiledCode,
 			compiledFormat: stored.compiledFormat,
+			metadata: {
+				...metadata,
+				...(stored.metadata.driverNames ? { driverNames: stored.metadata.driverNames } : {}),
+			},
 		});
 	}
 	return {

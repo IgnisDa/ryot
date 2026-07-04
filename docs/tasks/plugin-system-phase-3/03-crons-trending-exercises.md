@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -41,15 +41,15 @@ pointer for the full spec.
 
 Derived from the plan §1 done criteria and cross-phase invariants:
 
-- [ ] `crons` manifest section exists and is documented in `libs/plugin-kit`; the scheduler
+- [x] `crons` manifest section exists and is documented in `libs/plugin-kit`; the scheduler
       dispatches due crons as sandbox executions of the referenced driver
-- [ ] `upsertGlobalEntities` / `upsertGlobalRelationships` host functions exist, are batch +
+- [x] `upsertGlobalEntities` / `upsertGlobalRelationships` host functions exist, are batch +
       coarse-atomic with preserve-existing semantics, are capability-gated, and follow the
       standing rules and contract pattern
-- [ ] `modules/media-trending` and `modules/exercises` are deleted (with any contract surface)
-- [ ] Exercises + trending e2e coverage is re-pointed with assertions preserved (using the
+- [x] `modules/media-trending` and `modules/exercises` are deleted (with any contract surface)
+- [x] Exercises + trending e2e coverage is re-pointed with assertions preserved (using the
       existing `triggerInfrequentCron` cron-trigger fixture)
-- [ ] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
+- [x] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
       `app-client` check all pass (cross-phase invariant 1)
 
 ## User stories addressed

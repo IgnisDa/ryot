@@ -52,6 +52,8 @@ const makeStatefulHost = (
 	let httpCallCount = 0;
 
 	const host: ExerciseHost = defineSandboxTestHost(manifest, {
+		getAppConfigValue: () => Effect.die("Unexpected app config access"),
+		upsertGlobalEntities: () => Effect.die("Unexpected global entity upsert"),
 		httpCall: () => {
 			httpCallCount += 1;
 			return httpSuccess(httpBody);

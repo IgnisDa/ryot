@@ -29,17 +29,17 @@ and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 2 of 9 tasks completed
+**Overall Progress:** 3 of 9 tasks completed
 
-**Current Task:** [Task 03](./03-crons-trending-exercises.md) (todo)
+**Current Task:** [Task 04](./04-operations-invoke-lookup-resolver.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                        | Type | Status |
 | --- | ----------------------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Step 0a — Effect-Native Sandbox Cutover](./01-effect-native-sandbox-cutover.md)                           | AFK  | done   |
-| 02  | [Step 0b — Structured Sandbox Observability](./02-structured-sandbox-observability.md)                     | AFK  | done   |
-| 03  | [Step 1 — Crons: media-trending + exercises](./03-crons-trending-exercises.md)                              | AFK  | todo   |
+| 01  | [Step 0a — Effect-Native Sandbox Cutover](./01-effect-native-sandbox-cutover.md)                            | AFK  | done   |
+| 02  | [Step 0b — Structured Sandbox Observability](./02-structured-sandbox-observability.md)                      | AFK  | done   |
+| 03  | [Step 1 — Crons: media-trending + exercises](./03-crons-trending-exercises.md)                              | AFK  | done   |
 | 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md) | AFK  | todo   |
 | 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                          | HITL | todo   |
 | 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)   | AFK  | todo   |
@@ -164,7 +164,7 @@ description }`) whose schedule format is whatever the existing scheduler consume
 ### Step 2 — operations (invoke): `metadata-lookup` + `episode-resolver`
 
 11. As the owner, I want an `operations` manifest section (`{ slug, driverRef, inputSchema,
-    outputSchema, auth }`, `auth` = authenticated-user vs admin, schemas in the SDK's Effect
+outputSchema, auth }`, `auth` = authenticated-user vs admin, schemas in the SDK's Effect
     Schema contract style), so that a plugin declares named callable operations (plan §2).
 12. As an API client, I want a single generic `plugins.invoke(pluginSlug, operationSlug,
 payload)` contract endpoint that validates against the declared schemas, dispatches to the
