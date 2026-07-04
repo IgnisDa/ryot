@@ -1,12 +1,12 @@
 import { Context, Effect, Layer } from "effect";
 
-import type { ServerOrigin } from "../../api/origin";
-import { ClientStorage } from "../../persistence/storage";
-import { AuthClient, type SettledAuthSession } from "./client";
-import type { AuthMode } from "./flow";
-import { availableTwoFactorMethods, isTwoFactorRedirect } from "./flow";
-import { registrationName, type CredentialsValues } from "./form-values";
-import type { AuthSessionState } from "./route-gates";
+import type { ServerOrigin } from "#/api/origin";
+import { AuthClient, type SettledAuthSession } from "#/modules/auth/client";
+import type { AuthMode } from "#/modules/auth/flow";
+import { availableTwoFactorMethods, isTwoFactorRedirect } from "#/modules/auth/flow";
+import { registrationName, type CredentialsValues } from "#/modules/auth/form-values";
+import type { AuthSessionState } from "#/modules/auth/route-gates";
+import { ClientStorage } from "#/persistence/storage";
 
 export const toAuthSessionState = (session: SettledAuthSession): AuthSessionState =>
 	session.status === "authenticated"

@@ -4,9 +4,9 @@ import type {
 } from "@ryot/contract/modules/plugins/client";
 import { Context, Effect, Layer } from "effect";
 
-import { AuthenticatedApi } from "../../api/authenticated";
-import { classifyRyotQLFailure } from "../../api/ryotql";
-import type { ApiScope } from "../../api/scope";
+import { AuthenticatedApi } from "#/api/authenticated";
+import { classifyRyotQLFailure } from "#/api/ryotql";
+import type { ApiScope } from "#/api/scope";
 
 export class PluginQueriesService extends Context.Service<PluginQueriesService>()(
 	"PluginQueriesService",

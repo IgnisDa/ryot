@@ -1,12 +1,12 @@
 import { redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 
-import type { ServerOrigin } from "../../api/origin";
-import { canonicalApiScope, type ApiScope } from "../../api/scope";
-import type { ClientRuntime } from "../../runtime";
-import { sanitizeRedirect, type SafeRedirect } from "../server/redirect";
-import { ServerService } from "../server/service";
-import { AuthService, toAuthSessionState } from "./service";
+import type { ServerOrigin } from "#/api/origin";
+import { canonicalApiScope, type ApiScope } from "#/api/scope";
+import { AuthService, toAuthSessionState } from "#/modules/auth/service";
+import { sanitizeRedirect, type SafeRedirect } from "#/modules/server/redirect";
+import { ServerService } from "#/modules/server/service";
+import type { ClientRuntime } from "#/runtime";
 
 export type AuthSessionState =
 	| { readonly status: "pending" }

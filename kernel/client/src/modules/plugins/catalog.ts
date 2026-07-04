@@ -6,8 +6,8 @@ import {
 import { Context, Data, Effect, Layer } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
-import type { KernelRyotClient } from "../../api/ryot-client";
-import type { ClientRuntime } from "../../runtime";
+import type { KernelRyotClient } from "#/api/ryot-client";
+import type { ClientRuntime } from "#/runtime";
 
 export class PluginCatalogError extends Data.TaggedError("PluginCatalogError")<{
 	readonly cause: unknown;

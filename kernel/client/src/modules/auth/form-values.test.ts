@@ -5,7 +5,7 @@ import {
 	registrationName,
 	validateEmail,
 	validatePassword,
-} from "./form-values";
+} from "#/modules/auth/form-values";
 
 describe("authentication form values", () => {
 	it("normalizes email without changing the password", () => {
