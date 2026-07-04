@@ -1,5 +1,5 @@
 import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 import { value } from "../shared/value";
 
@@ -12,9 +12,9 @@ export const manifest = defineManifest({
 });
 
 const main = defineDriver(manifest, {
-	output: z.string(),
-	input: z.object({}),
-	run: () => Promise.resolve(value),
+	output: Schema.String,
+	input: Schema.Struct({}),
+	run: () => Effect.succeed(value),
 });
 
 export default defineScript({ manifest, drivers: { main } });
