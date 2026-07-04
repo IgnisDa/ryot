@@ -1,7 +1,7 @@
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, FileSystem, Layer, Path } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
@@ -22,14 +22,20 @@ export class FirstPartyPluginBootstrap extends Context.Service<FirstPartyPluginB
 			const repository = yield* PluginRepository;
 			const ingestion = yield* PluginIngestionService;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
+			const fs = yield* FileSystem.FileSystem;
+			const path = yield* Path.Path;
 
 			const ingestKernelScripts = Effect.fn("FirstPartyPluginBootstrap.ingestKernelScripts")(
 				function* () {
 					const files = Object.fromEntries(
 						yield* Effect.forEach(kernelScripts, (script) =>
-							Effect.tryPromise(() =>
-								Bun.file(new URL(`../../../${script.entry}`, import.meta.url)).text(),
-							).pipe(Effect.map((source) => [script.entry, source] as const)),
+							Effect.gen(function* () {
+								const filePath = yield* path.fromFileUrl(
+									new URL(`../../../${script.entry}`, import.meta.url),
+								);
+								const source = yield* fs.readFileString(filePath);
+								return [script.entry, source] as const;
+							}),
 						),
 					);
 					const outputs = yield* compilePluginSandboxSourceEntries(files, kernelScripts);
