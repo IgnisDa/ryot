@@ -21,7 +21,7 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 
 export const getTmdbAccessToken = (host: TmdbHost) =>
-	host.getAppConfigValue("providers.tmdbAccessToken").then((response) => {
+	host.getAppConfigValue("moviesAndShows.tmdbAccessToken").then((response) => {
 		if (!response.success) {
 			throw new Error(response.error);
 		}

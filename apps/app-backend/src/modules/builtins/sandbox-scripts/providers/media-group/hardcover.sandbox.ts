@@ -15,7 +15,7 @@ export const manifest = defineManifest({
 	slug: "book-group.hardcover",
 	providerInformation: { source: "hardcover" },
 	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["providers.hardcoverApiKey"],
+	requiredAppConfigKeys: ["books.hardcoverApiKey"],
 });
 
 export const search = defineProviderDriver(manifest, "search", (input, host) =>

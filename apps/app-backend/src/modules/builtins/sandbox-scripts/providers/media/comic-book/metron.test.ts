@@ -18,7 +18,7 @@ const makeHost = (httpCall: MetronComicBookHost["httpCall"]) =>
 		getAppConfigValue: (key) =>
 			Promise.resolve({
 				success: true as const,
-				data: key === "providers.metronUsername" ? "user" : "pass",
+				data: key === "comicBooks.metronUsername" ? "user" : "pass",
 			}),
 	});
 

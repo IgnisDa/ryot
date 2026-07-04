@@ -269,9 +269,7 @@ describe("builtinSandboxScripts", () => {
 
 		const policy = automations.find(({ slug }) => slug === "trigger.integration-progress-policy");
 		assert(policy && "manifest" in policy);
-		expect(policy.manifest.requiredAppConfigKeys).toEqual([
-			"scheduler.progressUpdateThresholdHours",
-		]);
+		expect(policy.manifest.requiredAppConfigKeys).toEqual(["server.progressUpdateThresholdHours"]);
 	});
 
 	it("registers exactly one lifecycle producer for review and workout signals", () => {

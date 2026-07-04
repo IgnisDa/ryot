@@ -11,7 +11,7 @@ export const manifest = defineManifest({
 	slug: "person.metron",
 	providerInformation: { source: "metron" },
 	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["providers.metronUsername", "providers.metronPassword"],
+	requiredAppConfigKeys: ["comicBooks.metronUsername", "comicBooks.metronPassword"],
 });
 
 const parseYear = (value: unknown) => {

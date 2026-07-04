@@ -13,11 +13,11 @@ export const getIdentifier = (value: unknown) => {
 };
 
 export const getMetronCredentials = (host: MetronHost) =>
-	host.getAppConfigValue("providers.metronUsername").then((usernameResponse) => {
+	host.getAppConfigValue("comicBooks.metronUsername").then((usernameResponse) => {
 		if (!usernameResponse.success) {
 			throw new Error(usernameResponse.error || "Could not load Metron username");
 		}
-		return host.getAppConfigValue("providers.metronPassword").then((passwordResponse) => {
+		return host.getAppConfigValue("comicBooks.metronPassword").then((passwordResponse) => {
 			if (!passwordResponse.success) {
 				throw new Error(passwordResponse.error || "Could not load Metron password");
 			}

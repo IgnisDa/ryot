@@ -22,7 +22,7 @@ export const manifest = defineManifest({
 	slug: "person.giant-bomb",
 	providerInformation: { source: "giant-bomb" },
 	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["providers.giantBombApiKey"],
+	requiredAppConfigKeys: ["videoGames.giantBombApiKey"],
 });
 
 const lastNonEmptySegment = (value: unknown) => {
