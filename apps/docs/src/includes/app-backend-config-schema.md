@@ -25,11 +25,13 @@
 |---|---|---|---|---|---|
 | `server.logLevel` | `SERVER_LOG_LEVEL` | Minimum application log level | No | No | `info` |
 | `server.logFile` | `SERVER_LOG_FILE` | File path for appended structured logs | No | No | — |
+| `server.traktClientId` | `SERVER_IMPORTER_TRAKT_CLIENT_ID` | Trakt client ID for the Trakt importer | No | No | — |
 | `server.corsOrigins` | `SERVER_CORS_ORIGINS` | Comma-separated list of allowed CORS origins | No | No | — |
 | `server.otlpEndpoint` | `SERVER_OTLP_ENDPOINT` | Base URL for OTLP trace export | No | No | — |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
 | `server.disableBackgroundJobs` | `SERVER_DISABLE_BACKGROUND_JOBS` | Disable all scheduled background jobs (both the frequent and infrequent cron tiers) | No | No | `false` |
+| `server.progressUpdateThresholdHours` | `SERVER_PROGRESS_UPDATE_THRESHOLD` | Minimum hours between automatic progress updates for an entity | No | No | `2` |
 
 #### OIDC provider
 
@@ -38,6 +40,15 @@
 | `server.oidc.clientId` | `SERVER_OIDC_CLIENT_ID` | OIDC client ID | No | No | — |
 | `server.oidc.issuerUrl` | `SERVER_OIDC_ISSUER_URL` | OIDC issuer URL | No | No | — |
 | `server.oidc.clientSecret` | `SERVER_OIDC_CLIENT_SECRET` | OIDC client secret | No | Yes | — |
+
+#### SMTP delivery settings
+
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `server.smtp.user` | `SERVER_SMTP_USER` | SMTP username | No | Yes | — |
+| `server.smtp.server` | `SERVER_SMTP_SERVER` | SMTP server hostname | No | No | — |
+| `server.smtp.mailbox` | `SERVER_SMTP_MAILBOX` | SMTP sender mailbox | No | No | `Ryot <no-reply@ryot.io>` |
+| `server.smtp.password` | `SERVER_SMTP_PASSWORD` | SMTP password | No | Yes | — |
 
 ### Sandbox execution settings
 
@@ -69,7 +80,6 @@
 |---|---|---|---|---|---|
 | `scheduler.frequentCronJobsSchedule` | `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` | Interval phrase for the frequent cron tier | No | No | `every 5 minutes` |
 | `scheduler.infrequentCronJobsSchedule` | `SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE` | Cron expression (or the phrase 'every midnight') for the infrequent cron tier | No | No | `every midnight` |
-| `scheduler.progressUpdateThresholdHours` | `SERVER_PROGRESS_UPDATE_THRESHOLD` | Minimum hours between automatic progress updates for an entity | No | No | `2` |
 
 ### S3-compatible file storage
 
@@ -81,32 +91,50 @@
 | `fileStorage.accessKeyId` | `FILE_STORAGE_S3_ACCESS_KEY_ID` | S3 access key ID | No | Yes | — |
 | `fileStorage.secretAccessKey` | `FILE_STORAGE_S3_SECRET_ACCESS_KEY` | S3 secret access key | No | Yes | — |
 
-### Notification delivery settings
-
-#### SMTP delivery settings
+### Movies and Shows configuration
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
-| `notifications.smtp.user` | `SERVER_SMTP_USER` | SMTP username | No | Yes | — |
-| `notifications.smtp.server` | `SERVER_SMTP_SERVER` | SMTP server hostname | No | No | — |
-| `notifications.smtp.mailbox` | `SERVER_SMTP_MAILBOX` | SMTP sender mailbox | No | No | `Ryot <no-reply@ryot.io>` |
-| `notifications.smtp.password` | `SERVER_SMTP_PASSWORD` | SMTP password | No | Yes | — |
+| `moviesAndShows.tmdbAccessToken` | `MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN` | TMDB access token for movie and show lookups | No | Yes | — |
+| `moviesAndShows.tvdbApiKey` | `MOVIES_AND_SHOWS_TVDB_API_KEY` | TVDB API key | No | Yes | — |
 
-### Provider integration configuration
+### Anime and Manga configuration
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
-| `providers.tvdbApiKey` | `MOVIES_AND_SHOWS_TVDB_API_KEY` | TVDB API key | No | Yes | — |
-| `providers.malClientId` | `ANIME_AND_MANGA_MAL_CLIENT_ID` | MyAnimeList client ID for anime and manga lookups | No | No | — |
-| `providers.traktClientId` | `SERVER_IMPORTER_TRAKT_CLIENT_ID` | Trakt client ID for the Trakt importer | No | No | — |
-| `providers.metronUsername` | `COMIC_BOOK_METRON_USERNAME` | Metron username | No | No | — |
-| `providers.twitchClientId` | `VIDEO_GAMES_TWITCH_CLIENT_ID` | Twitch client ID for IGDB video game lookups | No | No | — |
-| `providers.metronPassword` | `COMIC_BOOK_METRON_PASSWORD` | Metron password | No | Yes | — |
-| `providers.tmdbAccessToken` | `MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN` | TMDB access token for movie and show lookups | No | Yes | — |
-| `providers.hardcoverApiKey` | `BOOKS_HARDCOVER_API_KEY` | Hardcover API key for the Hardcover book importer | No | Yes | — |
-| `providers.spotifyClientId` | `MUSIC_SPOTIFY_CLIENT_ID` | Spotify client ID | No | No | — |
-| `providers.giantBombApiKey` | `VIDEO_GAMES_GIANT_BOMB_API_KEY` | Giant Bomb API key for the Grouvee importer | No | Yes | — |
-| `providers.googleBooksApiKey` | `BOOKS_GOOGLE_BOOKS_API_KEY` | Google Books API key for ISBN book lookups | No | Yes | — |
-| `providers.listennotesApiKey` | `PODCASTS_LISTENNOTES_API_KEY` | ListenNotes API key | No | Yes | — |
-| `providers.twitchClientSecret` | `VIDEO_GAMES_TWITCH_CLIENT_SECRET` | Twitch client secret for IGDB video game lookups | No | Yes | — |
-| `providers.spotifyClientSecret` | `MUSIC_SPOTIFY_CLIENT_SECRET` | Spotify client secret | No | Yes | — |
+| `animeAndManga.malClientId` | `ANIME_AND_MANGA_MAL_CLIENT_ID` | MyAnimeList client ID for anime and manga lookups | No | No | — |
+
+### Comic Books configuration
+
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `comicBooks.metronUsername` | `COMIC_BOOK_METRON_USERNAME` | Metron username | No | No | — |
+| `comicBooks.metronPassword` | `COMIC_BOOK_METRON_PASSWORD` | Metron password | No | Yes | — |
+
+### Books configuration
+
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `books.hardcoverApiKey` | `BOOKS_HARDCOVER_API_KEY` | Hardcover API key for the Hardcover book importer | No | Yes | — |
+| `books.googleBooksApiKey` | `BOOKS_GOOGLE_BOOKS_API_KEY` | Google Books API key for ISBN book lookups | No | Yes | — |
+
+### Music configuration
+
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `music.spotifyClientId` | `MUSIC_SPOTIFY_CLIENT_ID` | Spotify client ID | No | No | — |
+| `music.spotifyClientSecret` | `MUSIC_SPOTIFY_CLIENT_SECRET` | Spotify client secret | No | Yes | — |
+
+### Podcasts configuration
+
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `podcasts.listennotesApiKey` | `PODCASTS_LISTENNOTES_API_KEY` | ListenNotes API key | No | Yes | — |
+
+### Video Games configuration
+
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `videoGames.giantBombApiKey` | `VIDEO_GAMES_GIANT_BOMB_API_KEY` | Giant Bomb API key for the Grouvee importer | No | Yes | — |
+| `videoGames.twitchClientId` | `VIDEO_GAMES_TWITCH_CLIENT_ID` | Twitch client ID for IGDB video game lookups | No | No | — |
+| `videoGames.twitchClientSecret` | `VIDEO_GAMES_TWITCH_CLIENT_SECRET` | Twitch client secret for IGDB video game lookups | No | Yes | — |
