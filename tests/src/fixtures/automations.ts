@@ -6,8 +6,6 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 
-import { getPgClient } from "~/setup";
-
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
@@ -135,10 +133,13 @@ export function pollTerminalSubscriptionRuns(
 	);
 }
 
-export async function queryAutomationRuleCount(userId: string) {
-	const result = await getPgClient().query<{ count: string }>(
-		`select count(*)::text as count from automation_rule where user_id = $1`,
-		[userId],
+export async function getAutomationRuleCount(userId: string) {
+	const { count } = await getBackendClient().run(
+		(c) =>
+			c.testSupport.countAutomationRules({
+				path: { userId: UserId.make(userId) },
+			}),
+		adminHeaders,
 	);
-	return Number(result.rows[0]?.count ?? 0);
+	return count;
 }
