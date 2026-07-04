@@ -1,33 +1,45 @@
 #!/usr/bin/env bun
 
-const compileCommand = [process.execPath, "run", "scripts/compile-sandbox-builtins.ts"];
-export const developmentCommands = [
+import { Command } from "@effect/platform";
+import { BunContext, BunRuntime } from "@effect/platform-bun";
+import { Effect } from "effect";
+
+type ProcessCommand = readonly [string, ...string[]];
+
+const compileCommand: ProcessCommand = [
+	process.execPath,
+	"run",
+	"scripts/compile-sandbox-builtins.ts",
+];
+export const developmentCommands: readonly [ProcessCommand, ProcessCommand] = [
 	[...compileCommand, "--watch", "--skip-initial"],
 	[process.execPath, "run", "--watch", "src/main.ts"],
 ];
-const compilation = Bun.spawn({
-	cmd: compileCommand,
-	stdin: "inherit",
-	stdout: "inherit",
-	stderr: "inherit",
-});
-const compilationExitCode = await compilation.exited;
-if (compilationExitCode !== 0) {
-	process.exit(compilationExitCode);
-}
-const processes = developmentCommands.map((cmd) =>
-	Bun.spawn({ cmd, stdin: "inherit", stdout: "inherit", stderr: "inherit" }),
-);
-const stop = () => {
-	for (const child of processes) {
-		child.kill();
+
+const runCommand = ([executable, ...args]: ProcessCommand) =>
+	Command.make(executable, ...args).pipe(
+		Command.stdin("inherit"),
+		Command.stdout("inherit"),
+		Command.stderr("inherit"),
+		Command.exitCode,
+	);
+
+const program = Effect.gen(function* () {
+	const compilationExitCode = yield* runCommand(compileCommand);
+	if (compilationExitCode !== 0) {
+		yield* Effect.sync(() => {
+			process.exitCode = compilationExitCode;
+		});
+		return;
 	}
-};
 
-process.on("SIGINT", stop);
-process.on("SIGTERM", stop);
+	const exitCode = yield* Effect.raceFirst(
+		runCommand(developmentCommands[0]),
+		runCommand(developmentCommands[1]),
+	);
+	yield* Effect.sync(() => {
+		process.exitCode = exitCode;
+	});
+});
 
-const exitCode = await Promise.race(processes.map((child) => child.exited));
-stop();
-await Promise.allSettled(processes.map((child) => child.exited));
-process.exit(exitCode);
+BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)));
