@@ -88,7 +88,6 @@ const rows = (where: QueryDocument["source"]["where"]): QueryDocument => ({
 const reject = (doc: QueryDocument) =>
 	Effect.flip(validateQueryDocumentReferencesAndTypes(scope, doc)).pipe(
 		Effect.provideService(DefinitionRegistry, {
-			_tag: "DefinitionRegistry",
 			...makeDefinitionRegistry(definitions),
 		}),
 	);
@@ -96,7 +95,6 @@ const reject = (doc: QueryDocument) =>
 const accept = (executionScope: QueryExecutionScope, doc: QueryDocument) =>
 	validateQueryDocumentReferencesAndTypes(executionScope, doc).pipe(
 		Effect.provideService(DefinitionRegistry, {
-			_tag: "DefinitionRegistry",
 			...makeDefinitionRegistry(definitions),
 		}),
 	);
