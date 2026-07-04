@@ -1,3 +1,4 @@
+import type { CoreSandboxHostMethodMap } from "@ryot/sandbox-sdk";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -19,13 +20,19 @@ const httpSuccess = (body: unknown) =>
 		},
 	});
 
-const makeHost = (overrides: Partial<TvdbHost>): TvdbHost => ({
-	httpCall: () => Promise.reject(new Error("unexpected httpCall")),
-	setCachedValue: () => Promise.resolve({ success: true as const, data: null }),
-	getCachedValue: () => Promise.resolve({ success: true as const, data: "Bearer cached" }),
-	getAppConfigValue: () => Promise.resolve({ success: true as const, data: "test-api-key" }),
-	...overrides,
-});
+type TvdbTestHost = Omit<TvdbHost, "getAppConfigValue"> &
+	Pick<CoreSandboxHostMethodMap, "getAppConfigValue">;
+
+function makeHost(overrides: Partial<TvdbTestHost>): TvdbHost;
+function makeHost(overrides: Partial<TvdbTestHost>): unknown {
+	return {
+		httpCall: () => Promise.reject(new Error("unexpected httpCall")),
+		setCachedValue: () => Promise.resolve({ success: true as const, data: null }),
+		getCachedValue: () => Promise.resolve({ success: true as const, data: "Bearer cached" }),
+		getAppConfigValue: () => Promise.resolve({ success: true as const, data: "test-api-key" }),
+		...overrides,
+	};
+}
 
 describe("tvdb-shared", () => {
 	it("reuses a cached token and sends it as the authorization header", () => {
