@@ -166,6 +166,8 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 
 		return {
 			linkAuthAccount,
+			countAutomationRules: (userId: UserId) =>
+				automations.countByUser(userId).pipe(Effect.map((count) => ({ count }))),
 			createGlobalEntity,
 			deleteSandboxScript,
 			setEntityPopulatedAt,

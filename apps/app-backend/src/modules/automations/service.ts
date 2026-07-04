@@ -434,8 +434,13 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 			},
 		);
 
+		const countByUser = Effect.fn("AutomationsService.countByUser")(function* (userId: UserId) {
+			return yield* runWithDb(repository.countByUser(userId));
+		});
+
 		return {
 			beginRun,
+			countByUser,
 			prepareRun,
 			completeRun,
 			resolveActive,

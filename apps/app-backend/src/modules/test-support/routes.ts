@@ -126,5 +126,11 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				const svc = yield* TestSupportService;
 				return yield* svc.listSubscriptionRuns(payload);
 			}).pipe(dieOnDbError),
+		)
+		.handle("countAutomationRules", ({ path }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc.countAutomationRules(path.userId);
+			}).pipe(dieOnDbError),
 		),
 );

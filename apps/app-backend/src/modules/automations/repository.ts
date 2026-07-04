@@ -23,7 +23,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot/contract/schema/core";
-import { and, asc, eq, isNotNull, isNull, or, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, isNotNull, isNull, or, type SQL } from "drizzle-orm";
 import { DateTime, Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -377,6 +377,19 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				return yield* Effect.all(rows.map(toStoredRule));
 			});
 
+			const countByUser = Effect.fn("AutomationsRepository.countByUser")(function* (
+				userId: UserId,
+			) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({ count: count() })
+						.from(schema.automationRule)
+						.where(eq(schema.automationRule.userId, userId)),
+				);
+				return row?.count ?? 0;
+			});
+
 			const findUserNotificationRule = Effect.fn("AutomationsRepository.findUserNotificationRule")(
 				function* (input: {
 					userId: UserId;
@@ -698,6 +711,7 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 
 			return {
 				skipRun,
+				countByUser,
 				finishRun,
 				insertRun,
 				insertRule,
