@@ -92,7 +92,7 @@ These actions are not tasks in this plan. Implementors may read the legacy clien
 - Plugin applications run in isolated iframes, receive no Ryot credentials, and communicate through a kernel-created `MessageChannel`.
 - The client API and artifact-format markers are exact, and the bridge uses exact protocol version 1. The one per-session runtime routes session messages through its single dispatcher, carries strict `{ type: "lifecycle-close", reason: "disposed" | "failed" }` signaling, and rejects pending calls during disposal. Task 06 extends that exact contract with runtime-owned theme messages.
 - Installed plugins are trusted with data exposed through their SDK and may use public browser networking. This tracer does not add network permissions or origin allowlists.
-- A package update changes the artifact hash and force-reloads the mounted iframe. An old artifact must not continue against the new package revision.
+- A package source or client artifact revision change force-reloads the mounted iframe. An old client document must not continue against a new backend package revision, including when compiled client output is unchanged.
 - A disabled installation is absent from bootstrap and the workspace switcher, but direct routes remain valid. Backend operation availability remains backend-owned.
 
 ## Scope Boundaries
