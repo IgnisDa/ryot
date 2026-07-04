@@ -57,6 +57,7 @@ const readySeasonEpisodes = (
 	mapShowSeasonEpisodes(readyQueryResult(decodeShowSeasonEpisodesResult(input)));
 
 type RenderOptions = {
+	readonly compact?: boolean;
 	readonly refresh?: () => void;
 	readonly selectedId?: string | null;
 	readonly onRefreshSeason?: () => void;
@@ -70,6 +71,7 @@ const showEpisodesProps = (
 ) => ({
 	state,
 	seasonEpisodes,
+	compact: options.compact ?? true,
 	selectedId: options.selectedId ?? null,
 	refresh: options.refresh ?? (() => undefined),
 	onSelect: options.onSelect ?? (() => undefined),

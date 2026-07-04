@@ -70,6 +70,7 @@ function ShowSeasonSelector(props: {
 }
 
 function ShowSeasonHeader(props: {
+	readonly compact: boolean;
 	readonly season: ShowSeason;
 	readonly episodesState: ShowSeasonEpisodesState;
 }) {
@@ -87,13 +88,18 @@ function ShowSeasonHeader(props: {
 	]);
 	return (
 		<div className="flex flex-col gap-3">
-			<div className="flex items-start gap-3 md:gap-4">
+			<div className={clsx("flex items-start", props.compact ? "gap-3" : "gap-4")}>
 				<ManagedAssetImage
 					asset={showSeasonAsset(season)}
-					className="aspect-2/3 w-11 shrink-0 md:w-14"
+					className={clsx("aspect-2/3 shrink-0", props.compact ? "w-11" : "w-14")}
 				/>
 				<div className="flex min-w-0 flex-1 flex-col gap-1">
-					<p className="font-display font-semibold text-[17px] text-text md:text-xl">
+					<p
+						className={clsx(
+							"font-display font-semibold text-text",
+							props.compact ? "text-[17px]" : "text-xl",
+						)}
+					>
 						{showSeasonLabel(season)}
 					</p>
 					{meta === "" ? null : <p className="font-ui text-[12px] text-text-subtle">{meta}</p>}
@@ -107,7 +113,11 @@ function ShowSeasonHeader(props: {
 	);
 }
 
-function ShowEpisodeRow(props: { readonly divided: boolean; readonly episode: ShowEpisode }) {
+function ShowEpisodeRow(props: {
+	readonly compact: boolean;
+	readonly divided: boolean;
+	readonly episode: ShowEpisode;
+}) {
 	const { episode } = props;
 	const synopsis = showEpisodeSynopsis(episode);
 	const lifecycle = showEpisodeStateLabel(episode.state);
@@ -118,13 +128,14 @@ function ShowEpisodeRow(props: { readonly divided: boolean; readonly episode: Sh
 			aria-label={`Open ${episode.name}`}
 			onClick={() => console.log("TODO: open episode details")}
 			className={clsx(
-				"flex w-full items-start gap-3 py-3 text-left focus-visible:outline-2 focus-visible:outline-accent md:gap-4 md:py-4",
+				"flex w-full items-start text-left focus-visible:outline-2 focus-visible:outline-accent",
+				props.compact ? "gap-3 py-3" : "gap-4 py-4",
 				props.divided && "border-t border-border",
 			)}
 		>
 			<ManagedAssetImage
 				asset={showEpisodeAsset(episode)}
-				className="aspect-video w-28 shrink-0 sm:w-32 md:w-44"
+				className={clsx("aspect-video shrink-0", props.compact ? "w-28" : "w-44")}
 			/>
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
 				<div className="flex items-baseline gap-2">
@@ -156,9 +167,14 @@ function ShowEpisodeRow(props: { readonly divided: boolean; readonly episode: Sh
 	);
 }
 
-function ShowNextUp(props: { readonly episode: ShowEpisode }) {
+function ShowNextUp(props: { readonly compact: boolean; readonly episode: ShowEpisode }) {
 	return (
-		<div className="rounded-lg border border-border bg-surface px-3.5 pt-2.5 pb-1 md:px-4">
+		<div
+			className={clsx(
+				"rounded-lg border border-border bg-surface pt-2.5 pb-1",
+				props.compact ? "px-3.5" : "px-4",
+			)}
+		>
 			<div className="flex items-center gap-2">
 				<p className="font-ui font-medium text-[11px] tracking-widest text-text-subtle uppercase">
 					Next up
@@ -167,12 +183,13 @@ function ShowNextUp(props: { readonly episode: ShowEpisode }) {
 					{showEpisodeOriginLabel(props.episode)}
 				</p>
 			</div>
-			<ShowEpisodeRow divided={false} episode={props.episode} />
+			<ShowEpisodeRow divided={false} compact={props.compact} episode={props.episode} />
 		</div>
 	);
 }
 
 function ShowSeasonEpisodesList(props: {
+	readonly compact: boolean;
 	readonly refresh: () => void;
 	readonly state: ShowSeasonEpisodesState;
 }) {
@@ -200,13 +217,19 @@ function ShowSeasonEpisodesList(props: {
 	return (
 		<div>
 			{episodes.map((episode, index) => (
-				<ShowEpisodeRow key={episode.id} episode={episode} divided={index > 0} />
+				<ShowEpisodeRow
+					key={episode.id}
+					episode={episode}
+					divided={index > 0}
+					compact={props.compact}
+				/>
 			))}
 		</div>
 	);
 }
 
 function ShowSeasonBrowser(props: {
+	readonly compact: boolean;
 	readonly seasons: ShowSeasonList;
 	readonly selectedId: string | null;
 	readonly onRefreshSeason: () => void;
@@ -219,20 +242,29 @@ function ShowSeasonBrowser(props: {
 			? undefined
 			: showNextUpEpisode(props.seasonEpisodes.season.episodes.items);
 	return (
-		<div className="flex flex-col gap-5 pt-6 md:gap-6 md:pt-8">
+		<div className={clsx("flex flex-col", props.compact ? "gap-5 pt-6" : "gap-6 pt-8")}>
 			<ShowSeasonSelector
 				selectedId={season.id}
 				seasons={props.seasons}
 				onSelect={props.onSelect}
 			/>
-			<ShowSeasonHeader season={season} episodesState={props.seasonEpisodes} />
-			{nextUp === undefined ? null : <ShowNextUp episode={nextUp} />}
-			<ShowSeasonEpisodesList state={props.seasonEpisodes} refresh={props.onRefreshSeason} />
+			<ShowSeasonHeader
+				season={season}
+				compact={props.compact}
+				episodesState={props.seasonEpisodes}
+			/>
+			{nextUp === undefined ? null : <ShowNextUp compact={props.compact} episode={nextUp} />}
+			<ShowSeasonEpisodesList
+				compact={props.compact}
+				state={props.seasonEpisodes}
+				refresh={props.onRefreshSeason}
+			/>
 		</div>
 	);
 }
 
 export function ShowEpisodes(props: {
+	readonly compact: boolean;
 	readonly refresh: () => void;
 	readonly state: ShowEpisodesState;
 	readonly selectedId: string | null;
@@ -260,6 +292,7 @@ export function ShowEpisodes(props: {
 	return (
 		<ShowSeasonBrowser
 			seasons={state.seasons}
+			compact={props.compact}
 			onSelect={props.onSelect}
 			selectedId={props.selectedId}
 			seasonEpisodes={props.seasonEpisodes}
@@ -276,7 +309,7 @@ function ShowSeasonEpisodesLoader(props: {
 	return props.children(mapShowSeasonEpisodes(result), result.refetch);
 }
 
-export function ShowEpisodesTab(props: { readonly entityId: string }) {
+export function ShowEpisodesTab(props: { readonly compact: boolean; readonly entityId: string }) {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const result = useRyotQuery(showEpisodesQuery, { entityId: props.entityId });
 	const state = mapShowEpisodes(result);
@@ -291,6 +324,7 @@ export function ShowEpisodesTab(props: { readonly entityId: string }) {
 		>
 			<ShowEpisodes
 				state={state}
+				compact={props.compact}
 				selectedId={selectedId}
 				refresh={result.refetch}
 				onSelect={setSelectedId}

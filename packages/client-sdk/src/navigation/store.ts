@@ -1,4 +1,8 @@
-import type { PluginLeadingIntent, PluginLogicalLocation } from "@ryot-app/client-plugin-contract";
+import type {
+	PluginBridgeViewport,
+	PluginLeadingIntent,
+	PluginLogicalLocation,
+} from "@ryot-app/client-plugin-contract";
 
 import { reconcileStack, type PluginScreen, type ResolvePluginScreen } from "./stack";
 
@@ -8,10 +12,11 @@ export type PluginNavigationEntry = {
 	readonly location: PluginLogicalLocation;
 };
 
-export type PluginNavigationSnapshot = {
+export type PluginViewportInsets = Omit<PluginBridgeViewport, "type">;
+
+export type PluginNavigationSnapshot = PluginViewportInsets & {
 	readonly compact: boolean;
 	readonly edgeBack: boolean;
-	readonly safeAreaTop: number;
 	readonly leading: PluginLeadingIntent;
 	readonly screens: readonly PluginScreen[];
 	readonly entry: PluginNavigationEntry | undefined;
@@ -46,13 +51,13 @@ export type PluginRouterNavigation = PluginNavigationStore & {
 export type PluginNavigationController = PluginNavigationStore & {
 	readonly clear: () => void;
 	readonly completeTransition: (id: number) => void;
-	readonly setViewport: (safeAreaTop: number) => void;
+	readonly setViewport: (insets: PluginViewportInsets) => void;
 	readonly setLocation: (location: PluginNavigationLocation) => PluginNavigationSnapshot;
 };
 
-const initialSnapshot = (safeAreaTop: number): PluginNavigationSnapshot => ({
+const initialSnapshot = (insets: PluginViewportInsets): PluginNavigationSnapshot => ({
+	...insets,
 	screens: [],
-	safeAreaTop,
 	compact: false,
 	edgeBack: false,
 	leading: "none",
@@ -62,11 +67,11 @@ const initialSnapshot = (safeAreaTop: number): PluginNavigationSnapshot => ({
 
 export const createPluginNavigationStore = (
 	resolve: ResolvePluginScreen,
-	initialSafeAreaTop = 0,
+	initialInsets: PluginViewportInsets = { safeAreaTop: 0, safeAreaBottom: 0 },
 ): PluginNavigationController => {
 	const listeners = new Set<() => void>();
 	let nextTransitionId = 0;
-	let snapshot = initialSnapshot(initialSafeAreaTop);
+	let snapshot = initialSnapshot(initialInsets);
 
 	const emit = (next: PluginNavigationSnapshot) => {
 		snapshot = next;
@@ -77,14 +82,23 @@ export const createPluginNavigationStore = (
 
 	return {
 		getSnapshot: () => snapshot,
-		clear: () => emit(initialSnapshot(snapshot.safeAreaTop)),
+		clear: () =>
+			emit(
+				initialSnapshot({
+					safeAreaTop: snapshot.safeAreaTop,
+					safeAreaBottom: snapshot.safeAreaBottom,
+				}),
+			),
 		subscribe: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
 		},
-		setViewport: (safeAreaTop) => {
-			if (snapshot.safeAreaTop !== safeAreaTop) {
-				emit({ ...snapshot, safeAreaTop });
+		setViewport: (insets) => {
+			if (
+				snapshot.safeAreaTop !== insets.safeAreaTop ||
+				snapshot.safeAreaBottom !== insets.safeAreaBottom
+			) {
+				emit({ ...snapshot, ...insets });
 			}
 		},
 		completeTransition: (id) => {
@@ -111,6 +125,7 @@ export const createPluginNavigationStore = (
 				transition,
 				screens: result.stack,
 				safeAreaTop: snapshot.safeAreaTop,
+				safeAreaBottom: snapshot.safeAreaBottom,
 			};
 			emit(next);
 			return next;

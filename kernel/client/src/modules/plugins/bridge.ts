@@ -43,11 +43,12 @@ type PluginBridgeTarget = {
 };
 
 export type PluginBridgeNavigationState = Omit<PluginBridgeLocation, "type">;
+export type PluginBridgeViewportInsets = Omit<PluginBridgeViewport, "type">;
 export type PluginScreenReadiness = Omit<PluginBridgeScreenState, "type">;
 
 export type PluginBridgeSession = {
 	readonly close: () => void;
-	readonly sendViewport: (safeAreaTop: number) => void;
+	readonly sendViewport: (insets: PluginBridgeViewportInsets) => void;
 	readonly sendTheme: (theme: PluginThemeSnapshot) => void;
 	readonly sendLocation: (navigation: PluginBridgeNavigationState) => void;
 };
@@ -62,13 +63,13 @@ type PendingRequest = {
 type PluginBridgeOptions = {
 	readonly timeoutMs?: number;
 	readonly onReady: () => void;
-	readonly safeAreaTop: number;
 	readonly artifactHash: string;
 	readonly onFailure: () => void;
 	readonly onOpenDrawer: () => void;
 	readonly theme: PluginThemeSnapshot;
 	readonly target: PluginBridgeTarget;
 	readonly onNavigateBack: () => void;
+	readonly viewport: PluginBridgeViewportInsets;
 	readonly navigation: PluginBridgeNavigationState;
 	readonly onHeader: (request: PluginBridgeHeader) => void;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
@@ -103,15 +104,16 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		apiVersion: CLIENT_API_VERSION,
 		format: CLIENT_ARTIFACT_FORMAT,
 		mode: options.theme.resolvedMode,
-		safeAreaTop: options.safeAreaTop,
 		artifactHash: options.artifactHash,
 		compilerVersion: CLIENT_COMPILER_VERSION,
+		safeAreaTop: options.viewport.safeAreaTop,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+		safeAreaBottom: options.viewport.safeAreaBottom,
 	};
 
+	let viewport = options.viewport;
 	let navigation = options.navigation;
 	let mode = options.theme.resolvedMode;
-	let safeAreaTop = options.safeAreaTop;
 	const channel = new MessageChannel();
 	let state: PluginBridgeState = "ready";
 	const listeners = new AbortController();
@@ -168,15 +170,18 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		post({ mode, type: "theme" } satisfies PluginBridgeTheme);
 	}
 
-	function sendViewport(next: number) {
-		if (safeAreaTop === next) {
+	function sendViewport(next: PluginBridgeViewportInsets) {
+		if (
+			viewport.safeAreaTop === next.safeAreaTop &&
+			viewport.safeAreaBottom === next.safeAreaBottom
+		) {
 			return;
 		}
-		safeAreaTop = next;
+		viewport = next;
 		if (state !== "active") {
 			return;
 		}
-		post({ safeAreaTop, type: "viewport" } satisfies PluginBridgeViewport);
+		post({ ...viewport, type: "viewport" } satisfies PluginBridgeViewport);
 	}
 
 	function sendLocation(next: PluginBridgeNavigationState) {
@@ -382,8 +387,11 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			if (mode !== init.mode) {
 				post({ mode, type: "theme" } satisfies PluginBridgeTheme);
 			}
-			if (safeAreaTop !== init.safeAreaTop) {
-				post({ safeAreaTop, type: "viewport" } satisfies PluginBridgeViewport);
+			if (
+				viewport.safeAreaTop !== init.safeAreaTop ||
+				viewport.safeAreaBottom !== init.safeAreaBottom
+			) {
+				post({ ...viewport, type: "viewport" } satisfies PluginBridgeViewport);
 			}
 			options.onReady();
 		},

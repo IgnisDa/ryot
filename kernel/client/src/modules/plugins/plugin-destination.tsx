@@ -1,7 +1,7 @@
 import type { KernelShortcut } from "@ryot-app/client-plugin-contract";
 import { useNavigate, useRouteContext, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useCallback, useLayoutEffect, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useMemo, type ReactNode } from "react";
 
 import { resolveManagedAssetOutcome } from "#/modules/assets/managed-assets";
 import { useScreenLeadingControl } from "#/modules/navigation/app-screen";
@@ -111,6 +111,11 @@ function PluginInstallation(props: {
 		[runtime, serverUrl, userId],
 	);
 
+	const viewport = useMemo(
+		() => ({ safeAreaTop: chrome.safeAreaTop, safeAreaBottom: chrome.safeAreaBottom }),
+		[chrome.safeAreaTop, chrome.safeAreaBottom],
+	);
+
 	useLayoutEffect(
 		() => () => {
 			header.clear(installation.installationId);
@@ -128,10 +133,10 @@ function PluginInstallation(props: {
 	return (
 		<PluginHost
 			theme={theme}
+			viewport={viewport}
 			onStaleSession={refetch}
 			installation={installation}
 			chromeLeading={chromeLeading}
-			safeAreaTop={chrome.safeAreaTop}
 			onOpenDrawer={chrome.onOpenDrawer}
 			chromeTriggerRef={chrome.triggerRef}
 			onKernelShortcut={props.onKernelShortcut}
