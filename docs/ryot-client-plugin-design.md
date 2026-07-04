@@ -256,6 +256,8 @@ capability payloads are owned by `@ryot-app/client-plugin-contract`.
 
 At installation, the client compiler semantically checks every archived non-test client `.ts`/`.tsx` file, including files outside the bundle graph. `.test.` and `.spec.` sources are excluded from this check. The check uses exact compiler-owned declarations for React, React DOM, `clsx`, and the published Ryot client SDK and UI SDK entry points. Type errors are fatal and are returned as normalized TypeScript diagnostics with archive-relative file names. This semantic check validates authoring types; it is not a security boundary.
 
+A plugin archive may also contain a `shared/**` source root: environment-neutral `.ts` sources importable from both `backend/**` and `client/**`, but themselves limited to `@ryot-app/plugin-kit/{effect,ryotql,schema}` and other `shared/` siblings — never `@ryot-app/client-sdk/*`, `@ryot-app/sandbox-sdk/*`, or a path outside `shared/`. Both compiler engines resolve the same plugin-kit files, so the two enforcement paths cannot drift; see `@ryot-app/plugin-kit`'s README for what each entry point re-exports. When a plugin declares a client entry, that compiler run's semantic check covers every reachable `shared/**` file alongside `client/**`. A plugin with no client entry never runs the client compiler at all, so a `shared/**` file reachable from no declared sandbox entry either is checked by neither engine — a known gap rather than something either engine closes on its own. This cannot affect Media, whose client entry and backend entries both import the shared modules, so every shared file there is checked twice.
+
 A plugin without client UI may omit the client entry.
 
 A client plugin conceptually bootstraps with:
@@ -327,12 +329,13 @@ A plugin's `package.json` may exist for the author's local development environme
 
 This mirrors the backend sandbox philosophy: plugin execution is compiled against a deliberately bounded runtime rather than an arbitrary package ecosystem.
 
-The uploaded plugin source archive contains the canonical manifest plus the backend and client sources declared by that manifest:
+The uploaded plugin source archive contains the canonical manifest plus the backend, client, and shared sources declared by that manifest:
 
 ```text
 manifest.json
-backend/**
-client/**
+backend/**   → sandbox SDK   + relative imports into backend/ and shared/
+client/**    → client SDK/UI + relative imports into client/ and shared/
+shared/**    → plugin kit    + relative imports into shared/ only
 ```
 
 Client-local CSS and supported assets live under `client/**`. The source archive remains distinct from the compiled client artifact.
@@ -345,7 +348,9 @@ deliberately narrow:
 - text sources use the exact extensions `.ts`, `.tsx`, and `.css`
 - binary assets use the exact lowercase extensions `.svg`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.avif`, `.ico`, `.woff2`, and `.wasm`
 
-The server/compiler derives an asset's MIME type from its extension; plugins do not supply one. Archive entries preserve their exact raw bytes. `backend/**` and client text sources require fatal UTF-8 validation, while client assets are never decoded as text. Archive limits are 1,024 entries, 256-byte paths, a 4 MiB manifest, 256 KiB per non-manifest entry, 16 MiB total uncompressed bytes, and 8 MiB compressed bytes.
+The server/compiler derives an asset's MIME type from its extension; plugins do not supply one. Archive entries preserve their exact raw bytes. `backend/**`, `shared/**`, and client text sources require fatal UTF-8 validation, while client assets are never decoded as text. Archive limits are 1,024 entries, 256-byte paths, a 4 MiB manifest, 256 KiB per non-manifest entry, 16 MiB total uncompressed bytes, and 8 MiB compressed bytes.
+
+The shared source file policy is narrower still and lives separately, in `@ryot-app/contract`: a `shared/**` path is a plugin shared source only when it also ends in `.ts` — `.tsx` is not accepted there, since shared code must run in the sandbox as well as the browser.
 
 There is no alternate compatibility representation for client files.
 
@@ -380,6 +385,8 @@ The compiler:
 8. emits the plugin client artifact
 9. content-addresses the resulting artifact
 
+A `shared/**` file's only permitted bare imports are `@ryot-app/plugin-kit/{effect,ryotql,schema}`; the bundler resolves each to a concrete compiler-owned path rather than declining it, for the same barrel-safety reason it resolves `effect` and `lucide-react` for `client/**` sources. The bundler serves plain `effect` imports from a narrow shim re-exporting only `DateTime`, `Match`, `Option`, `Result`, `Schema`, and `SchemaGetter`; the shim's export list and the resolver's list of pinned `effect/*` submodules are two separate places that must be kept in sync; adding a namespace to one without the other leaves it resolving from the wrong root.
+
 Bun import, asset, and CSS validation, together with runtime schemas, remains authoritative for plugin boundaries. Semantic typing is not a security boundary. Backend semantic checking continues to use manifest-declared sandbox entries and their reachable module graph.
 
 Conceptually:
@@ -405,7 +412,7 @@ plugin source
 content-addressed client artifact
 ```
 
-The compiler operates on raw `Uint8Array` file contents. It enforces a 512 KiB limit over all `client/**` input bytes, a 256 KiB limit per asset, and an 8 MiB limit over the emitted artifact. Asset names are `asset-<sha256>.<ext>`, where the SHA-256 is computed from the exact asset bytes. A TS/TSX import emits a `./asset-<sha256>.<ext>` URL, and CSS references use the same name, so the same asset is emitted only once.
+The compiler operates on raw `Uint8Array` file contents. It enforces a 512 KiB limit over combined `client/**` and `shared/**` input bytes, a 256 KiB limit per asset, and an 8 MiB limit over the emitted artifact. Asset names are `asset-<sha256>.<ext>`, where the SHA-256 is computed from the exact asset bytes. A TS/TSX import emits a `./asset-<sha256>.<ext>` URL, and CSS references use the same name, so the same asset is emitted only once.
 
 The compiler also owns pinned `@fontsource-variable/outfit` and `@fontsource-variable/lora` dependencies matching the kernel. It reads their default normal-variable stylesheets, preserves their Unicode subsets and weight ranges, rewrites their local font URLs to content-addressed artifact names, and includes the resulting CSS and `.woff2` files in every artifact. Compiler-owned fonts count toward the emitted artifact limit, but not toward plugin source or per-asset input limits.
 
@@ -608,6 +615,8 @@ import {
 import { DataTable } from "@ryot-app/client-ui-sdk/table";
 
 import { SchemaForm, useSchemaForm } from "@ryot-app/client-ui-sdk/schema-form";
+
+import { ImageTintOverlay, useImageTint } from "@ryot-app/client-ui-sdk/tint";
 ```
 
 Keyboard ownership is layered rather than negotiated at each call site. `OverlayScope`
@@ -629,6 +638,21 @@ combination at their root.
 The overlay dialog is `Modal`, not `Dialog`. The `AppSchema` form sits on its own
 `/schema-form` subpath because it pulls `@ryot-app/contract`, `effect`, and
 `@tanstack/react-form`, and the root barrel's weight lands in every plugin artifact.
+
+`useImageTint`/`ImageTintOverlay` sit on their own `/tint` subpath for the same reason: only
+artifacts that render a tinted image should pay for the code. `useImageTint` derives a background
+tint from an image with a hand-written canvas quantiser — 4 bits per channel, pixels with alpha
+below 125 ignored, dominant color taken from the most populous bucket, dark-muted from the most
+populous bucket inside a lightness/saturation band — rather than a third-party colour library. A
+color library was evaluated first: `node-vibrant`'s shipped type declarations fail the plugin
+semantic check, which runs with `skipLibCheck: false` — `@vibrant/core` imports a `./pipeline.js`
+that does not exist in the published package, and `@vibrant/image` puts Node's `Buffer` into its
+public `ImageSource`/`Pixels` types. The workspace-level `check` passes with it installed; only the
+stricter plugin build gate fails, which is why the hand-written quantiser exists instead. The
+feature is best-effort by construction: any browser dominant-colour read goes through a canvas, so
+the source image must load `crossOrigin="anonymous"` and the host must send
+`Access-Control-Allow-Origin`; a tainted canvas, a failed image load, or a missing 2D context all
+resolve to no tint, silently, never a visible error or a blocked render.
 
 Still aspirational, not yet built:
 
@@ -834,7 +858,7 @@ The wire value `failed` is not a public SDK error reason. Internal causes, messa
 
 The canonical `JsonValue` type and schema value, also from `@ryot-app/contract/schema/json`, define the dynamic value boundary for the SDK and bridge. Strict schemas reject values outside that boundary; values are never normalized with `JSON.stringify` or another lossy conversion. The kernel validates a successful operation value before sending it over the bridge, so a non-JSON value becomes `malformed-result` and never crosses the port. A JSON value that fails the caller's output schema is also `malformed-result`. `Schema.Unknown`, duplicated validators, and unchecked casts are not part of this contract.
 
-`@ryot-app/client-sdk/effect` re-exports `Schema` and nothing else, mirroring `@ryot-app/sandbox-sdk/effect` for backend scripts, so both halves of a plugin describe their operation payloads the same way. Plugin source must import `Schema` through that subpath; a bare `effect` import stays untrusted.
+`@ryot-app/client-sdk/effect` re-exports `Result` and `Schema` and nothing else, mirroring `@ryot-app/sandbox-sdk/effect` for backend scripts, so both halves of a plugin describe their operation payloads the same way. Plugin source must import `Schema` through that subpath; a bare `effect` import stays untrusted.
 
 Plugin bootstrap and routing imports come from the plugin surface:
 
@@ -1587,15 +1611,29 @@ React state across browser history transitions. Entity renderers receive the com
 from `usePluginLocation`; `usePluginParams` returns `{}` and `usePluginSearch` returns an empty
 `URLSearchParams`.
 
-The Media entity tracer registers only `show`. It reads and decodes a static Show summary with one
-client-owned RyotQL recipe and renders identity, genres, production status, counts, description, and
-the first purpose-matching cover in existing provider order. A remote cover loads directly. A local
-or S3 cover resolves through `ryot.assets`, refreshes one minute before expiry, retains an already
-loaded image after a failed refresh, and becomes unavailable after an initial resolution or image-load
-failure. It does not fall back to a later cover. The remote-only backdrop remains unchanged. Query
-retry is supported. Tabs, activity, progress, library and collection state, mutations,
-entity-interest invalidation, other managed artwork, hero and gallery artwork, and other Media schemas
-are outside this tracer.
+The Media plugin registers `show`. The page reads five client-owned RyotQL recipes — summary,
+overview, seasons, season episodes, and activity — each behind its own `useRyotQuery` and its own
+loading/error/empty state. A hero renders a backdrop with a CSS scrim and a best-effort tint sampled
+from the poster; a summary header renders the poster, title, identity line (type, provider, release
+year), genres, a fact row (rating, production status, season/episode counts), an expandable
+description, and a status rail (current lifecycle state, monitoring, library membership, ownership,
+collections). Three tabs follow: Overview (image gallery, cast & crew, production companies,
+recommendations), Episodes (season selector, season header with a progress bar, a next-up card,
+and episode rows carrying lifecycle badges), and Activity (summary figures, a per-season coverage
+strip, a chronological timeline grouped by watch, and spoiler-gated review text). Entity-to-entity
+links (cast, companies, recommendations) navigate through `PluginLink`.
+
+A handful of affordances are deliberately inert placeholders pending real operation wiring: the
+monitoring toggle, Manage collections, Log activity, Write review, View all images, and View complete
+history. The client does not subscribe to entity-interest or WebSocket invalidation — the old
+React Native screen's interest/invalidation system was deliberately not ported, and each tab refetches
+only on its own explicit retry.
+
+Managed artwork is resolved in batches rather than per image. `client.assets.resolve` accepts
+1–64 locators, so the page canonicalizes the locator list it needs (sorted, deduped) into a stable
+key, issues one query per chunk of 64, and schedules a refetch shortly before the earliest expiry in
+each batch. A single tab can need far more than 64 images at once — Episodes alone can want 40 season
+posters plus 60 episode stills — which is why batching exists instead of one resolution per image.
 
 Conceptually:
 
@@ -2200,7 +2238,11 @@ The same client artifact should be exercised on:
 
 Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, invalid or empty asset batches rejected locally as `invalid-input`, an exposed SDK category missing from the supplied adapter as `unsupported-capability`, declared asset, query, and operation execution failures as opaque `asset-failed`, `query-failed`, and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove the shared 64-request asset/operation/RyotQL pending limit and its protocol teardown, that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge asset and query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, stack traces, credentials, and installation identity do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, plugin-supplied and default not-found states, one coherent navigation notification per location, synchronous first render from a preloaded location, and exact declarative header restoration on pop.
 
-Client compiler tests must also cover semantic checking of every archived non-test client `.ts`/`.tsx` file, fatal normalized TypeScript diagnostics, bundling from only the manifest entry's reachable graph, and Tailwind scanning of all archived client `.ts`/`.tsx` files.
+Client compiler tests must also cover semantic checking of every archived non-test client `.ts`/`.tsx` file, fatal normalized TypeScript diagnostics, bundling from only the manifest entry's reachable graph, and Tailwind scanning of all archived client `.ts`/`.tsx` files. They must also cover the `shared/**` root: a shared file imported from `client/`, a shared file that imports `client/` (rejected), a shared file that reaches a non-neutral module (rejected), a `.ts` shared file surviving the archive round trip unchanged, and a shared file with a type error failing the semantic check even when nothing in the archive references it.
+
+`ryot plugin build` runs both compilers before archiving: `@ryot-app/sandbox-compiler` for the backend and shared sources, then `@ryot-app/client-plugin-compiler` for the client entry, whenever the manifest declares one. Either compiler's diagnostics fail the build and leave any existing output untouched. A passing `bun run build` therefore proves the backend, shared, and client sources all compile — the same client semantic check the kernel's plugin pipeline re-runs at install time.
+
+Plugin page suites mount a recording `RyotClientAdapter` under `RyotProvider` rather than relying on module mocks or spies, so assertions read the requests the component actually issued. Exactly one suite per plugin — the bootstrap suite — retains the full `bootstrapClientPlugin` + `MessageChannel` bridge harness, to keep that wiring covered without paying its setup cost in every component suite.
 
 Shell tests cover leading intent separately from edge ownership, including matching and stale SDK
 screen readiness, same-document route/entity transitions, and cross-document `/v` to `/e`

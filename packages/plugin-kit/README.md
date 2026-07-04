@@ -10,19 +10,22 @@ Sandbox slugs use lowercase letters and numbers separated by `.`, `_`, or `-`; `
 
 ## Package Layout
 
-A plugin package has three roots, split by who consumes the code:
+A plugin package has four roots, split by who consumes the code:
 
 | Root       | Archived | Contents                                                                                     |
 | ---------- | -------- | -------------------------------------------------------------------------------------------- |
 | `host/`    | No       | The manifest and everything the Ryot server or web client imports directly from the package. |
 | `backend/` | Yes      | Sandbox sources. Every `*.sandbox.ts` is an entrypoint; sibling modules are its libraries.   |
 | `client/`  | Yes      | The client bundle, present only when the manifest declares `client`.                         |
+| `shared/`  | Yes      | Environment-neutral `.ts` sources importable from both `backend/` and `client/`.             |
 
-`backend/` and `client/` are self-contained: they import workspace packages and their own siblings,
-never `host/`. Production `host/` code reaches into the sandbox tree only through
-`backend/contracts/**`, which holds the sandbox-owned schemas, recipes, and helpers that host callers
-also need; tests are not archived and may cross freely. Nothing host-only belongs under `backend/`,
-because the archive ships that tree verbatim.
+`backend/` and `client/` are self-contained: they import workspace packages, their own siblings, and
+`shared/`, never `host/`. `shared/` may import only `shared/` siblings and the environment-neutral
+`@ryot-app/plugin-kit/{effect,ryotql,schema}` entry points — never `host/`, `backend/`, or `client/`.
+Production `host/` code reaches into the sandbox tree only through `backend/contracts/**`, which holds
+the sandbox-owned schemas, recipes, and helpers that host callers also need; tests are not archived
+and may cross freely. Nothing host-only belongs under `backend/`, because the archive ships that tree
+verbatim.
 
 `host/` holds `plugin.ts` (the manifest, and the package's `.` export), `config.ts`, `saved-views.ts`,
 `import-sources.ts`, `query-recipes.ts`, and `schemas/` for entity, property, relationship, and signal
@@ -63,6 +66,38 @@ Installation recomputes the same list from the archive's sources and rejects a p
 
 Everything else in the manifest still names scripts by slug, and a script's slug lives in its own
 module — renaming a slug therefore means updating the manifest references to it.
+
+## Shared Sources
+
+`shared/**` accepts `.ts` only — no `.tsx`, since shared code runs in the sandbox as well as the
+browser. Its only permitted bare imports are the environment-neutral entry points
+`@ryot-app/plugin-kit/effect`, `@ryot-app/plugin-kit/ryotql`, and `@ryot-app/plugin-kit/schema`; a
+relative import must stay inside `shared/`. Both `@ryot-app/sandbox-compiler` and
+`@ryot-app/client-plugin-compiler` resolve these same three files when they check a plugin's shared
+sources, so the two engines' enforcement cannot drift from each other, and each closes an explicit
+root rule against the other's bare imports: a `shared/` file reaching for `@ryot-app/sandbox-sdk/*`
+fails the client check, and one reaching for `@ryot-app/client-sdk/*` fails the sandbox check.
+
+`@ryot-app/plugin-kit/ryotql` re-exports `@ryot-app/ryotql`, `IsoDateString`, and four event helpers
+(`eventIsAfter`, `eventOrderAscending`, `eventOrderDescending`, `latestEventField`) — nothing more. It
+must never widen to the `@ryot-app/ryotql-recipes` barrel; that barrel pulls in the contract runtime,
+which is exactly why the event helpers live in their own `event-expressions.ts` module instead of
+being re-exported from it. `@ryot-app/plugin-kit/schema` stays a few KB of brands and asset-locator
+schemas, bundled directly into every consumer. `@ryot-app/plugin-kit/effect` re-exports only
+`DateTime`, `Option`, `Result`, `Schema`, and `SchemaGetter` from `effect`, matching the narrow shim
+the client bundler serves for plain `effect` imports.
+
+On the sandbox side, `@ryot-app/plugin-kit/effect` and `@ryot-app/plugin-kit/ryotql` are aliased onto
+the runtime modules the sandbox already ships (`effect-*.mjs` and `ryotql-workspace.mjs`) rather than
+emitting a second copy; only `@ryot-app/plugin-kit/schema` is bundled into a backend script. This
+matters for size: anything not aliased onto an existing runtime module gets bundled into every backend
+script and charged against its 1 MiB budget, so aliasing here avoids inlining a second copy of RyotQL
+into every backend artifact.
+
+A plugin with no client entry never runs the client compiler, so a `shared/**` file reachable from no
+declared sandbox entry either is checked by neither compiler engine — a known gap in coverage, not
+something either engine closes on its own. A plugin with both a client entry and backend entries that
+import the same shared modules has every shared file checked twice.
 
 ## Manifest Reference
 
