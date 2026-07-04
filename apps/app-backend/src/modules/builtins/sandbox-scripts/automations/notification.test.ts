@@ -36,6 +36,21 @@ it.each([
 		{ providerName: "komga" },
 		"Integration komga has been disabled due to too many errors",
 	],
+	...(
+		[
+			"person.media.associated",
+			"company.media.associated",
+			"person.media-group.associated",
+			"company.media-group.associated",
+		] as const
+	).map(
+		(slug) =>
+			[
+				slug,
+				{ role: "Director", subjectName: "Greta Gerwig", associatedName: "Barbie" },
+				"Greta Gerwig has been associated with Barbie as Director",
+			] as const,
+	),
 	[
 		"media.status.changed",
 		{ entityName: "Severance", oldStatus: "Airing", newStatus: "Ended" },
