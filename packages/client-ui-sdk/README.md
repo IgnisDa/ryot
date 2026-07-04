@@ -120,6 +120,16 @@ visually hidden heading so a screen names itself exactly once in every state. Th
 the gap the title block was giving it, because a search row is a bar row and carries no spacing of
 its own; leaving that to the caller joins the results to the input.
 
+A hero screen is the one case where there is no title block to trail. `hero` is therefore
+`{ height, node }`, not a bare node: the node is emitted into its own positioned zero-height block
+above the content column, so absolutely positioned art gets a containing box spanning the frame's
+full width, and the sentinel goes inside that block. The bar then stays clear until `height` of art
+has scrolled away, which is what makes art that bleeds behind the bar readable at all. `height`
+counts only the art below the bar, and the frame adds `safeAreaTop` and its own bar height when it
+places the sentinel, so a caller writes the design number and never the device measurement. The
+two arrive in one slot because a caller cannot usefully supply either alone: art with no threshold
+renders under a bar that is opaque from the first pixel, hiding its own top edge.
+
 `ScreenBarButton` draws the 44px controls in that bar and deliberately carries no text colour. A
 caller's class cannot beat one baked into a component: the cascade orders utilities by the
 stylesheet, not by the order of `clsx` arguments, so `min-h-6` passed to a component whose variant

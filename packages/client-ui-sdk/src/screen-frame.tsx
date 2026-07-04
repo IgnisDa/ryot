@@ -6,7 +6,6 @@ export const SCREEN_BAR_HEIGHT = 54;
 type ScreenFrameProps = {
 	readonly title: string;
 	readonly meta?: ReactNode;
-	readonly hero?: ReactNode;
 	readonly compact: boolean;
 	readonly children: ReactNode;
 	readonly leading?: ReactNode;
@@ -18,6 +17,7 @@ type ScreenFrameProps = {
 	readonly width?: "full" | "readable";
 	readonly hideTitle?: boolean | undefined;
 	readonly scrollRootRef: RefObject<HTMLElement | null>;
+	readonly hero?: { readonly height: number; readonly node: ReactNode } | undefined;
 };
 
 type ScreenBarButtonProps = ComponentProps<"button"> & { readonly label: string };
@@ -108,7 +108,7 @@ export function ScreenFrame({
 			);
 		return (
 			<>
-				{hero === undefined ? null : <div className="relative">{hero}</div>}
+				{hero === undefined ? null : <div className="relative">{hero.node}</div>}
 				<div className="relative px-8 pt-8">
 					<div className={column}>
 						{titleRow === undefined ? null : (
@@ -158,7 +158,13 @@ export function ScreenFrame({
 			</div>
 			{hero !== undefined && (
 				<div className="relative" style={{ marginTop: -(safeAreaTop + SCREEN_BAR_HEIGHT) }}>
-					{hero}
+					{hero.node}
+					<div
+						ref={setSentinel}
+						aria-hidden="true"
+						className="absolute h-px w-px"
+						style={{ top: safeAreaTop + SCREEN_BAR_HEIGHT + hero.height }}
+					/>
 				</div>
 			)}
 			<div className={clsx("relative", column)}>
@@ -169,7 +175,9 @@ export function ScreenFrame({
 					</div>
 				)}
 				{searchRow !== undefined && <h1 className="sr-only">{title}</h1>}
-				{collapsible && <div ref={setSentinel} aria-hidden="true" className="h-px" />}
+				{hero === undefined && collapsible && (
+					<div ref={setSentinel} aria-hidden="true" className="h-px" />
+				)}
 				<div className={clsx("px-4", !hasTitleBlock && "pt-4")}>{children}</div>
 			</div>
 		</>
