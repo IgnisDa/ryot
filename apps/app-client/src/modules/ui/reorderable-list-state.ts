@@ -22,9 +22,6 @@ export function moveReorderPosition(props: {
 	const next = { ...props.positions };
 	for (const key of Object.keys(props.positions)) {
 		const index = props.positions[key];
-		if (index === undefined) {
-			continue;
-		}
 		if (index === props.fromIndex) {
 			next[key] = props.toIndex;
 		} else if (
