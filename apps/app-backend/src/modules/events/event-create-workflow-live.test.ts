@@ -1,7 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { BadRequest } from "@ryot/contract/errors";
 import type { SandboxCompletedResult } from "@ryot/contract/modules/sandbox/schemas";
 import {
 	EntityId,
@@ -11,9 +10,10 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
 import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { AutomationsService } from "#modules/automations/service";
 import {
 	LifecycleDispatch,
 	LifecycleDispatchNoop,
@@ -97,6 +97,15 @@ const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsReposito
 		...overrides,
 	});
 
+const mockAutomationsService = Layer.mock(AutomationsService);
+
+const makeAutomationsService = (overrides: MockOverrides<typeof mockAutomationsService> = {}) =>
+	mockAutomationsService({
+		_tag: "AutomationsService",
+		resolveActivePolicies: () => Effect.succeed([]),
+		...overrides,
+	});
+
 const makeCapturingWorkflowEngine = (
 	instance: WorkflowInstance["Type"],
 	activityNames: string[],
@@ -128,6 +137,7 @@ it.effect("creates events inside workflow activities", () => {
 	const engine = makeCapturingWorkflowEngine(instance, activityNames);
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
+		makeAutomationsService(),
 		LifecycleDispatchNoop,
 		Layer.mock(EventCreateWorkflowOperations, {
 			ensureLibraryMembership: () => Effect.void,
@@ -161,7 +171,11 @@ it.effect("creates events inside workflow activities", () => {
 	return Effect.gen(function* () {
 		const result = yield* runEventCreateWorkflow(payload);
 
-		expect(result).toEqual({ count: 1 });
+		expect(result).toEqual({
+			count: 1,
+			failure: null,
+			outcomes: [{ index: 0, eventId: EventId.make("event-1"), status: "written" }],
+		});
 		expect(activityNames).toEqual(["prepare-item-0", "write-event-0", "resolve-after-triggers"]);
 		expect(createdEventInputs).toHaveLength(1);
 	}).pipe(
@@ -180,6 +194,7 @@ it.effect(
 		const engine = makeCapturingWorkflowEngine(instance, activityNames);
 		const layer = Layer.mergeAll(
 			dbRunnerLayer,
+			makeAutomationsService(),
 			Layer.mock(LifecycleDispatch, {
 				dispatch: (input) => {
 					dispatched.push(input);
@@ -247,6 +262,7 @@ it.effect("does not dispatch a lifecycle occurrence when no lifecycle origin is 
 	const engine = makeCapturingWorkflowEngine(instance, activityNames);
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
+		makeAutomationsService(),
 		Layer.mock(LifecycleDispatch, {
 			dispatch: () => {
 				dispatchCalls += 1;
@@ -293,6 +309,7 @@ it.effect("skips event creation when a before-create trigger returns skip", () =
 	const engine = makeCapturingWorkflowEngine(instance, activityNames);
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
+		makeAutomationsService(),
 		LifecycleDispatchNoop,
 		Layer.mock(EventCreateWorkflowOperations, {
 			ensureLibraryMembership: () => Effect.void,
@@ -317,7 +334,11 @@ it.effect("skips event creation when a before-create trigger returns skip", () =
 	return Effect.gen(function* () {
 		const result = yield* runEventCreateWorkflow(payload);
 
-		expect(result).toEqual({ count: 0 });
+		expect(result).toEqual({
+			count: 0,
+			failure: null,
+			outcomes: [{ index: 0, reason: "not allowed", status: "skipped_by_policy" }],
+		});
 		expect(createEventCalls).toBe(0);
 		expect(activityNames).toEqual(["prepare-item-0"]);
 	}).pipe(
@@ -342,6 +363,7 @@ it.effect("applies a before-create trigger replace to the created event", () => 
 	};
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
+		makeAutomationsService(),
 		LifecycleDispatchNoop,
 		Layer.mock(EventCreateWorkflowOperations, {
 			ensureLibraryMembership: () => Effect.void,
@@ -383,7 +405,11 @@ it.effect("applies a before-create trigger replace to the created event", () => 
 	return Effect.gen(function* () {
 		const result = yield* runEventCreateWorkflow(payload);
 
-		expect(result).toEqual({ count: 1 });
+		expect(result).toEqual({
+			count: 1,
+			failure: null,
+			outcomes: [{ index: 0, eventId: EventId.make("event-1"), status: "written" }],
+		});
 		expect(capturedOccurredAt?.toISOString()).toBe(replacedOccurredAt);
 		expect(capturedProperties).toEqual({ rating: 10 });
 	}).pipe(
@@ -393,12 +419,13 @@ it.effect("applies a before-create trigger replace to the created event", () => 
 	);
 });
 
-it.effect("fails the workflow when a before-create trigger reports an error", () => {
+it.effect("returns a typed item failure when a before-create trigger reports an error", () => {
 	const activityNames: string[] = [];
 	const instance = WorkflowInstance.initial(EventCreateWorkflow, payload.executionId);
 	const engine = makeCapturingWorkflowEngine(instance, activityNames);
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
+		makeAutomationsService(),
 		LifecycleDispatchNoop,
 		Layer.mock(EventCreateWorkflowOperations, {
 			ensureLibraryMembership: () => Effect.void,
@@ -421,11 +448,16 @@ it.effect("fails the workflow when a before-create trigger reports an error", ()
 	);
 
 	return Effect.gen(function* () {
-		const exit = yield* Effect.exit(runEventCreateWorkflow(payload));
+		const result = yield* runEventCreateWorkflow(payload);
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Before trigger failed: test_error" })),
-		);
+		expect(result).toEqual({
+			count: 0,
+			outcomes: [],
+			failure: {
+				index: 0,
+				reason: { kind: "bad_request", message: "Before trigger failed: test_error" },
+			},
+		});
 	}).pipe(
 		Effect.provide(layer),
 		Effect.provideService(WorkflowEngine, engine),
