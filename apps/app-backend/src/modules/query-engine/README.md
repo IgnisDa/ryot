@@ -167,18 +167,18 @@ a negative cache). Canonical readers (no session language) always get `"none"` w
 ### System fields by source type
 
 Entity: `id`, `name`, `createdAt`, `updatedAt`, `externalId`, `sandboxScriptId`,
-`entitySchemaId`, `userId`, `populatedAt`, `properties`.
+`entitySchemaSlug`, `userId`, `populatedAt`, `properties`.
 
 - `externalId`, `userId`, `populatedAt`, and `sandboxScriptId` resolve to `null` when not set.
-- `entitySchemaId` reads the row's entity schema id (from the schema join).
+- `entitySchemaSlug` reads the row's entity schema slug.
 - `properties` returns the entire JSONB `properties` object as `{ kind: "json", value }`;
   path-based access uses the `property` field selector instead.
 
-Event: `id`, `occurredAt`, `createdAt`, `updatedAt`, `entityId`, `eventSchemaId`,
+Event: `id`, `occurredAt`, `createdAt`, `updatedAt`, `entityId`, `eventSchemaSlug`,
 `sessionEntityId`, `userId`, `properties`.
 
 - `sessionEntityId` resolves to `null` when not set.
-- `eventSchemaId` reads the row's event schema id (from the schema join).
+- `eventSchemaSlug` reads the row's local event schema slug.
 - `properties` returns the entire JSONB `properties` object as `{ kind: "json", value }`;
   path-based access uses the `property` field selector instead.
 

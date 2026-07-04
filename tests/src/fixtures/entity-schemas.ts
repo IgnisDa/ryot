@@ -1,6 +1,6 @@
 import { SandboxScriptId, TrackerSlug } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { Effect } from "effect";
+import { Brand, Effect } from "effect";
 
 import { assertPresent, requirePresent } from "~/support/assertions";
 
@@ -16,6 +16,7 @@ type EnqueueEntitySearchBody = Omit<ContractPayload<"sandbox", "enqueue">, "driv
 type EnqueueEntityImportBody = ContractPayload<"entityImport", "import">;
 type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
 
+export const makeEntitySchemaSlug = Brand.nominal<EntitySchemaInputSlug>();
 export interface CreateEntitySchemaOptions {
 	icon?: string;
 	name?: string;
@@ -65,7 +66,7 @@ export const createEntitySchema = (client: Client, options: CreateEntitySchemaOp
 				}),
 			adminHeaders,
 		);
-		const schemaSlug = slug as EntitySchemaInputSlug;
+		const schemaSlug = makeEntitySchemaSlug(slug);
 		return {
 			slug: schemaSlug,
 			schemaId: schemaSlug,
@@ -92,18 +93,19 @@ export const listEntitySchemas = (
 		return schemas
 			.filter((schema) => !options.slugs || options.slugs.includes(schema.slug))
 			.filter((schema) => !options.trackerSlug || tracker?.entitySchemaSlugs.includes(schema.slug))
-			.map((schema) => ({
-				...schema,
-				id: schema.slug as EntitySchemaInputSlug,
-				providers: scripts
-					.filter((script) => script.metadata.kind === "provider")
-					.filter((script) => script.slug.startsWith(`${schema.slug}.`))
-					.map((script) => ({ name: script.name, scriptId: script.id })),
-				isBuiltin: true,
-				trackerSlug:
-					tracker?.slug ??
-					trackers.find((item) => item.entitySchemaSlugs.includes(schema.slug))?.slug,
-			}));
+			.map((schema) =>
+				Object.assign({}, schema, {
+					id: makeEntitySchemaSlug(schema.slug),
+					providers: scripts
+						.filter((script) => script.metadata.kind === "provider")
+						.filter((script) => script.slug.startsWith(`${schema.slug}.`))
+						.map((script) => ({ name: script.name, scriptId: script.id })),
+					isBuiltin: true,
+					trackerSlug:
+						tracker?.slug ??
+						trackers.find((item) => item.entitySchemaSlugs.includes(schema.slug))?.slug,
+				}),
+			);
 	});
 
 export const getEntitySchema = (client: Client, entitySchemaSlug: string) =>
