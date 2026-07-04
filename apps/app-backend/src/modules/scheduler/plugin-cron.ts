@@ -117,7 +117,7 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 export const PluginCronSchedulerLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
-		if (config.server.disableBackgroundJobs) {
+		if (config.scheduler.disableDispatchers) {
 			yield* Effect.logInfo("plugin cron scheduler disabled");
 			return;
 		}
