@@ -1,5 +1,5 @@
 import { DbError } from "@ryot/contract/errors";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -9,6 +9,8 @@ import type { NormalizedPlugin, NormalizedPluginScript, StoredPlugin } from "./t
 
 type PluginRow = typeof schema.plugin.$inferSelect;
 type ScriptRow = typeof schema.sandboxScript.$inferSelect;
+
+type PersistedScript = Omit<NormalizedPluginScript, "entry">;
 
 const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArray<ScriptRow>) {
 	const scriptsBySlugAndHash = new Map(
@@ -103,6 +105,45 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 			return yield* toStoredPlugin(row, scripts);
 		});
 
+		const persistKernelScript = Effect.fn("PluginRepository.persistKernelScript")(function* (
+			script: PersistedScript,
+		) {
+			const db = yield* CurrentDb;
+			const [existing] = yield* dbEffect(() =>
+				db
+					.select({ id: schema.sandboxScript.id })
+					.from(schema.sandboxScript)
+					.where(
+						and(
+							eq(schema.sandboxScript.slug, script.slug),
+							eq(schema.sandboxScript.contentHash, script.contentHash),
+							isNull(schema.sandboxScript.userId),
+							isNull(schema.sandboxScript.pluginSlug),
+						),
+					)
+					.limit(1),
+			);
+			if (existing) {
+				return;
+			}
+			yield* dbEffect(() =>
+				db
+					.insert(schema.sandboxScript)
+					.values({
+						userId: null,
+						pluginSlug: null,
+						slug: script.slug,
+						name: script.name,
+						source: script.source,
+						metadata: script.metadata,
+						contentHash: script.contentHash,
+						compiledCode: script.compiledCode,
+						compiledFormat: script.compiledFormat,
+					})
+					.onConflictDoNothing(),
+			);
+		});
+
 		const persist = Effect.fn("PluginRepository.persist")(function* (plugin: NormalizedPlugin) {
 			const db = yield* CurrentDb;
 			const slug = plugin.manifest.metadata.slug;
@@ -139,7 +180,6 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 						.values(
 							plugin.scripts.map((script) => ({
 								userId: null,
-								isBuiltin: false,
 								pluginSlug: slug,
 								slug: script.slug,
 								name: script.name,
@@ -161,6 +201,6 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 			}
 		});
 
-		return { list, persist, lockIngestion, findBySourceHash };
+		return { list, persist, lockIngestion, findBySourceHash, persistKernelScript };
 	},
 }) {}

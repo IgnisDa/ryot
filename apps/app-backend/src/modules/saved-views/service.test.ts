@@ -43,7 +43,7 @@ const baseListedSavedView: ListedSavedView = {
 	sortOrder: 0,
 	slug: "my-view",
 	name: "My View",
-	trackerSlug: null,
+	pluginSlug: null,
 	isBuiltin: false,
 	isDisabled: false,
 	accentColor: "#FF5733",
@@ -106,7 +106,6 @@ const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) =
 	Layer.succeed(DefinitionRegistry, {
 		_tag: "DefinitionRegistry",
 		...makeDefinitionRegistry({
-			trackers: [],
 			entitySchemas: [],
 			signalSchemas: [],
 			relationshipSchemas: [],
@@ -115,8 +114,8 @@ const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) =
 				name: view.name,
 				slug: view.slug,
 				sortOrder: view.sortOrder,
+				pluginSlug: view.pluginSlug,
 				accentColor: view.accentColor,
-				trackerSlug: view.trackerSlug,
 				queryDocument: view.queryDocument,
 				displayConfiguration: view.displayConfiguration,
 			})),
@@ -375,13 +374,7 @@ it.effect("clones a saved view with (Copy) suffix", () => {
 			findBySlug: () => {
 				findCalls += 1;
 				return Effect.succeed(
-					findCalls === 1
-						? {
-								...baseListedSavedView,
-								name: "Reading",
-								trackerSlug: null,
-							}
-						: null,
+					findCalls === 1 ? { ...baseListedSavedView, name: "Reading", pluginSlug: null } : null,
 				);
 			},
 			create: (_userId, input) =>
@@ -391,7 +384,7 @@ it.effect("clones a saved view with (Copy) suffix", () => {
 						...baseListedSavedView,
 						name: input.name,
 						slug: input.slug,
-						trackerSlug: input.trackerSlug ?? null,
+						pluginSlug: input.pluginSlug ?? null,
 					};
 				}),
 		}),
@@ -409,7 +402,7 @@ it.effect("clones a saved view with (Copy) suffix", () => {
 
 		expect(clonedName).toBe("Reading (Copy)");
 		expect(view.name).toBe("Reading (Copy)");
-		expect(view.trackerSlug).toBeNull();
+		expect(view.pluginSlug).toBeNull();
 		expect(validated).toBe(true);
 	}).pipe(Effect.provide(layer));
 });

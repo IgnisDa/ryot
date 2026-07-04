@@ -1,12 +1,14 @@
 import { expect, it } from "@effect/vitest";
 import { EntityId, EntitySchemaSlug, UserId } from "@ryot/contract/schema/brands";
+import mediaPlugin from "@ryot/plugin-media";
 import { Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb } from "#lib/infrastructure/db/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesService } from "#modules/entities/service";
+import { makePluginLoader } from "#modules/plugins/loader";
 
 import { performBootstrap } from "./bootstrap";
 
@@ -88,6 +90,12 @@ const makeServiceLayers = (createdEntities: unknown[], defaultRuleUserIds: UserI
 	return Layer.mergeAll(entitiesLayer, notificationSubscriptionsLayer);
 };
 
+const pluginDefinitionsLayer = () => {
+	const registry = makeDefinitionRegistry();
+	makePluginLoader(registry).load({ manifest: mediaPlugin, sourceHash: "test", scripts: [] });
+	return Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...registry });
+};
+
 it.effect(
 	"creates the library entity, ensures default rules, and sets the completion marker",
 	() => {
@@ -104,7 +112,7 @@ it.effect(
 		}).pipe(
 			Effect.provide(
 				Layer.mergeAll(
-					DefinitionRegistry.Default,
+					pluginDefinitionsLayer(),
 					Layer.succeed(
 						CurrentDb,
 						makeBootstrapDb({ onMarkComplete: () => (markerUpdated = true) }),
@@ -130,7 +138,7 @@ it.effect("short-circuits when the completion marker is already set", () => {
 	}).pipe(
 		Effect.provide(
 			Layer.mergeAll(
-				DefinitionRegistry.Default,
+				pluginDefinitionsLayer(),
 				Layer.succeed(
 					CurrentDb,
 					makeBootstrapDb({

@@ -18,6 +18,7 @@ import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import {
 	AutomationsRepository,
@@ -89,7 +90,10 @@ const makeRunId = (occurrenceId: string, ruleId: AutomationRuleId) =>
 			.digest("base64url")}`,
 	);
 
-const matchesRowOwner = (rule: StoredAutomationRule, rowUserId: UserId | null) => {
+const matchesRowOwner = (
+	rule: Pick<StoredAutomationRule, "isBuiltin" | "kind" | "userId">,
+	rowUserId: UserId | null,
+) => {
 	if (rule.kind !== "subscription") {
 		return false;
 	}
@@ -99,7 +103,10 @@ const matchesRowOwner = (rule: StoredAutomationRule, rowUserId: UserId | null) =
 	return rule.userId === null && rule.isBuiltin;
 };
 
-const matchesPolicyOwner = (rule: StoredAutomationRule, rowUserId: UserId) =>
+const matchesPolicyOwner = (
+	rule: Pick<StoredAutomationRule, "isBuiltin" | "kind" | "userId">,
+	rowUserId: UserId,
+) =>
 	rule.kind === "policy" && (rule.userId === rowUserId || (rule.userId === null && rule.isBuiltin));
 
 const validateDefinition = Effect.fn(function* (definition: RuleDefinition) {
@@ -145,6 +152,7 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 		const runWithDb = yield* DbRunner;
 		const repository = yield* AutomationsRepository;
 		const runInTransaction = yield* TransactionRunner;
+		const pluginRuntime = yield* PluginRuntimeResolver;
 
 		const loadReferences = Effect.fn("AutomationsService.loadReferences")(function* (
 			definition: RuleDefinition,
@@ -234,8 +242,12 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 					if (input.rowUserId && !(yield* repository.isUserEnabled(input.rowUserId))) {
 						return [];
 					}
-					const rules = yield* repository.resolveActive(input);
-					return rules.filter((rule) => matchesRowOwner(rule, input.rowUserId));
+					const bindings = yield* pluginRuntime.listAutomations({ ...input, kind: "subscription" });
+					const rules =
+						input.target.kind === "signal_schema" ? yield* repository.resolveActive(input) : [];
+					return [...bindings, ...rules.filter((rule) => rule.userId !== null)].filter((rule) =>
+						matchesRowOwner(rule, input.rowUserId),
+					);
 				}),
 			);
 		});
@@ -247,10 +259,10 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 						if (!(yield* repository.isUserEnabled(input.userId))) {
 							return [];
 						}
-						const rules = yield* repository.resolveActivePolicies({
+						const rules = yield* pluginRuntime.listAutomations({
+							kind: "policy",
 							operation: "create",
 							target: input.target,
-							rowUserId: input.userId,
 						});
 						return rules.filter((rule) => matchesPolicyOwner(rule, input.userId));
 					}),
@@ -275,9 +287,13 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 							},
 						};
 					}
-					const rule = yield* repository.lockActiveSubscription(input.ruleId);
+					const storedRule = yield* repository.lockActiveSubscription(input.ruleId);
+					const rule = storedRule ?? (yield* pluginRuntime.findAutomation(input.ruleId));
 					if (!rule) {
 						return null;
+					}
+					if (rule.kind !== "subscription") {
+						return yield* badRequest("Automation binding is not a subscription");
 					}
 					if (
 						rule.operation !== input.operation ||
@@ -307,15 +323,16 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 
 					const inserted = yield* repository.insertRun({
 						id,
-						ruleId: rule.id,
 						executionUserId,
 						ruleName: rule.name,
+						originalRuleId: rule.id,
 						operation: input.operation,
 						ruleMetadata: rule.metadata,
 						sourceKind: input.sourceKind,
 						occurrenceId: input.occurrenceId,
 						recordId: input.recordId ?? null,
 						signalId: input.signalId ?? null,
+						ruleId: storedRule ? rule.id : null,
 						sandboxScriptId: rule.sandboxScriptId,
 					});
 					const run = inserted ?? (yield* repository.findRunById(id));

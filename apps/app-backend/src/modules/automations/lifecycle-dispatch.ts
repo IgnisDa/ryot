@@ -1,6 +1,7 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DbError, unknownToMessage } from "@ryot/contract/errors";
 import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
+import { EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect, Either, Layer, Match, Schema } from "effect";
 
 import {
@@ -31,7 +32,9 @@ const targetForSource = (source: LifecycleSource): AutomationRuleTarget =>
 		})),
 		Match.when({ kind: "event" }, (value) => ({
 			kind: "event_schema" as const,
-			id: sourceSnapshot(value).eventSchemaSlug,
+			id: EventSchemaSlug.make(
+				`${sourceSnapshot(value).subject.entitySchemaSlug}:${sourceSnapshot(value).eventSchemaSlug}`,
+			),
 		})),
 		Match.when({ kind: "relationship" }, (value) => ({
 			kind: "relationship_schema" as const,

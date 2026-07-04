@@ -3,7 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { NotFound, RateLimited, Unauthorized } from "../../errors";
-import { TrackerSlug } from "../../schema/brands";
+import { PluginSlug } from "../../schema/brands";
 import {
 	CreateSavedViewBody,
 	ListedSavedView,
@@ -15,7 +15,7 @@ import {
 const viewSlugParam = HttpApiSchema.param("viewSlug", Schema.String);
 
 export const SavedViewsGroup = HttpApiGroup.make("savedViews")
-	.annotate(OpenApi.Description, "Manages saved tracker views")
+	.annotate(OpenApi.Description, "Manages saved views")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.middleware(AuthMiddleware)
@@ -23,14 +23,14 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 		HttpApiEndpoint.get("list", "/saved-views")
 			.setUrlParams(
 				Schema.Struct({
-					trackerSlug: Schema.optional(TrackerSlug),
+					pluginSlug: Schema.optional(PluginSlug),
 					includeDisabled: Schema.optionalWith(Schema.BooleanFromString, {
 						default: () => false,
 					}),
 				}),
 			)
 			.addSuccess(Schema.Array(ListedSavedView))
-			.annotate(OpenApi.Description, "Lists saved views with optional tracker and status filters"),
+			.annotate(OpenApi.Description, "Lists saved views with optional plugin and status filters"),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/saved-views")

@@ -64,7 +64,7 @@ yarn-debug.*
 yarn-error.*
 *.pem
 apps/app-backend/client
-apps/app-backend/src/modules/builtins/generated-sandbox/
+apps/app-backend/src/lib/infrastructure/sandbox-runtime/generated-sandbox/
 apps/app-backend/src/lib/infrastructure/sandbox-runtime/runner.generated.ts
 apps/app-client*/ios
 apps/app-client*/android

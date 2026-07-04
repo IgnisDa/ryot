@@ -4,6 +4,7 @@ import { Effect, Layer } from "effect";
 
 import { CurrentDb } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EntitiesRepository } from "./repository";
 
@@ -48,7 +49,24 @@ const makeDb = () => {
 it.effect("distinguishes an insert from a locked conflict row", () => {
 	const { db, getForUpdateCalls } = makeDb();
 	const layer = Layer.mergeAll(
-		EntitiesRepository.Default.pipe(Layer.provide(DefinitionRegistry.Default)),
+		EntitiesRepository.Default.pipe(
+			Layer.provide(
+				Layer.mergeAll(
+					DefinitionRegistry.Default,
+					Layer.succeed(PluginRuntimeResolver, {
+						_tag: "PluginRuntimeResolver",
+						unregisterTestSchemaScript: () => Effect.void,
+						listAutomations: () => Effect.succeed([]),
+						findAutomation: () => Effect.succeed(null),
+						listSchemaScripts: () => Effect.succeed([]),
+						findKernelScript: () => Effect.succeed(null),
+						findActiveScript: () => Effect.succeed(null),
+						findSchemaScriptBySlug: () => Effect.succeed(null),
+						registerTestSchemaScript: () => Effect.succeed(null),
+					}),
+				),
+			),
+		),
 		Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
 	);
 	const input = {
@@ -57,8 +75,8 @@ it.effect("distinguishes an insert from a locked conflict row", () => {
 		scope: "global" as const,
 		externalId: "external-1",
 		properties: { status: "active" },
-		entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 		sandboxScriptId: SandboxScriptId.make("script-1"),
+		entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 	};
 
 	return Effect.gen(function* () {

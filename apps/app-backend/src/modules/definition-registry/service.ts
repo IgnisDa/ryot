@@ -1,8 +1,6 @@
 import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
-import { RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import type { AppSchema, PropertyValidationError } from "@ryot/contract/schema/property-schema";
-import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
 import { Data, Effect } from "effect";
 
 import {
@@ -10,11 +8,8 @@ import {
 	parseAppSchemaProperties,
 	validateAppSchemaDefinition,
 } from "#lib/property-schema/property-schema-runtime";
-import { builtinEntitySchemas } from "#modules/builtins/entity-schemas";
-import { builtinRelationshipSchemas } from "#modules/builtins/relationship-schemas";
-import { builtinSavedViews } from "#modules/builtins/saved-views";
-import { builtinSignalSchemas } from "#modules/builtins/signal-schemas";
-import { builtinTrackers } from "#modules/builtins/trackers";
+
+import { kernelDefinitionSource } from "./kernel-source";
 
 export type EventSchemaDefinition = {
 	readonly name: string;
@@ -26,6 +21,7 @@ export type EntitySchemaDefinition = {
 	readonly icon: string;
 	readonly name: string;
 	readonly slug: string;
+	readonly pluginSlug: string | null;
 	readonly accentColor: string;
 	readonly propertiesSchema: AppSchema;
 	readonly eventSchemas: ReadonlyArray<EventSchemaDefinition>;
@@ -55,15 +51,6 @@ export type SignalSchemaDefinition = {
 	readonly audiencePolicy: SignalAudiencePolicy;
 };
 
-export type TrackerDefinition = {
-	readonly icon: string;
-	readonly name: string;
-	readonly slug: string;
-	readonly accentColor: string;
-	readonly description: string;
-	readonly entitySchemaSlugs: ReadonlyArray<string>;
-};
-
 export type SavedViewDefinition = {
 	readonly icon: string;
 	readonly name: string;
@@ -71,12 +58,11 @@ export type SavedViewDefinition = {
 	readonly sortOrder: number;
 	readonly accentColor: string;
 	readonly queryDocument: QueryDocument;
-	readonly trackerSlug: string | null;
+	readonly pluginSlug: string | null;
 	readonly displayConfiguration: DisplayConfiguration;
 };
 
 export type DefinitionSource = {
-	readonly trackers: ReadonlyArray<TrackerDefinition>;
 	readonly savedViews: ReadonlyArray<SavedViewDefinition>;
 	readonly entitySchemas: ReadonlyArray<EntitySchemaDefinition>;
 	readonly signalSchemas: ReadonlyArray<SignalSchemaDefinition>;
@@ -88,12 +74,21 @@ type EntitySchemaSnapshot = Omit<EntitySchemaDefinition, "eventSchemas"> & {
 };
 
 export type DefinitionSnapshot = {
-	readonly trackers: Readonly<Record<string, TrackerDefinition>>;
 	readonly savedViews: Readonly<Record<string, SavedViewDefinition>>;
 	readonly entitySchemas: Readonly<Record<string, EntitySchemaSnapshot>>;
 	readonly signalSchemas: Readonly<Record<string, SignalSchemaDefinition>>;
 	readonly relationshipSchemas: Readonly<Record<string, RelationshipSchemaDefinition>>;
 };
+
+export type DefinitionProvenance = {
+	readonly nonBuiltinEntitySchemaSlugs: ReadonlySet<string>;
+	readonly nonBuiltinRelationshipSchemaSlugs: ReadonlySet<string>;
+};
+
+const builtinDefinitionProvenance = (): DefinitionProvenance => ({
+	nonBuiltinEntitySchemaSlugs: new Set(),
+	nonBuiltinRelationshipSchemaSlugs: new Set(),
+});
 
 export class DefinitionNotFound extends Data.TaggedError("DefinitionNotFound")<{
 	readonly kind: string;
@@ -134,10 +129,8 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 	assertUniqueSlugs("entity schema", source.entitySchemas);
 	assertUniqueSlugs("relationship schema", source.relationshipSchemas);
 	assertUniqueSlugs("signal schema", source.signalSchemas);
-	assertUniqueSlugs("tracker", source.trackers);
 	assertUniqueSlugs("saved view", source.savedViews);
 
-	const trackerSlugs = new Set(source.trackers.map(({ slug }) => slug));
 	const entitySchemaSlugs = new Set(source.entitySchemas.map(({ slug }) => slug));
 	const relationshipSchemaSlugs = new Set(source.relationshipSchemas.map(({ slug }) => slug));
 
@@ -182,24 +175,6 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 			);
 		}
 	}
-
-	for (const tracker of source.trackers) {
-		for (const entitySchemaSlug of tracker.entitySchemaSlugs) {
-			if (!entitySchemaSlugs.has(entitySchemaSlug)) {
-				throw new Error(
-					`Tracker ${tracker.slug} references missing entity schema ${entitySchemaSlug}`,
-				);
-			}
-		}
-	}
-
-	for (const savedView of source.savedViews) {
-		if (savedView.trackerSlug !== null && !trackerSlugs.has(savedView.trackerSlug)) {
-			throw new Error(
-				`Saved view ${savedView.slug} references missing tracker ${savedView.trackerSlug}`,
-			);
-		}
-	}
 };
 
 const toRecord = <Definition extends { readonly slug: string }>(
@@ -210,7 +185,6 @@ export const buildDefinitionSnapshot = (source: DefinitionSource): DefinitionSna
 	validateDefinitionSource(source);
 	const cloned = structuredClone(source);
 	return deepFreeze({
-		trackers: toRecord(cloned.trackers),
 		savedViews: toRecord(cloned.savedViews),
 		signalSchemas: toRecord(cloned.signalSchemas),
 		relationshipSchemas: toRecord(cloned.relationshipSchemas),
@@ -224,7 +198,6 @@ export const buildDefinitionSnapshot = (source: DefinitionSource): DefinitionSna
 };
 
 export const definitionSourceFromSnapshot = (snapshot: DefinitionSnapshot): DefinitionSource => ({
-	trackers: Object.values(snapshot.trackers),
 	savedViews: Object.values(snapshot.savedViews),
 	signalSchemas: Object.values(snapshot.signalSchemas),
 	relationshipSchemas: Object.values(snapshot.relationshipSchemas),
@@ -233,89 +206,29 @@ export const definitionSourceFromSnapshot = (snapshot: DefinitionSnapshot): Defi
 	),
 });
 
-export const builtinDefinitionSource = (): DefinitionSource => {
-	const entitySchemas = builtinEntitySchemas();
-	const entitySchemasBySlug = new Map(
-		entitySchemas.map((definition) => [definition.slug, definition]),
-	);
-	const trackers = builtinTrackers().map((tracker) => ({
-		icon: tracker.icon,
-		name: tracker.name,
-		slug: tracker.slug,
-		accentColor: tracker.accentColor,
-		description: tracker.description,
-		entitySchemaSlugs: entitySchemas
-			.filter(({ trackerSlug }) => trackerSlug === tracker.slug)
-			.map(({ slug }) => slug),
-	}));
-	const sortOrders = new Map<string | null, number>();
-	const savedViews = builtinSavedViews().map((savedView) => {
-		const trackerSlug = savedView.trackerSlug ?? null;
-		const sortOrder = sortOrders.get(trackerSlug) ?? 0;
-		sortOrders.set(trackerSlug, sortOrder + 1);
-		const entitySchema = savedView.entitySchemaSlug
-			? entitySchemasBySlug.get(savedView.entitySchemaSlug)
-			: undefined;
-		const icon = savedView.icon ?? entitySchema?.icon;
-		const accentColor = savedView.accentColor ?? entitySchema?.accentColor;
-		const queryDocument =
-			savedView.queryDocument ??
-			(entitySchema
-				? buildDefaultSavedViewQueryDocument({
-						schemas: [entitySchema.slug],
-						requireInLibrary: savedView.requireInLibrary,
-					})
-				: undefined);
-		if (!icon || !accentColor || !queryDocument) {
-			throw new Error(`Builtin saved view ${savedView.slug} is incomplete`);
-		}
-		return {
-			icon,
-			sortOrder,
-			accentColor,
-			queryDocument,
-			trackerSlug,
-			name: savedView.name,
-			slug: savedView.slug,
-			displayConfiguration: savedView.displayConfiguration,
-		};
-	});
-	const signalSchemas = builtinSignalSchemas(RelationshipSchemaSlug.make("media-monitoring")).map(
-		(signalSchema) => ({
-			name: signalSchema.name,
-			slug: signalSchema.slug,
-			catalogState: signalSchema.catalogState,
-			propertiesSchema: signalSchema.propertiesSchema,
-			audiencePolicy:
-				signalSchema.audiencePolicy.kind === "actor"
-					? signalSchema.audiencePolicy
-					: {
-							kind: signalSchema.audiencePolicy.kind,
-							subjectSide: signalSchema.audiencePolicy.subjectSide,
-							relationshipSchemaSlug: signalSchema.audiencePolicy.relationshipSchemaSlug,
-						},
-		}),
-	);
-	return {
-		trackers,
-		savedViews,
-		entitySchemas,
-		signalSchemas,
-		relationshipSchemas: builtinRelationshipSchemas(),
-	};
-};
-
-export const makeDefinitionRegistry = (source: DefinitionSource = builtinDefinitionSource()) => {
+export const makeDefinitionRegistry = (
+	source: DefinitionSource = kernelDefinitionSource(),
+	initialProvenance: DefinitionProvenance = builtinDefinitionProvenance(),
+) => {
 	let snapshot = buildDefinitionSnapshot(source);
+	let provenance = initialProvenance;
 	const getSnapshot = () => snapshot;
-	const replace = (nextSource: DefinitionSource) => {
+	const replace = (
+		nextSource: DefinitionSource,
+		nextProvenance: DefinitionProvenance = builtinDefinitionProvenance(),
+	) => {
 		snapshot = buildDefinitionSnapshot(nextSource);
+		provenance = nextProvenance;
 	};
 	const getEntitySchema = (slug: string) => snapshot.entitySchemas[slug];
 	const getSignalSchema = (slug: string) => snapshot.signalSchemas[slug];
-	const getTracker = (slug: string) => snapshot.trackers[slug];
 	const getSavedView = (slug: string) => snapshot.savedViews[slug];
 	const getRelationshipSchema = (slug: string) => snapshot.relationshipSchemas[slug];
+	const isEntitySchemaBuiltin = (slug: string) =>
+		getEntitySchema(slug) !== undefined && !provenance.nonBuiltinEntitySchemaSlugs.has(slug);
+	const isRelationshipSchemaBuiltin = (slug: string) =>
+		getRelationshipSchema(slug) !== undefined &&
+		!provenance.nonBuiltinRelationshipSchemaSlugs.has(slug);
 	const getEventSchema = (entitySchemaSlug: string, eventSchemaSlug: string) =>
 		getEntitySchema(entitySchemaSlug)?.eventSchemas[eventSchemaSlug];
 	const validateProperties = (
@@ -352,16 +265,17 @@ export const makeDefinitionRegistry = (source: DefinitionSource = builtinDefinit
 
 	return {
 		replace,
-		getTracker,
 		getSnapshot,
 		getSavedView,
 		getEventSchema,
 		getEntitySchema,
 		getSignalSchema,
 		getRelationshipSchema,
+		isEntitySchemaBuiltin,
 		validateEventProperties,
 		validateEntityProperties,
 		validateSignalProperties,
+		isRelationshipSchemaBuiltin,
 		validateRelationshipProperties,
 	};
 };

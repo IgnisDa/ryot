@@ -18,16 +18,16 @@ describe("GET /system/config auth block defaults", () => {
 
 describe("Email sign-up", () => {
 	it.live(
-		"bootstraps a new user with tracker rows and default notification rules after sign-up",
+		"bootstraps a new user with plugin workspace state and default notification rules after sign-up",
 		() =>
 			Effect.gen(function* () {
 				const { cookies } = yield* createTestUser();
 				const headers = { Cookie: cookies };
-				const trackers = yield* getBackendClient().call(
-					(c) => c.trackers.list({ urlParams: { includeDisabled: true } }),
+				const workspaces = yield* getBackendClient().call(
+					(c) => c.definitions.listWorkspaces({ urlParams: { includeDisabled: true } }),
 					headers,
 				);
-				expect(trackers.length).toBeGreaterThan(0);
+				expect(workspaces.length).toBeGreaterThan(0);
 
 				const [catalog, rules] = yield* Effect.all([
 					getBackendClient().call((c) => c.automations.listCatalog(), headers),
