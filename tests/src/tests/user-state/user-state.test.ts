@@ -72,16 +72,29 @@ describe("DELETE /user-state/clear/:id", () => {
 
 		const eventSchemas = await listEventSchemas(userA.client, schema.id);
 		const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
-		const queryCounts = (auth: typeof userA) =>
+		const { slug: extraTargetSchemaSlug, entityId: extraTargetEntityId } =
+			await createTrackerWithSchemaAndEntity(userA.client);
+		const inLibraryRelationship = {
+			schema: "in-library",
+			targetSchema: "library",
+			sourceSchema: schema.slug,
+		};
+		const mediaSuggestionRelationship = {
+			sourceSchema: schema.slug,
+			schema: "media-suggestion",
+			targetSchema: extraTargetSchemaSlug,
+		};
+		const queryCounts = (
+			auth: typeof userA,
+			relationships: Parameters<typeof queryUserEntityStateCounts>[0]["relationships"],
+		) =>
 			queryUserEntityStateCounts({
+				relationships,
 				client: auth.client,
-				userId: auth.userId,
 				entityId: entity.id,
 				entitySchemaSlugs: [schema.slug],
 				eventSchemaSlugs: [reviewEventSchema.slug],
 			});
-
-		const { entityId: extraTargetEntityId } = await createTrackerWithSchemaAndEntity(userA.client);
 
 		await userA.client.run((c) =>
 			c.events.create({
@@ -113,11 +126,11 @@ describe("DELETE /user-state/clear/:id", () => {
 		});
 
 		await pollUntil("user A event setup", async () => {
-			const counts = await queryCounts(userA);
+			const counts = await queryCounts(userA, [inLibraryRelationship, mediaSuggestionRelationship]);
 			return counts.eventCount === 1 && counts.relationshipCount === 2 ? counts : null;
 		});
 		await pollUntil("user B event setup", async () => {
-			const counts = await queryCounts(userB);
+			const counts = await queryCounts(userB, [inLibraryRelationship]);
 			return counts.eventCount === 1 && counts.relationshipCount === 1 ? counts : null;
 		});
 
@@ -128,8 +141,14 @@ describe("DELETE /user-state/clear/:id", () => {
 			deletedEventsCount: 1,
 			deletedRelationshipsCount: 2,
 		});
-		expect(await queryCounts(userA)).toEqual({ eventCount: 0, relationshipCount: 0 });
-		expect(await queryCounts(userB)).toEqual({ eventCount: 1, relationshipCount: 1 });
+		expect(await queryCounts(userA, [inLibraryRelationship, mediaSuggestionRelationship])).toEqual({
+			eventCount: 0,
+			relationshipCount: 0,
+		});
+		expect(await queryCounts(userB, [inLibraryRelationship])).toEqual({
+			eventCount: 1,
+			relationshipCount: 1,
+		});
 
 		const userAMembership = await queryInLibraryRelationship(userA.client, entity.id, schema.slug);
 		const userBMembership = await queryInLibraryRelationship(userB.client, entity.id, schema.slug);
@@ -162,7 +181,7 @@ describe("DELETE /user-state/clear/:id", () => {
 
 describe("POST /user-state/merge", () => {
 	it("moves user events and dedupes relationships from source to target", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const entitySchemaSlug = `merge-schema-${crypto.randomUUID()}`;
 		const eventSchemaSlug = `merged-event-${crypto.randomUUID()}`;
 		const { schemaId } = await createTrackerWithSchema(client, { slug: entitySchemaSlug });
@@ -189,10 +208,16 @@ describe("POST /user-state/merge", () => {
 		const queryCounts = (entityId: string) =>
 			queryUserEntityStateCounts({
 				client,
-				userId,
 				entityId,
 				eventSchemaSlugs: [eventSchemaSlug],
 				entitySchemaSlugs: [entitySchemaSlug],
+				relationships: [
+					{
+						schema: "media-suggestion",
+						targetSchema: entitySchemaSlug,
+						sourceSchema: entitySchemaSlug,
+					},
+				],
 			});
 
 		await client.run((c) =>

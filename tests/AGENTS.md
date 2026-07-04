@@ -33,7 +33,7 @@ Admin-only fixture operations use the typed `testSupport` contract group with `a
 - Translation fixtures use `setEntityPopulatedAt`, `upsertEntityTranslation`, and `listEntityTranslations`; null overlay values model a negative cache.
 - Mixed-auth fixtures use `linkAuthAccount`, while sandbox fault injection uses `patchSandboxScript` only after compiling executable code through the public sandbox API.
 
-The SQL allowlist is workflow polling through `cluster_messages`/`cluster_replies`, `queryUserEntityStateCounts`, and `countMediaMonitoringRelationships`. Document any new SQL exception here; otherwise use the contract API.
+The SQL allowlist is workflow polling through `cluster_messages`/`cluster_replies`. Document any new SQL exception here; otherwise use the contract API.
 
 ## SSE Interest Streams
 
@@ -76,6 +76,6 @@ Parallel test runs share one backend, so keep fixtures collision-free: use rando
 
 ## Media Monitoring
 
-`tests/src/tests/media-monitoring/media-monitoring.test.ts` seeds an API-compiled offline details provider, then exercises status/enable/disable through the typed contract client. Its cron case compiles replacement source through the API before copying the complete representation to the promoted provider, and uses the real admin infrequent-cron trigger plus a local Apprise server so baseline silence, provider refresh, signal production, subscription audience resolution, and notification delivery are covered together. `fixtures/media-monitoring.ts` owns the endpoint wrappers, the media-monitoring relationship SQL assertion, and `waitForMediaMonitoringRefresh` (polls `cluster_messages`/`cluster_replies` for a refresh execution's completion — shared by every suite that forces a re-population through `enableMediaMonitoring` + `triggerInfrequentCron`, since `entityImport.import` is ensure-mode and no-ops on an already-populated entity).
+`tests/src/tests/media-monitoring/media-monitoring.test.ts` seeds an API-compiled offline details provider, then exercises status/enable/disable through the typed contract client. Its cron case compiles replacement source through the API before copying the complete representation to the promoted provider, and uses the real admin infrequent-cron trigger plus a local Apprise server so baseline silence, provider refresh, signal production, subscription audience resolution, and notification delivery are covered together. `fixtures/media-monitoring.ts` owns the endpoint wrappers, the relationship-root query assertion, and `waitForMediaMonitoringRefresh` (polls `cluster_messages`/`cluster_replies` for a refresh execution's completion — shared by every suite that forces a re-population through `enableMediaMonitoring` + `triggerInfrequentCron`, since `entityImport.import` is ensure-mode and no-ops on an already-populated entity).
 
 Association detector suites live in `tests/src/tests/media-monitoring/association-detectors*.test.ts` and `media-entity-update-signals.test.ts`. Credit edges have two writers (a media-rooted additive incoming sync and a person/company-rooted authoritative outgoing sync); the shared cron-refresh mechanism above is how a test re-drives an already-populated root to exercise role updates, authoritative deletes, and re-creates from either direction.

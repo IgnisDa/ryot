@@ -1,8 +1,15 @@
 import { EntityId } from "@ryot/contract/schema/brands";
-import { buildEventHistoryQueryDocument, type QueryEngineNonEmptyArray } from "@ryot/query-engine";
-
-import { getPgClient } from "~/setup";
-import { requirePresent } from "~/support/assertions";
+import {
+	buildEventHistoryQueryDocument,
+	buildQueryEngineRowsDocument,
+	queryEngineComparison,
+	queryEngineField,
+	queryEngineLiteral,
+	queryEngineOrder,
+	queryEngineRelationshipSource,
+	queryEngineSystemRef,
+	type QueryEngineNonEmptyArray,
+} from "@ryot/query-engine";
 
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
@@ -11,6 +18,12 @@ import { executeQueryEngine } from "./query-engine-core";
 type MergeUserStateBody = ContractPayload<"userState", "mergeUserState">;
 type MergeUserStateData = ContractSuccess<"userState", "mergeUserState">;
 type ClearEntityUserStateData = ContractSuccess<"userState", "clearUserState">;
+
+type RelationshipRoot = {
+	schema: string;
+	sourceSchema: string;
+	targetSchema: string;
+};
 
 export async function mergeUserState(
 	client: Client,
@@ -30,13 +43,12 @@ export async function clearEntityUserState(
 
 export async function queryUserEntityStateCounts(input: {
 	client: Client;
-	userId: string;
 	entityId: string;
 	eventSchemaSlugs: QueryEngineNonEmptyArray<string>;
 	entitySchemaSlugs: QueryEngineNonEmptyArray<string>;
+	relationships: QueryEngineNonEmptyArray<RelationshipRoot>;
 }) {
-	const pg = getPgClient();
-	const [entityEvents, sessionEvents, relationships] = await Promise.all([
+	const [entityEvents, sessionEvents, ...relationships] = await Promise.all([
 		executeQueryEngine(
 			input.client,
 			buildEventHistoryQueryDocument({
@@ -57,19 +69,34 @@ export async function queryUserEntityStateCounts(input: {
 				entitySchemaSlugs: input.entitySchemaSlugs,
 			}),
 		),
-		pg.query<{ count: string }>(
-			`select count(*)::text as count
-			 from relationship
-			 where user_id = $1
-			   and (source_entity_id = $2 or target_entity_id = $2)`,
-			[input.userId, input.entityId],
+		...input.relationships.map((relationship) =>
+			executeQueryEngine(
+				input.client,
+				buildQueryEngineRowsDocument({
+					limit: 1,
+					fields: [queryEngineField("id", queryEngineSystemRef("relationship", "id"))],
+					orderBy: [queryEngineOrder("asc", queryEngineSystemRef("relationship", "id"))],
+					source: queryEngineRelationshipSource({
+						alias: "relationship",
+						schemas: [relationship.schema],
+						targetEntity: { alias: "target", schemas: [relationship.targetSchema] },
+						sourceEntity: { alias: "source", schemas: [relationship.sourceSchema] },
+						where: queryEngineComparison(
+							"eq",
+							queryEngineSystemRef("source", "id"),
+							queryEngineLiteral(input.entityId),
+						),
+					}),
+				}),
+			),
 		),
 	]);
 
 	return {
 		eventCount: entityEvents.data.pageInfo.total + sessionEvents.data.pageInfo.total,
-		relationshipCount: Number(
-			requirePresent(relationships.rows[0], "Missing relationship count").count,
+		relationshipCount: relationships.reduce(
+			(count, result) => count + result.data.pageInfo.total,
+			0,
 		),
 	};
 }
