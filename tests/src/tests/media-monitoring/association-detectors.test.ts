@@ -3,7 +3,7 @@ import { Effect } from "effect";
 
 import {
 	adminHeaders,
-	cleanupBuiltinProviderScript,
+	uninstallTestProvider,
 	createAuthenticatedClient,
 	createNotificationChannel,
 	enableMediaMonitoring,
@@ -14,11 +14,11 @@ import {
 	pollEntityImportResult,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
-	seedBuiltinProviderScript,
+	installTestProvider,
 	seedMediaEntity,
 	startFakeAppriseServer,
 	triggerCronAndWaitForEntity,
-	type SeededProviderScript,
+	type InstalledProviderScript,
 	pollUntil,
 } from "~/fixtures";
 import { assertCompleted, requireObjectRecord } from "~/support/assertions";
@@ -33,8 +33,8 @@ const personExternalId = `association-person-${crypto.randomUUID()}`;
 let movieSchemaId: string;
 let personEntityId: string;
 let fakeApprise: FakeHttpServer;
-let movieProvider: SeededProviderScript;
-let personProvider: SeededProviderScript;
+let movieProvider: InstalledProviderScript;
+let personProvider: InstalledProviderScript;
 
 beforeAll(async () => {
 	await Effect.runPromise(
@@ -42,13 +42,13 @@ beforeAll(async () => {
 			const { client } = yield* createAuthenticatedClient();
 			const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
 			movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
-			personProvider = yield* seedBuiltinProviderScript({
+			personProvider = yield* installTestProvider({
 				client,
 				linkToEntitySchemaSlug: personSchemaId,
 				slug: `person.association-e2e-${crypto.randomUUID()}`,
 				drivers: { details: fakeProviderDetailsResult({ name: personName }) },
 			});
-			movieProvider = yield* seedBuiltinProviderScript({
+			movieProvider = yield* installTestProvider({
 				client,
 				slug: `movie.association-e2e-${crypto.randomUUID()}`,
 				drivers: {
@@ -89,8 +89,8 @@ afterAll(async () => {
 	fakeApprise.stop();
 	await Effect.runPromise(
 		Effect.gen(function* () {
-			yield* cleanupBuiltinProviderScript(movieProvider);
-			yield* cleanupBuiltinProviderScript(personProvider);
+			yield* uninstallTestProvider(movieProvider);
+			yield* uninstallTestProvider(personProvider);
 		}),
 	);
 });
@@ -167,7 +167,7 @@ describe("dual-writer canonical identity", () => {
 				const dwPersonExternalId = `dual-writer-person-${crypto.randomUUID()}`;
 
 				const { client } = yield* createAuthenticatedClient();
-				const dwPersonProvider = yield* seedBuiltinProviderScript({
+				const dwPersonProvider = yield* installTestProvider({
 					client,
 					slug: dwPersonSlug,
 					linkToEntitySchemaSlug: personSchemaId,
@@ -192,7 +192,7 @@ describe("dual-writer canonical identity", () => {
 						}),
 					},
 				});
-				const dwMovieProvider = yield* seedBuiltinProviderScript({
+				const dwMovieProvider = yield* installTestProvider({
 					client,
 					slug: dwMovieSlug,
 					linkToEntitySchemaSlug: movieSchemaId,
@@ -275,8 +275,8 @@ describe("dual-writer canonical identity", () => {
 						fakeApprise.requests.filter(({ path }) => path === "/notify/dual-writer-monitor"),
 					).toEqual([]);
 				} finally {
-					yield* cleanupBuiltinProviderScript(dwMovieProvider);
-					yield* cleanupBuiltinProviderScript(dwPersonProvider);
+					yield* uninstallTestProvider(dwMovieProvider);
+					yield* uninstallTestProvider(dwPersonProvider);
 				}
 			}),
 	);
@@ -321,13 +321,13 @@ describe("association lifecycle via cron refresh", () => {
 				});
 
 			const { client } = yield* createAuthenticatedClient();
-			const ruPersonProvider = yield* seedBuiltinProviderScript({
+			const ruPersonProvider = yield* installTestProvider({
 				client,
 				slug: ruPersonSlug,
 				linkToEntitySchemaSlug: personSchemaId,
 				drivers: { details: fakeProviderDetailsResult({ name: ruPersonName }) },
 			});
-			const ruMovieProvider = yield* seedBuiltinProviderScript({
+			const ruMovieProvider = yield* installTestProvider({
 				client,
 				slug: ruMovieSlug,
 				linkToEntitySchemaSlug: movieSchemaId,
@@ -416,8 +416,8 @@ describe("association lifecycle via cron refresh", () => {
 					`${ruPersonName} has been associated with ${ruMovieName} as Director`,
 				);
 			} finally {
-				yield* cleanupBuiltinProviderScript(ruMovieProvider);
-				yield* cleanupBuiltinProviderScript(ruPersonProvider);
+				yield* uninstallTestProvider(ruMovieProvider);
+				yield* uninstallTestProvider(ruPersonProvider);
 			}
 		}),
 	);
@@ -461,13 +461,13 @@ describe("association lifecycle via cron refresh", () => {
 					});
 
 				const { client } = yield* createAuthenticatedClient();
-				const drMovieProvider = yield* seedBuiltinProviderScript({
+				const drMovieProvider = yield* installTestProvider({
 					client,
 					slug: drMovieSlug,
 					linkToEntitySchemaSlug: movieSchemaId,
 					drivers: { details: fakeProviderDetailsResult({ name: drMovieName }) },
 				});
-				const drPersonProvider = yield* seedBuiltinProviderScript({
+				const drPersonProvider = yield* installTestProvider({
 					client,
 					slug: drPersonSlug,
 					drivers: {
@@ -540,8 +540,8 @@ describe("association lifecycle via cron refresh", () => {
 						`${drPersonName} has been associated with ${drMovieName} as Actor`,
 					);
 				} finally {
-					yield* cleanupBuiltinProviderScript(drPersonProvider);
-					yield* cleanupBuiltinProviderScript(drMovieProvider);
+					yield* uninstallTestProvider(drPersonProvider);
+					yield* uninstallTestProvider(drMovieProvider);
 				}
 			}),
 	);

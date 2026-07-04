@@ -85,13 +85,35 @@ it("rejects definition collisions without replacing the current snapshot", () =>
 	const plugin = normalizedPlugin("2");
 	const collision = {
 		...plugin,
+		scripts: plugin.scripts.map((script) => ({ ...script, slug: "other.automation" })),
+		manifest: {
+			...plugin.manifest,
+			scripts: plugin.manifest.scripts.map((script) => ({
+				...script,
+				slug: "other.automation",
+			})),
+			metadata: { ...plugin.manifest.metadata, slug: "other-plugin" },
+		},
+	};
+
+	expect(() => loader.load(collision)).toThrow(/Duplicate entity schema slug/);
+	expect(loader.getSnapshot()).toBe(original);
+});
+
+it("rejects script slug collisions across active plugins", () => {
+	const loader = makePluginLoader(makeDefinitionRegistry(emptySource));
+	loader.load(normalizedPlugin("1"));
+	const original = loader.getSnapshot();
+	const plugin = normalizedPlugin("2");
+	const collision = {
+		...plugin,
 		manifest: {
 			...plugin.manifest,
 			metadata: { ...plugin.manifest.metadata, slug: "other-plugin" },
 		},
 	};
 
-	expect(() => loader.load(collision)).toThrow(/Duplicate entity schema slug/);
+	expect(() => loader.load(collision)).toThrow(/Duplicate script slug 'fixture\.automation'/);
 	expect(loader.getSnapshot()).toBe(original);
 });
 

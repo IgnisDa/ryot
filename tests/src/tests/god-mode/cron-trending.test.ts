@@ -1,8 +1,4 @@
-import {
-	EntitySchemaSlug,
-	RelationshipSchemaSlug,
-	SandboxScriptId,
-} from "@ryot/contract/schema/brands";
+import { RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -10,15 +6,17 @@ import {
 	adminAccessTokenHeaders,
 	adminHeaders,
 	type Client,
-	createAndPromoteSandboxScript,
 	createAuthenticatedClient,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
 	getEntity,
+	installTestPlugin,
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
 	trendingSandboxSource,
 	pollUntil,
+	type InstalledTestPlugin,
+	uninstallTestPlugin,
 } from "~/fixtures";
 import { assertPresent, assertTaggedError, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
@@ -40,6 +38,7 @@ let scriptId: string;
 let queryClient: Client;
 let movieSchemaId: string;
 let mediaTrendingSchemaId: string;
+let trendingPlugin: InstalledTestPlugin | undefined;
 
 describe("POST /test-support/cron/infrequent (media-trending durable workflow)", () => {
 	beforeAll(async () => {
@@ -58,36 +57,26 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 					"media-trending",
 				).id;
 
-				const script = yield* createAndPromoteSandboxScript(client, TRENDING_SOURCE);
-				scriptId = script.id;
-
-				yield* getBackendClient().call(
-					(c) =>
-						c.testSupport.linkSandboxScriptToEntitySchema({
-							path: {
-								scriptId: SandboxScriptId.make(scriptId),
-								entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
-							},
-						}),
-					adminHeaders,
-				);
+				trendingPlugin = yield* installTestPlugin({
+					source: TRENDING_SOURCE,
+					linkToEntitySchemaSlug: movieSchemaId,
+					script: {
+						kind: "provider",
+						capabilities: [],
+						slug: SCRIPT_SLUG,
+						name: "E2E Test Trending",
+						requiredAppConfigKeys: [],
+						providerInformation: { source: "e2e" },
+					},
+				});
+				scriptId = trendingPlugin.scriptId;
 			}),
 		);
 	});
 
 	afterAll(async () => {
-		try {
-			await Effect.runPromise(
-				getBackendClient().call(
-					(c) =>
-						c.testSupport.deleteSandboxScript({
-							path: { scriptId: SandboxScriptId.make(scriptId) },
-						}),
-					adminHeaders,
-				),
-			);
-		} catch (error) {
-			console.error("[god-mode-cron-trending] cleanup failed (non-fatal)", error);
+		if (trendingPlugin) {
+			await Effect.runPromise(uninstallTestPlugin(trendingPlugin));
 		}
 	});
 
