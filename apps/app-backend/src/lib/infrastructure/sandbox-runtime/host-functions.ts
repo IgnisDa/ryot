@@ -41,7 +41,7 @@ import {
 	type AdditionalSandboxHostImplementationMap,
 	isJsonValue,
 	requireUserSandboxRunInput,
-	requireSystemCronSandboxRunInput,
+	requireSystemSandboxRunInput,
 	sandboxHostEffect,
 	sandboxHostFailure,
 	toSandboxJsonValue,
@@ -229,7 +229,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			upsertGlobalEntities: (rawInput, items, options) =>
 				sandboxHostEffect(
 					Effect.gen(function* () {
-						const input = yield* requireSystemCronSandboxRunInput(rawInput, "upsertGlobalEntities");
+						const input = yield* requireSystemSandboxRunInput(rawInput, "upsertGlobalEntities");
 						if (items.length > SANDBOX_LIMITS.globalWrites.entityItems) {
 							return yield* Effect.fail(
 								`upsertGlobalEntities exceeds ${SANDBOX_LIMITS.globalWrites.entityItems} items`,
@@ -263,7 +263,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			upsertGlobalRelationships: (rawInput, groups) =>
 				sandboxHostEffect(
 					Effect.gen(function* () {
-						yield* requireSystemCronSandboxRunInput(rawInput, "upsertGlobalRelationships");
+						yield* requireSystemSandboxRunInput(rawInput, "upsertGlobalRelationships");
 						const relationshipCount = groups.reduce(
 							(total, group) => total + group.relationships.length,
 							0,

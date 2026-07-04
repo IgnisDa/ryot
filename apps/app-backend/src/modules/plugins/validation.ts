@@ -70,6 +70,7 @@ export const validatePluginManifestReferences = (
 	snapshot: DefinitionSnapshot,
 ) =>
 	Effect.gen(function* () {
+		const bootSlugs = new Set<string>();
 		const cronSlugs = new Set<string>();
 		const scriptSlugs = new Set<string>();
 		const operationSlugs = new Set<string>();
@@ -95,6 +96,14 @@ export const validatePluginManifestReferences = (
 				return yield* fail(`Duplicate script slug: ${script.slug}`);
 			}
 			scriptSlugs.add(script.slug);
+		}
+		for (const boot of manifest.boot) {
+			yield* assertSlug("boot", boot.slug);
+			if (bootSlugs.has(boot.slug)) {
+				return yield* fail(`Duplicate boot slug: ${boot.slug}`);
+			}
+			bootSlugs.add(boot.slug);
+			yield* assertReference("Boot", boot.driverRef, scriptSlugs);
 		}
 		for (const cron of manifest.crons) {
 			yield* assertSlug("cron", cron.slug);
@@ -179,6 +188,28 @@ export const validatePluginCronDrivers = (plugin: {
 			}
 			if (!script.metadata.driverNames?.includes("cron")) {
 				return yield* fail(`Cron ${cron.slug} script ${cron.driverRef} must expose driver: cron`);
+			}
+		}
+		return yield* Effect.void;
+	});
+
+export const validatePluginBootDrivers = (plugin: {
+	readonly manifest: PluginManifestValue;
+	readonly scripts: ReadonlyArray<{
+		readonly slug: string;
+		readonly metadata: { readonly driverNames?: ReadonlyArray<string> };
+	}>;
+}) =>
+	Effect.gen(function* () {
+		for (const boot of plugin.manifest.boot) {
+			const script = plugin.scripts.find(({ slug }) => slug === boot.driverRef);
+			if (!script) {
+				return yield* fail(
+					`Boot ${boot.slug} references missing compiled script: ${boot.driverRef}`,
+				);
+			}
+			if (!script.metadata.driverNames?.includes("boot")) {
+				return yield* fail(`Boot ${boot.slug} script ${boot.driverRef} must expose driver: boot`);
 			}
 		}
 		return yield* Effect.void;
