@@ -15,6 +15,7 @@ import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
 import { UploadsService } from "./service";
 
 const user: CurrentUserValue = {
+	image: null,
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),

@@ -115,7 +115,7 @@ import { TestSupportService } from "#modules/test-support/service";
 import { UploadsService } from "#modules/uploads/service";
 import { AuthUserBootstrapLive } from "#modules/user-bootstrap/bootstrap";
 import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
-import { UserPreferencesService } from "#modules/user-preferences/service";
+import { UserSettingsService } from "#modules/user-settings/service";
 import { UserStateService } from "#modules/user-state/service";
 
 import { makeAutomationSandboxApiFunctions } from "./automation-sandbox-host-functions";
@@ -249,7 +249,7 @@ const AuthAndBootstrapServicesLive = Layer.mergeAll(
 	AuthService.layer.pipe(Layer.provide(AuthUserBootstrapProvidedLive)),
 );
 const AuthDependentServicesLive = Layer.mergeAll(
-	UserPreferencesService.layer,
+	UserSettingsService.layer,
 	GodModeService.layer,
 ).pipe(Layer.provideMerge(AuthAndBootstrapServicesLive));
 

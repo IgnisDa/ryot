@@ -35,6 +35,7 @@ export type CurrentUserValue = {
 	readonly id: UserId;
 	readonly name: string;
 	readonly email: string;
+	readonly image: string | null;
 	readonly preferences: CachedUserPreferences;
 };
 
