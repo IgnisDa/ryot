@@ -66,6 +66,7 @@ apps/server/storage
 apps/server/work
 apps/server/src/drizzle
 kernel/backend/src/lib/infrastructure/sandbox-runtime/runner.generated.ts
+kernel/backend/src/lib/infrastructure/sandbox-runtime/runtime-payload.generated.ts
 kernel/backend/src/modules/definition-registry/kernel-scripts.generated.ts
 packages/kernel-renderers/src/sources.generated.ts
 .env*.local
