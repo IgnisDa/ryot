@@ -42,3 +42,5 @@ export const ProviderEntitySaveResult = Schema.Struct({
 	entity: ListedEntity,
 	outcome: EntityMutationOutcome,
 });
+
+export type ProviderEntitySaveResult = typeof ProviderEntitySaveResult.Type;
