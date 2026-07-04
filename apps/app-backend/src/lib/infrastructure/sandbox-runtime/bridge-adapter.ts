@@ -136,11 +136,6 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.emitSignal(input, ...args),
 		defaultFailure("emitSignal", "emitSignal expects a valid signal request"),
 	),
-	getEntities: bindHostFunction(
-		domainSandboxHostContracts.getEntities,
-		(...args) => implementations.getEntities(input, ...args),
-		defaultFailure("getEntities", "getEntities expects an array of non-empty entityId strings"),
-	),
 	getEntitySchemas: bindHostFunction(
 		domainSandboxHostContracts.getEntitySchemas,
 		(...args) => implementations.getEntitySchemas(input, ...args),
@@ -161,12 +156,6 @@ export const bindSandboxHostFunctions = (
 			"listEventSchemas",
 			"listEventSchemas expects an array of non-empty entitySchemaSlug strings",
 		),
-	),
-	listEvents: bindHostFunction(
-		domainSandboxHostContracts.listEvents,
-		(...args) => implementations.listEvents(input, ...args),
-		defaultFailure("listEvents", "listEvents received invalid query options"),
-		(args) => normalizeOptionalNull(args, 0),
 	),
 	listIntegrations: bindHostFunction(
 		domainSandboxHostContracts.listIntegrations,

@@ -28,8 +28,6 @@ const makeImplementations = (
 	span: () => Effect.fail({ message: "unused" }),
 	httpCall: () => Effect.fail({ message: "unused" }),
 	emitSignal: () => Effect.fail({ message: "unused" }),
-	listEvents: () => Effect.fail({ message: "unused" }),
-	getEntities: () => Effect.fail({ message: "unused" }),
 	createEvents: () => Effect.fail({ message: "unused" }),
 	getIntegration: () => Effect.fail({ message: "unused" }),
 	getCachedValue: () => Effect.fail({ message: "unused" }),
@@ -92,10 +90,6 @@ describe("bindSandboxHostFunctions", () => {
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
-			expect(yield* bound.getEntities([])).toEqual({
-				success: false,
-				error: "getEntities received an invalid number of arguments",
-			});
 			const result = yield* bound.httpCall(["POST", "https://example.com", { body: 42 }]);
 
 			expect(result).toEqual({
@@ -163,10 +157,6 @@ describe("bindSandboxHostFunctions", () => {
 		Effect.gen(function* () {
 			const calls: Array<{ fnName: string; value: unknown }> = [];
 			const implementations = makeImplementations({
-				getEntities: (_runInput, entityIds) => {
-					calls.push({ fnName: "getEntities", value: entityIds });
-					return Effect.fail({ message: "reached" });
-				},
 				createEvents: (_runInput, items) => {
 					calls.push({ fnName: "createEvents", value: items });
 					return Effect.fail({ message: "reached" });
@@ -181,15 +171,6 @@ describe("bindSandboxHostFunctions", () => {
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
-
-			expect(yield* bound.getEntities([["entity-1"]])).toEqual({
-				success: false,
-				error: "reached",
-			});
-			expect(yield* bound.getEntities([[42]])).toEqual({
-				success: false,
-				error: "getEntities expects an array of non-empty entityId strings",
-			});
 
 			expect(
 				yield* bound.createEvents([
@@ -234,7 +215,6 @@ describe("bindSandboxHostFunctions", () => {
 			});
 
 			expect(calls).toEqual([
-				{ fnName: "getEntities", value: ["entity-1"] },
 				{
 					fnName: "createEvents",
 					value: [{ entityId: "e-1", eventSchemaSlug: "es-1", properties: { watched: true } }],
@@ -394,10 +374,6 @@ describe("bindSandboxHostFunctions", () => {
 					calls.push({ fnName: "httpCall", value: options });
 					return Effect.fail({ message: "reached" });
 				},
-				listEvents: (_runInput, options) => {
-					calls.push({ fnName: "listEvents", value: options });
-					return Effect.fail({ message: "reached" });
-				},
 				listIntegrations: (_runInput, options) => {
 					calls.push({ fnName: "listIntegrations", value: options });
 					return Effect.fail({ message: "reached" });
@@ -408,10 +384,6 @@ describe("bindSandboxHostFunctions", () => {
 			expect(yield* bound.httpCall(["GET", "https://example.com", null])).toEqual({
 				error: "reached",
 				success: false,
-			});
-			expect(yield* bound.listEvents([null])).toEqual({
-				success: false,
-				error: "reached",
 			});
 			expect(yield* bound.listIntegrations([null])).toEqual({
 				success: false,
@@ -427,7 +399,6 @@ describe("bindSandboxHostFunctions", () => {
 			});
 			expect(calls).toEqual([
 				{ fnName: "httpCall", value: undefined },
-				{ fnName: "listEvents", value: undefined },
 				{ fnName: "listIntegrations", value: undefined },
 			]);
 		}),
