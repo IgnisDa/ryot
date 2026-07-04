@@ -4,8 +4,8 @@ import { createAuthClient } from "better-auth/react";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-import { CLOUD_URL } from "@/lib/server";
-import { useServerUrl } from "@/lib/store/server";
+import { useServerUrl } from "@/modules/server/state";
+import { CLOUD_URL } from "@/modules/server/url";
 
 const STORAGE_PREFIX = "ryot";
 const COOKIE_KEY = `${STORAGE_PREFIX}_cookie`;
@@ -30,7 +30,7 @@ const createClient = (baseURL: string) =>
 		],
 	});
 
-export type AuthClient = ReturnType<typeof createClient>;
+type AuthClient = ReturnType<typeof createClient>;
 
 const clients = new Map<string, AuthClient>();
 

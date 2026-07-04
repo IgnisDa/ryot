@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getNameFromEmail } from "./user";
+import { getNameFromEmail } from "./user-name";
 
 describe("getNameFromEmail", () => {
 	it.each([

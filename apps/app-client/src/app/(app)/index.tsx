@@ -3,8 +3,8 @@ import { Cause } from "effect";
 import { router } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
-import { AppApi } from "@/lib/api";
-import { useAuthClient } from "@/lib/auth";
+import { AppApi } from "@/api/app-api";
+import { useAuthClient } from "@/modules/auth/client";
 
 const trackersAtom = AppApi.query("trackers", "list", {
 	urlParams: { includeDisabled: false },

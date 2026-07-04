@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CLOUD_URL, resolveServerUrl } from "./server";
+import { CLOUD_URL, resolveServerUrl } from "./url";
 
 describe("resolveServerUrl", () => {
 	it("returns the cloud URL for cloud mode", () => {
