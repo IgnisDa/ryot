@@ -20,7 +20,6 @@ const extractLanguage = (preferences: Record<string, unknown>): string | null =>
 	return typeof language === "string" && language.length > 0 ? language : null;
 };
 
-/** @effect-expect-leaking Database */
 export class TranslationsRepository extends Context.Service<TranslationsRepository>()(
 	"TranslationsRepository",
 	{

@@ -27,7 +27,6 @@ export const pluginCronExecutionId = (
 	scheduledAt: number | string,
 ) => `plugin-cron-${pluginSlug.length}-${pluginSlug}-${cronSlug.length}-${cronSlug}-${scheduledAt}`;
 
-/** @effect-expect-leaking Database */
 export class PluginCronService extends Context.Service<PluginCronService>()("PluginCronService", {
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;

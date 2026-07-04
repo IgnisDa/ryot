@@ -31,7 +31,6 @@ const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	finishedAt: row.finishedAt?.toISOString() ?? null,
 });
 
-/** @effect-expect-leaking Database */
 export class ImportsRepository extends Context.Service<ImportsRepository>()("ImportsRepository", {
 	make: Effect.sync(() => {
 		const createRun = Effect.fn("ImportsRepository.createRun")(function* (input: {

@@ -16,7 +16,6 @@ export type SandboxPluginScriptResolverValue = {
 	}) => Effect.Effect<ActiveSandboxScript | null, DbError, Database>;
 };
 
-/** @effect-expect-leaking Database */
 export class SandboxPluginScriptResolver extends Context.Service<
 	SandboxPluginScriptResolver,
 	SandboxPluginScriptResolverValue

@@ -100,7 +100,6 @@ const matchesPolicyOwner = (
 const sourceMatchesTarget = (sourceKind: SubscriptionRunSourceKind, target: AutomationRuleTarget) =>
 	sourceKind === target.kind.replace("_schema", "");
 
-/** @effect-expect-leaking Database */
 export class AutomationsService extends Context.Service<AutomationsService>()(
 	"AutomationsService",
 	{

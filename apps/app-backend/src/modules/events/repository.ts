@@ -55,7 +55,6 @@ const toListedEvent = (row: EventRow): ListedEvent => ({
 	sessionEntityId: row.sessionEntityId ? EntityId.make(row.sessionEntityId) : undefined,
 });
 
-/** @effect-expect-leaking Database */
 export class EventsRepository extends Context.Service<EventsRepository>()("EventsRepository", {
 	make: Effect.sync(() => {
 		const createEvent = Effect.fn("EventsRepository.createEvent")(function* (input: {
