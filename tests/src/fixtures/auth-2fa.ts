@@ -68,12 +68,12 @@ export async function enableTwoFactorForSession(input: {
 }): Promise<TwoFactorSetupResult> {
 	const enableResponse = await fetch(`${input.baseUrl}/auth/two-factor/enable`, {
 		method: "POST",
+		body: JSON.stringify({ password: input.password, issuer: input.issuer ?? "Ryot" }),
 		headers: {
 			Cookie: input.cookies,
 			"Content-Type": "application/json",
 			...(input.origin ? { Origin: input.origin } : {}),
 		},
-		body: JSON.stringify({ password: input.password, issuer: input.issuer ?? "Ryot" }),
 	});
 
 	if (!enableResponse.ok) {
