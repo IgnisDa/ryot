@@ -1,6 +1,8 @@
 import { SandboxScriptId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
 
+export const TRENDING_DRIVER_NAME = "trending";
+
 export const TrendingProviderTarget = Schema.Struct({
 	scriptId: SandboxScriptId,
 	scriptSlug: Schema.String,

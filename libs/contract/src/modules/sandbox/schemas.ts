@@ -19,6 +19,7 @@ export const SandboxScriptMetadata = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	slug: Schema.optional(Schema.String),
 	providerInformation: Schema.optional(ProviderInformation),
+	driverNames: Schema.optional(Schema.Array(Schema.String)),
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	requiredAppConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	kind: Schema.optional(Schema.Literal("script", "provider", "automation")),

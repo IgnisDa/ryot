@@ -201,6 +201,7 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 
 		expect(plugin.sourceHash).toMatch(/^[a-f0-9]{64}$/);
 		expect(plugin.scripts[0]?.contentHash).toMatch(/^[a-f0-9]{64}$/);
+		expect(plugin.scripts[0]?.metadata.driverNames).toEqual(["automation"]);
 		expect(persisted).toEqual([plugin]);
 		expect(loader.getSnapshot().definitions.entitySchemas["fixture-entity"]?.name).toBe("Fixture");
 		expect(loader.getSnapshot().bindings.entityAutomations).toHaveLength(1);
