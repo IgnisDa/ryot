@@ -11,6 +11,8 @@ import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { AuthService } from "#modules/auth/service";
+import { AutomationsRepository } from "#modules/automations/repository";
+import { AutomationsService } from "#modules/automations/service";
 import { SeedService } from "#modules/builtins/seed";
 import { AddEntityToCollectionWorkflowDefinitionsLive } from "#modules/collections/add-entity-to-collection-workflow-live";
 import { CollectionsRepository } from "#modules/collections/repository";
@@ -125,6 +127,7 @@ const ContentRepositoriesLive = Layer.mergeAll(
 );
 
 const PlatformRepositoriesLive = Layer.mergeAll(
+	AutomationsRepository.Default,
 	GodModeRepository.Default,
 	ImportsRepository.Default,
 	IntegrationsRepository.Default,
@@ -200,6 +203,7 @@ const ContentServicesLive = Layer.mergeAll(
 	EventsServiceLive,
 	QueryEngineServiceLive,
 	RelationshipSchemasService.Default,
+	AutomationsService.Default,
 	SignalEmissionService.Default,
 	SignalSchemasService.Default,
 	TranslationsService.Default,
