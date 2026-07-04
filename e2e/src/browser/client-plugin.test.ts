@@ -294,7 +294,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const drawer = page.getByRole("dialog", { name: "Navigation" });
 		yield* menuTrigger.click();
 		yield* drawer.waitFor({ state: "visible" });
-		yield* page.getByRole("button", { name: "Close navigation" }).click();
+		yield* page.getByTestId("drawer-scrim").click();
 		yield* drawer.waitFor({ state: "hidden" });
 		expect(yield* sameFrame()).toBe(true);
 		expect(yield* frame.evaluate((element) => element === document.activeElement)).toBe(true);
