@@ -30,7 +30,7 @@ export const runLibraryEntityImportWorkflow = Effect.fn("LibraryEntityImportWork
 			executionId,
 			scriptId: payload.scriptId,
 			externalId: payload.externalId,
-			entitySchemaId: payload.entitySchemaId,
+			entitySchemaSlug: payload.entitySchemaSlug,
 			...(payload.userId ? { userId: payload.userId } : {}),
 		});
 		const engine = yield* WorkflowEngine;
@@ -52,7 +52,7 @@ export const runLibraryEntityImportWorkflow = Effect.fn("LibraryEntityImportWork
 					scriptId: payload.scriptId,
 					externalId: payload.externalId,
 					executionId: populationExecutionId,
-					entitySchemaId: payload.entitySchemaId,
+					entitySchemaSlug: payload.entitySchemaSlug,
 				},
 			})
 			.pipe(

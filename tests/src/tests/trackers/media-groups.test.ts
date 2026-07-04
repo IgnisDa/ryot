@@ -24,7 +24,7 @@ describe("media group entity schemas", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinTracker = yield* findBuiltinTracker(client);
-			const schemas = yield* listEntitySchemas(client, { trackerId: builtinTracker.id });
+			const schemas = yield* listEntitySchemas(client, { trackerSlug: builtinTracker.id });
 
 			for (const slug of GROUP_SCHEMA_SLUGS) {
 				expect(schemas.some((s) => s.slug === slug)).toBe(true);
@@ -36,7 +36,7 @@ describe("media group entity schemas", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinTracker = yield* findBuiltinTracker(client);
-			const schemas = yield* listEntitySchemas(client, { trackerId: builtinTracker.id });
+			const schemas = yield* listEntitySchemas(client, { trackerSlug: builtinTracker.id });
 
 			for (const slug of GROUP_SCHEMA_SLUGS) {
 				const schema = schemas.find((s) => s.slug === slug);
@@ -50,7 +50,7 @@ describe("media group entity schemas", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinTracker = yield* findBuiltinTracker(client);
-			const schemas = yield* listEntitySchemas(client, { trackerId: builtinTracker.id });
+			const schemas = yield* listEntitySchemas(client, { trackerSlug: builtinTracker.id });
 			const eventSchemasBySlug = yield* Effect.all(
 				GROUP_SCHEMA_SLUGS.map((slug) =>
 					Effect.gen(function* () {
@@ -76,7 +76,7 @@ describe("media group entity schemas", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinTracker = yield* findBuiltinTracker(client);
-			const schemas = yield* listEntitySchemas(client, { trackerId: builtinTracker.id });
+			const schemas = yield* listEntitySchemas(client, { trackerSlug: builtinTracker.id });
 
 			const movieGroup = schemas.find((s) => s.slug === "movie-group");
 			assertPresent(movieGroup, "movie-group schema not found");
@@ -92,7 +92,7 @@ describe("media group entity schemas", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinTracker = yield* findBuiltinTracker(client);
-			const schemas = yield* listEntitySchemas(client, { trackerId: builtinTracker.id });
+			const schemas = yield* listEntitySchemas(client, { trackerSlug: builtinTracker.id });
 
 			const movieGroup = schemas.find((s) => s.slug === "movie-group");
 			assertPresent(movieGroup, "movie-group schema not found");

@@ -17,7 +17,6 @@ const input = (origin: AutomationInput["automation"]["origin"]): AutomationInput
 				id: "review-event-1",
 				eventSchemaSlug: "review",
 				properties: { rating: 80 },
-				eventSchemaId: "event-schema-1",
 				occurredAt: "2026-07-20T09:00:00.000Z",
 				subject: { id: "entity-1", name: "Dune", entitySchemaSlug: "book" },
 			},

@@ -27,14 +27,14 @@ describe("event root rows", () => {
 			const reviewSlug = `event-filter-review-${crypto.randomUUID()}`;
 			const reviewSchema = yield* createEventSchema(client, {
 				slug: reviewSlug,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Event Filter Review",
 				propertiesSchema: {
 					fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 				},
 			});
 			const entity = yield* createQueryEngineEntity(client, {
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Event Filter Entity",
 			});
 
@@ -43,7 +43,7 @@ describe("event root rows", () => {
 					createQueryEngineEvent(client, {
 						entityId: entity.id,
 						properties: { rating },
-						eventSchemaId: reviewSchema.id,
+						eventSchemaSlug: reviewSchema.id,
 					}),
 				),
 			);
@@ -82,14 +82,14 @@ describe("event root rows", () => {
 			const reviewSlug = `event-sort-review-${crypto.randomUUID()}`;
 			const reviewSchema = yield* createEventSchema(client, {
 				slug: reviewSlug,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Event Sort Review",
 				propertiesSchema: {
 					fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 				},
 			});
 			const entity = yield* createQueryEngineEntity(client, {
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Event Sort Entity",
 			});
 
@@ -98,7 +98,7 @@ describe("event root rows", () => {
 					createQueryEngineEvent(client, {
 						entityId: entity.id,
 						properties: { rating },
-						eventSchemaId: reviewSchema.id,
+						eventSchemaSlug: reviewSchema.id,
 					}),
 				),
 			);
@@ -133,7 +133,7 @@ describe("event root rows", () => {
 			const watchSchema = yield* createEventSchema(client, {
 				name: "Watch",
 				slug: watchSlug,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				propertiesSchema: {
 					fields: { note: { type: "string", label: "Note", description: "Note" } },
 				},
@@ -141,20 +141,23 @@ describe("event root rows", () => {
 			const reviewSchema = yield* createEventSchema(client, {
 				name: "Review",
 				slug: reviewSlug,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				propertiesSchema: {
 					fields: { note: { type: "string", label: "Note", description: "Note" } },
 				},
 			});
 			const entity = yield* createQueryEngineEntity(client, {
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Schema Filter Entity",
 			});
 
-			yield* createQueryEngineEvent(client, { entityId: entity.id, eventSchemaId: watchSchema.id });
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
-				eventSchemaId: reviewSchema.id,
+				eventSchemaSlug: watchSchema.id,
+			});
+			yield* createQueryEngineEvent(client, {
+				entityId: entity.id,
+				eventSchemaSlug: reviewSchema.id,
 			});
 
 			const result = yield* executeQueryEngine(
@@ -185,19 +188,25 @@ describe("event root rows", () => {
 			const watchSlug = `primary-row-watch-${crypto.randomUUID()}`;
 			const watchSchema = yield* createEventSchema(client, {
 				slug: watchSlug,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Primary Row Watch",
 				propertiesSchema: {
 					fields: { note: { type: "string", label: "Note", description: "Note" } },
 				},
 			});
 			const entity = yield* createQueryEngineEntity(client, {
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Primary Row Entity",
 			});
 
-			yield* createQueryEngineEvent(client, { entityId: entity.id, eventSchemaId: watchSchema.id });
-			yield* createQueryEngineEvent(client, { entityId: entity.id, eventSchemaId: watchSchema.id });
+			yield* createQueryEngineEvent(client, {
+				entityId: entity.id,
+				eventSchemaSlug: watchSchema.id,
+			});
+			yield* createQueryEngineEvent(client, {
+				entityId: entity.id,
+				eventSchemaSlug: watchSchema.id,
+			});
 
 			const result = yield* executeQueryEngine(
 				client,
@@ -230,20 +239,20 @@ describe("event root rows", () => {
 			const reviewSchema = yield* createEventSchema(client, {
 				slug: reviewSlug,
 				name: "Event Refs Review",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				propertiesSchema: {
 					fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 				},
 			});
 			const entity = yield* createQueryEngineEntity(client, {
 				name: "Named Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
 				properties: { rating: 4 },
-				eventSchemaId: reviewSchema.id,
+				eventSchemaSlug: reviewSchema.id,
 			});
 
 			const result = yield* executeQueryEngine(
@@ -280,7 +289,7 @@ describe("event root rows", () => {
 			const watchSlug = `event-pagination-watch-${crypto.randomUUID()}`;
 			const watchSchema = yield* createEventSchema(client, {
 				slug: watchSlug,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Event Pagination Watch",
 				propertiesSchema: {
 					fields: { seq: { type: "integer", label: "Seq", description: "Seq" } },
@@ -288,7 +297,7 @@ describe("event root rows", () => {
 			});
 			const entity = yield* createQueryEngineEntity(client, {
 				name: "Pagination Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			yield* Effect.all(
@@ -296,7 +305,7 @@ describe("event root rows", () => {
 					createQueryEngineEvent(client, {
 						entityId: entity.id,
 						properties: { seq },
-						eventSchemaId: watchSchema.id,
+						eventSchemaSlug: watchSchema.id,
 					}),
 				),
 			);
@@ -351,7 +360,7 @@ describe("event root rows", () => {
 			const watchSchema = yield* createEventSchema(client, {
 				name: "Watch",
 				slug: watchSlug,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				propertiesSchema: {
 					fields: { note: { type: "string", label: "Note", description: "Note" } },
 				},
@@ -359,30 +368,30 @@ describe("event root rows", () => {
 			const reviewSchema = yield* createEventSchema(client, {
 				name: "Review",
 				slug: reviewSlug,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				propertiesSchema: {
 					fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 				},
 			});
 			const entity = yield* createQueryEngineEntity(client, {
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Event Join Entity",
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
-				eventSchemaId: watchSchema.id,
+				eventSchemaSlug: watchSchema.id,
 				properties: { note: "first watch" },
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
-				eventSchemaId: watchSchema.id,
+				eventSchemaSlug: watchSchema.id,
 				properties: { note: "second watch" },
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
 				properties: { rating: 7 },
-				eventSchemaId: reviewSchema.id,
+				eventSchemaSlug: reviewSchema.id,
 				occurredAt: "2026-02-01T00:00:00.000Z",
 			});
 

@@ -1,6 +1,7 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DbError, unknownToMessage } from "@ryot/contract/errors";
 import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
+import { SignalSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect, Either, Layer, Schema } from "effect";
 
 import { SignalDispatch } from "#modules/signals/dispatch";
@@ -27,7 +28,10 @@ export const SignalDispatchLive = Layer.effect(
 							.resolveActive({
 								rowUserId,
 								operation: "signal",
-								target: { id: input.signalSchemaId, kind: "signal_schema" },
+								target: {
+									id: SignalSchemaSlug.make(input.signalSchemaSlug),
+									kind: "signal_schema",
+								},
 							})
 							.pipe(Effect.map((rules) => rules.map((rule) => ({ rowUserId, rule })))),
 					);

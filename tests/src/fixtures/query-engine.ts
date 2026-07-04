@@ -1,14 +1,9 @@
-import {
-	EntityId,
-	EntitySchemaId,
-	EventSchemaId,
-	RelationshipSchemaId,
-} from "@ryot/contract/schema/brands";
+import { EntityId, EventSchemaSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
 import { createAuthenticatedClient, type Client } from "./auth";
-import { getBackendClient } from "./contract-client";
+import { type ContractPayload, getBackendClient } from "./contract-client";
 import { createEntity } from "./entities";
 import { createEntitySchema } from "./entity-schemas";
 import { createEventSchema } from "./event-schemas";
@@ -27,24 +22,27 @@ export const createQueryEngineTrackerAndSchema = (
 	},
 ) =>
 	Effect.gen(function* () {
-		const { trackerId } = yield* createTracker(client);
+		const { trackerSlug } = yield* createTracker(client);
 		const { schemaId, slug } = yield* createEntitySchema(client, {
-			trackerId,
+			trackerSlug,
 			name: options.schemaName,
 			...(options.schemaSlug ? { slug: options.schemaSlug } : {}),
 			...(options.propertiesSchema ? { propertiesSchema: options.propertiesSchema } : {}),
 		});
-		return { trackerId, schemaId, slug };
+		return { trackerSlug, schemaId, slug };
 	});
 
 export const createQueryEngineEntity = (
 	client: Client,
-	input: { name: string; entitySchemaId: string; properties?: Record<string, unknown> },
+	input: { name: string; entitySchemaSlug: string; properties?: Record<string, unknown> },
 ) =>
 	createEntity(client, {
 		name: input.name,
 		properties: input.properties ?? {},
-		entitySchemaId: EntitySchemaId.make(input.entitySchemaId),
+		entitySchemaSlug: input.entitySchemaSlug as ContractPayload<
+			"entities",
+			"create"
+		>["entitySchemaSlug"],
 	});
 
 export const createQueryEngineEvent = (
@@ -52,7 +50,7 @@ export const createQueryEngineEvent = (
 	input: {
 		entityId: string;
 		occurredAt?: string;
-		eventSchemaId: string;
+		eventSchemaSlug: string;
 		sessionEntityId?: string;
 		properties?: Record<string, unknown>;
 	},
@@ -62,7 +60,7 @@ export const createQueryEngineEvent = (
 			const events = yield* listEventsForEntity(client, input.entityId);
 			return events.filter(
 				(event) =>
-					event.eventSchemaId === input.eventSchemaId &&
+					event.eventSchemaSlug === input.eventSchemaSlug &&
 					(input.occurredAt === undefined || event.occurredAt === input.occurredAt),
 			).length;
 		});
@@ -75,7 +73,7 @@ export const createQueryEngineEvent = (
 						entityId: EntityId.make(input.entityId),
 						properties: input.properties ?? {},
 						...(input.occurredAt ? { occurredAt: input.occurredAt } : {}),
-						eventSchemaId: EventSchemaId.make(input.eventSchemaId),
+						eventSchemaSlug: EventSchemaSlug.make(input.eventSchemaSlug),
 						...(input.sessionEntityId
 							? { sessionEntityId: EntityId.make(input.sessionEntityId) }
 							: {}),
@@ -85,7 +83,7 @@ export const createQueryEngineEvent = (
 		);
 
 		yield* pollUntil(
-			`query-engine event ${input.eventSchemaId} on entity ${input.entityId}`,
+			`query-engine event ${input.eventSchemaSlug} on entity ${input.entityId}`,
 			Effect.gen(function* () {
 				const count = yield* countMatchingEvents;
 				return count > previousCount ? count : null;
@@ -99,7 +97,7 @@ export const createQueryEngineEvent = (
 export const insertGlobalRelationship = (input: {
 	sourceEntityId: string;
 	targetEntityId: string;
-	relationshipSchemaId: string;
+	relationshipSchemaSlug: string;
 	properties?: Record<string, unknown>;
 }) =>
 	getBackendClient().call(
@@ -109,7 +107,7 @@ export const insertGlobalRelationship = (input: {
 					properties: input.properties,
 					sourceEntityId: EntityId.make(input.sourceEntityId),
 					targetEntityId: EntityId.make(input.targetEntityId),
-					relationshipSchemaId: RelationshipSchemaId.make(input.relationshipSchemaId),
+					relationshipSchemaSlug: RelationshipSchemaSlug.make(input.relationshipSchemaSlug),
 				},
 			}),
 		adminHeaders,
@@ -145,21 +143,21 @@ export const createCourseLessonFilterFixture = () =>
 		const completeSchema = yield* createEventSchema(client, {
 			slug: completeSlug,
 			name: "Filter Complete",
-			entitySchemaId: lessonSchemaId,
+			entitySchemaSlug: lessonSchemaId,
 		});
 		const courseModuleSlug = `filter-course-module-${crypto.randomUUID()}`;
 		const moduleLessonSlug = `filter-module-lesson-${crypto.randomUUID()}`;
 		const courseModuleSchema = yield* createRelationshipSchema(client, {
 			slug: courseModuleSlug,
 			name: "Filter Course Module",
-			targetEntitySchemaId: moduleSchemaId,
-			sourceEntitySchemaId: courseSchemaId,
+			targetEntitySchemaSlug: moduleSchemaId,
+			sourceEntitySchemaSlug: courseSchemaId,
 		});
 		const moduleLessonSchema = yield* createRelationshipSchema(client, {
 			slug: moduleLessonSlug,
 			name: "Filter Module Lesson",
-			targetEntitySchemaId: lessonSchemaId,
-			sourceEntitySchemaId: moduleSchemaId,
+			targetEntitySchemaSlug: lessonSchemaId,
+			sourceEntitySchemaSlug: moduleSchemaId,
 		});
 
 		const createCourse = (
@@ -169,18 +167,18 @@ export const createCourseLessonFilterFixture = () =>
 			Effect.gen(function* () {
 				const course = yield* createQueryEngineEntity(client, {
 					name,
-					entitySchemaId: courseSchemaId,
+					entitySchemaSlug: courseSchemaId,
 				});
 				yield* Effect.all(
 					lessons.map((lessonInput, index) =>
 						Effect.gen(function* () {
 							const [module, lesson] = yield* Effect.all([
 								createQueryEngineEntity(client, {
-									entitySchemaId: moduleSchemaId,
+									entitySchemaSlug: moduleSchemaId,
 									name: `${name} Module ${index + 1}`,
 								}),
 								createQueryEngineEntity(client, {
-									entitySchemaId: lessonSchemaId,
+									entitySchemaSlug: lessonSchemaId,
 									name: `${name} Lesson ${index + 1}`,
 									properties: { durationMinutes: lessonInput.durationMinutes },
 								}),
@@ -189,18 +187,18 @@ export const createCourseLessonFilterFixture = () =>
 								createRelationship(client, {
 									targetEntityId: module.id,
 									sourceEntityId: course.id,
-									relationshipSchemaId: courseModuleSchema.id,
+									relationshipSchemaSlug: courseModuleSchema.id,
 								}),
 								createRelationship(client, {
 									targetEntityId: lesson.id,
 									sourceEntityId: module.id,
-									relationshipSchemaId: moduleLessonSchema.id,
+									relationshipSchemaSlug: moduleLessonSchema.id,
 								}),
 							]);
 							if (lessonInput.complete) {
 								yield* createQueryEngineEvent(client, {
 									entityId: lesson.id,
-									eventSchemaId: completeSchema.id,
+									eventSchemaSlug: completeSchema.id,
 								});
 							}
 						}),

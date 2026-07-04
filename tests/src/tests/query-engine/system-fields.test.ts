@@ -30,7 +30,7 @@ const setEntityPopulatedAt = (entityId: string, isoDate: string) =>
 
 describe("entity system fields covering all entity table columns", () => {
 	it.live(
-		"selects, filters, and orders by entitySchemaId, userId, populatedAt, and properties",
+		"selects, filters, and orders by entitySchemaSlug, userId, populatedAt, and properties",
 		() =>
 			Effect.gen(function* () {
 				const { client, userId } = yield* createAuthenticatedClient();
@@ -43,12 +43,12 @@ describe("entity system fields covering all entity table columns", () => {
 
 				const first = yield* createQueryEngineEntity(client, {
 					name: "Populated First",
-					entitySchemaId: schemaId,
+					entitySchemaSlug: schemaId,
 					properties: { genre: "scifi" },
 				});
 				const second = yield* createQueryEngineEntity(client, {
 					name: "Unpopulated Second",
-					entitySchemaId: schemaId,
+					entitySchemaSlug: schemaId,
 					properties: { genre: "fantasy" },
 				});
 
@@ -63,7 +63,7 @@ describe("entity system fields covering all entity table columns", () => {
 						orderBy: [{ order: "asc", expr: systemRef("item", "populatedAt") }],
 						fields: [
 							{ key: "name", expr: systemRef("item", "name") },
-							{ key: "entitySchemaId", expr: systemRef("item", "entitySchemaId") },
+							{ key: "entitySchemaSlug", expr: systemRef("item", "entitySchemaSlug") },
 							{ key: "userId", expr: systemRef("item", "userId") },
 							{ key: "populatedAt", expr: systemRef("item", "populatedAt") },
 							{ key: "properties", expr: systemRef("item", "properties") },
@@ -75,7 +75,9 @@ describe("entity system fields covering all entity table columns", () => {
 
 				const populatedFirst = result.data.items[0];
 				assertPresent(populatedFirst, "Expected first row");
-				expect(requireQueryEngineFieldValue(populatedFirst, "entitySchemaId").value).toBe(schemaId);
+				expect(requireQueryEngineFieldValue(populatedFirst, "entitySchemaSlug").value).toBe(
+					schemaId,
+				);
 				expect(requireQueryEngineFieldValue(populatedFirst, "userId").value).toBe(userId);
 				expect(requireQueryEngineFieldValue(populatedFirst, "populatedAt").kind).toBe("date");
 				expect(requireQueryEngineFieldValue(populatedFirst, "properties")).toEqual({
@@ -98,11 +100,11 @@ describe("entity system fields covering all entity table columns", () => {
 
 			const populated = yield* createQueryEngineEntity(client, {
 				name: "Populated Filter",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "Unpopulated Filter",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 			yield* setEntityPopulatedAt(populated.id, "2026-02-01T00:00:00.000Z");
 
@@ -125,7 +127,7 @@ describe("entity system fields covering all entity table columns", () => {
 });
 
 describe("event system fields covering all event table columns", () => {
-	it.live("selects entityId, eventSchemaId, userId, sessionEntityId, and properties", () =>
+	it.live("selects entityId, eventSchemaSlug, userId, sessionEntityId, and properties", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
@@ -135,24 +137,24 @@ describe("event system fields covering all event table columns", () => {
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
 				name: "System Field Complete",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				propertiesSchema: {
 					fields: { score: { type: "integer", label: "Score", description: "Score" } },
 				},
 			});
 			const entity = yield* createQueryEngineEntity(client, {
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "System Field Event Entity",
 			});
 			const sessionEntity = yield* createQueryEngineEntity(client, {
 				name: "Session Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
 				properties: { score: 9 },
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				sessionEntityId: sessionEntity.id,
 				occurredAt: "2026-01-01T00:00:00.000Z",
 			});
@@ -167,7 +169,7 @@ describe("event system fields covering all event table columns", () => {
 					orderBy: [{ order: "asc", expr: systemRef("completion", "occurredAt") }],
 					fields: [
 						{ key: "entityId", expr: systemRef("completion", "entityId") },
-						{ key: "eventSchemaId", expr: systemRef("completion", "eventSchemaId") },
+						{ key: "eventSchemaSlug", expr: systemRef("completion", "eventSchemaSlug") },
 						{ key: "userId", expr: systemRef("completion", "userId") },
 						{ key: "sessionEntityId", expr: systemRef("completion", "sessionEntityId") },
 						{ key: "properties", expr: systemRef("completion", "properties") },
@@ -179,7 +181,7 @@ describe("event system fields covering all event table columns", () => {
 			const item = result.data.items[0];
 			assertPresent(item, "Expected event row");
 			expect(requireQueryEngineFieldValue(item, "entityId").value).toBe(entity.id);
-			expect(requireQueryEngineFieldValue(item, "eventSchemaId").value).toBe(completeSchema.id);
+			expect(requireQueryEngineFieldValue(item, "eventSchemaSlug").value).toBe(completeSchema.id);
 			expect(requireQueryEngineFieldValue(item, "userId").value).toBe(userId);
 			expect(requireQueryEngineFieldValue(item, "sessionEntityId").value).toBe(sessionEntity.id);
 			expect(requireQueryEngineFieldValue(item, "properties")).toEqual({
@@ -199,16 +201,16 @@ describe("event system fields covering all event table columns", () => {
 			const watchSchema = yield* createEventSchema(client, {
 				slug: watchSlug,
 				name: "Null Session Watch",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 			const entity = yield* createQueryEngineEntity(client, {
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Null Session Entity",
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
-				eventSchemaId: watchSchema.id,
+				eventSchemaSlug: watchSchema.id,
 				occurredAt: "2026-01-01T00:00:00.000Z",
 			});
 
@@ -243,26 +245,26 @@ describe("event system fields covering all event table columns", () => {
 			const watchSlug = `session-filter-watch-${crypto.randomUUID()}`;
 			const watchSchema = yield* createEventSchema(client, {
 				slug: watchSlug,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Session Filter Watch",
 			});
 			const entity = yield* createQueryEngineEntity(client, {
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Session Filter Entity",
 			});
 			const sessionEntity = yield* createQueryEngineEntity(client, {
 				name: "Session Anchor",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
-				eventSchemaId: watchSchema.id,
+				eventSchemaSlug: watchSchema.id,
 				occurredAt: "2026-01-01T00:00:00.000Z",
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: entity.id,
-				eventSchemaId: watchSchema.id,
+				eventSchemaSlug: watchSchema.id,
 				sessionEntityId: sessionEntity.id,
 				occurredAt: "2026-01-02T00:00:00.000Z",
 			});
@@ -301,26 +303,26 @@ describe("event system fields covering all event table columns", () => {
 			const watchSlug = `entity-id-order-watch-${crypto.randomUUID()}`;
 			const watchSchema = yield* createEventSchema(client, {
 				slug: watchSlug,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Entity Id Order Watch",
 			});
 			const entityA = yield* createQueryEngineEntity(client, {
 				name: "Entity A",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 			const entityB = yield* createQueryEngineEntity(client, {
 				name: "Entity B",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: entityA.id,
-				eventSchemaId: watchSchema.id,
+				eventSchemaSlug: watchSchema.id,
 				occurredAt: "2026-01-01T00:00:00.000Z",
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: entityB.id,
-				eventSchemaId: watchSchema.id,
+				eventSchemaSlug: watchSchema.id,
 				occurredAt: "2026-01-01T00:00:00.000Z",
 			});
 

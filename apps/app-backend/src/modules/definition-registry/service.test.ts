@@ -4,6 +4,7 @@ import { assert, describe, expect, it } from "vitest";
 import {
 	buildDefinitionSnapshot,
 	builtinDefinitionSource,
+	definitionSourceFromSnapshot,
 	makeDefinitionRegistry,
 } from "./service";
 
@@ -35,6 +36,13 @@ describe("definition registry", () => {
 			}),
 		).toThrow(/Duplicate entity schema slug/);
 		expect(registry.getSnapshot()).toBe(original);
+	});
+
+	it("converts nested event records back into a complete source", () => {
+		const source = builtinDefinitionSource();
+		const snapshot = buildDefinitionSnapshot(source);
+
+		expect(definitionSourceFromSnapshot(snapshot)).toEqual(source);
 	});
 
 	it("fails fast on forbidden slugs and dangling references", () => {

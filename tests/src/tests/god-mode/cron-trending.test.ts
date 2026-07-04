@@ -1,6 +1,6 @@
 import {
-	EntitySchemaId,
-	RelationshipSchemaId,
+	EntitySchemaSlug,
+	RelationshipSchemaSlug,
 	SandboxScriptId,
 } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
@@ -66,7 +66,7 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 						c.testSupport.linkSandboxScriptToEntitySchema({
 							path: {
 								scriptId: SandboxScriptId.make(scriptId),
-								entitySchemaId: EntitySchemaId.make(movieSchemaId),
+								entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 							},
 						}),
 					adminHeaders,
@@ -125,7 +125,7 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 							c.testSupport.listGlobalRelationships({
 								payload: {
 									type: "self",
-									relationshipSchemaId: RelationshipSchemaId.make(mediaTrendingSchemaId),
+									relationshipSchemaSlug: RelationshipSchemaSlug.make(mediaTrendingSchemaId),
 								},
 							}),
 						adminHeaders,

@@ -1,4 +1,4 @@
-import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { inArray, isNull, eq, and, asc } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -20,36 +20,33 @@ export class MediaTrendingRepository extends Effect.Service<MediaTrendingReposit
 							.select({
 								scriptId: schema.sandboxScript.id,
 								scriptSlug: schema.sandboxScript.slug,
-								entitySchemaId: schema.entitySchema.id,
-								entitySchemaSlug: schema.entitySchema.slug,
+								entitySchemaSlug: schema.entitySchemaSandboxScript.entitySchemaSlug,
 							})
 							.from(schema.entitySchemaSandboxScript)
-							.innerJoin(
-								schema.entitySchema,
-								eq(schema.entitySchema.id, schema.entitySchemaSandboxScript.entitySchemaId),
-							)
 							.innerJoin(
 								schema.sandboxScript,
 								eq(schema.sandboxScript.id, schema.entitySchemaSandboxScript.sandboxScriptId),
 							)
 							.where(
 								and(
-									isNull(schema.entitySchema.userId),
 									isNull(schema.sandboxScript.userId),
-									eq(schema.entitySchema.isBuiltin, true),
 									eq(schema.sandboxScript.isBuiltin, true),
-									inArray(schema.entitySchema.slug, [...builtinMediaEntitySchemaSlugs]),
+									inArray(schema.entitySchemaSandboxScript.entitySchemaSlug, [
+										...builtinMediaEntitySchemaSlugs,
+									]),
 								),
 							)
-							.orderBy(asc(schema.entitySchema.slug), asc(schema.sandboxScript.slug)),
+							.orderBy(
+								asc(schema.entitySchemaSandboxScript.entitySchemaSlug),
+								asc(schema.sandboxScript.slug),
+							),
 					);
 
 					return rows.map(
 						(row): TrendingProviderTarget => ({
 							scriptSlug: row.scriptSlug,
-							entitySchemaSlug: row.entitySchemaSlug,
 							scriptId: SandboxScriptId.make(row.scriptId),
-							entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+							entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 						}),
 					);
 				},

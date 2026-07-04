@@ -33,8 +33,7 @@ export const eventAutomationContext = (
 				properties: {},
 				id: "event-1",
 				occurredAt: timestamp,
-				eventSchemaSlug: "progress",
-				eventSchemaId: "event-schema-1",
+				eventSchemaSlug: "event-schema-1",
 				subject: { id: "entity-1", name: "Entity", entitySchemaSlug: "movie" },
 				...overrides,
 			},
@@ -61,9 +60,7 @@ export const policyAutomationContext = (
 				entityId: "entity-1",
 				occurredAt: timestamp,
 				entitySchemaSlug: "movie",
-				eventSchemaSlug: "progress",
-				eventSchemaId: "event-schema-1",
-				entitySchemaId: "entity-schema-1",
+				eventSchemaSlug: "event-schema-1",
 				...overrides,
 			},
 		},
@@ -79,7 +76,7 @@ export const entityRecord = (overrides: Partial<EntityRecord> = {}): EntityRecor
 	createdAt: timestamp,
 	updatedAt: timestamp,
 	sandboxScriptId: null,
-	entitySchemaId: "entity-schema-1",
+	entitySchemaSlug: "entity-schema-1",
 	...overrides,
 });
 
@@ -106,8 +103,7 @@ export const eventRecord = (overrides: Partial<EventRecord> = {}): EventRecord =
 	updatedAt: timestamp,
 	occurredAt: timestamp,
 	eventSchemaName: "Progress",
-	eventSchemaSlug: "progress",
-	eventSchemaId: "event-schema-1",
+	eventSchemaSlug: "event-schema-1",
 	...overrides,
 });
 

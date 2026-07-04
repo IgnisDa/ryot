@@ -1,4 +1,4 @@
-import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -63,8 +63,11 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.entitySchemas.search({
-						payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) },
+					c.sandbox.enqueue({
+						payload: {
+							driverName: "search",
+							scriptId: SandboxScriptId.make(crypto.randomUUID()),
+						},
 					}),
 				),
 			);
@@ -96,8 +99,11 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.entitySchemas.search({
-						payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) },
+					c.sandbox.enqueue({
+						payload: {
+							driverName: "search",
+							scriptId: SandboxScriptId.make(crypto.randomUUID()),
+						},
 					}),
 				),
 			);
@@ -117,7 +123,7 @@ describe("POST /library/import — provider entity import", () => {
 				client.call((c) =>
 					c.entityImport.import({
 						payload: {
-							entitySchemaId: schema.id,
+							entitySchemaSlug: schema.id,
 							externalId: "some-external-id",
 							scriptId: SandboxScriptId.make(crypto.randomUUID()),
 						},
@@ -141,7 +147,7 @@ describe("POST /library/import — provider entity import", () => {
 						payload: {
 							scriptId,
 							externalId: "some-external-id",
-							entitySchemaId: EntitySchemaId.make(crypto.randomUUID()),
+							entitySchemaSlug: EntitySchemaSlug.make(crypto.randomUUID()),
 						},
 					}),
 				),
@@ -176,7 +182,7 @@ describe("POST /library/import — provider entity import", () => {
 						payload: {
 							externalId: "some-id",
 							scriptId: SandboxScriptId.make(crypto.randomUUID()),
-							entitySchemaId: EntitySchemaId.make(crypto.randomUUID()),
+							entitySchemaSlug: EntitySchemaSlug.make(crypto.randomUUID()),
 						},
 					}),
 				),
@@ -194,7 +200,7 @@ describe("GET /library/import/:jobId — provider entity import result", () => {
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "audiobook");
 
 			const { jobId } = yield* enqueueEntityImport(client, {
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				externalId: IMPORT_EXTERNAL_ID,
 				scriptId: SandboxScriptId.make(providerScript.scriptId),
 			});
@@ -204,7 +210,7 @@ describe("GET /library/import/:jobId — provider entity import result", () => {
 			assertCompleted(result, "import job");
 			expect(result.data.id).toBeDefined();
 			expect(result.data.name).toBe(IMPORTED_NAME);
-			expect(result.data.entitySchemaId).toBe(schema.id);
+			expect(result.data.entitySchemaSlug).toBe(schema.id);
 
 			const inLibrary = yield* queryInLibraryRelationship(client, result.data.id, schema.slug);
 			expect(inLibrary.data.items.length).toBeGreaterThan(0);

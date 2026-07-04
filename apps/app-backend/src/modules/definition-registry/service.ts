@@ -1,6 +1,6 @@
 import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
-import { RelationshipSchemaId } from "@ryot/contract/schema/brands";
+import { RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import type { AppSchema, PropertyValidationError } from "@ryot/contract/schema/property-schema";
 import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
 import { Data, Effect } from "effect";
@@ -26,6 +26,7 @@ export type EntitySchemaDefinition = {
 	readonly icon: string;
 	readonly name: string;
 	readonly slug: string;
+	readonly isBuiltin?: boolean;
 	readonly accentColor: string;
 	readonly propertiesSchema: AppSchema;
 	readonly eventSchemas: ReadonlyArray<EventSchemaDefinition>;
@@ -50,7 +51,7 @@ export type SignalAudiencePolicy =
 export type SignalSchemaDefinition = {
 	readonly name: string;
 	readonly slug: string;
-	readonly catalogState: "active" | "deprecated";
+	readonly catalogState: "active" | "hidden";
 	readonly propertiesSchema: AppSchema;
 	readonly audiencePolicy: SignalAudiencePolicy;
 };
@@ -223,8 +224,20 @@ export const buildDefinitionSnapshot = (source: DefinitionSource): DefinitionSna
 	});
 };
 
+export const definitionSourceFromSnapshot = (snapshot: DefinitionSnapshot): DefinitionSource => ({
+	trackers: Object.values(snapshot.trackers),
+	savedViews: Object.values(snapshot.savedViews),
+	signalSchemas: Object.values(snapshot.signalSchemas),
+	relationshipSchemas: Object.values(snapshot.relationshipSchemas),
+	entitySchemas: Object.values(snapshot.entitySchemas).map(({ eventSchemas, ...entitySchema }) =>
+		Object.assign({}, entitySchema, { eventSchemas: Object.values(eventSchemas) }),
+	),
+});
+
 export const builtinDefinitionSource = (): DefinitionSource => {
-	const entitySchemas = builtinEntitySchemas();
+	const entitySchemas = builtinEntitySchemas().map((definition) =>
+		Object.assign({}, definition, { isBuiltin: true }),
+	);
 	const entitySchemasBySlug = new Map(
 		entitySchemas.map((definition) => [definition.slug, definition]),
 	);
@@ -270,7 +283,7 @@ export const builtinDefinitionSource = (): DefinitionSource => {
 			displayConfiguration: savedView.displayConfiguration,
 		};
 	});
-	const signalSchemas = builtinSignalSchemas(RelationshipSchemaId.make("media-monitoring")).map(
+	const signalSchemas = builtinSignalSchemas(RelationshipSchemaSlug.make("media-monitoring")).map(
 		(signalSchema) => ({
 			name: signalSchema.name,
 			slug: signalSchema.slug,
@@ -282,7 +295,7 @@ export const builtinDefinitionSource = (): DefinitionSource => {
 					: {
 							kind: signalSchema.audiencePolicy.kind,
 							subjectSide: signalSchema.audiencePolicy.subjectSide,
-							relationshipSchemaSlug: signalSchema.audiencePolicy.relationshipSchemaId,
+							relationshipSchemaSlug: signalSchema.audiencePolicy.relationshipSchemaSlug,
 						},
 		}),
 	);
