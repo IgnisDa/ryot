@@ -617,8 +617,8 @@ describe("definePlugin", () => {
 					value: {
 						type: "number",
 						label: "Value",
-						description: "A transformed value",
-						transform: { round: { scale: 1, mode: "half_up" } },
+						description: "A normalized value",
+						normalize: { round: { scale: 1 } },
 					},
 				},
 			},
