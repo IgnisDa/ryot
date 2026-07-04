@@ -105,6 +105,7 @@ export const details = defineProvider({
 					images: getImagesSortedBySize(album?.["images"]).map((url) => ({
 						url,
 						type: "remote" as const,
+						purpose: "cover" as const,
 					})),
 				},
 				relatedEntityGroups: [

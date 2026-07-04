@@ -358,7 +358,10 @@ async function createEntity(
 				name,
 				entitySchemaSlug,
 				properties: imageUrl
-					? { ...properties, images: [{ type: "remote", url: RemoteImageUrl.make(imageUrl) }] }
+					? {
+							...properties,
+							images: [{ type: "remote", url: RemoteImageUrl.make(imageUrl), purpose: "cover" }],
+						}
 					: properties,
 			},
 		}),

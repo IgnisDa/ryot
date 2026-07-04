@@ -201,7 +201,9 @@ export const details = defineProvider({
 					sourceUrl: stringValue(game["site_detail_url"]),
 					publishYear: extractYear(game["original_release_date"]),
 					platformReleases: buildPlatformReleases(game["platforms"]),
-					images: primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [],
+					images: primaryImage
+						? [{ type: "remote" as const, url: primaryImage, purpose: "cover" as const }]
+						: [],
 					description: combineDescription(game["deck"], game["description"]),
 					genres: [...collectNames(game["genres"]), ...collectNames(game["themes"])],
 				},

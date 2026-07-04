@@ -14,6 +14,9 @@ import type { RoleRelatedEntity } from "../script-helpers/role-accumulator";
 
 export type TmdbHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 
+type TmdbImagePurpose = "cover" | "backdrop";
+type TmdbRemoteImage = { type: "remote"; url: string; purpose: TmdbImagePurpose };
+
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 
@@ -72,22 +75,22 @@ export const collectImages = (
 	backdrops: unknown,
 ) => {
 	const seen = new Set<string>();
-	const images: Array<{ type: "remote"; url: string }> = [];
-	const addImage = (path: unknown) => {
+	const images: TmdbRemoteImage[] = [];
+	const addImage = (path: unknown, purpose: TmdbImagePurpose) => {
 		const url = getImageUrl(path);
 		if (url && !seen.has(url)) {
 			seen.add(url);
-			images.push({ type: "remote", url });
+			images.push({ type: "remote", url, purpose });
 		}
 	};
 
-	addImage(posterPath);
-	addImage(backdropPath);
+	addImage(posterPath, "cover");
 	for (const image of recordsValue(posters)) {
-		addImage(image["file_path"]);
+		addImage(image["file_path"], "cover");
 	}
+	addImage(backdropPath, "backdrop");
 	for (const image of recordsValue(backdrops)) {
-		addImage(image["file_path"]);
+		addImage(image["file_path"], "backdrop");
 	}
 	return images;
 };

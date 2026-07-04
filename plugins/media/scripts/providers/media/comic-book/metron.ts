@@ -251,7 +251,7 @@ export const details = defineProvider({
 					publishDate: parsePublishDate(payload["cover_date"]),
 					publishYear: parsePublishYear(payload["cover_date"]),
 					sourceUrl: `https://metron.cloud/issue/${input.externalId}`,
-					images: image ? [{ type: "remote" as const, url: image }] : [],
+					images: image ? [{ type: "remote" as const, url: image, purpose: "cover" as const }] : [],
 				},
 			};
 		}),

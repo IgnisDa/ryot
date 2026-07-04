@@ -97,7 +97,7 @@ describe("company.giant-bomb sandbox script", () => {
 					alternateNames: ["StudioX", "SX"],
 					description: "Maker.\n\n<p>desc</p>",
 					sourceUrl: "https://www.giantbomb.com/studiox/",
-					images: [{ type: "remote", url: "https://img/c.jpg" }],
+					images: [{ type: "remote", url: "https://img/c.jpg", purpose: "logo" }],
 				});
 				return undefined;
 			}),

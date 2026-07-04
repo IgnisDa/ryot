@@ -321,7 +321,9 @@ export const details = defineProvider({
 					description: episode.overview,
 					episodeNumber: episode.number,
 					publishDate: episode.publishDate,
-					...(episode.thumbnail ? { images: [{ type: "remote", url: episode.thumbnail }] } : {}),
+					...(episode.thumbnail
+						? { images: [{ type: "remote", url: episode.thumbnail, purpose: "cover" }] }
+						: {}),
 				},
 			}));
 			return {
@@ -341,7 +343,7 @@ export const details = defineProvider({
 					sourceUrl: getSourceUrl(title, input.externalId),
 					isNsfw: typeof explicit === "boolean" ? explicit : null,
 					description: stringValue(firstPage?.["description"]),
-					images: image ? [{ type: "remote" as const, url: image }] : [],
+					images: image ? [{ type: "remote" as const, url: image, purpose: "cover" as const }] : [],
 					providerRating: numberValue(firstPage?.["listen_score"]),
 					genres: collectGenres(firstPage?.["genre_ids"], genresById),
 					unlinkedCreators: publisher ? [{ role: "Publishing", name: publisher }] : [],

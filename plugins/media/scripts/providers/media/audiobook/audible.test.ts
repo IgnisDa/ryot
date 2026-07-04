@@ -142,7 +142,7 @@ describe("audiobook.audible sandbox script", () => {
 						genres: ["Science Fiction", "Fantasy"],
 						unlinkedCreators: [{ role: "Author", name: "No Asin" }],
 						sourceUrl: "https://www.audible.com/pd/mixed-book",
-						images: [{ type: "remote", url: "https://img/big.jpg" }],
+						images: [{ type: "remote", url: "https://img/big.jpg", purpose: "cover" }],
 					});
 					return undefined;
 				}),

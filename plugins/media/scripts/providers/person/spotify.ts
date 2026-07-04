@@ -160,6 +160,7 @@ export const details = defineProvider({
 										images: getImagesSortedBySize(artist?.["images"]).map((url) => ({
 											url,
 											type: "remote" as const,
+											purpose: "profile" as const,
 										})),
 									},
 								};

@@ -98,7 +98,7 @@ describe("person.hardcover sandbox script", () => {
 					alternateNames: ["J. Doe", "Janey"],
 					website: "https://jane.example",
 					sourceUrl: "https://hardcover.app/authors/jane-doe",
-					images: [{ type: "remote", url: "https://img/j.jpg" }],
+					images: [{ type: "remote", url: "https://img/j.jpg", purpose: "profile" }],
 				});
 				return undefined;
 			}),
