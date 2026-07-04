@@ -18,6 +18,10 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 - Prefer Effect's exception-capture primitives over raw `try`/`catch`: the promise-aware variant for promise-based APIs, the synchronous variant for parsing or row-level fallbacks. Sandbox scripts may use host-style error handling when they need it.
 - Do not add diagnostic- or lint-suppression comments by default. Prefer typed errors, schema decoding and encoding, promise-returning callbacks, and small pure helpers that satisfy the checks. If a suppression is unavoidable, scope it narrowly and explain why the API cannot be expressed cleanly.
 
+## Observability
+
+- `SERVER_OTLP_ENDPOINT` enables OTLP JSON trace export under the `ryot-backend` service name. Completed-span debug logs carry `spanId`, `traceId`, `spanName`, and `durationMs` so an exported span can be located from its log entry.
+
 ## Sandbox Scripts
 
 - User-authored and built-in scripts are single-file TypeScript ES modules compiled to format-1 JavaScript; execution imports the compiled module in Deno, never the stored source. There is no legacy `.sandbox.js` fragment, `code` column, or format-0 path.
