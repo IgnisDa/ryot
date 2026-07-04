@@ -1,3 +1,4 @@
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -55,6 +56,8 @@ const sections: SidebarSections = {
 	],
 };
 
+const navigation: NavigationData = { savedViews: [], collections: [] };
+
 type HarnessProps = {
 	readonly hasDrawer?: boolean;
 	readonly onClose?: () => void;
@@ -90,6 +93,7 @@ function Harness(props: HarnessProps) {
 				sections={sections}
 				drawerId="test-drawer"
 				activeSettings={false}
+				navigation={navigation}
 				triggerRef={triggerRef}
 				onCustomize={() => undefined}
 				onOpenSearch={() => undefined}
