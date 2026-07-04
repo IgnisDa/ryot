@@ -320,6 +320,47 @@ export default defineProvider({ manifest, drivers: { cron, trending } });
 `;
 }
 
+export function bootSandboxSource(
+	input: SandboxSourceIdentity & {
+		readonly externalId: string;
+		readonly entitySchemaSlug: string;
+	},
+) {
+	return `
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineProvider } from "@ryot/sandbox-sdk/provider";
+
+export const manifest = defineManifest({
+  kind: "provider",
+  name: ${JSON.stringify(input.name)},
+  slug: ${JSON.stringify(input.slug)},
+  capabilities: ["upsertGlobalEntities"],
+  requiredAppConfigKeys: [],
+  providerInformation: { source: "e2e" },
+});
+
+const boot = defineDriver(manifest, {
+  input: Schema.Unknown,
+  output: Schema.Struct({ count: Schema.Number }),
+  run: (_input, host) => Effect.gen(function* () {
+    const entities = yield* host.upsertGlobalEntities([
+      {
+        properties: {},
+        populatedAt: null,
+        name: ${JSON.stringify(input.name)},
+        entitySchemaSlug: ${JSON.stringify(input.entitySchemaSlug)},
+        externalId: ${JSON.stringify(input.externalId)},
+      },
+    ]);
+    return { count: entities.filter((entity) => entity.status === "upserted").length };
+  }),
+});
+
+export default defineProvider({ manifest, drivers: { boot } });
+`;
+}
+
 export function operationSandboxSource(input: SandboxSourceIdentity) {
 	return `
 import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
