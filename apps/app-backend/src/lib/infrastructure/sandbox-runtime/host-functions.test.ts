@@ -8,10 +8,14 @@ import { normalizePreferences, toSandboxCreateEventsResult } from "./host-functi
 const config = {
 	port: 8000,
 	nodeEnv: "test",
-	providers: {
-		googleBooksApiKey: Option.none(),
+	animeAndManga: {
 		malClientId: Option.some("mal-client"),
+	},
+	videoGames: {
 		giantBombApiKey: Option.some(Redacted.make("giant-secret")),
+	},
+	books: {
+		googleBooksApiKey: Option.none(),
 	},
 };
 
@@ -21,7 +25,7 @@ const runEither = (key: string, scriptIsBuiltin: boolean) =>
 describe("getSandboxAppConfigValue", () => {
 	it.effect("reads non-sensitive app config values", () =>
 		Effect.gen(function* () {
-			const result = yield* runEither("providers.malClientId", false);
+			const result = yield* runEither("animeAndManga.malClientId", false);
 
 			expect(Either.getOrThrow(result)).toBe("mal-client");
 		}),
@@ -37,17 +41,17 @@ describe("getSandboxAppConfigValue", () => {
 
 	it.effect("rejects sensitive config values for user scripts", () =>
 		Effect.gen(function* () {
-			const result = yield* runEither("providers.giantBombApiKey", false);
+			const result = yield* runEither("videoGames.giantBombApiKey", false);
 
 			expect(Either.getLeft(result)).toEqual(
-				Option.some('Config key "providers.giantBombApiKey" is sensitive'),
+				Option.some('Config key "videoGames.giantBombApiKey" is sensitive'),
 			);
 		}),
 	);
 
 	it.effect("allows sensitive config values for builtin scripts", () =>
 		Effect.gen(function* () {
-			const result = yield* runEither("providers.giantBombApiKey", true);
+			const result = yield* runEither("videoGames.giantBombApiKey", true);
 
 			expect(Either.getOrThrow(result)).toBe("giant-secret");
 		}),
@@ -55,10 +59,10 @@ describe("getSandboxAppConfigValue", () => {
 
 	it.effect("rejects unconfigured optional values", () =>
 		Effect.gen(function* () {
-			const result = yield* runEither("providers.googleBooksApiKey", true);
+			const result = yield* runEither("books.googleBooksApiKey", true);
 
 			expect(Either.getLeft(result)).toEqual(
-				Option.some('Config key "providers.googleBooksApiKey" is not configured'),
+				Option.some('Config key "books.googleBooksApiKey" is not configured'),
 			);
 		}),
 	);

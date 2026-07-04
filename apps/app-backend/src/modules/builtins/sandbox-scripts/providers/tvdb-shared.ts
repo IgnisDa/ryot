@@ -26,7 +26,7 @@ export const firstStringValue = (record: UnknownRecord, keys: readonly string[])
 	keys.reduce<string | null>((value, key) => value ?? stringValue(record[key]), null);
 
 const getTvdbApiKey = (host: TvdbHost) =>
-	host.getAppConfigValue("providers.tvdbApiKey").then((response) => {
+	host.getAppConfigValue("moviesAndShows.tvdbApiKey").then((response) => {
 		if (!response.success) {
 			throw new Error(response.error || "Failed to retrieve TVDB API key");
 		}

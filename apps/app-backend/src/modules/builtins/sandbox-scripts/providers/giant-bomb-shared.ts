@@ -14,7 +14,7 @@ export const BASE_URL = "https://www.giantbomb.com/api";
 export const GUID_PATTERN = /^\d+-\d+$/;
 
 export const getApiKey = (host: GiantBombHost) =>
-	host.getAppConfigValue("providers.giantBombApiKey").then((response) => {
+	host.getAppConfigValue("videoGames.giantBombApiKey").then((response) => {
 		if (!response.success) {
 			throw new Error(response.error || "Failed to retrieve GiantBomb API key");
 		}
