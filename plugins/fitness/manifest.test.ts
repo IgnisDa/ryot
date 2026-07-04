@@ -57,12 +57,12 @@ it("declares the complete fitness-owned source", () => {
 	).toEqual([
 		{
 			slug: "activity.import.hevy",
-			capabilities: ["artifact-read", "scratch", "getSystemConfigValue"],
+			capabilities: ["artifact-read", "scratch", "getSystemConfig"],
 		},
 		{ slug: "activity.import.open-scale", capabilities: ["artifact-read", "scratch"] },
 		{
 			slug: "activity.import.strong-app",
-			capabilities: ["artifact-read", "scratch", "getSystemConfigValue"],
+			capabilities: ["artifact-read", "scratch", "getSystemConfig"],
 		},
 	]);
 	expect(

@@ -2,28 +2,26 @@ import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import type { JsonValue, SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import type { Effect } from "effect";
 
-type ConfigHost = SandboxHost<readonly ["getPluginConfigValue", "getSystemConfigValue"]>;
+type ConfigHost = SandboxHost<readonly ["getPluginConfig", "getSystemConfig"]>;
 
 const verifyConfigHost = (host: ConfigHost) => {
-	const pluginDefault: Effect.Effect<JsonValue, SandboxHostError> =
-		host.getPluginConfigValue("apiToken");
-	const pluginString: Effect.Effect<string, SandboxHostError> =
-		host.getPluginConfigValue<string>("apiToken");
-	const systemDefault: Effect.Effect<JsonValue, SandboxHostError> =
-		host.getSystemConfigValue("timezone");
-	const systemString: Effect.Effect<string, SandboxHostError> =
-		host.getSystemConfigValue<string>("timezone");
+	const pluginConfig: Effect.Effect<
+		Readonly<Record<string, JsonValue>>,
+		SandboxHostError
+	> = host.getPluginConfig(["apiToken"]);
+	const systemConfig: Effect.Effect<
+		Readonly<Record<string, JsonValue>>,
+		SandboxHostError
+	> = host.getSystemConfig(["timezone"]);
 
-	void pluginDefault;
-	void pluginString;
-	void systemDefault;
-	void systemString;
+	void pluginConfig;
+	void systemConfig;
 };
 
-const verifyPluginOnlyHost = (host: SandboxHost<readonly ["getPluginConfigValue"]>) => {
-	void host.getPluginConfigValue("apiToken");
+const verifyPluginOnlyHost = (host: SandboxHost<readonly ["getPluginConfig"]>) => {
+	void host.getPluginConfig(["apiToken"]);
 	// @ts-expect-error Undeclared host capabilities are not exposed.
-	void host.getSystemConfigValue("timezone");
+	void host.getSystemConfig(["timezone"]);
 };
 
 void verifyConfigHost;

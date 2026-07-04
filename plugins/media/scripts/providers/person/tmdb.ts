@@ -27,7 +27,7 @@ export const manifest = defineManifest({
 	slug: "person.tmdb",
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall", "getPluginConfigValue", "getUserPreferences"],
+	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
 });
 
 export const search = defineProvider({

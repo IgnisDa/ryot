@@ -19,7 +19,7 @@ export const manifest = defineManifest({
 	capabilities: [
 		"log",
 		"httpCall",
-		"getPluginConfigValue",
+		"getPluginConfig",
 		"upsertGlobalEntities",
 		"upsertGlobalRelationships",
 	],

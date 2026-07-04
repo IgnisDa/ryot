@@ -3,7 +3,7 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
 
-export type MetronHost = SandboxHost<readonly ["httpCall", "getPluginConfigValue"]>;
+export type MetronHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 
 export const getIdentifier = (value: unknown) => {
 	const numeric = numberValue(value);
@@ -15,15 +15,10 @@ export const getIdentifier = (value: unknown) => {
 
 export const getMetronCredentials = (host: MetronHost) =>
 	Effect.gen(function* () {
-		const usernameValue = yield* host
-			.getPluginConfigValue("metronUsername")
+		const { metronUsername: usernameValue, metronPassword: passwordValue } = yield* host
+			.getPluginConfig(["metronUsername", "metronPassword"])
 			.pipe(
 				Effect.mapError((error) => new Error(error.message || "Could not load Metron username")),
-			);
-		const passwordValue = yield* host
-			.getPluginConfigValue("metronPassword")
-			.pipe(
-				Effect.mapError((error) => new Error(error.message || "Could not load Metron password")),
 			);
 		const username = stringValue(usernameValue);
 		const password = stringValue(passwordValue);
