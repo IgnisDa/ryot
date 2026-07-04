@@ -4,6 +4,8 @@ import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	PLUGIN_HEADER_TITLE_MAX,
+	PluginBridgeClientMessage,
 	PluginEntityLocation,
 	type PluginRouteLocation,
 	type PluginBridgeInit,
@@ -219,6 +221,41 @@ describe("plugin runtime", () => {
 		});
 		expect(messages).toContainEqual({ index: 3, key: "k3", header: null, type: "header" });
 		expect(messages).toContainEqual({ type: "open-drawer" });
+	});
+
+	it("normalizes a published title so a header never breaches the bridge contract", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		const overlong = "O".repeat(PLUGIN_HEADER_TITLE_MAX + 40);
+
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			compact: true,
+			edgeBack: false,
+			leading: "drawer",
+			type: "location",
+			location: routeLocation("/"),
+		});
+		await delay();
+		runtime.navigation.publishTitle("");
+		runtime.navigation.publishTitle("   ");
+		runtime.navigation.publishTitle(overlong);
+		runtime.navigation.publishTitle("  Severance  ");
+		await delay();
+
+		expect(headersIn(messages)).toEqual([
+			{ index: 0, key: "k0", header: null, type: "header" },
+			{ index: 0, key: "k0", header: null, type: "header" },
+			{
+				index: 0,
+				key: "k0",
+				type: "header",
+				header: { title: "O".repeat(PLUGIN_HEADER_TITLE_MAX) },
+			},
+			{ index: 0, key: "k0", type: "header", header: { title: "Severance" } },
+		]);
+		const decode = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		expect(headersIn(messages).filter((header) => Result.isFailure(decode(header)))).toEqual([]);
 	});
 
 	it("reports screen state from each reconciled stack", async () => {
