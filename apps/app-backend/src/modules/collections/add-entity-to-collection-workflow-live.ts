@@ -5,7 +5,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { withoutSchemaServices } from "#lib/shared/schema";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 
 import {
@@ -54,8 +54,8 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 
 		const result = yield* Activity.make({
 			name: "write-collection-membership",
-			success: withoutSchemaServices(WriteCollectionMembershipResult),
-			error: withoutSchemaServices(AddEntityToCollectionWorkflowError),
+			success: WriteCollectionMembershipResult satisfies DurableSchema,
+			error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
 			execute: operations.writeMembership({
 				userId: payload.userId,
 				entityId: payload.entityId,
@@ -91,18 +91,18 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 				.pipe(Effect.result);
 			if (eventAttempt._tag === "Failure") {
 				yield* Activity.make({
-					success: withoutSchemaServices(Schema.Boolean),
+					success: Schema.Boolean satisfies DurableSchema,
 					name: "compensate-collection-membership",
-					error: withoutSchemaServices(AddEntityToCollectionWorkflowError),
+					error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
 					execute: operations.compensateMembership(payload.userId, result.memberOf.id),
 				});
 				return yield* eventAttempt.failure;
 			}
 			if (eventAttempt.success.failure) {
 				yield* Activity.make({
-					success: withoutSchemaServices(Schema.Boolean),
+					success: Schema.Boolean satisfies DurableSchema,
 					name: "compensate-collection-membership",
-					error: withoutSchemaServices(AddEntityToCollectionWorkflowError),
+					error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
 					execute: operations.compensateMembership(payload.userId, result.memberOf.id),
 				});
 				const { reason } = eventAttempt.success.failure;
