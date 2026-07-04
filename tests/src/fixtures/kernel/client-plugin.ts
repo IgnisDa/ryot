@@ -21,7 +21,7 @@ const clientEntry = "client/index.tsx";
 
 type FixtureClientPluginRevision = keyof typeof FIXTURE_CLIENT_REVISION_MARKERS;
 
-const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision, variant = "") =>
+export const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision, variant = "") =>
 	Effect.gen(function* () {
 		const archive = yield* Effect.promise(async () => {
 			const file = Bun.file(archiveUrl);
@@ -81,11 +81,12 @@ export const updateFixtureClientPlugin = (
 		});
 	});
 
-export const updateFixtureClientPluginWithCompileFailure = (client: Client) =>
+export const updateFixtureClientPluginWithCompileFailure = (client: Client, baseUrl?: string) =>
 	Effect.gen(function* () {
 		const pluginPackage = yield* fixtureClientPluginPackage("B");
 		return yield* updatePrivatePlugin({
 			client,
+			baseUrl,
 			pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
 			payload: {
 				...pluginPackage,

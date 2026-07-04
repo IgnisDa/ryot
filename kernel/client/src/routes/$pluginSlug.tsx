@@ -1,12 +1,13 @@
-import { useAtomValue } from "@effect/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { createFileRoute, notFound, useLocation, useNavigate } from "@tanstack/react-router";
-import { Effect, Option } from "effect";
+import { Effect, Fiber, Option } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 import { createKernelRyotClient } from "../api/ryot-client";
 import { protectedRouteGuard } from "../modules/auth/route-gates";
 import { makePluginCatalogAtom, PluginCatalogService } from "../modules/plugins/catalog";
+import { PluginCatalogEventsService } from "../modules/plugins/events";
 import { PluginOperationsService } from "../modules/plugins/operations";
 import { PluginHost } from "../modules/plugins/plugin-host";
 import { toPluginLocation } from "../modules/plugins/plugin-location";
@@ -44,6 +45,17 @@ function PluginDestination() {
 		[initial.catalog, initial.ryot, runtime],
 	);
 	const catalogResult = useAtomValue(catalogAtom);
+	const refreshCatalog = useAtomRefresh(catalogAtom);
+	useEffect(() => {
+		const subscription = runtime.runFork(
+			Effect.flatMap(PluginCatalogEventsService, (service) =>
+				service.subscribe(scope, refreshCatalog),
+			),
+		);
+		return () => {
+			Effect.runFork(Fiber.interrupt(subscription));
+		};
+	}, [refreshCatalog, runtime, scope]);
 	const catalog = Option.getOrElse(AsyncResult.value(catalogResult), () => initial.catalog);
 	const target = resolveRouteTarget(catalog, pluginSlug);
 	if (target.owner === "kernel") {
