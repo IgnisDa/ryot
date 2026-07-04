@@ -51,7 +51,7 @@ export class TranslationsService extends Effect.Service<TranslationsService>()(
 					.pipe(
 						Effect.asVoid,
 						Effect.catchAllCause((cause) =>
-							Effect.logWarning("Failed to enqueue translation fill", cause),
+							Effect.logWarning("translation fill enqueue failed", cause),
 						),
 					);
 			};

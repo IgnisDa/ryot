@@ -36,7 +36,9 @@ export const mediaMonitoringInfrequentTask: MediaMonitoringInfrequentCronTask = 
 					})
 					.pipe(
 						Effect.catchAllCause((cause) =>
-							Effect.logError("media monitoring refresh enqueue failed", target.entityId, cause),
+							Effect.logError("media monitoring refresh enqueue failed", cause).pipe(
+								Effect.annotateLogs({ entityId: target.entityId }),
+							),
 						),
 					);
 			}
