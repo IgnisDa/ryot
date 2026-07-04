@@ -96,11 +96,6 @@ const fields = {
 		"Disable all scheduled background jobs (both the frequent and infrequent cron tiers)",
 		{ default: false },
 	),
-	builtinExercisePreloadLimit: intField(
-		"BUILTIN_EXERCISE_PRELOAD_LIMIT",
-		"Maximum number of built-in exercise entities to preload",
-		{ default: 873 },
-	),
 	timeoutMs: intField(
 		"SANDBOX_TIMEOUT_MS",
 		"Maximum execution time for a sandbox job in milliseconds",
@@ -445,7 +440,6 @@ export const systemConfigDefinition = group(
 		scheduler: schedulerGroup.config,
 		fileStorage: fileStorageGroup.config,
 		frontendUrl: fields.frontendUrl.config,
-		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.config,
 	}),
 	{
 		tmpDir: tmpDir.meta,
@@ -461,6 +455,5 @@ export const systemConfigDefinition = group(
 		scheduler: schedulerGroup.meta,
 		fileStorage: fileStorageGroup.meta,
 		frontendUrl: fields.frontendUrl.meta,
-		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.meta,
 	},
 );
