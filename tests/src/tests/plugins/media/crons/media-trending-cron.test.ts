@@ -131,7 +131,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				const directScript = yield* getBackendClient().call(
 					(c) =>
 						c.testSupport.getSandboxScript({
-							path: { scriptId: directScriptId },
+							params: { scriptId: directScriptId },
 						}),
 					adminHeaders,
 				);
