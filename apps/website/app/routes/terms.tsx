@@ -64,10 +64,12 @@ export default function Index() {
 
 							<TermsSection number={4} title="User Accounts and Pro Key">
 								<p className="text-muted-foreground leading-relaxed">
-									Users can self-host the software and create accounts on their own infrastructure.
-									A "Pro Key" is required to verify the purchase of the software. Users are
-									responsible for securing their Pro Keys and ensuring their accounts are used in
-									accordance with these Terms.
+									Ryot is source available under the Elastic License 2.0. Individuals and companies
+									may self-host the Community version on their own infrastructure in accordance with
+									that license. Offering Ryot to third parties as a hosted or managed service
+									requires separate written authorization. A valid "Pro Key" is required to access
+									Pro features. Users must secure their Pro Keys and use them in accordance with
+									these Terms and the software license.
 								</p>
 							</TermsSection>
 
