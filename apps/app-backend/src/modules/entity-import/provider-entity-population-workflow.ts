@@ -601,7 +601,19 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("runProviderEntityP
 );
 
 const ProviderEntityPopulationWorkflowLive = ProviderEntityPopulationWorkflow.toLayer(
-	runProviderEntityPopulationWorkflow,
+	(payload, executionId) =>
+		runProviderEntityPopulationWorkflow(payload, executionId).pipe(
+			Effect.withSpan("ProviderEntityPopulationWorkflow", {
+				attributes: {
+					executionId,
+					scriptId: payload.scriptId,
+					externalId: payload.externalId,
+					entitySchemaId: payload.entitySchemaId,
+					...(payload.userId ? { userId: payload.userId } : {}),
+				},
+			}),
+			Effect.annotateLogs({ executionId, workflow: "ProviderEntityPopulationWorkflow" }),
+		),
 );
 
 export const ProviderEntityPopulationWorkflowDefinitionsLive = ProviderEntityPopulationWorkflowLive;

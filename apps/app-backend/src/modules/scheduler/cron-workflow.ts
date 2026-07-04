@@ -1,6 +1,5 @@
 import { Workflow } from "@effect/workflow";
-import { unknownToMessage } from "@ryot/contract/errors";
-import { Cause, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import type { CronTask, CronTaskContext } from "./types";
 
@@ -12,8 +11,8 @@ export const runTasks = <E, R>(tasks: ReadonlyArray<CronTask<E, R>>, ctx: CronTa
 				.run(ctx)
 				.pipe(
 					Effect.catchAllCause((cause) =>
-						Effect.logError(
-							`Cron task '${task.name}' failed: ${unknownToMessage(Cause.squash(cause))}`,
+						Effect.logError("cron task failed", cause).pipe(
+							Effect.annotateLogs({ task: task.name }),
 						),
 					),
 				),

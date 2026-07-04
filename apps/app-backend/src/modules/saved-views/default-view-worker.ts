@@ -23,7 +23,14 @@ export const processDefaultSavedView = (payload: CreateDefaultSavedViewPayload) 
 			.pipe(Effect.catchTag("Conflict", () => Effect.void));
 	});
 
-export const DefaultSavedViewWorkerLive = DurableQueue.worker(
-	DefaultSavedViewQueue,
-	processDefaultSavedView,
+export const DefaultSavedViewWorkerLive = DurableQueue.worker(DefaultSavedViewQueue, (payload) =>
+	processDefaultSavedView(payload).pipe(
+		Effect.withSpan("DefaultSavedViewQueue", {
+			attributes: {
+				userId: payload.userId,
+				trackerId: payload.trackerId,
+				executionId: payload.executionId,
+			},
+		}),
+	),
 );

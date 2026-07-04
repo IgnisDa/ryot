@@ -1,7 +1,6 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { unknownToMessage } from "@ryot/contract/errors";
 import { generateId } from "better-auth";
-import { Cause, Effect, Layer, Schedule } from "effect";
+import { Effect, Layer, Schedule } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 
@@ -13,7 +12,7 @@ export const FrequentCronSchedulerLive = Layer.scopedDiscard(
 		const config = yield* AppConfig;
 
 		if (config.server.disableBackgroundJobs) {
-			yield* Effect.logInfo("Background jobs disabled; skipping frequent cron scheduler");
+			yield* Effect.logInfo("frequent cron scheduler disabled");
 			return;
 		}
 
@@ -22,8 +21,8 @@ export const FrequentCronSchedulerLive = Layer.scopedDiscard(
 		const configuredSchedule = config.scheduler.frequentCronJobsSchedule;
 		const interval = parseFrequentSchedule(configuredSchedule);
 		if (interval === null) {
-			yield* Effect.logWarning(
-				`Unsupported SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE '${configuredSchedule}', defaulting to every 5 minutes`,
+			yield* Effect.logWarning("frequent cron schedule unsupported").pipe(
+				Effect.annotateLogs({ configuredSchedule, fallback: "every 5 minutes" }),
 			);
 		}
 
@@ -36,11 +35,10 @@ export const FrequentCronSchedulerLive = Layer.scopedDiscard(
 					payload: { executionId },
 				})
 				.pipe(
-					Effect.catchAllCause((cause) =>
-						Effect.logError(
-							`Failed to enqueue frequent cron run: ${unknownToMessage(Cause.squash(cause))}`,
-						),
-					),
+					Effect.withSpan("FrequentCronWorkflow.dispatch", {
+						attributes: { executionId },
+					}),
+					Effect.catchAllCause((cause) => Effect.logError("frequent cron enqueue failed", cause)),
 				);
 		});
 
