@@ -2,7 +2,7 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { dieOnDbError, unknownToMessage } from "@ryot/contract/errors";
 import { generateId } from "better-auth";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
-import { Cause, Effect, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -79,8 +79,8 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 			repository.findEntitySchemaSandboxScriptBySlug(builtinExerciseScriptSlug),
 		);
 		if (!preloadTarget) {
-			yield* Effect.logWarning(
-				`Builtin exercise preload skipped because '${builtinExerciseScriptSlug}' is not linked to an entity schema`,
+			yield* Effect.logWarning("builtin exercise preload target missing").pipe(
+				Effect.annotateLogs({ scriptSlug: builtinExerciseScriptSlug }),
 			);
 			return;
 		}
@@ -103,8 +103,8 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 			}),
 		);
 		if (!script) {
-			yield* Effect.logWarning(
-				`Builtin exercise preload skipped because script '${builtinExerciseScriptSlug}' was not found`,
+			yield* Effect.logWarning("builtin exercise preload script missing").pipe(
+				Effect.annotateLogs({ scriptSlug: builtinExerciseScriptSlug }),
 			);
 			return;
 		}
@@ -133,9 +133,10 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 					),
 					Effect.flatMap((result) =>
 						result.error
-							? Effect.logError(
-									`Builtin exercise search failed on page ${page}: ${result.error.message}`,
-								).pipe(Effect.as<string[]>([]))
+							? Effect.logError("builtin exercise search failed").pipe(
+									Effect.annotateLogs({ page, error: result.error.message }),
+									Effect.as<string[]>([]),
+								)
 							: decodeProviderSearchResult(result.value).pipe(
 									Effect.map(({ items }) => [...new Set(items.map((item) => item.externalId))]),
 									Effect.orElseSucceed(() => []),
@@ -168,16 +169,17 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 					),
 					Effect.as(true),
 					Effect.catchAll((error) =>
-						Effect.logError(
-							`Failed to import builtin exercise '${externalId}': ${unknownToMessage(error)}`,
-						).pipe(Effect.as(false)),
+						Effect.logError("builtin exercise import failed").pipe(
+							Effect.annotateLogs({ externalId, error: unknownToMessage(error) }),
+							Effect.as(false),
+						),
 					),
 				);
 		};
 
 		const runPreload = Effect.gen(function* () {
-			yield* Effect.logInfo(
-				`Starting builtin exercise preload (${importedCount}/${preloadLimit} imported)`,
+			yield* Effect.logInfo("builtin exercise preload started").pipe(
+				Effect.annotateLogs({ importedCount, preloadLimit }),
 			);
 
 			let page = 1;
@@ -197,8 +199,8 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 					.filter((externalId) => !importedExternalIds.has(externalId))
 					.slice(0, remaining);
 
-				yield* Effect.logInfo(
-					`Importing ${scheduledIds.length} builtin exercises from page ${page}`,
+				yield* Effect.logInfo("builtin exercises scheduled").pipe(
+					Effect.annotateLogs({ page, count: scheduledIds.length }),
 				);
 
 				const importResults = yield* Effect.forEach(scheduledIds, importExercise, {
@@ -213,15 +215,11 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 				page += 1;
 			}
 
-			yield* Effect.logInfo(
-				`Builtin exercise preload finished (${preloadLimit - remaining}/${preloadLimit} imported)`,
+			yield* Effect.logInfo("builtin exercise preload finished").pipe(
+				Effect.annotateLogs({ preloadLimit, importedCount: preloadLimit - remaining }),
 			);
 		}).pipe(
-			Effect.catchAllCause((cause) =>
-				Effect.logError(
-					`Builtin exercise preload failed: ${unknownToMessage(Cause.squash(cause))}`,
-				),
-			),
+			Effect.catchAllCause((cause) => Effect.logError("builtin exercise preload failed", cause)),
 		);
 
 		yield* Effect.forkScoped(runPreload);

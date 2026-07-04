@@ -352,21 +352,23 @@ export const migrateLegacyTables = Effect.gen(function* () {
 
 	// Phase 2: Backfill bootstrap data for migrated users
 	if (migratedUserRows.length > 0) {
-		yield* Effect.logInfo(
-			`[legacy-bootstrap] backfilling V2 bootstrap data for ${migratedUserRows.length} migrated user(s)`,
+		yield* Effect.logInfo("legacy user bootstrap backfill started").pipe(
+			Effect.annotateLogs({ userCount: migratedUserRows.length }),
 		);
 
 		for (const user of migratedUserRows) {
 			yield* bootstrapNewUser(user.id).pipe(
-				Effect.tapError((cause) =>
-					Effect.logError("[legacy-bootstrap] bootstrapNewUser failed for user", user.id, cause),
+				Effect.tapError((error) =>
+					Effect.logError("legacy user bootstrap failed", error).pipe(
+						Effect.annotateLogs({ userId: user.id }),
+					),
 				),
 				Effect.orDie,
 			);
 		}
 
-		yield* Effect.logInfo(
-			`[legacy-bootstrap] finished V2 bootstrap backfill for ${migratedUserRows.length} migrated user(s)`,
+		yield* Effect.logInfo("legacy user bootstrap backfill finished").pipe(
+			Effect.annotateLogs({ userCount: migratedUserRows.length }),
 		);
 	}
 

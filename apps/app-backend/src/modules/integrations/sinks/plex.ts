@@ -101,18 +101,17 @@ export const parsePlexSink: SinkParser = (input) =>
 
 		const username = specs.username?.trim();
 		if (username && payload.Account?.title !== username) {
-			yield* Effect.logDebug(
-				"Ignoring Plex webhook for user; integration is configured for another",
-				{ configuredUser: username, payloadUser: payload.Account?.title },
+			yield* Effect.logDebug("plex webhook user ignored").pipe(
+				Effect.annotateLogs({ configuredUser: username, payloadUser: payload.Account?.title }),
 			);
 			return emptySinkResult();
 		}
 
 		const eventType = normalizePlexEvent(payload.event);
 		if (!["play", "pause", "resume", "scrobble", "stop"].includes(eventType)) {
-			yield* Effect.logDebug("Ignoring unsupported Plex webhook event", {
-				event: payload.event,
-			});
+			yield* Effect.logDebug("unsupported plex webhook event").pipe(
+				Effect.annotateLogs({ event: payload.event }),
+			);
 			return emptySinkResult();
 		}
 
