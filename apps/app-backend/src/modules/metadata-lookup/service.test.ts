@@ -81,7 +81,7 @@ const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxReposi
 					slug,
 					name: "TMDB",
 					kind: "provider" as const,
-					requiredAppConfigKeys: ["providers.tmdbAccessToken"],
+					requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
 					providerInformation: { source: "tmdb", canonicalLanguage: "en" },
 					capabilities: ["httpCall", "getAppConfigValue", "getUserPreferences"],
 				},

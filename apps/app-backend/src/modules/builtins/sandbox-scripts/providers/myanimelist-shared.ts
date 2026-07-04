@@ -16,7 +16,7 @@ export type MyAnimeListHost = SandboxHost<
 const MAL_API_BASE_URL = "https://api.myanimelist.net/v2";
 
 export const getMalClientId = (host: MyAnimeListHost) =>
-	host.getAppConfigValue("providers.malClientId").then((response) => {
+	host.getAppConfigValue("animeAndManga.malClientId").then((response) => {
 		if (!response.success) {
 			throw new Error(response.error || "Could not load MyAnimeList client ID");
 		}
