@@ -3,14 +3,14 @@ import {
 	RelationshipSchemaSlug,
 	type UserId,
 } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 
-export class RelationshipSchemasRepository extends Effect.Service<RelationshipSchemasRepository>()(
+export class RelationshipSchemasRepository extends Context.Service<RelationshipSchemasRepository>()(
 	"RelationshipSchemasRepository",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRegistry;
 			const findBuiltinBySlug = (slug: string) => {
 				const definition = definitions.getRelationshipSchema(slug);
@@ -32,10 +32,12 @@ export class RelationshipSchemasRepository extends Effect.Service<RelationshipSc
 			return { findById, findBuiltinBySlug, findGlobalBySchemaIds };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
 const toScope = (
-	definition: NonNullable<ReturnType<DefinitionRegistry["getRelationshipSchema"]>>,
+	definition: NonNullable<ReturnType<DefinitionRegistry["Service"]["getRelationshipSchema"]>>,
 ) => ({
 	isBuiltin: true,
 	name: definition.name,
