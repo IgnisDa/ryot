@@ -193,7 +193,7 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("SubscriptionExecution
 );
 
 const SubscriptionExecutionWorkflowLive = SubscriptionExecutionWorkflow.toLayer(
-	(payload, executionId) => runSubscriptionExecutionWorkflow(payload, executionId),
+	runSubscriptionExecutionWorkflow,
 );
 
 export const SubscriptionExecutionWorkflowDefinitionsLive = Layer.mergeAll(

@@ -8,6 +8,7 @@ import {
 import { mediaMonitoringInfrequentTask } from "#modules/media-monitoring/infrequent-task";
 import { mediaTrendingInfrequentTask } from "#modules/media-trending/infrequent-task";
 import {
+	type CronRunPayload,
 	FrequentCronWorkflow,
 	InfrequentCronWorkflow,
 	runTasks,
@@ -27,17 +28,26 @@ const infrequentCronTasks: ReadonlyArray<
 	CronTask<SandboxRunError, InfrequentCronTaskRequirements>
 > = [mediaTrendingInfrequentTask, mediaMonitoringInfrequentTask];
 
-export const FrequentCronWorkflowDefinitionsLive = FrequentCronWorkflow.toLayer((_, executionId) =>
-	runTasks(frequentCronTasks, { executionId }).pipe(
-		Effect.withSpan("FrequentCronWorkflow", { attributes: { executionId } }),
-		Effect.annotateLogs({ executionId, workflow: "FrequentCronWorkflow" }),
-	),
+const runFrequentCronWorkflow = Effect.fn("FrequentCronWorkflow")(
+	function* (_payload: CronRunPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({ executionId });
+		yield* runTasks(frequentCronTasks, { executionId });
+	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "FrequentCronWorkflow" }),
 );
 
-export const InfrequentCronWorkflowDefinitionsLive = InfrequentCronWorkflow.toLayer(
-	(_, executionId) =>
-		runTasks(infrequentCronTasks, { executionId }).pipe(
-			Effect.withSpan("InfrequentCronWorkflow", { attributes: { executionId } }),
-			Effect.annotateLogs({ executionId, workflow: "InfrequentCronWorkflow" }),
-		),
+const runInfrequentCronWorkflow = Effect.fn("InfrequentCronWorkflow")(
+	function* (_payload: CronRunPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({ executionId });
+		yield* runTasks(infrequentCronTasks, { executionId });
+	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "InfrequentCronWorkflow" }),
 );
+
+export const FrequentCronWorkflowDefinitionsLive =
+	FrequentCronWorkflow.toLayer(runFrequentCronWorkflow);
+
+export const InfrequentCronWorkflowDefinitionsLive =
+	InfrequentCronWorkflow.toLayer(runInfrequentCronWorkflow);

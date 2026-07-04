@@ -289,7 +289,7 @@ it.effect("orchestrates open-scale measurement imports through workflow-owned ph
 		options,
 		"workflow-measurement",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(measurementPayload, "workflow-measurement");
+			yield* runOneTimeNonMediaImportWorkflow(measurementPayload);
 
 			expect(createCalls).toHaveLength(2);
 			expect(createCalls[0]).toMatchObject({
@@ -373,10 +373,7 @@ it.effect("fails the open-scale run when the measurement entity schema is missin
 		options,
 		"workflow-measurement-missing-schema",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(
-				measurementPayload,
-				"workflow-measurement-missing-schema",
-			);
+			yield* runOneTimeNonMediaImportWorkflow(measurementPayload);
 
 			expect(createCalled).toBe(false);
 			expect(recordedUpdates).toContainEqual(
@@ -458,7 +455,7 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 		options,
 		"workflow-workout",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(workoutPayload, "workflow-workout");
+			yield* runOneTimeNonMediaImportWorkflow(workoutPayload);
 
 			expect(createCalls.map((payload) => payload["entitySchemaId"])).toEqual([
 				"exercise-schema",
@@ -513,7 +510,7 @@ it.effect("fails the workout run when workout schemas are missing", () => {
 		options,
 		"workflow-workout-missing-schema",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(workoutPayload, "workflow-workout-missing-schema");
+			yield* runOneTimeNonMediaImportWorkflow(workoutPayload);
 
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
@@ -553,7 +550,7 @@ it.effect("fails the run and cleans up when non-media adapter loading fails", ()
 		options,
 		"workflow-measurement-load-failure",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(defectPayload, "workflow-measurement-load-failure");
+			yield* runOneTimeNonMediaImportWorkflow(defectPayload);
 
 			expect(cleanupCalls).toEqual([{ cleanupPaths: [defectPayload.filePath], runId: "run-1" }]);
 			expect(recordedUpdates).toContainEqual(
@@ -595,7 +592,7 @@ it.effect("does not reintroduce invalid file paths during handled non-media load
 		options,
 		"workflow-measurement-invalid-path",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(invalidPayload, "workflow-measurement-invalid-path");
+			yield* runOneTimeNonMediaImportWorkflow(invalidPayload);
 
 			expect(cleanupCalls).toEqual([{ cleanupPaths: [], runId: "run-1" }]);
 			expect(recordedUpdates).toContainEqual(
@@ -636,10 +633,7 @@ it.effect("does not attempt cleanup for invalid file paths when non-media loadin
 		options,
 		"workflow-measurement-invalid-path-defect",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(
-				invalidPayload,
-				"workflow-measurement-invalid-path-defect",
-			);
+			yield* runOneTimeNonMediaImportWorkflow(invalidPayload);
 
 			expect(cleanupCalls).toEqual([{ cleanupPaths: [], runId: "run-1" }]);
 			expect(recordedUpdates).toContainEqual(

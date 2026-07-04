@@ -4,6 +4,7 @@ import type { SandboxRunError } from "@ryot/contract/errors";
 import { toSandboxRunError } from "@ryot/contract/errors";
 import type {
 	SandboxCompletedResult as SandboxCompletedResultValue,
+	SandboxExecutionPayload,
 	SandboxRunResult,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
@@ -40,12 +41,18 @@ export const toSandboxRunResult = (
 	);
 };
 
-const RunSandboxWorkflowLive = RunSandboxWorkflow.toLayer((payload, executionId) =>
-	DurableQueue.process(SandboxExecutionQueue, payload).pipe(
-		Effect.mapError(toSandboxRunError),
-		Effect.annotateLogs({ executionId, workflow: "RunSandboxWorkflow" }),
-	),
+const runSandboxWorkflow = Effect.fn("RunSandboxWorkflow")(
+	function* (payload: SandboxExecutionPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({ executionId });
+		return yield* DurableQueue.process(SandboxExecutionQueue, payload).pipe(
+			Effect.mapError(toSandboxRunError),
+		);
+	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "RunSandboxWorkflow" }),
 );
+
+const RunSandboxWorkflowLive = RunSandboxWorkflow.toLayer(runSandboxWorkflow);
 
 export const SandboxWorkflowDefinitionsLive = Layer.mergeAll(
 	RunSandboxWorkflowLive,

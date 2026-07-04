@@ -22,9 +22,8 @@ export const MediaTrendingRefreshWorkflow = Workflow.make({
 	}),
 });
 
-const MediaTrendingRefreshWorkflowLive = MediaTrendingRefreshWorkflow.toLayer(
-	(payload, executionId) => runMediaTrendingRefresh(payload, executionId),
-);
+const MediaTrendingRefreshWorkflowLive =
+	MediaTrendingRefreshWorkflow.toLayer(runMediaTrendingRefresh);
 
 export const MediaTrendingRefreshWorkflowDefinitionsLive = Layer.mergeAll(
 	MediaTrendingRefreshWorkflowLive,

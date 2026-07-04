@@ -410,13 +410,8 @@ const finalizeNonMediaImportRun = (payload: ImportRunJobData, summary: NonMediaW
 		});
 	});
 
-export const runOneTimeNonMediaImportWorkflow = Effect.fn("ProcessImportRunWorkflow")(
-	function* (payload: ImportRunJobData, executionId: string) {
-		yield* Effect.annotateCurrentSpan({
-			executionId,
-			runId: payload.runId,
-			userId: payload.userId,
-		});
+export const runOneTimeNonMediaImportWorkflow = (payload: ImportRunJobData) =>
+	Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const operationsService = yield* NonMediaImportWorkflowOperations;
 		const initialCleanupPaths = payload.filePath
@@ -488,7 +483,4 @@ export const runOneTimeNonMediaImportWorkflow = Effect.fn("ProcessImportRunWorkf
 				}),
 			),
 		);
-	},
-	(effect, _payload, executionId) =>
-		Effect.annotateLogs(effect, { executionId, workflow: "ProcessImportRunWorkflow" }),
-);
+	});

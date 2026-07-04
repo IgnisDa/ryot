@@ -84,5 +84,5 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 );
 
 export const AddEntityToCollectionWorkflowDefinitionsLive = AddEntityToCollectionWorkflow.toLayer(
-	(payload, executionId) => runAddEntityToCollectionWorkflow(payload, executionId),
+	runAddEntityToCollectionWorkflow,
 );
