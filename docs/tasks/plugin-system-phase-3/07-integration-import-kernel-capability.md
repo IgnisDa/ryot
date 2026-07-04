@@ -28,10 +28,12 @@ in this task. Tasks 08–10 consume what this builds.
    `translatable?: true` — validation-neutral, inherited by every property kind. The kernel
    **redacts marked fields when returning an integration**. This is an owner-signed-off behavioral
    change (§4); it must compose with the existing merge-preserve on update, which stays intact.
-4. **`importSources` manifest section** and the **collapse of the two import orchestration paths
-   into one**: the kernel resolves the run's `source` slug through the registry and dispatches the
-   owning plugin's workflow with `{ runId, userId, artifactPath?, sourcePayloadRef? }`. The
-   hardcoded source table in `imports/runtime/source-definitions.ts` is superseded by manifest data.
+4. **`importSources` manifest section** and the **registry-driven import dispatch path**: the
+   kernel resolves the run's `source` slug through the registry and dispatches the owning plugin's
+   workflow with `{ runId, userId, artifactPath?, sourcePayloadRef? }`. Source metadata (allowed
+   extensions, required app-config keys, `input` kind) moves off the hardcoded table in
+   `imports/runtime/source-definitions.ts` onto manifest data for every source a plugin declares.
+   **This task builds the mechanism, not the deletion** — see the scope note below.
 5. **Deny-by-default per-execution filesystem grants** next to the existing flag assembly in
    `sandbox-runtime/runtime.ts` (`makeSpawnDenoProcess`): artifact path appended to `--allow-read`,
    `--allow-write` on a per-execution scratch directory, requested through
@@ -51,6 +53,26 @@ Do **not** build `putRunBlobs`, `getRunBlobs`, `recordImportFailures`, or `repor
 §4 records all four as withdrawn. The kernel keeps ownership of entity/event/relationship writes,
 so it keeps ownership of counters and failure rows.
 
+### Scope note — the import collapse spans 07, 09, and 10 (owner-approved, 2026-07-27)
+
+An earlier acceptance bullet here read "the media-vs-non-media import branch is gone", which
+contradicts task 09 ("complete the kernel-side collapse task 07 **started**") and this task's own
+"lands before any consumer" framing. It is unsatisfiable in 07: a registry-driven dispatch resolves
+a source slug to `{ pluginSlug, workflowSlug }`, and no plugin owns a top-level import workflow yet
+— `plugins/fitness` has no import surface at all and `plugins/media` has only the task-06
+resolution/population children. Deleting the native branch now would break all nineteen imports and
+redden the `imports/` and `integrations/` e2e suites, violating cross-phase invariant 1.
+
+The collapse is therefore split the same way the integrations side already is (07 adds the
+`integrationProviders` section; **08** deletes the hardcoded provider union when the adapters move):
+
+- **07 (this task)** — add the `importSources` section, serve source metadata from the registry, and
+  build the registry-driven dispatch path. Any source a plugin declares routes through it; the
+  native media/non-media orchestration remains reachable only as the fallback for sources no
+  manifest declares, which is all nineteen at the end of this task.
+- **09** — move the three fitness sources onto the new path and delete the non-media orchestration.
+- **10** — move the sixteen media sources, then delete the branch and the hardcoded source table.
+
 Because no adapter consumes these yet, this task's own coverage is kernel-side: focused tests for
 grant assembly, quota enforcement, scratch harvest, chunk manifest handling, registry listing of
 both new manifest sections, `secret` redaction, and credential scoping.
@@ -63,8 +85,10 @@ both new manifest sections, `secret` redaction, and credential scoping.
 - [ ] `settingsSchema` is a declarative `AppSchema` validated by the property-schema runtime
 - [ ] `secret?: true` exists on `AppPropertyBase`; marked fields are redacted when an integration is
       read; the merge-preserve-on-update behavior is unchanged and still asserted
-- [ ] The media-vs-non-media import branch is gone: one registry-driven dispatch path resolves the
-      run's source slug to its owning plugin's workflow
+- [ ] A registry-driven dispatch path resolves the run's source slug to its owning plugin's
+      workflow and every source a manifest declares routes through it; the native media-vs-non-media
+      orchestration survives only as the fallback for undeclared sources and is deleted in tasks
+      09–10 (see the scope note above)
 - [ ] Deny-by-default grants work: artifact `--allow-read`, scratch `--allow-write`, requested via
       `capabilities: ["artifact-read", "scratch"]`, on a dedicated non-pooled process, with a 5 MiB
       post-execution quota and unconditional kernel cleanup
