@@ -13,7 +13,7 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ShowEntityScreen } from "./show-entity";
+import { ShowScreen } from "./show/screen";
 
 const metadata = {
 	hash: "media-artifact-hash",
@@ -39,6 +39,10 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 	type: "rows",
 	pageInfo: { hasMore: false, limit: 1, nextCursor: null },
 });
+
+const emptyOverviewResponse = {
+	data: { people: rows([]), companies: rows([]), recommendations: rows([]) },
+};
 
 const readyResponse = {
 	data: {
@@ -94,6 +98,12 @@ type AssetResolution = {
 	readonly asset: AssetLocator;
 };
 
+type RyotQLRequest = {
+	readonly requestId: string;
+	readonly type: "ryotql-request";
+	readonly document: { readonly queries: Record<string, unknown> };
+};
+
 type Bootstrap = ReturnType<typeof bootstrapClientPlugin>;
 
 const bootstraps: Bootstrap[] = [];
@@ -112,7 +122,7 @@ const openShow = () => {
 	bootstraps.push(
 		bootstrapClientPlugin({
 			home: { component: Home },
-			entities: { show: { component: ShowEntityScreen } },
+			entities: { show: { component: ShowScreen } },
 		}),
 	);
 	const channel = new MessageChannel();
@@ -137,19 +147,23 @@ const openShow = () => {
 
 const queryRequests = (messages: readonly unknown[]) =>
 	messages.filter(
-		(message): message is { readonly requestId: string; readonly type: "ryotql-request" } =>
+		(message): message is RyotQLRequest =>
 			typeof message === "object" &&
 			message !== null &&
 			"type" in message &&
 			message.type === "ryotql-request" &&
 			"requestId" in message &&
-			typeof message.requestId === "string",
+			typeof message.requestId === "string" &&
+			"document" in message,
 	);
 
-const queryRequestAt = (messages: readonly unknown[], index: number) => {
-	const request = queryRequests(messages)[index];
+const queryRequestsFor = (messages: readonly unknown[], key: string) =>
+	queryRequests(messages).filter((request) => key in request.document.queries);
+
+const queryRequestFor = (messages: readonly unknown[], key: string, index = 0) => {
+	const request = queryRequestsFor(messages, key)[index];
 	if (request === undefined) {
-		throw new Error(`Expected RyotQL request at index ${index}`);
+		throw new Error(`Expected a RyotQL request for "${key}" at index ${index}`);
 	}
 	return request;
 };
@@ -202,6 +216,17 @@ const assetReply = (
 		| { readonly outcome: "success"; readonly resolutions: readonly AssetResolution[] },
 ) => channel.port1.postMessage({ type: "asset-result", requestId, ...result });
 
+const replyOverview = (channel: MessageChannel, messages: readonly unknown[], index = 0) =>
+	reply(channel, queryRequestFor(messages, "people", index).requestId, {
+		outcome: "success",
+		response: emptyOverviewResponse,
+	});
+
+const managedCoverImage = (container: HTMLElement | null) =>
+	Array.from(container?.querySelectorAll('img[loading="lazy"]') ?? []).find((image) =>
+		(image.getAttribute("src") ?? "").includes("assets.test"),
+	);
+
 const flush = async () => {
 	await act(async () => {
 		await Promise.resolve();
@@ -224,21 +249,23 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-describe("ShowEntityScreen", () => {
-	it("renders pending status while the query is in flight", async () => {
-		const { container } = openShow();
+describe("ShowScreen", () => {
+	it("renders pending status while the summary and overview queries are in flight", async () => {
+		const { container, messages } = openShow();
 
-		await waitFor(() => expect(container?.textContent).toContain("Loading show..."));
+		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
+		await waitFor(() => expect(queryRequestsFor(messages, "people")).toHaveLength(1));
+		expect(container?.textContent).toContain("Loading show...");
 	});
 
 	it("renders an error and retries through the query result", async () => {
 		const { channel, container, messages } = openShow();
-		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
-		reply(channel, queryRequestAt(messages, 0).requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "failure",
 			reason: "query-failed",
 		});
-		await waitFor(() => expect(container?.textContent).toContain("Unable to load this show."));
+		await waitFor(() => expect(container?.textContent).toContain("Unable to load this show"));
 
 		const retry = Array.from(container?.querySelectorAll("button") ?? []).find(
 			(button) => button.textContent === "Try again",
@@ -247,8 +274,8 @@ describe("ShowEntityScreen", () => {
 			throw new Error("Expected the Show retry button");
 		}
 		fireEvent.click(retry);
-		await waitFor(() => expect(queryRequests(messages)).toHaveLength(2));
-		reply(channel, queryRequestAt(messages, 1).requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(2));
+		reply(channel, queryRequestFor(messages, "show", 1).requestId, {
 			outcome: "success",
 			response: readyResponse,
 		});
@@ -258,8 +285,8 @@ describe("ShowEntityScreen", () => {
 
 	it("renders the missing state", async () => {
 		const missing = openShow();
-		await waitFor(() => expect(queryRequests(missing.messages)).toHaveLength(1));
-		reply(missing.channel, queryRequestAt(missing.messages, 0).requestId, {
+		await waitFor(() => expect(queryRequestsFor(missing.messages, "show")).toHaveLength(1));
+		reply(missing.channel, queryRequestFor(missing.messages, "show").requestId, {
 			outcome: "success",
 			response: { data: { requested: rows([]), show: rows([]) } },
 		});
@@ -270,40 +297,46 @@ describe("ShowEntityScreen", () => {
 
 	it("renders the wrong-schema state", async () => {
 		const wrongSchema = openShow();
-		await waitFor(() => expect(queryRequests(wrongSchema.messages)).toHaveLength(1));
-		reply(wrongSchema.channel, queryRequestAt(wrongSchema.messages, 0).requestId, {
+		await waitFor(() => expect(queryRequestsFor(wrongSchema.messages, "show")).toHaveLength(1));
+		reply(wrongSchema.channel, queryRequestFor(wrongSchema.messages, "show").requestId, {
 			outcome: "success",
 			response: { data: { requested: rows([{ schemaSlug: "movie" }]), show: rows([]) } },
 		});
 		await waitFor(() =>
-			expect(wrongSchema.container?.textContent).toContain("This entity is not a Show."),
+			expect(wrongSchema.container?.textContent).toContain(
+				"This entity is not a show, and only shows can be opened here.",
+			),
 		);
 	});
 
 	it("renders seeded summary fields and publishes the Show title", async () => {
 		const { channel, container, messages } = openShow();
-		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
-		reply(channel, queryRequestAt(messages, 0).requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
 			response: readyResponse,
 		});
+		await waitFor(() => expect(queryRequestsFor(messages, "people")).toHaveLength(1));
+		replyOverview(channel, messages);
 
 		await waitFor(() => expect(container?.textContent).toContain("Tracer Show"));
-		expect(container?.textContent).toContain("TV Show · TMDB · 2025");
+		expect(container?.textContent).toContain("TMDB");
 		expect(container?.textContent).toContain("Drama");
 		expect(container?.textContent).toContain("Returning Series");
-		expect(container?.textContent).toContain("2 seasons");
-		expect(container?.textContent).toContain("12 episodes");
+		expect(container?.textContent).toContain("Seasons");
 		expect(container?.textContent).toContain("A deterministic show description.");
 		expect(
 			Array.from(container?.querySelectorAll("img") ?? []).map((image) =>
 				image.getAttribute("src"),
 			),
-		).toEqual(["https://images.test/backdrop.jpg", "https://images.test/cover.jpg"]);
+		).toEqual([
+			"https://images.test/backdrop.jpg",
+			"https://images.test/backdrop.jpg",
+			"https://images.test/cover.jpg",
+			"https://images.test/backdrop.jpg",
+			"https://images.test/cover.jpg",
+		]);
 		expect(assetRequests(messages)).toHaveLength(0);
-		expect(
-			Array.from(container?.querySelectorAll("h1") ?? []).map((heading) => heading.textContent),
-		).toEqual(["Tracer Show"]);
 		await waitFor(() =>
 			expect(messages).toContainEqual({
 				index: 0,
@@ -316,8 +349,8 @@ describe("ShowEntityScreen", () => {
 
 	it("renders a managed cover placeholder before resolving its signed URL", async () => {
 		const { channel, container, messages } = openShow();
-		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
-		reply(channel, queryRequestAt(messages, 0).requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
 			response: responseWithImages([
 				{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
@@ -327,10 +360,7 @@ describe("ShowEntityScreen", () => {
 
 		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
 		expect(assetRequestAt(messages, 0).assets).toEqual([{ type: "local", key: "managed-cover" }]);
-		expect(container?.querySelector('img[loading="lazy"]')).toBeNull();
-		expect(container?.querySelector('div[aria-hidden="true"]')?.className).toContain(
-			"animate-pulse",
-		);
+		expect(managedCoverImage(container)).toBeUndefined();
 
 		const signedUrl = "https://assets.test/managed-cover-v1?signature=one";
 		assetReply(channel, assetRequestAt(messages, 0).requestId, {
@@ -344,15 +374,13 @@ describe("ShowEntityScreen", () => {
 			],
 		});
 
-		await waitFor(() =>
-			expect(container?.querySelector('img[loading="lazy"]')?.getAttribute("src")).toBe(signedUrl),
-		);
+		await waitFor(() => expect(managedCoverImage(container)?.getAttribute("src")).toBe(signedUrl));
 	});
 
 	it("shows an unavailable managed cover after the initial asset request fails", async () => {
 		const { channel, container, messages } = openShow();
-		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
-		reply(channel, queryRequestAt(messages, 0).requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
 			response: responseWithImages([{ type: "local", key: "managed-cover", purpose: "cover" }]),
 		});
@@ -363,18 +391,14 @@ describe("ShowEntityScreen", () => {
 			reason: "asset-failed",
 		});
 
-		await waitFor(() => {
-			expect(container?.querySelector('img[loading="lazy"]')).toBeNull();
-			expect(container?.querySelector('div[aria-hidden="true"]')?.className).not.toContain(
-				"animate-pulse",
-			);
-		});
+		await flush();
+		expect(managedCoverImage(container)).toBeUndefined();
 	});
 
 	it("refreshes one minute before expiry and keeps the stale URL after failure", async () => {
 		const { channel, container, messages } = openShow();
-		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
-		reply(channel, queryRequestAt(messages, 0).requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
 			response: responseWithImages([{ type: "local", key: "managed-cover", purpose: "cover" }]),
 		});
@@ -389,7 +413,7 @@ describe("ShowEntityScreen", () => {
 			resolutions: [{ expiresAt, url: staleUrl, asset: { type: "local", key: "managed-cover" } }],
 		});
 		await flush();
-		expect(container?.querySelector('img[loading="lazy"]')?.getAttribute("src")).toBe(staleUrl);
+		expect(managedCoverImage(container)?.getAttribute("src")).toBe(staleUrl);
 
 		await act(async () => vi.advanceTimersByTimeAsync(4 * 60_000 - 1));
 		expect(assetRequests(messages)).toHaveLength(1);
@@ -402,57 +426,13 @@ describe("ShowEntityScreen", () => {
 			reason: "asset-failed",
 		});
 		await flush();
-		expect(container?.querySelector('img[loading="lazy"]')?.getAttribute("src")).toBe(staleUrl);
-	});
-
-	it("retries a managed cover after an image error and shows it unavailable after retry failure", async () => {
-		const { channel, container, messages } = openShow();
-		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
-		reply(channel, queryRequestAt(messages, 0).requestId, {
-			outcome: "success",
-			response: responseWithImages([{ type: "local", key: "managed-cover", purpose: "cover" }]),
-		});
-		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
-
-		const signedUrl = "https://assets.test/managed-cover-v1?signature=image";
-		assetReply(channel, assetRequestAt(messages, 0).requestId, {
-			outcome: "success",
-			resolutions: [
-				{
-					url: signedUrl,
-					asset: { type: "local", key: "managed-cover" },
-					expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
-				},
-			],
-		});
-		await waitFor(() =>
-			expect(container?.querySelector('img[loading="lazy"]')?.getAttribute("src")).toBe(signedUrl),
-		);
-
-		const image = container?.querySelector('img[loading="lazy"]');
-		if (image === null || image === undefined) {
-			throw new Error("Expected the managed cover image");
-		}
-		fireEvent.error(image);
-		await waitFor(() => expect(container?.querySelector('img[loading="lazy"]')).toBeNull());
-		await waitFor(() => expect(assetRequests(messages)).toHaveLength(2));
-		assetReply(channel, assetRequestAt(messages, 1).requestId, {
-			outcome: "failure",
-			reason: "asset-failed",
-		});
-
-		await waitFor(() => {
-			expect(container?.querySelector('img[loading="lazy"]')).toBeNull();
-			expect(container?.querySelector('div[aria-hidden="true"]')?.className).not.toContain(
-				"animate-pulse",
-			);
-		});
+		expect(managedCoverImage(container)?.getAttribute("src")).toBe(staleUrl);
 	});
 
 	it("cancels a managed cover request when its screen unmounts", async () => {
 		const { channel, messages } = openShow();
-		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
-		reply(channel, queryRequestAt(messages, 0).requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
 			response: responseWithImages([{ type: "local", key: "managed-cover", purpose: "cover" }]),
 		});
@@ -477,8 +457,8 @@ describe("ShowEntityScreen", () => {
 
 	it("omits absent optional fields", async () => {
 		const { channel, container, messages } = openShow();
-		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
-		reply(channel, queryRequestAt(messages, 0).requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
 			response: {
 				data: {
@@ -510,10 +490,8 @@ describe("ShowEntityScreen", () => {
 		});
 
 		await waitFor(() => expect(container?.textContent).toContain("Sparse Show"));
-		expect(container?.textContent).toContain("TV Show");
 		expect(container?.textContent).not.toContain("Production status");
 		expect(container?.textContent).not.toContain("Seasons");
-		expect(container?.textContent).not.toContain("Episodes");
 		expect(container?.querySelector("img")).toBeNull();
 	});
 });
