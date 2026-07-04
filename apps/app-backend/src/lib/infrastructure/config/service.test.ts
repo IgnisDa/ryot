@@ -25,7 +25,7 @@ const loadSystemConfig = (logLevel?: string) =>
 						["REDIS_URL", "unused"],
 						["DATABASE_URL", "unused"],
 						["SERVER_ADMIN_ACCESS_TOKEN", "unused"],
-						...(logLevel === undefined ? [] : [["LOG_LEVEL", logLevel] as const]),
+						...(logLevel === undefined ? [] : [["SERVER_LOG_LEVEL", logLevel] as const]),
 					]),
 				),
 			),
