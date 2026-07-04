@@ -31,7 +31,13 @@ const clientDist = fileURLToPath(new URL("../kernel/client/dist", import.meta.ur
 export default async function ({ provide }: TestProject) {
 	const build = spawnSync(
 		"bun",
-		["turbo", "--filter=@ryot-app/fixture-plugin", "--filter=@ryot-app/kernel-client", "build"],
+		[
+			"turbo",
+			"build",
+			"--filter=@ryot-app/media-plugin",
+			"--filter=@ryot-app/kernel-client",
+			"--filter=@ryot-app/fixture-plugin",
+		],
 		{ stdio: "inherit", cwd: repositoryRoot },
 	);
 	if (build.status !== 0) {

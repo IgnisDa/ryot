@@ -116,6 +116,9 @@ export {
 	usePluginSearch,
 	useRyotSafeArea,
 	usePluginLocation,
+	type EntityRendererProps,
+	type PluginEntityDefinition,
 	type PluginHomeDefinition,
 	type PluginRouteDefinition,
+	type PluginRouterDefinition,
 } from "./routing";

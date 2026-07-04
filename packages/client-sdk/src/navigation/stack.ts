@@ -1,11 +1,11 @@
 import { PLUGIN_SCREEN_STACK_LIMIT } from "@ryot-app/contract/modules/plugins/client";
 import type { PluginLogicalLocation } from "@ryot-app/contract/modules/plugins/client";
-import type { ComponentType } from "react";
+import type { ReactElement } from "react";
 
 export type PluginScreen = {
 	readonly key: string;
 	readonly index: number;
-	readonly component: ComponentType;
+	readonly element: ReactElement;
 	readonly params: Record<string, string>;
 	readonly location: PluginLogicalLocation;
 };
@@ -41,7 +41,7 @@ export type StackResult = {
 };
 
 export type ResolvePluginScreen = (location: PluginLogicalLocation) => {
-	readonly component: ComponentType;
+	readonly element: ReactElement;
 	readonly params: Record<string, string>;
 };
 

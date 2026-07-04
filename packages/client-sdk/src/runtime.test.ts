@@ -12,6 +12,7 @@ import {
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
+import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { RyotClientError } from "./index";
@@ -26,18 +27,19 @@ const metadata: PluginClientArtifactMetadata = {
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 };
 const init: PluginBridgeInit = {
+	mode: "light",
+	safeAreaTop: 0,
 	format: metadata.format,
 	sessionId: "session-id",
 	artifactHash: metadata.hash,
 	apiVersion: metadata.apiVersion,
-	mode: "light",
-	safeAreaTop: 0,
 	bridgeVersion: metadata.bridgeVersion,
 	compilerVersion: metadata.compilerVersion,
 };
 const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];
 const channels: MessageChannel[] = [];
-const routeResolver = () => ({ component: () => null, params: {} });
+const EmptyScreen = () => null;
+const routeResolver = () => ({ element: createElement(EmptyScreen), params: {} });
 const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 	path,
 	search,

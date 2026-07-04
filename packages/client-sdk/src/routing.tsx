@@ -1,11 +1,13 @@
 import type {
 	PluginLeadingIntent,
+	PluginEntityLocation,
 	PluginLogicalLocation,
 } from "@ryot-app/contract/modules/plugins/client";
 import { Match } from "effect";
 import {
 	Fragment,
 	createContext,
+	createElement,
 	useContext,
 	useEffect,
 	useLayoutEffect,
@@ -43,10 +45,17 @@ export type PluginHomeDefinition = {
 	readonly component: ComponentType;
 };
 
+export type EntityRendererProps = Pick<PluginEntityLocation, "entityId" | "entitySchemaSlug">;
+
+export type PluginEntityDefinition = {
+	readonly component: ComponentType<EntityRendererProps>;
+};
+
 export type PluginRouterDefinition = {
 	readonly notFound?: ComponentType;
 	readonly home: PluginHomeDefinition;
 	readonly routes?: readonly PluginRouteDefinition[];
+	readonly entities?: Readonly<Record<string, PluginEntityDefinition>>;
 };
 
 type RouterContextValue = {
@@ -172,7 +181,7 @@ const DefaultNotFound = () => (
 	</main>
 );
 
-const EntityRendererUnavailable = () => (
+const EntityRendererUnavailable: ComponentType<EntityRendererProps> = () => (
 	<main>
 		<h1>Entity renderer unavailable</h1>
 	</main>
@@ -219,15 +228,22 @@ export const createPluginRouteResolver = (
 		Match.value(location).pipe(
 			Match.when({ kind: "route" }, (route) => {
 				if (route.path === "/") {
-					return { params: {}, component: definition.home.component };
+					return { params: {}, element: createElement(definition.home.component) };
 				}
 				const matched = matchRoute(definition.routes ?? [], route.path);
 				if (matched === undefined) {
-					return { params: {}, component: definition.notFound ?? DefaultNotFound };
+					return { params: {}, element: createElement(definition.notFound ?? DefaultNotFound) };
 				}
-				return { params: matched.params, component: matched.route.component };
+				return { params: matched.params, element: createElement(matched.route.component) };
 			}),
-			Match.when({ kind: "entity" }, () => ({ params: {}, component: EntityRendererUnavailable })),
+			Match.when({ kind: "entity" }, ({ entityId, entitySchemaSlug }) => {
+				const Renderer =
+					definition.entities?.[entitySchemaSlug]?.component ?? EntityRendererUnavailable;
+				return {
+					params: {},
+					element: createElement(Renderer, { entityId, entitySchemaSlug }),
+				};
+			}),
 			Match.exhaustive,
 		);
 };
@@ -471,7 +487,6 @@ function Screen(props: {
 		() => ({ isActive: active, scrollRootRef: scrollRoot }),
 		[active],
 	);
-
 	return (
 		<div
 			tabIndex={-1}
@@ -491,9 +506,7 @@ function Screen(props: {
 			}}
 		>
 			<PluginScreenContext.Provider value={surface}>
-				<RouterContext.Provider value={value}>
-					<props.screen.component />
-				</RouterContext.Provider>
+				<RouterContext.Provider value={value}>{props.screen.element}</RouterContext.Provider>
 			</PluginScreenContext.Provider>
 		</div>
 	);
