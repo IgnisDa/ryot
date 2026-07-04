@@ -44,7 +44,7 @@ const runtimeModules = [
 			sourceImport: dependency.sdkImport,
 			runtimeSource:
 				dependency.name === "effect"
-					? 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; export { Effect, Schema };'
+					? 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; import * as DateTime from "effect/DateTime"; import * as Option from "effect/Option"; export { DateTime, Effect, Option, Schema };'
 					: null,
 		}),
 	),
