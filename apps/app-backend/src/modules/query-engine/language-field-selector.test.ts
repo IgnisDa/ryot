@@ -38,11 +38,6 @@ describe("FieldSelector", () => {
 		expect(result).toEqual({ type: "schema", name: "name" });
 	});
 
-	it("decodes a schema metadata selector for 'isBuiltin'", () => {
-		const result = decodeSync(FieldSelector)({ type: "schema", name: "isBuiltin" });
-		expect(result).toEqual({ type: "schema", name: "isBuiltin" });
-	});
-
 	it("decodes a system-computed translationStatus selector", () => {
 		const result = decodeSync(FieldSelector)({ type: "systemComputed", name: "translationStatus" });
 		expect(result).toEqual({ type: "systemComputed", name: "translationStatus" });

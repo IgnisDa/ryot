@@ -17,16 +17,16 @@ const andConditionsSql = (conditions: readonly SqlFragment[]) =>
 // Root row-producing FROM + WHERE fragments, with per-user visibility enforced. Callers pass the
 // visible-schema id fragments and any compiled where conditions.
 const entityRootFromWhereSql = (
-	schemas: readonly { id: string; slug: string; name: string; isBuiltin: boolean }[],
+	schemas: readonly { id: string; slug: string; name: string }[],
 	userId: string,
 	language: string | null,
 	pushedConditions: readonly SqlFragment[],
 ) => sql`
 	FROM ${entitySourceSql(language)} e
 	JOIN (VALUES ${sql.join(
-		schemas.map((schema) => sql`(${schema.slug}, ${schema.name}, ${schema.isBuiltin}::boolean)`),
+		schemas.map((schema) => sql`(${schema.slug}, ${schema.name})`),
 		sql`, `,
-	)}) AS es(slug, name, is_builtin) ON es.slug = e.entity_schema_slug
+	)}) AS es(slug, name) ON es.slug = e.entity_schema_slug
 	WHERE
 		e.entity_schema_slug IN (${idListSql(schemas)})
 		AND (e.user_id = ${userId} OR e.user_id IS NULL)
