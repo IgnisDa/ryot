@@ -9,6 +9,7 @@ import { makeWorkflowEngine, transactionLayer } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { AutomationsService } from "#modules/automations/service";
 import { EntitiesService } from "#modules/entities/service";
+import { InterestService } from "#modules/entity-interest/service";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { TranslationsService } from "#modules/entity-translation/service";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
@@ -27,6 +28,7 @@ const mockAuth = Layer.mock(AuthService);
 const mockSignals = Layer.mock(SignalsService);
 const mockTrackers = Layer.mock(TrackersService);
 const mockEntities = Layer.mock(EntitiesService);
+const mockInterest = Layer.mock(InterestService);
 const mockSandbox = Layer.mock(SandboxApiService);
 const mockAutomations = Layer.mock(AutomationsService);
 const mockTranslations = Layer.mock(TranslationsService);
@@ -56,6 +58,7 @@ const makeServiceLayer = (
 				mockTrackers({ _tag: "TrackersService" }),
 				mockEntities({ _tag: "EntitiesService", ...overrides.entities }),
 				mockSandbox({ _tag: "SandboxApiService", ...overrides.sandbox }),
+				mockInterest({ _tag: "InterestService" }),
 				mockTranslations({ _tag: "TranslationsService" }),
 				mockRelationships({ _tag: "RelationshipsService", ...overrides.relationships }),
 				mockEntitySchemas({ _tag: "EntitySchemasService", ...overrides.entitySchemas }),

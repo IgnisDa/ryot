@@ -1,4 +1,4 @@
-import { EntityId } from "@ryot/contract/schema/brands";
+import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import {
 	buildQueryEngineRowsDocument,
 	queryEngineComparison,
@@ -10,44 +10,34 @@ import {
 } from "@ryot/query-engine";
 import { Effect } from "effect";
 
-import { getPgClient } from "~/support/backend";
-
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
-import { pollUntil } from "./polling";
+import { openInterestStreamScoped } from "./interest-sse";
 import { executeQueryEngine } from "./query-engine-core";
 
-export const waitForMediaMonitoringRefresh = (executionId: string) =>
-	pollUntil(
-		"media monitoring refresh workflow completion",
+export const triggerCronAndWaitForEntity = (
+	auth: { cookies: string; userId: string },
+	entityId: string,
+) =>
+	Effect.scoped(
 		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				getPgClient().query<{ complete: boolean }>(
-					`select exists (
-					select 1
-					from cluster_messages m
-					inner join cluster_replies r on r.request_id = m.id
-					where m.entity_type = 'Workflow/MediaMonitoringRefreshWorkflow'
-					  and m.tag = 'run'
-					  and m.payload like ('%' || $1 || '%')
-					  and r.payload not like '%Suspended%'
-				) as complete`,
-					[executionId],
-				),
+			const stream = yield* openInterestStreamScoped(auth);
+			yield* getBackendClient().call(
+				(c) =>
+					c.testSupport.setEntityInterest({
+						payload: {
+							streamId: stream.streamId,
+							userId: UserId.make(auth.userId),
+							entityIds: [EntityId.make(entityId)],
+						},
+					}),
+				adminHeaders,
 			);
-			return result.rows[0]?.complete ? true : null;
+			yield* getBackendClient().call((c) => c.testSupport.triggerInfrequentCron(), adminHeaders);
+			yield* Effect.promise(() => stream.waitForEntityUpdated(entityId, "populated"));
 		}),
 	);
-
-export const triggerCronAndWaitForEntity = (entityId: string) =>
-	Effect.gen(function* () {
-		const result = yield* getBackendClient().call(
-			(c) => c.testSupport.triggerInfrequentCron(),
-			adminHeaders,
-		);
-		yield* waitForMediaMonitoringRefresh(`${result.executionId}-${entityId}`);
-	});
 
 export const getMediaMonitoringStatus = (client: Client, entityId: string) =>
 	client.call((contract) =>

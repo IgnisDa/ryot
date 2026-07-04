@@ -270,7 +270,7 @@ describe("dual-writer canonical identity", () => {
 					// the identical role: it must resolve to the existing canonical row (not a
 					// duplicate) and dispatch nothing, since the write is a noop.
 					fakeApprise.requests.length = 0;
-					yield* triggerCronAndWaitForEntity(person.id);
+					yield* triggerCronAndWaitForEntity(personMonitor, person.id);
 					expect(
 						fakeApprise.requests.filter(({ path }) => path === "/notify/dual-writer-monitor"),
 					).toEqual([]);
@@ -393,7 +393,7 @@ describe("association lifecycle via cron refresh", () => {
 				yield* enableMediaMonitoring(personMonitor.client, movie.id);
 
 				fakeApprise.requests.length = 0;
-				yield* triggerCronAndWaitForEntity(movie.id);
+				yield* triggerCronAndWaitForEntity(personMonitor, movie.id);
 				const baseline = yield* pollAssociationNotification("role-update-monitor");
 				expect(baseline).toHaveLength(1);
 				expect(requireObjectRecord(baseline[0]?.body, "Missing notification body").body).toBe(
@@ -409,7 +409,7 @@ describe("association lifecycle via cron refresh", () => {
 					ruPersonProvider.scriptId,
 					buildPersonSource(["Actor", "Director"]),
 				);
-				yield* triggerCronAndWaitForEntity(person.id);
+				yield* triggerCronAndWaitForEntity(personMonitor, person.id);
 				const updated = yield* pollAssociationNotification("role-update-monitor");
 				expect(updated).toHaveLength(1);
 				expect(requireObjectRecord(updated[0]?.body, "Missing notification body").body).toBe(
@@ -508,7 +508,7 @@ describe("association lifecycle via cron refresh", () => {
 					// First population of the monitored person is the credited subject's own root:
 					// the carve-out silences it even though the edge is genuinely created.
 					fakeApprise.requests.length = 0;
-					yield* triggerCronAndWaitForEntity(person.id);
+					yield* triggerCronAndWaitForEntity(personMonitor, person.id);
 					expect(
 						fakeApprise.requests.filter(({ path }) => path === "/notify/delete-recreate-monitor"),
 					).toEqual([]);
@@ -520,7 +520,7 @@ describe("association lifecycle via cron refresh", () => {
 						drPersonProvider.scriptId,
 						buildPersonSource([]),
 					);
-					yield* triggerCronAndWaitForEntity(person.id);
+					yield* triggerCronAndWaitForEntity(personMonitor, person.id);
 					expect(
 						fakeApprise.requests.filter(({ path }) => path === "/notify/delete-recreate-monitor"),
 					).toEqual([]);
@@ -533,7 +533,7 @@ describe("association lifecycle via cron refresh", () => {
 						drPersonProvider.scriptId,
 						buildPersonSource([movieRelatedEntity]),
 					);
-					yield* triggerCronAndWaitForEntity(person.id);
+					yield* triggerCronAndWaitForEntity(personMonitor, person.id);
 					const recreated = yield* pollAssociationNotification("delete-recreate-monitor");
 					expect(recreated).toHaveLength(1);
 					expect(requireObjectRecord(recreated[0]?.body, "Missing notification body").body).toBe(
