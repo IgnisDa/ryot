@@ -15,6 +15,7 @@ import { RelationshipSchemasService } from "#modules/relationship-schemas/servic
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { SignalsService } from "#modules/signals/service";
+import { TrackersService } from "#modules/trackers/service";
 
 import { TestSupportService } from "./service";
 
@@ -24,6 +25,7 @@ const entitySchemaId = EntitySchemaId.make("entity-schema-id");
 
 const mockAuth = Layer.mock(AuthService);
 const mockSignals = Layer.mock(SignalsService);
+const mockTrackers = Layer.mock(TrackersService);
 const mockEntities = Layer.mock(EntitiesService);
 const mockSandbox = Layer.mock(SandboxApiService);
 const mockAutomations = Layer.mock(AutomationsService);
@@ -51,6 +53,7 @@ const makeServiceLayer = (
 				mockAuth({ _tag: "AuthService", auth: Object.create(null) }),
 				mockAutomations({ _tag: "AutomationsService" }),
 				mockSignals({ _tag: "SignalsService" }),
+				mockTrackers({ _tag: "TrackersService" }),
 				mockEntities({ _tag: "EntitiesService", ...overrides.entities }),
 				mockSandbox({ _tag: "SandboxApiService", ...overrides.sandbox }),
 				mockTranslations({ _tag: "TranslationsService" }),

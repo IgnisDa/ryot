@@ -164,6 +164,19 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 			return row ? toOwnedTracker(row) : null;
 		});
 
+		const existsById = Effect.fn("TrackersRepository.existsById")(function* (trackerId: TrackerId) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({ id: schema.tracker.id })
+					.from(schema.tracker)
+					.where(eq(schema.tracker.id, trackerId))
+					.limit(1),
+			);
+
+			return Boolean(row);
+		});
+
 		const updateOwned = Effect.fn("TrackersRepository.updateOwned")(function* (
 			input: UpdateTrackerData,
 		) {
@@ -230,6 +243,7 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 		return {
 			listByUser,
 			create,
+			existsById,
 			findBySlug,
 			getOwnedById,
 			updateOwned,

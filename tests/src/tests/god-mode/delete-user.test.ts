@@ -27,7 +27,7 @@ import {
 } from "~/fixtures";
 import { createAuthenticatedClient } from "~/fixtures/auth";
 import { createTracker } from "~/fixtures/trackers";
-import { getBackendUrl, getPgClient } from "~/setup";
+import { getBackendUrl } from "~/setup";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 
 const WRONG_TOKEN = "wrong-token";
@@ -107,11 +107,11 @@ describe("Delete user", () => {
 		);
 		expect(listed.users).toHaveLength(0);
 
-		const trackerRows = await getPgClient().query<{ id: string }>(
-			`SELECT id FROM "tracker" WHERE id = $1`,
-			[tracker.id],
+		const trackerExists = await client.run(
+			(c) => c.testSupport.trackerExists({ path: { trackerId: tracker.id } }),
+			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
-		expect(trackerRows.rowCount).toBe(0);
+		expect(trackerExists.exists).toBe(false);
 
 		const revokedSession = await client.runError(
 			(c) => c.trackers.list({ urlParams: trackersListQuery }),
