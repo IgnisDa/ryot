@@ -2,6 +2,7 @@ import { BunServices, BunHttpServer } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
 import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
+import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Layer, Schema, Stream, FileSystem, Path } from "effect";
 import { HttpEffect, HttpServer } from "effect/unstable/http";
@@ -10,8 +11,7 @@ import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import { materializeSandboxCompiledModule } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
 import {
-	ensureSandboxRuntimeDependencies,
-	SANDBOX_APPROVED_DEPENDENCIES,
+	materializeShippedSandboxRuntime,
 	type SandboxRuntimePaths,
 } from "#lib/infrastructure/sandbox-runtime/dependencies";
 import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
@@ -30,7 +30,7 @@ beforeAll(
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const root = yield* fs.makeTempDirectory({ prefix: "ryot-sandbox-runner-" });
-				const runtime = yield* ensureSandboxRuntimeDependencies(root);
+				const runtime = yield* materializeShippedSandboxRuntime(root);
 				const compiledRunnerPath = `${root}/runner.mjs`;
 				yield* fs.writeFileString(compiledRunnerPath, sandboxRunnerSource);
 				dependencyRuntimeRoot = root;
@@ -77,6 +77,30 @@ export default defineScript({
   input: Schema.Struct({ value: Schema.Number }),
 });
 
+`;
+
+const aliasIdentitySource = `
+import { Effect as SdkEffect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect as PluginKitEffect } from "@ryot-app/plugin-kit/effect";
+import { table as sdkTable } from "@ryot-app/sandbox-sdk/ryotql";
+import { table as pluginKitTable } from "@ryot-app/plugin-kit/ryotql";
+
+const manifest = {
+  kind: "script",
+  capabilities: [],
+  name: "Runtime alias identity",
+  slug: "runtime-alias-identity",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+};
+
+export default {
+  manifest,
+  definitionType: "ryot:sandbox-script",
+  input: Schema.Struct({}),
+  output: Schema.Boolean,
+  run: () => SdkEffect.succeed(SdkEffect === PluginKitEffect && sdkTable === pluginKitTable),
+};
 `;
 
 const failureSource = `
@@ -1017,7 +1041,7 @@ it("loads one compiled fixture for each approved SDK dependency without remote m
 	Effect.runPromise(
 		Effect.gen(function* () {
 			const compiler = yield* SandboxCompiler;
-			for (const dependency of SANDBOX_APPROVED_DEPENDENCIES) {
+			for (const dependency of SANDBOX_RUNTIME_REGISTRY) {
 				const compiled = yield* compiler.compile(
 					dependencySource(dependency.name, dependency.sdkImport),
 				);
@@ -1027,6 +1051,28 @@ it("loads one compiled fixture for each approved SDK dependency without remote m
 				expect(result).toMatchObject({ value: null, success: true });
 			}
 		}).pipe(Effect.provide(SandboxCompiler.layer)),
+	));
+
+it("preserves Effect and RyotQL identity across SDK and plugin-kit aliases", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const result = yield* runInDeno(
+				{
+					format: 1,
+					javascript: aliasIdentitySource,
+					manifest: {
+						kind: "script",
+						capabilities: [],
+						requiredPluginConfigKeys: [],
+						requiredSystemConfigKeys: [],
+						name: "Runtime alias identity",
+						slug: "runtime-alias-identity",
+					},
+				},
+				{},
+			);
+			expect(result).toMatchObject({ value: true, success: true });
+		}),
 	));
 
 it("disables obfuscated string-generated imports at runtime", () =>

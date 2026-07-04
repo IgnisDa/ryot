@@ -1,4 +1,3 @@
-import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect } from "effect";
@@ -34,7 +33,7 @@ it.effect(
 			}
 			expect(first[0]?.compiled.manifest.requiredPluginConfigKeys).toEqual(["alpha-key"]);
 			expect(first[0]?.compiled.manifest.requiredSystemConfigKeys).toEqual(["system-key"]);
-		}).pipe(Effect.provide(BunFileSystem.layer)),
+		}),
 	10_000,
 );
 
@@ -581,6 +580,29 @@ export const rowSlug = "shared-row";
 		expect(javascript).toContain("shared-row");
 		expect(javascript).toContain('from "@ryot-app/plugin-kit/ryotql"');
 		expect(javascript).not.toContain('from "../shared/row"');
+	}),
+);
+
+it.effect("resolves extensionless, JavaScript-to-TypeScript, and type-only local imports", () =>
+	Effect.gen(function* () {
+		const compiled = yield* compilePluginSandboxSourceEntries(
+			{
+				"shared/types.ts": "export type Label = string;",
+				"shared/row.ts": 'export const rowSlug = "resolved-local-import";',
+				"backend/operation.sandbox.ts": sharedRootScript
+					.replace(
+						'import { rowSlug } from "../shared/row";',
+						'import type { Label } from "../shared/types";\nimport { rowSlug } from "../shared/row.js";\nconst checked: Label = rowSlug;',
+					)
+					.replace("Effect.succeed(rowSlug)", "Effect.succeed(checked)"),
+			},
+			[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+		);
+
+		const javascript = compiled[0]?.compiled.javascript ?? "";
+		expect(javascript).toContain("resolved-local-import");
+		expect(javascript).not.toContain("../shared/row.js");
+		expect(javascript).not.toContain("../shared/types");
 	}),
 );
 

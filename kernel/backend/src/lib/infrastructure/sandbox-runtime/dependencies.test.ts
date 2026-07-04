@@ -1,12 +1,10 @@
 import { BunServices } from "@effect/platform-bun";
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
+import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
 import { Effect, Schema, FileSystem } from "effect";
 
-import {
-	ensureSandboxRuntimeDependencies,
-	SANDBOX_APPROVED_DEPENDENCIES,
-	SANDBOX_RUNTIME_IMPORT_MAP_CONTENT,
-} from "./dependencies";
+import { materializeShippedSandboxRuntime, materializeSandboxRuntimePayload } from "./dependencies";
+import { sandboxRuntimePayload } from "./runtime-payload.generated";
 
 it.effect("builds exact-version dependency modules in a read-only runtime directory", () =>
 	Effect.gen(function* () {
@@ -14,10 +12,10 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 		const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-dependencies-" });
 		const [runtime, ...concurrentRuntimes] = yield* Effect.all(
 			[
-				ensureSandboxRuntimeDependencies(root),
-				ensureSandboxRuntimeDependencies(root),
-				ensureSandboxRuntimeDependencies(root),
-				ensureSandboxRuntimeDependencies(root),
+				materializeShippedSandboxRuntime(root),
+				materializeShippedSandboxRuntime(root),
+				materializeShippedSandboxRuntime(root),
+				materializeShippedSandboxRuntime(root),
 			],
 			{ concurrency: "unbounded" },
 		);
@@ -29,42 +27,33 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 			}
 			expect(yield* fs.exists(runtime.cacheDirectory)).toBe(true);
 			yield* fs.remove(runtime.cacheDirectory, { recursive: true });
-			expect((yield* ensureSandboxRuntimeDependencies(root)).directory).toBe(runtime.directory);
+			expect((yield* materializeShippedSandboxRuntime(root)).directory).toBe(runtime.directory);
 			expect(yield* fs.exists(runtime.cacheDirectory)).toBe(true);
-			expect(SANDBOX_APPROVED_DEPENDENCIES).toMatchObject([
-				{ name: "effect", version: "4.0.0-beta.107" },
-				{ name: "cheerio", version: "1.2.0" },
-				{ name: "youtubei", version: "17.2.0" },
-				{ name: "fflate", version: "0.8.3" },
-				{ version: "5.5.3", name: "papaparse" },
-				{ version: "5.8.0", name: "fast-xml-parser" },
-				{ name: "ryotql", version: "workspace" },
-			]);
+			const shippedDependencies = sandboxRuntimePayload.metadata.dependencies;
+			const effectDependency = shippedDependencies.find(({ name }) => name === "effect");
+			assert(effectDependency);
+			expect(shippedDependencies.map(({ name }) => name).sort()).toEqual(
+				SANDBOX_RUNTIME_REGISTRY.map(({ name }) => name).sort(),
+			);
 			const importMap = yield* fs.readFileString(runtime.importMapPath);
-			expect(importMap).toBe(SANDBOX_RUNTIME_IMPORT_MAP_CONTENT);
+			expect(importMap).toBe(
+				sandboxRuntimePayload.files.find(({ path }) => path === "import-map.json")?.contents,
+			);
 			expect(importMap).not.toContain('"npm:');
-			expect((yield* fs.readDirectory(runtime.directory)).sort()).toEqual([
-				"cheerio-1.2.0.mjs",
-				"effect-4.0.0-beta.107.mjs",
-				"fast-xml-parser-5.8.0.mjs",
-				"fflate-0.8.3.mjs",
-				"import-map.json",
-				"modules",
-				"papaparse-5.5.3.mjs",
-				"ryotql-workspace.mjs",
-				"youtubei-17.2.0.mjs",
-			]);
+			expect((yield* fs.readDirectory(runtime.directory)).sort()).toEqual(
+				[...sandboxRuntimePayload.files.map(({ path }) => path), "modules"].sort(),
+			);
 			const parsedImportMap = yield* Schema.decodeUnknownEffect(
 				Schema.fromJsonString(
 					Schema.Struct({ imports: Schema.Record(Schema.String, Schema.String) }),
 				),
 			)(importMap);
 			expect(parsedImportMap.imports["@ryot-app/sandbox-sdk/effect"]).toBe(
-				"./effect-4.0.0-beta.107.mjs",
+				`./${effectDependency.runtimeFile}`,
 			);
 			expect(
 				Object.entries(parsedImportMap.imports)
-					.filter(([, file]) => file === "./effect-4.0.0-beta.107.mjs")
+					.filter(([, file]) => file === `./${effectDependency.runtimeFile}`)
 					.map(([specifier]) => specifier)
 					.sort(),
 			).toEqual(["@ryot-app/plugin-kit/effect", "@ryot-app/sandbox-sdk/effect", "effect"]);
@@ -74,7 +63,7 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 			expect(directory.mode & 0o222).toBe(0);
 			expect(importMapInfo.mode & 0o222).toBe(0);
 
-			for (const dependency of SANDBOX_APPROVED_DEPENDENCIES) {
+			for (const dependency of shippedDependencies) {
 				const modulePath = `${runtime.directory}/${dependency.runtimeFile}`;
 				const module = yield* fs.readFileString(modulePath);
 				expect(parsedImportMap.imports[dependency.sdkImport], dependency.name).toBe(
@@ -95,26 +84,30 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				expect((yield* fs.stat(modulePath)).mode & 0o222).toBe(0);
 			}
 
-			const primaryModule = `${runtime.directory}/${SANDBOX_APPROVED_DEPENDENCIES[0].runtimeFile}`;
+			const primaryDependency = shippedDependencies.find(({ name }) => name === "effect");
+			assert(primaryDependency);
+			const primaryModule = `${runtime.directory}/${primaryDependency.runtimeFile}`;
 			yield* fs.chmod(primaryModule, 0o644);
 			yield* fs.writeFileString(primaryModule, "corrupt");
-			const repairedRuntime = yield* ensureSandboxRuntimeDependencies(root);
+			const repairedRuntime = yield* materializeShippedSandboxRuntime(root);
 			cleanupDirectories.push(repairedRuntime.directory);
 			expect(repairedRuntime.directory).not.toBe(runtime.directory);
-			expect((yield* ensureSandboxRuntimeDependencies(root)).directory).toBe(
+			expect((yield* materializeShippedSandboxRuntime(root)).directory).toBe(
 				repairedRuntime.directory,
 			);
 
 			yield* fs.chmod(repairedRuntime.directory, 0o755);
 			yield* fs.writeFileString(`${repairedRuntime.directory}/unexpected.mjs`, "export {};");
-			const secondRepair = yield* ensureSandboxRuntimeDependencies(root);
+			const secondRepair = yield* materializeShippedSandboxRuntime(root);
 			cleanupDirectories.push(secondRepair.directory);
 			expect(secondRepair.directory).not.toBe(repairedRuntime.directory);
-			expect((yield* ensureSandboxRuntimeDependencies(root)).directory).toBe(
+			expect((yield* materializeShippedSandboxRuntime(root)).directory).toBe(
 				secondRepair.directory,
 			);
 
-			const youtubeRuntimeFile = SANDBOX_APPROVED_DEPENDENCIES[2].runtimeFile;
+			const youtubeDependency = shippedDependencies.find(({ name }) => name === "youtubei");
+			assert(youtubeDependency);
+			const youtubeRuntimeFile = youtubeDependency.runtimeFile;
 			const youtubeModulePath = `${secondRepair.directory}/${youtubeRuntimeFile}`;
 			const secondImportMap = yield* fs.readFileString(secondRepair.importMapPath);
 			const youtubeModule = yield* fs.readFileString(youtubeModulePath);
@@ -127,7 +120,7 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				youtubeModulePath,
 				`${secondImportMap.slice(boundary + youtubeRuntimeFile.length)}${youtubeRuntimeFile}${youtubeModule}`,
 			);
-			const boundaryRepair = yield* ensureSandboxRuntimeDependencies(root);
+			const boundaryRepair = yield* materializeShippedSandboxRuntime(root);
 			cleanupDirectories.push(boundaryRepair.directory);
 			expect(boundaryRepair.directory).not.toBe(secondRepair.directory);
 		}).pipe(
@@ -137,5 +130,37 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				}).pipe(Effect.ignore),
 			),
 		);
+	}).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("fails clearly for missing and corrupt shipped payloads", () =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-payload-" });
+		const missing = yield* Effect.flip(materializeSandboxRuntimePayload(root, undefined));
+		expect(missing.message).toBe("Trusted sandbox runtime payload is missing");
+
+		const corrupt = {
+			...sandboxRuntimePayload,
+			files: sandboxRuntimePayload.files.map((file, index) =>
+				index === 0 ? { ...file, contents: `${file.contents}\ncorrupt` } : file,
+			),
+		};
+		const failure = yield* Effect.flip(materializeSandboxRuntimePayload(root, corrupt));
+		expect(failure.message).toContain("payload file is corrupt");
+
+		const invalidLength = {
+			...sandboxRuntimePayload,
+			metadata: {
+				...sandboxRuntimePayload.metadata,
+				files: sandboxRuntimePayload.metadata.files.map((file, index) =>
+					index === 0 ? Object.assign({}, file, { byteLength: -1 }) : file,
+				),
+			},
+		};
+		const invalidMetadata = yield* Effect.flip(
+			materializeSandboxRuntimePayload(root, invalidLength),
+		);
+		expect(invalidMetadata.message).toBe("Trusted sandbox runtime payload metadata is invalid");
 	}).pipe(Effect.provide(BunServices.layer)),
 );

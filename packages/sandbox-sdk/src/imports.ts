@@ -1,35 +1,18 @@
 import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
+import {
+	PLUGIN_KIT_SCHEMA_IMPORT,
+	SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS,
+	SANDBOX_SDK_AUTOMATION_IMPORT,
+	SANDBOX_SDK_FILESYSTEM_IMPORT,
+	SANDBOX_SDK_IMPORT_WIRE_IMPORT,
+	SANDBOX_SDK_PROVIDER_IMPORT,
+	SANDBOX_SDK_ROOT_IMPORT,
+	SANDBOX_SDK_WORKFLOW_IMPORT,
+} from "./runtime-registry";
 import { jsonValueSchema } from "./wire";
 
-export const SANDBOX_SDK_ROOT_IMPORT = "@ryot-app/sandbox-sdk/core";
-export const SANDBOX_SDK_AUTOMATION_IMPORT = "@ryot-app/sandbox-sdk/automation";
-export const SANDBOX_SDK_PROVIDER_IMPORT = "@ryot-app/sandbox-sdk/provider";
-export const SANDBOX_SDK_WORKFLOW_IMPORT = "@ryot-app/sandbox-sdk/workflow";
-export const SANDBOX_SDK_FILESYSTEM_IMPORT = "@ryot-app/sandbox-sdk/filesystem";
-export const SANDBOX_SDK_IMPORT_WIRE_IMPORT = "@ryot-app/sandbox-sdk/imports";
-
-export const PLUGIN_KIT_EFFECT_IMPORT = "@ryot-app/plugin-kit/effect";
-export const PLUGIN_KIT_RYOTQL_IMPORT = "@ryot-app/plugin-kit/ryotql";
-export const PLUGIN_KIT_SCHEMA_IMPORT = "@ryot-app/plugin-kit/schema";
-
-export const PLUGIN_KIT_IMPORTS = [
-	PLUGIN_KIT_EFFECT_IMPORT,
-	PLUGIN_KIT_RYOTQL_IMPORT,
-	PLUGIN_KIT_SCHEMA_IMPORT,
-] as const;
-
-export const SANDBOX_RUNTIME_SDK_IMPORTS = [
-	"@ryot-app/sandbox-sdk/effect",
-	"@ryot-app/sandbox-sdk/cheerio",
-	"@ryot-app/sandbox-sdk/youtubei",
-	"@ryot-app/sandbox-sdk/fflate",
-	"@ryot-app/sandbox-sdk/papaparse",
-	"@ryot-app/sandbox-sdk/fast-xml-parser",
-	"@ryot-app/sandbox-sdk/ryotql",
-	PLUGIN_KIT_EFFECT_IMPORT,
-	PLUGIN_KIT_RYOTQL_IMPORT,
-] as const;
+export * from "./runtime-registry";
 
 export const SANDBOX_SDK_IMPORTS = [
 	SANDBOX_SDK_ROOT_IMPORT,
@@ -42,7 +25,7 @@ export const SANDBOX_SDK_IMPORTS = [
 	"@ryot-app/sandbox-sdk/operation",
 	"@ryot-app/sandbox-sdk/wire",
 	PLUGIN_KIT_SCHEMA_IMPORT,
-	...SANDBOX_RUNTIME_SDK_IMPORTS,
+	...SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS,
 ] as const;
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
