@@ -320,7 +320,7 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(outdated.failures).toHaveLength(1));
 
 		const premature = connect();
-		premature.pluginPort.postMessage({ type: "navigate", mode: "push", location: home });
+		premature.pluginPort.postMessage({ type: "navigate", mode: "push", target: home });
 		await waitFor(() => expect(premature.failures).toHaveLength(1));
 
 		expect(premature.navigations).toEqual([]);
@@ -423,7 +423,7 @@ describe("plugin bridge", () => {
 		const request = {
 			mode: "push",
 			type: "navigate",
-			location: { kind: "route", path: "/details/1", search: "tab=stats" },
+			target: { kind: "route", path: "/details/1", search: "tab=stats" },
 		} satisfies PluginBridgeNavigate;
 
 		pluginPort.postMessage(readyFor(init));
@@ -481,7 +481,7 @@ describe("plugin bridge", () => {
 
 		pluginPort.postMessage({ reason: "disposed", type: "lifecycle-close" });
 		await waitFor(() => expect(signal?.aborted).toBe(true));
-		pluginPort.postMessage({ type: "navigate", mode: "push", location: home });
+		pluginPort.postMessage({ type: "navigate", mode: "push", target: home });
 		call.resolve({ outcome: "success", value: "late" });
 		await delay(10);
 
@@ -852,12 +852,12 @@ describe("plugin bridge", () => {
 	it.each([
 		["untagged", { path: "/details/1", search: "" }],
 		["entity-shaped", { entityId: "entity-1", entitySchemaSlug: "show", kind: "entity" }],
-	] as const)("fails an %s plugin navigation message", async (_label, location) => {
+	] as const)("fails an %s plugin navigation message", async (_label, target) => {
 		const { init, pluginPort, received, failures, navigations } = connect();
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toEqual([at()]));
 
-		pluginPort.postMessage({ location, mode: "push", type: "navigate" });
+		pluginPort.postMessage({ mode: "push", target, type: "navigate" });
 
 		await waitFor(() => expect(failures).toHaveLength(1));
 		expect(navigations).toEqual([]);

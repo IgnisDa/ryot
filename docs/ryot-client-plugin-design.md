@@ -672,10 +672,15 @@ Runtime lifecycle is internal session machinery, not a public client category. A
 The canonical client taxonomy is:
 
 ```ts
+type RyotNavigationTarget =
+	| { kind: "route"; path: string; search?: Record<string, string> }
+	| { kind: "entity"; entityId: string };
+
 await ryot.data.query(recipe);
 await ryot.operations.invoke({ slug, input, output });
-ryot.navigation.push({ path: "/workouts/456" });
-ryot.navigation.replace({ path: "/workouts/456" });
+ryot.navigation.push({ kind: "route", path: "/workouts/456" });
+ryot.navigation.replace({ kind: "route", path: "/workouts/456" });
+ryot.navigation.push({ kind: "entity", entityId: "entity123" });
 ```
 
 ### Header
@@ -801,7 +806,15 @@ import {
 } from "@ryot-app/client-sdk/plugin";
 ```
 
-`PluginLink` and the reactive location, params, and search hooks remain React conveniences on `@ryot-app/client-sdk/plugin`. They use the same explicit client and plugin runtime as `ryot.navigation.push` and `ryot.navigation.replace`; they do not create a parallel client or bridge facade. Until the kernel supplies an authoritative public URL, `PluginLink` does not support `target` or `download`, prevents modifier and auxiliary clicks from navigating the artifact document, and composes a consumer `onClick` before dispatch. Plugin routing renders home only for `/`; unmatched logical paths render the plugin's optional `notFound` component or the SDK's semantic default.
+`PluginLink` and the reactive location, params, and search hooks remain React conveniences on `@ryot-app/client-sdk/plugin`. `PluginLink.to` accepts a tagged `RyotNavigationTarget`, for example:
+
+```tsx
+<PluginLink to={{ kind: "route", path: "/workouts/456", search: { tab: "stats" } }}>
+	Open workout
+</PluginLink>
+```
+
+They use the same explicit client and plugin runtime as `ryot.navigation.push` and `ryot.navigation.replace`; they do not create a parallel client or bridge facade. `PluginLink` does not support `target` or `download`, prevents modifier and auxiliary clicks from navigating the artifact document, and composes a consumer `onClick` before dispatch. Plugin routing renders home only for `/`; unmatched logical paths render the plugin's optional `notFound` component or the SDK's semantic default.
 
 Possible examples:
 
@@ -918,7 +931,7 @@ the workspace fallback. The kernel owns the publication by installation ID and i
 
 Plugin to kernel carries `{ type: "navigate-back" }` when a plugin-owned back gesture commits. It is a semantic request, not a history mutation: the kernel owns global history and decides whether the pop happens. No per-frame gesture data crosses the port.
 
-Plugin-to-kernel `navigate` remains route-only: its `location` field is a `PluginRouteLocation`, and an entity location cannot be sent through that message. A canonical entity-navigation API for plugins is deferred.
+Plugin-to-kernel `navigate` requests carry `{ type: "navigate", mode, target }`, where `target` is a tagged `RyotNavigationTarget`. A route target carries `path` and optional `search`; an entity target carries only `entityId`. For an entity target, the kernel builds the canonical `/e/$entityId` URL and resolves its persisted provenance against the live installation catalog. This differs from the kernel-to-plugin `PluginEntityLocation`, which includes `entitySchemaSlug`.
 
 Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input: JsonValue }`; `input` is required. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where a successful outcome carries a `JsonValue` and a declared backend/platform operation execution failure carries the opaque `"operation-failed"` outcome. The SDK maps local validation, capability, result, lifecycle, protocol, and transport conditions to the exact public `RyotClientError` reasons above. A non-JSON operation output becomes `"malformed-result"` before bridge delivery; it is not stringified or otherwise normalized. Expected plugin business/domain outcomes remain successful values decoded by the caller's output schema.
 
@@ -1437,6 +1450,7 @@ When plugin code requests navigation:
 const ryot = useRyot();
 
 ryot.navigation.push({
+	kind: "route",
 	path: "/workouts/456",
 });
 ```
@@ -1504,6 +1518,10 @@ Conceptually:
 ```
 
 Entity ownership must never be guessed only from an unqualified schema slug.
+
+The kernel-to-plugin `PluginEntityLocation` above includes `entitySchemaSlug`. Plugin-to-kernel entity
+navigation is different: its tagged target carries only `entityId`, because the kernel builds the
+canonical `/e/$entityId` URL and resolves provenance itself.
 
 The kernel resolves provenance through an application-owned named RyotQL recipe with a colocated result schema and decoder. `RyotClient` executes the recipe document through the normal authenticated data path and decodes the result locally. The route loader retains that result while the active destination resolves its qualified plugin identity against the live catalog.
 
@@ -2217,8 +2235,10 @@ plugin client source in archive
   -> plugin update and forced artifact reload
 ```
 
-Plugin-originated navigation remains route-only. Entity locations are delivered by the kernel after
-its entity route loads provenance and resolves the owning installation against the live catalog.
+Plugin-originated navigation accepts tagged route and entity targets. Entity targets carry only
+`entityId`; the kernel builds canonical `/e/$entityId`, loads provenance, and resolves the owning
+installation against the live catalog. The resulting kernel-to-plugin entity location includes
+`entitySchemaSlug`.
 
 ---
 

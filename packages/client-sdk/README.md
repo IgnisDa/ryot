@@ -34,7 +34,10 @@ telling push from pop from replace, so the router never infers a transition from
 The location's `leading` intent and `edgeBack` flag are independent. `leading` selects the visible
 back, drawer, or absent control. `edgeBack` only enables the plugin's interactive edge recognizer
 after the kernel grants ownership; it never selects a control. The kernel may send either tagged
-route or tagged entity locations, but plugin-originated navigation remains route-only.
+route or tagged entity locations. Plugin navigation requests use tagged targets: route targets carry
+`path` and optional `search`, while entity targets carry only `entityId`. For an entity target, the
+kernel builds the canonical `/e/$entityId` URL and resolves its provenance. Kernel-to-plugin entity
+locations also include `entitySchemaSlug`; plugin-to-kernel entity targets do not.
 
 A retained screen keeps its React key so its state survives, and is hidden with `visibility: hidden`
 rather than `display: none`, which would discard layout and with it `scrollTop`. Scroll restoration

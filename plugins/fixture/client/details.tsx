@@ -14,7 +14,7 @@ export const Details = () => {
 				<p className="text-text-muted">
 					Item {itemId}, tab {tab}.
 				</p>
-				<Button onClick={() => ryot.navigation.replace({ path: "/" })}>Back</Button>
+				<Button onClick={() => ryot.navigation.replace({ kind: "route", path: "/" })}>Back</Button>
 			</div>
 		</PluginScreenFrame>
 	);
