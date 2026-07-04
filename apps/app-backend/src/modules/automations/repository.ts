@@ -22,7 +22,7 @@ import {
 	SubscriptionRunId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { and, asc, eq, isNull, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, or, type SQL } from "drizzle-orm";
 import { DateTime, Effect, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -118,6 +118,16 @@ const targetClause = (target: AutomationRuleTarget): SQL => {
 	}
 	return eq(schema.automationRule.signalSchemaId, target.id);
 };
+
+const userNotificationRuleClause = (input: { userId: UserId; sandboxScriptId: SandboxScriptId }) =>
+	and(
+		eq(schema.automationRule.userId, input.userId),
+		eq(schema.automationRule.kind, "subscription"),
+		eq(schema.automationRule.operation, "signal"),
+		eq(schema.automationRule.isBuiltin, false),
+		isNotNull(schema.automationRule.signalSchemaId),
+		eq(schema.automationRule.sandboxScriptId, input.sandboxScriptId),
+	);
 
 const targetFromRow = (row: AutomationRuleRow): AutomationRuleTarget | null => {
 	if (row.entitySchemaId) {
@@ -334,6 +344,60 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				);
 				return row ? yield* toStoredRule(row) : null;
 			});
+
+			const findBuiltinScriptBySlug = Effect.fn("AutomationsRepository.findBuiltinScriptBySlug")(
+				function* (slug: string) {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select({ id: schema.sandboxScript.id })
+							.from(schema.sandboxScript)
+							.where(
+								and(
+									eq(schema.sandboxScript.slug, slug),
+									eq(schema.sandboxScript.isBuiltin, true),
+									isNull(schema.sandboxScript.userId),
+								),
+							)
+							.limit(1),
+					);
+					return row ? { id: SandboxScriptId.make(row.id) } : null;
+				},
+			);
+
+			const listUserNotificationRules = Effect.fn(
+				"AutomationsRepository.listUserNotificationRules",
+			)(function* (input: { userId: UserId; sandboxScriptId: SandboxScriptId }) {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select()
+						.from(schema.automationRule)
+						.where(userNotificationRuleClause(input))
+						.orderBy(asc(schema.automationRule.name), asc(schema.automationRule.id)),
+				);
+				return yield* Effect.all(rows.map(toStoredRule));
+			});
+
+			const findUserNotificationRule = Effect.fn("AutomationsRepository.findUserNotificationRule")(
+				function* (input: {
+					userId: UserId;
+					ruleId: AutomationRuleId;
+					sandboxScriptId: SandboxScriptId;
+				}) {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select()
+							.from(schema.automationRule)
+							.where(
+								and(eq(schema.automationRule.id, input.ruleId), userNotificationRuleClause(input)),
+							)
+							.limit(1),
+					);
+					return row ? yield* toStoredRule(row) : null;
+				},
+			);
 
 			const insertRule = Effect.fn("AutomationsRepository.insertRule")(function* (
 				input: InsertAutomationRuleInput,
@@ -633,7 +697,10 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				findScriptExecution,
 				resolveActivePolicies,
 				lockActiveSubscription,
+				findBuiltinScriptBySlug,
+				findUserNotificationRule,
 				listRunsByOriginalRuleId,
+				listUserNotificationRules,
 			};
 		},
 	},

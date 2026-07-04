@@ -24,6 +24,7 @@ import * as schemaRelations from "#lib/infrastructure/db/schema/tables/relations
 import type { DbRoot } from "#lib/infrastructure/db/service";
 import { CurrentDb, DbService, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { TrackersService } from "#modules/trackers/service";
@@ -192,12 +193,14 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 		const trackers = yield* TrackersService;
 		const savedViews = yield* SavedViewsService;
 		const runInTransaction = yield* TransactionRunner;
+		const notificationSubscriptions = yield* NotificationSubscriptionsService;
 		const runtime = yield* Effect.runtime<DbService | RedisService | TransactionRunner>();
 		const runBootstrap = (userId: string) =>
 			bootstrapNewUser(userId).pipe(
 				Effect.provideService(EntitiesService, entities),
 				Effect.provideService(SavedViewsService, savedViews),
 				Effect.provideService(TrackersService, trackers),
+				Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
 				Effect.provideService(TransactionRunner, runInTransaction),
 			);
 		const auth = makeAuthInstance({
