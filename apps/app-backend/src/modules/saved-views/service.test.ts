@@ -213,6 +213,50 @@ it.effect("rejects built-in definition changes while still allowing disable togg
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("allows built-in disable toggles with independently decoded nested literals", () => {
+	const queryDocument = {
+		...sampleQueryDocument,
+		source: {
+			...sampleQueryDocument.source,
+			where: {
+				operator: "eq",
+				type: "comparison",
+				right: { type: "literal", value: { nested: [1, { value: "same" }] } },
+				left: { type: "ref", sourceAlias: "book", field: { type: "system", name: "name" } },
+			},
+		},
+	} satisfies CreateSavedViewBody["queryDocument"];
+	const displayConfiguration = {
+		...baseListedSavedView.displayConfiguration,
+		entityIdProperty: { type: "literal", value: { nested: [1, { value: "same" }] } },
+	} satisfies CreateSavedViewBody["displayConfiguration"];
+	const currentView = {
+		...baseListedSavedView,
+		queryDocument,
+		isBuiltin: true,
+		displayConfiguration,
+	};
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBySlug: () => Effect.succeed(currentView),
+			updateDisabledBySlug: (_userId, _slug, isDisabled) =>
+				Effect.succeed({ ...currentView, isDisabled }),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const view = yield* service.update(user, "builtin-view", {
+			...createBody,
+			isDisabled: true,
+			queryDocument: structuredClone(queryDocument),
+			displayConfiguration: structuredClone(displayConfiguration),
+		});
+
+		expect(view.isDisabled).toBe(true);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("rejects updating a built-in view name", () => {
 	const layer = makeServiceLayer(
 		makeRepository({
