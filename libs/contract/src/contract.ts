@@ -12,7 +12,6 @@ import { ImportsGroup } from "./modules/imports/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { EntityImportGroup } from "./modules/library-membership/contract";
 import { MediaMonitoringGroup } from "./modules/media-monitoring/contract";
-import { MetadataLookupGroup } from "./modules/metadata-lookup/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
 import { QueryEngineGroup } from "./modules/query-engine/contract";
@@ -42,7 +41,6 @@ export const AppContract = HttpApi.make("ryot")
 	.add(TestSupportGroup)
 	.add(ImportsGroup)
 	.add(IntegrationsGroup)
-	.add(MetadataLookupGroup)
 	.add(QueryEngineGroup)
 	.add(InterestGroup)
 	.add(MediaMonitoringGroup)

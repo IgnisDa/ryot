@@ -6,6 +6,14 @@
 			"types": "./manifest.ts",
 			"default": "./manifest.ts"
 		},
+		"./operations/recipes": {
+			"types": "./operations/recipes.ts",
+			"default": "./operations/recipes.ts"
+		},
+		"./operations/schemas": {
+			"types": "./operations/schemas.ts",
+			"default": "./operations/schemas.ts"
+		},
 		"./schemas/media-schema-slugs": {
 			"types": "./schemas/media-schema-slugs.ts",
 			"default": "./schemas/media-schema-slugs.ts"
