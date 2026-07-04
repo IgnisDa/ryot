@@ -40,9 +40,11 @@ describe("notification subscription catalog and rules", () => {
 		expect(catalog.map((schema) => schema.slug).sort()).toEqual([
 			"integration.disabled",
 			"media.content-count.changed",
+			"media.episode.discovered",
 			"media.episode.images.changed",
 			"media.episode.name.changed",
 			"media.release-date.changed",
+			"media.season-count.changed",
 			"media.status.changed",
 			"review.created",
 			"workout.created",
