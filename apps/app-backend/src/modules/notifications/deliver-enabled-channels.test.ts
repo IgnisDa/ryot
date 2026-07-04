@@ -14,7 +14,6 @@ const now = "2026-07-10T00:00:00.000Z";
 
 const makeChannel = (
 	id: string,
-	configuredEvents: NotificationChannelRecord["configuredEvents"],
 	specifics: NotificationChannelRecord["channelSpecifics"] = {
 		key: "key",
 		kind: "apprise",
@@ -24,7 +23,6 @@ const makeChannel = (
 	userId,
 	updatedAt: now,
 	createdAt: now,
-	configuredEvents,
 	isDisabled: false,
 	channel: specifics.kind,
 	channelSpecifics: specifics,
@@ -36,7 +34,7 @@ const makeRepositoryLayer = (channels: NotificationChannelRecord[], requests: un
 	Layer.succeed(
 		NotificationsRepository,
 		Object.assign(Object.create(null), {
-			listEnabledForUser: (input: { eventType?: string; userId: UserId }) => {
+			listEnabledForUser: (input: { userId: UserId }) => {
 				requests.push(input);
 				return Effect.succeed(channels);
 			},
@@ -63,24 +61,24 @@ const makeDeliveryLayer = (failOnCall: number, calls: string[], messages?: strin
 	);
 
 it.effect(
-	"filters event deliveries in the repository request and returns best-effort outcomes",
+	"sends message deliveries to every enabled channel and returns best-effort outcomes",
 	() => {
 		const calls: string[] = [];
 		const requests: unknown[] = [];
 		const deliveryLayer = makeDeliveryLayer(0, calls);
-		const first = makeChannel("channel-1", ["review_posted"]);
-		const second = makeChannel("channel-2", ["review_posted"]);
+		const first = makeChannel("channel-1");
+		const second = makeChannel("channel-2");
 		const repositoryLayer = makeRepositoryLayer([first, second], requests);
 
 		return Effect.gen(function* () {
 			const result = yield* deliverEnabledChannels({
 				userId,
 				executionId: "execution-1",
-				request: { kind: "event", eventType: "review_posted", message: "A review was posted" },
+				request: { kind: "message", message: "A review was posted" },
 			});
 
 			expect(calls).toEqual(["apprise", "apprise"]);
-			expect(requests).toEqual([{ eventType: "review_posted", userId }]);
+			expect(requests).toEqual([{ userId }]);
 			expect(result).toEqual([
 				{ channel: "apprise", channelId: first.id, status: "failed" },
 				{ channel: "apprise", channelId: second.id, status: "sent" },
@@ -89,11 +87,11 @@ it.effect(
 	},
 );
 
-it.effect("sends a per-channel test message and does not filter by event type", () => {
+it.effect("sends a per-channel test message", () => {
 	const calls: string[] = [];
 	const requests: unknown[] = [];
 	const deliveryLayer = makeDeliveryLayer(-1, calls);
-	const channel = makeChannel("channel-1", ["review_posted"]);
+	const channel = makeChannel("channel-1");
 	const repositoryLayer = makeRepositoryLayer([channel], requests);
 
 	return Effect.gen(function* () {
@@ -103,18 +101,18 @@ it.effect("sends a per-channel test message and does not filter by event type", 
 			executionId: "execution-1",
 		});
 
-		expect(requests).toEqual([{ eventType: undefined, userId }]);
+		expect(requests).toEqual([{ userId }]);
 		expect(result).toEqual([{ channel: "apprise", channelId: channel.id, status: "sent" }]);
 	}).pipe(Effect.provide(Layer.mergeAll(dbRunnerLayer, repositoryLayer, deliveryLayer)));
 });
 
-it.effect("sends message deliveries to every enabled channel without event filtering", () => {
+it.effect("preserves the message for every enabled channel", () => {
 	const calls: string[] = [];
 	const messages: string[] = [];
 	const requests: unknown[] = [];
-	const first = makeChannel("channel-1", []);
+	const first = makeChannel("channel-1");
 	const deliveryLayer = makeDeliveryLayer(-1, calls, messages);
-	const second = makeChannel("channel-2", ["review_posted"], {
+	const second = makeChannel("channel-2", {
 		kind: "email",
 		recipient: "recipient@example.com",
 	});
@@ -128,7 +126,7 @@ it.effect("sends message deliveries to every enabled channel without event filte
 		});
 
 		expect(calls).toEqual(["apprise", "email"]);
-		expect(requests).toEqual([{ eventType: undefined, userId }]);
+		expect(requests).toEqual([{ userId }]);
 		expect(messages).toEqual(["Subscription run completed", "Subscription run completed"]);
 		expect(result).toEqual([
 			{ channel: "apprise", channelId: first.id, status: "sent" },
@@ -151,7 +149,7 @@ it.effect("completes message delivery when no channels are enabled", () => {
 		});
 
 		expect(calls).toEqual([]);
-		expect(requests).toEqual([{ eventType: undefined, userId }]);
+		expect(requests).toEqual([{ userId }]);
 		expect(result).toEqual([]);
 	}).pipe(Effect.provide(Layer.mergeAll(dbRunnerLayer, repositoryLayer, deliveryLayer)));
 });
@@ -160,7 +158,7 @@ it.effect("reports an unavailable delivery as failed", () => {
 	const calls: string[] = [];
 	const requests: unknown[] = [];
 	const deliveryLayer = makeDeliveryLayer(0, calls);
-	const channel = makeChannel("channel-1", ["review_posted"], {
+	const channel = makeChannel("channel-1", {
 		kind: "email",
 		recipient: "recipient@example.com",
 	});
