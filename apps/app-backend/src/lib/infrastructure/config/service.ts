@@ -123,7 +123,7 @@ export type MusicConfigValue = Config.Config.Success<typeof musicConfigDefinitio
 export type PodcastsConfigValue = Config.Config.Success<typeof podcastsConfigDefinition.config>;
 export type VideoGamesConfigValue = Config.Config.Success<typeof videoGamesConfigDefinition.config>;
 
-export const appConfigMeta: GroupMeta = {
+export const appConfigMeta = {
 	kind: "group",
 	description: "Application configuration",
 	children: {
@@ -136,7 +136,7 @@ export const appConfigMeta: GroupMeta = {
 		podcasts: podcastsConfigDefinition.meta,
 		videoGames: videoGamesConfigDefinition.meta,
 	},
-};
+} satisfies GroupMeta;
 
 export class AppConfig extends Effect.Service<AppConfig>()("AppConfig", {
 	effect: Effect.gen(function* () {
