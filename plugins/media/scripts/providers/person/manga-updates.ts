@@ -47,16 +47,7 @@ export const search = defineProvider({
 					if (!name) {
 						return [];
 					}
-					return [
-						{
-							externalId: String(Math.trunc(idValue)),
-							titleProperty: { kind: "text" as const, value: name },
-							imageProperty: { kind: "null" as const, value: null },
-							calloutProperty: { kind: "null" as const, value: null },
-							primarySubtitleProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-						},
-					];
+					return [{ title: name, externalId: String(Math.trunc(idValue)) }];
 				});
 				return {
 					items,

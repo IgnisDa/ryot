@@ -267,17 +267,9 @@ describe("video-game.igdb sandbox script", () => {
 					expect(result.items).toEqual([
 						{
 							externalId: "1",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "First Game" },
-							primarySubtitleProperty: { kind: "number", value: 2024 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: {
-								kind: "image",
-								value: {
-									type: "remote",
-									url: "https://images.igdb.com/igdb/image/upload/t_cover_big/abc.jpg",
-								},
-							},
+							metadata: [2024],
+							title: "First Game",
+							imageUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big/abc.jpg",
 						},
 					]);
 					expect(result.details).toEqual({ totalItems: 5, nextPage: 2 });

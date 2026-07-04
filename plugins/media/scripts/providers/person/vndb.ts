@@ -40,16 +40,7 @@ export const search = defineProvider({
 					if (!externalId || !name) {
 						return [];
 					}
-					return [
-						{
-							externalId,
-							titleProperty: { kind: "text" as const, value: name },
-							imageProperty: { kind: "null" as const, value: null },
-							calloutProperty: { kind: "null" as const, value: null },
-							primarySubtitleProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-						},
-					];
+					return [{ externalId, title: name }];
 				});
 				return {
 					items,

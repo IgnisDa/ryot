@@ -34,7 +34,7 @@ import {
 	buildSearchPayload,
 	createProviderSearchState,
 	hasMoreProviderSearchResults,
-	type ProviderSearchItem,
+	type ProviderSearchResultItem,
 	type ProviderSearchOperation,
 	providerSearchReducer,
 	type ProviderSearchState,
@@ -106,8 +106,8 @@ function ProviderSearchResultList(props: {
 	readonly providerId: SandboxProviderId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly onAdd: (externalId: string) => void;
-	readonly items: readonly ProviderSearchItem[];
 	readonly importState: ProviderEntityImportState;
+	readonly items: readonly ProviderSearchResultItem[];
 }) {
 	const scope = useApiScope();
 	const [first, ...rest] = props.items.map((item) => item.externalId);

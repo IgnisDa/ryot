@@ -186,18 +186,10 @@ export const search = defineProvider({
 					const publishYear = getPublishYear(item["releaseDate"]);
 					return [
 						{
+							title,
 							externalId,
-							titleProperty: { kind: "text" as const, value: title },
-							calloutProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty:
-								image === null
-									? { kind: "null" as const, value: null }
-									: { kind: "image" as const, value: { type: "remote" as const, url: image } },
-							primarySubtitleProperty:
-								publishYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: publishYear },
+							...(image === null ? {} : { imageUrl: image }),
+							...(publishYear === null ? {} : { metadata: [publishYear] as const }),
 						},
 					];
 				});

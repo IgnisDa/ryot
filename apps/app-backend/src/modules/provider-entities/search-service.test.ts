@@ -145,14 +145,7 @@ const makeLayer = (input?: {
 								logs: [],
 								error: null,
 								status: "completed" as const,
-								value: {
-									items: [
-										{
-											externalId: `${run.scriptId}-external`,
-											titleProperty: { kind: "text", value: "Book" },
-										},
-									],
-								},
+								value: { items: [{ title: "Book", externalId: `${run.scriptId}-external` }] },
 							})),
 				}),
 				Layer.succeed(RedisService, input?.redis ?? makeRedisService()),
@@ -204,9 +197,7 @@ it.effect("executes one provider search and returns its singular response", () =
 			providerId,
 			providerName: "Books",
 			rootEntitySchemaSlug: "book",
-			items: [
-				{ externalId: "search-script-id-external", titleProperty: { kind: "text", value: "Book" } },
-			],
+			items: [{ externalId: "search-script-id-external", title: "Book" }],
 		});
 		expect(executions).toHaveLength(1);
 		expect(executions[0]).toMatchObject({
@@ -224,14 +215,7 @@ it.effect("executes one provider search and returns its singular response", () =
 						logs: [],
 						error: null,
 						status: "completed" as const,
-						value: {
-							items: [
-								{
-									externalId: "search-script-id-external",
-									titleProperty: { kind: "text", value: "Book" },
-								},
-							],
-						},
+						value: { items: [{ title: "Book", externalId: "search-script-id-external" }] },
 					});
 				},
 			}),

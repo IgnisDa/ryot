@@ -22,7 +22,7 @@ const makeHost = (httpCall: MetronGroupHost["httpCall"]) =>
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("comic-book-group.metron sandbox script", () => {
-	it("maps series search hits, using issue_count as the parts subtitle", () => {
+	it("maps series search hits with issue_count metadata", () => {
 		const host = makeHost(() =>
 			httpSuccess({
 				count: 1,
@@ -37,16 +37,7 @@ describe("comic-book-group.metron sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(search, { query: "saga", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
-					expect(result.items).toEqual([
-						{
-							externalId: "10",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Saga" },
-							primarySubtitleProperty: { kind: "number", value: 60 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: { kind: "null", value: null },
-						},
-					]);
+					expect(result.items).toEqual([{ title: "Saga", metadata: [60], externalId: "10" }]);
 					expect(result.details).toEqual({ totalItems: 1, nextPage: null });
 				}),
 			),

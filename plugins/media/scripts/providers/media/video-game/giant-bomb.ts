@@ -12,7 +12,6 @@ import {
 	getPrioritizedImage,
 	GUID_PATTERN,
 	giantBombRequest,
-	imageProperty,
 	paginate,
 	readResults,
 	readTotalItems,
@@ -62,17 +61,13 @@ export const search = defineProvider({
 						return [];
 					}
 					const publishYear = extractYear(record?.["original_release_date"]);
+					const image = getPrioritizedImage(record?.["image"]);
 					return [
 						{
 							externalId,
-							titleProperty: { kind: "text" as const, value: name },
-							calloutProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty: imageProperty(getPrioritizedImage(record?.["image"])),
-							primarySubtitleProperty:
-								publishYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: publishYear },
+							title: name,
+							...(image === null ? {} : { imageUrl: image }),
+							...(publishYear === null ? {} : { metadata: [publishYear] as const }),
 						},
 					];
 				});

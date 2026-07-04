@@ -144,17 +144,7 @@ describe("company.tvdb sandbox script", () => {
 		).pipe(
 			Effect.map((result) => {
 				expect(result.items).toEqual([
-					{
-						externalId: "10",
-						titleProperty: { kind: "text", value: "Studio" },
-						calloutProperty: { kind: "null", value: null },
-						primarySubtitleProperty: { kind: "null", value: null },
-						secondarySubtitleProperty: { kind: "null", value: null },
-						imageProperty: {
-							kind: "image",
-							value: { type: "remote", url: "https://img.example/p.png" },
-						},
-					},
+					{ title: "Studio", externalId: "10", imageUrl: "https://img.example/p.png" },
 				]);
 				return undefined;
 			}),

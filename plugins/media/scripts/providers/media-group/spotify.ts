@@ -40,18 +40,10 @@ export const search = defineProvider({
 					const imageUrl = getImagesSortedBySize(record?.["images"])[0] ?? null;
 					return [
 						{
+							title: name,
 							externalId: id,
-							titleProperty: { kind: "text" as const, value: name },
-							calloutProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							imageProperty:
-								imageUrl === null
-									? { kind: "null" as const, value: null }
-									: { kind: "image" as const, value: { type: "remote" as const, url: imageUrl } },
-							primarySubtitleProperty:
-								parts === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: parts },
+							...(imageUrl === null ? {} : { imageUrl }),
+							...(parts === null ? {} : { metadata: [parts] as const }),
 						},
 					];
 				});
