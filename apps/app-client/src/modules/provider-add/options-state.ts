@@ -2,7 +2,6 @@ import type { SearchProviderOptionsResponse } from "@ryot/contract/modules/provi
 import type { SandboxProviderId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 
-import { initialOptionValues, type OptionValues } from "./options-form-state";
 import type { ProviderSearchSummary } from "./state";
 
 export type ProviderOptionsState =
@@ -12,9 +11,7 @@ export type ProviderOptionsState =
 	| {
 			readonly status: "ready";
 			readonly schema: AppSchema;
-			readonly values: OptionValues;
 			readonly providerId: SandboxProviderId;
-			readonly errors: ReadonlyMap<string, string>;
 	  };
 
 export const createProviderOptionsState = (
@@ -49,10 +46,8 @@ export const applyProviderOptionsResponse = (
 	}
 	return {
 		status: "ready",
-		errors: new Map(),
 		schema: response.schema,
 		providerId: state.providerId,
-		values: initialOptionValues(response.schema),
 	};
 };
 
@@ -61,15 +56,3 @@ export const applyProviderOptionsFailure = (
 	cause: unknown,
 ): ProviderOptionsState =>
 	state.status === "loading" ? { cause, providerId: state.providerId, status: "failed" } : state;
-
-export const updateProviderOption = (
-	state: ProviderOptionsState,
-	key: string,
-	value: OptionValues[string],
-): ProviderOptionsState =>
-	state.status === "ready" ? { ...state, values: { ...state.values, [key]: value } } : state;
-
-export const setProviderOptionErrors = (
-	state: ProviderOptionsState,
-	errors: ReadonlyMap<string, string>,
-): ProviderOptionsState => (state.status === "ready" ? { ...state, errors } : state);

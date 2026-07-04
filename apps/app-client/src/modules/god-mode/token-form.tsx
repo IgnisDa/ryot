@@ -7,18 +7,18 @@ import {
 	FormMessage,
 	FormSubmitButton,
 	FormTextInput,
+	standardFormErrorVisibility,
 } from "@/modules/ui/form";
 
 export function TokenForm(props: {
-	onChange: () => void;
+	onEdit: () => void;
 	error?: string | null;
 	onSubmit: (token: string) => void;
 }) {
 	const form = useForm({
 		defaultValues: { token: "" },
+		errorVisibility: standardFormErrorVisibility,
 		onSubmit: ({ value }) => props.onSubmit(value.token.trim()),
-		errorVisibility: ({ fieldState, state }) =>
-			fieldState.meta.isBlurred || state.submissionAttempts > 0,
 	});
 
 	return (
@@ -57,7 +57,7 @@ export function TokenForm(props: {
 							onSubmitEditing={() => void form.handleSubmit()}
 							onChangeText={(token) => {
 								field.handleChange(token);
-								props.onChange();
+								props.onEdit();
 							}}
 						/>
 					</FormField>

@@ -2,31 +2,21 @@ import type { ContractSuccess } from "@ryot/contract/client";
 import clsx from "clsx";
 import { router } from "expo-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { useAuthClient } from "@/modules/auth/client";
+import {
+	CredentialsForm,
+	type AuthMode,
+	type CredentialsValues,
+} from "@/modules/auth/credentials-form";
 import { reportAuthFailure } from "@/modules/auth/errors";
+import { TwoFactorForm, type TwoFactorMethod } from "@/modules/auth/two-factor-form";
 import { getNameFromEmail } from "@/modules/auth/user-name";
 import { getRedirectDestination, type SafeRedirectTo } from "@/modules/navigation/redirect";
+import { FormCard, FormMessage } from "@/modules/ui/form";
 
-type AuthMode = "login" | "signup";
-type TwoFactorMethod = "totp" | "backupCode";
 type AuthConfig = ContractSuccess<"system", "config">["auth"];
-
-const content = {
-	login: {
-		action: "Sign in",
-		title: "Welcome back",
-		pending: "Signing in...",
-		subtitle: "Pick up where you left off.",
-	},
-	signup: {
-		title: "Make it yours",
-		action: "Create account",
-		pending: "Creating account...",
-		subtitle: "Start a library shaped around you.",
-	},
-} as const;
 
 export function AuthUnavailable(props: { onRetry?: () => void; onChangeServer: () => void }) {
 	return (
@@ -38,11 +28,11 @@ export function AuthUnavailable(props: { onRetry?: () => void; onChangeServer: (
 				<Text className="font-ui text-sm leading-5 text-text-muted">
 					Authentication settings could not be loaded. Check the server and try again.
 				</Text>
-				{props.onRetry && (
+				{props.onRetry ? (
 					<Pressable accessibilityRole="button" onPress={props.onRetry}>
 						<Text className="font-ui-medium text-base text-accent-text">Try again</Text>
 					</Pressable>
-				)}
+				) : null}
 				<Pressable accessibilityRole="button" onPress={props.onChangeServer}>
 					<Text className="font-ui-medium text-base text-text-muted">Change server</Text>
 				</Pressable>
@@ -58,122 +48,91 @@ export function AuthForm(props: {
 }) {
 	const client = useAuthClient();
 	const oidcAutoLaunched = useRef(false);
-	const [email, setEmail] = useState("");
-	const passwordRef = useRef<TextInput>(null);
-	const [password, setPassword] = useState("");
-	const [pending, setPending] = useState(false);
+	const [authPending, setAuthPending] = useState(false);
+	const [credentials, setCredentials] = useState<CredentialsValues>({ email: "", password: "" });
 	const [mode, setMode] = useState<AuthMode>("login");
-	const [twoFactorCode, setTwoFactorCode] = useState("");
-	const [error, setError] = useState<string | null>(null);
+	const [oidcError, setOidcError] = useState<string>();
+	const [oidcPending, setOidcPending] = useState(false);
 	const [step, setStep] = useState<"credentials" | "twoFactor">("credentials");
 	const [twoFactorMethod, setTwoFactorMethod] = useState<TwoFactorMethod>("totp");
-
-	const modeContent = content[mode];
 	const destination = getRedirectDestination(props.redirectTo, "/");
 	const oidcButtonLabel = props.config.oidcButtonLabel ?? "Sign in with OpenID Connect";
 
 	function resetTwoFactor() {
-		setError(null);
 		setStep("credentials");
-		setTwoFactorCode("");
 		setTwoFactorMethod("totp");
 	}
 
-	async function handleCredentials() {
-		const normalizedEmail = email.trim().toLowerCase();
-		setError(null);
-		if (!normalizedEmail.includes("@")) {
-			setError("Enter a valid email address.");
-			return;
-		}
-		if (password.length < 8) {
-			setError("Password must be at least 8 characters.");
-			return;
-		}
-
-		setPending(true);
+	async function handleCredentials(values: CredentialsValues) {
+		setCredentials(values);
+		setAuthPending(true);
 		try {
 			if (mode === "signup") {
 				const signup = await client.signUp.email({
-					password,
-					email: normalizedEmail,
-					name: getNameFromEmail(normalizedEmail),
+					password: values.password,
+					email: values.email,
+					name: getNameFromEmail(values.email),
 				});
 				if (signup.error) {
-					setError(reportAuthFailure("sign-up", signup.error));
-					return;
+					return reportAuthFailure("sign-up", signup.error);
 				}
 			}
 
-			const signin = await client.signIn.email(
-				{ email: normalizedEmail, password },
-				{
-					onSuccess(context) {
-						if (context.data.twoFactorRedirect) {
-							const methods = context.data.twoFactorMethods ?? [];
-							setTwoFactorMethod(methods.includes("totp") ? "totp" : "backupCode");
-							setStep("twoFactor");
-							return;
-						}
-						router.replace(destination);
-					},
+			const signin = await client.signIn.email(values, {
+				onSuccess(context) {
+					if (context.data.twoFactorRedirect) {
+						const methods = context.data.twoFactorMethods ?? [];
+						setTwoFactorMethod(methods.includes("totp") ? "totp" : "backupCode");
+						setStep("twoFactor");
+						return;
+					}
+					router.replace(destination);
 				},
-			);
-			if (signin.error) {
-				setError(reportAuthFailure("sign-in", signin.error));
-				return;
-			}
+			});
+			return signin.error ? reportAuthFailure("sign-in", signin.error) : undefined;
 		} catch (cause) {
-			const operation = mode === "signup" ? "sign-up" : "sign-in";
-			setError(reportAuthFailure(operation, cause));
+			return reportAuthFailure(mode === "signup" ? "sign-up" : "sign-in", cause);
 		} finally {
-			setPending(false);
+			setAuthPending(false);
 		}
 	}
 
-	async function handleTwoFactor() {
-		const code = twoFactorCode.trim();
-		if (!code || pending) {
-			return;
-		}
-
-		setError(null);
-		setPending(true);
+	async function handleTwoFactor(code: string) {
+		setAuthPending(true);
 		try {
 			const result =
 				twoFactorMethod === "backupCode"
 					? await client.twoFactor.verifyBackupCode({ code })
 					: await client.twoFactor.verifyTotp({ code });
 			if (result.error) {
-				setError(reportAuthFailure("two-factor", result.error));
-				setTwoFactorCode("");
-				return;
+				return reportAuthFailure("two-factor", result.error);
 			}
 			router.replace(destination);
+			return undefined;
 		} catch (cause) {
-			setError(reportAuthFailure("two-factor", cause));
+			return reportAuthFailure("two-factor", cause);
 		} finally {
-			setPending(false);
+			setAuthPending(false);
 		}
 	}
 
 	async function handleOidcSignIn() {
-		if (pending) {
+		if (authPending || oidcPending) {
 			return;
 		}
-		setError(null);
-		setPending(true);
+		setOidcError(undefined);
+		setOidcPending(true);
 		try {
 			const result = await client.signIn.social({ provider: "oidc", callbackURL: destination });
 			if (result.error) {
-				setError(reportAuthFailure("oidc", result.error));
+				setOidcError(reportAuthFailure("oidc", result.error));
 				return;
 			}
 			router.replace(destination);
 		} catch (cause) {
-			setError(reportAuthFailure("oidc", cause));
+			setOidcError(reportAuthFailure("oidc", cause));
 		} finally {
-			setPending(false);
+			setOidcPending(false);
 		}
 	}
 
@@ -193,64 +152,13 @@ export function AuthForm(props: {
 	}, [mode, props.config.signupAllowed]);
 
 	if (step === "twoFactor") {
-		const usingBackupCode = twoFactorMethod === "backupCode";
 		return (
-			<View className="w-full max-w-md gap-6 rounded-xl border border-border bg-surface p-6 shadow-card">
-				<View className="gap-2">
-					<Text className="font-display-semibold text-2xl text-text">One more step</Text>
-					<Text className="font-ui text-sm leading-5 text-text-muted">
-						{usingBackupCode
-							? "Enter one of your saved backup codes."
-							: "Enter the 6-digit code from your authenticator app."}
-					</Text>
-				</View>
-				<TextInput
-					autoFocus
-					returnKeyType="go"
-					autoCorrect={false}
-					autoCapitalize="none"
-					value={twoFactorCode}
-					onChangeText={setTwoFactorCode}
-					maxLength={usingBackupCode ? undefined : 6}
-					onSubmitEditing={() => void handleTwoFactor()}
-					placeholder={usingBackupCode ? "Backup code" : "000000"}
-					keyboardType={usingBackupCode ? "default" : "number-pad"}
-					accessibilityLabel={usingBackupCode ? "Backup code" : "Authenticator code"}
-					className="rounded-lg border border-border bg-raised px-4 py-3 font-ui text-lg text-text"
-				/>
-				{error && <Text className="font-ui text-sm text-danger">{error}</Text>}
-				<Pressable
-					accessibilityRole="button"
-					onPress={() => void handleTwoFactor()}
-					disabled={pending || !twoFactorCode.trim()}
-					className={clsx(
-						"items-center rounded-lg bg-accent px-4 py-3",
-						(pending || !twoFactorCode.trim()) && "opacity-50",
-					)}
-				>
-					<Text className="font-ui-semibold text-base text-accent-ink">
-						{pending ? "Verifying..." : "Verify"}
-					</Text>
-				</Pressable>
-				<Pressable
-					disabled={pending}
-					accessibilityRole="button"
-					onPress={() => {
-						setError(null);
-						setTwoFactorCode("");
-						setTwoFactorMethod(usingBackupCode ? "totp" : "backupCode");
-					}}
-				>
-					<Text className="text-center font-ui-medium text-sm text-text-muted">
-						{usingBackupCode ? "Use an authenticator code" : "Use a backup code"}
-					</Text>
-				</Pressable>
-				<Pressable accessibilityRole="button" disabled={pending} onPress={resetTwoFactor}>
-					<Text className="text-center font-ui-medium text-sm text-text-muted">
-						Back to sign in
-					</Text>
-				</Pressable>
-			</View>
+			<TwoFactorForm
+				onBack={resetTwoFactor}
+				method={twoFactorMethod}
+				onSubmit={handleTwoFactor}
+				onMethodChange={setTwoFactorMethod}
+			/>
 		);
 	}
 
@@ -259,114 +167,60 @@ export function AuthForm(props: {
 	}
 
 	return (
-		<View className="w-full max-w-md gap-6 rounded-xl border border-border bg-surface p-6 shadow-card">
-			<View className="gap-2">
-				<Text className="font-display-semibold text-3xl text-text">{modeContent.title}</Text>
-				<Text className="font-ui text-base text-text-muted">{modeContent.subtitle}</Text>
-			</View>
-
-			{!props.config.localAuthDisabled && (
-				<View className="gap-4">
-					{props.config.signupAllowed && (
-						<View className="flex-row rounded-lg bg-surface-2 p-1">
-							{(["login", "signup"] as const).map((option) => (
-								<Pressable
-									key={option}
-									accessibilityRole="tab"
-									accessibilityState={{ selected: mode === option }}
-									className={clsx(
-										"flex-1 items-center rounded-md py-2",
-										mode === option && "bg-raised shadow-sm",
-									)}
-									onPress={() => {
-										setMode(option);
-										setPassword("");
-										resetTwoFactor();
-									}}
-								>
-									<Text
-										className={clsx(
-											"font-ui-medium text-sm",
-											mode === option ? "text-text" : "text-text-muted",
-										)}
-									>
-										{option === "login" ? "Sign in" : "Sign up"}
-									</Text>
-								</Pressable>
-							))}
-						</View>
-					)}
-
-					<TextInput
-						value={email}
-						autoCorrect={false}
-						returnKeyType="next"
-						autoComplete="email"
-						autoCapitalize="none"
-						onChangeText={setEmail}
-						keyboardType="email-address"
-						placeholder="you@example.com"
-						accessibilityLabel="Email address"
-						onSubmitEditing={() => passwordRef.current?.focus()}
-						className="rounded-lg border border-border bg-raised px-4 py-3 font-ui text-base text-text"
-					/>
-					<TextInput
-						secureTextEntry
-						value={password}
-						ref={passwordRef}
-						returnKeyType="go"
-						placeholder="Password"
-						onChangeText={setPassword}
-						accessibilityLabel="Password"
-						onSubmitEditing={() => void handleCredentials()}
-						autoComplete={mode === "login" ? "current-password" : "new-password"}
-						className="rounded-lg border border-border bg-raised px-4 py-3 font-ui text-base text-text"
-					/>
-					{error && <Text className="font-ui text-sm text-danger">{error}</Text>}
-					<Pressable
-						disabled={pending}
-						accessibilityRole="button"
-						onPress={() => void handleCredentials()}
-						className={clsx("items-center rounded-lg bg-accent px-4 py-3", pending && "opacity-50")}
-					>
-						<Text className="font-ui-semibold text-base text-accent-ink">
-							{pending ? modeContent.pending : modeContent.action}
-						</Text>
-					</Pressable>
+		<FormCard>
+			{props.config.localAuthDisabled ? (
+				<View className="gap-2">
+					<Text className="font-display-semibold text-3xl text-text">Welcome back</Text>
+					<Text className="font-ui text-base text-text-muted">Pick up where you left off.</Text>
 				</View>
+			) : (
+				<CredentialsForm
+					mode={mode}
+					disabled={oidcPending}
+					defaultValues={credentials}
+					onSubmit={handleCredentials}
+					signupAllowed={props.config.signupAllowed}
+					onModeChange={(nextMode) => {
+						setMode(nextMode);
+						setCredentials((current) => ({ ...current, password: "" }));
+						resetTwoFactor();
+					}}
+				/>
 			)}
 
-			{props.config.oidcEnabled && (
+			{props.config.oidcEnabled ? (
 				<View className="gap-3">
-					{!props.config.localAuthDisabled && (
+					{props.config.localAuthDisabled ? null : (
 						<View className="flex-row items-center gap-3">
 							<View className="h-px flex-1 bg-border" />
 							<Text className="font-ui text-xs text-text-subtle">OR</Text>
 							<View className="h-px flex-1 bg-border" />
 						</View>
 					)}
-					{props.config.localAuthDisabled && error && (
-						<Text className="font-ui text-sm text-danger">{error}</Text>
-					)}
+					{oidcError === undefined ? null : <FormMessage>{oidcError}</FormMessage>}
 					<Pressable
-						disabled={pending}
 						accessibilityRole="button"
+						disabled={authPending || oidcPending}
 						onPress={() => void handleOidcSignIn()}
 						className={clsx(
 							"items-center rounded-lg border border-border-strong px-4 py-3",
-							pending && "opacity-50",
+							(authPending || oidcPending) && "opacity-50",
 						)}
 					>
 						<Text className="font-ui-medium text-base text-text">
-							{pending ? "Opening provider..." : oidcButtonLabel}
+							{oidcPending ? "Opening provider..." : oidcButtonLabel}
 						</Text>
 					</Pressable>
 				</View>
-			)}
+			) : null}
 
-			<Pressable accessibilityRole="button" disabled={pending} onPress={props.onChangeServer}>
+			<Pressable
+				accessibilityRole="button"
+				onPress={props.onChangeServer}
+				disabled={authPending || oidcPending}
+			>
 				<Text className="text-center font-ui-medium text-sm text-text-muted">Change server</Text>
 			</Pressable>
-		</View>
+		</FormCard>
 	);
 }
