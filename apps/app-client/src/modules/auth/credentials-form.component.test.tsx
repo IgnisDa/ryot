@@ -1,8 +1,10 @@
-import { describe, expect, it, jest } from "@jest/globals";
+import { describe, expect, it } from "@jest/globals";
 import { fireEvent, render, screen, userEvent } from "@testing-library/react-native";
 import { useState } from "react";
 
 import { CredentialsForm, type AuthMode } from "./credentials-form";
+
+const secondSubmit = () => Promise.resolve("Could not sign in.");
 
 function CredentialsHarness(props: {
 	onSubmit: (values: { email: string; password: string }) => Promise<string | undefined>;
@@ -16,7 +18,11 @@ function CredentialsHarness(props: {
 describe("credentials form", () => {
 	it("shows field validation errors and prevents invalid submission", async () => {
 		const user = userEvent.setup();
-		const submit = jest.fn(() => Promise.resolve(undefined));
+		const submitted: Array<{ email: string; password: string }> = [];
+		const submit = (values: { email: string; password: string }) => {
+			submitted.push(values);
+			return Promise.resolve(undefined);
+		};
 		await render(<CredentialsHarness onSubmit={submit} />);
 
 		await user.type(screen.getByLabelText("Email address"), "invalid");
@@ -25,25 +31,28 @@ describe("credentials form", () => {
 
 		expect(screen.getByText("Enter a valid email address.")).toBeOnTheScreen();
 		expect(screen.getByText("Password must be at least 8 characters.")).toBeOnTheScreen();
-		expect(submit).not.toHaveBeenCalled();
+		expect(submitted).toEqual([]);
 	});
 
 	it("normalizes the email before submission", async () => {
 		const user = userEvent.setup();
-		const submit = jest.fn(() => Promise.resolve(undefined));
+		const submitted: Array<{ email: string; password: string }> = [];
+		const submit = (values: { email: string; password: string }) => {
+			submitted.push(values);
+			return Promise.resolve(undefined);
+		};
 		await render(<CredentialsHarness onSubmit={submit} />);
 
 		await user.type(screen.getByLabelText("Email address"), "  User@Example.com  ");
 		await user.type(screen.getByLabelText("Password"), "password");
 		await user.press(screen.getByRole("button", { name: "Sign in" }));
 
-		expect(submit).toHaveBeenCalledWith({ password: "password", email: "user@example.com" });
+		expect(submitted).toEqual([{ password: "password", email: "user@example.com" }]);
 	});
 
 	it("shows submission errors until the user edits a field", async () => {
 		const user = userEvent.setup();
-		const submit = jest.fn(() => Promise.resolve("Could not sign in."));
-		await render(<CredentialsHarness onSubmit={submit} />);
+		await render(<CredentialsHarness onSubmit={secondSubmit} />);
 
 		await user.type(screen.getByLabelText("Email address"), "user@example.com");
 		await user.type(screen.getByLabelText("Password"), "password");
