@@ -325,7 +325,7 @@ export default defineScript({
   run: (_input, host) => Effect.gen(function* () {
     const entity = yield* host.getEntity("entity-1");
     const missingResult = yield* Effect.either(host.getEntity("missing"));
-    const integration = yield* host.getIntegration("integration-1");
+    const integration = yield* host.getIntegration();
     const events = yield* host.listEvents({ entityId: "entity-1" });
     const entitySchema = yield* host.getEntitySchema("movie");
     const eventSchemas = yield* host.listEventSchemas("movie");
