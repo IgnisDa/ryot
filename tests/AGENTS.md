@@ -37,6 +37,9 @@ Every provider-driven test except the live smoke suite runs offline against a fa
 
 Admin-only fixture operations use the typed `testSupport` contract group with `adminHeaders` from `fixtures/admin.ts`.
 
+- `installDefinitions` adds ephemeral entity, relationship, and tracker definitions to the shared
+  backend registry. Slugs must be collision-free across the sequential run; builtin slugs are
+  rejected and definitions are not persisted.
 - `seedGlobalShowEpisodeTree` and `seedMediaEntity` use `createGlobalEntity` and `upsertGlobalRelationship`; user-scoped entities continue through the authenticated entities API.
 - `getBuiltinEntitySchemaSlug` uses `getBuiltinEntitySchema` for structural schemas that tracker-scoped listing cannot see.
 - Translation fixtures use `setEntityPopulatedAt`, `upsertEntityTranslation`, and `listEntityTranslations`; null overlay values model a negative cache.
