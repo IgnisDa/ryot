@@ -1,5 +1,6 @@
 import { Workflow } from "@effect/workflow";
 import { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
+import { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import {
 	CreateEventItem,
 	CreateEventsResponse,
@@ -18,6 +19,7 @@ export const EventCreateWorkflowPayload = Schema.Struct({
 	payload: Schema.Array(CreateEventItem),
 	importRunId: Schema.optional(ImportRunId),
 	integrationId: Schema.optional(IntegrationId),
+	lifecycleOrigin: Schema.optional(AutomationOrigin),
 });
 
 export type EventCreateWorkflowPayload = typeof EventCreateWorkflowPayload.Type;
