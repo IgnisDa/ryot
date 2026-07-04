@@ -1206,7 +1206,9 @@ For:
 /e/entity123
 ```
 
-the kernel resolves the entity's persisted definition/plugin provenance and derives the workspace/plugin that owns the renderer.
+the kernel resolves the entity's persisted nullable `entitySchemaPluginId` and derives the
+workspace/plugin target. Effective definitions and an unqualified schema slug are not used for
+provenance.
 
 ### Saved-view routes
 
@@ -1432,7 +1434,10 @@ and updates real browser history.
 
 The URL remains globally canonical and does not include a plugin slug.
 
-The kernel resolves the entity's owning definition/plugin provenance and determines which plugin installation must render it.
+The kernel resolves the entity's persisted provenance and determines which plugin installation, if
+any, receives the entity target. The entity RyotQL catalog exposes the persisted nullable
+`entitySchemaPluginId`. Its named recipe returns `entitySchemaSlug` together with that qualified
+owner identity. Effective definitions and an unqualified schema slug are not used for provenance.
 
 Conceptually:
 
@@ -1442,15 +1447,27 @@ Conceptually:
      ▼
 kernel resolves entity provenance
      │
-     ├── kernel-owned renderer
+     ├── missing entity
+     │      └── missing entity state
      │
-     └── plugin-owned renderer
-             │
-             ▼
-        PluginHost
+     ├── null entitySchemaPluginId
+     │      └── kernel-owned entity -> kernel unsupported surface
+     │
+     ├── non-null entitySchemaPluginId with no exact pluginId match
+     │      └── missing installation
+     │
+     └── non-null entitySchemaPluginId matched by exact pluginId
+              │
+              ▼
+         plugin-owned target
 ```
 
-The plugin receives a first-class entity surface rather than an artificial plugin-private URL.
+Missing entity and missing installation are explicit resolver states. A null owner is a
+kernel-owned entity and currently resolves to a kernel unsupported surface. A non-null owner is
+matched against the already-loaded installation catalog by exact `pluginId`.
+
+The plugin SDK/router owns the entity surface after a plugin-owned target is resolved.
+`renderer-missing` is therefore a plugin SDK/router state, not a kernel resolver state.
 
 Conceptually:
 
@@ -1462,19 +1479,21 @@ Conceptually:
 }
 ```
 
-The plugin maps the entity schema to its renderer.
-
 Entity ownership must never be guessed only from an unqualified schema slug.
 
 The kernel resolves provenance through an application-owned named RyotQL recipe with a colocated result schema and decoder. `RyotClient` executes the recipe document through the normal authenticated data path and decodes the result locally before the route resolver uses the persisted entity-schema plugin identity to derive the current user's installation.
 
-Media-specific entity recipes remain in the Media plugin. The kernel recipe resolves the renderer owner; the selected plugin then loads its domain data.
+Media-specific entity recipes remain in the Media plugin. The kernel recipe resolves provenance and
+does not load Media domain data.
 
 ### Disabled plugin navigation
 
 A disabled installation is omitted from `/` bootstrap selection and the workspace switcher.
-
-Direct navigation to its plugin-private routes remains valid, and entity routes may still delegate to its client artifact. The client does not add a separate execution block. If the backend rejects an operation for a disabled installation, the normal operation error is returned to the plugin UI.
+It remains reachable only when the user navigates directly to a plugin-private or delegated entity
+URL; the client adds no separate discovery path for it.
+The resolver does not filter a matched installation by disabled, incompatible, or any other health
+state. `PluginHost` owns compatibility and artifact availability, while disabled state adds no
+separate client execution block.
 
 ---
 
@@ -1519,6 +1538,7 @@ type RouteTarget =
 				| { kind: "saved-view"; viewSlug: string }
 				| { kind: "settings"; path: string }
 				| { kind: "auth" }
+				| { kind: "unsupported" }
 				| { kind: "not-found" };
 	  }
 	| {
@@ -1561,9 +1581,16 @@ RouteTarget
 
 This route resolver should be a small, explicit, heavily tested kernel subsystem.
 
-The kernel obtains its installation and client-artifact catalog through an application-owned named RyotQL recipe. The catalog returns active plugins only, decodes client API version as exact `1`, and follows bounded cursor pages of at most 100 rows until completion. `RyotClient` decodes the result locally. Its decoded result includes the stable plugin and installation identities, slug, health, disabled state, package source hash, client artifact hash, and client API version needed by routing and `PluginHost`; the catalog exposes no capabilities.
+For `/e/:entityId`, the resolver consumes the named recipe result and the already-loaded
+installation catalog. A missing entity and a non-null `entitySchemaPluginId` with no exact
+`pluginId` match are explicit states. A null owner resolves to the kernel's `unsupported`
+surface; a non-null owner with an exact match resolves to a plugin-owned target. The resolver does
+not use effective definitions or an unqualified schema slug for provenance.
 
-The route resolver itself performs no health filtering: it rejects reserved slugs, otherwise finds the installation by slug in the catalog, and resolves to plugin ownership regardless of health, disabled state, or client API version. `PluginHost` owns compatibility and unavailability entirely — an explicit incompatible-health branch resolves before artifact-presence and client-API-version checks, and renders an alert with no iframe or bridge.
+For plugin-private routes, the resolver rejects reserved slugs and finds the installation by slug.
+For entity routes, it matches the qualified owner identity by exact `pluginId`. It performs no
+filtering for disabled, incompatible, or other health states; those remain `PluginHost` concerns.
+A missing renderer is plugin SDK/router state, not kernel resolver state.
 
 ---
 
