@@ -7,7 +7,7 @@
 		"build-chrome": "wxt zip -b chrome",
 		"build-firefox": "wxt zip -b firefox",
 		"build": "bun run build-chrome && bun run build-firefox",
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "wxt prepare && tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",
