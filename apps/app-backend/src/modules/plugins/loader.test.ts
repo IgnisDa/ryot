@@ -63,11 +63,11 @@ it.effect("atomically replaces an immutable snapshot under concurrent reads", ()
 						`${plugin.manifest.metadata.version}:${entity.name}`,
 					]);
 				}
-				yield* Effect.yieldNow();
+				yield* Effect.yieldNow;
 			}
 		});
-		const fibers = yield* Effect.all(Array.from({ length: 10 }, () => Effect.fork(reader)));
-		yield* Effect.yieldNow();
+		const fibers = yield* Effect.all(Array.from({ length: 10 }, () => Effect.forkChild(reader)));
+		yield* Effect.yieldNow;
 		loader.load(normalizedPlugin("2"));
 		yield* Effect.forEach(fibers, Fiber.join);
 
@@ -301,7 +301,7 @@ it("preserves provider membership for custom scripts in the loader snapshot", ()
 });
 
 it.effect("shares boot-loaded definitions with runtime repositories", () => {
-	const layer = RelationshipSchemasRepository.Default.pipe(
+	const layer = RelationshipSchemasRepository.layer.pipe(
 		Layer.provideMerge(PluginRuntimeResolverLive),
 	);
 
