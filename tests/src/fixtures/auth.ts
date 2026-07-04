@@ -11,9 +11,8 @@ export type Client = ContractSession;
 export const createTestAuthClient = (baseUrl = getBackendUrl()) =>
 	createAuthClient({ baseURL: new URL(baseUrl).origin });
 
-export async function createTestUser() {
+export async function createTestUser(baseUrl = getBackendUrl()) {
 	const password = "password123";
-	const baseUrl = getBackendUrl();
 	const email = `test-${crypto.randomUUID()}@example.com`;
 	const authClient = createTestAuthClient(baseUrl);
 
@@ -50,8 +49,8 @@ export async function createTestUser() {
 	return { cookies, email, userId, password };
 }
 
-export async function createAuthenticatedClient() {
-	const { cookies, email, userId } = await createTestUser();
-	const client = makeSession(getBackendUrl(), { Cookie: cookies });
+export async function createAuthenticatedClient(baseUrl = getBackendUrl()) {
+	const { cookies, email, userId } = await createTestUser(baseUrl);
+	const client = makeSession(baseUrl, { Cookie: cookies });
 	return { client, cookies, email, userId };
 }
