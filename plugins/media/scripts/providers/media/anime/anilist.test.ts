@@ -11,10 +11,10 @@ import translate, { manifest as translateManifest } from "./anilist-translate.sa
 type AnilistAnimeHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
-const makeHost = (httpCall: AnilistAnimeHost["httpCall"], isNsfw = false) =>
+const makeHost = (httpCall: AnilistAnimeHost["httpCall"], allowNsfw = false) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getUserPreferences: () => Effect.succeed({ isNsfw, disableIntegrations: false }),
+		getUserPreferences: () => Effect.succeed({ allowNsfw, disableIntegrations: false }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("anime.anilist sandbox script", () => {

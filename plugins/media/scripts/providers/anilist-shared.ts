@@ -8,7 +8,7 @@ import type {
 	ProviderTranslateResult,
 } from "@ryot/sandbox-sdk/provider";
 
-import { getUserIsNsfw } from "../script-helpers/host";
+import { getUserAllowNsfw } from "../script-helpers/host";
 import {
 	asRecord,
 	numberValue,
@@ -241,15 +241,15 @@ export const searchAnilistMedia = (
 	input: ProviderSearchInput,
 	options: { readonly type: AnilistMediaType; readonly label: string },
 ): Effect.Effect<ProviderSearchResult, unknown> =>
-	getUserIsNsfw(host).pipe(
-		Effect.flatMap((showNsfw) =>
+	getUserAllowNsfw(host).pipe(
+		Effect.flatMap((allowNsfw) =>
 			anilistGraphql(host, `${options.label} search`, MEDIA_SEARCH_QUERY, {
 				type: options.type,
 				search: input.query,
 				page: input.page,
 				perPage: input.pageSize,
 				// null = no isAdult filter (all content); false = non-adult only
-				isAdult: showNsfw ? null : false,
+				isAdult: allowNsfw ? null : false,
 			}),
 		),
 		Effect.map((data) => {

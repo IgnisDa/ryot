@@ -133,7 +133,7 @@ const makeLayer = (input: {
 											name: "User",
 											id: input.currentUserId,
 											email: "user@example.com",
-											preferences: { isNsfw: false, language: null, disableIntegrations: false },
+											preferences: { allowNsfw: false, language: null, disableIntegrations: false },
 										}),
 									)
 								: Effect.fail(unauthorized()),

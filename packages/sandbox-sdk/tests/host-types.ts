@@ -70,12 +70,12 @@ defineScript({
 				"log-level",
 			]);
 			const preferences = yield* host.getUserPreferences();
-			const isNsfw: boolean = preferences.isNsfw;
+			const allowNsfw: boolean = preferences.allowNsfw;
 			void cached;
 			void stored;
 			void pluginConfig;
 			void systemConfig;
-			void isNsfw;
+			void allowNsfw;
 
 			const errorType: Expect<
 				Equal<Effect.Error<ReturnType<typeof host.httpCall>>, SandboxHostError>

@@ -797,7 +797,7 @@ const startCoreHostBridge = (
 								success: true,
 							};
 						} else if (fnName === "getUserPreferences") {
-							result = { success: true, data: { isNsfw: false, disableIntegrations: true } };
+							result = { success: true, data: { allowNsfw: false, disableIntegrations: true } };
 						} else if (fnName === "replayJournal") {
 							result = { success: true, data: options.replayJournalResult ?? [] };
 						} else {
@@ -1083,7 +1083,7 @@ it("executes typed core host methods and builds the Deno host from approved capa
 					config: { timezone: "Etc/GMT" },
 					after: { value: 42 },
 					claim: { claimed: true },
-					preferences: { isNsfw: false, disableIntegrations: true },
+					preferences: { allowNsfw: false, disableIntegrations: true },
 				});
 
 				bridge.register("execution-b-1", "script-b");
