@@ -30,6 +30,7 @@ type SectionProps = {
 	readonly anchorRef: (element: HTMLElement | null) => void;
 	readonly onMove: (fromIndex: number, toIndex: number) => void;
 	readonly counts: { readonly shown: number; readonly total: number };
+	readonly toggleDisabled?: ((item: CustomizeDraftItem) => boolean) | undefined;
 };
 
 function CustomizeSection(props: SectionProps) {
@@ -64,6 +65,7 @@ function CustomizeSection(props: SectionProps) {
 								handle={handle}
 								onToggle={props.onToggle}
 								isLast={index === props.items.length - 1}
+								toggleDisabled={props.toggleDisabled?.(item)}
 							/>
 						)}
 					/>
@@ -77,6 +79,9 @@ export function CustomizePanel(props: CustomizePanelProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const anchors = useRef(new Map<CustomizeSection, HTMLElement | null>());
 	const initialSection = props.initialSection;
+	const enabledWorkspaceCount = props.draft.workspaces.filter(
+		({ isDisabled }) => !isDisabled,
+	).length;
 
 	useEffect(() => {
 		const scroller = scrollRef.current;
@@ -92,7 +97,18 @@ export function CustomizePanel(props: CustomizePanelProps) {
 
 	return (
 		<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-			<div className="flex flex-col gap-2.5 px-3 pt-4.5 pb-5">
+			<div className="flex flex-col gap-5 px-3 pt-4.5 pb-5">
+				<CustomizeSection
+					title="Workspaces"
+					scrollRef={scrollRef}
+					items={props.draft.workspaces}
+					emptyMessage="No workspaces available."
+					anchorRef={anchorRef("workspaces")}
+					onToggle={(slug) => props.onToggle("workspaces", slug)}
+					toggleDisabled={(item) => !item.isDisabled && enabledWorkspaceCount === 1}
+					counts={customizeSectionCounts({ draft: props.draft, section: "workspaces" })}
+					onMove={(fromIndex, toIndex) => props.onMove("workspaces", fromIndex, toIndex)}
+				/>
 				<CustomizeSection
 					title="Views"
 					scrollRef={scrollRef}

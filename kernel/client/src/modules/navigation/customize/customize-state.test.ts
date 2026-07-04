@@ -1,4 +1,8 @@
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
+import type {
+	PluginClientCatalog,
+	PluginClientCatalogEntry,
+} from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -20,6 +24,30 @@ const view = (slug: string, pluginSlug: string | null, sortOrder: number, isDisa
 	name: slug.toUpperCase(),
 });
 
+const workspace = (
+	slug: string,
+	sortOrder: number,
+	isDisabled = false,
+): PluginClientCatalogEntry => ({
+	slug,
+	sortOrder,
+	isDisabled,
+	icon: "plugin",
+	health: "ready",
+	clientApiVersion: 1,
+	name: slug.toUpperCase(),
+	pluginId: `plugin-${slug}`,
+	sourceHash: `source-${slug}`,
+	installationId: `installation-${slug}`,
+	clientArtifactHash: `artifact-${slug}`,
+});
+
+const catalog: PluginClientCatalog = [
+	workspace("media", 2),
+	workspace("disabled", 0, true),
+	workspace("fitness", 1),
+];
+
 const data: NavigationData = {
 	collections: [],
 	savedViews: [
@@ -30,9 +58,21 @@ const data: NavigationData = {
 	],
 };
 
-const draft = initCustomizeDraft({ data, workspaceSlug: "media" });
+const draft = initCustomizeDraft({ catalog, data, workspaceSlug: "media" });
 
 describe("initCustomizeDraft", () => {
+	it("initializes all workspaces in catalog order, including disabled ones", () => {
+		expect(draft.workspaces.map((item) => item.slug)).toEqual(["disabled", "fitness", "media"]);
+		expect(draft.workspaces.map((item) => item.isDisabled)).toEqual([true, false, false]);
+		expect(draft.workspaces[0]).toEqual({
+			icon: "plugin",
+			slug: "disabled",
+			name: "DISABLED",
+			isDisabled: true,
+		});
+		expect(draft.views[0]?.pluginSlug).toBe("media");
+	});
+
 	it("splits workspace views from global saved views and sorts each by sort order", () => {
 		expect(draft.views.map((item) => item.slug)).toEqual(["movies", "shows"]);
 		expect(draft.savedViews.map((item) => item.slug)).toEqual(["recent", "all"]);
@@ -43,7 +83,7 @@ describe("initCustomizeDraft", () => {
 	});
 
 	it("leaves the views section empty when no workspace is selected", () => {
-		expect(initCustomizeDraft({ data, workspaceSlug: undefined }).views).toEqual([]);
+		expect(initCustomizeDraft({ catalog, data, workspaceSlug: undefined }).views).toEqual([]);
 	});
 });
 
@@ -61,6 +101,12 @@ describe("moveCustomizeItem", () => {
 		expect(moved.views.map((item) => item.slug)).toEqual(["shows", "movies"]);
 	});
 
+	it("moves an item within the workspaces section", () => {
+		const moved = moveCustomizeItem({ draft, section: "workspaces", fromIndex: 0, toIndex: 2 });
+
+		expect(moved.workspaces.map((item) => item.slug)).toEqual(["fitness", "media", "disabled"]);
+	});
+
 	it("returns the same draft for a move that changes nothing", () => {
 		expect(moveCustomizeItem({ draft, section: "views", fromIndex: 1, toIndex: 1 })).toBe(draft);
 	});
@@ -76,6 +122,25 @@ describe("toggleCustomizeItem", () => {
 
 	it("ignores a slug that is not in the section", () => {
 		expect(toggleCustomizeItem({ draft, section: "views", slug: "all" })).toBe(draft);
+	});
+
+	it("refuses to disable the final enabled workspace", () => {
+		const onlyEnabled = {
+			...draft,
+			workspaces: draft.workspaces.map((item) =>
+				item.slug === "fitness" ? item : { ...item, isDisabled: true },
+			),
+		};
+
+		expect(
+			toggleCustomizeItem({ draft: onlyEnabled, section: "workspaces", slug: "fitness" }),
+		).toBe(onlyEnabled);
+	});
+
+	it("allows a disabled workspace to be enabled", () => {
+		const toggled = toggleCustomizeItem({ draft, section: "workspaces", slug: "disabled" });
+
+		expect(toggled.workspaces[0]?.isDisabled).toBe(false);
 	});
 
 	it("leaves the draft it was given untouched", () => {
@@ -98,12 +163,25 @@ describe("isCustomizeDraftDirty", () => {
 		expect(isCustomizeDraftDirty({ draft: toggled, initial: draft })).toBe(true);
 	});
 
+	it("reports a workspace change", () => {
+		const moved = moveCustomizeItem({ draft, section: "workspaces", fromIndex: 0, toIndex: 1 });
+
+		expect(isCustomizeDraftDirty({ draft: moved, initial: draft })).toBe(true);
+	});
+
 	it("reports an untouched draft as clean", () => {
 		expect(isCustomizeDraftDirty({ draft, initial: draft })).toBe(false);
 	});
 });
 
 describe("customizeSectionCounts", () => {
+	it("does not pin an item in the workspaces section", () => {
+		expect(customizeSectionCounts({ draft, section: "workspaces" })).toEqual({
+			shown: 2,
+			total: 3,
+		});
+	});
+
 	it("counts the pinned Home row in the views section", () => {
 		expect(customizeSectionCounts({ draft, section: "views" })).toEqual({ shown: 2, total: 3 });
 	});
@@ -116,7 +194,7 @@ describe("customizeSectionCounts", () => {
 	});
 
 	it("counts an empty section as Home alone", () => {
-		const empty: CustomizeDraft = { views: [], savedViews: [] };
+		const empty: CustomizeDraft = { workspaces: [], views: [], savedViews: [] };
 
 		expect(customizeSectionCounts({ draft: empty, section: "views" })).toEqual({
 			shown: 1,
@@ -126,7 +204,8 @@ describe("customizeSectionCounts", () => {
 });
 
 describe("customizeSearchSection", () => {
-	it("accepts only the two section names", () => {
+	it("accepts all section names", () => {
+		expect(customizeSearchSection({ section: "workspaces" })).toBe("workspaces");
 		expect(customizeSearchSection({ section: "views" })).toBe("views");
 		expect(customizeSearchSection({ section: "savedViews" })).toBe("savedViews");
 		expect(customizeSearchSection({ section: "collections" })).toBeUndefined();

@@ -1,3 +1,4 @@
+import type { UpdatePluginStateBody } from "@ryot-app/contract/modules/definitions/schemas";
 import type {
 	ReorderSavedViewsBody,
 	UpdateSavedViewBody,
@@ -7,6 +8,7 @@ import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import type {
 	CustomizeDraft,
 	CustomizeDraftItem,
+	CustomizeDraftViewItem,
 	CustomizeSection,
 } from "#/modules/navigation/customize/customize-state";
 
@@ -18,6 +20,12 @@ export type CustomizeUpdate = {
 export type CustomizePlan = {
 	readonly updates: readonly CustomizeUpdate[];
 	readonly reorders: readonly ReorderSavedViewsBody[];
+	readonly workspaceUpdates: readonly CustomizeWorkspaceUpdate[];
+};
+
+export type CustomizeWorkspaceUpdate = {
+	readonly pluginSlug: PluginSlug;
+	readonly payload: UpdatePluginStateBody;
 };
 
 const sections = ["views", "savedViews"] as const satisfies readonly CustomizeSection[];
@@ -29,7 +37,7 @@ const hasOrderChanged = (
 	draft.length !== initial.length ||
 	draft.some((item, index) => item.slug !== initial[index]?.slug);
 
-const updatePayload = (item: CustomizeDraftItem): UpdateSavedViewBody => ({
+const updatePayload = (item: CustomizeDraftViewItem): UpdateSavedViewBody => ({
 	icon: item.icon,
 	name: item.name,
 	isDisabled: item.isDisabled,
@@ -43,6 +51,7 @@ export function buildCustomizePlan(props: {
 }): CustomizePlan {
 	const updates: CustomizeUpdate[] = [];
 	const reorders: ReorderSavedViewsBody[] = [];
+	const workspaceUpdates: CustomizeWorkspaceUpdate[] = [];
 
 	for (const section of sections) {
 		for (const item of props.draft[section]) {
@@ -50,6 +59,23 @@ export function buildCustomizePlan(props: {
 			if (initial?.isDisabled !== item.isDisabled) {
 				updates.push({ viewSlug: item.slug, payload: updatePayload(item) });
 			}
+		}
+	}
+
+	const workspaceOrderChanged = hasOrderChanged(props.draft.workspaces, props.initial.workspaces);
+	for (const [sortOrder, item] of props.draft.workspaces.entries()) {
+		const initial = props.initial.workspaces.find((candidate) => candidate.slug === item.slug);
+		const visibilityChanged = initial !== undefined && initial.isDisabled !== item.isDisabled;
+		if (workspaceOrderChanged) {
+			workspaceUpdates.push({
+				pluginSlug: PluginSlug.make(item.slug),
+				payload: { sortOrder, ...(visibilityChanged ? { isDisabled: item.isDisabled } : {}) },
+			});
+		} else if (visibilityChanged) {
+			workspaceUpdates.push({
+				payload: { isDisabled: item.isDisabled },
+				pluginSlug: PluginSlug.make(item.slug),
+			});
 		}
 	}
 
@@ -71,5 +97,5 @@ export function buildCustomizePlan(props: {
 		reorders.push({ viewSlugs: props.draft.savedViews.map((item) => item.slug) });
 	}
 
-	return { updates, reorders };
+	return { updates, reorders, workspaceUpdates };
 }
