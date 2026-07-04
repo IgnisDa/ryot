@@ -33,7 +33,7 @@ always set, and the progress-policy automation depends on it.
 Delete the native sink and yank adapter code from `modules/integrations`, along with the
 switch dispatch in `sinks/sink-adapters.ts` and `worker.ts` and the hardcoded
 `IntegrationProviderSpecifics` union and `integrationProviders`/`providerLotByProvider` tables in
-`libs/contract/src/modules/integrations/`. The framework stays: credential storage,
+`packages/contract/src/modules/integrations/`. The framework stays: credential storage,
 enable/disable, auto-disable, webhook endpoint, run bookkeeping.
 
 Adapter unit tests move into `plugins/media` alongside their adapters with assertions preserved.
@@ -49,7 +49,7 @@ Re-point integration e2e coverage with assertions preserved: CRUD, generic webho
 - [x] `modules/integrations` contains **zero provider-specific code**; the framework
       (credentials, lifecycle, auto-disable, webhook endpoint, run bookkeeping) is unchanged in
       behavior
-- [x] The hardcoded provider union and lot tables are deleted from `libs/contract`
+- [x] The hardcoded provider union and lot tables are deleted from `packages/contract`
 - [x] Credential exposure is scoped to the executing integration
 - [x] `createProgressResult` semantics are preserved (`occurredAt` always set) and the
       progress-policy automation still fires

@@ -46,8 +46,8 @@ const program = Effect.gen(function* () {
 	const scriptPath = yield* path.fromFileUrl(new URL(import.meta.url));
 	const workspaceRoot = path.resolve(path.dirname(scriptPath), "..", "..", "..");
 	const modulesDir = path.join(workspaceRoot, "apps/app-backend/src/modules");
-	const roots = ["apps/app-backend/src", "libs/contract/src", "libs/query-engine/src"].map((root) =>
-		path.join(workspaceRoot, root),
+	const roots = ["apps/app-backend/src", "packages/contract/src", "packages/query-engine/src"].map(
+		(root) => path.join(workspaceRoot, root),
 	);
 	const cycles = yield* analyzeRuntimeModules(modulesDir);
 	const sources = (yield* Effect.forEach(roots, (root) => walkSources(root, workspaceRoot))).flat();

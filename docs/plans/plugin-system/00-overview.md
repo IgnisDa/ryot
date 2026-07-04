@@ -81,7 +81,7 @@ These were settled in design discussion with the project owner. All are **[DECID
 5. **Schemas are identified by slug, not row id.** Entity/event/relationship/signal rows
    reference their schema by slug string with no foreign key. Referential integrity for
    definitions moves to application code. (The query engine already identifies schemas by slug
-   — see `libs/query-engine/src/recipes/app.ts` — so this is less disruptive than it sounds.)
+   — see `packages/query-engine/src/recipes/app.ts` — so this is less disruptive than it sounds.)
 6. **`AppSchema` stays the property-schema format.** Plugin schemas are declarative
    `AppSchema` literals (`@ryot/contract/schema/property-schema`), validated by the existing
    property-schema runtime (`apps/app-backend/src/lib/property-schema/`). Do not replace it
@@ -104,7 +104,7 @@ These were settled in design discussion with the project owner. All are **[DECID
    explicable only by one plugin's needs.
 9. **Plugin API surface = one generic invoke endpoint.** Plugins declare named operations
    (input/output schemas) in the manifest; a single contract endpoint dispatches to them. The
-   static typed contract (`libs/contract`) never grows plugin-specific endpoints. First-party
+   static typed contract (`packages/contract`) never grows plugin-specific endpoints. First-party
    clients import operation types directly from the plugin packages ("recipes"); third-party
    plugins later get runtime-validated dynamic invocation.
 10. **File access via Deno permission grants, not IPC.** Large artifacts (import files) are
@@ -132,7 +132,7 @@ These were settled in design discussion with the project owner. All are **[DECID
     at the transport boundary. Workflow scripts get a restricted SDK entry point that does not
     expose nondeterminism footguns (ambient Clock/Random).
 12. **Source-canonical ingestion.** Plugins ship as source. The server compiles at ingestion
-    using the existing compiler (`libs/sandbox-compiler`, `Bun.build`-based, already used at
+    using the existing compiler (`packages/sandbox-compiler`, `Bun.build`-based, already used at
     runtime by `apps/app-backend/src/modules/sandbox/compiler.ts`), stores content-addressed
     compiled modules, and records the source-hash → compiled-hash mapping. Compilation is part
     of _ingestion_, not loading: first-party plugins are ingested at boot from in-repo sources
@@ -206,7 +206,7 @@ These were settled in design discussion with the project owner. All are **[DECID
     domain wanting two workspaces ships as two plugins. The codebase still carries a tracker
     layer (registry tracker definitions fed from `builtins/trackers.ts`, `tracker_state`,
     `savedView.trackerSlug`, a `trackers` contract surface, and a manifest `trackers` section
-    in `libs/plugin-kit`) — Phase 2 §9 deletes it.
+    in `packages/plugin-kit`) — Phase 2 §9 deletes it.
 21. **Logical providers and executable scripts are separate identities.** A provider is a stable,
     plugin-owned catalog identity persisted in `sandbox_provider`; each search, details, resolve,
     or translate operation maps to its own direct script. Provider-backed entities store
@@ -289,7 +289,7 @@ and moved `legacy-bootstrap`'s V2 entity provenance from script identity to logi
 The Task 10 imports and integrations e2e follow-ups were repaired, and the successful operational
 gate closed Phase 3.
 
-### Contract (`libs/contract/src/modules/`)
+### Contract (`packages/contract/src/modules/`)
 
 Schema CRUD, tracker, metadata-lookup, media-monitoring, and public sandbox-script groups are gone.
 Generic `definitions` and `plugins` groups expose the code-owned registry and plugin install/invoke
@@ -308,9 +308,9 @@ claimed; the live-network gate remains excluded. Conventions live in `tests/AGEN
 ## Target architecture (end state)
 
 ```txt
-libs/plugin-kit            manifest types, definePlugin builder, shared plugin authoring API
-libs/sandbox-sdk           script-facing SDK (+ Effect vendored, workflow entry point)
-libs/sandbox-compiler      bundling (extended for multi-file plugin packages)
+packages/plugin-kit            manifest types, definePlugin builder, shared plugin authoring API
+packages/sandbox-sdk           script-facing SDK (+ Effect vendored, workflow entry point)
+packages/sandbox-compiler      bundling (extended for multi-file plugin packages)
 plugins/media              source bundle: manifest + schemas + scripts (providers, automations,
                            workflows, crons, operations, integration providers, import sources)
 plugins/fitness            source bundle: manifest + schemas + scripts (exercise provider,
@@ -353,7 +353,7 @@ the signal.
    user-level installation and retains its own unresolved non-goals.
 6. **Existing module conventions hold** (`apps/app-backend/AGENTS.md`): Effect service
    classes, thin routes, repository-owned writes, durable ownership rules, no transaction
-   across sandbox execution, contract lives in `libs/contract`.
+   across sandbox execution, contract lives in `packages/contract`.
 7. **Documentation follows the code.** Each phase updates the affected `AGENTS.md`/
    `AGENTS.md`/`README.md` files (single-owner rule: facts move, they don't duplicate).
 
