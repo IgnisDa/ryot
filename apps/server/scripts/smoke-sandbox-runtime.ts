@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 
-import { BunServices, BunRuntime } from "@effect/platform-bun";
+import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import { Clock, Data, Effect, FileSystem, Layer, Path, Schema } from "effect";
 
@@ -14,6 +14,8 @@ import {
 	PackageCacheManager,
 	sandboxDenoRunFlags,
 } from "../../../kernel/backend/src/lib/infrastructure/sandbox-runtime/runtime";
+import { sandboxRuntimePayload } from "../../../kernel/backend/src/lib/infrastructure/sandbox-runtime/runtime-payload.generated";
+import { runProcessCapturing } from "./run-process";
 
 class SandboxRuntimeSmokeError extends Data.TaggedError("SandboxRuntimeSmokeError")<{
 	readonly message: string;
@@ -98,40 +100,30 @@ const program = Effect.gen(function* () {
 		startedAt: "2026-01-01T00:00:00.000Z",
 		apiBase: `http://127.0.0.1:${bridge.port}`,
 	})}\n`;
-	const command = [
+	const denoEnvironment = {
+		DENO_DIR: runtime.cacheDirectory,
+		PATH: Bun.env["PATH"] ?? "/usr/local/bin:/usr/bin:/bin",
+	};
+	const version = yield* runProcessCapturing("deno", ["--version"], { env: denoEnvironment });
+	const installedDenoVersion = version.stdout.split("\n")[0]?.split(" ")[1];
+	if (installedDenoVersion !== sandboxRuntimePayload.metadata.denoVersion) {
+		return yield* new SandboxRuntimeSmokeError({
+			message: `Deno ${installedDenoVersion ?? "unknown"} does not match the runtime payload built for Deno ${sandboxRuntimePayload.metadata.denoVersion}`,
+		});
+	}
+	const { stdout, stderr, exitCode } = yield* runProcessCapturing(
 		"deno",
-		"run",
-		...sandboxDenoRunFlags({
-			runnerPath,
-			bridgePort: bridge.port,
-			runtimeDirectory: runtime.directory,
-			importMapPath: runtime.importMapPath,
-		}),
-		runnerPath,
-	];
-	const denoProcess = yield* Effect.acquireRelease(
-		Effect.sync(() =>
-			Bun.spawn(command, {
-				stdin: "pipe",
-				stdout: "pipe",
-				stderr: "pipe",
-				env: {
-					DENO_DIR: runtime.cacheDirectory,
-					PATH: Bun.env["PATH"] ?? "/usr/local/bin:/usr/bin:/bin",
-				},
-			}),
-		),
-		(process) => Effect.sync(() => process.kill()).pipe(Effect.ignore),
-	);
-	yield* Effect.promise(() => Promise.resolve(denoProcess.stdin.write(request)));
-	yield* Effect.promise(() => Promise.resolve(denoProcess.stdin.end()));
-	const [exitCode, stdout, stderr] = yield* Effect.all(
 		[
-			Effect.promise(() => denoProcess.exited),
-			Effect.promise(() => new Response(denoProcess.stdout).text()),
-			Effect.promise(() => new Response(denoProcess.stderr).text()),
+			"run",
+			...sandboxDenoRunFlags({
+				runnerPath,
+				bridgePort: bridge.port,
+				runtimeDirectory: runtime.directory,
+				importMapPath: runtime.importMapPath,
+			}),
+			runnerPath,
 		],
-		{ concurrency: "unbounded" },
+		{ input: request, env: denoEnvironment },
 	);
 	if (exitCode !== 0) {
 		return yield* new SandboxRuntimeSmokeError({
