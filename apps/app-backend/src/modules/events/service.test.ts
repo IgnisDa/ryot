@@ -244,12 +244,6 @@ it.effect("awaits API event creation and returns the workflow outcomes", () => {
 	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
 
 	const layer = makeEventsServiceLayer({
-		entitiesRepository: makeEntitiesRepository({
-			getEntityScopeForUser: () => Effect.succeed(entityScope),
-		}),
-		eventSchemasRepository: makeEventSchemasRepository({
-			getScopeForUser: () => Effect.succeed(eventSchemaScope),
-		}),
 		workflowEngine: makeWorkflowEngine({
 			execute: (_workflow, options) => {
 				capturedOptions = options;
@@ -339,12 +333,6 @@ it.effect("awaits the durable import event-create path with its deterministic ex
 	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
 
 	const layer = makeEventsServiceLayer({
-		entitiesRepository: makeEntitiesRepository({
-			getEntityScopeForUser: () => Effect.succeed(entityScope),
-		}),
-		eventSchemasRepository: makeEventSchemasRepository({
-			getScopeForUser: () => Effect.succeed(eventSchemaScope),
-		}),
 		workflowEngine: makeWorkflowEngine({
 			execute: (_workflow, options) => {
 				capturedOptions = options;

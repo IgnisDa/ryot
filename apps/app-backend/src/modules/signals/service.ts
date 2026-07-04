@@ -22,7 +22,7 @@ import {
 	type SignalSchemaScope,
 } from "./signal-schemas-repository";
 
-export type AutomationPrincipal = { kind: "user"; userId: UserId } | { kind: "system" };
+type AutomationPrincipal = { kind: "user"; userId: UserId } | { kind: "system" };
 
 export type EmitSignalInput = {
 	occurredAt: Date;

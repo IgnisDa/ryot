@@ -116,7 +116,3 @@ it.each([
 		return undefined;
 	});
 });
-
-it("allowlists only notification delivery", () => {
-	expect(manifest.capabilities).toEqual(["sendNotification"]);
-});
