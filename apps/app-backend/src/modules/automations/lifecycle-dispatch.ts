@@ -1,5 +1,6 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DbError, unknownToMessage } from "@ryot/contract/errors";
+import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
 import { Effect, Either, Layer, Match, Schema } from "effect";
 
 import {
@@ -10,10 +11,7 @@ import {
 
 import type { AutomationRuleTarget } from "./repository";
 import { AutomationsService } from "./service";
-import {
-	AutomationProperties,
-	SubscriptionExecutionWorkflow,
-} from "./subscription-execution-workflow";
+import { SubscriptionExecutionWorkflow } from "./subscription-execution-workflow";
 
 const decodeProperties = Schema.decodeUnknown(AutomationProperties);
 
