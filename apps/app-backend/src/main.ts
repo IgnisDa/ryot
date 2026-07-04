@@ -1,6 +1,6 @@
 import { Path } from "@effect/platform";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
-import { Effect, Layer } from "effect";
+import { Config, ConfigProvider, Effect, Layer } from "effect";
 
 import { AppLive, MigrationOnlyLive, SandboxCacheOnlyLive } from "./app/layers";
 import { generateConfigDocs } from "./lib/infrastructure/config/docs";
@@ -18,17 +18,27 @@ const onShutdownSignal = () => {
 process.on("SIGINT", onShutdownSignal);
 process.on("SIGTERM", onShutdownSignal);
 
-if (Bun.env["RUN_MIGRATION_ONLY"] === "true") {
+const { nodeEnv, runMigrationOnly, populateSandboxCacheOnly } = await Effect.runPromise(
+	Config.all({
+		nodeEnv: Config.string("NODE_ENV").pipe(Config.withDefault("development")),
+		runMigrationOnly: Config.boolean("RUN_MIGRATION_ONLY").pipe(Config.withDefault(false)),
+		populateSandboxCacheOnly: Config.boolean("POPULATE_SANDBOX_CACHE_ONLY").pipe(
+			Config.withDefault(false),
+		),
+	}).pipe(Effect.withConfigProvider(ConfigProvider.fromEnv())),
+);
+
+if (runMigrationOnly) {
 	await Effect.runPromise(Effect.scoped(Layer.build(MigrationOnlyLive)));
 	process.exit(0);
 }
 
-if (Bun.env["POPULATE_SANDBOX_CACHE_ONLY"] === "true") {
+if (populateSandboxCacheOnly) {
 	await Effect.runPromise(Effect.scoped(Layer.build(SandboxCacheOnlyLive)));
 	process.exit(0);
 }
 
-if (Bun.env["NODE_ENV"] !== "production") {
+if (nodeEnv !== "production") {
 	await Effect.runPromise(
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
