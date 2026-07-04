@@ -97,9 +97,19 @@ export const PluginClientArtifactMetadata = strictStruct({
 
 export type PluginClientArtifactMetadata = Schema.Schema.Type<typeof PluginClientArtifactMetadata>;
 
+const PluginClientArtifactFiles = Schema.Array(PluginClientArtifactFile).pipe(
+	Schema.check(
+		Schema.makeFilter((files) =>
+			new Set(files.map(({ name }) => name)).size === files.length
+				? true
+				: "Expected unique client artifact file names",
+		),
+	),
+);
+
 export const PluginClientArtifact = strictStruct({
 	...PluginClientArtifactMetadata.fields,
-	files: Schema.Array(PluginClientArtifactFile),
+	files: PluginClientArtifactFiles,
 });
 
 export type PluginClientArtifact = Schema.Schema.Type<typeof PluginClientArtifact>;
