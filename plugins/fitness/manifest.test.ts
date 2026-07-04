@@ -12,6 +12,10 @@ it("declares the complete fitness-owned source", () => {
 		"workout-template",
 		"measurement",
 	]);
+	expect(fitnessPlugin.entitySchemas[0].mergeIdentityProperties).toEqual(["kind"]);
+	expect(
+		fitnessPlugin.entitySchemas.slice(1).every((schema) => !("mergeIdentityProperties" in schema)),
+	).toBe(true);
 	expect(fitnessPlugin.crons).toEqual([]);
 	expect(fitnessPlugin.boot).toEqual([
 		{

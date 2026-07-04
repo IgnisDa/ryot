@@ -23,6 +23,7 @@ const runId = SubscriptionRunId.make("run-1");
 const getEntity = () => Effect.succeed(null);
 const emitSignal = () => Effect.succeed(null);
 const sendNotification = () => Effect.succeed(null);
+const changeUserRelationships = () => Effect.succeed([]);
 const upsertGlobalEntities = () => Effect.void;
 
 const runInput = {
@@ -199,4 +200,27 @@ it("exposes global writes only to system runs with explicit capabilities", () =>
 	expect(subscription).toEqual({});
 	expect(system).toEqual({ upsertGlobalEntities });
 	expect(providerSystem).toEqual({});
+});
+
+it("exposes user relationship changes only to direct user authority", () => {
+	const bound = { changeUserRelationships };
+	const user = selectSandboxHostFunctions(bound, {
+		metadata: { kind: "operation" },
+		authority: { type: "user", userId },
+		allowedHostFunctions: ["changeUserRelationships"],
+	});
+	const subscription = selectSandboxHostFunctions(bound, {
+		authority: runInput.authority,
+		metadata: { kind: "automation" },
+		allowedHostFunctions: ["changeUserRelationships"],
+	});
+	const system = selectSandboxHostFunctions(bound, {
+		metadata: { kind: "script" },
+		authority: { type: "system" },
+		allowedHostFunctions: ["changeUserRelationships"],
+	});
+
+	expect(user).toEqual({ changeUserRelationships });
+	expect(subscription).toEqual({});
+	expect(system).toEqual({});
 });

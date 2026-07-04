@@ -173,6 +173,40 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 					return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
 				},
 			);
+			const resolveSystemQueryActivity = Effect.fn(
+				"PluginRuntimeResolver.resolveSystemQueryActivity",
+			)(function* (scriptId: SandboxScriptId) {
+				const db = yield* CurrentDb;
+				const [script] = yield* dbEffect(() =>
+					db
+						.select()
+						.from(schema.sandboxScript)
+						.where(eq(schema.sandboxScript.id, scriptId))
+						.limit(1),
+				);
+				if (!script?.pluginSlug || script.metadata.kind !== "activity") {
+					return null;
+				}
+				const plugin = loader.getSnapshot().plugins[script.pluginSlug];
+				const active = plugin?.scripts.find(
+					(candidate) =>
+						candidate.slug === script.slug && candidate.contentHash === script.contentHash,
+				);
+				if (!plugin || active?.metadata.kind !== "activity") {
+					return null;
+				}
+				return {
+					pluginSlug: script.pluginSlug,
+					entitySchemaSlugs: plugin.manifest.entitySchemas.map(({ slug }) => slug),
+					relationshipSchemaSlugs: plugin.manifest.relationshipSchemas.map(({ slug }) => slug),
+					eventSchemas: plugin.manifest.entitySchemas.flatMap((entitySchema) =>
+						entitySchema.eventSchemas.map((eventSchema) => ({
+							eventSchemaSlug: eventSchema.slug,
+							entitySchemaSlug: entitySchema.slug,
+						})),
+					),
+				};
+			});
 
 			const findKernelScript = Effect.fn("PluginRuntimeResolver.findKernelScript")(function* (
 				scriptSlug: string,
@@ -258,6 +292,28 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 						: null;
 				},
 			);
+			const findAuthorizedSchemaProviderById = Effect.fn(
+				"PluginRuntimeResolver.findAuthorizedSchemaProviderById",
+			)(function* (input: {
+				pluginSlug: string;
+				entitySchemaSlug: string;
+				providerId: SandboxProviderId;
+			}) {
+				const manifest = loader.getSnapshot().plugins[input.pluginSlug]?.manifest;
+				const provider = yield* findActiveProviderById(input.providerId);
+				if (
+					!manifest?.entitySchemas.some(({ slug }) => slug === input.entitySchemaSlug) ||
+					!provider ||
+					!schemaProviderLinks().some(
+						(link) =>
+							link.providerSlug === provider.slug &&
+							link.entitySchemaSlug === input.entitySchemaSlug,
+					)
+				) {
+					return null;
+				}
+				return { provider, entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug) };
+			});
 
 			const listSchemaProviders = Effect.fn("PluginRuntimeResolver.listSchemaProviders")(function* (
 				entitySchemaSlugs?: ReadonlyArray<string>,
@@ -463,13 +519,15 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 				findActiveScript,
 				findDetailsScript,
 				listSchemaProviders,
-				findActiveScriptById,
 				resolveSearchScript,
+				findActiveScriptById,
 				resolveDetailsScript,
 				resolveResolveScript,
 				resolveTranslateScript,
 				findSchemaProviderBySlug,
 				findActiveWorkflowScript,
+				resolveSystemQueryActivity,
+				findAuthorizedSchemaProviderById,
 			};
 		}),
 	},

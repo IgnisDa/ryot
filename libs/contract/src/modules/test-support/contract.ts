@@ -2,10 +2,18 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "@effect/p
 import { Schema } from "effect";
 
 import { AdminMiddleware } from "../../auth-middleware";
-import { Conflict, InternalError, NotFound, Unauthorized } from "../../errors";
+import {
+	BadRequest,
+	Conflict,
+	InternalError,
+	NotFound,
+	SandboxRunError,
+	Unauthorized,
+} from "../../errors";
 import {
 	EntityId,
 	EntitySchemaSlug,
+	ImportRunId,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 	SandboxScriptId,
@@ -21,8 +29,14 @@ import {
 	TestSupportGlobalRelationship,
 	TestSupportSignal,
 	TestSupportEnqueueSandboxBody,
+	TestSupportMediaPopulationGateResult,
+	TestSupportMediaPopulationGateRun,
+	TestSupportOperationalPressure,
+	TestSupportPluginCronResult,
+	TestSupportStartMediaPopulationGateBody,
 	TestSupportStoredSandboxScript,
 	TestSupportSubscriptionRun,
+	TestSupportTriggerPluginCronBody,
 } from "./schemas";
 
 const userIdParam = HttpApiSchema.param("userId", UserId);
@@ -43,6 +57,14 @@ const CreateGlobalEntityBody = Schema.Struct({
 
 const TriggerInfrequentCronResponse = Schema.Struct({ executionId: Schema.String });
 const TriggerPluginBootResponse = Schema.Struct({ executionId: Schema.String });
+const MediaPopulationGateResultBody = Schema.Struct({
+	itemCount: Schema.Int.pipe(Schema.positive(), Schema.lessThanOrEqualTo(1_001)),
+	runId: ImportRunId,
+	executionIds: Schema.Array(Schema.String).pipe(Schema.minItems(1)),
+});
+const OperationalPressureBody = Schema.Struct({
+	executionIds: Schema.Array(Schema.String).pipe(Schema.minItems(1)),
+});
 
 const GlobalRelationshipListBody = Schema.Union(
 	Schema.Struct({ type: Schema.Literal("self"), relationshipSchemaSlug: RelationshipSchemaSlug }),
@@ -83,6 +105,32 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			.addSuccess(SandboxRunResult)
 			.addError(NotFound, { status: 404 })
 			.annotate(OpenApi.Description, "Returns an installed sandbox script execution result"),
+	)
+	.add(
+		HttpApiEndpoint.post(
+			"startMediaPopulationGate",
+			"/test-support/operational-gate/media-population",
+		)
+			.setPayload(TestSupportStartMediaPopulationGateBody)
+			.addSuccess(TestSupportMediaPopulationGateRun)
+			.addError(BadRequest, { status: 400 })
+			.addError(NotFound, { status: 404 })
+			.annotate(OpenApi.Description, "Starts a full-size media population operational gate"),
+	)
+	.add(
+		HttpApiEndpoint.post(
+			"getMediaPopulationGateResult",
+			"/test-support/operational-gate/media-population/result",
+		)
+			.setPayload(MediaPopulationGateResultBody)
+			.addSuccess(TestSupportMediaPopulationGateResult)
+			.annotate(OpenApi.Description, "Returns media population operational gate results"),
+	)
+	.add(
+		HttpApiEndpoint.post("sampleOperationalPressure", "/test-support/operational-gate/pressure")
+			.setPayload(OperationalPressureBody)
+			.addSuccess(TestSupportOperationalPressure)
+			.annotate(OpenApi.Description, "Samples generic workflow infrastructure pressure"),
 	)
 	.add(
 		HttpApiEndpoint.get(
@@ -178,6 +226,13 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		HttpApiEndpoint.post("triggerInfrequentCron", "/test-support/cron/infrequent")
 			.addSuccess(TriggerInfrequentCronResponse)
 			.annotate(OpenApi.Description, "Triggers the infrequent cron job"),
+	)
+	.add(
+		HttpApiEndpoint.post("triggerPluginCron", "/test-support/cron/plugin")
+			.setPayload(TestSupportTriggerPluginCronBody)
+			.addSuccess(TestSupportPluginCronResult)
+			.addError(SandboxRunError, { status: 502 })
+			.annotate(OpenApi.Description, "Triggers one active plugin cron"),
 	)
 	.add(
 		HttpApiEndpoint.post("triggerPluginBoot", "/test-support/plugin-boot")

@@ -1,13 +1,5 @@
 import { Schema } from "@ryot/sandbox-sdk/workflow";
 
-export const mediaImportResolutionActivitySlugByProvider = {
-	"book.google-books": "activity.media-import-resolve.book.google-books",
-	"book.hardcover": "activity.media-import-resolve.book.hardcover",
-	"book.openlibrary": "activity.media-import-resolve.book.openlibrary",
-	"movie.tmdb": "activity.media-import-resolve.movie.tmdb",
-	"show.tmdb": "activity.media-import-resolve.show.tmdb",
-} as const;
-
 export const MediaImportResolutionActivityInput = Schema.Struct({
 	value: Schema.String,
 	identifierType: Schema.String,
@@ -111,4 +103,28 @@ export const MediaImportPopulationWorkflowOutput = Schema.Struct({
 			}),
 		),
 	),
+});
+
+export const MediaMonitoringTarget = Schema.Struct({
+	entityId: Schema.String,
+	externalId: Schema.String,
+	providerId: Schema.String,
+	entitySchemaSlug: Schema.String,
+});
+
+export const MediaMonitoringTargetsActivityInput = Schema.Struct({
+	page: Schema.Number.pipe(Schema.int(), Schema.positive()),
+	limit: Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.lessThanOrEqualTo(100)),
+});
+
+export const MediaMonitoringTargetsActivityOutput = Schema.Struct({
+	hasMore: Schema.Boolean,
+	items: Schema.Array(MediaMonitoringTarget),
+});
+
+export const MediaMonitoringSweepWorkflowInput = Schema.Struct({});
+
+export const MediaMonitoringSweepWorkflowOutput = Schema.Struct({
+	batchCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	targetCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
 });

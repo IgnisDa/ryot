@@ -111,6 +111,7 @@ const allDomainManifest = defineManifest({
 		"getEntity",
 		"listEvents",
 		"createEvents",
+		"changeUserRelationships",
 		"upsertGlobalEntities",
 		"getIntegration",
 		"getEntitySchema",
@@ -147,6 +148,20 @@ defineScript({
 					eventSchemaSlug: "event-schema-1",
 				},
 			]);
+			const [changed] = yield* host.changeUserRelationships([
+				{
+					deletes: [],
+					creates: [
+						{
+							properties: {},
+							sourceEntityId: "entity-1",
+							targetEntityId: "library-1",
+							relationshipSchemaSlug: "in-library",
+						},
+					],
+				},
+			]);
+			const changedCount: number | undefined = changed?.created;
 			const total: number = created.count;
 			void provider;
 			void setting;
@@ -173,6 +188,7 @@ defineScript({
 			const entityArg: Expect<Equal<Parameters<typeof host.getEntity>[0], string>> = true;
 			void lot;
 			void total;
+			void changedCount;
 			void deleted;
 			void inserted;
 			void providers;
