@@ -888,7 +888,25 @@ When either peer closes or fails a session, it sends `{ type: "lifecycle-close",
 
 Protocol version 1 implements strict request/response calls for plugin data access. It carries navigation messages, recipe-backed RyotQL query messages, backend operation messages, semantic theme messages, and terminal runtime messages over the one plugin session port.
 
-The kernel-to-plugin `location` message carries the full navigation state of the entry, not just its path: `{ type: "location", index, key, compact, edgeBack, location }`. `index` and `key` are the kernel's history identifiers, and the plugin's screen stack derives push, pop, replace, and reset from them (§18). `edgeBack` is the `resolveEdge` verdict — it is `true` only while the plugin document owns the left edge (§25). `compact` is the viewport class the same resolver used, and it is what the plugin document gates its transition on (§18). The kernel re-sends the message whenever any of those fields change, so a viewport change that moves edge ownership does not wait for a navigation.
+The logical location contract is named, strict, and exact:
+
+```ts
+type PluginRouteLocation = {
+  kind: "route";
+  path: string;
+  search: string;
+};
+
+type PluginEntityLocation = {
+  kind: "entity";
+  entityId: EntityId;
+  entitySchemaSlug: EntitySchemaSlug;
+};
+
+type PluginLogicalLocation = PluginRouteLocation | PluginEntityLocation;
+```
+
+The kernel-to-plugin `location` message carries the full navigation state of the entry, not just its path: `{ type: "location", index, key, compact, edgeBack, location }`. Its `location` field uses `PluginLogicalLocation`, so the kernel may deliver either a tagged route location or a tagged entity location. `index` and `key` are the kernel's history identifiers, and the plugin's screen stack derives push, pop, replace, and reset from them (§18). `edgeBack` is the `resolveEdge` verdict — it is `true` only while the plugin document owns the left edge (§25). `compact` is the viewport class the same resolver used, and it is what the plugin document gates its transition on (§18). The kernel re-sends the message whenever any of those fields change, so a viewport change that moves edge ownership does not wait for a navigation.
 
 After accepting a location, the plugin runtime publishes `{ type: "header", index, key, header }`
 from the active screen in that same reconciled snapshot. `header` is validated content or `null` for
@@ -898,6 +916,8 @@ current entry.
 `compact` exists as its own field because `edgeBack` cannot stand in for it: `edgeBack` is also `false` at the plugin root, where the edge belongs to the drawer, so popping from a child route back to the plugin root would lose its transition exactly as the pop began. The plugin document must not derive the viewport class itself either — media queries inside the iframe measure the content area rather than the window, so an iframe narrowed by the desktop sidebar would disagree with the kernel. `resolveEdge` stays the only definition of a compact viewport.
 
 Plugin to kernel carries `{ type: "navigate-back" }` when a plugin-owned back gesture commits. It is a semantic request, not a history mutation: the kernel owns global history and decides whether the pop happens. No per-frame gesture data crosses the port.
+
+Plugin-to-kernel `navigate` remains route-only: its `location` field is a `PluginRouteLocation`, and an entity location cannot be sent through that message. A canonical entity-navigation API for plugins is deferred.
 
 Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input: JsonValue }`; `input` is required. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where a successful outcome carries a `JsonValue` and a declared backend/platform operation execution failure carries the opaque `"operation-failed"` outcome. The SDK maps local validation, capability, result, lifecycle, protocol, and transport conditions to the exact public `RyotClientError` reasons above. A non-JSON operation output becomes `"malformed-result"` before bridge delivery; it is not stringified or otherwise normalized. Expected plugin business/domain outcomes remain successful values decoded by the caller's output schema.
 

@@ -2,8 +2,10 @@
 import {
 	CLIENT_API_VERSION,
 	PluginBridgeInit,
+	PluginEntityLocation,
 	type PluginThemeSnapshot,
 	type PluginLogicalLocation,
+	type PluginRouteLocation,
 	type PluginOperationOutcome,
 	type PluginRyotQLOutcome,
 } from "@ryot-app/contract/modules/plugins/client";
@@ -24,10 +26,15 @@ import {
 import type { PluginNavigationRequest } from "#/modules/plugins/plugin-location";
 import type { ThemeStore } from "#/modules/theme/store";
 
-const home: PluginLogicalLocation = { path: "/", search: "" };
+const home: PluginRouteLocation = { kind: "route", path: "/", search: "" };
+const entity = Schema.decodeUnknownSync(PluginEntityLocation)({
+	entityId: "entity-1",
+	entitySchemaSlug: "show",
+	kind: "entity",
+});
 const navigationFor = (state: {
-	readonly location: PluginLogicalLocation;
 	readonly index?: number;
+	readonly location: PluginLogicalLocation;
 }) => ({
 	compact: false,
 	edgeBack: false,
@@ -289,12 +296,41 @@ describe("plugin artifact session lifecycle", () => {
 		await flush();
 		const frame = screen.getByTitle("fixture plugin");
 
-		host.moveTo({ overrides: {}, location: { path: "/items/one", search: "tab=stats" } });
+		host.moveTo({
+			overrides: {},
+			location: { kind: "route", path: "/items/one", search: "tab=stats" },
+		});
 		await flush();
 
 		expect(host.creates).toHaveLength(1);
 		expect(host.revokes).toEqual([]);
 		expect(screen.getByTitle("fixture plugin")).toBe(frame);
+	});
+
+	it("passes entity locations once for equivalent values", async () => {
+		const host = renderHost();
+		await flush();
+		const connected = connectFrame(screen.getByTitle("fixture plugin"));
+
+		connected.pluginPort.postMessage(connected.ready);
+		await flush();
+		host.moveTo({ overrides: {}, location: entity });
+		await flush();
+
+		expect(connected.messages).toContainEqual({
+			index: 0,
+			key: "k0",
+			location: entity,
+			compact: false,
+			edgeBack: false,
+			type: "location",
+		});
+		const messageCount = connected.messages.length;
+
+		host.moveTo({ overrides: {}, location: { ...entity } });
+		await flush();
+
+		expect(connected.messages).toHaveLength(messageCount);
 	});
 
 	it.each([
@@ -448,7 +484,11 @@ describe("plugin artifact session lifecycle", () => {
 		});
 		await flush();
 
-		host.moveTo({ overrides: {}, index: 1, location: { path: "/details", search: "" } });
+		host.moveTo({
+			index: 1,
+			overrides: {},
+			location: { kind: "route", path: "/details", search: "" },
+		});
 		await flush();
 		connected.pluginPort.postMessage({
 			index: 0,

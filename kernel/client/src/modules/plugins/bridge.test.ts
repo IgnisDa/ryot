@@ -8,6 +8,8 @@ import {
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeNavigate,
 	type PluginBridgeReady,
+	type PluginLogicalLocation,
+	type PluginRouteLocation,
 	type PluginThemeSnapshot,
 	type PluginOperationBridgeErrorReason,
 	type PluginOperationOutcome,
@@ -15,6 +17,7 @@ import {
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 } from "@ryot-app/contract/modules/plugins/client";
+import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
@@ -24,16 +27,24 @@ import { openPluginBridge, type PluginBridgeSession } from "#/modules/plugins/br
 const decodeInit = Schema.decodeUnknownSync(PluginBridgeInit);
 
 const artifactHash = "artifact-hash";
-const home = { path: "/", search: "" };
-const detail = { path: "/details/1", search: "" };
-const nav = (location = home, index = 0) => ({
+const home: PluginRouteLocation = { kind: "route", path: "/", search: "" };
+const detail: PluginRouteLocation = { kind: "route", path: "/details/1", search: "" };
+const entity: PluginLogicalLocation = {
+	kind: "entity",
+	entityId: EntityId.make("entity-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("show"),
+};
+const nav = (location: PluginLogicalLocation = home, index = 0) => ({
 	index,
 	location,
 	compact: false,
 	edgeBack: false,
 	key: `k${index}`,
 });
-const at = (location = home, index = 0) => ({ ...nav(location, index), type: "location" as const });
+const at = (location: PluginLogicalLocation = home, index = 0) => ({
+	...nav(location, index),
+	type: "location" as const,
+});
 const lightTheme: PluginThemeSnapshot = { resolvedMode: "light" };
 const darkTheme: PluginThemeSnapshot = { resolvedMode: "dark" };
 const document = {
@@ -288,18 +299,32 @@ describe("plugin bridge", () => {
 		const { init, pluginPort, received, session } = connect();
 
 		session.sendLocation(nav(detail, 1));
-		session.sendLocation(nav({ path: "/details/2", search: "tab=stats" }, 2));
+		session.sendLocation(nav({ kind: "route", path: "/details/2", search: "tab=stats" }, 2));
 		pluginPort.postMessage(readyFor(init));
 
 		await waitFor(() =>
-			expect(received).toEqual([at({ path: "/details/2", search: "tab=stats" }, 2)]),
+			expect(received).toEqual([at({ kind: "route", path: "/details/2", search: "tab=stats" }, 2)]),
 		);
 
 		session.sendLocation(nav());
 
 		await waitFor(() =>
-			expect(received).toEqual([at({ path: "/details/2", search: "tab=stats" }, 2), at()]),
+			expect(received).toEqual([
+				at({ kind: "route", path: "/details/2", search: "tab=stats" }, 2),
+				at(),
+			]),
 		);
+	});
+
+	it("sends an entity location from the kernel to the plugin", async () => {
+		const { init, pluginPort, received, session } = connect();
+
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toEqual([at()]));
+
+		session.sendLocation(nav(entity, 1));
+
+		await waitFor(() => expect(received).toEqual([at(), at(entity, 1)]));
 	});
 
 	it("latches a pre-ready theme change and sends later themes on the active channel", async () => {
@@ -337,7 +362,7 @@ describe("plugin bridge", () => {
 		const request = {
 			mode: "push",
 			type: "navigate",
-			location: { path: "/details/1", search: "tab=stats" },
+			location: { kind: "route", path: "/details/1", search: "tab=stats" },
 		} satisfies PluginBridgeNavigate;
 
 		pluginPort.postMessage(readyFor(init));
@@ -763,6 +788,21 @@ describe("plugin bridge", () => {
 		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
 	});
 
+	it.each([
+		["untagged", { path: "/details/1", search: "" }],
+		["entity-shaped", { entityId: "entity-1", entitySchemaSlug: "show", kind: "entity" }],
+	] as const)("fails an %s plugin navigation message", async (_label, location) => {
+		const { init, pluginPort, received, failures, navigations } = connect();
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toEqual([at()]));
+
+		pluginPort.postMessage({ location, mode: "push", type: "navigate" });
+
+		await waitFor(() => expect(failures).toHaveLength(1));
+		expect(navigations).toEqual([]);
+		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
+	});
+
 	it("aborts pending operation and RyotQL work on failure and suppresses both late results", async () => {
 		let operationSignal: AbortSignal | undefined;
 		let querySignal: AbortSignal | undefined;
@@ -1014,7 +1054,7 @@ describe("plugin bridge", () => {
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
 
-		session.sendLocation(nav({ path: "/details/1", search: "tab=stats" }, 1));
+		session.sendLocation(nav({ kind: "route", path: "/details/1", search: "tab=stats" }, 1));
 
 		pluginPort.postMessage({
 			requestId: "request-1",
@@ -1033,7 +1073,7 @@ describe("plugin bridge", () => {
 
 		expect(received).toEqual([
 			at(),
-			at({ path: "/details/1", search: "tab=stats" }, 1),
+			at({ kind: "route", path: "/details/1", search: "tab=stats" }, 1),
 			{
 				outcome: "success",
 				requestId: "request-1",
