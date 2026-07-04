@@ -1,5 +1,5 @@
 import { FileSystem } from "@effect/platform";
-import { BunFileSystem } from "@effect/platform-bun";
+import { BunContext } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { CompiledSandboxModule } from "@ryot/sandbox-compiler/protocol";
 import { Effect, Schema } from "effect";
@@ -67,7 +67,7 @@ beforeAll(
 				dependencyRuntimeRoot = root;
 				dependencyRuntime = runtime;
 				runnerPath = compiledRunnerPath;
-			}).pipe(Effect.provide(BunFileSystem.layer)),
+			}).pipe(Effect.provide(BunContext.layer)),
 		),
 	120_000,
 );
@@ -84,7 +84,7 @@ afterAll(() => {
 			const fs = yield* FileSystem.FileSystem;
 			yield* fs.chmod(runtime.directory, 0o755).pipe(Effect.ignore);
 			yield* fs.remove(root, { recursive: true });
-		}).pipe(Effect.provide(BunFileSystem.layer)),
+		}).pipe(Effect.provide(BunContext.layer)),
 	);
 });
 

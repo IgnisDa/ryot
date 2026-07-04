@@ -1,5 +1,5 @@
-import { FileSystem } from "@effect/platform";
-import { BunFileSystem } from "@effect/platform-bun";
+import { FileSystem, Path } from "@effect/platform";
+import { BunContext } from "@effect/platform-bun";
 import { CompilerWorkerResponse } from "@ryot/sandbox-compiler/protocol";
 import { Effect, Schema } from "effect";
 import { assert, expect, it } from "vitest";
@@ -13,7 +13,10 @@ it("builds and executes the standalone production compiler worker", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
-				const nodeModules = Bun.fileURLToPath(new URL("../../../node_modules/", import.meta.url));
+				const path = yield* Path.Path;
+				const nodeModules = yield* path.fromFileUrl(
+					new URL("../../../node_modules/", import.meta.url),
+				);
 				const outputDirectory = yield* fs.makeTempDirectoryScoped({
 					prefix: "sandbox-compiler-worker-",
 					directory: nodeModules,
@@ -48,6 +51,6 @@ it("builds and executes the standalone production compiler worker", () =>
 				expect(response.value.javascript).toContain(
 					"sourceMappingURL=data:application/json;base64,",
 				);
-			}).pipe(Effect.provide(BunFileSystem.layer)),
+			}).pipe(Effect.provide(BunContext.layer)),
 		),
 	));
