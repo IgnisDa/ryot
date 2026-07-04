@@ -11,6 +11,7 @@ const KiB = 1024;
 const MiB = 1024 * KiB;
 
 export const SANDBOX_LIMITS = {
+	scratch: { totalBytes: 5 * MiB },
 	compiler: SANDBOX_COMPILER_LIMITS,
 	hostCalls: { http: 50, total: 200 },
 	globalWrites: GLOBAL_WRITE_SANDBOX_LIMITS,
@@ -106,6 +107,11 @@ export const sandboxCacheValueError = (fnName: string, serialized: string, label
 export const sandboxHttpRequestBodyError = (body: string | undefined) =>
 	body !== undefined && utf8ByteLength(body) > SANDBOX_LIMITS.http.requestBytes
 		? `httpCall request body exceeds ${SANDBOX_LIMITS.http.requestBytes} UTF-8 bytes`
+		: null;
+
+export const sandboxScratchQuotaError = (usedBytes: number) =>
+	usedBytes > SANDBOX_LIMITS.scratch.totalBytes
+		? `Sandbox scratch directory uses ${usedBytes} bytes and exceeds the ${SANDBOX_LIMITS.scratch.totalBytes} byte quota`
 		: null;
 
 export const sandboxRunnerRequestError = (request: string) =>

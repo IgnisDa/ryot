@@ -35,6 +35,43 @@ const manifest = definePlugin({
 		},
 	],
 	workflows: [{ slug: "refresh.workflow", scriptSlug: "workflow.test" }],
+	importSources: [
+		{
+			input: "file",
+			slug: "import.test",
+			name: "Test import source",
+			allowedFileExtensions: ["json"],
+			workflowSlug: "refresh.workflow",
+			requiredAppConfigKeys: ["TEST_KEY"],
+			description: "Import test data from a file",
+		},
+	],
+	integrationProviders: [
+		{
+			lot: "yank",
+			name: "Test yank",
+			slug: "integration.yank",
+			scriptSlug: "automation.test",
+			description: "Yank test data",
+			settingsSchema: {
+				fields: {
+					apiKey: {
+						secret: true,
+						type: "string",
+						label: "API key",
+						description: "Provider API key",
+					},
+				},
+			},
+		},
+		{
+			lot: "push",
+			name: "Test push",
+			slug: "integration.push",
+			description: "Push test data",
+			settingsSchema: { fields: {} },
+		},
+	],
 	providers: [
 		{
 			slug: "provider.test",
@@ -141,16 +178,22 @@ describe("definePlugin", () => {
 		type HasWorkflows = "workflows" extends keyof PluginManifest ? true : false;
 		type HasOperations = "operations" extends keyof PluginManifest ? true : false;
 		type HasCapabilities = "capabilities" extends keyof PluginManifest ? true : false;
+		type HasImportSources = "importSources" extends keyof PluginManifest ? true : false;
+		type HasIntegrationProviders = "integrationProviders" extends keyof PluginManifest
+			? true
+			: false;
 
-		const optionalSections: [HasCapabilities, HasCrons, HasBoot, HasOperations, HasWorkflows] = [
-			false,
-			true,
-			true,
-			true,
-			true,
-		];
+		const optionalSections: [
+			HasCapabilities,
+			HasCrons,
+			HasBoot,
+			HasOperations,
+			HasWorkflows,
+			HasImportSources,
+			HasIntegrationProviders,
+		] = [false, true, true, true, true, true, true];
 
-		expect(optionalSections).toEqual([false, true, true, true, true]);
+		expect(optionalSections).toEqual([false, true, true, true, true, true, true]);
 	});
 
 	it("decodes the manifest with the canonical Effect schema", () => {
@@ -512,6 +555,112 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				boot: [{ ...boot, schedule: "0 0 * * *" }],
+			}),
+		).toThrow();
+	});
+
+	it("discriminates integration providers on their lot", () => {
+		const [yank, push] = manifest.integrationProviders;
+		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+			...manifest,
+			integrationProviders: [{ ...yank, lot: "sink", slug: "integration.sink" }, push],
+		});
+
+		expect(decoded.integrationProviders[0]).toMatchObject({
+			lot: "sink",
+			scriptSlug: "automation.test",
+		});
+		expect(decoded.integrationProviders[1]).not.toHaveProperty("scriptSlug");
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				integrationProviders: [yank, { ...push, scriptSlug: "automation.test" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				integrationProviders: [{ ...yank, scriptSlug: undefined }, push],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				integrationProviders: [{ ...yank, lot: "webhook" }, push],
+			}),
+		).toThrow();
+	});
+
+	it("strictly validates integration provider declarations", () => {
+		const [yank, push] = manifest.integrationProviders;
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				integrationProviders: [yank, push, { ...push }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				integrationProviders: [{ ...yank, scriptSlug: "missing.script" }, push],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				integrationProviders: [{ ...yank, description: " " }, push],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				integrationProviders: [{ ...yank, webhookPath: "/hook" }, push],
+			}),
+		).toThrow();
+	});
+
+	it("strictly validates import source declarations", () => {
+		const importSource = manifest.importSources[0];
+		const decoded = Schema.decodeUnknownSync(PluginManifest)(manifest);
+		expect(decoded.importSources[0]).toMatchObject({
+			input: "file",
+			slug: "import.test",
+			workflowSlug: "refresh.workflow",
+		});
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				importSources: [{ ...importSource, workflowSlug: "missing.workflow" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				importSources: [{ ...importSource, workflowSlug: "workflow.test" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				importSources: [{ ...importSource, input: "stream" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				importSources: [importSource, { ...importSource }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				importSources: [{ ...importSource, allowedFileExtensions: [""] }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				importSources: [{ ...importSource, maxFileSizeBytes: 1024 }],
 			}),
 		).toThrow();
 	});

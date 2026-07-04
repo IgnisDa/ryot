@@ -67,6 +67,7 @@ export type AppStringPropertyValidation = AppPropertyValidationBase & {
 type AppPropertyBase<TValidation> = {
 	readonly label: string;
 	readonly description: string;
+	readonly secret?: true | undefined;
 	readonly validation?: TValidation | undefined;
 	readonly translatable?: true | undefined;
 	readonly transform?: AppPropertyTransform | undefined;
@@ -281,6 +282,7 @@ const enumOptionsSchema = Schema.Array(nonEmptyTrimmedString).pipe(
 const propertyBaseFields = {
 	label: nonEmptyTrimmedString,
 	description: nonEmptyTrimmedString,
+	secret: Schema.optional(Schema.Literal(true)),
 	translatable: Schema.optional(Schema.Literal(true)),
 };
 
@@ -457,4 +459,14 @@ export const AppSchema: Schema.Schema<AppSchema> = appSchemaBase;
 export const collectTranslatableProperties = (schema: AppSchema): ReadonlyArray<string> =>
 	Object.entries(schema.fields).flatMap(([key, definition]) =>
 		definition.translatable === true ? [key] : [],
+	);
+
+/**
+ * Returns the top-level property keys a schema declares as secret. These carry
+ * credentials, so the client renders them as password inputs and the kernel redacts
+ * them when handing a stored value back.
+ */
+export const collectSecretProperties = (schema: AppSchema): ReadonlyArray<string> =>
+	Object.entries(schema.fields).flatMap(([key, definition]) =>
+		definition.secret === true ? [key] : [],
 	);
