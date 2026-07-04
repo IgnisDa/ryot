@@ -28,7 +28,7 @@ Ryot is a self-hosted personal tracker. Keep the UI warm, calm, compact, scannab
 - Do not use test-framework module mocks, spies, or mock functions for application services, atoms, hooks, globals, or injected operations. Extract pure logic into dependency-free modules, use plain recording functions for injected operations, and provide deterministic test `Layer` implementations at Effect boundaries.
 - Show stable user-facing errors and log internal transport or decoder details separately.
 - Keep persisted state in its owning module and make each key's global or server/user scope explicit. Never clear storage outside Ryot-owned keys.
-- When working on client behavior that integrates with the backend, consult the relevant end-to-end and integration tests under `tests/src/tests/`, along with supporting fixtures in `tests/src/fixtures/` and `tests/src/support/`, to follow established API, authentication, data setup, and async-operation patterns. Reuse those patterns where applicable.
+- When working on client behavior that integrates with the backend, consult the relevant end-to-end and integration tests under `e2e/src/api/`, along with supporting fixtures in `e2e/src/fixtures/` and `e2e/src/support/`, to follow established API, authentication, data setup, and async-operation patterns. Reuse those patterns where applicable.
 - Keep route and navigation logic in the existing Expo Router and navigation helpers.
 - A new top-level route under `src/app` claims a name out of the plugin slug namespace. Add it to `reservedPluginSlugs` in `@ryot/contract` in the same change.
 - All text inputs must be submittable via Enter. Last field: `onSubmitEditing` + `returnKeyType="go"`. Intermediate fields: `returnKeyType="next"` with focus forwarding.

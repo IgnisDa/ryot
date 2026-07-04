@@ -1,0 +1,38 @@
+{
+	"name": "@ryot/e2e",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"devDependencies": {
+		"@aws-sdk/client-s3": "3.1032.0",
+		"@better-auth/api-key": "1.7.0-rc.6",
+		"@effect/platform-bun": "4.0.0-beta.107",
+		"@effect/vitest": "4.0.0-beta.107",
+		"@faker-js/faker": "10.4.0",
+		"@ryot/contract": "workspace:*",
+		"@ryot/fitness-plugin": "workspace:*",
+		"@ryot/fixture-plugin": "workspace:*",
+		"@ryot/media-plugin": "workspace:*",
+		"@ryot/plugin-archive": "workspace:*",
+		"@ryot/plugin-kit": "workspace:*",
+		"@ryot/ryotql": "workspace:*",
+		"@ryot/ryotql-recipes": "workspace:*",
+		"@ryot/sandbox-sdk": "workspace:*",
+		"@ryot/server": "workspace:*",
+		"@ryot/testing": "workspace:*",
+		"@ryot/ts-utils": "workspace:*",
+		"@testcontainers/postgresql": "11.14.0",
+		"better-auth": "1.7.0-rc.6",
+		"dotenv": "17.3.1",
+		"effect": "4.0.0-rc.111",
+		"fflate": "^0.8.3",
+		"get-port": "7.2.0",
+		"oauth2-mock-server": "9.1.0",
+		"rfc4648": "1.5.4",
+		"testcontainers": "11.14.0",
+		"vitest": "4.1.9"
+	}
+}
