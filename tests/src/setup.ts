@@ -6,7 +6,6 @@ import { Pool as PgPool } from "pg";
 
 import { requirePresent } from "./support/assertions";
 import {
-	attachProcessLogs,
 	buildBackendEnv,
 	startCoreTestInfrastructure,
 	spawnBackendProcess,
@@ -42,6 +41,7 @@ beforeAll(async () => {
 
 	backendProcess = spawnBackendProcess(
 		buildBackendEnv({
+			label: "Backend",
 			port: backendPort,
 			dbUrl: infrastructure.dbUrl,
 			s3BucketName: S3_BUCKET_NAME,
@@ -60,7 +60,6 @@ beforeAll(async () => {
 			},
 		}),
 	);
-	attachProcessLogs(backendProcess, "Backend");
 
 	const healthCheckUrl = `http://127.0.0.1:${backendPort}/api/system/health`;
 	await waitForHealthCheck(healthCheckUrl, "E2E Setup");

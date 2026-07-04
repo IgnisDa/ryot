@@ -1,5 +1,4 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { appendFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,8 +8,6 @@ import { GenericContainer, type StartedTestContainer, Wait } from "testcontainer
 
 const S3_ACCESS_KEY = "rustfsadmin";
 const S3_SECRET_KEY = "rustfsadmin";
-
-const intentionallyStoppedProcesses = new WeakSet<ChildProcess>();
 
 export type CoreTestInfrastructure = {
 	dbUrl: string;
@@ -56,15 +53,7 @@ export async function startCoreTestInfrastructure(input: {
 
 	await s3Client.send(new CreateBucketCommand({ Bucket: input.bucketName }));
 
-	return {
-		dbUrl,
-		redisUrl,
-		s3Client,
-		s3Endpoint,
-		pgContainer,
-		s3Container,
-		redisContainer,
-	};
+	return { dbUrl, redisUrl, s3Client, s3Endpoint, pgContainer, s3Container, redisContainer };
 }
 
 export async function stopCoreTestInfrastructure(infrastructure?: CoreTestInfrastructure) {
@@ -80,18 +69,24 @@ export async function stopCoreTestInfrastructure(infrastructure?: CoreTestInfras
 }
 
 export function buildBackendEnv(input: {
-	dbUrl: string;
 	port: number;
+	dbUrl: string;
+	label: string;
 	redisUrl: string;
 	s3Endpoint: string;
 	frontendUrl: string;
 	s3BucketName: string;
 	extraEnv?: Record<string, string | undefined>;
 }): NodeJS.ProcessEnv {
+	const safeLabel = input.label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+	const logFile = join(tmpdir(), `ryot-e2e-${safeLabel}-${input.port}-${Date.now()}.log`);
+	console.log(`[${input.label}] backend logs -> ${logFile}`);
+
 	return {
 		...process.env,
 		NODE_ENV: "test",
 		DATABASE_POOL_MAX: "50",
+		SERVER_LOG_FILE: logFile,
 		DATABASE_URL: input.dbUrl,
 		REDIS_URL: input.redisUrl,
 		PORT: input.port.toString(),
@@ -110,48 +105,7 @@ export function buildBackendEnv(input: {
 }
 
 export function spawnBackendProcess(env: NodeJS.ProcessEnv, cwd = "../apps/app-backend") {
-	return spawn("bun", ["run", "src/main.ts"], {
-		env,
-		cwd,
-		stdio: ["ignore", "pipe", "pipe"],
-	});
-}
-
-export function attachProcessLogs(proc: ChildProcess, label: string) {
-	const safeLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-	const logPath = join(
-		tmpdir(),
-		`ryot-e2e-${safeLabel}-${Date.now()}-${proc.pid ?? "unknown"}.log`,
-	);
-	try {
-		writeFileSync(logPath, "");
-	} catch {}
-	console.log(`[${label}] backend logs -> ${logPath}`);
-	const persist = (data: unknown) => {
-		try {
-			appendFileSync(logPath, String(data));
-		} catch {}
-	};
-
-	proc.stdout?.setEncoding("utf8");
-	proc.stderr?.setEncoding("utf8");
-
-	proc.stdout?.on("data", persist);
-	proc.stderr?.on("data", persist);
-
-	proc.once("close", (code, signal) => {
-		if (!intentionallyStoppedProcesses.has(proc)) {
-			console.error(
-				`[${label}] exited unexpectedly (code=${code ?? "null"}, signal=${signal ?? "null"}); see logs at ${logPath}`,
-			);
-		}
-	});
-
-	proc.once("error", (error) => {
-		if (!intentionallyStoppedProcesses.has(proc)) {
-			console.error(`[${label}] failed to start: ${error.message}; see logs at ${logPath}`);
-		}
-	});
+	return spawn("bun", ["run", "src/main.ts"], { env, cwd, stdio: "ignore" });
 }
 
 export async function waitForHealthCheck(
@@ -190,9 +144,6 @@ export async function stopBackendProcess(proc?: ChildProcess) {
 		proc.once("exit", () => resolve());
 		if (!proc.kill("SIGINT")) {
 			resolve();
-			return;
 		}
-
-		intentionallyStoppedProcesses.add(proc);
 	});
 }
