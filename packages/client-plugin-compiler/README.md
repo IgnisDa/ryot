@@ -11,11 +11,24 @@ namespace. Compiler-owned HTML, bootstrap, and style entries are staged separate
 TypeScript bundler resolution handles relative TypeScript imports, including extensionless imports
 and `.js` specifiers that resolve to TypeScript sources.
 
-Author imports are checked before Vite runs, including type-only imports. Client sources retain the
-exact trusted-module allowlist in `AGENTS.md`; shared sources can use only the three neutral
-plugin-kit entry points and relative shared files. Contributor public imports resolve only through
-the authorized export map. Dynamic imports, Vite query and glob imports, escaping asset URLs, and
-archive Tailwind `@plugin`, `@config`, and `@source` directives are rejected.
+Author imports are checked before Vite runs, including type-only imports. The data-only dependency
+registry in `src/dependencies.ts` is the authority for trusted and neutral module membership and
+TypeScript entry resolution. Shared sources can use only neutral registry entries and relative
+shared files. Contributor public imports resolve only through the authorized export map. Dynamic
+imports, Vite query and glob imports, escaping asset URLs, and archive Tailwind `@plugin`,
+`@config`, and `@source` directives are rejected.
+
+## Compilation Stages
+
+Effect schemas in `src/input.ts` define both package and contributor-graph inputs, exports, routes,
+and automatic registrations. Their derived types are the public compiler types. Worker schemas
+reuse the same structures and transform canonical Base64 directly to bytes; artifact Base64 uses
+the transform owned by `@ryot-app/client-plugin-contract`.
+
+`src/planning.ts` normalizes either input into one validated `ClientCompilationPlan`. Execution then
+decodes and checks source policy and limits, performs semantic analysis, stages a workspace, invokes
+Vite, validates output, and finalizes the artifact. Compiler-owned bootstrap, validation, HTML, and
+stylesheet generation is isolated in `src/generated-source.ts`.
 
 ## Vite Application
 
@@ -41,6 +54,6 @@ validated. `index.html` remains the stable served entry.
 
 The hash covers every non-HTML output byte and content type plus the plugin name and protocol
 identity. Vite emits HTML with a compiler placeholder; the compiler computes metadata from the
-other outputs and variable title input, then replaces that placeholder and appends `index.html`
-last. This avoids hashing a document that embeds its own hash. The current compiler identity is 1;
-artifact format, client API, and bridge protocol remain version 1.
+other outputs and variable title input, then replaces that placeholder. This avoids hashing a
+document that embeds its own hash. All final files, including `index.html`, are sorted by name. The
+current compiler identity is 1; artifact format, client API, and bridge protocol remain version 1.

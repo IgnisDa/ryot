@@ -13,8 +13,10 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
+		"@oxc-project/types": "0.132.0",
 		"@ryot-app/typescript-compiler": "workspace:*",
 		"effect": "4.0.0-rc.111",
+		"rolldown": "1.0.2",
 		"vite": "8.0.14"
 	},
 	"devDependencies": {

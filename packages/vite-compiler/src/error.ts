@@ -30,10 +30,6 @@ export class ViteCompilerError extends Data.TaggedError("ViteCompilerError")<{
 	readonly diagnostics?: readonly ViteDiagnostic[];
 }> {}
 
-export class ViteBuildInvocationError extends Data.TaggedError("ViteBuildInvocationError")<{
-	readonly cause: unknown;
-}> {}
-
 export const viteCompilerError = (
 	reason: ViteCompilerErrorReason,
 	message: string,
