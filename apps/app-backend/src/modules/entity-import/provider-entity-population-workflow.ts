@@ -562,8 +562,15 @@ export const ProviderEntityPopulationWorkflow = Workflow.make({
 // `ProviderEntityPopulationWorkflow` via the workflow engine; the
 // workflow-boundaries test enforces that this handler is never imported
 // by production modules.
-export const runProviderEntityPopulationWorkflow = Effect.fn("runProviderEntityPopulationWorkflow")(
+export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopulationWorkflow")(
 	function* (payload: ProviderEntityPopulationPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({
+			executionId,
+			scriptId: payload.scriptId,
+			externalId: payload.externalId,
+			entitySchemaId: payload.entitySchemaId,
+			...(payload.userId ? { userId: payload.userId } : {}),
+		});
 		const existing = yield* checkExistingEntity(payload);
 		const rootPreviouslyPopulated = existing !== null && existing.populatedAt !== null;
 		if (payload.mode === "ensure") {
@@ -598,22 +605,12 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("runProviderEntityP
 			rootPreviouslyPopulated,
 		);
 	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "ProviderEntityPopulationWorkflow" }),
 );
 
 const ProviderEntityPopulationWorkflowLive = ProviderEntityPopulationWorkflow.toLayer(
-	(payload, executionId) =>
-		runProviderEntityPopulationWorkflow(payload, executionId).pipe(
-			Effect.withSpan("ProviderEntityPopulationWorkflow", {
-				attributes: {
-					executionId,
-					scriptId: payload.scriptId,
-					externalId: payload.externalId,
-					entitySchemaId: payload.entitySchemaId,
-					...(payload.userId ? { userId: payload.userId } : {}),
-				},
-			}),
-			Effect.annotateLogs({ executionId, workflow: "ProviderEntityPopulationWorkflow" }),
-		),
+	runProviderEntityPopulationWorkflow,
 );
 
 export const ProviderEntityPopulationWorkflowDefinitionsLive = ProviderEntityPopulationWorkflowLive;

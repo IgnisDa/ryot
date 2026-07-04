@@ -10,6 +10,11 @@ import { SavedViewsService } from "./service";
 
 export const processDefaultSavedView = (payload: CreateDefaultSavedViewPayload) =>
 	Effect.gen(function* () {
+		yield* Effect.annotateCurrentSpan({
+			userId: payload.userId,
+			trackerId: payload.trackerId,
+			executionId: payload.executionId,
+		});
 		const service = yield* SavedViewsService;
 		yield* service
 			.createDefaultForSchema({
@@ -23,14 +28,7 @@ export const processDefaultSavedView = (payload: CreateDefaultSavedViewPayload) 
 			.pipe(Effect.catchTag("Conflict", () => Effect.void));
 	});
 
-export const DefaultSavedViewWorkerLive = DurableQueue.worker(DefaultSavedViewQueue, (payload) =>
-	processDefaultSavedView(payload).pipe(
-		Effect.withSpan("DefaultSavedViewQueue", {
-			attributes: {
-				userId: payload.userId,
-				trackerId: payload.trackerId,
-				executionId: payload.executionId,
-			},
-		}),
-	),
+export const DefaultSavedViewWorkerLive = DurableQueue.worker(
+	DefaultSavedViewQueue,
+	processDefaultSavedView,
 );

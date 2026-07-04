@@ -8,15 +8,12 @@ export const EnsureLibraryMembershipWorkerLive = DurableQueue.worker(
 	EnsureLibraryMembershipQueue,
 	(payload) =>
 		Effect.gen(function* () {
+			yield* Effect.annotateCurrentSpan({
+				userId: payload.userId,
+				entityId: payload.entityId,
+				executionId: payload.executionId,
+			});
 			const collections = yield* CollectionsService;
 			yield* collections.ensureEntityInLibrary(payload.userId, payload.entityId);
-		}).pipe(
-			Effect.withSpan("EnsureLibraryMembershipQueue", {
-				attributes: {
-					userId: payload.userId,
-					entityId: payload.entityId,
-					executionId: payload.executionId,
-				},
-			}),
-		),
+		}),
 );

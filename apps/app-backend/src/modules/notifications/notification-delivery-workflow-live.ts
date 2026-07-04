@@ -9,8 +9,9 @@ import {
 	type NotificationDeliveryWorkflowPayload,
 } from "./notification-delivery-workflow";
 
-export const runNotificationDeliveryWorkflow = Effect.fn("runNotificationDeliveryWorkflow")(
-	function* (payload: NotificationDeliveryWorkflowPayload) {
+export const runNotificationDeliveryWorkflow = Effect.fn("NotificationDeliveryWorkflow")(
+	function* (payload: NotificationDeliveryWorkflowPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({ executionId, userId: payload.userId });
 		return yield* Activity.make({
 			error: DbError,
 			name: "deliver-enabled-channels",
@@ -18,16 +19,12 @@ export const runNotificationDeliveryWorkflow = Effect.fn("runNotificationDeliver
 			success: Schema.Array(NotificationDeliveryResult),
 		});
 	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "NotificationDeliveryWorkflow" }),
 );
 
 const NotificationDeliveryWorkflowLive = NotificationDeliveryWorkflow.toLayer(
-	(payload, executionId) =>
-		runNotificationDeliveryWorkflow(payload).pipe(
-			Effect.withSpan("NotificationDeliveryWorkflow", {
-				attributes: { executionId, userId: payload.userId },
-			}),
-			Effect.annotateLogs({ executionId, workflow: "NotificationDeliveryWorkflow" }),
-		),
+	runNotificationDeliveryWorkflow,
 );
 
 export const NotificationDeliveryWorkflowDefinitionsLive = Layer.mergeAll(

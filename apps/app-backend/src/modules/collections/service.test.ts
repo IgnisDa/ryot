@@ -218,13 +218,16 @@ const runAddWorkflow = (input: {
 			return Effect.succeed(options.executionId);
 		},
 	});
-	return runAddEntityToCollectionWorkflow({
+	return runAddEntityToCollectionWorkflow(
+		{
+			executionId,
+			userId: user.id,
+			entityId: input.entityId,
+			properties: input.properties,
+			collectionId: input.collectionId,
+		},
 		executionId,
-		userId: user.id,
-		entityId: input.entityId,
-		properties: input.properties,
-		collectionId: input.collectionId,
-	}).pipe(
+	).pipe(
 		Effect.provideService(WorkflowEngine, engine),
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provide(input.layer),

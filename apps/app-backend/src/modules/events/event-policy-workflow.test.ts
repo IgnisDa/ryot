@@ -165,7 +165,7 @@ const run = (input: {
 	return {
 		created,
 		sandboxPayloads,
-		effect: runEventCreateWorkflow(input.payload).pipe(
+		effect: runEventCreateWorkflow(input.payload, input.payload.executionId).pipe(
 			Effect.provide(layer),
 			Effect.provideService(WorkflowEngine, engine),
 			Effect.provideService(WorkflowInstance, instance),
