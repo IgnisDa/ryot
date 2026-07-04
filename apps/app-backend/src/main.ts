@@ -28,7 +28,7 @@ if (Bun.env["POPULATE_SANDBOX_CACHE_ONLY"] === "true") {
 	process.exit(0);
 }
 
-if (Bun.env.NODE_ENV !== "production") {
+if (Bun.env["NODE_ENV"] !== "production") {
 	await Effect.runPromise(
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
