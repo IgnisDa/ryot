@@ -258,7 +258,7 @@ describe("plugin navigation", () => {
 		await screen.findByRole("dialog", { name: "Navigation" });
 		expect(content.hasAttribute("inert")).toBe(true);
 
-		fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
+		fireEvent.click(screen.getByTestId("drawer-scrim"));
 		await waitFor(() => expect(content.hasAttribute("inert")).toBe(false));
 	});
 
@@ -295,7 +295,7 @@ describe("plugin navigation", () => {
 		connected.pluginPort.postMessage({ type: "open-drawer" });
 		await screen.findByRole("dialog", { name: "Navigation" });
 		expect(frame()).toBe(iframe);
-		fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
+		fireEvent.click(screen.getByTestId("drawer-scrim"));
 		await waitFor(() => expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull());
 		expect(screen.getByTestId("authenticated-shell")).toBe(shell);
 		expect(screen.getByTestId("shell-content")).toBe(content);

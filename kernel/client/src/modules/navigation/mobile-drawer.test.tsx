@@ -140,7 +140,7 @@ describe("mobile drawer", () => {
 	it("contains forward and reverse Tab focus", async () => {
 		render(<Harness />);
 		const { dialog } = await openDrawer();
-		const first = screen.getByRole("button", { name: "Close navigation" });
+		const first = screen.getByRole("button", { name: "Media workspace, media" });
 		const last = screen.getByRole("link", { name: "Open settings" });
 
 		first.focus();
