@@ -39,6 +39,30 @@ CREATE TABLE "apikey" (
 	"reference_id" text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "automation_rule" (
+	"position" integer,
+	"name" text NOT NULL,
+	"metadata" jsonb,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"kind" text NOT NULL,
+	"is_builtin" boolean DEFAULT false NOT NULL,
+	"operation" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"user_id" text,
+	"event_schema_id" text,
+	"entity_schema_id" text,
+	"signal_schema_id" text,
+	"relationship_schema_id" text,
+	"sandbox_script_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "automation_rule_kind_check" CHECK ("automation_rule"."kind" in ('policy', 'subscription')),
+	CONSTRAINT "automation_rule_operation_check" CHECK ("automation_rule"."operation" in ('create', 'update', 'delete', 'signal')),
+	CONSTRAINT "automation_rule_one_target_check" CHECK (num_nonnulls("automation_rule"."entity_schema_id", "automation_rule"."event_schema_id", "automation_rule"."relationship_schema_id", "automation_rule"."signal_schema_id") = 1),
+	CONSTRAINT "automation_rule_target_operation_check" CHECK ((("automation_rule"."signal_schema_id" is not null and "automation_rule"."kind" = 'subscription' and "automation_rule"."operation" = 'signal') or ("automation_rule"."signal_schema_id" is null and "automation_rule"."operation" <> 'signal'))),
+	CONSTRAINT "automation_rule_position_check" CHECK ("automation_rule"."kind" = 'policy' or "automation_rule"."position" is null)
+);
+--> statement-breakpoint
 CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
@@ -218,8 +242,10 @@ CREATE TABLE "relationship_schema" (
 CREATE TABLE "sandbox_script" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
-	"code" text NOT NULL,
+	"source" text NOT NULL,
+	"compiled_code" text NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
+	"compiled_format" smallint DEFAULT 1 NOT NULL,
 	"metadata" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
@@ -256,6 +282,67 @@ CREATE TABLE "session" (
 	"updated_at" timestamp with time zone NOT NULL,
 	"user_id" text NOT NULL,
 	CONSTRAINT "session_token_unique" UNIQUE("token")
+);
+--> statement-breakpoint
+CREATE TABLE "signal" (
+	"id" text PRIMARY KEY NOT NULL,
+	"origin" jsonb NOT NULL,
+	"properties" jsonb NOT NULL,
+	"occurred_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"actor_user_id" text,
+	"signal_schema_id" text NOT NULL,
+	"subject_entity_id" text
+);
+--> statement-breakpoint
+CREATE TABLE "signal_recipient" (
+	"user_id" text NOT NULL,
+	"signal_id" text NOT NULL,
+	CONSTRAINT "signal_recipient_signal_id_user_id_pk" PRIMARY KEY("signal_id","user_id")
+);
+--> statement-breakpoint
+CREATE TABLE "signal_schema" (
+	"slug" text NOT NULL,
+	"name" text NOT NULL,
+	"catalog_state" text NOT NULL,
+	"is_builtin" boolean DEFAULT false NOT NULL,
+	"properties_schema" jsonb NOT NULL,
+	"audience_policy" jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"user_id" text,
+	"id" text PRIMARY KEY NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "signal_schema_user_slug_unique" UNIQUE("user_id","slug"),
+	CONSTRAINT "signal_schema_catalog_state_check" CHECK ("signal_schema"."catalog_state" in ('active', 'hidden'))
+);
+--> statement-breakpoint
+CREATE TABLE "subscription_run" (
+	"record_id" text,
+	"rule_name" text NOT NULL,
+	"occurrence_id" text NOT NULL,
+	"original_rule_id" text NOT NULL,
+	"sandbox_script_id" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
+	"logs" jsonb,
+	"timing" jsonb,
+	"started_at" timestamp with time zone,
+	"finished_at" timestamp with time zone,
+	"rule_metadata" jsonb,
+	"sandbox_error" jsonb,
+	"skip_reason" jsonb,
+	"returned_value" jsonb,
+	"operation" text NOT NULL,
+	"script_updated_at" timestamp with time zone,
+	"source_kind" text NOT NULL,
+	"queued_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"status" text DEFAULT 'queued' NOT NULL,
+	"signal_id" text,
+	"execution_user_id" text,
+	"rule_id" text,
+	CONSTRAINT "subscription_run_operation_check" CHECK ("subscription_run"."operation" in ('create', 'update', 'delete', 'signal')),
+	CONSTRAINT "subscription_run_source_kind_check" CHECK ("subscription_run"."source_kind" in ('entity', 'event', 'relationship', 'signal')),
+	CONSTRAINT "subscription_run_status_check" CHECK ("subscription_run"."status" in ('queued', 'running', 'succeeded', 'failed', 'skipped')),
+	CONSTRAINT "subscription_run_source_check" CHECK ((("subscription_run"."source_kind" = 'signal' and "subscription_run"."operation" = 'signal' and "subscription_run"."signal_id" is not null and "subscription_run"."record_id" is null) or ("subscription_run"."source_kind" <> 'signal' and "subscription_run"."operation" <> 'signal' and "subscription_run"."signal_id" is null and "subscription_run"."record_id" is not null)))
 );
 --> statement-breakpoint
 CREATE TABLE "tracker" (
@@ -299,9 +386,9 @@ CREATE TABLE "user" (
 	"two_factor_enabled" boolean,
 	"email" text NOT NULL,
 	"disabled_at" timestamp with time zone,
+	"email_verified" boolean DEFAULT false NOT NULL,
 	"bootstrap_completed_at" timestamp with time zone,
 	"preferences" jsonb NOT NULL,
-	"email_verified" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "user_email_unique" UNIQUE("email")
@@ -318,6 +405,12 @@ CREATE TABLE "verification" (
 --> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "apikey" ADD CONSTRAINT "apikey_reference_id_user_id_fk" FOREIGN KEY ("reference_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "automation_rule" ADD CONSTRAINT "automation_rule_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "automation_rule" ADD CONSTRAINT "automation_rule_event_schema_id_event_schema_id_fk" FOREIGN KEY ("event_schema_id") REFERENCES "public"."event_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "automation_rule" ADD CONSTRAINT "automation_rule_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "automation_rule" ADD CONSTRAINT "automation_rule_signal_schema_id_signal_schema_id_fk" FOREIGN KEY ("signal_schema_id") REFERENCES "public"."signal_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "automation_rule" ADD CONSTRAINT "automation_rule_relationship_schema_id_relationship_schema_id_fk" FOREIGN KEY ("relationship_schema_id") REFERENCES "public"."relationship_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "automation_rule" ADD CONSTRAINT "automation_rule_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -350,6 +443,15 @@ ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_user_id_user_id_fk" 
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_tracker_id_tracker_id_fk" FOREIGN KEY ("tracker_id") REFERENCES "public"."tracker"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signal" ADD CONSTRAINT "signal_actor_user_id_user_id_fk" FOREIGN KEY ("actor_user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signal" ADD CONSTRAINT "signal_signal_schema_id_signal_schema_id_fk" FOREIGN KEY ("signal_schema_id") REFERENCES "public"."signal_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signal" ADD CONSTRAINT "signal_subject_entity_id_entity_id_fk" FOREIGN KEY ("subject_entity_id") REFERENCES "public"."entity"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signal_recipient" ADD CONSTRAINT "signal_recipient_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signal_recipient" ADD CONSTRAINT "signal_recipient_signal_id_signal_id_fk" FOREIGN KEY ("signal_id") REFERENCES "public"."signal"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "signal_schema" ADD CONSTRAINT "signal_schema_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "subscription_run" ADD CONSTRAINT "subscription_run_signal_id_signal_id_fk" FOREIGN KEY ("signal_id") REFERENCES "public"."signal"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "subscription_run" ADD CONSTRAINT "subscription_run_execution_user_id_user_id_fk" FOREIGN KEY ("execution_user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "subscription_run" ADD CONSTRAINT "subscription_run_rule_id_automation_rule_id_fk" FOREIGN KEY ("rule_id") REFERENCES "public"."automation_rule"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tracker" ADD CONSTRAINT "tracker_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tracker_entity_schema" ADD CONSTRAINT "tracker_entity_schema_tracker_id_tracker_id_fk" FOREIGN KEY ("tracker_id") REFERENCES "public"."tracker"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tracker_entity_schema" ADD CONSTRAINT "tracker_entity_schema_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -358,6 +460,20 @@ CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> state
 CREATE INDEX "apikey_configId_idx" ON "apikey" USING btree ("config_id");--> statement-breakpoint
 CREATE INDEX "apikey_referenceId_idx" ON "apikey" USING btree ("reference_id");--> statement-breakpoint
 CREATE INDEX "apikey_key_idx" ON "apikey" USING btree ("key");--> statement-breakpoint
+CREATE INDEX "automation_rule_user_id_idx" ON "automation_rule" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "automation_rule_entity_schema_id_idx" ON "automation_rule" USING btree ("entity_schema_id");--> statement-breakpoint
+CREATE INDEX "automation_rule_event_schema_id_idx" ON "automation_rule" USING btree ("event_schema_id");--> statement-breakpoint
+CREATE INDEX "automation_rule_relationship_schema_id_idx" ON "automation_rule" USING btree ("relationship_schema_id");--> statement-breakpoint
+CREATE INDEX "automation_rule_signal_schema_id_idx" ON "automation_rule" USING btree ("signal_schema_id");--> statement-breakpoint
+CREATE INDEX "automation_rule_sandbox_script_id_idx" ON "automation_rule" USING btree ("sandbox_script_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "automation_rule_user_entity_schema_unique" ON "automation_rule" USING btree ("user_id","entity_schema_id","operation","sandbox_script_id") WHERE "automation_rule"."user_id" is not null and "automation_rule"."entity_schema_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "automation_rule_global_entity_schema_unique" ON "automation_rule" USING btree ("entity_schema_id","operation","sandbox_script_id") WHERE "automation_rule"."user_id" is null and "automation_rule"."entity_schema_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "automation_rule_user_event_schema_unique" ON "automation_rule" USING btree ("user_id","event_schema_id","operation","sandbox_script_id") WHERE "automation_rule"."user_id" is not null and "automation_rule"."event_schema_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "automation_rule_global_event_schema_unique" ON "automation_rule" USING btree ("event_schema_id","operation","sandbox_script_id") WHERE "automation_rule"."user_id" is null and "automation_rule"."event_schema_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "automation_rule_user_relationship_schema_unique" ON "automation_rule" USING btree ("user_id","relationship_schema_id","operation","sandbox_script_id") WHERE "automation_rule"."user_id" is not null and "automation_rule"."relationship_schema_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "automation_rule_global_relationship_schema_unique" ON "automation_rule" USING btree ("relationship_schema_id","operation","sandbox_script_id") WHERE "automation_rule"."user_id" is null and "automation_rule"."relationship_schema_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "automation_rule_user_signal_schema_unique" ON "automation_rule" USING btree ("user_id","signal_schema_id","operation","sandbox_script_id") WHERE "automation_rule"."user_id" is not null and "automation_rule"."signal_schema_id" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "automation_rule_global_signal_schema_unique" ON "automation_rule" USING btree ("signal_schema_id","operation","sandbox_script_id") WHERE "automation_rule"."user_id" is null and "automation_rule"."signal_schema_id" is not null;--> statement-breakpoint
 CREATE INDEX "entity_user_id_idx" ON "entity" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_external_id_idx" ON "entity" USING btree ("external_id");--> statement-breakpoint
 CREATE INDEX "entity_entity_schema_id_idx" ON "entity" USING btree ("entity_schema_id");--> statement-breakpoint
@@ -402,6 +518,16 @@ CREATE INDEX "sandbox_script_user_id_idx" ON "sandbox_script" USING btree ("user
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_tracker_id_idx" ON "saved_view" USING btree ("tracker_id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "signal_actor_user_id_idx" ON "signal" USING btree ("actor_user_id");--> statement-breakpoint
+CREATE INDEX "signal_signal_schema_id_idx" ON "signal" USING btree ("signal_schema_id");--> statement-breakpoint
+CREATE INDEX "signal_subject_entity_id_idx" ON "signal" USING btree ("subject_entity_id");--> statement-breakpoint
+CREATE INDEX "signal_recipient_user_id_idx" ON "signal_recipient" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "signal_schema_user_id_idx" ON "signal_schema" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "signal_schema_global_slug_unique" ON "signal_schema" USING btree ("slug") WHERE "signal_schema"."user_id" is null;--> statement-breakpoint
+CREATE INDEX "subscription_run_execution_user_id_idx" ON "subscription_run" USING btree ("execution_user_id");--> statement-breakpoint
+CREATE INDEX "subscription_run_rule_id_idx" ON "subscription_run" USING btree ("rule_id");--> statement-breakpoint
+CREATE INDEX "subscription_run_original_rule_id_idx" ON "subscription_run" USING btree ("original_rule_id");--> statement-breakpoint
+CREATE INDEX "subscription_run_signal_id_idx" ON "subscription_run" USING btree ("signal_id");--> statement-breakpoint
 CREATE INDEX "tracker_user_id_idx" ON "tracker" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "tracker_entity_schema_tracker_id_idx" ON "tracker_entity_schema" USING btree ("tracker_id");--> statement-breakpoint
 CREATE INDEX "tracker_entity_schema_entity_schema_id_idx" ON "tracker_entity_schema" USING btree ("entity_schema_id");--> statement-breakpoint
