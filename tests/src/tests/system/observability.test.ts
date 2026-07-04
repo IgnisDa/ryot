@@ -55,7 +55,7 @@ function getStringAttribute(attributesValue: unknown, key: string) {
 	return null;
 }
 
-function findWorkflowSpan(userId: string) {
+function findSpan(predicate: (span: Record<string, unknown>) => boolean) {
 	for (const request of requireOtlpServer().requests) {
 		if (request.path !== "/v1/traces") {
 			continue;
@@ -80,10 +80,7 @@ function findWorkflowSpan(userId: string) {
 				const scopeSpan = requireObjectRecord(scopeSpanValue, "OTLP scope span is not an object");
 				for (const spanValue of requireArray(scopeSpan["spans"], "OTLP spans are not an array")) {
 					const span = requireObjectRecord(spanValue, "OTLP span is not an object");
-					if (
-						span["name"] === WORKFLOW_NAME &&
-						getStringAttribute(span["attributes"], "userId") === userId
-					) {
+					if (predicate(span)) {
 						return { resource, span };
 					}
 				}
@@ -91,6 +88,19 @@ function findWorkflowSpan(userId: string) {
 		}
 	}
 	return null;
+}
+
+function findRequestSpan() {
+	return findSpan(
+		(span) => getStringAttribute(span["attributes"], "url.path") === "/notifications/channels/test",
+	);
+}
+
+function findWorkflowSpan(userId: string) {
+	return findSpan(
+		(span) =>
+			span["name"] === WORKFLOW_NAME && getStringAttribute(span["attributes"], "userId") === userId,
+	);
 }
 
 beforeAll(async () => {
@@ -126,7 +136,7 @@ afterAll(async () => {
 });
 
 describe("Backend observability", () => {
-	it("exports workflow spans with correlatable completion logs", async () => {
+	it("exports spans with correlatable workflow and request logs", async () => {
 		const { client, userId } = await createAuthenticatedClient(getBackendUrl());
 		await client.run((c) => c.notifications.testChannels());
 
@@ -135,8 +145,17 @@ describe("Backend observability", () => {
 			() => Promise.resolve(findWorkflowSpan(userId)),
 			{ timeoutMs: 20_000 },
 		);
+		const { span: requestSpan } = await pollUntil(
+			"notification test request OTLP span",
+			() => Promise.resolve(findRequestSpan()),
+			{ timeoutMs: 20_000 },
+		);
 		expect(getStringAttribute(resource["attributes"], "service.name")).toBe("ryot-backend");
 
+		const requestTraceId = requirePresent(
+			requireString(requestSpan["traceId"], "Request trace ID is missing"),
+			"Request trace ID is empty",
+		);
 		const spanId = requirePresent(
 			requireString(span["spanId"], "Workflow span ID is missing"),
 			"Workflow span ID is empty",
@@ -165,5 +184,24 @@ describe("Backend observability", () => {
 		);
 		expect(logLine).toContain('message="span completed"');
 		expect(logLine).toContain(`spanName=${WORKFLOW_NAME}`);
+
+		const requestLogLine = await pollUntil(
+			"correlated HTTP response log",
+			async () => {
+				const contents = await readFile(requireLogFile(), "utf8").catch(() => "");
+				return (
+					contents
+						.split("\n")
+						.find(
+							(line) =>
+								line.includes('message="Sent HTTP response"') &&
+								line.includes(`userId=${userId}`) &&
+								line.includes(`traceId=${requestTraceId}`),
+						) ?? null
+				);
+			},
+			{ timeoutMs: 20_000 },
+		);
+		expect(requestLogLine).toContain("http.url=/notifications/channels/test");
 	});
 });
