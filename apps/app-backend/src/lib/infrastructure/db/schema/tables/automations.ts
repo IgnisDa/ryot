@@ -63,7 +63,6 @@ export const signalRecipient = pgTable(
 export const notificationSubscriptionState = pgTable(
 	"notification_subscription_state",
 	{
-		scriptSlug: text().notNull(),
 		signalSchemaSlug: text().notNull(),
 		metadata: jsonb().$type<AutomationRuleMetadata>(),
 		isActive: boolean().notNull().default(true),
@@ -83,10 +82,9 @@ export const notificationSubscriptionState = pgTable(
 	},
 	(table) => [
 		index("notification_subscription_state_user_id_idx").on(table.userId),
-		uniqueIndex("notification_subscription_state_user_signal_script_unique").on(
+		uniqueIndex("notification_subscription_state_user_signal_unique").on(
 			table.userId,
 			table.signalSchemaSlug,
-			table.scriptSlug,
 		),
 	],
 );

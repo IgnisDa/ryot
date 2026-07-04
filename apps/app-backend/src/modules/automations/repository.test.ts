@@ -16,7 +16,6 @@ const row = {
 	isActive: true,
 	metadata: false,
 	signalSchemaSlug,
-	scriptSlug: "automation.notification",
 	id: AutomationRuleId.make("rule-1"),
 	createdAt: new Date("2026-07-20T10:00:00.000Z"),
 	updatedAt: new Date("2026-07-20T10:00:00.000Z"),

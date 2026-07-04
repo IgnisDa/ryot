@@ -1,24 +1,25 @@
 export const fitnessSignalSchemas = () =>
 	[
 		{
-			catalogState: "active" as const,
 			slug: "workout.created",
 			name: "Workout Created",
+			catalogState: "active" as const,
 			audiencePolicy: { kind: "actor" as const },
+			notificationScriptSlug: "automation.fitness-notification",
 			propertiesSchema: {
 				unknownKeys: "strict" as const,
 				fields: {
 					workoutId: {
-						type: "string" as const,
 						label: "Workout ID",
-						validation: { required: true as const },
+						type: "string" as const,
 						description: "Created workout ID",
+						validation: { required: true as const },
 					},
 					workoutName: {
-						type: "string" as const,
 						label: "Workout name",
-						validation: { required: true as const },
+						type: "string" as const,
 						description: "Created workout name",
+						validation: { required: true as const },
 					},
 				},
 			},
