@@ -24,7 +24,7 @@ files around.
   through `bindings.eventAutomations` — they need **only** their lot-discriminated registry entries
   with `settingsSchema`, no script migration.
 
-Network access is bounded through `httpCall` with credentials from the scoped `getIntegration`.
+Network access is bounded through `httpCall` with credentials from the scoped `getCurrentIntegration`.
 Plex sink payloads are multipart/form-data and are parsed in-script without a dependency.
 
 Preserve `createProgressResult` semantics (`modules/integrations/sinks/shared.ts`): `occurredAt` is

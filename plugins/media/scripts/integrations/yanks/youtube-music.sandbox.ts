@@ -13,7 +13,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	slug: "integration.youtube-music",
-	capabilities: ["httpCall", "getIntegration", "claimCachedValue"],
+	capabilities: ["httpCall", "getCurrentIntegration", "claimCachedValue"],
 });
 
 const Input = Schema.Struct({});
@@ -39,7 +39,7 @@ export default defineActivity({
 	output: MediaIntegrationAdapterResult,
 	run: (_input, host) =>
 		Effect.gen(function* () {
-			const integration = yield* host.getIntegration();
+			const integration = yield* host.getCurrentIntegration();
 			const settings = specifics(integration.providerSpecifics);
 			const authCookie = typeof settings?.["authCookie"] === "string" ? settings["authCookie"] : "";
 			const timezone = typeof settings?.["timezone"] === "string" ? settings["timezone"] : "UTC";

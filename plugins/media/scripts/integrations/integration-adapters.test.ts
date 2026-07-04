@@ -18,7 +18,7 @@ const runKodi = (rawBody: string) =>
 			kodiDefinition,
 			sinkInput(rawBody),
 			defineSandboxTestHost(kodiManifest, {
-				getIntegration: () => hostSuccess(integrationRecord({ provider: "kodi" })),
+				getCurrentIntegration: () => hostSuccess(integrationRecord({ provider: "kodi" })),
 			}),
 			execution,
 		),
@@ -104,7 +104,7 @@ describe("media server sinks", () => {
 				genericDefinition,
 				sinkInput("{}"),
 				defineSandboxTestHost(genericManifest, {
-					getIntegration: () => hostSuccess(integrationRecord({ provider: "generic_json" })),
+					getCurrentIntegration: () => hostSuccess(integrationRecord({ provider: "generic_json" })),
 				}),
 				execution,
 			),
@@ -134,7 +134,7 @@ describe("media server sinks", () => {
 				embyDefinition,
 				sinkInput(rawBody),
 				defineSandboxTestHost(embyManifest, {
-					getIntegration: () => hostSuccess(integrationRecord({ provider: "emby" })),
+					getCurrentIntegration: () => hostSuccess(integrationRecord({ provider: "emby" })),
 				}),
 				execution,
 			),
@@ -166,7 +166,8 @@ describe("media server sinks", () => {
 				jellyfinDefinition,
 				sinkInput(rawBody),
 				defineSandboxTestHost(jellyfinManifest, {
-					getIntegration: () => hostSuccess(integrationRecord({ provider: "jellyfin_sink" })),
+					getCurrentIntegration: () =>
+						hostSuccess(integrationRecord({ provider: "jellyfin_sink" })),
 				}),
 				execution,
 			),
@@ -197,7 +198,7 @@ describe("media server sinks", () => {
 					}),
 				),
 				defineSandboxTestHost(jellyfinManifest, {
-					getIntegration: () =>
+					getCurrentIntegration: () =>
 						hostSuccess(integrationRecord({ providerSpecifics: { username: "alice" } })),
 				}),
 				execution,
@@ -215,7 +216,7 @@ describe("Plex sink", () => {
 				plexDefinition,
 				sinkInput(multipart(payload), "multipart/form-data; boundary=abc"),
 				defineSandboxTestHost(plexManifest, {
-					getIntegration: () =>
+					getCurrentIntegration: () =>
 						hostSuccess(
 							integrationRecord({
 								provider: "plex_sink",
@@ -293,7 +294,7 @@ describe("browser extension sink", () => {
 				browserDefinition,
 				sinkInput(rawBody),
 				defineSandboxTestHost(browserManifest, {
-					getIntegration: () =>
+					getCurrentIntegration: () =>
 						hostSuccess(integrationRecord({ providerSpecifics: { disabledSites } })),
 				}),
 				execution,
