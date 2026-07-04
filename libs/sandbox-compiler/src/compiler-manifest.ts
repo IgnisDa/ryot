@@ -1,4 +1,4 @@
-import { sandboxManifestSchema } from "@ryot/sandbox-sdk";
+import { sandboxManifestSchema } from "@ryot/sandbox-sdk/core";
 import { SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
 import * as ts from "typescript/unstable/ast";
 

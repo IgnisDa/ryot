@@ -3,7 +3,7 @@ import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/sch
 import type {
 	JsonValue,
 	SandboxHostImplementationMap as SdkSandboxHostImplementationMap,
-} from "@ryot/sandbox-sdk";
+} from "@ryot/sandbox-sdk/core";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect } from "effect";
 

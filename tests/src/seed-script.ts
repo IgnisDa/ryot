@@ -148,7 +148,7 @@ class APIClient {
 async function seedSandboxScript(apiClient: APIClient) {
 	const value = `seed-script-${dayjs().valueOf()}`;
 	const source = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({

@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot/sandbox-sdk";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Innertube } from "@ryot/sandbox-sdk/youtubei";
 
 import { asRecord, numberValue, stringValue } from "../script-helpers/records";

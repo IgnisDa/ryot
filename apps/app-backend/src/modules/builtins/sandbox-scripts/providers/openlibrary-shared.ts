@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot/sandbox-sdk";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 
 import { asRecord, parseJsonResponse } from "../script-helpers/records";
 

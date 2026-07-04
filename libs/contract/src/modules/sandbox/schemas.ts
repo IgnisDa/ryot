@@ -2,7 +2,7 @@ import {
 	type ProviderInformation as SdkProviderInformation,
 	SANDBOX_HOST_CAPABILITIES,
 	type SandboxManifest as SdkSandboxScriptManifest,
-} from "@ryot/sandbox-sdk";
+} from "@ryot/sandbox-sdk/core";
 import { Schema } from "effect";
 
 import { SandboxScriptId, SubscriptionRunId, UserId } from "../../schema/brands";

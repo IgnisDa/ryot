@@ -7,7 +7,7 @@ import type {
 	SandboxScriptManifest,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import { AUTOMATION_SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk";
+import { AUTOMATION_SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk/core";
 import { generateId } from "better-auth";
 import { Effect, Redacted } from "effect";
 

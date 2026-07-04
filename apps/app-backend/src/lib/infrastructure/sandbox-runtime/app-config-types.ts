@@ -1,4 +1,4 @@
-import type { JsonValue } from "@ryot/sandbox-sdk";
+import type { JsonValue } from "@ryot/sandbox-sdk/core";
 import type { Option, Redacted } from "effect";
 
 import type { FieldMeta, GroupMeta } from "../config/builder";
@@ -39,7 +39,7 @@ type SandboxConfigMap<
 
 export type SandboxAppConfig = SandboxConfigMap<typeof appConfigMeta, AppConfigValue>;
 
-declare module "@ryot/sandbox-sdk" {
+declare module "@ryot/sandbox-sdk/core" {
 	interface SandboxAppConfigRegistry {
 		appBackend: SandboxAppConfig;
 	}
