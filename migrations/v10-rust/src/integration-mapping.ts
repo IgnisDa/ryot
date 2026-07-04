@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 import type * as SqlConnection from "effect/unstable/sql/SqlConnection";
 
-import { buildReportSql, quoteSqlString } from "./shared";
+import { buildRequireLegacyTableSql, buildReportSql, quoteSqlString } from "./shared";
 
 const legacyProviderSpecificsSql = (alias: string) => `CASE ${alias}.provider
 	WHEN 'audiobookshelf' THEN jsonb_build_object('kind', 'audiobookshelf', 'baseUrl', ${alias}.provider_specifics->>'audiobookshelf_base_url', 'token', ${alias}.provider_specifics->>'audiobookshelf_token')
@@ -51,16 +51,14 @@ DECLARE
 	invalid_required_field_ids text;
 	unresolved_installation_ids text;
 BEGIN
-	IF to_regclass('"old_integration"') IS NULL THEN
-		RAISE EXCEPTION 'Expected old_integration table to exist (created by renameLegacyTables) but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("old_integration -> integration", "old_integration")}
 
 	SELECT string_agg(DISTINCT provider, ', ' ORDER BY provider)
 	INTO unknown_providers
 	FROM "old_integration"
 	WHERE provider NOT IN (${[...input.providerSlugs, "generic_json"].map(quoteSqlString).join(", ")});
 	IF unknown_providers IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy integrations with unknown providers cannot be migrated: %', unknown_providers;
+		RAISE EXCEPTION 'old_integration -> integration: these legacy integration providers do not exist in this build''s media plugin, so the integrations using them would silently stop working: %. Delete those integrations in the V1 database, or use a build whose media plugin provides them, then start the server again.', unknown_providers;
 	END IF;
 
 	SELECT string_agg(id, ', ' ORDER BY id)
@@ -95,7 +93,7 @@ BEGIN
 			provider_specifics->>'jellyfin_push_base_url' IS NULL
 			OR provider_specifics->>'jellyfin_push_username' IS NULL));
 	IF invalid_required_field_ids IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy integrations with missing required provider-specific fields: %', invalid_required_field_ids;
+		RAISE EXCEPTION 'old_integration -> integration: these legacy integrations are missing settings that this build''s provider requires, so they cannot be migrated as working integrations: %. Fill in the missing settings in the V1 database, or delete those integrations, then start the server again.', invalid_required_field_ids;
 	END IF;
 
 	SELECT string_agg(oi.id, ', ' ORDER BY oi.id)
@@ -108,7 +106,7 @@ BEGIN
 			WHERE installations.user_id = oi.user_id
 		);
 	IF unresolved_installation_ids IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy integrations without a media system plugin installation for their owner: %', unresolved_installation_ids;
+		RAISE EXCEPTION 'old_integration -> integration: these legacy integrations belong to a user with no ready media plugin installation, so there is nothing in V2 to attach them to: %. Installations are created earlier in this same run, so this is a defect in this migration rather than in the legacy data. Keep the dump and report it; retrying will not change the result.', unresolved_installation_ids;
 	END IF;
 
 	INSERT INTO "integration" (

@@ -6,9 +6,15 @@ import { useEffect, useEffectEvent, useState } from "react";
 
 import { isUnauthorizedCause } from "#/modules/god-mode/errors";
 import {
+	buildMigrationReportClipboardText,
 	formatMigrationReportElapsed,
+	migrationReportDetailLabel,
+	migrationReportDetailProvenance,
+	migrationReportDetailSentence,
 	migrationReportLevelPresentation,
+	migrationReportRecordsDetail,
 } from "#/modules/god-mode/migration-report";
+import { transferMigrationReportDetails } from "#/modules/god-mode/reset-link-transfer";
 import type { GodModeMigrationReport } from "#/modules/god-mode/service";
 
 type MigrationReportEntry = GodModeMigrationReport["entries"][number];
@@ -29,6 +35,130 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 const formatMigrationReportTime = (value: string) => dateTimeFormatter.format(new Date(value));
+
+function DetailList(props: { readonly entry: MigrationReportEntry }) {
+	const { entry } = props;
+	const code = entry.code;
+	if (code === null) {
+		return null;
+	}
+	const remaining = (entry.totalDetails ?? entry.details.length) - entry.details.length;
+	return (
+		<div className="flex flex-col gap-3 px-2 pb-3">
+			{entry.details.map((detail) => (
+				<div
+					className="flex flex-col gap-1"
+					key={
+						detail.code === "integration-cache-provider-unmapped" ||
+						detail.code === "integration-cache-entity-unresolved"
+							? detail.legacyCacheId
+							: detail.legacyRecordId
+					}
+				>
+					<span className="text-xs font-medium text-text">
+						{migrationReportDetailLabel(detail)}
+					</span>
+					<span className="text-xs leading-5 text-text-muted">
+						{migrationReportDetailSentence(detail)}
+					</span>
+					{migrationReportDetailProvenance(detail).map((provenance) => (
+						<div key={provenance.key} className="flex gap-2">
+							<span className="w-28 font-mono text-[11px] text-text-subtle">{provenance.key}</span>
+							<span className="min-w-0 flex-1 font-mono text-[11px] break-all text-text-muted">
+								{provenance.value}
+							</span>
+						</div>
+					))}
+				</div>
+			))}
+			{migrationReportRecordsDetail(code) ? null : (
+				<span className="text-xs text-text-subtle">
+					Per-record detail is not recorded for this check.
+				</span>
+			)}
+			{remaining > 0 ? (
+				<span className="text-xs text-text-subtle">
+					...and {remaining.toLocaleString()} more, queryable in migration_report_detail.
+				</span>
+			) : null}
+			<div>
+				<Button
+					type="button"
+					variant="secondary"
+					onClick={() =>
+						void transferMigrationReportDetails(
+							buildMigrationReportClipboardText({
+								code,
+								phase: entry.phase,
+								message: entry.message,
+								details: entry.details,
+								totalDetails: entry.totalDetails,
+							}),
+						)
+					}
+				>
+					Copy details
+				</Button>
+			</div>
+		</div>
+	);
+}
+
+function MigrationReportRow(props: { readonly entry: MigrationReportEntry }) {
+	const { entry } = props;
+	const [isExpanded, setIsExpanded] = useState(false);
+	const level = migrationReportLevelPresentation(entry.level);
+	const detailsId = `migration-report-details-${entry.seq}`;
+	return (
+		<>
+			<tr className="border-b border-border last:border-b-0">
+				<td className="px-2 py-3 whitespace-nowrap text-text-muted">
+					{formatMigrationReportTime(entry.createdAt)}
+				</td>
+				<td className="px-2 py-3">
+					<span className={clsx("flex items-center gap-1.5 font-semibold", level.tone)}>
+						<AppIcon size={13} name={level.icon} />
+						{level.label}
+					</span>
+				</td>
+				<td className="px-2 py-3 text-text">{entry.phase}</td>
+				<td className="px-2 py-3 leading-5 text-text">
+					{entry.code === null ? (
+						entry.message
+					) : (
+						<button
+							type="button"
+							aria-controls={detailsId}
+							aria-expanded={isExpanded}
+							className="flex w-full items-start gap-2 text-left"
+							onClick={() => setIsExpanded((expanded) => !expanded)}
+						>
+							<span className="min-w-0 flex-1">{entry.message}</span>
+							<AppIcon
+								size={14}
+								className="mt-0.5 shrink-0 text-text-subtle"
+								name={isExpanded ? "chevron-up" : "chevron-down"}
+							/>
+						</button>
+					)}
+				</td>
+				<td className="px-2 py-3 tabular-nums text-text-muted">
+					{entry.count?.toLocaleString() ?? "-"}
+				</td>
+				<td className="px-2 py-3 tabular-nums text-text-muted">
+					{formatMigrationReportElapsed(entry.elapsedSeconds)}
+				</td>
+			</tr>
+			{isExpanded ? (
+				<tr id={detailsId} className="border-b border-border last:border-b-0">
+					<td colSpan={6} className="bg-surface-2">
+						<DetailList entry={entry} />
+					</td>
+				</tr>
+			) : null}
+		</>
+	);
+}
 
 function MigrationReportTable(props: { readonly entries: ReadonlyArray<MigrationReportEntry> }) {
 	return (
@@ -57,30 +187,9 @@ function MigrationReportTable(props: { readonly entries: ReadonlyArray<Migration
 					</tr>
 				</thead>
 				<tbody>
-					{props.entries.map((entry) => {
-						const level = migrationReportLevelPresentation(entry.level);
-						return (
-							<tr key={entry.seq} className="border-b border-border last:border-b-0">
-								<td className="px-2 py-3 whitespace-nowrap text-text-muted">
-									{formatMigrationReportTime(entry.createdAt)}
-								</td>
-								<td className="px-2 py-3">
-									<span className={clsx("flex items-center gap-1.5 font-semibold", level.tone)}>
-										<AppIcon size={13} name={level.icon} />
-										{level.label}
-									</span>
-								</td>
-								<td className="px-2 py-3 text-text">{entry.phase}</td>
-								<td className="px-2 py-3 leading-5 text-text">{entry.message}</td>
-								<td className="px-2 py-3 tabular-nums text-text-muted">
-									{entry.count?.toLocaleString() ?? "-"}
-								</td>
-								<td className="px-2 py-3 tabular-nums text-text-muted">
-									{formatMigrationReportElapsed(entry.elapsedSeconds)}
-								</td>
-							</tr>
-						);
-					})}
+					{props.entries.map((entry) => (
+						<MigrationReportRow entry={entry} key={entry.seq} />
+					))}
 				</tbody>
 			</table>
 		</div>

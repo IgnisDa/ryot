@@ -1,6 +1,11 @@
 import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
 import type { QualifiedSchema } from "./migration-resolution";
-import { buildReportSql, quoteNullableSqlString, quoteSqlString } from "./shared";
+import {
+	buildRequireLegacyTableSql,
+	buildReportSql,
+	quoteNullableSqlString,
+	quoteSqlString,
+} from "./shared";
 
 // V1 Option<Decimal> is a rust_decimal JSON string; cast to float8.
 const buildDecimalStatField = (statAlias: string, field: string) =>
@@ -19,9 +24,7 @@ DECLARE
 	rows_inserted int := 0;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"workout_template"') IS NULL THEN
-		RAISE EXCEPTION 'Expected workout_template table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("workout -> entity", "workout_template")}
 
 	LOOP
 		WITH batch AS (
@@ -123,9 +126,7 @@ DECLARE
 	rows_inserted int := 0;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"workout"') IS NULL THEN
-		RAISE EXCEPTION 'Expected workout table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("workout -> entity", "workout")}
 
 	LOOP
 		WITH batch AS (
@@ -197,9 +198,7 @@ DECLARE
 	rows_inserted int := 0;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"workout"') IS NULL THEN
-		RAISE EXCEPTION 'Expected workout table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("workout -> entity", "workout")}
 
 	LOOP
 		WITH batch AS (
@@ -279,9 +278,7 @@ DECLARE
 	rows_inserted int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"workout"') IS NULL THEN
-		RAISE EXCEPTION 'Expected workout table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("workout -> entity", "workout")}
 
 	INSERT INTO "relationship" (
 		"id",
@@ -316,9 +313,7 @@ DECLARE
 	rows_inserted int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"workout"') IS NULL THEN
-		RAISE EXCEPTION 'Expected workout table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("workout -> entity", "workout")}
 
 	INSERT INTO "relationship" (
 		"id",

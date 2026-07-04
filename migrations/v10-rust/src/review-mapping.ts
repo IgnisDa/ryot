@@ -1,9 +1,20 @@
+import {
+	buildEpisodeAbsentDetailSql,
+	buildEpisodeAmbiguousDetailSql,
+	buildEpisodeResolutionFallbackSql,
+} from "./episode-resolution-sql";
 // V1 review.entity_id (generated COALESCE of the entity FK columns) equals the V2 entity.id since
 // legacy ids are preserved; reviews whose entity was not migrated are skipped via INNER JOIN.
 // Ratings are clamped to 100 via a CASE guard — LEAST(NULL, 100) returns 100, not NULL. Manga
 // chapter is a rust_decimal JSON string, extracted with ->> before ::float8. Dropped: visibility,
 // comments (no V2 equivalent).
-import { buildReportSql } from "./shared";
+import { buildRequireLegacyTableSql, buildAnomalyReportSql, buildReportSql } from "./shared";
+
+const reviewReportPhase = "review -> event";
+
+const reviewAbsentDetailSql = buildEpisodeAbsentDetailSql("review-episode-absent", "u");
+
+const reviewAmbiguousDetailSql = buildEpisodeAmbiguousDetailSql("review-episode-ambiguous", "u");
 
 export const buildReviewMigrationSql = () => `
 DO $$
@@ -13,107 +24,14 @@ DECLARE
 	cursor_id text := '';
 	next_cursor_id text;
 	rows_inserted int := 0;
-	unresolved_episode_rows int := 0;
+	unresolved_absent_rows int := 0;
+	unresolved_ambiguous_rows int := 0;
+	report_seq int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"review"') IS NULL THEN
-		RAISE EXCEPTION 'Expected review table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("review -> event", "review")}
 
-	IF to_regclass('pg_temp._legacy_show_episode_resolution') IS NULL
-		OR to_regclass('pg_temp._legacy_podcast_episode_resolution') IS NULL THEN
-		IF to_regclass('pg_temp._legacy_show_episode_resolution') IS NOT NULL THEN
-			DROP TABLE _legacy_show_episode_resolution;
-		END IF;
-
-		IF to_regclass('pg_temp._legacy_podcast_episode_resolution') IS NOT NULL THEN
-			DROP TABLE _legacy_podcast_episode_resolution;
-		END IF;
-
-	CREATE TEMP TABLE _legacy_show_episode_resolution ON COMMIT DROP AS
-	WITH candidates AS (
-		SELECT DISTINCT
-			show_entity.id AS parent_entity_id,
-			season.properties ->> 'seasonNumber' AS season_number,
-			episode.properties ->> 'episodeNumber' AS episode_number,
-			episode.id AS entity_id,
-			episode.entity_schema_slug
-		FROM "entity" show_entity
-		INNER JOIN "relationship" show_season_rel
-			ON  show_season_rel.source_entity_id = show_entity.id
-			AND show_season_rel.relationship_schema_slug = 'show-to-show-season'
-		INNER JOIN "entity" season
-			ON  season.id = show_season_rel.target_entity_id
-			AND season.entity_schema_slug = 'show-season'
-		INNER JOIN "relationship" season_episode_rel
-			ON  season_episode_rel.source_entity_id = season.id
-			AND season_episode_rel.relationship_schema_slug = 'show-season-to-show-episode'
-		INNER JOIN "entity" episode
-			ON  episode.id = season_episode_rel.target_entity_id
-			AND episode.entity_schema_slug = 'show-episode'
-		WHERE show_entity.entity_schema_slug = 'show'
-		  AND (show_season_rel.user_id = show_entity.user_id OR show_season_rel.user_id IS NULL)
-		  AND (season_episode_rel.user_id = show_entity.user_id OR season_episode_rel.user_id IS NULL)
-		  AND (season.user_id = show_entity.user_id OR season.user_id IS NULL)
-		  AND (episode.user_id = show_entity.user_id OR episode.user_id IS NULL)
-		  AND (season.properties ->> 'seasonNumber') ~ '^[0-9]+$'
-		  AND (episode.properties ->> 'episodeNumber') ~ '^[0-9]+$'
-	), unique_candidates AS (
-		SELECT parent_entity_id, season_number, episode_number
-		FROM candidates
-		GROUP BY parent_entity_id, season_number, episode_number
-		HAVING count(*) = 1
-	)
-	SELECT candidates.*
-	FROM candidates
-	INNER JOIN unique_candidates
-		ON  unique_candidates.parent_entity_id = candidates.parent_entity_id
-		AND unique_candidates.season_number    = candidates.season_number
-		AND unique_candidates.episode_number   = candidates.episode_number;
-
-	CREATE UNIQUE INDEX ON _legacy_show_episode_resolution (
-		parent_entity_id,
-		season_number,
-		episode_number
-	);
-
-	CREATE TEMP TABLE _legacy_podcast_episode_resolution ON COMMIT DROP AS
-	WITH candidates AS (
-		SELECT DISTINCT
-			podcast.id AS parent_entity_id,
-			episode.properties ->> 'episodeNumber' AS episode_number,
-			episode.id AS entity_id,
-			episode.entity_schema_slug
-		FROM "entity" podcast
-		INNER JOIN "relationship" podcast_episode_rel
-			ON  podcast_episode_rel.source_entity_id = podcast.id
-			AND podcast_episode_rel.relationship_schema_slug = 'podcast-to-podcast-episode'
-		INNER JOIN "entity" episode
-			ON  episode.id = podcast_episode_rel.target_entity_id
-			AND episode.entity_schema_slug = 'podcast-episode'
-		WHERE podcast.entity_schema_slug = 'podcast'
-		  AND (podcast_episode_rel.user_id = podcast.user_id OR podcast_episode_rel.user_id IS NULL)
-		  AND (episode.user_id = podcast.user_id OR episode.user_id IS NULL)
-		  AND (episode.properties ->> 'episodeNumber') ~ '^[0-9]+$'
-	), unique_candidates AS (
-		SELECT parent_entity_id, episode_number
-		FROM candidates
-		GROUP BY parent_entity_id, episode_number
-		HAVING count(*) = 1
-	)
-	SELECT candidates.*
-	FROM candidates
-	INNER JOIN unique_candidates
-		ON  unique_candidates.parent_entity_id = candidates.parent_entity_id
-		AND unique_candidates.episode_number   = candidates.episode_number;
-
-	CREATE UNIQUE INDEX ON _legacy_podcast_episode_resolution (
-		parent_entity_id,
-		episode_number
-	);
-	ANALYZE _legacy_show_episode_resolution;
-	ANALYZE _legacy_podcast_episode_resolution;
-	END IF;
+	${buildEpisodeResolutionFallbackSql()}
 
 	LOOP
 		WITH batch AS (
@@ -208,7 +126,33 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	SELECT count(*) INTO unresolved_episode_rows
+	-- Reviews keep the numeric guards below, so an unresolved review is either absent from the stored
+	-- episode list or claimed by several episodes, never malformed as a seen row can be.
+	CREATE TEMP TABLE _review_unresolved_positions ON COMMIT DROP AS
+	SELECT
+		rv.id                AS legacy_record_id,
+		rv.user_id           AS user_id,
+		e.id                 AS parent_entity_id,
+		e.name               AS parent_name,
+		e.entity_schema_slug AS kind,
+		CASE WHEN e.entity_schema_slug = 'show'
+			THEN rv.show_extra_information ->> 'season' END AS requested_season,
+		CASE
+			WHEN e.entity_schema_slug = 'show'    THEN rv.show_extra_information    ->> 'episode'
+			WHEN e.entity_schema_slug = 'podcast' THEN rv.podcast_extra_information ->> 'episode'
+		END AS requested_episode,
+		COALESCE(show_coordinate.candidate_count, podcast_coordinate.candidate_count) AS candidate_count,
+		COALESCE(inventory.available_summary, 'none') AS available_summary,
+		EXISTS (
+			SELECT 1 FROM _legacy_show_episode_coordinates season_probe
+			WHERE season_probe.parent_entity_id = e.id
+			  AND season_probe.season_number = rv.show_extra_information ->> 'season'
+		) AS season_exists,
+		CASE
+			WHEN COALESCE(show_coordinate.candidate_count, podcast_coordinate.candidate_count) > 1
+				THEN 'ambiguous'
+			ELSE 'absent'
+		END AS cause
 	FROM "review" rv
 	INNER JOIN "entity" e ON e.id = rv.entity_id
 	LEFT JOIN _legacy_show_episode_resolution show_episode
@@ -220,6 +164,16 @@ BEGIN
 		ON e.entity_schema_slug = 'podcast'
 		AND podcast_episode.parent_entity_id = rv.entity_id
 		AND podcast_episode.episode_number = rv.podcast_extra_information ->> 'episode'
+	LEFT JOIN _legacy_show_episode_coordinates show_coordinate
+		ON e.entity_schema_slug = 'show'
+		AND show_coordinate.parent_entity_id = rv.entity_id
+		AND show_coordinate.season_number = rv.show_extra_information ->> 'season'
+		AND show_coordinate.episode_number = rv.show_extra_information ->> 'episode'
+	LEFT JOIN _legacy_podcast_episode_coordinates podcast_coordinate
+		ON e.entity_schema_slug = 'podcast'
+		AND podcast_coordinate.parent_entity_id = rv.entity_id
+		AND podcast_coordinate.episode_number = rv.podcast_extra_information ->> 'episode'
+	LEFT JOIN _legacy_episodic_inventory inventory ON inventory.parent_entity_id = e.id
 	WHERE (
 			e.entity_schema_slug = 'show'
 			AND (rv.show_extra_information ->> 'season') ~ '^[0-9]+$'
@@ -232,16 +186,27 @@ BEGIN
 			AND podcast_episode.entity_id IS NULL
 		);
 
-	IF unresolved_episode_rows > 0 THEN
-		${buildReportSql("review -> event", [
-			{
-				level: "warning",
-				count: "unresolved_episode_rows",
-				message:
-					"show/podcast review(s) skipped because their episode could not be resolved positionally; these reviews were not migrated",
-			},
-		])}
-	END IF;
+	${buildAnomalyReportSql({
+		phase: reviewReportPhase,
+		seqVariable: "report_seq",
+		code: "review-episode-absent",
+		detail: reviewAbsentDetailSql,
+		countVariable: "unresolved_absent_rows",
+		source: "_review_unresolved_positions u WHERE u.cause = 'absent'",
+		message:
+			"Some reviews were not carried over because the episode they were written about does not exist in the show or podcast's stored episode list. Each skipped review is listed below with what the stored list actually contains.",
+	})}
+
+	${buildAnomalyReportSql({
+		phase: reviewReportPhase,
+		seqVariable: "report_seq",
+		code: "review-episode-ambiguous",
+		detail: reviewAmbiguousDetailSql,
+		countVariable: "unresolved_ambiguous_rows",
+		source: "_review_unresolved_positions u WHERE u.cause = 'ambiguous'",
+		message:
+			"Some reviews were not carried over because more than one stored episode claims the position they were written about, so there was no way to tell which episode was reviewed.",
+	})}
 
 	${buildReportSql("review -> event", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
