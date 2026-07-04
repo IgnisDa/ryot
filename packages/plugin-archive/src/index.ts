@@ -47,8 +47,12 @@ const decoder = new TextDecoder("utf-8", { fatal: true });
 const encoder = new TextEncoder();
 
 const compareCodeUnits = (left: string, right: string) => {
-	if (left < right) {return -1;}
-	if (left > right) {return 1;}
+	if (left < right) {
+		return -1;
+	}
+	if (left > right) {
+		return 1;
+	}
 	return 0;
 };
 

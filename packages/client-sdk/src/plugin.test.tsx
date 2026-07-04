@@ -12,7 +12,7 @@ import { Schema } from "effect";
 import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { bootstrapClientPlugin, defineClientPlugin } from "./plugin";
+import { bootstrapClientPlugin } from "./plugin";
 import * as pluginSurface from "./plugin";
 import { useRyot, useRyotTheme } from "./react";
 
@@ -83,7 +83,7 @@ describe("bootstrapClientPlugin", () => {
 
 	it("does not register a session without valid embedded metadata", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
-		bootstraps.push(bootstrapClientPlugin(defineClientPlugin({ home: Home })));
+		bootstraps.push(bootstrapClientPlugin({ home: Home }));
 		const channel = new MessageChannel();
 		channels.push(channel);
 		const messages: unknown[] = [];
@@ -99,7 +99,7 @@ describe("bootstrapClientPlugin", () => {
 	it("creates one session client and supplies it through RyotProvider", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
-		bootstraps.push(bootstrapClientPlugin(defineClientPlugin({ home: Home })));
+		bootstraps.push(bootstrapClientPlugin({ home: Home }));
 		const channel = new MessageChannel();
 		channels.push(channel);
 		const messages: unknown[] = [];
@@ -133,7 +133,7 @@ describe("bootstrapClientPlugin", () => {
 	it("does not mount plugin React before initial location and theme", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
-		bootstraps.push(bootstrapClientPlugin(defineClientPlugin({ home: StaticHome })));
+		bootstraps.push(bootstrapClientPlugin({ home: StaticHome }));
 		const channel = new MessageChannel();
 		channels.push(channel);
 		channel.port1.start();
@@ -154,7 +154,7 @@ describe("bootstrapClientPlugin", () => {
 	it("contains fatal window errors before activation", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
-		bootstraps.push(bootstrapClientPlugin(defineClientPlugin({ home: StaticHome })));
+		bootstraps.push(bootstrapClientPlugin({ home: StaticHome }));
 		const channel = new MessageChannel();
 		channels.push(channel);
 		const messages: unknown[] = [];
@@ -179,7 +179,7 @@ describe("bootstrapClientPlugin", () => {
 	it("contains fatal React render errors", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
-		bootstraps.push(bootstrapClientPlugin(defineClientPlugin({ home: CrashingHome })));
+		bootstraps.push(bootstrapClientPlugin({ home: CrashingHome }));
 		const channel = new MessageChannel();
 		channels.push(channel);
 		const messages: unknown[] = [];
@@ -203,7 +203,7 @@ describe("bootstrapClientPlugin", () => {
 	it("reports uncaught window errors through the active session", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
-		bootstraps.push(bootstrapClientPlugin(defineClientPlugin({ home: StaticHome })));
+		bootstraps.push(bootstrapClientPlugin({ home: StaticHome }));
 		const channel = new MessageChannel();
 		channels.push(channel);
 		const messages: unknown[] = [];
@@ -230,7 +230,7 @@ describe("bootstrapClientPlugin", () => {
 	it("reports unhandled rejections and removes session listeners after failure", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
-		const bootstrap = bootstrapClientPlugin(defineClientPlugin({ home: StaticHome }));
+		const bootstrap = bootstrapClientPlugin({ home: StaticHome });
 		bootstraps.push(bootstrap);
 		const channel = new MessageChannel();
 		channels.push(channel);
@@ -263,7 +263,7 @@ describe("bootstrapClientPlugin", () => {
 	it("removes session listeners on normal disposal", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
-		const bootstrap = bootstrapClientPlugin(defineClientPlugin({ home: StaticHome }));
+		const bootstrap = bootstrapClientPlugin({ home: StaticHome });
 		bootstraps.push(bootstrap);
 		const channel = new MessageChannel();
 		channels.push(channel);
@@ -287,7 +287,7 @@ describe("bootstrapClientPlugin", () => {
 	it("removes its window listener when disposed before initialization", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
-		const bootstrap = bootstrapClientPlugin(defineClientPlugin({ home: Home }));
+		const bootstrap = bootstrapClientPlugin({ home: Home });
 		bootstrap.dispose();
 		const channel = new MessageChannel();
 		channels.push(channel);
@@ -306,7 +306,7 @@ describe("bootstrapClientPlugin", () => {
 	it("unmounts the React root when the host disposes the runtime", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
-		bootstraps.push(bootstrapClientPlugin(defineClientPlugin({ home: StaticHome })));
+		bootstraps.push(bootstrapClientPlugin({ home: StaticHome }));
 		const channel = new MessageChannel();
 		channels.push(channel);
 		channel.port1.start();
