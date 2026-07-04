@@ -68,6 +68,8 @@ These V1 collections were really lifecycle state and should not remain collectio
 - Rewrite model: completion event and derived current state
 - Why: V1 auto-managed this collection and even moved users back out of it when a show was not actually finished, which makes it a lifecycle outcome rather than a durable bucket
 
+For shows and podcasts, the derived state uses one chronological aggregate history rather than independent historical flags. Parent completion is an authoritative consumption-cycle boundary, while later regular-episode activity starts a new cycle. This keeps imported backdated events in the correct interval, prevents completion from leaking across rewatches, and preserves append-only history without mutable lifecycle rows. Full episode coverage is `caught_up`; `complete` requires an explicit parent event or terminal production status.
+
 #### Persistent state, not pure lifecycle events
 
 These V1 collections represent ongoing user intent or inventory state and should stay as persistent state in the rewrite.

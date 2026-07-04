@@ -11,6 +11,7 @@ export {
 	type EventReadResult,
 } from "@ryot/ryotql-recipes/sandbox";
 export { userLibraryRecipe } from "@ryot/ryotql-recipes/user-library";
+export { eventIsAfter, eventOrderDescending, latestEventField } from "@ryot/ryotql-recipes/events";
 
 export const executeRyotqlRecipe = <Success, Error, Requirements>(
 	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, Error, Requirements>,

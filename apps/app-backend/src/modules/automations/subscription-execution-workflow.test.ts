@@ -3,6 +3,7 @@ import { SandboxRunError } from "@ryot/contract/errors";
 import {
 	AutomationRuleId,
 	EntityId,
+	EventId,
 	SandboxScriptId,
 	SignalId,
 	SignalSchemaSlug,
@@ -93,6 +94,29 @@ const payload = {
 	},
 } as const satisfies SubscriptionExecutionWorkflowPayload;
 
+const eventPayload = {
+	ruleId,
+	rowUserId: userId,
+	operation: "create",
+	sourceKind: "event",
+	origin: { kind: "api" },
+	occurrenceId: "event-occurrence-1",
+	occurredAt: "2026-07-20T11:00:00.000Z",
+	recordId: EventId.make("event-1"),
+	source: {
+		kind: "event",
+		after: {
+			properties: {},
+			eventSchemaSlug: "complete",
+			id: EventId.make("event-1"),
+			createdAt: "2026-07-20T12:00:00.000Z",
+			occurredAt: "2026-07-20T11:00:00.000Z",
+			sessionEntityId: EntityId.make("session-1"),
+			subject: { id: EntityId.make("entity-1"), name: "Dune", entitySchemaSlug: "book" },
+		},
+	},
+} as const satisfies SubscriptionExecutionWorkflowPayload;
+
 const withWorkflowLayer = <A, E>(
 	service: Layer.Layer<AutomationsService>,
 	operations: Layer.Layer<SubscriptionExecutionWorkflowOperations>,
@@ -179,6 +203,57 @@ it.effect("runs a signal subscription to completion with full automation context
 				error: null,
 				value: { ok: true },
 				timing: { totalMs: 5, executionMs: 3 },
+			});
+		}),
+	);
+});
+
+it.effect("preserves event session and creation time in the sandbox context", () => {
+	let sandboxPayload: unknown;
+	const eventRun = {
+		...queuedRun,
+		signalId: null,
+		operation: "create" as const,
+		sourceKind: "event" as const,
+		recordId: eventPayload.recordId,
+		occurrenceId: eventPayload.occurrenceId,
+	};
+	const service = Layer.mock(AutomationsService, {
+		prepareRun: () =>
+			Effect.succeed({
+				run: eventRun,
+				execution: { ruleId, metadata: rule.metadata, sandboxScriptId: scriptId },
+			}),
+		beginRun: () => Effect.succeed({ kind: "ready" as const, run: eventRun }),
+		completeRun: () => Effect.succeed({ ...eventRun, status: "succeeded" as const }),
+	});
+	const operations = Layer.mock(SubscriptionExecutionWorkflowOperations, {
+		runSandbox: (input) => {
+			sandboxPayload = input;
+			return Effect.succeed({
+				logs: [],
+				error: null,
+				value: null,
+				status: "completed" as const,
+				timing: { totalMs: 1, executionMs: 1 },
+			});
+		},
+	});
+
+	return withWorkflowLayer(
+		service,
+		operations,
+		Effect.gen(function* () {
+			expect(yield* runSubscriptionExecutionWorkflow(eventPayload, "execution-1")).toBe(runId);
+			expect(sandboxPayload).toMatchObject({
+				context: {
+					automation: {
+						source: {
+							kind: "event",
+							after: { sessionEntityId: "session-1", createdAt: "2026-07-20T12:00:00.000Z" },
+						},
+					},
+				},
 			});
 		}),
 	);
