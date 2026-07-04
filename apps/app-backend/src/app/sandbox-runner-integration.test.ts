@@ -333,7 +333,7 @@ export default defineScript({
     const integration = yield* host.getIntegration();
     const events = yield* host.listEvents({ entityId: "entity-1" });
      const entitySchemas = yield* host.getEntitySchemas(["movie"]);
-    const eventSchemas = yield* host.listEventSchemas("movie");
+     const eventSchemas = yield* host.listEventSchemas(["movie"]);
     const created = yield* host.createEvents([
         { entityId: "entity-1", eventSchemaSlug: "event-schema-1", properties: { watched: true } },
       ]);
