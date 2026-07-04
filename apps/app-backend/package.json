@@ -4,8 +4,8 @@
 	"scripts": {
 		"dev": "bun run scripts/develop.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
+		"test": "bun run sandbox:compile && bun --bun run vitest run",
 		"sandbox:compile": "bun run scripts/compile-sandbox-builtins.ts",
-		"test": "bun run sandbox:compile && bun --bun run vitest run --config vitest.config.ts",
 		"run-migration": "bun run sandbox:compile && RUN_MIGRATION_ONLY=true bun run src/main.ts",
 		"build": "bun run sandbox:compile && bun build src/main.ts --outdir dist --target bun --sourcemap",
 		"populate-sandbox-cache": "bun run sandbox:compile && POPULATE_SANDBOX_CACHE_ONLY=true bun run src/main.ts",
