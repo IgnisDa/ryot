@@ -361,7 +361,12 @@ export const AuthMiddlewareLive = Layer.effect(
 		const resolveFromRequest = Effect.gen(function* () {
 			const request = yield* HttpServerRequest.HttpServerRequest;
 			const user = yield* auth.currentUser(new Headers(request.headers));
-			yield* Effect.annotateLogsScoped({ userId: user.id });
+			const span = yield* Effect.optionFromOptional(Effect.currentSpan);
+			yield* Effect.annotateLogsScoped(
+				Option.isSome(span)
+					? { userId: user.id, traceId: span.value.traceId }
+					: { userId: user.id },
+			);
 			return user;
 		});
 
