@@ -119,25 +119,35 @@ describe("Event write path — propertiesSchema validation", () => {
 		const { client } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(client);
 
-		const error = await client.runError((c) =>
+		const result = await client.run((c) =>
 			c.events.create({ payload: [{ entityId, eventSchemaId, properties: {} }] }),
 		);
 
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("rating: is missing");
+		expect(result).toMatchObject({
+			count: 0,
+			outcomes: [],
+			failure: {
+				index: 0,
+				reason: { kind: "bad_request", message: expect.stringContaining("rating: is missing") },
+			},
+		});
 	});
 
 	it("rejects event creation when a field has the wrong type", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(client);
 
-		const error = await client.runError((c) =>
+		const result = await client.run((c) =>
 			c.events.create({
 				payload: [{ entityId, eventSchemaId, properties: { rating: "not-a-number" } }],
 			}),
 		);
 
-		assertTaggedError(error, "BadRequest");
+		expect(result).toMatchObject({
+			count: 0,
+			outcomes: [],
+			failure: { index: 0, reason: { kind: "bad_request" } },
+		});
 	});
 
 	it("ignores undeclared event properties when the schema does not opt into strict unknown keys", async () => {
