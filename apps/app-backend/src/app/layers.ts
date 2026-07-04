@@ -5,6 +5,7 @@ import { Layer } from "effect";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/infrastructure/db/migrate";
 import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/infrastructure/db/service";
+import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
@@ -391,7 +392,7 @@ const RuntimeDependenciesLive = Layer.mergeAll(
 	Layer.provide(MediaTrendingWorkflowOperationsLive, ApplicationInfrastructureLive),
 );
 
-export const MigrationOnlyLive = MigrationsComplete.Default.pipe(
+const MigrationOnlyCoreLive = MigrationsComplete.Default.pipe(
 	Layer.flatMap(() =>
 		SeedServiceLive.pipe(Layer.flatMap(() => LegacyBootstrapMigrateDrop.Default)),
 	),
@@ -399,12 +400,15 @@ export const MigrationOnlyLive = MigrationsComplete.Default.pipe(
 	Layer.provide(DbRunnerLive),
 	Layer.provide(TransactionRunnerLive),
 	Layer.provide(DbService.Default),
-	Layer.provide(BunContext.layer),
-	Layer.provide(AppConfig.Default),
+	Layer.provide(ConfigLive),
 );
 
 export const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(
 	Layer.provide(BunContext.layer),
 );
 
-export const AppLive = Layer.provide(RuntimeAfterMigrationsLive, RuntimeDependenciesLive);
+const AppCoreLive = Layer.provide(RuntimeAfterMigrationsLive, RuntimeDependenciesLive);
+const ObservabilityProvided = Layer.provide(ObservabilityLive, ConfigLive);
+
+export const AppLive = Layer.provide(AppCoreLive, ObservabilityProvided);
+export const MigrationOnlyLive = Layer.provide(MigrationOnlyCoreLive, ObservabilityProvided);

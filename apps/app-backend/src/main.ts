@@ -38,4 +38,4 @@ if (Bun.env.NODE_ENV !== "production") {
 	);
 }
 
-BunRuntime.runMain(Layer.launch(AppLive));
+BunRuntime.runMain(Layer.launch(AppLive), { disablePrettyLogger: true });
