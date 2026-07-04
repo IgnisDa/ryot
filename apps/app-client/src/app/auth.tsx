@@ -1,7 +1,7 @@
 import { Result, useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import type { ContractSuccess } from "@ryot/contract/client";
 import clsx from "clsx";
-import { Redirect, router } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
 	KeyboardAvoidingView,
@@ -15,6 +15,7 @@ import {
 
 import { systemConfigAtom } from "@/lib/api";
 import { clearAuthStorage, useAuthClient } from "@/lib/auth";
+import { getSafeRedirectTo, type SafeRedirectTo } from "@/lib/redirect";
 import { useServerUrl, useSetServerUrl } from "@/lib/store/server";
 import { getNameFromEmail } from "@/lib/user";
 
@@ -68,7 +69,11 @@ function AuthUnavailable(props: { onRetry?: () => void; onChangeServer: () => vo
 	);
 }
 
-function AuthForm(props: { config: AuthConfig; onChangeServer: () => void }) {
+function AuthForm(props: {
+	config: AuthConfig;
+	onChangeServer: () => void;
+	redirectTo?: SafeRedirectTo;
+}) {
 	const client = useAuthClient();
 	const oidcAutoLaunched = useRef(false);
 	const [email, setEmail] = useState("");
@@ -82,6 +87,7 @@ function AuthForm(props: { config: AuthConfig; onChangeServer: () => void }) {
 	const [twoFactorMethod, setTwoFactorMethod] = useState<TwoFactorMethod>("totp");
 
 	const modeContent = content[mode];
+	const destination = props.redirectTo ?? "/(app)";
 	const oidcButtonLabel = props.config.oidcButtonLabel ?? "Sign in with OpenID Connect";
 
 	function resetTwoFactor() {
@@ -127,7 +133,7 @@ function AuthForm(props: { config: AuthConfig; onChangeServer: () => void }) {
 							setStep("twoFactor");
 							return;
 						}
-						router.replace("/(app)");
+						router.replace(destination);
 					},
 				},
 			);
@@ -160,7 +166,7 @@ function AuthForm(props: { config: AuthConfig; onChangeServer: () => void }) {
 				setTwoFactorCode("");
 				return;
 			}
-			router.replace("/(app)");
+			router.replace(destination);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : "Could not verify that code.");
 		} finally {
@@ -175,12 +181,12 @@ function AuthForm(props: { config: AuthConfig; onChangeServer: () => void }) {
 		setError(null);
 		setPending(true);
 		try {
-			const result = await client.signIn.oauth2({ providerId: "oidc", callbackURL: "/" });
+			const result = await client.signIn.oauth2({ providerId: "oidc", callbackURL: destination });
 			if (result.error) {
 				setError(result.error.message ?? "OpenID Connect sign-in failed.");
 				return;
 			}
-			router.replace("/(app)");
+			router.replace(destination);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : "OpenID Connect sign-in failed.");
 		} finally {
@@ -386,26 +392,31 @@ export default function Auth() {
 	const client = useAuthClient();
 	const serverUrl = useServerUrl();
 	const setServerUrl = useSetServerUrl();
+	const { redirectTo: redirectToParam } = useLocalSearchParams<
+		"/auth",
+		{ redirectTo?: string | string[] }
+	>();
 
 	const config = useAtomValue(systemConfigAtom);
 	const { data: session, isPending } = client.useSession();
 	const refreshConfig = useAtomRefresh(systemConfigAtom);
+	const redirectTo = getSafeRedirectTo(redirectToParam);
 
 	async function handleChangeServer() {
 		await client.signOut().catch(() => undefined);
 		await clearAuthStorage();
 		setServerUrl(null);
-		router.replace("/onboarding");
+		router.replace({ pathname: "/onboarding", params: { redirectTo } });
 	}
 
 	if (!serverUrl) {
-		return <Redirect href="/onboarding" />;
+		return <Redirect href={{ pathname: "/onboarding", params: { redirectTo } }} />;
 	}
 	if (isPending) {
 		return <AuthLoading />;
 	}
 	if (session) {
-		return <Redirect href="/(app)" />;
+		return <Redirect href={redirectTo ?? "/(app)"} />;
 	}
 
 	return Result.builder(config)
@@ -422,7 +433,11 @@ export default function Auth() {
 					keyboardShouldPersistTaps="handled"
 					contentContainerClassName="flex-grow items-center justify-center px-6 py-10"
 				>
-					<AuthForm config={auth} onChangeServer={() => void handleChangeServer()} />
+					<AuthForm
+						config={auth}
+						redirectTo={redirectTo}
+						onChangeServer={() => void handleChangeServer()}
+					/>
 				</ScrollView>
 			</KeyboardAvoidingView>
 		))
