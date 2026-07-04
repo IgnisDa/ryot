@@ -1,4 +1,4 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AdminMiddleware } from "../../auth-middleware";
@@ -71,6 +71,7 @@ const DeleteUserResponse = Schema.Struct({ id: UserId });
 const userIdParam = HttpApiSchema.param("userId", UserId);
 
 export const GodModeGroup = HttpApiGroup.make("godMode")
+	.annotate(OpenApi.Description, "Provides administrative user management operations")
 	.addError(Unauthorized, { status: 401 })
 	.add(
 		HttpApiEndpoint.get("listUsers", "/god-mode/users")
@@ -82,38 +83,44 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 				}),
 			)
 			.addSuccess(ListUsersResponse)
-			.middleware(AdminMiddleware),
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Lists users with pagination and optional search"),
 	)
 	.add(
 		HttpApiEndpoint.post("provisionUser", "/god-mode/users/provision")
 			.setPayload(ProvisionUserBody)
 			.addSuccess(ProvisionUserResponse, { status: 201 })
 			.addError(InternalError, { status: 500 })
-			.middleware(AdminMiddleware),
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Provisions a credential or OIDC user"),
 	)
 	.add(
 		HttpApiEndpoint.post("resetUser")`/god-mode/users/${userIdParam}/reset`
 			.addSuccess(ResetUserResponse)
 			.addError(InternalError, { status: 500 })
-			.middleware(AdminMiddleware),
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Resets a user account"),
 	)
 	.add(
 		HttpApiEndpoint.post("resetUserPassword")`/god-mode/users/${userIdParam}/reset-password`
 			.addSuccess(ResetPasswordResponse)
 			.addError(InternalError, { status: 500 })
-			.middleware(AdminMiddleware),
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Creates a password reset URL for a user"),
 	)
 	.add(
 		HttpApiEndpoint.post("setUserDisabled")`/god-mode/users/${userIdParam}/disable/set`
 			.setPayload(SetDisabledBody)
 			.addSuccess(SetDisabledResponse)
 			.addError(InternalError, { status: 500 })
-			.middleware(AdminMiddleware),
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Enables or disables a user account"),
 	)
 	.add(
 		HttpApiEndpoint.del("deleteUser")`/god-mode/users/${userIdParam}`
 			.addSuccess(DeleteUserResponse)
 			.addError(NotFound, { status: 404 })
 			.addError(InternalError, { status: 500 })
-			.middleware(AdminMiddleware),
+			.middleware(AdminMiddleware)
+			.annotate(OpenApi.Description, "Deletes a user account"),
 	);
