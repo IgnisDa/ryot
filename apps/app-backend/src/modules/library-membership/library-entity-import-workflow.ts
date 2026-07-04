@@ -24,8 +24,15 @@ export const LibraryEntityImportWorkflow = Workflow.make({
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-export const runLibraryEntityImportWorkflow = Effect.fn("runLibraryEntityImportWorkflow")(
+export const runLibraryEntityImportWorkflow = Effect.fn("LibraryEntityImportWorkflow")(
 	function* (payload: EntityImportPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({
+			executionId,
+			scriptId: payload.scriptId,
+			externalId: payload.externalId,
+			entitySchemaId: payload.entitySchemaId,
+			...(payload.userId ? { userId: payload.userId } : {}),
+		});
 		const engine = yield* WorkflowEngine;
 		const operations = yield* LibraryEntityImportWorkflowOperations;
 
@@ -68,21 +75,11 @@ export const runLibraryEntityImportWorkflow = Effect.fn("runLibraryEntityImportW
 
 		return entity;
 	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "LibraryEntityImportWorkflow" }),
 );
 
 const LibraryEntityImportWorkflowLive = LibraryEntityImportWorkflow.toLayer(
-	(payload, executionId) =>
-		runLibraryEntityImportWorkflow(payload, executionId).pipe(
-			Effect.withSpan("LibraryEntityImportWorkflow", {
-				attributes: {
-					executionId,
-					scriptId: payload.scriptId,
-					externalId: payload.externalId,
-					entitySchemaId: payload.entitySchemaId,
-					...(payload.userId ? { userId: payload.userId } : {}),
-				},
-			}),
-			Effect.annotateLogs({ executionId, workflow: "LibraryEntityImportWorkflow" }),
-		),
+	runLibraryEntityImportWorkflow,
 );
 export const LibraryEntityImportWorkflowDefinitionsLive = LibraryEntityImportWorkflowLive;

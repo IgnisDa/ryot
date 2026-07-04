@@ -234,9 +234,10 @@ it.effect("syncs successful provider trend items as ranked self edges", () => {
 		options,
 		"exec-trending-success",
 		Effect.gen(function* () {
-			const result = yield* runMediaTrendingRefresh({
-				executionId: "exec-trending-success",
-			});
+			const result = yield* runMediaTrendingRefresh(
+				{ executionId: "exec-trending-success" },
+				"exec-trending-success",
+			);
 
 			expect(result).toEqual({ providerCount: 2, itemCount: 3, synced: true });
 			expect(savedInputs).toHaveLength(4);
@@ -304,9 +305,10 @@ it.effect("skips failed providers and syncs successful providers", () => {
 		options,
 		"exec-trending-partial",
 		Effect.gen(function* () {
-			const result = yield* runMediaTrendingRefresh({
-				executionId: "exec-trending-partial",
-			});
+			const result = yield* runMediaTrendingRefresh(
+				{ executionId: "exec-trending-partial" },
+				"exec-trending-partial",
+			);
 
 			expect(result).toEqual({ providerCount: 1, itemCount: 1, synced: true });
 			expect(syncedEntityId).toBe("entity-show-one");
@@ -381,7 +383,10 @@ it.effect("updates current trend edges and deletes stale ones", () => {
 		options,
 		"exec-trending-reconcile",
 		Effect.gen(function* () {
-			const result = yield* runMediaTrendingRefresh({ executionId: "exec-trending-reconcile" });
+			const result = yield* runMediaTrendingRefresh(
+				{ executionId: "exec-trending-reconcile" },
+				"exec-trending-reconcile",
+			);
 
 			expect(result).toEqual({ providerCount: 1, itemCount: 1, synced: true });
 			expect(updates).toHaveLength(1);
@@ -427,7 +432,10 @@ it.effect("preserves prior trend edges when no provider succeeds", () => {
 		options,
 		"exec-trending-none",
 		Effect.gen(function* () {
-			const result = yield* runMediaTrendingRefresh({ executionId: "exec-trending-none" });
+			const result = yield* runMediaTrendingRefresh(
+				{ executionId: "exec-trending-none" },
+				"exec-trending-none",
+			);
 
 			expect(syncCalled).toBe(false);
 			expect(result).toEqual({ providerCount: 0, itemCount: 0, synced: false });
