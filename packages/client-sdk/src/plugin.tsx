@@ -14,6 +14,7 @@ import { createPluginRuntime } from "./runtime";
 
 type ClientPluginDefinition = {
 	readonly home: ComponentType;
+	readonly notFound?: ComponentType;
 	readonly routes?: readonly PluginRouteDefinition[];
 };
 

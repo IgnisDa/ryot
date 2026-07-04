@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { AuthUnauthorized } from "@ryot/contract/auth-middleware";
+import { AuthRateLimited, AuthUnauthorized } from "@ryot/contract/auth-middleware";
 import type { ContractClient, ContractPayload } from "@ryot/contract/client";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot/contract/modules/ryotql/contract";
 import { Effect, Layer } from "effect";
@@ -51,6 +51,7 @@ describe("plugin queries service", () => {
 
 	const expectedFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
+		new AuthRateLimited({ reason: { code: "session-rate-limited", retryAfterMs: 30_000 } }),
 		new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
 		new RyotQLInternalError({ reason: { code: "execution-failed" } }),
 	];
