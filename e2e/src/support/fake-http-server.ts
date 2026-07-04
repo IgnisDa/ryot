@@ -27,7 +27,7 @@ export async function startFakeHttpServer(
 				).pipe(Effect.provideService(HttpServer.HttpServer, server));
 
 				const address = server.address;
-				if (address._tag === "UnixPathAddress") {
+				if (address._tag === "UnixAddress") {
 					return yield* Effect.die("Fake HTTP server unexpectedly bound to a Unix socket");
 				}
 				return { requests: recorded, url: `http://127.0.0.1:${address.port}` };

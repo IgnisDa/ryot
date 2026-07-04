@@ -4,8 +4,10 @@ import { Schema, Effect, SchemaGetter, SchemaTransformation } from "@ryot-app/sa
 
 import type { SandboxManifest } from "./core";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
-import { jsonValueSchema, strictStruct } from "./wire";
+import { jsonValueSchema } from "./wire";
 
+const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 const trimmedNonEmptyString = Schema.Trim.pipe(Schema.check(Schema.isMinLength(1)));
 const querySchema = Schema.Unknown.pipe(
 	Schema.decodeTo(

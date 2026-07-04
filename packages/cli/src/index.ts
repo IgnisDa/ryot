@@ -337,8 +337,8 @@ const watchPlugin = Effect.fn("watchPlugin")(function* (options: BuildOptions) {
 const buildCommand = Command.make(
 	"build",
 	{
-		watch: Flag.Boolean("watch").pipe(Flag.withDefault(false)),
-		output: Flag.String("output").pipe(Flag.withSchema(Schema.NonEmptyString), Flag.optional),
+		watch: Flag.boolean("watch").pipe(Flag.withDefault(false)),
+		output: Flag.string("output").pipe(Flag.withSchema(Schema.NonEmptyString), Flag.optional),
 	},
 	Effect.fn("buildCommand")(function* ({ watch, output }) {
 		const options = { cwd: process.cwd(), output: Option.getOrUndefined(output) };
