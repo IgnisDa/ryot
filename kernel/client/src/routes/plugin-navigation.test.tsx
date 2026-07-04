@@ -1,10 +1,12 @@
+// oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
+	PluginBridgeInit,
 	PluginThemeSnapshot,
 	REQUIRED_THEME_TOKEN_NAMES,
 } from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -76,7 +78,12 @@ const authenticated = {
 	user: { id: "user-1", email: "user@ryot.example" },
 } as const;
 
-const mount = (initialEntry: string, entries: PluginClientCatalog = catalog) => {
+const mountView = (
+	initialEntry: string,
+	entries: PluginClientCatalog = catalog,
+	load = () => Effect.succeed(entries),
+	invoke: PluginOperationsService["Service"]["invoke"] = () => Effect.die("not used"),
+) => {
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			AuthStub,
@@ -84,8 +91,8 @@ const mount = (initialEntry: string, entries: PluginClientCatalog = catalog) => 
 			PublicApi.layer,
 			AuthClient.layer,
 			AuthenticatedApi.layer,
-			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(entries) }),
-			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
+			Layer.succeed(PluginCatalogService, { load }),
+			Layer.succeed(PluginOperationsService, { invoke }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 		).pipe(Layer.provideMerge(StorageStub)),
 	);
@@ -93,11 +100,40 @@ const mount = (initialEntry: string, entries: PluginClientCatalog = catalog) => 
 		{ runtime, theme },
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
-	render(<RouterProvider router={router} />);
-	return router;
+	const view = render(<RouterProvider router={router} />);
+	return { ...view, router };
 };
 
+const mount = (initialEntry: string, entries: PluginClientCatalog = catalog) =>
+	mountView(initialEntry, entries).router;
+
 const frame = () => screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+
+const connectFrame = (element: HTMLIFrameElement) => {
+	const messages: unknown[] = [];
+	let init: PluginBridgeInit | undefined;
+	let pluginPort: MessagePort | undefined;
+	Object.defineProperty(element, "contentWindow", {
+		configurable: true,
+		value: {
+			postMessage: (message: unknown, _origin: string, transfer: Transferable[]) => {
+				const [transferred] = transfer;
+				if (!(transferred instanceof MessagePort)) {
+					throw new Error("Missing plugin port");
+				}
+				init = Schema.decodeUnknownSync(PluginBridgeInit)(message);
+				pluginPort = transferred;
+				transferred.addEventListener("message", (event) => messages.push(event.data));
+				transferred.start();
+			},
+		},
+	});
+	fireEvent.load(element);
+	if (init === undefined || pluginPort === undefined) {
+		throw new Error("Plugin bridge did not connect");
+	}
+	return { init, messages, pluginPort };
+};
 
 describe("plugin navigation", () => {
 	it("resolves the plugin home directly from its global URL", async () => {
@@ -131,6 +167,84 @@ describe("plugin navigation", () => {
 		router.history.forward();
 		await waitFor(() => expect(router.state.location.pathname).toBe("/fixture/details/item-1"));
 		expect(frame()).toBe(document);
+	});
+
+	it("refreshes the mounted artifact without changing its private URL", async () => {
+		let entries = catalog;
+		let loadCount = 0;
+		const view = mountView("/fixture/details/item-1?tab=stats", entries, () => {
+			loadCount += 1;
+			return Effect.succeed(entries);
+		});
+
+		await waitFor(() => expect(frame().getAttribute("src")).toContain("/artifact-hash/index.html"));
+		const initialFrame = frame();
+		entries = [{ ...catalog[0], sourceHash: "next-source-hash" }];
+		await waitFor(() => expect(loadCount).toBeGreaterThanOrEqual(2), { timeout: 2_000 });
+		expect(frame()).toBe(initialFrame);
+
+		entries = [{ ...entries[0], clientArtifactHash: "next-artifact-hash" }];
+		await waitFor(
+			() => expect(frame().getAttribute("src")).toContain("/next-artifact-hash/index.html"),
+			{ timeout: 2_000 },
+		);
+		expect(frame()).not.toBe(initialFrame);
+		expect(view.router.state.location.pathname).toBe("/fixture/details/item-1");
+		expect(view.router.state.location.searchStr).toBe("?tab=stats");
+
+		view.unmount();
+		const unmountedLoadCount = loadCount;
+		await new Promise((resolve) => setTimeout(resolve, 1_100));
+		expect(loadCount).toBe(unmountedLoadCount);
+	});
+
+	it("unmounts a removed plugin and stops stale access after a catalog refresh", async () => {
+		let entries = catalog;
+		let operationCalls = 0;
+		const view = mountView(
+			"/fixture",
+			entries,
+			() => Effect.succeed(entries),
+			() => {
+				operationCalls += 1;
+				return Effect.succeed({ outcome: "success", value: null } as const);
+			},
+		);
+		await waitFor(() => expect(frame()).toBeTruthy());
+		const initialFrame = frame();
+		const connected = connectFrame(initialFrame);
+		connected.pluginPort.postMessage(connected.init);
+		await waitFor(() => expect(connected.messages).toHaveLength(1));
+		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(connected.messages).toHaveLength(2));
+		connected.pluginPort.postMessage({
+			input: null,
+			type: "operation-request",
+			requestId: "before-removal",
+			operationSlug: "before-removal",
+		});
+		await waitFor(() => expect(operationCalls).toBe(1));
+
+		entries = [];
+		await waitFor(() => expect(screen.queryByTitle("fixture plugin")).toBeNull(), {
+			timeout: 2_000,
+		});
+		expect(initialFrame.isConnected).toBe(false);
+		expect(screen.getByRole("status").textContent).toBe("This page does not exist.");
+		await waitFor(() =>
+			expect(connected.messages).toContainEqual({ reason: "disposed", type: "lifecycle-close" }),
+		);
+
+		connected.pluginPort.postMessage({
+			input: null,
+			type: "operation-request",
+			requestId: "after-removal",
+			operationSlug: "after-removal",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		expect(operationCalls).toBe(1);
+
+		view.unmount();
 	});
 
 	it("drops a replaced entry out of the kernel history stack", async () => {

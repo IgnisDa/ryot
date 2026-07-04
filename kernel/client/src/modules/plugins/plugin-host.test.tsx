@@ -1,6 +1,10 @@
 // oxlint-disable eslint/no-await-in-loop -- Each reload cycle depends on the prior replacement
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
 	PluginBridgeInit,
 	PluginThemeSnapshot,
 	REQUIRED_THEME_TOKEN_NAMES,
@@ -27,6 +31,22 @@ const themeSnapshot = (resolvedMode: "light" | "dark") =>
 			REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `${resolvedMode}-${name}`]),
 		),
 	});
+const queryDocument = {
+	queries: {
+		items: {
+			from: { alias: "item", table: "item" },
+			output: { fields: [], orderBy: [], pagination: { limit: 10 }, type: "rows" },
+		},
+	},
+} as const;
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((res) => {
+		resolve = res;
+	});
+	return { promise, resolve };
+}
 
 function createTheme() {
 	const listeners = new Set<() => void>();
@@ -69,6 +89,8 @@ type HostState = {
 	readonly overrides: Partial<PluginClientCatalogEntry>;
 };
 
+type PluginHostCallbacks = Pick<Parameters<typeof PluginHost>[0], "onQuery" | "onInvokeOperation">;
+
 function connectFrame(frame: HTMLIFrameElement) {
 	const messages: unknown[] = [];
 	let init: PluginBridgeInit | undefined;
@@ -96,7 +118,11 @@ function connectFrame(frame: HTMLIFrameElement) {
 	return { init, messages, pluginPort };
 }
 
-const renderHost = (overrides: Partial<PluginClientCatalogEntry> = {}, location = home) => {
+const renderHost = (
+	overrides: Partial<PluginClientCatalogEntry> = {},
+	location = home,
+	callbacks: Partial<PluginHostCallbacks> = {},
+) => {
 	const navigations: PluginNavigationRequest[] = [];
 	const { setMode, theme } = createTheme();
 	const host = (state: HostState) => (
@@ -106,11 +132,14 @@ const renderHost = (overrides: Partial<PluginClientCatalogEntry> = {}, location 
 			location={state.location}
 			installation={{ ...installation, ...state.overrides }}
 			onNavigate={(request) => navigations.push(request)}
-			onQuery={() =>
-				Promise.resolve({ outcome: "failure", reason: "transport" } as PluginRyotQLOutcome)
+			onQuery={
+				callbacks.onQuery ??
+				(() => Promise.resolve({ outcome: "failure", reason: "transport" } as PluginRyotQLOutcome))
 			}
-			onInvokeOperation={() =>
-				Promise.resolve({ outcome: "failure", reason: "transport" } as PluginOperationOutcome)
+			onInvokeOperation={
+				callbacks.onInvokeOperation ??
+				(() =>
+					Promise.resolve({ outcome: "failure", reason: "transport" } as PluginOperationOutcome))
 			}
 		/>
 	);
@@ -233,17 +262,174 @@ describe("plugin host", () => {
 		expect(frame.getAttribute("src")).toBe(artifactUrl);
 	});
 
-	it("recreates the iframe when the installation serves a new artifact", () => {
-		const { moveTo } = renderHost();
-		const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+	it("uses the latest source revision for operations without replacing the iframe", async () => {
+		const sourceHashes: string[] = [];
+		const { moveTo } = renderHost({}, home, {
+			onInvokeOperation: (_request, sourceHash) => {
+				sourceHashes.push(sourceHash);
+				return Promise.resolve({ outcome: "success", value: null });
+			},
+		});
+		const firstFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		const first = connectFrame(firstFrame);
+		first.pluginPort.postMessage(first.init);
+		await waitFor(() => expect(first.messages).toHaveLength(1));
+		first.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
 
-		moveTo({ location: home, overrides: { clientArtifactHash: "next-artifact-hash" } });
+		moveTo({ location: home, overrides: { sourceHash: "next-source-hash" } });
+		expect(screen.getByTitle("fixture plugin")).toBe(firstFrame);
+		first.pluginPort.postMessage({
+			input: null,
+			operationSlug: "greet",
+			type: "operation-request",
+			requestId: "first-operation",
+		});
+		await waitFor(() => expect(sourceHashes).toEqual(["next-source-hash"]));
 
+		moveTo({
+			location: home,
+			overrides: { sourceHash: "next-source-hash", clientArtifactHash: "next-artifact-hash" },
+		});
+		const secondFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		const second = connectFrame(secondFrame);
+		second.pluginPort.postMessage(second.init);
+		await waitFor(() => expect(second.messages).toHaveLength(1));
+		second.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		second.pluginPort.postMessage({
+			input: null,
+			operationSlug: "greet",
+			type: "operation-request",
+			requestId: "second-operation",
+		});
+		await waitFor(() => expect(sourceHashes).toEqual(["next-source-hash", "next-source-hash"]));
+	});
+
+	it("replaces a changed artifact through a fresh session lifecycle", async () => {
+		const querySignals: AbortSignal[] = [];
+		const operationSignals: AbortSignal[] = [];
+		const queryCall = deferred<PluginRyotQLOutcome>();
+		const operationCall = deferred<PluginOperationOutcome>();
+		const location = { path: "/details/item-3", search: "tab=stats" };
+		let queryAborts = 0;
+		let operationAborts = 0;
+		const { moveTo, navigations } = renderHost({}, location, {
+			onQuery: (_request, signal) => {
+				querySignals.push(signal);
+				signal.addEventListener("abort", () => {
+					queryAborts += 1;
+				});
+				return queryCall.promise;
+			},
+			onInvokeOperation: (_request, _sourceHash, signal) => {
+				operationSignals.push(signal);
+				signal.addEventListener("abort", () => {
+					operationAborts += 1;
+				});
+				return operationCall.promise;
+			},
+		});
+		const firstFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		const first = connectFrame(firstFrame);
+
+		first.pluginPort.postMessage(first.init);
+		await waitFor(() => expect(first.messages).toHaveLength(1));
+		first.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(first.messages).toContainEqual({ type: "location", location }));
+
+		first.pluginPort.postMessage({
+			requestId: "query-1",
+			type: "ryotql-request",
+			document: queryDocument,
+		});
+		first.pluginPort.postMessage({
+			input: null,
+			operationSlug: "greet",
+			requestId: "operation-1",
+			type: "operation-request",
+		});
+		await waitFor(() => {
+			expect(querySignals).toHaveLength(1);
+			expect(operationSignals).toHaveLength(1);
+		});
+
+		moveTo({ location, overrides: { clientArtifactHash: installation.clientArtifactHash } });
+		expect(screen.getByTitle("fixture plugin")).toBe(firstFrame);
+		expect(screen.getAllByTitle("fixture plugin")).toHaveLength(1);
+
+		const nextArtifactHash = "next-artifact-hash";
+		moveTo({ location, overrides: { clientArtifactHash: nextArtifactHash } });
 		const replacement = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		expect(replacement).not.toBe(frame);
+		expect(replacement).not.toBe(firstFrame);
+		expect(screen.getAllByTitle("fixture plugin")).toHaveLength(1);
 		expect(replacement.getAttribute("src")).toBe(
-			`${server}/api/plugins/artifacts/next-artifact-hash/index.html`,
+			`${server}/api/plugins/artifacts/${nextArtifactHash}/index.html`,
 		);
+
+		await waitFor(() =>
+			expect(first.messages).toContainEqual({ reason: "disposed", type: "lifecycle-close" }),
+		);
+		expect(first.messages).toEqual([
+			{ generation: 1, theme: themeSnapshot("light"), type: "theme" },
+			{ type: "location", location },
+			{ reason: "disposed", type: "lifecycle-close" },
+		]);
+		expect(querySignals[0]?.aborted).toBe(true);
+		expect(operationSignals[0]?.aborted).toBe(true);
+		expect(queryAborts).toBe(1);
+		expect(operationAborts).toBe(1);
+
+		moveTo({ location, overrides: { clientArtifactHash: nextArtifactHash } });
+		expect(screen.getByTitle("fixture plugin")).toBe(replacement);
+		expect(queryAborts).toBe(1);
+		expect(operationAborts).toBe(1);
+
+		const second = connectFrame(replacement);
+		expect(second.init).toEqual({
+			format: CLIENT_ARTIFACT_FORMAT,
+			apiVersion: CLIENT_API_VERSION,
+			artifactHash: nextArtifactHash,
+			sessionId: second.init.sessionId,
+			compilerVersion: CLIENT_COMPILER_VERSION,
+			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+		});
+		expect(second.init.sessionId).not.toBe(first.init.sessionId);
+		second.pluginPort.postMessage(second.init);
+		await waitFor(() => expect(second.messages).toHaveLength(1));
+		second.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(second.messages).toContainEqual({ type: "location", location }));
+		expect(second.messages).toEqual([
+			{ generation: 1, theme: themeSnapshot("light"), type: "theme" },
+			{ type: "location", location },
+		]);
+
+		first.pluginPort.postMessage({
+			type: "ryotql-request",
+			document: queryDocument,
+			requestId: "stale-query",
+		});
+		first.pluginPort.postMessage({
+			input: null,
+			operationSlug: "stale",
+			type: "operation-request",
+			requestId: "stale-operation",
+		});
+		first.pluginPort.postMessage({
+			mode: "push",
+			type: "navigate",
+			location: { path: "/stale", search: "" },
+		});
+		queryCall.resolve({ outcome: "success", response: { data: {} } });
+		operationCall.resolve({ outcome: "success", value: "late" });
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		expect(querySignals).toHaveLength(1);
+		expect(operationSignals).toHaveLength(1);
+		expect(navigations).toEqual([]);
+		expect(first.messages).toHaveLength(3);
+		expect(second.messages).toEqual([
+			{ generation: 1, theme: themeSnapshot("light"), type: "theme" },
+			{ type: "location", location },
+		]);
 	});
 
 	it("reports a missing artifact without rendering a frame", () => {

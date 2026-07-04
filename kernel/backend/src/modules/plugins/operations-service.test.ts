@@ -20,6 +20,7 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { OperationsService } from "./operations-service";
+import { PluginRepository } from "./repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 import { fixtureManifest } from "./test-support";
 
@@ -27,6 +28,7 @@ const SYSTEM_SLUG = "fixture";
 const PRIVATE_SLUG = "private";
 const DRIVER_REF = "operation.fixture";
 const OPERATION_SLUG = "resolve.fixture";
+const SOURCE_HASH = "source-hash";
 
 const USER_ONE = UserId.make("user-1");
 const USER_TWO = UserId.make("user-2");
@@ -73,6 +75,7 @@ const resolvedOperation = (available: AvailableOperation) => ({
 	plugin: {
 		config: {},
 		scope: available.scope,
+		sourceHash: SOURCE_HASH,
 		slug: available.pluginSlug,
 		manifest: fixtureManifest(),
 		id: `${available.pluginSlug}-plugin-id`,
@@ -94,10 +97,12 @@ const makeIntegration = (input: {
 	}) as unknown as IntegrationRecord;
 
 const makeLayer = (input: {
+	events?: string[];
 	sandboxError?: string;
 	sandboxValue?: unknown;
 	currentUserId?: UserId;
 	captured?: Array<unknown>;
+	activeSourceHash?: string;
 	integration?: IntegrationRecord | null;
 	available?: ReadonlyArray<AvailableOperation>;
 }) => {
@@ -114,6 +119,14 @@ const makeLayer = (input: {
 				Layer.mergeAll(
 					databaseLayer,
 					integrationScopeResolver,
+					Layer.mock(PluginRepository)({
+						lockIngestion: () => Effect.sync(() => input.events?.push("lock")),
+						isActiveRevision: ({ sourceHash }) =>
+							Effect.sync(() => {
+								input.events?.push("revision");
+								return sourceHash === (input.activeSourceHash ?? SOURCE_HASH);
+							}),
+					}),
 					Layer.mock(AuthService)({
 						// oxlint-disable-next-line no-unsafe-type-assertion -- the better-auth client is never touched by these tests
 						auth: {} as AuthService["Service"]["auth"],
@@ -144,6 +157,7 @@ const makeLayer = (input: {
 					Layer.mock(SandboxExecutionService)({
 						executeScript: (runInput) =>
 							Effect.sync(() => {
+								input.events?.push("dispatch");
 								input.captured?.push(runInput);
 								return {
 									logs: [],
@@ -194,13 +208,19 @@ const expectError = (
 	expect(error).toBeInstanceOf(ErrorClass);
 };
 
-const invoke = (input: { pluginSlug: string; operationSlug?: string; payload?: JsonValue }) =>
+const invoke = (input: {
+	pluginSlug: string;
+	payload?: JsonValue;
+	sourceHash?: string;
+	operationSlug?: string;
+}) =>
 	Effect.flatMap(OperationsService, (service) =>
 		service.invoke({
 			headers: Headers.empty,
 			payload: input.payload ?? {},
 			pluginSlug: input.pluginSlug,
 			operationSlug: input.operationSlug ?? OPERATION_SLUG,
+			...(input.sourceHash === undefined ? {} : { sourceHash: input.sourceHash }),
 		}),
 	);
 
@@ -219,6 +239,29 @@ it.effect("returns NotFound for an unknown operation", () =>
 	}).pipe(Effect.provide(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))),
 );
 
+it.effect("rejects a plugin operation when its active source revision changed", () => {
+	const events: string[] = [];
+	const captured: Array<unknown> = [];
+	return Effect.gen(function* () {
+		expectError(
+			yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG, sourceHash: SOURCE_HASH })),
+			PluginNotFoundError,
+		);
+		expect(captured).toEqual([]);
+		expect(events).toEqual(["lock", "revision"]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				events,
+				captured,
+				currentUserId: USER_ONE,
+				available: [systemUserOperation],
+				activeSourceHash: "next-source-hash",
+			}),
+		),
+	);
+});
+
 it.effect("returns NotFound for a slug that exists only in another user's registry", () =>
 	Effect.gen(function* () {
 		expectError(yield* Effect.exit(invoke({ pluginSlug: PRIVATE_SLUG })), PluginNotFoundError);
@@ -228,8 +271,8 @@ it.effect("returns NotFound for a slug that exists only in another user's regist
 				currentUserId: USER_TWO,
 				available: [
 					{
-						scope: "user",
 						auth: "user",
+						scope: "user",
 						ownerId: USER_ONE,
 						pluginSlug: PRIVATE_SLUG,
 						installationId: "install-private-user-1",
@@ -270,15 +313,17 @@ it.effect("dispatches a private operation with the owning user's subject", () =>
 });
 
 it.effect("dispatches authenticated user operations without system subject", () => {
+	const events: string[] = [];
 	const captured: Array<unknown> = [];
 	return Effect.gen(function* () {
 		expect(yield* invoke({ pluginSlug: SYSTEM_SLUG })).toBe("ok");
 		expect(captured).toEqual([
 			expect.objectContaining({ subject: { type: "user", userId: USER_ONE } }),
 		]);
+		expect(events).toEqual(["dispatch"]);
 	}).pipe(
 		Effect.provide(
-			makeLayer({ captured, currentUserId: USER_ONE, available: [systemUserOperation] }),
+			makeLayer({ events, captured, currentUserId: USER_ONE, available: [systemUserOperation] }),
 		),
 	);
 });

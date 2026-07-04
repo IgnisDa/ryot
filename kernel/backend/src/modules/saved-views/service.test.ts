@@ -427,13 +427,14 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 					listPluginsAvailableToUser: () =>
 						Effect.succeed([
 							{
-								id: pluginId,
 								config: {},
+								id: pluginId,
 								scope: "user",
-								manifest: fixtureManifest(),
+								installationId,
 								compiledHashes: {},
 								slug: "private-plugin",
-								installationId,
+								sourceHash: "source-hash",
+								manifest: fixtureManifest(),
 							},
 						]),
 					getEffectiveDefinitions: (_userId, includeUnavailable) => {
