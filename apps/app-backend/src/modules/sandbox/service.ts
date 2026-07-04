@@ -24,8 +24,8 @@ import {
 	type SandboxPluginScriptResolverValue,
 } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
-import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 import { establishSandboxWorkflowPin, SandboxScriptWorkflow } from "./sandbox-script-workflow";
+import { SandboxSubmissionWorkflow } from "./sandbox-submission-workflow";
 import { toSandboxRunResult } from "./sandbox-workflow-live";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
@@ -102,7 +102,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)),
 				);
 				yield* engine
-					.execute(RunSandboxWorkflow, {
+					.execute(SandboxSubmissionWorkflow, {
 						executionId,
 						discard: true,
 						payload: resolvedPayload,
@@ -127,7 +127,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				}
 
 				return toSandboxRunResult(
-					Option.getOrUndefined(yield* engine.poll(RunSandboxWorkflow, executionId)),
+					Option.getOrUndefined(yield* engine.poll(SandboxSubmissionWorkflow, executionId)),
 				);
 			});
 
