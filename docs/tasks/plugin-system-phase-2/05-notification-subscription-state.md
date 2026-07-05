@@ -27,9 +27,10 @@ Move the last definition/state conflation off the database: per-user notificatio
 `automation_rule` is deleted entirely.
 
 1. **New `notification_subscription_state` table** (`[RECOMMENDED]`)
-   `(id, userId, signalSchemaSlug, scriptSlug, isActive, metadata?, timestamps)`, unique on
-   `(userId, signalSchemaSlug, scriptSlug)`, following the `plugin_state` pattern. Regenerate
-   the single drizzle migration rather than authoring ALTERs.
+   `(id, userId, signalSchemaSlug, isActive, metadata?, timestamps)`, unique on
+   `(userId, signalSchemaSlug)`, following the `plugin_state` pattern (the interim `scriptSlug`
+   column this task added is removed by task 06 — plan §5). Regenerate the single drizzle
+   migration rather than authoring ALTERs.
 2. **Re-point, surface preserved** (plumbing only): `NotificationSubscriptionsService`, the
    `automations` rule endpoints, `ensureDefaultRules`, and the `auth`/`god-mode` consumers now
    read/write the new table instead of `automation_rule`. The user-facing rule surface and its
@@ -47,9 +48,9 @@ restate or re-derive it.
 
 ## Acceptance criteria
 
-- [x] `notification_subscription_state` exists (unique on `(userId, signalSchemaSlug,
-  scriptSlug)`) via a regenerated migration; `automation_rule` is deleted (done criterion 2,
-      remaining half)
+- [x] `notification_subscription_state` exists via a regenerated migration; `automation_rule`
+      is deleted (done criterion 2, remaining half; task 06 narrows the unique key to
+      `(userId, signalSchemaSlug)`)
 - [x] `NotificationSubscriptionsService`, the `automations` endpoints, `ensureDefaultRules`, and
       the `auth`/`god-mode` consumers read/write the new table with the user-facing rule surface
       unchanged (plan §5)
@@ -59,7 +60,7 @@ restate or re-derive it.
 - [x] The notification-subscriptions e2e suite is green with assertions unchanged (cross-phase
       invariant 2); notification-delivery behavior remains green (done criterion 2)
 - [ ] Backend `check` + unit tests, the full e2e suite, and `app-client` check pass (done
-      criterion 6, cross-phase invariant 1)
+      criterion 8, cross-phase invariant 1)
 
   Backend and app-client checks pass; backend tests pass 935/935; the affected e2e suite passes
   4/4. The full e2e run passed 494/495, with the unrelated media-trending poll timeout passing
