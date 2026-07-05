@@ -1,6 +1,6 @@
 import { sandboxManifestSchema } from "@ryot/sandbox-sdk/core";
 import { SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
-import { Either, Schema } from "effect";
+import { Result, Schema } from "effect";
 import * as ts from "typescript/unstable/ast";
 
 import {
@@ -196,11 +196,11 @@ export const extractSandboxManifest = (
 		return { diagnostic: literal.diagnostic };
 	}
 
-	const parsed = Schema.decodeUnknownEither(sandboxManifestSchema)(literal.value);
-	if (Either.isLeft(parsed)) {
+	const parsed = Schema.decodeUnknownResult(sandboxManifestSchema)(literal.value);
+	if (Result.isFailure(parsed)) {
 		return {
-			diagnostic: diagnosticAt(argument, "RYOT_MANIFEST", String(parsed.left)),
+			diagnostic: diagnosticAt(argument, "RYOT_MANIFEST", String(parsed.failure)),
 		};
 	}
-	return { manifest: parsed.right };
+	return { manifest: parsed.success };
 };
