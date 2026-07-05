@@ -3,7 +3,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
-import { execution, hostSuccess } from "./automation-test-utils";
+import { execution, hostSuccess } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-library-membership-on-import.sandbox";
 
 const libraryRows = {

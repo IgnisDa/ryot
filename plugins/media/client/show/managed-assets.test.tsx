@@ -4,8 +4,8 @@ import type { ManagedAssetLocator, RyotClientAdapter } from "@ryot-app/client-sd
 import { waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { flushRyotClient, mountRyotClient } from "../../tests/client/show/test-support";
 import { ManagedAssetImage, ManagedAssetProvider, managedAssetBatches } from "./managed-assets";
-import { flushRyotClient, mountRyotClient } from "./test-support";
 
 const makeLocators = (count: number): readonly ManagedAssetLocator[] =>
 	Array.from({ length: count }, (_, index) => ({ type: "s3", key: `asset-${index}` }));

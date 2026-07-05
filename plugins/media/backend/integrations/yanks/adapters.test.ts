@@ -10,7 +10,7 @@ import {
 	hostSuccess,
 	httpSuccess,
 	integrationRecord,
-} from "../../automations/automation-test-utils";
+} from "../../../tests/backend/automations/automation-test-utils";
 import type { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import type { HistoryClient } from "../../lib/vendors/youtube-music";
 import audiobookshelfDefinition, {

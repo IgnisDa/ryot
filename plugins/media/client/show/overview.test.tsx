@@ -3,16 +3,16 @@
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { ShowOverview } from "./overview";
 import {
 	decodeShowOverview,
 	emptyShowOverview,
 	showCompanyRow,
 	showPersonRow,
 	showRecommendationRow,
-} from "./overview-fixture";
-import { decodeShowSummary } from "./summary-fixture";
-import { mountRyotClient } from "./test-support";
+} from "../../tests/client/show/overview-fixture";
+import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
+import { mountRyotClient } from "../../tests/client/show/test-support";
+import { ShowOverview } from "./overview";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
 

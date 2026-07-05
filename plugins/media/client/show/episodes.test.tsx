@@ -3,26 +3,26 @@
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { ShowEpisodes } from "./episodes";
 import {
 	decodeShowEpisodesResult,
 	decodeShowSeasonEpisodesResult,
 	showEpisodeRow,
 	showSeasonRow,
-} from "./episodes-fixture";
+} from "../../tests/client/show/episodes-fixture";
+import {
+	malformedQueryResult,
+	pendingQueryResult,
+	readyQueryResult,
+	transportErrorQueryResult,
+} from "../../tests/client/show/query-result-fixture";
+import { mountRyotClient } from "../../tests/client/show/test-support";
+import { ShowEpisodes } from "./episodes";
 import {
 	mapShowEpisodes,
 	mapShowSeasonEpisodes,
 	type ShowEpisodesState,
 	type ShowSeasonEpisodesState,
 } from "./episodes-state";
-import {
-	malformedQueryResult,
-	pendingQueryResult,
-	readyQueryResult,
-	transportErrorQueryResult,
-} from "./query-result-fixture";
-import { mountRyotClient } from "./test-support";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
 

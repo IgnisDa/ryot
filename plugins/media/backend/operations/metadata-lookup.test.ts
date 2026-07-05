@@ -3,7 +3,11 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { execution, httpSuccess, integrationRecord } from "../automations/automation-test-utils";
+import {
+	execution,
+	httpSuccess,
+	integrationRecord,
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./metadata-lookup.sandbox";
 
 const tmdbResults = (pathname: string, query: string): JsonValue[] => {
