@@ -1,5 +1,6 @@
 import { BunHttpServer } from "@effect/platform-bun";
 import { badRequest, internalError, unknownToMessage } from "@ryot/contract/errors";
+import { hostFailure } from "@ryot/sandbox-sdk/wire";
 import {
 	Clock,
 	Context,
@@ -28,7 +29,6 @@ import {
 	utf8ByteLength,
 } from "./limits";
 import { sandboxRunnerSource } from "./runner.generated";
-import { apiFailure } from "./shared";
 import type { BoundHostFunction } from "./shared";
 import { readSandboxByteLimitedText } from "./stream-utils";
 
@@ -173,7 +173,7 @@ export const readSandboxBridgeRequestBody = (request: Request) => {
 };
 
 const hostFailureResponse = (message: string) =>
-	Response.json({ result: apiFailure(message) }, { status: 200 });
+	Response.json({ result: hostFailure(message) }, { status: 200 });
 
 export const sandboxBridgeResultResponse = (result: unknown) =>
 	encodeSandboxRpcResponse({ result }).pipe(
