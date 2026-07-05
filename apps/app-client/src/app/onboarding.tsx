@@ -1,6 +1,7 @@
 import { Atom, Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react";
 import clsx from "clsx";
-import { router } from "expo-router";
+import type { Href } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 
@@ -21,6 +22,7 @@ export default function Onboarding() {
 	const connectResult = useAtomValue(connectToServerAtom);
 	const [mode, setMode] = useState<ServerMode>("cloud");
 	const connect = useAtomSet(connectToServerAtom, { mode: "promise" });
+	const { next: nextRoute } = useLocalSearchParams<{ next?: Extract<Href, string> }>();
 	const [validationError, setValidationError] = useState<string | null>(null);
 	const [url, setUrl] = useState(
 		Platform.OS === "web" && typeof window !== "undefined" ? window.location.origin : "",
@@ -39,7 +41,7 @@ export default function Onboarding() {
 		try {
 			await connect(resolvedUrl);
 			setServerUrl(resolvedUrl);
-			router.replace("/auth");
+			router.replace(nextRoute ?? "/auth");
 		} catch {}
 	}
 
