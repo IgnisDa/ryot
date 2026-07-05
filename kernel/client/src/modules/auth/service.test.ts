@@ -27,9 +27,11 @@ const makeStorage = (clearServerSelection: Effect.Effect<void> = Effect.void) =>
 	Layer.succeed(ClientStorage, {
 		clearServerSelection,
 		remove: () => Effect.void,
+		setLastWorkspace: () => Effect.void,
 		setServerSelection: () => Effect.void,
 		setThemePreference: () => Effect.void,
 		getServerSelection: Effect.succeed(null),
+		getLastWorkspace: () => Effect.succeed(null),
 		getThemePreference: Effect.succeed("system" as const),
 	});
 
