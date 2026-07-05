@@ -6,7 +6,7 @@ import {
 	queryEngineInclude,
 	queryEngineNestedEventSource,
 	queryEngineRelationshipSource,
-} from "../documents";
+} from "@ryot/query-engine/documents";
 import {
 	queryEngineAggregate,
 	queryEngineAnd,
@@ -20,9 +20,41 @@ import {
 	queryEngineOrder,
 	queryEnginePropertyRef,
 	queryEngineSystemRef,
-} from "../primitives";
+	type QueryEngineNonEmptyArray,
+} from "@ryot/query-engine/primitives";
+import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
 
 const entityAlias = "entity";
+
+export const buildDefaultMediaSavedViewQueryDocument = <
+	TOrderBy extends QueryEngineNonEmptyArray<unknown> | undefined,
+>(input: {
+	orderBy?: TOrderBy;
+	page?: number | undefined;
+	limit?: number | undefined;
+	schemas: QueryEngineNonEmptyArray<string>;
+}) => {
+	const document = buildDefaultSavedViewQueryDocument(input);
+	return {
+		...document,
+		source: {
+			...document.source,
+			where: queryEngineExists(
+				queryEngineEntitySource({
+					where: null,
+					alias: "library",
+					schemas: ["library"],
+					via: {
+						alias: "inLibrary",
+						schema: "in-library",
+						entityRef: entityAlias,
+						direction: "outgoing" as const,
+					},
+				}),
+			),
+		},
+	};
+};
 
 const entityIdEquals = (entityId: string) =>
 	queryEngineComparison(
@@ -36,10 +68,10 @@ const withEntityFilter = <TExpr>(entityId: string | undefined, expr: TExpr) =>
 
 const eventExistsSource = (entityRef: string, eventSchemaSlug: string) =>
 	queryEngineNestedEventSource({
-		alias: `${entityRef}${eventSchemaSlug}`,
 		entityRef,
-		schemas: [eventSchemaSlug],
 		where: null,
+		schemas: [eventSchemaSlug],
+		alias: `${entityRef}${eventSchemaSlug}`,
 	});
 
 const showSeasonSource = <TWhere>(alias: string, where: TWhere) =>
@@ -50,33 +82,33 @@ const showSeasonSource = <TWhere>(alias: string, where: TWhere) =>
 		via: {
 			entityRef: entityAlias,
 			alias: `${alias}Relationship`,
-			direction: "outgoing" as const,
 			schema: "show-to-show-season",
+			direction: "outgoing" as const,
 		},
 	});
 
 const seasonEpisodeSource = <TWhere>(seasonAlias: string, episodeAlias: string, where: TWhere) =>
 	queryEngineEntitySource({
-		alias: episodeAlias,
 		where,
+		alias: episodeAlias,
 		schemas: ["show-episode"],
 		via: {
 			entityRef: seasonAlias,
-			alias: `${episodeAlias}Relationship`,
 			direction: "outgoing" as const,
+			alias: `${episodeAlias}Relationship`,
 			schema: "show-season-to-show-episode",
 		},
 	});
 
 const podcastEpisodeSource = <TWhere>(episodeAlias: string, where: TWhere) =>
 	queryEngineEntitySource({
-		alias: episodeAlias,
 		where,
+		alias: episodeAlias,
 		schemas: ["podcast-episode"],
 		via: {
 			entityRef: entityAlias,
-			alias: `${episodeAlias}Relationship`,
 			direction: "outgoing" as const,
+			alias: `${episodeAlias}Relationship`,
 			schema: "podcast-to-podcast-episode",
 		},
 	});
@@ -127,9 +159,9 @@ export const buildShowDetailQueryDocument = (input: {
 	const seasonAlias = "season";
 	const episodeAlias = "episode";
 	return buildQueryEngineEntityRowsDocument({
-		alias: entityAlias,
 		limit: 1,
 		schemas: ["show"],
+		alias: entityAlias,
 		where: entityIdEquals(input.entityId),
 		fields: queryEngineIdentityFields(entityAlias),
 		orderBy: [queryEngineOrder("asc", queryEngineSystemRef(entityAlias, "id"))],
@@ -137,6 +169,7 @@ export const buildShowDetailQueryDocument = (input: {
 			queryEngineInclude({
 				key: "seasons",
 				limit: input.seasonLimit,
+				source: showSeasonSource(seasonAlias, null),
 				fields: [
 					...queryEngineIdentityFields(seasonAlias),
 					queryEngineField(
@@ -150,11 +183,11 @@ export const buildShowDetailQueryDocument = (input: {
 						queryEnginePropertyRef(seasonAlias, "show-season", "seasonNumber"),
 					),
 				],
-				source: showSeasonSource(seasonAlias, null),
 				include: [
 					queryEngineInclude({
 						key: "episodes",
 						limit: input.episodeLimit,
+						source: seasonEpisodeSource(seasonAlias, episodeAlias, null),
 						fields: [
 							...queryEngineIdentityFields(episodeAlias),
 							queryEngineField(
@@ -176,7 +209,6 @@ export const buildShowDetailQueryDocument = (input: {
 								queryEnginePropertyRef(episodeAlias, "show-episode", "episodeNumber"),
 							),
 						],
-						source: seasonEpisodeSource(seasonAlias, episodeAlias, null),
 					}),
 				],
 			}),
@@ -185,15 +217,15 @@ export const buildShowDetailQueryDocument = (input: {
 };
 
 export const buildInProgressShowsQueryDocument = (input: {
-	entityId?: string | undefined;
 	page?: number | undefined;
 	limit?: number | undefined;
+	entityId?: string | undefined;
 }) =>
 	buildQueryEngineEntityRowsDocument({
-		alias: entityAlias,
 		page: input.page,
-		limit: input.limit,
 		schemas: ["show"],
+		alias: entityAlias,
+		limit: input.limit,
 		fields: queryEngineIdentityFields(entityAlias),
 		where: withEntityFilter(
 			input.entityId,
@@ -216,15 +248,15 @@ export const buildInProgressShowsQueryDocument = (input: {
 	});
 
 export const buildCompletedShowsQueryDocument = (input: {
-	entityId?: string | undefined;
 	page?: number | undefined;
 	limit?: number | undefined;
+	entityId?: string | undefined;
 }) =>
 	buildQueryEngineEntityRowsDocument({
-		alias: entityAlias,
 		page: input.page,
-		limit: input.limit,
 		schemas: ["show"],
+		alias: entityAlias,
+		limit: input.limit,
 		fields: queryEngineIdentityFields(entityAlias),
 		where: withEntityFilter(
 			input.entityId,
@@ -242,8 +274,8 @@ export const buildPodcastDetailQueryDocument = (input: {
 }) => {
 	const episodeAlias = "episode";
 	return buildQueryEngineEntityRowsDocument({
-		alias: entityAlias,
 		limit: 1,
+		alias: entityAlias,
 		schemas: ["podcast"],
 		where: entityIdEquals(input.entityId),
 		fields: queryEngineIdentityFields(entityAlias),
@@ -252,6 +284,7 @@ export const buildPodcastDetailQueryDocument = (input: {
 			queryEngineInclude({
 				key: "episodes",
 				limit: input.episodeLimit,
+				source: podcastEpisodeSource(episodeAlias, null),
 				fields: [
 					...queryEngineIdentityFields(episodeAlias),
 					queryEngineField(
@@ -273,20 +306,19 @@ export const buildPodcastDetailQueryDocument = (input: {
 						queryEnginePropertyRef(episodeAlias, "podcast-episode", "episodeNumber"),
 					),
 				],
-				source: podcastEpisodeSource(episodeAlias, null),
 			}),
 		],
 	});
 };
 
 export const buildInProgressPodcastsQueryDocument = (input: {
-	entityId?: string | undefined;
 	page?: number | undefined;
 	limit?: number | undefined;
+	entityId?: string | undefined;
 }) =>
 	buildQueryEngineEntityRowsDocument({
-		alias: entityAlias,
 		page: input.page,
+		alias: entityAlias,
 		limit: input.limit,
 		schemas: ["podcast"],
 		fields: queryEngineIdentityFields(entityAlias),
@@ -305,13 +337,13 @@ export const buildInProgressPodcastsQueryDocument = (input: {
 	});
 
 export const buildCompletedPodcastsQueryDocument = (input: {
-	entityId?: string | undefined;
 	page?: number | undefined;
 	limit?: number | undefined;
+	entityId?: string | undefined;
 }) =>
 	buildQueryEngineEntityRowsDocument({
-		alias: entityAlias,
 		page: input.page,
+		alias: entityAlias,
 		limit: input.limit,
 		schemas: ["podcast"],
 		fields: queryEngineIdentityFields(entityAlias),
@@ -332,8 +364,8 @@ export const buildCompletedPodcastsQueryDocument = (input: {
 
 const mediaSuggestionSource = <TWhere>(schemaSlug: string, where: TWhere) =>
 	queryEngineRelationshipSource({
-		alias: "relationship",
 		where,
+		alias: "relationship",
 		schemas: ["media-suggestion"],
 		sourceEntity: { alias: "sourceEntity", schemas: [schemaSlug] },
 		targetEntity: { alias: "targetEntity", schemas: [schemaSlug] },
@@ -341,8 +373,10 @@ const mediaSuggestionSource = <TWhere>(schemaSlug: string, where: TWhere) =>
 
 const recommendationOutput = <TSource>(source: TSource, limit: number) =>
 	buildQueryEngineAggregateDocument({
-		source,
 		limit,
+		source,
+		groupBy: queryEngineIdentityFields("targetEntity"),
+		orderBy: [queryEngineOrder("desc", queryEngineMeasureRef("recommendingSourceCount"))],
 		measures: [
 			{
 				key: "recommendingSourceCount",
@@ -352,21 +386,19 @@ const recommendationOutput = <TSource>(source: TSource, limit: number) =>
 				},
 			},
 		],
-		groupBy: queryEngineIdentityFields("targetEntity"),
-		orderBy: [queryEngineOrder("desc", queryEngineMeasureRef("recommendingSourceCount"))],
 	});
 
 const libraryExists = (entityRef: string, alias: string) =>
 	queryEngineExists(
 		queryEngineEntitySource({
 			alias,
-			schemas: ["library"],
 			where: null,
+			schemas: ["library"],
 			via: {
 				entityRef,
+				schema: "in-library",
 				alias: `${alias}Relationship`,
 				direction: "outgoing" as const,
-				schema: "in-library",
 			},
 		}),
 	);
@@ -404,10 +436,10 @@ export const buildCollectionMediaSuggestionsQueryDocument = (input: {
 						queryEngineLiteral(input.collectionId),
 					),
 					via: {
+						schema: "member-of",
 						entityRef: "sourceEntity",
 						alias: "collectionMembership",
 						direction: "outgoing" as const,
-						schema: "member-of",
 					},
 				}),
 			),

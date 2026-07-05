@@ -2,7 +2,7 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 } from "@ryot/contract/display-configuration";
-import { buildMeasurementListQueryDocument } from "@ryot/query-engine/recipes/fitness";
+import { buildMeasurementListQueryDocument } from "@ryot/plugin-fitness/query-recipes";
 import { Effect } from "effect";
 
 import {

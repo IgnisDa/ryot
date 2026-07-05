@@ -1,7 +1,7 @@
 import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
-import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
 
+import { buildDefaultMediaSavedViewQueryDocument } from "./query-recipes";
 import { mediaEntitySchemas } from "./schemas/entity-schemas";
 import { slugify } from "./shared/slug";
 import { buildDisplayConfig } from "./shared/view-helpers";
@@ -13,7 +13,6 @@ export type BuiltinSavedView = {
 	readonly pluginSlug?: string;
 	readonly accentColor?: string;
 	readonly entitySchemaSlug?: string;
-	readonly requireInLibrary?: boolean;
 	readonly queryDocument?: QueryDocument;
 	readonly displayConfiguration: DisplayConfiguration;
 };
@@ -63,7 +62,6 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 		name: "All Persons",
 		slug: "all-persons",
 		pluginSlug: "media",
-		requireInLibrary: true,
 		entitySchemaSlug: "person",
 		displayConfiguration: buildDisplayConfig("person"),
 	},
@@ -71,7 +69,6 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 		pluginSlug: "media",
 		name: "All Companies",
 		slug: "all-companies",
-		requireInLibrary: true,
 		entitySchemaSlug: "company",
 		displayConfiguration: buildDisplayConfig("company"),
 	},
@@ -80,7 +77,6 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 		return {
 			name,
 			pluginSlug: "media",
-			requireInLibrary: true,
 			entitySchemaSlug: slug,
 			slug: slugify(name),
 			displayConfiguration: buildDisplayConfig(slug),
@@ -107,9 +103,8 @@ export const mediaSavedViews = () => {
 			accentColor: view.accentColor ?? schema.accentColor,
 			queryDocument:
 				view.queryDocument ??
-				buildDefaultSavedViewQueryDocument({
+				buildDefaultMediaSavedViewQueryDocument({
 					schemas: [view.entitySchemaSlug],
-					requireInLibrary: view.requireInLibrary,
 				}),
 			displayConfiguration: view.displayConfiguration,
 		};
