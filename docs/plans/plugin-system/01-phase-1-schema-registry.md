@@ -170,8 +170,8 @@ phase gate.
 - Re-plumb (assertions preserved): the 15 files using `getBuiltinEntitySchemaId`/
   `linkToEntitySchemaId` fixtures switch to slugs; `fixtures/entity-schemas.ts`,
   `fixtures/trackers.ts` rewritten or folded; `seed-script.ts` only if it touches removed
-  surfaces (the tests `CLAUDE.md` says don't refactor it otherwise).
-- `tests/CLAUDE.md` updated where conventions changed.
+  surfaces (the tests `AGENTS.md` says don't refactor it otherwise).
+- `tests/AGENTS.md` updated where conventions changed.
 
 **[IMPLEMENTER-DECIDES — resolved]** The existing e2e behavioral coverage creates temporary
 entity, event, relationship, and tracker definitions, including throughout the query-engine

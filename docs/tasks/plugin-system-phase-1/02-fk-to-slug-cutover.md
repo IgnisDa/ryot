@@ -58,9 +58,9 @@ re-derive them:
   `@ryot/contract` DTOs so schema references are slugs.
 - **§6 E2e:** delete the CRUD/user-created-schema suites named in §6 (keeping surviving
   provider search/import tests), re-plumb the id-based fixtures to slugs with **assertions
-  preserved**, and update `tests/CLAUDE.md` where conventions change.
+  preserved**, and update `tests/AGENTS.md` where conventions change.
 
-Per cross-phase invariant 7, update each touched `CLAUDE.md`/`AGENTS.md`/`README.md` where
+Per cross-phase invariant 7, update each touched `AGENTS.md`/`AGENTS.md`/`README.md` where
 conventions changed (facts move, they do not duplicate). Per `AGENTS.md`, launch an `explore`
 subagent to find existing patterns before writing; record `[RECOMMENDED]` deviations and
 `[IMPLEMENTER-DECIDES]` choices back into the plan file. If implementation shows a `[DECIDED]`
@@ -89,7 +89,7 @@ Derived from the Phase 1 done criteria (§"Done criteria") and the cross-phase g
 - [x] The initial drizzle migration and `meta/` snapshot are regenerated (not ALTERed), and
       the `event` local-slug / denormalization outcome is recorded in the plan (§2).
 - [x] `[RECOMMENDED]` deviations and `[IMPLEMENTER-DECIDES]` choices are recorded in the Phase 1
-      plan file; touched `CLAUDE.md`/`AGENTS.md`/`README.md` files are updated.
+      plan file; touched `AGENTS.md`/`AGENTS.md`/`README.md` files are updated.
 
 ## User stories addressed
 

@@ -35,7 +35,7 @@ Kernel capability:
   format = whatever the existing scheduler module consumes; the kernel owns the tick).
 - Scheduler dispatches each due cron as a sandbox execution of the referenced driver
   (fire-and-forget through the durable queue machinery consistent with
-  `apps/app-backend/CLAUDE.md` durable-ownership rules; idempotency stays with the script).
+  `apps/app-backend/AGENTS.md` durable-ownership rules; idempotency stays with the script).
 - New host functions (shapes **[IMPLEMENTER-DECIDES]**, semantics fixed):
   - `upsertGlobalEntities(items[])` — batch, coarse-atomic per item (entity + provenance),
     preserve-existing semantics matching today's trending refresh writes.
@@ -109,7 +109,7 @@ Kernel capability:
   - `sleep(name, duration)` — durable timer via the engine.
   - `child(name, workflowRef, input)` — composes another manifest workflow with a
     **deterministic execution id** derived from parent id + name (this preserves the
-    existing hard rule in `apps/app-backend/CLAUDE.md` §Queues about deterministic child
+    existing hard rule in `apps/app-backend/AGENTS.md` §Queues about deterministic child
     ids).
   - The journal is keyed by call sequence + name; a replay that diverges (different call
     order) fails the execution with a structured nondeterminism error.

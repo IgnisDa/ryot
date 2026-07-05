@@ -29,7 +29,7 @@ reason). The gate failing must name the offending file/line.
   `BridgeService.handleRequest`. Pick the limit from observed batch-activity behavior.
 - **Pool/limits retuning** for the heavier post-migration sandbox load: revisit
   `SANDBOX_WORKER_CONCURRENCY`, `DATABASE_WORKFLOW_POOL_MAX`, and the Postgres
-  `max_connections` arithmetic documented in `tests/CLAUDE.md` (Timeouts & Pool Sizing), and
+  `max_connections` arithmetic documented in `tests/AGENTS.md` (Timeouts & Pool Sizing), and
   the per-driver-kind budget profiles introduced in Phase 3 step 3. Re-baseline the e2e
   suite wall-clock and record it here.
 - **Superseded script-row GC**: delete plugin script rows no longer referenced by any
@@ -38,9 +38,9 @@ reason). The gate failing must name the offending file/line.
 ## 3. Test tree and docs reorganization
 
 - Reorganize `tests/src/tests/` into `kernel/` and `plugins/media/` + `plugins/fitness/`
-  suites (pure moves; no assertion changes). Update `tests/CLAUDE.md` conventions:
+  suites (pure moves; no assertion changes). Update `tests/AGENTS.md` conventions:
   the install-test-plugin fixture, the kernel/plugin split, retuned budgets.
-- Documentation sweep under the single-owner rule (`apps/app-backend/CLAUDE.md` Documentation
+- Documentation sweep under the single-owner rule (`apps/app-backend/AGENTS.md` Documentation
   Layout): rewrite the sections that describe seeding, builtins, schema tables, automation
   rules; add plugin authoring docs (`libs/plugin-kit` README: manifest reference, driver
   kinds, capabilities, determinism rules for workflow scripts, batch-first guidance);
