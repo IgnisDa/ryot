@@ -24,9 +24,9 @@ open, and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 5 of 7 tasks completed
+**Overall Progress:** 5 of 8 tasks completed
 
-**Current Task:** [Task 06](./06-remove-user-sandbox-scripts.md) (todo)
+**Current Task:** [Task 06](./06-notification-automation-ownership.md) (todo)
 
 ### Task List
 
@@ -37,11 +37,13 @@ open, and you record the choice you make in the plan file.
 | 03  | [Plugin Packages and Boot Cutover](./03-plugin-packages-and-boot-cutover.md)        | AFK  | done   |
 | 04  | [Admin Install Surface and Test Fixture](./04-admin-install-surface-and-fixture.md) | AFK  | done   |
 | 05  | [Notification Subscription State Table](./05-notification-subscription-state.md)    | AFK  | done   |
-| 06  | [Remove the Per-User Sandbox-Script Feature](./06-remove-user-sandbox-scripts.md)   | AFK  | todo   |
-| 07  | [Codebase Cleanup](./07-codebase-cleanup.md)                                        | AFK  | todo   |
+| 06  | [Notification Automation Ownership](./06-notification-automation-ownership.md)         | AFK  | todo   |
+| 07  | [Remove the Per-User Sandbox-Script Feature](./07-remove-user-sandbox-scripts.md)   | AFK  | todo   |
+| 08  | [Codebase Cleanup](./08-codebase-cleanup.md)                                        | AFK  | todo   |
 
-Task 06 (Decision 19: delete the per-user sandbox-script feature) depends on task 04's
-`installTestPlugin` fixture and must run before the final cleanup.
+Task 06 assigns notification formatting to the owner of each signal and must complete before
+task 07 finalizes script storage. Task 07 also depends on task 04's `installTestPlugin` fixture
+and must run before the final cleanup.
 
 ## Problem Statement
 
@@ -122,10 +124,9 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
    `.sandbox.ts` isolation is no longer a constraint inside a package (plan §2 multi-file
    authoring).
 6. As the kernel, I want a small kernel-owned "definition source zero" set (the `collection`
-   entity schema, the `integration.disabled` signal schema, the generic
-   `automation.notification` delivery script) fed through the same registry mechanism, so that
-   generic definitions are not forced into a domain plugin (`00-overview.md` target
-   architecture; plan §2).
+   entity schema, the `integration.disabled` signal schema, and that signal's notification
+   formatter) fed through the same registry mechanism, so that generic definitions are not
+   forced into a domain plugin (`00-overview.md` target architecture; plan §2).
 7. As the implementing agent, I want the ambiguous split between plugin-owned and kernel-owned
    definitions resolved by Decision 2's litmus test, so that anything only one plugin needs
    goes to that plugin (plan §2 `[IMPLEMENTER-DECIDES]`).
@@ -147,8 +148,9 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
     as immutable-per-hash `sandbox_script` rows gaining a `pluginSlug` column (new version ⇒
     new row), with `isBuiltin` dropped, so that the execution path stays unchanged while
     superseded rows are retained while referenced (plan §4 step 4 `[RECOMMENDED]`); the storage
-    end state is every row plugin-owned — `pluginSlug` NOT NULL, no `userId` — which task 06
-    completes (Decision 19).
+    end state is definition-source ownership with no `userId`: installed-plugin rows have
+    `pluginSlug`, while immutable content-addressed source-zero rows do not. Task 07 completes
+    this end state (Decision 19).
 13. As the kernel, I want loading to build the new registry snapshot (Phase 1 registry + plugin
     definitions + bindings) and swap it atomically, so that reads never observe a half-applied
     plugin (plan §4 step 5; Decision 13).
@@ -231,10 +233,10 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
     group's authoring/CRUD/compile endpoints, the authoring service/routes, and owner-based
     access checks — after the install fixture lands, so that plugins are the single extension
     mechanism, first-party and user-authored alike (Decision 19; plan §8).
-36. As the kernel, I want script storage at its end state — every script row plugin-owned
-    (`pluginSlug` NOT NULL, no `userId`, no per-user slug uniqueness) with execution machinery,
-    `entity.sandboxScriptId` provenance, and per-executing-user cache isolation unchanged — so
-    that no second ownership model survives (Decision 19; plan §8; done criterion 6).
+36. As the kernel, I want script storage at its end state — every row owned by an installed
+    plugin or kernel source zero, with no `userId` or per-user slug uniqueness — while execution
+    machinery, `entity.sandboxScriptId` provenance, and per-executing-user cache isolation remain
+    unchanged (Decision 19; plan §8; done criterion 6).
 37. As the implementing agent, I want the `tests/src/tests/sandbox/` execution/limits/fault
     coverage ported to plugin-installed scripts and the authoring-CRUD coverage deleted, so
     that behavior coverage survives the feature's removal (plan §8).
@@ -246,6 +248,9 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
     definitions, and `tracker*` storage removed before the package manifests are authored, so
     that no manifest is ever written against a concept being deleted (plan §9 ordering; done
     criterion 7).
+40. As the kernel, I want each subscribable signal definition to select a formatter owned by the
+    same plugin or by kernel source zero, so that notification messages preserve their behavior
+    without putting media or fitness vocabulary in kernel code (Decision 2; plan §2 and §5).
 
 ## Implementation Decisions
 
@@ -259,7 +264,8 @@ them (and risk drift), this PRD points to the exact sections that own them:
 - **Plugin packages** — the top-level `plugins/` directory `[RECOMMENDED]`, the package shape,
   the precise content assignment for media vs. fitness vs. kernel-owned definitions (including
   the exact provider/automation/signal-schema lists), the `[IMPLEMENTER-DECIDES]` ambiguous
-  split resolved by Decision 2's litmus, and multi-file authoring via `shared/`: plan §2.
+  split resolved by Decision 2's litmus, signal-owned notification formatters, and multi-file
+  authoring via `shared/`: plan §2.
 - **Compiler extension** — extending `libs/sandbox-compiler` for plugin bundles with existing
   approved-dependency enforcement and diagnostics, one reused worker session, and deterministic
   output ordering for stable hashes: plan §3.
@@ -272,8 +278,9 @@ them (and risk drift), this PRD points to the exact sections that own them:
 - **Automation dispatch off the DB** — the two-kind split (global bindings → registry;
   per-user subscriptions → new `notification_subscription_state` table), the exact re-point
   list (`NotificationSubscriptionsService`, `automations` endpoints, `ensureDefaultRules`,
-  `auth`/`god-mode` consumers), the `subscription_run` `ruleId`→stable-identifier change, and
-  the table/module deletions gated on both moves completing: plan §5.
+  `auth`/`god-mode` consumers), selection of `scriptSlug` from the signal definition, the
+  `subscription_run` `ruleId`→stable-identifier change, and the table/module deletions gated on
+  both moves completing: plan §5.
 - **Admin install surface and test fixture** — the admin-scoped `plugins` group, the v1
   uninstall-refusal policy, the `[IMPLEMENTER-DECIDES]` bundle format, the `installTestPlugin`
   replacement, the god-mode endpoint deletions, the temporary-seam removal, and the
@@ -281,8 +288,8 @@ them (and risk drift), this PRD points to the exact sections that own them:
 - **Per-user script-feature removal** — the deletion inventory (contract group audit,
   authoring service/routes, storage end state, e2e port, doc updates), what survives
   (execution machinery, compiler service, provenance, cache isolation), the `after §6`
-  ordering constraint, and the `[IMPLEMENTER-DECIDES]` table-rename question: Decision 19 and
-  plan §8.
+  ordering constraint, and retention of the `sandbox_script` table name: Decision 19 and plan
+  §8.
 - **Tracker-concept removal** — the manifest/metadata rework, the registry change, the
   `plugin_state` and `savedView.pluginSlug` storage renames, the contract-group dissolution,
   and the before-manifests ordering (first work item of task 03): Decision 20 and plan §9.
@@ -316,8 +323,11 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
 - **The `installTestPlugin` fixture is the central test change:** every provider-driven e2e
   test now exercises the real loader implicitly; the `automations` notification-subscriptions
   suite is re-plumbed to the new state table with assertions preserved (plan §5–6). After
-  task 06, the `tests/src/tests/sandbox/` execution/limits/fault coverage also runs against
+  task 07, the `tests/src/tests/sandbox/` execution/limits/fault coverage also runs against
   plugin-installed scripts, and authoring-CRUD coverage is deleted with its feature (plan §8).
+- **Notification formatter ownership:** task 06 preserves every notification message assertion
+  while running media and fitness formatters from their owning plugins and the
+  `integration.disabled` formatter from kernel source zero.
 - **Behavior that must stay green:** the automation e2e suites (auto-complete, integration
   progress policy, notification delivery) with assertions unchanged (done criterion 2), and the
   hot-install e2e (install fake plugin → search/import through it → uninstall; done criterion
