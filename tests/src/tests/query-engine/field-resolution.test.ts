@@ -5,7 +5,7 @@ import {
 	buildEntityRowsQueryDocument,
 	createAuthenticatedClient,
 	createQueryEngineEntity,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	propertyRef,
 	requireQueryEngineFieldValue,
@@ -21,13 +21,13 @@ describe("query engine field resolution", () => {
 	it.live("coalesces cross-schema property values per row", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const book = yield* createQueryEngineTrackerAndSchema(client, {
+			const book = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "CoalesceBook",
 				propertiesSchema: {
 					fields: { author: { type: "string", label: "Author", description: "Author" } },
 				},
 			});
-			const movie = yield* createQueryEngineTrackerAndSchema(client, {
+			const movie = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "CoalesceMovie",
 				propertiesSchema: {
 					fields: { director: { type: "string", label: "Director", description: "Director" } },
@@ -80,7 +80,7 @@ describe("query engine field resolution", () => {
 	it.live("returns the first image from the images property as json", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "ImageFieldItem",
 				propertiesSchema: {
 					fields: {
@@ -136,7 +136,7 @@ describe("query engine field resolution", () => {
 	it.live("returns null wrappers for missing properties", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "NullPropertyItem",
 				propertiesSchema: {
 					fields: { author: { type: "string", label: "Author", description: "Author" } },

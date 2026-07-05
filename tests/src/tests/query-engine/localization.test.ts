@@ -4,7 +4,7 @@ import {
 	buildEntityRowsQueryDocument,
 	createAuthenticatedClient,
 	createQueryEngineEntity,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	literalExpr,
 	propertyRef,
@@ -33,7 +33,7 @@ const byName = (result: QueryEngineRowsResponse, name: string): QueryEngineRowIt
 const setupLocalizedItems = () =>
 	Effect.gen(function* () {
 		const { client } = yield* createAuthenticatedClient();
-		const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+		const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 			schemaName: "LocalizedItem",
 			propertiesSchema: {
 				fields: {

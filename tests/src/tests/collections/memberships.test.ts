@@ -5,7 +5,7 @@ import {
 	createAuthenticatedClient,
 	createCollection,
 	createGlobalBookEntityFixture,
-	createTrackerWithSchemaAndEntity,
+	createPluginSchemaAndEntity,
 	getBackendClient,
 	queryInLibraryRelationship,
 } from "~/fixtures";
@@ -74,7 +74,7 @@ describe("POST /collections/memberships", () => {
 				description: "For testing add to collection",
 			});
 
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const data = yield* client.call((c) =>
 				c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
@@ -131,7 +131,7 @@ describe("POST /collections/memberships", () => {
 				},
 			});
 
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const data = yield* client.call((c) =>
 				c.collections.createMembership({
@@ -170,7 +170,7 @@ describe("POST /collections/memberships", () => {
 				},
 			});
 
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const data = yield* client.call((c) =>
 				c.collections.createMembership({
@@ -200,7 +200,7 @@ describe("POST /collections/memberships", () => {
 				},
 			});
 
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const first = yield* client.call((c) =>
 				c.collections.createMembership({
@@ -234,7 +234,7 @@ describe("POST /collections/memberships", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
@@ -284,7 +284,7 @@ describe("POST /collections/memberships", () => {
 				description: "Should not be accessible by User B",
 			});
 
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(clientB);
+			const { entityId } = yield* createPluginSchemaAndEntity(clientB);
 
 			const error = yield* Effect.flip(
 				clientB.call((c) =>
@@ -327,7 +327,7 @@ describe("DELETE /collections/memberships", () => {
 				description: "For testing remove from collection",
 			});
 
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const addData = yield* client.call((c) =>
 				c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
@@ -354,7 +354,7 @@ describe("DELETE /collections/memberships", () => {
 				description: "For testing remove from collection",
 			});
 
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
@@ -371,7 +371,7 @@ describe("DELETE /collections/memberships", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
@@ -396,7 +396,7 @@ describe("DELETE /collections/memberships", () => {
 				description: "Should not be accessible by User B",
 			});
 
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(clientB);
+			const { entityId } = yield* createPluginSchemaAndEntity(clientB);
 
 			const error = yield* Effect.flip(
 				clientB.call((c) =>

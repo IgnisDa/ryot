@@ -9,7 +9,7 @@ import {
 	createEventSchema,
 	createQueryEngineEntity,
 	createQueryEngineEvent,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngine,
 	getBackendClient,
 	requireQueryEngineFieldValue,
@@ -34,7 +34,7 @@ describe("entity system fields covering all entity table columns", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client, userId } = yield* createAuthenticatedClient();
-				const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+				const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 					schemaName: "SystemFieldEntity",
 					propertiesSchema: {
 						fields: { genre: { type: "string", label: "Genre", description: "Genre" } },
@@ -94,7 +94,7 @@ describe("entity system fields covering all entity table columns", () => {
 	it.live("filters entities by a null populatedAt using isNull", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "PopulatedAtFilterEntity",
 			});
 
@@ -130,7 +130,7 @@ describe("event system fields covering all event table columns", () => {
 	it.live("selects entityId, eventSchemaSlug, userId, sessionEntityId, and properties", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "SystemFieldEventEntity",
 			});
 			const completeSlug = `system-field-complete-${crypto.randomUUID()}`;
@@ -194,7 +194,7 @@ describe("event system fields covering all event table columns", () => {
 	it.live("resolves sessionEntityId to null when not set", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "NullSessionEntity",
 			});
 			const watchSlug = `null-session-watch-${crypto.randomUUID()}`;
@@ -239,7 +239,7 @@ describe("event system fields covering all event table columns", () => {
 	it.live("filters events by isNotNull on sessionEntityId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "SessionFilterEntity",
 			});
 			const watchSlug = `session-filter-watch-${crypto.randomUUID()}`;
@@ -297,7 +297,7 @@ describe("event system fields covering all event table columns", () => {
 	it.live("orders events by entityId descending", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "EntityIdOrderEntity",
 			});
 			const watchSlug = `entity-id-order-watch-${crypto.randomUUID()}`;

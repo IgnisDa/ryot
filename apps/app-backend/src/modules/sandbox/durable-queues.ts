@@ -74,12 +74,12 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 
 	const result = yield* sandbox.run({
 		scriptId: script.id,
+		scriptIsBuiltin: true,
 		userId: payload.userId,
 		context: payload.context,
 		metadata: script.metadata,
 		driverName: payload.driverName,
 		executionId: payload.executionId,
-		scriptIsBuiltin: script.isBuiltin,
 		compiledCode: script.compiledCode,
 		compiledFormat: script.compiledFormat,
 		allowedHostFunctions: script.metadata.capabilities ?? [],
