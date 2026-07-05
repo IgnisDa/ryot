@@ -116,7 +116,7 @@ Phases 0–3 are **done**. Current structure uses `src/modules/*`, `src/api/app-
   → `QueryEngineGroup` (`/query-engine`) → atom → render, plus `EventsGroup` for the write.
   Reads `activeTrackerAtom` = media. Reuse ported entity-detail/media logic; only view +
   atom wiring is new. **This also triggers the Phase-3 auth-component refactor.**
-- **Phase 6 — Breadth.** Search (`MetadataLookupGroup` → `EntitiesGroup`/`EntityImportGroup`),
+- **Phase 6 — Breadth.** Search (`EntitiesGroup`/`EntityImportGroup`),
   Library filters, Collection/saved-view screen (`SavedViewsGroup`, `CollectionsGroup`),
   You/settings.
 - **Phase 7 — More media types.** Shows (S/E progress), games (hours played), books — each

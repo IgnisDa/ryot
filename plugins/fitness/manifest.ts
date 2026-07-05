@@ -7,6 +7,7 @@ import { fitnessSignalSchemas } from "./schemas/signal-schemas";
 import { fitnessScripts } from "./script-catalog";
 
 export const fitnessPlugin = definePlugin({
+	operations: [],
 	scripts: fitnessScripts,
 	savedViews: fitnessSavedViews(),
 	entitySchemas: fitnessEntitySchemas(),

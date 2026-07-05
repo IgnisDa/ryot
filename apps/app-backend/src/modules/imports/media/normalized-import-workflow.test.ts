@@ -9,7 +9,11 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import {
+	ResolveEpisodesInput,
+	type ResolveEpisodesRef,
+} from "@ryot/plugin-media/operations/schemas";
+import { Effect, Layer, Schema } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
 import type { MockOverrides } from "#lib/test-utils/effect";
@@ -22,10 +26,10 @@ import {
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
-import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 import { LibraryEntityImportError } from "#modules/library-membership/library-entity-import-workflow";
+import { OperationsService } from "#modules/plugins/operations-service";
 
 import { ImportRunFailuresService } from "../failure-service";
 import { loadImportAdapterResult, storeImportAdapterResult } from "../runtime/source-payload-store";
@@ -45,7 +49,7 @@ const mockImportsService = Layer.mock(ImportsService);
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const mockCollectionsService = Layer.mock(CollectionsService);
 const mockEventsService = Layer.mock(EventsService);
-const mockEpisodeResolverService = Layer.mock(EpisodeResolverService);
+const mockOperationsService = Layer.mock(OperationsService);
 const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
 const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
 
@@ -97,12 +101,30 @@ const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = 
 		_tag: "EventsService",
 	});
 
-const makeEpisodeResolverService = (
-	overrides: MockOverrides<typeof mockEpisodeResolverService> = {},
-) =>
-	mockEpisodeResolverService({
+const makeOperationsService = (overrides: MockOverrides<typeof mockOperationsService> = {}) =>
+	mockOperationsService({
 		...overrides,
-		_tag: "EpisodeResolverService",
+		_tag: "OperationsService",
+	});
+
+const recordResolveEpisodes = (
+	calls: Array<Record<string, unknown>>,
+	resolve: (ref: ResolveEpisodesRef) => string | null,
+) =>
+	makeOperationsService({
+		invokeOperation: (input) =>
+			Schema.decodeUnknown(ResolveEpisodesInput)(input.payload).pipe(
+				Effect.orDie,
+				Effect.map(({ refs }) => {
+					calls.push({
+						refs,
+						userId: input.userId,
+						pluginSlug: input.pluginSlug,
+						operationSlug: input.operationSlug,
+					});
+					return { results: refs.map((ref) => ({ entityId: resolve(ref) })) };
+				}),
+			),
 	});
 
 const makeEventSchemasRepository = (
@@ -164,7 +186,7 @@ type TestLayerOptions = {
 	collectionsService?: Layer.Layer<CollectionsService>;
 	entitiesRepository?: Layer.Layer<EntitiesRepository>;
 	mediaOperations?: Layer.Layer<MediaImportWorkflowOperations>;
-	episodeResolverService?: Layer.Layer<EpisodeResolverService>;
+	operationsService?: Layer.Layer<OperationsService>;
 	eventSchemasRepository?: Layer.Layer<EventSchemasRepository>;
 	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
 	importRunFailuresService?: Layer.Layer<ImportRunFailuresService>;
@@ -181,7 +203,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		options.importRunFailuresService ?? makeImportRunFailuresService(),
 		options.entitiesRepository ?? makeEntitiesRepository(),
 		options.collectionsService ?? makeCollectionsService(),
-		options.episodeResolverService ?? makeEpisodeResolverService(),
+		options.operationsService ?? makeOperationsService(),
 		options.eventsService ?? makeEventsService(),
 		options.eventSchemasRepository ?? makeEventSchemasRepository(),
 		options.entitySchemasRepository ?? makeEntitySchemasRepository(),
@@ -442,13 +464,9 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 		collectionsService: makeCollectionsService({
 			ensureEntityInLibrary: () => Effect.void,
 		}),
-		episodeResolverService: makeEpisodeResolverService({
-			resolveShowEpisode: (input) =>
-				Effect.sync(() => {
-					resolverCalls.push(input);
-					return input.episodeNumber === 2 ? EntityId.make("episode-1") : null;
-				}),
-		}),
+		operationsService: recordResolveEpisodes(resolverCalls, (ref) =>
+			ref.episodeNumber === 2 ? "episode-1" : null,
+		),
 		eventSchemasRepository: makeEventSchemasRepository({
 			getBuiltinBySlug: (input) =>
 				Effect.succeed(
@@ -527,8 +545,32 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 			);
 
 			expect(resolverCalls).toEqual([
-				{ seasonNumber: 1, episodeNumber: 2, userId: "user-1", showEntityId: "show-entity-1" },
-				{ seasonNumber: 1, userId: "user-1", episodeNumber: 99, showEntityId: "show-entity-1" },
+				{
+					userId: "user-1",
+					pluginSlug: "media",
+					operationSlug: "resolve-episodes",
+					refs: [
+						{
+							kind: "show",
+							seasonNumber: 1,
+							episodeNumber: 2,
+							showEntityId: "show-entity-1",
+						},
+					],
+				},
+				{
+					userId: "user-1",
+					pluginSlug: "media",
+					operationSlug: "resolve-episodes",
+					refs: [
+						{
+							kind: "show",
+							seasonNumber: 1,
+							episodeNumber: 99,
+							showEntityId: "show-entity-1",
+						},
+					],
+				},
 			]);
 			expect(createdEvents).toEqual([
 				[
@@ -602,13 +644,9 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 		collectionsService: makeCollectionsService({
 			ensureEntityInLibrary: () => Effect.void,
 		}),
-		episodeResolverService: makeEpisodeResolverService({
-			resolvePodcastEpisode: (input) =>
-				Effect.sync(() => {
-					resolverCalls.push(input);
-					return input.episodeNumber === 4 ? EntityId.make("podcast-episode-1") : null;
-				}),
-		}),
+		operationsService: recordResolveEpisodes(resolverCalls, (ref) =>
+			ref.episodeNumber === 4 ? "podcast-episode-1" : null,
+		),
 		eventSchemasRepository: makeEventSchemasRepository({
 			getBuiltinBySlug: (input) =>
 				Effect.succeed(
@@ -690,8 +728,18 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 			);
 
 			expect(resolverCalls).toEqual([
-				{ userId: "user-1", episodeNumber: 4, podcastEntityId: "podcast-entity-1" },
-				{ userId: "user-1", episodeNumber: 99, podcastEntityId: "podcast-entity-1" },
+				{
+					userId: "user-1",
+					pluginSlug: "media",
+					operationSlug: "resolve-episodes",
+					refs: [{ kind: "podcast", episodeNumber: 4, podcastEntityId: "podcast-entity-1" }],
+				},
+				{
+					userId: "user-1",
+					pluginSlug: "media",
+					operationSlug: "resolve-episodes",
+					refs: [{ kind: "podcast", episodeNumber: 99, podcastEntityId: "podcast-entity-1" }],
+				},
 			]);
 			expect(createdEvents).toEqual([
 				[

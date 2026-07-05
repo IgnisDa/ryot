@@ -7,6 +7,7 @@ export const fixtureManifest = () =>
 	({
 		savedViews: [],
 		crons: [] as PluginManifest["crons"],
+		operations: [] as PluginManifest["operations"],
 		metadata: {
 			icon: "box",
 			name: "Fixture",
