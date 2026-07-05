@@ -1,11 +1,10 @@
-import { SandboxScriptId, EntitySchemaId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
 
 export const TrendingProviderTarget = Schema.Struct({
 	scriptId: SandboxScriptId,
 	scriptSlug: Schema.String,
-	entitySchemaId: EntitySchemaId,
-	entitySchemaSlug: Schema.String,
+	entitySchemaSlug: EntitySchemaSlug,
 });
 
 export type TrendingProviderTarget = typeof TrendingProviderTarget.Type;

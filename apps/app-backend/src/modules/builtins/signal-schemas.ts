@@ -1,4 +1,4 @@
-import type { RelationshipSchemaId } from "@ryot/contract/schema/brands";
+import type { RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 
 import type { BuiltinSignalSchemaInput } from "#modules/signals/signal-schemas-repository";
 
@@ -23,13 +23,15 @@ const requiredInteger = (label: string, description: string) => ({
 	validation: { required: true as const },
 });
 
-const mediaAudience = (relationshipSchemaId: RelationshipSchemaId) => ({
-	relationshipSchemaId,
+const mediaAudience = (relationshipSchemaSlug: RelationshipSchemaSlug) => ({
+	relationshipSchemaSlug,
 	kind: "related_users" as const,
 	subjectSide: "source" as const,
 });
 
-export const builtinSignalSchemas = (mediaMonitoringRelationshipSchemaId: RelationshipSchemaId) =>
+export const builtinSignalSchemas = (
+	mediaMonitoringRelationshipSchemaSlug: RelationshipSchemaSlug,
+) =>
 	[
 		{
 			catalogState: "active",
@@ -77,7 +79,7 @@ export const builtinSignalSchemas = (mediaMonitoringRelationshipSchemaId: Relati
 			name,
 			slug,
 			catalogState: "active" as const,
-			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaId),
+			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict" as const,
 				fields: {
@@ -91,7 +93,7 @@ export const builtinSignalSchemas = (mediaMonitoringRelationshipSchemaId: Relati
 			catalogState: "active",
 			slug: "media.status.changed",
 			name: "Media Status Changed",
-			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaId),
+			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
@@ -105,7 +107,7 @@ export const builtinSignalSchemas = (mediaMonitoringRelationshipSchemaId: Relati
 			catalogState: "active",
 			slug: "media.content-count.changed",
 			name: "Media Content Count Changed",
-			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaId),
+			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
@@ -126,7 +128,7 @@ export const builtinSignalSchemas = (mediaMonitoringRelationshipSchemaId: Relati
 			catalogState: "active",
 			slug: "media.release-date.changed",
 			name: "Media Release Date Changed",
-			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaId),
+			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
@@ -173,7 +175,7 @@ export const builtinSignalSchemas = (mediaMonitoringRelationshipSchemaId: Relati
 			catalogState: "active",
 			slug: "media.episode.name.changed",
 			name: "Media Episode Name Changed",
-			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaId),
+			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
@@ -193,7 +195,7 @@ export const builtinSignalSchemas = (mediaMonitoringRelationshipSchemaId: Relati
 			catalogState: "active",
 			slug: "media.episode.images.changed",
 			name: "Media Episode Images Changed",
-			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaId),
+			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
@@ -211,7 +213,7 @@ export const builtinSignalSchemas = (mediaMonitoringRelationshipSchemaId: Relati
 			catalogState: "active",
 			slug: "media.season-count.changed",
 			name: "Media Season Count Changed",
-			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaId),
+			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
@@ -225,7 +227,7 @@ export const builtinSignalSchemas = (mediaMonitoringRelationshipSchemaId: Relati
 			catalogState: "active",
 			slug: "media.episode.discovered",
 			name: "Media Episode Discovered",
-			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaId),
+			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {

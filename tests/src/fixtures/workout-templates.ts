@@ -8,7 +8,7 @@ import { findBuiltinSchemaBySlug } from "./entity-schemas";
 import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
 import { waitForSeededExerciseId } from "./workouts";
 
-export const findBuiltinRelationshipSchemaId = (client: Client, slug: string) =>
+export const findBuiltinRelationshipSchemaSlug = (client: Client, slug: string) =>
 	Effect.gen(function* () {
 		const schemas = yield* listRelationshipSchemas(client, { slugs: [slug] });
 		const schema = requireRelationshipSchemaBySlug(schemas, slug);
@@ -29,7 +29,7 @@ export const createWorkoutTemplateEntityFixture = (
 		);
 		const exerciseId = options.exerciseId ?? (yield* waitForSeededExerciseId(client));
 		const workoutTemplate = yield* createEntity(client, {
-			entitySchemaId: workoutTemplateSchema.id,
+			entitySchemaSlug: workoutTemplateSchema.id,
 			name: options.name ?? `Workout Template ${crypto.randomUUID()}`,
 			properties: {
 				comment: options.comment ?? "Upper body template",

@@ -1,54 +1,8 @@
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
-import { sql } from "drizzle-orm";
-import {
-	boolean,
-	index,
-	jsonb,
-	pgTable,
-	text,
-	timestamp,
-	unique,
-	uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { entitySchema } from "./core";
 import { entity } from "./entities";
-
-export const eventSchema = pgTable(
-	"event_schema",
-	{
-		slug: text().notNull(),
-		name: text().notNull(),
-		isBuiltin: boolean().notNull().default(false),
-		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		entitySchemaId: text()
-			.notNull()
-			.references(() => entitySchema.id, { onDelete: "cascade" }),
-		id: text()
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
-	},
-	(table) => [
-		index("event_schema_entity_schema_id_idx").on(table.entitySchemaId),
-		unique("event_schema_user_entity_schema_slug_unique").on(
-			table.userId,
-			table.entitySchemaId,
-			table.slug,
-		),
-		uniqueIndex("event_schema_builtin_entity_schema_slug_unique")
-			.on(table.entitySchemaId, table.slug)
-			.where(sql`${table.userId} is null`),
-	],
-);
 
 export const event = pgTable(
 	"event",
@@ -63,9 +17,7 @@ export const event = pgTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		eventSchemaId: text()
-			.notNull()
-			.references(() => eventSchema.id, { onDelete: "cascade" }),
+		eventSchemaSlug: text().notNull(),
 		entityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
@@ -80,9 +32,9 @@ export const event = pgTable(
 	(table) => [
 		index("event_user_id_idx").on(table.userId),
 		index("event_entity_id_idx").on(table.entityId),
-		index("event_event_schema_id_idx").on(table.eventSchemaId),
+		index("event_event_schema_slug_idx").on(table.eventSchemaSlug),
 		index("event_session_entity_id_idx").on(table.sessionEntityId),
 		index("event_properties_idx").using("gin", table.properties),
-		index("event_user_entity_schema_idx").on(table.userId, table.entityId, table.eventSchemaId),
+		index("event_user_entity_schema_slugx").on(table.userId, table.entityId, table.eventSchemaSlug),
 	],
 );

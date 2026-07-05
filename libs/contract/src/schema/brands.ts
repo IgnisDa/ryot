@@ -14,9 +14,14 @@ export const EntityId = Schema.String.pipe(Schema.brand("EntityId"));
 
 export type EntityId = typeof EntityId.Type;
 
-export const TrackerId = Schema.String.pipe(Schema.brand("TrackerId"));
+const makeSchemaSlug = () =>
+	Object.assign(Schema.String.pipe(Schema.filter(() => true)), {
+		make: (value: string) => value,
+	});
 
-export type TrackerId = typeof TrackerId.Type;
+export const TrackerSlug = makeSchemaSlug();
+
+export type TrackerSlug = typeof TrackerSlug.Type;
 
 export const SavedViewId = Schema.String.pipe(Schema.brand("SavedViewId"));
 
@@ -38,29 +43,29 @@ export const NotificationChannelId = Schema.String.pipe(Schema.brand("Notificati
 
 export type NotificationChannelId = typeof NotificationChannelId.Type;
 
-export const EventSchemaId = Schema.String.pipe(Schema.brand("EventSchemaId"));
+export const EventSchemaSlug = makeSchemaSlug();
 
-export type EventSchemaId = typeof EventSchemaId.Type;
+export type EventSchemaSlug = typeof EventSchemaSlug.Type;
 
-export const EntitySchemaId = Schema.String.pipe(Schema.brand("EntitySchemaId"));
+export const EntitySchemaSlug = makeSchemaSlug();
 
-export type EntitySchemaId = typeof EntitySchemaId.Type;
+export type EntitySchemaSlug = typeof EntitySchemaSlug.Type;
 
 export const SandboxScriptId = Schema.String.pipe(Schema.brand("SandboxScriptId"));
 
 export type SandboxScriptId = typeof SandboxScriptId.Type;
 
-export const RelationshipSchemaId = Schema.String.pipe(Schema.brand("RelationshipSchemaId"));
+export const RelationshipSchemaSlug = makeSchemaSlug();
 
-export type RelationshipSchemaId = typeof RelationshipSchemaId.Type;
+export type RelationshipSchemaSlug = typeof RelationshipSchemaSlug.Type;
 
 export const SignalId = Schema.String.pipe(Schema.brand("SignalId"));
 
 export type SignalId = typeof SignalId.Type;
 
-export const SignalSchemaId = Schema.String.pipe(Schema.brand("SignalSchemaId"));
+export const SignalSchemaSlug = makeSchemaSlug();
 
-export type SignalSchemaId = typeof SignalSchemaId.Type;
+export type SignalSchemaSlug = typeof SignalSchemaSlug.Type;
 
 export const AutomationRuleId = Schema.String.pipe(Schema.brand("AutomationRuleId"));
 

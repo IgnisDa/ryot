@@ -1,5 +1,5 @@
 import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
-import type { EntityId, EntitySchemaId } from "@ryot/contract/schema/brands";
+import type { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderDetailsRelatedEntityGroup,
@@ -16,7 +16,7 @@ import { synchronizeGlobalRelationships } from "./relationship-synchronization";
 
 export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (input: {
 	primaryEntityId: EntityId;
-	primaryEntitySchemaId: EntitySchemaId;
+	primaryEntitySchemaSlug: EntitySchemaSlug;
 	group: ProviderDetailsRelatedEntityGroup;
 }) {
 	const runWithDb = yield* DbRunner;
@@ -57,7 +57,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 				populatedAt: null,
 				name: relatedEntity.name,
 				externalId: relatedEntity.externalId,
-				entitySchemaId: entitySchemaSandboxScript.entitySchemaId,
+				entitySchemaSlug: entitySchemaSandboxScript.entitySchemaSlug,
 				sandboxScriptId: entitySchemaSandboxScript.sandboxScriptId,
 			})
 			.pipe(
@@ -67,24 +67,24 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 
 		const sourceSchemaId =
 			input.group.direction === "outgoing"
-				? input.primaryEntitySchemaId
-				: entitySchemaSandboxScript.entitySchemaId;
+				? input.primaryEntitySchemaSlug
+				: entitySchemaSandboxScript.entitySchemaSlug;
 		const targetSchemaId =
 			input.group.direction === "outgoing"
-				? entitySchemaSandboxScript.entitySchemaId
-				: input.primaryEntitySchemaId;
+				? entitySchemaSandboxScript.entitySchemaSlug
+				: input.primaryEntitySchemaSlug;
 
 		if (
-			relationshipSchema.sourceEntitySchemaId &&
-			relationshipSchema.sourceEntitySchemaId !== sourceSchemaId
+			relationshipSchema.sourceEntitySchemaSlug &&
+			relationshipSchema.sourceEntitySchemaSlug !== sourceSchemaId
 		) {
 			return yield* new SandboxRunError({
 				message: `Relationship source schema does not match ${input.group.relationshipSchemaSlug}`,
 			});
 		}
 		if (
-			relationshipSchema.targetEntitySchemaId &&
-			relationshipSchema.targetEntitySchemaId !== targetSchemaId
+			relationshipSchema.targetEntitySchemaSlug &&
+			relationshipSchema.targetEntitySchemaSlug !== targetSchemaId
 		) {
 			return yield* new SandboxRunError({
 				message: `Relationship target schema does not match ${input.group.relationshipSchemaSlug}`,
@@ -105,7 +105,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		entries,
 		direction: input.group.direction,
 		anchorEntityId: input.primaryEntityId,
-		relationshipSchemaId: relationshipSchema.id,
+		relationshipSchemaSlug: relationshipSchema.id,
 	};
 	const syncInput =
 		input.group.synchronization === "additive"
@@ -122,7 +122,6 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 
 	return yield* synchronizeGlobalRelationships({
 		...syncInput,
-		relationshipSchemaSlug: relationshipSchema.slug,
 		propertiesSchema: relationshipSchema.propertiesSchema,
 	});
 }, dieOnDbError);

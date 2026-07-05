@@ -41,7 +41,7 @@ describe("aggregate returns over a filtered source", () => {
 				].map((properties, index) =>
 					createQueryEngineEntity(client, {
 						name: `Lesson ${index}`,
-						entitySchemaId: schemaId,
+						entitySchemaSlug: schemaId,
 						properties,
 					}),
 				),
@@ -96,7 +96,7 @@ describe("aggregate returns over a filtered source", () => {
 				].map((properties, index) =>
 					createQueryEngineEntity(client, {
 						name: `Lesson ${index}`,
-						entitySchemaId: schemaId,
+						entitySchemaSlug: schemaId,
 						properties,
 					}),
 				),
@@ -151,35 +151,35 @@ describe("relationship root filtering (pushdown)", () => {
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "Pushdown Membership",
 				slug: relationshipSlug,
-				sourceEntitySchemaId: memberSchemaId,
-				targetEntitySchemaId: collectionSchemaId,
+				sourceEntitySchemaSlug: memberSchemaId,
+				targetEntitySchemaSlug: collectionSchemaId,
 				propertiesSchema: {
 					fields: { role: { type: "string", label: "Role", description: "Membership role" } },
 				},
 			});
 			const memberOne = yield* createQueryEngineEntity(client, {
 				name: "Member One",
-				entitySchemaId: memberSchemaId,
+				entitySchemaSlug: memberSchemaId,
 			});
 			const memberTwo = yield* createQueryEngineEntity(client, {
 				name: "Member Two",
-				entitySchemaId: memberSchemaId,
+				entitySchemaSlug: memberSchemaId,
 			});
 			const collection = yield* createQueryEngineEntity(client, {
 				name: "Collection",
-				entitySchemaId: collectionSchemaId,
+				entitySchemaSlug: collectionSchemaId,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: memberOne.id,
 				targetEntityId: collection.id,
 				properties: { role: "first" },
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: memberTwo.id,
 				targetEntityId: collection.id,
 				properties: { role: "second" },
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 
 			const build = (where: QueryEnginePayload["source"]["where"]): QueryEnginePayload => ({

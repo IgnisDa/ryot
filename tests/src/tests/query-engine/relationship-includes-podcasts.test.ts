@@ -10,7 +10,7 @@ import {
 	createQueryEngineEvent,
 	executeQueryEngine,
 	findBuiltinSchemaBySlug,
-	getBuiltinEntitySchemaId,
+	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
@@ -29,7 +29,7 @@ describe("Relationship includes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema: podcastSchema } = yield* findBuiltinSchemaBySlug(client, "podcast");
-			const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaId("podcast-episode");
+			const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("podcast-episode");
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
 				slugs: ["podcast-to-podcast-episode"],
 			});
@@ -46,7 +46,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				sandboxScriptId: null,
 				name: "Episodic Test Podcast",
-				entitySchemaId: podcastSchema.id,
+				entitySchemaSlug: podcastSchema.id,
 				externalId: `podcast-${fixtureSuffix}`,
 				properties: {
 					images: [],
@@ -66,7 +66,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				name: "Episode Two",
 				sandboxScriptId: null,
-				entitySchemaId: podcastEpisodeSchemaId,
+				entitySchemaSlug: podcastEpisodeSchemaId,
 				externalId: `podcast-episode-2-${fixtureSuffix}`,
 				properties: { runtime: 40, episodeNumber: 2, publishDate: null, description: "Second" },
 			});
@@ -74,7 +74,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				name: "Episode One",
 				sandboxScriptId: null,
-				entitySchemaId: podcastEpisodeSchemaId,
+				entitySchemaSlug: podcastEpisodeSchemaId,
 				externalId: `podcast-episode-1-${fixtureSuffix}`,
 				properties: { runtime: 30, episodeNumber: 1, publishDate: null, description: "First" },
 			});
@@ -82,24 +82,24 @@ describe("Relationship includes", () => {
 			yield* insertGlobalRelationship({
 				sourceEntityId: podcast.id,
 				targetEntityId: secondEpisode.id,
-				relationshipSchemaId: podcastEpisodeRelationship.id,
+				relationshipSchemaSlug: podcastEpisodeRelationship.id,
 			});
 			yield* insertGlobalRelationship({
 				sourceEntityId: podcast.id,
 				targetEntityId: firstEpisode.id,
-				relationshipSchemaId: podcastEpisodeRelationship.id,
+				relationshipSchemaSlug: podcastEpisodeRelationship.id,
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: firstEpisode.id,
 				occurredAt: "2026-06-25T00:00:00.000Z",
-				eventSchemaId: episodeProgressSchema.id,
+				eventSchemaSlug: episodeProgressSchema.id,
 				properties: { progressPercent: 100, consumedOn: "Audiobookshelf" },
 			});
 			yield* waitForEventCount(client, firstEpisode.id, 2);
 			yield* createQueryEngineEvent(client, {
 				entityId: secondEpisode.id,
-				eventSchemaId: episodeCompleteSchema.id,
+				eventSchemaSlug: episodeCompleteSchema.id,
 				properties: { completionMode: "unknown" },
 			});
 
@@ -132,7 +132,7 @@ describe("Relationship includes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema: podcastSchema } = yield* findBuiltinSchemaBySlug(client, "podcast");
-			const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaId("podcast-episode");
+			const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("podcast-episode");
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
 				slugs: ["podcast-to-podcast-episode"],
 			});
@@ -151,7 +151,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				sandboxScriptId: null,
 				name: "Derivation Podcast",
-				entitySchemaId: podcastSchema.id,
+				entitySchemaSlug: podcastSchema.id,
 				externalId: `podcast-${fixtureSuffix}`,
 				properties: {
 					images: [],
@@ -171,7 +171,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				name: "Episode One",
 				sandboxScriptId: null,
-				entitySchemaId: podcastEpisodeSchemaId,
+				entitySchemaSlug: podcastEpisodeSchemaId,
 				externalId: `podcast-episode-1-${fixtureSuffix}`,
 				properties: { runtime: 30, episodeNumber: 1, publishDate: null, description: "First" },
 			});
@@ -179,7 +179,7 @@ describe("Relationship includes", () => {
 				userId: null,
 				name: "Episode Two",
 				sandboxScriptId: null,
-				entitySchemaId: podcastEpisodeSchemaId,
+				entitySchemaSlug: podcastEpisodeSchemaId,
 				externalId: `podcast-episode-2-${fixtureSuffix}`,
 				properties: { runtime: 40, episodeNumber: 2, publishDate: null, description: "Second" },
 			});
@@ -187,18 +187,18 @@ describe("Relationship includes", () => {
 			yield* insertGlobalRelationship({
 				sourceEntityId: podcast.id,
 				targetEntityId: firstEpisode.id,
-				relationshipSchemaId: podcastEpisodeRelationship.id,
+				relationshipSchemaSlug: podcastEpisodeRelationship.id,
 			});
 			yield* insertGlobalRelationship({
 				sourceEntityId: podcast.id,
 				targetEntityId: secondEpisode.id,
-				relationshipSchemaId: podcastEpisodeRelationship.id,
+				relationshipSchemaSlug: podcastEpisodeRelationship.id,
 			});
 
 			yield* createQueryEngineEvent(client, {
 				entityId: firstEpisode.id,
 				occurredAt: "2026-06-25T00:00:00.000Z",
-				eventSchemaId: episodeProgressSchema.id,
+				eventSchemaSlug: episodeProgressSchema.id,
 				properties: { progressPercent: 100, consumedOn: "Audiobookshelf" },
 			});
 			yield* waitForEventCount(client, firstEpisode.id, 2);
@@ -219,7 +219,7 @@ describe("Relationship includes", () => {
 
 			yield* createQueryEngineEvent(client, {
 				entityId: secondEpisode.id,
-				eventSchemaId: episodeCompleteSchema.id,
+				eventSchemaSlug: episodeCompleteSchema.id,
 				properties: { completionMode: "unknown" },
 			});
 
@@ -230,7 +230,7 @@ describe("Relationship includes", () => {
 
 			yield* createQueryEngineEvent(client, {
 				entityId: podcast.id,
-				eventSchemaId: podcastCompleteSchema.id,
+				eventSchemaSlug: podcastCompleteSchema.id,
 				properties: { completionMode: "unknown" },
 			});
 

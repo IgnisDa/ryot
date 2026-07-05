@@ -30,7 +30,7 @@ END`;
 // Workout templates use the same set structure as workouts but a simplified per-set shape: the
 // per-set statistics/totals/timers/personal_bests and per-exercise lot/unit_system/assets/total
 // are dropped.
-export const buildWorkoutTemplateMigrationSql = (workoutTemplateEntitySchemaId: string) => `
+export const buildWorkoutTemplateMigrationSql = (workoutTemplateEntitySchemaSlug: string) => `
 DO $$
 DECLARE
 	batch_size constant int := 10000;
@@ -62,7 +62,7 @@ BEGIN
 			"id",
 			"name",
 			"user_id",
-			"entity_schema_id",
+			"entity_schema_slug",
 			"properties",
 			"created_at",
 			"updated_at"
@@ -71,7 +71,7 @@ BEGIN
 			wt.id,
 			wt.name,
 			wt.user_id,
-			${quoteSqlString(workoutTemplateEntitySchemaId)},
+			${quoteSqlString(workoutTemplateEntitySchemaSlug)},
 			jsonb_strip_nulls(jsonb_build_object(
 				'comment',  NULLIF(wt.information ->> 'comment', ''),
 				'assets',   ${buildAssetsConversionSql("wt.information -> 'assets'")},
@@ -133,7 +133,7 @@ END $$;
 // Dropped fields: workout.duration (derivable from endedAt - startedAt), workout.summary
 // (computed aggregate, not stored in V2).
 // Timestamps are converted to ISO 8601 UTC strings via to_char(...AT TIME ZONE 'UTC', ...).
-export const buildWorkoutMigrationSql = (workoutEntitySchemaId: string) => `
+export const buildWorkoutMigrationSql = (workoutEntitySchemaSlug: string) => `
 DO $$
 DECLARE
 	batch_size constant int := 10000;
@@ -165,7 +165,7 @@ BEGIN
 			"id",
 			"name",
 			"user_id",
-			"entity_schema_id",
+			"entity_schema_slug",
 			"properties",
 			"created_at",
 			"updated_at"
@@ -174,7 +174,7 @@ BEGIN
 			w.id,
 			w.name,
 			w.user_id,
-			${quoteSqlString(workoutEntitySchemaId)},
+			${quoteSqlString(workoutEntitySchemaSlug)},
 			jsonb_strip_nulls(jsonb_build_object(
 				'startedAt',     to_char(w.start_time AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
 				'endedAt',       to_char(w.end_time   AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
@@ -208,7 +208,7 @@ END $$;
 // Each V1 set becomes one event: entity_id = exercise id, session_entity_id = workout id, with a
 // deterministic id md5(workout_id ':' exercise_idx ':' set_idx) for restart-safety (the event table
 // has no unique constraint beyond the PK). unit_system is lowercased to V2 values.
-export const buildWorkoutSetEventMigrationSql = (workoutSetEventSchemaId: string) => `
+export const buildWorkoutSetEventMigrationSql = (workoutSetEventSchemaSlug: string) => `
 DO $$
 DECLARE
 	batch_size constant int := 1000;
@@ -241,7 +241,7 @@ BEGIN
 			"user_id",
 			"entity_id",
 			"session_entity_id",
-			"event_schema_id",
+			"event_schema_slug",
 			"properties",
 			"created_at",
 			"occurred_at"
@@ -251,7 +251,7 @@ BEGIN
 			w.user_id,
 			ex.value ->> 'id',
 			w.id,
-			${quoteSqlString(workoutSetEventSchemaId)},
+			${quoteSqlString(workoutSetEventSchemaSlug)},
 			jsonb_strip_nulls(jsonb_build_object(
 				'setLot',             s.value ->> 'lot',
 				'setOrder',           (s.ordinality - 1)::int,
@@ -296,7 +296,7 @@ END $$;
 
 // Deterministic relationship id md5(workout_id ':workout-to-workout-template') for restart-safety.
 export const buildWorkoutToTemplateRelationshipMigrationSql = (
-	workoutToWorkoutTemplateRelationshipSchemaId: string,
+	workoutToWorkoutTemplateRelationshipSchemaSlug: string,
 ) => `
 DO $$
 DECLARE
@@ -314,7 +314,7 @@ BEGIN
 		"user_id",
 		"source_entity_id",
 		"target_entity_id",
-		"relationship_schema_id",
+		"relationship_schema_slug",
 		"properties"
 	)
 	SELECT
@@ -322,7 +322,7 @@ BEGIN
 		w.user_id,
 		w.id,
 		w.template_id,
-		${quoteSqlString(workoutToWorkoutTemplateRelationshipSchemaId)},
+		${quoteSqlString(workoutToWorkoutTemplateRelationshipSchemaSlug)},
 		'{}'::jsonb
 	FROM "workout" w
 	WHERE w.template_id IS NOT NULL
@@ -337,7 +337,7 @@ END $$;
 
 // Deterministic relationship id md5(workout_id ':workout-repeated-from') for restart-safety.
 export const buildWorkoutRepeatedFromRelationshipMigrationSql = (
-	workoutRepeatedFromRelationshipSchemaId: string,
+	workoutRepeatedFromRelationshipSchemaSlug: string,
 ) => `
 DO $$
 DECLARE
@@ -355,7 +355,7 @@ BEGIN
 		"user_id",
 		"source_entity_id",
 		"target_entity_id",
-		"relationship_schema_id",
+		"relationship_schema_slug",
 		"properties"
 	)
 	SELECT
@@ -363,7 +363,7 @@ BEGIN
 		w.user_id,
 		w.id,
 		w.repeated_from,
-		${quoteSqlString(workoutRepeatedFromRelationshipSchemaId)},
+		${quoteSqlString(workoutRepeatedFromRelationshipSchemaSlug)},
 		'{}'::jsonb
 	FROM "workout" w
 	WHERE w.repeated_from IS NOT NULL

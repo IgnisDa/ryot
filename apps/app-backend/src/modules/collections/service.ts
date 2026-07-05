@@ -6,7 +6,12 @@ import type {
 	CreateMembershipBody,
 	DeleteMembershipBody,
 } from "@ryot/contract/modules/collections/schemas";
-import type { EntityId, EntitySchemaId, EventSchemaId, UserId } from "@ryot/contract/schema/brands";
+import type {
+	EntityId,
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
 import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
@@ -77,7 +82,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 		)(function* (slug: string) {
 			const entitySchema = yield* collectionEntitySchema;
 			return yield* runWithDb(
-				repository.findBuiltinEventSchemaBySlug(entitySchema.entitySchemaId, slug),
+				repository.findBuiltinEventSchemaBySlug(entitySchema.entitySchemaSlug, slug),
 			);
 		});
 
@@ -94,7 +99,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			readonly entityId: EntityId;
 			readonly occurredAt: string;
 			readonly executionId: string;
-			readonly eventSchemaId: EventSchemaId;
+			readonly eventSchemaSlug: EventSchemaSlug;
 			readonly properties: Record<string, unknown>;
 		}) =>
 			events
@@ -107,7 +112,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 							entityId: input.entityId,
 							occurredAt: input.occurredAt,
 							properties: input.properties,
-							eventSchemaId: input.eventSchemaId,
+							eventSchemaSlug: input.eventSchemaSlug,
 						},
 					],
 				})
@@ -149,7 +154,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					properties,
 					scope: "user",
 					userId: user.id,
-					entitySchemaId: entitySchema.entitySchemaId,
+					entitySchemaSlug: entitySchema.entitySchemaSlug,
 				})
 				.pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
 			return toCollectionResponse(created);
@@ -164,7 +169,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				repository.findCollectionByNameForUser({
 					name,
 					userId,
-					entitySchemaId: entitySchema.entitySchemaId,
+					entitySchemaSlug: entitySchema.entitySchemaSlug,
 				}),
 			);
 			if (existing) {
@@ -177,7 +182,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					userId,
 					scope: "user",
 					properties: {},
-					entitySchemaId: entitySchema.entitySchemaId,
+					entitySchemaSlug: entitySchema.entitySchemaSlug,
 				})
 				.pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
 			return toCollectionResponse(created);
@@ -249,7 +254,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 							userId: input.userId,
 							sourceEntityId: entity.id,
 							targetEntityId: libraryEntityId,
-							relationshipSchemaId: inLibrary.id,
+							relationshipSchemaSlug: inLibrary.id,
 							propertiesSchema: inLibrary.propertiesSchema,
 						});
 					}
@@ -260,7 +265,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						sourceEntityId: input.entityId,
 						properties: validatedProperties,
 						targetEntityId: input.collectionId,
-						relationshipSchemaId: memberOfRelationshipSchema.id,
+						relationshipSchemaSlug: memberOfRelationshipSchema.id,
 						propertiesSchema: memberOfRelationshipSchema.propertiesSchema,
 					} as const;
 					const created = yield* relationships.create(membershipInput);
@@ -274,7 +279,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				memberOf,
 				wasInserted,
 				entityId: entity.id,
-				addEventSchemaId: addEvent?.id ?? null,
+				addEventSchemaSlug: addEvent?.id ?? null,
 				occurredAt: occurredAt.toISOString(),
 				entitySchemaSlug: entity.entitySchemaSlug,
 			};
@@ -318,7 +323,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				scope: "user",
 				userId: user.id,
 				sourceEntityId: payload.entityId,
-				relationshipSchemaId: memberOf.id,
+				relationshipSchemaSlug: memberOf.id,
 				targetEntityId: payload.collectionId,
 			});
 
@@ -332,7 +337,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				yield* queueCollectionEvent({
 					userId: user.id,
 					occurredAt: now.toISOString(),
-					eventSchemaId: removeEvent.id,
+					eventSchemaSlug: removeEvent.id,
 					entityId: payload.collectionId,
 					executionId: `collection-membership-removed-${deleted.id}`,
 					properties: {
@@ -348,12 +353,12 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 		});
 
 		const ensureLibraryEntityForUser = Effect.fn("CollectionsService.ensureLibraryEntityForUser")(
-			function* (userId: UserId, entitySchemaId: EntitySchemaId) {
+			function* (userId: UserId, entitySchemaSlug: EntitySchemaSlug) {
 				return yield* runWithDb(
 					Effect.gen(function* () {
 						const existing = yield* repository.findLibraryEntityForUser({
 							userId,
-							entitySchemaId,
+							entitySchemaSlug,
 						});
 						if (existing) {
 							return existing;
@@ -364,7 +369,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 								userId,
 								scope: "user",
 								properties: {},
-								entitySchemaId,
+								entitySchemaSlug,
 								name: "Library",
 							})
 							.pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
@@ -391,7 +396,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					properties: {},
 					sourceEntityId: entityId,
 					targetEntityId: libraryEntityId,
-					relationshipSchemaId: inLibrary.id,
+					relationshipSchemaSlug: inLibrary.id,
 					propertiesSchema: inLibrary.propertiesSchema,
 				})
 				.pipe(Effect.catchTag("BadRequest", (e) => Effect.die(e)));
@@ -419,7 +424,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 							userId: input.userId,
 							sourceEntityId: input.entityId,
 							targetEntityId: libraryEntityId,
-							relationshipSchemaId: inLibrary.id,
+							relationshipSchemaSlug: inLibrary.id,
 						});
 						const buildOwnershipProperties = (properties: unknown) => {
 							const existingProperties = isPlainObject(properties) ? properties : {};
@@ -442,7 +447,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 							userId: input.userId,
 							sourceEntityId: input.entityId,
 							targetEntityId: libraryEntityId,
-							relationshipSchemaId: inLibrary.id,
+							relationshipSchemaSlug: inLibrary.id,
 							propertiesSchema: inLibrary.propertiesSchema,
 							properties,
 						});
@@ -462,7 +467,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 								userId: input.userId,
 								sourceEntityId: input.entityId,
 								targetEntityId: libraryEntityId,
-								relationshipSchemaId: inLibrary.id,
+								relationshipSchemaSlug: inLibrary.id,
 							});
 							yield* relationships
 								.update(buildInput(buildOwnershipProperties(current ?? created.properties)))

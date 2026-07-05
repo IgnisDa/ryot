@@ -120,7 +120,7 @@ describe("Reset user for credential user", () => {
 			});
 
 			const { tracker } = yield* createTracker(userClient, { name: "Custom Reset Tracker" });
-			expect(tracker.isBuiltin).toBe(false);
+			expect(tracker.config).toEqual({ fixture: true });
 
 			const resetData = yield* client.call(
 				(c) => c.godMode.resetUser({ path: { userId } }),
@@ -162,8 +162,10 @@ describe("Reset user for credential user", () => {
 				(c) => c.trackers.list({ urlParams: { includeDisabled: true } }),
 				{ Cookie: signInRes.cookies },
 			);
-			expect(trackers.some((t) => t.isBuiltin)).toBe(true);
-			expect(trackers.some((t) => t.id === tracker.id)).toBe(false);
+			expect(trackers.some((t) => t.slug === "media")).toBe(true);
+			const resetTracker = trackers.find((candidate) => candidate.slug === tracker.id);
+			assertPresent(resetTracker, "expected the installed tracker definition after reset");
+			expect(resetTracker.config).toEqual({});
 		}),
 	);
 });

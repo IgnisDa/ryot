@@ -73,7 +73,7 @@ const writeProviderTrendingItems = Effect.fn("writeProviderTrendingItems")(funct
 					populatedAt: null,
 					externalId: item.externalId,
 					sandboxScriptId: input.provider.scriptId,
-					entitySchemaId: input.provider.entitySchemaId,
+					entitySchemaSlug: input.provider.entitySchemaSlug,
 				});
 
 				savedItems.push({
@@ -129,7 +129,7 @@ const syncTrendingEdges = Effect.fn("syncTrendingEdges")(function* (
 				Effect.gen(function* () {
 					const existing = yield* relationships.listGlobalRelationships({
 						type: "self",
-						relationshipSchemaId: mediaTrending.id,
+						relationshipSchemaSlug: mediaTrending.id,
 					});
 					const existingByEntityId = new Map(
 						existing.map((relationship) => [relationship.sourceEntityId, relationship]),
@@ -141,7 +141,7 @@ const syncTrendingEdges = Effect.fn("syncTrendingEdges")(function* (
 							scope: "global" as const,
 							sourceEntityId: item.entityId,
 							targetEntityId: item.entityId,
-							relationshipSchemaId: mediaTrending.id,
+							relationshipSchemaSlug: mediaTrending.id,
 							propertiesSchema: mediaTrending.propertiesSchema,
 							properties: { rank: item.rank, fetchedAt: item.fetchedAt },
 						};
@@ -165,7 +165,7 @@ const syncTrendingEdges = Effect.fn("syncTrendingEdges")(function* (
 							scope: "global",
 							sourceEntityId: relationship.sourceEntityId,
 							targetEntityId: relationship.targetEntityId,
-							relationshipSchemaId: relationship.relationshipSchemaId,
+							relationshipSchemaSlug: relationship.relationshipSchemaSlug,
 						});
 					}
 				}),
