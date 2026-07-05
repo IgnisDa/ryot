@@ -276,7 +276,11 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				savedViewId: string,
 			) {
 				const prepared = yield* repository.findPreparedTarget(user.id, savedViewId);
-				if (!prepared?.renderer.publishedHash || !prepared.renderer.publishedArtifactHash) {
+				if (
+					!prepared?.renderer.publishedHash ||
+					!prepared.renderer.publishedArtifactHash ||
+					prepared.renderer.publishedRevision === null
+				) {
 					return yield* new ClientRendererBadRequest({ reason: { code: "renderer-unpublished" } });
 				}
 				return {
