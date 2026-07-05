@@ -179,7 +179,7 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
     `registry.ts`/`seed.ts`, so that lifecycle dispatch is registry-driven (Decision 15;
     plan §5).
 21. As an end user, I want my notification subscriptions moved to a dedicated
-    `notification_subscription_state` table (unique on `(userId, signalSchemaSlug, scriptSlug)`,
+    `notification_subscription_state` table (unique on `(userId, signalSchemaSlug)`,
     following the per-user state-split pattern), so that per-user state stops living in
     `automation_rule` while the `automations` rule surface is preserved plumbing-only
     (Decision 15; plan §5 `[RECOMMENDED]`).
@@ -228,7 +228,7 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
     that documentation follows the code (cross-phase invariant 7).
 34. As the owner, I want the branch to stay shippable at the end of the phase — backend `check`
     and unit tests, the full e2e suite, and the `app-client` check all green — so that Phase 3
-    starts from a working base (cross-phase invariant 1; done criterion 7).
+    starts from a working base (cross-phase invariant 1; done criterion 8).
 35. As the owner, I want the per-user standalone sandbox-script feature removed — the `sandbox`
     group's authoring/CRUD/compile endpoints, the authoring service/routes, and owner-based
     access checks — after the install fixture lands, so that plugins are the single extension
@@ -278,9 +278,9 @@ them (and risk drift), this PRD points to the exact sections that own them:
 - **Automation dispatch off the DB** — the two-kind split (global bindings → registry;
   per-user subscriptions → new `notification_subscription_state` table), the exact re-point
   list (`NotificationSubscriptionsService`, `automations` endpoints, `ensureDefaultRules`,
-  `auth`/`god-mode` consumers), selection of `scriptSlug` from the signal definition, the
-  `subscription_run` `ruleId`→stable-identifier change, and the table/module deletions gated on
-  both moves completing: plan §5.
+  `auth`/`god-mode` consumers), execution-time formatter resolution from the signal definition
+  (no persisted script slug), the `subscription_run` `ruleId`→stable-identifier change, and the
+  table/module deletions gated on both moves completing: plan §5.
 - **Admin install surface and test fixture** — the admin-scoped `plugins` group, the v1
   uninstall-refusal policy, the `[IMPLEMENTER-DECIDES]` bundle format, the `installTestPlugin`
   replacement, the god-mode endpoint deletions, the temporary-seam removal, and the
@@ -338,7 +338,7 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   starting point for `installTestPlugin`; conventions live in `tests/AGENTS.md` (update it
   where conventions change). Run e2e and backend tests from their own app directories per
   `AGENTS.md`.
-- **The gate** (done criterion 6, cross-phase invariant 1):
+- **The gate** (done criterion 8, cross-phase invariant 1):
   `bun turbo --filter=@ryot/app-backend check` plus backend unit tests
   (`cd apps/app-backend && bun run test`), the full e2e suite (`cd tests && bun run test`,
   using the new install fixture), and the `app-client` check all pass.
