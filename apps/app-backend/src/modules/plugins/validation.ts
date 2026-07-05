@@ -44,9 +44,6 @@ export const validatePluginManifestReferences = (
 		for (const definition of manifest.signalSchemas) {
 			yield* assertSlug("signal schema", definition.slug);
 		}
-		for (const definition of manifest.trackers) {
-			yield* assertSlug("tracker", definition.slug);
-		}
 		for (const definition of manifest.savedViews) {
 			yield* assertSlug("saved view", definition.slug);
 		}

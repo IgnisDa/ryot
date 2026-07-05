@@ -59,14 +59,23 @@ describe("Definitions E2E", () => {
 		}),
 	);
 
-	it.live("lists installed tracker definitions", () =>
+	it.live("lists installed plugin workspaces", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const trackers = yield* client.call((c) => c.definitions.listTrackers({}));
-			const selected = trackers.filter((tracker) => ["media", "fitness"].includes(tracker.slug));
+			const [schemas, workspaces] = yield* Effect.all([
+				client.call((c) => c.definitions.listEntities({})),
+				client.call((c) => c.definitions.listWorkspaces({ urlParams: { includeDisabled: true } })),
+			]);
+			const selected = workspaces.filter((workspace) =>
+				["media", "fitness"].includes(workspace.slug),
+			);
 
-			expect(selected.map((tracker) => tracker.slug)).toEqual(["media", "fitness"]);
-			expect(selected.every((tracker) => tracker.entitySchemaSlugs.length > 0)).toBe(true);
+			expect(selected.map((workspace) => workspace.slug)).toEqual(["media", "fitness"]);
+			expect(
+				selected.every((workspace) =>
+					schemas.some((schema) => schema.pluginSlug === workspace.slug),
+				),
+			).toBe(true);
 		}),
 	);
 });

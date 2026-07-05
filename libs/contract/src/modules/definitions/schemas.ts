@@ -15,6 +15,7 @@ export const EntityDefinition = Schema.Struct({
 	accentColor: Schema.String,
 	propertiesSchema: AppSchema,
 	eventSchemas: Schema.Array(EventDefinition),
+	pluginSlug: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
 export const RelationshipDefinition = Schema.Struct({
@@ -25,12 +26,24 @@ export const RelationshipDefinition = Schema.Struct({
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
 });
 
-export const TrackerDefinition = Schema.Struct({
+export const ListedWorkspace = Schema.Struct({
 	slug: Schema.String,
 	name: Schema.String,
 	icon: Schema.String,
+	config: Schema.Unknown,
+	version: Schema.String,
 	sortOrder: Schema.Number,
+	isDisabled: Schema.Boolean,
 	accentColor: Schema.String,
-	description: Schema.NullOr(Schema.String),
-	entitySchemaSlugs: Schema.Array(Schema.String),
+	description: Schema.String,
 });
+
+export type ListedWorkspace = typeof ListedWorkspace.Type;
+
+export const UpdateWorkspaceStateBody = Schema.Struct({
+	sortOrder: Schema.optional(Schema.Number),
+	isDisabled: Schema.optional(Schema.Boolean),
+	config: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+});
+
+export type UpdateWorkspaceStateBody = typeof UpdateWorkspaceStateBody.Type;

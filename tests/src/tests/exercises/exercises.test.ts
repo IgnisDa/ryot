@@ -13,7 +13,7 @@ import {
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
 	executeQueryEngine,
-	findBuiltinTrackerBySlug,
+	findBuiltinWorkspaceBySlug,
 	findBuiltinSchemaBySlug,
 	findWorkoutSetEventSchema,
 	getQueryEngineFieldOrThrow,
@@ -48,12 +48,12 @@ const waitForSeededExercise = (client: Client) =>
 	);
 
 describe("Exercises E2E", () => {
-	it.live("links the built-in exercise schema to the fitness tracker", () =>
+	it.live("links the built-in exercise schema to the fitness plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
+			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				trackerSlug: fitnessTracker.id,
+				pluginSlug: fitnessWorkspace.slug,
 			});
 			const exerciseSchema = schemas.find((schema) => schema.slug === "exercise");
 
@@ -62,7 +62,7 @@ describe("Exercises E2E", () => {
 			expect(exerciseSchema?.slug).toBe("exercise");
 			expect(exerciseSchema?.icon).toBe("zap");
 			expect(exerciseSchema?.isBuiltin).toBe(true);
-			expect(exerciseSchema?.trackerSlug).toBe(fitnessTracker.id);
+			expect(exerciseSchema?.pluginSlug).toBe(fitnessWorkspace.slug);
 			expect(exerciseSchema?.accentColor).toBe("#14B8A6");
 			expect(exerciseSchema?.providers).toHaveLength(1);
 			expect(exerciseSchema?.providers[0]).toMatchObject({
@@ -86,9 +86,9 @@ describe("Exercises E2E", () => {
 	it.live("creates the built-in All Exercises saved view with exercise defaults", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
+			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
 			const views = yield* listSavedViews(client, {
-				trackerSlug: fitnessTracker.id,
+				pluginSlug: fitnessWorkspace.slug,
 			});
 			const allExercisesView = views.find((view) => view.name === "All Exercises");
 
@@ -96,7 +96,7 @@ describe("Exercises E2E", () => {
 			expect(allExercisesView).toMatchObject({
 				isBuiltin: true,
 				name: "All Exercises",
-				trackerSlug: fitnessTracker.id,
+				pluginSlug: fitnessWorkspace.slug,
 				queryDocument: { source: { schemas: ["exercise"] } },
 				displayConfiguration: {
 					table: {

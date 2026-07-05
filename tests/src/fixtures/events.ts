@@ -5,7 +5,7 @@ import { assertPresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
-import { createTrackerWithSchema, findBuiltinSchemaBySlug } from "./entity-schemas";
+import { createPluginSchema, findBuiltinSchemaBySlug } from "./entity-schemas";
 import { createEventSchema, listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
 import { seedMediaEntity } from "./media";
 import { type PollOptions, pollUntil } from "./polling";
@@ -73,7 +73,7 @@ export const waitForEventCount = (
 
 export const createEventTestFixture = (client: Client) =>
 	Effect.gen(function* () {
-		const { schemaId: entitySchemaSlug } = yield* createTrackerWithSchema(client, {
+		const { schemaId: entitySchemaSlug } = yield* createPluginSchema(client, {
 			name: "Test Item",
 			slug: `item-${crypto.randomUUID()}`,
 		});
@@ -102,7 +102,7 @@ export const createEventTestFixture = (client: Client) =>
 
 export const createRuleEventFixture = (client: Client) =>
 	Effect.gen(function* () {
-		const { schemaId: entitySchemaSlug } = yield* createTrackerWithSchema(client, {
+		const { schemaId: entitySchemaSlug } = yield* createPluginSchema(client, {
 			name: "Rule Test Item",
 			slug: `rule-item-${crypto.randomUUID()}`,
 		});

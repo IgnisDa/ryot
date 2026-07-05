@@ -120,6 +120,7 @@ it.effect("creates events inside workflow activities", () => {
 		makeAutomationsService(),
 		LifecycleDispatchNoop,
 		Layer.mock(EventCreateWorkflowOperations, {
+			dispatchLifecycleOccurrence: () => Effect.void,
 			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () => Effect.die("unused"),
 		}),
@@ -181,6 +182,10 @@ it.effect(
 				},
 			}),
 			Layer.mock(EventCreateWorkflowOperations, {
+				dispatchLifecycleOccurrence: (input) => {
+					dispatched.push(input);
+					return Effect.void;
+				},
 				ensureLibraryMembership: () => Effect.void,
 				processSandboxExecution: () => Effect.die("unused"),
 			}),
@@ -250,6 +255,10 @@ it.effect("does not dispatch a lifecycle occurrence when no lifecycle origin is 
 			},
 		}),
 		Layer.mock(EventCreateWorkflowOperations, {
+			dispatchLifecycleOccurrence: () => {
+				dispatchCalls += 1;
+				return Effect.void;
+			},
 			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () => Effect.die("unused"),
 		}),

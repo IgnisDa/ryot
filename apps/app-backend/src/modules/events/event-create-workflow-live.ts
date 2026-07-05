@@ -19,7 +19,10 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { AutomationsService } from "#modules/automations/service";
-import { LifecycleDispatch } from "#modules/entities/lifecycle-dispatch";
+import {
+	LifecycleDispatch,
+	type LifecycleDispatchValue,
+} from "#modules/entities/lifecycle-dispatch";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 import { EnsureLibraryMembershipQueue } from "./durable-queues";
@@ -74,6 +77,7 @@ type EnsureLibraryMembershipInput = {
 };
 
 export type EventCreateWorkflowOperationsValue = {
+	dispatchLifecycleOccurrence: LifecycleDispatchValue["dispatch"];
 	ensureLibraryMembership: (
 		input: EnsureLibraryMembershipInput,
 	) => Effect.Effect<void, DbError, WorkflowEngine | WorkflowInstance>;
@@ -84,7 +88,7 @@ export type EventCreateWorkflowOperationsValue = {
 
 /**
  * DurableQueue.process must run inside the calling workflow's own execution
- * context, so these requirements are intentional pass-throughs.
+ * context, so these requirements are intentionally pass-through.
  * @effect-expect-leaking WorkflowEngine WorkflowInstance
  */
 export class EventCreateWorkflowOperations extends Context.Tag("EventCreateWorkflowOperations")<
@@ -94,21 +98,22 @@ export class EventCreateWorkflowOperations extends Context.Tag("EventCreateWorkf
 
 export const EventCreateWorkflowOperationsLive = Layer.effect(
 	EventCreateWorkflowOperations,
-	Effect.map(
-		PersistedQueue.PersistedQueueFactory,
-		(queueFactory) =>
-			({
-				ensureLibraryMembership: (input) =>
-					DurableQueue.process(EnsureLibraryMembershipQueue, input).pipe(
-						Effect.asVoid,
-						Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-					),
-				processSandboxExecution: (payload) =>
-					DurableQueue.process(SandboxExecutionQueue, payload).pipe(
-						Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-					),
-			}) satisfies EventCreateWorkflowOperationsValue,
-	),
+	Effect.gen(function* () {
+		const lifecycleDispatch = yield* LifecycleDispatch;
+		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
+		return {
+			dispatchLifecycleOccurrence: lifecycleDispatch.dispatch,
+			ensureLibraryMembership: (input) =>
+				DurableQueue.process(EnsureLibraryMembershipQueue, input).pipe(
+					Effect.asVoid,
+					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+				),
+			processSandboxExecution: (payload) =>
+				DurableQueue.process(SandboxExecutionQueue, payload).pipe(
+					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+				),
+		} satisfies EventCreateWorkflowOperationsValue;
+	}),
 );
 
 const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
@@ -134,16 +139,19 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 
 			const policies = yield* automations.resolveActivePolicies({
 				userId: payload.userId,
-				target: { id: eventSchemaScope.id, kind: "event_schema" },
+				target: {
+					kind: "event_schema",
+					id: EventSchemaSlug.make(`${entityScope.entitySchemaSlug}:${eventSchemaScope.id}`),
+				},
 			});
 
 			return {
 				entityId,
 				properties,
 				sessionEntityId,
-				eventSchemaSlug: eventSchemaScope.id,
 				subjectName: entityScope.entityName,
 				occurredAt: occurredAt.toISOString(),
+				eventSchemaSlug: eventSchemaScope.id,
 				eventSchemaName: eventSchemaScope.name,
 				entitySchemaSlug: entityScope.entitySchemaSlug,
 				isGlobalEntity: entityScope.entityUserId === null,
@@ -178,8 +186,8 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 					userId: payload.userId,
 					entityId: prepared.entityId,
 					properties: draft.properties,
-					eventSchemaSlug: prepared.eventSchemaSlug,
 					sessionEntityId: draft.sessionEntityId,
+					eventSchemaSlug: prepared.eventSchemaSlug,
 					eventSchemaName: prepared.eventSchemaName,
 					id: EventId.make(`${payload.executionId}-event-${itemIndex}`),
 					occurredAt: DateTime.toDate(DateTime.unsafeMake(draft.occurredAt)),
@@ -190,12 +198,12 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 				id: createdEvent.id,
 				entityId: createdEvent.entityId,
 				createdAt: createdEvent.createdAt,
+				subjectName: prepared.subjectName,
 				occurredAt: createdEvent.occurredAt,
 				properties: createdEvent.properties,
-				eventSchemaSlug: createdEvent.eventSchemaSlug,
-				subjectName: prepared.subjectName,
 				isGlobalReference: prepared.isGlobalEntity,
 				entitySchemaSlug: prepared.entitySchemaSlug,
+				eventSchemaSlug: createdEvent.eventSchemaSlug,
 			} satisfies CreatedEvent;
 		}),
 	});
@@ -205,12 +213,12 @@ const dispatchLifecycleOccurrence = Effect.fn("dispatchEventLifecycleOccurrence"
 	payload: EventCreateWorkflowPayload,
 	itemIndex: number,
 	event: CreatedEvent,
+	dispatch: LifecycleDispatchValue["dispatch"],
 ) {
 	if (!payload.lifecycleOrigin) {
 		return;
 	}
-	const lifecycleDispatch = yield* LifecycleDispatch;
-	yield* lifecycleDispatch.dispatch({
+	yield* dispatch({
 		recordId: event.id,
 		rowUserId: payload.userId,
 		occurredAt: event.createdAt,
@@ -295,7 +303,12 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(
 			}
 			outcomes.push({ index: itemIndex, eventId: createdEvent.id, status: "written" });
 			createdCount += 1;
-			yield* dispatchLifecycleOccurrence(payload, itemIndex, createdEvent);
+			yield* dispatchLifecycleOccurrence(
+				payload,
+				itemIndex,
+				createdEvent,
+				operations.dispatchLifecycleOccurrence,
+			);
 		}
 
 		yield* Effect.forEach(

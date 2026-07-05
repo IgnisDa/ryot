@@ -5,7 +5,7 @@ import type {
 	ReorderSavedViewsBody,
 	UpdateSavedViewBody,
 } from "@ryot/contract/modules/saved-views/schemas";
-import { SavedViewId, TrackerSlug } from "@ryot/contract/schema/brands";
+import { PluginSlug, SavedViewId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -25,25 +25,25 @@ const toBuiltin = (
 	state?: { isDisabled: boolean; sortOrder: number },
 ) => ({
 	...definition,
-	id: SavedViewId.make(definition.slug),
 	isBuiltin: true,
 	createdAt: "1970-01-01T00:00:00.000Z",
 	updatedAt: "1970-01-01T00:00:00.000Z",
 	isDisabled: state?.isDisabled ?? false,
+	id: SavedViewId.make(definition.slug),
 	sortOrder: state?.sortOrder ?? definition.sortOrder,
-	trackerSlug: definition.trackerSlug ? TrackerSlug.make(definition.trackerSlug) : null,
+	pluginSlug: definition.pluginSlug ? PluginSlug.make(definition.pluginSlug) : null,
 });
 
 export class SavedViewsService extends Effect.Service<SavedViewsService>()("SavedViewsService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const definitions = yield* DefinitionRegistry;
 		const queryEngine = yield* QueryEngineService;
 		const repository = yield* SavedViewsRepository;
-		const definitions = yield* DefinitionRegistry;
 
 		const list = Effect.fn(function* (
 			user: CurrentUserValue,
-			input: { trackerSlug?: TrackerSlug | undefined; includeDisabled: boolean },
+			input: { pluginSlug?: PluginSlug | undefined; includeDisabled: boolean },
 		) {
 			const [custom, states] = yield* Effect.all([
 				runWithDb(repository.listByUser(user.id, input)),
@@ -51,7 +51,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 			]);
 			const bySlug = new Map(states.map((state) => [state.savedViewSlug, state]));
 			const builtins = Object.values(definitions.getSnapshot().savedViews)
-				.filter((view) => !input.trackerSlug || view.trackerSlug === input.trackerSlug)
+				.filter((view) => !input.pluginSlug || view.pluginSlug === input.pluginSlug)
 				.map((view) => toBuiltin(view, bySlug.get(view.slug)))
 				.filter((view) => input.includeDisabled || !view.isDisabled);
 			return [...builtins, ...custom].sort((left, right) => left.sortOrder - right.sortOrder);
@@ -110,7 +110,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					name,
 					userId: user.id,
 					icon: payload.icon,
-					trackerSlug: payload.trackerSlug,
+					pluginSlug: payload.pluginSlug,
 					accentColor: payload.accentColor,
 					queryDocument: payload.queryDocument,
 					displayConfiguration: payload.displayConfiguration,
@@ -134,7 +134,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					payload.name !== definition.name ||
 					payload.icon !== definition.icon ||
 					payload.accentColor !== definition.accentColor ||
-					(payload.trackerSlug ?? null) !== definition.trackerSlug ||
+					(payload.pluginSlug ?? null) !== definition.pluginSlug ||
 					!Bun.deepEquals(payload.queryDocument, definition.queryDocument) ||
 					!Bun.deepEquals(payload.displayConfiguration, definition.displayConfiguration)
 				) {
@@ -173,7 +173,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					user.id,
 					viewSlug,
 					{ ...payload, name, sortOrder: payload.sortOrder },
-					current.trackerSlug,
+					current.pluginSlug,
 				),
 			);
 			return updated ?? (yield* notFound(savedViewNotFound));
@@ -198,12 +198,12 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 				accentColor: source.accentColor,
 				queryDocument: source.queryDocument,
 				displayConfiguration: source.displayConfiguration,
-				...(source.trackerSlug ? { trackerSlug: source.trackerSlug } : {}),
+				...(source.pluginSlug ? { pluginSlug: source.pluginSlug } : {}),
 			});
 		});
 
 		const reorder = Effect.fn(function* (user: CurrentUserValue, payload: ReorderSavedViewsBody) {
-			const views = yield* list(user, { trackerSlug: payload.trackerSlug, includeDisabled: true });
+			const views = yield* list(user, { pluginSlug: payload.pluginSlug, includeDisabled: true });
 			const requested = payload.viewSlugs.map((slug) => slug.trim()).filter(Boolean);
 			if (requested.length === 0 || new Set(requested).size !== requested.length) {
 				return yield* badRequest("View slugs are required and must be unique");
@@ -223,7 +223,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 				yield* update(user, slug, {
 					...view,
 					sortOrder,
-					trackerSlug: view.trackerSlug ?? undefined,
+					pluginSlug: view.pluginSlug ?? undefined,
 				}).pipe(Effect.mapError((error) => badRequest(error.message)));
 			}
 			return { viewSlugs: reordered };

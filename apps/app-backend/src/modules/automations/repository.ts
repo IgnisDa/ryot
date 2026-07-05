@@ -23,7 +23,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot/contract/schema/core";
-import { and, asc, count, eq, isNotNull, isNull, or, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull, isNull, or, type SQL } from "drizzle-orm";
 import { DateTime, Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -74,12 +74,13 @@ export type InsertSubscriptionRunInput = {
 	occurrenceId: string;
 	id: SubscriptionRunId;
 	recordId: string | null;
-	ruleId: AutomationRuleId;
 	signalId: SignalId | null;
 	executionUserId: UserId | null;
+	ruleId: AutomationRuleId | null;
 	sandboxScriptId: SandboxScriptId;
 	operation: AutomationOperationValue;
 	sourceKind: SubscriptionRunSourceKind;
+	originalRuleId?: AutomationRuleId | undefined;
 	ruleMetadata: AutomationRuleMetadataValue | null;
 };
 
@@ -238,7 +239,8 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 						.select({
 							userId: schema.sandboxScript.userId,
 							metadata: schema.sandboxScript.metadata,
-							isBuiltin: schema.sandboxScript.isBuiltin,
+							pluginSlug: schema.sandboxScript.pluginSlug,
+							contentHash: schema.sandboxScript.contentHash,
 						})
 						.from(schema.sandboxScript)
 						.where(eq(schema.sandboxScript.id, scriptId))
@@ -253,9 +255,9 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 					`Invalid metadata for sandbox script ${scriptId}`,
 				);
 				return {
-					isBuiltin: row.isBuiltin,
 					capabilities: metadata.capabilities ?? [],
 					userId: row.userId ? UserId.make(row.userId) : null,
+					isBuiltin: row.pluginSlug !== null || (row.userId === null && row.contentHash !== null),
 				} satisfies AutomationScriptScope;
 			});
 
@@ -268,7 +270,8 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 						.select({
 							userId: schema.sandboxScript.userId,
 							updatedAt: schema.sandboxScript.updatedAt,
-							isBuiltin: schema.sandboxScript.isBuiltin,
+							pluginSlug: schema.sandboxScript.pluginSlug,
+							contentHash: schema.sandboxScript.contentHash,
 						})
 						.from(schema.sandboxScript)
 						.where(eq(schema.sandboxScript.id, scriptId))
@@ -276,9 +279,10 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				);
 				return row
 					? {
-							isBuiltin: row.isBuiltin,
 							updatedAt: row.updatedAt.toISOString(),
 							userId: row.userId ? UserId.make(row.userId) : null,
+							isBuiltin:
+								row.pluginSlug !== null || (row.userId === null && row.contentHash !== null),
 						}
 					: null;
 			});
@@ -319,10 +323,12 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 							.where(
 								and(
 									eq(schema.sandboxScript.slug, slug),
-									eq(schema.sandboxScript.isBuiltin, true),
 									isNull(schema.sandboxScript.userId),
+									isNull(schema.sandboxScript.pluginSlug),
+									isNotNull(schema.sandboxScript.contentHash),
 								),
 							)
+							.orderBy(desc(schema.sandboxScript.createdAt))
 							.limit(1),
 					);
 					return row ? { id: SandboxScriptId.make(row.id) } : null;
@@ -509,10 +515,15 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				input: InsertSubscriptionRunInput,
 			) {
 				const db = yield* CurrentDb;
+				const originalRuleId = input.originalRuleId ?? input.ruleId;
+				if (!originalRuleId) {
+					return yield* new DbError({ message: "Subscription run requires an original rule id" });
+				}
+				const { originalRuleId: _originalRuleId, ...values } = input;
 				const [row] = yield* dbEffect(() =>
 					db
 						.insert(schema.subscriptionRun)
-						.values({ ...input, originalRuleId: input.ruleId })
+						.values({ ...values, originalRuleId })
 						.onConflictDoNothing({ target: schema.subscriptionRun.id })
 						.returning(),
 				);

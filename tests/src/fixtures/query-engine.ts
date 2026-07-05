@@ -8,12 +8,12 @@ import { createEntity } from "./entities";
 import { createEntitySchema, makeEntitySchemaSlug } from "./entity-schemas";
 import { createEventSchema } from "./event-schemas";
 import { listEventsForEntity } from "./events";
+import { createPluginScope } from "./plugin-workspaces";
 import { pollUntil } from "./polling";
 import { createRelationshipSchema } from "./relationship-schemas";
 import { createRelationship } from "./relationships";
-import { createTracker } from "./trackers";
 
-export const createQueryEngineTrackerAndSchema = (
+export const createQueryEnginePluginSchema = (
 	client: Client,
 	options: {
 		schemaName: string;
@@ -22,15 +22,17 @@ export const createQueryEngineTrackerAndSchema = (
 	},
 ) =>
 	Effect.gen(function* () {
-		const { trackerSlug } = yield* createTracker(client);
+		const pluginSlug = createPluginScope();
 		const { schemaId, slug } = yield* createEntitySchema(client, {
-			trackerSlug,
+			pluginSlug,
 			name: options.schemaName,
 			...(options.schemaSlug ? { slug: options.schemaSlug } : {}),
 			...(options.propertiesSchema ? { propertiesSchema: options.propertiesSchema } : {}),
 		});
-		return { trackerSlug, schemaId, slug };
+		return { pluginSlug, schemaId, slug };
 	});
+
+export const createQueryEngineTrackerAndSchema = createQueryEnginePluginSchema;
 
 export const createQueryEngineEntity = (
 	client: Client,
@@ -113,15 +115,15 @@ export const insertGlobalRelationship = (input: {
 export const createCourseLessonFilterFixture = () =>
 	Effect.gen(function* () {
 		const { client } = yield* createAuthenticatedClient();
-		const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEngineTrackerAndSchema(
+		const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
 			client,
 			{ schemaName: "FilterCourse" },
 		);
-		const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEngineTrackerAndSchema(
+		const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
 			client,
 			{ schemaName: "FilterModule" },
 		);
-		const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEngineTrackerAndSchema(
+		const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEnginePluginSchema(
 			client,
 			{
 				schemaName: "FilterLesson",

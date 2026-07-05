@@ -14,7 +14,7 @@ export const SavedViewsRoutesLive = HttpApiBuilder.group(AppContract, "savedView
 				const service = yield* SavedViewsService;
 				return yield* service
 					.list(user, {
-						trackerSlug: urlParams.trackerSlug,
+						pluginSlug: urlParams.pluginSlug,
 						includeDisabled: urlParams.includeDisabled,
 					})
 					.pipe(dieOnDbError);

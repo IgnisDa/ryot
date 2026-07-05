@@ -3,6 +3,7 @@
 	"workspaces": [
 		"apps/*",
 		"libs/*",
+		"plugins/*",
 		"tests*"
 	],
 	"scripts": {

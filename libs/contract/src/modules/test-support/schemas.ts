@@ -11,15 +11,10 @@ import {
 	UserId,
 } from "../../schema/brands";
 import { SubscriptionRunStatus } from "../automations/schemas";
-import {
-	EntityDefinition,
-	RelationshipDefinition,
-	TrackerDefinition,
-} from "../definitions/schemas";
+import { EntityDefinition, RelationshipDefinition } from "../definitions/schemas";
 import { SandboxScriptMetadata } from "../sandbox/schemas";
 
 export const TestSupportInstallDefinitions = Schema.Struct({
-	trackers: Schema.optional(Schema.Array(TrackerDefinition)),
 	entitySchemas: Schema.optional(Schema.Array(EntityDefinition)),
 	relationshipSchemas: Schema.optional(Schema.Array(RelationshipDefinition)),
 });

@@ -25,7 +25,7 @@ export * from "./sandbox";
 export * from "./sandbox-provider";
 export * from "./sandbox-source";
 export * from "./saved-views";
-export * from "./trackers";
+export * from "./plugin-workspaces";
 export * from "./translations";
 export * from "./user-preferences";
 export * from "./user-state";
