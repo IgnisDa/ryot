@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,17 +8,14 @@ import { details, manifest, search, translate } from "./tvdb.sandbox";
 type TvdbHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getCachedValue: () => Promise.resolve({ success: true as const, data: "Bearer test-token" }),
-		setCachedValue: () => Promise.resolve({ success: true as const, data: null }),
-		getAppConfigValue: () => Promise.resolve({ success: true as const, data: "test-api-key" }),
+		getCachedValue: () => Effect.succeed("Bearer test-token"),
+		setCachedValue: () => Effect.succeed(null),
+		getAppConfigValue: () => Effect.succeed("test-api-key"),
 	});
 
 const detailsHost = (person: unknown, translation: unknown = { data: {} }) =>
@@ -42,43 +40,46 @@ describe("person.tvdb sandbox script", () => {
 			],
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "person-to-movie",
-					entities: [
-						{
-							name: "Film A",
-							externalId: "10",
-							scriptSlug: "movie.tvdb",
-							relationshipProperties: { roles: ["Actor", "Director"] },
-						},
-					],
-				},
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "person-to-show",
-					entities: [
-						{
-							name: "Show B",
-							externalId: "20",
-							scriptSlug: "show.tvdb",
-							relationshipProperties: { roles: ["Writer"] },
-						},
-						{
-							name: "Loading...",
-							externalId: "30",
-							scriptSlug: "show.tvdb",
-							relationshipProperties: { roles: ["Actor"] },
-						},
-					],
-				},
-			]);
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-movie",
+						entities: [
+							{
+								name: "Film A",
+								externalId: "10",
+								scriptSlug: "movie.tvdb",
+								relationshipProperties: { roles: ["Actor", "Director"] },
+							},
+						],
+					},
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-show",
+						entities: [
+							{
+								name: "Show B",
+								externalId: "20",
+								scriptSlug: "show.tvdb",
+								relationshipProperties: { roles: ["Writer"] },
+							},
+							{
+								name: "Loading...",
+								externalId: "30",
+								scriptSlug: "show.tvdb",
+								relationshipProperties: { roles: ["Actor"] },
+							},
+						],
+					},
+				]);
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("maps gender, biography description fallback, dates, and slug sourceUrl", () => {
@@ -93,20 +94,23 @@ describe("person.tvdb sandbox script", () => {
 			biographies: [{ biography: "Bio text" }],
 		});
 
-		return runSandboxTestDriver(details, { externalId: "5" }, host, execution).then((result) => {
-			expect(result.name).toBe("P");
-			expect(result.properties).toEqual({
-				gender: "Female",
-				alternateNames: [],
-				birthPlace: "New York",
-				birthDate: "1980-01-01",
-				deathDate: "2020-01-01",
-				description: "Bio text",
-				images: [{ type: "remote", url: "http://img/1.jpg" }],
-				sourceUrl: "https://www.thetvdb.com/people/john-doe",
-			});
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "5" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("P");
+				expect(result.properties).toEqual({
+					gender: "Female",
+					alternateNames: [],
+					birthPlace: "New York",
+					birthDate: "1980-01-01",
+					deathDate: "2020-01-01",
+					description: "Bio text",
+					images: [{ type: "remote", url: "http://img/1.jpg" }],
+					sourceUrl: "https://www.thetvdb.com/people/john-doe",
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("falls back to id sourceUrl and null gender, honoring translation overrides", () => {
@@ -115,18 +119,21 @@ describe("person.tvdb sandbox script", () => {
 			{ data: { name: "Trans Name", overview: "Trans desc" } },
 		);
 
-		return runSandboxTestDriver(details, { externalId: "5" }, host, execution).then((result) => {
-			expect(result.name).toBe("Trans Name");
-			expect(result.properties).toMatchObject({
-				gender: null,
-				description: "Trans desc",
-				birthDate: null,
-				deathDate: null,
-				birthPlace: null,
-				sourceUrl: "https://www.thetvdb.com/people/5",
-			});
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "5" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("Trans Name");
+				expect(result.properties).toMatchObject({
+					gender: null,
+					description: "Trans desc",
+					birthDate: null,
+					deathDate: null,
+					birthPlace: null,
+					sourceUrl: "https://www.thetvdb.com/people/5",
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("returns the primary translation name and description", () => {
@@ -144,20 +151,25 @@ describe("person.tvdb sandbox script", () => {
 			{ externalId: "5", language: "es", entitySchemaSlug: "person" },
 			host,
 			execution,
-		).then((result) => {
-			expect(result).toEqual({ name: "Primary", properties: { description: "Primary desc" } });
-			return undefined;
-		});
+		).pipe(
+			Effect.map((result) => {
+				expect(result).toEqual({ name: "Primary", properties: { description: "Primary desc" } });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("rejects a non-numeric external id in translate", () => {
 		const host = makeHost(() => httpSuccess({ data: {} }));
 		return expect(
-			runSandboxTestDriver(
-				translate,
-				{ externalId: "abc", language: "es", entitySchemaSlug: "person" },
-				host,
-				execution,
+			Effect.runPromise(
+				runSandboxTestDriver(
+					translate,
+					{ externalId: "abc", language: "es", entitySchemaSlug: "person" },
+					host,
+					execution,
+				),
 			),
 		).rejects.toThrow("externalId must be a numeric TVDB person ID");
 	});
@@ -178,19 +190,22 @@ describe("person.tvdb sandbox script", () => {
 			{ query: "John", page: 1, pageSize: 20 },
 			host,
 			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "12345",
-					titleProperty: { kind: "text", value: "John Doe" },
-					calloutProperty: { kind: "null", value: null },
-					primarySubtitleProperty: { kind: "null", value: null },
-					secondarySubtitleProperty: { kind: "null", value: null },
-					imageProperty: { kind: "null", value: null },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 1, nextPage: null });
-			return undefined;
-		});
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([
+					{
+						externalId: "12345",
+						titleProperty: { kind: "text", value: "John Doe" },
+						calloutProperty: { kind: "null", value: null },
+						primarySubtitleProperty: { kind: "null", value: null },
+						secondarySubtitleProperty: { kind: "null", value: null },
+						imageProperty: { kind: "null", value: null },
+					},
+				]);
+				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 });

@@ -1,5 +1,6 @@
 import { defineAutomation, type AutomationSignalSnapshot } from "@ryot/sandbox-sdk/automation";
 import { defineManifest, type JsonValue } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -109,6 +110,6 @@ export default defineAutomation({
 		if (automation.source.kind !== "signal") {
 			throw new Error("Signal notification requires a signal source");
 		}
-		return host.sendNotification(formatMessage(automation.source.signal));
+		return host.sendNotification(formatMessage(automation.source.signal)).pipe(Effect.as(null));
 	},
 });

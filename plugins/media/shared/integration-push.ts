@@ -4,6 +4,7 @@ import type {
 	ListIntegrationsOptions,
 	SandboxHost,
 } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export type IntegrationPushHost = SandboxHost<
 	readonly ["httpCall", "getEntity", "getEntitySchema", "listIntegrations", "getUserPreferences"]
@@ -19,9 +20,9 @@ export const normalizeBaseUrl = (value: unknown) =>
 	typeof value === "string" ? value.trim().replace(/\/+$/, "") : "";
 
 export const parseJsonBody = (
-	result: Awaited<ReturnType<IntegrationPushHost["httpCall"]>>,
+	result: Effect.Effect.Success<ReturnType<IntegrationPushHost["httpCall"]>>,
 ): unknown => {
-	const body = result.success ? result.data.body : null;
+	const body = result.body;
 	if (typeof body !== "string" || !body.trim()) {
 		return null;
 	}
@@ -33,34 +34,29 @@ export const parseJsonBody = (
 };
 
 export const integrationsDisabledForUser = (host: IntegrationPushHost) =>
-	host.getUserPreferences().then((result) => result.success && result.data.disableIntegrations);
+	host.getUserPreferences().pipe(Effect.map((preferences) => preferences.disableIntegrations));
 
 export const listActiveIntegrations = (
 	host: IntegrationPushHost,
 	provider: NonNullable<ListIntegrationsOptions["provider"]>,
-) =>
-	host
-		.listIntegrations({ provider, isDisabled: false })
-		.then((result): readonly IntegrationRecord[] => (result.success ? result.data : []));
+) => host.listIntegrations({ provider, isDisabled: false });
 
 export const fetchEntity = (host: IntegrationPushHost, entityId: string) =>
-	host
-		.getEntity(entityId)
-		.then((result): EntityRecord | null => (result.success ? result.data : null));
+	host.getEntity(entityId);
 
 export const resolveEntityProviderName = (host: IntegrationPushHost, entity: EntityRecord) => {
 	if (!entity.sandboxScriptId) {
-		return Promise.resolve(null);
+		return Effect.succeed(null);
 	}
-	return host.getEntitySchema(entity.entitySchemaSlug).then((result) => {
-		if (!result.success) {
-			return null;
-		}
-		return (
-			result.data.providers.find((provider) => provider.scriptId === entity.sandboxScriptId)
-				?.name ?? null
+	return host
+		.getEntitySchema(entity.entitySchemaSlug)
+		.pipe(
+			Effect.map(
+				(schema) =>
+					schema.providers.find((provider) => provider.scriptId === entity.sandboxScriptId)?.name ??
+					null,
+			),
 		);
-	});
 };
 
 export const collectionSyncMatches = (integration: IntegrationRecord, collectionId: string) => {

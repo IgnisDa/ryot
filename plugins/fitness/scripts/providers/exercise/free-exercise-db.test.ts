@@ -1,5 +1,6 @@
 import type { JsonValue, SandboxHost } from "@ryot/sandbox-sdk/core";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { assert, describe, expect, it } from "vitest";
 
 import { details, manifest, search } from "./free-exercise-db.sandbox";
@@ -12,36 +13,33 @@ const IMAGES_PREFIX_URL =
 
 const dataset = [
 	{
-		name: "Ab Crunch",
+		images: [],
 		force: "pull",
+		name: "Ab Crunch",
 		category: "strength",
+		secondaryMuscles: [],
 		level: "intermediate",
 		mechanic: "isolation",
 		equipment: "body only",
-		primaryMuscles: ["abdominals"],
-		secondaryMuscles: [],
 		instructions: ["Crunch up."],
-		images: [],
+		primaryMuscles: ["abdominals"],
 	},
 	{
-		name: "Bench Press",
 		force: "push",
-		category: "strength",
 		level: "beginner",
+		name: "Bench Press",
+		category: "strength",
 		mechanic: "compound",
 		equipment: "barbell",
 		primaryMuscles: ["chest"],
+		images: ["Bench_Press/0.jpg"],
 		secondaryMuscles: ["triceps"],
 		instructions: ["Lie down.", "Push the bar up."],
-		images: ["Bench_Press/0.jpg"],
 	},
 ];
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 type SetCall = { key: string; value: JsonValue; ttlSeconds: number };
 
@@ -58,12 +56,11 @@ const makeStatefulHost = (
 			httpCallCount += 1;
 			return httpSuccess(httpBody);
 		},
-		getCachedValue: (key) =>
-			Promise.resolve({ success: true as const, data: cache.get(key) ?? null }),
+		getCachedValue: (key) => Effect.succeed(cache.get(key) ?? null),
 		setCachedValue: (key, value, ttlSeconds) => {
 			setCalls.push({ key, value, ttlSeconds });
 			cache.set(key, value);
-			return Promise.resolve({ success: true as const, data: null });
+			return Effect.succeed(null);
 		},
 	});
 
@@ -76,11 +73,8 @@ describe("exercise.free-exercise-db sandbox script", () => {
 	it("fetches, normalizes and writes chunk + metadata cache entries on a cache miss", () => {
 		const { host, setCalls, httpCallCount } = makeStatefulHost();
 
-		return runSandboxTestDriver(
-			search,
-			{ query: "bench", page: 1, pageSize: 20 },
-			host,
-			execution,
+		return Effect.runPromise(
+			search.run({ query: "bench", page: 1, pageSize: 20 }, host, execution),
 		).then((result) => {
 			expect(httpCallCount()).toBe(1);
 			expect(result.items).toEqual([
@@ -116,12 +110,12 @@ describe("exercise.free-exercise-db sandbox script", () => {
 	it("maps normalized properties through the details driver on a cache miss", () => {
 		const { host } = makeStatefulHost();
 
-		return runSandboxTestDriver(details, { externalId: "Bench Press" }, host, execution).then(
+		return Effect.runPromise(details.run({ externalId: "Bench Press" }, host, execution)).then(
 			(result) => {
 				expect(result.name).toBe("Bench Press");
 				expect(result.properties).toEqual({
-					level: "beginner",
 					force: "push",
+					level: "beginner",
 					mechanic: "compound",
 					equipment: "barbell",
 					kind: "reps_and_weight",
@@ -141,8 +135,8 @@ describe("exercise.free-exercise-db sandbox script", () => {
 			searchText:
 				"bench press reps and weight beginner strength push compound barbell chest triceps",
 			properties: {
-				level: "beginner",
 				force: "push",
+				level: "beginner",
 				mechanic: "compound",
 				equipment: "barbell",
 				kind: "reps_and_weight",
@@ -156,11 +150,8 @@ describe("exercise.free-exercise-db sandbox script", () => {
 			[`${CACHE_KEY}:v-test:chunk:0`]: [seededRow],
 		});
 
-		return runSandboxTestDriver(
-			search,
-			{ query: "bench", page: 1, pageSize: 20 },
-			host,
-			execution,
+		return Effect.runPromise(
+			search.run({ query: "bench", page: 1, pageSize: 20 }, host, execution),
 		).then((result) => {
 			expect(httpCallCount()).toBe(0);
 			expect(result.items).toEqual([

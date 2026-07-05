@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import {
@@ -92,7 +93,8 @@ const collectPeople = (contributions: unknown): RoleRelatedEntity[] => {
 };
 
 export const search = defineProviderDriver(manifest, "search", (input, host) =>
-	getHardcoverApiKey(host).then((apiKey) => {
+	Effect.gen(function* () {
+		const apiKey = yield* getHardcoverApiKey(host);
 		const graphqlQuery = `
 query {
   search(
@@ -105,53 +107,52 @@ query {
   }
 }
 `;
-		return hardcoverGql(
+		const payloadValue = yield* hardcoverGql(
 			host,
 			{ query: graphqlQuery },
 			apiKey,
 			"Hardcover search request failed",
-		).then((payloadValue) => {
-			const payload = asRecord(payloadValue);
-			const resultsData = asRecord(asRecord(asRecord(payload?.["data"])?.["search"])?.["results"]);
-			if (!resultsData) {
-				throw new Error("Hardcover returned invalid response structure");
+		);
+		const payload = asRecord(payloadValue);
+		const resultsData = asRecord(asRecord(asRecord(payload?.["data"])?.["search"])?.["results"]);
+		if (!resultsData) {
+			return yield* Effect.fail(new Error("Hardcover returned invalid response structure"));
+		}
+		const found = numberValue(resultsData["found"]);
+		const totalItems = found === null ? 0 : Math.max(0, Math.trunc(found));
+		const hits = resultsData["hits"];
+		const items = (Array.isArray(hits) ? hits : []).flatMap((hit) => {
+			const doc = asRecord(asRecord(hit)?.["document"]);
+			const externalId = idValue(doc?.["id"]);
+			const title = stringValue(doc?.["title"]);
+			if (!doc || !externalId || !title) {
+				return [];
 			}
-			const found = numberValue(resultsData["found"]);
-			const totalItems = found === null ? 0 : Math.max(0, Math.trunc(found));
-			const hits = resultsData["hits"];
-			const items = (Array.isArray(hits) ? hits : []).flatMap((hit) => {
-				const doc = asRecord(asRecord(hit)?.["document"]);
-				const externalId = idValue(doc?.["id"]);
-				const title = stringValue(doc?.["title"]);
-				if (!doc || !externalId || !title) {
-					return [];
-				}
-				const releaseYear = numberValue(doc["release_year"]);
-				const image = stringValue(asRecord(doc["image"])?.["url"]);
-				return [
-					{
-						externalId,
-						titleProperty: { kind: "text" as const, value: title },
-						calloutProperty: { kind: "null" as const, value: null },
-						secondarySubtitleProperty: { kind: "null" as const, value: null },
-						imageProperty: image
-							? { kind: "image" as const, value: { type: "remote" as const, url: image } }
-							: { kind: "null" as const, value: null },
-						primarySubtitleProperty:
-							releaseYear === null
-								? { kind: "null" as const, value: null }
-								: { kind: "number" as const, value: releaseYear },
-					},
-				];
-			});
-			return {
-				items,
-				details: {
-					totalItems,
-					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
+			const releaseYear = numberValue(doc["release_year"]);
+			const image = stringValue(asRecord(doc["image"])?.["url"]);
+			return [
+				{
+					externalId,
+					titleProperty: { kind: "text" as const, value: title },
+					calloutProperty: { kind: "null" as const, value: null },
+					secondarySubtitleProperty: { kind: "null" as const, value: null },
+					imageProperty: image
+						? { kind: "image" as const, value: { type: "remote" as const, url: image } }
+						: { kind: "null" as const, value: null },
+					primarySubtitleProperty:
+						releaseYear === null
+							? { kind: "null" as const, value: null }
+							: { kind: "number" as const, value: releaseYear },
 				},
-			};
+			];
 		});
+		return {
+			items,
+			details: {
+				totalItems,
+				nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
+			},
+		};
 	}),
 );
 
@@ -192,11 +193,11 @@ const collectBookGroupsAndPublishers = (
 
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
 	if (!/^\d+$/.test(input.externalId)) {
-		throw new Error("externalId must be a numeric Hardcover book id");
+		return Effect.fail(new Error("externalId must be a numeric Hardcover book id"));
 	}
 	const bookId = Number(input.externalId);
 	if (!Number.isSafeInteger(bookId)) {
-		throw new Error("externalId must be a safe integer Hardcover book id");
+		return Effect.fail(new Error("externalId must be a safe integer Hardcover book id"));
 	}
 	const graphqlQuery = `
 query GetHardcoverBookDetails($id: Int!) {
@@ -229,86 +230,84 @@ query GetHardcoverBookDetails($id: Int!) {
   }
 }
 `;
-	return getHardcoverApiKey(host)
-		.then((apiKey) =>
-			hardcoverGql(
-				host,
-				{ query: graphqlQuery, variables: { id: bookId } },
-				apiKey,
-				"Hardcover details request failed",
-			),
-		)
-		.then((payloadValue) => {
-			const payload = asRecord(payloadValue);
-			const errorMessage = firstGraphqlErrorMessage(payload);
-			if (errorMessage) {
-				throw new Error(`Hardcover details GraphQL error: ${errorMessage}`);
-			}
-			const bookData = asRecord(asRecord(payload?.["data"])?.["books_by_pk"]);
-			if (!bookData) {
-				throw new Error("Hardcover returned no book data");
-			}
-			const title = typeof bookData["title"] === "string" ? bookData["title"] : "";
-			if (!title) {
-				throw new Error("Hardcover book data is missing title");
-			}
-			const externalId =
-				typeof bookData["id"] === "string" && bookData["id"].trim()
-					? bookData["id"]
-					: input.externalId;
-			const pages = numberValue(bookData["pages"]);
-			const releaseYear = numberValue(bookData["release_year"]);
-			const slug = stringValue(bookData["slug"]);
-			const sourceUrl = slug
-				? `https://hardcover.app/books/${slug}`
-				: `https://hardcover.app/books/${externalId}`;
+	return Effect.gen(function* () {
+		const apiKey = yield* getHardcoverApiKey(host);
+		const payloadValue = yield* hardcoverGql(
+			host,
+			{ query: graphqlQuery, variables: { id: bookId } },
+			apiKey,
+			"Hardcover details request failed",
+		);
+		const payload = asRecord(payloadValue);
+		const errorMessage = firstGraphqlErrorMessage(payload);
+		if (errorMessage) {
+			return yield* Effect.fail(new Error(`Hardcover details GraphQL error: ${errorMessage}`));
+		}
+		const bookData = asRecord(asRecord(payload?.["data"])?.["books_by_pk"]);
+		if (!bookData) {
+			return yield* Effect.fail(new Error("Hardcover returned no book data"));
+		}
+		const title = typeof bookData["title"] === "string" ? bookData["title"] : "";
+		if (!title) {
+			return yield* Effect.fail(new Error("Hardcover book data is missing title"));
+		}
+		const externalId =
+			typeof bookData["id"] === "string" && bookData["id"].trim()
+				? bookData["id"]
+				: input.externalId;
+		const pages = numberValue(bookData["pages"]);
+		const releaseYear = numberValue(bookData["release_year"]);
+		const slug = stringValue(bookData["slug"]);
+		const sourceUrl = slug
+			? `https://hardcover.app/books/${slug}`
+			: `https://hardcover.app/books/${externalId}`;
 
-			const accumulator = createRoleAccumulator(collectPeople(bookData["contributions"]));
-			collectBookGroupsAndPublishers(accumulator, bookData["book_series"]);
+		const accumulator = createRoleAccumulator(collectPeople(bookData["contributions"]));
+		collectBookGroupsAndPublishers(accumulator, bookData["book_series"]);
 
-			return {
-				name: title,
-				relatedEntityGroups: [
-					{
-						direction: "incoming" as const,
-						synchronization: "additive" as const,
-						relationshipSchemaSlug: "person-to-book",
-						entities: accumulator.entities.filter(
-							(entity) => entity.scriptSlug === "person.hardcover",
-						),
-					},
-					{
-						direction: "incoming" as const,
-						synchronization: "additive" as const,
-						relationshipSchemaSlug: "company-to-book",
-						entities: accumulator.entities.filter(
-							(entity) => entity.scriptSlug === "company.hardcover",
-						),
-					},
-					{
-						direction: "incoming" as const,
-						synchronization: "additive" as const,
-						relationshipSchemaSlug: "book-group-to-book",
-						entities: accumulator.entities.filter(
-							(entity) => entity.scriptSlug === "book-group.hardcover",
-						),
-					},
-				],
-				properties: {
-					pages: pages === null ? null : Math.max(0, Math.trunc(pages)),
-					sourceUrl,
-					unlinkedCreators: [],
-					publishYear: releaseYear,
-					genres: collectGenres(bookData["cached_tags"]),
-					publishDate: stringValue(bookData["release_date"]),
-					description: typeof bookData["description"] === "string" ? bookData["description"] : null,
-					images: collectImages(bookData["image"], bookData["images"]).map((url) => ({
-						url,
-						type: "remote" as const,
-					})),
+		return {
+			name: title,
+			relatedEntityGroups: [
+				{
+					direction: "incoming" as const,
+					synchronization: "additive" as const,
+					relationshipSchemaSlug: "person-to-book",
+					entities: accumulator.entities.filter(
+						(entity) => entity.scriptSlug === "person.hardcover",
+					),
 				},
-			};
-		});
+				{
+					direction: "incoming" as const,
+					synchronization: "additive" as const,
+					relationshipSchemaSlug: "company-to-book",
+					entities: accumulator.entities.filter(
+						(entity) => entity.scriptSlug === "company.hardcover",
+					),
+				},
+				{
+					direction: "incoming" as const,
+					synchronization: "additive" as const,
+					relationshipSchemaSlug: "book-group-to-book",
+					entities: accumulator.entities.filter(
+						(entity) => entity.scriptSlug === "book-group.hardcover",
+					),
+				},
+			],
+			properties: {
+				pages: pages === null ? null : Math.max(0, Math.trunc(pages)),
+				sourceUrl,
+				unlinkedCreators: [],
+				publishYear: releaseYear,
+				genres: collectGenres(bookData["cached_tags"]),
+				publishDate: stringValue(bookData["release_date"]),
+				description: typeof bookData["description"] === "string" ? bookData["description"] : null,
+				images: collectImages(bookData["image"], bookData["images"]).map((url) => ({
+					url,
+					type: "remote" as const,
+				})),
+			},
+		};
+	});
 });
 
 const resolveIsbnBookId = (payload: UnknownRecord | null) => {
@@ -319,28 +318,33 @@ const resolveIsbnBookId = (payload: UnknownRecord | null) => {
 
 export const resolve = defineProviderDriver(manifest, "resolve", (input, host) => {
 	if (input.identifierType !== "isbn") {
-		throw new Error("Hardcover resolve supports only isbn identifiers");
+		return Effect.fail(new Error("Hardcover resolve supports only isbn identifiers"));
 	}
 	const isbnQueries = [
 		"query ResolveHardcoverBookByIsbn10($isbn: String!) { editions(where: { isbn_10: { _eq: $isbn } }) { book_id } }",
 		"query ResolveHardcoverBookByIsbn13($isbn: String!) { editions(where: { isbn_13: { _eq: $isbn } }) { book_id } }",
 	];
-	const lookup = (apiKey: string, index: number): Promise<{ externalId: string | null }> => {
+	const lookup = (
+		apiKey: string,
+		index: number,
+	): Effect.Effect<{ externalId: string | null }, unknown> => {
 		const query = isbnQueries[index];
 		if (query === undefined) {
-			return Promise.resolve({ externalId: null });
+			return Effect.succeed({ externalId: null });
 		}
 		return hardcoverGql(
 			host,
 			{ query, variables: { isbn: input.value } },
 			apiKey,
 			"Hardcover ISBN lookup failed",
-		).then((payloadValue) => {
-			const bookId = resolveIsbnBookId(asRecord(payloadValue));
-			return bookId ? { externalId: bookId } : lookup(apiKey, index + 1);
-		});
+		).pipe(
+			Effect.flatMap((payloadValue) => {
+				const bookId = resolveIsbnBookId(asRecord(payloadValue));
+				return bookId ? Effect.succeed({ externalId: bookId }) : lookup(apiKey, index + 1);
+			}),
+		);
 	};
-	return getHardcoverApiKey(host).then((apiKey) => lookup(apiKey, 0));
+	return getHardcoverApiKey(host).pipe(Effect.flatMap((apiKey) => lookup(apiKey, 0)));
 });
 
 export default defineProvider({ manifest, drivers: { search, details, resolve } });

@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,10 +8,7 @@ import { details, manifest, search } from "./music-brainz.sandbox";
 type MusicBrainzPersonHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (route: (url: string) => unknown) =>
 	defineSandboxTestHost(manifest, {
@@ -32,20 +30,23 @@ describe("person.music-brainz sandbox script", () => {
 			{ query: "artist", page: 1, pageSize: 20 },
 			host,
 			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "a1",
-					calloutProperty: { kind: "null", value: null },
-					imageProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Artist One" },
-					primarySubtitleProperty: { kind: "null", value: null },
-					secondarySubtitleProperty: { kind: "null", value: null },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 1, nextPage: null });
-			return undefined;
-		});
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([
+					{
+						externalId: "a1",
+						calloutProperty: { kind: "null", value: null },
+						imageProperty: { kind: "null", value: null },
+						titleProperty: { kind: "text", value: "Artist One" },
+						primarySubtitleProperty: { kind: "null", value: null },
+						secondarySubtitleProperty: { kind: "null", value: null },
+					},
+				]);
+				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("builds recordings and release-group relations with description and aliases", () => {
@@ -64,46 +65,49 @@ describe("person.music-brainz sandbox script", () => {
 			};
 		});
 
-		return runSandboxTestDriver(details, { externalId: "a1" }, host, execution).then((result) => {
-			expect(result.name).toBe("Artist One");
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "person-to-music",
-					entities: [
-						{
-							name: "Song One",
-							externalId: "r1",
-							scriptSlug: "music.music-brainz",
-							relationshipProperties: { roles: ["Artist"] },
-						},
-					],
-				},
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "person-to-music-group",
-					entities: [
-						{
-							name: "Album One",
-							externalId: "g1",
-							scriptSlug: "music-group.music-brainz",
-							relationshipProperties: { roles: ["Artist"] },
-						},
-					],
-				},
-			]);
-			expect(result.properties).toEqual({
-				images: [],
-				birthDate: "1990",
-				deathDate: "2005",
-				birthPlace: null,
-				alternateNames: ["A1 Alias"],
-				description: "Group - Country: US - Active: 1990 - 2005 - the band",
-				sourceUrl: "https://musicbrainz.org/artist/a1",
-			});
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "a1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("Artist One");
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-music",
+						entities: [
+							{
+								name: "Song One",
+								externalId: "r1",
+								scriptSlug: "music.music-brainz",
+								relationshipProperties: { roles: ["Artist"] },
+							},
+						],
+					},
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-music-group",
+						entities: [
+							{
+								name: "Album One",
+								externalId: "g1",
+								scriptSlug: "music-group.music-brainz",
+								relationshipProperties: { roles: ["Artist"] },
+							},
+						],
+					},
+				]);
+				expect(result.properties).toEqual({
+					images: [],
+					birthDate: "1990",
+					deathDate: "2005",
+					birthPlace: null,
+					alternateNames: ["A1 Alias"],
+					description: "Group - Country: US - Active: 1990 - 2005 - the band",
+					sourceUrl: "https://musicbrainz.org/artist/a1",
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 });

@@ -10,6 +10,7 @@ import {
 	type JsonValue,
 	type SandboxHost,
 } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -119,28 +120,19 @@ const getCompletionCandidates = (
 };
 
 const getCompleteSchema = (host: AutomationHost, entitySchemaSlug: string) =>
-	host.listEventSchemas(entitySchemaSlug).then((result): EventSchemaRecord | null => {
-		if (!result.success) {
-			throw new Error(result.error);
-		}
-		return result.data.find((schema) => schema.slug === "complete") ?? null;
-	});
+	host
+		.listEventSchemas(entitySchemaSlug)
+		.pipe(
+			Effect.map(
+				(schemas): EventSchemaRecord | null =>
+					schemas.find((schema) => schema.slug === "complete") ?? null,
+			),
+		);
 
-const getEntity = (host: AutomationHost, entityId: string) =>
-	host.getEntity(entityId).then((result) => {
-		if (!result.success) {
-			throw new Error(result.error);
-		}
-		return result.data;
-	});
+const getEntity = (host: AutomationHost, entityId: string) => host.getEntity(entityId);
 
 const getProgressEvents = (host: AutomationHost, entityId: string) =>
-	host.listEvents({ entityId, eventSchemaSlug: "progress" }).then((result) => {
-		if (!result.success) {
-			throw new Error(result.error);
-		}
-		return result.data;
-	});
+	host.listEvents({ entityId, eventSchemaSlug: "progress" });
 
 const getInheritedCompletionProperties = (
 	automation: AutomationContext,
@@ -180,12 +172,7 @@ const createCompletionEvent = (
 				},
 			},
 		])
-		.then((result) => {
-			if (!result.success) {
-				throw new Error(result.error);
-			}
-			return null;
-		});
+		.pipe(Effect.as(null));
 };
 
 export default defineAutomation({
@@ -193,47 +180,46 @@ export default defineAutomation({
 	run: ({ automation }, host) => {
 		const event = automation.source.kind === "event" ? automation.source.after : undefined;
 		if (event?.properties["progressPercent"] !== 100) {
-			return Promise.resolve(null);
+			return Effect.succeed(null);
 		}
 		const entityId = event.subject.id;
 		const entitySchemaSlug = event.subject.entitySchemaSlug;
-		return getEntity(host, entityId).then((entity) => {
+		return Effect.gen(function* () {
+			const entity = yield* getEntity(host, entityId);
 			const isEpisodic = entitySchemaSlug === "anime" || entitySchemaSlug === "manga";
 			if (!isEpisodic) {
-				return getCompleteSchema(host, entity.entitySchemaSlug).then((completeSchema) =>
-					completeSchema
-						? createCompletionEvent(host, automation, event, completeSchema, event)
-						: null,
-				);
+				const completeSchema = yield* getCompleteSchema(host, entity.entitySchemaSlug);
+				return completeSchema
+					? yield* createCompletionEvent(host, automation, event, completeSchema, event)
+					: null;
 			}
 
-			return Promise.all([
-				getCompleteSchema(host, entity.entitySchemaSlug),
-				getProgressEvents(host, entityId),
-			]).then(([completeSchema, progressEvents]) => {
-				if (!completeSchema) {
-					return null;
-				}
-				const entityProperties = jsonObject(entity.properties) ?? {};
-				const requiredKeys = getRequiredCoverageKeys(entitySchemaSlug, entityProperties);
-				if (!requiredKeys || requiredKeys.length === 0) {
-					return null;
-				}
-				const completionCandidate = getCompletionCandidates(
-					entitySchemaSlug,
-					requiredKeys,
-					progressEvents,
-				).find((candidate) => candidate.emitterEventId === event.id);
-				return completionCandidate
-					? createCompletionEvent(
-							host,
-							automation,
-							event,
-							completeSchema,
-							completionCandidate.completionEvent,
-						)
-					: null;
-			});
+			const [completeSchema, progressEvents] = yield* Effect.all(
+				[getCompleteSchema(host, entity.entitySchemaSlug), getProgressEvents(host, entityId)],
+				{ concurrency: "unbounded" },
+			);
+			if (!completeSchema) {
+				return null;
+			}
+			const entityProperties = jsonObject(entity.properties) ?? {};
+			const requiredKeys = getRequiredCoverageKeys(entitySchemaSlug, entityProperties);
+			if (!requiredKeys || requiredKeys.length === 0) {
+				return null;
+			}
+			const completionCandidate = getCompletionCandidates(
+				entitySchemaSlug,
+				requiredKeys,
+				progressEvents,
+			).find((candidate) => candidate.emitterEventId === event.id);
+			return completionCandidate
+				? yield* createCompletionEvent(
+						host,
+						automation,
+						event,
+						completeSchema,
+						completionCandidate.completionEvent,
+					)
+				: null;
 		});
 	},
 });

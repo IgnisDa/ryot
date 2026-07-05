@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, stringValue } from "../../../script-helpers/records";
@@ -42,37 +43,39 @@ export const search = defineProviderDriver(manifest, "search", (input, host) =>
 		host,
 		"search/",
 		{
-			query: input.query,
 			resources: "game",
+			query: input.query,
 			limit: String(input.pageSize),
 			offset: String((input.page - 1) * input.pageSize),
 		},
 		"GiantBomb search request failed",
-	).then((payload) => {
-		const items = readResults(payload).flatMap((game) => {
-			const record = asRecord(game);
-			const externalId = stringValue(record?.["guid"]);
-			const name = stringValue(record?.["name"]);
-			if (!externalId || !name) {
-				return [];
-			}
-			const publishYear = extractYear(record?.["original_release_date"]);
-			return [
-				{
-					externalId,
-					calloutProperty: { kind: "null" as const, value: null },
-					titleProperty: { kind: "text" as const, value: name },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					imageProperty: imageProperty(getPrioritizedImage(record?.["image"])),
-					primarySubtitleProperty:
-						publishYear === null
-							? { kind: "null" as const, value: null }
-							: { kind: "number" as const, value: publishYear },
-				},
-			];
-		});
-		return { items, details: paginate(input.page, input.pageSize, readTotalItems(payload)) };
-	}),
+	).pipe(
+		Effect.map((payload) => {
+			const items = readResults(payload).flatMap((game) => {
+				const record = asRecord(game);
+				const externalId = stringValue(record?.["guid"]);
+				const name = stringValue(record?.["name"]);
+				if (!externalId || !name) {
+					return [];
+				}
+				const publishYear = extractYear(record?.["original_release_date"]);
+				return [
+					{
+						externalId,
+						titleProperty: { kind: "text" as const, value: name },
+						calloutProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						imageProperty: imageProperty(getPrioritizedImage(record?.["image"])),
+						primarySubtitleProperty:
+							publishYear === null
+								? { kind: "null" as const, value: null }
+								: { kind: "number" as const, value: publishYear },
+					},
+				];
+			});
+			return { items, details: paginate(input.page, input.pageSize, readTotalItems(payload)) };
+		}),
+	),
 );
 
 const FIELD_LIST = [
@@ -97,21 +100,22 @@ const FIELD_LIST = [
 
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
 	if (!GUID_PATTERN.test(input.externalId)) {
-		throw new Error("externalId must be a GiantBomb GUID (e.g., '3030-1')");
+		return Effect.fail(new Error("externalId must be a GiantBomb GUID (e.g., '3030-1')"));
 	}
-	return giantBombRequest(
-		host,
-		`game/${encodeURIComponent(input.externalId)}/`,
-		{ field_list: FIELD_LIST },
-		"GiantBomb details request failed",
-	).then((payload) => {
+	return Effect.gen(function* () {
+		const payload = yield* giantBombRequest(
+			host,
+			`game/${encodeURIComponent(input.externalId)}/`,
+			{ field_list: FIELD_LIST },
+			"GiantBomb details request failed",
+		);
 		const game = asRecord(payload?.["results"]);
 		if (!game) {
-			throw new Error("GiantBomb returned no game data");
+			return yield* Effect.fail(new Error("GiantBomb returned no game data"));
 		}
 		const name = stringValue(game["name"]);
 		if (!name) {
-			throw new Error("GiantBomb game payload is missing name");
+			return yield* Effect.fail(new Error("GiantBomb game payload is missing name"));
 		}
 
 		const companyAccumulator = createRoleAccumulator();
@@ -181,24 +185,24 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 				},
 				{
 					direction: "incoming" as const,
-					synchronization: "additive" as const,
 					entities: groupAccumulator.entities,
+					synchronization: "additive" as const,
 					relationshipSchemaSlug: "video-game-group-to-video-game",
 				},
 				{
 					direction: "outgoing" as const,
+					entities: [...suggestionByKey.values()],
 					synchronization: "authoritative" as const,
 					relationshipSchemaSlug: "media-suggestion",
-					entities: [...suggestionByKey.values()],
 				},
 			],
 			properties: {
-				genres: [...collectNames(game["genres"]), ...collectNames(game["themes"])],
-				images: primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [],
-				platformReleases: buildPlatformReleases(game["platforms"]),
-				publishYear: extractYear(game["original_release_date"]),
-				description: combineDescription(game["deck"], game["description"]),
 				sourceUrl: stringValue(game["site_detail_url"]),
+				publishYear: extractYear(game["original_release_date"]),
+				platformReleases: buildPlatformReleases(game["platforms"]),
+				images: primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [],
+				description: combineDescription(game["deck"], game["description"]),
+				genres: [...collectNames(game["genres"]), ...collectNames(game["themes"])],
 			},
 		};
 	});

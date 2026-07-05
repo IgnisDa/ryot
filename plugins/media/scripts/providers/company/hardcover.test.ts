@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,15 +8,12 @@ import { details, manifest, search } from "./hardcover.sandbox";
 type HardcoverCompanyHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: HardcoverCompanyHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Promise.resolve({ success: true as const, data: "hardcover-key" }),
+		getAppConfigValue: () => Effect.succeed("hardcover-key"),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -35,27 +33,30 @@ describe("company.hardcover sandbox script", () => {
 			{ query: "pub", page: 2, pageSize: 20 },
 			host,
 			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "200",
-					imageProperty: { kind: "null", value: null },
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Pub House" },
-					primarySubtitleProperty: { kind: "null", value: null },
-					secondarySubtitleProperty: { kind: "null", value: null },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 21, nextPage: null });
-			return undefined;
-		});
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([
+					{
+						externalId: "200",
+						imageProperty: { kind: "null", value: null },
+						calloutProperty: { kind: "null", value: null },
+						titleProperty: { kind: "text", value: "Pub House" },
+						primarySubtitleProperty: { kind: "null", value: null },
+						secondarySubtitleProperty: { kind: "null", value: null },
+					},
+				]);
+				expect(result.details).toEqual({ totalItems: 21, nextPage: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("surfaces GraphQL errors from the details response", () => {
 		const host = makeHost(() => httpSuccess({ errors: [{ message: "boom" }] }));
 
 		return expect(
-			runSandboxTestDriver(details, { externalId: "200" }, host, execution),
+			Effect.runPromise(runSandboxTestDriver(details, { externalId: "200" }, host, execution)),
 		).rejects.toThrow("Hardcover publisher details GraphQL error: boom");
 	});
 
@@ -73,29 +74,32 @@ describe("company.hardcover sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "200" }, host, execution).then((result) => {
-			expect(result.name).toBe("Pub House");
-			expect(result.properties).toEqual({
-				images: [],
-				alternateNames: [],
-				website: "https://pub.example",
-			});
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "company-to-book",
-					entities: [
-						{
-							name: "The Book",
-							externalId: "42",
-							scriptSlug: "book.hardcover",
-							relationshipProperties: { roles: ["Publisher"] },
-						},
-					],
-				},
-			]);
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "200" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("Pub House");
+				expect(result.properties).toEqual({
+					images: [],
+					alternateNames: [],
+					website: "https://pub.example",
+				});
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "company-to-book",
+						entities: [
+							{
+								name: "The Book",
+								externalId: "42",
+								scriptSlug: "book.hardcover",
+								relationshipProperties: { roles: ["Publisher"] },
+							},
+						],
+					},
+				]);
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 });

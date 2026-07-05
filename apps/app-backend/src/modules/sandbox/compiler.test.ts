@@ -7,7 +7,7 @@ import {
 } from "./compiler-test-support";
 
 const approvedDependencyImports = [
-	"@ryot/sandbox-sdk/zod",
+	"@ryot/sandbox-sdk/effect",
 	"@ryot/sandbox-sdk/dayjs",
 	"@ryot/sandbox-sdk/dayjs/custom-parse-format",
 	"@ryot/sandbox-sdk/cheerio",
@@ -16,6 +16,7 @@ const approvedDependencyImports = [
 
 const automationSource = `
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 
 export const manifest = defineManifest({
@@ -28,7 +29,7 @@ export const manifest = defineManifest({
 
 export default defineAutomation({
   manifest,
-  run: async () => null,
+  run: () => Effect.succeed(null),
 });
 `;
 
@@ -147,9 +148,9 @@ it.effect("externalizes every approved SDK runtime dependency", () =>
 
 it.effect("returns an actionable TypeScript diagnostic", () =>
 	Effect.gen(function* () {
-		const failure = yield* compile(validSource.replace("input.value,", '"wrong",')).pipe(
-			Effect.flip,
-		);
+		const failure = yield* compile(
+			validSource.replace("Effect.succeed(input.value)", 'Effect.succeed("wrong")'),
+		).pipe(Effect.flip);
 
 		expect(failure._tag).toBe("SandboxCompilationFailure");
 		expect(failure.diagnostics.length).toBeGreaterThan(0);
@@ -165,11 +166,11 @@ it.effect("types a host method declared by the manifest capability tuple", () =>
 	Effect.gen(function* () {
 		const compiled = yield* compile(
 			validSource.replace("capabilities: []", 'capabilities: ["getCachedValue"]').replace(
-				"run: async (input) => input.value,",
-				`run: async (input, host) => {
-    const cached = await host.getCachedValue("answer");
-    return cached.success && typeof cached.data === "number" ? cached.data : input.value;
-  },`,
+				"run: (input) => Effect.succeed(input.value),",
+				`run: (input, host) => Effect.gen(function* () {
+    const cached = yield* host.getCachedValue("answer");
+    return typeof cached === "number" ? cached : input.value;
+  }),`,
 			),
 		);
 
@@ -181,11 +182,11 @@ it.effect("rejects a host method omitted from the manifest capability tuple", ()
 	Effect.gen(function* () {
 		const failure = yield* compile(
 			validSource.replace(
-				"run: async (input) => input.value,",
-				`run: async (input, host) => {
-    await host.getCachedValue("answer");
+				"run: (input) => Effect.succeed(input.value),",
+				`run: (input, host) => Effect.gen(function* () {
+    yield* host.getCachedValue("answer");
     return input.value;
-  },`,
+  }),`,
 			),
 		).pipe(Effect.flip);
 
@@ -211,11 +212,11 @@ it.effect("rejects a widened exported manifest that would expose undeclared host
 					"export const manifest: SandboxManifest = defineManifest",
 				)
 				.replace(
-					"run: async (input) => input.value,",
-					`run: async (input, host) => {
-    await host.getCachedValue("answer");
+					"run: (input) => Effect.succeed(input.value),",
+					`run: (input, host) => Effect.gen(function* () {
+    yield* host.getCachedValue("answer");
     return input.value;
-  },`,
+  }),`,
 				),
 		).pipe(Effect.flip);
 
@@ -235,11 +236,11 @@ it.effect("rejects capability assertions that widen a static manifest tuple", ()
 				.replace("defineScript }", "defineScript, type SandboxManifest }")
 				.replace("capabilities: []", 'capabilities: [] as SandboxManifest["capabilities"]')
 				.replace(
-					"run: async (input) => input.value,",
-					`run: async (input, host) => {
-    await host.getCachedValue("answer");
+					"run: (input) => Effect.succeed(input.value),",
+					`run: (input, host) => Effect.gen(function* () {
+    yield* host.getCachedValue("answer");
     return input.value;
-  },`,
+  }),`,
 				),
 		).pipe(Effect.flip);
 
@@ -269,11 +270,11 @@ it.effect("rejects a driver defined against a different manifest", () =>
 const main = defineDriver(driverManifest,`,
 				)
 				.replace(
-					"run: async (input) => input.value,",
-					`run: async (input, host) => {
-    await host.getCachedValue("answer");
+					"run: (input) => Effect.succeed(input.value),",
+					`run: (input, host) => Effect.gen(function* () {
+    yield* host.getCachedValue("answer");
     return input.value;
-  },`,
+  }),`,
 				),
 		).pipe(Effect.flip);
 
@@ -290,7 +291,7 @@ it.effect("rejects a block-local manifest shadowing the exported manifest", () =
 	Effect.gen(function* () {
 		const failure = yield* compile(`
 import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -309,12 +310,12 @@ const main = (() => {
     requiredAppConfigKeys: [],
   });
   return defineDriver(manifest, {
-    input: z.object({}),
-    output: z.null(),
-    run: async (_input, host) => {
-      await host.getCachedValue("answer");
+    input: Schema.Struct({}),
+    output: Schema.Null,
+    run: (_input, host) => Effect.gen(function* () {
+      yield* host.getCachedValue("answer");
       return null;
-    },
+    }),
   });
 })();
 
@@ -335,7 +336,7 @@ it.effect("rejects namespace helper calls that bypass the exported manifest", ()
 		const failure = yield* compile(`
 import * as sdk from "@ryot/sandbox-sdk/core";
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -353,12 +354,12 @@ const driverManifest = sdk.defineManifest({
   requiredAppConfigKeys: [],
 });
 const main = sdk.defineDriver(driverManifest, {
-  input: z.object({}),
-  output: z.null(),
-  run: async (_input, host) => {
-    await host.getCachedValue("answer");
+  input: Schema.Struct({}),
+  output: Schema.Null,
+  run: (_input, host) => Effect.gen(function* () {
+    yield* host.getCachedValue("answer");
     return null;
-  },
+  }),
 });
 
 export default defineScript({ manifest, drivers: { main } });
@@ -381,7 +382,7 @@ import {
   defineScript,
   type SandboxHost,
 } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -392,12 +393,12 @@ export const manifest = defineManifest({
 });
 
 const main = {
-  input: z.object({}),
-  output: z.null(),
-  run: async (_input: unknown, host: SandboxHost<["getCachedValue"]>) => {
-    await host.getCachedValue("answer");
+  input: Schema.Struct({}),
+  output: Schema.Null,
+  run: (_input: unknown, host: SandboxHost<["getCachedValue"]>) => Effect.gen(function* () {
+    yield* host.getCachedValue("answer");
     return null;
-  },
+  }),
 };
 
 export default defineScript({ manifest, drivers: { main } });

@@ -1,5 +1,6 @@
 import { load } from "@ryot/sandbox-sdk/cheerio";
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { type UnknownRecord, asRecord, stringValue } from "../../script-helpers/records";
@@ -26,43 +27,46 @@ const getAlbumTitle = (album: UnknownRecord | null) => {
 };
 
 export const buildAlbumSearch = (client: MusicSearchClient, query: string, pageSize: number) =>
-	client.music.search(query, { type: "album" }).then((results) => {
-		const shelves = asRecord(results)?.["contents"];
-		const allItems = (Array.isArray(shelves) ? shelves : []).flatMap((shelf) => {
-			const albums = asRecord(shelf)?.["contents"];
-			return (Array.isArray(albums) ? albums : []).flatMap((album) => {
-				const record = asRecord(album);
-				const id = record?.["id"];
-				if (!id) {
-					return [];
-				}
-				const name = record["title"] ?? id;
-				const imageUrl = getBestThumbnailUrl(record["thumbnail"]);
-				return [
-					{
-						externalId: coerceTrimmed(id),
-						calloutProperty: { kind: "null" as const, value: null },
-						titleProperty: { kind: "text" as const, value: coerceTrimmed(name) },
-						primarySubtitleProperty: { kind: "null" as const, value: null },
-						secondarySubtitleProperty: { kind: "null" as const, value: null },
-						imageProperty:
-							imageUrl === null
-								? { kind: "null" as const, value: null }
-								: { kind: "image" as const, value: { type: "remote" as const, url: imageUrl } },
-					},
-				];
+	Effect.tryPromise(() => client.music.search(query, { type: "album" })).pipe(
+		Effect.map((results) => {
+			const shelves = asRecord(results)?.["contents"];
+			const allItems = (Array.isArray(shelves) ? shelves : []).flatMap((shelf) => {
+				const albums = asRecord(shelf)?.["contents"];
+				return (Array.isArray(albums) ? albums : []).flatMap((album) => {
+					const record = asRecord(album);
+					const id = record?.["id"];
+					if (!id) {
+						return [];
+					}
+					const name = record["title"] ?? id;
+					const imageUrl = getBestThumbnailUrl(record["thumbnail"]);
+					return [
+						{
+							externalId: coerceTrimmed(id),
+							calloutProperty: { kind: "null" as const, value: null },
+							titleProperty: { kind: "text" as const, value: coerceTrimmed(name) },
+							primarySubtitleProperty: { kind: "null" as const, value: null },
+							secondarySubtitleProperty: { kind: "null" as const, value: null },
+							imageProperty:
+								imageUrl === null
+									? { kind: "null" as const, value: null }
+									: { kind: "image" as const, value: { type: "remote" as const, url: imageUrl } },
+						},
+					];
+				});
 			});
-		});
-		const items = allItems.slice(0, pageSize);
-		return { items, details: { totalItems: 100, nextPage: null } };
-	});
+			const items = allItems.slice(0, pageSize);
+			return { items, details: { totalItems: 100, nextPage: null } };
+		}),
+	);
 
 export const buildAlbumDetails = (client: AlbumClient, externalId: string) =>
-	client.music.getAlbum(externalId).then((album) => {
+	Effect.gen(function* () {
+		const album = yield* Effect.tryPromise(() => client.music.getAlbum(externalId));
 		const albumRecord = asRecord(album);
 		const title = getAlbumTitle(albumRecord);
 		if (!title) {
-			throw new Error(`YouTube Music album not found: ${externalId}`);
+			return yield* Effect.fail(new Error(`YouTube Music album not found: ${externalId}`));
 		}
 
 		const headerRecord = asRecord(albumRecord?.["header"]);
@@ -121,26 +125,28 @@ export const buildAlbumDetails = (client: AlbumClient, externalId: string) =>
 	});
 
 export const buildAlbumTranslate = (client: AlbumClient, externalId: string) =>
-	client.music.getAlbum(externalId).then((album) => {
-		const name = getAlbumTitle(asRecord(album));
-		return name ? { name } : {};
-	});
+	Effect.tryPromise(() => client.music.getAlbum(externalId)).pipe(
+		Effect.map((album) => {
+			const name = getAlbumTitle(asRecord(album));
+			return name ? { name } : {};
+		}),
+	);
 
 export const search = defineProviderDriver(manifest, "search", (input, host) =>
-	createYoutubeMusicClient(host).then((client) =>
-		buildAlbumSearch(client, input.query, input.pageSize),
+	createYoutubeMusicClient(host).pipe(
+		Effect.flatMap((client) => buildAlbumSearch(client, input.query, input.pageSize)),
 	),
 );
 
 export const details = defineProviderDriver(manifest, "details", (input, host) =>
-	createYoutubeMusicClient(host, manifest.providerInformation.canonicalLanguage).then((client) =>
-		buildAlbumDetails(client, input.externalId),
+	createYoutubeMusicClient(host, manifest.providerInformation.canonicalLanguage).pipe(
+		Effect.flatMap((client) => buildAlbumDetails(client, input.externalId)),
 	),
 );
 
 export const translate = defineProviderDriver(manifest, "translate", (input, host) =>
-	createYoutubeMusicClient(host, input.language).then((client) =>
-		buildAlbumTranslate(client, input.externalId),
+	createYoutubeMusicClient(host, input.language).pipe(
+		Effect.flatMap((client) => buildAlbumTranslate(client, input.externalId)),
 	),
 );
 

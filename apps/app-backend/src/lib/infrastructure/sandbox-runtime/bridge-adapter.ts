@@ -2,66 +2,72 @@ import {
 	automationSandboxHostContracts,
 	coreSandboxHostContracts,
 	domainSandboxHostContracts,
+	type SandboxHostError,
 } from "@ryot/sandbox-sdk/core";
-import type * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, ParseResult, Schema } from "effect";
 
 import {
 	apiFailure,
+	apiSuccess,
 	type BoundHostFunction,
 	type SandboxHostImplementationMap,
 	type SandboxRunInput,
 } from "./shared";
 
-const invalidArgumentCount = (fnName: string) =>
-	Promise.resolve(apiFailure(`${fnName} received an invalid number of arguments`));
+type HostFailure = ReturnType<typeof apiFailure>;
 
-const hasInvalidArgumentCount = (error: z.ZodError) =>
-	error.issues.some(
-		(issue) => issue.path.length === 0 && (issue.code === "too_big" || issue.code === "too_small"),
+const parseIssues = (error: ParseResult.ParseError) =>
+	ParseResult.ArrayFormatter.formatErrorSync(error);
+
+const hasInvalidArgumentCount = (error: ParseResult.ParseError) =>
+	parseIssues(error).some(
+		(issue) =>
+			issue.path.length === 1 &&
+			typeof issue.path[0] === "number" &&
+			(issue._tag === "Missing" || issue._tag === "Unexpected"),
 	);
 
-const invalidArguments = (fnName: string, error: z.ZodError, message: string) =>
+const invalidArguments = (fnName: string, error: ParseResult.ParseError, message: string) =>
 	hasInvalidArgumentCount(error)
-		? invalidArgumentCount(fnName)
-		: Promise.resolve(apiFailure(message));
+		? apiFailure(`${fnName} received an invalid number of arguments`)
+		: apiFailure(message);
 
-const invalidHttpCallArguments = (error: z.ZodError) => {
+const invalidHttpCallArguments = (error: ParseResult.ParseError) => {
 	if (hasInvalidArgumentCount(error)) {
-		return invalidArgumentCount("httpCall");
+		return apiFailure("httpCall received an invalid number of arguments");
 	}
 
-	const issue = error.issues[0];
+	const issue = parseIssues(error)[0];
 	const [position, field] = issue?.path ?? [];
 	if (position === 0) {
-		return Promise.resolve(apiFailure("httpCall expects a non-empty method string"));
+		return apiFailure("httpCall expects a non-empty method string");
 	}
 	if (position === 1) {
-		return Promise.resolve(apiFailure("httpCall expects a non-empty URL string"));
+		return apiFailure("httpCall expects a non-empty URL string");
 	}
-	if (position === 2 && issue?.code === "unrecognized_keys") {
-		return Promise.resolve(
-			apiFailure(`httpCall options.${issue.keys[0] ?? "value"} is not supported`),
-		);
+	if (position === 2 && issue?._tag === "Unexpected") {
+		return apiFailure(`httpCall options.${String(field ?? "value")} is not supported`);
 	}
 	if (position === 2 && field === "body") {
-		return Promise.resolve(apiFailure("httpCall options.body must be a string"));
+		return apiFailure("httpCall options.body must be a string");
 	}
 	if (position === 2 && field === "headers") {
-		return Promise.resolve(
-			apiFailure(
-				(issue?.path.length ?? 0) > 2
-					? "httpCall headers must be string values"
-					: "httpCall options.headers must be an object",
-			),
+		return apiFailure(
+			(issue?.path.length ?? 0) > 2
+				? "httpCall headers must be string values"
+				: "httpCall options.headers must be an object",
 		);
 	}
 
-	return Promise.resolve(apiFailure("httpCall options must be an object"));
+	return apiFailure("httpCall options must be an object");
 };
 
 const normalizeOptionalNull = (args: ReadonlyArray<unknown>, index: number) => {
 	if (args[index] !== null) {
 		return args;
+	}
+	if (args.length === index + 1) {
+		return args.slice(0, index);
 	}
 
 	const normalized = [...args];
@@ -69,170 +75,152 @@ const normalizeOptionalNull = (args: ReadonlyArray<unknown>, index: number) => {
 	return normalized;
 };
 
+type HostContract = {
+	readonly args: Schema.Schema.AnyNoContext;
+	readonly result: Schema.Schema.AnyNoContext;
+};
+
+type ContractArgs<Contract extends HostContract> =
+	Schema.Schema.Type<Contract["args"]> extends ReadonlyArray<unknown>
+		? Schema.Schema.Type<Contract["args"]>
+		: never;
+
+const bindHostFunction =
+	<Contract extends HostContract, Success>(
+		contract: Contract,
+		implementation: (...args: ContractArgs<Contract>) => Effect.Effect<Success, SandboxHostError>,
+		invalid: (error: ParseResult.ParseError) => HostFailure,
+		normalize: (args: ReadonlyArray<unknown>) => ReadonlyArray<unknown> = (args) => args,
+		failure: (error: SandboxHostError) => unknown = (error) => apiFailure(error.message),
+	): BoundHostFunction =>
+	(args) =>
+		Schema.decodeUnknown(contract.args)(normalize(args)).pipe(
+			Effect.matchEffect({
+				onFailure: (error) => Effect.succeed(invalid(error)),
+				onSuccess: (parsed) =>
+					implementation(...parsed).pipe(
+						Effect.match({ onFailure: failure, onSuccess: apiSuccess }),
+					),
+			}),
+			Effect.flatMap(Schema.encodeUnknown(contract.result)),
+		);
+
+const defaultFailure = (fnName: string, message: string) => (error: ParseResult.ParseError) =>
+	invalidArguments(fnName, error, message);
+
+const preserveHttpFailureDetails = (error: SandboxHostError) =>
+	"data" in error ? { ...apiFailure(error.message), data: error.data } : apiFailure(error.message);
+
 export const bindSandboxHostFunctions = (
 	implementations: SandboxHostImplementationMap,
 	input: SandboxRunInput,
 ): Record<keyof SandboxHostImplementationMap, BoundHostFunction> => ({
-	emitSignal: (args) => {
-		const parsed = automationSandboxHostContracts.emitSignal.args.safeParse(args);
-		return parsed.success
-			? implementations.emitSignal(input, ...parsed.data)
-			: invalidArguments("emitSignal", parsed.error, "emitSignal expects a valid signal request");
-	},
-	getEntity: (args) => {
-		const parsed = domainSandboxHostContracts.getEntity.args.safeParse(args);
-		return parsed.success
-			? implementations.getEntity(input, ...parsed.data)
-			: invalidArguments(
-					"getEntity",
-					parsed.error,
-					"getEntity expects a non-empty entityId string",
-				);
-	},
-	getEntitySchema: (args) => {
-		const parsed = domainSandboxHostContracts.getEntitySchema.args.safeParse(args);
-		return parsed.success
-			? implementations.getEntitySchema(input, ...parsed.data)
-			: invalidArguments(
-					"getEntitySchema",
-					parsed.error,
-					"getEntitySchema expects a non-empty entitySchemaSlug string",
-				);
-	},
-	getIntegration: (args) => {
-		const parsed = domainSandboxHostContracts.getIntegration.args.safeParse(args);
-		return parsed.success
-			? implementations.getIntegration(input, ...parsed.data)
-			: invalidArguments(
-					"getIntegration",
-					parsed.error,
-					"getIntegration expects a non-empty integrationId string",
-				);
-	},
-	listEventSchemas: (args) => {
-		const parsed = domainSandboxHostContracts.listEventSchemas.args.safeParse(args);
-		return parsed.success
-			? implementations.listEventSchemas(input, ...parsed.data)
-			: invalidArguments(
-					"listEventSchemas",
-					parsed.error,
-					"listEventSchemas expects a non-empty entitySchemaSlug string",
-				);
-	},
-	listEvents: (args) => {
-		const parsed = domainSandboxHostContracts.listEvents.args.safeParse(
-			normalizeOptionalNull(args, 0),
-		);
-		return parsed.success
-			? implementations.listEvents(input, ...parsed.data)
-			: invalidArguments("listEvents", parsed.error, "listEvents received invalid query options");
-	},
-	listIntegrations: (args) => {
-		const parsed = domainSandboxHostContracts.listIntegrations.args.safeParse(
-			normalizeOptionalNull(args, 0),
-		);
-		return parsed.success
-			? implementations.listIntegrations(input, ...parsed.data)
-			: invalidArguments(
-					"listIntegrations",
-					parsed.error,
-					"listIntegrations received invalid options",
-				);
-	},
-	createEvents: (args) => {
-		const parsed = domainSandboxHostContracts.createEvents.args.safeParse(args);
-		return parsed.success
-			? implementations.createEvents(input, ...parsed.data)
-			: invalidArguments(
-					"createEvents",
-					parsed.error,
-					"createEvents expects an array of event items",
-				);
-	},
-	executeQueryEngine: (args) => {
-		const parsed = domainSandboxHostContracts.executeQueryEngine.args.safeParse(args);
-		return parsed.success
-			? implementations.executeQueryEngine(input, ...parsed.data)
-			: invalidArguments(
-					"executeQueryEngine",
-					parsed.error,
-					"executeQueryEngine expects a JSON query document",
-				);
-	},
-	getCachedValue: (args) => {
-		const parsed = coreSandboxHostContracts.getCachedValue.args.safeParse(args);
-		return parsed.success
-			? implementations.getCachedValue(input, ...parsed.data)
-			: invalidArguments(
-					"getCachedValue",
-					parsed.error,
-					"getCachedValue expects a non-empty key string",
-				);
-	},
-	httpCall: (args) => {
-		const parsed = coreSandboxHostContracts.httpCall.args.safeParse(normalizeOptionalNull(args, 2));
-		return parsed.success
-			? implementations.httpCall(input, ...parsed.data)
-			: invalidHttpCallArguments(parsed.error);
-	},
-	setCachedValue: (args) => {
-		const parsed = coreSandboxHostContracts.setCachedValue.args.safeParse(args);
-		if (parsed.success) {
-			return implementations.setCachedValue(input, ...parsed.data);
-		}
-
-		const position = parsed.error.issues[0]?.path[0];
-		let message = "setCachedValue expects a positive integer expiry in seconds";
-		if (position === 0) {
-			message = "setCachedValue expects a non-empty key string";
-		} else if (position === 1) {
-			message = "setCachedValue value must be JSON-serializable";
-		}
-		return invalidArguments("setCachedValue", parsed.error, message);
-	},
-	claimCachedValue: (args) => {
-		const parsed = coreSandboxHostContracts.claimCachedValue.args.safeParse(args);
-		if (parsed.success) {
-			return implementations.claimCachedValue(input, ...parsed.data);
-		}
-
-		const position = parsed.error.issues[0]?.path[0];
-		let message = "claimCachedValue expects a positive integer ttlSeconds";
-		if (position === 0) {
-			message = "claimCachedValue expects a non-empty key string";
-		} else if (position === 1) {
-			message = "claimCachedValue value must be JSON-serializable";
-		}
-		return invalidArguments("claimCachedValue", parsed.error, message);
-	},
-	getAppConfigValue: (args) => {
-		const parsed = coreSandboxHostContracts.getAppConfigValue.args.safeParse(args);
-		return parsed.success
-			? implementations.getAppConfigValue(input, ...parsed.data)
-			: invalidArguments(
-					"getAppConfigValue",
-					parsed.error,
-					"getAppConfigValue expects a non-empty key string",
-				);
-	},
-	getUserPreferences: (args) => {
-		const parsed = coreSandboxHostContracts.getUserPreferences.args.safeParse(args);
-		return parsed.success
-			? implementations.getUserPreferences(input, ...parsed.data)
-			: invalidArguments(
-					"getUserPreferences",
-					parsed.error,
-					"getUserPreferences received invalid arguments",
-				);
-	},
-	sendNotification: (args) => {
-		const parsed = automationSandboxHostContracts.sendNotification.args.safeParse(args);
-		return parsed.success
-			? implementations.sendNotification(input, ...parsed.data)
-			: invalidArguments(
-					"sendNotification",
-					parsed.error,
-					"sendNotification expects a non-empty message string",
-				);
-	},
+	emitSignal: bindHostFunction(
+		automationSandboxHostContracts.emitSignal,
+		(...args) => implementations.emitSignal(input, ...args),
+		defaultFailure("emitSignal", "emitSignal expects a valid signal request"),
+	),
+	getEntity: bindHostFunction(
+		domainSandboxHostContracts.getEntity,
+		(...args) => implementations.getEntity(input, ...args),
+		defaultFailure("getEntity", "getEntity expects a non-empty entityId string"),
+	),
+	getEntitySchema: bindHostFunction(
+		domainSandboxHostContracts.getEntitySchema,
+		(...args) => implementations.getEntitySchema(input, ...args),
+		defaultFailure(
+			"getEntitySchema",
+			"getEntitySchema expects a non-empty entitySchemaSlug string",
+		),
+	),
+	getIntegration: bindHostFunction(
+		domainSandboxHostContracts.getIntegration,
+		(...args) => implementations.getIntegration(input, ...args),
+		defaultFailure("getIntegration", "getIntegration expects a non-empty integrationId string"),
+	),
+	listEventSchemas: bindHostFunction(
+		domainSandboxHostContracts.listEventSchemas,
+		(...args) => implementations.listEventSchemas(input, ...args),
+		defaultFailure(
+			"listEventSchemas",
+			"listEventSchemas expects a non-empty entitySchemaSlug string",
+		),
+	),
+	listEvents: bindHostFunction(
+		domainSandboxHostContracts.listEvents,
+		(...args) => implementations.listEvents(input, ...args),
+		defaultFailure("listEvents", "listEvents received invalid query options"),
+		(args) => normalizeOptionalNull(args, 0),
+	),
+	listIntegrations: bindHostFunction(
+		domainSandboxHostContracts.listIntegrations,
+		(...args) => implementations.listIntegrations(input, ...args),
+		defaultFailure("listIntegrations", "listIntegrations received invalid options"),
+		(args) => normalizeOptionalNull(args, 0),
+	),
+	createEvents: bindHostFunction(
+		domainSandboxHostContracts.createEvents,
+		(...args) => implementations.createEvents(input, ...args),
+		defaultFailure("createEvents", "createEvents expects an array of event items"),
+	),
+	executeQueryEngine: bindHostFunction(
+		domainSandboxHostContracts.executeQueryEngine,
+		(...args) => implementations.executeQueryEngine(input, ...args),
+		defaultFailure("executeQueryEngine", "executeQueryEngine expects a JSON query document"),
+	),
+	getCachedValue: bindHostFunction(
+		coreSandboxHostContracts.getCachedValue,
+		(...args) => implementations.getCachedValue(input, ...args),
+		defaultFailure("getCachedValue", "getCachedValue expects a non-empty key string"),
+	),
+	httpCall: bindHostFunction(
+		coreSandboxHostContracts.httpCall,
+		(...args) => implementations.httpCall(input, ...args),
+		invalidHttpCallArguments,
+		(args) => normalizeOptionalNull(args, 2),
+		preserveHttpFailureDetails,
+	),
+	setCachedValue: bindHostFunction(
+		coreSandboxHostContracts.setCachedValue,
+		(...args) => implementations.setCachedValue(input, ...args),
+		(error) => {
+			const position = parseIssues(error)[0]?.path[0];
+			let message = "setCachedValue expects a positive integer expiry in seconds";
+			if (position === 0) {
+				message = "setCachedValue expects a non-empty key string";
+			} else if (position === 1) {
+				message = "setCachedValue value must be JSON-serializable";
+			}
+			return invalidArguments("setCachedValue", error, message);
+		},
+	),
+	claimCachedValue: bindHostFunction(
+		coreSandboxHostContracts.claimCachedValue,
+		(...args) => implementations.claimCachedValue(input, ...args),
+		(error) => {
+			const position = parseIssues(error)[0]?.path[0];
+			let message = "claimCachedValue expects a positive integer ttlSeconds";
+			if (position === 0) {
+				message = "claimCachedValue expects a non-empty key string";
+			} else if (position === 1) {
+				message = "claimCachedValue value must be JSON-serializable";
+			}
+			return invalidArguments("claimCachedValue", error, message);
+		},
+	),
+	getAppConfigValue: bindHostFunction(
+		coreSandboxHostContracts.getAppConfigValue,
+		(...args) => implementations.getAppConfigValue(input, ...args),
+		defaultFailure("getAppConfigValue", "getAppConfigValue expects a non-empty key string"),
+	),
+	getUserPreferences: bindHostFunction(
+		coreSandboxHostContracts.getUserPreferences,
+		(...args) => implementations.getUserPreferences(input, ...args),
+		defaultFailure("getUserPreferences", "getUserPreferences received invalid arguments"),
+	),
+	sendNotification: bindHostFunction(
+		automationSandboxHostContracts.sendNotification,
+		(...args) => implementations.sendNotification(input, ...args),
+		defaultFailure("sendNotification", "sendNotification expects a non-empty message string"),
+	),
 });

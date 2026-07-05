@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,10 +8,7 @@ import { details, manifest, search } from "./vndb.sandbox";
 type VndbHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: VndbHost["httpCall"]) => defineSandboxTestHost(manifest, { httpCall });
 
@@ -31,20 +29,23 @@ describe("company.vndb sandbox script", () => {
 			{ query: "kid", page: 1, pageSize: 20 },
 			host,
 			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "p1",
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "KID" },
-					imageProperty: { kind: "null", value: null },
-					primarySubtitleProperty: { kind: "null", value: null },
-					secondarySubtitleProperty: { kind: "null", value: null },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 1, nextPage: null });
-			return undefined;
-		});
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([
+					{
+						externalId: "p1",
+						calloutProperty: { kind: "null", value: null },
+						titleProperty: { kind: "text", value: "KID" },
+						imageProperty: { kind: "null", value: null },
+						primarySubtitleProperty: { kind: "null", value: null },
+						secondarySubtitleProperty: { kind: "null", value: null },
+					},
+				]);
+				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("maps producer details with cleaned aliases", () => {
@@ -61,27 +62,31 @@ describe("company.vndb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "p1" }, host, execution).then((result) => {
-			expect(result.name).toBe("KID");
-			expect(result.relatedEntityGroups).toBeUndefined();
-			expect(result.properties).toEqual({
-				images: [],
-				description: "A game developer.",
-				sourceUrl: "https://vndb.org/p1",
-				alternateNames: ["Kindle Imagine Develop"],
-			});
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "p1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("KID");
+				expect(result.relatedEntityGroups).toBeUndefined();
+				expect(result.properties).toEqual({
+					images: [],
+					description: "A game developer.",
+					sourceUrl: "https://vndb.org/p1",
+					alternateNames: ["Kindle Imagine Develop"],
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
-	it("rejects an externalId that is not a VNDB producer id", () => {
+	it("rejects an externalId that is not a VNDB producer id", async () => {
 		const host = makeHost(() => httpSuccess({ results: [] }));
-		return runSandboxTestDriver(details, { externalId: "v17" }, host, execution).then(
-			() => expect.unreachable("expected details to reject a non-producer externalId"),
-			(error: unknown) => {
-				expect(error).toBeInstanceOf(Error);
-				return undefined;
-			},
-		);
+		try {
+			await Effect.runPromise(
+				runSandboxTestDriver(details, { externalId: "v17" }, host, execution),
+			);
+			expect.unreachable("expected details to reject a non-producer externalId");
+		} catch (error: unknown) {
+			expect(error).toBeInstanceOf(Error);
+		}
 	});
 });

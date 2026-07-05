@@ -4,7 +4,7 @@ import { SandboxCompiler } from "./compiler";
 
 export const validSandboxSource = `
 import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
-import * as z from "@ryot/sandbox-sdk/zod";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -15,9 +15,9 @@ export const manifest = defineManifest({
 });
 
 const main = defineDriver(manifest, {
-  output: z.number(),
-  run: async (input) => input.value,
-  input: z.object({ value: z.number() }),
+  output: Schema.Number,
+  run: (input) => Effect.succeed(input.value),
+  input: Schema.Struct({ value: Schema.Number }),
 });
 
 export default defineScript({ manifest, drivers: { main } });

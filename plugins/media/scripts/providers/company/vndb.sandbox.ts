@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, stringValue } from "../../script-helpers/records";
@@ -27,33 +28,35 @@ export const search = defineProviderDriver(manifest, "search", (input, host) =>
 			filters: ["search", "=", input.query],
 		},
 		"VNDB producer search request failed",
-	).then((payload) => {
-		const items = readResults(payload).flatMap((producer) => {
-			const record = asRecord(producer);
-			const externalId = stringValue(record?.["id"]);
-			const name = stringValue(record?.["name"]);
-			if (!externalId || !name) {
-				return [];
-			}
-			return [
-				{
-					externalId,
-					calloutProperty: { kind: "null" as const, value: null },
-					titleProperty: { kind: "text" as const, value: name },
-					imageProperty: { kind: "null" as const, value: null },
-					primarySubtitleProperty: { kind: "null" as const, value: null },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
+	).pipe(
+		Effect.map((payload) => {
+			const items = readResults(payload).flatMap((producer) => {
+				const record = asRecord(producer);
+				const externalId = stringValue(record?.["id"]);
+				const name = stringValue(record?.["name"]);
+				if (!externalId || !name) {
+					return [];
+				}
+				return [
+					{
+						externalId,
+						calloutProperty: { kind: "null" as const, value: null },
+						titleProperty: { kind: "text" as const, value: name },
+						imageProperty: { kind: "null" as const, value: null },
+						primarySubtitleProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+					},
+				];
+			});
+			return {
+				items,
+				details: {
+					totalItems: readTotalItems(payload),
+					nextPage: readNextPage(payload, input.page),
 				},
-			];
-		});
-		return {
-			items,
-			details: {
-				totalItems: readTotalItems(payload),
-				nextPage: readNextPage(payload, input.page),
-			},
-		};
-	}),
+			};
+		}),
+	),
 );
 
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
@@ -65,34 +68,36 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 		"producer",
 		{ fields: "id,name,description,lang,type,aliases", filters: ["id", "=", input.externalId] },
 		"VNDB producer details request failed",
-	).then((payload) => {
-		const [first] = readResults(payload);
-		const producer = asRecord(first);
-		if (!producer) {
-			throw new Error("VNDB returned no data for this producer externalId");
-		}
-		const name = stringValue(producer["name"]);
-		if (!name) {
-			throw new Error("VNDB producer payload is missing name");
-		}
+	).pipe(
+		Effect.map((payload) => {
+			const [first] = readResults(payload);
+			const producer = asRecord(first);
+			if (!producer) {
+				throw new Error("VNDB returned no data for this producer externalId");
+			}
+			const name = stringValue(producer["name"]);
+			if (!name) {
+				throw new Error("VNDB producer payload is missing name");
+			}
 
-		const alternateNames = (Array.isArray(producer["aliases"]) ? producer["aliases"] : []).flatMap(
-			(alias) => {
+			const alternateNames = (
+				Array.isArray(producer["aliases"]) ? producer["aliases"] : []
+			).flatMap((alias) => {
 				const value = stringValue(alias);
 				return value ? [value] : [];
-			},
-		);
+			});
 
-		return {
-			name,
-			properties: {
-				images: [],
-				alternateNames,
-				description: stringValue(producer["description"]),
-				sourceUrl: `https://vndb.org/${input.externalId}`,
-			},
-		};
-	});
+			return {
+				name,
+				properties: {
+					images: [],
+					alternateNames,
+					description: stringValue(producer["description"]),
+					sourceUrl: `https://vndb.org/${input.externalId}`,
+				},
+			};
+		}),
+	);
 });
 
 export default defineProvider({ manifest, drivers: { search, details } });

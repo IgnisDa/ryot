@@ -1,5 +1,6 @@
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import definition, { manifest } from "./workout-created.sandbox";
@@ -27,21 +28,19 @@ const execution = { metadata: {}, sandboxScriptId: "script-1" };
 
 it("emits one actor signal for an API workout from its entity snapshot", () => {
 	const calls: unknown[] = [];
-	return runSandboxTestDriver(
-		definition.drivers.automation,
-		input({ kind: "api" }),
-		defineSandboxTestHost(manifest, {
-			emitSignal: (request) => {
-				calls.push(request);
-				return Promise.resolve({
-					success: true,
-					data: { signalId: "signal-1", wasCreated: true },
-				});
-			},
-		}),
-		execution,
+	return Effect.runPromise(
+		definition.drivers.automation.run(
+			input({ kind: "api" }),
+			defineSandboxTestHost(manifest, {
+				emitSignal: (request) => {
+					calls.push(request);
+					return Effect.succeed({ signalId: "signal-1", wasCreated: true });
+				},
+			}),
+			execution,
+		),
 	).then((result) => {
-		expect(result).toEqual({ success: true, data: { signalId: "signal-1", wasCreated: true } });
+		expect(result).toEqual({ signalId: "signal-1", wasCreated: true });
 		expect(calls).toEqual([
 			{
 				discriminator: "workout-1",
@@ -57,20 +56,21 @@ it.each([
 	{ kind: "bootstrap" } as const,
 	{ kind: "provider_refresh" } as const,
 	{ kind: "import", importRunId: "import-1" } as const,
-	{ kind: "integration", integrationId: "integration-1" } as const,
 	{ kind: "automation", executionId: "execution-1" } as const,
+	{ kind: "integration", integrationId: "integration-1" } as const,
 ])("does not emit for the $kind origin", (origin) => {
 	const calls: unknown[] = [];
-	return runSandboxTestDriver(
-		definition.drivers.automation,
-		input(origin),
-		defineSandboxTestHost(manifest, {
-			emitSignal: (request) => {
-				calls.push(request);
-				return Promise.resolve({ success: true, data: { signalId: "signal-1", wasCreated: true } });
-			},
-		}),
-		execution,
+	return Effect.runPromise(
+		definition.drivers.automation.run(
+			input(origin),
+			defineSandboxTestHost(manifest, {
+				emitSignal: (request) => {
+					calls.push(request);
+					return Effect.succeed({ signalId: "signal-1", wasCreated: true });
+				},
+			}),
+			execution,
+		),
 	).then((result) => {
 		expect(result).toBeNull();
 		expect(calls).toEqual([]);

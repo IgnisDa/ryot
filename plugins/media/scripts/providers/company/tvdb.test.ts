@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,17 +8,14 @@ import { details, manifest, search } from "./tvdb.sandbox";
 type TvdbHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getCachedValue: () => Promise.resolve({ success: true as const, data: "Bearer test-token" }),
-		setCachedValue: () => Promise.resolve({ success: true as const, data: null }),
-		getAppConfigValue: () => Promise.resolve({ success: true as const, data: "test-api-key" }),
+		getCachedValue: () => Effect.succeed("Bearer test-token"),
+		setCachedValue: () => Effect.succeed(null),
+		getAppConfigValue: () => Effect.succeed("test-api-key"),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -34,49 +32,52 @@ describe("company.tvdb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "company-to-movie",
-					entities: [
-						{
-							name: "Film",
-							externalId: "2",
-							scriptSlug: "movie.tvdb",
-							relationshipProperties: { roles: ["Company"] },
-						},
-						{
-							name: "Sequel",
-							externalId: "4",
-							scriptSlug: "movie.tvdb",
-							relationshipProperties: { roles: ["Company"] },
-						},
-						{
-							name: "Loading...",
-							externalId: "6",
-							scriptSlug: "movie.tvdb",
-							relationshipProperties: { roles: ["Company"] },
-						},
-					],
-				},
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "company-to-show",
-					entities: [
-						{
-							name: "Show",
-							externalId: "3",
-							scriptSlug: "show.tvdb",
-							relationshipProperties: { roles: ["Company"] },
-						},
-					],
-				},
-			]);
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "company-to-movie",
+						entities: [
+							{
+								name: "Film",
+								externalId: "2",
+								scriptSlug: "movie.tvdb",
+								relationshipProperties: { roles: ["Company"] },
+							},
+							{
+								name: "Sequel",
+								externalId: "4",
+								scriptSlug: "movie.tvdb",
+								relationshipProperties: { roles: ["Company"] },
+							},
+							{
+								name: "Loading...",
+								externalId: "6",
+								scriptSlug: "movie.tvdb",
+								relationshipProperties: { roles: ["Company"] },
+							},
+						],
+					},
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "company-to-show",
+						entities: [
+							{
+								name: "Show",
+								externalId: "3",
+								scriptSlug: "show.tvdb",
+								relationshipProperties: { roles: ["Company"] },
+							},
+						],
+					},
+				]);
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("collects aliases from strings and name records, image and headquarters", () => {
@@ -91,35 +92,38 @@ describe("company.tvdb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.name).toBe("Studio");
-			expect(result.properties).toEqual({
-				headquarters: "United States",
-				alternateNames: ["First", "Second"],
-				images: [{ type: "remote", url: "https://img.example/logo.png" }],
-			});
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("Studio");
+				expect(result.properties).toEqual({
+					headquarters: "United States",
+					alternateNames: ["First", "Second"],
+					images: [{ type: "remote", url: "https://img.example/logo.png" }],
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("throws when the company payload has no data", () => {
 		const host = makeHost(() => httpSuccess({ data: null }));
 		return expect(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution),
+			Effect.runPromise(runSandboxTestDriver(details, { externalId: "1" }, host, execution)),
 		).rejects.toThrow("TVDB returned no data for this company");
 	});
 
 	it("throws when the company has no name", () => {
 		const host = makeHost(() => httpSuccess({ data: { movies: [] } }));
 		return expect(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution),
+			Effect.runPromise(runSandboxTestDriver(details, { externalId: "1" }, host, execution)),
 		).rejects.toThrow("TVDB returned no name for this company");
 	});
 
 	it("throws for a non-numeric external id", () => {
 		const host = makeHost(() => httpSuccess({ data: {} }));
 		return expect(
-			runSandboxTestDriver(details, { externalId: "abc" }, host, execution),
+			Effect.runPromise(runSandboxTestDriver(details, { externalId: "abc" }, host, execution)),
 		).rejects.toThrow("externalId must be a numeric TVDB company ID");
 	});
 
@@ -136,21 +140,24 @@ describe("company.tvdb sandbox script", () => {
 			{ query: "studio", page: 1, pageSize: 20 },
 			host,
 			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "10",
-					titleProperty: { kind: "text", value: "Studio" },
-					calloutProperty: { kind: "null", value: null },
-					primarySubtitleProperty: { kind: "null", value: null },
-					secondarySubtitleProperty: { kind: "null", value: null },
-					imageProperty: {
-						kind: "image",
-						value: { type: "remote", url: "https://img.example/p.png" },
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([
+					{
+						externalId: "10",
+						titleProperty: { kind: "text", value: "Studio" },
+						calloutProperty: { kind: "null", value: null },
+						primarySubtitleProperty: { kind: "null", value: null },
+						secondarySubtitleProperty: { kind: "null", value: null },
+						imageProperty: {
+							kind: "image",
+							value: { type: "remote", url: "https://img.example/p.png" },
+						},
 					},
-				},
-			]);
-			return undefined;
-		});
+				]);
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 });

@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, stringValue } from "../../script-helpers/records";
@@ -15,32 +16,33 @@ export const manifest = defineManifest({
 
 const CATALOG_URL = "https://api.audible.com/1.0/catalog/products";
 
-export const search = defineProviderDriver(manifest, "search", () => {
-	throw new Error("Audible does not support audiobook group search");
-});
+export const search = defineProviderDriver(manifest, "search", () =>
+	Effect.fail(new Error("Audible does not support audiobook group search")),
+);
 
 const sortValue = (relationship: unknown) => {
 	const sort = asRecord(relationship)?.["sort"];
 	return typeof sort === "string" ? Number.parseInt(sort, 10) : 0;
 };
 
-export const details = defineProviderDriver(manifest, "details", (input, host) => {
-	const params = new URLSearchParams({
-		response_groups: "media,product_attrs,relationships",
-	});
-	return audibleFetchJson(
-		host,
-		`${CATALOG_URL}/${input.externalId}?${params.toString()}`,
-		"Audible series request failed",
-		"Audible",
-	).then((payloadValue) => {
+export const details = defineProviderDriver(manifest, "details", (input, host) =>
+	Effect.gen(function* () {
+		const params = new URLSearchParams({
+			response_groups: "media,product_attrs,relationships",
+		});
+		const payloadValue = yield* audibleFetchJson(
+			host,
+			`${CATALOG_URL}/${input.externalId}?${params.toString()}`,
+			"Audible series request failed",
+			"Audible",
+		);
 		const product = asRecord(asRecord(payloadValue)?.["product"]);
 		if (!product) {
-			throw new Error("Audible returned no product data for this series");
+			return yield* Effect.fail(new Error("Audible returned no product data for this series"));
 		}
 		const title = stringValue(product["title"]);
 		if (!title) {
-			throw new Error("Audible series product is missing title");
+			return yield* Effect.fail(new Error("Audible series product is missing title"));
 		}
 
 		const rawRelationships = product["relationships"];
@@ -76,7 +78,7 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 				sourceUrl: `https://www.audible.com/series/${input.externalId}/${title}`,
 			},
 		};
-	});
-});
+	}),
+);
 
 export default defineProvider({ manifest, drivers: { search, details } });

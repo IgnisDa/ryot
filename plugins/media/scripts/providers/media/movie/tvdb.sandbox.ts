@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
@@ -32,23 +33,24 @@ export const search = defineProviderDriver(manifest, "search", (input, host) =>
 
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
 	if (!/^\d+$/.test(input.externalId)) {
-		throw new Error("externalId must be a numeric TVDB movie ID");
+		return Effect.fail(new Error("externalId must be a numeric TVDB movie ID"));
 	}
 	const language = bcp47ToTvdb(manifest.providerInformation.canonicalLanguage);
-	return Promise.all([
-		tvdbGet(host, `/movies/${input.externalId}/extended`),
-		tvdbGetOptional(host, `/movies/${input.externalId}/translations/${language}`),
-	]).then(([data, translationData]) => {
+	return Effect.gen(function* () {
+		const [data, translationData] = yield* Effect.all([
+			tvdbGet(host, `/movies/${input.externalId}/extended`),
+			tvdbGetOptional(host, `/movies/${input.externalId}/translations/${language}`),
+		]);
 		const movie = asRecord(data["data"]);
 		if (!movie) {
-			throw new Error("TVDB returned no data for this movie");
+			return yield* Effect.fail(new Error("TVDB returned no data for this movie"));
 		}
 
 		const translation = getTranslationFields(translationData);
 		const fallbackTitle = stringValue(movie["name"]) ?? stringValue(movie["title"]);
 		const title = translation.name ?? fallbackTitle;
 		if (!title) {
-			throw new Error("TVDB returned no title for this movie");
+			return yield* Effect.fail(new Error("TVDB returned no title for this movie"));
 		}
 
 		const images = collectImages([movie["image"], movie["image_url"]], movie["artworks"]);
@@ -120,19 +122,23 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 
 export const translate = defineProviderDriver(manifest, "translate", (input, host) => {
 	if (!/^\d+$/.test(input.externalId)) {
-		throw new Error("externalId must be a numeric TVDB movie ID");
+		return Effect.fail(new Error("externalId must be a numeric TVDB movie ID"));
 	}
 	const providerLanguage = bcp47ToTvdb(input.language);
-	return Promise.all([
+	return Effect.all([
 		tvdbGetOptional(host, `/movies/${input.externalId}/translations/${providerLanguage}`),
-		tvdbGet(host, `/movies/${input.externalId}/extended`).catch(() => null),
-	]).then(([translationData, detailsData]) => {
-		const image = getLocalizedArtwork(
-			detailsData ? asRecord(detailsData["data"])?.["artworks"] : null,
-			providerLanguage,
-		);
-		return buildTranslationResult(translationData, image);
-	});
+		tvdbGet(host, `/movies/${input.externalId}/extended`).pipe(
+			Effect.catchAll(() => Effect.succeed(null)),
+		),
+	]).pipe(
+		Effect.map(([translationData, detailsData]) => {
+			const image = getLocalizedArtwork(
+				detailsData ? asRecord(detailsData["data"])?.["artworks"] : null,
+				providerLanguage,
+			);
+			return buildTranslationResult(translationData, image);
+		}),
+	);
 });
 
 export default defineProvider({ manifest, drivers: { search, details, translate } });

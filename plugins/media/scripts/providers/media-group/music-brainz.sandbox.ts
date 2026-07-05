@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import {
@@ -73,20 +74,23 @@ const chooseRelease = (releases: readonly unknown[]): UnknownRecord | null => {
 	}
 	const official = records.filter((record) => record["status"] === "Official");
 	const candidates = official.length > 0 ? official : records;
-	return candidates.reduce<UnknownRecord | null>((best, release) => {
+	let best: UnknownRecord | null = null;
+	for (const release of candidates) {
 		if (!best) {
-			return release;
+			best = release;
+			continue;
 		}
 		const bestDate = parseDate(best["date"]);
 		const releaseDate = parseDate(release["date"]);
 		if (bestDate && releaseDate) {
-			return releaseDate.getTime() < bestDate.getTime() ? release : best;
+			best = releaseDate.getTime() < bestDate.getTime() ? release : best;
+			continue;
 		}
 		if (releaseDate && !bestDate) {
-			return release;
+			best = release;
 		}
-		return best;
-	}, null);
+	}
+	return best;
 };
 
 export const search = defineProviderDriver(manifest, "search", (input, host) => {
@@ -95,39 +99,41 @@ export const search = defineProviderDriver(manifest, "search", (input, host) => 
 		query: luceneQuery,
 		limit: String(input.pageSize),
 		offset: String((input.page - 1) * input.pageSize),
-	}).then((dataValue) => {
-		const data = asRecord(dataValue);
-		if (!data) {
-			throw new Error("MusicBrainz release-group search returned no data");
-		}
-		const totalItems = Math.max(0, numberValue(data["count"]) ?? 0);
-		const groups = data["release-groups"];
-		const items = (Array.isArray(groups) ? groups : []).flatMap((group) => {
-			const record = asRecord(group);
-			const id = stringValue(record?.["id"]);
-			if (!id) {
-				return [];
+	}).pipe(
+		Effect.flatMap((dataValue) => {
+			const data = asRecord(dataValue);
+			if (!data) {
+				return Effect.fail(new Error("MusicBrainz release-group search returned no data"));
 			}
-			const title = stringValue(record?.["title"]) ?? id;
-			return [
-				{
-					externalId: id,
-					titleProperty: { kind: "text" as const, value: title },
-					calloutProperty: { kind: "null" as const, value: null },
-					imageProperty: { kind: "null" as const, value: null },
-					primarySubtitleProperty: { kind: "null" as const, value: null },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
+			const totalItems = Math.max(0, numberValue(data["count"]) ?? 0);
+			const groups = data["release-groups"];
+			const items = (Array.isArray(groups) ? groups : []).flatMap((group) => {
+				const record = asRecord(group);
+				const id = stringValue(record?.["id"]);
+				if (!id) {
+					return [];
+				}
+				const title = stringValue(record?.["title"]) ?? id;
+				return [
+					{
+						externalId: id,
+						titleProperty: { kind: "text" as const, value: title },
+						calloutProperty: { kind: "null" as const, value: null },
+						imageProperty: { kind: "null" as const, value: null },
+						primarySubtitleProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+					},
+				];
+			});
+			return Effect.succeed({
+				items,
+				details: {
+					totalItems,
+					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
 				},
-			];
-		});
-		return {
-			items,
-			details: {
-				totalItems,
-				nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
-			},
-		};
-	});
+			});
+		}),
+	);
 });
 
 const collectTrackEntities = (media: unknown): OrderedRelatedEntity[] => {
@@ -167,60 +173,63 @@ const countTracks = (media: unknown) => {
 };
 
 export const details = defineProviderDriver(manifest, "details", (input, host) =>
-	mbGet(host, `release-group/${input.externalId}`, { inc: "artists" }).then((releaseGroupValue) => {
+	Effect.gen(function* () {
+		const releaseGroupValue = yield* mbGet(host, `release-group/${input.externalId}`, {
+			inc: "artists",
+		});
 		const releaseGroup = asRecord(releaseGroupValue);
 		if (!releaseGroup) {
-			throw new Error(`MusicBrainz release-group not found: ${input.externalId}`);
+			return yield* Effect.fail(
+				new Error(`MusicBrainz release-group not found: ${input.externalId}`),
+			);
 		}
 		const title = stringValue(releaseGroup["title"]);
 		if (!title) {
-			throw new Error("MusicBrainz release-group is missing title");
+			return yield* Effect.fail(new Error("MusicBrainz release-group is missing title"));
 		}
 		const description = releaseGroupDescription(releaseGroup);
 
-		return mbGet(host, "release", {
+		const browseValue = yield* mbGet(host, "release", {
 			"release-group": input.externalId,
 			limit: "10",
-		}).then((browseValue) => {
-			const releases = asRecord(browseValue)?.["releases"];
-			const bestRelease = chooseRelease(Array.isArray(releases) ? releases : []);
-			const bestReleaseId = bestRelease ? stringValue(bestRelease["id"]) : null;
+		});
+		const releases = asRecord(browseValue)?.["releases"];
+		const bestRelease = chooseRelease(Array.isArray(releases) ? releases : []);
+		const bestReleaseId = bestRelease ? stringValue(bestRelease["id"]) : null;
 
-			const loadRelease: Promise<readonly [string | null, unknown]> = bestReleaseId
-				? Promise.all([
+		const [releaseCover, releaseDetailsValue] = yield* bestReleaseId
+			? Effect.all(
+					[
 						fetchCoverArtUrl(host, "release", bestReleaseId),
 						mbGet(host, `release/${bestReleaseId}`, { inc: "recordings" }),
-					])
-				: Promise.resolve([null, null] as const);
-
-			return loadRelease.then(([releaseCover, releaseDetailsValue]) => {
-				const media = asRecord(releaseDetailsValue)?.["media"];
-				const trackCount = countTracks(media);
-				const relatedEntities = collectTrackEntities(media);
-
-				const coverPromise: Promise<string | null> = releaseCover
-					? Promise.resolve(releaseCover)
-					: fetchCoverArtUrl(host, "release-group", input.externalId);
-
-				return coverPromise.then((coverUrl) => ({
-					name: title,
-					relatedEntityGroups: [
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							entities: relatedEntities,
-							relationshipSchemaSlug: "music-group-to-music",
-						},
 					],
-					properties: {
-						description,
-						parts: trackCount > 0 ? trackCount : null,
-						images: coverUrl ? [{ type: "remote" as const, url: coverUrl }] : [],
-						sourceUrl: `https://musicbrainz.org/release-group/${input.externalId}`,
-					},
-				}));
-			});
-		});
+					{ concurrency: "unbounded" },
+				)
+			: Effect.succeed([null, null] as const);
+		const media = asRecord(releaseDetailsValue)?.["media"];
+		const trackCount = countTracks(media);
+		const relatedEntities = collectTrackEntities(media);
+
+		const coverUrl =
+			releaseCover ?? (yield* fetchCoverArtUrl(host, "release-group", input.externalId));
+
+		return {
+			name: title,
+			relatedEntityGroups: [
+				{
+					direction: "outgoing" as const,
+					synchronization: "authoritative" as const,
+					entities: relatedEntities,
+					relationshipSchemaSlug: "music-group-to-music",
+				},
+			],
+			properties: {
+				description,
+				parts: trackCount > 0 ? trackCount : null,
+				images: coverUrl ? [{ type: "remote" as const, url: coverUrl }] : [],
+				sourceUrl: `https://musicbrainz.org/release-group/${input.externalId}`,
+			},
+		};
 	}),
 );
 

@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,21 +8,15 @@ import { details, manifest, search } from "./igdb.sandbox";
 type IgdbGroupHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown, headers: Record<string, string> = {}) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers, body: JSON.stringify(body) });
 
 const makeHost = (overrides: Partial<IgdbGroupHost>): IgdbGroupHost =>
 	defineSandboxTestHost(manifest, {
-		getCachedValue: () => Promise.resolve({ success: true as const, data: null }),
-		setCachedValue: () => Promise.resolve({ success: true as const, data: null }),
+		getCachedValue: () => Effect.succeed(null),
+		setCachedValue: () => Effect.succeed(null),
 		getAppConfigValue: (key) =>
-			Promise.resolve({
-				success: true as const,
-				data: key === "videoGames.twitchClientId" ? "client-id" : "client-secret",
-			}),
-		httpCall: () => Promise.resolve({ success: false as const, error: "no route" }),
+			Effect.succeed(key === "videoGames.twitchClientId" ? "client-id" : "client-secret"),
+		httpCall: () => Effect.fail({ message: "no route" }),
 		...overrides,
 	});
 
@@ -52,32 +47,30 @@ describe("video-game-group.igdb sandbox script", () => {
 			},
 		});
 
-		return runSandboxTestDriver(
-			search,
-			{ query: "saga", page: 1, pageSize: 20 },
-			host,
-			execution,
-		).then((result) => {
-			expect(tokenPosts).toBe(1);
-			expect(result.items).toEqual([
-				{
-					externalId: "3",
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "The Saga" },
-					primarySubtitleProperty: { kind: "number", value: 2 },
-					secondarySubtitleProperty: { kind: "null", value: null },
-					imageProperty: {
-						kind: "image",
-						value: {
-							type: "remote",
-							url: "https://images.igdb.com/igdb/image/upload/t_cover_big/cov1.jpg",
+		return Effect.runPromise(
+			runSandboxTestDriver(search, { query: "saga", page: 1, pageSize: 20 }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(tokenPosts).toBe(1);
+					expect(result.items).toEqual([
+						{
+							externalId: "3",
+							calloutProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "The Saga" },
+							primarySubtitleProperty: { kind: "number", value: 2 },
+							secondarySubtitleProperty: { kind: "null", value: null },
+							imageProperty: {
+								kind: "image",
+								value: {
+									type: "remote",
+									url: "https://images.igdb.com/igdb/image/upload/t_cover_big/cov1.jpg",
+								},
+							},
 						},
-					},
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 1, nextPage: null });
-			return undefined;
-		});
+					]);
+					expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				}),
+			),
+		);
 	});
 
 	it("orders member games and drops version children", () => {
@@ -100,35 +93,38 @@ describe("video-game-group.igdb sandbox script", () => {
 			},
 		});
 
-		return runSandboxTestDriver(details, { externalId: "3" }, host, execution).then((result) => {
-			expect(result.name).toBe("The Saga");
-			expect(result.properties).toEqual({
-				parts: 2,
-				images: [],
-				sourceUrl: "https://www.igdb.com/collection/the-saga",
-			});
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "video-game-group-to-video-game",
-					entities: [
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "3" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("The Saga");
+					expect(result.properties).toEqual({
+						parts: 2,
+						images: [],
+						sourceUrl: "https://www.igdb.com/collection/the-saga",
+					});
+					expect(result.relatedEntityGroups).toEqual([
 						{
-							name: "One",
-							externalId: "10",
-							scriptSlug: "video-game.igdb",
-							relationshipProperties: { order: 1 },
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "video-game-group-to-video-game",
+							entities: [
+								{
+									name: "One",
+									externalId: "10",
+									scriptSlug: "video-game.igdb",
+									relationshipProperties: { order: 1 },
+								},
+								{
+									name: "Two",
+									externalId: "11",
+									scriptSlug: "video-game.igdb",
+									relationshipProperties: { order: 2 },
+								},
+							],
 						},
-						{
-							name: "Two",
-							externalId: "11",
-							scriptSlug: "video-game.igdb",
-							relationshipProperties: { order: 2 },
-						},
-					],
-				},
-			]);
-			return undefined;
-		});
+					]);
+				}),
+			),
+		);
 	});
 });

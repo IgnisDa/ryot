@@ -1,5 +1,6 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { parseJsonResponse } from "../script-helpers/records";
 
@@ -11,12 +12,10 @@ export const audibleFetchJson = (
 	failureMessage: string,
 	label: string,
 ) =>
-	host.httpCall("GET", url).then((response) => {
-		if (!response.success) {
-			throw new Error(response.error || failureMessage);
-		}
-		return parseJsonResponse(response.data.body, label);
-	});
+	host.httpCall("GET", url).pipe(
+		Effect.mapError((error) => new Error(error.message || failureMessage)),
+		Effect.map((response) => parseJsonResponse(response.body, label)),
+	);
 
 export const parseReleaseYear = (releaseDate: unknown) => {
 	if (typeof releaseDate !== "string" || !releaseDate.trim()) {

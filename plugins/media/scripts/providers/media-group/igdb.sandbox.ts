@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../script-helpers/records";
@@ -26,17 +27,18 @@ const getImageUrl = (imageId: string) => buildIgdbImageUrl(IMAGE_BASE_URL, image
 const COLLECTION_FIELDS =
 	"fields id, name, games.id, games.name, games.cover.*, games.version_parent;";
 
-export const search = defineProviderDriver(manifest, "search", (input, host) => {
-	const offset = (input.page - 1) * input.pageSize;
-	const body = [
-		COLLECTION_FIELDS,
-		`search "${input.query}";`,
-		`limit ${input.pageSize};`,
-		`offset: ${offset};`,
-	].join("\n");
-	return makeIgdbRequest(host, "collections", body).then(({ data: results, headers }) => {
+export const search = defineProviderDriver(manifest, "search", (input, host) =>
+	Effect.gen(function* () {
+		const offset = (input.page - 1) * input.pageSize;
+		const body = [
+			COLLECTION_FIELDS,
+			`search "${input.query}";`,
+			`limit ${input.pageSize};`,
+			`offset: ${offset};`,
+		].join("\n");
+		const { data: results, headers } = yield* makeIgdbRequest(host, "collections", body);
 		if (!Array.isArray(results)) {
-			throw new Error("IGDB search returned unexpected response format");
+			return yield* Effect.fail(new Error("IGDB search returned unexpected response format"));
 		}
 		const totalItems = readTotalItems(headers, results.length, offset);
 		const items = results.flatMap((collection) => {
@@ -70,22 +72,23 @@ export const search = defineProviderDriver(manifest, "search", (input, host) => 
 			];
 		});
 		return { items, details: buildPagination(offset, results.length, totalItems, input.page) };
-	});
-});
+	}),
+);
 
-export const details = defineProviderDriver(manifest, "details", (input, host) => {
-	if (!/^\d+$/.test(input.externalId)) {
-		throw new Error("externalId must be a numeric IGDB collection ID");
-	}
-	const body = [COLLECTION_FIELDS, `where id = ${input.externalId};`].join("\n");
-	return makeIgdbRequest(host, "collections", body).then(({ data: results }) => {
+export const details = defineProviderDriver(manifest, "details", (input, host) =>
+	Effect.gen(function* () {
+		if (!/^\d+$/.test(input.externalId)) {
+			return yield* Effect.fail(new Error("externalId must be a numeric IGDB collection ID"));
+		}
+		const body = [COLLECTION_FIELDS, `where id = ${input.externalId};`].join("\n");
+		const { data: results } = yield* makeIgdbRequest(host, "collections", body);
 		if (!Array.isArray(results) || results.length === 0) {
-			throw new Error("IGDB returned no collection data for this externalId");
+			return yield* Effect.fail(new Error("IGDB returned no collection data for this externalId"));
 		}
 		const collection = asRecord(results[0]);
 		const title = stringValue(collection?.["name"]);
 		if (!title) {
-			throw new Error("IGDB collection payload is missing name");
+			return yield* Effect.fail(new Error("IGDB collection payload is missing name"));
 		}
 
 		const games = (Array.isArray(collection?.["games"]) ? collection["games"] : []).filter(
@@ -132,7 +135,7 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 				},
 			],
 		};
-	});
-});
+	}),
+);
 
 export default defineProvider({ manifest, drivers: { search, details } });

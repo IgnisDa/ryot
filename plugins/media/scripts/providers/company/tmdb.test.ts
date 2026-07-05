@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,15 +8,12 @@ import { details, manifest } from "./tmdb.sandbox";
 type TmdbHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Promise.resolve({ data: "token", success: true }),
+		getAppConfigValue: () => Effect.succeed("token"),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -33,37 +31,40 @@ describe("company.tmdb sandbox script", () => {
 			return httpSuccess({ name: "Studio", logo_path: null, origin_country: "US" });
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "company-to-movie",
-					entities: [
-						{
-							name: "Film",
-							externalId: "2",
-							scriptSlug: "movie.tmdb",
-							relationshipProperties: { roles: ["Production Company"] },
-						},
-					],
-				},
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "company-to-show",
-					entities: [
-						{
-							name: "Show",
-							externalId: "3",
-							scriptSlug: "show.tmdb",
-							relationshipProperties: { roles: ["Production Company"] },
-						},
-					],
-				},
-			]);
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "company-to-movie",
+						entities: [
+							{
+								name: "Film",
+								externalId: "2",
+								scriptSlug: "movie.tmdb",
+								relationshipProperties: { roles: ["Production Company"] },
+							},
+						],
+					},
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "company-to-show",
+						entities: [
+							{
+								name: "Show",
+								externalId: "3",
+								scriptSlug: "show.tmdb",
+								relationshipProperties: { roles: ["Production Company"] },
+							},
+						],
+					},
+				]);
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("uses paginated discover endpoints for company productions", () => {
@@ -90,30 +91,33 @@ describe("company.tmdb sandbox script", () => {
 					});
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(requests).toEqual(
-				expect.arrayContaining([
-					{ path: "/3/discover/movie", company: "1", page: "1" },
-					{ path: "/3/discover/movie", company: "1", page: "2" },
-					{ path: "/3/discover/tv", company: "1", page: "1" },
-					{ path: "/3/discover/tv", company: "1", page: "2" },
-				]),
-			);
-			expect(result.relatedEntityGroups).toEqual([
-				expect.objectContaining({
-					entities: expect.arrayContaining([
-						expect.objectContaining({ externalId: "2" }),
-						expect.objectContaining({ externalId: "4" }),
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(requests).toEqual(
+					expect.arrayContaining([
+						{ path: "/3/discover/movie", company: "1", page: "1" },
+						{ path: "/3/discover/movie", company: "1", page: "2" },
+						{ path: "/3/discover/tv", company: "1", page: "1" },
+						{ path: "/3/discover/tv", company: "1", page: "2" },
 					]),
-				}),
-				expect.objectContaining({
-					entities: expect.arrayContaining([
-						expect.objectContaining({ externalId: "3" }),
-						expect.objectContaining({ externalId: "5" }),
-					]),
-				}),
-			]);
-			return undefined;
-		});
+				);
+				expect(result.relatedEntityGroups).toEqual([
+					expect.objectContaining({
+						entities: expect.arrayContaining([
+							expect.objectContaining({ externalId: "2" }),
+							expect.objectContaining({ externalId: "4" }),
+						]),
+					}),
+					expect.objectContaining({
+						entities: expect.arrayContaining([
+							expect.objectContaining({ externalId: "3" }),
+							expect.objectContaining({ externalId: "5" }),
+						]),
+					}),
+				]);
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 });

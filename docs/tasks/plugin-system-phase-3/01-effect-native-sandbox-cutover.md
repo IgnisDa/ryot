@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -37,21 +37,21 @@ only on the Effect-native contract established here.
 
 ## Acceptance criteria
 
-- [ ] `effect` is available inside the sandbox as one host-pinned approved dependency, resolved
+- [x] `effect` is available inside the sandbox as one host-pinned approved dependency, resolved
       through the import map and never bundled per script
-- [ ] Sandbox manifests, driver input/output, and host-function wire contracts use Effect Schema;
+- [x] Sandbox manifests, driver input/output, and host-function wire contracts use Effect Schema;
       no Zod sandbox SDK or approved runtime dependency remains
-- [ ] All script-facing host functions return typed `Effect` values; no raw Promise authoring API,
+- [x] All script-facing host functions return typed `Effect` values; no raw Promise authoring API,
       wrapper, or alias remains
-- [ ] Generic, provider, and automation drivers return `Effect`; the Deno runner executes them
+- [x] Generic, provider, and automation drivers return `Effect`; the Deno runner executes them
       through the vendored runtime
-- [ ] Backend host implementations and typed bridge validation/dispatch are Effect-native;
+- [x] Backend host implementations and typed bridge validation/dispatch are Effect-native;
       Promise use is confined to private platform transport adapters
-- [ ] Every existing plugin and kernel script, compiler fixture, SDK test helper, and sandbox test
+- [x] Every existing plugin and kernel script, compiler fixture, SDK test helper, and sandbox test
       is migrated with behavior unchanged
-- [ ] Repository searches and type-level tests prove no Promise-based driver or host-function
+- [x] Repository searches and type-level tests prove no Promise-based driver or host-function
       contract remains
-- [ ] The branch stays shippable: `bun turbo --filter=@ryot/app-backend check`,
+- [x] The branch stays shippable: `bun turbo --filter=@ryot/app-backend check`,
       `cd apps/app-backend && bun run test`, the full e2e suite (`cd tests && bun run test`), and
       the `app-client` check all pass
 

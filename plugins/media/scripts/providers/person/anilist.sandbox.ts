@@ -1,5 +1,6 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { cleanHtmlDescription } from "../../script-helpers/clean-html-description";
@@ -46,56 +47,58 @@ export const search = defineProviderDriver(manifest, "search", (input, host) =>
 		search: input.query,
 		page: input.page,
 		perPage: input.pageSize,
-	}).then((data) => {
-		const pageData = asRecord(data?.["Page"]);
-		if (!pageData) {
-			throw new Error("Anilist returned invalid response structure");
-		}
-		const totalValue = numberValue(asRecord(pageData["pageInfo"])?.["total"]);
-		const totalItems = totalValue === null ? 0 : Math.max(0, Math.trunc(totalValue));
-		const staffItems = Array.isArray(pageData["staff"]) ? pageData["staff"] : [];
-		const items = staffItems.flatMap((item) => {
-			const staff = asRecord(item);
-			if (!staff) {
-				return [];
+	}).pipe(
+		Effect.map((data) => {
+			const pageData = asRecord(data?.["Page"]);
+			if (!pageData) {
+				throw new Error("Anilist returned invalid response structure");
 			}
-			const idValue = numberValue(staff["id"]);
-			const staffId = idValue === null ? null : Math.trunc(idValue);
-			if (staffId === null || staffId <= 0) {
-				return [];
-			}
-			const name = stringValue(asRecord(staff["name"])?.["full"]);
-			if (!name) {
-				return [];
-			}
-			const image = stringValue(asRecord(staff["image"])?.["medium"]);
-			const birthYearValue = numberValue(asRecord(staff["dateOfBirth"])?.["year"]);
-			const birthYear = birthYearValue === null ? null : Math.trunc(birthYearValue);
-			return [
-				{
-					externalId: String(staffId),
-					titleProperty: { kind: "text" as const, value: name },
-					calloutProperty: { kind: "null" as const, value: null },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					primarySubtitleProperty:
-						birthYear === null
-							? { kind: "null" as const, value: null }
-							: { kind: "number" as const, value: birthYear },
-					imageProperty:
-						image === null
-							? { kind: "null" as const, value: null }
-							: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+			const totalValue = numberValue(asRecord(pageData["pageInfo"])?.["total"]);
+			const totalItems = totalValue === null ? 0 : Math.max(0, Math.trunc(totalValue));
+			const staffItems = Array.isArray(pageData["staff"]) ? pageData["staff"] : [];
+			const items = staffItems.flatMap((item) => {
+				const staff = asRecord(item);
+				if (!staff) {
+					return [];
+				}
+				const idValue = numberValue(staff["id"]);
+				const staffId = idValue === null ? null : Math.trunc(idValue);
+				if (staffId === null || staffId <= 0) {
+					return [];
+				}
+				const name = stringValue(asRecord(staff["name"])?.["full"]);
+				if (!name) {
+					return [];
+				}
+				const image = stringValue(asRecord(staff["image"])?.["medium"]);
+				const birthYearValue = numberValue(asRecord(staff["dateOfBirth"])?.["year"]);
+				const birthYear = birthYearValue === null ? null : Math.trunc(birthYearValue);
+				return [
+					{
+						externalId: String(staffId),
+						titleProperty: { kind: "text" as const, value: name },
+						calloutProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						primarySubtitleProperty:
+							birthYear === null
+								? { kind: "null" as const, value: null }
+								: { kind: "number" as const, value: birthYear },
+						imageProperty:
+							image === null
+								? { kind: "null" as const, value: null }
+								: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+					},
+				];
+			});
+			return {
+				items,
+				details: {
+					totalItems,
+					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
 				},
-			];
-		});
-		return {
-			items,
-			details: {
-				totalItems,
-				nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
-			},
-		};
-	}),
+			};
+		}),
+	),
 );
 
 const STAFF_DETAILS_QUERY = `
@@ -151,14 +154,14 @@ type StaffPages = {
 };
 
 const getStaffPage = (host: AnilistHost, staffId: number, page: number) =>
-	anilistGraphql(host, "person details", STAFF_DETAILS_QUERY, { id: staffId, page }).then(
-		(data) => {
+	anilistGraphql(host, "person details", STAFF_DETAILS_QUERY, { id: staffId, page }).pipe(
+		Effect.map((data) => {
 			const staff = asRecord(data?.["Staff"]);
 			if (!staff) {
 				throw new Error("Anilist returned no staff data");
 			}
 			return staff;
-		},
+		}),
 	);
 
 const collectStaffPages = (
@@ -166,27 +169,31 @@ const collectStaffPages = (
 	staffId: number,
 	page: number,
 	collected: Omit<StaffPages, "staffData"> & { staffData: UnknownRecord | null },
-): Promise<StaffPages> =>
-	getStaffPage(host, staffId, page).then((staffPage) => {
-		const staffData = collected.staffData ?? staffPage;
-		const staffMedia = asRecord(staffPage["staffMedia"]);
-		const characterMedia = asRecord(staffPage["characterMedia"]);
-		const pageStaffEdges = staffMedia?.["edges"];
-		const pageCharacterEdges = characterMedia?.["edges"];
-		collected.staffEdges.push(...(Array.isArray(pageStaffEdges) ? pageStaffEdges : []));
-		collected.characterEdges.push(...(Array.isArray(pageCharacterEdges) ? pageCharacterEdges : []));
-		const hasNextPage =
-			asRecord(characterMedia?.["pageInfo"])?.["hasNextPage"] === true ||
-			asRecord(staffMedia?.["pageInfo"])?.["hasNextPage"] === true;
-		if (hasNextPage) {
-			return collectStaffPages(host, staffId, page + 1, { ...collected, staffData });
-		}
-		return {
-			staffData,
-			staffEdges: collected.staffEdges,
-			characterEdges: collected.characterEdges,
-		};
-	});
+): Effect.Effect<StaffPages, unknown> =>
+	getStaffPage(host, staffId, page).pipe(
+		Effect.flatMap((staffPage) => {
+			const staffData = collected.staffData ?? staffPage;
+			const staffMedia = asRecord(staffPage["staffMedia"]);
+			const characterMedia = asRecord(staffPage["characterMedia"]);
+			const pageStaffEdges = staffMedia?.["edges"];
+			const pageCharacterEdges = characterMedia?.["edges"];
+			collected.staffEdges.push(...(Array.isArray(pageStaffEdges) ? pageStaffEdges : []));
+			collected.characterEdges.push(
+				...(Array.isArray(pageCharacterEdges) ? pageCharacterEdges : []),
+			);
+			const hasNextPage =
+				asRecord(characterMedia?.["pageInfo"])?.["hasNextPage"] === true ||
+				asRecord(staffMedia?.["pageInfo"])?.["hasNextPage"] === true;
+			if (hasNextPage) {
+				return collectStaffPages(host, staffId, page + 1, { ...collected, staffData });
+			}
+			return Effect.succeed({
+				staffData,
+				staffEdges: collected.staffEdges,
+				characterEdges: collected.characterEdges,
+			});
+		}),
+	);
 
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
 	const staffId = parseAnilistId(input.externalId, "staff");
@@ -194,86 +201,90 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 		staffData: null,
 		staffEdges: [],
 		characterEdges: [],
-	}).then(({ staffData, staffEdges, characterEdges }) => {
-		const name = stringValue(asRecord(staffData["name"])?.["full"]);
-		if (!name) {
-			throw new Error("Anilist staff data is missing name");
-		}
+	}).pipe(
+		Effect.map(({ staffData, staffEdges, characterEdges }) => {
+			const name = stringValue(asRecord(staffData["name"])?.["full"]);
+			if (!name) {
+				throw new Error("Anilist staff data is missing name");
+			}
 
-		const relatedByKey = new Map<string, RoleRelatedEntity>();
-		const addMedia = (media: unknown, role: string) => {
-			const record = asRecord(media);
-			if (!record) {
-				return;
-			}
-			const idValue = numberValue(record["id"]);
-			const scriptSlug = mediaScriptSlug(record["type"]);
-			if (idValue === null || !scriptSlug) {
-				return;
-			}
-			const externalId = String(Math.trunc(idValue));
-			const key = `${scriptSlug}:${externalId}`;
-			const existing = relatedByKey.get(key);
-			if (existing) {
-				if (!existing.relationshipProperties.roles.includes(role)) {
-					existing.relationshipProperties.roles.push(role);
+			const relatedByKey = new Map<string, RoleRelatedEntity>();
+			const addMedia = (media: unknown, role: string) => {
+				const record = asRecord(media);
+				if (!record) {
+					return;
 				}
-				return;
-			}
-			relatedByKey.set(key, {
-				scriptSlug,
-				externalId,
-				relationshipProperties: { roles: [role] },
-				name: pickPreferredMediaName(record["title"]),
-			});
-		};
+				const idValue = numberValue(record["id"]);
+				const scriptSlug = mediaScriptSlug(record["type"]);
+				if (idValue === null || !scriptSlug) {
+					return;
+				}
+				const externalId = String(Math.trunc(idValue));
+				const key = `${scriptSlug}:${externalId}`;
+				const existing = relatedByKey.get(key);
+				if (existing) {
+					if (!existing.relationshipProperties.roles.includes(role)) {
+						existing.relationshipProperties.roles.push(role);
+					}
+					return;
+				}
+				relatedByKey.set(key, {
+					scriptSlug,
+					externalId,
+					relationshipProperties: { roles: [role] },
+					name: pickPreferredMediaName(record["title"]),
+				});
+			};
 
-		for (const edge of characterEdges) {
-			const record = asRecord(edge);
-			const characters = record?.["characters"];
-			const characterNames = (Array.isArray(characters) ? characters : []).flatMap((character) => {
-				const characterName = stringValue(asRecord(asRecord(character)?.["name"])?.["full"]);
-				return characterName ? [characterName] : [];
-			});
-			for (const characterName of characterNames.length > 0 ? characterNames : [null]) {
-				addMedia(record?.["node"], characterName ? `Voicing (${characterName})` : "Voicing");
+			for (const edge of characterEdges) {
+				const record = asRecord(edge);
+				const characters = record?.["characters"];
+				const characterNames = (Array.isArray(characters) ? characters : []).flatMap(
+					(character) => {
+						const characterName = stringValue(asRecord(asRecord(character)?.["name"])?.["full"]);
+						return characterName ? [characterName] : [];
+					},
+				);
+				for (const characterName of characterNames.length > 0 ? characterNames : [null]) {
+					addMedia(record?.["node"], characterName ? `Voicing (${characterName})` : "Voicing");
+				}
 			}
-		}
-		for (const edge of staffEdges) {
-			const record = asRecord(edge);
-			addMedia(record?.["node"], stringValue(record?.["staffRole"]) ?? "Production");
-		}
-		const relatedEntities = [...relatedByKey.values()];
-		const image = stringValue(asRecord(staffData["image"])?.["large"]);
+			for (const edge of staffEdges) {
+				const record = asRecord(edge);
+				addMedia(record?.["node"], stringValue(record?.["staffRole"]) ?? "Production");
+			}
+			const relatedEntities = [...relatedByKey.values()];
+			const image = stringValue(asRecord(staffData["image"])?.["large"]);
 
-		return {
-			name,
-			relatedEntityGroups: [
-				{
-					direction: "outgoing" as const,
-					synchronization: "authoritative" as const,
-					relationshipSchemaSlug: "person-to-anime",
-					entities: relatedEntities.filter((entity) => entity.scriptSlug === "anime.anilist"),
+			return {
+				name,
+				relatedEntityGroups: [
+					{
+						direction: "outgoing" as const,
+						synchronization: "authoritative" as const,
+						relationshipSchemaSlug: "person-to-anime",
+						entities: relatedEntities.filter((entity) => entity.scriptSlug === "anime.anilist"),
+					},
+					{
+						direction: "outgoing" as const,
+						synchronization: "authoritative" as const,
+						relationshipSchemaSlug: "person-to-manga",
+						entities: relatedEntities.filter((entity) => entity.scriptSlug === "manga.anilist"),
+					},
+				],
+				properties: {
+					alternateNames: [],
+					gender: stringValue(staffData["gender"]),
+					sourceUrl: `https://anilist.co/staff/${staffId}`,
+					birthPlace: stringValue(staffData["homeTown"]),
+					birthDate: formatFuzzyDate(staffData["dateOfBirth"]),
+					deathDate: formatFuzzyDate(staffData["dateOfDeath"]),
+					images: image ? [{ type: "remote" as const, url: image }] : [],
+					description: cleanHtmlDescription(staffData["description"]),
 				},
-				{
-					direction: "outgoing" as const,
-					synchronization: "authoritative" as const,
-					relationshipSchemaSlug: "person-to-manga",
-					entities: relatedEntities.filter((entity) => entity.scriptSlug === "manga.anilist"),
-				},
-			],
-			properties: {
-				alternateNames: [],
-				gender: stringValue(staffData["gender"]),
-				sourceUrl: `https://anilist.co/staff/${staffId}`,
-				birthPlace: stringValue(staffData["homeTown"]),
-				birthDate: formatFuzzyDate(staffData["dateOfBirth"]),
-				deathDate: formatFuzzyDate(staffData["dateOfDeath"]),
-				images: image ? [{ type: "remote" as const, url: image }] : [],
-				description: cleanHtmlDescription(staffData["description"]),
-			},
-		};
-	});
+			};
+		}),
+	);
 });
 
 export default defineProvider({ manifest, drivers: { search, details } });

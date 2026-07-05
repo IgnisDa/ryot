@@ -1,5 +1,6 @@
 import { defineManifest, type SandboxHost } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { toTitleCase } from "../../../script-helpers/title-case";
@@ -31,16 +32,15 @@ const parseJsonResponse = (responseBody: string) => {
 };
 
 const getGoogleBooksApiKey = (host: GoogleBooksHost) =>
-	host.getAppConfigValue("books.googleBooksApiKey").then((response) => {
-		if (!response.success) {
-			throw new Error(response.error || "Could not load Google Books API key");
-		}
-		const apiKey = stringValue(response.data);
-		if (!apiKey) {
-			throw new Error("BOOKS_GOOGLE_BOOKS_API_KEY is not configured");
-		}
-		return apiKey;
-	});
+	host.getAppConfigValue("books.googleBooksApiKey").pipe(
+		Effect.flatMap((value) => {
+			const apiKey = stringValue(value);
+			if (!apiKey) {
+				return Effect.fail(new Error("BOOKS_GOOGLE_BOOKS_API_KEY is not configured"));
+			}
+			return Effect.succeed(apiKey);
+		}),
+	);
 
 const googleBooksGet = (
 	host: GoogleBooksHost,
@@ -50,12 +50,15 @@ const googleBooksGet = (
 ) =>
 	host
 		.httpCall("GET", `${GOOGLE_BOOKS_BASE_URL}${path}`, { headers: { "x-goog-api-key": apiKey } })
-		.then((response) => {
-			if (!response.success) {
-				throw new Error(response.error || failureMessage);
-			}
-			return parseJsonResponse(response.data.body);
-		});
+		.pipe(
+			Effect.mapError((error) => new Error(error.message || failureMessage)),
+			Effect.flatMap((response) =>
+				Effect.try({
+					try: () => parseJsonResponse(response.body),
+					catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+				}),
+			),
+		);
 
 const parsePublishYear = (publishedDate: unknown) => {
 	if (typeof publishedDate !== "string" || !publishedDate.trim()) {
@@ -159,128 +162,124 @@ export const manifest = defineManifest({
 });
 
 export const search = defineProviderDriver(manifest, "search", (input, host) =>
-	getGoogleBooksApiKey(host).then((apiKey) => {
+	Effect.gen(function* () {
+		const apiKey = yield* getGoogleBooksApiKey(host);
 		const params = new URLSearchParams({
 			printType: "books",
 			q: `intitle:${input.query}`,
 			maxResults: String(input.pageSize),
 			startIndex: String((input.page - 1) * input.pageSize),
 		});
-		return googleBooksGet(
+		const payloadValue = yield* googleBooksGet(
 			host,
 			`/volumes?${params.toString()}`,
 			apiKey,
 			"Google Books search request failed",
-		).then((payloadValue) => {
-			const payload = asRecord(payloadValue);
-			const totalItemsValue = numberValue(payload?.["totalItems"]);
-			const totalItems = totalItemsValue === null ? 0 : Math.max(0, Math.trunc(totalItemsValue));
-			const volumes = payload?.["items"];
-			const items = (Array.isArray(volumes) ? volumes : []).flatMap((volume) => {
-				const record = asRecord(volume);
-				const externalId = stringValue(record?.["id"]);
-				const volumeInfo = asRecord(record?.["volumeInfo"]);
-				const title = stringValue(volumeInfo?.["title"]);
-				if (!externalId || !title) {
-					return [];
-				}
-				const image = pickImage(volumeInfo?.["imageLinks"]);
-				const publishYear = parsePublishYear(volumeInfo?.["publishedDate"]);
-				return [
-					{
-						externalId,
-						titleProperty: { kind: "text" as const, value: title },
-						calloutProperty: { kind: "null" as const, value: null },
-						secondarySubtitleProperty: { kind: "null" as const, value: null },
-						imageProperty: image
-							? { kind: "image" as const, value: { type: "remote" as const, url: image } }
-							: { kind: "null" as const, value: null },
-						primarySubtitleProperty:
-							publishYear === null
-								? { kind: "null" as const, value: null }
-								: { kind: "number" as const, value: publishYear },
-					},
-				];
-			});
-			return {
-				items,
-				details: {
-					totalItems,
-					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
+		);
+		const payload = asRecord(payloadValue);
+		const totalItemsValue = numberValue(payload?.["totalItems"]);
+		const totalItems = totalItemsValue === null ? 0 : Math.max(0, Math.trunc(totalItemsValue));
+		const volumes = payload?.["items"];
+		const items = (Array.isArray(volumes) ? volumes : []).flatMap((volume) => {
+			const record = asRecord(volume);
+			const externalId = stringValue(record?.["id"]);
+			const volumeInfo = asRecord(record?.["volumeInfo"]);
+			const title = stringValue(volumeInfo?.["title"]);
+			if (!externalId || !title) {
+				return [];
+			}
+			const image = pickImage(volumeInfo?.["imageLinks"]);
+			const publishYear = parsePublishYear(volumeInfo?.["publishedDate"]);
+			return [
+				{
+					externalId,
+					titleProperty: { kind: "text" as const, value: title },
+					calloutProperty: { kind: "null" as const, value: null },
+					secondarySubtitleProperty: { kind: "null" as const, value: null },
+					imageProperty: image
+						? { kind: "image" as const, value: { type: "remote" as const, url: image } }
+						: { kind: "null" as const, value: null },
+					primarySubtitleProperty:
+						publishYear === null
+							? { kind: "null" as const, value: null }
+							: { kind: "number" as const, value: publishYear },
 				},
-			};
+			];
 		});
+		return {
+			items,
+			details: {
+				totalItems,
+				nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
+			},
+		};
 	}),
 );
 
 export const details = defineProviderDriver(manifest, "details", (input, host) =>
-	getGoogleBooksApiKey(host)
-		.then((apiKey) =>
-			googleBooksGet(
-				host,
-				`/volumes/${encodeURIComponent(input.externalId)}`,
-				apiKey,
-				"Google Books details request failed",
-			),
-		)
-		.then((payloadValue) => {
-			const payload = asRecord(payloadValue);
-			const externalId =
-				typeof payload?.["id"] === "string" && payload["id"].trim()
-					? payload["id"]
-					: input.externalId;
-			const volumeInfo = asRecord(payload?.["volumeInfo"]);
-			const title = stringValue(volumeInfo?.["title"]);
-			if (!title) {
-				throw new Error("Google Books payload is missing title");
-			}
-			const pageCount = numberValue(volumeInfo?.["pageCount"]);
-			return {
-				name: title,
-				properties: {
-					pages: pageCount === null ? null : Math.trunc(pageCount),
-					sourceUrl: `https://www.google.co.in/books/edition/${title}/${externalId}`,
-					publishYear: parsePublishYear(volumeInfo?.["publishedDate"]),
-					genres: collectGenres(volumeInfo?.["categories"], volumeInfo?.["mainCategory"]),
-					description:
-						typeof volumeInfo?.["description"] === "string" ? volumeInfo["description"] : null,
-					unlinkedCreators: collectUnlinkedCreators(
-						volumeInfo?.["authors"],
-						volumeInfo?.["publisher"],
-					),
-					images: collectImages(volumeInfo?.["imageLinks"]).map((url) => ({
-						url,
-						type: "remote" as const,
-					})),
-				},
-			};
-		}),
+	Effect.gen(function* () {
+		const apiKey = yield* getGoogleBooksApiKey(host);
+		const payloadValue = yield* googleBooksGet(
+			host,
+			`/volumes/${encodeURIComponent(input.externalId)}`,
+			apiKey,
+			"Google Books details request failed",
+		);
+		const payload = asRecord(payloadValue);
+		const externalId =
+			typeof payload?.["id"] === "string" && payload["id"].trim()
+				? payload["id"]
+				: input.externalId;
+		const volumeInfo = asRecord(payload?.["volumeInfo"]);
+		const title = stringValue(volumeInfo?.["title"]);
+		if (!title) {
+			return yield* Effect.fail(new Error("Google Books payload is missing title"));
+		}
+		const pageCount = numberValue(volumeInfo?.["pageCount"]);
+		return {
+			name: title,
+			properties: {
+				pages: pageCount === null ? null : Math.trunc(pageCount),
+				sourceUrl: `https://www.google.co.in/books/edition/${title}/${externalId}`,
+				publishYear: parsePublishYear(volumeInfo?.["publishedDate"]),
+				genres: collectGenres(volumeInfo?.["categories"], volumeInfo?.["mainCategory"]),
+				description:
+					typeof volumeInfo?.["description"] === "string" ? volumeInfo["description"] : null,
+				unlinkedCreators: collectUnlinkedCreators(
+					volumeInfo?.["authors"],
+					volumeInfo?.["publisher"],
+				),
+				images: collectImages(volumeInfo?.["imageLinks"]).map((url) => ({
+					url,
+					type: "remote" as const,
+				})),
+			},
+		};
+	}),
 );
 
 export const resolve = defineProviderDriver(manifest, "resolve", (input, host) => {
 	if (input.identifierType !== "isbn") {
-		throw new Error("Google Books resolve supports only isbn identifiers");
+		return Effect.fail(new Error("Google Books resolve supports only isbn identifiers"));
 	}
 	const params = new URLSearchParams({
 		maxResults: "1",
 		printType: "books",
 		q: `isbn:${input.value}`,
 	});
-	return getGoogleBooksApiKey(host)
-		.then((apiKey) =>
-			googleBooksGet(
-				host,
-				`/volumes?${params.toString()}`,
-				apiKey,
-				"Google Books ISBN lookup failed",
-			),
-		)
-		.then((payloadValue) => {
-			const payload = asRecord(payloadValue);
-			const items = payload?.["items"];
-			const firstId = stringValue(asRecord(Array.isArray(items) ? items[0] : undefined)?.["id"]);
-			return { externalId: firstId };
-		});
+	return Effect.gen(function* () {
+		const apiKey = yield* getGoogleBooksApiKey(host);
+		const payloadValue = yield* googleBooksGet(
+			host,
+			`/volumes?${params.toString()}`,
+			apiKey,
+			"Google Books ISBN lookup failed",
+		);
+		const payload = asRecord(payloadValue);
+		const items = payload?.["items"];
+		const firstId = stringValue(asRecord(Array.isArray(items) ? items[0] : undefined)?.["id"]);
+		return { externalId: firstId };
+	});
 });
 
 export default defineProvider({ manifest, drivers: { search, details, resolve } });

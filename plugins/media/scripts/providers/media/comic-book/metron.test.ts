@@ -1,29 +1,20 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest } from "./metron.sandbox";
 
 type MetronComicBookHost = SandboxHost<typeof manifest.capabilities>;
-
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
-
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 const makeHost = (httpCall: MetronComicBookHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
 		getAppConfigValue: (key) =>
-			Promise.resolve({
-				success: true as const,
-				data: key === "comicBooks.metronUsername" ? "user" : "pass",
-			}),
+			Effect.succeed(key === "comicBooks.metronUsername" ? "user" : "pass"),
 	});
-
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
-
 describe("comic-book.metron sandbox script", () => {
 	it("keeps arc issues as related entities", () => {
 		const host = makeHost((_method, url) => {
@@ -44,39 +35,41 @@ describe("comic-book.metron sandbox script", () => {
 				],
 			});
 		});
-
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					entities: [],
-					direction: "incoming",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "person-to-comic-book",
-				},
-				{
-					direction: "incoming",
-					synchronization: "additive",
-					relationshipSchemaSlug: "comic-book-group-to-comic-book",
-					entities: [
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.relatedEntityGroups).toEqual([
 						{
-							name: "Saga",
-							externalId: "10",
-							scriptSlug: "comic-book-group.metron",
-							relationshipProperties: { roles: ["Member"] },
+							entities: [],
+							direction: "incoming",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "person-to-comic-book",
 						},
-					],
-				},
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "media-suggestion",
-					entities: [{ name: "Saga #2", externalId: "2", scriptSlug: "comic-book.metron" }],
-				},
-			]);
-			return undefined;
-		});
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "comic-book-group-to-comic-book",
+							entities: [
+								{
+									name: "Saga",
+									externalId: "10",
+									scriptSlug: "comic-book-group.metron",
+									relationshipProperties: { roles: ["Member"] },
+								},
+							],
+						},
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "media-suggestion",
+							entities: [{ name: "Saga #2", externalId: "2", scriptSlug: "comic-book.metron" }],
+						},
+					]);
+					return undefined;
+				}),
+			),
+		);
 	});
-
 	it("merges duplicate credit roles into one person entity", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/issue/1/")) {
@@ -93,21 +86,25 @@ describe("comic-book.metron sandbox script", () => {
 			}
 			return httpSuccess({ results: [] });
 		});
-
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.name).toBe("Saga #5");
-			const people = result.relatedEntityGroups?.find(
-				(group) => group.relationshipSchemaSlug === "person-to-comic-book",
-			);
-			expect(people?.entities).toEqual([
-				{
-					name: "Jane Doe",
-					externalId: "7",
-					scriptSlug: "person.metron",
-					relationshipProperties: { roles: ["Writer", "Artist"] },
-				},
-			]);
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("Saga #5");
+					const people = result.relatedEntityGroups?.find(
+						(group: { readonly relationshipSchemaSlug: string }) =>
+							group.relationshipSchemaSlug === "person-to-comic-book",
+					);
+					expect(people?.entities).toEqual([
+						{
+							name: "Jane Doe",
+							externalId: "7",
+							scriptSlug: "person.metron",
+							relationshipProperties: { roles: ["Writer", "Artist"] },
+						},
+					]);
+					return undefined;
+				}),
+			),
+		);
 	});
 });

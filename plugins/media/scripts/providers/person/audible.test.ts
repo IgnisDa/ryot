@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,10 +8,7 @@ import { details, manifest, search } from "./audible.sandbox";
 type AudiblePersonHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: AudiblePersonHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
@@ -33,20 +31,23 @@ describe("person.audible sandbox script", () => {
 			{ query: "author", page: 1, pageSize: 2 },
 			host,
 			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "a1",
-					titleProperty: { kind: "text", value: "First Author" },
-					calloutProperty: { kind: "null", value: null },
-					imageProperty: { kind: "null", value: null },
-					primarySubtitleProperty: { kind: "null", value: null },
-					secondarySubtitleProperty: { kind: "null", value: null },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 4, nextPage: 2 });
-			return undefined;
-		});
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([
+					{
+						externalId: "a1",
+						titleProperty: { kind: "text", value: "First Author" },
+						calloutProperty: { kind: "null", value: null },
+						imageProperty: { kind: "null", value: null },
+						primarySubtitleProperty: { kind: "null", value: null },
+						secondarySubtitleProperty: { kind: "null", value: null },
+					},
+				]);
+				expect(result.details).toEqual({ totalItems: 4, nextPage: 2 });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("maps author details to name, image and source url", () => {
@@ -58,23 +59,26 @@ describe("person.audible sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "a1" }, host, execution).then((result) => {
-			expect(result.name).toBe("Author Name");
-			expect(result.properties).toEqual({
-				alternateNames: [],
-				description: "Bio text.",
-				sourceUrl: "https://www.audible.com/author/a1",
-				images: [{ type: "remote", url: "https://img/author.jpg" }],
-			});
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "a1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("Author Name");
+				expect(result.properties).toEqual({
+					alternateNames: [],
+					description: "Bio text.",
+					sourceUrl: "https://www.audible.com/author/a1",
+					images: [{ type: "remote", url: "https://img/author.jpg" }],
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("throws when the author payload has no name", () => {
 		const host = makeHost(() => httpSuccess({ description: "Bio." }));
 
 		return expect(
-			runSandboxTestDriver(details, { externalId: "a1" }, host, execution),
+			Effect.runPromise(runSandboxTestDriver(details, { externalId: "a1" }, host, execution)),
 		).rejects.toThrow("Audnex returned no author name");
 	});
 });

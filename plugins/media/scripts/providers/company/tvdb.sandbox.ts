@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, recordsValue, stringValue } from "../../script-helpers/records";
@@ -55,42 +56,44 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 	if (!/^\d+$/.test(input.externalId)) {
 		throw new Error("externalId must be a numeric TVDB company ID");
 	}
-	return tvdbGet(host, `/companies/${input.externalId}`).then((data) => {
-		const company = asRecord(data["data"]);
-		if (!company) {
-			throw new Error("TVDB returned no data for this company");
-		}
-		const name = stringValue(company["name"]);
-		if (!name) {
-			throw new Error("TVDB returned no name for this company");
-		}
-		const primaryImage = stringValue(company["primaryImage"]);
-		const images = primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [];
-		const alternateNames = Array.isArray(company["aliases"])
-			? company["aliases"].map(getAliasName).filter((alias) => alias.length > 0)
-			: [];
-		const headquarters = stringValue(company["country"]);
-		const movieEntities = toMediaEntities(company["movies"], "movie.tvdb");
-		const showEntities = toMediaEntities(company["series"], "show.tvdb");
-		return {
-			name,
-			properties: { images, headquarters, alternateNames },
-			relatedEntityGroups: [
-				{
-					direction: "outgoing" as const,
-					synchronization: "authoritative" as const,
-					entities: movieEntities,
-					relationshipSchemaSlug: "company-to-movie",
-				},
-				{
-					direction: "outgoing" as const,
-					synchronization: "authoritative" as const,
-					entities: showEntities,
-					relationshipSchemaSlug: "company-to-show",
-				},
-			],
-		};
-	});
+	return tvdbGet(host, `/companies/${input.externalId}`).pipe(
+		Effect.map((data) => {
+			const company = asRecord(data["data"]);
+			if (!company) {
+				throw new Error("TVDB returned no data for this company");
+			}
+			const name = stringValue(company["name"]);
+			if (!name) {
+				throw new Error("TVDB returned no name for this company");
+			}
+			const primaryImage = stringValue(company["primaryImage"]);
+			const images = primaryImage ? [{ type: "remote" as const, url: primaryImage }] : [];
+			const alternateNames = Array.isArray(company["aliases"])
+				? company["aliases"].map(getAliasName).filter((alias) => alias.length > 0)
+				: [];
+			const headquarters = stringValue(company["country"]);
+			const movieEntities = toMediaEntities(company["movies"], "movie.tvdb");
+			const showEntities = toMediaEntities(company["series"], "show.tvdb");
+			return {
+				name,
+				properties: { images, headquarters, alternateNames },
+				relatedEntityGroups: [
+					{
+						direction: "outgoing" as const,
+						synchronization: "authoritative" as const,
+						entities: movieEntities,
+						relationshipSchemaSlug: "company-to-movie",
+					},
+					{
+						direction: "outgoing" as const,
+						synchronization: "authoritative" as const,
+						entities: showEntities,
+						relationshipSchemaSlug: "company-to-show",
+					},
+				],
+			};
+		}),
+	);
 });
 
 export default defineProvider({ manifest, drivers: { search, details } });
