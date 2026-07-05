@@ -4,10 +4,8 @@ export const SANDBOX_SDK_PROVIDER_IMPORT = "@ryot/sandbox-sdk/provider";
 
 export const SANDBOX_RUNTIME_SDK_IMPORTS = [
 	"@ryot/sandbox-sdk/effect",
-	"@ryot/sandbox-sdk/dayjs",
 	"@ryot/sandbox-sdk/cheerio",
 	"@ryot/sandbox-sdk/youtubei",
-	"@ryot/sandbox-sdk/dayjs/custom-parse-format",
 ] as const;
 
 export const SANDBOX_SDK_IMPORTS = [

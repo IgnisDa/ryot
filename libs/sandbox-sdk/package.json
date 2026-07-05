@@ -15,17 +15,9 @@
 			"types": "./src/cheerio.ts",
 			"default": "./src/cheerio.ts"
 		},
-		"./dayjs": {
-			"types": "./src/dayjs.ts",
-			"default": "./src/dayjs.ts"
-		},
 		"./driver": {
 			"types": "./src/driver.ts",
 			"default": "./src/driver.ts"
-		},
-		"./dayjs/custom-parse-format": {
-			"types": "./src/dayjs-custom-parse-format.ts",
-			"default": "./src/dayjs-custom-parse-format.ts"
 		},
 		"./effect": {
 			"types": "./src/effect.ts",
@@ -63,7 +55,6 @@
 	},
 	"dependencies": {
 		"cheerio": "1.2.0",
-		"dayjs": "1.11.21",
 		"effect": "3.21.4",
 		"youtubei.js": "17.2.0"
 	}
