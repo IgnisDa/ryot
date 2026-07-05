@@ -62,57 +62,56 @@ export const TestSupportPluginCronResult = Schema.Union(
 
 export type TestSupportPluginCronResult = typeof TestSupportPluginCronResult.Type;
 
-export const TestSupportStartMediaPopulationGateBody = strictStruct({
-	itemCount: Schema.Int.pipe(Schema.positive(), Schema.lessThanOrEqualTo(1_001)),
+export const TestSupportStartWorkflowLoadGateBody = strictStruct({
+	source: Schema.String,
+	pluginSlug: PluginSlug,
 	executingUserId: UserId,
-	identifierPrefix: Schema.String,
+	workflowSlug: Schema.String,
 	providerId: SandboxProviderId,
+	identifierPrefix: Schema.String,
 	entitySchemaSlug: EntitySchemaSlug,
+	itemCount: Schema.Int.pipe(Schema.positive(), Schema.lessThanOrEqualTo(1_001)),
 });
 
-export type TestSupportStartMediaPopulationGateBody =
-	typeof TestSupportStartMediaPopulationGateBody.Type;
+export type TestSupportStartWorkflowLoadGateBody = typeof TestSupportStartWorkflowLoadGateBody.Type;
 
-export const TestSupportMediaPopulationGateExecution = Schema.Struct({
-	status: Schema.Literal("pending", "completed", "failed"),
-	output: Schema.optional(Schema.Unknown),
-	error: Schema.optional(Schema.String),
+export const TestSupportWorkflowLoadGateExecution = Schema.Struct({
 	executionId: Schema.String,
+	error: Schema.optional(Schema.String),
+	output: Schema.optional(Schema.Unknown),
+	status: Schema.Literal("pending", "completed", "failed"),
 });
 
-export const TestSupportMediaPopulationGateRun = Schema.Struct({
+export const TestSupportWorkflowLoadGateRun = Schema.Struct({
 	runId: ImportRunId,
 	executionIds: Schema.Array(Schema.String),
 });
 
-export const TestSupportMediaPopulationGateResult = Schema.Struct({
+export const TestSupportWorkflowLoadGateResult = Schema.Struct({
 	runId: ImportRunId,
-	executions: Schema.Array(TestSupportMediaPopulationGateExecution),
+	executions: Schema.Array(TestSupportWorkflowLoadGateExecution),
 });
 
 export const TestSupportOperationalPressure = Schema.Struct({
-	database: Schema.Struct({
-		deadlocks: Schema.Number,
-		activeConnections: Schema.Number,
-		totalConnections: Schema.Number,
-		lockWaitingConnections: Schema.Number,
-		appPoolIdleConnections: Schema.Number,
-		appPoolTotalConnections: Schema.Number,
-		appPoolWaitingRequests: Schema.Number,
-	}),
-	locks: Schema.Struct({
-		advisoryLocks: Schema.Number,
-		waitingAdvisoryLocks: Schema.Number,
-	}),
+	locks: Schema.Struct({ advisoryLocks: Schema.Number, waitingAdvisoryLocks: Schema.Number }),
 	redis: Schema.Struct({
+		maxHighWater: Schema.Number,
 		projectionCount: Schema.Number,
 		projectionErrors: Schema.Number,
-		maxHighWater: Schema.Number,
 	}),
 	sandbox: Schema.Struct({
+		totalExecutions: Schema.Number,
 		activeExecutions: Schema.Number,
 		maxActiveExecutions: Schema.Number,
-		totalExecutions: Schema.Number,
+	}),
+	database: Schema.Struct({
+		deadlocks: Schema.Number,
+		totalConnections: Schema.Number,
+		activeConnections: Schema.Number,
+		lockWaitingConnections: Schema.Number,
+		appPoolIdleConnections: Schema.Number,
+		appPoolWaitingRequests: Schema.Number,
+		appPoolTotalConnections: Schema.Number,
 	}),
 });
 
@@ -139,9 +138,9 @@ export const TestSupportSubscriptionRun = Schema.Struct({
 });
 
 export const TestSupportBuiltinEntitySchema = Schema.Struct({
-	id: EntitySchemaSlug,
 	slug: Schema.String,
 	name: Schema.String,
+	id: EntitySchemaSlug,
 });
 
 export const TestSupportEntityTranslation = Schema.Struct({

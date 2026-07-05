@@ -1,37 +1,6 @@
 import type { PurityAllowlistEntry } from "./kernel-purity";
 
-type RemovalTask = Extract<PurityAllowlistEntry, { kind: "temporary" }>["removalTask"];
-
-const temporary = (
-	removalTask: RemovalTask,
-	reason: string,
-	entries: ReadonlyArray<readonly [path: string, term: string]>,
-) =>
-	entries.map(([path, term]) => ({
-		path,
-		term,
-		reason,
-		removalTask,
-		kind: "temporary" as const,
-	}));
-
-const operationalGate = temporary(
-	7,
-	"Task 07 makes production operational test support domain-neutral",
-	[
-		["apps/app-backend/src/modules/test-support/operational-gate-service.ts", "media"],
-		[
-			"apps/app-backend/src/modules/test-support/operational-gate-service.ts",
-			"media-import-population",
-		],
-		["apps/app-backend/src/modules/test-support/operational-gate-service.ts", "netflix"],
-		["apps/app-backend/src/modules/test-support/routes.ts", "media"],
-		["libs/contract/src/modules/test-support/contract.ts", "media"],
-		["libs/contract/src/modules/test-support/schemas.ts", "media"],
-	],
-);
-
-const permanent = [
+export const kernelPurityAllowlist = [
 	{
 		term: "*",
 		kind: "permanent",
@@ -55,9 +24,4 @@ const permanent = [
 		path: "libs/contract/src/schema/media-types.ts",
 		reason: "Retained backup client requires this narrow media contract type",
 	})),
-] satisfies ReadonlyArray<PurityAllowlistEntry>;
-
-export const kernelPurityAllowlist = [
-	...permanent,
-	...operationalGate,
 ] satisfies ReadonlyArray<PurityAllowlistEntry>;
