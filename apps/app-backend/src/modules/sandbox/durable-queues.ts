@@ -12,8 +12,8 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
+import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 
@@ -34,13 +34,15 @@ export const resolveSandboxExecutionPayload = Effect.fn("resolveSandboxExecution
 		}
 		const runWithDb = yield* DbRunner;
 		const repository = yield* SandboxRepository;
-		const pluginRuntime = yield* PluginRuntimeResolver;
+		const pluginScriptResolver = yield* SandboxPluginScriptResolver;
 		const pluginOwned = yield* runWithDb(repository.isPluginScript(payload.scriptId));
 		if (!pluginOwned) {
 			return payload;
 		}
 
-		const activeScript = yield* runWithDb(pluginRuntime.findActiveScriptById(payload.scriptId));
+		const activeScript = yield* runWithDb(
+			pluginScriptResolver.findActiveScriptById(payload.scriptId),
+		);
 		if (!activeScript) {
 			return yield* new SandboxRunError({ message: "Sandbox script not found" });
 		}
