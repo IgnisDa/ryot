@@ -1,9 +1,15 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, Multipart, OpenApi } from "@effect/platform";
-import { Option, Schema } from "effect";
+import { Schema } from "effect";
+import { Multipart } from "effect/unstable/http";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { RateLimited, Unauthorized } from "../../errors";
-import { UploadBodyLimitMiddleware } from "./middleware";
+import { BadRequest } from "../../errors";
+import {
+	MultipartInternalErrorSchema,
+	MultipartLimitErrorSchema,
+	MultipartParseErrorSchema,
+	UploadBodyLimitMiddleware,
+} from "./middleware";
 import { PresignedDownloadResponse, PresignedUploadResponse } from "./schemas";
 import {
 	TEMPORARY_UPLOAD_MAX_FILE_BYTES,
@@ -12,32 +18,40 @@ import {
 
 export const UploadsGroup = HttpApiGroup.make("uploads")
 	.annotate(OpenApi.Description, "Creates upload and download URLs and accepts temporary files")
-	.addError(Unauthorized, { status: 401 })
-	.addError(RateLimited, { status: 429 })
-	.middleware(AuthMiddleware)
 	.add(
-		HttpApiEndpoint.post("createPresigned", "/uploads/presigned")
-			.setPayload(Schema.Struct({ contentType: Schema.String }))
-			.addSuccess(PresignedUploadResponse)
-			.annotate(OpenApi.Description, "Creates a presigned URL for uploading a file"),
+		HttpApiEndpoint.post("createPresigned", "/uploads/presigned", {
+			payload: Schema.Struct({ contentType: Schema.String }),
+			success: PresignedUploadResponse,
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+		}).annotate(OpenApi.Description, "Creates a presigned URL for uploading a file"),
 	)
 	.add(
-		HttpApiEndpoint.post("createPresignedDownload", "/uploads/presigned/download")
-			.setPayload(Schema.Struct({ keys: Schema.Array(Schema.String).pipe(Schema.minItems(1)) }))
-			.addSuccess(PresignedDownloadResponse)
-			.annotate(OpenApi.Description, "Creates presigned download URLs for stored files"),
+		HttpApiEndpoint.post("createPresignedDownload", "/uploads/presigned/download", {
+			payload: Schema.Struct({
+				keys: Schema.Array(Schema.String).pipe(Schema.check(Schema.isMinLength(1))),
+			}),
+			success: PresignedDownloadResponse,
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+		}).annotate(OpenApi.Description, "Creates presigned download URLs for stored files"),
 	)
 	.add(
-		HttpApiEndpoint.post("uploadTemporary", "/uploads/temporary")
-			.setPayload(
-				HttpApiSchema.Multipart(Schema.Struct({ "files[]": Multipart.FilesSchema }), {
+		HttpApiEndpoint.post("uploadTemporary", "/uploads/temporary", {
+			payload: Schema.Struct({ "files[]": Multipart.FilesSchema }).pipe(
+				HttpApiSchema.asMultipart({
 					fieldMimeTypes: [],
-					maxFileSize: Option.some(TEMPORARY_UPLOAD_MAX_FILE_BYTES),
-					maxTotalSize: Option.some(TEMPORARY_UPLOAD_MAX_REQUEST_BYTES),
+					maxFileSize: TEMPORARY_UPLOAD_MAX_FILE_BYTES,
+					maxTotalSize: TEMPORARY_UPLOAD_MAX_REQUEST_BYTES,
 				}),
-			)
-			.addSuccess(Schema.Array(Schema.String), { status: 201 })
-			.addError(Multipart.MultipartError, { status: 413 })
+			),
+			success: Schema.Array(Schema.String).pipe(HttpApiSchema.status(201)),
+			error: [
+				BadRequest.pipe(HttpApiSchema.status(400)),
+				MultipartLimitErrorSchema,
+				MultipartParseErrorSchema,
+				MultipartInternalErrorSchema,
+			],
+		})
 			.middleware(UploadBodyLimitMiddleware)
 			.annotate(OpenApi.Description, "Uploads files to temporary storage"),
-	);
+	)
+	.middleware(AuthMiddleware);

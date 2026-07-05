@@ -44,21 +44,21 @@ export const TestSupportTriggerPluginCronBody = strictStruct({
 
 export type TestSupportTriggerPluginCronBody = typeof TestSupportTriggerPluginCronBody.Type;
 
-export const TestSupportPluginCronResult = Schema.Union(
+export const TestSupportPluginCronResult = Schema.Union([
 	Schema.Struct({
 		status: Schema.Literal("notFound"),
 		cronSlug: Schema.String,
 		pluginSlug: PluginSlug,
 	}),
 	Schema.Struct({
-		lot: Schema.Literal("script", "workflow"),
+		lot: Schema.Literals(["script", "workflow"]),
 		result: Schema.Unknown,
 		status: Schema.Literal("executed"),
 		cronSlug: Schema.String,
 		pluginSlug: PluginSlug,
 		executionId: Schema.String,
 	}),
-);
+]);
 
 export type TestSupportPluginCronResult = typeof TestSupportPluginCronResult.Type;
 
@@ -70,7 +70,10 @@ export const TestSupportStartWorkflowLoadGateBody = strictStruct({
 	providerId: SandboxProviderId,
 	identifierPrefix: Schema.String,
 	entitySchemaSlug: EntitySchemaSlug,
-	itemCount: Schema.Int.pipe(Schema.positive(), Schema.lessThanOrEqualTo(1_001)),
+	itemCount: Schema.Int.pipe(
+		Schema.check(Schema.isGreaterThan(0)),
+		Schema.check(Schema.isLessThanOrEqualTo(1_001)),
+	),
 });
 
 export type TestSupportStartWorkflowLoadGateBody = typeof TestSupportStartWorkflowLoadGateBody.Type;
@@ -79,7 +82,7 @@ export const TestSupportWorkflowLoadGateExecution = Schema.Struct({
 	executionId: Schema.String,
 	error: Schema.optional(Schema.String),
 	output: Schema.optional(Schema.Unknown),
-	status: Schema.Literal("pending", "completed", "failed"),
+	status: Schema.Literals(["pending", "completed", "failed"]),
 });
 
 export const TestSupportWorkflowLoadGateRun = Schema.Struct({
@@ -147,5 +150,5 @@ export const TestSupportEntityTranslation = Schema.Struct({
 	language: Schema.String,
 	populatedAt: Schema.String,
 	name: Schema.NullOr(Schema.String),
-	properties: Schema.NullOr(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+	properties: Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
 });
