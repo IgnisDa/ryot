@@ -2,18 +2,18 @@ import { Redirect, Stack, useUnstableGlobalHref } from "expo-router";
 import { Text, View } from "react-native";
 
 import { useAuthClient } from "@/lib/auth";
-import { getSafeRedirectTo } from "@/lib/redirect";
+import { getGateHref, getSafeRedirectTo } from "@/lib/redirect";
 import { useServerUrl } from "@/lib/store/server";
 
 export default function AppLayout() {
 	const client = useAuthClient();
 	const serverUrl = useServerUrl();
 	const currentHref = useUnstableGlobalHref();
+	const redirectTo = getSafeRedirectTo(currentHref);
 	const { data: session, isPending } = client.useSession();
-	const redirectTo = getSafeRedirectTo(currentHref) ?? "/(app)";
 
 	if (!serverUrl) {
-		return <Redirect href={{ pathname: "/onboarding", params: { redirectTo } }} />;
+		return <Redirect href={getGateHref("/onboarding", redirectTo)} />;
 	}
 	if (isPending) {
 		return (
@@ -23,7 +23,7 @@ export default function AppLayout() {
 		);
 	}
 	if (!session) {
-		return <Redirect href={{ pathname: "/auth", params: { redirectTo } }} />;
+		return <Redirect href={getGateHref("/auth", redirectTo)} />;
 	}
 
 	return <Stack screenOptions={{ headerShown: false }} />;

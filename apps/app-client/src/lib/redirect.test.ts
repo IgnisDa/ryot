@@ -18,13 +18,17 @@ describe("getSafeRedirectTo", () => {
 		"javascript:alert(1)",
 		"../library",
 		"/auth",
+		"/auth/",
+		"/auth//",
+		"/%61uth",
 		"/auth?redirectTo=/library",
 		"/onboarding#connect",
+		"/onboarding/",
 	])("rejects unsafe destination %s", (redirectTo) => {
 		expect(getSafeRedirectTo(redirectTo)).toBeUndefined();
 	});
 
-	it("uses the first value when a parameter is repeated", () => {
-		expect(getSafeRedirectTo(["/library", "https://evil.example"])).toBe("/library");
+	it("rejects repeated parameters", () => {
+		expect(getSafeRedirectTo(["/library", "https://evil.example"])).toBeUndefined();
 	});
 });
