@@ -4,10 +4,10 @@
 	"private": true,
 	"main": "expo-router/entry",
 	"scripts": {
-		"test": "bun test",
 		"ios": "expo run:ios",
 		"android": "expo run:android",
 		"dev": "expo start --port 3005",
+		"test": "bun --bun run vitest run",
 		"build": "expo export --platform web --output-dir dist",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
@@ -48,7 +48,8 @@
 		"@types/react": "~19.2.2",
 		"babel-plugin-module-resolver": "5.0.3",
 		"babel-preset-expo": "~56.0.0",
-		"tailwindcss": "^4.1.13"
+		"tailwindcss": "^4.1.13",
+		"vitest": "4.1.9"
 	},
 	"overrides": {
 		"lightningcss": "1.30.1"
