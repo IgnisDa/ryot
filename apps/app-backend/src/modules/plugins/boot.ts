@@ -35,21 +35,21 @@ export class FirstPartyPluginBootstrap extends Effect.Service<FirstPartyPluginBo
 						if (!output) {
 							return yield* Effect.dieMessage(`Compiler returned no output for ${script.entry}`);
 						}
-						const { entry: _entry, ...metadata } = script;
-						if (stableStringify(metadata) !== stableStringify(output.compiled.manifest)) {
+						const { entry: _entry, ...declaredMetadata } = script;
+						if (stableStringify(declaredMetadata) !== stableStringify(output.compiled.manifest)) {
 							return yield* Effect.dieMessage(
 								`Declared kernel script metadata does not match ${script.entry}`,
 							);
 						}
 						yield* runWithDb(
 							repository.persistKernelScript({
-								metadata,
 								slug: script.slug,
 								name: script.name,
 								source: output.source,
 								compiledFormat: output.compiled.format,
 								compiledCode: output.compiled.javascript,
 								contentHash: digest(output.compiled.javascript),
+								metadata: { ...declaredMetadata, driverNames: output.compiled.driverNames },
 							}),
 						);
 					}

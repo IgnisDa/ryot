@@ -49,6 +49,7 @@ it.effect("compiles one SDK script to an inline-source-mapped ESM module", () =>
 			slug: "plain-value",
 			requiredAppConfigKeys: [],
 		});
+		expect(compiled.driverNames).toEqual(["main"]);
 		expect(compiled.javascript).toContain("export {");
 		expect(compiled.javascript).toContain("sourceMappingURL=data:application/json;base64,");
 	}),
@@ -73,6 +74,7 @@ it.effect("compiles a typed automation definition", () =>
 
 		expect(compiled.manifest.kind).toBe("automation");
 		expect(compiled.manifest.slug).toBe("automation.test");
+		expect(compiled.driverNames).toEqual(["automation"]);
 		expect(compiled.javascript).toContain("ryot:sandbox-script");
 	}),
 );

@@ -13,7 +13,7 @@ export type NormalizedPluginScript = {
 	readonly contentHash: string;
 	readonly compiledCode: string;
 	readonly compiledFormat: number;
-	readonly metadata: Omit<PluginScript, "entry">;
+	readonly metadata: Omit<PluginScript, "entry"> & { readonly driverNames?: ReadonlyArray<string> };
 };
 
 export type NormalizedPlugin = {
