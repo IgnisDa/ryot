@@ -145,6 +145,12 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 					.limit(1),
 			);
 			if (existing) {
+				yield* dbEffect(() =>
+					db
+						.update(schema.sandboxScript)
+						.set({ updatedAt: sql`now()` })
+						.where(eq(schema.sandboxScript.id, existing.id)),
+				);
 				return;
 			}
 			yield* dbEffect(() =>
