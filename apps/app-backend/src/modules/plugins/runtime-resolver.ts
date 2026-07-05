@@ -144,7 +144,6 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 						.where(
 							and(
 								eq(schema.sandboxScript.slug, scriptSlug),
-								isNull(schema.sandboxScript.userId),
 								isNull(schema.sandboxScript.pluginSlug),
 								isNotNull(schema.sandboxScript.contentHash),
 							),

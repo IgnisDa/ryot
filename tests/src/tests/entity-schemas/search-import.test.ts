@@ -104,38 +104,15 @@ afterAll(async () => {
 	);
 });
 
-describe("POST /entity-schemas/search", () => {
-	it.live("returns 401 when unauthenticated", () =>
-		Effect.gen(function* () {
-			const client = getBackendClient();
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.sandbox.enqueue({
-						payload: {
-							driverName: "search",
-							scriptId: SandboxScriptId.make(crypto.randomUUID()),
-						},
-					}),
-				),
-			);
-
-			assertTaggedError(error, "Unauthorized");
-		}),
-	);
-
+describe("provider entity search enqueue", () => {
 	it.live("returns 404 when the scriptId does not exist", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 
 			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.sandbox.enqueue({
-						payload: {
-							driverName: "search",
-							scriptId: SandboxScriptId.make(crypto.randomUUID()),
-						},
-					}),
-				),
+				enqueueEntitySearch(userId, {
+					scriptId: SandboxScriptId.make(crypto.randomUUID()),
+				}),
 			);
 
 			assertTaggedError(error, "NotFound");
@@ -145,9 +122,9 @@ describe("POST /entity-schemas/search", () => {
 
 	it.live("returns 200 with a jobId when given a valid script", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 
-			const { jobId } = yield* enqueueEntitySearch(client, {
+			const { jobId } = yield* enqueueEntitySearch(userId, {
 				scriptId: bookScriptId(),
 				context: { page: 1, pageSize: 5, query: "test" },
 			});
@@ -158,60 +135,17 @@ describe("POST /entity-schemas/search", () => {
 	);
 });
 
-describe("GET /entity-schemas/search/{jobId}", () => {
-	it.live("returns 401 when unauthenticated", () =>
-		Effect.gen(function* () {
-			const client = getBackendClient();
-			const error = yield* Effect.flip(
-				client.call((c) => c.sandbox.getResult({ path: { jobId: crypto.randomUUID() } })),
-			);
-
-			assertTaggedError(error, "Unauthorized");
-		}),
-	);
-
-	it.live("returns 404 for a non-existent job id", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-
-			const error = yield* Effect.flip(
-				client.call((c) => c.sandbox.getResult({ path: { jobId: crypto.randomUUID() } })),
-			);
-
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toBe("Sandbox job not found");
-		}),
-	);
-
-	it.live("returns 404 when another user polls the job", () =>
-		Effect.gen(function* () {
-			const { client: clientA } = yield* createAuthenticatedClient();
-			const { client: clientB } = yield* createAuthenticatedClient();
-
-			const { jobId } = yield* enqueueEntitySearch(clientA, {
-				scriptId: bookScriptId(),
-				context: { page: 1, pageSize: 5, query: "test" },
-			});
-
-			const error = yield* Effect.flip(
-				clientB.call((c) => c.sandbox.getResult({ path: { jobId } })),
-			);
-
-			assertTaggedError(error, "NotFound");
-			expect(error.message).toBe("Sandbox job not found");
-		}),
-	);
-
+describe("provider entity search result", () => {
 	it.live("completes a search and returns the seeded results", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 
-			const { jobId } = yield* enqueueEntitySearch(client, {
+			const { jobId } = yield* enqueueEntitySearch(userId, {
 				scriptId: bookScriptId(),
 				context: { page: 1, pageSize: 5, query: "test" },
 			});
 
-			const result = yield* pollEntitySearchResult(client, jobId, { timeoutMs: 30_000 });
+			const result = yield* pollEntitySearchResult(userId, jobId, { timeoutMs: 30_000 });
 			assertCompleted(result, "search job");
 			const value = requireObjectRecord(result.value, "Expected search result to be an object");
 			const items = requireArray(value.items, "Expected search result items to be an array");

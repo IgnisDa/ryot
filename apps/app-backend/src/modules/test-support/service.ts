@@ -19,7 +19,7 @@ import { InterestService } from "#modules/entity-interest/service";
 import { TranslationsService } from "#modules/entity-translation/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
-import { SandboxApiService } from "#modules/sandbox/service";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 import { SignalsService } from "#modules/signals/service";
 
@@ -46,9 +46,9 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		const signals = yield* SignalsService;
 		const entities = yield* EntitiesService;
 		const interest = yield* InterestService;
-		const sandbox = yield* SandboxApiService;
 		const definitions = yield* DefinitionRegistry;
 		const automations = yield* AutomationsService;
+		const sandbox = yield* SandboxExecutionService;
 		const translations = yield* TranslationsService;
 		const relationships = yield* RelationshipsService;
 		const relationshipSchemas = yield* RelationshipSchemasRepository;
@@ -169,22 +169,31 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			upsertEntityTranslation,
 			upsertGlobalRelationship,
 			listSignals: signals.list,
+			getSandboxResult: sandbox.getResult,
 			setEntityInterest: interest.setInterest,
 			getSandboxScript: sandbox.getStoredScript,
 			deleteGlobalEntities: entities.deleteByIds,
 			listSandboxScripts: sandbox.listStoredScripts,
-			patchSandboxScript: sandbox.patchStoredScript,
 			listEntityTranslations: translations.listByEntity,
 			listGlobalRelationships: relationships.listGlobal,
 			listSubscriptionRuns: automations.listRunsByExecutionUserId,
+			enqueueSandbox: (input: {
+				context?: unknown;
+				driverName: string;
+				executingUserId: UserId;
+				scriptId: SandboxScriptId;
+			}) => {
+				const { executingUserId, ...payload } = input;
+				return sandbox.enqueue(executingUserId, payload);
+			},
 			getBuiltinEntitySchema: (slug: string) =>
 				Effect.succeed(definitions.getEntitySchema(slug)).pipe(
 					Effect.flatMap((definition) =>
 						definition
 							? Effect.succeed({
-									id: EntitySchemaSlug.make(definition.slug),
 									slug: definition.slug,
 									name: definition.name,
+									id: EntitySchemaSlug.make(definition.slug),
 								})
 							: Effect.fail(badRequest("Entity schema not found")),
 					),

@@ -37,11 +37,12 @@ Every provider-driven test except the live smoke suite runs offline against a fa
 
 Admin-only fixture operations use the typed `testSupport` contract group with `adminHeaders` from `fixtures/admin.ts`.
 
+- Sandbox execution coverage installs scripts with `installTestPlugin`, then uses the admin-gated `testSupport.enqueueSandbox` and `testSupport.getSandboxResult` hooks with an explicit executing-user ID. Use `reinstallTestPluginScript` to compile changed source and obtain its new content-addressed script ID before rerunning. Do not mutate stored script rows or add a public script-authoring or execution fixture.
 - Entity, event, and relationship definition fixtures install scriptless plugins through the real admin plugins endpoint. Slugs and plugin slugs must be collision-free across the sequential run; definitions are persisted and visible as plugin workspaces.
 - `seedGlobalShowEpisodeTree` and `seedMediaEntity` use `createGlobalEntity` and `upsertGlobalRelationship`; user-scoped entities continue through the authenticated entities API.
 - `getBuiltinEntitySchemaSlug` uses `getBuiltinEntitySchema` for structural schemas outside plugin workspaces.
 - Translation fixtures use `setEntityPopulatedAt`, `upsertEntityTranslation`, and `listEntityTranslations`; null overlay values model a negative cache.
-- Mixed-auth fixtures use `linkAuthAccount`, while sandbox fault injection uses `patchSandboxScript` only after compiling executable code through the public sandbox API.
+- Mixed-auth fixtures use `linkAuthAccount`.
 - Media-monitoring refresh waits use `setEntityInterest` to register an authenticated stream without reconciliation before triggering cron. This preserves cron-first population while synchronizing through the normal `entity:updated` event.
 
 ## SSE Interest Streams

@@ -1,35 +1,72 @@
+import { UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { assertCompleted, requirePresent } from "~/support/assertions";
 
-import type { Client } from "./auth";
+import { adminHeaders } from "./admin";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
+import { getBackendClient } from "./contract-client";
 import { type PollOptions, pollUntil } from "./polling";
+import { installTestPlugin, uninstallTestPlugin } from "./test-plugin";
 
-type EnqueueSandboxBody = ContractPayload<"sandbox", "enqueue">;
+type EnqueueSandboxBody = Omit<ContractPayload<"testSupport", "enqueueSandbox">, "executingUserId">;
 type SandboxExecutionError = NonNullable<CompletedSandboxResult["error"]>;
-type CreateSandboxScriptBody = ContractPayload<"sandbox", "createScript">;
 type CompletedSandboxResult = Extract<SandboxResult, { status: "completed" }>;
-type SandboxResult = Exclude<ContractSuccess<"sandbox", "getResult">, { status: "pending" }>;
+type SandboxResult = Exclude<
+	ContractSuccess<"testSupport", "getSandboxResult">,
+	{ status: "pending" }
+>;
 
-export const createSandboxScript = (client: Client, body: CreateSandboxScriptBody) =>
-	Effect.gen(function* () {
-		const script = yield* client.call((c) => c.sandbox.createScript({ payload: body }));
-		requirePresent(script.id, "Failed to create sandbox script");
-		return script;
+export const installSandboxScript = (input: {
+	name: string;
+	slug: string;
+	source: string;
+	capabilities?: ReadonlyArray<string>;
+	requiredAppConfigKeys?: ReadonlyArray<string>;
+}) =>
+	installTestPlugin({
+		source: input.source,
+		script: {
+			kind: "provider",
+			name: input.name,
+			slug: input.slug,
+			capabilities: input.capabilities ?? [],
+			providerInformation: { source: "e2e" },
+			requiredAppConfigKeys: input.requiredAppConfigKeys ?? [],
+		},
 	});
 
-export const enqueueSandboxScript = (client: Client, body: EnqueueSandboxBody) =>
+export const installSandboxScriptScoped = (input: Parameters<typeof installSandboxScript>[0]) =>
+	Effect.acquireRelease(installSandboxScript(input), uninstallTestPlugin);
+
+export const enqueueSandboxScript = (executingUserId: string, body: EnqueueSandboxBody) =>
 	Effect.gen(function* () {
-		const result = yield* client.call((c) => c.sandbox.enqueue({ payload: body }));
+		const result = yield* getBackendClient().call(
+			(c) =>
+				c.testSupport.enqueueSandbox({
+					payload: { ...body, executingUserId: UserId.make(executingUserId) },
+				}),
+			adminHeaders,
+		);
 		return { jobId: requirePresent(result.jobId, "Failed to enqueue sandbox script") };
 	});
 
-export const pollSandboxResult = (client: Client, jobId: string, options: PollOptions = {}) =>
+export const pollSandboxResult = (
+	executingUserId: string,
+	jobId: string,
+	options: PollOptions = {},
+) =>
 	pollUntil(
 		`sandbox job '${jobId}'`,
 		Effect.gen(function* () {
-			const result = yield* client.call((c) => c.sandbox.getResult({ path: { jobId } }));
+			const result = yield* getBackendClient().call(
+				(c) =>
+					c.testSupport.getSandboxResult({
+						path: { jobId },
+						urlParams: { executingUserId: UserId.make(executingUserId) },
+					}),
+				adminHeaders,
+			);
 			return result.status !== "pending" ? result : null;
 		}),
 		{ timeoutMs: 120_000, ...options },

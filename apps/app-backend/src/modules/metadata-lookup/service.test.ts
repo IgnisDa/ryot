@@ -65,16 +65,12 @@ const makeIntegrationsRepository = (
 
 const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxRepository> = {}) =>
 	mockSandboxRepository({
-		getScriptForUser: ({ scriptId }) => {
+		getScript: (scriptId) => {
 			const isShow = scriptId === showScriptId;
 			const slug = isShow ? "show.tmdb" : "movie.tmdb";
 			return Effect.succeed({
-				scriptId,
 				id: scriptId,
-				userId: null,
 				isBuiltin: true,
-				code: "// tmdb",
-				source: "// tmdb",
 				compiledFormat: 1,
 				compiledCode: "// compiled tmdb",
 				metadata: {

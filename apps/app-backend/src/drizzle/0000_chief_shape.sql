@@ -187,7 +187,7 @@ CREATE TABLE "relationship" (
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_script" (
-	"content_hash" text,
+	"content_hash" text NOT NULL,
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"source" text NOT NULL,
@@ -195,13 +195,10 @@ CREATE TABLE "sandbox_script" (
 	"compiled_format" smallint DEFAULT 1 NOT NULL,
 	"metadata" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"user_id" text,
 	"plugin_slug" text,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "sandbox_script_user_slug_unique" UNIQUE("user_id","slug"),
-	CONSTRAINT "sandbox_script_plugin_slug_content_hash_unique" UNIQUE("plugin_slug","slug","content_hash"),
-	CONSTRAINT "sandbox_script_plugin_content_hash_check" CHECK ("sandbox_script"."plugin_slug" is null or "sandbox_script"."content_hash" is not null)
+	CONSTRAINT "sandbox_script_plugin_slug_content_hash_unique" UNIQUE("plugin_slug","slug","content_hash")
 );
 --> statement-breakpoint
 CREATE TABLE "saved_view" (
@@ -339,7 +336,6 @@ ALTER TABLE "plugin_state" ADD CONSTRAINT "plugin_state_user_id_user_id_fk" FORE
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fk" FOREIGN KEY ("source_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fk" FOREIGN KEY ("target_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_plugin_slug_plugin_slug_fk" FOREIGN KEY ("plugin_slug") REFERENCES "public"."plugin"("slug") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view_state" ADD CONSTRAINT "saved_view_state_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -387,9 +383,8 @@ CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" USING btree (
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" USING btree ("target_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("properties");--> statement-breakpoint
 CREATE UNIQUE INDEX "relationship_global_source_target_schema_unique" ON "relationship" USING btree ("source_entity_id","target_entity_id","relationship_schema_slug") WHERE "relationship"."user_id" is null;--> statement-breakpoint
-CREATE INDEX "sandbox_script_user_id_idx" ON "sandbox_script" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "sandbox_script_plugin_slug_idx" ON "sandbox_script" USING btree ("plugin_slug");--> statement-breakpoint
-CREATE UNIQUE INDEX "sandbox_script_kernel_slug_content_hash_unique" ON "sandbox_script" USING btree ("slug","content_hash") WHERE "sandbox_script"."user_id" is null and "sandbox_script"."plugin_slug" is null and "sandbox_script"."content_hash" is not null;--> statement-breakpoint
+CREATE UNIQUE INDEX "sandbox_script_kernel_slug_content_hash_unique" ON "sandbox_script" USING btree ("slug","content_hash") WHERE "sandbox_script"."plugin_slug" is null;--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_plugin_slug_idx" ON "saved_view" USING btree ("plugin_slug");--> statement-breakpoint
 CREATE INDEX "saved_view_state_user_id_idx" ON "saved_view_state" USING btree ("user_id");--> statement-breakpoint

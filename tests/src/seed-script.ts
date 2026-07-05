@@ -3,7 +3,7 @@
 import { faker } from "@faker-js/faker";
 import { runContract, type ContractProgram } from "@ryot/contract/client";
 import type { QueryExpression, RuntimeRef } from "@ryot/contract/display-configuration";
-import { RemoteImageUrl, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { RemoteImageUrl, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { buildQueryEngineEntityRowsDocument } from "@ryot/query-engine/documents";
@@ -32,6 +32,7 @@ async function createAndSignIn(): Promise<{
 	email: string;
 	cookies: string;
 	password: string;
+	userId: string;
 	backupCodes: string[];
 	totpCodes: { past: string; future: string; current: string };
 }> {
@@ -39,7 +40,7 @@ async function createAndSignIn(): Promise<{
 	const password = email;
 	const authClient = createAuthClient({ baseURL: new URL(API_BASE_URL).origin });
 
-	const { error: signUpError } = await authClient.signUp.email({
+	const { data: signUpData, error: signUpError } = await authClient.signUp.email({
 		email,
 		name: "Seed User",
 		password,
@@ -77,6 +78,7 @@ async function createAndSignIn(): Promise<{
 		cookies: twoFactor.cookies,
 		email,
 		password,
+		userId: requirePresent(signUpData, "Sign up did not return a user").user.id,
 		backupCodes: twoFactor.backupCodes,
 		totpCodes: twoFactor.totpCodes,
 	};
@@ -168,18 +170,20 @@ async function installSeedDefinitions(
 	seedPluginManifests.set(input.pluginSlug, manifest);
 }
 
-async function seedSandboxScript(apiClient: APIClient) {
+async function seedSandboxScript(apiClient: APIClient, executingUserId: string) {
 	const value = `seed-script-${dayjs().valueOf()}`;
 	const source = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/core";
+import { defineProvider } from "@ryot/sandbox-sdk/provider";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
-  kind: "script",
+  kind: "provider",
   capabilities: [],
   requiredAppConfigKeys: [],
   name: "Seed script",
   slug: ${JSON.stringify(value)},
+  providerInformation: { source: "seed" },
 });
 
 const main = defineDriver(manifest, {
@@ -188,17 +192,51 @@ const main = defineDriver(manifest, {
   run: async () => ${JSON.stringify(value)} as const,
 });
 
-export default defineScript({ manifest, drivers: { main } });
+export default defineProvider({ manifest, drivers: { main } });
 `;
-	const script = await apiClient.run((c) => c.sandbox.createScript({ payload: { source } }));
-	const queued = await apiClient.run((c) =>
-		c.sandbox.enqueue({ payload: { context: {}, driverName: "main", scriptId: script.id } }),
+	const entry = "scripts/seed.sandbox.ts";
+	const manifest = testPluginManifest({
+		pluginSlug: `seed-script-${dayjs().valueOf()}`,
+		scripts: [
+			{
+				entry,
+				kind: "provider",
+				name: "Seed script",
+				slug: value,
+				capabilities: [],
+				requiredAppConfigKeys: [],
+				providerInformation: { source: "seed" },
+			},
+		],
+	});
+	await apiClient.runAdmin((c) =>
+		c.plugins.install({ payload: { files: { [entry]: source }, manifest } }),
+	);
+	const scripts = await apiClient.runAdmin((c) =>
+		c.testSupport.listSandboxScripts({ urlParams: {} }),
+	);
+	const script = requirePresent(
+		scripts.find((candidate) => candidate.slug === value && candidate.source === source),
+		"Installed seed sandbox script was not found",
+	);
+	const queued = await apiClient.runAdmin((c) =>
+		c.testSupport.enqueueSandbox({
+			payload: {
+				context: {},
+				driverName: "main",
+				scriptId: script.id,
+				executingUserId: UserId.make(executingUserId),
+			},
+		}),
 	);
 	const startedAt = dayjs();
 	while (dayjs().diff(startedAt, "second") < 120) {
 		// oxlint-disable-next-line no-await-in-loop
-		const result = await apiClient.run((c) =>
-			c.sandbox.getResult({ path: { jobId: queued.jobId } }),
+		const result = await apiClient.runAdmin((c) =>
+			c.testSupport.getSandboxResult({
+				path: { jobId: queued.jobId },
+				urlParams: { executingUserId: UserId.make(executingUserId) },
+			}),
 		);
 		if (result.status === "pending") {
 			// oxlint-disable-next-line no-await-in-loop
@@ -214,7 +252,7 @@ export default defineScript({ manifest, drivers: { main } });
 		if (result.value !== value) {
 			throw new Error(`Seed sandbox returned ${JSON.stringify(result.value)}`);
 		}
-		console.log(`✓ Created and executed format-1 sandbox script ${script.id}`);
+		console.log(`✓ Installed and executed format-1 sandbox script ${script.id}`);
 		return;
 	}
 	throw new Error("Seed sandbox execution timed out");
@@ -1411,11 +1449,17 @@ function sleep(ms: number): Promise<void> {
 async function pollSearchJob(
 	apiClient: APIClient,
 	jobId: string,
+	executingUserId: string,
 ): Promise<Array<{ externalId: string }>> {
 	const startedAt = Date.now();
 	while (true) {
 		// oxlint-disable-next-line no-await-in-loop
-		const result = await apiClient.run((c) => c.sandbox.getResult({ path: { jobId } }));
+		const result = await apiClient.runAdmin((c) =>
+			c.testSupport.getSandboxResult({
+				path: { jobId },
+				urlParams: { executingUserId: UserId.make(executingUserId) },
+			}),
+		);
 		if (result.status === "pending") {
 			if (Date.now() - startedAt > 60000) {
 				throw new Error(`Search job ${jobId} timed out`);
@@ -1437,13 +1481,19 @@ async function searchMediaPage(
 	scriptId: SandboxScriptId,
 	query: string,
 	page: number,
+	executingUserId: string,
 ): Promise<Array<{ externalId: string }>> {
-	const result = await apiClient.run((c) =>
-		c.sandbox.enqueue({
-			payload: { scriptId, driverName: "search", context: { query, page, pageSize: 10 } },
+	const result = await apiClient.runAdmin((c) =>
+		c.testSupport.enqueueSandbox({
+			payload: {
+				scriptId,
+				driverName: "search",
+				context: { query, page, pageSize: 10 },
+				executingUserId: UserId.make(executingUserId),
+			},
 		}),
 	);
-	return pollSearchJob(apiClient, result.jobId);
+	return pollSearchJob(apiClient, result.jobId, executingUserId);
 }
 
 async function importMediaEntity(
@@ -1510,7 +1560,7 @@ function generateEpisodicProgressFields(slug: MediaEntitySchemaSlug): Record<str
 
 // ─── Media seeding ──────────────────────────────────────────────────────────
 
-async function seedMedia(client: APIClient) {
+async function seedMedia(client: APIClient, executingUserId: string) {
 	console.log("\n🎬 Seeding Media Tracker...");
 
 	const builtinTracker = await getBuiltinWorkspace(client);
@@ -1557,7 +1607,13 @@ async function seedMedia(client: APIClient) {
 			for (const page of searchConfig.pages) {
 				try {
 					// oxlint-disable-next-line no-await-in-loop
-					const items = await searchMediaPage(client, scriptId, searchConfig.query, page);
+					const items = await searchMediaPage(
+						client,
+						scriptId,
+						searchConfig.query,
+						page,
+						executingUserId,
+					);
 					for (const item of items) {
 						if (!identifiers.includes(item.externalId)) {
 							identifiers.push(item.externalId);
@@ -3012,7 +3068,7 @@ async function main() {
 
 	console.log(`✓ API Base URL: ${API_BASE_URL}`);
 
-	const { backupCodes, cookies, email, password, totpCodes } = await createAndSignIn();
+	const { backupCodes, cookies, email, password, totpCodes, userId } = await createAndSignIn();
 	console.log(`✓ Created and signed in as ${email}`);
 	console.log(`✓ Enabled two-factor authentication`);
 	console.log(`  Past TOTP:    ${totpCodes.past}`);
@@ -3022,12 +3078,12 @@ async function main() {
 
 	const client = new APIClient(cookies);
 	const startTime = dayjs();
-	await seedSandboxScript(client);
+	await seedSandboxScript(client, userId);
 
 	const whiskeyStats = await seedWhiskeys(client);
 	const placeStats = await seedPlaces(client);
 	const phoneStats = await seedMobilePhones(client);
-	const mediaStats = await seedMedia(client);
+	const mediaStats = await seedMedia(client, userId);
 	const savedViewsCount = await seedSavedViews(
 		client,
 		whiskeyStats.tracker.id,

@@ -468,19 +468,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			return rows.length;
 		});
 
-		const deleteBySandboxScript = Effect.fn("EntitiesRepository.deleteBySandboxScript")(function* (
-			sandboxScriptId: SandboxScriptId,
-		) {
-			const db = yield* CurrentDb;
-			const rows = yield* dbEffect(() =>
-				db
-					.delete(schema.entity)
-					.where(eq(schema.entity.sandboxScriptId, sandboxScriptId))
-					.returning({ id: schema.entity.id }),
-			);
-			return rows.length;
-		});
-
 		return {
 			getById,
 			deleteByIds,
@@ -490,7 +477,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			findEntitySchemaById,
 			findGlobalEntityById,
 			getEntityScopeForUser,
-			deleteBySandboxScript,
 			listEntityReferencesByIds,
 			getEntityMergeScopeForUser,
 			listMatchCandidatesBySchema,

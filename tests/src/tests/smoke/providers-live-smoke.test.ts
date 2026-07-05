@@ -41,15 +41,15 @@ function providerScriptId(
 describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 	it.live("searches OpenLibrary and imports a real result into the library", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
 			const scriptId = providerScriptId(schema, "OpenLibrary");
 
-			const { jobId } = yield* enqueueEntitySearch(client, {
+			const { jobId } = yield* enqueueEntitySearch(userId, {
 				scriptId,
 				context: { query: "The Hobbit", page: 1, pageSize: 5 },
 			});
-			const search = yield* pollEntitySearchResult(client, jobId, { timeoutMs: 60_000 });
+			const search = yield* pollEntitySearchResult(userId, jobId, { timeoutMs: 60_000 });
 			assertCompleted(search, "OpenLibrary search");
 
 			const value = requireObjectRecord(search.value, "Expected search result to be an object");

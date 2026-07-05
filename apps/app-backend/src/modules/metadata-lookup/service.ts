@@ -76,13 +76,8 @@ export class MetadataLookupService extends Effect.Service<MetadataLookupService>
 					return yield* scriptUnavailable();
 				}
 
-				const script = yield* runWithDb(
-					sandboxRepository.getScriptForUser({
-						userId: null,
-						scriptId: linkedScript.sandboxScriptId,
-					}),
-				);
-				if (!script || !script.isBuiltin) {
+				const script = yield* runWithDb(sandboxRepository.getScript(linkedScript.sandboxScriptId));
+				if (!script) {
 					return yield* scriptUnavailable();
 				}
 

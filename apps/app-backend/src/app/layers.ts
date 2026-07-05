@@ -89,10 +89,9 @@ import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
-import { SandboxCompiler } from "#modules/sandbox/compiler";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
-import { SandboxApiService } from "#modules/sandbox/service";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
@@ -256,11 +255,11 @@ const RuntimeSandboxServiceLive = Layer.provide(
 	),
 );
 
-const SandboxApiServiceLive = Layer.provide(
-	SandboxApiService.Default,
-	Layer.mergeAll(SandboxCompiler.Default, PluginRuntimeResolverLive),
+const SandboxExecutionServiceLive = Layer.provide(
+	SandboxExecutionService.Default,
+	PluginRuntimeResolverLive,
 );
-const SandboxServicesLive = Layer.mergeAll(SandboxApiServiceLive, RuntimeSandboxServiceLive);
+const SandboxServicesLive = Layer.mergeAll(SandboxExecutionServiceLive, RuntimeSandboxServiceLive);
 
 const ContentServicesLive = Layer.mergeAll(
 	AuthDependentServicesLive,

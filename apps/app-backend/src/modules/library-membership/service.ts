@@ -48,9 +48,7 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 
 				const entitySchemaSlug = EntitySchemaSlug.make(trimmedEntitySchemaSlug);
 				const scriptId = SandboxScriptId.make(trimmedScriptId);
-				const script = yield* runWithDb(
-					sandboxRepository.getScriptForUser({ userId: user.id, scriptId }),
-				);
+				const script = yield* runWithDb(sandboxRepository.getScript(scriptId));
 				if (!script) {
 					return yield* notFound(sandboxScriptNotFoundError);
 				}

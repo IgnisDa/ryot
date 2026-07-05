@@ -90,15 +90,15 @@ describe("plugins", () => {
 							yield* uninstallTestPlugin(installed);
 						}),
 				);
-				const { client } = yield* createAuthenticatedClient();
+				const { client, userId } = yield* createAuthenticatedClient();
 				const listed = yield* getBackendClient().call((c) => c.plugins.list({}), adminHeaders);
 				expect(listed.some(({ slug }) => slug === pluginSlug)).toBe(true);
 
-				const search = yield* enqueueEntitySearch(client, {
+				const search = yield* enqueueEntitySearch(userId, {
 					context: { query: "hot", page: 1, pageSize: 5 },
 					scriptId: SandboxScriptId.make(plugin.scriptId),
 				});
-				const searchResult = yield* pollEntitySearchResult(client, search.jobId);
+				const searchResult = yield* pollEntitySearchResult(userId, search.jobId);
 				assertCompleted(searchResult, "hot-installed provider search");
 				const searchValue = requireObjectRecord(
 					searchResult.value,
@@ -179,10 +179,10 @@ describe("plugins", () => {
 					providerInformation: { source: "e2e" },
 				},
 			});
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 			yield* uninstallTestPluginStrict(plugin);
 			const failure = yield* Effect.flip(
-				enqueueSandboxScript(client, {
+				enqueueSandboxScript(userId, {
 					context: {},
 					driverName: "search",
 					scriptId: SandboxScriptId.make(plugin.scriptId),
