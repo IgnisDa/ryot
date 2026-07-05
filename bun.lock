@@ -138,7 +138,6 @@
         "tailwindcss": "4.3.0",
         "typescript": "7.0.2",
         "vite": "8.0.14",
-        "vite-tsconfig-paths": "6.1.1",
       },
     },
     "e2e": {
