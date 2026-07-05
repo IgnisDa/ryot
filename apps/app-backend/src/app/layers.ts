@@ -22,11 +22,15 @@ import {
 	SubscriptionExecutionWorkflowDefinitionsLive,
 	SubscriptionExecutionWorkflowOperationsLive,
 } from "#modules/automations/subscription-execution-workflow-live";
-import { SeedService } from "#modules/builtins/seed";
-import { AddEntityToCollectionWorkflowDefinitionsLive } from "#modules/collections/add-entity-to-collection-workflow-live";
+import {
+	AddEntityToCollectionWorkflowDefinitionsLive,
+	AddEntityToCollectionWorkflowOperationsLive,
+} from "#modules/collections/add-entity-to-collection-workflow-live";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionsRepository } from "#modules/definitions/repository";
+import { DefinitionsService } from "#modules/definitions/service";
 import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -76,6 +80,11 @@ import { NotificationDeliveryService } from "#modules/notifications/delivery";
 import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
+import { FirstPartyPluginBootstrap } from "#modules/plugins/boot";
+import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
+import { PluginRepository } from "#modules/plugins/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { PluginIngestionService, PluginInvalidationSubscriber } from "#modules/plugins/service";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -96,8 +105,6 @@ import {
 } from "#modules/signals/service";
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
 import { TestSupportService } from "#modules/test-support/service";
-import { TrackersRepository } from "#modules/trackers/repository";
-import { TrackersService } from "#modules/trackers/service";
 import { UploadsService } from "#modules/uploads/service";
 import { UserPreferencesService } from "#modules/user-preferences/service";
 import { UserStateService } from "#modules/user-state/service";
@@ -144,13 +151,22 @@ const PlatformRepositoriesLive = Layer.mergeAll(
 	NotificationsRepository.Default,
 	SandboxRepository.Default,
 	SavedViewsRepository.Default,
-	TrackersRepository.Default,
+	DefinitionsRepository.Default,
+	PluginRepository.Default,
 );
 
-const DefinitionRegistryLive = DefinitionRegistry.Default;
-const RepositoriesLive = Layer.provide(
+const definitionRegistry = makeDefinitionRegistry();
+const pluginLoader = makePluginLoader(definitionRegistry);
+const PluginLoaderLive = Layer.mergeAll(
+	Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...definitionRegistry }),
+	Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...pluginLoader }),
+);
+const PluginRuntimeResolverLive = PluginRuntimeResolver.Default.pipe(
+	Layer.provideMerge(PluginLoaderLive),
+);
+const RepositoriesLive = Layer.provideMerge(
 	Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive),
-	DefinitionRegistryLive,
+	PluginRuntimeResolverLive,
 );
 
 const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
@@ -160,13 +176,13 @@ const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
 	SavedViewsRepository.Default,
 	RelationshipSchemasRepository.Default,
 	SignalSchemasRepository.Default,
-	TrackersRepository.Default,
+	DefinitionsRepository.Default,
+	PluginRepository.Default,
 );
 
 const CoreInfrastructureDependenciesLive = Layer.mergeAll(BaseInfrastructureLive, ConfigLive);
 
 const CoreInfrastructureServicesLive = Layer.mergeAll(
-	DefinitionRegistryLive,
 	PersistedQueueLive,
 	WorkflowEngineLive,
 	DbRunnerLive,
@@ -184,7 +200,7 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 	CoreInfrastructureDependenciesLive,
 );
 
-const QueryEngineServiceLive = Layer.provide(QueryEngineService.Default, DefinitionRegistryLive);
+const QueryEngineServiceLive = QueryEngineService.Default;
 const NotificationSubscriptionsServiceLive = Layer.provide(
 	NotificationSubscriptionsService.Default,
 	AutomationsService.Default,
@@ -196,7 +212,7 @@ const EntitiesServiceLive = Layer.provide(
 	Layer.mergeAll(QueryEngineServiceLive, LifecycleDispatchLayerLive),
 );
 const SavedViewsServiceLive = Layer.provide(SavedViewsService.Default, QueryEngineServiceLive);
-const TrackersServiceLive = Layer.provide(TrackersService.Default, DefinitionRegistryLive);
+const DefinitionsServiceLive = DefinitionsService.Default;
 const BootstrapServicesLive = Layer.mergeAll(
 	EntitiesServiceLive,
 	NotificationSubscriptionsServiceLive,
@@ -245,7 +261,7 @@ const ContentServicesLive = Layer.mergeAll(
 	EpisodeResolverService.Default,
 	EventsServiceLive,
 	SavedViewsServiceLive,
-	TrackersServiceLive,
+	DefinitionsServiceLive,
 	QueryEngineServiceLive,
 	AutomationsService.Default,
 	NotificationSubscriptionsServiceLive,
@@ -326,10 +342,6 @@ const ServicesLive = Layer.mergeAll(
 
 const ServicesWithTestSupportLive = Layer.provideMerge(TestSupportService.Default, ServicesLive);
 
-const ServiceDependenciesLive = Layer.provide(
-	ServicesWithTestSupportLive,
-	ApplicationInfrastructureLive,
-);
 const RuntimeLive = (builtinExercisePreloadLimit: number) =>
 	Layer.mergeAll(
 		AddEntityToCollectionWorkflowDefinitionsLive,
@@ -355,55 +367,84 @@ const RuntimeLive = (builtinExercisePreloadLimit: number) =>
 		InfrequentCronSchedulerLive,
 	);
 
-const SeedServiceLive = Layer.provide(
-	SeedService.Default,
-	Layer.mergeAll(AutomationsService.Default, SignalSchemasService.Default),
+const PluginIngestionServiceLive = Layer.provide(
+	PluginIngestionService.Default,
+	Layer.mergeAll(PluginLoaderLive, PluginRepository.Default),
+);
+const FirstPartyPluginBootstrapLive = Layer.provide(
+	FirstPartyPluginBootstrap.Default,
+	Layer.mergeAll(PluginIngestionServiceLive, PluginRepository.Default),
 );
 
-const MigrationBootstrapServicesLive = Layer.provideMerge(
+const MigrationBootstrapDependenciesLive = Layer.provideMerge(
+	Layer.mergeAll(LifecycleDispatchNoop, QueryEngineServiceLive, MigrationBootstrapRepositoriesLive),
+	PluginRuntimeResolverLive,
+);
+const MigrationBootstrapServicesLive = Layer.provide(
 	Layer.mergeAll(
 		Layer.provideMerge(NotificationSubscriptionsService.Default, AutomationsService.Default),
-		EntitiesService.Default,
+		Layer.fresh(EntitiesService.Default),
 		SignalSchemasService.Default,
-		DefinitionRegistryLive,
+		PluginLoaderLive,
 	),
-	Layer.mergeAll(LifecycleDispatchNoop, QueryEngineServiceLive, MigrationBootstrapRepositoriesLive),
+	MigrationBootstrapDependenciesLive,
+);
+
+const RuntimeDependenciesLive = Layer.provideMerge(
+	Layer.mergeAll(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				AddEntityToCollectionWorkflowOperationsLive,
+				EventCreateWorkflowOperationsLive,
+			),
+			ServicesWithTestSupportLive,
+		),
+		EntityImportWorkflowOperationsLive,
+		SubscriptionExecutionWorkflowOperationsLive,
+		LibraryEntityImportWorkflowOperationsLive,
+		TranslateEntityWorkflowOperationsLive,
+		MediaTrendingWorkflowOperationsLive,
+	),
+	ApplicationInfrastructureLive,
 );
 
 const RuntimeAfterMigrationsLive = (builtinExercisePreloadLimit: number) =>
 	MigrationsComplete.Default.pipe(
 		Layer.flatMap(() =>
-			SeedServiceLive.pipe(
+			FirstPartyPluginBootstrapLive.pipe(
 				Layer.flatMap(() =>
 					LegacyBootstrapMigrateDrop.Default.pipe(
-						Layer.flatMap(() => RuntimeLive(builtinExercisePreloadLimit)),
+						Layer.flatMap(() =>
+							Layer.provide(
+								Layer.provideMerge(
+									RuntimeLive(builtinExercisePreloadLimit),
+									Layer.provide(PluginInvalidationSubscriber.Default, PluginIngestionServiceLive),
+								),
+								RuntimeDependenciesLive,
+							),
+						),
 					),
 				),
 			),
 		),
+		Layer.provide(MigrationBootstrapServicesLive),
+		Layer.provide(DbRunnerLive),
+		Layer.provide(TransactionRunnerLive),
+		Layer.provide(DbService.Default),
+		Layer.provide(RedisService.Default),
+		Layer.provide(ConfigLive),
 	);
-
-const RuntimeDependenciesLive = Layer.mergeAll(
-	ServiceDependenciesLive,
-	ApplicationInfrastructureLive,
-	Layer.provide(EntityImportWorkflowOperationsLive, ApplicationInfrastructureLive),
-	Layer.provide(EventCreateWorkflowOperationsLive, ApplicationInfrastructureLive),
-	SubscriptionExecutionWorkflowOperationsLive,
-	Layer.provide(LibraryEntityImportWorkflowOperationsLive, ApplicationInfrastructureLive),
-	Layer.provide(TranslateEntityWorkflowOperationsLive, ApplicationInfrastructureLive),
-	Layer.provide(MediaTrendingWorkflowOperationsLive, ApplicationInfrastructureLive),
-);
 
 const MigrationOnlyCoreLive = MigrationsComplete.Default.pipe(
 	Layer.flatMap(() =>
-		SeedServiceLive.pipe(Layer.flatMap(() => LegacyBootstrapMigrateDrop.Default)),
+		FirstPartyPluginBootstrapLive.pipe(Layer.flatMap(() => LegacyBootstrapMigrateDrop.Default)),
 	),
 	Layer.provide(MigrationBootstrapServicesLive),
 	Layer.provide(DbRunnerLive),
 	Layer.provide(TransactionRunnerLive),
 	Layer.provide(DbService.Default),
+	Layer.provide(RedisService.Default),
 	Layer.provide(ConfigLive),
-	Layer.provide(DefinitionRegistryLive),
 );
 
 export const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(
@@ -411,7 +452,7 @@ export const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(
 );
 
 const AppCoreLive = (builtinExercisePreloadLimit: number) =>
-	Layer.provide(RuntimeAfterMigrationsLive(builtinExercisePreloadLimit), RuntimeDependenciesLive);
+	RuntimeAfterMigrationsLive(builtinExercisePreloadLimit);
 const ObservabilityProvided = Layer.provide(ObservabilityLive, ConfigLive);
 
 export const AppLive = (builtinExercisePreloadLimit: number) =>

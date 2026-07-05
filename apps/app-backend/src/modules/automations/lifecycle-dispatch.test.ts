@@ -15,6 +15,7 @@ import { Effect, Either, Layer, Schema } from "effect";
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import {
 	LifecycleDispatch,
+	LifecycleDispatchNoop,
 	type LifecycleDispatchInput,
 } from "#modules/entities/lifecycle-dispatch";
 
@@ -163,7 +164,7 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 		});
 		expect(resolvedTargets).toEqual([
 			{ id: entitySchemaSlug, kind: "entity_schema" },
-			{ id: eventSchemaSlug, kind: "event_schema" },
+			{ id: `${entitySchemaSlug}:${eventSchemaSlug}`, kind: "event_schema" },
 		]);
 	}).pipe(Effect.provide(layer));
 });
@@ -250,5 +251,25 @@ it.effect("attempts every sibling workflow and fails when one enqueue fails", ()
 		const result = yield* Effect.either(dispatch.dispatch(entityInput));
 		expect(attempted).toEqual([firstRule.id, secondRule.id]);
 		expect(Either.isLeft(result)).toBe(true);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("keeps a bootstrap-only no-op out of the post-boot dispatcher", () => {
+	let dispatched = false;
+	const bootstrap = Layer.effectDiscard(
+		Effect.gen(function* () {
+			const dispatch = yield* LifecycleDispatch;
+			yield* dispatch.dispatch(entityInput);
+		}),
+	).pipe(Layer.provide(LifecycleDispatchNoop));
+	const runtime = Layer.succeed(LifecycleDispatch, {
+		dispatch: () => Effect.sync(() => (dispatched = true)),
+	});
+	const layer = bootstrap.pipe(Layer.flatMap(() => runtime));
+
+	return Effect.gen(function* () {
+		const dispatch = yield* LifecycleDispatch;
+		yield* dispatch.dispatch(entityInput);
+		expect(dispatched).toBe(true);
 	}).pipe(Effect.provide(layer));
 });

@@ -5,7 +5,7 @@ import { requireObjectRecord, requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
 import type { ContractPayload } from "./contract-client";
-import { createTrackerWithSchema } from "./entity-schemas";
+import { createPluginSchema } from "./entity-schemas";
 
 type CreateEntityInput = ContractPayload<"entities", "create">;
 
@@ -38,9 +38,9 @@ export const getEntity = (client: Client, entityId: string) =>
 		return withRecordProperties(entity);
 	});
 
-export const createTrackerWithSchemaAndEntity = (client: Client) =>
+export const createPluginSchemaAndEntity = (client: Client) =>
 	Effect.gen(function* () {
-		const { slug, schemaId } = yield* createTrackerWithSchema(client);
+		const { slug, schemaId } = yield* createPluginSchema(client);
 		const entity = yield* createEntity(client, {
 			name: "Test Entity",
 			entitySchemaSlug: schemaId,
@@ -48,3 +48,5 @@ export const createTrackerWithSchemaAndEntity = (client: Client) =>
 		});
 		return { slug, entityId: entity.id };
 	});
+
+export const createTrackerWithSchemaAndEntity = createPluginSchemaAndEntity;

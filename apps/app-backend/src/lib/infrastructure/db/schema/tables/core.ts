@@ -13,14 +13,15 @@ import {
 	text,
 	timestamp,
 	unique,
+	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
-export const trackerState = pgTable(
-	"tracker_state",
+export const pluginState = pgTable(
+	"plugin_state",
 	{
-		trackerSlug: text().notNull(),
+		pluginSlug: text().notNull(),
 		sortOrder: integer().notNull().default(0),
 		isDisabled: boolean().notNull().default(false),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -38,8 +39,8 @@ export const trackerState = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		index("tracker_state_user_id_idx").on(table.userId),
-		unique("tracker_state_user_slug_unique").on(table.userId, table.trackerSlug),
+		index("plugin_state_user_id_idx").on(table.userId),
+		unique("plugin_state_user_slug_unique").on(table.userId, table.pluginSlug),
 	],
 );
 
@@ -61,7 +62,6 @@ export const sandboxScript = pgTable(
 		name: text().notNull(),
 		source: text().notNull(),
 		compiledCode: text().notNull(),
-		isBuiltin: boolean().notNull().default(false),
 		compiledFormat: smallint().notNull().default(1),
 		metadata: jsonb().$type<SandboxScriptMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -89,29 +89,10 @@ export const sandboxScript = pgTable(
 			table.slug,
 			table.contentHash,
 		),
-	],
-);
-
-export const entitySchemaSandboxScript = pgTable(
-	"entity_schema_sandbox_script",
-	{
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		entitySchemaSlug: text().notNull(),
-		sandboxScriptId: text()
-			.notNull()
-			.references(() => sandboxScript.id, { onDelete: "cascade" }),
-		id: text()
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
-	},
-	(table) => [
-		index("entity_schema_sandbox_script_entity_schema_slug_idx").on(table.entitySchemaSlug),
-		index("entity_schema_sandbox_script_sandbox_script_id_idx").on(table.sandboxScriptId),
-		unique("entity_schema_sandbox_script_unique").on(table.entitySchemaSlug, table.sandboxScriptId),
+		uniqueIndex("sandbox_script_kernel_slug_content_hash_unique")
+			.on(table.slug, table.contentHash)
+			.where(
+				sql`${table.userId} is null and ${table.pluginSlug} is null and ${table.contentHash} is not null`,
+			),
 	],
 );
