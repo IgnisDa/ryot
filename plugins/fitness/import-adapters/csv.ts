@@ -1,6 +1,6 @@
 import { parse } from "@ryot/sandbox-sdk/papaparse";
 
-export const normalizeCsvHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+const normalizeCsvHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 export const readCsvCell = (row: Record<string, string>, aliases: string[]) => {
 	const wanted = new Set(aliases.map(normalizeCsvHeader));

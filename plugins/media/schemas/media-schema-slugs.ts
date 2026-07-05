@@ -11,5 +11,3 @@ export const builtinMediaEntitySchemaSlugs = [
 	"music",
 	"visual-novel",
 ] as const;
-
-export type BuiltinMediaEntitySchemaSlug = (typeof builtinMediaEntitySchemaSlugs)[number];

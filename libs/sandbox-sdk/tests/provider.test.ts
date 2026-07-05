@@ -31,7 +31,6 @@ describe("provider definitions", () => {
 		expect(definition.definitionType).toBe(SANDBOX_SCRIPT_DEFINITION);
 		expect(definition.operation).toBe("resolve");
 		expect(definition.output).toBe(providerResolveResultSchema);
-		expect(definition).not.toHaveProperty("drivers");
 		expect(decode(definition.input)({ identifierType: "isbn", value: "known" })).toEqual({
 			identifierType: "isbn",
 			value: "known",

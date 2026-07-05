@@ -7,8 +7,6 @@ import {
 	MediaMonitoringStatusInput,
 	MetadataLookupInput,
 	MetadataLookupOutput,
-	ResolveEpisodesInput,
-	ResolveEpisodesOutput,
 } from "./schemas";
 
 export const mediaMonitoringStatusRecipe = defineOperationRecipe({
@@ -37,11 +35,4 @@ export const metadataLookupRecipe = defineOperationRecipe({
 	input: MetadataLookupInput,
 	output: MetadataLookupOutput,
 	operationSlug: "metadata-lookup",
-});
-
-export const resolveEpisodesRecipe = defineOperationRecipe({
-	pluginSlug: "media",
-	input: ResolveEpisodesInput,
-	output: ResolveEpisodesOutput,
-	operationSlug: "resolve-episodes",
 });
