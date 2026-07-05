@@ -1,52 +1,28 @@
-import { RyotProvider, useRyotQuery } from "@ryot/client-sdk/react";
-import { createFileRoute, notFound, useLocation, useNavigate } from "@tanstack/react-router";
+import { useRyotQuery } from "@ryot/client-sdk/react";
+import { createFileRoute, useLocation, useNavigate } from "@tanstack/react-router";
 import { Effect, Fiber } from "effect";
 import { useEffect, useEffectEvent, useMemo } from "react";
 
-import { createKernelRyotClient } from "#/api/ryot-client";
-import { protectedRouteGuard } from "#/modules/auth/route-gates";
-import { pluginCatalogQuery, PluginCatalogService } from "#/modules/plugins/catalog";
+import { pluginCatalogQuery } from "#/modules/plugins/catalog";
 import { PluginCatalogEventsService } from "#/modules/plugins/events";
 import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginHost } from "#/modules/plugins/plugin-host";
 import { toPluginLocation } from "#/modules/plugins/plugin-location";
 import { PluginQueriesService } from "#/modules/plugins/queries";
 import { resolveRouteTarget } from "#/modules/plugins/route-resolver";
+import { Route as AuthenticatedRoute } from "#/routes/_authenticated";
 
-export const Route = createFileRoute("/$pluginSlug")({
+export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 	shouldReload: false,
 	component: PluginDestination,
-	errorComponent: PluginLoadError,
 	notFoundComponent: PluginNotFound,
-	beforeLoad: ({ context, location }) => protectedRouteGuard(context, location.href),
-	loader: async ({ context, params }) => {
-		const ryot = createKernelRyotClient(context.runtime, context.scope, context.theme);
-		const catalog = await context.runtime.runPromise(
-			Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
-		);
-		const target = resolveRouteTarget(catalog, params.pluginSlug);
-		if (target.owner === "kernel") {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw notFound();
-		}
-		return { ryot, catalog };
-	},
 });
 
 function PluginDestination() {
-	const { ryot } = Route.useLoaderData();
-	return (
-		<RyotProvider client={ryot}>
-			<AuthenticatedPluginDestination />
-		</RyotProvider>
-	);
-}
-
-function AuthenticatedPluginDestination() {
 	const navigate = useNavigate();
-	const initial = Route.useLoaderData();
 	const { pluginSlug } = Route.useParams();
 	const { pathname, searchStr } = useLocation();
+	const initial = AuthenticatedRoute.useLoaderData();
 	const { runtime, scope, server, theme } = Route.useRouteContext();
 	const { serverUrl, userId } = scope;
 	const catalogInput = useMemo(
@@ -99,12 +75,6 @@ function AuthenticatedPluginDestination() {
 				)
 			}
 		/>
-	);
-}
-
-function PluginLoadError() {
-	return (
-		<PluginRouteNotice title="Plugin unavailable" message="This plugin could not be loaded." />
 	);
 }
 
