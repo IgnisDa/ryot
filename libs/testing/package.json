@@ -1,0 +1,21 @@
+{
+	"name": "@ryot/testing",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./vitest.shared": {
+			"types": "./src/vitest.shared.ts",
+			"default": "./src/vitest.shared.ts"
+		}
+	},
+	"scripts": {
+		"build": "tsc",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"vitest": "4.1.9"
+	},
+	"devDependencies": {
+		"bun-types": "1.3.14"
+	}
+}

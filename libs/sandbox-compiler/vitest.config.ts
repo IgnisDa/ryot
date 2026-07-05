@@ -1,9 +1,9 @@
-import { defineConfig } from "vitest/config";
+import shared from "@ryot/testing/vitest.shared";
+import { defineConfig, mergeConfig } from "vitest/config";
 
-export default defineConfig({
-	test: {
-		reporters: ["agent"],
-		include: ["src/**/*.test.ts"],
-		setupFiles: ["./test-setup.ts"],
-	},
-});
+export default mergeConfig(
+	shared,
+	defineConfig({
+		test: { setupFiles: ["./test-setup.ts"] },
+	}),
+);

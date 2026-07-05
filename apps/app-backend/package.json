@@ -46,6 +46,7 @@
 	},
 	"devDependencies": {
 		"@effect/vitest": "0.29.0",
+		"@ryot/testing": "workspace:*",
 		"@types/ioredis": "5.0.0",
 		"@types/nodemailer": "8.0.0",
 		"@types/papaparse": "5.5.2",
