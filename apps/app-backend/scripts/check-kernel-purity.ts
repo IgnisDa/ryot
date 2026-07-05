@@ -2,7 +2,7 @@
 
 import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
 import fitnessPlugin from "@ryot/fitness-plugin";
-import mediaPlugin from "@ryot/media-fitness";
+import mediaPlugin from "@ryot/media-plugin";
 import { Data, Effect, Layer, FileSystem, Path } from "effect";
 
 import {
