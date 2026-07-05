@@ -86,10 +86,22 @@ type ActiveExecutionSession = {
 	readonly apiFunctions: Record<string, BoundHostFunction>;
 };
 
+export type SandboxStderrSnapshot = {
+	readonly truncated: boolean;
+	readonly lines: ReadonlyArray<string>;
+};
+
+export type SandboxStderrTail = {
+	readonly append: (line: string) => void;
+	readonly snapshot: () => SandboxStderrSnapshot;
+};
+
 type PooledProcess = {
-	readonly process: ChildProcessSpawner.ChildProcessHandle;
+	readonly stderrTail: SandboxStderrTail;
 	readonly responseQueue: Queue.Queue<string>;
 	readonly stdinQueue: Queue.Queue<Uint8Array>;
+	readonly stderrClosed: Deferred.Deferred<void>;
+	readonly process: ChildProcessSpawner.ChildProcessHandle;
 };
 
 type SandboxSessionRecord = {
@@ -98,6 +110,58 @@ type SandboxSessionRecord = {
 };
 
 const parseSandboxSession = (raw: string) => decodeSandboxSession(raw);
+
+const truncateSandboxStderrLine = (line: string) => {
+	const limit = SANDBOX_LIMITS.diagnostics.stderrBytes;
+	if (utf8ByteLength(line) <= limit) {
+		return line;
+	}
+	const marker = " [sandbox stderr line truncated]";
+	const markerBytes = utf8ByteLength(marker);
+	const bytes = new TextEncoder().encode(line);
+	const stderrDecoder = new TextDecoder("utf-8", { fatal: true });
+	let prefixBytes = Math.max(0, limit - markerBytes);
+	while (prefixBytes > 0) {
+		try {
+			return `${stderrDecoder.decode(bytes.subarray(0, prefixBytes))}${marker}`;
+		} catch {
+			prefixBytes -= 1;
+		}
+	}
+	return marker;
+};
+
+export const makeSandboxStderrTail = (): SandboxStderrTail => {
+	const lines: string[] = [];
+	let bytes = 0;
+	let truncated = false;
+
+	return {
+		append: (line) => {
+			const value = truncateSandboxStderrLine(line);
+			truncated ||= value !== line;
+			lines.push(value);
+			bytes += utf8ByteLength(value);
+			while (
+				lines.length > SANDBOX_LIMITS.diagnostics.stderrLines ||
+				bytes > SANDBOX_LIMITS.diagnostics.stderrBytes
+			) {
+				const removed = lines.shift();
+				if (removed === undefined) {
+					break;
+				}
+				bytes -= utf8ByteLength(removed);
+				truncated = true;
+			}
+		},
+		snapshot: () => ({ lines: [...lines], truncated }),
+	};
+};
+
+export const formatSandboxStderr = ({ lines, truncated }: SandboxStderrSnapshot) =>
+	lines.length === 0
+		? ""
+		: `\nSandbox stderr:\n${truncated ? "[sandbox stderr truncated]\n" : ""}${lines.join("\n")}`;
 
 export const readSandboxBridgeRequestBody = (request: Request) => {
 	const stream = request.body;
@@ -227,6 +291,8 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 
 	const responseQueue = yield* Queue.unbounded<string>();
 	const stdinQueue = yield* Queue.unbounded<Uint8Array>();
+	const stderrClosed = yield* Deferred.make<void>();
+	const stderrTail = makeSandboxStderrTail();
 
 	yield* Stream.fromQueue(stdinQueue).pipe(Stream.run(denoProcess.stdin), Effect.forkScoped);
 
@@ -240,11 +306,12 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	yield* denoProcess.stderr.pipe(
 		Stream.decodeText({ encoding: "utf-8" }),
 		Stream.splitLines,
-		Stream.runForEach(() => Effect.void),
+		Stream.runForEach((line) => Effect.sync(() => stderrTail.append(line))),
+		Effect.ensuring(Deferred.succeed(stderrClosed, undefined)),
 		Effect.forkScoped,
 	);
 
-	return { process: denoProcess, stdinQueue, responseQueue };
+	return { process: denoProcess, stdinQueue, responseQueue, stderrClosed, stderrTail };
 });
 
 export class BridgeService extends Context.Service<BridgeService>()("BridgeService", {
