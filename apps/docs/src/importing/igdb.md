@@ -1,14 +1,10 @@
-# IGDb
+# IGDB
 
 ::: info
-It is necessary to setup IGDB for this import to work. Please follow the configuration
-[guide](../configuration.md) for instructions.
+Set `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_ID` and `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_SECRET` before import.
 :::
 
-You can import your lists from [IGDb](https://www.igdb.com). Each list has to be imported
-separately. All items in the list will be added to the collection you choose.
+Import each [IGDB](https://www.igdb.com) list separately into a selected collection.
 
-1. Login to your account and go to your profile. The default activity lists can be exported
-   from here. Click on the list you want to export and download it as CSV.
-2. For your custom lists, please visit the "My Lists" page.
-3. Upload the CSV file and choose the collection you want to import into.
+1. Log in and export a default activity list from your profile, or a custom list from **My Lists**.
+2. Upload its CSV file under **Settings > Import data** and select the destination collection.

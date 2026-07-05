@@ -1,44 +1,30 @@
 # Auth
 
-Ryot is an OAuth 2.1 authorization server built with Better Auth's OAuth Provider plugin. Application APIs accept either an OAuth access token in `Authorization: Bearer <token>` or a user-owned API key in `X-Api-Key`. Better Auth browser sessions are used only by the hosted `/oauth/login` ceremony and its password, external OIDC, and two-factor steps. Application API middleware does not accept those cookies as credentials.
+Ryot is an OAuth 2.1 authorization server built with Better Auth's OAuth Provider plugin. Application APIs accept an OAuth token in `Authorization: Bearer <token>` or a user API key in `X-Api-Key`. Better Auth cookies authenticate only the hosted `/oauth/login` ceremony; API middleware never accepts them.
 
-## First-party clients
+## First-Party Clients
 
-Server startup provisions exactly two public clients:
+Startup provisions two public clients:
 
-- `ryot-web`, with `<FRONTEND_URL>/auth/callback` and `<FRONTEND_URL>/auth/logout/callback`
-- `ryot-native`, with callback and logout callback URIs derived from the canonical
-  `io.ryot.app` and `io.ryot.app.dev` application IDs
+| Client        | Redirects                                                                 |
+| ------------- | ------------------------------------------------------------------------- |
+| `ryot-web`    | `<FRONTEND_URL>/auth/callback` and `<FRONTEND_URL>/auth/logout/callback`  |
+| `ryot-native` | Callback and logout URIs derived from `io.ryot.app` and `io.ryot.app.dev` |
 
-Both clients require Authorization Code with S256 PKCE, skip consent, and can use `openid profile email offline_access ryot:api`. They are linked to the `<FRONTEND_URL>/api` resource. Dynamic registration and user-managed client creation are disabled.
-
-The web client always uses `window.location.origin`. Only the installed native app selects a server. The hosted `/oauth/login` route is served by the server's SPA build and is independent of native server selection.
+Both require Authorization Code with S256 PKCE, skip consent, use `openid profile email offline_access ryot:api`, and target `<FRONTEND_URL>/api`. Dynamic registration and user-managed clients are disabled. The web client uses its current origin; only the installed native app selects a server.
 
 ## Tokens
 
-OAuth access tokens expire after 15 minutes and refresh tokens after 30 days. API middleware verifies the JWT signature, issuer `<FRONTEND_URL>/api/auth`, audience `<FRONTEND_URL>/api`, expiry, and `ryot:api` scope, then loads the authoritative user row. Disabled or deleted users are rejected immediately. API keys retain Better Auth's expiry, rate limiting, cache, database fallback, and user ownership behavior.
+Access tokens expire after 15 minutes and refresh tokens after 30 days. API middleware verifies the JWT signature, issuer `<FRONTEND_URL>/api/auth`, audience `<FRONTEND_URL>/api`, expiry, and `ryot:api` scope, then loads the authoritative user. Disabled or deleted users fail immediately. API keys retain Better Auth expiry, rate limiting, cache, database fallback, and ownership checks.
 
-The client stores OAuth access, refresh, and ID tokens in asynchronous storage: the iOS Keychain or Android Keystore on native, and `localStorage` on web. It coordinates refresh per server and clears authentication on `invalid_grant`. Logout revokes refresh and access tokens, clears local tokens and pending transactions even if remote logout fails, and opens the provider end-session endpoint with an exact registered callback. User disable and deletion revoke browser sessions, OAuth token records, and API-key caches. A password reset revokes browser sessions and OAuth token records too; access tokens already issued stay valid until they expire, because verification never reads the token record.
+Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches. Issued access tokens remain valid until expiry because verification does not read token records.
 
 ## External OIDC
 
-Self-hosters create one application in Authentik, Google, Keycloak, or another OIDC provider. Its only Ryot callback is:
+Register only `<FRONTEND_URL>/api/auth/callback/oidc` at the external provider. Do not register native schemes there. External OIDC completes in the hosted login before Ryot resumes its signed first-party authorization request.
 
-```text
-<FRONTEND_URL>/api/auth/callback/oidc
-```
+## Deployment
 
-Do not register mobile callback schemes at the external provider. The internal `ryot-web` and `ryot-native` clients are provisioned automatically. External OIDC completes inside the hosted browser login before Ryot continues the signed first-party authorization request.
+`FRONTEND_URL` must be the exact public HTTP or HTTPS origin, without path, query, or fragment. It defines the issuer, API audience, trusted browser origin, and web redirects; production should use HTTPS.
 
-## `FRONTEND_URL`
-
-`FRONTEND_URL` must be the exact public HTTP or HTTPS origin users browse to. Production deployments should use HTTPS. It must not include a path, query, or fragment. Startup rejects malformed values because this origin defines the issuer, API audience, trusted browser origin, and web callback URIs.
-
-## Reverse proxies
-
-- Forward `/api/auth/*` to Ryot.
-- Preserve the `Authorization` header.
-- Do not cache authorization or token responses.
-- No root `/.well-known/*` rule is needed. Discovery is under `/api/auth/.well-known/openid-configuration`.
-
-Application APIs and OAuth token exchange retain wildcard, non-credentialed CORS. Hosted login cookies are same-origin and do not depend on CORS.
+Proxies must forward `/api/auth/*`, preserve `Authorization`, and never cache authorization or token responses. Discovery is at `/api/auth/.well-known/openid-configuration`; no root `/.well-known/*` route is needed. APIs and token exchange use wildcard non-credentialed CORS; hosted-login cookies remain same-origin.

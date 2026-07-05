@@ -1,16 +1,9 @@
 # StoryGraph
 
-Imports from [StoryGraph](https://thestorygraph.com) work using ISBN. All books
-in your export that have an ISBN attached to them will be imported. Ryot
-translates "Read Status" in the following manner:
+Only books with an ISBN are imported. `to-read` becomes `Watchlist`.
 
-- to-read -> Watchlist
-
-1. Login to your account and click on your profile and go to the "Manage Account"
-   page.
-2. Scroll to the bottom and click on "Export StoryGraph Library" and then
-   "Generate export".
-3. Once the export is done, you will receive an email. refresh the page above and
-   download the CSV file.
-4. Optionally, you can edit the CSV file and manually add the missing ISBN.
-5. Upload this file in the input.
+1. Log in to [StoryGraph](https://thestorygraph.com) and open **Manage Account**.
+2. Select **Export StoryGraph Library > Generate export**.
+3. After the completion email arrives, refresh the page and download the CSV file.
+4. Optional: add missing ISBN values to the CSV file.
+5. Upload it under **Settings > Import data**.

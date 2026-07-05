@@ -1,24 +1,23 @@
 # Client Plugin Contract
 
-`@ryot-app/client-plugin-contract` owns the environment-neutral boundary shared by client plugins,
-the client kernel, the client plugin compiler, archive tooling, and artifact persistence. This
-includes the iframe bridge protocol, client artifact format, client source file policy, and the
-wire-safe capability payloads used by the direct and bridge-backed client adapters.
+`@ryot-app/client-plugin-contract` owns schemas shared by plugin clients, the kernel, compiler, archive
+tooling, and artifact persistence: bridge messages, artifact format and metadata, source file policy,
+and wire-safe capability payloads. Runtime-only policy stays with its runtime.
 
-Reserved kernel shortcuts are bridge behavior, not a public `RyotClient` capability. The iframe
-bootstrap recognizes `Mod+K` for the command center and `Mod+Shift+Space` for the desktop workspace
-switcher, then sends semantic `{ type: "kernel-shortcut", shortcut: "command-center" | "workspace-switcher" }`
-messages. It never sends a raw `KeyboardEvent` or key payload. The kernel owns the actions and desktop
-gating; an active plugin `OverlayScope` suppresses root forwarding, and plugins must not bind either
-reserved combination at their root.
+Artifact metadata includes content hash, artifact format, client API version, compiler version, and
+bridge version. Bridge init establishes an immutable session identity from a random session ID and
+that artifact identity. Ready repeats it, and the kernel accepts only an exact match. The plugin
+reports metadata embedded in the artifact rather than treating echoed kernel input as proof.
 
-The bridge protocol is exactly version 1. Entity subscriptions use strict state messages:
-plugins send `{ type: "entity-interest", foreground: string[], visible: string[] }`, with at most
-500 IDs total, and the kernel sends `{ type: "entity-updated", entityId, reason }`. IDs, update
-reasons, and the cap come from `@ryot-app/contract`. The shared `EntityInterest` declaration schema
-is uncapped; the owning runtime aggregates and selects the bounded wire state. These messages have
-no request IDs, acknowledgements, tickets, credentials, user identity, or server fields.
+The bridge protocol is currently exactly version 1. Entity interest uses strict state messages with at
+most 500 selected IDs: plugins send foreground and visible IDs, and the kernel sends entity ID plus
+`populated` or `translated`. These messages have no request IDs, acknowledgements, tickets,
+credentials, user identity, or server fields. The shared declaration schema is uncapped; runtimes own
+aggregation and bounded selection.
 
-The package builds these specialized contracts from generic HTTP-contract schemas such as entity
-identifiers, JSON values, RyotQL documents, and managed asset locators. `@ryot-app/contract` must not
-depend on this package.
+Reserved kernel shortcuts are semantic bridge messages, not public `RyotClient` capabilities. Raw
+keyboard events never cross the boundary.
+
+This package derives specialized fields from generic HTTP-contract schemas such as entity IDs, JSON,
+RyotQL documents, and asset locators. The dependency remains one-way: `@ryot-app/contract` must not
+import this package.

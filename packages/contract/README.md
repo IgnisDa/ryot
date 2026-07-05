@@ -1,43 +1,20 @@
 # Contract
 
-`@ryot-app/contract` owns Ryot's client-safe HTTP boundary: Effect Schema payloads, contract
-operations, generic shared wire schemas, plugin manifests, and wire-safe failure data. The backend
-implements this boundary; clients consume it without depending on backend services or runtime
-details.
+`@ryot-app/contract` is the client-safe HTTP boundary: Effect Schema payloads, operations, generic wire schemas, plugin manifests, authentication middleware, wire-safe primitives, and failure data. The backend implements it; clients consume it without backend or runtime dependencies.
 
-The iframe bridge protocol, client artifact model and format, client source file policy, and shared
-client-plugin capability payloads belong to `@ryot-app/client-plugin-contract`, not this package.
+The iframe bridge, client artifact format, client source policy, and shared client-plugin capabilities belong to `@ryot-app/client-plugin-contract`.
 
-## Failure Policy
+## Failure Contract
 
-Failures have two distinct layers:
+| Layer              | Owner           | Contract                                                     |
+| ------------------ | --------------- | ------------------------------------------------------------ |
+| Transport category | Shared boundary | Classifies the protocol outcome.                             |
+| Failure reason     | Owning module   | Stable kebab-case code plus structured JSON-safe parameters. |
 
-| Layer               | Owner                         | Purpose                                                                 |
-| ------------------- | ----------------------------- | ----------------------------------------------------------------------- |
-| Transport category  | Shared contract boundary      | Classifies the protocol-level outcome of a request.                     |
-| Module-owned reason | The module that owns the rule | Describes an expected failure with a stable code and structured values. |
+Expected application failures use both layers when the module can describe the rule. A transport category does not replace a domain reason. Codes are wire identifiers, not display text; parameters contain only data needed for recovery or client-owned copy.
 
-Transport categories are not substitutes for domain reasons. Normal application APIs return a
-module-owned typed reason when the module can describe the expected failure. Each module owns its
-reason schema and its finite set of kebab-case literal codes. Codes are wire identifiers, not
-localized copy, and must not be replaced with backend messages.
+Unexpected causes stay in backend logs. Raw compiler or runtime diagnostics are allowed only on explicit plugin-author, admin, and test surfaces. Normal APIs must not expose causes or diagnostic prose.
 
-Reason parameters are validated, structured, JSON-safe values containing only data needed by a
-consumer to act or render its own copy. Do not concatenate parameters into a message, include raw
-causes, or expose compiler and runtime diagnostics in a normal application failure.
+Persisted workflow failures retain the structured category, code, and parameters. Localized copy is never persisted. This policy intentionally has no compatibility message fields, prose parsers, or backfills.
 
-Unexpected causes stay in backend logs. Raw compiler and runtime diagnostics are permitted only on
-explicit plugin-author, admin, and test surfaces. They are not normal application API data and are
-not persisted as workflow failure prose.
-
-Persisted workflow failures retain their structured transport and module-owned failure data,
-including the code and parameters. Localized copy is never persisted. This is a breaking policy:
-do not retain compatibility fields, message parsers, or backfills for a previous prose shape.
-
-Clients decode the contract and own localized user copy. Use exhaustive Effect `Match` over the
-typed category and reason variants; use reason parameters to choose copy and recovery actions.
-Clients must not parse backend messages or render unexpected causes.
-
-Tests assert the failure tag or transport category, module-owned code, and structured parameters.
-They do not assert backend English or other prose. Tests for raw diagnostics belong only to the
-explicit surfaces where those diagnostics are allowed.
+Clients decode the contract and exhaustively handle typed variants. Tests assert categories, codes, and parameters, not backend English.

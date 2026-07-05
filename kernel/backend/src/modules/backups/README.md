@@ -1,112 +1,50 @@
 # Backups
 
-Account export and restore for the V2 archive format. `archive-v2/` owns the wire format, `export/`
-builds archives, and `restore/` writes them back into a clean account.
+Account export and restore use deterministic V2 archives. `archive-v2/` owns the wire format, `export/` builds it, and `restore/` writes it into a clean account.
 
-## Archive layout
+## Archive Contract
 
-A backup is a deterministic, non-Zip64 ZIP whose entries appear in a fixed order:
+A backup is a non-Zip64 ZIP with entries in this order:
 
-1. `manifest.json` — format version, archive identity, redaction paths, required plugins, one
-   `{path, count, sha256}` entry per section in `V2_SECTION_PATHS` order, and one
-   `{path, size, sha256, contentType}` entry per asset.
-2. `profile.json` and the eight NDJSON sections, in `V2_SECTION_PATHS` order.
-3. `assets/<sha256>` — content-addressed managed asset bytes, stored uncompressed.
+1. `manifest.json` at entry 0.
+2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `integrations.ndjson`, and `notification-subscriptions.ndjson`.
+3. Uncompressed content-addressed assets at `assets/<sha256>`.
 
-`manifest.json` is entry 0 and carries each section's digest and record count, so both sides know a
-section's identity before its bytes are read.
+The manifest contains `format: "ryot-backup"`, version 2, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset `{ path, size, sha256, contentType }` records. Schemas, paths, digests, ID rewrites, and ordering are compatibility surfaces.
 
-## The streaming invariant
+## Streaming
 
-`events` is the only section whose size grows with usage history; every other section is bounded by
-catalog size. It is also a pure leaf: nothing reads events to build the manifest, resolve required
-plugins, or populate the entity/relationship id-remapping maps. That combination is what makes it
-safe to treat events differently from everything else, and it is the invariant the whole design
-rests on:
+`events.ndjson` is the only usage-sized section and is a leaf: manifest construction, plugin resolution, and ID-remapping maps never depend on reading all events. Therefore:
 
-- **Events are disk-backed at every stage.** On export they are spilled page by page to a temp file;
-  on restore the extractor spools `events.ndjson` to disk exactly like an asset and the writer
-  streams it back in insert batches. Neither direction ever holds the full section in memory.
-- **Everything else stays in memory.** Bounded sections are encoded once into a `Uint8Array` that
-  is measured for the manifest and then reused as the ZIP entry, so each record is encoded a single
-  time.
-- **No structure may be O(n) in events.** This is why `createV2Archive` does not build a `Set` of
-  event ids: `event.id` is the primary key, so restore relies on the insert to reject duplicates and
-  maps the unique violation to a `duplicate_record_id` archive error. Peak memory on both paths must
-  stay independent of event count.
+- Export pages events into a temp file while incrementally counting and hashing; restore spools and inserts them in `RESTORE_EVENT_BATCH_SIZE` batches.
+- No export or restore structure may be O(n) in event count. Duplicate event IDs are rejected by the database and mapped to `duplicate_record_id`, not tracked in memory.
+- All bounded sections are encoded once in memory and reused for the ZIP entry.
+- Assets and events are disk-backed; their limits bound disk and abuse. Metadata limits bound memory.
 
-The export spill computes the section's count and digest before the ZIP is written. `V2Manifest`,
-`V2_SECTION_PATHS`, and `V2ArchiveRecords` keep events outside the in-memory record collection.
+| Limit                       |   Value | Applies to                          |
+| --------------------------- | ------: | ----------------------------------- |
+| `maxEntryCount`             |   4,096 | ZIP central-directory work          |
+| `maxRecordsPerSection`      | 250,000 | Bounded sections; events are exempt |
+| `maxMetadataEntryBytes`     |  32 MiB | Manifest, profile, bounded sections |
+| `maxEntryBytes`             | 256 MiB | Each asset or `events.ndjson`       |
+| `maxTotalUncompressedBytes` |   1 GiB | Whole archive                       |
 
-## Limits
+Export upload additionally allows 64 MiB for ZIP overhead.
 
-`V2_ARCHIVE_LIMITS` mixes guards with different jobs; each one covers exactly one class of entry.
+## Export And Restore
 
-| Limit                       | Applies to                                                              | Why                                                                                                                       |
-| --------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `maxEntryCount`             | every ZIP entry                                                         | Bounds central-directory work on read.                                                                                    |
-| `maxRecordsPerSection`      | bounded sections only                                                   | A catalog-sized section that large is a corrupt or hostile archive. Events are exempt — their size is legitimate history. |
-| `maxMetadataEntryBytes`     | RAM-buffered entries: `manifest.json`, `profile.json`, bounded sections | These are fully materialized, so the cap is a memory guard.                                                               |
-| `maxEntryBytes`             | disk-backed entries: assets and `events.ndjson`                         | These stream to and from disk, so the cap is a disk/abuse guard, not a memory one.                                        |
-| `maxTotalUncompressedBytes` | whole archive                                                           | `MAX_ARCHIVE_BYTES` in `export/workflow.ts` tracks it plus ZIP overhead.                                                  |
+The [kernel transaction invariant](../../../AGENTS.md#persistence) forbids transactions across network I/O. Export therefore creates a scoped temp directory, reads a single repeatable-read snapshot, spills events using database `ORDER BY id`, commits, then streams the archive to storage. Temp cleanup covers success, failure, and interruption.
 
-## Export sequencing
+Restore validation spools events and assets into the caller's scoped temp directory. It validates section order, counts, hashes, limits, required system packages, and private packages before writes. Private packages are compiled and collision-checked, then assets are staged before the transaction so network work is outside it.
 
-`kernel/backend/CLAUDE.md` forbids holding a transaction across network calls, so events cannot be
-streamed straight to object storage from inside the snapshot transaction. The export therefore
-splits into spill-then-upload:
+All database writes occur in one transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Temp deletion failure is logged and swallowed so it cannot turn a committed restore into a failed run.
 
-1. `ExportBackupWorkflowOperations.build` acquires a scoped temp directory under
-   `config.fileStorage.localTempDir` (`FILE_STORAGE_LOCAL_TEMP_DIR`). The scope removes it on
-   success and on every failure path.
-2. Inside one repeatable-read read-only transaction, `prepareExportSnapshot` reads the bounded
-   sections, then pages the event table twice: once to collect managed asset locators (bounded by
-   asset count, not event count), and once to redact, rewrite asset locators, encode NDJSON, append
-   to the temp file, and update an `IncrementalSha256`. Both passes do database reads and local disk
-   writes only, so the transaction rule holds.
-3. After the transaction commits, the archive stream reads the spill file back as the
-   `events.ndjson` entry and uploads the ZIP.
+Private packages and exact installation identities are restored without lifecycle dispatch. Complete installations retain archived disabled intent; missing redacted required secrets produce `needs-configuration`. Integrations missing required secrets are disabled. Integration and custom-view provenance resolves to the exact installation.
 
-Event ordering comes from the database's `ORDER BY id` rather than a JavaScript `localeCompare`
-sort. Nothing on the read path depends on event order.
+Source files are user-authored and may contain credentials, so they are not redacted. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
 
-## Restore sequencing
+A restore target is clean only when every existing entity has bootstrap origin. Archived bootstrap entities match destination rows by schema and plugin ownership, never by name or initial properties. Every archived entity schema must exist in the current kernel or declared-plugin definition snapshot.
 
-`validateV2ArchiveStream` spools `events.ndjson` and every asset entry into a temp directory under
-`config.fileStorage.localTempDir` and hands that directory to the caller's scope, mirroring the
-export side. The returned event reader and asset streams read from it, so restore keeps its whole
-consumption inside one `Effect.scoped` region; the scope removes the directory on success, on
-validation failure, and on interruption alike. Removal is logged and swallowed rather than raised,
-so a spool that cannot be deleted never turns a committed restore into a failed one.
+## Failure Contract
 
-Private packages and exact system requirements are validated before asset staging. Private packages
-are compiled and collision-checked before the write transaction. Asset staging happens before the
-transaction, so no network call is held inside it. The write itself
-stays in a single transaction — atomicity is the point of a restore, and the cost that used to hurt
-was per-row round trips, not transaction size. Reading the spilled `events.ndjson` from local disk
-inside the transaction is rule-compliant. Events are inserted `RESTORE_EVENT_BATCH_SIZE` rows per
-statement; per-event reference rewriting and property validation stay per-event.
-
-Restore persists private packages and installation identities without lifecycle dispatch. The rows
-remain unavailable until commit. Complete installations become ready with their archived disabled
-intent; installations missing redacted required secrets become `needs-configuration`. Integration
-rows and plugin-scoped custom saved views retain package-key provenance that restores to the exact
-installation. Integrations missing required secrets are restored disabled. Source files are
-user-authored data and may contain credentials; only manifest config and integration settings fields
-can be redacted.
-
-User-bootstrap entity creation persists its origin on the entity and in the archive. A restore target
-is clean only when every existing entity has bootstrap origin. An archived entity must reference an
-entity schema available in the current definition snapshot, either from the kernel or from a declared
-plugin. Archived bootstrap entities are matched to destination rows by entity schema and plugin
-ownership, not by entity name or initial properties.
-
-## Error fidelity
-
-Both workflows persist structured failure data for the run row. Expected archive and restore
-failures retain the owning module's kebab-case reason code and structured parameters; they are not
-flattened into a generic error or prose message. Archive limit breaches remain typed failures so
-their reason and parameters survive the workflow boundary.
-
-Localized copy is owned by clients and is never persisted. Unexpected causes stay in backend logs;
-raw compiler/runtime diagnostics do not become workflow failure text.
+Expected archive, limit, and restore failures persist their module-owned kebab-case code and structured parameters on the run. They are not flattened to prose across workflow boundaries. Localized copy is client-owned and never persisted; unexpected causes and raw diagnostics remain in backend logs.

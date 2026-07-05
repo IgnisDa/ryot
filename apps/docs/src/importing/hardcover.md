@@ -1,32 +1,19 @@
 # Hardcover
 
 ::: info
-It is necessary to setup Hardcover for this import to work. Please follow the configuration
-[guide](../configuration.md) for instructions.
+Set `RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY` before import. See the [books guide](../guides/books.md).
 :::
 
-Ryot can import data from [Hardcover](https://hardcover.app).
+## Imported data
 
-## Reading Status
-
-- Currently Reading → "In Progress" collection: progress isn’t imported; you can update it
-  manually later.
-- Want to Read -> "Watchlist" collection
-
-## Additional Data
-
-- **Custom Lists**: Any lists you've created in Hardcover (like "Books That Changed My
-  Life") will be imported as collections in Ryot.
-- **Ratings & Reviews**: Your ratings, reviews, and review dates will be imported with your
-  reading history.
-- **Owned Books**: Books marked as "Owned" in Hardcover will be added to the "Owned"
-  collection.
-- **Reading Dates**: Start and finish dates will be preserved in your reading history.
+- `Currently Reading` becomes `In Progress`. Reading progress is not imported.
+- `Want to Read` becomes `Watchlist`.
+- Custom lists become Ryot collections.
+- Ratings, reviews, review dates, reading history, start dates, and finish dates are preserved.
+- Owned books are added to `Owned`.
 
 ## Steps
 
-1. Log in to your Hardcover account and go to your settings page.
-2. Look for the "Export Your Data" option, and download your library as a CSV file.
-3. Select "CSV Export" and then "Generate Export". Wait for the export to finish, then
-   download the file.
-4. Upload this file in the importing page on Ryot.
+1. In Hardcover settings, open **Export Your Data**.
+2. Select **CSV Export > Generate Export** and wait for completion.
+3. Download the CSV file and upload it under **Settings > Import data**.
