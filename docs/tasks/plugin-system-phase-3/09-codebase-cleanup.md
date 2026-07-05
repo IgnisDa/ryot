@@ -16,7 +16,9 @@ directly affected modules, not unrelated opportunistic refactors.
 
 Pay particular attention to residue of the five deleted native domain modules (`media-trending`,
 `exercises`, `metadata-lookup`, `episode-resolver`, `media-monitoring`), the deleted native
-sink/yank + import-source adapters, and the temporary step-2 `invokeOperation` scaffolding.
+sink/yank + import-source adapters, the temporary step-2 `invokeOperation` scaffolding, and any
+Promise-based sandbox driver/host compatibility wrapper or alias left after the Effect-native
+cutover.
 
 ## Acceptance criteria
 
