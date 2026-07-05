@@ -71,10 +71,11 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	if (!script) {
 		return yield* new SandboxRunError({ message: "Sandbox script not found" });
 	}
+	const scriptIsBuiltin = !(yield* runWithDb(repository.isPluginScript(payload.scriptId)));
 
 	const result = yield* sandbox.run({
 		scriptId: script.id,
-		scriptIsBuiltin: true,
+		scriptIsBuiltin,
 		userId: payload.userId,
 		context: payload.context,
 		metadata: script.metadata,

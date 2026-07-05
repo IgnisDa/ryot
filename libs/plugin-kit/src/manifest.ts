@@ -116,6 +116,15 @@ export const PluginScript = Schema.Union(
 
 export type PluginScript = Schema.Schema.Type<typeof PluginScript>;
 
+export const PluginCron = strictStruct({
+	slug: sandboxManifestSlug,
+	driverRef: sandboxManifestSlug,
+	schedule: sandboxManifestString,
+	description: sandboxManifestString,
+});
+
+export type PluginCron = Schema.Schema.Type<typeof PluginCron>;
+
 export const PluginSchemaScriptLink = strictStruct({
 	scriptSlug: Schema.String,
 	entitySchemaSlug: Schema.String,
@@ -173,6 +182,7 @@ export const PluginBindings = strictStruct({
 export type PluginBindings = Schema.Schema.Type<typeof PluginBindings>;
 
 export const PluginManifest = strictStruct({
+	crons: Schema.Array(PluginCron),
 	metadata: PluginMetadata,
 	bindings: PluginBindings,
 	scripts: Schema.Array(PluginScript),

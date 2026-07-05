@@ -70,13 +70,21 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 				trendingPlugin = yield* installTestPlugin({
 					source: TRENDING_SOURCE,
 					linkToEntitySchemaSlug: movieSchemaId,
+					crons: [
+						{
+							schedule: "0 0 * * *",
+							driverRef: SCRIPT_SLUG,
+							slug: "e2e-test-trending",
+							description: "Refresh E2E trending fixtures",
+						},
+					],
 					script: {
 						kind: "provider",
-						capabilities: [],
 						slug: SCRIPT_SLUG,
 						name: "E2E Test Trending",
 						requiredAppConfigKeys: [],
 						providerInformation: { source: "e2e" },
+						capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
 					},
 				});
 				scriptId = trendingPlugin.scriptId;
@@ -196,8 +204,7 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 				// Ranks follow save order deterministically; the first-saved item ranks ahead.
 				expect(rankOne).toBeLessThan(rankTwo);
 
-				// The workflow syncs edges once after every provider has been processed, so once the
-				// trending provider's edges are visible the non-trending provider's exclusion is final.
+				// The plugin cron reconciles the complete batch once, so exclusion is final when visible.
 				const finalCandidates = yield* listCandidates;
 				expect(
 					finalCandidates.filter((row) => row.sandboxScriptId === nonTrendingScriptId),

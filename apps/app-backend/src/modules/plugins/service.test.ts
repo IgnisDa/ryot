@@ -27,25 +27,24 @@ const makeRepository = (overrides: MockOverrides<typeof mockRepository>) =>
 	mockRepository({ _tag: "PluginRepository", ...overrides });
 
 const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredPlugin => {
-	const script = manifest.scripts[0];
-	assert(script);
-	const { entry, ...metadata } = script;
 	return {
 		manifest,
 		sourceHash,
 		status: "active",
-		scripts: [
-			{
+		scripts: manifest.scripts.map((script) => {
+			const { entry, ...metadata } = script;
+			const isCronScript = manifest.crons.some(({ driverRef }) => driverRef === script.slug);
+			return {
 				entry,
-				metadata,
 				slug: script.slug,
 				name: script.name,
 				compiledFormat: 1,
 				source: "cached source",
-				contentHash: "cached-hash",
 				compiledCode: "cached compiled",
-			},
-		],
+				contentHash: `cached-hash-${script.slug}`,
+				metadata: { ...metadata, ...(isCronScript ? { driverNames: ["cron"] } : {}) },
+			};
+		}),
 	};
 };
 

@@ -112,10 +112,12 @@ const allDomainManifest = defineManifest({
 		"getEntity",
 		"listEvents",
 		"createEvents",
+		"upsertGlobalEntities",
 		"getIntegration",
 		"getEntitySchema",
 		"listEventSchemas",
 		"listIntegrations",
+		"upsertGlobalRelationships",
 		"executeQueryEngine",
 	],
 });
@@ -144,17 +146,37 @@ defineDriver(allDomainManifest, {
 				},
 			]);
 			const total: number = created.count;
+			const [savedEntity] = yield* host.upsertGlobalEntities(
+				[
+					{
+						name: "Cooper",
+						populatedAt: null,
+						externalId: "person-1",
+						entitySchemaSlug: "person",
+						properties: { role: "actor" },
+					},
+				],
+				{ maximumTotal: 100 },
+			);
+			const inserted: boolean | undefined =
+				savedEntity?.status === "upserted" ? savedEntity.wasInserted : undefined;
+			const [reconciled] = yield* host.upsertGlobalRelationships([
+				{ relationships: [], selector: { type: "self" }, relationshipSchemaSlug: "same-as" },
+			]);
+			const deleted: number | undefined = reconciled?.deleted;
 			const query = yield* host.executeQueryEngine({ source: { type: "entities" } });
 			const queryResult: Expect<Equal<typeof query, unknown>> = true;
 			const entityArg: Expect<Equal<Parameters<typeof host.getEntity>[0], string>> = true;
+			void lot;
+			void total;
+			void deleted;
+			void inserted;
+			void providers;
+			void entityArg;
 			void properties;
 			void externalId;
-			void providers;
-			void lot;
 			void occurredAt;
-			void total;
 			void queryResult;
-			void entityArg;
 
 			// @ts-expect-error listIntegrations only accepts supported providers.
 			yield* host.listIntegrations({ provider: "not-a-provider" });

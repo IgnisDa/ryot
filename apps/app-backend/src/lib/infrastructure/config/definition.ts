@@ -81,6 +81,11 @@ const fields = {
 		"Minimum hours between automatic progress updates for an entity",
 		{ default: 2 },
 	),
+	builtinExercisePreloadLimit: intField(
+		"BUILTIN_EXERCISE_PRELOAD_LIMIT",
+		"Maximum number of built-in exercises to preload",
+		{ default: 873 },
+	),
 	frequentCronJobsSchedule: strField(
 		"SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE",
 		"Interval phrase for the frequent cron tier",
@@ -184,6 +189,7 @@ const logLevel = {
 };
 
 export const sandboxDenoDirConfig = fields.denoDir.config;
+export const builtinExercisePreloadLimitConfig = fields.builtinExercisePreloadLimit.config;
 
 const tmpDir: ConfigLeaf<string, FieldMeta> = {
 	config: Config.string("TMPDIR").pipe(
@@ -198,6 +204,7 @@ const tmpDir: ConfigLeaf<string, FieldMeta> = {
 		required: false,
 		envKey: "TMPDIR",
 		sensitive: false,
+		builtinOnly: false,
 		description: "Directory for temporary import and upload files",
 	},
 };
@@ -440,6 +447,7 @@ export const systemConfigDefinition = group(
 		scheduler: schedulerGroup.config,
 		fileStorage: fileStorageGroup.config,
 		frontendUrl: fields.frontendUrl.config,
+		builtinExercisePreloadLimit: builtinExercisePreloadLimitConfig,
 	}),
 	{
 		tmpDir: tmpDir.meta,
@@ -455,5 +463,6 @@ export const systemConfigDefinition = group(
 		scheduler: schedulerGroup.meta,
 		fileStorage: fileStorageGroup.meta,
 		frontendUrl: fields.frontendUrl.meta,
+		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.meta,
 	},
 );

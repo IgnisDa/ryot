@@ -13,7 +13,7 @@ import { buildEntityDetailQueryDocument } from "@ryot/query-engine/recipes/app";
 import { generateId } from "better-auth";
 import { DateTime, Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { requireText, trimToNull } from "#lib/shared/validation";
 import {
@@ -66,8 +66,22 @@ type UpsertEntityInput = {
 	properties: unknown;
 	updateExisting: boolean;
 	populatedAt: Date | null;
-	entitySchemaSlug: EntitySchemaSlug;
 	sandboxScriptId: SandboxScriptId;
+	entitySchemaSlug: EntitySchemaSlug;
+};
+
+export type UpsertGlobalEntityItem = {
+	name: string;
+	externalId: string;
+	properties: unknown;
+	populatedAt: Date | null;
+	entitySchemaSlug: EntitySchemaSlug;
+};
+
+export type UpsertGlobalEntitiesOptions = { maximumTotal?: number };
+
+type ValidatedGlobalEntityItem = Omit<UpsertGlobalEntityItem, "properties"> & {
+	properties: Record<string, unknown>;
 };
 
 const entityNotFoundError = "Entity not found";
@@ -264,6 +278,97 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			return { entity, outcome: { before, after, operation } };
 		});
 
+		const upsertGlobalEntities = Effect.fn("EntitiesService.upsertGlobalEntities")(function* (
+			items: ReadonlyArray<UpsertGlobalEntityItem>,
+			sandboxScriptId: SandboxScriptId,
+			options?: UpsertGlobalEntitiesOptions,
+		) {
+			const validated = yield* Effect.forEach(items, (input) =>
+				Effect.gen(function* () {
+					const scope = yield* runWithDb(repository.findEntitySchemaById(input.entitySchemaSlug));
+					if (!scope) {
+						return yield* notFound(entitySchemaNotFoundError);
+					}
+
+					const name = yield* requireText(input.name, "Entity name is required");
+					const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
+					return { ...input, name, properties } satisfies ValidatedGlobalEntityItem;
+				}),
+			);
+
+			const save = (input: ValidatedGlobalEntityItem) =>
+				repository.insertEntity({ ...input, scope: "global", sandboxScriptId });
+
+			if (options?.maximumTotal === undefined) {
+				return yield* Effect.forEach(validated, (input) =>
+					runWithDb(save(input)).pipe(
+						Effect.map((saved) => ({
+							entityId: saved.entity.id,
+							status: "upserted" as const,
+							wasInserted: saved.wasInserted,
+						})),
+					),
+				);
+			}
+
+			if (!Number.isInteger(options.maximumTotal) || options.maximumTotal < 0) {
+				return yield* badRequest("maximumTotal must be a nonnegative integer");
+			}
+
+			const maximumTotal = options.maximumTotal;
+			const runInTransaction = yield* TransactionRunner;
+			return yield* runInTransaction(
+				Effect.gen(function* () {
+					const scopeSlugs = [...new Set(validated.map((item) => item.entitySchemaSlug))].sort();
+					for (const entitySchemaSlug of scopeSlugs) {
+						yield* repository.lockGlobalEntityProvenanceScope({
+							entitySchemaSlug,
+							sandboxScriptId,
+						});
+					}
+
+					const counts = new Map<EntitySchemaSlug, number>();
+					for (const entitySchemaSlug of scopeSlugs) {
+						counts.set(
+							entitySchemaSlug,
+							yield* repository.countGlobalEntitiesByProvenanceScope({
+								entitySchemaSlug,
+								sandboxScriptId,
+							}),
+						);
+					}
+
+					return yield* Effect.forEach(validated, (input) =>
+						Effect.gen(function* () {
+							const existing = yield* repository.findGlobalEntityByExternalId({
+								sandboxScriptId,
+								externalId: input.externalId,
+								entitySchemaSlug: input.entitySchemaSlug,
+							});
+							if (existing) {
+								return { wasInserted: false, entityId: existing.id, status: "upserted" as const };
+							}
+
+							const currentCount = counts.get(input.entitySchemaSlug) ?? 0;
+							if (currentCount >= maximumTotal) {
+								return { status: "skipped" as const };
+							}
+
+							const saved = yield* save(input);
+							if (saved.wasInserted) {
+								counts.set(input.entitySchemaSlug, currentCount + 1);
+							}
+							return {
+								entityId: saved.entity.id,
+								status: "upserted" as const,
+								wasInserted: saved.wasInserted,
+							};
+						}),
+					);
+				}),
+			);
+		});
+
 		const getById = Effect.fn("EntitiesService.getById")(function* (
 			user: CurrentUserValue,
 			entityIdInput: EntityId,
@@ -323,6 +428,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			deleteByIds,
 			createGlobal,
 			getByIdAnyScope,
+			upsertGlobalEntities,
 		};
 	}),
 }) {}

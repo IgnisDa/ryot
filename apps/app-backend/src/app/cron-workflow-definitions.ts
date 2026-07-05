@@ -6,7 +6,6 @@ import {
 	integrationsFrequentTask,
 } from "#modules/integrations/frequent-task";
 import { mediaMonitoringInfrequentTask } from "#modules/media-monitoring/infrequent-task";
-import { mediaTrendingInfrequentTask } from "#modules/media-trending/infrequent-task";
 import {
 	type CronRunPayload,
 	FrequentCronWorkflow,
@@ -20,13 +19,11 @@ const frequentCronTasks: ReadonlyArray<FrequentCronTask> = [integrationsFrequent
 type CronTaskRequirements<Task> =
 	Task extends CronTask<infer _Error, infer Requirements> ? Requirements : never;
 
-type InfrequentCronTaskRequirements = CronTaskRequirements<
-	typeof mediaTrendingInfrequentTask | typeof mediaMonitoringInfrequentTask
->;
+type InfrequentCronTaskRequirements = CronTaskRequirements<typeof mediaMonitoringInfrequentTask>;
 
 const infrequentCronTasks: ReadonlyArray<
 	CronTask<SandboxRunError, InfrequentCronTaskRequirements>
-> = [mediaTrendingInfrequentTask, mediaMonitoringInfrequentTask];
+> = [mediaMonitoringInfrequentTask];
 
 const runFrequentCronWorkflow = Effect.fn("FrequentCronWorkflow")(
 	function* (_payload: CronRunPayload, executionId: string) {

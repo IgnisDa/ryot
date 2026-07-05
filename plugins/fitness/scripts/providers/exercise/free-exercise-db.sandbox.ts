@@ -1,17 +1,29 @@
-import { defineManifest, type JsonValue, type SandboxHost } from "@ryot/sandbox-sdk/core";
+import {
+	defineDriver,
+	defineManifest,
+	type JsonValue,
+	type SandboxHost,
+} from "@ryot/sandbox-sdk/core";
+import { dayjs } from "@ryot/sandbox-sdk/dayjs";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "Free Exercise DB",
-	requiredAppConfigKeys: [],
 	slug: "exercise.free-exercise-db",
 	providerInformation: { source: "free-exercise-db" },
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue"],
+	requiredAppConfigKeys: ["builtinExercisePreloadLimit"],
+	capabilities: [
+		"httpCall",
+		"getCachedValue",
+		"setCachedValue",
+		"getAppConfigValue",
+		"upsertGlobalEntities",
+	],
 });
 
-type ExerciseHost = SandboxHost<readonly ["httpCall", "getCachedValue", "setCachedValue"]>;
+type ExerciseSourceHost = SandboxHost<readonly ["httpCall", "getCachedValue", "setCachedValue"]>;
 
 const exerciseImageSchema = Schema.Struct({ type: Schema.Literal("remote"), url: Schema.String });
 type ExerciseImage = Schema.Schema.Type<typeof exerciseImageSchema>;
@@ -315,10 +327,10 @@ const reviveExercise = (value: unknown): NormalizedExercise | null => {
 	};
 };
 
-const writeCachedValue = (host: ExerciseHost, key: string, value: JsonValue) =>
+const writeCachedValue = (host: ExerciseSourceHost, key: string, value: JsonValue) =>
 	host.setCachedValue(key, value, CACHE_TTL_SECONDS).pipe(Effect.asVoid);
 
-const readCachedExercises = (host: ExerciseHost) =>
+const readCachedExercises = (host: ExerciseSourceHost) =>
 	Effect.gen(function* () {
 		const metadataValue = yield* host.getCachedValue(CACHE_KEY);
 		const metadata = Schema.decodeUnknownEither(cachedExercisesMetadataSchema)(metadataValue);
@@ -371,7 +383,7 @@ const chunkExercises = (rows: readonly NormalizedExercise[]) => {
 	return chunks;
 };
 
-const writeCachedExercises = (host: ExerciseHost, rows: readonly NormalizedExercise[]) => {
+const writeCachedExercises = (host: ExerciseSourceHost, rows: readonly NormalizedExercise[]) => {
 	const version = String(Date.now());
 
 	return Effect.gen(function* () {
@@ -387,7 +399,7 @@ const writeCachedExercises = (host: ExerciseHost, rows: readonly NormalizedExerc
 	});
 };
 
-const loadExercises = (host: ExerciseHost) =>
+const loadExercises = (host: ExerciseSourceHost) =>
 	Effect.gen(function* () {
 		const cached = yield* readCachedExercises(host);
 		if (cached) {
@@ -501,4 +513,43 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 	}),
 );
 
-export default defineProvider({ manifest, drivers: { search, details } });
+const PRELOAD_BATCH_SIZE = 100;
+const MAX_PRELOAD_EXERCISE_LIMIT = 873;
+const preloadResultSchema = Schema.Struct({
+	processed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	inserted: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+});
+
+export const cron = defineDriver(manifest, {
+	input: Schema.Unknown,
+	output: preloadResultSchema,
+	run: (_, host) =>
+		Effect.gen(function* () {
+			const configuredLimit = yield* host.getAppConfigValue("builtinExercisePreloadLimit");
+			if (typeof configuredLimit !== "number") {
+				return yield* Effect.fail(new Error("Exercise preload limit must be a number"));
+			}
+			const preloadLimit = Math.min(MAX_PRELOAD_EXERCISE_LIMIT, Math.max(0, configuredLimit));
+			const exercises = (yield* loadExercises(host)).slice(0, preloadLimit);
+			const populatedAt = dayjs().toISOString();
+			let inserted = 0;
+
+			for (let offset = 0; offset < exercises.length; offset += PRELOAD_BATCH_SIZE) {
+				const batch = exercises.slice(offset, offset + PRELOAD_BATCH_SIZE).map((exercise) => ({
+					populatedAt,
+					name: exercise.name,
+					properties: exercise.properties,
+					externalId: exercise.externalId,
+					entitySchemaSlug: "exercise",
+				}));
+				const results = yield* host.upsertGlobalEntities(batch, { maximumTotal: preloadLimit });
+				inserted += results.filter(
+					(result) => result.status === "upserted" && result.wasInserted,
+				).length;
+			}
+
+			return { inserted, processed: exercises.length };
+		}),
+});
+
+export default defineProvider({ manifest, drivers: { search, details, cron } });

@@ -21,6 +21,7 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
+import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { SignalsService } from "#modules/signals/service";
 
 type CreateGlobalEntityInput = {
@@ -46,6 +47,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		const signals = yield* SignalsService;
 		const entities = yield* EntitiesService;
 		const interest = yield* InterestService;
+		const pluginCrons = yield* PluginCronService;
 		const definitions = yield* DefinitionRegistry;
 		const automations = yield* AutomationsService;
 		const sandbox = yield* SandboxExecutionService;
@@ -150,6 +152,7 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 						payload: { executionId },
 					})
 					.pipe(Effect.orDie);
+				yield* pluginCrons.triggerAll(executionId);
 				return { executionId };
 			});
 

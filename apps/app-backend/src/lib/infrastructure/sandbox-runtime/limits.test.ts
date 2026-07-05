@@ -32,6 +32,12 @@ describe("sandbox limits", () => {
 				resultBytes: 1_048_576,
 				requestBytes: 2_097_152,
 			},
+			globalWrites: {
+				entityItems: 500,
+				relationshipGroups: 50,
+				relationshipsTotal: 1_000,
+				relationshipsPerGroup: 500,
+			},
 			compiler: {
 				concurrency: 2,
 				timeoutMs: 5_000,
