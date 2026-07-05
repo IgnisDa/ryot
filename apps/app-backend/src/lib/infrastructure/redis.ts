@@ -5,6 +5,7 @@ import { AppConfig } from "./config/service";
 
 export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
+	pluginRegistryChannel: "ryot:plugins:registry",
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
 	sandboxSession: (executionId: string) => `ryot:sandbox:session:${executionId}`,
