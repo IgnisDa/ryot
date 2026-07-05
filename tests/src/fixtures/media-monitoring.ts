@@ -1,4 +1,4 @@
-import { EntityId, PluginSlug, UserId } from "@ryot/contract/schema/brands";
+import { EntityId, PluginSlug } from "@ryot/contract/schema/brands";
 import {
 	mediaMonitoringDisableRecipe,
 	mediaMonitoringEnableRecipe,
@@ -13,22 +13,18 @@ import { assertCondition } from "~/support/assertions";
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
-import { openInterestStreamScoped } from "./interest-sse";
+import { openInterestWebSocketScoped } from "./interest-websocket";
 import { executeRyotQL, requireRyotQLValue } from "./ryotql";
 
-export const triggerCronAndWaitForEntity = (
-	auth: { cookies: string; userId: string },
-	entityId: string,
-) =>
+export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: string) =>
 	Effect.scoped(
 		Effect.gen(function* () {
-			const stream = yield* openInterestStreamScoped(auth);
+			const socket = yield* openInterestWebSocketScoped(auth);
 			yield* getBackendClient().call(
 				(c) =>
-					c.testSupport.setEntityInterest({
+					c.testSupport.setEntityInterestMembership({
 						payload: {
-							streamId: stream.streamId,
-							userId: UserId.make(auth.userId),
+							sessionId: socket.ready.sessionId,
 							entityIds: [EntityId.make(entityId)],
 						},
 					}),
@@ -45,7 +41,7 @@ export const triggerCronAndWaitForEntity = (
 				adminHeaders,
 			);
 			assertCondition(cron.status === "executed", "Media monitoring cron was not found");
-			yield* Effect.promise(() => stream.waitForEntityUpdated(entityId, "populated"));
+			yield* Effect.promise(() => socket.waitForEntityUpdated(entityId, "populated"));
 		}),
 	);
 

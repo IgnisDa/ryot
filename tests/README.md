@@ -46,7 +46,7 @@ RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full -
 
 Up to three files share backend concurrently. Tests and hooks have 180-second limits, and hanging-process reporter identifies leaked handles.
 
-Effect-native fixtures return effects rather than promises. Scoped network and SSE fixtures use `Effect.acquireRelease`, and `it.live` supplies per-test Scope without TestClock so resources close automatically. Wrap raw promise boundaries with `Effect.promise` inside Effect test bodies.
+Effect-native fixtures return effects rather than promises. Scoped network fixtures use `Effect.acquireRelease`, and `it.live` supplies per-test Scope without TestClock so resources close automatically. Wrap raw promise boundaries with `Effect.promise` inside Effect test bodies.
 
 `pollUntil` retries an Effect check until it returns non-null. Every spawned backend writes to unique `SERVER_LOG_FILE` under OS temp directory; startup output prints path for diagnosis.
 
@@ -69,9 +69,9 @@ Sandbox coverage installs source through `installTestPlugin` or `installTestPlug
 
 Entity, event, and relationship definitions install as scriptless plugins through real plugin endpoint. Global seeding uses test-support entity and relationship operations; user-scoped entities use authenticated API.
 
-## Interest Streams
+## Entity Interest WebSocket Fixture
 
-`src/fixtures/interest-sse.ts` opens authenticated SSE stream and exposes declaration and completion waits. It buffers frames, ignores heartbeat comments, and returns immediate terminal catch-up from declarations. Protocol is documented in `apps/app-backend/src/modules/entity-interest/README.md`.
+`src/fixtures/interest-websocket.ts` requests a short-lived ticket, opens a real authenticated WebSocket, sends the ticket as its first frame, and exposes the `ready.sessionId` for admin test support. It sends revisioned `replace` and `update` commands, waits for matching `applied` acknowledgements, buffers validated `entity-updated` messages, responds to application heartbeats, and exposes scoped close and completion-wait helpers. It fails tests on malformed server messages, unexpected close, rejected commands, or acknowledgement timeout. Protocol is documented in `apps/app-backend/src/modules/entity-interest/README.md`.
 
 ## OIDC
 

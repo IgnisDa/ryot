@@ -38,12 +38,13 @@ import { DefinitionsService } from "#modules/definitions/service";
 import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { LocalStreamConnections } from "#modules/entity-interest/connections";
+import { LocalInterestSessions } from "#modules/entity-interest/connections";
 import { EntityInterestProgression } from "#modules/entity-interest/progression";
 import { InterestReconciler } from "#modules/entity-interest/reconciler";
 import { InterestService } from "#modules/entity-interest/service";
 import { EntityInterestStore } from "#modules/entity-interest/store";
 import { EntityInterestSubscriber } from "#modules/entity-interest/subscriber";
+import { EntityInterestTicketService } from "#modules/entity-interest/ticket-service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entity-translation/entity-translation-workflow-live";
 import { TranslateEntityWorkflowOperationsLive } from "#modules/entity-translation/operations-workflow";
@@ -259,7 +260,7 @@ const InterestReconcilerLive = InterestReconciler.layer.pipe(
 
 const EntityInterestStateLive = Layer.mergeAll(
 	EntityInterestStore.layer,
-	LocalStreamConnections.layer,
+	LocalInterestSessions.layer,
 );
 const EntityInterestProgressionLive = EntityInterestProgression.layer.pipe(
 	Layer.provide([
@@ -279,6 +280,7 @@ const InterestServicesLive = Layer.mergeAll(
 	EntityInterestStateLive,
 	InterestReconcilerLive,
 	InterestServiceLive,
+	EntityInterestTicketService.layer,
 	EntityInterestProgressionLive,
 	EntityInterestSubscriberLive,
 );
