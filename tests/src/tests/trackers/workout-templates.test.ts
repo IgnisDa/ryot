@@ -6,7 +6,7 @@ import {
 	buildWorkoutDetailQueryDocument,
 	buildWorkoutTemplateDetailQueryDocument,
 	buildWorkoutTemplateListQueryDocument,
-} from "@ryot/query-engine";
+} from "@ryot/query-engine/recipes/fitness";
 import { Effect } from "effect";
 
 import {

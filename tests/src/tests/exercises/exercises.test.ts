@@ -4,7 +4,7 @@ import {
 	createEntityPropertyPathExpression,
 	createTransformExpression,
 } from "@ryot/contract/display-configuration";
-import { buildExerciseListQueryDocument } from "@ryot/query-engine";
+import { buildExerciseListQueryDocument } from "@ryot/query-engine/recipes/fitness";
 import { Effect } from "effect";
 
 import {

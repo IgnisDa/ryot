@@ -6,7 +6,7 @@ import {
 	queryEngineInclude,
 	queryEngineNestedEventSource,
 	queryEngineRelationshipSource,
-} from "./documents";
+} from "../documents";
 import {
 	queryEngineAggregate,
 	queryEngineAnd,
@@ -20,7 +20,7 @@ import {
 	queryEngineOrder,
 	queryEnginePropertyRef,
 	queryEngineSystemRef,
-} from "./primitives";
+} from "../primitives";
 
 const entityAlias = "entity";
 

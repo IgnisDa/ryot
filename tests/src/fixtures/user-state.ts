@@ -1,6 +1,6 @@
 import { EntityId } from "@ryot/contract/schema/brands";
+import { buildEventHistoryQueryDocument } from "@ryot/query-engine/recipes/app";
 import {
-	buildEventHistoryQueryDocument,
 	buildQueryEngineRowsDocument,
 	queryEngineComparison,
 	queryEngineField,

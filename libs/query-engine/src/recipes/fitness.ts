@@ -2,7 +2,7 @@ import {
 	buildQueryEngineEntityRowsDocument,
 	queryEngineEntitySource,
 	queryEngineInclude,
-} from "./documents";
+} from "../documents";
 import {
 	queryEngineAnd,
 	queryEngineComparison,
@@ -12,7 +12,7 @@ import {
 	queryEngineOrder,
 	queryEnginePropertyRef,
 	queryEngineSystemRef,
-} from "./primitives";
+} from "../primitives";
 
 const entityAlias = "entity";
 

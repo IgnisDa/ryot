@@ -1,5 +1,5 @@
 import { createEntityColumnExpression } from "@ryot/contract/display-configuration";
-import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine";
+import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
 import { Effect } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
