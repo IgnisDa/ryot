@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Before you start
 
@@ -22,8 +22,9 @@ dependency-free discipline of `@ryot/query-engine`, the `Bun.build` path in
 
 The two additive infrastructure pieces the loader will consume, with no kernel wiring yet:
 
-1. **`libs/plugin-kit`** — a new dependency-light workspace lib exporting the plugin manifest
-   types and a typed, `as const`-friendly `definePlugin` builder, plus `AppSchema` re-exports.
+1. **`libs/plugin-kit`** — a new dependency-light workspace lib exporting the Effect Schema
+   plugin manifest contracts, their derived types, and a typed, `as const`-friendly
+   `definePlugin` builder, plus `AppSchema` re-exports.
    The manifest carries exactly the v1 sections enumerated in plan §1 (metadata, entitySchemas
    incl. nested eventSchemas, relationshipSchemas, signalSchemas, trackers, savedViews,
    scripts, bindings) and **no more** — the Phase 3 sections (`crons`, `operations`,
@@ -46,19 +47,20 @@ spec. Do not restate or re-derive it.
 
 ## Acceptance criteria
 
-- [ ] `libs/plugin-kit` exports the manifest types and `definePlugin` builder with exactly the
-      plan §1 v1 sections; no Phase 3 sections are present (cross-phase invariant 3)
-- [ ] `libs/plugin-kit` stays dependency-light (types + `AppSchema` re-exports + builder), with
-      no kernel-internal imports (plan §1 placement rationale)
-- [ ] `libs/sandbox-compiler` compiles a multi-file fixture plugin package (script importing
+- [x] `libs/plugin-kit` exports Effect Schema manifest contracts, their derived types, and the
+      `definePlugin` builder with exactly the plan §1 v1 sections; no Phase 3 sections are
+      present (cross-phase invariant 3)
+- [x] `libs/plugin-kit` stays dependency-light (Effect schemas + derived types + `AppSchema`
+      re-exports + builder), with no kernel-internal imports (plan §1 placement rationale)
+- [x] `libs/sandbox-compiler` compiles a multi-file fixture plugin package (script importing
       from `shared/`) through the existing bundling path with existing diagnostics/approved-dep
       enforcement
-- [ ] Compiling N scripts reuses one worker session and produces deterministic, hash-stable
+- [x] Compiling N scripts reuses one worker session and produces deterministic, hash-stable
       output ordering (plan §3)
-- [ ] Unit tests cover manifest typing/build and multi-file bundling; `bun turbo
+- [x] Unit tests cover manifest typing/build and multi-file bundling; `bun turbo
     --filter=@ryot/app-backend check` and the affected package unit tests pass (cross-phase
       invariant 1)
-- [ ] Any `[IMPLEMENTER-DECIDES]`/`[RECOMMENDED]` deviations are recorded in the Phase 2 plan
+- [x] Any `[IMPLEMENTER-DECIDES]`/`[RECOMMENDED]` deviations are recorded in the Phase 2 plan
       file
 
 ## User stories addressed
