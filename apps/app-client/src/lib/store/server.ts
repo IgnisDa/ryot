@@ -4,7 +4,10 @@ import { Effect, Layer, Option, Schema } from "effect";
 import { Platform } from "react-native";
 import { createMMKV } from "react-native-mmkv";
 
-const storageLayer =
+export const serverUrlKey = "server-url";
+const serverUrlSchema = Schema.NullOr(Schema.String);
+
+export const serverStorageLayer =
 	Platform.OS === "web"
 		? KeyValueStore.layerStorage(() => localStorage)
 		: Layer.sync(KeyValueStore.KeyValueStore, () => {
@@ -18,13 +21,16 @@ const storageLayer =
 				});
 			});
 
-const storageRuntime = Atom.runtime(storageLayer);
+const storageRuntime = Atom.runtime(serverStorageLayer);
 const serverUrlAtom = Atom.kvs({
-	key: "server-url",
+	key: serverUrlKey,
 	runtime: storageRuntime,
+	schema: serverUrlSchema,
 	defaultValue: () => null,
-	schema: Schema.NullOr(Schema.String),
 });
 
 export const useServerUrl = () => useAtomValue(serverUrlAtom);
 export const useSetServerUrl = () => useAtomSet(serverUrlAtom);
+export const serverUrlStorage = Effect.map(KeyValueStore.KeyValueStore, (store) =>
+	store.forSchema(serverUrlSchema),
+);
