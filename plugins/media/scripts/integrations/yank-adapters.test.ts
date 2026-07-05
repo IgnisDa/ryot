@@ -4,6 +4,7 @@ import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/t
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { describe, expect, it } from "vitest";
 
+import type { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import {
 	execution,
 	hostFailure,
@@ -11,7 +12,6 @@ import {
 	httpSuccess,
 	integrationRecord,
 } from "../automations/automation-test-utils";
-import type { AdapterResult } from "./shared";
 import audiobookshelfDefinition, {
 	manifest as audiobookshelfManifest,
 } from "./yanks/audiobookshelf.sandbox";
@@ -22,7 +22,7 @@ import { deduplicateWindow } from "./yanks/youtube-music.sandbox";
 const failure = Symbol("failure");
 type Route = JsonValue | typeof failure;
 type HttpCall = SandboxHost<typeof plexManifest.capabilities>["httpCall"];
-type EntityGroup = AdapterResult["entityGroups"][number];
+type EntityGroup = MediaIntegrationAdapterResult["entityGroups"][number];
 const routeKey = (url: string) => {
 	const parsed = new URL(url);
 	return `${parsed.pathname}${parsed.search}`;
@@ -129,7 +129,7 @@ describe("Plex yank", () => {
 				{
 					eventSchemaSlug: "progress",
 					properties: { progressPercent: 100 },
-					episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 3 },
+					unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
 				},
 			],
 		});
@@ -435,7 +435,7 @@ describe("Audiobookshelf yank", () => {
 		});
 		expect(result.entityGroups[0]).toMatchObject({
 			entityRef: { externalId: "42", providerSlug: "podcast.itunes" },
-			events: [{ episodeLocator: { type: "podcast", episodeNumber: 2 } }],
+			events: [{ unresolvedEpisode: { type: "podcast", episodeNumber: 2 } }],
 		});
 	});
 });
