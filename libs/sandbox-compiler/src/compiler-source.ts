@@ -1,4 +1,4 @@
-import type { SandboxManifest } from "@ryot/sandbox-sdk";
+import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
 import {
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_IMPORTS,

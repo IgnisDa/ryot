@@ -1,4 +1,4 @@
-import type { HostResult, SandboxHost } from "@ryot/sandbox-sdk";
+import type { HostResult, SandboxHost } from "@ryot/sandbox-sdk/core";
 
 type AppConfigHost = SandboxHost<readonly ["getAppConfigValue"]>;
 

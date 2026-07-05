@@ -66,7 +66,7 @@ export const ${identifier}: GeneratedBuiltinSandboxScript = {
 };`;
 	});
 	const identifiers = entries.map(({ compiled }) => generatedIdentifier(compiled.manifest.slug));
-	return `import type { SandboxManifest } from "@ryot/sandbox-sdk";
+	return `import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
 
 export type GeneratedBuiltinSandboxScript = {
 \tname: string;
