@@ -27,7 +27,7 @@ import {
 	getBuiltinEntitySchemaSlug,
 	makeEntitySchemaSlug,
 } from "./entity-schemas";
-import { pollUntil, type PollOptions } from "./polling";
+import { pollUntil } from "./polling";
 import {
 	buildEntityRowsQueryDocument,
 	executeQueryEngine,
@@ -92,7 +92,6 @@ export const waitForInLibraryRelationship = (
 	client: Client,
 	entityId: string,
 	entitySchemaSlug: string,
-	options: PollOptions = {},
 ) =>
 	pollUntil(
 		`in-library relationship for entity ${entityId}`,
@@ -100,7 +99,6 @@ export const waitForInLibraryRelationship = (
 			const result = yield* queryInLibraryRelationship(client, entityId, entitySchemaSlug);
 			return result.data.items.length >= 1 ? result : null;
 		}),
-		{ timeoutMs: 5000, intervalMs: 200, ...options },
 	);
 
 export const getGlobalEntityByProvenance = (
@@ -148,7 +146,6 @@ export const getGlobalEntityByProvenance = (
 export const waitForEntityPopulated = (
 	client: Client,
 	input: { externalId: string; providerId: string; entitySchemaSlug: string },
-	options: PollOptions = {},
 ) =>
 	pollUntil(
 		`global entity '${input.externalId}' populated`,
@@ -156,7 +153,6 @@ export const waitForEntityPopulated = (
 			const entity = yield* getGlobalEntityByProvenance(client, input);
 			return entity.populatedAt !== null ? entity : null;
 		}),
-		{ timeoutMs: 30_000, intervalMs: 500, ...options },
 	);
 
 export const getRelationshipBySchemaSlug = (

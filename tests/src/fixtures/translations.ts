@@ -6,7 +6,7 @@ import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { getEntity } from "./entities";
 import { seedMediaEntity } from "./media";
-import { pollUntil, type PollOptions } from "./polling";
+import { pollUntil } from "./polling";
 
 type EntityTranslationRow = {
 	name: string | null;
@@ -93,7 +93,6 @@ export const pollEntityUntilTranslationStatus = (
 	client: Client,
 	entityId: string,
 	target: "ready" | "none",
-	options: PollOptions = {},
 ) =>
 	pollUntil(
 		`entity '${entityId}' translationStatus=${target}`,
@@ -101,5 +100,4 @@ export const pollEntityUntilTranslationStatus = (
 			const entity = yield* getEntity(client, entityId);
 			return entity.translationStatus === target ? entity : null;
 		}),
-		{ timeoutMs: 60_000, intervalMs: 2000, ...options },
 	);
