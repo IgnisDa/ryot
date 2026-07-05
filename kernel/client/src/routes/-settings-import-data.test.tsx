@@ -45,6 +45,8 @@ import {
 	IntegrationRouteStubs,
 	NotificationChannelRouteStubs,
 	makeUserSettingsStub,
+	ClientPagesApiRouteStubs,
+	ClientPageSessionsRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const LIMIT = 20;
@@ -187,6 +189,8 @@ const mountView = (
 			EntityRouteStubs,
 			makePublicApiStub(),
 			KernelApiTestLayer,
+			ClientPagesApiRouteStubs,
+			ClientPageSessionsRouteStubs,
 			makeUserSettingsStub(),
 			events.layer,
 			Layer.succeed(ArtifactSessions, {

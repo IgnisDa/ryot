@@ -2,7 +2,7 @@ import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
 import { Effect } from "effect";
 
 import { classifyRyotQLFailure, RyotQLApi } from "#/api/ryotql";
-import type { ApiScope } from "#/api/scope";
+import { apiScopeKey, type ApiScope } from "#/api/scope";
 import { UploadsApi } from "#/api/uploads";
 import {
 	classifyManagedAssetFailure,
@@ -76,3 +76,26 @@ export const createKernelRyotClient = (
 };
 
 export type KernelRyotClient = ReturnType<typeof createKernelRyotClient>;
+
+export type KernelRyotClientStore = {
+	readonly get: (scope: ApiScope) => KernelRyotClient;
+};
+
+export const createKernelRyotClientStore = (
+	runtime: KernelApiRuntime,
+	theme: ThemeStore,
+): KernelRyotClientStore => {
+	const clients = new Map<string, KernelRyotClient>();
+	return {
+		get: (scope) => {
+			const key = apiScopeKey(scope);
+			const existing = clients.get(key);
+			if (existing !== undefined) {
+				return existing;
+			}
+			const client = createKernelRyotClient(runtime, scope, theme);
+			clients.set(key, client);
+			return client;
+		},
+	};
+};

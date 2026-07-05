@@ -57,6 +57,31 @@ const compileStylesheet = (stylesheet: string, files: Record<string, Uint8Array>
 		"client/styles.css": bytes(stylesheet),
 	});
 
+it.effect("generates and executes the single bootstrap for a saved-view page", () =>
+	Effect.gen(function* () {
+		const { artifact } = yield* compileClientPlugin({
+			name: "User page",
+			application: "page",
+			entry: "client/page.tsx",
+			apiVersion: CLIENT_API_VERSION,
+			files: {
+				"client/page.tsx": bytes(`
+import { usePageContext } from "@ryot-app/client-sdk/plugin";
+export default function Page() {
+  const { settings } = usePageContext();
+  return <div>Published user page: {String(settings.title ?? "")}</div>;
+}
+`),
+			},
+		});
+		const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
+		expect(javascript).toContain("Published user page");
+		expect(javascript).not.toContain("@ryot-app/client-sdk/plugin");
+		// oxlint-disable-next-line typescript/no-implied-eval -- verifies the generated page module executes
+		expect(() => Function("document", javascript)({ getElementById: () => null })).not.toThrow();
+	}),
+);
+
 it.effect(
 	"compiles the fixture client sources into a loadable content-addressed artifact",
 	() =>

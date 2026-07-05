@@ -1,3 +1,4 @@
+import type { ContractSuccess } from "@ryot-app/contract/client";
 import { savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
@@ -17,7 +18,7 @@ import {
 	rowsLayouts,
 	updateSavedViewWithGridDocument,
 } from "~/fixtures/kernel";
-import { assertPresent } from "~/support/assertions";
+import { assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const schemaRowsDocument = (slug: string) =>
@@ -31,14 +32,21 @@ const schemaRowsDocument = (slug: string) =>
 		},
 	}).document;
 
-const buildBuiltinUpdatePayload = (view: Effect.Success<ReturnType<typeof getSavedView>>) => ({
-	icon: view.icon,
-	name: view.name,
-	layouts: view.layouts,
-	isDisabled: view.isDisabled,
-	entitySchemaSlug: view.entitySchemaSlug,
-	...(view.pluginSlug ? { pluginSlug: view.pluginSlug } : {}),
-});
+type SavedViewUpdateSource =
+	| Effect.Success<ReturnType<typeof getSavedView>>
+	| ContractSuccess<"savedViews", "update">;
+
+const buildBuiltinUpdatePayload = (view: SavedViewUpdateSource) => {
+	const layouts = requirePresent(view.layouts, "Built-in saved view has no layouts");
+	return {
+		layouts,
+		icon: view.icon,
+		name: view.name,
+		isDisabled: view.isDisabled,
+		entitySchemaSlug: view.entitySchemaSlug,
+		...(view.pluginSlug ? { pluginSlug: view.pluginSlug } : {}),
+	};
+};
 
 describe("saved views management", () => {
 	it.live("lists built-in and user-created views together", () =>
@@ -96,10 +104,18 @@ describe("saved views management", () => {
 				rowsDocument,
 				{ name: `${createdView.name} Updated` },
 			);
+			const updatedViewLayouts = requirePresent(
+				updatedView.layouts,
+				"Updated saved view has no layouts",
+			);
+			const createdViewLayouts = requirePresent(
+				createdView.layouts,
+				"Created saved view has no layouts",
+			);
 			expect(updatedView.entitySchemaSlug).toBe("book");
-			expect(updatedView.layouts.grid.queryDocument).toEqual(rowsDocument);
-			expect(updatedView.layouts.list).toEqual(createdView.layouts.list);
-			expect(updatedView.layouts.table).toEqual(createdView.layouts.table);
+			expect(updatedViewLayouts.grid.queryDocument).toEqual(rowsDocument);
+			expect(updatedViewLayouts.list).toEqual(createdViewLayouts.list);
+			expect(updatedViewLayouts.table).toEqual(createdViewLayouts.table);
 
 			const clonedView = yield* cloneSavedView(client, createdView.slug);
 			expect(clonedView.id).not.toBe(createdView.id);

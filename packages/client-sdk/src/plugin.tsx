@@ -4,10 +4,11 @@ import {
 	KERNEL_SHORTCUTS,
 	PluginBridgeInit,
 	PluginClientArtifactMetadata,
+	type ClientPageContext,
 } from "@ryot-app/client-plugin-contract";
 import { useShortcut } from "@ryot-app/client-ui-sdk";
 import { Result, Schema } from "effect";
-import { useSyncExternalStore } from "react";
+import { createContext, useContext, useSyncExternalStore, type ComponentType } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import { createPluginNavigationStore } from "./navigation/store";
@@ -16,6 +17,16 @@ import { createPluginRouteResolver, PluginRouter, type PluginRouterDefinition } 
 import { createPluginRuntime } from "./runtime";
 
 type ClientPluginDefinition = PluginRouterDefinition;
+
+const PageContext = createContext<ClientPageContext | undefined>(undefined);
+
+export const usePageContext = () => {
+	const context = useContext(PageContext);
+	if (!context) {
+		throw new Error("Page context is only available in a saved-view page");
+	}
+	return context;
+};
 
 const decodeArtifactMetadata = Schema.decodeUnknownResult(
 	Schema.fromJsonString(PluginClientArtifactMetadata),
@@ -42,7 +53,7 @@ const KernelShortcutForwarder = ({
 	return null;
 };
 
-export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
+const bootstrapClientApplication = (definition: ClientPluginDefinition) => {
 	const navigationStore = createPluginNavigationStore(createPluginRouteResolver(definition));
 	const listener = new AbortController();
 	let root: Root | undefined;
@@ -64,8 +75,10 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 				});
 				root.render(
 					<RyotProvider client={runtime.client}>
-						<KernelShortcutForwarder runtime={runtime} />
-						<PluginRouter navigation={runtime.navigation} />
+						<PageContext.Provider value={runtime.page}>
+							<KernelShortcutForwarder runtime={runtime} />
+							<PluginRouter navigation={runtime.navigation} />
+						</PageContext.Provider>
 					</RyotProvider>,
 				);
 			} catch {
@@ -133,6 +146,12 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 	);
 	return { dispose };
 };
+
+export const bootstrapClientPlugin = (definition: ClientPluginDefinition) =>
+	bootstrapClientApplication(definition);
+
+export const bootstrapClientPage = (component: ComponentType) =>
+	bootstrapClientApplication({ home: { component } });
 
 export {
 	PluginLink,

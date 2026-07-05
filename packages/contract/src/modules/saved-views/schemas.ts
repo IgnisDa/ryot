@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { EntitySchemaSlug, PluginSlug, SavedViewId } from "../../schema/brands";
+import { ClientRendererId, EntitySchemaSlug, PluginSlug, SavedViewId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { JsonValue, OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 
@@ -24,7 +24,11 @@ export type SavedViewDefinitionIssue = typeof SavedViewDefinitionIssue.Type;
 
 const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("duplicate-name") }),
+	Schema.Struct({ code: Schema.Literal("renderer-not-found") }),
+	Schema.Struct({ code: Schema.Literal("renderer-unpublished") }),
+	Schema.Struct({ code: Schema.Literal("renderer-kind-unavailable") }),
 	Schema.Struct({ code: Schema.Literal("plugin-not-found"), pluginSlug: PluginSlug }),
+	Schema.Struct({ code: Schema.Literal("settings-incompatible"), message: Schema.String }),
 	Schema.Struct({ code: Schema.Literal("builtin-view-immutable"), viewSlug: Schema.String }),
 	Schema.Struct({
 		entitySchemaSlug: EntitySchemaSlug,
@@ -119,7 +123,18 @@ export const SavedViewLayouts = strictStruct({
 });
 export type SavedViewLayouts = typeof SavedViewLayouts.Type;
 
-export const ListedSavedView = strictStruct({
+export const SavedViewRenderer = Schema.Union([
+	strictStruct({ kind: Schema.Literal("kernel"), name: Schema.String }),
+	strictStruct({ kind: Schema.Literal("custom"), rendererId: ClientRendererId }),
+	strictStruct({
+		pluginId: Schema.String,
+		exportName: Schema.String,
+		kind: Schema.Literal("plugin"),
+	}),
+]);
+export type SavedViewRenderer = typeof SavedViewRenderer.Type;
+
+const ListedSavedViewBase = {
 	id: SavedViewId,
 	slug: Schema.String,
 	name: Schema.String,
@@ -128,15 +143,22 @@ export const ListedSavedView = strictStruct({
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	isBuiltin: Schema.Boolean,
-	layouts: SavedViewLayouts,
 	isDisabled: Schema.Boolean,
 	pluginSlug: Schema.NullOr(PluginSlug),
+};
+
+export const ListedSavedView = strictStruct({
+	...ListedSavedViewBase,
+	layouts: Schema.optional(SavedViewLayouts),
+	renderer: Schema.optional(SavedViewRenderer),
 	entitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
+	dataSources: Schema.optional(Schema.NullOr(RyotQLDocument)),
+	settings: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 });
 
 export type ListedSavedView = typeof ListedSavedView.Type;
 
-export const CreateSavedViewBody = Schema.Struct({
+export const LegacyCreateSavedViewBody = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
 	layouts: SavedViewLayouts,
@@ -144,9 +166,23 @@ export const CreateSavedViewBody = Schema.Struct({
 	entitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
 });
 
+export const RendererCreateSavedViewBody = strictStruct({
+	icon: Schema.String,
+	name: Schema.String,
+	renderer: SavedViewRenderer,
+	dataSources: Schema.NullOr(RyotQLDocument),
+	workspacePluginSlug: Schema.optional(PluginSlug),
+	settings: Schema.Record(Schema.String, JsonValue),
+});
+
+export const CreateSavedViewBody = Schema.Union([
+	LegacyCreateSavedViewBody,
+	RendererCreateSavedViewBody,
+]);
+
 export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
 
-export const UpdateSavedViewBody = Schema.Struct({
+export const LegacyUpdateSavedViewBody = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
 	isDisabled: Schema.Boolean,
@@ -154,6 +190,21 @@ export const UpdateSavedViewBody = Schema.Struct({
 	layouts: Schema.optional(SavedViewLayouts),
 	entitySchemaSlug: Schema.optional(Schema.NullOr(EntitySchemaSlug)),
 });
+
+export const RendererUpdateSavedViewBody = strictStruct({
+	icon: Schema.String,
+	name: Schema.String,
+	isDisabled: Schema.Boolean,
+	renderer: SavedViewRenderer,
+	dataSources: Schema.NullOr(RyotQLDocument),
+	workspacePluginSlug: Schema.optional(PluginSlug),
+	settings: Schema.Record(Schema.String, JsonValue),
+});
+
+export const UpdateSavedViewBody = Schema.Union([
+	LegacyUpdateSavedViewBody,
+	RendererUpdateSavedViewBody,
+]);
 
 export type UpdateSavedViewBody = typeof UpdateSavedViewBody.Type;
 

@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "47d4c209-a1e0-4891-b8f8-3aca350f70cf",
+	"id": "f4e96daa-ef58-4dc2-b639-7818120a0576",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -19,6 +19,18 @@
 		{
 			"isRlsEnabled": false,
 			"name": "backup_run",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "client_page_build",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "client_renderer",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -873,6 +885,240 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "backup_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "published_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "renderer_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "artifact_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "published_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "name",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "published_revision",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "1",
+			"generated": null,
+			"identity": null,
+			"name": "draft_revision",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "published_definition",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "draft_definition",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "published_artifact_hash",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "updated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
 		},
 		{
 			"type": "text",
@@ -4645,6 +4891,58 @@
 			"table": "saved_view"
 		},
 		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "layouts",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "data_sources",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "renderer",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "1",
+			"generated": null,
+			"identity": null,
+			"name": "revision",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
@@ -4671,19 +4969,6 @@
 			"table": "saved_view"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "layouts",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
 			"type": "boolean",
 			"typeSchema": null,
 			"notNull": true,
@@ -4692,6 +4977,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "is_disabled",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "settings",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "saved_view"
@@ -4718,6 +5016,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "entity_schema_plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "client_renderer_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "saved_view"
@@ -5955,6 +6266,48 @@
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "backup_run"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "client_page_build_user_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "client_renderer_user_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "client_renderer"
 		},
 		{
 			"nameExplicit": true,
@@ -7808,6 +8161,27 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "client_renderer_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "saved_view_client_renderer_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "user_id",
 					"isExpression": false,
 					"asc": true,
@@ -8094,6 +8468,71 @@
 			"entityType": "fks",
 			"schema": "public",
 			"table": "backup_run"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["renderer_id"],
+			"schemaTo": "public",
+			"tableTo": "client_renderer",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "client_page_build_renderer_id_client_renderer_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "client_page_build_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["artifact_hash"],
+			"schemaTo": "public",
+			"tableTo": "plugin_client_artifact",
+			"columnsTo": ["hash"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "client_page_build_h5bSY8fiMNIQ_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["published_artifact_hash"],
+			"schemaTo": "public",
+			"tableTo": "plugin_client_artifact",
+			"columnsTo": ["hash"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "client_renderer_2daUrxvoruES_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "client_renderer_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "client_renderer"
 		},
 		{
 			"nameExplicit": false,
@@ -8747,6 +9186,19 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["client_renderer_id"],
+			"schemaTo": "public",
+			"tableTo": "client_renderer",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "saved_view_client_renderer_id_client_renderer_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -8942,6 +9394,22 @@
 			"name": "backup_run_pkey",
 			"schema": "public",
 			"table": "backup_run",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "client_page_build_pkey",
+			"schema": "public",
+			"table": "client_page_build",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "client_renderer_pkey",
+			"schema": "public",
+			"table": "client_renderer",
 			"entityType": "pks"
 		},
 		{
@@ -9215,6 +9683,24 @@
 			"schema": "public",
 			"table": "verification",
 			"entityType": "pks"
+		},
+		{
+			"nameExplicit": true,
+			"columns": ["renderer_id", "published_hash"],
+			"nullsNotDistinct": false,
+			"name": "client_page_build_renderer_publication_unique",
+			"entityType": "uniques",
+			"schema": "public",
+			"table": "client_page_build"
+		},
+		{
+			"nameExplicit": true,
+			"columns": ["user_id", "slug"],
+			"nullsNotDistinct": false,
+			"name": "client_renderer_user_slug_unique",
+			"entityType": "uniques",
+			"schema": "public",
+			"table": "client_renderer"
 		},
 		{
 			"nameExplicit": true,

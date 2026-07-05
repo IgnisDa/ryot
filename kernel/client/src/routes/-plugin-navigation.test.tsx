@@ -39,6 +39,8 @@ import {
 	IntegrationRouteStubs,
 	NotificationChannelRouteStubs,
 	makeWorkspaceRecorder,
+	ClientPagesApiRouteStubs,
+	ClientPageSessionsRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const AuthStub = makeAuthStub();
@@ -79,6 +81,8 @@ const mountView = (
 			makeEntityRouteStub(loadRouteProvenance),
 			makePublicApiStub(),
 			KernelApiTestLayer,
+			ClientPagesApiRouteStubs,
+			ClientPageSessionsRouteStubs,
 			Layer.succeed(ArtifactSessions, artifactSessions),
 			events.layer,
 			Layer.succeed(PluginCatalogService, { load }),

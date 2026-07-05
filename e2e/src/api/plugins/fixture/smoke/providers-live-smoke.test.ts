@@ -15,7 +15,12 @@ import {
 	settledPrivateInstallation,
 	releasePrivatePlugin,
 } from "~/fixtures/kernel";
-import { assertCompleted, assertCondition, assertPresent } from "~/support/assertions";
+import {
+	assertCompleted,
+	assertCondition,
+	assertPresent,
+	requirePresent,
+} from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const RUN_LIVE =
@@ -121,11 +126,15 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				const views = yield* listSavedViews(client, { pluginSlug });
 				const view = views.find(({ slug }) => slug === SAVED_VIEW_SLUG);
 				assertPresent(view, "Expected the fixture-owned 'all-pokemon' saved view");
+				const viewLayouts = requirePresent(
+					view.layouts,
+					"Fixture-owned 'all-pokemon' saved view has no layouts",
+				);
 				expect(view.name).toBe("All Pokemon");
 				expect(view.entitySchemaSlug).toBe(schema.id);
-				expect(view.layouts.grid.titleField).toBe("title");
-				expect(view.layouts.grid.imageField).toBe("image");
-				expect(view.layouts.table.columns.map(({ label }) => label)).toEqual([
+				expect(viewLayouts.grid.titleField).toBe("title");
+				expect(viewLayouts.grid.imageField).toBe("image");
+				expect(viewLayouts.table.columns.map(({ label }) => label)).toEqual([
 					"Name",
 					"Pokedex Number",
 					"Types",
@@ -244,12 +253,16 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				const views = yield* listSavedViews(client, { pluginSlug });
 				const view = views.find(({ slug }) => slug === MOVE_SAVED_VIEW_SLUG);
 				assertPresent(view, "Expected the fixture-owned 'all-moves' saved view");
+				const viewLayouts = requirePresent(
+					view.layouts,
+					"Fixture-owned 'all-moves' saved view has no layouts",
+				);
 				expect(view.name).toBe("All Moves");
 				expect(view.entitySchemaSlug).toBe(schema.id);
-				expect(view.layouts.grid.titleField).toBe("title");
-				expect(view.layouts.grid.imageField).toBeNull();
-				expect(view.layouts.table.imageField).toBeNull();
-				expect(view.layouts.table.columns.map(({ label }) => label)).toEqual([
+				expect(viewLayouts.grid.titleField).toBe("title");
+				expect(viewLayouts.grid.imageField).toBeNull();
+				expect(viewLayouts.table.imageField).toBeNull();
+				expect(viewLayouts.table.columns.map(({ label }) => label)).toEqual([
 					"Name",
 					"Type",
 					"Damage Class",
