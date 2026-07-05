@@ -8,7 +8,8 @@ export const manifest = defineManifest({
 	name: "Anilist Company Details",
 	slug: "company.anilist.details",
 	capabilities: ["httpCall"],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });

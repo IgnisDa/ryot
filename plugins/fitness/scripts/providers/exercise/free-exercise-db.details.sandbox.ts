@@ -5,7 +5,8 @@ import { getExerciseDetails } from "./free-exercise-db";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	name: "Free Exercise DB Details",
 	slug: "exercise.free-exercise-db.details",
 	capabilities: ["httpCall", "getCachedValue", "setCachedValue"],

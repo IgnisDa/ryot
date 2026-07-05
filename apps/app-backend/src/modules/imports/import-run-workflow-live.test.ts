@@ -27,6 +27,7 @@ import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { ImportsService } from "./service";
 
 const executionId = "import-run-dispatch";
+const configSchema = { fields: {}, unknownKeys: "strict" } as const;
 
 const payload = {
 	source: "netflix",
@@ -42,7 +43,8 @@ const netflixSource = {
 	name: "Netflix",
 	slug: "netflix",
 	pluginSlug: "media",
-	requiredAppConfigKeys: [],
+	configSchema,
+	requiredPluginConfigKeys: [],
 	description: "Netflix export",
 	workflowSlug: "netflix-import",
 	allowedFileExtensions: ["zip"],
@@ -134,7 +136,8 @@ it.effect("grants only registry-declared named artifacts to a plugin import work
 		slug: "movary",
 		name: "Movary",
 		pluginSlug: "media",
-		requiredAppConfigKeys: [],
+		configSchema,
+		requiredPluginConfigKeys: [],
 		description: "Movary export",
 		workflowSlug: "movary-import",
 		artifacts: [

@@ -1,13 +1,27 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Option, Redacted } from "effect";
+import { ConfigProvider, Effect, Layer } from "effect";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
 
 import { registryImportSourceFileInputs, registryImportSourceStartError } from "./source-metadata";
 
 type SingleImportSource = Extract<RegisteredImportSource, { readonly lot: "single" }>;
+
+const configSchema = {
+	unknownKeys: "strict",
+	fields: {
+		tmdbAccessToken: {
+			type: "string",
+			label: "TMDB access token",
+			description: "TMDB access token",
+		},
+		hardcoverApiKey: {
+			type: "string",
+			label: "Hardcover API key",
+			description: "Hardcover API key",
+		},
+	},
+} as const;
 
 const registeredSource = (overrides: Partial<SingleImportSource> = {}) =>
 	({
@@ -16,7 +30,8 @@ const registeredSource = (overrides: Partial<SingleImportSource> = {}) =>
 		name: "Netflix",
 		slug: "netflix",
 		pluginSlug: "media",
-		requiredAppConfigKeys: [],
+		configSchema,
+		requiredPluginConfigKeys: [],
 		description: "Netflix export",
 		workflowSlug: "netflix-import",
 		allowedFileExtensions: ["zip"],
@@ -50,7 +65,8 @@ it("maps a registry payload source onto no file inputs", () => {
 				slug: "trakt",
 				input: "payload",
 				pluginSlug: "media",
-				requiredAppConfigKeys: [],
+				configSchema,
+				requiredPluginConfigKeys: [],
 				description: "Trakt account",
 				workflowSlug: "trakt-import",
 			},
@@ -66,7 +82,8 @@ it("maps named artifacts onto their existing token fields and stable path keys",
 		name: "Movary",
 		slug: "movary",
 		pluginSlug: "media",
-		requiredAppConfigKeys: [],
+		configSchema,
+		requiredPluginConfigKeys: [],
 		description: "Movary export",
 		workflowSlug: "movary-import",
 		artifacts: [
@@ -119,7 +136,8 @@ it("keeps omitted optional named artifact tokens unclaimed", () => {
 		slug: "myanimelist",
 		name: "MyAnimeList",
 		pluginSlug: "media",
-		requiredAppConfigKeys: [],
+		configSchema,
+		requiredPluginConfigKeys: [],
 		description: "MyAnimeList export",
 		workflowSlug: "myanimelist-import",
 		artifacts: [
@@ -163,38 +181,32 @@ it("keeps omitted optional named artifact tokens unclaimed", () => {
 	]);
 });
 
-it.effect("reports every unconfigured app config key a registry source requires", () =>
+it.effect("reports every unconfigured plugin config key a registry source requires", () =>
 	Effect.gen(function* () {
-		const config = yield* AppConfig;
-
 		expect(
-			registryImportSourceStartError(
+			yield* registryImportSourceStartError(
 				registeredSource({
-					requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken", "books.hardcoverApiKey"],
+					requiredPluginConfigKeys: ["tmdbAccessToken", "hardcoverApiKey"],
 				}),
-				config,
 			),
 		).toBe(
-			"Netflix importer is not configured. Set moviesAndShows.tmdbAccessToken, books.hardcoverApiKey.",
+			"Netflix importer is not configured. Set RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN, RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY.",
 		);
-	}).pipe(Effect.provide(makeAppConfigLayer())),
+	}).pipe(Effect.provide(Layer.setConfigProvider(ConfigProvider.fromMap(new Map())))),
 );
 
-it.effect("accepts a registry source whose required app config keys are all set", () =>
+it.effect("accepts a registry source whose required plugin config keys are all set", () =>
 	Effect.gen(function* () {
-		const config = yield* AppConfig;
-
 		expect(
-			registryImportSourceStartError(
-				registeredSource({ requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"] }),
-				config,
+			yield* registryImportSourceStartError(
+				registeredSource({ requiredPluginConfigKeys: ["tmdbAccessToken"] }),
 			),
 		).toBeUndefined();
 	}).pipe(
 		Effect.provide(
-			makeAppConfigLayer({
-				moviesAndShows: { tmdbAccessToken: Option.some(Redacted.make("tmdb-token")) },
-			}),
+			Layer.setConfigProvider(
+				ConfigProvider.fromMap(new Map([["RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN", "tmdb-token"]])),
+			),
 		),
 	),
 );

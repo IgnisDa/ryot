@@ -188,7 +188,8 @@ import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 export const manifest = defineManifest({
   kind: "script",
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
   name: "Seed script",
   slug: ${JSON.stringify(value)},
 });
@@ -210,7 +211,8 @@ export default defineScript({
 				kind: "script",
 				capabilities: [],
 				name: "Seed script",
-				requiredAppConfigKeys: [],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
 			},
 		],
 	});

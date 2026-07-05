@@ -12,7 +12,8 @@ export const manifest = defineManifest({
 	capabilities: [],
 	name: "Media monitoring sweep",
 	slug: "workflow.media-monitoring-sweep",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 const BATCH_SIZE = 100;

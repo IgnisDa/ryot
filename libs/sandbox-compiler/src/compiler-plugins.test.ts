@@ -40,6 +40,8 @@ it.effect(
 				expect(result.compiled.javascript).not.toContain('from "../shared/value"');
 				expect(Object.keys(result.compiled).sort()).toEqual(["format", "javascript", "manifest"]);
 			}
+			expect(first[0]?.compiled.manifest.requiredPluginConfigKeys).toEqual(["alpha-key"]);
+			expect(first[0]?.compiled.manifest.requiredSystemConfigKeys).toEqual(["system-key"]);
 		}),
 	10_000,
 );
@@ -56,7 +58,8 @@ export const manifest = defineManifest({
 	slug: "activity",
 	kind: "activity",
 	capabilities: ["httpCall"],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineActivity({
@@ -76,7 +79,8 @@ export const manifest = defineManifest({
 	slug: "operation",
 	kind: "operation",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineOperation({
@@ -96,7 +100,8 @@ export const manifest = defineManifest({
 	slug: "automation",
 	kind: "automation",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -112,7 +117,8 @@ export const manifest = defineManifest({
 	slug: "workflow",
 	kind: "workflow",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -175,7 +181,8 @@ export const manifest = defineManifest({
 	slug: "workflow",
 	kind: "workflow",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -225,7 +232,8 @@ export const manifest = defineManifest({
 	slug: "workflow",
 	kind: "workflow",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -263,7 +271,8 @@ export const manifest = defineManifest({
 	slug: "workflow",
 	kind: "workflow",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -303,7 +312,8 @@ export const manifest = defineManifest({
 	slug: "operation",
 	kind: "operation",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineOperation({
@@ -338,7 +348,8 @@ export const manifest = defineManifest({
 	slug: "provider",
 	kind: "provider",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({
@@ -375,7 +386,8 @@ export const manifest = defineManifest({
 	slug: "old-operation",
 	kind: "operation",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 const main = defineDriver(manifest, {});

@@ -1,5 +1,6 @@
 import { definePlugin } from "@ryot/plugin-kit/manifest";
 
+import { mediaConfigSchema } from "./config-schema";
 import { mediaSavedViews } from "./saved-views";
 import { mediaEntitySchemas } from "./schemas/entity-schemas";
 import { builtinMediaEntitySchemaSlugs } from "./schemas/media-schema-slugs";
@@ -369,6 +370,7 @@ export const mediaPlugin = definePlugin({
 	scripts: mediaScripts,
 	providers: mediaProviders,
 	savedViews: mediaSavedViews(),
+	configSchema: mediaConfigSchema,
 	signalSchemas: mediaSignalSchemas("media-monitoring"),
 	importSources: [
 		{
@@ -378,7 +380,7 @@ export const mediaPlugin = definePlugin({
 			name: "Netflix",
 			workflowSlug: "import",
 			allowedFileExtensions: ["zip"],
-			requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+			requiredPluginConfigKeys: ["tmdbAccessToken"],
 			description: "Import viewing activity, ratings, and watchlist entries from Netflix",
 		},
 		{
@@ -387,7 +389,7 @@ export const mediaPlugin = definePlugin({
 			slug: "goodreads",
 			name: "Goodreads",
 			workflowSlug: "import",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
 			allowedFileExtensions: ["csv"],
 			description: "Import books, reading history, reviews, and shelves from Goodreads",
 		},
@@ -397,7 +399,7 @@ export const mediaPlugin = definePlugin({
 			slug: "storygraph",
 			name: "StoryGraph",
 			workflowSlug: "import",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
 			allowedFileExtensions: ["csv"],
 			description: "Import books, reading history, reviews, and tags from StoryGraph",
 		},
@@ -408,7 +410,7 @@ export const mediaPlugin = definePlugin({
 			name: "Hardcover",
 			workflowSlug: "import",
 			allowedFileExtensions: ["csv"],
-			requiredAppConfigKeys: ["books.hardcoverApiKey"],
+			requiredPluginConfigKeys: ["hardcoverApiKey"],
 			description: "Import books, reading history, reviews, lists, and ownership from Hardcover",
 		},
 		{
@@ -417,7 +419,7 @@ export const mediaPlugin = definePlugin({
 			slug: "anilist",
 			name: "AniList",
 			workflowSlug: "import",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
 			allowedFileExtensions: ["json"],
 			description:
 				"Import anime, manga, progress, reviews, favorites, and custom lists from AniList",
@@ -427,7 +429,7 @@ export const mediaPlugin = definePlugin({
 			name: "Trakt",
 			input: "payload",
 			workflowSlug: "import",
-			requiredAppConfigKeys: ["server.traktClientId"],
+			requiredPluginConfigKeys: ["traktClientId"],
 			description:
 				"Import movies, shows, history, ratings, watchlist, lists, and ownership from Trakt",
 		},
@@ -438,7 +440,7 @@ export const mediaPlugin = definePlugin({
 			lot: "single",
 			workflowSlug: "import",
 			allowedFileExtensions: ["csv"],
-			requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+			requiredPluginConfigKeys: ["tmdbAccessToken"],
 			description: "Import movie and show watchlist entries from IMDb",
 		},
 		{
@@ -448,7 +450,7 @@ export const mediaPlugin = definePlugin({
 			input: "file",
 			workflowSlug: "import",
 			allowedFileExtensions: ["csv"],
-			requiredAppConfigKeys: ["videoGames.twitchClientId", "videoGames.twitchClientSecret"],
+			requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
 			description: "Import video games into a selected collection from IGDB",
 		},
 		{
@@ -458,7 +460,7 @@ export const mediaPlugin = definePlugin({
 			name: "Grouvee",
 			workflowSlug: "import",
 			allowedFileExtensions: ["csv"],
-			requiredAppConfigKeys: ["videoGames.giantBombApiKey"],
+			requiredPluginConfigKeys: ["giantBombApiKey"],
 			description: "Import video games, play history, reviews, ratings, and shelves from Grouvee",
 		},
 		{
@@ -468,7 +470,7 @@ export const mediaPlugin = definePlugin({
 			name: "Watcharr",
 			workflowSlug: "import",
 			allowedFileExtensions: ["json"],
-			requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+			requiredPluginConfigKeys: ["tmdbAccessToken"],
 			description: "Import movies, shows, episode history, reviews, and collections from Watcharr",
 		},
 		{
@@ -477,7 +479,7 @@ export const mediaPlugin = definePlugin({
 			slug: "movary",
 			name: "Movary",
 			workflowSlug: "import",
-			requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+			requiredPluginConfigKeys: ["tmdbAccessToken"],
 			description: "Import movie history, ratings, and watchlist entries from Movary",
 			artifacts: [
 				{
@@ -506,7 +508,7 @@ export const mediaPlugin = definePlugin({
 			slug: "myanimelist",
 			name: "MyAnimeList",
 			workflowSlug: "import",
-			requiredAppConfigKeys: ["animeAndManga.malClientId"],
+			requiredPluginConfigKeys: ["malClientId"],
 			description: "Import anime and manga history, progress, ratings, and status from MyAnimeList",
 			artifacts: [
 				{
@@ -528,7 +530,7 @@ export const mediaPlugin = definePlugin({
 			slug: "jellyfin",
 			name: "Jellyfin",
 			workflowSlug: "import",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
 			description: "Import watched movies, episodes, and favorites from Jellyfin",
 		},
 		{
@@ -536,7 +538,7 @@ export const mediaPlugin = definePlugin({
 			name: "Plex",
 			input: "payload",
 			workflowSlug: "import",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
 			description: "Import watched movies and episodes from Plex",
 		},
 		{
@@ -544,7 +546,7 @@ export const mediaPlugin = definePlugin({
 			slug: "audiobookshelf",
 			name: "Audiobookshelf",
 			workflowSlug: "import",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
 			description: "Import finished audiobooks, ebooks, podcasts, and library collections",
 		},
 		{
@@ -552,7 +554,7 @@ export const mediaPlugin = definePlugin({
 			name: "MediaTracker",
 			slug: "media_tracker",
 			workflowSlug: "import",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
 			description:
 				"Import media history, reviews, lifecycle states, and collections from MediaTracker",
 		},

@@ -17,7 +17,8 @@ export const manifest = defineManifest({
 	name: "List media monitoring targets",
 	capabilities: ["executeQueryEngine"],
 	slug: "activity.media-monitoring-targets",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineActivity({

@@ -5,7 +5,7 @@ import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
 import { toTitleCase } from "../../../script-helpers/title-case";
 
-type GoogleBooksHost = SandboxHost<readonly ["httpCall", "getAppConfigValue"]>;
+type GoogleBooksHost = SandboxHost<readonly ["httpCall", "getPluginConfigValue"]>;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -32,11 +32,11 @@ const parseJsonResponse = (responseBody: string) => {
 };
 
 const getGoogleBooksApiKey = (host: GoogleBooksHost) =>
-	host.getAppConfigValue("books.googleBooksApiKey").pipe(
+	host.getPluginConfigValue("googleBooksApiKey").pipe(
 		Effect.flatMap((value) => {
 			const apiKey = stringValue(value);
 			if (!apiKey) {
-				return Effect.fail(new Error("BOOKS_GOOGLE_BOOKS_API_KEY is not configured"));
+				return Effect.fail(new Error("RYOT_PLUGIN_MEDIA_GOOGLE_BOOKS_API_KEY is not configured"));
 			}
 			return Effect.succeed(apiKey);
 		}),
@@ -159,8 +159,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Google Books",
 	slug: "book.google-books",
-	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["books.googleBooksApiKey"],
+	capabilities: ["httpCall", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["googleBooksApiKey"],
+	requiredSystemConfigKeys: [],
 });
 
 export const search = defineProvider({

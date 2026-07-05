@@ -1,5 +1,6 @@
 import { definePlugin } from "@ryot/plugin-kit/manifest";
 
+import { fitnessConfigSchema } from "./config-schema";
 import { fitnessSavedViews } from "./saved-views";
 import { fitnessEntitySchemas } from "./schemas/entity-schemas";
 import { fitnessRelationshipSchemas } from "./schemas/relationship-schemas";
@@ -10,6 +11,7 @@ export const fitnessPlugin = definePlugin({
 	crons: [],
 	operations: [],
 	scripts: fitnessScripts,
+	configSchema: fitnessConfigSchema,
 	integrationProviders: [],
 	workflows: [{ slug: "import", scriptSlug: "workflow.import" }],
 	savedViews: fitnessSavedViews(),
@@ -64,7 +66,7 @@ export const fitnessPlugin = definePlugin({
 			lot: "single",
 			input: "file",
 			workflowSlug: "import",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
 			allowedFileExtensions: ["csv"],
 			description: "Import workouts from a Hevy CSV export",
 		},
@@ -74,7 +76,7 @@ export const fitnessPlugin = definePlugin({
 			slug: "strong_app",
 			name: "Strong App",
 			workflowSlug: "import",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
 			allowedFileExtensions: ["csv"],
 			description: "Import workouts from a Strong CSV export",
 		},
@@ -84,7 +86,7 @@ export const fitnessPlugin = definePlugin({
 			name: "OpenScale",
 			slug: "open_scale",
 			workflowSlug: "import",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
 			allowedFileExtensions: ["csv"],
 			description: "Import measurements from an OpenScale CSV export",
 		},

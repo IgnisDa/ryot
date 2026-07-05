@@ -13,7 +13,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Effect.succeed("token"),
+		getPluginConfigValue: () => Effect.succeed("token"),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };

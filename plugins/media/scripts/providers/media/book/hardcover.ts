@@ -25,8 +25,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Hardcover",
 	slug: "book.hardcover",
-	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["books.hardcoverApiKey"],
+	capabilities: ["httpCall", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["hardcoverApiKey"],
+	requiredSystemConfigKeys: [],
 });
 
 const collectImages = (imageField: unknown, imagesArray: unknown) => {

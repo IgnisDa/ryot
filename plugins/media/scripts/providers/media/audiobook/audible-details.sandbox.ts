@@ -8,7 +8,8 @@ export const manifest = defineManifest({
 	name: "Audible Details",
 	slug: "audiobook.audible.details",
 	capabilities: ["httpCall"],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });
