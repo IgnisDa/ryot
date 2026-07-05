@@ -22,6 +22,29 @@ non-empty strings without surrounding whitespace. `driverRef` is the slug of a s
 the manifest's `scripts` section; the plugin loader verifies that its compiled definition exposes
 a `cron` driver.
 
+## Boot
+
+The `boot` manifest section declares sandbox drivers the kernel dispatches once per server start —
+one-time catalog seeding rather than periodic work:
+
+```ts
+boot: [
+	{
+		slug: "preload-catalog",
+		driverRef: "preload-catalog",
+		description: "Seed the built-in catalog",
+	},
+];
+```
+
+`slug` and `driverRef` use sandbox manifest slug syntax; `description` must be a non-empty string
+without surrounding whitespace. A boot entry has no `schedule`. `driverRef` is the slug of a
+script declared in the manifest's `scripts` section; the plugin loader verifies that its compiled
+definition exposes a `boot` driver. Dispatch happens once per server start, non-blocking,
+immediately after plugin ingestion, and is skipped when background jobs are disabled (the same
+flag the scheduler honors). Idempotency (preserve-existing writes, a bound such as
+`maximumTotal`) stays with the script, since a restart re-runs every boot entry.
+
 ## Operations
 
 The `operations` manifest section declares invocable sandbox drivers exposed through

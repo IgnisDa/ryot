@@ -39,7 +39,7 @@ and you record the choice you make in the plan file.
 | --- | ----------------------------------------------------------------------------------------------------------- | ---- | ------ |
 | 01  | [Step 0a — Effect-Native Sandbox Cutover](./01-effect-native-sandbox-cutover.md)                            | AFK  | done   |
 | 02  | [Step 0b — Structured Sandbox Observability](./02-structured-sandbox-observability.md)                      | AFK  | done   |
-| 03  | [Step 1 — Crons: media-trending + exercises](./03-crons-trending-exercises.md)                              | AFK  | done   |
+| 03  | [Step 1 — Crons & Boot: media-trending + exercises](./03-crons-trending-exercises.md)                       | AFK  | done   |
 | 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md) | AFK  | done   |
 | 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                          | HITL | todo   |
 | 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)   | AFK  | todo   |
@@ -89,8 +89,9 @@ explicable by only one plugin (Decision 8; plan standing rules).
 The steps, in order: **Step 0a** atomically cuts scripts, drivers, backend host implementations,
 and typed bridge dispatch over to an Effect-only API with no raw Promise compatibility surface.
 **Step 0b** independently adds structured, batch-first `log`/`span` host functions. **Step 1**
-adds the `crons` manifest section and global-write host functions, moving `media-trending` and
-`exercises` to cron-driven scripts. **Step 2** adds the `operations` manifest section and the single generic
+adds the `crons` and `boot` manifest sections and global-write host functions, moving
+`media-trending` to a cron-driven script and `exercises` to a boot-driven script (one-time
+catalog seeding runs once per server start, not on a periodic schedule). **Step 2** adds the `operations` manifest section and the single generic
 `plugins.invoke` contract endpoint, moving `metadata-lookup` and `episode-resolver` to plugin
 operations and migrating the browser extension to invoke. **Step 3** — gated behind a
 **mandatory throwaway spike** — builds the replay-deterministic durable-workflow primitives
@@ -154,9 +155,11 @@ description }`) whose schedule format is whatever the existing scheduler consume
 8. As the kernel, I want those global-write functions capability-gated in the driver manifest,
    so that a future untrusted provider script cannot write global data by default (plan §1).
 9. As the owner, I want `media-trending` (poll providers → write trending globals + refresh
-   workflow + infrequent task) and `exercises` (free-exercise-db preload) rewritten as
-   cron-driven plugin scripts and the native modules deleted (with any contract surface),
-   so that both capabilities run entirely inside their plugins (Decision 14; plan §1).
+   workflow + infrequent task) rewritten as a cron-driven plugin script and `exercises`
+   (free-exercise-db preload) rewritten as a boot-driven plugin script (one-time catalog seeding
+   dispatched once per server start rather than on a periodic schedule), with the native modules
+   deleted (with any contract surface), so that both capabilities run entirely inside their
+   plugins (Decision 14; plan §1).
 10. As the implementing agent, I want the trending _read_ path to stay query-engine-based
     (moving any residual native read code to a saved view / recipe, or deferring to step 2's
     operations), so that migrating the write path does not strand a native read path (plan §1).
@@ -316,10 +319,13 @@ them (and risk drift), this PRD points to the exact sections that own them:
 - **Step 0b — structured sandbox observability** — batch-first `log`/`span` Effect host
   functions, OTLP trace integration, execution bookkeeping, capability gating, and limits:
   plan Step 0b.
-- **Step 1 — crons** — the `crons` manifest section, scheduler dispatch through the durable
-  queue machinery, the `upsertGlobalEntities` / `upsertGlobalRelationships` host functions
-  (shapes `[IMPLEMENTER-DECIDES]`, semantics fixed, capability-gated), the trending-read-path
-  note, and the migrate/delete/e2e lists (`triggerInfrequentCron` fixture exists): plan §1.
+- **Step 1 — crons & boot** — the `crons` manifest section and the sibling `boot` manifest
+  section (one-time-per-server-start dispatch, non-blocking, skipped when background jobs are
+  disabled), scheduler/dispatcher execution through the durable queue machinery, the
+  `upsertGlobalEntities` / `upsertGlobalRelationships` host functions (shapes
+  `[IMPLEMENTER-DECIDES]`, semantics fixed, gated to system `cron`/`boot` executions), the
+  trending-read-path note, and the migrate/delete/e2e lists (`triggerInfrequentCron` fixture
+  exists for trending; exercises rely on boot dispatch): plan §1 and its 2026-07-26 amendment.
 - **Step 2 — operations (invoke)** — the `operations` manifest section, the single generic
   `plugins.invoke` endpoint (validation, auth, dispatch, batch-first), the `[RECOMMENDED]`
   first-party recipe typing in `libs/plugin-kit`, the browser-extension migration, the internal
@@ -367,8 +373,9 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   not a quiet test edit (cross-phase invariant 2). Test app-owned behavior and branching, not
   library behavior, per `AGENTS.md`.
 - **Suites re-pointed per step (assertions preserved):** step 1 re-points
-  `tests/src/tests/exercises/` and the trending coverage (the `triggerInfrequentCron` fixture
-  already exists); step 2 re-points the metadata-lookup / browser-extension integration tests
+  `tests/src/tests/exercises/` (seeded through boot dispatch at backend startup, no manual
+  trigger) and the trending coverage (the `triggerInfrequentCron` fixture already exists); step
+  2 re-points the metadata-lookup / browser-extension integration tests
   to `invoke`; step 3 re-points the `entity-import` / `imports` suites; step 4 re-points the
   `integrations/` and `imports/` suites; step 5 re-points the four `media-monitoring/` suites
   (association detectors and cron-refresh coverage) — these are the acceptance test that the

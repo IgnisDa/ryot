@@ -12,9 +12,9 @@ it("declares the complete fitness-owned source", () => {
 		"workout-template",
 		"measurement",
 	]);
-	expect(fitnessPlugin.crons).toEqual([
+	expect(fitnessPlugin.crons).toEqual([]);
+	expect(fitnessPlugin.boot).toEqual([
 		{
-			schedule: "0 0 * * *",
 			slug: "preload-exercises",
 			driverRef: "exercise.free-exercise-db",
 			description: "Preload the built-in exercise catalog",

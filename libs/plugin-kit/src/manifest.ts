@@ -95,9 +95,9 @@ const sandboxManifestSlug = Schema.String.pipe(
 );
 
 const PluginScriptFields = {
-	name: sandboxManifestString,
-	slug: sandboxManifestSlug,
 	entry: Schema.String,
+	slug: sandboxManifestSlug,
+	name: sandboxManifestString,
 	requiredAppConfigKeys: Schema.Array(sandboxManifestString),
 	capabilities: Schema.Array(Schema.Literal(...SANDBOX_HOST_CAPABILITIES)),
 };
@@ -125,6 +125,14 @@ export const PluginCron = strictStruct({
 });
 
 export type PluginCron = Schema.Schema.Type<typeof PluginCron>;
+
+export const PluginBoot = strictStruct({
+	slug: sandboxManifestSlug,
+	driverRef: sandboxManifestSlug,
+	description: sandboxManifestString,
+});
+
+export type PluginBoot = Schema.Schema.Type<typeof PluginBoot>;
 
 export const PluginOperationAuth = Schema.Literal("user", "admin", "integration");
 
@@ -196,12 +204,13 @@ export const PluginBindings = strictStruct({
 export type PluginBindings = Schema.Schema.Type<typeof PluginBindings>;
 
 export const PluginManifest = strictStruct({
-	crons: Schema.Array(PluginCron),
 	metadata: PluginMetadata,
-	operations: Schema.Array(PluginOperation),
 	bindings: PluginBindings,
+	boot: Schema.Array(PluginBoot),
+	crons: Schema.Array(PluginCron),
 	scripts: Schema.Array(PluginScript),
 	savedViews: Schema.Array(PluginSavedView),
+	operations: Schema.Array(PluginOperation),
 	entitySchemas: Schema.Array(PluginEntitySchema),
 	signalSchemas: Schema.Array(PluginSignalSchema),
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),

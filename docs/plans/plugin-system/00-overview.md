@@ -273,7 +273,7 @@ libs/sandbox-compiler      bundling (extended for multi-file plugin packages)
 plugins/media              source bundle: manifest + schemas + scripts (providers, automations,
                            workflows, crons, operations, integration adapters)
 plugins/fitness            source bundle: manifest + schemas + scripts (exercise provider,
-                           preload cron, workout automation)
+                           preload boot driver, workout automation)
 apps/app-backend           the kernel:
   definition registry      in-memory, slug-keyed; sources: kernel-owned definitions + loaded
                            plugins; atomic snapshot swap; Redis invalidation
