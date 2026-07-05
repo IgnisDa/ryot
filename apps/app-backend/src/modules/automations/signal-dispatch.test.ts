@@ -11,9 +11,9 @@ import {
 import { Effect, Either, Layer, Schema } from "effect";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import type { ResolvedAutomationRule } from "#modules/plugins/runtime-resolver";
 import { SignalDispatch } from "#modules/signals/dispatch";
 
-import type { StoredAutomationRule } from "./repository";
 import { AutomationsService } from "./service";
 import { SignalDispatchLive } from "./signal-dispatch";
 import { SubscriptionExecutionWorkflow } from "./subscription-execution-workflow";
@@ -23,7 +23,7 @@ const otherUserId = UserId.make("user-2");
 const signalSchemaSlug = SignalSchemaSlug.make("signal-schema-1");
 const scriptId = SandboxScriptId.make("script-1");
 
-const rule = (id: string, owner: UserId | null): StoredAutomationRule => ({
+const rule = (id: string, owner: UserId | null): ResolvedAutomationRule => ({
 	userId: owner,
 	position: null,
 	metadata: null,
@@ -34,8 +34,6 @@ const rule = (id: string, owner: UserId | null): StoredAutomationRule => ({
 	isBuiltin: owner === null,
 	sandboxScriptId: scriptId,
 	id: AutomationRuleId.make(id),
-	createdAt: "2026-07-20T10:00:00.000Z",
-	updatedAt: "2026-07-20T10:00:00.000Z",
 	target: { id: signalSchemaSlug, kind: "signal_schema" },
 });
 

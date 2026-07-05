@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Before you start
 
@@ -47,19 +47,23 @@ restate or re-derive it.
 
 ## Acceptance criteria
 
-- [ ] `notification_subscription_state` exists (unique on `(userId, signalSchemaSlug,
+- [x] `notification_subscription_state` exists (unique on `(userId, signalSchemaSlug,
   scriptSlug)`) via a regenerated migration; `automation_rule` is deleted (done criterion 2,
       remaining half)
-- [ ] `NotificationSubscriptionsService`, the `automations` endpoints, `ensureDefaultRules`, and
+- [x] `NotificationSubscriptionsService`, the `automations` endpoints, `ensureDefaultRules`, and
       the `auth`/`god-mode` consumers read/write the new table with the user-facing rule surface
       unchanged (plan §5)
-- [ ] `subscription_run.ruleId` is non-null durable text, its FK and duplicate attribution column
+- [x] `subscription_run.ruleId` is non-null durable text, its FK and duplicate attribution column
       are absent, and execution bookkeeping survives subscription-state deletion and plugin
       snapshot replacement (plan §5)
-- [ ] The notification-subscriptions e2e suite is green with assertions unchanged (cross-phase
+- [x] The notification-subscriptions e2e suite is green with assertions unchanged (cross-phase
       invariant 2); notification-delivery behavior remains green (done criterion 2)
 - [ ] Backend `check` + unit tests, the full e2e suite, and `app-client` check pass (done
       criterion 6, cross-phase invariant 1)
+
+  Backend and app-client checks pass; backend tests pass 935/935; the affected e2e suite passes
+  4/4. The full e2e run passed 494/495, with the unrelated media-trending poll timeout passing
+  2/2 when rerun in isolation.
 
 ## User stories addressed
 

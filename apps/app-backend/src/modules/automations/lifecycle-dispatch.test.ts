@@ -18,9 +18,10 @@ import {
 	LifecycleDispatchNoop,
 	type LifecycleDispatchInput,
 } from "#modules/entities/lifecycle-dispatch";
+import type { ResolvedAutomationRule } from "#modules/plugins/runtime-resolver";
 
 import { LifecycleDispatchLive } from "./lifecycle-dispatch";
-import type { AutomationRuleTarget, StoredAutomationRule } from "./repository";
+import type { AutomationRuleTarget } from "./repository";
 import { AutomationsService } from "./service";
 import { SubscriptionExecutionWorkflow } from "./subscription-execution-workflow";
 
@@ -29,7 +30,7 @@ const scriptId = SandboxScriptId.make("script-1");
 const eventSchemaSlug = EventSchemaSlug.make("finished");
 const entitySchemaSlug = EntitySchemaSlug.make("book");
 
-const rule = (id: string, owner: UserId | null): StoredAutomationRule => ({
+const rule = (id: string, owner: UserId | null): ResolvedAutomationRule => ({
 	userId: owner,
 	position: null,
 	metadata: null,
@@ -40,8 +41,6 @@ const rule = (id: string, owner: UserId | null): StoredAutomationRule => ({
 	isBuiltin: owner === null,
 	sandboxScriptId: scriptId,
 	id: AutomationRuleId.make(id),
-	createdAt: "2026-07-20T10:00:00.000Z",
-	updatedAt: "2026-07-20T10:00:00.000Z",
 	target: { id: entitySchemaSlug, kind: "entity_schema" },
 });
 
