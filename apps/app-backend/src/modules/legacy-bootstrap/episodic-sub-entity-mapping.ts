@@ -36,9 +36,6 @@ BEGIN
 		m.updated_at
 	FROM "metadata" legacy_metadata
 	INNER JOIN "entity" m ON m.id = legacy_metadata.id
-	INNER JOIN "entity_schema" parent_schema
-		ON parent_schema.id = m.entity_schema_slug
-		AND parent_schema.slug = 'show'
 	CROSS JOIN LATERAL jsonb_array_elements(
 		CASE
 			WHEN jsonb_typeof(legacy_metadata.show_specifics -> 'seasons') = 'array'
@@ -46,7 +43,8 @@ BEGIN
 			ELSE '[]'::jsonb
 		END
 	) AS season(value)
-	WHERE NULLIF(season.value ->> 'id', '') IS NOT NULL
+	WHERE m.entity_schema_slug = 'show'
+	  AND NULLIF(season.value ->> 'id', '') IS NOT NULL
 	  AND (season.value ->> 'season_number') ~ '^[0-9]+$';
 
 	CREATE INDEX ON _legacy_show_seasons (parent_entity_id, entity_id);
@@ -102,9 +100,6 @@ BEGIN
 		m.updated_at
 	FROM "metadata" legacy_metadata
 	INNER JOIN "entity" m ON m.id = legacy_metadata.id
-	INNER JOIN "entity_schema" parent_schema
-		ON parent_schema.id = m.entity_schema_slug
-		AND parent_schema.slug = 'podcast'
 	CROSS JOIN LATERAL jsonb_array_elements(
 		CASE
 			WHEN jsonb_typeof(legacy_metadata.podcast_specifics -> 'episodes') = 'array'
@@ -112,7 +107,8 @@ BEGIN
 			ELSE '[]'::jsonb
 		END
 	) AS episode(value)
-	WHERE NULLIF(episode.value ->> 'id', '') IS NOT NULL
+	WHERE m.entity_schema_slug = 'podcast'
+	  AND NULLIF(episode.value ->> 'id', '') IS NOT NULL
 	  AND (episode.value ->> 'number') ~ '^[0-9]+$';
 
 	CREATE INDEX ON _legacy_podcast_episodes (parent_entity_id, entity_id);

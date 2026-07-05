@@ -3,7 +3,8 @@
 This is a living document and must be kept up to date as the module evolves.
 
 The purpose of this module is to migrate legacy V1 Rust data (`apps/backend`) into the V2
-TypeScript backend (`apps/app-backend`) during startup.
+TypeScript backend (`apps/app-backend`) during startup. This is the deployed V1 adoption path;
+the normal end-to-end suite starts from a fresh V2 database and does not exercise it.
 
 ## Fail-Fast Requirement
 
@@ -14,7 +15,7 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 ## Boundaries
 
 - Keep all legacy bootstrap-specific logic inside this module.
-- Do not add automated tests inside this module; validate changes by restoring the legacy dump, running `bun run run-migration`, and inspecting the migrated rows via MCP.
+- Keep generated-SQL regression tests outside this module. Full behavior validation requires restoring the legacy dumps, running `bun run run-migration`, and inspecting the migrated rows via MCP.
 - Do not edit `src/lib/infrastructure/db/migrate.ts` unless the change has been discussed first.
 - Run the legacy table rename before Drizzle migrations.
 - Run the legacy table data copy after Drizzle migrations have created the new tables.
@@ -24,7 +25,7 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 
 ## Slim Migration Strategy
 
-The migration copies **user-generated data in full** and **provider-sourced ("global") data only as far as user data references it**. Provider entities (`metadata`, `metadata_group`, `person`/company and their season/episode children) are fully reconstructable on demand: V2's entity population workflow refetches an entity from its provider using the `(external_id, entity_schema_id, sandbox_script_id)` tuple and rebuilds its `name`/`properties`, child entities, and all related-entity relationships (cast/crew, group membership, genres, media suggestions). A skeleton row (`populated_at = NULL`, `properties = {}`) is a first-class state that populates lazily on first view (interest declaration) or via the media-monitoring refresh cron.
+The migration copies **user-generated data in full** and **provider-sourced ("global") data only as far as user data references it**. Provider entities (`metadata`, `metadata_group`, `person`/company and their season/episode children) are fully reconstructable on demand: V2's entity population workflow refetches an entity from its provider using the `(external_id, entity_schema_slug, sandbox_script_id)` tuple and rebuilds its `name`/`properties`, child entities, and all related-entity relationships (cast/crew, group membership, genres, media suggestions). A skeleton row (`populated_at = NULL`, `properties = {}`) is a first-class state that populates lazily on first view (interest declaration) or via the media-monitoring refresh cron.
 
 Consequences that drive the design below:
 
@@ -37,9 +38,9 @@ Consequences that drive the design below:
 - V1 `user` is renamed to `old_user` so the new Drizzle `user` table can be created. The `old_user` migration runs before entity inserts so user-scoped custom entities can satisfy the new `entity.user_id` foreign key.
 - Preserve legacy ids. Derive new emails from the old user name: if the name is a valid email address (`^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$` after lowercasing), use it directly; otherwise synthesize `normalized_name@ryot.local`. Collisions (duplicate real emails or duplicate synthetic local parts) append `+{id}` before the `@`. New users get `email_verified = true`.
 - After `old_user` is migrated, each legacy user is passed through `bootstrapNewUser` so migrated accounts receive the built-in trackers, saved views, library entity, and active notification subscriptions that auth-created users get.
-- **Referenced provider entities are migrated as skeletons.** `metadata`, `metadata_group`, and `person`/company entity migrations filter provider rows (`sandbox_script_id IS NOT NULL`) to `_referenced_global_entity_ids` and emit `properties = '{}'::jsonb` with `populated_at = NULL`; V2 repopulates them from their provider on first view. `entity_schema_id`/`sandbox_script_id` are still derived from the V1 `lot`/`source`, and `external_id`/`name` are copied so the row is identifiable and reconstructable.
+- **Referenced provider entities are migrated as skeletons.** `metadata`, `metadata_group`, and `person`/company entity migrations filter provider rows (`sandbox_script_id IS NOT NULL`) to `_referenced_global_entity_ids` and emit `properties = '{}'::jsonb` with `populated_at = NULL`; V2 repopulates them from their provider on first view. `entity_schema_slug`/`sandbox_script_id` are derived from the V1 `lot`/`source`, and `external_id`/`name` are copied so the row is identifiable and reconstructable.
 - **Custom entities are migrated in full.** Rows whose resolved `sandbox_script_id IS NULL` (V1 `source = 'custom'`) keep their full computed `properties` regardless of whether they are referenced, because there is no provider to rebuild them from.
-- V1 show/podcast season and episode blobs are exploded into V2 `show-season`, `show-episode`, and `podcast-episode` entities by `episodic-sub-entity-mapping.ts`. Because the explosion joins the already-migrated parent `entity` row, it naturally covers only referenced/custom shows and podcasts. It runs immediately after metadata entities are migrated and before review/seen events, and writes the parent-child relationships plus the session-local episode resolution temp tables reused by review/seen migration. These children still carry their positional `seasonNumber`/`episodeNumber` (needed so episode-level seen/review resolve at migration time); provider repopulation later upserts them in place on the same `(external_id, entity_schema_id, sandbox_script_id)` tuple.
+- V1 show/podcast season and episode blobs are exploded into V2 `show-season`, `show-episode`, and `podcast-episode` entities by `episodic-sub-entity-mapping.ts`. Because the explosion joins the already-migrated parent `entity` row, it naturally covers only referenced/custom shows and podcasts. It runs immediately after metadata entities are migrated and before review/seen events, and writes the parent-child relationships plus the session-local episode resolution temp tables reused by review/seen migration. These children still carry their positional `seasonNumber`/`episodeNumber` (needed so episode-level seen/review resolve at migration time); provider repopulation later upserts them in place on the same `(external_id, entity_schema_slug, sandbox_script_id)` tuple.
 - V1 `user_measurement` rows are migrated to the V2 `entity` table under the `measurement` entity schema. The composite PK `(user_id, timestamp)` has no UUID equivalent; entity ids are derived as `md5(user_id || '|' || timestamp::text)`. Entity name uses the V1 `name` when not null/empty, falling back to `Measurement - YYYY-MM-DD HH24:MI`. V1 has no per-statistic unit field; `unit` has been removed from the V2 measurement statistics schema entirely. Statistics `key` is a normalized snake_case version of the V1 `name` field.
 - V1 `workout`/`workout_template` become V2 `entity` rows and workout sets become `event` rows; relationship tables (`workout-to-workout-template`, `workout-repeated-from`) are migrated to V2 `relationship` rows. The authoritative field-level mappings live in `workout-mapping.ts`.
 - V1 `exercise` rows are migrated to the V2 `entity` table. `github`-sourced exercises are a fixed catalog inserted already-populated (`populated_at = NOW()`) rather than as provider skeletons; custom/user exercises are migrated in full. `github` rows must not carry a creator user id (validated up front).

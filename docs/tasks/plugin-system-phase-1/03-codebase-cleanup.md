@@ -26,7 +26,8 @@ Phase 1 specifics to watch for: leftover references to the dropped definition ta
 modules and contract groups; now-unused fixtures or `test-support` surfaces after the e2e
 re-plumb; any transitional dual-source code left over from landing the registry (task 01)
 before the cutover (task 02); and `CLAUDE.md`/`AGENTS.md`/`README.md` facts that should have
-moved rather than been duplicated.
+moved rather than been duplicated. This includes raw SQL strings and unused fields on registry
+definition types, not only TypeScript table imports and persisted columns.
 
 ## Acceptance criteria
 
