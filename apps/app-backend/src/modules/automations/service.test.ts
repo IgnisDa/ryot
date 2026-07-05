@@ -374,8 +374,6 @@ it.effect("resolves user, row-owner, and system execution principals", () => {
 				lockActiveNotificationSubscription: () => Effect.succeed(notificationState),
 				findScriptExecution: () =>
 					Effect.succeed({
-						userId: null,
-						isBuiltin: true,
 						updatedAt: "2026-07-20T10:00:00.000Z",
 					}),
 				insertRun: (input) => {
@@ -508,8 +506,7 @@ it.effect("transitions an enabled queued run to running with script audit timing
 		makeRepository({
 			findRunById: () => Effect.succeed(queued),
 			isUserEnabled: () => Effect.succeed(true),
-			findScriptExecution: () =>
-				Effect.succeed({ userId: null, isBuiltin: true, updatedAt: scriptUpdatedAt }),
+			findScriptExecution: () => Effect.succeed({ updatedAt: scriptUpdatedAt }),
 			markRunRunning: (input) => {
 				marked = input;
 				return Effect.succeed({

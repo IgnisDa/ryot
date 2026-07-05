@@ -33,12 +33,10 @@ it.effect("executes the exact queued plugin row after the active plugin updates"
 	let executedCode: string | undefined;
 	const repository = Layer.mock(SandboxRepository)({
 		_tag: "SandboxRepository",
-		getScriptForUser: ({ scriptId }) =>
+		getScript: (scriptId) =>
 			Effect.succeed({
 				metadata: {},
 				id: scriptId,
-				source: "queued-source",
-				userId: null,
 				isBuiltin: true,
 				compiledFormat: 1,
 				compiledCode: "queued-version",

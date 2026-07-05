@@ -45,22 +45,6 @@ export const SandboxScriptManifest = Schema.Union(
 
 export type SandboxScriptManifest = Schema.Schema.Type<typeof SandboxScriptManifest>;
 
-export const SandboxScript = Schema.Struct({
-	id: SandboxScriptId,
-	slug: Schema.String,
-	name: Schema.String,
-	source: Schema.String,
-	manifest: SandboxScriptManifest,
-});
-
-export type SandboxScript = Schema.Schema.Type<typeof SandboxScript>;
-
-export const CreateSandboxScriptBody = Schema.Struct({
-	source: Schema.String,
-});
-
-export type CreateSandboxScriptBody = Schema.Schema.Type<typeof CreateSandboxScriptBody>;
-
 export const SandboxCompilationDiagnostic = Schema.Struct({
 	code: Schema.String,
 	file: Schema.String,
