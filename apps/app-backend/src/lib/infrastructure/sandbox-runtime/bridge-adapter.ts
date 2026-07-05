@@ -96,7 +96,7 @@ export const bindSandboxHostFunctions = (
 			: invalidArguments(
 					"getEntitySchema",
 					parsed.error,
-					"getEntitySchema expects a non-empty entitySchemaId string",
+					"getEntitySchema expects a non-empty entitySchemaSlug string",
 				);
 	},
 	getIntegration: (args) => {
@@ -116,7 +116,7 @@ export const bindSandboxHostFunctions = (
 			: invalidArguments(
 					"listEventSchemas",
 					parsed.error,
-					"listEventSchemas expects a non-empty entitySchemaId string",
+					"listEventSchemas expects a non-empty entitySchemaSlug string",
 				);
 	},
 	listEvents: (args) => {

@@ -70,7 +70,7 @@ describe("system field validation", () => {
 		"externalId",
 		"populatedAt",
 		"properties",
-		"entitySchemaId",
+		"entitySchemaSlug",
 		"sandboxScriptId",
 	])("accepts valid system field '%s'", (name) => {
 		const doc = makeDoc({

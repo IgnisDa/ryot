@@ -4,7 +4,7 @@ import {
 	AutomationRuleId,
 	SandboxScriptId,
 	SignalId,
-	SignalSchemaId,
+	SignalSchemaSlug,
 	SubscriptionRunId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -33,9 +33,9 @@ const otherUserId = UserId.make("user-2");
 const signalId = SignalId.make("signal-1");
 const ruleId = AutomationRuleId.make("rule-1");
 const scriptId = SandboxScriptId.make("script-1");
-const signalSchemaId = SignalSchemaId.make("signal-schema-1");
+const signalSchemaSlug = SignalSchemaSlug.make("signal-schema-1");
 
-const target = { id: signalSchemaId, kind: "signal_schema" } as const;
+const target = { id: signalSchemaSlug, kind: "signal_schema" } as const;
 
 const definition = {
 	target,

@@ -18,10 +18,9 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
+import { DefinitionsRoutesLive } from "#modules/definitions/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";
-import { EntitySchemasRoutesLive } from "#modules/entity-schemas/routes";
-import { EventSchemasRoutesLive } from "#modules/event-schemas/routes";
 import { EventsRoutesLive } from "#modules/events/routes";
 import { GodModeRoutesLive } from "#modules/god-mode/routes";
 import { ImportsRoutesLive } from "#modules/imports/routes";
@@ -31,7 +30,6 @@ import { MediaMonitoringRoutesLive } from "#modules/media-monitoring/routes";
 import { MetadataLookupRoutesLive } from "#modules/metadata-lookup/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { QueryEngineRoutesLive } from "#modules/query-engine/routes";
-import { RelationshipSchemasRoutesLive } from "#modules/relationship-schemas/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
 import { SandboxRoutesLive } from "#modules/sandbox/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
@@ -89,12 +87,11 @@ const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(Layer.mergeAll(SystemRoutesLive, AutomationsRoutesLive)),
 	Layer.provide(SandboxRoutesLive),
 	Layer.provide(TrackersRoutesLive),
-	Layer.provide(EntitySchemasRoutesLive),
-	Layer.provide(Layer.mergeAll(RelationshipSchemasRoutesLive, RelationshipsRoutesLive)),
+	Layer.provide(DefinitionsRoutesLive),
+	Layer.provide(RelationshipsRoutesLive),
 	Layer.provide(EntitiesRoutesLive),
 	Layer.provide(LibraryRoutesLive),
 	Layer.provide(Layer.mergeAll(UserStateRoutesLive, UserPreferencesRoutesLive)),
-	Layer.provide(EventSchemasRoutesLive),
 	Layer.provide(EventsRoutesLive),
 	Layer.provide(UploadsRoutesLive),
 	Layer.provide(SavedViewsRoutesLive),

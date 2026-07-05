@@ -37,8 +37,8 @@ describe("Relationship includes", () => {
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "Course Module",
 				slug: relationshipSlug,
-				sourceEntitySchemaId: courseSchemaId,
-				targetEntitySchemaId: moduleSchemaId,
+				sourceEntitySchemaSlug: courseSchemaId,
+				targetEntitySchemaSlug: moduleSchemaId,
 				propertiesSchema: {
 					fields: {
 						position: { type: "integer", label: "Position", description: "Edge sort order" },
@@ -48,25 +48,25 @@ describe("Relationship includes", () => {
 
 			const courseA = yield* createQueryEngineEntity(client, {
 				name: "Course A",
-				entitySchemaId: courseSchemaId,
+				entitySchemaSlug: courseSchemaId,
 			});
 			const courseB = yield* createQueryEngineEntity(client, {
 				name: "Course B",
-				entitySchemaId: courseSchemaId,
+				entitySchemaSlug: courseSchemaId,
 			});
 			const moduleOne = yield* createQueryEngineEntity(client, {
 				name: "Module One",
-				entitySchemaId: moduleSchemaId,
+				entitySchemaSlug: moduleSchemaId,
 				properties: { moduleNumber: 1 },
 			});
 			const moduleTwo = yield* createQueryEngineEntity(client, {
 				name: "Module Two",
-				entitySchemaId: moduleSchemaId,
+				entitySchemaSlug: moduleSchemaId,
 				properties: { moduleNumber: 2 },
 			});
 			const moduleThree = yield* createQueryEngineEntity(client, {
 				name: "Module Three",
-				entitySchemaId: moduleSchemaId,
+				entitySchemaSlug: moduleSchemaId,
 				properties: { moduleNumber: 3 },
 			});
 
@@ -74,19 +74,19 @@ describe("Relationship includes", () => {
 				sourceEntityId: courseA.id,
 				properties: { position: 2 },
 				targetEntityId: moduleTwo.id,
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: courseA.id,
 				properties: { position: 1 },
 				targetEntityId: moduleOne.id,
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: courseB.id,
 				properties: { position: 3 },
 				targetEntityId: moduleThree.id,
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 
 			const doc = buildRowsDoc({
@@ -166,36 +166,36 @@ describe("Relationship includes", () => {
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "Num Course Module",
 				slug: relationshipSlug,
-				sourceEntitySchemaId: courseSchemaId,
-				targetEntitySchemaId: moduleSchemaId,
+				sourceEntitySchemaSlug: courseSchemaId,
+				targetEntitySchemaSlug: moduleSchemaId,
 			});
 
 			const course = yield* createQueryEngineEntity(client, {
 				name: "Numbered Course",
-				entitySchemaId: courseSchemaId,
+				entitySchemaSlug: courseSchemaId,
 			});
 			// 10 created before 2 so insertion order can't mask the sort: numeric order must give 2, 10.
 			const moduleTen = yield* createQueryEngineEntity(client, {
 				name: "Module Ten",
-				entitySchemaId: moduleSchemaId,
+				entitySchemaSlug: moduleSchemaId,
 				properties: { moduleNumber: 10 },
 			});
 			const moduleTwo = yield* createQueryEngineEntity(client, {
 				name: "Module Two",
-				entitySchemaId: moduleSchemaId,
+				entitySchemaSlug: moduleSchemaId,
 				properties: { moduleNumber: 2 },
 			});
 			yield* createRelationship(client, {
 				properties: {},
 				sourceEntityId: course.id,
 				targetEntityId: moduleTen.id,
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 			yield* createRelationship(client, {
 				properties: {},
 				sourceEntityId: course.id,
 				targetEntityId: moduleTwo.id,
-				relationshipSchemaId: relationshipSchema.id,
+				relationshipSchemaSlug: relationshipSchema.id,
 			});
 
 			const doc = buildRowsDoc({
@@ -269,7 +269,7 @@ describe("Relationship includes", () => {
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
 				name: "Complete",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 				propertiesSchema: {
 					fields: { note: { type: "string", label: "Note", description: "Completion note" } },
 				},
@@ -279,54 +279,54 @@ describe("Relationship includes", () => {
 			const courseModuleSchema = yield* createRelationshipSchema(client, {
 				slug: courseModuleSlug,
 				name: "Deep Course Module",
-				targetEntitySchemaId: moduleSchemaId,
-				sourceEntitySchemaId: courseSchemaId,
+				targetEntitySchemaSlug: moduleSchemaId,
+				sourceEntitySchemaSlug: courseSchemaId,
 			});
 			const moduleLessonSchema = yield* createRelationshipSchema(client, {
 				slug: moduleLessonSlug,
 				name: "Deep Module Lesson",
-				targetEntitySchemaId: lessonSchemaId,
-				sourceEntitySchemaId: moduleSchemaId,
+				targetEntitySchemaSlug: lessonSchemaId,
+				sourceEntitySchemaSlug: moduleSchemaId,
 			});
 
 			const course = yield* createQueryEngineEntity(client, {
 				name: "Course",
-				entitySchemaId: courseSchemaId,
+				entitySchemaSlug: courseSchemaId,
 			});
 			const module = yield* createQueryEngineEntity(client, {
 				name: "Module",
-				entitySchemaId: moduleSchemaId,
+				entitySchemaSlug: moduleSchemaId,
 				properties: { moduleNumber: 1 },
 			});
 			const secondLesson = yield* createQueryEngineEntity(client, {
 				name: "Lesson Two",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 				properties: { lessonNumber: 2 },
 			});
 			const firstLesson = yield* createQueryEngineEntity(client, {
 				name: "Lesson One",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 				properties: { lessonNumber: 1 },
 			});
 
 			yield* createRelationship(client, {
 				targetEntityId: module.id,
 				sourceEntityId: course.id,
-				relationshipSchemaId: courseModuleSchema.id,
+				relationshipSchemaSlug: courseModuleSchema.id,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: module.id,
 				targetEntityId: secondLesson.id,
-				relationshipSchemaId: moduleLessonSchema.id,
+				relationshipSchemaSlug: moduleLessonSchema.id,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: module.id,
 				targetEntityId: firstLesson.id,
-				relationshipSchemaId: moduleLessonSchema.id,
+				relationshipSchemaSlug: moduleLessonSchema.id,
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: firstLesson.id,
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 			});
 
 			const doc = buildRowsDoc({

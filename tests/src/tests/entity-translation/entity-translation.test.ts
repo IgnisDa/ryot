@@ -34,7 +34,7 @@ const seedPopulatedMovie = (client: Client, name: string) =>
 		const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
 		return yield* seedPopulatedProviderEntity({
 			name,
-			entitySchemaId: schema.id,
+			entitySchemaSlug: schema.id,
 			sandboxScriptId: providerScript.scriptId,
 			externalId: `e2e-translate-${crypto.randomUUID()}`,
 			properties: { description: `Canonical overview of ${name}.` },
@@ -176,7 +176,7 @@ describe("entity translation via client-declared interest", () => {
 				const seeded = yield* seedMediaEntity({
 					userId: null,
 					properties: {},
-					entitySchemaId: schema.id,
+					entitySchemaSlug: schema.id,
 					name: "Partial Pulp Fiction",
 					externalId: provenance.externalId,
 					sandboxScriptId: providerScript.scriptId,

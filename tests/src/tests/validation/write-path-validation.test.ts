@@ -34,7 +34,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.entities.create({
-						payload: { properties: {}, name: "Missing Required", entitySchemaId: schemaId },
+						payload: { properties: {}, name: "Missing Required", entitySchemaSlug: schemaId },
 					}),
 				),
 			);
@@ -66,7 +66,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 					c.entities.create({
 						payload: {
 							name: "Wrong Type",
-							entitySchemaId: schemaId,
+							entitySchemaSlug: schemaId,
 							properties: { count: "not-a-number" },
 						},
 					}),
@@ -91,7 +91,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 
 				const entity = yield* createEntity(client, {
 					name: "Extra Field",
-					entitySchemaId: schemaId,
+					entitySchemaSlug: schemaId,
 					properties: { title: "OK", undeclaredField: "should fail" },
 				});
 
@@ -119,7 +119,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 
 			const entity = yield* createEntity(client, {
 				name: "Valid Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { title: "My Item", rating: 4 },
 			});
 
@@ -133,10 +133,10 @@ describe("Event write path — propertiesSchema validation", () => {
 	it.live("rejects event creation when a required field is missing", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { entityId, eventSchemaId } = yield* createEventTestFixture(client);
+			const { entityId, eventSchemaSlug } = yield* createEventTestFixture(client);
 
 			const result = yield* client.call((c) =>
-				c.events.create({ payload: [{ entityId, eventSchemaId, properties: {} }] }),
+				c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: {} }] }),
 			);
 
 			expect(result).toMatchObject({
@@ -153,11 +153,11 @@ describe("Event write path — propertiesSchema validation", () => {
 	it.live("rejects event creation when a field has the wrong type", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { entityId, eventSchemaId } = yield* createEventTestFixture(client);
+			const { entityId, eventSchemaSlug } = yield* createEventTestFixture(client);
 
 			const result = yield* client.call((c) =>
 				c.events.create({
-					payload: [{ entityId, eventSchemaId, properties: { rating: "not-a-number" } }],
+					payload: [{ entityId, eventSchemaSlug, properties: { rating: "not-a-number" } }],
 				}),
 			);
 
@@ -174,12 +174,12 @@ describe("Event write path — propertiesSchema validation", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { entityId, eventSchemaId } = yield* createEventTestFixture(client);
+				const { entityId, eventSchemaSlug } = yield* createEventTestFixture(client);
 
 				const data = yield* client.call((c) =>
 					c.events.create({
 						payload: [
-							{ entityId, eventSchemaId, properties: { rating: 4, undeclaredField: "bad" } },
+							{ entityId, eventSchemaSlug, properties: { rating: 4, undeclaredField: "bad" } },
 						],
 					}),
 				);
@@ -194,10 +194,10 @@ describe("Event write path — propertiesSchema validation", () => {
 	it.live("accepts event creation when properties match the schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { entityId, eventSchemaId } = yield* createEventTestFixture(client);
+			const { entityId, eventSchemaSlug } = yield* createEventTestFixture(client);
 
 			const data = yield* client.call((c) =>
-				c.events.create({ payload: [{ entityId, eventSchemaId, properties: { rating: 5 } }] }),
+				c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: { rating: 5 } }] }),
 			);
 
 			expect(data.count).toBe(1);

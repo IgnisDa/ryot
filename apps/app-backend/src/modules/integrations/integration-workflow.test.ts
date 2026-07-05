@@ -2,12 +2,12 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import {
-	EntitySchemaId,
+	EntitySchemaSlug,
 	ImportRunId,
 	IntegrationId,
 	SandboxScriptId,
 	SignalId,
-	SignalSchemaId,
+	SignalSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
@@ -111,26 +111,26 @@ const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegration
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
 		findEntitySchemaSandboxScriptBySlug: (slug) => {
-			let result: { entitySchemaId: EntitySchemaId; sandboxScriptId: SandboxScriptId } | null =
+			let result: { entitySchemaSlug: EntitySchemaSlug; sandboxScriptId: SandboxScriptId } | null =
 				null;
 			switch (slug) {
 				case "movie.tmdb": {
 					result = {
-						entitySchemaId: EntitySchemaId.make("schema-movie"),
+						entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
 						sandboxScriptId: SandboxScriptId.make("script-movie-tmdb"),
 					};
 					break;
 				}
 				case "manga.anilist": {
 					result = {
-						entitySchemaId: EntitySchemaId.make("schema-manga"),
+						entitySchemaSlug: EntitySchemaSlug.make("schema-manga"),
 						sandboxScriptId: SandboxScriptId.make("script-manga-anilist"),
 					};
 					break;
 				}
 				case "music.youtube-music": {
 					result = {
-						entitySchemaId: EntitySchemaId.make("schema-music"),
+						entitySchemaSlug: EntitySchemaSlug.make("schema-music"),
 						sandboxScriptId: SandboxScriptId.make("script-youtube-music"),
 					};
 					break;
@@ -728,7 +728,7 @@ it.effect("disables a yank integration after continuous failures during finaliza
 						id: SignalId.make("signal-1"),
 						createdAt: "2026-06-17T00:00:00.000Z",
 						occurredAt: input.occurredAt.toISOString(),
-						signalSchemaId: SignalSchemaId.make("signal-schema-1"),
+						signalSchemaSlug: SignalSchemaSlug.make("signal-schema-1"),
 						properties: { integrationId: "int_1", providerName: "komga" },
 						actorUserId: input.principal.kind === "user" ? input.principal.userId : null,
 					},

@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { EntityId, EventId, EventSchemaId } from "../../schema/brands";
+import { EntityId, EventId, EventSchemaSlug } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 
 export const EventCreateOrigin = Schema.Literal(
@@ -19,9 +19,8 @@ export const ListedEvent = Schema.Struct({
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	occurredAt: Schema.String,
-	eventSchemaId: EventSchemaId,
+	eventSchemaSlug: EventSchemaSlug,
 	eventSchemaName: Schema.String,
-	eventSchemaSlug: Schema.String,
 	sessionEntityId: Schema.optional(EntityId),
 	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
@@ -31,7 +30,7 @@ export type ListedEvent = typeof ListedEvent.Type;
 export const CreateEventItem = Schema.Struct({
 	entityId: EntityId,
 	properties: Schema.Unknown,
-	eventSchemaId: EventSchemaId,
+	eventSchemaSlug: EventSchemaSlug,
 	occurredAt: Schema.optional(Schema.String),
 	sessionEntityId: Schema.optional(EntityId),
 });

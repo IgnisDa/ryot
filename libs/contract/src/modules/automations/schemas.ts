@@ -5,8 +5,8 @@ import {
 	AutomationRuleId,
 	ImportRunId,
 	IntegrationId,
-	RelationshipSchemaId,
-	SignalSchemaId,
+	RelationshipSchemaSlug,
+	SignalSchemaSlug,
 } from "../../schema/brands";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
@@ -96,7 +96,7 @@ export const SignalAudiencePolicy = Schema.Union(
 	strictStruct({ kind: Schema.Literal("actor") }),
 	strictStruct({
 		kind: Schema.Literal("related_users"),
-		relationshipSchemaId: RelationshipSchemaId,
+		relationshipSchemaSlug: RelationshipSchemaSlug,
 		subjectSide: Schema.Literal("source", "target"),
 	}),
 );
@@ -104,7 +104,7 @@ export const SignalAudiencePolicy = Schema.Union(
 export type SignalAudiencePolicy = typeof SignalAudiencePolicy.Type;
 
 export const CatalogSignalSchema = Schema.Struct({
-	id: SignalSchemaId,
+	id: SignalSchemaSlug,
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
@@ -124,7 +124,7 @@ export const InstalledNotificationRule = Schema.Struct({
 export type InstalledNotificationRule = typeof InstalledNotificationRule.Type;
 
 export const InstallNotificationRuleBody = strictStruct({
-	signalSchemaId: SignalSchemaId,
+	signalSchemaSlug: SignalSchemaSlug,
 });
 
 export type InstallNotificationRuleBody = typeof InstallNotificationRuleBody.Type;

@@ -28,7 +28,7 @@ describe("interest authorization", () => {
 				sandboxScriptId,
 				client: authA.client,
 				userId: authA.userId,
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				name: "A's Private Studio",
 				externalId: `private-${crypto.randomUUID()}`,
 			});

@@ -17,56 +17,54 @@ const andConditionsSql = (conditions: readonly SqlFragment[]) =>
 // Root row-producing FROM + WHERE fragments, with per-user visibility enforced. Callers pass the
 // visible-schema id fragments and any compiled where conditions.
 const entityRootFromWhereSql = (
-	schemaIdsSql: SqlFragment,
+	schemas: readonly { id: string; slug: string; name: string; isBuiltin: boolean }[],
 	userId: string,
 	language: string | null,
 	pushedConditions: readonly SqlFragment[],
 ) => sql`
 	FROM ${entitySourceSql(language)} e
-	JOIN entity_schema es ON es.id = e.entity_schema_id
+	JOIN (VALUES ${sql.join(
+		schemas.map((schema) => sql`(${schema.slug}, ${schema.name}, ${schema.isBuiltin}::boolean)`),
+		sql`, `,
+	)}) AS es(slug, name, is_builtin) ON es.slug = e.entity_schema_slug
 	WHERE
-		e.entity_schema_id IN (${schemaIdsSql})
+		e.entity_schema_slug IN (${idListSql(schemas)})
 		AND (e.user_id = ${userId} OR e.user_id IS NULL)
 		${andConditionsSql(pushedConditions)}
 `;
 
 const eventRootFromWhereSql = (
-	eventSchemaIdsSql: SqlFragment,
-	entitySchemaIdsSql: SqlFragment,
+	eventSchemaSlugsSql: SqlFragment,
+	entitySchemaSlugsSql: SqlFragment,
 	userId: string,
 	language: string | null,
 	pushedConditions: readonly SqlFragment[],
 ) => sql`
 	FROM event ev
-	JOIN event_schema evs ON evs.id = ev.event_schema_id
 	JOIN ${entitySourceSql(language)} e ON e.id = ev.entity_id
-	JOIN entity_schema es ON es.id = e.entity_schema_id
 	WHERE
 		ev.user_id = ${userId}
-		AND ev.event_schema_id IN (${eventSchemaIdsSql})
-		AND e.entity_schema_id IN (${entitySchemaIdsSql})
+		AND ev.event_schema_slug IN (${eventSchemaSlugsSql})
+		AND e.entity_schema_slug IN (${entitySchemaSlugsSql})
 		AND (e.user_id = ${userId} OR e.user_id IS NULL)
 		${andConditionsSql(pushedConditions)}
 `;
 
 const relationshipRootFromWhereSql = (
-	relationshipSchemaIdsSql: SqlFragment,
-	sourceEntitySchemaIdsSql: SqlFragment,
-	targetEntitySchemaIdsSql: SqlFragment,
+	relationshipSchemaSlugsSql: SqlFragment,
+	sourceEntitySchemaSlugsSql: SqlFragment,
+	targetEntitySchemaSlugsSql: SqlFragment,
 	userId: string,
 	language: string | null,
 	pushedConditions: readonly SqlFragment[],
 ) => sql`
 	FROM relationship r
-	JOIN relationship_schema rs ON rs.id = r.relationship_schema_id
 	JOIN ${entitySourceSql(language)} se ON se.id = r.source_entity_id
-	JOIN entity_schema ses ON ses.id = se.entity_schema_id
 	JOIN ${entitySourceSql(language)} te ON te.id = r.target_entity_id
-	JOIN entity_schema tes ON tes.id = te.entity_schema_id
 	WHERE
-		r.relationship_schema_id IN (${relationshipSchemaIdsSql})
-		AND se.entity_schema_id IN (${sourceEntitySchemaIdsSql})
-		AND te.entity_schema_id IN (${targetEntitySchemaIdsSql})
+		r.relationship_schema_slug IN (${relationshipSchemaSlugsSql})
+		AND se.entity_schema_slug IN (${sourceEntitySchemaSlugsSql})
+		AND te.entity_schema_slug IN (${targetEntitySchemaSlugsSql})
 		AND (r.user_id = ${userId} OR r.user_id IS NULL)
 		AND (se.user_id = ${userId} OR se.user_id IS NULL)
 		AND (te.user_id = ${userId} OR te.user_id IS NULL)
@@ -99,20 +97,20 @@ export const rootSourceFromWhereSql = Effect.fn("rootSourceFromWhereSql")(functi
 ) {
 	if (source.type === "entities") {
 		const visible = yield* loadVisibleEntitySchemas(userId, source.schemas);
-		return entityRootFromWhereSql(idListSql(visible), userId, language, pushedConditions);
+		return entityRootFromWhereSql(visible, userId, language, pushedConditions);
 	}
 	if (source.type === "events") {
 		const visibleEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
-		const entitySchemaIds = visibleEntitySchemas.map((schema) => schema.id);
+		const entitySchemaSlugs = visibleEntitySchemas.map((schema) => schema.id);
 		const visibleEventSchemas = yield* loadVisibleEventSchemasForEntitySchemas(
 			userId,
-			entitySchemaIds,
+			entitySchemaSlugs,
 			source.schemas,
 		);
 		return eventRootFromWhereSql(
 			idListSql(visibleEventSchemas),
 			sql.join(
-				entitySchemaIds.map((id) => sql`${id}`),
+				entitySchemaSlugs.map((id) => sql`${id}`),
 				sql`, `,
 			),
 			userId,

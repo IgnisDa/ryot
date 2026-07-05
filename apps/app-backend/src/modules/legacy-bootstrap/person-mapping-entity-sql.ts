@@ -83,7 +83,7 @@ BEGIN
 	RAISE NOTICE '${kindNotice} -> entity: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
-		WITH person_targets (source, entity_schema_id, sandbox_script_id) AS (
+		WITH person_targets (source, entity_schema_slug, sandbox_script_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT legacy_person.id::text AS id
@@ -102,7 +102,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH person_targets (source, entity_schema_id, sandbox_script_id) AS (
+		WITH person_targets (source, entity_schema_slug, sandbox_script_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO entity (
@@ -113,7 +113,7 @@ BEGIN
 			"populated_at",
 			"user_id",
 			"properties",
-			"entity_schema_id",
+			"entity_schema_slug",
 			"sandbox_script_id",
 			"updated_at"
 		)
@@ -128,7 +128,7 @@ BEGIN
 				WHEN person_targets.sandbox_script_id IS NULL THEN ${propertiesSql}
 				ELSE '{}'::jsonb
 			END,
-			person_targets.entity_schema_id,
+			person_targets.entity_schema_slug,
 			person_targets.sandbox_script_id,
 			legacy_person.last_updated_on
 		FROM "person" legacy_person

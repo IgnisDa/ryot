@@ -2,7 +2,7 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest } from "@ryot/contract/errors";
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import type { CreateEventItem } from "@ryot/contract/modules/events/schemas";
-import type { EntitySchemaId, EventSchemaId, UserId } from "@ryot/contract/schema/brands";
+import type { EntitySchemaSlug, EventSchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect } from "effect";
@@ -22,9 +22,9 @@ import {
 } from "./domain";
 
 export type WorkoutSchemas = {
-	workoutSchemaId: EntitySchemaId;
-	exerciseSchemaId: EntitySchemaId;
-	workoutSetEventSchemaId: EventSchemaId;
+	workoutSchemaId: EntitySchemaSlug;
+	exerciseSchemaId: EntitySchemaSlug;
+	workoutSetEventSchemaSlug: EventSchemaSlug;
 	workoutSetEventPropertiesSchema: AppSchema;
 };
 
@@ -45,7 +45,7 @@ const matchExerciseCandidate = (
 const findOrCreateExercise = Effect.fn(function* (input: {
 	user: CurrentUserValue;
 	exercise: WorkoutImportExercise;
-	exerciseSchemaId: EntitySchemaId;
+	exerciseSchemaId: EntitySchemaSlug;
 	candidates: ReadonlyArray<ListedEntity>;
 	exerciseCache: Map<string, ListedEntity>;
 }) {
@@ -66,7 +66,7 @@ const findOrCreateExercise = Effect.fn(function* (input: {
 		scope: "user",
 		userId: input.user.id,
 		name: input.exercise.name,
-		entitySchemaId: input.exerciseSchemaId,
+		entitySchemaSlug: input.exerciseSchemaId,
 		properties: { images: [], muscles: [], instructions: [], kind: input.exercise.kind },
 	});
 	input.exerciseCache.set(key, created);
@@ -134,7 +134,7 @@ export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function
 		scope: "user",
 		userId: input.user.id,
 		name: input.workout.name,
-		entitySchemaId: input.schemas.workoutSchemaId,
+		entitySchemaSlug: input.schemas.workoutSchemaId,
 		properties: buildWorkoutEntityProperties(input.workout),
 	});
 
@@ -149,7 +149,7 @@ export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function
 			properties: draft.properties,
 			sessionEntityId: workoutEntity.id,
 			occurredAt: input.workout.startedAt,
-			eventSchemaId: input.schemas.workoutSetEventSchemaId,
+			eventSchemaSlug: input.schemas.workoutSetEventSchemaSlug,
 		});
 	}
 
@@ -176,7 +176,7 @@ export const loadWorkoutImportContext = Effect.fn("imports.loadWorkoutImportCont
 	}
 
 	const workoutSetEventSchema = yield* runWithDb(
-		eventSchemas.getBuiltinBySlug({ entitySchemaId: exerciseSchema.id, slug: "workout-set" }),
+		eventSchemas.getBuiltinBySlug({ entitySchemaSlug: exerciseSchema.id, slug: "workout-set" }),
 	);
 	if (!workoutSetEventSchema) {
 		return null;
@@ -185,7 +185,7 @@ export const loadWorkoutImportContext = Effect.fn("imports.loadWorkoutImportCont
 	const candidates = yield* runWithDb(
 		entitiesRepository.listMatchCandidatesBySchema({
 			userId,
-			entitySchemaId: exerciseSchema.id,
+			entitySchemaSlug: exerciseSchema.id,
 		}),
 	);
 
@@ -194,7 +194,7 @@ export const loadWorkoutImportContext = Effect.fn("imports.loadWorkoutImportCont
 		schemas: {
 			workoutSchemaId: workoutSchema.id,
 			exerciseSchemaId: exerciseSchema.id,
-			workoutSetEventSchemaId: workoutSetEventSchema.id,
+			workoutSetEventSchemaSlug: workoutSetEventSchema.id,
 			workoutSetEventPropertiesSchema: workoutSetEventSchema.propertiesSchema,
 		},
 	} satisfies WorkoutImportContext;

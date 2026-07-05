@@ -26,9 +26,8 @@ import type { DbRoot } from "#lib/infrastructure/db/service";
 import { CurrentDb, DbService, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesService } from "#modules/entities/service";
-import { SavedViewsService } from "#modules/saved-views/service";
-import { TrackersService } from "#modules/trackers/service";
 import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
 
 import { gateSessionCreation } from "./session-gate";
@@ -203,16 +202,14 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const entities = yield* EntitiesService;
-		const trackers = yield* TrackersService;
-		const savedViews = yield* SavedViewsService;
+		const definitions = yield* DefinitionRegistry;
 		const runInTransaction = yield* TransactionRunner;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
 		const runtime = yield* Effect.runtime<DbService | RedisService | TransactionRunner>();
 		const runBootstrap = (userId: string) =>
 			bootstrapNewUser(userId).pipe(
 				Effect.provideService(EntitiesService, entities),
-				Effect.provideService(SavedViewsService, savedViews),
-				Effect.provideService(TrackersService, trackers),
+				Effect.provideService(DefinitionRegistry, definitions),
 				Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
 				Effect.provideService(TransactionRunner, runInTransaction),
 			);

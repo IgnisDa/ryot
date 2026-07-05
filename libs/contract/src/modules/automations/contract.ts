@@ -3,7 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { Conflict, NotFound, RateLimited, Unauthorized } from "../../errors";
-import { AutomationRuleId, SignalSchemaId } from "../../schema/brands";
+import { AutomationRuleId, SignalSchemaSlug } from "../../schema/brands";
 import {
 	CatalogSignalSchema,
 	InstalledNotificationRule,
@@ -11,7 +11,7 @@ import {
 } from "./schemas";
 
 const ruleIdParam = HttpApiSchema.param("ruleId", AutomationRuleId);
-const signalSchemaIdParam = HttpApiSchema.param("signalSchemaId", SignalSchemaId);
+const signalSchemaSlugParam = HttpApiSchema.param("signalSchemaSlug", SignalSchemaSlug);
 
 export const AutomationsGroup = HttpApiGroup.make("automations")
 	.annotate(OpenApi.Description, "Manages automation catalogs and notification rules.")
@@ -24,7 +24,7 @@ export const AutomationsGroup = HttpApiGroup.make("automations")
 			.addSuccess(Schema.Array(CatalogSignalSchema)),
 	)
 	.add(
-		HttpApiEndpoint.get("getCatalog")`/automations/catalog/${signalSchemaIdParam}`
+		HttpApiEndpoint.get("getCatalog")`/automations/catalog/${signalSchemaSlugParam}`
 			.annotate(OpenApi.Description, "Returns an automation signal schema from the catalog.")
 			.addSuccess(CatalogSignalSchema)
 			.addError(NotFound, { status: 404 }),

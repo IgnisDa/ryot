@@ -3,9 +3,9 @@ import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import {
 	EntityId,
-	EntitySchemaId,
+	EntitySchemaSlug,
 	EventId,
-	EventSchemaId,
+	EventSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
@@ -30,19 +30,18 @@ import { EventsRepository } from "./repository";
 const now = "2026-01-01T00:00:00.000Z";
 const userId = UserId.make("user-id");
 const entityId = EntityId.make("entity-1");
-const eventSchemaId = EventSchemaId.make("event-schema-1");
-const entitySchemaId = EntitySchemaId.make("entity-schema-1");
+const eventSchemaSlug = EventSchemaSlug.make("review");
+const entitySchemaSlug = EntitySchemaSlug.make("book");
 
 const payload = {
 	userId,
 	origin: "api",
 	executionId: "event-create-execution",
-	payload: [{ entityId, eventSchemaId, occurredAt: now, properties: {} }],
+	payload: [{ entityId, eventSchemaSlug, occurredAt: now, properties: {} }],
 } satisfies EventCreateWorkflowPayload;
 
 const entityScope = {
 	entityId,
-	entitySchemaId,
 	isBuiltin: false,
 	entityName: "Dune",
 	entityUserId: userId,
@@ -51,11 +50,11 @@ const entityScope = {
 };
 
 const eventSchemaScope = {
-	eventSchemaId,
-	entitySchemaId,
+	eventSchemaSlug,
+	entitySchemaSlug,
 	name: "Review",
 	slug: "review",
-	id: eventSchemaId,
+	id: eventSchemaSlug,
 	propertiesSchema: { fields: {} },
 };
 
@@ -139,7 +138,6 @@ it.effect("creates events inside workflow activities", () => {
 					entityId: input.entityId,
 					properties: input.properties,
 					id: EventId.make("event-1"),
-					eventSchemaId: input.eventSchemaId,
 					eventSchemaName: input.eventSchemaName,
 					eventSchemaSlug: input.eventSchemaSlug,
 					sessionEntityId: input.sessionEntityId,
@@ -200,7 +198,6 @@ it.effect(
 						entityId: input.entityId,
 						properties: input.properties,
 						id: EventId.make("event-1"),
-						eventSchemaId: input.eventSchemaId,
 						eventSchemaName: input.eventSchemaName,
 						eventSchemaSlug: input.eventSchemaSlug,
 						sessionEntityId: input.sessionEntityId,
@@ -223,7 +220,6 @@ it.effect(
 			expect(occurrence?.source).toEqual({
 				kind: "event",
 				after: {
-					eventSchemaId,
 					properties: {},
 					occurredAt: now,
 					eventSchemaSlug: "review",
@@ -267,7 +263,6 @@ it.effect("does not dispatch a lifecycle occurrence when no lifecycle origin is 
 					entityId: input.entityId,
 					properties: input.properties,
 					id: EventId.make("event-1"),
-					eventSchemaId: input.eventSchemaId,
 					eventSchemaName: input.eventSchemaName,
 					eventSchemaSlug: input.eventSchemaSlug,
 					sessionEntityId: input.sessionEntityId,

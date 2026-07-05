@@ -20,13 +20,13 @@ export const resolveEntityMigrationTargets = <
 	T extends { source: string; entitySchemaSlug: string; sandboxScriptSlug: string | null },
 >(
 	targets: readonly T[],
-	entitySchemaIds: Map<string, string>,
+	entitySchemaSlugs: Map<string, string>,
 	sandboxScriptIds: Map<string, string>,
 	kindLabel: string,
-): Array<T & { entitySchemaId: string; sandboxScriptId: string | null }> =>
+): Array<T & { entitySchemaSlug: string; sandboxScriptId: string | null }> =>
 	targets.map((target) => {
-		const entitySchemaId = entitySchemaIds.get(target.entitySchemaSlug);
-		if (entitySchemaId === undefined) {
+		const entitySchemaSlug = entitySchemaSlugs.get(target.entitySchemaSlug);
+		if (entitySchemaSlug === undefined) {
 			throw new Error(
 				`Missing entity schema id for ${kindLabel} slug "${target.entitySchemaSlug}"`,
 			);
@@ -40,24 +40,24 @@ export const resolveEntityMigrationTargets = <
 			throw new Error(`Missing sandbox script id for slug "${target.sandboxScriptSlug}"`);
 		}
 
-		return { ...target, entitySchemaId, sandboxScriptId };
+		return { ...target, entitySchemaSlug, sandboxScriptId };
 	});
 
 export const resolveRelationshipMigrationTargets = (input: {
 	lotToEntitySchemaSlug: Map<string, string>;
-	relationshipSchemaIds: Map<string, string>;
+	relationshipSchemaSlugs: Map<string, string>;
 	sourceEntitySchemaSlug: "person" | "company";
 }) => {
-	const targets: Array<{ lot: string; relationshipSchemaId: string }> = [];
+	const targets: Array<{ lot: string; relationshipSchemaSlug: string }> = [];
 
 	for (const [lot, targetEntitySchemaSlug] of input.lotToEntitySchemaSlug.entries()) {
-		const relationshipSchemaSlug = `${input.sourceEntitySchemaSlug}-to-${targetEntitySchemaSlug}`;
-		const relationshipSchemaId = input.relationshipSchemaIds.get(relationshipSchemaSlug);
-		if (relationshipSchemaId === undefined) {
-			throw new Error(`Missing relationship schema id for slug "${relationshipSchemaSlug}"`);
+		const relationshipSchemaKey = `${input.sourceEntitySchemaSlug}-to-${targetEntitySchemaSlug}`;
+		const relationshipSchemaSlug = input.relationshipSchemaSlugs.get(relationshipSchemaKey);
+		if (relationshipSchemaSlug === undefined) {
+			throw new Error(`Missing relationship schema id for slug "${relationshipSchemaKey}"`);
 		}
 
-		targets.push({ lot, relationshipSchemaId });
+		targets.push({ lot, relationshipSchemaSlug });
 	}
 
 	return targets;

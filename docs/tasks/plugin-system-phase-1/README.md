@@ -20,16 +20,16 @@ items are open, and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 1 of 3 tasks completed
+**Overall Progress:** 2 of 3 tasks completed
 
-**Current Task:** [Task 02](./02-fk-to-slug-cutover.md) (todo)
+**Current Task:** [Task 03](./03-codebase-cleanup.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                  | Type | Status |
 | --- | --------------------------------------------------------------------- | ---- | ------ |
 | 01  | [Build the Definition Registry](./01-build-definition-registry.md)    | AFK  | done   |
-| 02  | [FK-to-Slug Storage and Consumer Cutover](./02-fk-to-slug-cutover.md) | AFK  | todo   |
+| 02  | [FK-to-Slug Storage and Consumer Cutover](./02-fk-to-slug-cutover.md) | AFK  | done   |
 | 03  | [Codebase Cleanup](./03-codebase-cleanup.md)                          | AFK  | todo   |
 
 ## Problem Statement

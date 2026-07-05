@@ -1,5 +1,9 @@
 import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
-import type { EntityId, RelationshipId, RelationshipSchemaId } from "@ryot/contract/schema/brands";
+import type {
+	EntityId,
+	RelationshipId,
+	RelationshipSchemaSlug,
+} from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
@@ -18,7 +22,7 @@ type RelationshipValue = {
 	properties: unknown;
 	sourceEntityId: EntityId;
 	targetEntityId: EntityId;
-	relationshipSchemaId: RelationshipSchemaId;
+	relationshipSchemaSlug: RelationshipSchemaSlug;
 };
 
 const toSandboxRunError = (error: { message: string }) =>
@@ -28,9 +32,8 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 	function* (input: {
 		anchorEntityId: EntityId;
 		propertiesSchema: AppSchema;
-		relationshipSchemaSlug: string;
 		direction: "incoming" | "outgoing";
-		relationshipSchemaId: RelationshipSchemaId;
+		relationshipSchemaSlug: RelationshipSchemaSlug;
 		synchronization: "additive" | "authoritative";
 		onConflict: "preserveExisting" | "replaceProperties";
 		entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
@@ -44,7 +47,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 				type: "anchored",
 				direction: input.direction,
 				anchorEntityId: input.anchorEntityId,
-				relationshipSchemaId: input.relationshipSchemaId,
+				relationshipSchemaSlug: input.relationshipSchemaSlug,
 			}),
 		).pipe(dieOnDbError);
 		const sortedExisting = [...existing].sort(
@@ -87,8 +90,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 				targetEntity,
 				id: relationship.id,
 				properties: relationship.properties,
-				relationshipSchemaSlug: input.relationshipSchemaSlug,
-				relationshipSchemaId: relationship.relationshipSchemaId,
+				relationshipSchemaSlug: relationship.relationshipSchemaSlug,
 			} satisfies RelationshipMutationSnapshot;
 		});
 
@@ -102,7 +104,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 				scope: "global" as const,
 				properties: entry.properties,
 				propertiesSchema: input.propertiesSchema,
-				relationshipSchemaId: input.relationshipSchemaId,
+				relationshipSchemaSlug: input.relationshipSchemaSlug,
 			};
 			const current = existingByEntityId.get(entry.entityId);
 			if (current) {
@@ -163,7 +165,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 						scope: "global",
 						sourceEntityId: relationship.sourceEntityId,
 						targetEntityId: relationship.targetEntityId,
-						relationshipSchemaId: relationship.relationshipSchemaId,
+						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
 					})
 					.pipe(Effect.mapError(toSandboxRunError));
 				if (!deleted) {

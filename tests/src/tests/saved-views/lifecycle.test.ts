@@ -146,7 +146,7 @@ describe("Saved views lifecycle E2E", () => {
 						accentColor: builtinView.accentColor,
 						queryDocument: builtinView.queryDocument,
 						displayConfiguration: builtinView.displayConfiguration,
-						...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),
+						...(builtinView.trackerSlug ? { trackerSlug: builtinView.trackerSlug } : {}),
 					},
 				}),
 			);
@@ -162,7 +162,7 @@ describe("Saved views lifecycle E2E", () => {
 						accentColor: builtinView.accentColor,
 						queryDocument: builtinView.queryDocument,
 						displayConfiguration: builtinView.displayConfiguration,
-						...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),
+						...(builtinView.trackerSlug ? { trackerSlug: builtinView.trackerSlug } : {}),
 					},
 				}),
 			);
@@ -260,26 +260,26 @@ describe("Saved views lifecycle E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { trackerId } = yield* createTracker(client, {
+				const { trackerSlug } = yield* createTracker(client, {
 					name: `Tracked Views ${crypto.randomUUID()}`,
 				});
 				const enabledTracked = yield* createSavedView(client, {
-					trackerId,
+					trackerSlug,
 					name: `Enabled Tracked ${crypto.randomUUID()}`,
 				});
 				const disabledTracked = yield* createSavedView(client, {
-					trackerId,
+					trackerSlug,
 					name: `Disabled Tracked ${crypto.randomUUID()}`,
 				});
 				yield* createSavedView(client, { name: `Standalone ${crypto.randomUUID()}` });
-				yield* updateSavedView(client, disabledTracked.slug, { trackerId, isDisabled: true });
+				yield* updateSavedView(client, disabledTracked.slug, { trackerSlug, isDisabled: true });
 
-				const listedViews = yield* listSavedViews(client, { trackerId, includeDisabled: true });
+				const listedViews = yield* listSavedViews(client, { trackerSlug, includeDisabled: true });
 
 				expect(new Set(listedViews.map((v) => v.id))).toEqual(
 					new Set([disabledTracked.id, enabledTracked.id]),
 				);
-				expect(listedViews.map((v) => v.trackerId)).toEqual([trackerId, trackerId]);
+				expect(listedViews.map((v) => v.trackerSlug)).toEqual([trackerSlug, trackerSlug]);
 				expect(listedViews.some((v) => v.isDisabled)).toBe(true);
 			}),
 	);
@@ -287,15 +287,15 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("reorders saved views only within the requested tracker scope", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { trackerId } = yield* createTracker(client, {
+			const { trackerSlug } = yield* createTracker(client, {
 				name: `Tracker Scoped Views ${crypto.randomUUID()}`,
 			});
 			const first = yield* createSavedView(client, {
-				trackerId,
+				trackerSlug,
 				name: `Tracker View A ${crypto.randomUUID()}`,
 			});
 			const second = yield* createSavedView(client, {
-				trackerId,
+				trackerSlug,
 				name: `Tracker View B ${crypto.randomUUID()}`,
 			});
 			const standalone = yield* createSavedView(client, {
@@ -304,9 +304,9 @@ describe("Saved views lifecycle E2E", () => {
 
 			const reordered = yield* reorderSavedViews(client, {
 				viewSlugs: [second.slug, first.slug],
-				trackerId,
+				trackerSlug,
 			});
-			const scopedViews = yield* listSavedViews(client, { trackerId, includeDisabled: true });
+			const scopedViews = yield* listSavedViews(client, { trackerSlug, includeDisabled: true });
 			const topLevelViews = yield* listSavedViews(client, { includeDisabled: true });
 
 			expect(reordered.viewSlugs.slice(0, 2)).toEqual([second.slug, first.slug]);
@@ -315,22 +315,22 @@ describe("Saved views lifecycle E2E", () => {
 		}),
 	);
 
-	it.live("reorders only top-level saved views when trackerId is omitted", () =>
+	it.live("reorders only top-level saved views when trackerSlug is omitted", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const first = yield* createSavedView(client, { name: `Top View A ${crypto.randomUUID()}` });
 			const second = yield* createSavedView(client, { name: `Top View B ${crypto.randomUUID()}` });
-			const { trackerId } = yield* createTracker(client, {
+			const { trackerSlug } = yield* createTracker(client, {
 				name: `Unrelated Tracker ${crypto.randomUUID()}`,
 			});
 			const tracked = yield* createSavedView(client, {
-				trackerId,
+				trackerSlug,
 				name: `Tracked Scope View ${crypto.randomUUID()}`,
 			});
 
 			yield* reorderSavedViews(client, { viewSlugs: [second.slug, first.slug] });
 			const topLevelViews = yield* listSavedViews(client, { includeDisabled: true });
-			const trackedViews = yield* listSavedViews(client, { trackerId, includeDisabled: true });
+			const trackedViews = yield* listSavedViews(client, { trackerSlug, includeDisabled: true });
 
 			const orderedSlugs = topLevelViews
 				.filter((v) => v.slug === first.slug || v.slug === second.slug)
@@ -341,27 +341,27 @@ describe("Saved views lifecycle E2E", () => {
 		}),
 	);
 
-	it.live("moves a saved view to top-level when trackerId is omitted on update", () =>
+	it.live("moves a saved view to top-level when trackerSlug is omitted on update", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { trackerId } = yield* createTracker(client, {
+			const { trackerSlug } = yield* createTracker(client, {
 				name: `Move View Tracker ${crypto.randomUUID()}`,
 			});
 			const movedView = yield* createSavedView(client, {
-				trackerId,
+				trackerSlug,
 				name: `Movable View ${crypto.randomUUID()}`,
 			});
 
 			const updatedView = yield* updateSavedView(client, movedView.slug, {
-				trackerId: undefined,
+				trackerSlug: undefined,
 				name: `${movedView.name} Updated`,
 			});
 			const fetchedView = yield* getSavedView(client, movedView.slug);
 			const topLevelViews = yield* listSavedViews(client, { includeDisabled: true });
-			const trackerViews = yield* listSavedViews(client, { trackerId, includeDisabled: true });
+			const trackerViews = yield* listSavedViews(client, { trackerSlug, includeDisabled: true });
 
-			expect(updatedView.trackerId).toBeNull();
-			expect(fetchedView.trackerId).toBeNull();
+			expect(updatedView.trackerSlug).toBeNull();
+			expect(fetchedView.trackerSlug).toBeNull();
 			expect(topLevelViews.map((v) => v.id)).toContain(movedView.id);
 			expect(trackerViews.map((v) => v.id)).not.toContain(movedView.id);
 		}),
@@ -370,11 +370,11 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("rejects reorder requests containing saved views from another scope", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { trackerId } = yield* createTracker(client, {
+			const { trackerSlug } = yield* createTracker(client, {
 				name: `Strict Scope Tracker ${crypto.randomUUID()}`,
 			});
 			const tracked = yield* createSavedView(client, {
-				trackerId,
+				trackerSlug,
 				name: `Scoped View ${crypto.randomUUID()}`,
 			});
 			const standalone = yield* createSavedView(client, {
@@ -384,7 +384,7 @@ describe("Saved views lifecycle E2E", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.reorder({
-						payload: { trackerId, viewSlugs: [tracked.slug, standalone.slug] },
+						payload: { trackerSlug, viewSlugs: [tracked.slug, standalone.slug] },
 					}),
 				),
 			);

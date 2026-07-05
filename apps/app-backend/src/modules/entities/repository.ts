@@ -1,23 +1,23 @@
 import { DbError } from "@ryot/contract/errors";
-import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
+import { EntityId, EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 
 import type { EntityReferenceSnapshot } from "./mutation-outcomes";
 import {
 	entitySelection,
 	entityVisibleToUserClause,
-	entitySchemaVisibleToUserClause,
 	toListedEntity,
+	type EntitySchemaScope,
 } from "./repository-support";
 
 export type InsertEntityInputBase = {
 	name: string;
-	entitySchemaId: EntitySchemaId;
+	entitySchemaSlug: EntitySchemaSlug;
 } & (
 	| {
 			scope: "global";
@@ -50,9 +50,10 @@ export type {
 } from "./repository-support";
 
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
-	sync: () => {
+	effect: Effect.gen(function* () {
+		const definitions = yield* DefinitionRegistry;
 		const listMatchCandidatesBySchema = Effect.fn("EntitiesRepository.listMatchCandidatesBySchema")(
-			function* (input: { userId: UserId; entitySchemaId: EntitySchemaId }) {
+			function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
 					db
@@ -61,7 +62,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						.where(
 							and(
 								entityVisibleToUserClause(input.userId),
-								eq(schema.entity.entitySchemaId, input.entitySchemaId),
+								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
 							),
 						)
 						.orderBy(
@@ -86,13 +87,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						.select({
 							id: schema.entity.id,
 							name: schema.entity.name,
-							entitySchemaSlug: schema.entitySchema.slug,
+							entitySchemaSlug: schema.entity.entitySchemaSlug,
 						})
 						.from(schema.entity)
-						.innerJoin(
-							schema.entitySchema,
-							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-						)
 						.where(inArray(schema.entity.id, [...entityIds]))
 						.orderBy(asc(schema.entity.id)),
 				);
@@ -108,43 +105,18 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 		);
 
 		const getEntitySchemaScopeForUser = Effect.fn("EntitiesRepository.getEntitySchemaScopeForUser")(
-			function* (input: { userId: UserId; entitySchemaId: EntitySchemaId }) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({
-							id: schema.entitySchema.id,
-							slug: schema.entitySchema.slug,
-							userId: schema.entitySchema.userId,
-							isBuiltin: schema.entitySchema.isBuiltin,
-							propertiesSchema: schema.entitySchema.propertiesSchema,
-						})
-						.from(schema.entitySchema)
-						.where(
-							and(
-								eq(schema.entitySchema.id, input.entitySchemaId),
-								entitySchemaVisibleToUserClause(input.userId),
-							),
-						)
-						.limit(1),
-				);
-
-				if (!row) {
-					return null;
-				}
-
-				const propertiesSchema = yield* decodeStoredAppSchema(
-					row.propertiesSchema,
-					"Invalid entity properties schema in database",
-				);
-
-				return {
-					id: EntitySchemaId.make(row.id),
-					slug: row.slug,
-					propertiesSchema,
-					userId: row.userId ? UserId.make(row.userId) : null,
-					isBuiltin: row.isBuiltin,
-				};
+			(input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) => {
+				const definition = definitions.getEntitySchema(input.entitySchemaSlug);
+				const scope: EntitySchemaScope | null = definition
+					? {
+							id: EntitySchemaSlug.make(definition.slug),
+							slug: definition.slug,
+							propertiesSchema: definition.propertiesSchema,
+							userId: null,
+							isBuiltin: true,
+						}
+					: null;
+				return Effect.succeed(scope);
 			},
 		);
 
@@ -157,16 +129,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							entityId: schema.entity.id,
 							entityName: schema.entity.name,
 							entityUserId: schema.entity.userId,
-							isBuiltin: schema.entitySchema.isBuiltin,
-							entitySchemaSlug: schema.entitySchema.slug,
-							entitySchemaId: schema.entity.entitySchemaId,
-							propertiesSchema: schema.entitySchema.propertiesSchema,
+							entitySchemaSlug: schema.entity.entitySchemaSlug,
 						})
 						.from(schema.entity)
-						.innerJoin(
-							schema.entitySchema,
-							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-						)
 						.where(
 							and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
 						)
@@ -177,16 +142,11 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					return null;
 				}
 
-				const propertiesSchema = yield* decodeStoredAppSchema(
-					row.propertiesSchema,
-					"Invalid entity properties schema in database",
-				);
-
 				return {
 					...row,
-					propertiesSchema,
+					isBuiltin: true,
 					entityId: EntityId.make(row.entityId),
-					entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+					entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 					entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
 				};
 			},
@@ -201,15 +161,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							entityId: schema.entity.id,
 							entityUserId: schema.entity.userId,
 							properties: schema.entity.properties,
-							isBuiltin: schema.entitySchema.isBuiltin,
-							entitySchemaSlug: schema.entitySchema.slug,
-							entitySchemaId: schema.entity.entitySchemaId,
+							entitySchemaSlug: schema.entity.entitySchemaSlug,
 						})
 						.from(schema.entity)
-						.innerJoin(
-							schema.entitySchema,
-							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-						)
 						.where(
 							and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
 						)
@@ -219,8 +173,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				return row
 					? {
 							...row,
+							isBuiltin: true,
 							entityId: EntityId.make(row.entityId),
-							entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+							entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 							entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
 						}
 					: null;
@@ -274,7 +229,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 		)(function* (input: {
 			userId: UserId;
 			externalId: string;
-			entitySchemaId: EntitySchemaId;
+			entitySchemaSlug: EntitySchemaSlug;
 			sandboxScriptId: SandboxScriptId;
 		}) {
 			const db = yield* CurrentDb;
@@ -286,7 +241,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						and(
 							entityVisibleToUserClause(input.userId),
 							eq(schema.entity.externalId, input.externalId),
-							eq(schema.entity.entitySchemaId, input.entitySchemaId),
+							eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
 							eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
 						),
 					)
@@ -300,7 +255,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			"EntitiesRepository.findGlobalEntityByExternalId",
 		)(function* (input: {
 			externalId: string;
-			entitySchemaId: EntitySchemaId;
+			entitySchemaSlug: EntitySchemaSlug;
 			sandboxScriptId: SandboxScriptId;
 		}) {
 			const db = yield* CurrentDb;
@@ -312,7 +267,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						and(
 							isNull(schema.entity.userId),
 							eq(schema.entity.externalId, input.externalId),
-							eq(schema.entity.entitySchemaId, input.entitySchemaId),
+							eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
 							eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
 						),
 					)
@@ -322,31 +277,15 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			return row ? toListedEntity(row) : null;
 		});
 
-		const findEntitySchemaById = Effect.fn("EntitiesRepository.findEntitySchemaById")(function* (
-			entitySchemaId: EntitySchemaId,
-		) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
-				db
-					.select({
-						slug: schema.entitySchema.slug,
-						propertiesSchema: schema.entitySchema.propertiesSchema,
-					})
-					.from(schema.entitySchema)
-					.where(eq(schema.entitySchema.id, entitySchemaId))
-					.limit(1),
+		const findEntitySchemaById = Effect.fn("EntitiesRepository.findEntitySchemaById")((
+			entitySchemaSlug: EntitySchemaSlug,
+		) => {
+			const definition = definitions.getEntitySchema(entitySchemaSlug);
+			return Effect.succeed(
+				definition
+					? { propertiesSchema: definition.propertiesSchema, slug: definition.slug }
+					: null,
 			);
-
-			if (!row) {
-				return null;
-			}
-
-			const propertiesSchema = yield* decodeStoredAppSchema(
-				row.propertiesSchema,
-				"Invalid entity properties schema in database",
-			);
-
-			return { propertiesSchema, slug: row.slug };
 		});
 
 		const findEntitySchemaSandboxScriptBySlug = Effect.fn(
@@ -356,7 +295,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			const [row] = yield* dbEffect(() =>
 				db
 					.select({
-						entitySchemaId: schema.entitySchemaSandboxScript.entitySchemaId,
+						entitySchemaSlug: schema.entitySchemaSandboxScript.entitySchemaSlug,
 						sandboxScriptId: schema.entitySchemaSandboxScript.sandboxScriptId,
 					})
 					.from(schema.sandboxScript)
@@ -373,7 +312,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 
 			return row
 				? {
-						entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+						entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 						sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
 					}
 				: null;
@@ -393,7 +332,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					properties: input.properties,
 					externalId: externalId ?? null,
 					populatedAt: input.populatedAt,
-					entitySchemaId: input.entitySchemaId,
+					entitySchemaSlug: input.entitySchemaSlug,
 					sandboxScriptId: sandboxScriptId ?? null,
 				};
 
@@ -423,7 +362,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							and(
 								isNull(schema.entity.userId),
 								eq(schema.entity.externalId, externalId),
-								eq(schema.entity.entitySchemaId, input.entitySchemaId),
+								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
 								eq(schema.entity.sandboxScriptId, sandboxScriptId),
 							),
 						)
@@ -445,7 +384,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				userId: input.userId,
 				properties: input.properties,
 				externalId: externalId ?? null,
-				entitySchemaId: input.entitySchemaId,
+				entitySchemaSlug: input.entitySchemaSlug,
 				sandboxScriptId: sandboxScriptId ?? null,
 			};
 
@@ -458,7 +397,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							target: [
 								schema.entity.userId,
 								schema.entity.externalId,
-								schema.entity.entitySchemaId,
+								schema.entity.entitySchemaSlug,
 								schema.entity.sandboxScriptId,
 							],
 						})
@@ -478,7 +417,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							and(
 								eq(schema.entity.userId, input.userId),
 								eq(schema.entity.externalId, externalId),
-								eq(schema.entity.entitySchemaId, input.entitySchemaId),
+								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
 								eq(schema.entity.sandboxScriptId, sandboxScriptId),
 							),
 						)
@@ -573,5 +512,5 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			findEntityByExternalIdForUser,
 			findEntitySchemaSandboxScriptBySlug,
 		};
-	},
+	}),
 }) {}

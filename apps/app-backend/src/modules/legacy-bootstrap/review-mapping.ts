@@ -37,32 +37,32 @@ BEGIN
 			season.properties ->> 'seasonNumber' AS season_number,
 			episode.properties ->> 'episodeNumber' AS episode_number,
 			episode.id AS entity_id,
-			episode.entity_schema_id
+			episode.entity_schema_slug
 		FROM "entity" show_entity
 		INNER JOIN "entity_schema" show_schema
-			ON  show_schema.id   = show_entity.entity_schema_id
+			ON  show_schema.id   = show_entity.entity_schema_slug
 			AND show_schema.slug = 'show'
 		INNER JOIN "relationship" show_season_rel
 			ON show_season_rel.source_entity_id = show_entity.id
 		INNER JOIN "relationship_schema" show_season_rs
-			ON  show_season_rs.id      = show_season_rel.relationship_schema_id
+			ON  show_season_rs.id      = show_season_rel.relationship_schema_slug
 			AND show_season_rs.slug    = 'show-to-show-season'
 			AND show_season_rs.user_id IS NULL
 		INNER JOIN "entity" season
 			ON season.id = show_season_rel.target_entity_id
 		INNER JOIN "entity_schema" season_schema
-			ON  season_schema.id   = season.entity_schema_id
+			ON  season_schema.id   = season.entity_schema_slug
 			AND season_schema.slug = 'show-season'
 		INNER JOIN "relationship" season_episode_rel
 			ON season_episode_rel.source_entity_id = season.id
 		INNER JOIN "relationship_schema" season_episode_rs
-			ON  season_episode_rs.id      = season_episode_rel.relationship_schema_id
+			ON  season_episode_rs.id      = season_episode_rel.relationship_schema_slug
 			AND season_episode_rs.slug    = 'show-season-to-show-episode'
 			AND season_episode_rs.user_id IS NULL
 		INNER JOIN "entity" episode
 			ON episode.id = season_episode_rel.target_entity_id
 		INNER JOIN "entity_schema" episode_schema
-			ON  episode_schema.id   = episode.entity_schema_id
+			ON  episode_schema.id   = episode.entity_schema_slug
 			AND episode_schema.slug = 'show-episode'
 		WHERE (show_season_rel.user_id = show_entity.user_id OR show_season_rel.user_id IS NULL)
 		  AND (season_episode_rel.user_id = show_entity.user_id OR season_episode_rel.user_id IS NULL)
@@ -95,21 +95,21 @@ BEGIN
 			podcast.id AS parent_entity_id,
 			episode.properties ->> 'episodeNumber' AS episode_number,
 			episode.id AS entity_id,
-			episode.entity_schema_id
+			episode.entity_schema_slug
 		FROM "entity" podcast
 		INNER JOIN "entity_schema" podcast_schema
-			ON  podcast_schema.id   = podcast.entity_schema_id
+			ON  podcast_schema.id   = podcast.entity_schema_slug
 			AND podcast_schema.slug = 'podcast'
 		INNER JOIN "relationship" podcast_episode_rel
 			ON podcast_episode_rel.source_entity_id = podcast.id
 		INNER JOIN "relationship_schema" podcast_episode_rs
-			ON  podcast_episode_rs.id      = podcast_episode_rel.relationship_schema_id
+			ON  podcast_episode_rs.id      = podcast_episode_rel.relationship_schema_slug
 			AND podcast_episode_rs.slug    = 'podcast-to-podcast-episode'
 			AND podcast_episode_rs.user_id IS NULL
 		INNER JOIN "entity" episode
 			ON episode.id = podcast_episode_rel.target_entity_id
 		INNER JOIN "entity_schema" episode_schema
-			ON  episode_schema.id   = episode.entity_schema_id
+			ON  episode_schema.id   = episode.entity_schema_slug
 			AND episode_schema.slug = 'podcast-episode'
 		WHERE (podcast_episode_rel.user_id = podcast.user_id OR podcast_episode_rel.user_id IS NULL)
 		  AND (episode.user_id = podcast.user_id OR episode.user_id IS NULL)
@@ -150,7 +150,7 @@ BEGIN
 			"id",
 			"user_id",
 			"entity_id",
-			"event_schema_id",
+			"event_schema_slug",
 			"properties",
 			"created_at",
 			"occurred_at"
@@ -168,18 +168,18 @@ BEGIN
 				r.show_extra_information,
 				r.podcast_extra_information,
 				r.posted_on,
-				e.entity_schema_id,
+				e.entity_schema_slug,
 				entity_schema.slug AS entity_schema_slug,
 				show_episode.entity_id AS show_episode_entity_id,
-				show_episode.entity_schema_id AS show_episode_entity_schema_id,
+				show_episode.entity_schema_slug AS show_episode_entity_schema_slug,
 				podcast_episode.entity_id AS podcast_episode_entity_id,
-				podcast_episode.entity_schema_id AS podcast_episode_entity_schema_id,
+				podcast_episode.entity_schema_slug AS podcast_episode_entity_schema_slug,
 				(r.show_extra_information ->> 'season') ~ '^[0-9]+$'
 					AND (r.show_extra_information ->> 'episode') ~ '^[0-9]+$' AS has_show_episode_locator,
 				(r.podcast_extra_information ->> 'episode') ~ '^[0-9]+$' AS has_podcast_episode_locator
 			FROM "review" r
 			INNER JOIN "entity" e ON e.id = r.entity_id
-			INNER JOIN "entity_schema" entity_schema ON entity_schema.id = e.entity_schema_id
+			INNER JOIN "entity_schema" entity_schema ON entity_schema.id = e.entity_schema_slug
 			LEFT JOIN _legacy_show_episode_resolution show_episode
 				ON entity_schema.slug = 'show'
 				AND show_episode.parent_entity_id = r.entity_id
@@ -212,10 +212,10 @@ BEGIN
 			r.posted_on
 		FROM rows r
 		INNER JOIN "event_schema" es
-			ON es.entity_schema_id = COALESCE(
-				r.show_episode_entity_schema_id,
-				r.podcast_episode_entity_schema_id,
-				r.entity_schema_id
+			ON es.entity_schema_slug = COALESCE(
+				r.show_episode_entity_schema_slug,
+				r.podcast_episode_entity_schema_slug,
+				r.entity_schema_slug
 			)
 			AND es.slug = 'review'
 			AND es.user_id IS NULL
@@ -239,7 +239,7 @@ BEGIN
 	SELECT count(*) INTO unresolved_episode_rows
 	FROM "review" rv
 	INNER JOIN "entity" e ON e.id = rv.entity_id
-	INNER JOIN "entity_schema" es ON es.id = e.entity_schema_id
+	INNER JOIN "entity_schema" es ON es.id = e.entity_schema_slug
 	LEFT JOIN _legacy_show_episode_resolution show_episode
 		ON es.slug = 'show'
 		AND show_episode.parent_entity_id = rv.entity_id

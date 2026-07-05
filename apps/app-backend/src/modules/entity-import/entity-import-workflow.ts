@@ -1,5 +1,5 @@
 import { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
-import { EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
 
 export const EntityImportPayload = Schema.Struct({
@@ -7,7 +7,7 @@ export const EntityImportPayload = Schema.Struct({
 	scriptId: SandboxScriptId,
 	externalId: Schema.String,
 	executionId: Schema.String,
-	entitySchemaId: EntitySchemaId,
+	entitySchemaSlug: EntitySchemaSlug,
 	userId: Schema.NullOr(UserId),
 });
 

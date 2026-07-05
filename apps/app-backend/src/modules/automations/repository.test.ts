@@ -1,15 +1,16 @@
 import { expect, it } from "@effect/vitest";
 import {
 	AutomationRuleId,
-	EventSchemaId,
+	EventSchemaSlug,
 	SandboxScriptId,
-	SignalSchemaId,
+	SignalSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
 import { CurrentDb } from "#lib/infrastructure/db/service";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 
 import { AutomationsRepository } from "./repository";
 
@@ -23,12 +24,12 @@ const row = {
 	isBuiltin: true,
 	metadata: false,
 	operation: "signal",
-	eventSchemaId: null,
+	eventSchemaSlug: null,
 	kind: "subscription",
-	entitySchemaId: null,
+	entitySchemaSlug: null,
 	name: "Notifications",
-	relationshipSchemaId: null,
-	signalSchemaId: "signal-schema-1",
+	relationshipSchemaSlug: null,
+	signalSchemaSlug: "signal-schema-1",
 	sandboxScriptId: "sandbox-script-1",
 	createdAt: new Date("2026-07-20T10:00:00.000Z"),
 	updatedAt: new Date("2026-07-20T10:00:00.000Z"),
@@ -46,9 +47,9 @@ const makeDb = () => {
 					id: "policy-1",
 					userId: "user-1",
 					operation: "create",
-					signalSchemaId: null,
+					signalSchemaSlug: null,
 					kind: "policy" as const,
-					eventSchemaId: "event-schema-1",
+					eventSchemaSlug: "event-schema-1",
 				};
 				const rows = query.params.includes("subscription") ? [row] : [policyRow];
 				if (query.params.includes("subscription")) {
@@ -69,7 +70,7 @@ const makeDb = () => {
 
 const makeLayer = (db: ReturnType<typeof makeDb>) =>
 	Layer.mergeAll(
-		AutomationsRepository.Default,
+		AutomationsRepository.Default.pipe(Layer.provide(DefinitionRegistry.Default)),
 		Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
 	);
 
@@ -81,7 +82,7 @@ it.effect("preserves falsy JSON metadata loaded from persistence", () => {
 			userId: null,
 			operation: "signal",
 			sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
-			target: { kind: "signal_schema", id: SignalSchemaId.make(row.signalSchemaId) },
+			target: { kind: "signal_schema", id: SignalSchemaSlug.make(row.signalSchemaSlug) },
 		});
 		expect(rule?.metadata).toBe(false);
 	}).pipe(Effect.provide(makeLayer(db)));
@@ -94,7 +95,7 @@ it.effect("filters lifecycle policy rows from subscription resolution", () => {
 		const rules = yield* repository.resolveActive({
 			rowUserId: null,
 			operation: "signal",
-			target: { kind: "signal_schema", id: SignalSchemaId.make(row.signalSchemaId) },
+			target: { kind: "signal_schema", id: SignalSchemaSlug.make(row.signalSchemaSlug) },
 		});
 		expect(db.state.filteredSubscriptions).toBe(true);
 		expect(rules.map((rule) => rule.id)).toEqual([AutomationRuleId.make(row.id)]);
@@ -108,7 +109,7 @@ it.effect("resolves active event policies independently from subscriptions", () 
 		const rules = yield* repository.resolveActivePolicies({
 			operation: "create",
 			rowUserId: UserId.make("user-1"),
-			target: { kind: "event_schema", id: EventSchemaId.make("event-schema-1") },
+			target: { kind: "event_schema", id: EventSchemaSlug.make("event-schema-1") },
 		});
 		expect(db.state.filteredPolicies).toBe(true);
 		expect(rules.map((rule) => rule.id)).toEqual([AutomationRuleId.make("policy-1")]);

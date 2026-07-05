@@ -1,7 +1,7 @@
 import { Activity } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { MembershipResponse } from "@ryot/contract/modules/collections/schemas";
-import { EntityId, EventSchemaId } from "@ryot/contract/schema/brands";
+import { EntityId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
@@ -19,7 +19,7 @@ const WriteCollectionMembershipResult = Schema.Struct({
 	occurredAt: Schema.String,
 	entitySchemaSlug: Schema.String,
 	memberOf: MembershipResponse.fields.memberOf,
-	addEventSchemaId: Schema.NullOr(EventSchemaId),
+	addEventSchemaSlug: Schema.NullOr(EventSchemaSlug),
 });
 
 export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollectionWorkflow")(
@@ -45,7 +45,7 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 			}),
 		});
 
-		if (result.wasInserted && result.addEventSchemaId) {
+		if (result.wasInserted && result.addEventSchemaSlug) {
 			const eventExecutionId = `collection-membership-added-${result.memberOf.id}`;
 			yield* engine
 				.execute(EventCreateWorkflow, {
@@ -59,7 +59,7 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 							{
 								occurredAt: result.occurredAt,
 								entityId: payload.collectionId,
-								eventSchemaId: result.addEventSchemaId,
+								eventSchemaSlug: result.addEventSchemaSlug,
 								properties: {
 									entityId: result.entityId,
 									relationshipId: result.memberOf.id,

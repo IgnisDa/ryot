@@ -7,8 +7,8 @@ import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import {
 	EntityId,
 	EventId,
-	EventSchemaId,
-	type EntitySchemaId,
+	EventSchemaSlug,
+	type EntitySchemaSlug,
 	type ImportRunId,
 	type IntegrationId,
 	type UserId,
@@ -107,10 +107,9 @@ const toListedEvent = Effect.fn("toListedEventFromQueryEngine")(function* (row: 
 		updatedAt: yield* requireIsoStringField(row, "updatedAt"),
 		occurredAt: yield* requireIsoStringField(row, "occurredAt"),
 		eventSchemaName: yield* requireStringField(row, "eventSchemaName"),
-		eventSchemaSlug: yield* requireStringField(row, "eventSchemaSlug"),
 		entityId: EntityId.make(yield* requireStringField(row, "entityId")),
 		...(sessionEntityId ? { sessionEntityId: EntityId.make(sessionEntityId) } : {}),
-		eventSchemaId: EventSchemaId.make(yield* requireStringField(row, "eventSchemaId")),
+		eventSchemaSlug: EventSchemaSlug.make(yield* requireStringField(row, "eventSchemaSlug")),
 	};
 });
 
@@ -146,14 +145,13 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 				userId: UserId,
 				input: {
 					eventSchemaSlug?: string | undefined;
-					entitySchemaSlug: string;
-					entitySchemaId: EntitySchemaId;
+					entitySchemaSlug: EntitySchemaSlug;
 				},
 			) {
 				const eventSchemas = yield* runWithDb(
 					eventSchemasRepository.listByEntitySchemaForUser({
 						userId,
-						entitySchemaId: input.entitySchemaId,
+						entitySchemaSlug: input.entitySchemaSlug,
 					}),
 				);
 				const filtered = input.eventSchemaSlug
@@ -215,7 +213,7 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 				return yield* badRequest(listScopeRequiredError);
 			}
 
-			let entityScope: { entitySchemaId: EntitySchemaId; entitySchemaSlug: string } | null = null;
+			let entityScope: { entitySchemaSlug: EntitySchemaSlug } | null = null;
 			if (query.entityId) {
 				entityScope = yield* requireReadableEntity(userId, query.entityId, entityNotFoundError);
 			}
@@ -228,7 +226,6 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 			if (entityScope) {
 				scope = yield* resolveEntityEventQueryScope(userId, {
 					eventSchemaSlug: query.eventSchemaSlug,
-					entitySchemaId: entityScope.entitySchemaId,
 					entitySchemaSlug: entityScope.entitySchemaSlug,
 				});
 			} else if (query.sessionEntityId) {

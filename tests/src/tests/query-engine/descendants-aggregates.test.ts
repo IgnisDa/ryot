@@ -191,12 +191,12 @@ describe("Arithmetic output fields", () => {
 
 			yield* createQueryEngineEntity(client, {
 				name: "Half Done",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { totalLessons: 10, completedLessons: 5 },
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "Empty Course",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { totalLessons: 0, completedLessons: 0 },
 			});
 
@@ -267,17 +267,17 @@ describe("Aggregate returns", () => {
 			yield* Effect.all([
 				createQueryEngineEntity(client, {
 					name: "Lesson 1",
-					entitySchemaId: schemaId,
+					entitySchemaSlug: schemaId,
 					properties: { difficulty: "advanced", durationMinutes: 30 },
 				}),
 				createQueryEngineEntity(client, {
 					name: "Lesson 2",
-					entitySchemaId: schemaId,
+					entitySchemaSlug: schemaId,
 					properties: { difficulty: "advanced", durationMinutes: 60 },
 				}),
 				createQueryEngineEntity(client, {
 					name: "Lesson 3",
-					entitySchemaId: schemaId,
+					entitySchemaSlug: schemaId,
 					properties: { difficulty: "beginner", durationMinutes: 90 },
 				}),
 			]);
@@ -357,17 +357,17 @@ describe("Aggregate returns", () => {
 			yield* Effect.all([
 				createQueryEngineEntity(client, {
 					name: "Advanced 1",
-					entitySchemaId: schemaId,
+					entitySchemaSlug: schemaId,
 					properties: { difficulty: "advanced" },
 				}),
 				createQueryEngineEntity(client, {
 					name: "Advanced 2",
-					entitySchemaId: schemaId,
+					entitySchemaSlug: schemaId,
 					properties: { difficulty: "advanced" },
 				}),
 				createQueryEngineEntity(client, {
 					name: "Beginner 1",
-					entitySchemaId: schemaId,
+					entitySchemaSlug: schemaId,
 					properties: { difficulty: "beginner" },
 				}),
 			]);

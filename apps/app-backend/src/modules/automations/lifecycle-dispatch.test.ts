@@ -4,9 +4,9 @@ import { DbError } from "@ryot/contract/errors";
 import {
 	AutomationRuleId,
 	EntityId,
-	EntitySchemaId,
+	EntitySchemaSlug,
 	EventId,
-	EventSchemaId,
+	EventSchemaSlug,
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -25,8 +25,8 @@ import { SubscriptionExecutionWorkflow } from "./subscription-execution-workflow
 
 const userId = UserId.make("user-1");
 const scriptId = SandboxScriptId.make("script-1");
-const eventSchemaId = EventSchemaId.make("event-schema-1");
-const entitySchemaId = EntitySchemaId.make("entity-schema-1");
+const eventSchemaSlug = EventSchemaSlug.make("finished");
+const entitySchemaSlug = EntitySchemaSlug.make("book");
 
 const rule = (id: string, owner: UserId | null): StoredAutomationRule => ({
 	userId: owner,
@@ -41,12 +41,11 @@ const rule = (id: string, owner: UserId | null): StoredAutomationRule => ({
 	id: AutomationRuleId.make(id),
 	createdAt: "2026-07-20T10:00:00.000Z",
 	updatedAt: "2026-07-20T10:00:00.000Z",
-	target: { id: entitySchemaId, kind: "entity_schema" },
+	target: { id: entitySchemaSlug, kind: "entity_schema" },
 });
 
 const entitySnapshot = {
 	name: "Dune",
-	entitySchemaId,
 	entitySchemaSlug: "book",
 	properties: { year: 1965 },
 	id: EntityId.make("entity-1"),
@@ -105,7 +104,7 @@ it.effect("resolves create rules for the source target and enqueues one executio
 		const dispatch = yield* LifecycleDispatch;
 		yield* dispatch.dispatch(entityInput);
 		expect(resolved).toEqual([
-			{ operation: "create", target: { id: entitySchemaId, kind: "entity_schema" } },
+			{ operation: "create", target: { id: entitySchemaSlug, kind: "entity_schema" } },
 		]);
 		expect(executions).toEqual([
 			{
@@ -154,7 +153,6 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 			source: {
 				kind: "event",
 				after: {
-					eventSchemaId,
 					properties: {},
 					eventSchemaSlug: "finished",
 					id: EventId.make("event-1"),
@@ -164,8 +162,8 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 			},
 		});
 		expect(resolvedTargets).toEqual([
-			{ id: entitySchemaId, kind: "entity_schema" },
-			{ id: eventSchemaId, kind: "event_schema" },
+			{ id: entitySchemaSlug, kind: "entity_schema" },
+			{ id: eventSchemaSlug, kind: "event_schema" },
 		]);
 	}).pipe(Effect.provide(layer));
 });
@@ -204,7 +202,6 @@ it.effect("forwards update snapshots and trusted population context", () => {
 			population: {
 				rootPreviouslyPopulated: true,
 				scopeEntity: {
-					entitySchemaId,
 					name: "Severance",
 					entitySchemaSlug: "show",
 					id: EntityId.make("show-1"),
@@ -212,7 +209,7 @@ it.effect("forwards update snapshots and trusted population context", () => {
 			},
 		});
 		expect(resolved).toEqual([
-			{ operation: "update", target: { id: entitySchemaId, kind: "entity_schema" } },
+			{ operation: "update", target: { id: entitySchemaSlug, kind: "entity_schema" } },
 		]);
 		expect(executions).toMatchObject([
 			{

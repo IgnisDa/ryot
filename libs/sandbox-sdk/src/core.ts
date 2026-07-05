@@ -207,7 +207,7 @@ export const entityRecordSchema = z
 		name: z.string(),
 		createdAt: z.string(),
 		updatedAt: z.string(),
-		entitySchemaId: z.string(),
+		entitySchemaSlug: z.string(),
 		properties: jsonValueSchema,
 		externalId: z.string().nullable(),
 		populatedAt: z.string().nullable(),
@@ -242,7 +242,7 @@ export const eventSchemaRecordSchema = z
 		id: z.string(),
 		name: z.string(),
 		slug: z.string(),
-		entitySchemaId: z.string(),
+		entitySchemaSlug: z.string(),
 		propertiesSchema: jsonValueSchema,
 	})
 	.strict();
@@ -256,7 +256,6 @@ export const eventRecordSchema = z
 		createdAt: z.string(),
 		updatedAt: z.string(),
 		occurredAt: z.string(),
-		eventSchemaId: z.string(),
 		eventSchemaName: z.string(),
 		eventSchemaSlug: z.string(),
 		properties: jsonValueSchema,
@@ -292,7 +291,7 @@ export const createEventItemSchema = z
 	.object({
 		entityId: sandboxIdSchema,
 		properties: jsonValueSchema,
-		eventSchemaId: sandboxIdSchema,
+		eventSchemaSlug: sandboxIdSchema,
 		occurredAt: z.string().optional(),
 		sessionEntityId: sandboxIdSchema.optional(),
 	})

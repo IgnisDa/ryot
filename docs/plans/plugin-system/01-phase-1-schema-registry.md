@@ -75,6 +75,10 @@ query engine's SQL pushdown for "events of schema X across entities" turns out t
 denormalize an `entitySchemaSlug` column onto `event` — decide from the actual query plans,
 and record the outcome here.
 
+**[RECOMMENDED — followed]** `event` stores only `eventSchemaSlug`. Query execution already
+joins events to their owning entity for entity-schema filtering, so `entity.entitySchemaSlug`
+provides the required pushdown without denormalizing a second schema slug onto each event.
+
 Uniqueness semantics to preserve exactly (they encode product behavior):
 
 - `entity` global-vs-user uniqueness triplets (`entities.ts` indexes, including the
@@ -166,6 +170,22 @@ phase gate.
   `fixtures/trackers.ts` rewritten or folded; `seed-script.ts` only if it touches removed
   surfaces (the tests `CLAUDE.md` says don't refactor it otherwise).
 - `tests/CLAUDE.md` updated where conventions changed.
+
+**[IMPLEMENTER-DECIDES — resolved]** The existing e2e behavioral coverage creates temporary
+entity, event, relationship, and tracker definitions, including throughout the query-engine
+suite whose assertions must remain unchanged. Phase 1 therefore exposes an admin-gated
+`testSupport` operation that adds test-authored definitions to the in-memory registry snapshot.
+The seam does not persist definitions, compile source, load manifests, publish invalidations, or
+exist on a user-facing contract group. This preserves the behavioral specification without
+restoring no-code custom schemas or pulling the Phase 2 plugin loader forward.
+Because the e2e suite shares one backend and this temporary registry seam, test files remain
+explicitly sequential (`fileParallelism: false`); test definitions use collision-free slugs and
+may accumulate for the duration of one run without replacing builtin definitions.
+
+The three assertions that specifically required user-owned schema definitions were updated with
+owner approval: code-owned definitions are globally visible, while entity and relationship rows
+remain user-scoped. Cross-user queries therefore return empty results rather than a missing-schema
+error, and callers may use an installed relationship definition with their own visible entities.
 
 ## Done criteria
 

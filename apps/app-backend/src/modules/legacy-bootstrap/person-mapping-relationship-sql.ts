@@ -27,7 +27,7 @@ BEGIN
 	RAISE NOTICE '${kindNotice} -> relationship: migration started (% seconds elapsed)', 0.0;
 
 	IF EXISTS (
-		WITH relationship_targets (lot, relationship_schema_id) AS (
+		WITH relationship_targets (lot, relationship_schema_slug) AS (
 			VALUES ${buildRelationshipTargetValuesSql(targets)}
 		), legacy_people AS (
 			SELECT
@@ -50,7 +50,7 @@ BEGIN
 		RAISE EXCEPTION '${kindNotice} -> relationship: found relationship between entities owned by different users';
 	END IF;
 
-	WITH relationship_targets (lot, relationship_schema_id) AS (
+	WITH relationship_targets (lot, relationship_schema_slug) AS (
 		VALUES ${buildRelationshipTargetValuesSql(targets)}
 	), legacy_people AS (
 		SELECT
@@ -70,7 +70,7 @@ BEGIN
 				WHEN metadata.created_by_user_id IS NULL THEN legacy_people.person_user_id
 				WHEN legacy_people.person_user_id = metadata.created_by_user_id THEN legacy_people.person_user_id
 			END AS user_id,
-			relationship_targets.relationship_schema_id
+			relationship_targets.relationship_schema_slug
 		FROM "metadata_to_person" m2p
 		INNER JOIN legacy_people ON legacy_people.id = m2p.person_id
 		INNER JOIN "metadata" metadata ON metadata.id = m2p.metadata_id
@@ -79,32 +79,32 @@ BEGIN
 			AND (legacy_people.person_user_id IS NOT NULL OR metadata.created_by_user_id IS NOT NULL)
 	), role_groups AS (
 		SELECT
-			metadata_id, person_id, relationship_schema_id, user_id, role,
+			metadata_id, person_id, relationship_schema_slug, user_id, role,
 			MIN(COALESCE(credit_index, 2147483647)) AS role_order
 		FROM legacy_relationships
-		GROUP BY metadata_id, person_id, relationship_schema_id, user_id, role
+		GROUP BY metadata_id, person_id, relationship_schema_slug, user_id, role
 	), roles_rollup AS (
 		SELECT
-			metadata_id, person_id, relationship_schema_id, user_id,
+			metadata_id, person_id, relationship_schema_slug, user_id,
 			jsonb_agg(role ORDER BY role_order, role) AS roles
 		FROM role_groups
-		GROUP BY metadata_id, person_id, relationship_schema_id, user_id
+		GROUP BY metadata_id, person_id, relationship_schema_slug, user_id
 	), rollups AS (
 		SELECT
-			metadata_id, person_id, relationship_schema_id, user_id,
+			metadata_id, person_id, relationship_schema_slug, user_id,
 			MIN(COALESCE(credit_index, 2147483647)) AS relationship_order,
 			(
 				array_agg("character" ORDER BY COALESCE(credit_index, 2147483647), role)
 				FILTER (WHERE "character" IS NOT NULL)
 			)[1] AS character
 		FROM legacy_relationships
-		GROUP BY metadata_id, person_id, relationship_schema_id, user_id
+		GROUP BY metadata_id, person_id, relationship_schema_slug, user_id
 	)
 	INSERT INTO relationship (
 		"id",
 		"source_entity_id",
 		"target_entity_id",
-		"relationship_schema_id",
+		"relationship_schema_slug",
 		"properties",
 		"user_id",
 		"created_at"
@@ -113,7 +113,7 @@ BEGIN
 		gen_random_uuid()::text,
 		rollups.person_id,
 		rollups.metadata_id,
-		rollups.relationship_schema_id,
+		rollups.relationship_schema_slug,
 		jsonb_strip_nulls(
 			jsonb_build_object(
 				'order', rollups.relationship_order,
@@ -125,12 +125,12 @@ BEGIN
 	FROM rollups
 	INNER JOIN roles_rollup ON rollups.metadata_id = roles_rollup.metadata_id
 		AND rollups.person_id = roles_rollup.person_id
-		AND rollups.relationship_schema_id = roles_rollup.relationship_schema_id
+		AND rollups.relationship_schema_slug = roles_rollup.relationship_schema_slug
 		AND rollups.user_id IS NOT DISTINCT FROM roles_rollup.user_id
 	INNER JOIN "entity" src ON src.id = rollups.person_id
 	INNER JOIN "entity" tgt ON tgt.id = rollups.metadata_id
 	WHERE rollups.user_id IS NOT NULL
-	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_id") DO NOTHING;
+	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
 	RAISE NOTICE '${kindNotice} -> relationship: % user-authored row(s) migrated (% seconds elapsed)',
@@ -151,7 +151,7 @@ BEGIN
 	RAISE NOTICE 'group_person -> relationship: migration started (% seconds elapsed)', 0.0;
 
 	IF EXISTS (
-		WITH relationship_targets (lot, relationship_schema_id) AS (
+		WITH relationship_targets (lot, relationship_schema_slug) AS (
 			VALUES ${buildRelationshipTargetValuesSql(targets)}
 		)
 		SELECT 1
@@ -167,7 +167,7 @@ BEGIN
 		RAISE EXCEPTION 'group_person -> relationship: found relationship between entities owned by different users';
 	END IF;
 
-	WITH relationship_targets (lot, relationship_schema_id) AS (
+	WITH relationship_targets (lot, relationship_schema_slug) AS (
 		VALUES ${buildRelationshipTargetValuesSql(targets)}
 	), legacy_relationships AS (
 		SELECT
@@ -180,7 +180,7 @@ BEGIN
 				WHEN mg.created_by_user_id IS NULL THEN legacy_person.created_by_user_id
 				WHEN legacy_person.created_by_user_id = mg.created_by_user_id THEN legacy_person.created_by_user_id
 			END AS user_id,
-			relationship_targets.relationship_schema_id
+			relationship_targets.relationship_schema_slug
 		FROM "metadata_group_to_person" mg2p
 		INNER JOIN "metadata_group" mg ON mg.id = mg2p.metadata_group_id
 		INNER JOIN relationship_targets ON relationship_targets.lot = mg.lot
@@ -188,28 +188,28 @@ BEGIN
 		WHERE legacy_person.created_by_user_id IS NOT NULL OR mg.created_by_user_id IS NOT NULL
 	), role_groups AS (
 		SELECT
-			metadata_group_id, person_id, relationship_schema_id, user_id, role,
+			metadata_group_id, person_id, relationship_schema_slug, user_id, role,
 			MIN(COALESCE(credit_index, 2147483647)) AS role_order
 		FROM legacy_relationships
-		GROUP BY metadata_group_id, person_id, relationship_schema_id, user_id, role
+		GROUP BY metadata_group_id, person_id, relationship_schema_slug, user_id, role
 	), roles_rollup AS (
 		SELECT
-			metadata_group_id, person_id, relationship_schema_id, user_id,
+			metadata_group_id, person_id, relationship_schema_slug, user_id,
 			jsonb_agg(role ORDER BY role_order, role) AS roles
 		FROM role_groups
-		GROUP BY metadata_group_id, person_id, relationship_schema_id, user_id
+		GROUP BY metadata_group_id, person_id, relationship_schema_slug, user_id
 	), rollups AS (
 		SELECT
-			metadata_group_id, person_id, relationship_schema_id, user_id,
+			metadata_group_id, person_id, relationship_schema_slug, user_id,
 			MIN(COALESCE(credit_index, 2147483647)) AS relationship_order
 		FROM legacy_relationships
-		GROUP BY metadata_group_id, person_id, relationship_schema_id, user_id
+		GROUP BY metadata_group_id, person_id, relationship_schema_slug, user_id
 	)
 	INSERT INTO relationship (
 		"id",
 		"source_entity_id",
 		"target_entity_id",
-		"relationship_schema_id",
+		"relationship_schema_slug",
 		"properties",
 		"user_id",
 		"created_at"
@@ -218,7 +218,7 @@ BEGIN
 		gen_random_uuid()::text,
 		rollups.person_id,
 		rollups.metadata_group_id,
-		rollups.relationship_schema_id,
+		rollups.relationship_schema_slug,
 		jsonb_strip_nulls(
 			jsonb_build_object(
 				'order', rollups.relationship_order,
@@ -230,12 +230,12 @@ BEGIN
 	FROM rollups
 	INNER JOIN roles_rollup ON rollups.metadata_group_id = roles_rollup.metadata_group_id
 		AND rollups.person_id = roles_rollup.person_id
-		AND rollups.relationship_schema_id = roles_rollup.relationship_schema_id
+		AND rollups.relationship_schema_slug = roles_rollup.relationship_schema_slug
 		AND rollups.user_id IS NOT DISTINCT FROM roles_rollup.user_id
 	INNER JOIN "entity" src ON src.id = rollups.person_id
 	INNER JOIN "entity" tgt ON tgt.id = rollups.metadata_group_id
 	WHERE rollups.user_id IS NOT NULL
-	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_id") DO NOTHING;
+	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
 	RAISE NOTICE 'group_person -> relationship: % user-authored row(s) migrated (% seconds elapsed)',

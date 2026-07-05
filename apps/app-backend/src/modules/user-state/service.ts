@@ -82,7 +82,7 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 							userId: user.id,
 							sourceEntityId: relationship.sourceEntityId,
 							targetEntityId: relationship.targetEntityId,
-							relationshipSchemaId: relationship.relationshipSchemaId,
+							relationshipSchemaSlug: relationship.relationshipSchemaSlug,
 						});
 						if (deleted) {
 							deletedRelationshipsCount += 1;
@@ -134,7 +134,7 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 			if (fromScope.entitySchemaSlug === "library" || intoScope.entitySchemaSlug === "library") {
 				return yield* badRequest(libraryEntityMergeError);
 			}
-			if (fromScope.entitySchemaId !== intoScope.entitySchemaId) {
+			if (fromScope.entitySchemaSlug !== intoScope.entitySchemaSlug) {
 				return yield* badRequest(differentEntitySchemaError);
 			}
 			if (
@@ -170,21 +170,21 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 					const propertiesSchemas = new Map<string, AppSchema>();
 					const getPropertiesSchema = Effect.fn("UserStateService.getRelationshipPropertiesSchema")(
 						function* (
-							relationshipSchemaId: (typeof relationshipRows)[number]["relationshipSchemaId"],
+							relationshipSchemaSlug: (typeof relationshipRows)[number]["relationshipSchemaSlug"],
 						) {
-							const cached = propertiesSchemas.get(relationshipSchemaId);
+							const cached = propertiesSchemas.get(relationshipSchemaSlug);
 							if (cached) {
 								return cached;
 							}
 
 							const relationshipSchema = yield* runWithDb(
-								relationshipSchemasRepository.findById(relationshipSchemaId, user.id),
+								relationshipSchemasRepository.findById(relationshipSchemaSlug, user.id),
 							);
 							if (!relationshipSchema) {
 								return yield* Effect.die("Relationship schema not found during entity merge");
 							}
 
-							propertiesSchemas.set(relationshipSchemaId, relationshipSchema.propertiesSchema);
+							propertiesSchemas.set(relationshipSchemaSlug, relationshipSchema.propertiesSchema);
 							return relationshipSchema.propertiesSchema;
 						},
 					);
@@ -203,8 +203,8 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 								targetEntityId,
 								userId: user.id,
 								properties: relationship.properties,
-								relationshipSchemaId: relationship.relationshipSchemaId,
-								propertiesSchema: yield* getPropertiesSchema(relationship.relationshipSchemaId),
+								relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+								propertiesSchema: yield* getPropertiesSchema(relationship.relationshipSchemaSlug),
 							});
 						}
 
@@ -213,7 +213,7 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 							userId: user.id,
 							sourceEntityId: relationship.sourceEntityId,
 							targetEntityId: relationship.targetEntityId,
-							relationshipSchemaId: relationship.relationshipSchemaId,
+							relationshipSchemaSlug: relationship.relationshipSchemaSlug,
 						});
 						if (deleted) {
 							movedRelationshipsCount += 1;

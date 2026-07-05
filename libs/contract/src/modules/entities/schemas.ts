@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { EntityId, EntitySchemaId, SandboxScriptId } from "../../schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxScriptId } from "../../schema/brands";
 
 export const ListedEntity = Schema.Struct({
 	id: EntityId,
@@ -8,7 +8,7 @@ export const ListedEntity = Schema.Struct({
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	properties: Schema.Unknown,
-	entitySchemaId: EntitySchemaId,
+	entitySchemaSlug: EntitySchemaSlug,
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(Schema.String),
 	sandboxScriptId: Schema.NullOr(SandboxScriptId),
@@ -27,9 +27,9 @@ export const EntityDetail = Schema.Struct({
 
 export type EntityDetail = typeof EntityDetail.Type;
 
-const RequiredEntitySchemaId = Schema.Trim.pipe(
+const RequiredEntitySchemaSlug = Schema.Trim.pipe(
 	Schema.filter((value) => value.length > 0, { message: () => "Entity schema id is required" }),
-	Schema.brand("EntitySchemaId"),
+	Schema.brand("EntitySchemaSlug"),
 );
 
 const OptionalExternalId = Schema.transform(Schema.String, Schema.UndefinedOr(Schema.String), {
@@ -57,7 +57,7 @@ const OptionalSandboxScriptId = Schema.transform(
 export const CreateEntityBody = Schema.Struct({
 	name: Schema.String,
 	properties: Schema.Unknown,
-	entitySchemaId: RequiredEntitySchemaId,
+	entitySchemaSlug: RequiredEntitySchemaSlug,
 	externalId: Schema.optional(OptionalExternalId),
 	sandboxScriptId: Schema.optional(OptionalSandboxScriptId),
 });

@@ -12,7 +12,7 @@ import {
 	fakeProviderDetailsResult,
 	getBackendClient,
 	getMediaMonitoringStatus,
-	getBuiltinEntitySchemaId,
+	getBuiltinEntitySchemaSlug,
 	providerSandboxSource,
 	queryInLibraryRelationship,
 	replaceSandboxScriptCompiledRepresentation,
@@ -76,7 +76,7 @@ beforeAll(async () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerCompilerClient = client;
-			movieSchemaId = yield* getBuiltinEntitySchemaId("movie");
+			movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
 			provider = yield* seedBuiltinProviderScript({
 				client,
 				name: providerName,
@@ -92,21 +92,21 @@ beforeAll(async () => {
 			const apiEntity = yield* seedMediaEntity({
 				properties: {},
 				externalId: apiExternalId,
-				entitySchemaId: movieSchemaId,
+				entitySchemaSlug: movieSchemaId,
 				sandboxScriptId: provider.scriptId,
 				name: "Media Monitoring API Target",
 			});
 			const cronEntity = yield* seedMediaEntity({
 				properties: {},
 				externalId: cronExternalId,
-				entitySchemaId: movieSchemaId,
+				entitySchemaSlug: movieSchemaId,
 				sandboxScriptId: provider.scriptId,
 				name: "Media Monitoring Cron Target",
 			});
-			const showSchemaId = yield* getBuiltinEntitySchemaId("show");
+			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
 			const discoveryEntity = yield* seedMediaEntity({
 				properties: {},
-				entitySchemaId: showSchemaId,
+				entitySchemaSlug: showSchemaId,
 				externalId: discoveryExternalId,
 				name: "Media Monitoring Discovery Target",
 				sandboxScriptId: discoveryProvider.scriptId,
@@ -215,21 +215,21 @@ describe("media monitoring endpoints", () => {
 			const owner = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const [seasonSchemaId, episodeSchemaId, groupSchemaId] = yield* Effect.all([
-				getBuiltinEntitySchemaId("show-season"),
-				getBuiltinEntitySchemaId("show-episode"),
-				getBuiltinEntitySchemaId("movie-group"),
+				getBuiltinEntitySchemaSlug("show-season"),
+				getBuiltinEntitySchemaSlug("show-episode"),
+				getBuiltinEntitySchemaSlug("movie-group"),
 			]);
 			const unsupported = yield* Effect.all([
 				seedMediaEntity({
 					name: "Season",
-					entitySchemaId: seasonSchemaId,
+					entitySchemaSlug: seasonSchemaId,
 					properties: { seasonNumber: 1 },
 					sandboxScriptId: provider.scriptId,
 					externalId: `media-monitoring-season-${crypto.randomUUID()}`,
 				}),
 				seedMediaEntity({
 					name: "Episode",
-					entitySchemaId: episodeSchemaId,
+					entitySchemaSlug: episodeSchemaId,
 					sandboxScriptId: provider.scriptId,
 					properties: { seasonNumber: 1, episodeNumber: 1 },
 					externalId: `media-monitoring-episode-${crypto.randomUUID()}`,
@@ -237,7 +237,7 @@ describe("media monitoring endpoints", () => {
 				seedMediaEntity({
 					name: "Group",
 					properties: {},
-					entitySchemaId: groupSchemaId,
+					entitySchemaSlug: groupSchemaId,
 					sandboxScriptId: provider.scriptId,
 					externalId: `media-monitoring-group-${crypto.randomUUID()}`,
 				}),
@@ -246,7 +246,7 @@ describe("media monitoring endpoints", () => {
 					name: "Custom Movie",
 					userId: owner.userId,
 					client: owner.client,
-					entitySchemaId: movieSchemaId,
+					entitySchemaSlug: movieSchemaId,
 					sandboxScriptId: provider.scriptId,
 					externalId: `media-monitoring-custom-${crypto.randomUUID()}`,
 				}),
@@ -255,7 +255,7 @@ describe("media monitoring endpoints", () => {
 					userId: other.userId,
 					client: other.client,
 					name: "Other User Movie",
-					entitySchemaId: movieSchemaId,
+					entitySchemaSlug: movieSchemaId,
 					sandboxScriptId: provider.scriptId,
 					externalId: `media-monitoring-invisible-${crypto.randomUUID()}`,
 				}),
@@ -263,7 +263,7 @@ describe("media monitoring endpoints", () => {
 					properties: {},
 					sandboxScriptId: null,
 					name: "Incomplete Movie",
-					entitySchemaId: movieSchemaId,
+					entitySchemaSlug: movieSchemaId,
 					externalId: `media-monitoring-incomplete-${crypto.randomUUID()}`,
 				}),
 			]);

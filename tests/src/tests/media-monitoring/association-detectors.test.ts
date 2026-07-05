@@ -1,4 +1,4 @@
-import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -10,7 +10,7 @@ import {
 	enqueueEntityImport,
 	fakeProviderDetailsResult,
 	getBackendClient,
-	getBuiltinEntitySchemaId,
+	getBuiltinEntitySchemaSlug,
 	pollEntityImportResult,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
@@ -40,11 +40,11 @@ beforeAll(async () => {
 	await Effect.runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const personSchemaId = yield* getBuiltinEntitySchemaId("person");
-			movieSchemaId = yield* getBuiltinEntitySchemaId("movie");
+			const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
+			movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
 			personProvider = yield* seedBuiltinProviderScript({
 				client,
-				linkToEntitySchemaId: personSchemaId,
+				linkToEntitySchemaSlug: personSchemaId,
 				slug: `person.association-e2e-${crypto.randomUUID()}`,
 				drivers: { details: fakeProviderDetailsResult({ name: personName }) },
 			});
@@ -76,7 +76,7 @@ beforeAll(async () => {
 				properties: {},
 				name: personName,
 				externalId: personExternalId,
-				entitySchemaId: personSchemaId,
+				entitySchemaSlug: personSchemaId,
 				sandboxScriptId: personProvider.scriptId,
 			});
 			personEntityId = person.id;
@@ -113,7 +113,7 @@ it.live("notifies only a credited person's monitor once per role on first media 
 
 		const { jobId } = yield* enqueueEntityImport(importer.client, {
 			externalId: movieExternalId,
-			entitySchemaId: EntitySchemaId.make(movieSchemaId),
+			entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 			scriptId: SandboxScriptId.make(movieProvider.scriptId),
 		});
 		const result = yield* pollEntityImportResult(importer.client, jobId, { timeoutMs: 30_000 });
@@ -163,14 +163,14 @@ describe("dual-writer canonical identity", () => {
 				const dwMovieSlug = `movie.dual-writer-e2e-${crypto.randomUUID()}`;
 				const dwMovieExternalId = `dual-writer-movie-${crypto.randomUUID()}`;
 				const dwPersonSlug = `person.dual-writer-e2e-${crypto.randomUUID()}`;
-				const personSchemaId = yield* getBuiltinEntitySchemaId("person");
+				const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
 				const dwPersonExternalId = `dual-writer-person-${crypto.randomUUID()}`;
 
 				const { client } = yield* createAuthenticatedClient();
 				const dwPersonProvider = yield* seedBuiltinProviderScript({
 					client,
 					slug: dwPersonSlug,
-					linkToEntitySchemaId: personSchemaId,
+					linkToEntitySchemaSlug: personSchemaId,
 					drivers: {
 						details: fakeProviderDetailsResult({
 							name: dwPersonName,
@@ -195,7 +195,7 @@ describe("dual-writer canonical identity", () => {
 				const dwMovieProvider = yield* seedBuiltinProviderScript({
 					client,
 					slug: dwMovieSlug,
-					linkToEntitySchemaId: movieSchemaId,
+					linkToEntitySchemaSlug: movieSchemaId,
 					drivers: {
 						details: fakeProviderDetailsResult({
 							name: dwMovieName,
@@ -223,7 +223,7 @@ describe("dual-writer canonical identity", () => {
 						properties: {},
 						name: dwPersonName,
 						externalId: dwPersonExternalId,
-						entitySchemaId: personSchemaId,
+						entitySchemaSlug: personSchemaId,
 						sandboxScriptId: dwPersonProvider.scriptId,
 					});
 					// Mark the person already-populated so its own later cron refresh below is a
@@ -253,7 +253,7 @@ describe("dual-writer canonical identity", () => {
 					fakeApprise.requests.length = 0;
 					const { jobId } = yield* enqueueEntityImport(importer.client, {
 						externalId: dwMovieExternalId,
-						entitySchemaId: EntitySchemaId.make(movieSchemaId),
+						entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 						scriptId: SandboxScriptId.make(dwMovieProvider.scriptId),
 					});
 					const imported = yield* pollEntityImportResult(importer.client, jobId, {
@@ -290,7 +290,7 @@ describe("association lifecycle via cron refresh", () => {
 			const ruMovieSlug = `movie.role-update-e2e-${crypto.randomUUID()}`;
 			const ruMovieExternalId = `role-update-movie-${crypto.randomUUID()}`;
 			const ruPersonSlug = `person.role-update-e2e-${crypto.randomUUID()}`;
-			const personSchemaId = yield* getBuiltinEntitySchemaId("person");
+			const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
 			const ruPersonExternalId = `role-update-person-${crypto.randomUUID()}`;
 
 			const buildPersonSource = (roles: string[]) =>
@@ -324,13 +324,13 @@ describe("association lifecycle via cron refresh", () => {
 			const ruPersonProvider = yield* seedBuiltinProviderScript({
 				client,
 				slug: ruPersonSlug,
-				linkToEntitySchemaId: personSchemaId,
+				linkToEntitySchemaSlug: personSchemaId,
 				drivers: { details: fakeProviderDetailsResult({ name: ruPersonName }) },
 			});
 			const ruMovieProvider = yield* seedBuiltinProviderScript({
 				client,
 				slug: ruMovieSlug,
-				linkToEntitySchemaId: movieSchemaId,
+				linkToEntitySchemaSlug: movieSchemaId,
 				drivers: {
 					details: fakeProviderDetailsResult({
 						name: ruMovieName,
@@ -358,14 +358,14 @@ describe("association lifecycle via cron refresh", () => {
 					properties: {},
 					name: ruPersonName,
 					externalId: ruPersonExternalId,
-					entitySchemaId: personSchemaId,
+					entitySchemaSlug: personSchemaId,
 					sandboxScriptId: ruPersonProvider.scriptId,
 				});
 				const movie = yield* seedMediaEntity({
 					properties: {},
 					name: ruMovieName,
 					externalId: ruMovieExternalId,
-					entitySchemaId: movieSchemaId,
+					entitySchemaSlug: movieSchemaId,
 					sandboxScriptId: ruMovieProvider.scriptId,
 				});
 				// Mark the person already-populated so its later cron-driven authoritative sync
@@ -428,7 +428,7 @@ describe("association lifecycle via cron refresh", () => {
 			Effect.gen(function* () {
 				const drMovieName = "Delete Recreate Movie";
 				const drPersonName = "Delete Recreate Person";
-				const personSchemaId = yield* getBuiltinEntitySchemaId("person");
+				const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
 				const drMovieSlug = `movie.delete-recreate-e2e-${crypto.randomUUID()}`;
 				const drMovieExternalId = `delete-recreate-movie-${crypto.randomUUID()}`;
 				const drPersonSlug = `person.delete-recreate-e2e-${crypto.randomUUID()}`;
@@ -464,7 +464,7 @@ describe("association lifecycle via cron refresh", () => {
 				const drMovieProvider = yield* seedBuiltinProviderScript({
 					client,
 					slug: drMovieSlug,
-					linkToEntitySchemaId: movieSchemaId,
+					linkToEntitySchemaSlug: movieSchemaId,
 					drivers: { details: fakeProviderDetailsResult({ name: drMovieName }) },
 				});
 				const drPersonProvider = yield* seedBuiltinProviderScript({
@@ -490,7 +490,7 @@ describe("association lifecycle via cron refresh", () => {
 						properties: {},
 						name: drPersonName,
 						externalId: drPersonExternalId,
-						entitySchemaId: personSchemaId,
+						entitySchemaSlug: personSchemaId,
 						sandboxScriptId: drPersonProvider.scriptId,
 					});
 

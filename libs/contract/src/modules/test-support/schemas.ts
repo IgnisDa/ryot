@@ -2,16 +2,29 @@ import { Schema } from "effect";
 
 import {
 	EntityId,
-	EntitySchemaId,
+	EntitySchemaSlug,
 	RelationshipId,
-	RelationshipSchemaId,
+	RelationshipSchemaSlug,
 	SandboxScriptId,
 	SignalId,
 	SubscriptionRunId,
 	UserId,
 } from "../../schema/brands";
 import { SubscriptionRunStatus } from "../automations/schemas";
+import {
+	EntityDefinition,
+	RelationshipDefinition,
+	TrackerDefinition,
+} from "../definitions/schemas";
 import { SandboxScriptMetadata } from "../sandbox/schemas";
+
+export const TestSupportInstallDefinitions = Schema.Struct({
+	trackers: Schema.optional(Schema.Array(TrackerDefinition)),
+	entitySchemas: Schema.optional(Schema.Array(EntityDefinition)),
+	relationshipSchemas: Schema.optional(Schema.Array(RelationshipDefinition)),
+});
+
+export type TestSupportInstallDefinitions = typeof TestSupportInstallDefinitions.Type;
 
 export const TestSupportStoredSandboxScript = Schema.Struct({
 	id: SandboxScriptId,
@@ -31,7 +44,7 @@ export const TestSupportGlobalRelationship = Schema.Struct({
 	targetEntityId: EntityId,
 	createdAt: Schema.String,
 	properties: Schema.Unknown,
-	relationshipSchemaId: RelationshipSchemaId,
+	relationshipSchemaSlug: RelationshipSchemaSlug,
 });
 
 export const TestSupportSignal = Schema.Struct({
@@ -48,7 +61,7 @@ export const TestSupportSubscriptionRun = Schema.Struct({
 });
 
 export const TestSupportBuiltinEntitySchema = Schema.Struct({
-	id: EntitySchemaId,
+	id: EntitySchemaSlug,
 	slug: Schema.String,
 	name: Schema.String,
 });

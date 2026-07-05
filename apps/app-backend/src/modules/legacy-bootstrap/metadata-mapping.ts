@@ -201,7 +201,7 @@ BEGIN
 	RAISE NOTICE 'metadata -> entity: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
-		WITH metadata_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
+		WITH metadata_targets (lot, source, entity_schema_slug, sandbox_script_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT metadata.id::text AS id
@@ -219,7 +219,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH metadata_targets (lot, source, entity_schema_id, sandbox_script_id) AS (
+		WITH metadata_targets (lot, source, entity_schema_slug, sandbox_script_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO entity (
@@ -230,7 +230,7 @@ BEGIN
 			"populated_at",
 			"user_id",
 			"properties",
-			"entity_schema_id",
+			"entity_schema_slug",
 			"sandbox_script_id",
 			"updated_at"
 		)
@@ -245,7 +245,7 @@ BEGIN
 				WHEN metadata_targets.sandbox_script_id IS NULL THEN ${buildMetadataPropertiesSql()}
 				ELSE '{}'::jsonb
 			END,
-			metadata_targets.entity_schema_id,
+			metadata_targets.entity_schema_slug,
 			metadata_targets.sandbox_script_id,
 			metadata.last_updated_on
 		FROM metadata

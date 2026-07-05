@@ -1,5 +1,5 @@
 import type { UserId } from "@ryot/contract/schema/brands";
-import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { eq, isNull, or } from "drizzle-orm";
 
@@ -14,12 +14,12 @@ type EntityRow = Pick<
 	| "properties"
 	| "externalId"
 	| "populatedAt"
-	| "entitySchemaId"
+	| "entitySchemaSlug"
 	| "sandboxScriptId"
 >;
 
 export type EntitySchemaScope = {
-	readonly id: EntitySchemaId;
+	readonly id: EntitySchemaSlug;
 	readonly slug: string;
 	readonly isBuiltin: boolean;
 	readonly userId: UserId | null;
@@ -29,8 +29,7 @@ export type EntitySchemaScope = {
 export type EntityScope = {
 	readonly entityId: EntityId;
 	readonly isBuiltin: boolean;
-	readonly entitySchemaId: EntitySchemaId;
-	readonly entitySchemaSlug: string;
+	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly entityUserId: UserId | null;
 };
 
@@ -39,7 +38,7 @@ export type EntityMergeScope = EntityScope & {
 };
 
 export type EntitySchemaSandboxScriptScope = {
-	readonly entitySchemaId: EntitySchemaId;
+	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly sandboxScriptId: SandboxScriptId;
 };
 
@@ -51,12 +50,9 @@ export const entitySelection = {
 	properties: schema.entity.properties,
 	externalId: schema.entity.externalId,
 	populatedAt: schema.entity.populatedAt,
-	entitySchemaId: schema.entity.entitySchemaId,
+	entitySchemaSlug: schema.entity.entitySchemaSlug,
 	sandboxScriptId: schema.entity.sandboxScriptId,
 };
-
-export const entitySchemaVisibleToUserClause = (userId: UserId) =>
-	or(isNull(schema.entitySchema.userId), eq(schema.entitySchema.userId, userId));
 
 export const entityVisibleToUserClause = (userId: UserId) =>
 	or(isNull(schema.entity.userId), eq(schema.entity.userId, userId));
@@ -69,6 +65,6 @@ export const toListedEntity = (row: EntityRow) => ({
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	populatedAt: row.populatedAt?.toISOString() ?? null,
-	entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+	entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 	sandboxScriptId: row.sandboxScriptId ? SandboxScriptId.make(row.sandboxScriptId) : null,
 });

@@ -136,7 +136,7 @@ BEGIN
 	RAISE NOTICE 'exercise -> entity: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
-		WITH exercise_targets (source, entity_schema_id, sandbox_script_id) AS (
+		WITH exercise_targets (source, entity_schema_slug, sandbox_script_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT exercise.id::text AS id
@@ -150,7 +150,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH exercise_targets (source, entity_schema_id, sandbox_script_id) AS (
+		WITH exercise_targets (source, entity_schema_slug, sandbox_script_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO "entity" (
@@ -161,7 +161,7 @@ BEGIN
 			"populated_at",
 			"user_id",
 			"properties",
-			"entity_schema_id",
+			"entity_schema_slug",
 			"sandbox_script_id",
 			"updated_at"
 		)
@@ -184,7 +184,7 @@ BEGIN
 					'equipment', exercise.equipment
 				)
 			),
-			exercise_targets.entity_schema_id,
+			exercise_targets.entity_schema_slug,
 			exercise_targets.sandbox_script_id,
 			NOW()
 		FROM "exercise" exercise

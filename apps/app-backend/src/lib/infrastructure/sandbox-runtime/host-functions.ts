@@ -3,21 +3,20 @@ import { unknownToMessage } from "@ryot/contract/errors";
 import { CreateEventItem, type CreateEventsResponse } from "@ryot/contract/modules/events/schemas";
 import { isIntegrationProvider } from "@ryot/contract/modules/integrations/types";
 import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
-import { EntityId, EntitySchemaId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import { EntityId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { eq } from "drizzle-orm";
 import { Effect, Runtime, Schema } from "effect";
 
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { AppConfig } from "../config/service";
-import * as schema from "../db/schema/tables/auth";
+import * as schema from "../db/schema/tables/combined";
 import { CurrentDb, DbRunner, dbEffect } from "../db/service";
 import { RedisService, redisKeys } from "../redis";
 import { getSandboxAppConfigValue } from "./app-config";
@@ -40,8 +39,7 @@ type SandboxHostFunctionContext =
 	| EntitiesRepository
 	| QueryEngineService
 	| IntegrationsRepository
-	| EventSchemasRepository
-	| EntitySchemasRepository;
+	| DefinitionRegistry;
 
 const entityNotFoundError = "Entity not found";
 
@@ -94,8 +92,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 		const entitiesRepository = yield* EntitiesRepository;
 		const queryEngineService = yield* QueryEngineService;
 		const integrationsRepository = yield* IntegrationsRepository;
-		const eventSchemasRepository = yield* EventSchemasRepository;
-		const entitySchemasRepository = yield* EntitySchemasRepository;
+		const definitions = yield* DefinitionRegistry;
 
 		const runPromise = Runtime.runPromise(runtime);
 
@@ -273,33 +270,60 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 				);
 			},
-			getEntitySchema: (rawInput, entitySchemaId) => {
-				const input = requireUserSandboxRunInput(rawInput, "getEntitySchema");
+			getEntitySchema: (rawInput, entitySchemaSlug) => {
+				requireUserSandboxRunInput(rawInput, "getEntitySchema");
 				return runSandboxHostEffect(
 					runPromise,
 					requireNonEmptyString(
-						entitySchemaId,
-						"getEntitySchema expects a non-empty entitySchemaId",
+						entitySchemaSlug,
+						"getEntitySchema expects a non-empty entitySchemaSlug",
 					).pipe(
-						Effect.flatMap((resolvedEntitySchemaId) =>
-							runWithDb(
-								entitySchemasRepository
-									.getByIdForUser({
-										userId: UserId.make(input.userId),
-										entitySchemaId: EntitySchemaId.make(resolvedEntitySchemaId),
-									})
-									.pipe(
-										Effect.flatMap((schemaValue) =>
-											schemaValue
-												? Effect.succeed({
-														...schemaValue,
-														propertiesSchema: toSandboxJsonValue(schemaValue.propertiesSchema),
-													})
-												: Effect.fail("Entity schema not found"),
-										),
-									),
-							),
-						),
+						Effect.flatMap((resolvedEntitySchemaSlug) => {
+							const definition = definitions.getEntitySchema(resolvedEntitySchemaSlug);
+							if (!definition) {
+								return Effect.fail("Entity schema not found");
+							}
+							const tracker = Object.values(definitions.getSnapshot().trackers).find((item) =>
+								item.entitySchemaSlugs.includes(resolvedEntitySchemaSlug),
+							);
+							if (!tracker) {
+								return Effect.fail("Entity schema tracker not found");
+							}
+							return runWithDb(
+								Effect.gen(function* () {
+									const db = yield* CurrentDb;
+									const providers = yield* dbEffect(() =>
+										db
+											.select({
+												name: schema.sandboxScript.name,
+												scriptId: schema.sandboxScript.id,
+											})
+											.from(schema.entitySchemaSandboxScript)
+											.innerJoin(
+												schema.sandboxScript,
+												eq(
+													schema.sandboxScript.id,
+													schema.entitySchemaSandboxScript.sandboxScriptId,
+												),
+											)
+											.where(
+												eq(
+													schema.entitySchemaSandboxScript.entitySchemaSlug,
+													resolvedEntitySchemaSlug,
+												),
+											),
+									);
+									return {
+										...definition,
+										id: resolvedEntitySchemaSlug,
+										trackerId: tracker.slug,
+										isBuiltin: true,
+										providers,
+										propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
+									};
+								}),
+							).pipe(Effect.mapError(unknownToMessage));
+						}),
 					),
 				);
 			},
@@ -337,42 +361,28 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 				const input = requireUserSandboxRunInput(rawInput, "getUserPreferences");
 				return runSandboxHostEffect(runPromise, readUserPreferences(UserId.make(input.userId)));
 			},
-			listEventSchemas: (rawInput, entitySchemaId) => {
-				const input = requireUserSandboxRunInput(rawInput, "listEventSchemas");
+			listEventSchemas: (rawInput, entitySchemaSlug) => {
+				requireUserSandboxRunInput(rawInput, "listEventSchemas");
 				return runSandboxHostEffect(
 					runPromise,
 					requireNonEmptyString(
-						entitySchemaId,
-						"listEventSchemas expects a non-empty entitySchemaId",
+						entitySchemaSlug,
+						"listEventSchemas expects a non-empty entitySchemaSlug",
 					).pipe(
-						Effect.flatMap((resolvedEntitySchemaId) =>
-							Effect.gen(function* () {
-								const entitySchema = yield* runWithDb(
-									eventSchemasRepository.getEntitySchemaScopeById({
-										userId: UserId.make(input.userId),
-										entitySchemaId: EntitySchemaId.make(resolvedEntitySchemaId),
-									}),
-								);
-								if (!entitySchema) {
-									return yield* Effect.fail("Entity schema not found");
-								}
-
-								const eventSchemas = yield* runWithDb(
-									eventSchemasRepository.listByEntitySchemaForUser({
-										userId: UserId.make(input.userId),
-										entitySchemaId: EntitySchemaId.make(resolvedEntitySchemaId),
-									}),
-								);
-
-								return eventSchemas.map((eventSchema) => ({
-									id: eventSchema.id,
-									slug: eventSchema.slug,
-									name: eventSchema.name,
-									entitySchemaId: eventSchema.entitySchemaId,
-									propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
-								}));
-							}),
-						),
+						Effect.flatMap((resolvedEntitySchemaSlug) => {
+							const entitySchema = definitions.getEntitySchema(resolvedEntitySchemaSlug);
+							return entitySchema
+								? Effect.succeed(
+										Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
+											id: eventSchema.slug,
+											slug: eventSchema.slug,
+											name: eventSchema.name,
+											entitySchemaSlug: resolvedEntitySchemaSlug,
+											propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
+										})),
+									)
+								: Effect.fail("Entity schema not found");
+						}),
 					),
 				);
 			},

@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError } from "@ryot/contract/errors";
-import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
@@ -17,7 +17,6 @@ const payload = {
 	externalId: "provider-movie",
 	executionId: "media-monitoring-run",
 	entityId: EntityId.make("media-monitoring-entity"),
-	entitySchemaId: EntitySchemaId.make("schema-movie"),
 	sandboxScriptId: SandboxScriptId.make("provider-script"),
 } satisfies MediaMonitoringRefreshPayload;
 
@@ -54,7 +53,6 @@ it.effect("refreshes monitored media through the provider population owner", () 
 						externalId: payload.externalId,
 						scriptId: payload.sandboxScriptId,
 						origin: { kind: "provider_refresh" },
-						entitySchemaId: payload.entitySchemaId,
 						entitySchemaSlug: payload.entitySchemaSlug,
 						executionId: `${payload.executionId}-provider-refresh`,
 					},

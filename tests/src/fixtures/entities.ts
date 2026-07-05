@@ -43,7 +43,7 @@ export const createTrackerWithSchemaAndEntity = (client: Client) =>
 		const { slug, schemaId } = yield* createTrackerWithSchema(client);
 		const entity = yield* createEntity(client, {
 			name: "Test Entity",
-			entitySchemaId: schemaId,
+			entitySchemaSlug: schemaId,
 			properties: { title: "Test Title" },
 		});
 		return { slug, entityId: entity.id };

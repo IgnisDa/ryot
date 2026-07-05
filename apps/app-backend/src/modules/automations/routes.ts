@@ -17,7 +17,7 @@ export const AutomationsRoutesLive = HttpApiBuilder.group(AppContract, "automati
 		.handle("getCatalog", ({ path }) =>
 			Effect.gen(function* () {
 				const service = yield* NotificationSubscriptionsService;
-				return yield* service.getCatalog(path.signalSchemaId).pipe(dieOnDbError);
+				return yield* service.getCatalog(path.signalSchemaSlug).pipe(dieOnDbError);
 			}),
 		)
 		.handle("listRules", () =>
@@ -39,7 +39,7 @@ export const AutomationsRoutesLive = HttpApiBuilder.group(AppContract, "automati
 				const user = yield* CurrentUser;
 				const service = yield* NotificationSubscriptionsService;
 				return yield* service
-					.installRule({ userId: user.id, signalSchemaId: payload.signalSchemaId })
+					.installRule({ userId: user.id, signalSchemaSlug: payload.signalSchemaSlug })
 					.pipe(dieOnDbError);
 			}),
 		)

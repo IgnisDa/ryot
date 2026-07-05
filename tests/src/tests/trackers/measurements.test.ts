@@ -24,14 +24,14 @@ describe("Measurements E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				trackerId: fitnessTracker.id,
+				trackerSlug: fitnessTracker.id,
 			});
 			const measurementSchema = schemas.find((schema) => schema.slug === "measurement");
 
 			expect(measurementSchema).toBeDefined();
 			expect(measurementSchema?.name).toBe("Measurement");
 			expect(measurementSchema?.isBuiltin).toBe(true);
-			expect(measurementSchema?.trackerId).toBe(fitnessTracker.id);
+			expect(measurementSchema?.trackerSlug).toBe(fitnessTracker.id);
 		}),
 	);
 
@@ -68,7 +68,7 @@ describe("Measurements E2E", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
 				const views = yield* listSavedViews(client, {
-					trackerId: fitnessTracker.id,
+					trackerSlug: fitnessTracker.id,
 				});
 				const allMeasurementsView = views.find((view) => view.name === "All Measurements");
 
@@ -76,7 +76,7 @@ describe("Measurements E2E", () => {
 				expect(allMeasurementsView).toMatchObject({
 					isBuiltin: true,
 					name: "All Measurements",
-					trackerId: fitnessTracker.id,
+					trackerSlug: fitnessTracker.id,
 					queryDocument: {
 						source: { schemas: ["measurement"] },
 						output: {

@@ -31,6 +31,11 @@ const translationStatusRef: Expr = {
 	sourceAlias: "course",
 	field: { type: "systemComputed", name: "translationStatus" },
 };
+const schemaSlugRef: Expr = {
+	type: "ref",
+	sourceAlias: "course",
+	field: { type: "schema", name: "slug" },
+};
 const prop = (path: string): Expr => ({
 	type: "ref",
 	sourceAlias: "course",
@@ -130,6 +135,11 @@ describe("compileValue", () => {
 		const { sql } = render(compileValue(lit(5), scope()).value);
 		expect(sql).toContain("to_jsonb(");
 		expect(sql).toContain("double precision");
+	});
+
+	it("reads an entity schema slug from the entity row", () => {
+		const { sql } = render(compileValue(schemaSlugRef, scope()).value);
+		expect(sql).toBe("to_jsonb(e.entity_schema_slug)");
 	});
 
 	it("compiles count-distinct to COUNT(DISTINCT ...)", () => {

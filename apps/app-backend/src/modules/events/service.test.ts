@@ -4,9 +4,9 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
 	EntityId,
-	EntitySchemaId,
+	EntitySchemaSlug,
 	EventId,
-	EventSchemaId,
+	EventSchemaSlug,
 	ImportRunId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -35,15 +35,14 @@ const entityScope = {
 	entityId: EntityId.make("entity-1"),
 	entityUserId: user.id,
 	entitySchemaSlug: "book",
-	entitySchemaId: EntitySchemaId.make("entity-schema-1"),
 	propertiesSchema: { fields: {} },
 };
 
 const eventSchemaScope = {
 	slug: "finished",
 	name: "Finished",
-	id: EventSchemaId.make("event-schema-1"),
-	entitySchemaId: EntitySchemaId.make("entity-schema-1"),
+	id: EventSchemaSlug.make("event-schema-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("entity-schema-1"),
 	propertiesSchema: {
 		fields: {
 			rating: {
@@ -161,7 +160,6 @@ it.effect("lists events for an accessible entity", () => {
 			eventSchemaSlug: "finished",
 			id: EventId.make("event-1"),
 			entityId: EntityId.make("entity-1"),
-			eventSchemaId: EventSchemaId.make("event-schema-1"),
 		},
 	];
 
@@ -183,7 +181,6 @@ it.effect("lists events for an accessible entity", () => {
 								properties: { kind: "json" as const, value: { rating: 5 } },
 								eventSchemaName: { kind: "text" as const, value: "Finished" },
 								eventSchemaSlug: { kind: "text" as const, value: "finished" },
-								eventSchemaId: { kind: "text" as const, value: "event-schema-1" },
 							},
 						],
 					},
@@ -266,7 +263,7 @@ it.effect("awaits API event creation and returns the workflow outcomes", () => {
 					properties: { rating: 5 },
 					entityId: EntityId.make("entity-1"),
 					occurredAt: "2026-01-01T00:00:00.000Z",
-					eventSchemaId: EventSchemaId.make("event-schema-1"),
+					eventSchemaSlug: EventSchemaSlug.make("event-schema-1"),
 				},
 			],
 		});
@@ -285,7 +282,7 @@ it.effect("awaits API event creation and returns the workflow outcomes", () => {
 						properties: { rating: 5 },
 						entityId: EntityId.make("entity-1"),
 						occurredAt: "2026-01-01T00:00:00.000Z",
-						eventSchemaId: EventSchemaId.make("event-schema-1"),
+						eventSchemaSlug: EventSchemaSlug.make("event-schema-1"),
 					},
 				],
 			},
@@ -315,7 +312,7 @@ it.effect("marks sandbox-created events with the creating automation execution",
 				{
 					properties: {},
 					entityId: EntityId.make("entity-1"),
-					eventSchemaId: EventSchemaId.make("event-schema-1"),
+					eventSchemaSlug: EventSchemaSlug.make("event-schema-1"),
 				},
 			],
 		});
@@ -356,7 +353,7 @@ it.effect("awaits the durable import event-create path with its deterministic ex
 				{
 					properties: { rating: 5 },
 					entityId: EntityId.make("entity-1"),
-					eventSchemaId: EventSchemaId.make("event-schema-1"),
+					eventSchemaSlug: EventSchemaSlug.make("event-schema-1"),
 				},
 			],
 		});

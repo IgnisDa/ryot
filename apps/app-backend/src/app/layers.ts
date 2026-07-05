@@ -35,9 +35,7 @@ import { EntityPopulationTriggerLive } from "#modules/entity-import/population-t
 import { ProviderEntityPopulationWorkflowDefinitionsLive } from "#modules/entity-import/provider-entity-population-workflow";
 import { StreamRegistry } from "#modules/entity-interest/registry";
 import { InterestReconciler, InterestService } from "#modules/entity-interest/service";
-import { EntitySchemaWorkflowDefinitionsLive } from "#modules/entity-schemas/default-saved-view-workflow-live";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
-import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entity-translation/entity-translation-workflow-live";
 import { TranslateEntityWorkflowOperationsLive } from "#modules/entity-translation/operations-workflow";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
@@ -45,7 +43,6 @@ import { TranslationsService } from "#modules/entity-translation/service";
 import { EpisodeResolverRepository } from "#modules/episode-resolver/repository";
 import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { EventSchemasService } from "#modules/event-schemas/service";
 import {
 	EventCreateWorkflowDefinitionsLive,
 	EventCreateWorkflowOperationsLive,
@@ -81,14 +78,12 @@ import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxCompiler } from "#modules/sandbox/compiler";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
 import { SandboxApiService } from "#modules/sandbox/service";
-import { DefaultSavedViewWorkerLive } from "#modules/saved-views/default-view-worker";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
@@ -152,7 +147,11 @@ const PlatformRepositoriesLive = Layer.mergeAll(
 	TrackersRepository.Default,
 );
 
-const RepositoriesLive = Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive);
+const DefinitionRegistryLive = DefinitionRegistry.Default;
+const RepositoriesLive = Layer.provide(
+	Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive),
+	DefinitionRegistryLive,
+);
 
 const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
 	AutomationsRepository.Default,
@@ -167,7 +166,7 @@ const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
 const CoreInfrastructureDependenciesLive = Layer.mergeAll(BaseInfrastructureLive, ConfigLive);
 
 const CoreInfrastructureServicesLive = Layer.mergeAll(
-	DefinitionRegistry.Default,
+	DefinitionRegistryLive,
 	PersistedQueueLive,
 	WorkflowEngineLive,
 	DbRunnerLive,
@@ -185,7 +184,7 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 	CoreInfrastructureDependenciesLive,
 );
 
-const QueryEngineServiceLive = QueryEngineService.Default;
+const QueryEngineServiceLive = Layer.provide(QueryEngineService.Default, DefinitionRegistryLive);
 const NotificationSubscriptionsServiceLive = Layer.provide(
 	NotificationSubscriptionsService.Default,
 	AutomationsService.Default,
@@ -197,17 +196,15 @@ const EntitiesServiceLive = Layer.provide(
 	Layer.mergeAll(QueryEngineServiceLive, LifecycleDispatchLayerLive),
 );
 const SavedViewsServiceLive = Layer.provide(SavedViewsService.Default, QueryEngineServiceLive);
-const EntitySchemasServiceLive = Layer.provide(
-	EntitySchemasService.Default,
-	TrackersService.Default,
-);
+const TrackersServiceLive = Layer.provide(TrackersService.Default, DefinitionRegistryLive);
 const BootstrapServicesLive = Layer.mergeAll(
 	EntitiesServiceLive,
-	SavedViewsServiceLive,
-	TrackersService.Default,
 	NotificationSubscriptionsServiceLive,
 );
-const AuthAndBootstrapServicesLive = Layer.provideMerge(AuthService.Default, BootstrapServicesLive);
+const AuthAndBootstrapServicesLive = Layer.mergeAll(
+	BootstrapServicesLive,
+	Layer.provide(AuthService.Default, BootstrapServicesLive),
+);
 const AuthDependentServicesLive = Layer.provideMerge(
 	Layer.mergeAll(UserPreferencesService.Default, GodModeService.Default),
 	AuthAndBootstrapServicesLive,
@@ -244,13 +241,12 @@ const SandboxServicesLive = Layer.mergeAll(SandboxApiServiceLive, RuntimeSandbox
 
 const ContentServicesLive = Layer.mergeAll(
 	AuthDependentServicesLive,
-	EntitySchemasServiceLive,
 	LibraryImportService.Default,
 	EpisodeResolverService.Default,
-	EventSchemasService.Default,
 	EventsServiceLive,
+	SavedViewsServiceLive,
+	TrackersServiceLive,
 	QueryEngineServiceLive,
-	RelationshipSchemasService.Default,
 	AutomationsService.Default,
 	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,
@@ -339,7 +335,6 @@ const RuntimeLive = (builtinExercisePreloadLimit: number) =>
 		AddEntityToCollectionWorkflowDefinitionsLive,
 		SubscriptionExecutionWorkflowDefinitionsLive,
 		ProviderEntityPopulationWorkflowDefinitionsLive,
-		EntitySchemaWorkflowDefinitionsLive,
 		EventCreateWorkflowDefinitionsLive,
 		LibraryEntityImportWorkflowDefinitionsLive,
 		NotificationDeliveryWorkflowDefinitionsLive,
@@ -347,7 +342,6 @@ const RuntimeLive = (builtinExercisePreloadLimit: number) =>
 		MediaTrendingRefreshWorkflowDefinitionsLive,
 		IntegrationReconciliationWorkflowDefinitionsLive,
 		EnsureLibraryMembershipWorkerLive,
-		DefaultSavedViewWorkerLive,
 		BuiltinEntityPreloaderLive(builtinExercisePreloadLimit),
 		ImportWorkflowDefinitionsLive,
 		ProcessNormalizedMediaImportWorkflowDefinitionsLive,
@@ -370,9 +364,8 @@ const MigrationBootstrapServicesLive = Layer.provideMerge(
 	Layer.mergeAll(
 		Layer.provideMerge(NotificationSubscriptionsService.Default, AutomationsService.Default),
 		EntitiesService.Default,
-		SavedViewsService.Default,
 		SignalSchemasService.Default,
-		TrackersService.Default,
+		DefinitionRegistryLive,
 	),
 	Layer.mergeAll(LifecycleDispatchNoop, QueryEngineServiceLive, MigrationBootstrapRepositoriesLive),
 );
@@ -410,6 +403,7 @@ const MigrationOnlyCoreLive = MigrationsComplete.Default.pipe(
 	Layer.provide(TransactionRunnerLive),
 	Layer.provide(DbService.Default),
 	Layer.provide(ConfigLive),
+	Layer.provide(DefinitionRegistryLive),
 );
 
 export const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(

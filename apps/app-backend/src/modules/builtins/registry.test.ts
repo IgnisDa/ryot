@@ -1,4 +1,4 @@
-import { RelationshipSchemaId } from "@ryot/contract/schema/brands";
+import { RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { assert, describe, expect, it } from "vitest";
 
 import {
@@ -408,7 +408,7 @@ describe("builtinSandboxScripts", () => {
 			].map(({ scriptSlug }) => scriptSlug),
 		);
 		const activeSignalSlugs = builtinSignalSchemas(
-			RelationshipSchemaId.make("media-monitoring-schema"),
+			RelationshipSchemaSlug.make("media-monitoring-schema"),
 		).map(({ slug }) => slug);
 
 		expect(new Set(activeSignalSlugs)).toEqual(
@@ -432,7 +432,7 @@ describe("builtinSandboxScripts", () => {
 			false,
 		);
 		expect(
-			builtinSignalSchemas(RelationshipSchemaId.make("media-monitoring")).some(({ slug }) =>
+			builtinSignalSchemas(RelationshipSchemaSlug.make("media-monitoring")).some(({ slug }) =>
 				slug.startsWith("automation.test-"),
 			),
 		).toBe(false);

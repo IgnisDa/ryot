@@ -1,7 +1,7 @@
 import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import type {
 	EntityId,
-	EntitySchemaId,
+	EntitySchemaSlug,
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -12,7 +12,7 @@ export type PopulationRequest = {
 	externalId: string;
 	userId: UserId | null;
 	origin: AutomationOrigin;
-	entitySchemaId: EntitySchemaId;
+	entitySchemaSlug: EntitySchemaSlug;
 	sandboxScriptId: SandboxScriptId;
 };
 

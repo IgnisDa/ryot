@@ -43,48 +43,48 @@ describe("Relationship includes", () => {
 				const relationshipSchema = yield* createRelationshipSchema(client, {
 					name: "Where Course Module",
 					slug: relationshipSlug,
-					sourceEntitySchemaId: courseSchemaId,
-					targetEntitySchemaId: moduleSchemaId,
+					sourceEntitySchemaSlug: courseSchemaId,
+					targetEntitySchemaSlug: moduleSchemaId,
 				});
 
 				const courseWithMatch = yield* createQueryEngineEntity(client, {
 					name: "Course With Match",
-					entitySchemaId: courseSchemaId,
+					entitySchemaSlug: courseSchemaId,
 				});
 				const courseWithoutMatch = yield* createQueryEngineEntity(client, {
 					name: "Course Without Match",
-					entitySchemaId: courseSchemaId,
+					entitySchemaSlug: courseSchemaId,
 				});
 				const moduleLow = yield* createQueryEngineEntity(client, {
 					name: "Module Low",
-					entitySchemaId: moduleSchemaId,
+					entitySchemaSlug: moduleSchemaId,
 					properties: { moduleNumber: 1 },
 				});
 				const moduleHigh = yield* createQueryEngineEntity(client, {
 					name: "Module High",
-					entitySchemaId: moduleSchemaId,
+					entitySchemaSlug: moduleSchemaId,
 					properties: { moduleNumber: 5 },
 				});
 				const onlyLowModule = yield* createQueryEngineEntity(client, {
 					name: "Only Low Module",
-					entitySchemaId: moduleSchemaId,
+					entitySchemaSlug: moduleSchemaId,
 					properties: { moduleNumber: 1 },
 				});
 
 				yield* createRelationship(client, {
 					sourceEntityId: courseWithMatch.id,
 					targetEntityId: moduleLow.id,
-					relationshipSchemaId: relationshipSchema.id,
+					relationshipSchemaSlug: relationshipSchema.id,
 				});
 				yield* createRelationship(client, {
 					sourceEntityId: courseWithMatch.id,
 					targetEntityId: moduleHigh.id,
-					relationshipSchemaId: relationshipSchema.id,
+					relationshipSchemaSlug: relationshipSchema.id,
 				});
 				yield* createRelationship(client, {
 					sourceEntityId: courseWithoutMatch.id,
 					targetEntityId: onlyLowModule.id,
-					relationshipSchemaId: relationshipSchema.id,
+					relationshipSchemaSlug: relationshipSchema.id,
 				});
 
 				const doc = buildRowsDoc({
@@ -162,7 +162,7 @@ describe("Relationship includes", () => {
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
 				name: "Event Include Complete",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 				propertiesSchema: {
 					fields: { score: { type: "integer", label: "Score", description: "Completion score" } },
 				},
@@ -170,18 +170,18 @@ describe("Relationship includes", () => {
 
 			const lesson = yield* createQueryEngineEntity(client, {
 				name: "Lesson With Completions",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: lesson.id,
 				properties: { score: 1 },
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-01-01T00:00:00.000Z",
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: lesson.id,
 				properties: { score: 2 },
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-02-01T00:00:00.000Z",
 			});
 
@@ -248,7 +248,7 @@ describe("Relationship includes", () => {
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
 				name: "Event Include Filter Complete",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 				propertiesSchema: {
 					fields: { score: { type: "integer", label: "Score", description: "Completion score" } },
 				},
@@ -256,18 +256,18 @@ describe("Relationship includes", () => {
 
 			const lesson = yield* createQueryEngineEntity(client, {
 				name: "Filter Lesson",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: lesson.id,
 				properties: { score: 1 },
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-01-01T00:00:00.000Z",
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: lesson.id,
 				properties: { score: 2 },
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-02-01T00:00:00.000Z",
 			});
 
@@ -326,7 +326,7 @@ describe("Relationship includes", () => {
 			const completeSchema = yield* createEventSchema(client, {
 				slug: completeSlug,
 				name: "Event Include HasMore",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 				propertiesSchema: {
 					fields: { score: { type: "integer", label: "Score", description: "Completion score" } },
 				},
@@ -334,18 +334,18 @@ describe("Relationship includes", () => {
 
 			const lesson = yield* createQueryEngineEntity(client, {
 				name: "Lesson HasMore",
-				entitySchemaId: lessonSchemaId,
+				entitySchemaSlug: lessonSchemaId,
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: lesson.id,
 				properties: { score: 1 },
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-01-01T00:00:00.000Z",
 			});
 			yield* createQueryEngineEvent(client, {
 				entityId: lesson.id,
 				properties: { score: 2 },
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt: "2026-02-01T00:00:00.000Z",
 			});
 
