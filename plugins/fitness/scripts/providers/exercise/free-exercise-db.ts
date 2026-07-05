@@ -54,7 +54,10 @@ const cachedExerciseSchema = Schema.Struct({
 });
 const cachedExercisesMetadataSchema = Schema.Struct({
 	version: Schema.String,
-	chunkCount: Schema.Number.pipe(Schema.int(), Schema.positive()),
+	chunkCount: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThan(0)),
+	),
 });
 const exercisePayloadSchema = Schema.Array(Schema.Unknown);
 
@@ -279,11 +282,11 @@ const normalizeExercise = (value: unknown): NormalizedExercise | null => {
 };
 
 const reviveExercise = (value: unknown): NormalizedExercise | null => {
-	const decoded = Schema.decodeUnknownEither(cachedExerciseSchema)(value);
-	if (decoded._tag === "Left") {
+	const decoded = Schema.decodeUnknownResult(cachedExerciseSchema)(value);
+	if (decoded._tag === "Failure") {
 		return null;
 	}
-	const row = decoded.right;
+	const row = decoded.success;
 	const name = stringValue(row.name);
 	const externalId = stringValue(row.externalId);
 	const kind = stringValue(row.properties.kind);
@@ -322,15 +325,15 @@ const writeCachedValue = (host: ExerciseSourceHost, key: string, value: JsonValu
 const readCachedExercises = (host: ExerciseSourceHost) =>
 	Effect.gen(function* () {
 		const metadataValue = yield* host.getCachedValue(CACHE_KEY);
-		const metadata = Schema.decodeUnknownEither(cachedExercisesMetadataSchema)(metadataValue);
-		if (metadata._tag === "Left") {
+		const metadata = Schema.decodeUnknownResult(cachedExercisesMetadataSchema)(metadataValue);
+		if (metadata._tag === "Failure") {
 			return null;
 		}
 
 		const rows: NormalizedExercise[] = [];
-		for (let index = 0; index < metadata.right.chunkCount; index += 1) {
+		for (let index = 0; index < metadata.success.chunkCount; index += 1) {
 			const chunkValue = yield* host.getCachedValue(
-				`${CACHE_KEY}:${metadata.right.version}:chunk:${index}`,
+				`${CACHE_KEY}:${metadata.success.version}:chunk:${index}`,
 			);
 			if (!Array.isArray(chunkValue)) {
 				return null;
@@ -400,7 +403,7 @@ const loadExercises = (host: ExerciseSourceHost) =>
 			try: () => JSON.parse(response.body) as unknown,
 			catch: () => new Error("Exercise database returned invalid JSON"),
 		});
-		const exercises = yield* Schema.decodeUnknown(exercisePayloadSchema)(payload).pipe(
+		const exercises = yield* Schema.decodeUnknownEffect(exercisePayloadSchema)(payload).pipe(
 			Effect.mapError(() => new Error("Exercise database returned an unexpected payload")),
 		);
 		const rows = exercises
@@ -504,8 +507,14 @@ export const getExerciseDetails = (input: ProviderDetailsInput, host: ExerciseSo
 const PRELOAD_BATCH_SIZE = 100;
 const MAX_PRELOAD_EXERCISE_LIMIT = 873;
 export const preloadResultSchema = Schema.Struct({
-	processed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-	inserted: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	processed: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
+	inserted: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
 });
 
 export const preloadExercises = (host: ExercisePreloadHost) =>
@@ -516,7 +525,7 @@ export const preloadExercises = (host: ExercisePreloadHost) =>
 		}
 		const preloadLimit = Math.min(MAX_PRELOAD_EXERCISE_LIMIT, Math.max(0, configuredLimit));
 		const exercises = (yield* loadExercises(host)).slice(0, preloadLimit);
-		const populatedAt = DateTime.formatIso(DateTime.unsafeNow());
+		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
 		let inserted = 0;
 
 		for (let offset = 0; offset < exercises.length; offset += PRELOAD_BATCH_SIZE) {
