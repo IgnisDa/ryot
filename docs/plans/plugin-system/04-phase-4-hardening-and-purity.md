@@ -21,8 +21,9 @@ reason). The gate failing must name the offending file/line.
 - **Compiled modules on disk.** Execution currently imports compiled code via a `data:` URL
   per single-use process (`runner-source.sandbox.ts`). Materialize compiled modules into the
   sandbox runtime directory keyed by content hash (already covered by the existing
-  `--allow-read=<runtime-dir>` grant) and import by path; keep the `data:` URL path as
-  fallback for user scripts if simpler. Measure before/after on a provider-heavy e2e run.
+  `--allow-read=<runtime-dir>` grant) and import by path — after Phase 2 §8 every executable
+  module is plugin-owned and content-addressed, so no fallback path is needed. Measure
+  before/after on a provider-heavy e2e run.
 - **In-flight host-call cap** per execution (the bridge has total-count budgets but no
   concurrency cap): a simple kernel-side semaphore per `executionId` in
   `BridgeService.handleRequest`. Pick the limit from observed batch-activity behavior.
@@ -53,6 +54,9 @@ reason). The gate failing must name the offending file/line.
 - **Public/runtime plugin install for end users** — the admin mechanism exists (Phase 2);
   exposing it involves trust UX, quotas, and capability review flows that belong with the
   user-authored-plugins milestone.
+- **Per-user lightweight extension** — removed with the standalone script feature
+  (Decision 19); it returns only in the form of user-authored plugins, never as a second
+  script-authoring mechanism.
 - **Third-party namespacing** (`acme/movie`) — `/` is already reserved in slugs; activating
   namespaces is additive.
 - **Plugin uninstall data policies** beyond refuse-while-referenced.

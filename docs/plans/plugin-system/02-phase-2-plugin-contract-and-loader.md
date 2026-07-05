@@ -20,11 +20,11 @@ today — no more):
 
 ```txt
 definePlugin({
-  metadata: { slug, name, version, description },
+  metadata: { slug, name, version, description, icon, accentColor },
+                                   // metadata IS the workspace presentation (Decision 20)
   entitySchemas: [...],            // incl. nested eventSchemas — Phase 1 registry shapes
   relationshipSchemas: [...],
   signalSchemas: [...],
-  trackers: [...],
   savedViews: [...],
   scripts: [...],                  // source refs + driver manifests (existing
                                    // SandboxScriptMetadata kinds: provider, automation)
@@ -59,15 +59,15 @@ plugins/fitness/  same shape
 Content assignment when dissolving `apps/app-backend/src/modules/builtins/` (from
 `registry.ts` and the definition files; verify each against the source):
 
-- **media**: all media entity/relationship schemas and property schemas, media saved views &
-  trackers, all ~52 provider scripts except `exercise.free-exercise-db`, automations:
+- **media**: all media entity/relationship schemas and property schemas, media saved views,
+  all ~52 provider scripts except `exercise.free-exercise-db`, automations:
   `automation.media-association`, `automation.media-entity-updated`,
   `automation.media-relationship-sync`, `automation.review-created`,
   `trigger.auto-complete-on-full-progress`, `trigger.integration-progress-policy`,
   `trigger.radarr-push`, `trigger.sonarr-push`, `trigger.jellyfin-push`; media signal
   schemas (`review.created`, `media.status.changed`).
-- **fitness**: `exercise`/`workout`/`measurement` schemas + property schemas, fitness
-  tracker/views, `exercise.free-exercise-db` provider, `automation.workout-created`,
+- **fitness**: `exercise`/`workout`/`measurement` schemas + property schemas, fitness saved
+  views, `exercise.free-exercise-db` provider, `automation.workout-created`,
   `workout.created` signal schema.
 - **kernel-owned definitions** (definition source zero, not a plugin): `collection` entity
   schema, `integration.disabled` signal schema, `automation.notification` script (generic
@@ -102,9 +102,11 @@ reuse one worker session, not spawn per script.
    `sandbox_script` rows for compiled modules with a new `pluginSlug` column (keeps the
    execution path — which loads by script row — unchanged) plus `contentHash`; a script
    row is immutable per hash (new version ⇒ new row), enabling workflow pinning in Phase 3.
-   Drop `isBuiltin` on `sandbox_script`; user-authored scripts are rows with
-   `pluginSlug IS NULL`. Superseded plugin-script rows are retained while referenced (GC is
-   Phase 4 at the earliest).
+   Drop `isBuiltin` on `sandbox_script`. Every script row is plugin-owned (Decision 19):
+   `pluginSlug` NOT NULL, no `userId` column, no per-user slug uniqueness — §8 deletes the
+   legacy per-user script feature that used them, so design the storage for this end state.
+   Renaming the table (e.g. `plugin_script`) is **[IMPLEMENTER-DECIDES]**. Superseded
+   plugin-script rows are retained while referenced (GC is Phase 4 at the earliest).
 5. Load: build the new registry snapshot (Phase 1 registry + plugin definitions + bindings)
    and swap it atomically; publish a Redis invalidation message (other instances rebuild
    from the DB); ingestion of first-party plugins at boot short-circuits compile when
@@ -140,11 +142,12 @@ protects live data under hot swap.
   `NotificationSubscriptionsService` via the `automations` contract group's
   `installRule`/`activateRule`/`deactivateRule`/`deleteRule`/`listRules`, and by
   `ensureDefaultRules` from `user-bootstrap/bootstrap.ts` — consumers also in
-  `auth/service.ts` and `god-mode/service.ts`): this is per-user *state* and moves to a
+  `auth/service.ts` and `god-mode/service.ts`): this is per-user _state_ and moves to a
   dedicated table **[RECOMMENDED]** `notification_subscription_state`
   `(userId, signalSchemaSlug, scriptSlug, isActive, metadata?, timestamps)`, unique on
   `(userId, signalSchemaSlug, scriptSlug)`, following the same definition-vs-state pattern
-  as `tracker_state`. Re-point `NotificationSubscriptionsService`, the `automations` rule
+  as the per-user workspace state (`plugin_state`, §9). Re-point
+  `NotificationSubscriptionsService`, the `automations` rule
   endpoints (surface preserved — plumbing only), `ensureDefaultRules`, and the
   `tests/src/tests/automations/notification-subscriptions.test.ts` suite (assertions
   preserved).
@@ -192,6 +195,52 @@ materialization at all.
 - Multi-instance invalidation: unit-test the Redis message → snapshot rebuild path (a
   two-backend e2e is not worth the harness cost now **[RECOMMENDED]**).
 
+## 8. Remove the per-user sandbox-script feature (Decision 19)
+
+Do this **after** §6 — until the `installTestPlugin` fixture exists, the e2e provider tests
+depend on the script-creation API this section deletes.
+
+- **Contract**: delete the `sandbox` group's script authoring/CRUD/compile endpoints.
+  Anything in the group the plugin machinery still genuinely needs (execution inspection,
+  admin diagnostics) is kept or relocated — **[IMPLEMENTER-DECIDES]** after auditing the
+  group's remaining consumers.
+- **Backend** (`modules/sandbox`): delete the user-facing script authoring service/routes
+  and owner-based access checks. The execution services and the compiler service
+  (`modules/sandbox/compiler.ts`) survive — ingestion (§4) is now their consumer.
+- **Storage**: `sandbox_script.userId` dropped; `pluginSlug` NOT NULL; per-user slug
+  uniqueness replaced by the §4 content-addressed scheme. `entity.sandboxScriptId`
+  provenance is unchanged (it now always points at plugin script rows; entities with no
+  provider keep NULL).
+- **Cache semantics**: the per-`(user, scriptId)` sandbox cache isolation keys on the
+  _executing_ user and is unchanged; only script-ownership checks disappear.
+- **E2e**: `tests/src/tests/sandbox/` — port execution-semantics/limits/fault coverage to
+  scripts installed via `installTestPlugin`; delete authoring-CRUD coverage. Any remaining
+  fixture that compiles "through the authenticated script-creation API" moves to the install
+  path.
+- **Docs**: update the "Sandbox Scripts" and cache sections of `apps/app-backend/CLAUDE.md`
+  and the sandbox-runtime README where they describe user-authored scripts.
+
+## 9. Remove the tracker concept (Decision 20)
+
+Execute this at the **start** of the §2/§4 boot-cutover slice, before the package manifests
+are authored — writing `trackers` sections only to delete them is wasted motion.
+
+- **Manifest** (`libs/plugin-kit`): no `trackers` section; `metadata` carries the workspace
+  display fields (`icon`, `accentColor`, `description`). Rework the implemented contract
+  accordingly.
+- **Registry/loader**: no tracker definitions; the workspace list is the installed plugins'
+  metadata merged with per-user state (kernel-owned definitions present no workspace).
+- **Storage**: `tracker_state` → `plugin_state` **[RECOMMENDED]** name
+  (`userId`, `pluginSlug`, `isDisabled`, `sortOrder`, `config`, timestamps; unique on
+  `(userId, pluginSlug)`); `savedView.trackerSlug` → `pluginSlug` (still nullable —
+  ungrouped views exist); regenerate the migration; `builtins/trackers.ts` is deleted with
+  the module.
+- **Contract**: dissolve the `trackers` group — workspace listing joins the definitions read
+  surface; keep a single workspace-state update endpoint.
+- **E2e**: re-plumb any fixture or suite touching tracker state or `savedView.trackerSlug`
+  (assertions preserved). Afterwards, grep `tests/` for `tracker` — remaining hits must be
+  about plugins-as-workspaces only.
+
 ## Done criteria
 
 1. `apps/app-backend/src/modules/builtins/` no longer exists; media/fitness definitions and
@@ -205,4 +254,10 @@ materialization at all.
 4. Hot-install e2e passes: install fake plugin → search/import through it → uninstall.
 5. Boot ingests both first-party plugins; a deliberately corrupted plugin source fails boot
    with a structured error (unit/integration test).
-6. Phase gate: backend check + unit tests, e2e suite, app-client check all pass.
+6. No user-authored script surface remains (Decision 19): the `sandbox` contract group has
+   no script CRUD, every `sandbox_script` row is plugin-owned, and the sandbox e2e suites
+   run against plugin-installed scripts.
+7. No tracker concept remains (Decision 20): no `trackers` manifest section, contract group,
+   or registry definitions, and no `tracker*` tables/columns; workspace presentation comes
+   from plugin metadata merged with `plugin_state`.
+8. Phase gate: backend check + unit tests, e2e suite, app-client check all pass.
