@@ -16,7 +16,6 @@ export type SignalSchemaScope = {
 	slug: string;
 	name: string;
 	id: SignalSchemaSlug;
-	isBuiltin: boolean;
 	userId: UserId | null;
 	propertiesSchema: AppSchema;
 	catalogState: SignalCatalogState;
@@ -49,7 +48,6 @@ export class SignalSchemasRepository extends Effect.Service<SignalSchemasReposit
 										},
 							id: SignalSchemaSlug.make(definition.slug),
 							userId: null,
-							isBuiltin: true,
 						}
 					: null;
 			};
@@ -72,7 +70,6 @@ export class SignalSchemasRepository extends Effect.Service<SignalSchemasReposit
 						...input,
 						id: SignalSchemaSlug.make(input.slug),
 						userId: null,
-						isBuiltin: true,
 					},
 				);
 			const updateBuiltinDisplay = (input: {

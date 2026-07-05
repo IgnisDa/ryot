@@ -25,8 +25,11 @@ describe("Definitions E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* client.call((c) => c.definitions.listEntities({}));
 			const collectionSchema = schemas.find((schema) => schema.slug === "collection");
+			const movieSchema = schemas.find((schema) => schema.slug === "movie");
 
 			expect(collectionSchema).toBeDefined();
+			expect(collectionSchema?.pluginSlug).toBeNull();
+			expect(movieSchema?.pluginSlug).toBe("media");
 			expect(collectionSchema).toMatchObject({
 				icon: "folders",
 				name: "Collection",
