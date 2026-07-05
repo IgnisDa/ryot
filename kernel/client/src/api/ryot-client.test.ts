@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
-import { makeRyotQLApi, makeUploadsApi } from "#/api/ports.test-layer";
+import { makeEntityInterestService, makeRyotQLApi, makeUploadsApi } from "#/api/ports.test-layer";
 import { createKernelRyotClient } from "#/api/ryot-client";
 import type { ThemeStore } from "#/modules/theme/store";
 
@@ -33,7 +33,11 @@ const fails = (cause: unknown) => Effect.fail(new AuthenticatedApiError({ cause 
 
 const makeRuntime = (cause: unknown) =>
 	ManagedRuntime.make(
-		Layer.mergeAll(makeUploadsApi(), makeRyotQLApi({ execute: () => fails(cause) })),
+		Layer.mergeAll(
+			makeEntityInterestService(),
+			makeUploadsApi(),
+			makeRyotQLApi({ execute: () => fails(cause) }),
+		),
 	);
 
 type UploadStep<M extends "createIntent" | "completeIntent"> = Effect.Effect<
@@ -67,6 +71,7 @@ const makeUploadsRuntime = (
 ) =>
 	ManagedRuntime.make(
 		Layer.mergeAll(
+			makeEntityInterestService(),
 			makeRyotQLApi(),
 			makeUploadsApi({
 				createIntent: (_scope, request) => {
@@ -118,6 +123,50 @@ const source = new Blob(["id,title"], { type: "text/csv" });
 const uploadRequest = { source, fileName: "items.csv", contentType: "text/csv" };
 
 describe("kernel Ryot client", () => {
+	it("attaches synchronous watches by scope without acquiring a session for each client", async () => {
+		const calls: unknown[] = [];
+		const runtime = ManagedRuntime.make(
+			Layer.mergeAll(
+				makeRyotQLApi(),
+				makeUploadsApi(),
+				makeEntityInterestService({
+					acquire: () => {
+						throw new Error("Client construction must not acquire a session");
+					},
+					watch: (receivedScope, interest, onUpdate) => {
+						calls.push({ scope: receivedScope, interest });
+						onUpdate({ entityId: "a", reason: "translated" });
+						return {
+							update: (next) => calls.push(next),
+							dispose: () => {
+								calls.push("disposed");
+							},
+						};
+					},
+				}),
+			),
+		);
+		try {
+			const first = createKernelRyotClient(runtime, scope, theme);
+			const second = createKernelRyotClient(runtime, { ...scope }, theme);
+			expect(calls).toEqual([]);
+			const updates: unknown[] = [];
+			const interest = { foreground: ["a"], visible: [] };
+			const handle = first.entities.watch(interest, (update) => updates.push(update));
+			second.entities.watch(interest, () => {});
+			handle.update({ foreground: [], visible: ["b"] });
+			handle.dispose();
+			expect(calls).toEqual([
+				{ scope, interest },
+				{ scope, interest },
+				{ foreground: [], visible: ["b"] },
+				"disposed",
+			]);
+			expect(updates).toEqual([{ entityId: "a", reason: "translated" }]);
+		} finally {
+			await runtime.dispose();
+		}
+	});
 	const managedAssets = [
 		{ type: "local", key: "permanent/local.png" },
 		{ type: "s3", key: "permanent/remote.png" },
@@ -165,7 +214,11 @@ describe("kernel Ryot client", () => {
 
 	it("interrupts a query with the caller signal and preserves its abort reason", async () => {
 		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(makeUploadsApi(), makeRyotQLApi({ execute: () => Effect.never })),
+			Layer.mergeAll(
+				makeEntityInterestService(),
+				makeUploadsApi(),
+				makeRyotQLApi({ execute: () => Effect.never }),
+			),
 		);
 		const controller = new AbortController();
 		const reason = new DOMException("Caller canceled", "AbortError");
@@ -185,6 +238,7 @@ describe("kernel Ryot client", () => {
 		const calls: Array<{ readonly scope: typeof scope; readonly request: unknown }> = [];
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
+				makeEntityInterestService(),
 				makeRyotQLApi(),
 				makeUploadsApi({
 					resolveDownloads: (receivedScope, request) => {
@@ -214,7 +268,11 @@ describe("kernel Ryot client", () => {
 
 	it("passes the caller signal to authenticated asset resolution", async () => {
 		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(makeUploadsApi({ resolveDownloads: () => Effect.never }), makeRyotQLApi()),
+			Layer.mergeAll(
+				makeEntityInterestService(),
+				makeUploadsApi({ resolveDownloads: () => Effect.never }),
+				makeRyotQLApi(),
+			),
 		);
 		const controller = new AbortController();
 		const reason = new DOMException("Caller canceled", "AbortError");
@@ -240,7 +298,11 @@ describe("kernel Ryot client", () => {
 	]) {
 		it(`classifies ${failure._tag} as asset-failed`, async () => {
 			const runtime = ManagedRuntime.make(
-				Layer.mergeAll(makeRyotQLApi(), makeUploadsApi({ resolveDownloads: () => fails(failure) })),
+				Layer.mergeAll(
+					makeEntityInterestService(),
+					makeRyotQLApi(),
+					makeUploadsApi({ resolveDownloads: () => fails(failure) }),
+				),
 			);
 			try {
 				const client = createKernelRyotClient(runtime, scope, theme);
@@ -257,6 +319,7 @@ describe("kernel Ryot client", () => {
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
 				makeRyotQLApi(),
+				makeEntityInterestService(),
 				makeUploadsApi({ resolveDownloads: () => fails(new TypeError("private network detail")) }),
 			),
 		);

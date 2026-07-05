@@ -33,8 +33,11 @@ import {
 	type PluginRyotQLRequest,
 	type PluginThemeSnapshot,
 } from "@ryot-app/client-plugin-contract";
+import type { EntityInterestSubscription } from "@ryot-app/client-sdk";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { Match, Result, Schema } from "effect";
+
+import type { WatchEntities } from "#/modules/entity-interest/service";
 
 const HANDSHAKE_TIMEOUT_MS = 15_000;
 
@@ -69,6 +72,7 @@ type PluginBridgeOptions = {
 	readonly theme: PluginThemeSnapshot;
 	readonly target: PluginBridgeTarget;
 	readonly onNavigateBack: () => void;
+	readonly watchEntities: WatchEntities;
 	readonly viewport: PluginBridgeViewportInsets;
 	readonly navigation: PluginBridgeNavigationState;
 	readonly onHeader: (request: PluginBridgeHeader) => void;
@@ -114,10 +118,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	let viewport = options.viewport;
 	let navigation = options.navigation;
 	let mode = options.theme.resolvedMode;
+	let interestIds = new Set<string>();
 	const channel = new MessageChannel();
 	let state: PluginBridgeState = "ready";
 	const listeners = new AbortController();
 	const pending = new Map<string, PendingRequest>();
+	let interest: EntityInterestSubscription | undefined;
 	const timer = window.setTimeout(() => fail(), options.timeoutMs ?? HANDSHAKE_TIMEOUT_MS);
 
 	function finish(next: "failed" | "disposed", notify: boolean) {
@@ -125,6 +131,13 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			return;
 		}
 		state = "closing";
+		try {
+			interest?.dispose();
+		} catch {
+			/* Interest transport is best effort. */
+		}
+		interest = undefined;
+		interestIds.clear();
 		clearTimeout(timer);
 		if (notify) {
 			try {
@@ -349,6 +362,23 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					return;
 				}
 				Match.value(decoded.success).pipe(
+					Match.when({ type: "entity-interest" }, ({ foreground, visible }) => {
+						const declaration = { foreground, visible };
+						interestIds = new Set([...declaration.foreground, ...declaration.visible]);
+						try {
+							if (interest) {
+								interest.update(declaration);
+							} else {
+								interest = options.watchEntities(declaration, (update) => {
+									if (state === "active" && interestIds.has(update.entityId)) {
+										post({ ...update, type: "entity-updated" });
+									}
+								});
+							}
+						} catch {
+							/* Interest transport must not fail the document. */
+						}
+					}),
 					Match.when({ type: "asset-cancel" }, (request) => handleAssetCancel(request)),
 					Match.when({ type: "asset-request" }, (request) => handleAssets(request)),
 					Match.when({ type: "navigate-back" }, () => options.onNavigateBack()),

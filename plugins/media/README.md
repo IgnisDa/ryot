@@ -27,9 +27,19 @@ resolves them in chunks of 64, and refreshes each chunk shortly before its signe
 images load directly and are not batched.
 
 A few affordances are deliberately inert pending real operation wiring: the monitoring toggle, Manage
-collections, Log activity, Write review, View all images, and View complete history. The client does
-not subscribe to entity-interest or WebSocket invalidation; that system existed on the old React
-Native screen and was not ported.
+collections, Log activity, Write review, View all images, and View complete history.
+
+All five Show queries declare SDK entity interest. The show is foreground interest from the first
+request; the selected season is also foreground for its episode query. Loaded collections, people,
+companies, recommendations, seasons, and episodes are visible interest for the queries that display
+them. Activity uses season IDs, watch-day episode IDs, and episode/collection entities referenced by
+events, never event IDs. The SDK owns active-screen subscription handling and refresh scheduling.
+Failed refreshes keep the last successful content and show a small retry status; initial failures
+still use the query's error screen.
+
+Interest is limited to loaded recipe results and their existing row limits, not every related entity
+or an inferred dependency graph. Entity update hints can refresh those queries, but this does not
+promise general realtime updates for mutations, events, relationships, or unloaded children.
 
 Workspace discovery, mutations, and progress/monitoring/library write flows beyond the Show page
 remain deferred.

@@ -1,10 +1,12 @@
 import {
+	EntityInterest,
 	PluginThemeSnapshot,
 	type PluginThemeSnapshot as PluginThemeSnapshotValue,
 	PluginManagedAssetResolution,
 	type PluginManagedAssetResolution as PluginManagedAssetResolutionValue,
 	type RyotClientErrorReason,
 } from "@ryot-app/client-plugin-contract";
+import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import {
 	ManagedAssetResolutionBatch,
 	type ManagedAssetLocator as ManagedAssetLocatorValue,
@@ -15,6 +17,23 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 export type { RyotClientErrorReason } from "@ryot-app/client-plugin-contract";
+export type { EntityInterest } from "@ryot-app/client-plugin-contract";
+export type EntityUpdate = Schema.Codec.Encoded<typeof EntityUpdatedMessage>;
+export type EntityInterestSubscription = {
+	readonly dispose: () => void;
+	readonly update: (interest: EntityInterest) => void;
+};
+
+const normalizeInterest = (interest: EntityInterest): EntityInterest => {
+	const decoded = Schema.decodeUnknownResult(EntityInterest)(interest);
+	if (Result.isFailure(decoded)) {
+		throw new RyotClientError("invalid-input");
+	}
+	const foreground = [...new Set(decoded.success.foreground)].sort();
+	const roots = new Set(foreground);
+	const visible = [...new Set(decoded.success.visible)].filter((id) => !roots.has(id)).sort();
+	return { visible, foreground };
+};
 export type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 
 export type RyotThemeSnapshot = PluginThemeSnapshotValue;
@@ -51,6 +70,10 @@ export type RyotNavigationTarget =
 export type RyotClientAdapter = {
 	readonly uploadTemporary?: (request: TemporaryUploadRequest) => Promise<unknown>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
+	readonly watchEntities?: (
+		interest: EntityInterest,
+		onUpdate: (update: EntityUpdate) => void,
+	) => EntityInterestSubscription;
 	readonly query: (
 		document: PreparedRecipe<unknown>["document"],
 		signal?: AbortSignal,
@@ -106,6 +129,56 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	};
 
 	return {
+		entities: {
+			watch: (
+				interest: EntityInterest,
+				onUpdate: (update: EntityUpdate) => void,
+			): EntityInterestSubscription => {
+				const normalized = normalizeInterest(interest);
+				if (!adapter.watchEntities) {
+					throw new RyotClientError("unsupported-capability");
+				}
+				let disposed = false;
+				try {
+					const subscription = adapter.watchEntities(normalized, (value) => {
+						if (disposed) {
+							return;
+						}
+						const decoded = Schema.decodeUnknownResult(EntityUpdatedMessage)(value);
+						if (Result.isFailure(decoded)) {
+							throw new RyotClientError("malformed-result");
+						}
+						onUpdate({ entityId: decoded.success.entityId, reason: decoded.success.reason });
+					});
+					return {
+						update: (next) => {
+							const normalizedNext = normalizeInterest(next);
+							if (disposed) {
+								throw new RyotClientError("disposed");
+							}
+							try {
+								subscription.update(normalizedNext);
+							} catch (error) {
+								throw asTransportError(error);
+							}
+						},
+						dispose: () => {
+							if (disposed) {
+								return;
+							}
+							disposed = true;
+							try {
+								subscription.dispose();
+							} catch (error) {
+								throw asTransportError(error);
+							}
+						},
+					};
+				} catch (error) {
+					throw asTransportError(error);
+				}
+			},
+		},
 		navigation: {
 			push: (target: RyotNavigationTarget) => navigate("push", target),
 			replace: (target: RyotNavigationTarget) => navigate("replace", target),

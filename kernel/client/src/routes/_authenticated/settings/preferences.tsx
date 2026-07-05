@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import { useEffect, useRef, type ReactNode } from "react";
 
 import { UserSettingsApi } from "#/api/user-settings";
+import { EntityInterestService } from "#/modules/entity-interest/service";
 import { Appearance } from "#/modules/settings/appearance";
 import { PreferencesForm } from "#/modules/settings/preferences-form";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
@@ -54,7 +55,13 @@ function PreferencesRoute() {
 
 	const save = (payload: UpdateUserPreferencesBody) =>
 		runtime.runPromise(
-			Effect.flatMap(UserSettingsApi, (api) => api.updatePreferences(scope, { payload })),
+			Effect.flatMap(UserSettingsApi, (api) => api.updatePreferences(scope, { payload })).pipe(
+				Effect.tap(() =>
+					payload.language === undefined
+						? Effect.void
+						: Effect.map(EntityInterestService, (service) => service.reconnect(scope)),
+				),
+			),
 			{ signal: controller.current.signal },
 		);
 

@@ -1,6 +1,19 @@
+import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 import type { ReactNode } from "react";
+
+export function ShowRefreshStatus(props: { readonly result: RyotQueryResult<unknown> }) {
+	if (props.result.status !== "error" || props.result.data === undefined) {
+		return null;
+	}
+	return (
+		<div role="status" className="flex items-center gap-3 py-2 font-ui text-[12px] text-text-muted">
+			<span>Refresh failed. Showing last loaded content.</span>
+			<ShowLinkButton label="Try again" onClick={props.result.refetch} />
+		</div>
+	);
+}
 
 export function ShowChip(props: { readonly label: string }) {
 	return (

@@ -307,12 +307,14 @@ function ShowOverviewBody(props: {
 export function ShowOverview(props: {
 	readonly compact: boolean;
 	readonly show: ShowSummary;
+	readonly refreshStatus?: ReactNode;
 	readonly refreshOverview: () => void;
 	readonly overview: ShowOverviewState;
 }) {
 	const gallery = showGalleryAssets(props.show);
 	return (
 		<div className={clsx("flex flex-col", props.compact ? "gap-7 pt-6" : "gap-9 pt-8")}>
+			{props.refreshStatus}
 			<ShowImageGallery divided={false} assets={gallery} compact={props.compact} />
 			<ShowOverviewBody
 				state={props.overview}
