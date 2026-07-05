@@ -210,6 +210,46 @@ describe("plugin navigation", () => {
 		expect(view.router.state.location.searchStr).toBe("?tab=stats");
 	});
 
+	it("refreshes and replaces the iframe when an operation finds a stale session", async () => {
+		let loads = 0;
+		let entries = catalog;
+		const view = mountView(
+			"/fixture",
+			entries,
+			() =>
+				Effect.sync(() => {
+					loads += 1;
+					return entries;
+				}),
+			() => Effect.succeed({ outcome: "stale-session" } as const),
+		);
+		await waitFor(() => expect(frame()).toBeTruthy());
+		const initialFrame = frame();
+		const connected = connectFrame(initialFrame);
+		connected.pluginPort.postMessage(connected.init);
+		await waitFor(() => expect(connected.messages).toHaveLength(1));
+		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		entries = [{ ...catalog[0], sourceHash: "next-source-hash" }];
+		connected.pluginPort.postMessage({
+			input: null,
+			type: "operation-request",
+			requestId: "stale-operation",
+			operationSlug: "stale-operation",
+		});
+
+		await waitFor(() => expect(loads).toBe(2));
+		await waitFor(() => expect(frame()).not.toBe(initialFrame));
+		expect(frame().getAttribute("src")).toContain("/artifact-hash/index.html");
+		await waitFor(() =>
+			expect(connected.messages).toContainEqual({ reason: "disposed", type: "lifecycle-close" }),
+		);
+		expect(connected.messages).not.toContainEqual(
+			expect.objectContaining({ requestId: "stale-operation", type: "operation-result" }),
+		);
+
+		view.unmount();
+	});
+
 	it("unmounts a removed plugin and stops stale access after a catalog refresh", async () => {
 		let entries = catalog;
 		let operationCalls = 0;
