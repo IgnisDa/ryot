@@ -9,10 +9,12 @@ import {
 	buildQueryEngineEntityRowsDocument,
 	buildQueryEngineTimeSeriesDocument,
 	queryEngineEntitySource,
+} from "@ryot/query-engine/documents";
+import {
 	queryEngineField,
 	queryEngineOrder,
 	queryEngineSystemRef,
-} from "@ryot/query-engine";
+} from "@ryot/query-engine/primitives";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
