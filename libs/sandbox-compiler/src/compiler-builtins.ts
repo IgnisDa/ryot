@@ -9,7 +9,10 @@ import {
 	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
-import { createTypeScriptSourcesProject, type SandboxTypeScriptSources } from "./compiler-project";
+import {
+	createTypeScriptSourcesProjectForEntries,
+	type SandboxTypeScriptSources,
+} from "./compiler-project";
 import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
 import {
 	inspectSandboxModuleImports,
@@ -27,15 +30,43 @@ export type CompiledBuiltInSandboxEntry = {
 };
 
 export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
-	Effect.gen(function* () {
-		const source = sources.files[sources.entry];
-		if (source === undefined) {
-			return yield* sandboxCompilationFailure([
+	sources.files[sources.entry] === undefined
+		? sandboxCompilationFailure([
 				sandboxCompilerDiagnostic(
 					"RYOT_BUILTIN_ENTRY",
 					`Built-in sandbox entry does not exist: ${sources.entry}`,
 				),
-			]);
+			])
+		: compileSandboxPackageEntries(sources, [sources.entry]).pipe(
+				Effect.flatMap(([compiled]) =>
+					compiled
+						? Effect.succeed(compiled)
+						: sandboxCompilationFailure([
+								sandboxCompilerDiagnostic(
+									"RYOT_BUILTIN_ENTRY",
+									`Built-in sandbox entry does not exist: ${sources.entry}`,
+								),
+							]),
+				),
+			);
+
+export const compileBuiltInSandboxEntries = (entries: readonly BuiltInSandboxEntry[]) =>
+	Effect.forEach(entries, compileBuiltInSandboxEntry, { concurrency: 2 });
+
+export const compileSandboxPackageEntries = (
+	sources: SandboxTypeScriptSources,
+	entries: ReadonlyArray<string>,
+) =>
+	Effect.gen(function* () {
+		if (entries.length === 0) {
+			return [];
+		}
+		for (const entry of entries) {
+			if (sources.files[entry] === undefined) {
+				return yield* sandboxCompilationFailure([
+					sandboxCompilerDiagnostic("RYOT_SANDBOX_ENTRY", `Sandbox entry does not exist: ${entry}`),
+				]);
+			}
 		}
 		for (const [path, contents] of Object.entries(sources.files)) {
 			if (utf8ByteLength(contents) > SANDBOX_COMPILER_LIMITS.sourceBytes) {
@@ -43,7 +74,7 @@ export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
 					{
 						...sandboxCompilerDiagnostic(
 							"RYOT_SOURCE_SIZE",
-							`Built-in sandbox source exceeds ${SANDBOX_COMPILER_LIMITS.sourceBytes} UTF-8 bytes`,
+							`Sandbox source exceeds ${SANDBOX_COMPILER_LIMITS.sourceBytes} UTF-8 bytes`,
 						),
 						file: path,
 					},
@@ -52,8 +83,9 @@ export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
 		}
 
 		const dependencies = yield* resolveSandboxCompilerDependencies;
-		const project = yield* createTypeScriptSourcesProject(
+		const project = yield* createTypeScriptSourcesProjectForEntries(
 			sources,
+			entries,
 			dependencies.sdkEntries,
 			dependencies.tsserverPath,
 		).pipe(
@@ -66,73 +98,88 @@ export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
 				]),
 			),
 		);
-		const inspection = inspectSandboxSource(project.sourceFile, { allowRelativeImports: true });
-		const moduleDiagnostics = project.sourceFiles
-			.filter((file) => file !== project.sourceFile)
-			.flatMap(inspectSandboxModuleImports);
-		const inspectionDiagnostics = [...inspection.diagnostics, ...moduleDiagnostics];
-		if (inspectionDiagnostics.length > 0) {
-			return yield* sandboxCompilationFailure(inspectionDiagnostics);
-		}
-
 		const typeErrors = project.diagnostics.filter(
 			(diagnostic) => diagnostic.category === DiagnosticCategory.Error,
 		);
+		const firstEntry = entries[0];
+		const fallbackSourceFile = firstEntry ? project.entrySourceFiles[firstEntry] : undefined;
+		if (!fallbackSourceFile) {
+			return yield* sandboxCompilationFailure([
+				sandboxCompilerDiagnostic("RYOT_SANDBOX_ENTRY", "Sandbox entries were not loaded"),
+			]);
+		}
 		if (typeErrors.length > 0) {
 			return yield* sandboxCompilationFailure(
 				typeErrors
 					.slice(0, SANDBOX_COMPILER_LIMITS.diagnosticCount)
 					.map((diagnostic) =>
-						toTypeScriptDiagnostic(diagnostic, project.sourceFiles, project.sourceFile),
+						toTypeScriptDiagnostic(diagnostic, project.sourceFiles, fallbackSourceFile),
 					),
 			);
 		}
 
-		const extracted = extractSandboxManifest(project.sourceFile, inspection.manifestHelpers);
-		if ("diagnostic" in extracted) {
-			return yield* sandboxCompilationFailure([extracted.diagnostic]);
-		}
-		const definitionMismatch = sandboxDefinitionMismatch(inspection, extracted.manifest);
-		if (definitionMismatch) {
-			return yield* sandboxCompilationFailure([
-				sandboxCompilerDiagnostic("RYOT_DEFINITION", definitionMismatch),
-			]);
-		}
-		if (
-			(jsonByteLength(extracted.manifest) ?? Number.POSITIVE_INFINITY) >
-			SANDBOX_COMPILER_LIMITS.manifestBytes
-		) {
-			return yield* sandboxCompilationFailure([
-				sandboxCompilerDiagnostic(
-					"RYOT_MANIFEST_SIZE",
-					`Sandbox manifest exceeds ${SANDBOX_COMPILER_LIMITS.manifestBytes} UTF-8 bytes`,
-				),
-			]);
-		}
+		return yield* Effect.forEach(entries, (entry) => {
+			const source = sources.files[entry];
+			const sourceFile = project.entrySourceFiles[entry];
+			if (!source || !sourceFile) {
+				return sandboxCompilationFailure([
+					sandboxCompilerDiagnostic("RYOT_SANDBOX_ENTRY", `Sandbox entry was not loaded: ${entry}`),
+				]);
+			}
+			const inspection = inspectSandboxSource(sourceFile, { allowRelativeImports: true });
+			const moduleDiagnostics = project.sourceFiles
+				.filter((file) => file !== sourceFile)
+				.flatMap(inspectSandboxModuleImports);
+			const inspectionDiagnostics = [...inspection.diagnostics, ...moduleDiagnostics];
+			if (inspectionDiagnostics.length > 0) {
+				return sandboxCompilationFailure(inspectionDiagnostics);
+			}
 
-		const bundled = yield* bundleBuiltInScript(sources, dependencies.sdkEntries);
-		if ("diagnostics" in bundled) {
-			return yield* sandboxCompilationFailure(bundled.diagnostics);
-		}
-		if (utf8ByteLength(bundled.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
-			return yield* sandboxCompilationFailure([
-				sandboxCompilerDiagnostic(
-					"RYOT_COMPILED_SIZE",
-					`Compiled sandbox module exceeds ${SANDBOX_COMPILER_LIMITS.javascriptBytes} UTF-8 bytes`,
-				),
-			]);
-		}
+			const extracted = extractSandboxManifest(sourceFile, inspection.manifestHelpers);
+			if ("diagnostic" in extracted) {
+				return sandboxCompilationFailure([extracted.diagnostic]);
+			}
+			const definitionMismatch = sandboxDefinitionMismatch(inspection, extracted.manifest);
+			if (definitionMismatch) {
+				return sandboxCompilationFailure([
+					sandboxCompilerDiagnostic("RYOT_DEFINITION", definitionMismatch),
+				]);
+			}
+			if (
+				(jsonByteLength(extracted.manifest) ?? Number.POSITIVE_INFINITY) >
+				SANDBOX_COMPILER_LIMITS.manifestBytes
+			) {
+				return sandboxCompilationFailure([
+					sandboxCompilerDiagnostic(
+						"RYOT_MANIFEST_SIZE",
+						`Sandbox manifest exceeds ${SANDBOX_COMPILER_LIMITS.manifestBytes} UTF-8 bytes`,
+					),
+				]);
+			}
 
-		return {
-			source,
-			entry: sources.entry,
-			compiled: {
-				manifest: extracted.manifest,
-				javascript: bundled.javascript,
-				format: SANDBOX_COMPILED_FORMAT,
-			},
-		} satisfies CompiledBuiltInSandboxEntry;
+			return bundleBuiltInScript({ ...sources, entry }, dependencies.sdkEntries).pipe(
+				Effect.flatMap((bundled) => {
+					if ("diagnostics" in bundled) {
+						return sandboxCompilationFailure(bundled.diagnostics);
+					}
+					if (utf8ByteLength(bundled.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
+						return sandboxCompilationFailure([
+							sandboxCompilerDiagnostic(
+								"RYOT_COMPILED_SIZE",
+								`Compiled sandbox module exceeds ${SANDBOX_COMPILER_LIMITS.javascriptBytes} UTF-8 bytes`,
+							),
+						]);
+					}
+					return Effect.succeed({
+						entry,
+						source,
+						compiled: {
+							manifest: extracted.manifest,
+							javascript: bundled.javascript,
+							format: SANDBOX_COMPILED_FORMAT,
+						},
+					} satisfies CompiledBuiltInSandboxEntry);
+				}),
+			);
+		});
 	});
-
-export const compileBuiltInSandboxEntries = (entries: readonly BuiltInSandboxEntry[]) =>
-	Effect.forEach(entries, compileBuiltInSandboxEntry, { concurrency: 2 });

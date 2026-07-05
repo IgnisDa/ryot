@@ -19,6 +19,7 @@ const isVirtualPath = (path: string) => path === virtualRoot || path.startsWith(
 
 const compilerFileSystem = (
 	sources: SandboxTypeScriptSources,
+	entries: ReadonlyArray<string>,
 	sdkEntries: Readonly<Record<string, string>>,
 ) => {
 	const sourceFiles = Object.fromEntries(
@@ -27,7 +28,7 @@ const compilerFileSystem = (
 	const virtual = createVirtualFileSystem({
 		...sourceFiles,
 		[virtualConfigFile]: JSON.stringify({
-			files: [virtualPath(sources.entry)],
+			files: entries.map(virtualPath),
 			compilerOptions: {
 				types: [],
 				strict: true,
@@ -60,14 +61,16 @@ const compilerFileSystem = (
 	} satisfies FileSystem;
 };
 
-export const createTypeScriptSourcesProject = (
+export const createTypeScriptSourcesProjectForEntries = (
 	sources: SandboxTypeScriptSources,
+	entries: ReadonlyArray<string>,
 	sdkEntries: Readonly<Record<string, string>>,
 	tsserverPath: string,
 ) =>
 	Effect.acquireUseRelease(
 		Effect.sync(
-			() => new API({ cwd: "/", tsserverPath, fs: compilerFileSystem(sources, sdkEntries) }),
+			() =>
+				new API({ cwd: "/", tsserverPath, fs: compilerFileSystem(sources, entries, sdkEntries) }),
 		),
 		(api) =>
 			Effect.gen(function* () {
@@ -86,10 +89,17 @@ export const createTypeScriptSourcesProject = (
 					Effect.tryPromise(() => program.getSourceFile(virtualPath(path))),
 				);
 				const sourceFiles = loadedSourceFiles.filter((file) => file !== undefined);
-				const sourceFile = sourceFiles.find((file) => file.fileName === virtualPath(sources.entry));
-				if (!sourceFile) {
+				const entrySourceFiles = Object.fromEntries(
+					entries.flatMap((entry) => {
+						const file = sourceFiles.find(
+							(sourceFile) => sourceFile.fileName === virtualPath(entry),
+						);
+						return file ? [[entry, file]] : [];
+					}),
+				);
+				if (Object.keys(entrySourceFiles).length !== entries.length) {
 					return yield* new TypeScriptProjectError({
-						message: "TypeScript did not load the sandbox entry file",
+						message: "TypeScript did not load every sandbox entry file",
 					});
 				}
 
@@ -113,10 +123,28 @@ export const createTypeScriptSourcesProject = (
 				);
 
 				return {
-					sourceFile,
 					sourceFiles,
+					entrySourceFiles,
 					diagnostics: [...projectDiagnostics.flat(), ...sourceDiagnostics.flat(2)],
 				};
 			}),
 		(api) => Effect.promise(() => api.close()),
+	);
+
+export const createTypeScriptSourcesProject = (
+	sources: SandboxTypeScriptSources,
+	sdkEntries: Readonly<Record<string, string>>,
+	tsserverPath: string,
+) =>
+	createTypeScriptSourcesProjectForEntries(sources, [sources.entry], sdkEntries, tsserverPath).pipe(
+		Effect.flatMap(({ diagnostics, entrySourceFiles, sourceFiles }) => {
+			const sourceFile = entrySourceFiles[sources.entry];
+			return sourceFile
+				? Effect.succeed({ diagnostics, sourceFile, sourceFiles })
+				: Effect.fail(
+						new TypeScriptProjectError({
+							message: "TypeScript did not load the sandbox entry file",
+						}),
+					);
+		}),
 	);
