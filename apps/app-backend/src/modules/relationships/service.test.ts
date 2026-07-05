@@ -3,7 +3,7 @@ import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
 	EntityId,
 	RelationshipId,
-	RelationshipSchemaId,
+	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer } from "effect";
@@ -17,14 +17,14 @@ import { RelationshipsService } from "./service";
 const userId = UserId.make("user-id");
 const sourceEntityId = EntityId.make("source-entity-id");
 const targetEntityId = EntityId.make("target-entity-id");
-const relationshipSchemaId = RelationshipSchemaId.make("rel-schema-id");
+const relationshipSchemaSlug = RelationshipSchemaSlug.make("rel-schema-id");
 
 const relationship = {
 	properties: {},
 	sourceEntityId,
 	targetEntityId,
 	wasInserted: true,
-	relationshipSchemaId,
+	relationshipSchemaSlug,
 	id: RelationshipId.make("rel-id"),
 	createdAt: "2026-06-22T00:00:00.000Z",
 };
@@ -49,7 +49,7 @@ const baseInput = {
 	properties: {},
 	sourceEntityId,
 	targetEntityId,
-	relationshipSchemaId,
+	relationshipSchemaSlug,
 	scope: "user" as const,
 	propertiesSchema: { fields: {} } as const,
 };
@@ -105,7 +105,7 @@ it.effect("creates a validated user relationship", () => {
 			properties: {},
 			sourceEntityId,
 			targetEntityId,
-			relationshipSchemaId,
+			relationshipSchemaSlug,
 			scope: "user",
 		});
 	}).pipe(Effect.provide(layer));
@@ -129,7 +129,7 @@ it.effect("updates a validated global relationship", () => {
 			sourceEntityId,
 			targetEntityId,
 			scope: "global",
-			relationshipSchemaId,
+			relationshipSchemaSlug,
 			propertiesSchema: { fields: {} },
 		});
 		expect(result).toEqual(updated);
@@ -138,7 +138,7 @@ it.effect("updates a validated global relationship", () => {
 			sourceEntityId,
 			targetEntityId,
 			scope: "global",
-			relationshipSchemaId,
+			relationshipSchemaSlug,
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -170,7 +170,7 @@ it.effect("deletes one relationship through the repository", () => {
 			scope: "user",
 			sourceEntityId,
 			targetEntityId,
-			relationshipSchemaId,
+			relationshipSchemaSlug,
 		});
 		expect(result).toEqual(relationship);
 		expect(deletedInput).toEqual({
@@ -178,7 +178,7 @@ it.effect("deletes one relationship through the repository", () => {
 			scope: "user",
 			sourceEntityId,
 			targetEntityId,
-			relationshipSchemaId,
+			relationshipSchemaSlug,
 		});
 	}).pipe(Effect.provide(layer));
 });

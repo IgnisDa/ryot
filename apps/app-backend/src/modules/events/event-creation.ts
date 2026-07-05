@@ -1,7 +1,7 @@
 import type { BadRequest } from "@ryot/contract/errors";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { CreateEventItem } from "@ryot/contract/modules/events/schemas";
-import { EntityId, EventSchemaId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Option } from "effect";
 
@@ -51,19 +51,23 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 		const entityId = EntityId.make(
 			yield* requireText(input.item.entityId, "Entity id is required"),
 		);
-		const eventSchemaId = EventSchemaId.make(
-			yield* requireText(input.item.eventSchemaId, "Event schema id is required"),
+		const eventSchemaSlug = EventSchemaSlug.make(
+			yield* requireText(input.item.eventSchemaSlug, "Event schema id is required"),
 		);
 
 		const entityScope = yield* requireReadableEntity(input.userId, entityId, entityNotFoundError);
 		const eventSchemaScope = yield* runWithDb(
-			eventSchemasRepository.getScopeForUser({ userId: input.userId, eventSchemaId }),
+			eventSchemasRepository.getScopeForUser({
+				userId: input.userId,
+				eventSchemaSlug,
+				entitySchemaSlug: EntitySchemaSlug.make(entityScope.entitySchemaSlug),
+			}),
 		);
 		if (!eventSchemaScope) {
 			return yield* notFound(eventSchemaNotFoundError);
 		}
 
-		if (eventSchemaScope.entitySchemaId !== entityScope.entitySchemaId) {
+		if (eventSchemaScope.entitySchemaSlug !== entityScope.entitySchemaSlug) {
 			return yield* badRequest(eventSchemaMismatchError);
 		}
 
@@ -79,6 +83,13 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 
 		const occurredAt = yield* resolveOccurredAt(input.item.occurredAt);
 
-		return { entityId, eventSchemaId, entityScope, eventSchemaScope, sessionEntityId, occurredAt };
+		return {
+			entityId,
+			eventSchemaSlug,
+			entityScope,
+			eventSchemaScope,
+			sessionEntityId,
+			occurredAt,
+		};
 	},
 );

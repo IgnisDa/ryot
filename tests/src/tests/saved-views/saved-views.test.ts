@@ -29,7 +29,7 @@ describe("Saved views query documents E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const mediaTracker = yield* findBuiltinTrackerBySlug(client, "media");
-			const views = yield* listSavedViews(client, { trackerId: mediaTracker.id });
+			const views = yield* listSavedViews(client, { trackerSlug: mediaTracker.id });
 			const allBooksView = views.find((view) => view.name === "All Books");
 
 			expect(allBooksView?.queryDocument).toMatchObject({
@@ -123,8 +123,8 @@ describe("Saved views query documents E2E", () => {
 				yield* createRelationshipSchema(client, {
 					slug: courseModuleSlug,
 					name: "Saved View Course Module",
-					sourceEntitySchemaId: courseSchemaId,
-					targetEntitySchemaId: moduleSchemaId,
+					sourceEntitySchemaSlug: courseSchemaId,
+					targetEntitySchemaSlug: moduleSchemaId,
 				});
 
 				const hierarchicalDocument: SavedViewQueryDocument = {

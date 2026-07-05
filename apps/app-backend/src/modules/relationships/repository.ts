@@ -2,7 +2,7 @@ import { DbError } from "@ryot/contract/errors";
 import {
 	EntityId,
 	RelationshipId,
-	RelationshipSchemaId,
+	RelationshipSchemaSlug,
 	UserId,
 	type SandboxScriptId,
 } from "@ryot/contract/schema/brands";
@@ -14,7 +14,7 @@ import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 type RelationshipSnapshotRow = Pick<
 	typeof schema.relationship.$inferSelect,
-	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaId"
+	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaSlug"
 >;
 
 type RelationshipRow = RelationshipSnapshotRow & { readonly wasInserted: boolean };
@@ -22,7 +22,7 @@ type RelationshipRow = RelationshipSnapshotRow & { readonly wasInserted: boolean
 export type RelationshipIdentityInput = {
 	sourceEntityId: EntityId;
 	targetEntityId: EntityId;
-	relationshipSchemaId: RelationshipSchemaId;
+	relationshipSchemaSlug: RelationshipSchemaSlug;
 } & ({ scope: "global" } | { scope: "user"; userId: UserId });
 
 export type CreateRelationshipInput = RelationshipIdentityInput & {
@@ -34,7 +34,7 @@ export type UpdateRelationshipInput = RelationshipIdentityInput & {
 };
 
 export type GlobalRelationshipListInput = {
-	relationshipSchemaId: RelationshipSchemaId;
+	relationshipSchemaSlug: RelationshipSchemaSlug;
 } & (
 	| { type: "self" }
 	| {
@@ -50,7 +50,7 @@ const relationshipSnapshotSelection = {
 	properties: schema.relationship.properties,
 	sourceEntityId: schema.relationship.sourceEntityId,
 	targetEntityId: schema.relationship.targetEntityId,
-	relationshipSchemaId: schema.relationship.relationshipSchemaId,
+	relationshipSchemaSlug: schema.relationship.relationshipSchemaSlug,
 };
 
 const relationshipSelection = {
@@ -64,7 +64,7 @@ const toRelationship = (row: RelationshipSnapshotRow) => ({
 	createdAt: row.createdAt.toISOString(),
 	sourceEntityId: EntityId.make(row.sourceEntityId),
 	targetEntityId: EntityId.make(row.targetEntityId),
-	relationshipSchemaId: RelationshipSchemaId.make(row.relationshipSchemaId),
+	relationshipSchemaSlug: RelationshipSchemaSlug.make(row.relationshipSchemaSlug),
 });
 
 const toSavedRelationship = (row: RelationshipRow) => ({
@@ -78,19 +78,19 @@ const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
 				eq(schema.relationship.userId, input.userId),
 				eq(schema.relationship.sourceEntityId, input.sourceEntityId),
 				eq(schema.relationship.targetEntityId, input.targetEntityId),
-				eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
 			)
 		: and(
 				isNull(schema.relationship.userId),
 				eq(schema.relationship.sourceEntityId, input.sourceEntityId),
 				eq(schema.relationship.targetEntityId, input.targetEntityId),
-				eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
 			);
 
 const globalRelationshipConflictColumns = [
 	schema.relationship.sourceEntityId,
 	schema.relationship.targetEntityId,
-	schema.relationship.relationshipSchemaId,
+	schema.relationship.relationshipSchemaSlug,
 ];
 
 const globalRelationshipConflictDoNothingTarget = {
@@ -103,7 +103,7 @@ const userRelationshipConflictTarget = {
 		schema.relationship.userId,
 		schema.relationship.sourceEntityId,
 		schema.relationship.targetEntityId,
-		schema.relationship.relationshipSchemaId,
+		schema.relationship.relationshipSchemaSlug,
 	],
 };
 
@@ -116,7 +116,7 @@ const globalRelationshipWhere = (input: GlobalRelationshipListInput) =>
 	input.type === "self"
 		? and(
 				isNull(schema.relationship.userId),
-				eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
 				eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId),
 			)
 		: and(
@@ -127,13 +127,13 @@ const globalRelationshipWhere = (input: GlobalRelationshipListInput) =>
 						: schema.relationship.targetEntityId,
 					input.anchorEntityId,
 				),
-				eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
 			);
 
 const globalRelationshipLockKey = (input: GlobalRelationshipListInput) =>
 	input.type === "self"
-		? `self:${input.relationshipSchemaId}`
-		: `anchored:${input.direction}:${input.anchorEntityId}:${input.relationshipSchemaId}`;
+		? `self:${input.relationshipSchemaSlug}`
+		: `anchored:${input.direction}:${input.anchorEntityId}:${input.relationshipSchemaSlug}`;
 
 export class RelationshipsRepository extends Effect.Service<RelationshipsRepository>()(
 	"RelationshipsRepository",
@@ -145,7 +145,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				userId: UserId;
 				sourceEntityId: EntityId;
 				targetEntityId: EntityId;
-				relationshipSchemaId: RelationshipSchemaId;
+				relationshipSchemaSlug: RelationshipSchemaSlug;
 			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -167,7 +167,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 					properties: input.properties,
 					sourceEntityId: input.sourceEntityId,
 					targetEntityId: input.targetEntityId,
-					relationshipSchemaId: input.relationshipSchemaId,
+					relationshipSchemaSlug: input.relationshipSchemaSlug,
 					userId: input.scope === "user" ? input.userId : null,
 				};
 
@@ -256,7 +256,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 			)(function* (input: {
 				subjectEntityId: EntityId;
 				subjectSide: "source" | "target";
-				relationshipSchemaId: RelationshipSchemaId;
+				relationshipSchemaSlug: RelationshipSchemaSlug;
 			}) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
@@ -268,7 +268,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 							and(
 								isNotNull(schema.relationship.userId),
 								isNull(schema.user.disabledAt),
-								eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+								eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
 								eq(
 									input.subjectSide === "source"
 										? schema.relationship.sourceEntityId

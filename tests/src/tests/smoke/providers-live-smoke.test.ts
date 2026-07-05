@@ -67,12 +67,12 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 			const { jobId: importJobId } = yield* enqueueEntityImport(client, {
 				scriptId,
 				externalId,
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 			});
 			const imported = yield* pollEntityImportResult(client, importJobId, { timeoutMs: 60_000 });
 			assertCompleted(imported, "OpenLibrary import");
 			expect(imported.data.name.length).toBeGreaterThan(0);
-			expect(imported.data.entitySchemaId).toBe(schema.id);
+			expect(imported.data.entitySchemaSlug).toBe(schema.id);
 
 			const inLibrary = yield* queryInLibraryRelationship(client, imported.data.id, schema.slug);
 			expect(inLibrary.data.items.length).toBeGreaterThan(0);
@@ -90,7 +90,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 
 				const movie = yield* seedPopulatedProviderEntity({
 					externalId: "550",
-					entitySchemaId: schema.id,
+					entitySchemaSlug: schema.id,
 					sandboxScriptId: scriptId,
 					name: "Canonical Fight Club",
 					properties: { description: "Canonical overview of Fight Club." },

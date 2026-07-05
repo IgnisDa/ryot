@@ -268,7 +268,7 @@ const refScalarSql = (
 		return systemColumnSql(ref.kind, expr.field.name, ref.sqlAlias) ?? sql`NULL`;
 	}
 	if (expr.field.type === "schema") {
-		return schemaColumnSql(expr.field.name, ref.sqlAlias);
+		return schemaColumnSql(ref.kind, expr.field.name, ref.sqlAlias);
 	}
 	return propertyScalarSql(scope, expr.sourceAlias, expr.field, want);
 };
@@ -509,7 +509,7 @@ const refValue = (expr: Extract<Expr, { type: "ref" }>, scope: CompileScope): Co
 		return { value: toJsonbValue(column), kind: nullableKindSql(column, kind) };
 	}
 	if (expr.field.type === "schema") {
-		const column = schemaColumnSql(expr.field.name, ref.sqlAlias);
+		const column = schemaColumnSql(ref.kind, expr.field.name, ref.sqlAlias);
 		return {
 			value: toJsonbValue(column),
 			kind: expr.field.name === "isBuiltin" ? sql`'boolean'` : sql`'text'`,
@@ -632,7 +632,6 @@ const compileCorrelatedSource = (source: Source, parentScope: CompileScope): Cor
 
 	if (source.type === "events") {
 		const ev = `ev${suffix}`;
-		const evs = `${ev}s`;
 		const anchor = parentScope.resolve(source.entityRef);
 		const scope = parentScope.child(
 			new Map<string, SqlRef>([
@@ -642,12 +641,9 @@ const compileCorrelatedSource = (source: Source, parentScope: CompileScope): Cor
 		const where = source.where ? compileBool(source.where, scope) : null;
 		const fromWhere = sql`
 			FROM event ${sql.raw(ev)}
-			JOIN event_schema ${sql.raw(evs)} ON ${sql.raw(evs)}.id = ${sql.raw(ev)}.event_schema_id
-				AND ${sql.raw(evs)}.entity_schema_id = ${sql.raw(anchor.sqlAlias)}.entity_schema_id
-				AND ${sql.raw(evs)}.slug IN (${slugListSql(source.schemas)})
-				AND ${userVisibleSql(evs, userId)}
 			WHERE ${sql.raw(ev)}.entity_id = ${sql.raw(anchor.sqlAlias)}.id
 				AND ${sql.raw(ev)}.user_id = ${userId}
+				AND ${sql.raw(ev)}.event_schema_slug IN (${slugListSql(source.schemas)})
 				${whereTail(where)}
 		`;
 		return { fromWhere, scope };
@@ -655,7 +651,6 @@ const compileCorrelatedSource = (source: Source, parentScope: CompileScope): Cor
 
 	if (source.via === undefined) {
 		const e = `e${suffix}`;
-		const es = `${e}s`;
 		const scope = parentScope.child(
 			new Map<string, SqlRef>([
 				[source.alias, { kind: "entity", sqlAlias: e, schemas: source.schemas }],
@@ -664,10 +659,8 @@ const compileCorrelatedSource = (source: Source, parentScope: CompileScope): Cor
 		const where = source.where ? compileBool(source.where, scope) : null;
 		const fromWhere = sql`
 			FROM ${entitySourceSql(language)} ${sql.raw(e)}
-			JOIN entity_schema ${sql.raw(es)} ON ${sql.raw(es)}.id = ${sql.raw(e)}.entity_schema_id
-				AND ${sql.raw(es)}.slug IN (${slugListSql(source.schemas)})
-				AND ${userVisibleSql(es, userId)}
 			WHERE ${userVisibleSql(e, userId)}
+				AND ${sql.raw(e)}.entity_schema_slug IN (${slugListSql(source.schemas)})
 				${whereTail(where)}
 		`;
 		return { fromWhere, scope };
@@ -675,9 +668,7 @@ const compileCorrelatedSource = (source: Source, parentScope: CompileScope): Cor
 
 	const via = source.via;
 	const e = `e${suffix}`;
-	const es = `${e}s`;
 	const r = `r${suffix}`;
-	const rs = `${r}s`;
 	const anchor = parentScope.resolve(via.entityRef);
 	const anchorColumn = via.direction === "outgoing" ? "source_entity_id" : "target_entity_id";
 	const childColumn = via.direction === "outgoing" ? "target_entity_id" : "source_entity_id";
@@ -690,14 +681,10 @@ const compileCorrelatedSource = (source: Source, parentScope: CompileScope): Cor
 	const where = source.where ? compileBool(source.where, scope) : null;
 	const fromWhere = sql`
 		FROM relationship ${sql.raw(r)}
-		JOIN relationship_schema ${sql.raw(rs)} ON ${sql.raw(rs)}.id = ${sql.raw(r)}.relationship_schema_id
-			AND ${sql.raw(rs)}.slug = ${via.schema}
-			AND ${userVisibleSql(rs, userId)}
 		JOIN ${entitySourceSql(language)} ${sql.raw(e)} ON ${sql.raw(e)}.id = ${sql.raw(`${r}.${childColumn}`)}
-		JOIN entity_schema ${sql.raw(es)} ON ${sql.raw(es)}.id = ${sql.raw(e)}.entity_schema_id
-			AND ${sql.raw(es)}.slug IN (${slugListSql(source.schemas)})
-			AND ${userVisibleSql(es, userId)}
 		WHERE ${sql.raw(`${r}.${anchorColumn}`)} = ${sql.raw(anchor.sqlAlias)}.id
+			AND ${sql.raw(r)}.relationship_schema_slug = ${via.schema}
+			AND ${sql.raw(e)}.entity_schema_slug IN (${slugListSql(source.schemas)})
 			AND ${userVisibleSql(r, userId)}
 			AND ${userVisibleSql(e, userId)}
 			${whereTail(where)}

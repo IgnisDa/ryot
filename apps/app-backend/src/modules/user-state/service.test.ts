@@ -3,10 +3,10 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
 	EntityId,
-	EntitySchemaId,
+	EntitySchemaSlug,
 	EventId,
 	RelationshipId,
-	RelationshipSchemaId,
+	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
@@ -108,7 +108,6 @@ const makeServiceLayer = (
 
 const makeMergeScope = (overrides: {
 	entityId: EntityId;
-	entitySchemaId?: EntitySchemaId;
 	entitySchemaSlug?: string;
 	properties?: Record<string, unknown>;
 }) => ({
@@ -117,7 +116,6 @@ const makeMergeScope = (overrides: {
 	entityId: overrides.entityId,
 	properties: overrides.properties ?? {},
 	entitySchemaSlug: overrides.entitySchemaSlug ?? "book",
-	entitySchemaId: overrides.entitySchemaId ?? EntitySchemaId.make("schema-id"),
 });
 
 it.effect("rejects clearing library user state", () => {
@@ -130,7 +128,6 @@ it.effect("rejects clearing library user state", () => {
 					entityUserId: user.id,
 					entityId: EntityId.make("library-entity"),
 					entitySchemaSlug: "library",
-					entitySchemaId: EntitySchemaId.make("library-schema"),
 					propertiesSchema: { fields: {} },
 				}),
 		}),
@@ -158,7 +155,6 @@ it.effect("deletes matching events through EventsService when clearing user stat
 					entitySchemaSlug: "book",
 					propertiesSchema: { fields: {} },
 					entityId: EntityId.make("entity-1"),
-					entitySchemaId: EntitySchemaId.make("book-schema"),
 				}),
 		}),
 		eventsRepository: makeEventsRepository({
@@ -236,10 +232,10 @@ it.effect("rejects merging entities from different schemas", () => {
 				Effect.succeed(
 					makeMergeScope({
 						entityId,
-						entitySchemaId:
+						entitySchemaSlug:
 							entityId === "from"
-								? EntitySchemaId.make("schema-a")
-								: EntitySchemaId.make("schema-b"),
+								? EntitySchemaSlug.make("schema-a")
+								: EntitySchemaSlug.make("schema-b"),
 					}),
 				),
 		}),
@@ -312,10 +308,10 @@ it.effect("moves events and relationships for valid merges", () => {
 					isBuiltin: true,
 					slug: "relationship",
 					name: "Relationship",
-					sourceEntitySchemaId: null,
-					targetEntitySchemaId: null,
+					sourceEntitySchemaSlug: null,
+					targetEntitySchemaSlug: null,
 					propertiesSchema: { fields: {} },
-					id: RelationshipSchemaId.make("relationship-schema"),
+					id: RelationshipSchemaSlug.make("relationship-schema"),
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
@@ -327,7 +323,7 @@ it.effect("moves events and relationships for valid merges", () => {
 						sourceEntityId: EntityId.make("from"),
 						id: RelationshipId.make("relationship-1"),
 						targetEntityId: EntityId.make("target-1"),
-						relationshipSchemaId: RelationshipSchemaId.make("relationship-schema"),
+						relationshipSchemaSlug: RelationshipSchemaSlug.make("relationship-schema"),
 					},
 					{
 						properties: {},
@@ -335,7 +331,7 @@ it.effect("moves events and relationships for valid merges", () => {
 						targetEntityId: EntityId.make("from"),
 						id: RelationshipId.make("relationship-2"),
 						sourceEntityId: EntityId.make("target-2"),
-						relationshipSchemaId: RelationshipSchemaId.make("relationship-schema"),
+						relationshipSchemaSlug: RelationshipSchemaSlug.make("relationship-schema"),
 					},
 					{
 						properties: {},
@@ -343,7 +339,7 @@ it.effect("moves events and relationships for valid merges", () => {
 						sourceEntityId: EntityId.make("from"),
 						targetEntityId: EntityId.make("from"),
 						id: RelationshipId.make("relationship-3"),
-						relationshipSchemaId: RelationshipSchemaId.make("relationship-schema"),
+						relationshipSchemaSlug: RelationshipSchemaSlug.make("relationship-schema"),
 					},
 				]),
 		}),
@@ -358,7 +354,7 @@ it.effect("moves events and relationships for valid merges", () => {
 						targetEntityId: input.targetEntityId,
 						id: RelationshipId.make("created"),
 						createdAt: "2026-01-01T00:00:00.000Z",
-						relationshipSchemaId: input.relationshipSchemaId,
+						relationshipSchemaSlug: input.relationshipSchemaSlug,
 					};
 				}),
 			delete: (input) =>
@@ -370,7 +366,7 @@ it.effect("moves events and relationships for valid merges", () => {
 						targetEntityId: input.targetEntityId,
 						id: RelationshipId.make("deleted"),
 						createdAt: "2026-01-01T00:00:00.000Z",
-						relationshipSchemaId: input.relationshipSchemaId,
+						relationshipSchemaSlug: input.relationshipSchemaSlug,
 					};
 				}),
 		}),

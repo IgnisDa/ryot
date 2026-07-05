@@ -30,7 +30,6 @@ const input = (
 				id: "show-1",
 				name: "Severance",
 				entitySchemaSlug: "show",
-				entitySchemaId: "show-schema",
 			},
 		},
 		source: {
@@ -40,7 +39,6 @@ const input = (
 				properties: {},
 				name: "Old Name",
 				entitySchemaSlug: "show",
-				entitySchemaId: "entity-schema",
 				...overrides.before,
 			},
 			after: {
@@ -48,7 +46,6 @@ const input = (
 				properties: {},
 				name: "New Name",
 				entitySchemaSlug: "show",
-				entitySchemaId: "entity-schema",
 				...overrides.after,
 			},
 		},

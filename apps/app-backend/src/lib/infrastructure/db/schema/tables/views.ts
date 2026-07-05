@@ -13,7 +13,6 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { tracker } from "./core";
 
 // TODO: Expose as an RSS feed
 export const savedView = pgTable(
@@ -24,12 +23,11 @@ export const savedView = pgTable(
 		icon: text().notNull(),
 		accentColor: text().notNull(),
 		sortOrder: integer().notNull().default(0),
-		isBuiltin: boolean().default(false).notNull(),
 		isDisabled: boolean().notNull().default(false),
 		queryDocument: jsonb().$type<QueryDocument>().notNull(),
 		displayConfiguration: jsonb().$type<DisplayConfiguration>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		trackerId: text().references(() => tracker.id, { onDelete: "set null" }),
+		trackerSlug: text(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
@@ -43,7 +41,28 @@ export const savedView = pgTable(
 	},
 	(table) => [
 		index("saved_view_user_id_idx").on(table.userId),
-		index("saved_view_tracker_id_idx").on(table.trackerId),
+		index("saved_view_tracker_slug_idx").on(table.trackerSlug),
 		unique("saved_view_user_slug_unique").on(table.userId, table.slug),
+	],
+);
+
+export const savedViewState = pgTable(
+	"saved_view_state",
+	{
+		savedViewSlug: text().notNull(),
+		sortOrder: integer().notNull().default(0),
+		isDisabled: boolean().notNull().default(false),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+	},
+	(table) => [
+		index("saved_view_state_user_id_idx").on(table.userId),
+		unique("saved_view_state_user_slug_unique").on(table.userId, table.savedViewSlug),
 	],
 );

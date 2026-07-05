@@ -24,7 +24,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 							userId: input.userId,
 							externalId: input.externalId,
 							scriptId: input.sandboxScriptId,
-							entitySchemaId: input.entitySchemaId,
+							entitySchemaSlug: input.entitySchemaSlug,
 						},
 					})
 					.pipe(

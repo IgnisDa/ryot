@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
-import { EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import type { Exit } from "effect";
 import { Effect, Layer } from "effect";
 import { assert } from "vitest";
@@ -29,7 +29,7 @@ const user: CurrentUserValue = {
 
 const externalId = "ext-123";
 const scriptId = SandboxScriptId.make("script-1");
-const entitySchemaId = EntitySchemaId.make("schema-1");
+const entitySchemaSlug = EntitySchemaSlug.make("schema-1");
 
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
@@ -55,7 +55,7 @@ const fakeEntitySchemaScope = {
 	slug: "movie",
 	userId: user.id,
 	isBuiltin: false,
-	id: entitySchemaId,
+	id: entitySchemaSlug,
 	propertiesSchema: { fields: {} },
 };
 
@@ -90,7 +90,7 @@ it.effect("returns BadRequest when scriptId is blank", () =>
 		const result = yield* Effect.exit(
 			service.import(user, {
 				externalId,
-				entitySchemaId,
+				entitySchemaSlug,
 				scriptId: SandboxScriptId.make("   "),
 			}),
 		);
@@ -104,7 +104,7 @@ it.effect("returns BadRequest when externalId is blank", () =>
 	Effect.gen(function* () {
 		const service = yield* LibraryImportService;
 		const result = yield* Effect.exit(
-			service.import(user, { scriptId, externalId: "  ", entitySchemaId }),
+			service.import(user, { scriptId, externalId: "  ", entitySchemaSlug }),
 		);
 		const cause = getFailureCause(result);
 		const failure = cause._tag === "Fail" ? cause.error : null;
@@ -112,14 +112,14 @@ it.effect("returns BadRequest when externalId is blank", () =>
 	}).pipe(Effect.provide(makeServiceLayer(makeSandboxRepository(), makeEntitiesRepository()))),
 );
 
-it.effect("returns BadRequest when entitySchemaId is blank", () =>
+it.effect("returns BadRequest when entitySchemaSlug is blank", () =>
 	Effect.gen(function* () {
 		const service = yield* LibraryImportService;
 		const result = yield* Effect.exit(
 			service.import(user, {
 				scriptId,
 				externalId,
-				entitySchemaId: EntitySchemaId.make(""),
+				entitySchemaSlug: EntitySchemaSlug.make(""),
 			}),
 		);
 		const cause = getFailureCause(result);
@@ -132,7 +132,7 @@ it.effect("returns NotFound when the sandbox script is not found", () =>
 	Effect.gen(function* () {
 		const service = yield* LibraryImportService;
 		const result = yield* Effect.exit(
-			service.import(user, { scriptId, externalId, entitySchemaId }),
+			service.import(user, { scriptId, externalId, entitySchemaSlug }),
 		);
 		const cause = getFailureCause(result);
 		const failure = cause._tag === "Fail" ? cause.error : null;
@@ -151,7 +151,7 @@ it.effect("returns NotFound when the entity schema is not found", () =>
 	Effect.gen(function* () {
 		const service = yield* LibraryImportService;
 		const result = yield* Effect.exit(
-			service.import(user, { scriptId, externalId, entitySchemaId }),
+			service.import(user, { scriptId, externalId, entitySchemaSlug }),
 		);
 		const cause = getFailureCause(result);
 		const failure = cause._tag === "Fail" ? cause.error : null;
@@ -169,7 +169,7 @@ it.effect("returns NotFound when the entity schema is not found", () =>
 it.effect("returns a jobId string on a successful import dispatch", () =>
 	Effect.gen(function* () {
 		const service = yield* LibraryImportService;
-		const result = yield* service.import(user, { scriptId, externalId, entitySchemaId });
+		const result = yield* service.import(user, { scriptId, externalId, entitySchemaSlug });
 		expect(typeof result.jobId).toBe("string");
 		expect(result.jobId.length).toBeGreaterThan(0);
 	}).pipe(

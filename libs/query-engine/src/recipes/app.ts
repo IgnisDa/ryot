@@ -53,7 +53,7 @@ export const buildEntityDetailQueryDocument = (input: {
 			queryEngineFields.properties(entityAlias),
 			queryEngineFields.externalId(entityAlias),
 			queryEngineFields.populatedAt(entityAlias),
-			queryEngineField("entitySchemaId", queryEngineSystemRef(entityAlias, "entitySchemaId")),
+			queryEngineField("entitySchemaSlug", queryEngineSystemRef(entityAlias, "entitySchemaSlug")),
 			queryEngineField("sandboxScriptId", queryEngineSystemRef(entityAlias, "sandboxScriptId")),
 			queryEngineField(
 				"translationStatus",
@@ -83,7 +83,7 @@ export const buildEntityInterestQueryDocument = (input: {
 			queryEngineFields.populatedAt(entityAlias),
 			queryEngineFields.externalId(entityAlias),
 			queryEngineFields.properties(entityAlias),
-			queryEngineField("entitySchemaId", queryEngineSystemRef(entityAlias, "entitySchemaId")),
+			queryEngineField("entitySchemaSlug", queryEngineSystemRef(entityAlias, "entitySchemaSlug")),
 			queryEngineField("sandboxScriptId", queryEngineSystemRef(entityAlias, "sandboxScriptId")),
 			queryEngineField(
 				"translationStatus",
@@ -138,7 +138,6 @@ export const buildEventHistoryQueryDocument = (input: {
 			queryEngineField("updatedAt", queryEngineSystemRef(eventAlias, "updatedAt")),
 			queryEngineField("occurredAt", queryEngineSystemRef(eventAlias, "occurredAt")),
 			queryEngineField("properties", queryEngineSystemRef(eventAlias, "properties")),
-			queryEngineField("eventSchemaId", queryEngineSystemRef(eventAlias, "eventSchemaId")),
 			queryEngineField("eventSchemaName", queryEngineSchemaRef(eventAlias, "name")),
 			queryEngineField("eventSchemaSlug", queryEngineSchemaRef(eventAlias, "slug")),
 			queryEngineField("sessionEntityId", queryEngineSystemRef(eventAlias, "sessionEntityId")),

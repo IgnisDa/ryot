@@ -28,13 +28,13 @@ describe("Single-schema entity rows query", () => {
 			});
 
 			yield* createQueryEngineEntity(client, {
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				name: "Advanced TypeScript",
 				properties: { difficulty: "advanced" },
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "Beginner Rust",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { difficulty: "beginner" },
 			});
 
@@ -78,7 +78,7 @@ describe("Single-schema entity rows query", () => {
 
 			yield* createQueryEngineEntity(client, {
 				name: "Clean Code",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { author: "Robert Martin" },
 			});
 
@@ -109,7 +109,7 @@ describe("Single-schema entity rows query", () => {
 				schemaName: "TaggedCourse",
 			});
 
-			yield* createQueryEngineEntity(client, { name: "First Course", entitySchemaId: schemaId });
+			yield* createQueryEngineEntity(client, { name: "First Course", entitySchemaSlug: schemaId });
 
 			const doc = buildRowsDoc({
 				alias: "c",
@@ -158,12 +158,12 @@ describe("Multi-schema property query", () => {
 
 			yield* createQueryEngineEntity(client, {
 				name: "A Great Book",
-				entitySchemaId: bookSchemaId,
+				entitySchemaSlug: bookSchemaId,
 				properties: { author: "Author A" },
 			});
 			yield* createQueryEngineEntity(client, {
 				name: "A Great Movie",
-				entitySchemaId: movieSchemaId,
+				entitySchemaSlug: movieSchemaId,
 				properties: { director: "Director B" },
 			});
 
@@ -211,7 +211,7 @@ describe("Pagination", () => {
 			yield* Effect.all(
 				Array.from({ length: 5 }, (_, i) =>
 					createQueryEngineEntity(client, {
-						entitySchemaId: schemaId,
+						entitySchemaSlug: schemaId,
 						name: `Item ${String(i + 1).padStart(2, "0")}`,
 					}),
 				),
@@ -242,7 +242,7 @@ describe("Pagination", () => {
 				schemaName: "LastPageItem",
 			});
 
-			yield* createQueryEngineEntity(client, { name: "Only Item", entitySchemaId: schemaId });
+			yield* createQueryEngineEntity(client, { name: "Only Item", entitySchemaSlug: schemaId });
 
 			const doc = buildRowsDoc({
 				page: 1,
@@ -266,7 +266,7 @@ describe("Pagination", () => {
 				schemaName: "SparseItem",
 			});
 
-			yield* createQueryEngineEntity(client, { name: "One Item", entitySchemaId: schemaId });
+			yield* createQueryEngineEntity(client, { name: "One Item", entitySchemaSlug: schemaId });
 
 			const doc = buildRowsDoc({
 				page: 2,

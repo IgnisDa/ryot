@@ -1,4 +1,4 @@
-import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -10,8 +10,7 @@ import { mediaMonitorableEntitySchemaSlugs } from "./monitorable";
 export type MediaMonitoringTarget = {
 	entityId: EntityId;
 	externalId: string;
-	entitySchemaSlug: string;
-	entitySchemaId: EntitySchemaId;
+	entitySchemaSlug: EntitySchemaSlug;
 	sandboxScriptId: SandboxScriptId;
 };
 
@@ -45,28 +44,19 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 						.selectDistinct({
 							entityId: schema.entity.id,
 							externalId: schema.entity.externalId,
-							entitySchemaSlug: schema.entitySchema.slug,
-							entitySchemaId: schema.entity.entitySchemaId,
+							entitySchemaSlug: schema.entity.entitySchemaSlug,
 							sandboxScriptId: schema.entity.sandboxScriptId,
 						})
 						.from(schema.relationship)
 						.innerJoin(schema.entity, eq(schema.relationship.sourceEntityId, schema.entity.id))
-						.innerJoin(
-							schema.entitySchema,
-							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-						)
-						.innerJoin(
-							schema.relationshipSchema,
-							eq(schema.relationship.relationshipSchemaId, schema.relationshipSchema.id),
-						)
 						.where(
 							and(
-								eq(schema.relationshipSchema.slug, "media-monitoring"),
+								eq(schema.relationship.relationshipSchemaSlug, "media-monitoring"),
 								isNotNull(schema.relationship.userId),
 								isNull(schema.entity.userId),
 								isNotNull(schema.entity.externalId),
 								isNotNull(schema.entity.sandboxScriptId),
-								inArray(schema.entitySchema.slug, mediaMonitorableEntitySchemaSlugs),
+								inArray(schema.entity.entitySchemaSlug, mediaMonitorableEntitySchemaSlugs),
 							),
 						)
 						.orderBy(asc(schema.entity.id)),
@@ -77,9 +67,8 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 						? [
 								{
 									externalId: row.externalId,
-									entitySchemaSlug: row.entitySchemaSlug,
 									entityId: EntityId.make(row.entityId),
-									entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+									entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 									sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
 								} satisfies MediaMonitoringTarget,
 							]

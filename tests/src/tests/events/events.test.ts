@@ -25,24 +25,24 @@ describe("Events bulk POST", () => {
 	it.live("creates multiple events and returns the count", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, eventSchemaId } = yield* createEventTestFixture(apiClient);
+			const { entityId, eventSchemaSlug } = yield* createEventTestFixture(apiClient);
 
 			const result = yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [
 						{
 							entityId,
-							eventSchemaId,
+							eventSchemaSlug,
 							properties: { rating: 4 },
 						},
 						{
 							entityId,
-							eventSchemaId,
+							eventSchemaSlug,
 							properties: { rating: 5 },
 						},
 						{
 							entityId,
-							eventSchemaId,
+							eventSchemaSlug,
 							properties: { rating: 3 },
 						},
 					],
@@ -66,18 +66,18 @@ describe("Events bulk POST", () => {
 	it.live("enforces conditional required rules end to end", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, eventSchemaId } = yield* createRuleEventFixture(apiClient);
+			const { entityId, eventSchemaSlug } = yield* createRuleEventFixture(apiClient);
 
 			const optionalResult = yield* apiClient.call((c) =>
 				c.events.create({
-					payload: [{ entityId, eventSchemaId, properties: { status: "draft" } }],
+					payload: [{ entityId, eventSchemaSlug, properties: { status: "draft" } }],
 				}),
 			);
 			expect(optionalResult.count).toBe(1);
 
 			const rejectedResult = yield* apiClient.call((c) =>
 				c.events.create({
-					payload: [{ entityId, eventSchemaId, properties: { status: "completed" } }],
+					payload: [{ entityId, eventSchemaSlug, properties: { status: "completed" } }],
 				}),
 			);
 			expect(rejectedResult).toMatchObject({
@@ -91,7 +91,7 @@ describe("Events bulk POST", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId,
+							eventSchemaSlug,
 							properties: { status: "completed", progressPercent: 75 },
 						},
 					],
@@ -110,13 +110,13 @@ describe("Events bulk POST", () => {
 	it.live("persists events and they appear in the list", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, eventSchemaId } = yield* createEventTestFixture(apiClient);
+			const { entityId, eventSchemaSlug } = yield* createEventTestFixture(apiClient);
 
 			yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [
-						{ entityId, eventSchemaId, properties: { rating: 4 } },
-						{ entityId, eventSchemaId, properties: { rating: 5 } },
+						{ entityId, eventSchemaSlug, properties: { rating: 4 } },
+						{ entityId, eventSchemaSlug, properties: { rating: 5 } },
 					],
 				}),
 			);
@@ -129,7 +129,7 @@ describe("Events bulk POST", () => {
 	it.live("filters listed events by event schema slug", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, completeEventSchemaId, progressEventSchemaId } =
+			const { entityId, completeEventSchemaSlug, progressEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const createResult = yield* apiClient.call((c) =>
@@ -137,12 +137,12 @@ describe("Events bulk POST", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 							properties: { progressPercent: 25 },
 						},
 						{
 							entityId,
-							eventSchemaId: completeEventSchemaId,
+							eventSchemaSlug: completeEventSchemaSlug,
 							properties: { completionMode: "just_now" },
 						},
 					],

@@ -30,7 +30,7 @@ const entitySystemTypeMap: Record<string, CoarseType> = {
 	populatedAt: "date",
 	externalId: "string",
 	properties: "unknown",
-	entitySchemaId: "string",
+	entitySchemaSlug: "string",
 	sandboxScriptId: "string",
 };
 
@@ -42,7 +42,7 @@ const eventSystemTypeMap: Record<string, CoarseType> = {
 	entityId: "string",
 	occurredAt: "date",
 	properties: "unknown",
-	eventSchemaId: "string",
+	eventSchemaSlug: "string",
 	sessionEntityId: "string",
 };
 

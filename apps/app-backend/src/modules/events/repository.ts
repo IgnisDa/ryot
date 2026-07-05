@@ -1,7 +1,7 @@
 import { DbError } from "@ryot/contract/errors";
 import type { ListedEvent } from "@ryot/contract/modules/events/schemas";
 import type { UserId } from "@ryot/contract/schema/brands";
-import { EntityId, EventId, EventSchemaId } from "@ryot/contract/schema/brands";
+import { EntityId, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -16,11 +16,10 @@ type EventRow = Pick<
 	| "updatedAt"
 	| "occurredAt"
 	| "properties"
-	| "eventSchemaId"
+	| "eventSchemaSlug"
 	| "sessionEntityId"
 > & {
-	readonly eventSchemaName: (typeof schema.eventSchema.$inferSelect)["name"];
-	readonly eventSchemaSlug: (typeof schema.eventSchema.$inferSelect)["slug"];
+	readonly eventSchemaName: string;
 };
 
 export type EventIdentityInput = {
@@ -40,7 +39,7 @@ const createdEventSelection = {
 	updatedAt: schema.event.updatedAt,
 	occurredAt: schema.event.occurredAt,
 	properties: schema.event.properties,
-	eventSchemaId: schema.event.eventSchemaId,
+	eventSchemaSlug: schema.event.eventSchemaSlug,
 	sessionEntityId: schema.event.sessionEntityId,
 };
 
@@ -48,9 +47,8 @@ const toListedEvent = (row: EventRow): ListedEvent => ({
 	id: EventId.make(row.id),
 	entityId: EntityId.make(row.entityId),
 	properties: row.properties,
-	eventSchemaId: EventSchemaId.make(row.eventSchemaId),
+	eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
 	eventSchemaName: row.eventSchemaName,
-	eventSchemaSlug: row.eventSchemaSlug,
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	occurredAt: row.occurredAt.toISOString(),
@@ -70,27 +68,21 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 					eq(schema.event.userId, input.userId),
 					eq(schema.event.sessionEntityId, input.sessionEntityId),
 					or(eq(schema.entity.userId, input.userId), isNull(schema.entity.userId)),
-					or(eq(schema.eventSchema.userId, input.userId), isNull(schema.eventSchema.userId)),
 				];
 				if (input.eventSchemaSlug) {
-					conditions.push(eq(schema.eventSchema.slug, input.eventSchemaSlug));
+					conditions.push(eq(schema.event.eventSchemaSlug, input.eventSchemaSlug));
 				}
 
 				const rows = yield* dbEffect(() =>
 					db
 						.select({
-							eventSchemaSlug: schema.eventSchema.slug,
-							entitySchemaSlug: schema.entitySchema.slug,
+							eventSchemaSlug: schema.event.eventSchemaSlug,
+							entitySchemaSlug: schema.entity.entitySchemaSlug,
 						})
 						.from(schema.event)
-						.innerJoin(schema.eventSchema, eq(schema.event.eventSchemaId, schema.eventSchema.id))
 						.innerJoin(schema.entity, eq(schema.event.entityId, schema.entity.id))
-						.innerJoin(
-							schema.entitySchema,
-							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-						)
 						.where(and(...conditions))
-						.orderBy(schema.entitySchema.slug, schema.eventSchema.slug),
+						.orderBy(schema.entity.entitySchemaSlug, schema.event.eventSchemaSlug),
 				);
 
 				const seen = new Set<string>();
@@ -111,9 +103,8 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			occurredAt: Date;
 			entityId: EntityId;
 			eventSchemaName: string;
-			eventSchemaSlug: string;
 			sessionEntityId?: EntityId | undefined;
-			eventSchemaId: EventSchemaId;
+			eventSchemaSlug: EventSchemaSlug;
 			properties: Record<string, unknown>;
 		}) {
 			const db = yield* CurrentDb;
@@ -126,7 +117,7 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 						entityId: input.entityId,
 						properties: input.properties,
 						occurredAt: input.occurredAt,
-						eventSchemaId: input.eventSchemaId,
+						eventSchemaSlug: input.eventSchemaSlug,
 						sessionEntityId: input.sessionEntityId ?? null,
 					})
 					.onConflictDoNothing()
@@ -152,7 +143,6 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			return toListedEvent({
 				...row,
 				eventSchemaName: input.eventSchemaName,
-				eventSchemaSlug: input.eventSchemaSlug,
 			});
 		});
 

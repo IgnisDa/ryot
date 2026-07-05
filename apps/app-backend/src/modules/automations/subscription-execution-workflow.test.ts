@@ -3,10 +3,9 @@ import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngin
 import {
 	AutomationRuleId,
 	EntityId,
-	EntitySchemaId,
 	SandboxScriptId,
 	SignalId,
-	SignalSchemaId,
+	SignalSchemaSlug,
 	SubscriptionRunId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -44,7 +43,7 @@ const rule = {
 	name: "Tracer subscription",
 	createdAt: "2026-07-20T10:00:00.000Z",
 	updatedAt: "2026-07-20T10:00:00.000Z",
-	target: { kind: "signal_schema", id: SignalSchemaId.make("signal-schema-1") },
+	target: { kind: "signal_schema", id: SignalSchemaSlug.make("signal-schema-1") },
 } satisfies StoredAutomationRule;
 
 const queuedRun = {
@@ -220,7 +219,6 @@ it.effect("rejects contradictory source context before preparing a run", () => {
 				properties: {},
 				entitySchemaSlug: "movie",
 				id: EntityId.make("entity-1"),
-				entitySchemaId: EntitySchemaId.make("entity-schema-1"),
 			},
 		},
 	};

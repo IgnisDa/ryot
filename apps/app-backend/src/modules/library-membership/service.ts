@@ -1,7 +1,7 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
-import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Effect, Redacted } from "effect";
 
@@ -35,18 +35,18 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 				payload: {
 					externalId: string;
 					scriptId: SandboxScriptId;
-					entitySchemaId: EntitySchemaId;
+					entitySchemaSlug: EntitySchemaSlug;
 				},
 			) {
 				const trimmedScriptId = trimToNull(payload.scriptId);
 				const externalId = trimToNull(payload.externalId);
-				const trimmedEntitySchemaId = trimToNull(payload.entitySchemaId);
+				const trimmedEntitySchemaSlug = trimToNull(payload.entitySchemaSlug);
 
-				if (!trimmedScriptId || !externalId || !trimmedEntitySchemaId) {
-					return yield* badRequest("scriptId, externalId, and entitySchemaId are required");
+				if (!trimmedScriptId || !externalId || !trimmedEntitySchemaSlug) {
+					return yield* badRequest("scriptId, externalId, and entitySchemaSlug are required");
 				}
 
-				const entitySchemaId = EntitySchemaId.make(trimmedEntitySchemaId);
+				const entitySchemaSlug = EntitySchemaSlug.make(trimmedEntitySchemaSlug);
 				const scriptId = SandboxScriptId.make(trimmedScriptId);
 				const script = yield* runWithDb(
 					sandboxRepository.getScriptForUser({ userId: user.id, scriptId }),
@@ -56,7 +56,7 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 				}
 
 				const entitySchemaScope = yield* runWithDb(
-					repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
+					repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaSlug }),
 				);
 				if (!entitySchemaScope) {
 					return yield* notFound(entitySchemaNotFoundError);
@@ -71,7 +71,7 @@ export class LibraryImportService extends Effect.Service<LibraryImportService>()
 							scriptId,
 							externalId,
 							executionId,
-							entitySchemaId,
+							entitySchemaSlug,
 							userId: user.id,
 							origin: { kind: "api" },
 						},

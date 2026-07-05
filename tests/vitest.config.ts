@@ -6,6 +6,7 @@ export default defineConfig({
 	resolve: { alias: [{ find: /^~\//, replacement: srcDir }] },
 	test: {
 		isolate: true,
+		fileParallelism: false,
 		testTimeout: 180_000,
 		hookTimeout: 180_000,
 		setupFiles: ["./test-setup.ts"],

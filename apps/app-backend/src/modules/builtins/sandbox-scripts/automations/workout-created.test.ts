@@ -18,7 +18,6 @@ const input = (origin: AutomationInput["automation"]["origin"]): AutomationInput
 				id: "workout-1",
 				name: "Morning Run",
 				entitySchemaSlug: "workout",
-				entitySchemaId: "entity-schema-1",
 			},
 		},
 	},

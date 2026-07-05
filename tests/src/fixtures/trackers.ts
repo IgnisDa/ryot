@@ -1,9 +1,11 @@
-import { TrackerId } from "@ryot/contract/schema/brands";
+import { TrackerSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
+import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
+import { getBackendClient } from "./contract-client";
 
 export interface CreateTrackerOptions {
 	icon?: string;
@@ -22,21 +24,45 @@ export const createTracker = (client: Client, options: CreateTrackerOptions = {}
 			slug = `tracker-${crypto.randomUUID()}`,
 			description = "Test tracker description",
 		} = options;
-
-		const tracker = yield* client.call((c) =>
-			c.trackers.create({ payload: { icon, name, slug, accentColor, description } }),
+		const tracker = {
+			icon,
+			name,
+			slug,
+			accentColor,
+			description,
+			sortOrder: (yield* client.call((c) => c.definitions.listTrackers({}))).length,
+			entitySchemaSlugs: [],
+		};
+		yield* getBackendClient().call(
+			(c) => c.testSupport.installDefinitions({ payload: { trackers: [tracker] } }),
+			adminHeaders,
 		);
-
+		const trackerSlug = TrackerSlug.make(slug);
+		const state = yield* client.call((c) =>
+			c.trackers.updateState({
+				path: { trackerSlug },
+				payload: { config: { fixture: true }, sortOrder: tracker.sortOrder },
+			}),
+		);
 		return {
-			tracker,
-			trackerId: requirePresent(tracker.id, `Failed to create tracker '${name}'`),
+			trackerSlug,
+			tracker: {
+				...state,
+				id: trackerSlug,
+			},
 		};
 	});
 
 export const listTrackers = (client: Client, options: { includeDisabled?: boolean } = {}) =>
-	client.call((c) =>
-		c.trackers.list({ urlParams: { includeDisabled: options.includeDisabled ?? false } }),
-	);
+	client
+		.call((c) =>
+			c.trackers.list({ urlParams: { includeDisabled: options.includeDisabled ?? false } }),
+		)
+		.pipe(
+			Effect.map((trackers) =>
+				trackers.map((tracker) => ({ ...tracker, id: tracker.slug, isBuiltin: true })),
+			),
+		);
 
 export const findBuiltinTracker = (client: Client) =>
 	Effect.gen(function* () {
@@ -52,10 +78,10 @@ export const findBuiltinTrackerBySlug = (client: Client, slug: string) =>
 		return requirePresent(tracker, `Built-in tracker '${slug}' not found`);
 	});
 
-export const disableTracker = (input: { trackerId: string; client: Client }) =>
+export const disableTracker = (input: { trackerSlug: string; client: Client }) =>
 	input.client.call((c) =>
-		c.trackers.update({
+		c.trackers.updateState({
 			payload: { isDisabled: true },
-			path: { trackerId: TrackerId.make(input.trackerId) },
+			path: { trackerSlug: TrackerSlug.make(input.trackerSlug) },
 		}),
 	);

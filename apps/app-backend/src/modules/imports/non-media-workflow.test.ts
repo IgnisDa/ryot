@@ -5,8 +5,8 @@ import { badRequest } from "@ryot/contract/errors";
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import {
 	EntityId,
-	EntitySchemaId,
-	EventSchemaId,
+	EntitySchemaSlug,
+	EventSchemaSlug,
 	ImportRunId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -66,7 +66,7 @@ const makeListedEntity = (
 	name: "Entity One",
 	sandboxScriptId: null,
 	id: EntityId.make("entity-1"),
-	entitySchemaId: EntitySchemaId.make("schema-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 	...overrides,
 });
 
@@ -100,7 +100,11 @@ const makeEntitySchemasRepository = (
 	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
 ) =>
 	mockEntitySchemasRepository({
-		getBuiltinBySlug: (slug) => Effect.succeed({ id: EntitySchemaId.make(`${slug}-schema`) }),
+		getBuiltinBySlug: (slug) =>
+			Effect.succeed({
+				id: EntitySchemaSlug.make(`${slug}-schema`),
+				propertiesSchema: { fields: {} },
+			}),
 		...overrides,
 		_tag: "EntitySchemasRepository",
 	});
@@ -111,7 +115,7 @@ const makeEventSchemasRepository = (
 	mockEventSchemasRepository({
 		getBuiltinBySlug: () =>
 			Effect.succeed({
-				id: EventSchemaId.make("workout-set-event"),
+				id: EventSchemaSlug.make("workout-set-event"),
 				propertiesSchema: { fields: {}, unknownKeys: "passthrough" },
 			}),
 		...overrides,
@@ -294,7 +298,7 @@ it.effect("orchestrates open-scale measurement imports through workflow-owned ph
 			expect(createCalls).toHaveLength(2);
 			expect(createCalls[0]).toMatchObject({
 				name: "Measurement - Weigh-in A",
-				entitySchemaId: "measurement-schema",
+				entitySchemaSlug: "measurement-schema",
 			});
 
 			expect(recordedFailures).toHaveLength(2);
@@ -443,8 +447,8 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 				return Effect.succeed(
 					makeListedEntity({
 						name: input.name,
-						entitySchemaId: input.entitySchemaId,
-						id: EntityId.make(`${input.entitySchemaId}-entity`),
+						entitySchemaSlug: input.entitySchemaSlug,
+						id: EntityId.make(`${input.entitySchemaSlug}-entity`),
 					}),
 				);
 			},
@@ -457,7 +461,7 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 		Effect.gen(function* () {
 			yield* runOneTimeNonMediaImportWorkflow(workoutPayload);
 
-			expect(createCalls.map((payload) => payload["entitySchemaId"])).toEqual([
+			expect(createCalls.map((payload) => payload["entitySchemaSlug"])).toEqual([
 				"exercise-schema",
 				"workout-schema",
 			]);
@@ -466,7 +470,7 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 			expect(eventCalls[0]?.[0]).toMatchObject({
 				entityId: "exercise-schema-entity",
 				sessionEntityId: "workout-schema-entity",
-				eventSchemaId: "workout-set-event",
+				eventSchemaSlug: "workout-set-event",
 			});
 
 			expect(recordedUpdates).toContainEqual(

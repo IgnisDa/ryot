@@ -23,7 +23,7 @@ const showEntity = entityRecord({
 	id: "show-1",
 	name: "Severance",
 	externalId: "371980",
-	entitySchemaId: "es-show",
+	entitySchemaSlug: "es-show",
 	sandboxScriptId: "script-show-tvdb",
 });
 

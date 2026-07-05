@@ -21,7 +21,9 @@ describe("POST /events with global entities", () => {
 
 			const createResult = yield* client.call((c) =>
 				c.events.create({
-					payload: [{ properties: {}, entityId: entity.id, eventSchemaId: backlogEventSchema.id }],
+					payload: [
+						{ properties: {}, entityId: entity.id, eventSchemaSlug: backlogEventSchema.id },
+					],
 				}),
 			);
 

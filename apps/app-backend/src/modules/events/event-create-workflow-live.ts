@@ -12,7 +12,7 @@ import type {
 	SandboxCompletedResult,
 	SandboxExecutionPayload,
 } from "@ryot/contract/modules/sandbox/schemas";
-import { EntityId, EntitySchemaId, EventId, EventSchemaId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
@@ -42,12 +42,10 @@ const PreparedItem = Schema.Struct({
 	occurredAt: Schema.String,
 	subjectName: Schema.String,
 	propertiesSchema: AppSchema,
-	eventSchemaId: EventSchemaId,
+	eventSchemaSlug: EventSchemaSlug,
 	eventSchemaName: Schema.String,
-	eventSchemaSlug: Schema.String,
 	isGlobalEntity: Schema.Boolean,
-	entitySchemaSlug: Schema.String,
-	entitySchemaId: EntitySchemaId,
+	entitySchemaSlug: EntitySchemaSlug,
 	properties: AutomationProperties,
 	sessionEntityId: Schema.optional(EntityId),
 	policies: Schema.Array(PreparedEventPolicy),
@@ -61,9 +59,8 @@ const CreatedEvent = Schema.Struct({
 	createdAt: Schema.String,
 	occurredAt: Schema.String,
 	subjectName: Schema.String,
-	eventSchemaId: EventSchemaId,
-	eventSchemaSlug: Schema.String,
-	entitySchemaSlug: Schema.String,
+	eventSchemaSlug: EventSchemaSlug,
+	entitySchemaSlug: EntitySchemaSlug,
 	isGlobalReference: Schema.Boolean,
 	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
@@ -144,12 +141,10 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				entityId,
 				properties,
 				sessionEntityId,
-				eventSchemaId: eventSchemaScope.id,
+				eventSchemaSlug: eventSchemaScope.id,
 				subjectName: entityScope.entityName,
 				occurredAt: occurredAt.toISOString(),
 				eventSchemaName: eventSchemaScope.name,
-				eventSchemaSlug: eventSchemaScope.slug,
-				entitySchemaId: entityScope.entitySchemaId,
 				entitySchemaSlug: entityScope.entitySchemaSlug,
 				isGlobalEntity: entityScope.entityUserId === null,
 				propertiesSchema: eventSchemaScope.propertiesSchema,
@@ -183,10 +178,9 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 					userId: payload.userId,
 					entityId: prepared.entityId,
 					properties: draft.properties,
-					eventSchemaId: prepared.eventSchemaId,
+					eventSchemaSlug: prepared.eventSchemaSlug,
 					sessionEntityId: draft.sessionEntityId,
 					eventSchemaName: prepared.eventSchemaName,
-					eventSchemaSlug: prepared.eventSchemaSlug,
 					id: EventId.make(`${payload.executionId}-event-${itemIndex}`),
 					occurredAt: DateTime.toDate(DateTime.unsafeMake(draft.occurredAt)),
 				}),
@@ -198,9 +192,8 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 				createdAt: createdEvent.createdAt,
 				occurredAt: createdEvent.occurredAt,
 				properties: createdEvent.properties,
-				eventSchemaId: createdEvent.eventSchemaId,
+				eventSchemaSlug: createdEvent.eventSchemaSlug,
 				subjectName: prepared.subjectName,
-				eventSchemaSlug: prepared.eventSchemaSlug,
 				isGlobalReference: prepared.isGlobalEntity,
 				entitySchemaSlug: prepared.entitySchemaSlug,
 			} satisfies CreatedEvent;
@@ -229,7 +222,6 @@ const dispatchLifecycleOccurrence = Effect.fn("dispatchEventLifecycleOccurrence"
 				id: event.id,
 				properties: event.properties,
 				occurredAt: event.occurredAt,
-				eventSchemaId: event.eventSchemaId,
 				eventSchemaSlug: event.eventSchemaSlug,
 				subject: {
 					id: event.entityId,

@@ -63,7 +63,7 @@ describe("entity population via client-declared interest", () => {
 					userId: null,
 					properties: {},
 					name: "Partial Studio",
-					entitySchemaId: schema.id,
+					entitySchemaSlug: schema.id,
 					externalId: provenance.externalId,
 					sandboxScriptId: providerScript.scriptId,
 				});
@@ -99,7 +99,7 @@ describe("entity population via client-declared interest", () => {
 
 			const entity = yield* seedPopulatedProviderEntity({
 				properties: {},
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				name: "Already Populated Studio",
 				sandboxScriptId: providerScript.scriptId,
 				externalId: `e2e-catchup-${crypto.randomUUID()}`,

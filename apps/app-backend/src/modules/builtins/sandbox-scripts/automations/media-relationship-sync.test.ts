@@ -27,7 +27,6 @@ const input = (overrides: {
 				id: "show-1",
 				name: "Severance",
 				entitySchemaSlug: "show",
-				entitySchemaId: "show-schema",
 			},
 			batch: {
 				id: "batch-1",
@@ -44,7 +43,6 @@ const input = (overrides: {
 			after: {
 				properties: {},
 				id: "relationship-1",
-				relationshipSchemaId: "relationship-schema-1",
 				source: { id: "source-1", name: "Source", entitySchemaSlug: "show" },
 				target: { id: "target-1", name: "Target", entitySchemaSlug: "show-season" },
 				relationshipSchemaSlug: overrides.relationshipSchemaSlug ?? "show-to-show-season",

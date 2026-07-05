@@ -1,7 +1,7 @@
 import {
 	EntityId,
-	EntitySchemaId,
-	RelationshipSchemaId,
+	EntitySchemaSlug,
+	RelationshipSchemaSlug,
 	SandboxScriptId,
 } from "@ryot/contract/schema/brands";
 import { queryEngineEntitySource } from "@ryot/query-engine/documents";
@@ -20,11 +20,11 @@ import { assertPresent, requirePresent } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
-import { getBackendClient } from "./contract-client";
+import { type ContractPayload, getBackendClient } from "./contract-client";
 import {
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
-	getBuiltinEntitySchemaId,
+	getBuiltinEntitySchemaSlug,
 	getFirstProviderScriptId,
 } from "./entity-schemas";
 import { pollUntil, type PollOptions } from "./polling";
@@ -42,7 +42,7 @@ export const insertRelationshipRow = (
 	input: {
 		sourceEntityId: string;
 		targetEntityId: string;
-		relationshipSchemaId: string;
+		relationshipSchemaSlug: string;
 		properties?: Record<string, unknown>;
 	},
 ) =>
@@ -50,7 +50,7 @@ export const insertRelationshipRow = (
 		properties: input.properties,
 		sourceEntityId: EntityId.make(input.sourceEntityId),
 		targetEntityId: EntityId.make(input.targetEntityId),
-		relationshipSchemaId: RelationshipSchemaId.make(input.relationshipSchemaId),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make(input.relationshipSchemaSlug),
 	});
 
 export const queryInLibraryRelationship = (
@@ -178,7 +178,7 @@ export const getRelationshipBySchemaSlug = (
 						type: "anchored",
 						direction: "outgoing",
 						anchorEntityId: EntityId.make(input.sourceEntityId),
-						relationshipSchemaId: RelationshipSchemaId.make(relationshipSchema.id),
+						relationshipSchemaSlug: RelationshipSchemaSlug.make(relationshipSchema.id),
 					},
 				}),
 			adminHeaders,
@@ -200,12 +200,15 @@ export const seedMediaEntity = (input: {
 	client?: Client;
 	externalId: string;
 	userId?: string | null;
-	entitySchemaId: string;
+	entitySchemaSlug: string;
 	sandboxScriptId: string | null;
 	properties: Record<string, unknown>;
 }) =>
 	Effect.gen(function* () {
-		const entitySchemaId = EntitySchemaId.make(input.entitySchemaId);
+		const entitySchemaSlug = input.entitySchemaSlug as ContractPayload<
+			"entities",
+			"create"
+		>["entitySchemaSlug"];
 		const sandboxScriptId = input.sandboxScriptId
 			? SandboxScriptId.make(input.sandboxScriptId)
 			: undefined;
@@ -216,7 +219,7 @@ export const seedMediaEntity = (input: {
 				).call((c) =>
 					c.entities.create({
 						payload: {
-							entitySchemaId,
+							entitySchemaSlug,
 							sandboxScriptId,
 							name: input.name,
 							properties: input.properties,
@@ -228,7 +231,7 @@ export const seedMediaEntity = (input: {
 					(c) =>
 						c.testSupport.createGlobalEntity({
 							payload: {
-								entitySchemaId,
+								entitySchemaSlug,
 								sandboxScriptId,
 								name: input.name,
 								properties: input.properties,
@@ -244,7 +247,7 @@ export const seedMediaEntity = (input: {
 			userId: input.userId ?? null,
 			properties: input.properties,
 			externalId: input.externalId,
-			entitySchemaId: entity.entitySchemaId,
+			entitySchemaSlug: entity.entitySchemaSlug,
 			sandboxScriptId: input.sandboxScriptId,
 		};
 	});
@@ -258,7 +261,7 @@ export const createGlobalBookEntityFixture = (
 		const entity = yield* seedMediaEntity({
 			userId: null,
 			properties: {},
-			entitySchemaId: schema.id,
+			entitySchemaSlug: schema.id,
 			sandboxScriptId: getFirstProviderScriptId(schema),
 			name: options.name ?? `Global Built-in Book ${crypto.randomUUID()}`,
 			externalId: options.externalId ?? `global-book-${crypto.randomUUID()}`,
@@ -273,8 +276,8 @@ export const seedGlobalShowEpisodeTree = (client: Client, options: { showName: s
 		assertPresent(tmdbProvider, "Missing TMDB provider for built-in show schema");
 
 		const [seasonSchemaId, episodeSchemaId, relationshipSchemas] = yield* Effect.all([
-			getBuiltinEntitySchemaId("show-season"),
-			getBuiltinEntitySchemaId("show-episode"),
+			getBuiltinEntitySchemaSlug("show-season"),
+			getBuiltinEntitySchemaSlug("show-episode"),
 			listRelationshipSchemas(client, {
 				slugs: ["show-to-show-season", "show-season-to-show-episode"],
 			}),
@@ -294,7 +297,7 @@ export const seedGlobalShowEpisodeTree = (client: Client, options: { showName: s
 		const createGlobalEntity = (input: {
 			name: string;
 			externalId: string;
-			entitySchemaId: string;
+			entitySchemaSlug: string;
 			properties: Record<string, unknown>;
 		}) =>
 			backend.call(
@@ -303,7 +306,7 @@ export const seedGlobalShowEpisodeTree = (client: Client, options: { showName: s
 						payload: {
 							...input,
 							populatedAt,
-							entitySchemaId: EntitySchemaId.make(input.entitySchemaId),
+							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
 							sandboxScriptId: SandboxScriptId.make(tmdbProvider.scriptId),
 						},
 					}),
@@ -312,19 +315,19 @@ export const seedGlobalShowEpisodeTree = (client: Client, options: { showName: s
 		const show = yield* createGlobalEntity({
 			name: options.showName,
 			externalId: tmdbId,
-			entitySchemaId: showSchema.id,
+			entitySchemaSlug: showSchema.id,
 			properties: { totalSeasons: 1, totalEpisodes: 1 },
 		});
 		const season = yield* createGlobalEntity({
 			name: "Season 1",
 			externalId: `season-${tmdbId}`,
-			entitySchemaId: seasonSchemaId,
+			entitySchemaSlug: seasonSchemaId,
 			properties: { seasonNumber: 1 },
 		});
 		const episode = yield* createGlobalEntity({
 			name: "Episode 2",
 			externalId: `episode-${tmdbId}`,
-			entitySchemaId: episodeSchemaId,
+			entitySchemaSlug: episodeSchemaId,
 			properties: { seasonNumber: 1, episodeNumber: 2 },
 		});
 		yield* backend.call(
@@ -333,7 +336,7 @@ export const seedGlobalShowEpisodeTree = (client: Client, options: { showName: s
 					payload: {
 						sourceEntityId: show.id,
 						targetEntityId: season.id,
-						relationshipSchemaId: RelationshipSchemaId.make(showToSeason.id),
+						relationshipSchemaSlug: RelationshipSchemaSlug.make(showToSeason.id),
 					},
 				}),
 			adminHeaders,
@@ -344,7 +347,7 @@ export const seedGlobalShowEpisodeTree = (client: Client, options: { showName: s
 					payload: {
 						sourceEntityId: season.id,
 						targetEntityId: episode.id,
-						relationshipSchemaId: RelationshipSchemaId.make(seasonToEpisode.id),
+						relationshipSchemaSlug: RelationshipSchemaSlug.make(seasonToEpisode.id),
 					},
 				}),
 			adminHeaders,
@@ -372,8 +375,32 @@ export const insertLibraryMembership = (client: Client, input: { mediaEntityId: 
 
 		yield* createRelationship(client, {
 			properties: {},
-			relationshipSchemaId: inLibrarySchema.id,
+			relationshipSchemaSlug: inLibrarySchema.id,
 			targetEntityId: EntityId.make(libraryEntityId),
 			sourceEntityId: EntityId.make(input.mediaEntityId),
+		});
+	});
+
+export const insertMediaMonitoring = (client: Client, entityId: string) =>
+	Effect.gen(function* () {
+		const libraryResult = yield* executeQueryEngine(
+			client,
+			buildEntityRowsQueryDocument({
+				limit: 1,
+				alias: "library",
+				schemas: ["library"],
+				fields: [queryEngineField("id", queryEngineSystemRef("library", "id"))],
+			}),
+		);
+		const libraryEntity = requirePresent(libraryResult.data.items[0], "Missing library entity");
+		const libraryEntityId = requireQueryEngineTextField(libraryEntity, "id");
+		const schemas = yield* listRelationshipSchemas(client, { slugs: ["media-monitoring"] });
+		const monitoringSchema = requireRelationshipSchemaBySlug(schemas, "media-monitoring");
+
+		yield* createRelationship(client, {
+			properties: {},
+			targetEntityId: EntityId.make(libraryEntityId),
+			sourceEntityId: EntityId.make(entityId),
+			relationshipSchemaSlug: monitoringSchema.id,
 		});
 	});

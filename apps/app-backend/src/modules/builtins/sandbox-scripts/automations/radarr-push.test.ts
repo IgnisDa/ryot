@@ -23,7 +23,7 @@ const movieEntity = entityRecord({
 	id: "movie-1",
 	externalId: "603",
 	name: "The Matrix",
-	entitySchemaId: "es-movie",
+	entitySchemaSlug: "es-movie",
 	sandboxScriptId: "script-movie-tmdb",
 });
 

@@ -166,6 +166,10 @@ materialization at all.
   uninstall in cleanup. Delete the `testSupport.promoteSandboxScript` /
   `deleteSandboxScript` god-mode endpoints. Every provider-driven e2e test now exercises the
   real loader implicitly.
+- Replace every Phase 1 use of the temporary `testSupport` in-memory definition installer with
+  test plugin source installed through `installTestPlugin`, then delete that installer endpoint
+  and its registry mutation helper. Phase 2 is not complete while any fixture references the
+  temporary seam.
 - Keep the fixture's driver-fault-injection ability (`patchSandboxScript`) working — port it
   to reinstall-with-modified-source, which is more honest anyway.
 

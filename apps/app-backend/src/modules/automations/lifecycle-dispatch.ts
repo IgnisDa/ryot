@@ -27,15 +27,15 @@ const targetForSource = (source: LifecycleSource): AutomationRuleTarget =>
 	Match.value(source).pipe(
 		Match.when({ kind: "entity" }, (value) => ({
 			kind: "entity_schema" as const,
-			id: sourceSnapshot(value).entitySchemaId,
+			id: sourceSnapshot(value).entitySchemaSlug,
 		})),
 		Match.when({ kind: "event" }, (value) => ({
 			kind: "event_schema" as const,
-			id: sourceSnapshot(value).eventSchemaId,
+			id: sourceSnapshot(value).eventSchemaSlug,
 		})),
 		Match.when({ kind: "relationship" }, (value) => ({
 			kind: "relationship_schema" as const,
-			id: sourceSnapshot(value).relationshipSchemaId,
+			id: sourceSnapshot(value).relationshipSchemaSlug,
 		})),
 		Match.exhaustive,
 	);

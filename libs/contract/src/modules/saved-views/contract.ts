@@ -3,7 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { NotFound, RateLimited, Unauthorized } from "../../errors";
-import { TrackerId } from "../../schema/brands";
+import { TrackerSlug } from "../../schema/brands";
 import {
 	CreateSavedViewBody,
 	ListedSavedView,
@@ -23,7 +23,7 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 		HttpApiEndpoint.get("list", "/saved-views")
 			.setUrlParams(
 				Schema.Struct({
-					trackerId: Schema.optional(TrackerId),
+					trackerSlug: Schema.optional(TrackerSlug),
 					includeDisabled: Schema.optionalWith(Schema.BooleanFromString, {
 						default: () => false,
 					}),

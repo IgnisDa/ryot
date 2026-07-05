@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { NotFound } from "@ryot/contract/errors";
 import type { FieldValue } from "@ryot/contract/modules/query-engine/language";
-import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
 import { type MockOverrides, dbRunnerLayer } from "#lib/test-utils/effect";
@@ -61,7 +61,7 @@ const makeEntityRow = (overrides: Record<string, FieldValue> = {}): Record<strin
 	updatedAt: field("date", now),
 	populatedAt: field("null", null),
 	externalId: field("text", "ext-1"),
-	entitySchemaId: field("text", "schema-1"),
+	entitySchemaSlug: field("text", "schema-1"),
 	sandboxScriptId: field("text", "script-1"),
 	translationStatus: field("text", "pending"),
 	...overrides,
@@ -83,7 +83,6 @@ const setupGetById = (row: Record<string, FieldValue>) => {
 					entitySchemaSlug: "person",
 					propertiesSchema: { fields: {} },
 					entityId: EntityId.make("entity-1"),
-					entitySchemaId: EntitySchemaId.make("schema-1"),
 				}),
 		}),
 		{ queryEngine: makeQueryEngine({ execute: () => Effect.succeed(rowsResponse(row)) }) },
@@ -109,7 +108,7 @@ it.effect("returns existing entity when provenance already exists", () => {
 							populatedAt: null,
 							externalId: "ext-1",
 							id: EntityId.make("created-entity"),
-							entitySchemaId: EntitySchemaId.make("schema-id"),
+							entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
 							sandboxScriptId: SandboxScriptId.make("script-id"),
 						},
 					};
@@ -118,7 +117,7 @@ it.effect("returns existing entity when provenance already exists", () => {
 				Effect.succeed({
 					slug: "book",
 					userId: user.id,
-					id: EntitySchemaId.make("schema-id"),
+					id: EntitySchemaSlug.make("schema-id"),
 					isBuiltin: false,
 					propertiesSchema: {
 						fields: { title: { type: "string", label: "Title", description: "Title" } },
@@ -133,7 +132,7 @@ it.effect("returns existing entity when provenance already exists", () => {
 					externalId: "ext-1",
 					properties: { title: "Existing" },
 					id: EntityId.make("existing-entity"),
-					entitySchemaId: EntitySchemaId.make("schema-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
 					sandboxScriptId: SandboxScriptId.make("script-id"),
 				}),
 		}),
@@ -147,7 +146,7 @@ it.effect("returns existing entity when provenance already exists", () => {
 			userId: user.id,
 			externalId: "ext-1",
 			properties: { title: "Existing" },
-			entitySchemaId: EntitySchemaId.make("schema-id"),
+			entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
 			sandboxScriptId: SandboxScriptId.make("script-id"),
 		});
 
@@ -169,7 +168,7 @@ it.effect("returns not found when entity schema is not visible", () => {
 				properties: {},
 				userId: user.id,
 				name: "Hidden Schema Entity",
-				entitySchemaId: EntitySchemaId.make("schema-id"),
+				entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
 			}),
 		);
 
@@ -201,7 +200,7 @@ const globalEntity = {
 	externalId: "ext-1",
 	properties: { title: "Cooper" },
 	id: EntityId.make("entity-1"),
-	entitySchemaId: EntitySchemaId.make("schema-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("person"),
 	sandboxScriptId: SandboxScriptId.make("script-1"),
 };
 
@@ -211,7 +210,7 @@ const upsertInput = (updateExisting: boolean) => ({
 	populatedAt: null,
 	externalId: "ext-1",
 	properties: { title: "Cooper" },
-	entitySchemaId: EntitySchemaId.make("schema-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("person"),
 	sandboxScriptId: SandboxScriptId.make("script-1"),
 });
 
@@ -248,7 +247,6 @@ it.effect("upsert creates a new global entity when none exists", () => {
 				entitySchemaSlug: "person",
 				properties: { title: "Cooper" },
 				id: EntityId.make("created-entity"),
-				entitySchemaId: EntitySchemaId.make("schema-1"),
 			},
 		});
 		expect(updateCalled).toBe(false);

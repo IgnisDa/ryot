@@ -9,11 +9,9 @@ import {
 import {
 	AutomationRuleId,
 	EntityId,
-	EntitySchemaId,
 	EventId,
-	EventSchemaId,
 	RelationshipId,
-	RelationshipSchemaId,
+	RelationshipSchemaSlug,
 	SignalId,
 	SubscriptionRunId,
 	UserId,
@@ -36,7 +34,6 @@ const EntityReference = Schema.Struct({
 const EntitySnapshot = Schema.Struct({
 	id: EntityId,
 	name: Schema.String,
-	entitySchemaId: EntitySchemaId,
 	entitySchemaSlug: Schema.String,
 	properties: AutomationProperties,
 });
@@ -45,7 +42,6 @@ const EventSnapshot = Schema.Struct({
 	id: EventId,
 	subject: EntityReference,
 	occurredAt: Schema.String,
-	eventSchemaId: EventSchemaId,
 	eventSchemaSlug: Schema.String,
 	properties: AutomationProperties,
 });
@@ -55,8 +51,7 @@ const RelationshipSnapshot = Schema.Struct({
 	source: EntityReference,
 	target: EntityReference,
 	properties: AutomationProperties,
-	relationshipSchemaSlug: Schema.String,
-	relationshipSchemaId: RelationshipSchemaId,
+	relationshipSchemaSlug: RelationshipSchemaSlug,
 });
 
 const SignalSnapshot = Schema.Struct({
@@ -94,7 +89,6 @@ const PopulationContext = Schema.Struct({
 	scopeEntity: Schema.Struct({
 		id: EntityId,
 		name: Schema.String,
-		entitySchemaId: EntitySchemaId,
 		entitySchemaSlug: Schema.String,
 	}),
 	batch: Schema.optional(

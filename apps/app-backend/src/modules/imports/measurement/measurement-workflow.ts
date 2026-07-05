@@ -1,7 +1,7 @@
 import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { type CurrentUserValue, defaultUserPreferences } from "@ryot/contract/auth-middleware";
-import { EntitySchemaId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -67,7 +67,7 @@ export const prepareOpenScaleWrites = (
 
 		const measurementSchemaId = yield* Activity.make({
 			error: ImportRunError,
-			success: Schema.NullOr(EntitySchemaId),
+			success: Schema.NullOr(EntitySchemaSlug),
 			name: "load-measurement-entity-schema",
 			execute: runWithDb(entitySchemas.getBuiltinBySlug("measurement")).pipe(
 				Effect.map((schema) => schema?.id ?? null),
@@ -90,7 +90,7 @@ export const prepareOpenScaleWrites = (
 							scope: "user",
 							userId: user.id,
 							properties: item.properties,
-							entitySchemaId: measurementSchemaId,
+							entitySchemaSlug: measurementSchemaId,
 							name: `Measurement - ${item.sourceLabel}`,
 						})
 						.pipe(Effect.asVoid, Effect.mapError(toWorkflowError)),

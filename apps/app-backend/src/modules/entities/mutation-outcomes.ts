@@ -1,5 +1,5 @@
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import { EntityId, EntitySchemaId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
 
 export const EntityReferenceSnapshot = Schema.Struct({
@@ -13,7 +13,7 @@ export type EntityReferenceSnapshot = typeof EntityReferenceSnapshot.Type;
 export const EntityMutationSnapshot = Schema.Struct({
 	...EntityReferenceSnapshot.fields,
 	properties: Schema.Unknown,
-	entitySchemaId: EntitySchemaId,
+	entitySchemaSlug: EntitySchemaSlug,
 });
 
 export type EntityMutationSnapshot = typeof EntityMutationSnapshot.Type;

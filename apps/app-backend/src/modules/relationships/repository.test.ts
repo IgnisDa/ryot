@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { EntityId, RelationshipSchemaId, UserId } from "@ryot/contract/schema/brands";
+import { EntityId, RelationshipSchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
@@ -13,7 +13,7 @@ type StoredRelationship = {
 	userId: string | null;
 	sourceEntityId: string;
 	targetEntityId: string;
-	relationshipSchemaId: string;
+	relationshipSchemaSlug: string;
 	properties: Record<string, unknown>;
 };
 
@@ -43,16 +43,18 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 				return (
 					row.sourceEntityId === params[0] &&
 					row.targetEntityId === params[1] &&
-					row.relationshipSchemaId === params[2]
+					row.relationshipSchemaSlug === params[2]
 				);
 			}
 			if (text.includes('"relationship"."sourceEntityId" = "relationship"."targetEntityId"')) {
-				return row.sourceEntityId === row.targetEntityId && row.relationshipSchemaId === params[0];
+				return (
+					row.sourceEntityId === row.targetEntityId && row.relationshipSchemaSlug === params[0]
+				);
 			}
 			const incoming = text.includes('"relationship"."targetEntityId" =');
 			return (
 				(incoming ? row.targetEntityId : row.sourceEntityId) === params[0] &&
-				row.relationshipSchemaId === params[1]
+				row.relationshipSchemaSlug === params[1]
 			);
 		}
 
@@ -61,7 +63,7 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 				row.userId === params[0] &&
 				row.sourceEntityId === params[1] &&
 				row.targetEntityId === params[2] &&
-				row.relationshipSchemaId === params[3]
+				row.relationshipSchemaSlug === params[3]
 			);
 		}
 
@@ -103,7 +105,7 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 							row.userId === input.userId &&
 							row.sourceEntityId === input.sourceEntityId &&
 							row.targetEntityId === input.targetEntityId &&
-							row.relationshipSchemaId === input.relationshipSchemaId,
+							row.relationshipSchemaSlug === input.relationshipSchemaSlug,
 					);
 					if (existing) {
 						continue;
@@ -174,7 +176,7 @@ const globalInput = {
 	scope: "global" as const,
 	sourceEntityId: EntityId.make("source"),
 	targetEntityId: EntityId.make("target"),
-	relationshipSchemaId: RelationshipSchemaId.make("schema"),
+	relationshipSchemaSlug: RelationshipSchemaSlug.make("schema"),
 };
 
 it.effect("creates once and preserves an existing relationship on conflict", () => {
@@ -230,7 +232,7 @@ it.effect("lists and deletes user relationships without touching global rows", (
 			userId: "user-1",
 			sourceEntityId: "entity-1",
 			targetEntityId: "entity-2",
-			relationshipSchemaId: "schema",
+			relationshipSchemaSlug: "schema",
 			createdAt: new Date("2026-06-14T00:00:00.000Z"),
 		},
 		{
@@ -239,7 +241,7 @@ it.effect("lists and deletes user relationships without touching global rows", (
 			id: "global-row",
 			sourceEntityId: "entity-1",
 			targetEntityId: "entity-2",
-			relationshipSchemaId: "schema",
+			relationshipSchemaSlug: "schema",
 			createdAt: new Date("2026-06-14T00:00:00.000Z"),
 		},
 	]);
@@ -254,14 +256,14 @@ it.effect("lists and deletes user relationships without touching global rows", (
 			type: "anchored",
 			direction: "outgoing",
 			anchorEntityId: EntityId.make("entity-1"),
-			relationshipSchemaId: RelationshipSchemaId.make("schema"),
+			relationshipSchemaSlug: RelationshipSchemaSlug.make("schema"),
 		});
 		const deleted = yield* repository.deleteRelationship({
 			scope: "user",
 			userId: UserId.make("user-1"),
 			sourceEntityId: EntityId.make("entity-1"),
 			targetEntityId: EntityId.make("entity-2"),
-			relationshipSchemaId: RelationshipSchemaId.make("schema"),
+			relationshipSchemaSlug: RelationshipSchemaSlug.make("schema"),
 		});
 
 		expect(rows).toHaveLength(1);

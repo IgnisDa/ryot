@@ -160,7 +160,7 @@ describe("notification delivery", () => {
 
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "workout");
 			yield* createEntity(client, {
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				name: `Zero Channel Workout ${crypto.randomUUID()}`,
 				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
 			});

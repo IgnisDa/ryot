@@ -24,14 +24,14 @@ describe("Events built-in status schemas", () => {
 	it.live("creates repeated built-in backlog events and lists them", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, backlogEventSchemaId } =
+			const { entityId, backlogEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const createResult = yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [
-						{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
-						{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
+						{ entityId, properties: {}, eventSchemaSlug: backlogEventSchemaSlug },
+						{ entityId, properties: {}, eventSchemaSlug: backlogEventSchemaSlug },
 					],
 				}),
 			);
@@ -50,7 +50,7 @@ describe("Events built-in status schemas", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client: apiClient } = yield* createAuthenticatedClient();
-				const { entityId, progressEventSchemaId } =
+				const { entityId, progressEventSchemaSlug } =
 					yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 				const createResult = yield* apiClient.call((c) =>
@@ -58,12 +58,12 @@ describe("Events built-in status schemas", () => {
 						payload: [
 							{
 								entityId,
-								eventSchemaId: progressEventSchemaId,
+								eventSchemaSlug: progressEventSchemaSlug,
 								properties: { progressPercent: 25.555 },
 							},
 							{
 								entityId,
-								eventSchemaId: progressEventSchemaId,
+								eventSchemaSlug: progressEventSchemaSlug,
 								properties: { progressPercent: 50.444 },
 							},
 						],
@@ -84,7 +84,7 @@ describe("Events built-in status schemas", () => {
 	it.live("creates repeated built-in complete events without relying on progress", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, completeEventSchemaId } =
+			const { entityId, completeEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const createResult = yield* apiClient.call((c) =>
@@ -92,12 +92,12 @@ describe("Events built-in status schemas", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId: completeEventSchemaId,
+							eventSchemaSlug: completeEventSchemaSlug,
 							properties: { completionMode: "just_now" },
 						},
 						{
 							entityId,
-							eventSchemaId: completeEventSchemaId,
+							eventSchemaSlug: completeEventSchemaSlug,
 							properties: {
 								completionMode: "custom_timestamps",
 								completedOn: "2026-03-27T18:30:00Z",
@@ -125,7 +125,7 @@ describe("Events built-in status schemas", () => {
 	it.live("persists timeSpent on a complete event and returns it", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, completeEventSchemaId } =
+			const { entityId, completeEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const createResult = yield* apiClient.call((c) =>
@@ -133,7 +133,7 @@ describe("Events built-in status schemas", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId: completeEventSchemaId,
+							eventSchemaSlug: completeEventSchemaSlug,
 							properties: { completionMode: "just_now", timeSpent: 120 },
 						},
 					],
@@ -152,7 +152,7 @@ describe("Events built-in status schemas", () => {
 	it.live("accepts a complete event without timeSpent (optional field)", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, completeEventSchemaId } =
+			const { entityId, completeEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const createResult = yield* apiClient.call((c) =>
@@ -160,7 +160,7 @@ describe("Events built-in status schemas", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId: completeEventSchemaId,
+							eventSchemaSlug: completeEventSchemaSlug,
 							properties: { completionMode: "unknown" },
 						},
 					],
@@ -174,7 +174,7 @@ describe("Events built-in status schemas", () => {
 	it.live("rejects a complete event with a negative timeSpent", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, completeEventSchemaId } =
+			const { entityId, completeEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const result = yield* apiClient.call((c) =>
@@ -182,7 +182,7 @@ describe("Events built-in status schemas", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId: completeEventSchemaId,
+							eventSchemaSlug: completeEventSchemaSlug,
 							properties: { completionMode: "just_now", timeSpent: -10 },
 						},
 					],
@@ -200,7 +200,7 @@ describe("Events built-in status schemas", () => {
 	it.live("creates repeated built-in review events before completion exists", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, reviewEventSchemaId } =
+			const { entityId, reviewEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const createResult = yield* apiClient.call((c) =>
@@ -209,11 +209,11 @@ describe("Events built-in status schemas", () => {
 						{
 							entityId,
 							properties: { rating: 4 },
-							eventSchemaId: reviewEventSchemaId,
+							eventSchemaSlug: reviewEventSchemaSlug,
 						},
 						{
 							entityId,
-							eventSchemaId: reviewEventSchemaId,
+							eventSchemaSlug: reviewEventSchemaSlug,
 							properties: { text: "Even better", rating: 5 },
 						},
 					],
@@ -235,7 +235,7 @@ describe("Events built-in status schemas", () => {
 	it.live("persists timeSpent on a dropped event and returns it", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, droppedEventSchemaId } =
+			const { entityId, droppedEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const createResult = yield* apiClient.call((c) =>
@@ -243,7 +243,7 @@ describe("Events built-in status schemas", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId: droppedEventSchemaId,
+							eventSchemaSlug: droppedEventSchemaSlug,
 							properties: { progressPercent: 40, timeSpent: 90 },
 						},
 					],
@@ -261,7 +261,7 @@ describe("Events built-in status schemas", () => {
 	it.live("persists timeSpent on an on_hold event and returns it", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, onHoldEventSchemaId } =
+			const { entityId, onHoldEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const createResult = yield* apiClient.call((c) =>
@@ -269,7 +269,7 @@ describe("Events built-in status schemas", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId: onHoldEventSchemaId,
+							eventSchemaSlug: onHoldEventSchemaSlug,
 							properties: { progressPercent: 60, timeSpent: 45 },
 						},
 					],
@@ -287,7 +287,7 @@ describe("Events built-in status schemas", () => {
 	it.live("rejects a dropped event with a negative timeSpent", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, droppedEventSchemaId } =
+			const { entityId, droppedEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const result = yield* apiClient.call((c) =>
@@ -295,7 +295,7 @@ describe("Events built-in status schemas", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId: droppedEventSchemaId,
+							eventSchemaSlug: droppedEventSchemaSlug,
 							properties: { progressPercent: 50, timeSpent: -5 },
 						},
 					],
@@ -313,7 +313,7 @@ describe("Events built-in status schemas", () => {
 	it.live("creates built-in dropped events with rounded progress values", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, droppedEventSchemaId } =
+			const { entityId, droppedEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const createResult = yield* apiClient.call((c) =>
@@ -321,12 +321,12 @@ describe("Events built-in status schemas", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId: droppedEventSchemaId,
+							eventSchemaSlug: droppedEventSchemaSlug,
 							properties: { progressPercent: 33.333 },
 						},
 						{
 							entityId,
-							eventSchemaId: droppedEventSchemaId,
+							eventSchemaSlug: droppedEventSchemaSlug,
 							properties: { progressPercent: 66.666 },
 						},
 					],
@@ -347,7 +347,7 @@ describe("Events built-in status schemas", () => {
 	it.live("creates built-in on_hold events with rounded progress values", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { entityId, onHoldEventSchemaId } =
+			const { entityId, onHoldEventSchemaSlug } =
 				yield* createBuiltinMediaLifecycleFixture(apiClient);
 
 			const createResult = yield* apiClient.call((c) =>
@@ -355,12 +355,12 @@ describe("Events built-in status schemas", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId: onHoldEventSchemaId,
+							eventSchemaSlug: onHoldEventSchemaSlug,
 							properties: { progressPercent: 45.555 },
 						},
 						{
 							entityId,
-							eventSchemaId: onHoldEventSchemaId,
+							eventSchemaSlug: onHoldEventSchemaSlug,
 							properties: { progressPercent: 75.444 },
 						},
 					],
@@ -387,7 +387,7 @@ describe("Events built-in status schemas", () => {
 			const onHoldEventSchema = requireEventSchemaBySlug(eventSchemas, "on_hold");
 			const entity = yield* seedMediaEntity({
 				userId: null,
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				name: `Show Events ${crypto.randomUUID()}`,
 				externalId: `show-events-${crypto.randomUUID()}`,
 				sandboxScriptId: getFirstProviderScriptId(schema),
@@ -412,12 +412,12 @@ describe("Events built-in status schemas", () => {
 						{
 							entityId: entity.id,
 							properties: { progressPercent: 50 },
-							eventSchemaId: droppedEventSchema.id,
+							eventSchemaSlug: droppedEventSchema.id,
 						},
 						{
 							entityId: entity.id,
 							properties: { progressPercent: 75 },
-							eventSchemaId: onHoldEventSchema.id,
+							eventSchemaSlug: onHoldEventSchema.id,
 						},
 					],
 				}),

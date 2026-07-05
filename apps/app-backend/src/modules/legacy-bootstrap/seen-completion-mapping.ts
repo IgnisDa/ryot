@@ -17,37 +17,37 @@ BEGIN
 	WITH show_keys AS (
 		SELECT DISTINCT
 			show_entity.id AS entity_id,
-			complete_schema.id AS complete_event_schema_id,
+			complete_schema.id AS complete_event_schema_slug,
 			episode.id AS coverage_key
 		FROM "entity" show_entity
 		INNER JOIN "entity_schema" show_schema
-			ON  show_schema.id   = show_entity.entity_schema_id
+			ON  show_schema.id   = show_entity.entity_schema_slug
 			AND show_schema.slug = 'show'
 		INNER JOIN "event_schema" complete_schema
-			ON  complete_schema.entity_schema_id = show_entity.entity_schema_id
+			ON  complete_schema.entity_schema_slug = show_entity.entity_schema_slug
 			AND complete_schema.slug             = 'complete'
 			AND complete_schema.user_id          IS NULL
 		INNER JOIN "relationship" show_season_rel
 			ON show_season_rel.source_entity_id = show_entity.id
 		INNER JOIN "relationship_schema" show_season_rs
-			ON  show_season_rs.id      = show_season_rel.relationship_schema_id
+			ON  show_season_rs.id      = show_season_rel.relationship_schema_slug
 			AND show_season_rs.slug    = 'show-to-show-season'
 			AND show_season_rs.user_id IS NULL
 		INNER JOIN "entity" season
 			ON season.id = show_season_rel.target_entity_id
 		INNER JOIN "entity_schema" season_schema
-			ON  season_schema.id   = season.entity_schema_id
+			ON  season_schema.id   = season.entity_schema_slug
 			AND season_schema.slug = 'show-season'
 		INNER JOIN "relationship" season_episode_rel
 			ON season_episode_rel.source_entity_id = season.id
 		INNER JOIN "relationship_schema" season_episode_rs
-			ON  season_episode_rs.id      = season_episode_rel.relationship_schema_id
+			ON  season_episode_rs.id      = season_episode_rel.relationship_schema_slug
 			AND season_episode_rs.slug    = 'show-season-to-show-episode'
 			AND season_episode_rs.user_id IS NULL
 		INNER JOIN "entity" episode
 			ON episode.id = season_episode_rel.target_entity_id
 		INNER JOIN "entity_schema" episode_schema
-			ON  episode_schema.id   = episode.entity_schema_id
+			ON  episode_schema.id   = episode.entity_schema_slug
 			AND episode_schema.slug = 'show-episode'
 		WHERE (show_season_rel.user_id IS NULL OR show_season_rel.user_id = show_entity.user_id)
 		  AND (season_episode_rel.user_id IS NULL OR season_episode_rel.user_id = show_entity.user_id)
@@ -61,14 +61,14 @@ BEGIN
 	), anime_keys AS (
 		SELECT
 			e.id AS entity_id,
-			complete_schema.id AS complete_event_schema_id,
+			complete_schema.id AS complete_event_schema_slug,
 			gs::text AS coverage_key
 		FROM "entity" e
 		INNER JOIN "entity_schema" entity_schema
-			ON  entity_schema.id   = e.entity_schema_id
+			ON  entity_schema.id   = e.entity_schema_slug
 			AND entity_schema.slug = 'anime'
 		INNER JOIN "event_schema" complete_schema
-			ON  complete_schema.entity_schema_id = e.entity_schema_id
+			ON  complete_schema.entity_schema_slug = e.entity_schema_slug
 			AND complete_schema.slug             = 'complete'
 			AND complete_schema.user_id          IS NULL
 		CROSS JOIN LATERAL generate_series(1, (e.properties ->> 'episodes')::int) AS gs
@@ -77,14 +77,14 @@ BEGIN
 	), manga_counts AS (
 		SELECT
 			e.id AS entity_id,
-			complete_schema.id AS complete_event_schema_id,
+			complete_schema.id AS complete_event_schema_slug,
 			(e.properties ->> 'chapters')::numeric AS chapter_count
 		FROM "entity" e
 		INNER JOIN "entity_schema" entity_schema
-			ON  entity_schema.id   = e.entity_schema_id
+			ON  entity_schema.id   = e.entity_schema_slug
 			AND entity_schema.slug = 'manga'
 		INNER JOIN "event_schema" complete_schema
-			ON  complete_schema.entity_schema_id = e.entity_schema_id
+			ON  complete_schema.entity_schema_slug = e.entity_schema_slug
 			AND complete_schema.slug             = 'complete'
 			AND complete_schema.user_id          IS NULL
 		WHERE (e.properties ->> 'chapters') ~ '^[0-9]+(\\.[0-9]+)?$'
@@ -92,40 +92,40 @@ BEGIN
 	), manga_keys AS (
 		SELECT
 			entity_id,
-			complete_event_schema_id,
+			complete_event_schema_slug,
 			gs::text AS coverage_key
 		FROM manga_counts
 		CROSS JOIN LATERAL generate_series(1, floor(chapter_count)::int) AS gs
 		UNION ALL
 		SELECT
 			entity_id,
-			complete_event_schema_id,
+			complete_event_schema_slug,
 			(chapter_count::float8)::text AS coverage_key
 		FROM manga_counts
 		WHERE chapter_count <> floor(chapter_count)
 	), podcast_keys AS (
 		SELECT DISTINCT
 			podcast.id AS entity_id,
-			complete_schema.id AS complete_event_schema_id,
+			complete_schema.id AS complete_event_schema_slug,
 			episode.id AS coverage_key
 		FROM "entity" podcast
 		INNER JOIN "entity_schema" podcast_schema
-			ON  podcast_schema.id   = podcast.entity_schema_id
+			ON  podcast_schema.id   = podcast.entity_schema_slug
 			AND podcast_schema.slug = 'podcast'
 		INNER JOIN "event_schema" complete_schema
-			ON  complete_schema.entity_schema_id = podcast.entity_schema_id
+			ON  complete_schema.entity_schema_slug = podcast.entity_schema_slug
 			AND complete_schema.slug             = 'complete'
 			AND complete_schema.user_id          IS NULL
 		INNER JOIN "relationship" podcast_episode_rel
 			ON podcast_episode_rel.source_entity_id = podcast.id
 		INNER JOIN "relationship_schema" podcast_episode_rs
-			ON  podcast_episode_rs.id      = podcast_episode_rel.relationship_schema_id
+			ON  podcast_episode_rs.id      = podcast_episode_rel.relationship_schema_slug
 			AND podcast_episode_rs.slug    = 'podcast-to-podcast-episode'
 			AND podcast_episode_rs.user_id IS NULL
 		INNER JOIN "entity" episode
 			ON episode.id = podcast_episode_rel.target_entity_id
 		INNER JOIN "entity_schema" episode_schema
-			ON  episode_schema.id   = episode.entity_schema_id
+			ON  episode_schema.id   = episode.entity_schema_slug
 			AND episode_schema.slug = 'podcast-episode'
 		WHERE (podcast_episode_rel.user_id IS NULL OR podcast_episode_rel.user_id = podcast.user_id)
 		  AND (episode.user_id IS NULL OR episode.user_id = podcast.user_id)
@@ -145,10 +145,10 @@ BEGIN
 	CREATE TEMP TABLE _seen_required_counts ON COMMIT DROP AS
 	SELECT
 		entity_id,
-		complete_event_schema_id,
+		complete_event_schema_slug,
 		count(*)::int AS required_count
 	FROM _seen_required_coverage
-	GROUP BY entity_id, complete_event_schema_id;
+	GROUP BY entity_id, complete_event_schema_slug;
 
 	CREATE UNIQUE INDEX ON _seen_required_counts (entity_id);
 
@@ -163,35 +163,35 @@ BEGIN
 			ev.entity_id AS coverage_key
 		FROM "event" ev
 		INNER JOIN "event_schema" progress_schema
-			ON  progress_schema.id      = ev.event_schema_id
+			ON  progress_schema.id      = ev.event_schema_slug
 			AND progress_schema.slug    = 'progress'
 			AND progress_schema.user_id IS NULL
 		INNER JOIN "entity" episode
 			ON episode.id = ev.entity_id
 		INNER JOIN "entity_schema" episode_schema
-			ON  episode_schema.id   = episode.entity_schema_id
+			ON  episode_schema.id   = episode.entity_schema_slug
 			AND episode_schema.slug = 'show-episode'
 		INNER JOIN "relationship" season_episode_rel
 			ON season_episode_rel.target_entity_id = episode.id
 		INNER JOIN "relationship_schema" season_episode_rs
-			ON  season_episode_rs.id      = season_episode_rel.relationship_schema_id
+			ON  season_episode_rs.id      = season_episode_rel.relationship_schema_slug
 			AND season_episode_rs.slug    = 'show-season-to-show-episode'
 			AND season_episode_rs.user_id IS NULL
 		INNER JOIN "entity" season
 			ON season.id = season_episode_rel.source_entity_id
 		INNER JOIN "entity_schema" season_schema
-			ON  season_schema.id   = season.entity_schema_id
+			ON  season_schema.id   = season.entity_schema_slug
 			AND season_schema.slug = 'show-season'
 		INNER JOIN "relationship" show_season_rel
 			ON show_season_rel.target_entity_id = season.id
 		INNER JOIN "relationship_schema" show_season_rs
-			ON  show_season_rs.id      = show_season_rel.relationship_schema_id
+			ON  show_season_rs.id      = show_season_rel.relationship_schema_slug
 			AND show_season_rs.slug    = 'show-to-show-season'
 			AND show_season_rs.user_id IS NULL
 		INNER JOIN "entity" show_entity
 			ON show_entity.id = show_season_rel.source_entity_id
 		INNER JOIN "entity_schema" show_schema
-			ON  show_schema.id   = show_entity.entity_schema_id
+			ON  show_schema.id   = show_entity.entity_schema_slug
 			AND show_schema.slug = 'show'
 		WHERE (ev.properties ->> 'progressPercent')::numeric = 100
 		  AND (show_season_rel.user_id = ev.user_id OR show_season_rel.user_id IS NULL)
@@ -209,24 +209,24 @@ BEGIN
 			ev.entity_id AS coverage_key
 		FROM "event" ev
 		INNER JOIN "event_schema" progress_schema
-			ON  progress_schema.id      = ev.event_schema_id
+			ON  progress_schema.id      = ev.event_schema_slug
 			AND progress_schema.slug    = 'progress'
 			AND progress_schema.user_id IS NULL
 		INNER JOIN "entity" episode
 			ON episode.id = ev.entity_id
 		INNER JOIN "entity_schema" episode_schema
-			ON  episode_schema.id   = episode.entity_schema_id
+			ON  episode_schema.id   = episode.entity_schema_slug
 			AND episode_schema.slug = 'podcast-episode'
 		INNER JOIN "relationship" podcast_episode_rel
 			ON podcast_episode_rel.target_entity_id = episode.id
 		INNER JOIN "relationship_schema" podcast_episode_rs
-			ON  podcast_episode_rs.id      = podcast_episode_rel.relationship_schema_id
+			ON  podcast_episode_rs.id      = podcast_episode_rel.relationship_schema_slug
 			AND podcast_episode_rs.slug    = 'podcast-to-podcast-episode'
 			AND podcast_episode_rs.user_id IS NULL
 		INNER JOIN "entity" podcast
 			ON podcast.id = podcast_episode_rel.source_entity_id
 		INNER JOIN "entity_schema" podcast_schema
-			ON  podcast_schema.id   = podcast.entity_schema_id
+			ON  podcast_schema.id   = podcast.entity_schema_slug
 			AND podcast_schema.slug = 'podcast'
 		WHERE (ev.properties ->> 'progressPercent')::numeric = 100
 		  AND (podcast_episode_rel.user_id = ev.user_id OR podcast_episode_rel.user_id IS NULL)
@@ -251,11 +251,11 @@ BEGIN
 			END AS coverage_key
 		FROM "event" ev
 		INNER JOIN "event_schema" progress_schema
-			ON  progress_schema.id      = ev.event_schema_id
+			ON  progress_schema.id      = ev.event_schema_slug
 			AND progress_schema.slug    = 'progress'
 			AND progress_schema.user_id IS NULL
 		INNER JOIN "entity" e ON e.id = ev.entity_id
-		INNER JOIN "entity_schema" entity_schema ON entity_schema.id = e.entity_schema_id
+		INNER JOIN "entity_schema" entity_schema ON entity_schema.id = e.entity_schema_slug
 		WHERE entity_schema.slug IN ('anime', 'manga')
 		  AND (ev.properties ->> 'progressPercent')::numeric = 100
 	)
@@ -275,7 +275,7 @@ BEGIN
 		SELECT DISTINCT
 			progress.user_id,
 			progress.entity_id,
-			required_counts.complete_event_schema_id,
+			required_counts.complete_event_schema_slug,
 			required_counts.required_count
 		FROM _seen_progress_coverage progress
 		INNER JOIN _seen_required_counts required_counts
@@ -300,7 +300,7 @@ BEGIN
 					"id",
 					"user_id",
 					"entity_id",
-					"event_schema_id",
+					"event_schema_slug",
 					"properties",
 					"created_at",
 					"occurred_at"
@@ -312,7 +312,7 @@ BEGIN
 					),
 					entity_rec.user_id,
 					entity_rec.entity_id,
-					entity_rec.complete_event_schema_id,
+					entity_rec.complete_event_schema_slug,
 					jsonb_strip_nulls(jsonb_build_object(
 						'completionMode', 'custom_timestamps',
 						'completedOn',    to_char(

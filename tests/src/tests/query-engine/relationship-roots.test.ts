@@ -7,7 +7,6 @@ import {
 	createQueryEngineEntity,
 	createQueryEngineTrackerAndSchema,
 	executeQueryEngine,
-	executeQueryEngineError,
 	propertyRef,
 	requireQueryEngineFieldValue,
 	systemRef,
@@ -30,8 +29,8 @@ describe("Relationship root sources", () => {
 				const relationshipSchema = yield* createRelationshipSchema(client, {
 					name: "Rel Root Membership",
 					slug: relationshipSlug,
-					sourceEntitySchemaId: memberSchemaId,
-					targetEntitySchemaId: collectionSchemaId,
+					sourceEntitySchemaSlug: memberSchemaId,
+					targetEntitySchemaSlug: collectionSchemaId,
 					propertiesSchema: {
 						fields: { role: { type: "string", label: "Role", description: "Membership role" } },
 					},
@@ -39,28 +38,28 @@ describe("Relationship root sources", () => {
 
 				const memberOne = yield* createQueryEngineEntity(client, {
 					name: "Member One",
-					entitySchemaId: memberSchemaId,
+					entitySchemaSlug: memberSchemaId,
 				});
 				const memberTwo = yield* createQueryEngineEntity(client, {
 					name: "Member Two",
-					entitySchemaId: memberSchemaId,
+					entitySchemaSlug: memberSchemaId,
 				});
 				const collection = yield* createQueryEngineEntity(client, {
 					name: "Collection",
-					entitySchemaId: collectionSchemaId,
+					entitySchemaSlug: collectionSchemaId,
 				});
 
 				yield* createRelationship(client, {
 					sourceEntityId: memberOne.id,
 					targetEntityId: collection.id,
 					properties: { role: "first" },
-					relationshipSchemaId: relationshipSchema.id,
+					relationshipSchemaSlug: relationshipSchema.id,
 				});
 				yield* createRelationship(client, {
 					sourceEntityId: memberTwo.id,
 					targetEntityId: collection.id,
 					properties: { role: "second" },
-					relationshipSchemaId: relationshipSchema.id,
+					relationshipSchemaSlug: relationshipSchema.id,
 				});
 
 				const doc: QueryEnginePayload = {
@@ -139,21 +138,21 @@ describe("Relationship root sources", () => {
 			const relationshipSchemaA = yield* createRelationshipSchema(userA.client, {
 				name: "Rel Root Iso",
 				slug: relationshipSlugA,
-				sourceEntitySchemaId: memberSchemaIdA,
-				targetEntitySchemaId: collectionSchemaIdA,
+				sourceEntitySchemaSlug: memberSchemaIdA,
+				targetEntitySchemaSlug: collectionSchemaIdA,
 			});
 			const memberA = yield* createQueryEngineEntity(userA.client, {
 				name: "User A Member",
-				entitySchemaId: memberSchemaIdA,
+				entitySchemaSlug: memberSchemaIdA,
 			});
 			const collectionA = yield* createQueryEngineEntity(userA.client, {
 				name: "User A Collection",
-				entitySchemaId: collectionSchemaIdA,
+				entitySchemaSlug: collectionSchemaIdA,
 			});
 			yield* createRelationship(userA.client, {
 				sourceEntityId: memberA.id,
 				targetEntityId: collectionA.id,
-				relationshipSchemaId: relationshipSchemaA.id,
+				relationshipSchemaSlug: relationshipSchemaA.id,
 			});
 
 			const docA: QueryEnginePayload = {
@@ -173,8 +172,8 @@ describe("Relationship root sources", () => {
 				},
 			};
 
-			const errorForUserB = yield* executeQueryEngineError(userB.client, docA);
-			expect(errorForUserB).toMatchObject({ _tag: "NotFound" });
+			const resultForUserB = yield* executeQueryEngine(userB.client, docA);
+			expect(resultForUserB.data.items).toHaveLength(0);
 
 			const { schemaId: memberSchemaIdB, slug: memberSlugB } =
 				yield* createQueryEngineTrackerAndSchema(userB.client, { schemaName: "RelRootIsoMember" });
@@ -186,21 +185,21 @@ describe("Relationship root sources", () => {
 			const relationshipSchemaB = yield* createRelationshipSchema(userB.client, {
 				name: "Rel Root Iso",
 				slug: relationshipSlugB,
-				sourceEntitySchemaId: memberSchemaIdB,
-				targetEntitySchemaId: collectionSchemaIdB,
+				sourceEntitySchemaSlug: memberSchemaIdB,
+				targetEntitySchemaSlug: collectionSchemaIdB,
 			});
 			const memberB = yield* createQueryEngineEntity(userB.client, {
 				name: "User B Member",
-				entitySchemaId: memberSchemaIdB,
+				entitySchemaSlug: memberSchemaIdB,
 			});
 			const collectionB = yield* createQueryEngineEntity(userB.client, {
 				name: "User B Collection",
-				entitySchemaId: collectionSchemaIdB,
+				entitySchemaSlug: collectionSchemaIdB,
 			});
 			yield* createRelationship(userB.client, {
 				sourceEntityId: memberB.id,
 				targetEntityId: collectionB.id,
-				relationshipSchemaId: relationshipSchemaB.id,
+				relationshipSchemaSlug: relationshipSchemaB.id,
 			});
 
 			const docB: QueryEnginePayload = {
@@ -234,8 +233,8 @@ describe("Relationship root sources", () => {
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "Rel Where Membership",
 				slug: relationshipSlug,
-				sourceEntitySchemaId: memberSchemaId,
-				targetEntitySchemaId: collectionSchemaId,
+				sourceEntitySchemaSlug: memberSchemaId,
+				targetEntitySchemaSlug: collectionSchemaId,
 				propertiesSchema: {
 					fields: { role: { type: "string", label: "Role", description: "Membership role" } },
 				},
@@ -243,7 +242,7 @@ describe("Relationship root sources", () => {
 
 			const collection = yield* createQueryEngineEntity(client, {
 				name: "Collection",
-				entitySchemaId: collectionSchemaId,
+				entitySchemaSlug: collectionSchemaId,
 			});
 			yield* Effect.all(
 				(
@@ -256,13 +255,13 @@ describe("Relationship root sources", () => {
 					Effect.gen(function* () {
 						const member = yield* createQueryEngineEntity(client, {
 							name,
-							entitySchemaId: memberSchemaId,
+							entitySchemaSlug: memberSchemaId,
 						});
 						yield* createRelationship(client, {
 							properties: { role },
 							sourceEntityId: member.id,
 							targetEntityId: collection.id,
-							relationshipSchemaId: relationshipSchema.id,
+							relationshipSchemaSlug: relationshipSchema.id,
 						});
 					}),
 				),
@@ -318,25 +317,25 @@ describe("Relationship root sources", () => {
 			const relationshipSchema = yield* createRelationshipSchema(client, {
 				name: "Rel Order Membership",
 				slug: relationshipSlug,
-				sourceEntitySchemaId: memberSchemaId,
-				targetEntitySchemaId: collectionSchemaId,
+				sourceEntitySchemaSlug: memberSchemaId,
+				targetEntitySchemaSlug: collectionSchemaId,
 			});
 
 			const collection = yield* createQueryEngineEntity(client, {
 				name: "Collection",
-				entitySchemaId: collectionSchemaId,
+				entitySchemaSlug: collectionSchemaId,
 			});
 			yield* Effect.all(
 				["Charlie", "Alice", "Bravo"].map((name) =>
 					Effect.gen(function* () {
 						const member = yield* createQueryEngineEntity(client, {
 							name,
-							entitySchemaId: memberSchemaId,
+							entitySchemaSlug: memberSchemaId,
 						});
 						yield* createRelationship(client, {
 							sourceEntityId: member.id,
 							targetEntityId: collection.id,
-							relationshipSchemaId: relationshipSchema.id,
+							relationshipSchemaSlug: relationshipSchema.id,
 						});
 					}),
 				),

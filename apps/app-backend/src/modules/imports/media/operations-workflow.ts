@@ -107,7 +107,7 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 							scriptId: input.scriptId,
 							externalId: input.externalId,
 							executionId: input.executionId,
-							entitySchemaId: input.entitySchemaId,
+							entitySchemaSlug: input.entitySchemaSlug,
 						},
 					});
 					return { id: entity.id };

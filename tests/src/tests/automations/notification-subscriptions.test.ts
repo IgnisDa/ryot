@@ -113,7 +113,7 @@ describe("notification subscription catalog and rules", () => {
 			const conflict = yield* Effect.flip(
 				owner.client.call((c) =>
 					c.automations.installRule({
-						payload: { signalSchemaId: reviewRule.signalSchema.id },
+						payload: { signalSchemaSlug: reviewRule.signalSchema.id },
 					}),
 				),
 			);
@@ -125,7 +125,7 @@ describe("notification subscription catalog and rules", () => {
 					{
 						operation: "signal",
 						scriptId: "caller-selected-script",
-						signalSchemaId: reviewRule.signalSchema.id,
+						signalSchemaSlug: reviewRule.signalSchema.id,
 					},
 					owner.cookies,
 				),
@@ -146,7 +146,7 @@ describe("notification subscription catalog and rules", () => {
 			const workoutName = `E2E Workout ${crypto.randomUUID()}`;
 			yield* createEntity(client, {
 				name: workoutName,
-				entitySchemaId: schema.id,
+				entitySchemaSlug: schema.id,
 				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
 			});
 
@@ -168,12 +168,14 @@ describe("notification subscription catalog and rules", () => {
 				channel: "apprise",
 				channelSpecifics: { baseUrl: fakeApprise.url, key: "review", kind: "apprise" },
 			});
-			const { entityId, reviewEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(client);
+			const { entityId, reviewEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(client);
 			const entity = yield* getEntity(client, entityId);
 
 			yield* client.call((c) =>
 				c.events.create({
-					payload: [{ entityId, eventSchemaId: reviewEventSchemaId, properties: { rating: 8 } }],
+					payload: [
+						{ entityId, eventSchemaSlug: reviewEventSchemaSlug, properties: { rating: 8 } },
+					],
 				}),
 			);
 

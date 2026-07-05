@@ -34,7 +34,6 @@ export const automationEntitySnapshotSchema = z
 	.object({
 		id: z.string(),
 		name: z.string(),
-		entitySchemaId: z.string(),
 		entitySchemaSlug: z.string(),
 		properties: propertiesSchema,
 	})
@@ -44,7 +43,6 @@ export const automationEventSnapshotSchema = z
 	.object({
 		id: z.string(),
 		occurredAt: z.string(),
-		eventSchemaId: z.string(),
 		eventSchemaSlug: z.string(),
 		properties: propertiesSchema,
 		subject: entityReferenceSchema,
@@ -57,7 +55,6 @@ export const automationRelationshipSnapshotSchema = z
 		properties: propertiesSchema,
 		source: entityReferenceSchema,
 		target: entityReferenceSchema,
-		relationshipSchemaId: z.string(),
 		relationshipSchemaSlug: z.string(),
 	})
 	.strict();
@@ -108,7 +105,6 @@ const automationPopulationSchema = z
 			.object({
 				id: z.string(),
 				name: z.string(),
-				entitySchemaId: z.string(),
 				entitySchemaSlug: z.string(),
 			})
 			.strict(),
@@ -147,8 +143,6 @@ export const automationPolicyDraftSchema = z
 	.object({
 		entityId: z.string(),
 		occurredAt: z.string(),
-		eventSchemaId: z.string(),
-		entitySchemaId: z.string(),
 		eventSchemaSlug: z.string(),
 		entitySchemaSlug: z.string(),
 		properties: propertiesSchema,

@@ -93,7 +93,7 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 							userId: user.id,
 							sourceEntityId: target.entityId,
 							targetEntityId: libraryEntityId,
-							relationshipSchemaId: mediaMonitoring.id,
+							relationshipSchemaSlug: mediaMonitoring.id,
 							propertiesSchema: mediaMonitoring.propertiesSchema,
 						});
 						return undefined;
@@ -122,7 +122,7 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 						userId: user.id,
 						sourceEntityId: target.entityId,
 						targetEntityId: libraryEntityId,
-						relationshipSchemaId: mediaMonitoring.id,
+						relationshipSchemaSlug: mediaMonitoring.id,
 					});
 				}
 				return { entityId: target.entityId, isMediaMonitored: false };

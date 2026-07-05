@@ -5,7 +5,7 @@
 
 import { quoteSqlString } from "./shared";
 
-export const buildMeasurementMigrationSql = (measurementEntitySchemaId: string) => `
+export const buildMeasurementMigrationSql = (measurementEntitySchemaSlug: string) => `
 DO $$
 DECLARE
 	batch_size        constant int := 10000;
@@ -42,7 +42,7 @@ BEGIN
 		INSERT INTO "entity" (
 			"id",
 			"user_id",
-			"entity_schema_id",
+			"entity_schema_slug",
 			"name",
 			"properties",
 			"created_at",
@@ -51,7 +51,7 @@ BEGIN
 		SELECT
 			md5(um.user_id || '|' || um.timestamp::text),
 			um.user_id,
-			${quoteSqlString(measurementEntitySchemaId)},
+			${quoteSqlString(measurementEntitySchemaSlug)},
 			COALESCE(NULLIF(um.name, ''), 'Measurement - ' || to_char(um.timestamp, 'YYYY-MM-DD HH24:MI')),
 			jsonb_strip_nulls(jsonb_build_object(
 				'comment',    NULLIF(um.comment, ''),

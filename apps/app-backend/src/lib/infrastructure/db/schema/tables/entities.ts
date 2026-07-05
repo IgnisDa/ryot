@@ -1,19 +1,9 @@
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { isNull, sql } from "drizzle-orm";
-import {
-	boolean,
-	index,
-	jsonb,
-	pgTable,
-	text,
-	timestamp,
-	unique,
-	uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { index, jsonb, pgTable, text, timestamp, unique, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { entitySchema, sandboxScript } from "./core";
+import { sandboxScript } from "./core";
 
 export const entity = pgTable(
 	"entity",
@@ -24,9 +14,7 @@ export const entity = pgTable(
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
-		entitySchemaId: text()
-			.notNull()
-			.references(() => entitySchema.id, { onDelete: "cascade" }),
+		entitySchemaSlug: text().notNull(),
 		sandboxScriptId: text().references(() => sandboxScript.id, {
 			onDelete: "cascade",
 		}),
@@ -42,17 +30,17 @@ export const entity = pgTable(
 	(table) => [
 		index("entity_user_id_idx").on(table.userId),
 		index("entity_external_id_idx").on(table.externalId),
-		index("entity_entity_schema_id_idx").on(table.entitySchemaId),
+		index("entity_entity_schema_slug_idx").on(table.entitySchemaSlug),
 		index("entity_properties_idx").using("gin", table.properties),
 		index("entity_sandbox_script_id_idx").on(table.sandboxScriptId),
 		unique("entity_user_schema_script_external_id_unique").on(
 			table.userId,
 			table.externalId,
-			table.entitySchemaId,
+			table.entitySchemaSlug,
 			table.sandboxScriptId,
 		),
 		uniqueIndex("entity_global_external_id_unique")
-			.on(table.externalId, table.entitySchemaId, table.sandboxScriptId)
+			.on(table.externalId, table.entitySchemaSlug, table.sandboxScriptId)
 			.where(isNull(table.userId)),
 		// `sandbox_script_id` can be NULL for built-in entities (e.g., exercises).
 		// Without NULLS NOT DISTINCT support in Drizzle's uniqueIndex(), the existing
@@ -63,43 +51,8 @@ export const entity = pgTable(
 		// NULLS NOT DISTINCT on uniqueIndex():
 		// https://github.com/drizzle-team/drizzle-orm/issues/3892
 		uniqueIndex("entity_global_no_script_external_id_unique")
-			.on(table.externalId, table.entitySchemaId)
+			.on(table.externalId, table.entitySchemaSlug)
 			.where(sql`${table.userId} IS NULL AND ${table.sandboxScriptId} IS NULL`),
-	],
-);
-
-export const relationshipSchema = pgTable(
-	"relationship_schema",
-	{
-		slug: text().notNull(),
-		name: text().notNull(),
-		isBuiltin: boolean().notNull().default(false),
-		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		sourceEntitySchemaId: text().references(() => entitySchema.id, {
-			onDelete: "cascade",
-		}),
-		targetEntitySchemaId: text().references(() => entitySchema.id, {
-			onDelete: "cascade",
-		}),
-		id: text()
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
-	},
-	(table) => [
-		index("relationship_schema_user_id_idx").on(table.userId),
-		index("relationship_schema_source_entity_schema_id_idx").on(table.sourceEntitySchemaId),
-		index("relationship_schema_target_entity_schema_id_idx").on(table.targetEntitySchemaId),
-		unique("relationship_schema_user_slug_unique").on(table.userId, table.slug),
-		uniqueIndex("relationship_schema_builtin_slug_unique")
-			.on(table.slug)
-			.where(sql`${table.userId} is null`),
 	],
 );
 
@@ -115,16 +68,14 @@ export const relationship = pgTable(
 		targetEntityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
-		relationshipSchemaId: text()
-			.notNull()
-			.references(() => relationshipSchema.id, { onDelete: "cascade" }),
+		relationshipSchemaSlug: text().notNull(),
 		id: text()
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 	},
 	(table) => [
-		index("relationship_schema_id_idx").on(table.relationshipSchemaId),
+		index("relationship_schema_slug_idx").on(table.relationshipSchemaSlug),
 		index("relationship_source_entity_id_idx").on(table.sourceEntityId),
 		index("relationship_target_entity_id_idx").on(table.targetEntityId),
 		index("relationship_properties_idx").using("gin", table.properties),
@@ -132,10 +83,10 @@ export const relationship = pgTable(
 			table.userId,
 			table.sourceEntityId,
 			table.targetEntityId,
-			table.relationshipSchemaId,
+			table.relationshipSchemaSlug,
 		),
 		uniqueIndex("relationship_global_source_target_schema_unique")
-			.on(table.sourceEntityId, table.targetEntityId, table.relationshipSchemaId)
+			.on(table.sourceEntityId, table.targetEntityId, table.relationshipSchemaSlug)
 			.where(isNull(table.userId)),
 	],
 );

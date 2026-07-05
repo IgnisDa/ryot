@@ -12,7 +12,7 @@ export type EntityMigrationTarget = {
 
 export type ResolvedEntityMigrationTarget = {
 	source: string;
-	entitySchemaId: string;
+	entitySchemaSlug: string;
 	sandboxScriptId: string | null;
 };
 
@@ -21,7 +21,7 @@ export type ResolvedLotEntityMigrationTarget = ResolvedEntityMigrationTarget & {
 
 export type ResolvedRelationshipTarget = {
 	lot: string;
-	relationshipSchemaId: string;
+	relationshipSchemaSlug: string;
 };
 
 export const legacyBootstrapGate = Effect.gen(function* () {
@@ -96,7 +96,7 @@ export const buildLotEntityTargetValuesSql = (targets: ResolvedLotEntityMigratio
 	targets
 		.map(
 			(t) =>
-				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaId)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
+				`(${quoteSqlString(t.lot)}, ${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaSlug)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
 		)
 		.join(", ");
 
@@ -104,13 +104,13 @@ export const buildEntityTargetValuesSql = (targets: ResolvedEntityMigrationTarge
 	targets
 		.map(
 			(t) =>
-				`(${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaId)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
+				`(${quoteSqlString(t.source)}, ${quoteSqlString(t.entitySchemaSlug)}, ${quoteNullableSqlString(t.sandboxScriptId)})`,
 		)
 		.join(", ");
 
 export const buildRelationshipTargetValuesSql = (targets: ResolvedRelationshipTarget[]) =>
 	targets
-		.map((t) => `(${quoteSqlString(t.lot)}, ${quoteSqlString(t.relationshipSchemaId)})`)
+		.map((t) => `(${quoteSqlString(t.lot)}, ${quoteSqlString(t.relationshipSchemaSlug)})`)
 		.join(", ");
 
 // Session temp table of every entity id referenced by V1 user data, used to restrict provider

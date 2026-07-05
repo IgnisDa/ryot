@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createBuiltinMediaLifecycleFixture,
-	getBuiltinEntitySchemaId,
+	getBuiltinEntitySchemaSlug,
 	listEventsForEntity,
 	listEventSchemas,
 	requireEventSchemaBySlug,
@@ -20,7 +20,8 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(client);
+			const { entityId, progressEventSchemaSlug } =
+				yield* createBuiltinMediaLifecycleFixture(client);
 
 			yield* client.call((c) =>
 				c.events.create({
@@ -29,7 +30,7 @@ describe("Event automations", () => {
 							entityId,
 							occurredAt: isoAt(1),
 							properties: { progressPercent: 100 },
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 						},
 					],
 				}),
@@ -50,12 +51,17 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(client);
+			const { entityId, progressEventSchemaSlug } =
+				yield* createBuiltinMediaLifecycleFixture(client);
 
 			yield* client.call((c) =>
 				c.events.create({
 					payload: [
-						{ entityId, properties: { progressPercent: 50 }, eventSchemaId: progressEventSchemaId },
+						{
+							entityId,
+							properties: { progressPercent: 50 },
+							eventSchemaSlug: progressEventSchemaSlug,
+						},
 					],
 				}),
 			);
@@ -73,14 +79,15 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(client);
+			const { entityId, progressEventSchemaSlug } =
+				yield* createBuiltinMediaLifecycleFixture(client);
 
 			yield* client.call((c) =>
 				c.events.create({
 					payload: [
 						{
 							entityId,
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 							properties: { progressPercent: 100 },
 						},
 					],
@@ -95,7 +102,7 @@ describe("Event automations", () => {
 						{
 							entityId,
 							properties: { progressPercent: 100 },
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 						},
 					],
 				}),
@@ -114,7 +121,7 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
 				{
 					entitySchemaSlug: "anime",
@@ -128,13 +135,13 @@ describe("Event automations", () => {
 						{
 							entityId,
 							occurredAt: isoAt(1),
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 							properties: { progressPercent: 100, animeEpisode: 1 },
 						},
 						{
 							entityId,
 							occurredAt: isoAt(2),
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 							properties: { progressPercent: 100, animeEpisode: 2 },
 						},
 					],
@@ -159,7 +166,7 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
 				{
 					entitySchemaSlug: "anime",
@@ -173,7 +180,7 @@ describe("Event automations", () => {
 						{
 							entityId,
 							occurredAt: isoAt(1),
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 							properties: { progressPercent: 100, animeEpisode: 1 },
 						},
 					],
@@ -191,7 +198,7 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
 				{
 					entitySchemaSlug: "manga",
@@ -204,12 +211,12 @@ describe("Event automations", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 							properties: { progressPercent: 100, mangaChapter: 1 },
 						},
 						{
 							entityId,
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 							properties: { progressPercent: 100, mangaChapter: 2 },
 						},
 					],
@@ -226,7 +233,7 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
 				{
 					entitySchemaSlug: "manga",
@@ -240,7 +247,7 @@ describe("Event automations", () => {
 						{
 							entityId,
 							occurredAt: isoAt(1),
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 							properties: { progressPercent: 100, mangaChapter: 1 },
 						},
 					],
@@ -258,14 +265,14 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaId("podcast-episode");
+			const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("podcast-episode");
 			const eventSchemas = yield* listEventSchemas(client, podcastEpisodeSchemaId);
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 			const entity = yield* seedMediaEntity({
 				userId: null,
 				sandboxScriptId: null,
 				name: "Podcast Episode 1",
-				entitySchemaId: podcastEpisodeSchemaId,
+				entitySchemaSlug: podcastEpisodeSchemaId,
 				externalId: `podcast-episode-${crypto.randomUUID()}`,
 				properties: {
 					runtime: null,
@@ -281,7 +288,7 @@ describe("Event automations", () => {
 						{
 							entityId: entity.id,
 							properties: { progressPercent: 100 },
-							eventSchemaId: progressEventSchema.id,
+							eventSchemaSlug: progressEventSchema.id,
 						},
 					],
 				}),
@@ -297,14 +304,14 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaId("show-episode");
+			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("show-episode");
 			const eventSchemas = yield* listEventSchemas(client, showEpisodeSchemaId);
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 			const entity = yield* seedMediaEntity({
 				userId: null,
 				sandboxScriptId: null,
 				name: "Show Episode 1",
-				entitySchemaId: showEpisodeSchemaId,
+				entitySchemaSlug: showEpisodeSchemaId,
 				externalId: `show-episode-${crypto.randomUUID()}`,
 				properties: {
 					runtime: 45,
@@ -321,7 +328,7 @@ describe("Event automations", () => {
 						{
 							entityId: entity.id,
 							properties: { progressPercent: 100 },
-							eventSchemaId: progressEventSchema.id,
+							eventSchemaSlug: progressEventSchema.id,
 						},
 					],
 				}),
@@ -339,7 +346,7 @@ describe("Event automations", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 
-				const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+				const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 					client,
 					{
 						entitySchemaSlug: "movie",
@@ -354,7 +361,7 @@ describe("Event automations", () => {
 								entityId,
 								occurredAt: isoAt(1),
 								properties: { progressPercent: 100 },
-								eventSchemaId: progressEventSchemaId,
+								eventSchemaSlug: progressEventSchemaSlug,
 							},
 						],
 					}),
@@ -377,7 +384,7 @@ describe("Event automations", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 
-				const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+				const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 					client,
 					{
 						entitySchemaSlug: "movie",
@@ -391,7 +398,7 @@ describe("Event automations", () => {
 							{
 								entityId,
 								occurredAt: isoAt(1),
-								eventSchemaId: progressEventSchemaId,
+								eventSchemaSlug: progressEventSchemaSlug,
 								properties: { progressPercent: 100, consumedOn: "Jellyfin" },
 							},
 						],
@@ -413,7 +420,7 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
 				{
 					entitySchemaSlug: "movie",
@@ -428,7 +435,7 @@ describe("Event automations", () => {
 							entityId,
 							occurredAt: isoAt(1),
 							properties: { progressPercent: 100 },
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 						},
 					],
 				}),
@@ -449,7 +456,7 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { entityId, progressEventSchemaId } = yield* createBuiltinMediaLifecycleFixture(
+			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
 				{
 					entitySchemaSlug: "movie",
@@ -464,7 +471,7 @@ describe("Event automations", () => {
 							entityId,
 							occurredAt: isoAt(1),
 							properties: { progressPercent: 100 },
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 						},
 					],
 				}),
@@ -479,7 +486,7 @@ describe("Event automations", () => {
 							entityId,
 							occurredAt: isoAt(2),
 							properties: { progressPercent: 100 },
-							eventSchemaId: progressEventSchemaId,
+							eventSchemaSlug: progressEventSchemaSlug,
 						},
 					],
 				}),

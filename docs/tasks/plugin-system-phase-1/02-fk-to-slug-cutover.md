@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Required reading (do this first)
 
@@ -70,23 +70,23 @@ item is wrong, **stop and surface it** rather than silently deviating.
 
 Derived from the Phase 1 done criteria (§"Done criteria") and the cross-phase gate:
 
-- [ ] Grep proof: no app-backend source references the dropped tables or the `…SchemaId`
+- [x] Grep proof: no app-backend source references the dropped tables or the `…SchemaId`
       columns, except deliberately kept drizzle history (done criterion 1).
-- [ ] All gates pass: `bun turbo --filter=@ryot/app-backend check` + backend unit tests
+- [x] All gates pass: `bun turbo --filter=@ryot/app-backend check` + backend unit tests
       (`cd apps/app-backend && bun run test`), the e2e suite (`cd tests && bun run test`,
       minus the files deleted in §6), and the `app-client` check (done criterion 2,
       cross-phase invariant 1).
-- [ ] Behavior spot-checks stay green in e2e: media lifecycle (progress -> auto-complete),
+- [x] Behavior spot-checks stay green in e2e: media lifecycle (progress -> auto-complete),
       provider search/import, the query-engine suite (untouched and green), and the
       legacy-bootstrap suite (done criterion 4).
-- [ ] No `isBuiltin` column remains on any surviving table except `sandbox_script` and
+- [x] No `isBuiltin` column remains on any surviving table except `sandbox_script` and
       `automation_rule` (both die in Phase 2); `signal_schema`'s flag is gone with its table
       (done criterion 5).
-- [ ] e2e migration preserves what is asserted; only plumbing (fixtures, endpoints, ids->slugs)
+- [x] e2e migration preserves what is asserted; only plumbing (fixtures, endpoints, ids->slugs)
       changed (cross-phase invariant 2).
-- [ ] The initial drizzle migration and `meta/` snapshot are regenerated (not ALTERed), and
+- [x] The initial drizzle migration and `meta/` snapshot are regenerated (not ALTERed), and
       the `event` local-slug / denormalization outcome is recorded in the plan (§2).
-- [ ] `[RECOMMENDED]` deviations and `[IMPLEMENTER-DECIDES]` choices are recorded in the Phase 1
+- [x] `[RECOMMENDED]` deviations and `[IMPLEMENTER-DECIDES]` choices are recorded in the Phase 1
       plan file; touched `CLAUDE.md`/`AGENTS.md`/`README.md` files are updated.
 
 ## User stories addressed

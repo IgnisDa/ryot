@@ -52,7 +52,7 @@ export const resolveEntityProviderName = (host: IntegrationPushHost, entity: Ent
 	if (!entity.sandboxScriptId) {
 		return Promise.resolve(null);
 	}
-	return host.getEntitySchema(entity.entitySchemaId).then((result) => {
+	return host.getEntitySchema(entity.entitySchemaSlug).then((result) => {
 		if (!result.success) {
 			return null;
 		}

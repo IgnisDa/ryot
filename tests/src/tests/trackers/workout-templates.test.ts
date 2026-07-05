@@ -15,7 +15,7 @@ import {
 	createCollection,
 	createWorkoutTemplateEntityFixture,
 	executeQueryEngine,
-	findBuiltinRelationshipSchemaId,
+	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
 	findBuiltinTrackerBySlug,
 	getEntity,
@@ -58,13 +58,13 @@ describe("Workout Templates E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				trackerId: fitnessTracker.id,
+				trackerSlug: fitnessTracker.id,
 			});
 			const workoutTemplateSchema = schemas.find((schema) => schema.slug === "workout-template");
 
 			expect(workoutTemplateSchema).toBeDefined();
 			expect(workoutTemplateSchema?.name).toBe("Workout Template");
-			expect(workoutTemplateSchema?.trackerId).toBe(fitnessTracker.id);
+			expect(workoutTemplateSchema?.trackerSlug).toBe(fitnessTracker.id);
 			expect(workoutTemplateSchema?.isBuiltin).toBe(true);
 		}),
 	);
@@ -158,14 +158,14 @@ describe("Workout Templates E2E", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
 				const views = yield* listSavedViews(client, {
-					trackerId: fitnessTracker.id,
+					trackerSlug: fitnessTracker.id,
 				});
 				const allWorkoutTemplatesView = views.find((view) => view.name === "All Workout Templates");
 
 				expect(allWorkoutTemplatesView).toBeDefined();
 				expect(allWorkoutTemplatesView).toMatchObject({
 					isBuiltin: true,
-					trackerId: fitnessTracker.id,
+					trackerSlug: fitnessTracker.id,
 					name: "All Workout Templates",
 					queryDocument: {
 						source: { schemas: ["workout-template"] },
@@ -290,7 +290,7 @@ describe("Workout Templates E2E", () => {
 
 			const workoutTemplate = yield* createEntity(client, {
 				properties: workoutTemplateProperties,
-				entitySchemaId: workoutTemplateSchema.id,
+				entitySchemaSlug: workoutTemplateSchema.id,
 				name: `Workout Template ${crypto.randomUUID()}`,
 			});
 
@@ -336,7 +336,7 @@ describe("Workout Templates E2E", () => {
 			const workoutName = `Workout ${crypto.randomUUID()}`;
 			const { id: workoutId } = yield* createEntity(client, {
 				name: workoutName,
-				entitySchemaId: workoutSchema.id,
+				entitySchemaSlug: workoutSchema.id,
 				properties: {
 					comment: "Leg day",
 					caloriesBurnt: 420,
@@ -344,13 +344,13 @@ describe("Workout Templates E2E", () => {
 					startedAt: "2026-04-27T10:00:00Z",
 				},
 			});
-			const relationshipSchemaId = yield* findBuiltinRelationshipSchemaId(
+			const relationshipSchemaSlug = yield* findBuiltinRelationshipSchemaSlug(
 				client,
 				"workout-to-workout-template",
 			);
 
 			yield* insertRelationshipRow(client, {
-				relationshipSchemaId,
+				relationshipSchemaSlug,
 				sourceEntityId: workoutId,
 				targetEntityId: workoutTemplateId,
 			});
@@ -385,7 +385,7 @@ describe("Workout Templates E2E", () => {
 			const workoutName = `Workout ${crypto.randomUUID()}`;
 			const { id: workoutId } = yield* createEntity(client, {
 				name: workoutName,
-				entitySchemaId: workoutSchema.id,
+				entitySchemaSlug: workoutSchema.id,
 				properties: {
 					comment: "Leg day",
 					caloriesBurnt: 420,
@@ -393,13 +393,13 @@ describe("Workout Templates E2E", () => {
 					startedAt: "2026-04-27T10:00:00Z",
 				},
 			});
-			const relationshipSchemaId = yield* findBuiltinRelationshipSchemaId(
+			const relationshipSchemaSlug = yield* findBuiltinRelationshipSchemaSlug(
 				client,
 				"workout-to-workout-template",
 			);
 
 			yield* insertRelationshipRow(client, {
-				relationshipSchemaId,
+				relationshipSchemaSlug,
 				sourceEntityId: workoutId,
 				targetEntityId: workoutTemplateId,
 			});
