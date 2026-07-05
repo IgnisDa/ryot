@@ -8,8 +8,6 @@ import {
 } from "../failure-service";
 import { ImportsService } from "../service";
 
-export type { ImportRunFailureDetails, ImportRunFailureInput } from "../failure-service";
-
 export const PROGRESS_UPDATE_INTERVAL = 10;
 
 export const sanitizeErrorMessage = (error: unknown, fallback: string): string =>

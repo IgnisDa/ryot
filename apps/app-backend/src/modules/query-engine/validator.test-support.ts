@@ -11,8 +11,6 @@ import {
 
 import type { RowsQueryDocument } from "./executor/types";
 
-export type { RowsQueryDocument };
-
 export const nameRef = (alias: string): Expr => queryEngineSystemRef(alias, "name");
 
 export const occurredAtRef = (alias: string): Expr => queryEngineSystemRef(alias, "occurredAt");

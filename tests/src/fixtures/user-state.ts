@@ -1,3 +1,4 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import { EntityId } from "@ryot/contract/schema/brands";
 import {
 	buildQueryEngineRowsDocument,
@@ -15,7 +16,6 @@ import { buildEventHistoryQueryDocument } from "@ryot/query-engine/recipes/app";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
-import type { ContractPayload } from "./contract-client";
 import { executeQueryEngine } from "./query-engine-core";
 
 type MergeUserStateBody = ContractPayload<"userState", "mergeUserState">;
