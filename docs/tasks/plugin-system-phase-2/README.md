@@ -24,15 +24,15 @@ open, and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 0 of 6 tasks completed
+**Overall Progress:** 1 of 6 tasks completed
 
-**Current Task:** [Task 01](./01-manifest-contract-and-compiler.md) (todo)
+**Current Task:** [Task 02](./02-ingestion-pipeline-and-loader.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                | Type | Status |
 | --- | ----------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Manifest Contract and Compiler Extension](./01-manifest-contract-and-compiler.md)  | AFK  | todo   |
+| 01  | [Manifest Contract and Compiler Extension](./01-manifest-contract-and-compiler.md)  | AFK  | done   |
 | 02  | [Ingestion Pipeline, Storage, and Loader](./02-ingestion-pipeline-and-loader.md)    | AFK  | todo   |
 | 03  | [Plugin Packages and Boot Cutover](./03-plugin-packages-and-boot-cutover.md)        | AFK  | todo   |
 | 04  | [Admin Install Surface and Test Fixture](./04-admin-install-surface-and-fixture.md) | AFK  | todo   |

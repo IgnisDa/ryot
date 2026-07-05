@@ -19,12 +19,17 @@
 			"types": "./src/compiler-protocol.ts",
 			"default": "./src/compiler-protocol.ts"
 		},
+		"./plugins": {
+			"types": "./src/compiler-plugins.ts",
+			"default": "./src/compiler-plugins.ts"
+		},
 		"./worker": {
 			"types": "./src/compiler-worker.ts",
 			"default": "./src/compiler-worker.ts"
 		}
 	},
 	"scripts": {
+		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
 		"build": "tsc && bun build src/compiler-worker.ts --outdir dist --target bun --sourcemap"
 	},
@@ -34,6 +39,8 @@
 		"typescript": "7.0.2"
 	},
 	"devDependencies": {
-		"bun-types": "1.3.14"
+		"@effect/vitest": "0.29.0",
+		"bun-types": "1.3.14",
+		"vitest": "4.1.9"
 	}
 }
