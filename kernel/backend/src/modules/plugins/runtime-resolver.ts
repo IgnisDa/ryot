@@ -31,7 +31,10 @@ import {
 	type DefinitionSnapshot,
 } from "#modules/definition-registry/service";
 
-import { PluginInstallationRepository } from "./installation-repository";
+import {
+	type PluginInstallationHealth,
+	PluginInstallationRepository,
+} from "./installation-repository";
 import {
 	findPluginEntryById,
 	mergeManifestDefinitions,
@@ -105,9 +108,11 @@ export type AvailablePlugin = {
 	readonly id: string;
 	readonly slug: string;
 	readonly sourceHash: string;
+	readonly isDisabled: boolean;
 	readonly installationId: string;
 	readonly scope: "system" | "user";
 	readonly manifest: PluginManifest;
+	readonly health: PluginInstallationHealth;
 	readonly compiledHashes: Record<string, string>;
 	readonly config: Readonly<Record<string, unknown>>;
 };
@@ -402,11 +407,14 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 
 			const listPluginsAvailableToUser: (
 				userId: UserId,
+				includeUnavailable?: boolean,
 			) => Effect.Effect<ReadonlyArray<AvailablePlugin>, DbError, Database> = Effect.fn(
 				"PluginRuntimeResolver.listPluginsAvailableToUser",
-			)(function* (userId: UserId) {
-				const states = (yield* installations.listForUser(userId)).filter(
-					(state) => state.health === "ready" && !state.isDisabled,
+			)(function* (userId: UserId, includeUnavailable = false) {
+				const states = (yield* installations.listForUser(userId)).filter((state) =>
+					includeUnavailable
+						? state.health !== "incompatible"
+						: state.health === "ready" && !state.isDisabled,
 				);
 				const stateByPluginId = new Map(states.map((state) => [state.pluginId, state]));
 				const available: Array<AvailablePlugin> = [];
@@ -418,7 +426,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					available.push({
 						config: {},
 						scope: "system",
+						health: state.health,
 						installationId: state.id,
+						isDisabled: state.isDisabled,
 						sourceHash: plugin.sourceHash,
 						...bindingPluginFromEntry(plugin),
 					});
@@ -451,7 +461,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						...plugin,
 						scope: "user",
 						config: state.config,
+						health: state.health,
 						installationId: state.id,
+						isDisabled: state.isDisabled,
 					});
 				}
 				return available.sort((left, right) => left.slug.localeCompare(right.slug));

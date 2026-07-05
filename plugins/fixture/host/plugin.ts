@@ -20,7 +20,17 @@ export const fixturePlugin = definePlugin({
 	integrationProviders: [],
 	savedViews: fixtureSavedViews,
 	configSchema: { fields: {}, unknownKeys: "strict" },
-	client: { entry: "client/index.tsx", apiVersion: 1 },
+	client: {
+		apiVersion: 1,
+		entry: "client/index.tsx",
+		exports: {
+			"pokemon-types": {
+				kind: "component",
+				entry: "client/pokemon-types.tsx",
+				automaticEntityPresentations: false,
+			},
+		},
+	},
 	entitySchemas: [
 		{
 			slug: "pokemon",

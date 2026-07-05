@@ -1,4 +1,4 @@
-import { DateTime, Option } from "@ryot-app/plugin-kit/effect";
+import { DateTime, Option } from "@ryot-app/client-sdk/effect";
 
 const DATE_LABEL_OPTIONS = {
 	day: "numeric",

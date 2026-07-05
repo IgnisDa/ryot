@@ -16,7 +16,6 @@ const NEUTRAL_MODULES = [
 const NEUTRAL_MODULE_SET = new Set<string>(NEUTRAL_MODULES);
 
 const TRUSTED_MODULES = new Set([
-	...NEUTRAL_MODULES,
 	"clsx",
 	"react",
 	"react-dom",

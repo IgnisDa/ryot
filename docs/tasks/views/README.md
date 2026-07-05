@@ -2,16 +2,16 @@
 
 ## Tasks
 
-**Overall Progress:** 1 of 13 tasks completed
+**Overall Progress:** 2 of 13 tasks completed
 
-**Current Task:** [Task 02](./02-compose-public-plugin-components.md) (todo)
+**Current Task:** [Task 03](./03-unify-plugin-and-entity-pages.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                     | Status |
 | --- | -------------------------------------------------------------------------------------------------------- | ------ |
 | 01  | [Publish And Open Custom Pages](./01-publish-and-open-custom-pages.md)                                   | done   |
-| 02  | [Compose Public Plugin Components](./02-compose-public-plugin-components.md)                             | todo   |
+| 02  | [Compose Public Plugin Components](./02-compose-public-plugin-components.md)                             | done   |
 | 03  | [Unify Plugin And Entity Pages](./03-unify-plugin-and-entity-pages.md)                                   | todo   |
 | 04  | [Browse Mixed Entities Automatically](./04-browse-mixed-entities-automatically.md)                       | todo   |
 | 05  | [Add Rich Domain Presentations](./05-add-rich-domain-presentations.md)                                   | todo   |

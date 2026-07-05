@@ -19,7 +19,7 @@ type CompileClientStylesInput = {
 	readonly paletteStylesheet: string;
 	readonly scanSources: readonly ScanSource[];
 	readonly tailwindStylesheet: StylesheetSource;
-	readonly stylesheet: StylesheetSource | undefined;
+	readonly stylesheets: readonly StylesheetSource[];
 	readonly files: Readonly<Record<string, Uint8Array>>;
 	readonly assetNames: Readonly<Record<string, string>>;
 	readonly sourceFiles: Readonly<Record<string, string>>;
@@ -51,6 +51,11 @@ const clientBaseStylesheet = `@layer base {
 
 const directoryOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
 
+const clientRoot = (path: string) => {
+	const boundary = path.lastIndexOf("/client/");
+	return boundary === -1 ? "client/" : `${path.slice(0, boundary + 1)}client/`;
+};
+
 const resolveClientStylesheet = (
 	id: string,
 	base: string,
@@ -76,7 +81,7 @@ const resolveClientStylesheet = (
 	}
 
 	const path = parts.join("/");
-	return path.startsWith("client/") && path.endsWith(".css") && Object.hasOwn(files, path)
+	return path.startsWith(clientRoot(base)) && path.endsWith(".css") && Object.hasOwn(files, path)
 		? path
 		: null;
 };
@@ -95,12 +100,13 @@ const resolveAssetPath = (stylesheet: string, specifier: string) => {
 	const sourcePath = suffixIndex === -1 ? specifier : specifier.slice(0, suffixIndex);
 	const suffix = suffixIndex === -1 ? "" : specifier.slice(suffixIndex);
 	const normalized = directoryOf(stylesheet).split("/");
+	const root = clientRoot(stylesheet);
 	for (const part of sourcePath.split("/")) {
 		if (!part || part === ".") {
 			continue;
 		}
 		if (part === "..") {
-			if (normalized.length <= 1) {
+			if (normalized.join("/").length <= root.length - 1) {
 				return null;
 			}
 			normalized.pop();
@@ -108,7 +114,8 @@ const resolveAssetPath = (stylesheet: string, specifier: string) => {
 		}
 		normalized.push(part);
 	}
-	return { suffix, path: normalized.join("/") };
+	const path = normalized.join("/");
+	return path.startsWith(root) ? { suffix, path } : null;
 };
 
 const rewriteStylesheetAssets = (
@@ -151,7 +158,7 @@ const rewriteStylesheetAssets = (
 			const resolved = resolveAssetPath(path, specifier);
 			if (
 				resolved === null ||
-				!resolved.path.startsWith("client/") ||
+				!resolved.path.startsWith(clientRoot(path)) ||
 				canonicalRelativePosixPathIssue(resolved.path) !== null
 			) {
 				throw new ClientStyleAssetError(
@@ -187,10 +194,10 @@ const rewriteStylesheetAssets = (
 export const compileClientStyles = ({
 	entry,
 	files,
-	stylesheet,
 	assetNames,
 	sourceFiles,
 	scanSources,
+	stylesheets,
 	fontStylesheet,
 	themeStylesheet,
 	paletteStylesheet,
@@ -208,12 +215,13 @@ export const compileClientStyles = ({
 					assetNames,
 					assets,
 				));
-			const rootStylesheet =
-				stylesheet === undefined ? "" : rewrite(stylesheet.path, stylesheet.content);
-			const inputStylesheet = `@import "tailwindcss";\n${fontStylesheet}\n${clientBaseStylesheet}\n${rootStylesheet}\n${themeStylesheet}\n${paletteStylesheet}`;
+			const stylesheetImports = stylesheets
+				.map((_, index) => `@import "ryot:stylesheet/${index}";`)
+				.join("\n");
+			const inputStylesheet = `@import "tailwindcss";\n${fontStylesheet}\n${clientBaseStylesheet}\n${stylesheetImports}\n${themeStylesheet}\n${paletteStylesheet}`;
 			let tailwindLoaded = false;
 			const compiled = await compile(inputStylesheet, {
-				base: stylesheet === undefined ? "client" : directoryOf(stylesheet.path),
+				base: "client",
 				loadStylesheet: (id, base) =>
 					Promise.resolve().then(() => {
 						if (id === "tailwindcss") {
@@ -224,6 +232,17 @@ export const compileClientStyles = ({
 								path: tailwindStylesheet.path,
 								base: directoryOf(tailwindStylesheet.path),
 							};
+						}
+						const generatedIndex = id.match(/^ryot:stylesheet\/(\d+)$/)?.[1];
+						if (generatedIndex !== undefined) {
+							const source = stylesheets[Number(generatedIndex)];
+							if (source !== undefined) {
+								return {
+									path: source.path,
+									base: directoryOf(source.path),
+									content: rewrite(source.path, source.content),
+								};
+							}
 						}
 
 						const path = resolveClientStylesheet(id, base, sourceFiles);
@@ -240,7 +259,11 @@ export const compileClientStyles = ({
 					}),
 			});
 			const candidates = new Scanner({}).scanFiles([...scanSources]);
-			return { assets: sortBy([...assets]), css: compiled.build(sortBy(candidates)) };
+			return {
+				assets: sortBy([...assets]),
+				sources: sortBy(Object.keys(rewrittenFiles)),
+				css: compiled.build(sortBy(candidates)),
+			};
 		},
 		catch: (error) =>
 			clientPluginCompilationFailure([
