@@ -152,7 +152,9 @@ These were settled in design discussion with the project owner. All are **[DECID
     private provider; that capability returns with the user-authored-plugins milestone.
     Execution machinery, per-executing-user cache isolation, and `entity.sandboxScriptId`
     provenance all survive — only the user-facing authoring surface and per-user script
-    ownership go.
+    ownership go. Persisted scripts are owned either by an installed plugin (`pluginSlug` set)
+    or by kernel definition source zero (`pluginSlug` null); the latter is restricted to
+    content-addressed, kernel-generic scripts and is not a synthetic plugin.
 20. **There is no tracker concept — a plugin _is_ the user-facing workspace.** Plugin
     `metadata` carries the display fields (name, icon, accent color, description); per-user
     workspace state (visibility, sort order, config) keys on the plugin slug; saved views
@@ -276,9 +278,11 @@ apps/app-backend           the kernel:
 
 Kernel-owned definitions: a small set of generic definitions the kernel itself contributes
 through the same registry mechanism (e.g., the `collection` entity schema, generic signal
-schemas like `integration.disabled`, the generic notification-delivery automation). The
+schemas like `integration.disabled`, and that signal's notification formatter). The
 kernel is "definition source zero," not a plugin — its definitions need no sandbox scripts
-unless generic (notification automation stays a sandbox script, kernel-owned).
+unless generic (the `integration.disabled` notification formatter stays a sandbox script,
+kernel-owned). Notification formatting for plugin-owned signals lives in the plugin that owns
+the signal.
 
 ## Cross-phase invariants
 

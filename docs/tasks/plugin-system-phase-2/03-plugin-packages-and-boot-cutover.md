@@ -40,9 +40,9 @@ must be fed from exactly one source at boot.
    schemas + property schemas, fitness saved views, `exercise.free-exercise-db`,
    `automation.workout-created`, `workout.created`). Resolve ambiguous ownership with Decision
    2's litmus and record it in the plan (`[IMPLEMENTER-DECIDES]`).
-3. **Kernel-owned "source zero" definitions** (not a plugin): the `collection` entity schema,
-   the `integration.disabled` signal schema, and the generic `automation.notification` delivery
-   script, contributed through the same registry mechanism.
+3. **Kernel-owned "source zero" definitions** (not a plugin): the `collection` entity schema and
+   the `integration.disabled` signal schema, contributed through the same registry mechanism.
+   Notification formatter ownership is implemented in task 06.
 4. **Cut boot over**: ingest kernel definitions + `plugins/media` + `plugins/fitness` before the
    server accepts traffic, replacing `SeedService`'s definition-seeding slot in `app/layers.ts`
    (plan §4 boot flow). Wire in the task-02 boot short-circuit.
@@ -53,9 +53,9 @@ must be fed from exactly one source at boot.
 6. **Delete**: `entity_schema_sandbox_script` (links now come from `bindings.schemaScriptLinks`),
    `builtins/registry.ts`, `builtins/seed.ts`, the rest of the `builtins` module once emptied,
    and the `isBuiltin` column on `sandbox_script` (interim: legacy per-user script rows keep a
-   NULL `pluginSlug` until task 06 deletes them). `user-bootstrap` must contain no builtin
-   materialization after this. Regenerate the single drizzle migration rather than authoring
-   ALTERs.
+   NULL `pluginSlug` until task 07 deletes them; content-addressed source-zero rows retain NULL).
+   `user-bootstrap` must contain no builtin materialization after this. Regenerate the single
+   drizzle migration rather than authoring ALTERs.
 
 Out of this slice: the per-user notification-subscription move and the `automation_rule` table
 deletion (task 05 — the table still holds `userId`-set rows and keeps working here); the admin
