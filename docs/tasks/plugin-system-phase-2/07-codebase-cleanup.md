@@ -16,9 +16,14 @@ touched files and directly affected modules, not unrelated opportunistic refacto
 
 Pay particular attention to residue of the deleted `builtins` module (`registry.ts`, `seed.ts`,
 definition files, old sandbox-script layout), the removed Phase 1 temporary `testSupport`
-definition installer and god-mode script endpoints, any interim additive columns or coexistence
-code left over from the task-02 → task-03 storage transition, and stale `CLAUDE.md`/`README.md`
-references pointing at moved code (single-owner rule; cross-phase invariant 7). Confirm no
+definition installer and god-mode script endpoints, residue of the removed per-user
+sandbox-script feature (task 06 / Decision 19: authoring routes, owner-based access checks,
+orphaned contract schemas, sandbox e2e authoring fixtures), residue of the removed tracker
+concept (task 03 / Decision 20: `tracker`-named types, fixtures, contract schemas, or
+`trackerSlug` references), any interim additive columns or
+coexistence code left over from the task-02 → task-03 storage transition, and stale
+`CLAUDE.md`/`README.md` references pointing at moved code (single-owner rule; cross-phase
+invariant 7). Confirm no
 Phase 3 manifest sections (`crons`, `operations`, `workflows`, `capabilities`) or speculative
 loader machinery leaked in (cross-phase invariants 3 and 5).
 
