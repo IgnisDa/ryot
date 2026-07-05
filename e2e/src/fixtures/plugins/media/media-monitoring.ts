@@ -1,4 +1,4 @@
-import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	mediaMonitoringDisableRecipe,
@@ -22,35 +22,34 @@ import { Effect } from "effect";
 import { adminHeaders } from "~/fixtures/kernel/admin";
 import type { Client } from "~/fixtures/kernel/auth";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
-import { openInterestWebSocketScoped } from "~/fixtures/kernel/interest-websocket";
+import { getEntity } from "~/fixtures/kernel/entities";
+import { pollUntil } from "~/fixtures/kernel/polling";
 import { executeRyotQL, requireRyotQLValue } from "~/fixtures/kernel/ryotql";
 import { assertCondition } from "~/support/assertions";
 
 export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: string) =>
-	Effect.scoped(
-		Effect.gen(function* () {
-			const socket = yield* openInterestWebSocketScoped(auth);
-			yield* getApiClient().call(
-				(c) =>
-					c.testSupport.setEntityInterestMembership({
-						payload: { sessionId: socket.ready.sessionId, entityIds: [EntityId.make(entityId)] },
-					}),
-				adminHeaders(),
-			);
-			const cron = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.triggerPluginCron({
-						payload: { cronSlug: "media-monitoring", pluginSlug: PluginSlug.make("media") },
-					}),
-				adminHeaders(),
-			);
-			assertCondition(
-				cron.status === "executed",
-				`Media monitoring cron failed: ${JSON.stringify(cron)}`,
-			);
-			yield* Effect.promise(() => socket.waitForEntityUpdated(entityId, "populated"));
-		}),
-	);
+	Effect.gen(function* () {
+		const previousPopulatedAt = (yield* getEntity(auth.client, entityId)).populatedAt;
+		const cron = yield* getApiClient().call(
+			(c) =>
+				c.testSupport.triggerPluginCron({
+					payload: { cronSlug: "media-monitoring", pluginSlug: PluginSlug.make("media") },
+				}),
+			adminHeaders(),
+		);
+		assertCondition(
+			cron.status === "executed",
+			`Media monitoring cron failed: ${JSON.stringify(cron)}`,
+		);
+		yield* pollUntil(
+			"media monitoring entity refresh",
+			getEntity(auth.client, entityId).pipe(
+				Effect.map((entity) =>
+					entity.populatedAt !== previousPopulatedAt ? entity.populatedAt : null,
+				),
+			),
+		);
+	});
 
 export const getMediaMonitoringStatus = (client: Client, entityId: string) =>
 	invokeOperationRecipe(

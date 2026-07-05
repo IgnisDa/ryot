@@ -41,17 +41,17 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		subjects: ["system"] as const,
 		systemKinds: ["script"] as const,
 	},
-	executeRyotql: {
-		bridge: true,
-		requiresSystemPlugin: true,
-		systemKinds: ["script"] as const,
-		subjects: ["user", "subscription", "system"],
-	},
 	emitSignal: {
 		bridge: true,
 		requiresSystemPlugin: true,
 		systemKinds: ["automation"] as const,
 		subjects: ["subscription", "system"] as const,
+	},
+	executeRyotql: {
+		bridge: true,
+		requiresSystemPlugin: true,
+		subjects: ["user", "subscription", "system"],
+		systemKinds: ["script", "automation"] as const,
 	},
 	upsertGlobalEntities: {
 		bridge: true,

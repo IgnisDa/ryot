@@ -104,6 +104,15 @@ describe("requireSandboxCapabilityInput", () => {
 			{ pluginRevision: pluginRevision() },
 		);
 		expect(Effect.runSync(requireSandboxCapabilityInput(script, "executeRyotql"))).toBe(script);
+		const automation = makeRunInput(
+			{ type: "system" },
+			null,
+			{ kind: "automation" },
+			{ pluginRevision: pluginRevision() },
+		);
+		expect(Effect.runSync(requireSandboxCapabilityInput(automation, "executeRyotql"))).toBe(
+			automation,
+		);
 	});
 
 	it("rejects elevated system paths outside a pinned system plugin", () => {
