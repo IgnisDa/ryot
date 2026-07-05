@@ -1,4 +1,7 @@
 import type {
+	AutomationOccurrencePopulation,
+	AutomationOccurrenceSource,
+	AutomationOccurrenceSourceKind,
 	AutomationOperation,
 	AutomationOrigin,
 	AutomationRuleMetadata,
@@ -7,6 +10,7 @@ import type {
 	SubscriptionRunStatus,
 	SubscriptionRunTiming,
 } from "@ryot-app/contract/modules/automations/schemas";
+import type { AutomationOccurrenceId } from "@ryot-app/contract/schema/brands";
 import { AutomationRuleId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
@@ -63,6 +67,35 @@ export const signalRecipient = snakeCase.table(
 	],
 );
 
+export const automationOccurrence = snakeCase.table(
+	"automation_occurrence",
+	{
+		recordId: text(),
+		origin: jsonb().$type<AutomationOrigin>().notNull(),
+		occurredAt: timestamp({ withTimezone: true }).notNull(),
+		operation: text().$type<AutomationOperation>().notNull(),
+		population: jsonb().$type<AutomationOccurrencePopulation>(),
+		source: jsonb().$type<AutomationOccurrenceSource>().notNull(),
+		id: text().$type<AutomationOccurrenceId>().notNull().primaryKey(),
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		sourceKind: text().$type<AutomationOccurrenceSourceKind>().notNull(),
+		signalId: text().references(() => signal.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		index("automation_occurrence_user_id_idx").on(table.userId),
+		index("automation_occurrence_signal_id_idx").on(table.signalId),
+		check(
+			"automation_occurrence_source_check",
+			sql`((${table.sourceKind} = 'signal' and ${table.operation} = 'signal' and ${table.signalId} is not null and ${table.recordId} is null) or (${table.sourceKind} <> 'signal' and ${table.operation} <> 'signal' and ${table.signalId} is null and ${table.recordId} is not null))`,
+		),
+		check(
+			"automation_occurrence_source_kind_check",
+			sql`${table.sourceKind} in ('entity', 'event', 'relationship', 'signal', 'provider-entity-import')`,
+		),
+	],
+);
+
 export const notificationSubscriptionState = snakeCase.table(
 	"notification_subscription_state",
 	{
@@ -101,7 +134,6 @@ export const subscriptionRun = snakeCase.table(
 		recordId: text(),
 		ruleId: text().notNull(),
 		ruleName: text().notNull(),
-		occurrenceId: text().notNull(),
 		sandboxScriptId: text().notNull(),
 		id: text().notNull().primaryKey(),
 		startedAt: timestamp({ withTimezone: true }),
@@ -119,10 +151,14 @@ export const subscriptionRun = snakeCase.table(
 		signalId: text().references(() => signal.id, { onDelete: "cascade" }),
 		status: text().$type<SubscriptionRunStatus>().notNull().default("queued"),
 		executionUserId: text().references(() => user.id, { onDelete: "cascade" }),
+		occurrenceId: text()
+			.notNull()
+			.references(() => automationOccurrence.id, { onDelete: "cascade" }),
 	},
 	(table) => [
 		index("subscription_run_execution_user_id_idx").on(table.executionUserId),
 		index("subscription_run_rule_id_idx").on(table.ruleId),
+		index("subscription_run_occurrence_id_idx").on(table.occurrenceId),
 		index("subscription_run_signal_id_idx").on(table.signalId),
 		check(
 			"subscription_run_operation_check",

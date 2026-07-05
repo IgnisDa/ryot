@@ -461,6 +461,13 @@ const compilePredicate = (
 };
 
 const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlFragment => {
+	if ("execution" in table.visibility) {
+		const id =
+			table.visibility.execution === "occurrence"
+				? scope.automationOccurrenceId
+				: scope.automationRunId;
+		return sql`(SELECT * FROM ${sql.raw(table.name)} WHERE id = ${id ?? ""})`;
+	}
 	if (scope.type === "user") {
 		const policy = table.visibility.user;
 		if (policy.type === "public") {

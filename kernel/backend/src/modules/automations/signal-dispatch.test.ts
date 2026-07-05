@@ -1,6 +1,8 @@
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationOccurrence } from "@ryot-app/contract/modules/automations/schemas";
 import {
+	AutomationOccurrenceId,
 	AutomationRuleId,
 	SandboxScriptId,
 	SignalId,
@@ -52,18 +54,32 @@ it.effect("matches shared signals once per global rule and recipient-owned rule"
 	const firstUserRule = rule("user-1", userId);
 	const secondUserRule = rule("user-2", otherUserId);
 	const resolvedScopes: Array<UserId | null> = [];
-	const executions: Array<{ rowUserId: UserId | null; ruleId: AutomationRuleId }> = [];
+	const occurrences: AutomationOccurrence[] = [];
+	const executions: Array<{
+		occurrenceId: AutomationOccurrenceId;
+		rowUserId: UserId | null;
+		ruleId: AutomationRuleId;
+	}> = [];
 	const instance = WorkflowInstance.initial(SubscriptionExecutionWorkflow, "dispatch-test");
 	const engine = makeWorkflowActivityEngine(instance, {
 		execute: (_workflow, options) => {
 			const payload = Schema.decodeUnknownSync(
-				Schema.Struct({ ruleId: AutomationRuleId, rowUserId: Schema.NullOr(UserId) }),
+				Schema.Struct({
+					ruleId: AutomationRuleId,
+					rowUserId: Schema.NullOr(UserId),
+					occurrenceId: AutomationOccurrenceId,
+				}),
 			)(options.payload);
-			executions.push({ ruleId: payload.ruleId, rowUserId: payload.rowUserId });
+			executions.push(payload);
 			return Effect.void;
 		},
 	});
 	const automations = Layer.mock(AutomationsService, {
+		recordOccurrence: (occurrence) =>
+			Effect.sync(() => {
+				occurrences.push(occurrence);
+				return occurrence;
+			}),
 		resolveActive: ({ rowUserId }) => {
 			resolvedScopes.push(rowUserId);
 			if (rowUserId === null) {
@@ -82,9 +98,44 @@ it.effect("matches shared signals once per global rule and recipient-owned rule"
 		yield* dispatch.dispatch(signal);
 		expect(resolvedScopes).toEqual([null, userId, otherUserId]);
 		expect(executions).toEqual([
-			{ rowUserId: null, ruleId: globalRule.id },
-			{ rowUserId: userId, ruleId: firstUserRule.id },
-			{ rowUserId: otherUserId, ruleId: secondUserRule.id },
+			{
+				rowUserId: null,
+				ruleId: globalRule.id,
+				occurrenceId: AutomationOccurrenceId.make("signal-1"),
+			},
+			{
+				rowUserId: userId,
+				ruleId: firstUserRule.id,
+				occurrenceId: AutomationOccurrenceId.make("signal-1"),
+			},
+			{
+				rowUserId: otherUserId,
+				ruleId: secondUserRule.id,
+				occurrenceId: AutomationOccurrenceId.make("signal-1"),
+			},
+		]);
+		expect(occurrences).toEqual([
+			{
+				userId: null,
+				recordId: null,
+				population: null,
+				signalId: signal.id,
+				operation: "signal",
+				sourceKind: "signal",
+				origin: { kind: "api" },
+				occurredAt: "2026-07-20T10:00:00.000Z",
+				id: AutomationOccurrenceId.make("signal-1"),
+				source: {
+					kind: "signal",
+					signal: {
+						id: signal.id,
+						origin: { kind: "api" },
+						properties: { message: "trace" },
+						occurredAt: "2026-07-20T10:00:00.000Z",
+						signalSchemaSlug: SignalSchemaSlug.make("review.created"),
+					},
+				},
+			},
 		]);
 	}).pipe(Effect.provide(layer));
 });
@@ -106,6 +157,7 @@ it.effect("attempts every sibling workflow when one enqueue fails", () => {
 		},
 	});
 	const automations = Layer.mock(AutomationsService, {
+		recordOccurrence: (occurrence) => Effect.succeed(occurrence),
 		resolveActive: () => Effect.succeed([firstRule, secondRule]),
 	});
 	const layer = Layer.provideMerge(

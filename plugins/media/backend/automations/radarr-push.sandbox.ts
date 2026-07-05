@@ -2,6 +2,7 @@ import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import type { IntegrationRecord } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { automationOccurrenceRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 import {
 	collectionSyncMatches,
@@ -66,14 +67,21 @@ const pushMovieToRadarr = (
 export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
-		const event = automation.source.kind === "event" ? automation.source.after : undefined;
-		const entitySchemaSlug = event?.properties["entitySchemaSlug"];
-		const entityId = event?.properties["entityId"];
-		if (!event || entitySchemaSlug !== "movie" || typeof entityId !== "string") {
+		if (automation.source.kind !== "event") {
 			return Effect.succeed(null);
 		}
 
 		return Effect.gen(function* () {
+			const occurrence = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				automationOccurrenceRecipe(automation.occurrenceId),
+			);
+			const event = occurrence?.source.kind === "event" ? occurrence.source.after : undefined;
+			const entitySchemaSlug = event?.properties["entitySchemaSlug"];
+			const entityId = event?.properties["entityId"];
+			if (!event || entitySchemaSlug !== "movie" || typeof entityId !== "string") {
+				return null;
+			}
 			const [disabled, integrations] = yield* Effect.all(
 				[integrationsDisabledForUser(host), listActiveIntegrations(host, "radarr")],
 				{ concurrency: "unbounded" },

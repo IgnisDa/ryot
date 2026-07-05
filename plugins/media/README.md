@@ -102,9 +102,19 @@ Media entities use `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and 
 `host/schemas/entity.ts` defines support by entity type. State is derived from append-only history,
 ordered by descending `occurredAt`, `createdAt`, then `id`; it is never stored separately.
 
+Post-write media automations receive compact source references. They load the immutable trigger with
+`automationOccurrenceRecipe(automation.occurrenceId)` through
+`executeRyotqlRecipe(host.executeRyotql, ...)`; automations that need subscription metadata load
+`automationRunRecipe(automation.runId)` through the same path when the run ID is present. These
+occurrence snapshots preserve the trigger-time before/after values. Queries for lifecycle,
+relationships, or entities instead read current state, which may have changed before the automation
+executes. Media RyotQL should use explicit projections for only the fields the automation needs.
+
 Provider imports run `automation.media-library-membership-on-import` after population and idempotently
-create `in-library`. This is separate from the event-based `policy.media-library-membership` used for
-lifecycle and collection changes.
+create `in-library`. Membership uses the compact `provider-entity-import` reference directly because
+it already contains the imported entity ID, schema slug, provider ID, and external ID; it does not load
+the occurrence snapshot first. This is separate from the event-based
+`policy.media-library-membership` used for lifecycle and collection changes.
 
 Shows and podcasts track progress on child episodes. Anime and manga store episode, volume, or chapter
 position on their own lifecycle events. Complete events represent the whole entity and carry no
