@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -63,21 +63,21 @@ Suggested sequence
 
 Derived from the plan §3 done criteria and cross-phase invariants:
 
-- [ ] `workflows` manifest section exists; `activity`/`sleep`/`child` primitives work with
+- [x] `workflows` manifest section exists; `activity`/`sleep`/`child` primitives work with
       deterministic child ids, journal-by-sequence+name, and a structured nondeterminism error
       on divergent replay
-- [ ] An execution pins its script `contentHash` at start and every replay loads exactly that
+- [x] An execution pins its script `contentHash` at start and every replay loads exactly that
       module; a hot swap does not change a running execution's code
-- [ ] Workflow scripts run on the restricted determinism-safe SDK entry point enforced by
+- [x] Workflow scripts run on the restricted determinism-safe SDK entry point enforced by
       capability scoping; workflow/activity kinds have their own kernel-owned limit profile
-- [ ] Media import population/resolution run as plugin workflows end-to-end; the media-specific
+- [x] Media import population/resolution run as plugin workflows end-to-end; the media-specific
       workflow definitions are deleted while the kernel `imports`/`entity-import` frameworks stay;
       keying/idempotency semantics, logical provider provenance, and provider-scoped caches are
       preserved; execution payloads contain exact script IDs and no operation selector
-- [ ] Kernel tests cover replay determinism: induced suspend/replay, nondeterminism detection,
+- [x] Kernel tests cover replay determinism: induced suspend/replay, nondeterminism detection,
       and **module pinning across a hot swap** (the plan calls this one of the most important
       tests in the repo); import e2e suites re-pointed with assertions preserved
-- [ ] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
+- [x] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
       `app-client` check all pass (cross-phase invariant 1)
 
 ## User stories addressed

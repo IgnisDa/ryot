@@ -18,8 +18,8 @@ import type { NormalizedPlugin, PluginScriptMetadata, PluginSource } from "./typ
 import {
 	decodePluginManifest,
 	PluginValidationError,
+	validatePluginExecutableScripts,
 	validatePluginManifestReferences,
-	validatePluginOperationScripts,
 	validatePluginSourcePaths,
 	validateSignalSchemaFormatterReferences,
 } from "./validation";
@@ -29,31 +29,47 @@ const digest = (value: string) => new Bun.CryptoHasher("sha256").update(value).d
 const declaredScriptMetadata = (
 	script: PluginManifest["scripts"][number],
 ): PluginScriptMetadata => {
-	const common = {
-		slug: script.slug,
-		name: script.name,
-		capabilities: script.capabilities,
-		requiredAppConfigKeys: script.requiredAppConfigKeys,
-	};
-	if (script.kind !== "provider") {
-		return script.kind === "script"
-			? {
-					...common,
-					kind: "script",
-					...(script.providerSlug ? { providerSlug: script.providerSlug } : {}),
-				}
-			: { ...common, kind: script.kind };
+	if (script.kind === "script" || script.kind === "activity") {
+		return {
+			slug: script.slug,
+			name: script.name,
+			kind: script.kind,
+			capabilities: script.capabilities,
+			requiredAppConfigKeys: script.requiredAppConfigKeys,
+			...(script.providerSlug ? { providerSlug: script.providerSlug } : {}),
+		};
+	}
+	if (script.kind === "operation" || script.kind === "automation") {
+		return {
+			slug: script.slug,
+			name: script.name,
+			kind: script.kind,
+			capabilities: script.capabilities,
+			requiredAppConfigKeys: script.requiredAppConfigKeys,
+		};
+	}
+	if (script.kind === "workflow") {
+		return {
+			slug: script.slug,
+			name: script.name,
+			kind: "workflow",
+			capabilities: script.capabilities,
+			requiredAppConfigKeys: script.requiredAppConfigKeys,
+		};
 	}
 	return {
-		...common,
+		slug: script.slug,
+		name: script.name,
 		kind: "provider",
+		capabilities: script.capabilities,
 		providerSlug: script.providerSlug,
 		providerOperation: script.providerOperation,
+		requiredAppConfigKeys: script.requiredAppConfigKeys,
 	};
 };
 
 const compiledScriptMetadata = (script: PluginManifest["scripts"][number]) => {
-	if (script.kind === "script") {
+	if (script.kind === "script" || script.kind === "activity") {
 		const { entry: _entry, providerSlug: _providerSlug, ...compiledMetadata } = script;
 		return compiledMetadata;
 	}
@@ -108,7 +124,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 					(plugin) =>
 						validatePluginManifestReferences(plugin.manifest, snapshot.definitions).pipe(
 							Effect.andThen(
-								validateCompiledScripts ? validatePluginOperationScripts(plugin) : Effect.void,
+								validateCompiledScripts ? validatePluginExecutableScripts(plugin) : Effect.void,
 							),
 						),
 					{ discard: true },
@@ -156,7 +172,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 					}
 
 					const compilerScripts = manifest.scripts.map((script) => {
-						if (script.kind === "script") {
+						if (script.kind === "script" || script.kind === "activity") {
 							const { providerSlug, ...genericScript } = script;
 							return providerSlug ? { ...genericScript, providerSlug } : genericScript;
 						}

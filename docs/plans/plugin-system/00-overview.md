@@ -1,8 +1,7 @@
 # Plugin System Rewrite — Overview
 
-Status: in progress. Phases 1 and 2 and Phase 3 steps 0-2 are complete, and Phase 3 step 3's
-mandatory durable-workflow spike is done and signed off; resume by implementing Phase 3 step 3
-against the A-prime design recorded in `03-phase-3-capability-migrations.md` §3.
+Status: in progress. Phases 1 and 2 and Phase 3 steps 0-3 are complete; resume with Phase 3
+step 4, integration and import-source adapters plus filesystem grants.
 Branch: `ultra-rewrite` (all work is local; there is no
 CI and `apps/app-backend` is not deployed anywhere, so there are no release, rollout, or
 data-migration constraints — dev databases are wipeable and the initial drizzle migration may

@@ -221,7 +221,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 				);
 				const completedRun = yield* pollImportRunUntilTerminal(client, created.id);
 
-				expect(completedRun.status).toBe("completed");
+				expect(completedRun).toMatchObject({ status: "completed", errorSummary: null });
 				expect(completedRun.progress).toBe(100);
 
 				// The resolvable episode's progress lands on the episode, never the show.

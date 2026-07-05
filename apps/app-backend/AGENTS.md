@@ -74,7 +74,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 ## Queues
 
 - Do not introduce a third-party job-queue library. Background work uses the durable workflow engine, durable queues, and durable deferred signals.
-- When a workflow runs a child workflow (e.g. an import writing events via `EventCreateWorkflow`), give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends — e.g. an event dispatching a subscription execution — replays the parent, and a random id spawns a new child each replay, looping forever. Match the keying used by `populateMediaEntityGroups` (`imports/media/population-workflow.ts`) and `resolveMediaEntityGroups` (`imports/media/resolution-workflow.ts`).
+- When a workflow runs a child workflow (e.g. an import writing events via `EventCreateWorkflow`), give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends — e.g. an event dispatching a subscription execution — replays the parent, and a random id spawns a new child each replay, looping forever. The current media import examples are the plugin workflow shell in `imports/media/plugin-workflows.ts` and the media plugin workflow body scripts; `docs/effect-workflow-guide.md` owns the detailed keying examples and single-owner audit.
 
 ## Redis
 

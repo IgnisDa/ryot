@@ -34,6 +34,7 @@ const manifest = definePlugin({
 			description: "Resolve test references",
 		},
 	],
+	workflows: [{ slug: "refresh.workflow", scriptSlug: "workflow.test" }],
 	providers: [
 		{
 			slug: "provider.test",
@@ -103,6 +104,23 @@ const manifest = definePlugin({
 			capabilities: [],
 			entry: "scripts/provider-preload.sandbox.ts",
 		},
+		{
+			kind: "workflow",
+			name: "Test workflow",
+			slug: "workflow.test",
+			capabilities: [],
+			requiredAppConfigKeys: [],
+			entry: "scripts/workflow.sandbox.ts",
+		},
+		{
+			kind: "activity",
+			name: "Test activity",
+			slug: "activity.test",
+			providerSlug: "provider.test",
+			capabilities: ["httpCall"],
+			requiredAppConfigKeys: [],
+			entry: "scripts/activity.sandbox.ts",
+		},
 	],
 });
 
@@ -129,10 +147,10 @@ describe("definePlugin", () => {
 			true,
 			true,
 			true,
-			false,
+			true,
 		];
 
-		expect(optionalSections).toEqual([false, true, true, true, false]);
+		expect(optionalSections).toEqual([false, true, true, true, true]);
 	});
 
 	it("decodes the manifest with the canonical Effect schema", () => {
@@ -200,6 +218,49 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				operations: [{ ...operation, description: "" }],
+			}),
+		).toThrow();
+	});
+
+	it("accepts workflow declarations only for capability-free workflow scripts", () => {
+		const workflow = manifest.workflows[0];
+		const workflowScript = manifest.scripts[5];
+		expect(workflowScript.kind).toBe("workflow");
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				workflows: [{ ...workflow, scriptSlug: manifest.scripts[1].slug }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [
+					...manifest.scripts.slice(0, 5),
+					{ ...workflowScript, capabilities: ["httpCall"] },
+				],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				workflows: [...manifest.workflows, { ...workflow }],
+			}),
+		).toThrow();
+	});
+
+	it("accepts capable activities without treating them as workflows", () => {
+		const activity = Schema.decodeUnknownSync(PluginManifest)(manifest).scripts[6];
+		assert(activity);
+		expect(activity).toMatchObject({
+			kind: "activity",
+			capabilities: ["httpCall"],
+			providerSlug: "provider.test",
+		});
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				workflows: [{ slug: "invalid", scriptSlug: activity.slug }],
 			}),
 		).toThrow();
 	});

@@ -73,6 +73,7 @@ export const validatePluginManifestReferences = (
 		const bootSlugs = new Set<string>();
 		const cronSlugs = new Set<string>();
 		const scriptSlugs = new Set<string>();
+		const workflowSlugs = new Set<string>();
 		const operationSlugs = new Set<string>();
 		yield* assertSlug("plugin", manifest.metadata.slug);
 		for (const definition of manifest.entitySchemas) {
@@ -124,6 +125,19 @@ export const validatePluginManifestReferences = (
 			operationSlugs.add(operation.slug);
 			yield* assertReference("Operation", operation.scriptSlug, scriptSlugs);
 		}
+		for (const workflow of manifest.workflows) {
+			yield* assertSlug("workflow", workflow.slug);
+			if (workflowSlugs.has(workflow.slug)) {
+				return yield* fail(`Duplicate workflow slug: ${workflow.slug}`);
+			}
+			workflowSlugs.add(workflow.slug);
+			yield* assertReference("Workflow", workflow.scriptSlug, scriptSlugs);
+			if (manifest.scripts.find(({ slug }) => slug === workflow.scriptSlug)?.kind !== "workflow") {
+				return yield* fail(
+					`Workflow ${workflow.slug} script ${workflow.scriptSlug} must be a workflow script`,
+				);
+			}
+		}
 
 		const eventSchemaSlugs = new Set(
 			Object.values(snapshot.entitySchemas).flatMap((entitySchema) =>
@@ -170,13 +184,11 @@ export const validatePluginManifestReferences = (
 		return yield* Effect.void;
 	});
 
-export const validatePluginOperationScripts = (plugin: {
+export const validatePluginExecutableScripts = (plugin: {
 	readonly manifest: PluginManifestValue;
 	readonly scripts: ReadonlyArray<{
 		readonly slug: string;
-		readonly metadata: {
-			readonly kind?: PluginScript["kind"];
-		};
+		readonly metadata: { readonly kind?: PluginScript["kind"] };
 	}>;
 }) =>
 	Effect.gen(function* () {
@@ -190,6 +202,19 @@ export const validatePluginOperationScripts = (plugin: {
 			if (script.metadata.kind !== "operation") {
 				return yield* fail(
 					`Operation ${operation.slug} script ${operation.scriptSlug} must be an operation script`,
+				);
+			}
+		}
+		for (const workflow of plugin.manifest.workflows) {
+			const script = plugin.scripts.find(({ slug }) => slug === workflow.scriptSlug);
+			if (!script) {
+				return yield* fail(
+					`Workflow ${workflow.slug} references missing compiled script: ${workflow.scriptSlug}`,
+				);
+			}
+			if (script.metadata.kind !== "workflow") {
+				return yield* fail(
+					`Workflow ${workflow.slug} script ${workflow.scriptSlug} must be a workflow script`,
 				);
 			}
 		}

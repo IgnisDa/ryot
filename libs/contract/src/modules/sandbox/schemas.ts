@@ -20,7 +20,9 @@ export const SandboxScriptMetadata = Schema.Struct({
 	slug: Schema.optional(Schema.String),
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	requiredAppConfigKeys: Schema.optional(Schema.Array(Schema.String)),
-	kind: Schema.optional(Schema.Literal("script", "operation", "provider", "automation")),
+	kind: Schema.optional(
+		Schema.Literal("script", "activity", "operation", "workflow", "provider", "automation"),
+	),
 });
 
 export type SandboxScriptMetadata = Schema.Schema.Type<typeof SandboxScriptMetadata>;
@@ -34,7 +36,13 @@ const SandboxScriptManifestFields = {
 
 export const SandboxScriptManifest = Schema.Union(
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("script") }),
+	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("activity") }),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("operation") }),
+	Schema.Struct({
+		...SandboxScriptManifestFields,
+		kind: Schema.Literal("workflow"),
+		capabilities: Schema.Tuple(),
+	}),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("automation") }),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("provider") }),
 ) satisfies Schema.Schema<SdkSandboxScriptManifest>;

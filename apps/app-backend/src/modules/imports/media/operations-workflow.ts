@@ -11,53 +11,13 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { decodeSandboxDriverResult } from "#modules/entity-import/population";
-import { LibraryEntityImportWorkflow } from "#modules/library-membership/library-entity-import-workflow";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { processSandboxExecution } from "#modules/sandbox/durable-queues";
-import {
-	decodeProviderResolveResult,
-	decodeProviderSearchResult,
-} from "#modules/sandbox/provider-contracts";
+import { decodeProviderSearchResult } from "#modules/sandbox/provider-contracts";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { loadOneTimeMediaImportAdapterResult } from "./source-loaders";
 import { MediaImportWorkflowOperations } from "./types-workflow";
-
-const resolveSandboxEntityExternalId = (input: {
-	value: string;
-	userId: UserId;
-	executionId: string;
-	identifierType: string;
-	providerId: SandboxProviderId;
-}) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const pluginRuntime = yield* PluginRuntimeResolver;
-		const scriptId = yield* Activity.make({
-			error: SandboxRunError,
-			success: SandboxScriptId,
-			name: `resolve-provider-resolve-script-${input.executionId}`,
-			execute: runWithDb(pluginRuntime.resolveResolveScript(input.providerId)).pipe(
-				Effect.map(({ id }) => id),
-				Effect.mapError(toSandboxRunError),
-			),
-		});
-		return yield* processSandboxExecution({
-			scriptId,
-			executionId: input.executionId,
-			authority: { type: "user", userId: input.userId },
-			context: { value: input.value, identifierType: input.identifierType },
-		});
-	}).pipe(
-		Effect.mapError(toSandboxRunError),
-		Effect.flatMap((result) =>
-			decodeSandboxDriverResult(
-				result,
-				decodeProviderResolveResult,
-				"Entity resolve script returned an unexpected shape",
-			),
-		),
-	);
 
 const searchSandboxEntities = (input: {
 	query: string;
@@ -130,29 +90,6 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 				),
 			searchEntities: (input) =>
 				searchSandboxEntities(input).pipe(
-					Effect.provideService(DbRunner, runWithDb),
-					Effect.provideService(SandboxRepository, repository),
-					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
-					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-				),
-			importEntity: (input) =>
-				Effect.gen(function* () {
-					const engine = yield* WorkflowEngine;
-					const entity = yield* engine.execute(LibraryEntityImportWorkflow, {
-						executionId: input.executionId,
-						payload: {
-							origin: input.origin,
-							userId: input.userId,
-							providerId: input.providerId,
-							externalId: input.externalId,
-							executionId: input.executionId,
-							entitySchemaSlug: input.entitySchemaSlug,
-						},
-					});
-					return { id: entity.id };
-				}),
-			resolveExternalId: (input) =>
-				resolveSandboxEntityExternalId(input).pipe(
 					Effect.provideService(DbRunner, runWithDb),
 					Effect.provideService(SandboxRepository, repository),
 					Effect.provideService(PluginRuntimeResolver, pluginRuntime),

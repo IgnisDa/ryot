@@ -29,9 +29,9 @@ and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 5 of 9 tasks completed
+**Overall Progress:** 6 of 9 tasks completed
 
-**Current Task:** [Task 06](./06-durable-workflows-media-import.md) (todo)
+**Current Task:** [Task 07](./07-integration-import-adapters.md) (todo)
 
 ### Task List
 
@@ -42,7 +42,7 @@ and you record the choice you make in the plan file.
 | 03  | [Step 1 — Crons & Boot: media-trending + exercises](./03-crons-trending-exercises.md)                       | AFK  | done   |
 | 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md) | AFK  | done   |
 | 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                          | HITL | done   |
-| 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)   | AFK  | todo   |
+| 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)   | AFK  | done   |
 | 07  | [Step 4 — Integration + Import-Source Adapters + FS Grants](./07-integration-import-adapters.md)            | AFK  | todo   |
 | 08  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./08-media-monitoring-and-phase-gate.md)   | AFK  | todo   |
 | 09  | [Codebase Cleanup](./09-codebase-cleanup.md)                                                                | AFK  | todo   |

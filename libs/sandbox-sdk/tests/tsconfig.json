@@ -10,6 +10,7 @@
 		"./host-types.ts",
 		"./provider-types.ts",
 		"./definition-types.ts",
-		"./dependency-types.ts"
+		"./dependency-types.ts",
+		"./workflow-types.ts"
 	]
 }
