@@ -228,7 +228,7 @@ export const compileClientPlugin = ({
 			],
 			(file) => file.name,
 		);
-		const metadata = clientArtifactMetadata(hashedFiles);
+		const metadata = clientArtifactMetadata(pluginName, hashedFiles);
 		const artifact: PluginClientArtifact = {
 			...metadata,
 			files: [
