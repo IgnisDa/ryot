@@ -16,31 +16,18 @@ export const SANDBOX_APPROVED_DEPENDENCIES = [
 		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[0],
 	},
 	{
-		name: "dayjs",
-		version: "1.11.21",
-		runtimeFile: "dayjs-1.11.21.mjs",
-		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[1],
-	},
-	{
 		name: "cheerio",
 		version: "1.2.0",
 		runtimeFile: "cheerio-1.2.0.mjs",
-		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[2],
+		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[1],
 	},
 	{
 		name: "youtubei",
 		version: "17.2.0",
 		runtimeFile: "youtubei-17.2.0.mjs",
-		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[3],
+		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[2],
 	},
 ] as const;
-
-const dayjsPluginRuntime = {
-	version: "1.11.21",
-	name: "dayjs-custom-parse-format",
-	runtimeFile: "dayjs-custom-parse-format-1.11.21.mjs",
-	sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[4],
-} as const;
 
 const legacyYoutubeiRuntime = {
 	version: "17.2.0",
@@ -50,7 +37,7 @@ const legacyYoutubeiRuntime = {
 } as const;
 
 const runtimeModules = [
-	...SANDBOX_APPROVED_DEPENDENCIES.slice(0, 3).map((dependency) =>
+	...SANDBOX_APPROVED_DEPENDENCIES.slice(0, 2).map((dependency) =>
 		Object.assign({}, dependency, {
 			resolveFromSdk: false,
 			entryRelativePath: null,
@@ -62,18 +49,11 @@ const runtimeModules = [
 		}),
 	),
 	{
-		...SANDBOX_APPROVED_DEPENDENCIES[3],
+		...SANDBOX_APPROVED_DEPENDENCIES[2],
 		...legacyYoutubeiRuntime,
 		runtimeSource: null,
 		resolveFromSdk: true,
 		sourceImport: legacyYoutubeiRuntime.packageImport,
-	},
-	{
-		...dayjsPluginRuntime,
-		runtimeSource: null,
-		resolveFromSdk: false,
-		entryRelativePath: null,
-		sourceImport: dayjsPluginRuntime.sdkImport,
 	},
 ] as const;
 

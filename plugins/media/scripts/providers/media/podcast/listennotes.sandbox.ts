@@ -1,7 +1,6 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { trimmedString } from "../../../script-helpers/records";
@@ -38,15 +37,21 @@ const getPublishYearFromTimestamp = (value: unknown) => {
 	if (typeof value !== "number" || !Number.isFinite(value)) {
 		return null;
 	}
-	const parsed = dayjs(value);
-	return parsed.isValid() ? Number(parsed.toISOString().slice(0, 4)) : null;
+	const parsed = DateTime.make(value);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.toDateUtc(parsed.value).getFullYear();
 };
 const getIsoDateFromTimestamp = (value: unknown) => {
 	if (typeof value !== "number" || !Number.isFinite(value)) {
 		return null;
 	}
-	const parsed = dayjs(value);
-	return parsed.isValid() ? parsed.toISOString().slice(0, 10) : null;
+	const parsed = DateTime.make(value);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.formatIsoDateUtc(parsed.value);
 };
 const getSourceUrl = (title: string, externalId: string) =>
 	`https://www.listennotes.com/podcasts/${trimmedString(title)}-${externalId}`;

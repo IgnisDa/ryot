@@ -1,6 +1,5 @@
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { cleanHtmlDescription } from "../../script-helpers/clean-html-description";
@@ -141,10 +140,10 @@ const formatFuzzyDate = (value: unknown) => {
 	if (yearValue === null || monthValue === null || dayValue === null) {
 		return null;
 	}
-	const parsed = dayjs(
+	const dt = DateTime.unsafeFromDate(
 		new Date(Date.UTC(Math.trunc(yearValue), Math.trunc(monthValue) - 1, Math.trunc(dayValue))),
 	);
-	return parsed.isValid() ? parsed.format("YYYY-MM-DD") : null;
+	return DateTime.formatIsoDateUtc(dt);
 };
 
 type StaffPages = {

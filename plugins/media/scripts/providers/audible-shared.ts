@@ -1,6 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import dayjs from "@ryot/sandbox-sdk/dayjs";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 
 import { parseJsonResponse } from "../script-helpers/records";
 
@@ -21,14 +20,20 @@ export const parseReleaseYear = (releaseDate: unknown) => {
 	if (typeof releaseDate !== "string" || !releaseDate.trim()) {
 		return null;
 	}
-	const parsed = dayjs(releaseDate.trim());
-	return parsed.isValid() ? parsed.year() : null;
+	const parsed = DateTime.make(releaseDate.trim());
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.toDateUtc(parsed.value).getFullYear();
 };
 
 export const parseReleaseDate = (releaseDate: unknown) => {
 	if (typeof releaseDate !== "string" || !releaseDate.trim()) {
 		return null;
 	}
-	const parsed = dayjs(releaseDate.trim());
-	return parsed.isValid() ? (parsed.toISOString().split("T")[0] ?? null) : null;
+	const parsed = DateTime.make(releaseDate.trim());
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.formatIsoDateUtc(parsed.value);
 };

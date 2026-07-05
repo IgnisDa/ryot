@@ -1,7 +1,6 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { toTitleCase } from "../../../script-helpers/title-case";
@@ -65,8 +64,11 @@ const parsePublishYear = (publishedDate: unknown) => {
 	if (typeof publishedDate !== "string" || !publishedDate.trim()) {
 		return null;
 	}
-	const parsed = dayjs(publishedDate.trim());
-	return parsed.isValid() ? parsed.year() : null;
+	const parsed = DateTime.make(publishedDate.trim());
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.toDateUtc(parsed.value).getFullYear();
 };
 
 const IMAGE_LINK_KEYS = [
