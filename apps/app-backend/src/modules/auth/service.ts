@@ -1,5 +1,6 @@
 import { apiKey } from "@better-auth/api-key";
 import { runWithAdapter } from "@better-auth/core/context";
+import { expo } from "@better-auth/expo";
 import { redisStorage } from "@better-auth/redis-storage";
 import { HttpServerRequest } from "@effect/platform";
 import {
@@ -73,11 +74,16 @@ const makeAuthInstance = (args: {
 		baseURL: args.config.frontendUrl,
 		secondaryStorage: redisStorage({ client: args.redis }),
 		secret: Redacted.value(args.config.server.adminAccessToken),
-		trustedOrigins: ["ryot://", args.config.frontendUrl, ...corsOrigins],
 		database: drizzleAdapter(args.db, { provider: "pg", schema }),
 		disabledPaths: args.config.users.disableLocalAuth ? ["/sign-in/email"] : [],
+		trustedOrigins: [
+			"ryot://",
+			args.config.frontendUrl,
+			...corsOrigins,
+			...(args.config.nodeEnv === "development" ? ["exp://"] : []),
+		],
 		account: {
-			// TEMP(9179): Expo/native OAuth state cookie round-trip fails here.
+			// TODO: Expo/native OAuth state cookie round-trip fails here.
 			// https://github.com/better-auth/better-auth/issues/9179
 			skipStateCookieCheck: true,
 			accountLinking: { enabled: false },
@@ -148,6 +154,7 @@ const makeAuthInstance = (args: {
 			},
 		},
 		plugins: [
+			expo(),
 			twoFactor({ allowPasswordless: true }),
 			apiKey({
 				fallbackToDatabase: true,
