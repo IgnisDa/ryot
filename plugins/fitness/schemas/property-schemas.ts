@@ -1,55 +1,5 @@
+import { imagesField, videosField } from "@ryot/contract/schema/core";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
-
-const entityAssetsProperties: Readonly<Record<string, AppPropertyDefinition>> = {
-	s3Images: {
-		type: "array",
-		label: "S3 Images",
-		description: "S3 image keys",
-		validation: { required: true },
-		items: { type: "string", label: "Item", description: "Item" },
-	},
-	s3Videos: {
-		type: "array",
-		label: "S3 Videos",
-		description: "S3 video keys",
-		validation: { required: true },
-		items: { type: "string", label: "Item", description: "Item" },
-	},
-	remoteImages: {
-		type: "array",
-		label: "Remote Images",
-		validation: { required: true },
-		description: "Remote image URLs",
-		items: { type: "string", label: "Item", description: "Item" },
-	},
-	remoteVideos: {
-		type: "array",
-		label: "Remote Videos",
-		validation: { required: true },
-		description: "Remote hosted videos",
-		items: {
-			label: "Item",
-			type: "object",
-			description: "Item",
-			unknownKeys: "strict",
-			properties: {
-				url: {
-					label: "Url",
-					type: "string",
-					validation: { required: true },
-					description: "URL of the remote video",
-				},
-				source: {
-					type: "enum",
-					label: "Source",
-					validation: { required: true },
-					options: ["youtube", "dailymotion"],
-					description: "Video hosting platform",
-				},
-			},
-		},
-	},
-};
 
 const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	color: {
@@ -69,53 +19,8 @@ const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefiniti
 
 export const exercisePropertiesSchema: AppSchema = {
 	fields: {
-		images: {
-			type: "array",
-			label: "Images",
-			description: "Cover and demonstration images for this exercise",
-			items: {
-				label: "Item",
-				type: "object",
-				description: "Item",
-				unknownKeys: "strict",
-				properties: {
-					key: { type: "string", label: "Key", description: "Key" },
-					url: { type: "string", label: "Url", description: "Url" },
-					type: {
-						type: "enum",
-						label: "Type",
-						description: "Type",
-						options: ["s3", "remote"],
-						validation: { required: true },
-					},
-				},
-			},
-		},
-		muscles: {
-			label: "Muscles",
-			type: "enum-array",
-			description: "Primary and secondary muscle groups targeted by this exercise",
-			options: [
-				"lats",
-				"neck",
-				"traps",
-				"chest",
-				"biceps",
-				"calves",
-				"glutes",
-				"triceps",
-				"forearms",
-				"abductors",
-				"adductors",
-				"shoulders",
-				"lower_back",
-				"abdominals",
-				"hamstrings",
-				"quadriceps",
-				"middle_back",
-			],
-			validation: { required: true },
-		},
+		videos: videosField("Demonstration videos for this exercise"),
+		images: imagesField("Cover and demonstration images for this exercise"),
 		instructions: {
 			type: "array",
 			label: "Instructions",
@@ -173,22 +78,45 @@ export const exercisePropertiesSchema: AppSchema = {
 				"medicine_ball",
 			],
 		},
+		muscles: {
+			label: "Muscles",
+			type: "enum-array",
+			validation: { required: true },
+			description: "Primary and secondary muscle groups targeted by this exercise",
+			options: [
+				"lats",
+				"neck",
+				"traps",
+				"chest",
+				"biceps",
+				"calves",
+				"glutes",
+				"triceps",
+				"forearms",
+				"abductors",
+				"adductors",
+				"shoulders",
+				"lower_back",
+				"abdominals",
+				"hamstrings",
+				"quadriceps",
+				"middle_back",
+			],
+		},
 	},
 };
 
 export const workoutSetPropertiesSchema: AppSchema = {
 	fields: {
+		images: imagesField("Images attached to this exercise in the workout"),
+		videos: videosField("Videos attached to this exercise in the workout"),
 		pace: { type: "number", label: "Pace", description: "Pace calculated for this set" },
 		note: { type: "string", label: "Note", description: "Optional note specific to this set" },
-		duration: {
-			type: "number",
-			label: "Duration",
-			description: "Duration of this set in seconds",
-		},
 		oneRm: { type: "number", label: "One Rm", description: "One-rep max calculated for this set" },
+		duration: { type: "number", label: "Duration", description: "Duration of this set in seconds" },
 		reps: {
-			type: "number",
 			label: "Reps",
+			type: "number",
 			description: "Number of repetitions performed in this set",
 		},
 		volume: {
@@ -230,8 +158,8 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			description: "Date and time this set was confirmed by the user",
 		},
 		rpe: {
-			type: "integer",
 			label: "Rpe",
+			type: "integer",
 			validation: { minimum: 0, maximum: 10 },
 			description: "Rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 		},
@@ -247,6 +175,11 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			options: ["metric", "imperial"],
 			description: "Unit system used for this exercise in the workout",
 		},
+		restTimerStartedAt: {
+			type: "datetime",
+			label: "Rest Timer Started At",
+			description: "Date and time the rest timer was started after this set",
+		},
 		personalBests: {
 			type: "array",
 			label: "Personal Bests",
@@ -258,34 +191,17 @@ export const workoutSetPropertiesSchema: AppSchema = {
 				options: ["time", "pace", "reps", "one_rm", "volume", "weight", "distance"],
 			},
 		},
-		exerciseAssets: {
-			type: "object",
-			unknownKeys: "strict",
-			label: "Exercise Assets",
-			properties: entityAssetsProperties,
-			description: "Media assets attached to this exercise in the workout",
-		},
-		restTimerStartedAt: {
-			type: "datetime",
-			label: "Rest Timer Started At",
-			description: "Date and time the rest timer was started after this set",
-		},
 	},
 };
 
 export const workoutPropertiesSchema: AppSchema = {
 	fields: {
+		images: imagesField("Images attached to this workout"),
+		videos: videosField("Videos attached to this workout"),
 		startedAt: {
 			type: "datetime",
 			label: "Started At",
 			description: "Date and time this workout session began",
-		},
-		assets: {
-			type: "object",
-			label: "Assets",
-			unknownKeys: "strict",
-			properties: entityAssetsProperties,
-			description: "Media assets attached to this workout",
 		},
 		comment: {
 			type: "string",
@@ -307,8 +223,8 @@ export const workoutPropertiesSchema: AppSchema = {
 			label: "Supersets",
 			description: "Superset groupings for this workout",
 			items: {
-				type: "object",
 				label: "Item",
+				type: "object",
 				unknownKeys: "strict",
 				properties: workoutSupersetItemProperties,
 				description: "Superset grouping within a workout or template",
@@ -318,11 +234,7 @@ export const workoutPropertiesSchema: AppSchema = {
 };
 
 const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinition>> = {
-	note: {
-		label: "Note",
-		type: "string",
-		description: "Optional note specific to this set",
-	},
+	note: { label: "Note", type: "string", description: "Optional note specific to this set" },
 	reps: {
 		label: "Reps",
 		type: "number",
@@ -365,6 +277,8 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 };
 
 const workoutTemplateExerciseProperties: Readonly<Record<string, AppPropertyDefinition>> = {
+	images: imagesField("Images attached to this exercise in the template"),
+	videos: videosField("Videos attached to this exercise in the template"),
 	exerciseId: {
 		type: "string",
 		label: "Exercise Id",
@@ -401,17 +315,12 @@ const workoutTemplateExerciseProperties: Readonly<Record<string, AppPropertyDefi
 
 export const workoutTemplatePropertiesSchema: AppSchema = {
 	fields: {
+		images: imagesField("Images attached to this template"),
+		videos: videosField("Videos attached to this template"),
 		comment: {
 			type: "string",
 			label: "Comment",
 			description: "Optional notes about this workout template",
-		},
-		assets: {
-			type: "object",
-			label: "Assets",
-			unknownKeys: "strict",
-			properties: entityAssetsProperties,
-			description: "Media assets attached to this template",
 		},
 		exercises: {
 			type: "array",
@@ -457,8 +366,8 @@ export const measurementPropertiesSchema: AppSchema = {
 			label: "Statistics",
 			description: "Array of measurement statistics",
 			items: {
-				type: "object",
 				label: "Item",
+				type: "object",
 				description: "Item",
 				properties: {
 					value: {
@@ -474,8 +383,8 @@ export const measurementPropertiesSchema: AppSchema = {
 						validation: { required: true },
 					},
 					key: {
-						type: "string",
 						label: "Key",
+						type: "string",
 						description: "Key",
 						validation: { required: true },
 					},
