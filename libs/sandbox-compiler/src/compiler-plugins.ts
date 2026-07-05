@@ -5,10 +5,27 @@ import {
 	type CompiledBuiltInSandboxEntry,
 } from "./compiler-builtins";
 import { sandboxCompilationFailure, sandboxCompilerDiagnostic } from "./compiler-diagnostics";
+import type { SandboxTypeScriptSources } from "./compiler-project";
 
 export type PluginSandboxScriptEntry = { readonly entry: string };
 
 export type CompiledPluginSandboxEntry = CompiledBuiltInSandboxEntry;
+
+const sortedEntries = (scripts: ReadonlyArray<PluginSandboxScriptEntry>) =>
+	scripts.map(({ entry }) => entry).sort();
+
+export const compilePluginSandboxSourceEntries = (
+	files: SandboxTypeScriptSources["files"],
+	scripts: ReadonlyArray<PluginSandboxScriptEntry>,
+) => {
+	const entries = sortedEntries(scripts);
+	if (new Set(entries).size !== entries.length) {
+		return sandboxCompilationFailure([
+			sandboxCompilerDiagnostic("RYOT_PLUGIN_ENTRY", "Plugin script entries must be unique"),
+		]);
+	}
+	return compileSandboxPackageEntries({ entry: entries[0] ?? "", files }, entries);
+};
 
 const loadPluginSources = (packageRoot: string) =>
 	Effect.tryPromise({
@@ -36,12 +53,6 @@ export const compilePluginSandboxEntries = (
 	scripts: ReadonlyArray<PluginSandboxScriptEntry>,
 ) =>
 	Effect.gen(function* () {
-		const entries = scripts.map(({ entry }) => entry).sort();
-		if (new Set(entries).size !== entries.length) {
-			return yield* sandboxCompilationFailure([
-				sandboxCompilerDiagnostic("RYOT_PLUGIN_ENTRY", "Plugin script entries must be unique"),
-			]);
-		}
 		const files = yield* loadPluginSources(packageRoot);
-		return yield* compileSandboxPackageEntries({ entry: entries[0] ?? "", files }, entries);
+		return yield* compilePluginSandboxSourceEntries(files, scripts);
 	});

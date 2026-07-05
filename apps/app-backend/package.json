@@ -26,6 +26,7 @@
 		"@effect/workflow": "0.18.2",
 		"@opentelemetry/api": "1.9.1",
 		"@ryot/contract": "workspace:*",
+		"@ryot/plugin-kit": "workspace:*",
 		"@ryot/query-engine": "workspace:*",
 		"@ryot/sandbox-compiler": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
