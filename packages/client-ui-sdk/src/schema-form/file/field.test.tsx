@@ -127,6 +127,27 @@ describe("SchemaFileField", () => {
 		expect(upload.requests).toEqual([]);
 	});
 
+	it("clears the value when the uploaded file is removed", async () => {
+		const tokens: (string | undefined)[] = [];
+		const upload = deferredUpload();
+		render(
+			<FileFieldHarness
+				uploadFile={upload.uploadFile}
+				onChange={(token) => tokens.push(token)}
+				pickFile={pickingFile(candidate("trakt.zip", 2048))}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Choose a file for Archive" }));
+		await screen.findByLabelText("Uploading Archive");
+		upload.resolve(0, { kind: "uploaded", token: "token-1" });
+		await screen.findByText("2.0 KB · Ready to import");
+		fireEvent.click(screen.getByRole("button", { name: "Remove Archive file" }));
+
+		expect(screen.getByRole("button", { name: "Choose a file for Archive" })).toBeTruthy();
+		expect(tokens).toEqual([undefined, "token-1", undefined]);
+	});
+
 	it("ignores a stale attempt's completion after a replacement selection", async () => {
 		const tokens: (string | undefined)[] = [];
 		const upload = deferredUpload();
@@ -157,5 +178,49 @@ describe("SchemaFileField", () => {
 		expect(await screen.findByText("2.0 KB · Ready to import")).toBeTruthy();
 		expect(screen.getByText("second.zip")).toBeTruthy();
 		expect(tokens).toEqual([undefined, undefined, undefined, "current-token"]);
+	});
+
+	it("lets only the latest overlapping picker result start an upload", async () => {
+		const picks: ((outcome: Awaited<ReturnType<SchemaFilePicker>>) => void)[] = [];
+		const uploaded: string[] = [];
+		render(
+			<FileFieldHarness
+				onChange={() => undefined}
+				pickFile={() => new Promise((resolve) => picks.push(resolve))}
+				uploadFile={(request) => {
+					uploaded.push(request.fileName);
+					return Promise.resolve({ kind: "uploaded", token: request.fileName });
+				}}
+			/>,
+		);
+
+		const choose = screen.getByRole("button", { name: "Choose a file for Archive" });
+		fireEvent.click(choose);
+		fireEvent.click(choose);
+		picks[0]?.({ kind: "picked", file: candidate("stale.zip", 100) });
+		picks[1]?.({ kind: "picked", file: candidate("latest.zip", 200) });
+
+		expect(await screen.findByText("latest.zip")).toBeTruthy();
+		expect(uploaded).toEqual(["latest.zip"]);
+	});
+
+	it("does not publish upload completion after unmount", async () => {
+		const tokens: (string | undefined)[] = [];
+		const upload = deferredUpload();
+		const rendered = render(
+			<FileFieldHarness
+				uploadFile={upload.uploadFile}
+				onChange={(token) => tokens.push(token)}
+				pickFile={pickingFile(candidate("trakt.zip", 2048))}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Choose a file for Archive" }));
+		await screen.findByLabelText("Uploading Archive");
+		rendered.unmount();
+		upload.resolve(0, { kind: "uploaded", token: "late-token" });
+		await Promise.resolve();
+
+		expect(tokens).toEqual([undefined]);
 	});
 });

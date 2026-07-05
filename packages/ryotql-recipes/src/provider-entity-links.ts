@@ -3,7 +3,6 @@ import {
 	type EntitySchemaSlug,
 	type SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
-import type { Recipe } from "@ryot-app/ryotql";
 import {
 	and,
 	ascending,
@@ -67,5 +66,3 @@ export const providerEntityLinksRecipe = defineRecipe(
 		};
 	},
 );
-
-export type ProviderEntityLinksResult = Recipe.Success<typeof providerEntityLinksRecipe>;
