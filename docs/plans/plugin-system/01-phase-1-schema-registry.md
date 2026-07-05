@@ -166,9 +166,10 @@ phase gate.
 
 ## 6. E2e suite migration
 
-- Delete: `tests/src/tests/trackers/` CRUD suites (5 files), user-created-schema tests in
-  `entity-schemas/` and `event-schemas/`/`relationship-schemas/` (keep provider
-  search/import tests that live in `entity-schemas/` — they test surviving behavior; move or
+- Delete: the former tracker CRUD suites (5 files), user-created-schema tests in
+  `tests/src/tests/kernel/entity-schemas/`, `tests/src/tests/kernel/event-schemas/`, and
+  `tests/src/tests/kernel/relationships/` (keep provider search/import tests in
+  `tests/src/tests/kernel/entity-schemas/` — they test surviving behavior; move or
   rename the file if its name becomes misleading).
 - Re-plumb (assertions preserved): the 15 files using `getBuiltinEntitySchemaId`/
   `linkToEntitySchemaId` fixtures switch to slugs; `fixtures/entity-schemas.ts`,

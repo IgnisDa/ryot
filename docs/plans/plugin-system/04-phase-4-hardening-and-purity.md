@@ -265,6 +265,16 @@ correction changes no schema or behavior and is the only domain move included in
   every affected backup or dependent file during the documentation/cleanup pass. Its required
   contract media types receive a narrow, documented purity exception until the backup is removed.
 
+Task 16 implementation record (2026-07-31): e2e suites now live under `kernel`, `plugins/media`,
+and `plugins/fitness`. Mixed import and integration files were split by `describe` ownership with
+test bodies and assertions preserved. The tree changed from 80 files and 514 syntax-counted tests to
+83 files and the same 514 tests; the three additional files result from those ownership splits. Final
+ownership counts are 60 kernel files, 18 media files, and 5 fitness files. Discovery, aliases, and
+lint globs continue to cover the reorganized tree. Operational and live gates remain standalone at
+their new media paths. Backend check and all 139 backend test files passed. All 81 standard e2e files
+and 511 tests passed through individual file runs; the opt-in operational and live files remained
+separate and skipped for the standard gate.
+
 ## 5. Deliberately deferred (record here, do not build)
 
 - **User-level plugin installation and arbitrary source upload** — Phase 5 owns package versus

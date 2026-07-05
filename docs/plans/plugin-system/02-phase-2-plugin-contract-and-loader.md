@@ -192,7 +192,7 @@ protects live data under hot swap.
   as the per-user workspace state (`plugin_state`, §9). Re-point
   `NotificationSubscriptionsService`, the `automations` rule
   endpoints (surface preserved — plumbing only), `ensureDefaultRules`, and the
-  `tests/src/tests/automations/notification-subscriptions.test.ts` suite (assertions
+  `tests/src/tests/kernel/automations/notification-subscriptions.test.ts` suite (assertions
   preserved).
 
 The state table stores no script slug — persisting a definition-derived slug would re-create the
@@ -303,7 +303,7 @@ persistent user/script partition. Userless kernel executions use their own parti
 security-preserving interpretation of the decided per-executing-user isolation rule, not a
 continuation of isolation that depended on script ownership.
 
-- **E2e**: `tests/src/tests/sandbox/` — port execution-semantics/limits/fault coverage to
+- **E2e**: `tests/src/tests/kernel/sandbox/` — port execution-semantics/limits/fault coverage to
   scripts installed via `installTestPlugin`; delete authoring-CRUD coverage. Any remaining
   fixture that compiles "through the authenticated script-creation API" moves to the install
   path.
