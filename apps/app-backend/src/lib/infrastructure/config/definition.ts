@@ -105,7 +105,7 @@ const sandbox = group(
 		denoDir: stringField({
 			label: "Deno directory",
 			envKey: "SANDBOX_DENO_DIR",
-			defaultValue: "/tmp/ryot-sandbox",
+			defaultValue: "/home/ryot/tmp",
 			description: "Directory used for the local sandbox dependency runtime and Deno cache",
 		}),
 		jobIdSecret: stringField({
@@ -310,5 +310,5 @@ export const appConfigDefinition = defineConfig(
 );
 
 export const sandboxDenoDirConfig = Config.string("SANDBOX_DENO_DIR").pipe(
-	Config.withDefault("/tmp/ryot-sandbox"),
+	Config.withDefault("/home/ryot/tmp"),
 );
