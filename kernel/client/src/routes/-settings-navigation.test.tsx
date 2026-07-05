@@ -584,9 +584,8 @@ describe("preferences settings", () => {
 		fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
 		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
-		expect(
-			(await screen.findByRole("button", { name: "Saving..." })).hasAttribute("disabled"),
-		).toBe(true);
+		const savingButton = await screen.findByRole("button", { name: "Saving..." });
+		expect(savingButton.hasAttribute("disabled")).toBe(true);
 		expect(screen.getByRole("switch", { name: "Show NSFW content" }).hasAttribute("disabled")).toBe(
 			true,
 		);
