@@ -6,6 +6,7 @@ import { dbEffect, DbService } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginLoader } from "#modules/plugins/loader";
 import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
+import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
 
 import {
 	buildCollectionEntityMigrationSql,
@@ -62,7 +63,10 @@ import {
 	legacyBootstrapGate,
 	withRawPgClient,
 } from "./shared";
-import { buildLegacyUserAuthMigrationSql } from "./user-auth-mapping";
+import {
+	buildLegacyUserAuthMigrationSql,
+	buildLegacyUserLibraryMigrationSql,
+} from "./user-auth-mapping";
 import { buildMeasurementMigrationSql } from "./user-measurement-mapping";
 import { buildUserToEntityInLibraryMigrationSql } from "./user-to-entity-mapping";
 import {
@@ -356,6 +360,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const migratedUserRows = yield* withRawPgClient((client) =>
 		client
 			.query(buildLegacyUserAuthMigrationSql())
+			.then(() => client.query(buildLegacyUserLibraryMigrationSql(libraryEntitySchemaSlug)))
 			.then(() =>
 				client.query<{ id: string }>(`SELECT "id" FROM "old_user" ORDER BY "created_on", "id"`),
 			)
@@ -370,6 +375,10 @@ export const migrateLegacyTables = Effect.gen(function* () {
 
 		for (const user of migratedUserRows) {
 			yield* bootstrapNewUser(user.id).pipe(
+				Effect.provideService(PluginUserBootstrapDispatcher, {
+					_tag: "PluginUserBootstrapDispatcher",
+					dispatchAll: () => Effect.sync((): undefined => undefined),
+				}),
 				Effect.tapError((error) =>
 					Effect.logError("legacy user bootstrap failed", error).pipe(
 						Effect.annotateLogs({ userId: user.id }),

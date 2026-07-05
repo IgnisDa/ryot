@@ -75,7 +75,10 @@ type BunRequestInit = RequestInit & { tls: { rejectUnauthorized: boolean } };
 const insecureRequestInit: BunRequestInit = { tls: { rejectUnauthorized: false } };
 const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
 const systemActivityHostFunctions = new Set<string>(["executeQueryEngine"]);
-const userAuthorityHostFunctions = new Set<string>(["changeUserRelationships"]);
+const userAuthorityHostFunctions = new Set<string>([
+	"ensureUserEntities",
+	"changeUserRelationships",
+]);
 const automationHostFunctions = new Set<string>(AUTOMATION_SANDBOX_HOST_CAPABILITIES);
 const systemCronHostFunctions = new Set<string>(SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES);
 
