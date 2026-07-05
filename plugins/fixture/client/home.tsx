@@ -1,4 +1,4 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
+import { RyotClientError, type TemporaryUploadToken } from "@ryot-app/client-sdk";
 import { Schema } from "@ryot-app/client-sdk/effect";
 import { PluginLink } from "@ryot-app/client-sdk/plugin";
 import {
@@ -39,6 +39,21 @@ const greetingMutation = createRyotMutation<GreetingInput, typeof Greeting.Type>
 	({ client, input }) => client.operations.invoke({ slug: "greet", output: Greeting, input }),
 );
 
+const uploadTones = {
+	error: "error",
+	idle: "pending",
+	pending: "pending",
+	success: "success",
+} as const;
+
+const uploadMutation = createRyotMutation<File, TemporaryUploadToken>(({ client, input }) =>
+	client.uploads.uploadTemporary({
+		source: input,
+		fileName: input.name,
+		contentType: input.type,
+	}),
+);
+
 export const Home = () => {
 	const ryot = useRyot();
 	const theme = useRyotTheme();
@@ -46,6 +61,8 @@ export const Home = () => {
 	const greeting = useRyotMutation(greetingMutation);
 	const [requested, setRequested] = useState("Ryot");
 	const [shouldCrash, setShouldCrash] = useState(false);
+	const upload = useRyotMutation(uploadMutation);
+	const [uploadName, setUploadName] = useState("");
 	const catalog = useRyotQuery(fixtureClientPluginCatalogQuery);
 	const refused =
 		greeting.status === "error" &&
@@ -67,6 +84,15 @@ export const Home = () => {
 			: "Greetings are unavailable right now.";
 	} else if (greeting.status === "success") {
 		greetingMessage = greeting.data?.greeting ?? "";
+	}
+
+	let uploadMessage = "Choose a file to upload.";
+	if (upload.status === "pending") {
+		uploadMessage = `Uploading ${uploadName}...`;
+	} else if (upload.status === "error") {
+		uploadMessage = "The upload failed.";
+	} else if (upload.status === "success") {
+		uploadMessage = `Uploaded ${uploadName} as token ${upload.data?.token ?? ""}`;
 	}
 
 	if (shouldCrash) {
@@ -162,6 +188,30 @@ export const Home = () => {
 					<Button variant="text" onClick={() => greeting.mutate({ name: Number.NaN })}>
 						Fetch with invalid payload
 					</Button>
+				</section>
+				<section
+					className="flex flex-col items-center gap-3"
+					aria-labelledby="fixture-upload-title"
+				>
+					<h2 id="fixture-upload-title" className="font-display text-lg">
+						Temporary upload
+					</h2>
+					<StatusMessage tone={uploadTones[upload.status]}>{uploadMessage}</StatusMessage>
+					<label className="flex flex-col items-center gap-1">
+						<span>Choose a file to upload</span>
+						<input
+							type="file"
+							accept="text/csv"
+							onChange={(event) => {
+								const file = event.target.files?.[0];
+								if (file === undefined) {
+									return;
+								}
+								setUploadName(file.name);
+								upload.mutate(file);
+							}}
+						/>
+					</label>
 				</section>
 				<PluginLink to={{ kind: "route", path: "/details/item-1", search: { tab: "stats" } }}>
 					Item 1 details

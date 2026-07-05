@@ -16,6 +16,7 @@ import {
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeScreenState,
+	type PluginBridgeUploadRequest,
 	type PluginClientArtifactMetadata,
 	type PluginThemeSnapshot,
 	type RyotClientErrorReason,
@@ -33,6 +34,7 @@ import {
 	type RyotNavigationTarget,
 	type EntityInterest,
 	type EntityUpdate,
+	type TemporaryUploadRequest,
 } from "./index";
 import type { PluginNavigationController, PluginNavigationSnapshot } from "./navigation/store";
 
@@ -98,6 +100,7 @@ export const createPluginRuntime = (
 	const operations = new Map<string, PendingCall>();
 	const queries = new Map<string, PendingCall>();
 	const assets = new Map<string, PendingCall>();
+	const uploads = new Map<string, PendingCall>();
 	const themeListeners = new Set<() => void>();
 	const interestOwners = new Set<{
 		interest: EntityInterest;
@@ -129,10 +132,16 @@ export const createPluginRuntime = (
 	};
 
 	const rejectPending = (reason: RyotClientErrorReason) => {
-		const pendingCalls = [...operations.values(), ...queries.values(), ...assets.values()];
+		const pendingCalls = [
+			...operations.values(),
+			...queries.values(),
+			...assets.values(),
+			...uploads.values(),
+		];
 		operations.clear();
 		queries.clear();
 		assets.clear();
+		uploads.clear();
 		for (const pending of pendingCalls) {
 			pending.cleanup?.();
 			pending.reject(new RyotClientError(reason));
@@ -178,7 +187,10 @@ export const createPluginRuntime = (
 	};
 
 	const admit = (pending: Map<string, PendingCall>, requestId: string, call: PendingCall) => {
-		if (operations.size + queries.size + assets.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
+		if (
+			operations.size + queries.size + assets.size + uploads.size >=
+			CLIENT_BRIDGE_MAX_PENDING_REQUESTS
+		) {
 			finish("failed", "protocol", true);
 			call.reject(new RyotClientError("protocol"));
 			return false;
@@ -280,6 +292,26 @@ export const createPluginRuntime = (
 			} satisfies PluginBridgeOperationRequest);
 		});
 
+	const uploadTemporary = (request: TemporaryUploadRequest) =>
+		new Promise<unknown>((resolve, reject) => {
+			if (state !== "active") {
+				reject(new RyotClientError(terminalReason ?? "transport"));
+				return;
+			}
+			nextRequestId += 1;
+			const requestId = `upload-${nextRequestId}`;
+			if (!admit(uploads, requestId, { reject, resolve })) {
+				return;
+			}
+			post({
+				requestId,
+				source: request.source,
+				fileName: request.fileName,
+				type: "upload-request",
+				contentType: request.contentType,
+			} satisfies PluginBridgeUploadRequest);
+		});
+
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
 		if (state !== "active") {
 			throw new RyotClientError(terminalReason ?? "transport");
@@ -301,14 +333,12 @@ export const createPluginRuntime = (
 		}
 	};
 
-	// TODO: `uploadTemporary` is intentionally omitted here until the plugin bridge can carry
-	// binary payloads. Every bridge message is validated against a `JsonValue` payload schema,
-	// so a `Blob` cannot cross the port and a plugin calling it gets `unsupported-capability`.
 	const client = createRyotClient({
 		query,
 		navigate,
 		resolveAssets,
 		invokeOperation,
+		uploadTemporary,
 		theme: {
 			getSnapshot: () => {
 				if (state === "closing" || state === "failed" || state === "disposed") {
@@ -435,6 +465,18 @@ export const createPluginRuntime = (
 						pending.reject(new RyotClientError(result.reason));
 					} else {
 						pending.resolve(result.value);
+					}
+				}),
+				Match.when({ type: "upload-result" }, (result) => {
+					const pending = uploads.get(result.requestId);
+					if (!pending || !uploads.delete(result.requestId)) {
+						return;
+					}
+					pending.cleanup?.();
+					if (result.outcome === "failure") {
+						pending.reject(new RyotClientError(result.reason));
+					} else {
+						pending.resolve(result.token);
 					}
 				}),
 				Match.when({ type: "asset-result" }, (result) => {
