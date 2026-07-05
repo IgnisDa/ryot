@@ -1,4 +1,5 @@
 import type { EntityUpdate } from "./index";
+import type { RyotSchedule } from "./schedule";
 
 export type EntitySettleReason = "populating" | "translating";
 
@@ -7,12 +8,12 @@ export type EntitySettle = ReadonlyMap<string, EntitySettleReason>;
 const settleReason = (reason: EntityUpdate["reason"]): EntitySettleReason =>
 	reason === "translated" ? "translating" : "populating";
 
-export const createSettleTracker = (durationMs: number) => {
+export const createSettleTracker = (schedule: RyotSchedule, durationMs: number) => {
 	let disposed = false;
 	let visible: EntitySettle = new Map();
 	let staged = new Map<string, EntitySettleReason>();
 	const listeners = new Set<() => void>();
-	const timers = new Map<string, ReturnType<typeof setTimeout>>();
+	const timers = new Map<string, () => void>();
 	const emit = () => {
 		for (const listener of listeners) {
 			listener();
@@ -42,10 +43,10 @@ export const createSettleTracker = (durationMs: number) => {
 			const next = new Map(visible);
 			for (const [entityId, reason] of staged) {
 				next.set(entityId, reason);
-				clearTimeout(timers.get(entityId));
+				timers.get(entityId)?.();
 				timers.set(
 					entityId,
-					setTimeout(() => expire(entityId), durationMs),
+					schedule.after(durationMs, () => expire(entityId)),
 				);
 			}
 			staged = new Map();
@@ -63,8 +64,8 @@ export const createSettleTracker = (durationMs: number) => {
 			staged = new Map();
 			visible = new Map();
 			listeners.clear();
-			for (const timer of timers.values()) {
-				clearTimeout(timer);
+			for (const cancel of timers.values()) {
+				cancel();
 			}
 			timers.clear();
 		},

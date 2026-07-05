@@ -12,6 +12,7 @@ const makeLocators = (count: number): readonly ManagedAssetLocator[] =>
 
 const recordingAdapter = (
 	calls: (readonly ManagedAssetLocator[])[],
+	expiresAt = new Date(Date.now() + 3_600_000).toISOString(),
 ): Partial<RyotClientAdapter> => ({
 	query: () => Promise.resolve({}),
 	resolveAssets: (assets) => {
@@ -19,8 +20,8 @@ const recordingAdapter = (
 		return Promise.resolve(
 			assets.map((asset) => ({
 				asset,
+				expiresAt,
 				url: `https://cdn.test/${asset.type}-${asset.key}`,
-				expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
 			})),
 		);
 	},
@@ -82,6 +83,26 @@ describe("ManagedAssetProvider", () => {
 
 		await flushRyotClient();
 		expect(calls).toHaveLength(0);
+		unmount();
+	});
+
+	it("re-resolves a batch one minute before its earliest expiry, and not before", async () => {
+		const now = Date.parse("2026-09-04T12:00:00.000Z");
+		const calls: (readonly ManagedAssetLocator[])[] = [];
+		const { advance, setTime, unmount } = mountRyotClient(
+			recordingAdapter(calls, "2026-09-04T12:05:00.000Z"),
+			<ManagedAssetProvider assets={makeLocators(1)}>
+				<p>content</p>
+			</ManagedAssetProvider>,
+		);
+		await setTime(now);
+		await waitFor(() => expect(calls).toHaveLength(1));
+
+		await advance(4 * 60_000 - 1);
+		expect(calls).toHaveLength(1);
+
+		await advance(1);
+		await waitFor(() => expect(calls).toHaveLength(2));
 		unmount();
 	});
 

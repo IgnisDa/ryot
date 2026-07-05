@@ -21,6 +21,7 @@ import {
 	type PluginRouterDefinition,
 } from "./routing";
 import { createPluginRuntime } from "./runtime";
+import { createBootstrapRyotRuntime, type RyotPluginRuntime } from "./schedule";
 
 type ClientPluginDefinition = PluginRouterDefinition;
 
@@ -64,6 +65,7 @@ const bootstrapClientApplication = (
 ) => {
 	const listener = new AbortController();
 	let root: Root | undefined;
+	let sdkRuntime: RyotPluginRuntime | undefined;
 	let runtime: ReturnType<typeof createPluginRuntime> | undefined;
 	let sessionListener: AbortController | undefined;
 	const handleFatalEvent = (event: Event) => {
@@ -71,7 +73,7 @@ const bootstrapClientApplication = (
 		runtime?.fatal();
 	};
 	const mount = () => {
-		if (!root && runtime) {
+		if (!root && runtime && sdkRuntime) {
 			const rootElement = document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID);
 			if (!rootElement) {
 				return;
@@ -81,10 +83,10 @@ const bootstrapClientApplication = (
 					onUncaughtError: () => runtime?.fatal(),
 				});
 				root.render(
-					<RyotProvider client={runtime.client}>
+					<RyotProvider runtime={sdkRuntime}>
 						<PageContext.Provider value={runtime.page}>
 							<KernelShortcutForwarder runtime={runtime} />
-							<PluginRouter navigation={runtime.navigation} />
+							<PluginRouter />
 						</PageContext.Provider>
 					</RyotProvider>,
 				);
@@ -102,9 +104,12 @@ const bootstrapClientApplication = (
 		sessionListener?.abort();
 		sessionListener = undefined;
 		const activeRuntime = runtime;
+		const activeSdkRuntime = sdkRuntime;
 		runtime = undefined;
+		sdkRuntime = undefined;
 		activeRuntime?.dispose();
 		unmount();
+		void activeSdkRuntime?.dispose();
 	};
 	const metadataElement = document.getElementById(CLIENT_ARTIFACT_METADATA_ELEMENT_ID);
 	const metadata = decodeArtifactMetadata(metadataElement?.textContent ?? "");
@@ -136,7 +141,7 @@ const bootstrapClientApplication = (
 			});
 			const init = decoded.success;
 			const navigationStore = createPluginNavigationStore(createResolver(init.page));
-			runtime = createPluginRuntime(
+			const pluginRuntime = createPluginRuntime(
 				port,
 				init,
 				artifactMetadata,
@@ -149,6 +154,8 @@ const bootstrapClientApplication = (
 					unmount();
 				},
 			);
+			sdkRuntime = createBootstrapRyotRuntime(pluginRuntime.client, pluginRuntime.navigation);
+			runtime = pluginRuntime;
 		},
 		{ signal: listener.signal },
 	);

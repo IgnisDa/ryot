@@ -8,10 +8,10 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { waitFor } from "@testing-library/dom";
 import { Effect } from "effect";
 import { JSDOM } from "jsdom";
 import { parse } from "postcss";
-import { vi } from "vitest";
 
 import { compileClientPlugin, type ClientPluginCompilerGraphInput } from "./compile";
 import { isTrustedClientModule, resolveClientPluginCompilerDependencies } from "./dependencies";
@@ -1384,7 +1384,9 @@ export default function Details() {
 		leading: "drawer",
 		location: { kind: "route", path: "/items/new", search: "" },
 	});
-	await vi.waitFor(() => expect(document.getElementById("app")?.textContent).toBe("New item"));
+	await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("New item"), {
+		container: document.body,
+	});
 	channel.port1.postMessage({
 		index: 1,
 		key: "missing",
@@ -1394,8 +1396,9 @@ export default function Details() {
 		leading: "back",
 		location: { kind: "route", path: "/missing", search: "" },
 	});
-	await vi.waitFor(() =>
-		expect(document.getElementById("app")?.textContent).toContain("Fixture not found"),
+	await waitFor(
+		() => expect(document.getElementById("app")?.textContent).toContain("Fixture not found"),
+		{ container: document.body },
 	);
 	channel.port1.close();
 	channel.port2.close();

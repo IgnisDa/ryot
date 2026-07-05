@@ -9,9 +9,10 @@ import {
 	type PluginBridgeInit,
 } from "@ryot-app/client-plugin-contract";
 import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";
+import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { act } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import ShowDetailPage from "./show/screen";
 
@@ -111,6 +112,15 @@ type Bootstrap = ReturnType<typeof bootstrapClientPage>;
 
 const bootstraps: Bootstrap[] = [];
 const channels: MessageChannel[] = [];
+const clocks: ReturnType<typeof createTestRyotClock>[] = [];
+
+// Retargets the bootstrap runtime factory, so the page `openShow` boots after this call schedules
+// on the returned test clock. Create it before `openShow`.
+const openTestClock = () => {
+	const clock = createTestRyotClock();
+	clocks.push(clock);
+	return clock;
+};
 
 const openShow = () => {
 	document.body.innerHTML = '<div id="app"></div>';
@@ -248,7 +258,7 @@ const flush = async () => {
 	});
 };
 
-afterEach(() => {
+afterEach(async () => {
 	for (const bootstrap of bootstraps) {
 		bootstrap.dispose();
 	}
@@ -260,7 +270,8 @@ afterEach(() => {
 	channels.length = 0;
 	document.head.innerHTML = "";
 	document.body.innerHTML = "";
-	vi.useRealTimers();
+	await Promise.all(clocks.map((clock) => clock.dispose()));
+	clocks.length = 0;
 });
 
 describe("ShowScreen", () => {
@@ -425,6 +436,7 @@ describe("ShowScreen", () => {
 	});
 
 	it("refreshes one minute before expiry and keeps the stale URL after failure", async () => {
+		const clock = openTestClock();
 		const { channel, container, messages } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
 		reply(channel, queryRequestFor(messages, "show").requestId, {
@@ -433,8 +445,7 @@ describe("ShowScreen", () => {
 		});
 		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
 
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-09-04T12:00:00.000Z"));
+		await clock.setTime(Date.parse("2026-09-04T12:00:00.000Z"));
 		const expiresAt = new Date("2026-09-04T12:05:00.000Z").toISOString();
 		const staleUrl = "https://assets.test/managed-cover-v1?signature=stale";
 		assetReply(channel, assetRequestAt(messages, 0).requestId, {
@@ -444,9 +455,9 @@ describe("ShowScreen", () => {
 		await flush();
 		expect(managedCoverImage(container)?.getAttribute("src")).toBe(staleUrl);
 
-		await act(async () => vi.advanceTimersByTimeAsync(4 * 60_000 - 1));
+		await clock.advance(4 * 60_000 - 1);
 		expect(assetRequests(messages)).toHaveLength(1);
-		await act(async () => vi.advanceTimersByTimeAsync(1));
+		await clock.advance(1);
 		await flush();
 		expect(assetRequests(messages)).toHaveLength(2);
 
