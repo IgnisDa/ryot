@@ -62,6 +62,23 @@ const decodeCreateEventsPayload = Schema.decodeUnknownEffect(CreateEventsPayload
 
 const hashPayload = (payload: unknown) => sha256Base64Url(stableStringify(payload));
 
+const toSandboxRelationshipIdentity = <
+	T extends {
+		readonly sourceEntityId: string;
+		readonly targetEntityId: string;
+		readonly relationshipSchemaSlug?: string;
+	},
+>(
+	relationship: T,
+) => ({
+	...relationship,
+	sourceEntityId: EntityId.make(relationship.sourceEntityId),
+	targetEntityId: EntityId.make(relationship.targetEntityId),
+	...(relationship.relationshipSchemaSlug === undefined
+		? {}
+		: { relationshipSchemaSlug: RelationshipSchemaSlug.make(relationship.relationshipSchemaSlug) }),
+});
+
 const toSandboxIntegrationSettings = (settings: Readonly<Record<string, unknown>>) =>
 	Object.fromEntries(
 		Object.entries(settings).map(([key, value]) => [key, toSandboxJsonValue(value)]),
@@ -179,18 +196,8 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return yield* changeUserRelationships(
 						UserId.make(input.authority.userId),
 						batches.map((batch) => ({
-							creates: batch.creates.map((create) => ({
-								...create,
-								sourceEntityId: EntityId.make(create.sourceEntityId),
-								targetEntityId: EntityId.make(create.targetEntityId),
-								relationshipSchemaSlug: RelationshipSchemaSlug.make(create.relationshipSchemaSlug),
-							})),
-							deletes: batch.deletes.map((remove) => ({
-								...remove,
-								sourceEntityId: EntityId.make(remove.sourceEntityId),
-								targetEntityId: EntityId.make(remove.targetEntityId),
-								relationshipSchemaSlug: RelationshipSchemaSlug.make(remove.relationshipSchemaSlug),
-							})),
+							creates: batch.creates.map(toSandboxRelationshipIdentity),
+							deletes: batch.deletes.map(toSandboxRelationshipIdentity),
 						})),
 					).pipe(
 						Effect.provideService(DefinitionRegistry, definitions),
@@ -301,11 +308,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return yield* reconcileGlobalRelationships(
 						groups.map((group) => ({
 							relationshipSchemaSlug: RelationshipSchemaSlug.make(group.relationshipSchemaSlug),
-							relationships: group.relationships.map((relationship) => ({
-								...relationship,
-								sourceEntityId: EntityId.make(relationship.sourceEntityId),
-								targetEntityId: EntityId.make(relationship.targetEntityId),
-							})),
+							relationships: group.relationships.map(toSandboxRelationshipIdentity),
 							selector:
 								group.selector.type === "self"
 									? group.selector
