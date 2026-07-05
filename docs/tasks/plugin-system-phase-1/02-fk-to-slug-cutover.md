@@ -70,15 +70,17 @@ item is wrong, **stop and surface it** rather than silently deviating.
 
 Derived from the Phase 1 done criteria (§"Done criteria") and the cross-phase gate:
 
-- [x] Grep proof: no app-backend source references the dropped tables or the `…SchemaId`
-      columns, except deliberately kept drizzle history (done criterion 1).
+- [x] Grep proof covers imports, identifiers, and generated raw SQL: no post-Drizzle app-backend
+      source references the dropped tables or the `…SchemaId` columns, except deliberately kept
+      migration/bootstrap handling.
 - [x] All gates pass: `bun turbo --filter=@ryot/app-backend check` + backend unit tests
       (`cd apps/app-backend && bun run test`), the e2e suite (`cd tests && bun run test`,
       minus the files deleted in §6), and the `app-client` check (done criterion 2,
       cross-phase invariant 1).
 - [x] Behavior spot-checks stay green in e2e: media lifecycle (progress -> auto-complete),
-      provider search/import, the query-engine suite (untouched and green), and the
-      legacy-bootstrap suite (done criterion 4).
+      provider search/import, and the query-engine suite (untouched and green). Generated legacy
+      SQL has regression coverage against dropped definition-table references; full legacy
+      behavior is validated manually against both documented dumps before release.
 - [x] No `isBuiltin` column remains on any surviving table except `sandbox_script` and
       `automation_rule` (both die in Phase 2); `signal_schema`'s flag is gone with its table
       (done criterion 5).

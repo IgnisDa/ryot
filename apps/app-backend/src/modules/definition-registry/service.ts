@@ -26,7 +26,6 @@ export type EntitySchemaDefinition = {
 	readonly icon: string;
 	readonly name: string;
 	readonly slug: string;
-	readonly isBuiltin?: boolean;
 	readonly accentColor: string;
 	readonly propertiesSchema: AppSchema;
 	readonly eventSchemas: ReadonlyArray<EventSchemaDefinition>;
@@ -235,9 +234,7 @@ export const definitionSourceFromSnapshot = (snapshot: DefinitionSnapshot): Defi
 });
 
 export const builtinDefinitionSource = (): DefinitionSource => {
-	const entitySchemas = builtinEntitySchemas().map((definition) =>
-		Object.assign({}, definition, { isBuiltin: true }),
-	);
+	const entitySchemas = builtinEntitySchemas();
 	const entitySchemasBySlug = new Map(
 		entitySchemas.map((definition) => [definition.slug, definition]),
 	);
