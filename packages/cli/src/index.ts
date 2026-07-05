@@ -342,9 +342,9 @@ const watchPlugin = Effect.fn("watchPlugin")(function* (
 const buildCommand = Command.make(
 	"build",
 	{
-		watch: Flag.boolean("watch").pipe(Flag.withDefault(false)),
-		skipInitial: Flag.boolean("skip-initial").pipe(Flag.withDefault(false)),
-		output: Flag.string("output").pipe(Flag.withSchema(Schema.NonEmptyString), Flag.optional),
+		watch: Flag.Boolean("watch").pipe(Flag.withDefault(false)),
+		skipInitial: Flag.Boolean("skip-initial").pipe(Flag.withDefault(false)),
+		output: Flag.String("output").pipe(Flag.withSchema(Schema.NonEmptyString), Flag.optional),
 	},
 	Effect.fn("buildCommand")(function* ({ watch, output, skipInitial }) {
 		const options = { cwd: process.cwd(), output: Option.getOrUndefined(output) };

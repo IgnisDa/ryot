@@ -169,18 +169,18 @@ const schemaFields = (fields: ConfigFields): AppSchemaFields =>
 
 const primitiveConfig = (field: AppPropertyDefinition, envKey: string): Config.Config<unknown> => {
 	if (field.type === "boolean") {
-		return Config.boolean(envKey);
+		return Config.Boolean(envKey);
 	}
 	if (field.type === "integer") {
-		return Config.int(envKey);
+		return Config.Int(envKey);
 	}
 	if (field.type === "number") {
-		return Config.number(envKey);
+		return Config.Number(envKey);
 	}
 	if (field.type === "enum") {
 		if (field.choices.kind === "dynamic") {
-			return Config.string(envKey).pipe(
-				Config.mapOrFail(() =>
+			return Config.String(envKey).pipe(
+				Config.mapEffect(() =>
 					Effect.fail(
 						new Config.ConfigError(
 							new Schema.SchemaError(
@@ -194,8 +194,8 @@ const primitiveConfig = (field: AppPropertyDefinition, envKey: string): Config.C
 			);
 		}
 		const choices = field.choices.values.map((choice) => choice.value);
-		return Config.string(envKey).pipe(
-			Config.mapOrFail((value) =>
+		return Config.String(envKey).pipe(
+			Config.mapEffect((value) =>
 				choices.includes(value)
 					? Effect.succeed(value)
 					: Effect.fail(
@@ -210,7 +210,7 @@ const primitiveConfig = (field: AppPropertyDefinition, envKey: string): Config.C
 			),
 		);
 	}
-	return Config.string(envKey);
+	return Config.String(envKey);
 };
 
 const leafConfig = (field: AppPropertyDefinition, envKey: string, redactSecrets: boolean) => {
