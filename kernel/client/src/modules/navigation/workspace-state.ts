@@ -34,8 +34,3 @@ export const resolvePluginRouteWorkspace = (
 	pluginSlug: string,
 ): PluginClientCatalogEntry | null =>
 	sortWorkspaces(catalog).find(({ slug }) => slug === pluginSlug) ?? null;
-
-export const resolveSettingsWorkspace = (
-	catalog: PluginClientCatalog,
-	rememberedSlug: string | null,
-): PluginClientCatalogEntry | null => resolveRememberedWorkspace(catalog, rememberedSlug);
