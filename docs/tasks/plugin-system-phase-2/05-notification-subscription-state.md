@@ -27,16 +27,16 @@ Move the last definition/state conflation off the database: per-user notificatio
 `automation_rule` is deleted entirely.
 
 1. **New `notification_subscription_state` table** (`[RECOMMENDED]`)
-   `(userId, signalSchemaSlug, scriptSlug, isActive, metadata?, timestamps)`, unique on
+   `(id, userId, signalSchemaSlug, scriptSlug, isActive, metadata?, timestamps)`, unique on
    `(userId, signalSchemaSlug, scriptSlug)`, following the `plugin_state` pattern. Regenerate
    the single drizzle migration rather than authoring ALTERs.
 2. **Re-point, surface preserved** (plumbing only): `NotificationSubscriptionsService`, the
    `automations` rule endpoints, `ensureDefaultRules`, and the `auth`/`god-mode` consumers now
    read/write the new table instead of `automation_rule`. The user-facing rule surface and its
    behavior are unchanged.
-3. **`subscription_run`**: keep the table, but replace its `ruleId` FK with a stable identifier
-   string (the subscription-state key for user-subscription runs, or `pluginSlug + scriptSlug +
-target + operation` for binding-driven runs).
+3. **`subscription_run`**: keep the table with one non-null text `ruleId`, containing the generated
+   notification-subscription-state ID for per-user runs or the existing deterministic binding ID
+   for manifest-driven runs. This is the run's single durable attribution field.
 4. **Delete `automation_rule`** — now that both the global-binding move (task 03) and this
    per-user move are done, the table has no remaining rows or readers.
 5. **Migrate `tests/src/tests/automations/notification-subscriptions.test.ts`** with assertions
@@ -53,8 +53,9 @@ restate or re-derive it.
 - [ ] `NotificationSubscriptionsService`, the `automations` endpoints, `ensureDefaultRules`, and
       the `auth`/`god-mode` consumers read/write the new table with the user-facing rule surface
       unchanged (plan §5)
-- [ ] `subscription_run.ruleId` is replaced by a stable identifier string; execution bookkeeping
-      survives the `automation_rule` deletion (plan §5)
+- [ ] `subscription_run.ruleId` is non-null durable text, its FK and duplicate attribution column
+      are absent, and execution bookkeeping survives subscription-state deletion and plugin
+      snapshot replacement (plan §5)
 - [ ] The notification-subscriptions e2e suite is green with assertions unchanged (cross-phase
       invariant 2); notification-delivery behavior remains green (done criterion 2)
 - [ ] Backend `check` + unit tests, the full e2e suite, and `app-client` check pass (done
