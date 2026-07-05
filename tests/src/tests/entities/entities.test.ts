@@ -7,7 +7,7 @@ import {
 	createEntitySchema,
 	createGlobalBookEntityFixture,
 	createPluginScope,
-	createTrackerWithSchema,
+	createPluginSchema,
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
 	getEntity,
@@ -48,7 +48,7 @@ describe("POST /entities", () => {
 	it.live("creates entity normally when no provenance fields are provided", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createTrackerWithSchema(client);
+			const { schemaId } = yield* createPluginSchema(client);
 
 			const entity = yield* createEntity(client, {
 				name: "Plain Entity",
@@ -66,7 +66,7 @@ describe("POST /entities", () => {
 	it.live("creates entity with externalId and sandboxScriptId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createTrackerWithSchema(client);
+			const { schemaId } = yield* createPluginSchema(client);
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 			const sandboxScriptId = getFirstProviderScriptId(schema);
 
@@ -87,7 +87,7 @@ describe("POST /entities", () => {
 	it.live("returns the existing entity on duplicate externalId + sandboxScriptId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createTrackerWithSchema(client);
+			const { schemaId } = yield* createPluginSchema(client);
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 			const sandboxScriptId = getFirstProviderScriptId(schema);
 
@@ -154,7 +154,7 @@ describe("POST /entities", () => {
 	it.live("returns 400 when only externalId is provided without sandboxScriptId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createTrackerWithSchema(client);
+			const { schemaId } = yield* createPluginSchema(client);
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
@@ -179,7 +179,7 @@ describe("POST /entities", () => {
 	it.live("returns 400 when only sandboxScriptId is provided without externalId", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createTrackerWithSchema(client);
+			const { schemaId } = yield* createPluginSchema(client);
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 			const sandboxScriptId = getFirstProviderScriptId(schema);
 

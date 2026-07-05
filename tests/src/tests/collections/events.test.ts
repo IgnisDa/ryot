@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createCollection,
-	createTrackerWithSchemaAndEntity,
+	createPluginSchemaAndEntity,
 	listEventsForEntity,
 	waitForEventWithSchema,
 } from "~/fixtures";
@@ -16,7 +16,7 @@ describe("collection events", () => {
 			const { client } = yield* createAuthenticatedClient();
 
 			const collection = yield* createCollection(client, { name: "Event Test Collection" });
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const addData = yield* client.call((c) =>
 				c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
@@ -42,7 +42,7 @@ describe("collection events", () => {
 			const { client } = yield* createAuthenticatedClient();
 
 			const collection = yield* createCollection(client, { name: "Upsert Event Collection" });
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			yield* client.call((c) =>
 				c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
@@ -66,7 +66,7 @@ describe("collection events", () => {
 			const { client } = yield* createAuthenticatedClient();
 
 			const collection = yield* createCollection(client, { name: "Remove Event Collection" });
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const addData = yield* client.call((c) =>
 				c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
@@ -100,7 +100,7 @@ describe("collection events", () => {
 			const collection = yield* createCollection(client, {
 				name: "No Remove Event Collection",
 			});
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const error = yield* Effect.flip(
 				client.call((c) =>

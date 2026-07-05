@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -30,7 +30,15 @@ loader machinery leaked in (cross-phase invariants 3 and 5).
 
 ## Acceptance criteria
 
-- [ ] The task is executed using the `codebase-cleanup` skill
-- [ ] The cleanup pass covers all files touched by this plan and any directly affected modules
-- [ ] Any removals or simplifications are reflected in the changed code before the plan is
+- [x] The task is executed using the `codebase-cleanup` skill
+- [x] The cleanup pass covers all files touched by this plan and any directly affected modules
+- [x] Any removals or simplifications are reflected in the changed code before the plan is
       considered complete
+
+## Verification
+
+- `bun turbo --filter=@ryot/app-backend check` passed.
+- `cd apps/app-backend && bun run test` passed (932 tests).
+- The full e2e run was aborted after timeout failures in
+  `media-monitoring/association-detectors.test.ts` and `sandbox/cache.test.ts`; it was not rerun
+  at the owner's request.

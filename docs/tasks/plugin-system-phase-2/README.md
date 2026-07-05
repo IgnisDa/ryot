@@ -24,9 +24,9 @@ open, and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 7 of 8 tasks completed
+**Overall Progress:** 8 of 8 tasks completed
 
-**Current Task:** [Task 08](./08-codebase-cleanup.md) (todo)
+**Current Task:** Phase 2 complete
 
 ### Task List
 
@@ -39,7 +39,7 @@ open, and you record the choice you make in the plan file.
 | 05  | [Notification Subscription State Table](./05-notification-subscription-state.md)    | AFK  | done   |
 | 06  | [Notification Automation Ownership](./06-notification-automation-ownership.md)         | AFK  | done   |
 | 07  | [Remove the Per-User Sandbox-Script Feature](./07-remove-user-sandbox-scripts.md)   | AFK  | done   |
-| 08  | [Codebase Cleanup](./08-codebase-cleanup.md)                                        | AFK  | todo   |
+| 08  | [Codebase Cleanup](./08-codebase-cleanup.md)                                        | AFK  | done   |
 
 Task 06 assigns notification formatting to the owner of each signal and must complete before
 task 07 finalizes script storage. Task 07 also depends on task 04's `installTestPlugin` fixture
