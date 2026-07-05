@@ -1,5 +1,5 @@
 import { EntityId, UserId } from "@ryot/contract/schema/brands";
-import type { AutomationSandboxHostImplementationMap } from "@ryot/sandbox-sdk";
+import type { AutomationSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Effect, Runtime } from "effect";
 

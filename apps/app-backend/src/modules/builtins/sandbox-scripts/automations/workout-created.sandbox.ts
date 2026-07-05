@@ -1,5 +1,5 @@
-import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
+import { defineManifest } from "@ryot/sandbox-sdk/core";
 
 export const manifest = defineManifest({
 	kind: "automation",

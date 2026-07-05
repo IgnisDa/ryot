@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "@ryot/sandbox-sdk";
+import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "@ryot/sandbox-sdk/core";
 import {
 	defineProvider,
 	defineProviderDriver,

@@ -1,4 +1,4 @@
-import { defineManifest } from "@ryot/sandbox-sdk";
+import { defineManifest } from "@ryot/sandbox-sdk/core";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { cleanHtmlDescription } from "../../../script-helpers/clean-html-description";

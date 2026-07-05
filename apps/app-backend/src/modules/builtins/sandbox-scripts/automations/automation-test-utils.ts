@@ -1,15 +1,15 @@
 import type {
+	AutomationInput,
+	AutomationPolicyInput,
+	AutomationEventSnapshot,
+} from "@ryot/sandbox-sdk/automation";
+import type {
 	EntityRecord,
 	EntitySchemaRecord,
 	EventRecord,
 	IntegrationRecord,
 	JsonValue,
-} from "@ryot/sandbox-sdk";
-import type {
-	AutomationInput,
-	AutomationPolicyInput,
-	AutomationEventSnapshot,
-} from "@ryot/sandbox-sdk/automation";
+} from "@ryot/sandbox-sdk/core";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
 const timestamp = "2026-01-01T00:00:00.000Z";

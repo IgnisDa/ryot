@@ -2,7 +2,7 @@ import {
 	automationSandboxHostContracts,
 	coreSandboxHostContracts,
 	domainSandboxHostContracts,
-} from "@ryot/sandbox-sdk";
+} from "@ryot/sandbox-sdk/core";
 import type * as z from "@ryot/sandbox-sdk/zod";
 
 import {

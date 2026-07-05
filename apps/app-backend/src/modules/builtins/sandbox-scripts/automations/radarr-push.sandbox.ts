@@ -1,5 +1,5 @@
-import { defineManifest, type IntegrationRecord } from "@ryot/sandbox-sdk";
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
+import { defineManifest, type IntegrationRecord } from "@ryot/sandbox-sdk/core";
 
 import {
 	collectionSyncMatches,

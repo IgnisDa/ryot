@@ -6,7 +6,7 @@ import { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
 import {
 	AUTOMATION_SANDBOX_HOST_CAPABILITIES,
 	type CoreSandboxHostMethodMap,
-} from "@ryot/sandbox-sdk";
+} from "@ryot/sandbox-sdk/core";
 import { generateId } from "better-auth";
 import { Clock, Duration, Effect, Match, Runtime, Schema, Stream } from "effect";
 

@@ -10,7 +10,7 @@ import {
 	jsonValueSchema,
 	SANDBOX_SCRIPT_DEFINITION,
 	unwrapHostResult,
-} from "@ryot/sandbox-sdk";
+} from "@ryot/sandbox-sdk/core";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import * as z from "@ryot/sandbox-sdk/zod";
 

@@ -3,7 +3,7 @@ import { compileBuiltInSandboxEntry } from "@ryot/sandbox-compiler/builtins";
 import { Effect } from "effect";
 
 const entry = `
-import { defineManifest } from "@ryot/sandbox-sdk";
+import { defineManifest } from "@ryot/sandbox-sdk/core";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 import { value } from "./helper";
 

@@ -1,4 +1,4 @@
-import type { CoreSandboxHostMethodMap } from "@ryot/sandbox-sdk";
+import type { CoreSandboxHostMethodMap } from "@ryot/sandbox-sdk/core";
 import { describe, expect, it, vi } from "vitest";
 
 import {
