@@ -207,19 +207,18 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
 28. As the implementing agent, I want the install bundle format left open (tar/zip of the
     package or a JSON file map), so that I pick the simplest workable form and record it
     (plan §6 `[IMPLEMENTER-DECIDES]`).
-29. As the implementing agent, I want the e2e provider fixture replaced by `installTestPlugin`
+29. As the implementing agent, I want the e2e provider fixture backed by `installTestPlugin`
     (assemble a tiny in-memory plugin from the existing `fakeProvider*` builders, install
-    through the real endpoint, uninstall in cleanup) and the `promoteSandboxScript` /
-    `deleteSandboxScript` god-mode endpoints deleted, so that every provider-driven test
+    through the real endpoint, uninstall in cleanup), so that every provider-driven test
     exercises the real loader (plan §6; done criterion 3).
 30. As the implementing agent, I want every Phase 1 use of the temporary `testSupport`
     in-memory definition installer replaced by test plugin source installed through
     `installTestPlugin`, then that installer endpoint and its registry-mutation helper deleted,
     so that no fixture references the temporary seam (plan §6 — Phase 2 is not complete while
     any fixture references it).
-31. As the implementing agent, I want the fixture's driver-fault-injection ability
-    (`patchSandboxScript`) ported to reinstall-with-modified-source, so that fault injection
-    keeps working more honestly through the real loader (plan §6).
+31. As the implementing agent, I want the fixture's fault-injection ability ported to
+    reinstall-with-modified-source, so that fault injection keeps working through the real loader
+    (plan §6).
 32. As the plugin developer, I want the whole pipeline to treat my future bundle identically to
     a first-party one (same manifest, same ingestion, same loader), so that user-authored
     plugins are purely additive later (Decision 3, 9, 13).
@@ -282,9 +281,8 @@ them (and risk drift), this PRD points to the exact sections that own them:
   (no persisted script slug), the `subscription_run` `ruleId`→stable-identifier change, and the
   table/module deletions gated on both moves completing: plan §5.
 - **Admin install surface and test fixture** — the admin-scoped `plugins` group, the v1
-  uninstall-refusal policy, the `[IMPLEMENTER-DECIDES]` bundle format, the `installTestPlugin`
-  replacement, the god-mode endpoint deletions, the temporary-seam removal, and the
-  `patchSandboxScript`→reinstall port: plan §6.
+  uninstall-refusal policy, the bundle format, the `installTestPlugin` fixture, and
+  modified-source reinstall for fault injection: plan §6.
 - **Per-user script-feature removal** — the deletion inventory (contract group audit,
   authoring service/routes, storage end state, e2e port, doc updates), what survives
   (execution machinery, compiler service, provenance, cache isolation), the `after §6`

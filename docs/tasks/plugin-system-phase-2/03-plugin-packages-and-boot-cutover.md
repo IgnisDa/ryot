@@ -59,8 +59,8 @@ must be fed from exactly one source at boot.
 
 Out of this slice: the per-user notification-subscription move and the `automation_rule` table
 deletion (task 05 — the table still holds `userId`-set rows and keeps working here); the admin
-install endpoint and the e2e fixture swap (task 04 — the old `promoteSandboxScript` provider
-fixture still works, keeping the suite green). Move affected `AGENTS.md` semantics with the
+install endpoint and the e2e fixture swap (task 04 — the real-loader fixture owns that work).
+Move affected `AGENTS.md` semantics with the
 code (single-owner rule; cross-phase invariant 7).
 
 Full spec: plan §9 (tracker-concept removal), §2 (packages, content assignment), §4 (boot
