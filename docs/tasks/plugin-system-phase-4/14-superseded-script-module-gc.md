@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,16 +16,16 @@ ingestion, invalidation rebuilds, workflow starts/completions, and repeated clea
 
 ## Acceptance criteria
 
-- [ ] Active plugin snapshot scripts are retained
-- [ ] Running and suspended workflow pins retain exact historical script rows and module files
-- [ ] Completed/unpinned superseded plugin rows become candidates
-- [ ] Running kernel-declared source-zero hashes are retained outside the plugin snapshot
-- [ ] Obsolete unpinned source-zero rows become candidates
-- [ ] Database rows and disk modules use one content-hash liveness decision
-- [ ] Cleanup is idempotent and tolerates missing files/rows without hiding real failures
-- [ ] Concurrent ingestion, snapshot replacement, workflow start/completion, and GC cannot delete newly live content
-- [ ] Metrics/logging report candidates and removals without exposing source or secrets
-- [ ] Focused tests prove every liveness category and replay remains green after GC
+- [x] Active plugin snapshot scripts are retained
+- [x] Running and suspended workflow pins retain exact historical script rows and module files
+- [x] Completed/unpinned superseded plugin rows become candidates
+- [x] Running kernel-declared source-zero hashes are retained outside the plugin snapshot
+- [x] Obsolete unpinned source-zero rows become candidates
+- [x] Database rows and disk modules use one content-hash liveness decision
+- [x] Cleanup is idempotent and tolerates missing files/rows without hiding real failures
+- [x] Concurrent ingestion, snapshot replacement, workflow start/completion, and GC cannot delete newly live content
+- [x] Metrics/logging report candidates and removals without exposing source or secrets
+- [x] Focused tests prove every liveness category and replay remains green after GC
 
 ## User stories addressed
 
