@@ -4,6 +4,7 @@
 	"private": true,
 	"main": "expo-router/entry",
 	"scripts": {
+		"test": "bun test",
 		"ios": "expo run:ios",
 		"android": "expo run:android",
 		"dev": "expo start --port 3005",
