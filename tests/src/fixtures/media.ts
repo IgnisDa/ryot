@@ -20,12 +20,13 @@ import { assertPresent, requirePresent } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
-import { type ContractPayload, getBackendClient } from "./contract-client";
+import { getBackendClient } from "./contract-client";
 import {
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
 	getBuiltinEntitySchemaSlug,
 	getFirstProviderScriptId,
+	makeEntitySchemaSlug,
 } from "./entity-schemas";
 import { pollUntil, type PollOptions } from "./polling";
 import {
@@ -205,10 +206,7 @@ export const seedMediaEntity = (input: {
 	properties: Record<string, unknown>;
 }) =>
 	Effect.gen(function* () {
-		const entitySchemaSlug = input.entitySchemaSlug as ContractPayload<
-			"entities",
-			"create"
-		>["entitySchemaSlug"];
+		const entitySchemaSlug = makeEntitySchemaSlug(input.entitySchemaSlug);
 		const sandboxScriptId = input.sandboxScriptId
 			? SandboxScriptId.make(input.sandboxScriptId)
 			: undefined;

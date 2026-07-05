@@ -14,6 +14,7 @@ export const EntityId = Schema.String.pipe(Schema.brand("EntityId"));
 
 export type EntityId = typeof EntityId.Type;
 
+// TODO: Return branded values from `.make` after plain-string schema slug fixtures and callers migrate.
 const makeSchemaSlug = () =>
 	Object.assign(Schema.String.pipe(Schema.filter(() => true)), {
 		make: (value: string) => value,
