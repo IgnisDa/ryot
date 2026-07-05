@@ -1,97 +1,78 @@
 import { RyotClientError } from "@ryot/client-sdk";
 import { Schema } from "@ryot/client-sdk/effect";
 import { PluginLink } from "@ryot/client-sdk/plugin";
-import { useRyot, useRyotTheme } from "@ryot/client-sdk/react";
+import {
+	createRyotMutation,
+	createRyotQuery,
+	useRyot,
+	useRyotMutation,
+	useRyotQuery,
+	useRyotTheme,
+} from "@ryot/client-sdk/react";
 import { Button, StatusMessage } from "@ryot/client-ui-sdk";
 import { useState } from "react";
 
 import logo from "./logo.svg";
-import { fixtureClientPluginCatalogRecipe, type FixtureClientPluginCatalog } from "./query-recipes";
+import { fixtureClientPluginCatalogRecipe } from "./query-recipes";
 
 const Greeting = Schema.Struct({ greeting: Schema.String });
 
+type GreetingInput = { readonly name: string | number };
+
+const catalogTones = { error: "error", pending: "pending", success: "success" } as const;
+
 const greetingTones = {
+	error: "error",
 	idle: "pending",
-	ready: "success",
-	refused: "error",
 	pending: "pending",
-	unavailable: "error",
+	success: "success",
 } as const;
 
-const greetingMessages = {
-	idle: "",
-	ready: "",
-	pending: "Requesting a greeting...",
-	refused: "The server refused this greeting.",
-	unavailable: "Greetings are unavailable right now.",
-} as const;
+const fixtureClientPluginCatalogQuery = createRyotQuery(({ client, signal }) =>
+	client.data.query(fixtureClientPluginCatalogRecipe(), { signal }),
+);
 
-const catalogTones = {
-	idle: "pending",
-	ready: "success",
-	pending: "pending",
-	unavailable: "error",
-} as const;
-
-const catalogMessages = {
-	idle: "",
-	pending: "Fetching installed client plugins...",
-	unavailable: "Client plugin catalog is unavailable.",
-} as const;
-
-type GreetingState =
-	| { readonly status: "idle" }
-	| { readonly status: "pending" }
-	| { readonly status: "refused" }
-	| { readonly status: "unavailable" }
-	| { readonly status: "ready"; readonly greeting: string };
-
-type CatalogState =
-	| { readonly status: "idle" }
-	| { readonly status: "pending" }
-	| { readonly status: "unavailable" }
-	| { readonly status: "ready"; readonly installations: FixtureClientPluginCatalog };
+const greetingMutation = createRyotMutation<GreetingInput, typeof Greeting.Type>(
+	({ client, input }) => client.operations.invoke({ slug: "greet", output: Greeting, input }),
+);
 
 export const Home = () => {
 	const ryot = useRyot();
 	const theme = useRyotTheme();
 	const [greetings, setGreetings] = useState(0);
+	const greeting = useRyotMutation(greetingMutation);
 	const [requested, setRequested] = useState("Ryot");
-	const [greeting, setGreeting] = useState<GreetingState>({ status: "idle" });
-	const [catalog, setCatalog] = useState<CatalogState>({ status: "idle" });
 	const [shouldCrash, setShouldCrash] = useState(false);
-	const failed = greeting.status === "refused" || greeting.status === "unavailable";
-	const installedPluginSlugs =
-		catalog.status === "ready" ? catalog.installations.map(({ slug }) => slug).join(", ") : "";
+	const catalog = useRyotQuery(fixtureClientPluginCatalogQuery);
+	const refused =
+		greeting.status === "error" &&
+		greeting.error instanceof RyotClientError &&
+		greeting.error.reason === "operation-failed";
+	const installedPluginSlugs = catalog.data?.map(({ slug }) => slug).join(", ") ?? "";
+	let catalogMessage = "Client plugin catalog is unavailable.";
+	if (catalog.status === "pending") {
+		catalogMessage = "Fetching installed client plugins...";
+	} else if (catalog.status === "success") {
+		catalogMessage = `Installed client plugins: ${installedPluginSlugs}`;
+	}
+	let greetingMessage = "";
+	if (greeting.status === "pending") {
+		greetingMessage = "Requesting a greeting...";
+	} else if (greeting.status === "error") {
+		greetingMessage = refused
+			? "The server refused this greeting."
+			: "Greetings are unavailable right now.";
+	} else if (greeting.status === "success") {
+		greetingMessage = greeting.data?.greeting ?? "";
+	}
 
 	if (shouldCrash) {
 		throw new Error("fixture render failure");
 	}
 
-	const requestGreeting = async (name: string) => {
+	const requestGreeting = (name: string) => {
 		setRequested(name);
-		setGreeting({ status: "pending" });
-		try {
-			const result = await ryot.operations.invoke({
-				slug: "greet",
-				input: { name },
-				output: Greeting,
-			});
-			setGreeting({ status: "ready", greeting: result.greeting });
-		} catch (error) {
-			const refused = error instanceof RyotClientError && error.reason === "operation-failed";
-			setGreeting({ status: refused ? "refused" : "unavailable" });
-		}
-	};
-
-	const fetchCatalog = async () => {
-		setCatalog({ status: "pending" });
-		try {
-			const installations = await ryot.data.query(fixtureClientPluginCatalogRecipe());
-			setCatalog({ installations, status: "ready" });
-		} catch {
-			setCatalog({ status: "unavailable" });
-		}
+		greeting.mutate({ name });
 	};
 
 	return (
@@ -125,16 +106,14 @@ export const Home = () => {
 					Client plugin catalog
 				</h2>
 				<StatusMessage id="fixture-catalog-status" tone={catalogTones[catalog.status]}>
-					{catalog.status === "ready"
-						? `Installed client plugins: ${installedPluginSlugs}`
-						: catalogMessages[catalog.status]}
+					{catalogMessage}
 				</StatusMessage>
 				<Button
-					onClick={() => void fetchCatalog()}
-					disabled={catalog.status === "pending"}
+					onClick={catalog.refetch}
+					disabled={catalog.isFetching}
 					aria-describedby="fixture-catalog-status"
 				>
-					Fetch catalog
+					Refresh catalog
 				</Button>
 			</section>
 			<section
@@ -144,17 +123,18 @@ export const Home = () => {
 				<h2 id="fixture-greeting-title" className="font-display text-lg">
 					Server greeting
 				</h2>
-				<StatusMessage tone={greetingTones[greeting.status]}>
-					{greeting.status === "ready" ? greeting.greeting : greetingMessages[greeting.status]}
-				</StatusMessage>
-				{failed ? (
-					<Button variant="secondary" onClick={() => void requestGreeting(requested)}>
+				<StatusMessage tone={greetingTones[greeting.status]}>{greetingMessage}</StatusMessage>
+				{greeting.status === "error" ? (
+					<Button variant="secondary" onClick={() => requestGreeting(requested)}>
 						Try again
 					</Button>
 				) : null}
-				<Button onClick={() => void requestGreeting("Ryot")}>Fetch greeting</Button>
-				<Button variant="text" onClick={() => void requestGreeting("")}>
+				<Button onClick={() => requestGreeting("Ryot")}>Fetch greeting</Button>
+				<Button variant="text" onClick={() => requestGreeting("")}>
 					Fetch without a name
+				</Button>
+				<Button variant="text" onClick={() => greeting.mutate({ name: Number.NaN })}>
+					Fetch with invalid payload
 				</Button>
 			</section>
 			<PluginLink to="/details/item-1" search={{ tab: "stats" }}>

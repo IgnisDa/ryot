@@ -35,7 +35,10 @@ export type RyotNavigationTarget = {
 };
 
 export type RyotClientAdapter = {
-	readonly query: (document: PreparedRecipe<unknown>["document"]) => Promise<unknown>;
+	readonly query: (
+		document: PreparedRecipe<unknown>["document"],
+		signal?: AbortSignal,
+	) => Promise<unknown>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly theme?: {
 		readonly getSnapshot: () => unknown;
@@ -89,11 +92,20 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			replace: (target: RyotNavigationTarget) => navigate("replace", target),
 		},
 		data: {
-			query: async <Success>(recipe: PreparedRecipe<Success>) => {
+			query: async <Success>(
+				recipe: PreparedRecipe<Success>,
+				options?: { readonly signal?: AbortSignal },
+			) => {
+				if (options?.signal?.aborted) {
+					throw options.signal.reason;
+				}
 				let response: unknown;
 				try {
-					response = await adapter.query(recipe.document);
+					response = await adapter.query(recipe.document, options?.signal);
 				} catch (error) {
+					if (options?.signal?.aborted) {
+						throw options.signal.reason;
+					}
 					throw asTransportError(error);
 				}
 				let decoded: ReturnType<typeof recipe.decode>;

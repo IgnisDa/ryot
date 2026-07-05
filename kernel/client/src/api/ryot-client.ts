@@ -7,7 +7,10 @@ import type { ApiScope } from "#/api/scope";
 import type { ThemeStore } from "#/modules/theme/store";
 
 type AuthenticatedApiRuntime = {
-	readonly runPromise: <A, E>(effect: Effect.Effect<A, E, AuthenticatedApi>) => Promise<A>;
+	readonly runPromise: <A, E>(
+		effect: Effect.Effect<A, E, AuthenticatedApi>,
+		options?: Effect.RunOptions,
+	) => Promise<A>;
 };
 
 export const createKernelRyotClient = (
@@ -17,7 +20,7 @@ export const createKernelRyotClient = (
 ) =>
 	createRyotClient({
 		theme,
-		query: async (document) => {
+		query: async (document, signal) => {
 			try {
 				return await runtime.runPromise(
 					AuthenticatedApi.pipe(
@@ -25,8 +28,12 @@ export const createKernelRyotClient = (
 							api.run(scope, (client) => client.ryotql.execute({ payload: document })),
 						),
 					),
+					{ signal },
 				);
 			} catch (error) {
+				if (signal?.aborted) {
+					throw signal.reason;
+				}
 				throw new RyotClientError(classifyRyotQLFailure(error));
 			}
 		},

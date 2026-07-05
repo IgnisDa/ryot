@@ -68,10 +68,13 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 				});
 
 				await step("use catalog and operation bridges", async () => {
-					await fixture.getByRole("button", { name: "Fetch catalog" }).click();
+					await expectVisibleText(home, "Installed client plugins: fixture");
+					await fixture.getByRole("button", { name: "Refresh catalog" }).click();
 					await expectVisibleText(home, "Installed client plugins: fixture");
 					await fixture.getByRole("button", { name: "Fetch greeting" }).click();
 					await expectVisibleText(home, "Hello, Ryot");
+					await fixture.getByRole("button", { name: "Fetch with invalid payload" }).click();
+					await expectVisibleText(home, "Greetings are unavailable right now.");
 				});
 
 				await step("synchronize theme without resetting Home", async () => {
