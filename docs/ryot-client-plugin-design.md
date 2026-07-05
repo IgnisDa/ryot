@@ -951,6 +951,14 @@ The current workspace is navigation state and should normally be derived from th
 
 Persistent storage records the **last workspace**, not an authoritative hidden selected workspace.
 
+A pathless TanStack Router layout route owns everything authenticated. Its `beforeLoad` runs the authenticated route guard, and its `loader` loads the plugin catalog and the remembered workspace before any authenticated screen renders. It creates one direct kernel `RyotClient` and mounts one `RyotProvider`, one plugin-catalog provider, and the authenticated shell around the routed screen. Every authenticated route, including the settings tree, is reparented under it; public URLs are unaffected.
+
+### Workspace visibility and ordering
+
+Enabled state is the only workspace visibility rule: a disabled installation never appears in bootstrap selection or the workspace switcher, regardless of health, artifact presence, or client API version. Ordering is deterministic across the switcher and bootstrap: installation `sortOrder`, then plugin `slug`, then `installationId`. The catalog recipe orders by exactly those three columns and filters only on the owning plugin being active, so disabled and incompatible installations remain in the catalog for direct navigation and entity delegation even though they are not offered as workspaces.
+
+The remembered workspace is scoped to the normalized server URL and user ID, so signing out or switching servers never clears another server or account's remembered workspace.
+
 ### Bootstrap
 
 `/` is a bootstrap route only.
@@ -960,14 +968,14 @@ When authenticated:
 ```text
 /
   │
-  ├── valid visible remembered workspace exists
+  ├── remembered workspace exists and is still enabled
   │      └── replace("/<lastWorkspace>")
   │
   └── otherwise
-         └── replace("/<first visible workspace>")
+         └── persist and replace("/<first enabled workspace in catalog order>")
 ```
 
-A fresh installation chooses the first workspace visible in the switcher according to the kernel's normal ordering.
+The redirect always uses `replace`; a bootstrap destination is never pushed into history. When no workspace is enabled, `/` stays put and renders a kernel empty state that keeps account and settings navigation available.
 
 ### Plugin routes
 
@@ -1007,6 +1015,12 @@ A global saved view with no plugin owner may use the remembered last workspace o
 
 Global kernel screens do not intrinsically belong to a plugin. The kernel may preserve the remembered workspace for surrounding navigation context where appropriate.
 
+Settings lives at `/settings`, `/settings/preferences`, and `/settings/account`, with a settings-specific sidebar rendered inside the shell's content region rather than replacing the workspace sidebar. On desktop this gives two levels of navigation at once: the workspace sidebar and a 240px settings sidebar whose active section is derived from the pathname, with nested paths active under their parent and `replace` navigation between sections; `/settings` itself replaces to `/settings/preferences`, including when the viewport crosses into desktop while already on the index. Below the desktop breakpoint, `/settings` is a section index of disclosure rows reached with push navigation; detail routes carry a back control that prefers browser history and otherwise falls back to `/settings`, and the index's own back fallback is the remembered workspace route. The global mobile header and drawer described in §17 are not rendered on settings routes, so a settings detail header never stacks on top of them.
+
+`/settings/preferences` currently contains only an Appearance section: Light/Dark/System radios that are device-local. `/settings/account` shows profile identity — avatar, name, email, user ID, and server origin — plus sign out and change server, each with pending, disabled, and stable failure states. A `ThemeController` stays mounted globally, renders nothing, and reads and persists the preference from a `ThemeStore`; that store remains the single source of truth for applying the theme to the document and for the theme snapshot published to plugins. There is no separate global theme selector outside Appearance.
+
+Saved views, collections, search, the command center, sidebar customization, avatar refresh, God mode, integrations, imports, backups, plugin management, and the remaining settings sections are deferred.
+
 ---
 
 ## 17. Workspace switching
@@ -1030,6 +1044,12 @@ It should not normally create:
 ```
 
 Workspace switching should preserve the current semantic behavior of replacing the active workspace context.
+
+The switcher lists every enabled installation in catalog order. Selecting the current workspace does nothing; selecting a different one persists the slug, closes the switcher, and navigates with `replace` — closing happens before the navigation so the transition never briefly shows the destination workspace behind an open switcher.
+
+### Shell chrome
+
+At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present: a workspace trigger, a Home row for the current workspace, and an account/settings footer. It carries no search, saved views, collections, customization, or Pro affordance. Below `md`, a mobile header with a menu button replaces it, opening a modal `<dialog>` drawer that carries the same trigger, Home row, and footer. The drawer supports Escape, backdrop, and close-button dismissal, traps focus while open, restores focus to the menu trigger on close, locks body scroll, and respects reduced motion. Neither the mobile header nor the drawer renders on settings routes.
 
 ---
 
@@ -1241,6 +1261,8 @@ This route resolver should be a small, explicit, heavily tested kernel subsystem
 
 The kernel obtains its installation and client-artifact catalog through an application-owned named RyotQL recipe. The catalog returns active plugins only, decodes client API version as exact `1`, and follows bounded cursor pages of at most 100 rows until completion. `RyotClient` decodes the result locally. Its decoded result includes the stable plugin and installation identities, slug, health, disabled state, package source hash, client artifact hash, and client API version needed by routing and `PluginHost`; the catalog exposes no capabilities.
 
+The route resolver itself performs no health filtering: it rejects reserved slugs, otherwise finds the installation by slug in the catalog, and resolves to plugin ownership regardless of health, disabled state, or client API version. `PluginHost` owns compatibility and unavailability entirely — an explicit incompatible-health branch resolves before artifact-presence and client-API-version checks, and renders an alert with no iframe or bridge.
+
 ---
 
 ## 22. Plugin iframe lifecycle
@@ -1284,9 +1306,11 @@ The kernel may discard inactive plugin iframes under memory pressure.
 
 The initial implementation can keep only the active plugin alive and add an LRU/warm-cache policy later if measurements justify it.
 
-A package update is the exception to route-stable iframe reuse. The iframe session is keyed by installation ID, package source hash, and client artifact hash. When either revision hash changes, the kernel destroys the existing iframe and mounts a fresh document and bridge session.
+A package update is the exception to route-stable iframe reuse. The iframe session is keyed by installation ID, package source hash, and client artifact hash. When either revision hash changes, the kernel destroys the existing iframe and mounts a fresh document and bridge session. The iframe uses content-relative `h-full` sizing rather than `h-screen`, and the plugin route sets `shouldReload: false`.
 
-The mounted plugin route's loader loads the catalog through the direct kernel `RyotClient` adapter and returns it as initial data. The route then seeds `pluginCatalogQuery` through `RyotProvider` and `useRyotQuery`; the shared query surface uses that hydrated catalog on mount and revalidates it on browser focus. The route keeps one credentialed EventSource for catalog changes. The backend publishes user-scoped invalidations through Redis and routes them into the same process-local catalog hub used by authenticated SSE responses. Both the initial `connected` event and later `catalog-invalidated` events are named, standards-valid SSE messages with a `data:` field. Those events call the query's `refetch`; they do not carry catalog rows or add a second plugin transport. Browser reconnection remains native EventSource behavior, and ordinary route or catalog renders must not recreate the subscription.
+Only the active plugin is ever mounted. Shell-only interactions must not disturb iframe or bridge identity: opening or closing the workspace switcher, opening or closing the mobile drawer, crossing the desktop/mobile breakpoint, plugin-private navigation, and browser Back/Forward within the plugin route all leave the same iframe and bridge session running. Navigating to settings intentionally unmounts the plugin — settings and a plugin are never mounted together — and returning to the workspace mounts a fresh iframe. Switching workspaces unmounts the outgoing plugin and mounts the selected one. Signing out or changing server disposes the entire authenticated shell and plugin session.
+
+The authenticated layout route's loader loads the catalog once, through the direct kernel `RyotClient` adapter, and returns it as initial data; the layout seeds `pluginCatalogQuery` through `RyotProvider` and a plugin-catalog provider using `useRyotQuery`, so the shared query surface uses that hydrated catalog on mount and revalidates it on browser focus. The plugin-catalog provider — not the plugin route — keeps the one credentialed EventSource for catalog changes; the plugin route only reads the catalog from that provider and never subscribes itself. The backend publishes user-scoped invalidations through Redis and routes them into the same process-local catalog hub used by authenticated SSE responses. Both the initial `connected` event and later `catalog-invalidated` events are named, standards-valid SSE messages with a `data:` field. Those events call the query's `refetch`; they do not carry catalog rows or add a second plugin transport. Browser reconnection remains native EventSource behavior, and ordinary route or catalog renders must not recreate the subscription.
 
 ---
 
@@ -1647,6 +1671,8 @@ The same client artifact should be exercised on:
 Media and Fitness provide additional production dogfooding.
 
 Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, an exposed SDK category missing from the supplied adapter as `unsupported-capability`, declared query and operation execution failures as opaque `query-failed` and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove the shared 64-request operation/RyotQL pending limit and its protocol teardown, that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, and plugin-supplied and default not-found states.
+
+The browser lifecycle suite drives theme changes through `/settings/preferences` rather than a global theme selector, accepts that entering settings unmounts the plugin, and verifies that the fresh iframe mounted on return receives the persisted theme. Live theme synchronization on an already-mounted plugin host is covered by unit tests instead of the browser suite.
 
 ---
 
