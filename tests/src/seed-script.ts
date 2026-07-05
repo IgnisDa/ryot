@@ -9,6 +9,8 @@ import {
 } from "@ryot/contract/client";
 import type { QueryExpression, RuntimeRef } from "@ryot/contract/display-configuration";
 import {
+	EventSchemaSlug,
+	PluginSlug,
 	RemoteImageUrl,
 	type SandboxProviderId,
 	SandboxScriptId,
@@ -32,7 +34,6 @@ import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixture
 import { testPluginManifest } from "./fixtures/test-plugin";
 
 type EntitySchemaSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
-type PluginSlug = string;
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:8000";
 const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
@@ -293,7 +294,7 @@ async function createPluginScope(
 		description: description ?? null,
 		sortOrder: 0,
 	};
-	const plugin = { ...definition, id: slug };
+	const plugin = { ...definition, id: PluginSlug.make(slug) };
 
 	console.log(`  ✓ Created plugin scope: ${name} (${plugin.id})`);
 	return plugin;
@@ -364,7 +365,7 @@ async function createEventSchema(
 			},
 		],
 	});
-	const schema = { ...definition, id: slug };
+	const schema = { ...definition, id: EventSchemaSlug.make(slug) };
 
 	console.log(`      ✓ Created event schema: ${name} (${schema.id})`);
 	return schema;
@@ -1374,7 +1375,7 @@ async function getBuiltinWorkspace(apiClient: APIClient) {
 		throw new Error("Built-in media plugin workspace not found");
 	}
 
-	return { ...builtinWorkspace, id: builtinWorkspace.slug };
+	return { ...builtinWorkspace, id: PluginSlug.make(builtinWorkspace.slug) };
 }
 
 async function listMediaEntitySchemas(apiClient: APIClient, pluginSlug: PluginSlug) {
@@ -1407,7 +1408,7 @@ async function getMediaLifecycleEventSchemas(
 	const schemas = requirePresent(
 		entities.find((schema) => schema.slug === entitySchemaSlug),
 		`Entity schema '${entitySchemaSlug}' not found`,
-	).eventSchemas.map((schema) => ({ ...schema, id: schema.slug }));
+	).eventSchemas.map((schema) => ({ ...schema, id: EventSchemaSlug.make(schema.slug) }));
 
 	const backlog = schemas.find((s) => s.slug === "backlog");
 	const progress = schemas.find((s) => s.slug === "progress");

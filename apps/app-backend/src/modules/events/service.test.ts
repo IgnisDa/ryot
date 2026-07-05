@@ -35,7 +35,7 @@ const entityScope = {
 	entityName: "Dune",
 	entityId: EntityId.make("entity-1"),
 	entityUserId: user.id,
-	entitySchemaSlug: "book",
+	entitySchemaSlug: EntitySchemaSlug.make("book"),
 	propertiesSchema: { fields: {} },
 };
 
