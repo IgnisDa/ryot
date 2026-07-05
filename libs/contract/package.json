@@ -10,10 +10,10 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@effect/platform": "0.96.2",
+		"@effect/platform": "0.97.1",
 		"@ryot/query-engine": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
-		"effect": "3.21.4"
+		"effect": "3.22.1"
 	}
 }
