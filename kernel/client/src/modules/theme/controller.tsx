@@ -1,16 +1,25 @@
 import { Effect } from "effect";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
-import { THEME_PREFERENCES, isThemePreference } from "#/modules/theme/preference";
 import type { ThemeStore } from "#/modules/theme/store";
 import { ClientStorage } from "#/persistence/storage";
-import type { ClientRuntime } from "#/runtime";
+
+type ThemeControllerRuntime = {
+	readonly runPromise: <A, E>(
+		effect: Effect.Effect<A, E, ClientStorage>,
+		options?: Effect.RunOptions,
+	) => Promise<A>;
+};
 
 export function ThemeController(props: {
-	readonly runtime: ClientRuntime;
 	readonly theme: ThemeStore;
+	readonly runtime: ThemeControllerRuntime;
 }) {
-	const [preference, setPreference] = useState(props.theme.getPreference);
+	const preference = useSyncExternalStore(
+		props.theme.subscribe,
+		props.theme.getPreference,
+		props.theme.getPreference,
+	);
 
 	useEffect(() => {
 		void props.runtime.runPromise(
@@ -18,27 +27,5 @@ export function ThemeController(props: {
 		);
 	}, [preference, props.runtime]);
 
-	return (
-		<label className="fixed top-[max(16px,env(safe-area-inset-top))] right-[max(16px,env(safe-area-inset-right))] z-2 flex items-center gap-2 text-[13px] font-semibold text-text-muted">
-			<span>Theme</span>
-			<select
-				className="min-h-9 rounded-md border border-border bg-surface py-1.5 pr-7 pl-2.5 text-text"
-				value={preference}
-				onChange={(event) => {
-					const newPreference = event.currentTarget.value;
-					if (isThemePreference(newPreference)) {
-						props.theme.setPreference(newPreference);
-						setPreference(newPreference);
-					}
-				}}
-			>
-				{THEME_PREFERENCES.map((value) => (
-					<option key={value} value={value}>
-						{value[0]?.toUpperCase()}
-						{value.slice(1)}
-					</option>
-				))}
-			</select>
-		</label>
-	);
+	return null;
 }

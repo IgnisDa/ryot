@@ -5,7 +5,7 @@ import {
 import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Effect, Layer, ManagedRuntime, Schema } from "effect";
+import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "#/api/authenticated";
@@ -55,15 +55,19 @@ const authenticated = {
 	user: { image: null, id: "user-1", name: "Test User", email: "user@ryot.example" },
 } as const;
 
-const AuthStub = Layer.succeed(AuthService, {
-	signOut: () => Effect.void,
-	changeServer: () => Effect.void,
-	signInWithOidc: () => Effect.void,
-	verifyTwoFactor: () => Effect.void,
-	settledSession: () => Effect.succeed(authenticated),
-	submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
-	session: () => ({ subscribe: () => () => undefined, getSnapshot: () => authenticated }),
-});
+const makeAuthStub = (overrides: Partial<AuthService["Service"]> = {}) =>
+	Layer.succeed(AuthService, {
+		signOut: () => Effect.void,
+		changeServer: () => Effect.void,
+		signInWithOidc: () => Effect.void,
+		verifyTwoFactor: () => Effect.void,
+		settledSession: () => Effect.succeed(authenticated),
+		submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
+		session: () => ({ subscribe: () => () => undefined, getSnapshot: () => authenticated }),
+		...overrides,
+	});
+
+const AuthStub = makeAuthStub();
 
 const ServerStub = Layer.succeed(ServerService, {
 	connect: () => Effect.void,
@@ -85,11 +89,12 @@ const mountView = (
 	initialEntry: string | string[],
 	rememberedSlug: string | null = "fixture",
 	entries: PluginClientCatalog = catalog,
+	authLayer: Layer.Layer<AuthService> = AuthStub,
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
-			AuthStub,
+			authLayer,
 			ServerStub,
 			PublicApi.layer,
 			AuthClient.layer,
@@ -216,5 +221,99 @@ describe("settings navigation", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture"));
 		expect(view.router.history.canGoBack()).toBe(false);
+	});
+});
+
+describe("account settings", () => {
+	it("renders the current identity: name, email, user ID, and server origin", async () => {
+		mountView("/settings/account");
+		await screen.findByRole("heading", { name: "Account" });
+
+		const profile = screen.getByRole("heading", { name: "Profile" }).closest("section");
+		expect(profile).not.toBeNull();
+		expect(profile?.textContent).toContain("Test User");
+		expect(profile?.textContent).toContain("user@ryot.example");
+		expect(profile?.textContent).toContain("ID: user-1");
+		expect(profile?.textContent).toContain("https://ryot.example");
+	});
+
+	it("disables both actions while sign out is pending and navigates to /auth on success", async () => {
+		const gate = Effect.runSync(Deferred.make<void>());
+		const view = mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			makeAuthStub({ signOut: () => Deferred.await(gate) }),
+		);
+		await screen.findByRole("heading", { name: "Account" });
+
+		fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+		await screen.findByRole("button", { name: "Signing out…" });
+		expect(screen.getByRole("button", { name: "Signing out…" }).hasAttribute("disabled")).toBe(
+			true,
+		);
+		expect(screen.getByRole("button", { name: "Change server" }).hasAttribute("disabled")).toBe(
+			true,
+		);
+
+		await Effect.runPromise(Deferred.succeed(gate, undefined));
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/auth"));
+	});
+
+	it("stays put and renders a stable failure message when sign out fails", async () => {
+		const view = mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			makeAuthStub({ signOut: () => Effect.die("sign out failed") }),
+		);
+		await screen.findByRole("heading", { name: "Account" });
+
+		fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+		await screen.findByRole("alert");
+		expect(screen.getByRole("alert").textContent).toBe("Could not sign out.");
+		expect(view.router.state.location.pathname).toBe("/settings/account");
+		expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(false);
+	});
+
+	it("disables both actions while changing server is pending and navigates to /onboarding on success", async () => {
+		const gate = Effect.runSync(Deferred.make<void>());
+		const view = mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			makeAuthStub({ changeServer: () => Deferred.await(gate) }),
+		);
+		await screen.findByRole("heading", { name: "Account" });
+
+		fireEvent.click(screen.getByRole("button", { name: "Change server" }));
+		await screen.findByRole("button", { name: "Changing server…" });
+		expect(screen.getByRole("button", { name: "Changing server…" }).hasAttribute("disabled")).toBe(
+			true,
+		);
+		expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(true);
+
+		await Effect.runPromise(Deferred.succeed(gate, undefined));
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/onboarding"));
+	});
+
+	it("stays put and renders a stable failure message when changing server fails", async () => {
+		const view = mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			makeAuthStub({ changeServer: () => Effect.die("change server failed") }),
+		);
+		await screen.findByRole("heading", { name: "Account" });
+
+		fireEvent.click(screen.getByRole("button", { name: "Change server" }));
+
+		await screen.findByRole("alert");
+		expect(screen.getByRole("alert").textContent).toBe("Could not change server.");
+		expect(view.router.state.location.pathname).toBe("/settings/account");
+		expect(screen.getByRole("button", { name: "Change server" }).hasAttribute("disabled")).toBe(
+			false,
+		);
 	});
 });
