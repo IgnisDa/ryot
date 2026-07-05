@@ -147,9 +147,11 @@ export const validateSignalSchemaFormatterReferences = (
 	snapshot: DefinitionSnapshot,
 	pluginScripts: ReadonlyArray<ScriptDescriptor>,
 	kernelScripts: ReadonlyArray<ScriptDescriptor>,
+	kernelSignalSlugs: ReadonlySet<string>,
 ) =>
 	Effect.gen(function* () {
 		const scripts = [...pluginScripts, ...kernelScripts];
+		const kernelScriptSlugs = new Set(kernelScripts.map(({ slug }) => slug));
 		const scriptSlugs = new Set<string>();
 		for (const script of scripts) {
 			if (scriptSlugs.has(script.slug)) {
@@ -158,6 +160,14 @@ export const validateSignalSchemaFormatterReferences = (
 			scriptSlugs.add(script.slug);
 		}
 		for (const signalSchema of Object.values(snapshot.signalSchemas)) {
+			if (
+				kernelScriptSlugs.has(signalSchema.notificationScriptSlug) &&
+				!kernelSignalSlugs.has(signalSchema.slug)
+			) {
+				return yield* fail(
+					`Signal schema ${signalSchema.slug} cannot reference kernel source-zero formatter: ${signalSchema.notificationScriptSlug}`,
+				);
+			}
 			const matches = scripts.filter(({ slug }) => slug === signalSchema.notificationScriptSlug);
 			if (matches.length === 0) {
 				return yield* fail(
