@@ -1,7 +1,7 @@
-import { FetchHttpClient } from "@effect/platform";
 import { makeContractClient, type ContractProgram } from "@ryot/contract/client";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
 
 import { getServerVariables } from "./config.server";
 
@@ -28,7 +28,7 @@ const runAdmin = <A, E>(program: ContractProgram<A, E>): Promise<ApiResult<A>> =
 	}).pipe(
 		Effect.flatMap(program),
 		Effect.map((data): ApiResult<A> => ({ data })),
-		Effect.catchAll((error) =>
+		Effect.catch((error) =>
 			Effect.succeed<ApiResult<A>>({ error: { message: errorMessage(error) } }),
 		),
 		Effect.provide(FetchHttpClient.layer),
@@ -44,7 +44,9 @@ export const provisionUser = (body: ProvisionUserBody) =>
 	);
 
 export const resetUserPassword = (userId: UserId) =>
-	runAdmin((client) => client.godMode.resetUserPassword({ path: { userId } }));
+	runAdmin((client) => client.godMode.resetUserPassword({ params: { userId } }));
 
 export const setUserDisabled = (userId: UserId, disabled: boolean) =>
-	runAdmin((client) => client.godMode.setUserDisabled({ path: { userId }, payload: { disabled } }));
+	runAdmin((client) =>
+		client.godMode.setUserDisabled({ params: { userId }, payload: { disabled } }),
+	);
