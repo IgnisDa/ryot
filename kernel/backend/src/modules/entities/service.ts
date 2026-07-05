@@ -91,24 +91,23 @@ const toMutationSnapshot = (entity: ListedEntity): EntityMutationSnapshot => ({
 	entitySchemaSlug: entity.entitySchemaSlug,
 });
 
+const parseEntityProperties = (
+	properties: unknown,
+	propertiesSchema: Parameters<typeof parseAppSchemaProperties>[0]["propertiesSchema"],
+) =>
+	parseAppSchemaProperties({ properties, kind: "Entity", propertiesSchema }).pipe(
+		Effect.mapError(
+			(error) =>
+				new EntityBadRequest({
+					reason: { code: "invalid-properties", paths: error.issues.map(({ path }) => path) },
+				}),
+		),
+	);
+
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
 		const repository = yield* EntitiesRepository;
 		const lifecycleDispatch = yield* LifecycleDispatch;
-
-		const parseEntityProperties = Effect.fn("EntitiesService.parseEntityProperties")(function* (
-			properties: unknown,
-			propertiesSchema: Parameters<typeof parseAppSchemaProperties>[0]["propertiesSchema"],
-		) {
-			return yield* parseAppSchemaProperties({ properties, kind: "Entity", propertiesSchema }).pipe(
-				Effect.mapError(
-					(error) =>
-						new EntityBadRequest({
-							reason: { code: "invalid-properties", paths: error.issues.map(({ path }) => path) },
-						}),
-				),
-			);
-		});
 
 		const createEntity = Effect.fn("EntitiesService.createEntity")(function* (
 			input: CreateAnyEntityInput,

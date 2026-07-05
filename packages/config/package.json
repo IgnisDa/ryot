@@ -16,7 +16,7 @@
 		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0-beta.107",
+		"@effect/vitest": "4.0.0-rc.111",
 		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.0",
 		"vitest": "4.1.9"
