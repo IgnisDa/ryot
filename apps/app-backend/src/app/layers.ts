@@ -26,6 +26,7 @@ import { SeedService } from "#modules/builtins/seed";
 import { AddEntityToCollectionWorkflowDefinitionsLive } from "#modules/collections/add-entity-to-collection-workflow-live";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -166,6 +167,7 @@ const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
 const CoreInfrastructureDependenciesLive = Layer.mergeAll(BaseInfrastructureLive, ConfigLive);
 
 const CoreInfrastructureServicesLive = Layer.mergeAll(
+	DefinitionRegistry.Default,
 	PersistedQueueLive,
 	WorkflowEngineLive,
 	DbRunnerLive,
