@@ -300,6 +300,22 @@ files and 978 tests, media tests passed 95 files and 379 tests, and fitness test
 with zero failures in 1,888.26 seconds. The standalone operational gate was explicitly waived for
 Task 17 and was not run; no pass is claimed. The live-network gate remained excluded.
 
+Task 18 implementation record (2026-07-31): the mandatory cleanup skill audit covered every file in
+the Phase 4 implementation range and directly affected call sites, split across focused backend,
+sandbox-runtime, plugin-lifecycle, package, e2e, and documentation reviews. The cleanup removed an
+unused module-level import-source catalog layer export, replaced a duplicate runtime snapshot alias
+with the loader's canonical `PluginRegistrySnapshot`, made a repository-internal workflow-reference
+type private, and deleted an unreferenced media e2e polling helper. Repository-wide reference checks
+confirmed that none had external consumers. Intentional resolver boundaries, private platform
+adapters, lifecycle fixtures, the legacy-bootstrap quarantine, narrow boot-wiring purity exceptions,
+and all four backup-client deletion TODOs remain.
+
+The backend check passed. Backend tests passed 140 files and 978 tests after one unrelated flaky
+durable-queue assertion passed both its focused rerun and the complete rerun. Media tests passed 95
+files and 379 tests; fitness tests passed 13 files and 43 tests. The owner explicitly waived fresh
+Task 18 standard and operational e2e runs, so no new e2e pass is claimed; Task 17's 81-file/511-test
+standard evidence remains the Phase 4 baseline, and the live-network gate remains excluded.
+
 ## 5. Deliberately deferred (record here, do not build)
 
 - **User-level plugin installation and arbitrary source upload** — Phase 5 owns package versus
