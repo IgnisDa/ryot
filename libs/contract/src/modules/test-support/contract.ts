@@ -18,7 +18,6 @@ import {
 	TestSupportBuiltinEntitySchema,
 	TestSupportEntityTranslation,
 	TestSupportGlobalRelationship,
-	TestSupportInstallDefinitions,
 	TestSupportSignal,
 	TestSupportStoredSandboxScript,
 	TestSupportSubscriptionRun,
@@ -29,7 +28,6 @@ const slugParam = HttpApiSchema.param("slug", Schema.String);
 const entityIdParam = HttpApiSchema.param("entityId", EntityId);
 const scriptIdParam = HttpApiSchema.param("scriptId", SandboxScriptId);
 const properties = Schema.Record({ key: Schema.String, value: Schema.Unknown });
-const entitySchemaSlugParam = HttpApiSchema.param("entitySchemaSlug", EntitySchemaSlug);
 
 const PatchSandboxScriptBody = Schema.Struct({
 	slug: Schema.optional(Schema.String),
@@ -66,12 +64,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.addError(Unauthorized, { status: 401 })
 	.middleware(AdminMiddleware)
 	.add(
-		HttpApiEndpoint.post("installDefinitions", "/test-support/definitions")
-			.setPayload(TestSupportInstallDefinitions)
-			.addSuccess(Schema.Void)
-			.annotate(OpenApi.Description, "Installs temporary in-memory definitions for testing"),
-	)
-	.add(
 		HttpApiEndpoint.get("getSandboxScript")`/test-support/sandbox-scripts/${scriptIdParam}`
 			.addSuccess(TestSupportStoredSandboxScript)
 			.addError(NotFound, { status: 404 })
@@ -96,26 +88,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			.addSuccess(TestSupportStoredSandboxScript)
 			.addError(NotFound, { status: 404 })
 			.annotate(OpenApi.Description, "Updates fields on a stored sandbox script"),
-	)
-	.add(
-		HttpApiEndpoint.post(
-			"promoteSandboxScript",
-		)`/test-support/sandbox-scripts/${scriptIdParam}/promote`
-			.addSuccess(TestSupportStoredSandboxScript)
-			.addError(NotFound, { status: 404 })
-			.annotate(OpenApi.Description, "Promotes a stored sandbox script"),
-	)
-	.add(
-		HttpApiEndpoint.del("deleteSandboxScript")`/test-support/sandbox-scripts/${scriptIdParam}`
-			.addSuccess(Schema.Struct({ id: SandboxScriptId }))
-			.annotate(OpenApi.Description, "Deletes a stored sandbox script"),
-	)
-	.add(
-		HttpApiEndpoint.put(
-			"linkSandboxScriptToEntitySchema",
-		)`/test-support/entity-schemas/${entitySchemaSlugParam}/sandbox-scripts/${scriptIdParam}`
-			.addSuccess(Schema.Struct({ id: Schema.String }))
-			.annotate(OpenApi.Description, "Links a sandbox script to an entity schema"),
 	)
 	.add(
 		HttpApiEndpoint.post("createGlobalEntity", "/test-support/entities/global")
