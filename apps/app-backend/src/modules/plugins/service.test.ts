@@ -69,6 +69,28 @@ const dependentManifest = (entitySchemaSlug: string): PluginManifest => {
 	};
 };
 
+const formatterOwnerManifest = (): PluginManifest => {
+	const fixture = fixtureManifest();
+	const script = fixture.scripts[0];
+	assert(script);
+	return {
+		...fixture,
+		savedViews: [],
+		entitySchemas: [],
+		signalSchemas: [],
+		relationshipSchemas: [],
+		scripts: [{ ...script, slug: "formatter-owner.notification" }],
+		metadata: { ...fixture.metadata, name: "Formatter owner", slug: "formatter-owner" },
+		bindings: {
+			eventAutomations: [],
+			entityAutomations: [],
+			signalAutomations: [],
+			schemaScriptLinks: [],
+			relationshipAutomations: [],
+		},
+	};
+};
+
 const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginManifest => {
 	const fixture = fixtureManifest();
 	const entitySchema = fixture.entitySchemas[0];
@@ -207,6 +229,80 @@ it.effect("validates bindings against definitions from installed plugins", () =>
 	}).pipe(Effect.provide(makeLayer({ initialInstalled: [installedMedia] })));
 });
 
+it.effect("accepts plugin-owned, cross-plugin, and source-zero notification formatters", () => {
+	const owner = makeStoredPlugin(formatterOwnerManifest(), "formatter-owner-source-hash");
+	return Effect.gen(function* () {
+		const ingestion = yield* PluginIngestionService;
+		yield* ingestion.rebuild();
+		for (const notificationScriptSlug of [
+			"formatter-owner.notification",
+			"automation.notification",
+		]) {
+			const manifest = fixtureManifest();
+			const signalSchema = manifest.signalSchemas[0];
+			assert(signalSchema);
+			const source = yield* loadPluginSource(fixturePackageRoot(), {
+				...manifest,
+				signalSchemas: [{ ...signalSchema, notificationScriptSlug }],
+			});
+
+			const plugin = yield* ingestion.ingestPlugin(source);
+			expect(plugin.manifest.signalSchemas[0]?.notificationScriptSlug).toBe(notificationScriptSlug);
+		}
+	}).pipe(Effect.provide(makeLayer({ initialInstalled: [owner] })));
+});
+
+it.effect("rejects missing and non-automation notification formatters", () =>
+	Effect.forEach(["missing", "wrong-kind"] as const, (kind) =>
+		Effect.gen(function* () {
+			const ingestion = yield* PluginIngestionService;
+			const manifest = fixtureManifest();
+			const signalSchema = manifest.signalSchemas[0];
+			const script = manifest.scripts[0];
+			assert(signalSchema);
+			assert(script);
+			const notificationScriptSlug = kind === "missing" ? "missing.notification" : script.slug;
+			const source = yield* loadPluginSource(fixturePackageRoot(), {
+				...manifest,
+				signalSchemas: [{ ...signalSchema, notificationScriptSlug }],
+				scripts:
+					kind === "wrong-kind"
+						? [
+								{
+									...script,
+									kind: "provider" as const,
+									providerInformation: { source: "fixture" },
+								},
+							]
+						: manifest.scripts,
+			});
+
+			const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
+			expect(Exit.isFailure(exit)).toBe(true);
+			expect(String(exit)).toContain("BadRequest");
+			expect(String(exit)).toContain(
+				kind === "missing" ? "references missing script" : "automation script",
+			);
+		}).pipe(Effect.provide(makeLayer())),
+	),
+);
+
+it.effect("rejects plugin scripts that collide with kernel source zero", () => {
+	const manifest = fixtureManifest();
+	const script = manifest.scripts[0];
+	assert(script);
+	return Effect.gen(function* () {
+		const ingestion = yield* PluginIngestionService;
+		const source = yield* loadPluginSource(fixturePackageRoot(), {
+			...manifest,
+			scripts: [{ ...script, slug: "automation.notification" }],
+		});
+
+		const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
+		expect(String(exit)).toContain("Duplicate script slug: automation.notification");
+	}).pipe(Effect.provide(makeLayer()));
+});
+
 it.effect("rebuilds the registry when Redis invalidates the plugin snapshot", () => {
 	const stored = makeStoredPlugin(fixtureManifest(), "stored-source-hash");
 	return Effect.gen(function* () {
@@ -215,6 +311,29 @@ it.effect("rebuilds the registry when Redis invalidates the plugin snapshot", ()
 		expect(loader.getSnapshot().plugins["fixture"]).toBeUndefined();
 		yield* handlePluginRegistryInvalidation(redisKeys.pluginRegistryChannel, ingestion);
 		expect(loader.getSnapshot().plugins["fixture"]?.sourceHash).toBe("stored-source-hash");
+	}).pipe(Effect.provide(makeLayer({ initialInstalled: [stored] })));
+});
+
+it.effect("refuses to rebuild a snapshot with a dangling notification formatter", () => {
+	const manifest = fixtureManifest();
+	const signalSchema = manifest.signalSchemas[0];
+	assert(signalSchema);
+	const stored = makeStoredPlugin(
+		{
+			...manifest,
+			signalSchemas: [{ ...signalSchema, notificationScriptSlug: "missing.notification" }],
+		},
+		"stored-source-hash",
+	);
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const ingestion = yield* PluginIngestionService;
+		const snapshot = loader.getSnapshot();
+		const exit = yield* Effect.exit(ingestion.rebuild());
+
+		expect(Exit.isFailure(exit)).toBe(true);
+		expect(String(exit)).toContain("references missing script");
+		expect(loader.getSnapshot()).toBe(snapshot);
 	}).pipe(Effect.provide(makeLayer({ initialInstalled: [stored] })));
 });
 
@@ -324,6 +443,29 @@ it.effect("refuses uninstall while another active plugin binds to its definition
 
 		expect(String(exit)).toContain("Conflict");
 		expect(String(exit)).toContain("active plugin bindings reference its definitions");
+		expect(deactivated).toEqual([]);
+	}).pipe(Effect.provide(makeLayer({ deactivated, initialInstalled: [owner, dependent] })));
+});
+
+it.effect("refuses uninstall while another active signal references its formatter", () => {
+	const owner = makeStoredPlugin(formatterOwnerManifest(), "formatter-owner-source-hash");
+	const manifest = fixtureManifest();
+	const signalSchema = manifest.signalSchemas[0];
+	assert(signalSchema);
+	const dependent = makeStoredPlugin(
+		{
+			...manifest,
+			signalSchemas: [{ ...signalSchema, notificationScriptSlug: "formatter-owner.notification" }],
+		},
+		"dependent-source-hash",
+	);
+	const deactivated: Array<string> = [];
+	return Effect.gen(function* () {
+		const ingestion = yield* PluginIngestionService;
+		const exit = yield* Effect.exit(ingestion.uninstallPlugin("formatter-owner"));
+
+		expect(String(exit)).toContain("Conflict");
+		expect(String(exit)).toContain("references missing script");
 		expect(deactivated).toEqual([]);
 	}).pipe(Effect.provide(makeLayer({ deactivated, initialInstalled: [owner, dependent] })));
 });

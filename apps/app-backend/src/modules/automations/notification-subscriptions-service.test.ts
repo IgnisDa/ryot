@@ -14,10 +14,7 @@ import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
-import {
-	NotificationSubscriptionsService,
-	NOTIFICATION_SCRIPT_SLUG,
-} from "./notification-subscriptions-service";
+import { NotificationSubscriptionsService } from "./notification-subscriptions-service";
 import {
 	AutomationsRepository,
 	type InsertNotificationSubscriptionInput,
@@ -39,7 +36,7 @@ const kernelScript = {
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
 	name: "Notification delivery",
-	slug: NOTIFICATION_SCRIPT_SLUG,
+	slug: "automation.notification",
 	metadata: { kind: "automation" as const },
 };
 
@@ -48,6 +45,7 @@ const signalSchema = {
 	catalogState: "active",
 	name: "Review Created",
 	audiencePolicy: { kind: "actor" },
+	notificationScriptSlug: "automation.notification",
 	propertiesSchema: { unknownKeys: "strict", fields: {} },
 } as const;
 
@@ -57,7 +55,6 @@ const state = {
 	metadata: null,
 	isActive: true,
 	signalSchemaSlug,
-	scriptSlug: NOTIFICATION_SCRIPT_SLUG,
 	createdAt: "2026-07-21T10:00:00.000Z",
 	updatedAt: "2026-07-21T10:00:00.000Z",
 } as const satisfies StoredNotificationSubscription;
@@ -66,21 +63,26 @@ const mockRepository = Layer.mock(AutomationsRepository);
 const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ _tag: "AutomationsRepository", ...overrides });
-const makePluginRuntime = () =>
+const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = {}) =>
 	mockPluginRuntime({
 		_tag: "PluginRuntimeResolver",
+		findActiveScript: () => Effect.succeed(null),
 		findKernelScript: (slug) => {
-			expect(slug).toBe(NOTIFICATION_SCRIPT_SLUG);
+			expect(slug).toBe(signalSchema.notificationScriptSlug);
 			return Effect.succeed(kernelScript);
 		},
+		...overrides,
 	});
 
-const makeDefinitions = (catalogState: "active" | "hidden" = "active") => {
+const makeDefinitions = (
+	catalogState: "active" | "hidden" = "active",
+	includeDefinition = true,
+) => {
 	const registry = makeDefinitionRegistry({
 		savedViews: [],
 		entitySchemas: [],
 		relationshipSchemas: [],
-		signalSchemas: [{ ...signalSchema, catalogState }],
+		signalSchemas: includeDefinition ? [{ ...signalSchema, catalogState }] : [],
 	});
 	return Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...registry });
 };
@@ -88,15 +90,17 @@ const makeDefinitions = (catalogState: "active" | "hidden" = "active") => {
 const makeLayer = (
 	repository: MockOverrides<typeof mockRepository> = {},
 	catalogState: "active" | "hidden" = "active",
+	pluginRuntime: MockOverrides<typeof mockPluginRuntime> = {},
+	includeDefinition = true,
 ) =>
 	NotificationSubscriptionsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
-				makeDefinitions(catalogState),
+				makeDefinitions(catalogState, includeDefinition),
 				makeRepository(repository),
-				makePluginRuntime(),
+				makePluginRuntime(pluginRuntime),
 			),
 		),
 	);
@@ -132,7 +136,6 @@ it.effect("installs an active catalog schema with only server-selected state fie
 			metadata: null,
 			isActive: true,
 			signalSchemaSlug,
-			scriptSlug: NOTIFICATION_SCRIPT_SLUG,
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -181,6 +184,7 @@ it.effect("returns the same not-found result for inaccessible and nonexistent ru
 
 it.effect("does not reveal inaccessible notification state through mutations", () => {
 	const layer = makeLayer({
+		findNotificationSubscription: () => Effect.succeed(null),
 		deleteNotificationSubscription: () => Effect.succeed(null),
 		setNotificationSubscriptionActive: () => Effect.succeed(null),
 	});
@@ -195,6 +199,59 @@ it.effect("does not reveal inaccessible notification state through mutations", (
 				Exit.fail(new NotFound({ message: "Automation rule not found" })),
 			);
 		}
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("omits state with a missing formatter and only permits explicit deletion", () => {
+	let deleted = false;
+	let mutationAttempted = false;
+	const layer = makeLayer(
+		{
+			listNotificationSubscriptions: () => Effect.succeed([state]),
+			findNotificationSubscription: () => Effect.succeed(state),
+			setNotificationSubscriptionActive: () => {
+				mutationAttempted = true;
+				return Effect.succeed(state);
+			},
+			deleteNotificationSubscription: () => {
+				deleted = true;
+				return Effect.succeed({ id: state.id });
+			},
+		},
+		"active",
+		{ findKernelScript: () => Effect.succeed(null) },
+	);
+	return Effect.gen(function* () {
+		const service = yield* NotificationSubscriptionsService;
+		expect(yield* service.listRules(userId)).toEqual([]);
+		expect(yield* Effect.exit(service.getRule({ userId, ruleId }))).toEqual(
+			Exit.fail(new NotFound({ message: "Automation rule not found" })),
+		);
+		expect(yield* Effect.exit(service.setRuleActive({ userId, ruleId, isActive: false }))).toEqual(
+			Exit.fail(new NotFound({ message: "Automation rule not found" })),
+		);
+		expect(mutationAttempted).toBe(false);
+		expect(yield* service.deleteRule({ userId, ruleId })).toEqual({ id: ruleId });
+		expect(deleted).toBe(true);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("omits state whose signal definition is no longer registered", () => {
+	const layer = makeLayer(
+		{
+			listNotificationSubscriptions: () => Effect.succeed([state]),
+			findNotificationSubscription: () => Effect.succeed(state),
+		},
+		"active",
+		{},
+		false,
+	);
+	return Effect.gen(function* () {
+		const service = yield* NotificationSubscriptionsService;
+		expect(yield* service.listRules(userId)).toEqual([]);
+		expect(yield* Effect.exit(service.getRule({ userId, ruleId }))).toEqual(
+			Exit.fail(new NotFound({ message: "Automation rule not found" })),
+		);
 	}).pipe(Effect.provide(layer));
 });
 

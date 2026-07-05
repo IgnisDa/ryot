@@ -24,9 +24,9 @@ open, and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 5 of 8 tasks completed
+**Overall Progress:** 6 of 8 tasks completed
 
-**Current Task:** [Task 06](./06-notification-automation-ownership.md) (todo)
+**Current Task:** [Task 07](./07-remove-user-sandbox-scripts.md) (todo)
 
 ### Task List
 
@@ -37,7 +37,7 @@ open, and you record the choice you make in the plan file.
 | 03  | [Plugin Packages and Boot Cutover](./03-plugin-packages-and-boot-cutover.md)        | AFK  | done   |
 | 04  | [Admin Install Surface and Test Fixture](./04-admin-install-surface-and-fixture.md) | AFK  | done   |
 | 05  | [Notification Subscription State Table](./05-notification-subscription-state.md)    | AFK  | done   |
-| 06  | [Notification Automation Ownership](./06-notification-automation-ownership.md)         | AFK  | todo   |
+| 06  | [Notification Automation Ownership](./06-notification-automation-ownership.md)         | AFK  | done   |
 | 07  | [Remove the Per-User Sandbox-Script Feature](./07-remove-user-sandbox-scripts.md)   | AFK  | todo   |
 | 08  | [Codebase Cleanup](./08-codebase-cleanup.md)                                        | AFK  | todo   |
 

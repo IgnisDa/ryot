@@ -58,6 +58,7 @@ export const fixtureManifest = () =>
 				catalogState: "active",
 				propertiesSchema: { fields: {} },
 				audiencePolicy: { kind: "actor" },
+				notificationScriptSlug: "fixture.automation",
 			},
 		],
 		scripts: [
