@@ -130,7 +130,7 @@ calling host functions), **API client** (`app-client` and the browser extension)
 21. As the implementing agent, I want the e2e suite migrated in lockstep — CRUD suites for
     removed surfaces deleted, id-based fixtures re-plumbed to slugs, assertions preserved — so
     that "suite green" remains the done criterion (Decision 16, cross-phase invariant 2).
-22. As a maintainer, I want each touched `CLAUDE.md`/`AGENTS.md`/`README.md` updated where
+22. As a maintainer, I want each touched `AGENTS.md`/`AGENTS.md`/`README.md` updated where
     conventions changed, so that documentation follows the code (cross-phase invariant 7).
 23. As the owner, I want the branch to stay shippable at the end of the phase — backend
     `check` and unit tests, the e2e suite (minus deleted files), and `app-client` check all
@@ -158,7 +158,7 @@ them (and risk drift), this PRD points to the exact sections that own them:
   read-only `definitions` group, the `test-support` and DTO sweeps for `…SchemaId`: plan §5.
 - **Cross-cutting rules** — kernel purity (no media/fitness strings, branches, or imports;
   Decision 2), slug namespacing with `/` forbidden (Decision 18), and the module conventions
-  in `apps/app-backend/CLAUDE.md`: overview decision record and cross-phase invariants.
+  in `apps/app-backend/AGENTS.md`: overview decision record and cross-phase invariants.
 
 Follow the plan markers when a section leaves room: `[DECIDED]` is fixed, `[RECOMMENDED]` is
 the default (deviate only with concrete evidence, and record it in the plan), and
@@ -179,7 +179,7 @@ that a `[DECIDED]` item is wrong, **stop and surface it** rather than silently d
 - **Suites to re-plumb (assertions preserved):** the 15 files using
   `getBuiltinEntitySchemaId`/`linkToEntitySchemaId` switch to slugs; `fixtures/entity-schemas.ts`
   and `fixtures/trackers.ts` are rewritten or folded; `seed-script.ts` is touched only if it
-  references removed surfaces. Prior art and conventions are in `tests/CLAUDE.md` (update it
+  references removed surfaces. Prior art and conventions are in `tests/AGENTS.md` (update it
   where conventions change).
 - **New unit test required:** registry startup validation must fail fast on a deliberately
   broken definition (done criterion 3). This is the one net-new test the phase mandates.
