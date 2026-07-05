@@ -16,6 +16,7 @@ import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
+export type { EntitySettle, EntitySettleReason } from "./settle";
 export type { RyotClientErrorReason } from "@ryot-app/client-plugin-contract";
 export type { EntityInterest } from "@ryot-app/client-plugin-contract";
 export type EntityUpdate = Schema.Codec.Encoded<typeof EntityUpdatedMessage>;

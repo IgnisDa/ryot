@@ -41,6 +41,22 @@ Interest is limited to loaded recipe results and their existing row limits, not 
 or an inferred dependency graph. Entity update hints can refresh those queries, but this does not
 promise general realtime updates for mutations, events, relationships, or unloaded children.
 
+Every row the Show page draws carries its own `populationStatus` and `translationStatus`, selected
+once through `entitySyncSelection`, so the screen marks what is still arriving instead of drawing a
+row that is indistinguishable from one that failed. The marks themselves come from
+`@ryot-app/client-ui-sdk/sync` and are the same ones the kernel's saved views use: a shimmering art
+well with a pip while a poster or still is still being fetched, a violet pip beside a name that is
+still the provider's own language, a count line in each overview section header, and a settle ring
+around the summary block when its work lands. `ManagedAssetImage` is only the adapter that resolves
+a locator from context; the well, the monogram, and the animation belong to the SDK.
+
+The settle ring fires on commit rather than on arrival: `useShowEntitySettle` stages an update when
+the frame lands and the screen commits from an effect keyed on its query data, so nothing is marked
+until the new values are actually on screen. The chip under the description says only that a
+translation is in flight, because the plugin document is never told which language the reader
+prefers — the bridge does not carry it, and naming a language the screen cannot read would be a
+guess.
+
 Workspace discovery, mutations, and progress/monitoring/library write flows beyond the Show page
 remain deferred.
 

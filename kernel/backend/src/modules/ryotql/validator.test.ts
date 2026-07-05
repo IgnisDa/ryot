@@ -69,6 +69,7 @@ it("exposes only approved entity fields", () => {
 			"externalId",
 			"providerId",
 			"populatedAt",
+			"populationStatus",
 			"translationStatus",
 			"entitySchemaSlug",
 			"entitySchemaPluginId",

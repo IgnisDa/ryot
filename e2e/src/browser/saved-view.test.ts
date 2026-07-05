@@ -246,15 +246,78 @@ it.live("automatically populates and translates partial entities visible in a sa
 			entitySchemaSlug: makeEntitySchemaSlug(schemaSlug),
 			layouts: buildSavedViewLayouts({}, [schemaSlug]),
 		});
-		expect((yield* getEntity(client, entity.id)).populatedAt).toBeNull();
+		expect((yield* getEntity(client, entity.id)).populationStatus).toBe("pending");
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ locale: "en-US" });
 		yield* signInThroughHostedOAuth(page, user.email, user.password);
 		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
+		yield* page
+			.getByText("1 populating", { exact: true })
+			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 		const card = page.getByRole("link", { name: `Open ${translatedName}`, exact: true });
 		yield* card.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 		yield* page.getByText("2,042", { exact: true }).waitFor({ state: "visible" });
+		yield* page.getByText("populating", { exact: false }).waitFor({ state: "hidden" });
+		yield* page.getByText("translating", { exact: false }).waitFor({ state: "hidden" });
 		expect(yield* card.isVisible()).toBe(true);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
+it.live("marks a saved-view row whose translation is still outstanding", () =>
+	Effect.gen(function* () {
+		const id = crypto.randomUUID();
+		const schemaSlug = `browser-translating-${id}`;
+		const sourceName = `Untranslated record ${id}`;
+		const user = yield* createTestUser();
+		const client = makeSession(getApiUrl(), { Authorization: `Bearer ${user.token}` });
+		yield* setUserLanguage(client, "es");
+		const untranslatedProvider = yield* installTestProvider({
+			client,
+			rootEntitySchemaSlug: schemaSlug,
+			information: { source: "e2e", canonicalLanguage: "en" },
+			details: fakeProviderDetailsResult({ name: sourceName, properties: { publishYear: 2043 } }),
+			entitySchemas: [
+				{
+					icon: "file",
+					eventSchemas: [],
+					slug: schemaSlug,
+					name: "Browser Translating Record",
+					propertiesSchema: {
+						fields: {
+							publishYear: { type: "integer", label: "Year", description: "Publication year" },
+						},
+					},
+				},
+			],
+		});
+		yield* Effect.addFinalizer(() => uninstallTestProvider(untranslatedProvider));
+		const entity = yield* createEntity(client, {
+			properties: {},
+			externalId: id,
+			name: sourceName,
+			providerId: untranslatedProvider.providerId,
+			entitySchemaSlug: makeEntitySchemaSlug(schemaSlug),
+		});
+		const view = yield* createSavedView(client, {
+			name: `Translating View ${id}`,
+			entitySchemaSlug: makeEntitySchemaSlug(schemaSlug),
+			layouts: buildSavedViewLayouts({}, [schemaSlug]),
+		});
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ locale: "en-US" });
+		yield* signInThroughHostedOAuth(page, user.email, user.password);
+		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
+		yield* page
+			.getByText("2,043", { exact: true })
+			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
+		yield* page
+			.getByText("1 translating", { exact: true })
+			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
+		yield* page.getByText("populating", { exact: false }).waitFor({ state: "hidden" });
+		expect((yield* getEntity(client, entity.id)).translationStatus).toBe("pending");
+		expect(
+			yield* page.getByRole("link", { name: `Open ${sourceName}`, exact: true }).isVisible(),
+		).toBe(true);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 

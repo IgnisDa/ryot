@@ -5,7 +5,7 @@ import type { SavedViewLayoutProjectionsInput } from "@ryot-app/ryotql-recipes/s
 type ViewExpressions = {
 	readonly grid: SavedViewLayoutProjectionsInput["grid"]["card"];
 	readonly list: SavedViewLayoutProjectionsInput["list"]["card"];
-	readonly table: Omit<SavedViewLayoutProjectionsInput["table"], "entityId">;
+	readonly table: Omit<SavedViewLayoutProjectionsInput["table"], "entity">;
 };
 
 const entity = table("entity", "entity");

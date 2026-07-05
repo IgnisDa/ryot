@@ -54,6 +54,7 @@ const record = {
 	},
 } as const;
 const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" } as const;
+const settledSync = { populationStatus: "ready", translationStatus: "none" } as const;
 const rowsResult = (items: readonly unknown[]) => ({ type: "rows", items, pageInfo });
 
 describe("SavedViewsService", () => {
@@ -70,7 +71,10 @@ describe("SavedViewsService", () => {
 		const current = {
 			...appendSavedViewPage(
 				undefined,
-				{ pageInfo, items: [{ entityId: "one", title: "Original", image: null }] },
+				{
+					pageInfo,
+					items: [{ entityId: "one", title: "Original", image: null, sync: settledSync }],
+				},
 				queryDocument,
 				new Map(),
 			),
@@ -86,7 +90,9 @@ describe("SavedViewsService", () => {
 				),
 			).rejects.toMatchObject({ stage: "page" });
 			expect(requests).toBe(2);
-			expect(current.items).toEqual([{ entityId: "one", title: "Original", image: null }]);
+			expect(current.items).toEqual([
+				{ entityId: "one", title: "Original", image: null, sync: settledSync },
+			]);
 		} finally {
 			await runtime.dispose();
 		}
@@ -112,6 +118,8 @@ describe("SavedViewsService", () => {
 									callout: null,
 									overline: null,
 									secondary: null,
+									populationStatus: "ready",
+									translationStatus: "none",
 									title: `${entityId}-${documents.length}`,
 								})),
 							},
@@ -124,7 +132,7 @@ describe("SavedViewsService", () => {
 					undefined,
 					{
 						pageInfo,
-						items: [{ entityId: "removed", title: "Removed", image: null }],
+						items: [{ entityId: "removed", title: "Removed", image: null, sync: settledSync }],
 					},
 					withSavedViewCursor(queryDocument, "stale"),
 					new Map(),
@@ -178,6 +186,8 @@ describe("SavedViewsService", () => {
 											title: "Piranesi",
 											entityId: "book-1",
 											primary: "2026-08-12",
+											populationStatus: "ready",
+											translationStatus: "none",
 											secondary: "Susanna Clarke",
 											image: { type: "remote", url: "https://images.example/piranesi" },
 										},

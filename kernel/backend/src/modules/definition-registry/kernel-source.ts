@@ -100,11 +100,11 @@ const collection = table("entity", "entity");
 const collectionProjections = buildSavedViewLayoutProjections({
 	table: {
 		image: null,
-		entityId: column(collection, "id"),
+		entity: collection,
 		columns: [{ label: "Name", displayKind: "text", expression: column(collection, "name") }],
 	},
 	grid: {
-		entityId: column(collection, "id"),
+		entity: collection,
 		card: {
 			image: null,
 			callout: null,
@@ -115,7 +115,7 @@ const collectionProjections = buildSavedViewLayoutProjections({
 		},
 	},
 	list: {
-		entityId: column(collection, "id"),
+		entity: collection,
 		card: {
 			image: null,
 			callout: null,

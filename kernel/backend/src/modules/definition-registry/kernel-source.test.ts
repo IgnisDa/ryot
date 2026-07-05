@@ -21,8 +21,15 @@ it("keeps source zero limited to generic kernel definitions", () => {
 		{ key: "entityId" },
 		{ key: "title" },
 		{ key: "overline" },
+		{ key: "populationStatus" },
+		{ key: "translationStatus" },
 	]);
-	expect(tableQuery.output.fields).toMatchObject([{ key: "entityId" }, { key: "column0" }]);
+	expect(tableQuery.output.fields).toMatchObject([
+		{ key: "entityId" },
+		{ key: "column0" },
+		{ key: "populationStatus" },
+		{ key: "translationStatus" },
+	]);
 	expect(source.signalSchemas.map(({ slug }) => slug)).toEqual(["integration.disabled"]);
 	expect(kernelScripts.map(({ slug }) => slug)).toEqual(["automation.notification"]);
 });

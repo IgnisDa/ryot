@@ -159,6 +159,8 @@ const SHOW_SUMMARY_ROW = {
 	name: "Adolescence",
 	providerName: "TMDB",
 	providerRating: 78.25,
+	populationStatus: "ready",
+	translationStatus: "none",
 	productionStatus: "Ended",
 	publishDate: "2025-03-13",
 	genres: ["Drama", "Crime"],
@@ -186,6 +188,8 @@ describe("media show query recipes", () => {
 			"id",
 			"name",
 			"schemaSlug",
+			"populationStatus",
+			"translationStatus",
 		]);
 		expect(seasons).toMatchObject({ key: "seasons", limit: 4 });
 		expect(seasons?.include).toBeUndefined();
@@ -193,7 +197,17 @@ describe("media show query recipes", () => {
 			seasons && "fields" in seasons
 				? seasons.fields.map((field) => ("key" in field ? field.key : null))
 				: [],
-		).toEqual(["id", "name", "schemaSlug", "seasonNumber", "images", "releaseDate", "description"]);
+		).toEqual([
+			"id",
+			"name",
+			"schemaSlug",
+			"populationStatus",
+			"translationStatus",
+			"seasonNumber",
+			"images",
+			"releaseDate",
+			"description",
+		]);
 	});
 
 	it("builds selected season episodes with the caller-owned limit", () => {
@@ -208,6 +222,8 @@ describe("media show query recipes", () => {
 			"id",
 			"name",
 			"schemaSlug",
+			"populationStatus",
+			"translationStatus",
 		]);
 		expect(episodes).toMatchObject({ key: "episodes", limit: 12 });
 		expect(
@@ -218,6 +234,8 @@ describe("media show query recipes", () => {
 			"id",
 			"name",
 			"schemaSlug",
+			"populationStatus",
+			"translationStatus",
 			"state",
 			"episodeNumber",
 			"seasonNumber",
@@ -243,6 +261,8 @@ describe("media show query recipes", () => {
 			"id",
 			"name",
 			"schemaSlug",
+			"populationStatus",
+			"translationStatus",
 			"state",
 			"owned",
 			"genres",
@@ -446,6 +466,8 @@ describe("media show query recipes", () => {
 			"images",
 			"order",
 			"roles",
+			"populationStatus",
+			"translationStatus",
 			"character",
 		]);
 		expect(companies.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
@@ -454,6 +476,8 @@ describe("media show query recipes", () => {
 			"images",
 			"order",
 			"roles",
+			"populationStatus",
+			"translationStatus",
 		]);
 	});
 
@@ -507,7 +531,7 @@ describe("media show query recipes", () => {
 		]);
 		expect(
 			recommendations.output.fields.map((field) => ("key" in field ? field.key : null)),
-		).toEqual(["id", "name", "images"]);
+		).toEqual(["id", "name", "images", "populationStatus", "translationStatus"]);
 	});
 
 	it("decodes show credits, companies and recommendations with their locators", () => {
@@ -521,6 +545,8 @@ describe("media show query recipes", () => {
 							roles: ["Creator"],
 							name: "Jack Thorne",
 							character: "Narrator",
+							populationStatus: "ready",
+							translationStatus: "none",
 							images: [{ type: "remote", url: "https://images.test/jack.jpg", purpose: "profile" }],
 						},
 					]),
@@ -530,6 +556,8 @@ describe("media show query recipes", () => {
 							id: "company-1",
 							name: "Warp Films",
 							roles: ["Production Company"],
+							populationStatus: "ready",
+							translationStatus: "none",
 							images: [{ type: "s3", key: "warp-logo", purpose: "logo" }],
 						},
 					]),
@@ -537,6 +565,8 @@ describe("media show query recipes", () => {
 						{
 							id: "show-2",
 							name: "Bad Girls",
+							populationStatus: "ready",
+							translationStatus: "none",
 							images: [{ type: "local", key: "bad-girls-cover", purpose: "cover" }],
 						},
 					]),
@@ -585,7 +615,15 @@ describe("media show query recipes", () => {
 			OVERVIEW_RECIPE.decode({
 				data: {
 					companies: showRows([]),
-					recommendations: showRows([{ id: "show-2", name: "Bad Girls", images: null }]),
+					recommendations: showRows([
+						{
+							images: null,
+							id: "show-2",
+							name: "Bad Girls",
+							populationStatus: "ready",
+							translationStatus: "none",
+						},
+					]),
 					people: showRows([
 						{
 							order: null,
@@ -594,6 +632,8 @@ describe("media show query recipes", () => {
 							id: "person-1",
 							character: null,
 							name: "Jo Johnson",
+							populationStatus: "ready",
+							translationStatus: "none",
 						},
 					]),
 				},

@@ -93,6 +93,7 @@ const renderContent = (
 		noopAdapter,
 		<ShowScreenBody
 			state={state}
+			settled={undefined}
 			compact={options.compact ?? true}
 			refresh={options.refresh ?? (() => undefined)}
 			overview={options.overview ?? overviewState()}
