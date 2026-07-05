@@ -1,6 +1,6 @@
 import { InternalError, internalError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Result, Schema } from "effect";
+import { Cause, Context, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, type WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -57,9 +57,11 @@ export class PluginInstallationWorkflowOperations extends Context.Service<
 
 const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
 	effect.pipe(
-		Effect.catchCause((cause) =>
-			Effect.logError(message, cause).pipe(Effect.andThen(internalError(message))),
+		Effect.catchCauseIf(
+			(cause) => !Cause.hasInterruptsOnly(cause),
+			(cause) => Effect.logError(message, cause).pipe(Effect.andThen(internalError(message))),
 		),
+		Effect.mapError(() => internalError(message)),
 	);
 
 export const PluginInstallationWorkflowOperationsLive = Layer.effect(

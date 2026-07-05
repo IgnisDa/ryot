@@ -1,10 +1,12 @@
 import { expect, it } from "@effect/vitest";
+import { DbError } from "@ryot-app/contract/errors";
 import type { PluginCron, PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginSlug, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
@@ -106,6 +108,8 @@ const makeLayer = (
 	failingExecutionId?: string,
 	infrequentCronJobsSchedule = "0 0 * * *",
 	resolveActivePluginCron?: PluginRuntimeResolver["Service"]["resolveActivePluginCron"],
+	listPrivateCronSchedules: PluginRuntimeResolver["Service"]["listPrivateCronSchedules"] = () =>
+		Effect.succeed([]),
 ) =>
 	PluginCronService.layer.pipe(
 		Layer.provideMerge(
@@ -114,7 +118,7 @@ const makeLayer = (
 				databaseLayer,
 				Layer.succeed(PluginLoader, { ...loader }),
 				Layer.mock(PluginRuntimeResolver)({
-					listPrivateCronSchedules: () => Effect.succeed([]),
+					listPrivateCronSchedules,
 					resolveActivePluginCron:
 						resolveActivePluginCron ??
 						(({ cronSlug, pluginSlug }) => {
@@ -214,6 +218,24 @@ it.effect("skips infrequent plugin crons when the configured schedule is invalid
 		yield* service.dispatchDue(60_000);
 		expect(captured).toEqual([]);
 	}).pipe(Effect.provide(makeLayer(loader, captured, undefined, "not a cron")));
+});
+
+it.effect("fails the tick when private cron discovery fails", () => {
+	const captured: Array<CapturedRun> = [];
+	const loader = makePluginLoader(makeDefinitionRegistry());
+	loader.load(normalizedPlugin("fixture"));
+	const error = new DbError({ message: "private cron discovery failed" });
+
+	return Effect.gen(function* () {
+		const service = yield* PluginCronService;
+		const exit = yield* Effect.exit(service.dispatchDue(60_000));
+		assertExitFails(exit, error);
+		expect(captured).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer(loader, captured, undefined, "0 0 * * *", undefined, () => Effect.fail(error)),
+		),
+	);
 });
 
 it.effect("targets exactly one script cron", () => {
