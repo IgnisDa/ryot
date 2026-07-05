@@ -15,6 +15,7 @@ const config = {
 	experiments: { typedRoutes: true, reactCompiler: true },
 	plugins: [
 		"expo-router",
+		"expo-image",
 		[
 			"expo-splash-screen",
 			{
