@@ -343,21 +343,4 @@ describe("schema metadata fields", () => {
 		});
 		expect(validateQueryDocument(doc)).toBeNull();
 	});
-
-	it("accepts schema 'isBuiltin' field", () => {
-		const doc = makeDoc({
-			output: {
-				type: "rows",
-				pagination: { page: 1, limit: 10 },
-				orderBy: [{ order: "asc", expr: nameRef("e") }],
-				fields: [
-					{
-						key: "schemaBuiltin",
-						expr: { type: "ref", sourceAlias: "e", field: { type: "schema", name: "isBuiltin" } },
-					},
-				],
-			},
-		});
-		expect(validateQueryDocument(doc)).toBeNull();
-	});
 });

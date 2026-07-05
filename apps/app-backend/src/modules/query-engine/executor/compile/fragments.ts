@@ -85,11 +85,7 @@ export const schemaColumnSql = (
 		if (name === "slug") {
 			return sql.raw(`${sqlAlias}.entity_schema_slug`);
 		}
-		const column = name === "isBuiltin" ? "is_builtin" : name;
-		return sql.raw(`${sqlAlias}s.${column}`);
-	}
-	if (name === "isBuiltin") {
-		return sql`true`;
+		return sql.raw(`${sqlAlias}s.${name}`);
 	}
 	const column = kind === "event" ? "event_schema_slug" : "relationship_schema_slug";
 	return sql.raw(`${sqlAlias}.${column}`);

@@ -56,7 +56,6 @@ const relationshipSystemTypeMap: Record<string, CoarseType> = {
 const schemaMetadataTypeMap: Record<string, CoarseType> = {
 	name: "string",
 	slug: "string",
-	isBuiltin: "boolean",
 };
 
 const normalizePropertyType = (propertyType: AppPropertyDefinition["type"]): CoarseType => {

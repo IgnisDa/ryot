@@ -29,7 +29,7 @@ const expectQueryDecodeBadRequest = (body: unknown, cookies: string) =>
 	});
 
 describe("entity schema fields", () => {
-	it.live("returns entity schema slug, name, and isBuiltin fields", () =>
+	it.live("returns entity schema slug and name fields", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
@@ -48,7 +48,6 @@ describe("entity schema fields", () => {
 					fields: [
 						{ key: "schemaSlug", expr: schemaMetaRef("item", "slug") },
 						{ key: "schemaName", expr: schemaMetaRef("item", "name") },
-						{ key: "schemaIsBuiltin", expr: schemaMetaRef("item", "isBuiltin") },
 					],
 				}),
 			);
@@ -57,10 +56,6 @@ describe("entity schema fields", () => {
 			assertPresent(item, "Missing schema fields row");
 			expect(requireQueryEngineFieldValue(item, "schemaSlug").value).toBe(slug);
 			expect(requireQueryEngineFieldValue(item, "schemaName").value).toBe("SchemaFieldsItem");
-			expect(requireQueryEngineFieldValue(item, "schemaIsBuiltin")).toEqual({
-				kind: "boolean",
-				value: false,
-			});
 		}),
 	);
 

@@ -95,7 +95,7 @@ const refScalarType = (
 	sourceAlias: string,
 ): ScalarType => {
 	if (field.type === "schema") {
-		return field.name === "isBuiltin" ? "boolean" : "text";
+		return "text";
 	}
 	if (field.type === "systemComputed") {
 		return "text";
@@ -510,10 +510,7 @@ const refValue = (expr: Extract<Expr, { type: "ref" }>, scope: CompileScope): Co
 	}
 	if (expr.field.type === "schema") {
 		const column = schemaColumnSql(ref.kind, expr.field.name, ref.sqlAlias);
-		return {
-			value: toJsonbValue(column),
-			kind: expr.field.name === "isBuiltin" ? sql`'boolean'` : sql`'text'`,
-		};
+		return { kind: sql`'text'`, value: toJsonbValue(column) };
 	}
 	const value = propertyScalarSql(scope, expr.sourceAlias, expr.field, "json");
 	return { value, kind: jsonbTypeofKindSql(value) };
