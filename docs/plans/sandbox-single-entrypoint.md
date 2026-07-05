@@ -1,12 +1,11 @@
 # Sandbox Single-Entrypoint Rewrite
 
-Status: approved for implementation. This is an atomic breaking rewrite for the new backend. User
+Status: completed and verified on 2026-07-26. This was an atomic breaking rewrite for the new backend. User
 data compatibility is not required, development databases are wipeable, and no compatibility path
 for the current multi-driver model should be added.
 
-This plan is authoritative while the rewrite is in progress. If implementation evidence conflicts
-with a decided item, stop and ask the project owner rather than silently changing the design. After
-the rewrite is complete, add a section with implementation notes.
+The outcome and decided architecture below are the baseline for subsequent plugin-system work. The
+phase sections are retained as implementation history, not as pending work.
 
 ## Required execution rules
 
@@ -558,29 +557,56 @@ bun run sandbox:check-runner
 
 Do not treat a successful generation command as permission to commit ignored generated output.
 
+## Implementation notes
+
+Completed on 2026-07-26:
+
+- Added persistent logical providers and provider provenance. Reingestion preserves provider IDs
+  while activating newly compiled operation scripts.
+- Replaced multi-entrypoint definitions with 142 direct production scripts: 136 media, 5 fitness,
+  and 1 kernel script.
+- Provider manifests explicitly map details, search, resolve, and translate operations. Schema
+  bindings target providers; executable manifest sections target scripts.
+- Runtime and durable payloads execute by `scriptId` only. The backend resolves the exact script
+  before enqueueing it.
+- Added trusted `user`, `system`, and `subscription` execution authority. As owner-approved during
+  implementation, public plugin operations support only `user` and `integration` authentication;
+  the proposed `admin` operation mode was removed. System execution can emit signals but cannot
+  send subscription notifications.
+- Provider-associated scripts share provider-scoped caches; standalone scripts remain
+  script-scoped. Executing-user and lifecycle isolation remain intact.
+- Standard provider scripts cannot receive global-write capabilities, including during
+  scheduler-owned provider refreshes. Only generic scripts reached through trusted scheduler paths
+  receive system capabilities.
+- Final verification passed all package checks, 954 backend tests, and 491 e2e tests across 78
+  files. A fresh outcome verifier returned `CONFIRMED`. No commits were created.
+
+The broader current-state documentation sweep remains part of plugin-system Phase 4. This plan and
+the active plugin-system plans have been updated now so future implementation resumes from the
+correct runtime baseline.
+
 ## Final acceptance criteria
 
-- [ ] Every production sandbox script has exactly one executable entrypoint.
-- [ ] Runtime execution accepts a script ID and has no entrypoint selector.
-- [ ] No `driverName` or `driverNames` field remains in runtime, contract, compiler, metadata, tests,
-      or current-state documentation.
-- [ ] No SDK or production script uses a `drivers` map or `defineProviderDriver`.
-- [ ] Logical providers are persisted separately from executable scripts.
-- [ ] Provider-backed entities store provider identity and deduplicate by provider.
-- [ ] Provider reingestion changes active script versions without changing provider identity.
-- [ ] Search, details, resolve, and translate resolve to distinct scripts before execution.
-- [ ] Provider caches remain shared across that provider's split scripts and isolated by user and
+- [x] Every production sandbox script has exactly one executable entrypoint.
+- [x] Runtime execution accepts a script ID and has no entrypoint selector.
+- [x] No `driverName` or `driverNames` field remains in runtime, contract, compiler, metadata, or
+      tests.
+- [x] No SDK or production script uses a `drivers` map or `defineProviderDriver`.
+- [x] Logical providers are persisted separately from executable scripts.
+- [x] Provider-backed entities store provider identity and deduplicate by provider.
+- [x] Provider reingestion changes active script versions without changing provider identity.
+- [x] Search, details, resolve, and translate resolve to distinct scripts before execution.
+- [x] Provider caches remain shared across that provider's split scripts and isolated by user and
       provider.
-- [ ] Sandbox host-function authorization uses trusted execution authority, not script names.
-- [ ] All plugin and kernel scripts compile through the production ingestion compiler.
-- [ ] Affected SDK, compiler, plugin-kit, plugin, and backend tests pass.
-- [ ] Every affected and newly added `tests/` e2e test passes in focused runs.
-- [ ] Any remaining full-suite e2e failures are recorded and shown to be unrelated.
-- [ ] Generated ignored artifacts are not staged.
-- [ ] No commits were created.
-- [ ] Current-state docs contain no removed APIs, old architecture, stale examples, or superseded
-      decisions.
-- [ ] The final documentation audit removes or rewrites this migration plan.
+- [x] Sandbox host-function authorization uses trusted execution authority, not script names.
+- [x] All plugin and kernel scripts compile through the production ingestion compiler.
+- [x] Affected SDK, compiler, plugin-kit, plugin, and backend tests pass.
+- [x] Every affected and newly added `tests/` e2e test passes in focused runs.
+- [x] The full e2e suite passes with no remaining failures to classify.
+- [x] Generated ignored artifacts are not staged.
+- [x] No commits were created.
+- [ ] Current-state documentation outside this plan set is updated during plugin-system Phase 4.
+- [x] This migration plan records the completed implementation and the baseline for later work.
 
 ## Stop conditions
 

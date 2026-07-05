@@ -31,7 +31,7 @@ reason). The gate failing must name the offending file/line.
 - **Pool/limits retuning** for the heavier post-migration sandbox load: revisit
   `SANDBOX_WORKER_CONCURRENCY`, `DATABASE_WORKFLOW_POOL_MAX`, and the Postgres
   `max_connections` arithmetic documented in `tests/AGENTS.md` (Timeouts & Pool Sizing), and
-  the per-driver-kind budget profiles introduced in Phase 3 step 3. Re-baseline the e2e
+  the per-script-kind budget profiles introduced in Phase 3 step 3. Re-baseline the e2e
   suite wall-clock and record it here.
 - **Superseded script-row GC**: delete script rows — plugin-owned and kernel source-zero
   alike — no longer referenced by any registry snapshot or in-flight workflow execution
@@ -46,8 +46,9 @@ reason). The gate failing must name the offending file/line.
   the install-test-plugin fixture, the kernel/plugin split, retuned budgets.
 - Documentation sweep under the single-owner rule (`apps/app-backend/AGENTS.md` Documentation
   Layout): rewrite the sections that describe seeding, builtins, schema tables, automation
-  rules; add plugin authoring docs (`libs/plugin-kit` README: manifest reference, driver
-  kinds, capabilities, determinism rules for workflow scripts, batch-first guidance);
+  rules; add plugin authoring docs (`libs/plugin-kit` README: manifest reference, script
+  kinds, logical providers, direct entrypoints, execution authority, provider-scoped caches,
+  capabilities, determinism rules for workflow scripts, and batch-first guidance);
   update `sandbox-runtime/README.md` (new host functions, grants, workflow primitives);
   module `AGENTS.md` files for deleted/added modules.
 - Delete `apps/app-client-backup` if still present (owner said it is slated for removal —

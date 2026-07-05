@@ -1,5 +1,8 @@
 # Phase 3 — Capability migrations
 
+Status: in progress. Steps 0, 1, and 2 are complete. Resume with the mandatory Step 3 workflow
+spike; do not recreate the removed multi-entrypoint driver model while implementing later steps.
+
 Goal: move the remaining native domain code into the plugins, one capability at a time. Step 0's
 two prerequisites establish the authoring and observability foundations. Each capability step
 (a) adds a small generic slice of kernel capability (manifest section + host functions), (b)
@@ -18,6 +21,8 @@ via the bridge; add structured log/span host functions in step 0 so plugin code 
 
 ## Step 0 — Sandbox authoring upgrades (two ordered prerequisites)
 
+Status: complete.
+
 ### Step 0a — Effect-native sandbox cutover
 
 - **[DECIDED] Effect is the sole script authoring and typed host-function API.** Vendor `effect`
@@ -25,10 +30,10 @@ via the bridge; add structured log/span host functions in step 0 so plugin code 
   import map / `PackageCacheManager` in `sandbox-runtime/dependencies.ts`. It is runtime-provided
   and never bundled per script.
 - Change every script-facing host function to return an `Effect` with a typed error. Change
-  generic, provider, and automation driver `run` functions to return `Effect` values, and have
+  generic, provider, and automation `run` functions to return `Effect` values, and have
   the Deno runner execute them through the vendored runtime. Remove the raw Promise authoring API;
-  do not retain wrappers, aliases, or a second driver contract for compatibility.
-- Replace the sandbox SDK's Zod schema surface with Effect Schema for manifests, driver
+  do not retain wrappers, aliases, or a second script contract for compatibility.
+- Replace the sandbox SDK's Zod schema surface with Effect Schema for manifests, script
   input/output, and host-function wire contracts. The compiler and runner decode these contracts
   with Effect Schema, and Zod is removed from the approved sandbox dependencies. Declarative
   `AppSchema` property metadata remains unchanged under Decision 6.
@@ -38,7 +43,7 @@ via the bridge; add structured log/span host functions in step 0 so plugin code 
   boundary; they are not exposed in SDK or backend host-function contracts.
 - Migrate every existing media-plugin, fitness-plugin, kernel source-zero script, compiler
   fixture, SDK test helper, and sandbox execution test in this cutover. The task is complete only
-  when no Promise-based script driver or host-function contract remains and all existing scripts
+  when no Promise-based script entrypoint or host-function contract remains and all existing scripts
   execute with behavior unchanged.
 - Approved-dependency additions later in this phase (e.g. `fflate` in step 4) follow the same
   vendoring mechanism established here.
@@ -62,19 +67,22 @@ done and the full gates pass.
 
 ## Step 1 — Crons: `media-trending` + `exercises`
 
+Status: complete.
+
 Kernel capability:
 
-- Manifest section `crons: [{ slug, schedule, driverRef, description }]` (cron expression
+- Manifest section `crons: [{ slug, schedule, scriptSlug, description }]` (cron expression
   format = whatever the existing scheduler module consumes; the kernel owns the tick).
-- Scheduler dispatches each due cron as a sandbox execution of the referenced driver
+- Scheduler dispatches each due cron as a sandbox execution of the referenced script
   (fire-and-forget through the durable queue machinery consistent with
   `apps/app-backend/AGENTS.md` durable-ownership rules; idempotency stays with the script).
 - New host functions (shapes **[IMPLEMENTER-DECIDES]**, semantics fixed):
   - `upsertGlobalEntities(items[])` — batch, coarse-atomic per item (entity + provenance),
     preserve-existing semantics matching today's trending refresh writes.
   - `upsertGlobalRelationships(items[])` — same for relationship edges.
-  - Both are global-scope (no user) and must be capability-gated in the driver manifest so a
-    future untrusted provider script cannot write global data by default.
+  - Both are global-scope (no user) and must be capability-gated so a standard provider script
+    cannot write global data. These capabilities are selected from trusted system authority plus
+    generic script metadata, never from an executable name.
 
 **Implementation choice (2026-07-24, owner-approved):** `upsertGlobalEntities(items)` accepts
 `{ entitySchemaSlug, externalId, name, properties, populatedAt }` items, injects provenance from
@@ -100,14 +108,13 @@ plugin.
 one-time catalog seeding, not periodic refresh work, and the `crons` scheduler only fires on
 its wall-clock schedule — a server that restarts before the next tick (or a fresh install)
 never seeds any exercises, regressing the native preloader's per-boot behavior. A sibling
-manifest section `boot: [{ slug, driverRef, description }]` (no `schedule`) declares scripts
+manifest section `boot: [{ slug, scriptSlug, description }]` (no `schedule`) declares scripts
 the kernel dispatches exactly once per server start, non-blocking (forked so server readiness
 is never gated on it), immediately after plugin ingestion; dispatch is skipped when
 `scheduler.disableDispatchers` is set, matching the other schedulers. Boot scripts expose a
-dedicated `boot` driver (the same one-section-one-driver convention as `cron`/`operation`),
-and the `upsertGlobalEntities`/`upsertGlobalRelationships` system-execution gate widens from
-`driverName: "cron"` to `driverName: "cron" | "boot"` (still `userId: null`, no
-`subscriptionRun`) so boot scripts can use the same global writes. The fitness
+direct generic entrypoint, and the `upsertGlobalEntities`/`upsertGlobalRelationships` gate uses
+server-created system authority. Scheduler-owned cron and boot executions receive that authority;
+standard provider scripts do not, including when called by scheduler-driven population. The fitness
 `preload-exercises` entry moves from `crons` to `boot`; `media-trending` stays a `crons` entry
 because it is genuinely periodic. Boot dispatch uses a per-boot execution id, so the already
 idempotent preload script (preserve-existing upserts + `maximumTotal`) absorbs re-runs exactly
@@ -130,12 +137,14 @@ sections documented in `libs/plugin-kit`.
 
 ## Step 2 — Operations (invoke): `metadata-lookup` + `episode-resolver`
 
+Status: complete.
+
 Kernel capability:
 
-- Manifest section `operations: [{ slug, driverRef, inputSchema, outputSchema, auth }]`
-  (`auth`: authenticated-user vs admin; schemas use the SDK's Effect Schema contract style).
+- Manifest section `operations: [{ slug, scriptSlug, auth, description }]`, where `auth` is
+  `user` or `integration`. Input/output Effect Schemas live on the direct operation definition.
 - One new contract endpoint: `plugins.invoke(pluginSlug, operationSlug, payload)` —
-  validates against the declared schemas, dispatches to the driver, returns the result.
+  validates against the declared schemas, dispatches to the direct script, returns the result.
   Batch-first: an operation's payload is naturally a batch (e.g., resolve N episode refs in
   one call).
 - First-party client typing ("recipes"): plugin package exports its operation input/output
@@ -164,46 +173,46 @@ unknown operation) + migrated suites green; extension works against invoke.
 
 **Implementation choices (2026-07-25, owner-approved):**
 
-1. **Operation `auth` gains a third `integration` mode (alongside `user` and `admin`).** The
-   plan text above named only "authenticated-user vs admin", but the browser extension — the sole
+1. **Operation `auth` supports `user` and `integration`; the proposed `admin` mode was removed
+   (owner-approved during the single-entrypoint rewrite).** The browser extension — the sole
    external `metadata-lookup` consumer, which task 04 requires migrating onto `plugins.invoke` — is
    **public, holds no user session, and runs its lookup as the integration's owning user** (the
    native `MetadataLookupService.lookup` loads the integration via `getByIdAnyUser` and searches as
    `integration.userId` so the owner's NSFW preference applies). A two-value enum cannot express
-   this, so `auth` is `"user" | "admin" | "integration"`. For an `integration` operation,
+   this, so `auth` is `"user" | "integration"`. No current plugin operation requires admin
+   invocation; trusted scheduler work uses system execution authority and is not exposed through
+   the public invoke endpoint. For an `integration` operation,
    `plugins.invoke` carries an integration id; the **kernel integrations framework** (which stays in
    the kernel under Decision 14, so this is generic, not media-specific) resolves it to the owning
    user, verifies the integration is enabled, and dispatches the operation with that user's context
    and **no session required**. The integration id remains the credential exactly as today, so
    behavior (including owner-scoped preferences) is preserved. The generic invoke endpoint has no
    group middleware; the handler reads the operation's declared `auth` from the registry and
-   enforces it conditionally (resolving `CurrentUser` from request headers itself for `user`,
-   the admin token for `admin`, and the integration for `integration`), keeping the single generic
+   enforces it conditionally (resolving `CurrentUser` from request headers itself for `user` and
+   the integration for `integration`), keeping the single generic
    endpoint intact (Decision 9). `metadata-lookup` = `integration`; `resolve-episodes` = `user`.
-2. **Operation input/output Effect Schemas live on the driver, not serialized into the manifest
-   entry.** The manifest section is `operations: [{ slug, driverRef, auth, description }]`. Effect
+2. **Operation input/output Effect Schemas live on the script definition, not serialized into the manifest
+   entry.** The manifest section is `operations: [{ slug, scriptSlug, auth, description }]`. Effect
    Schemas cannot round-trip through `PluginManifest`'s own `Schema.decodeUnknown` (manifests are
-   plain data), and providers/crons already carry their `input`/`output` schemas on the driver in
+   plain data), and provider/cron scripts already carry their `input`/`output` schemas in
    the `.sandbox.ts` module. `plugins.invoke` validates against the declared schemas the same way
-   every driver already does: the sandbox runner decodes the payload against `driver.input` and the
-   result against `driver.output`. This realizes the plan's "validates against the declared
+   every script already does: the sandbox runner decodes the payload against the definition's
+   `input` and the result against its `output`. This realizes the plan's "validates against the declared
    input/output schemas" within the existing architecture rather than duplicating schema data.
 
    **Operation scripts use a dedicated `operation` sandbox-script kind** (owner-approved
    2026-07-25). `libs/plugin-kit`'s `PluginScript` union deliberately rejects the generic
    `kind: "script"` catch-all (pinned by `manifest.test.ts`), so rather than open it, a first-class
    `kind: "operation"` is added across `@ryot/sandbox-sdk` (manifest-schema union + a
-   `defineOperation` authoring helper wrapping the generic `defineDriver` machinery — the SDK and
-   compiler already dispatch drivers generically by name), the compiler (recognize the helper and
-   map `definitionKind: "operation"`), and `PluginScript`. Operation scripts expose a single driver
-   under the conventional driver name `"operation"`; the kernel dispatches with
-   `driverName: "operation"` (mirroring how crons dispatch `driverName: "cron"`), and manifest
-   validation asserts each `operations[].driverRef` references an `operation`-kind script exposing
-   that driver. Keeping the generic catch-all closed and giving each capability its own typed kind
-   is the pattern step 3's `workflow` kind will follow. Operations reuse only existing host
+   `defineOperation` authoring helper), the compiler, and `PluginScript`. Operation scripts expose
+   one direct `input`/`output`/`run` entrypoint; the kernel resolves `operations[].scriptSlug`
+   before enqueueing the script ID. Keeping the generic catch-all closed and giving typed
+   capabilities their own kinds remains the pattern Step 3's workflow scripts should follow where
+   determinism requires a distinct host surface. Operations reuse only existing host
    capabilities (metadata-lookup: `httpCall`/`getAppConfigValue`/`getUserPreferences`/`getIntegration`
-   composed with the in-repo TMDB provider search drivers; resolve-episodes: `executeQueryEngine`),
+   composed with the in-repo TMDB provider search implementations; resolve-episodes: `executeQueryEngine`),
    so no new host functions or capability scopes are added this step.
+
 3. **`episode-resolver` becomes a single batch-first `resolve-episodes` operation.** Input is
    `{ refs: [...] }` where each ref is discriminated `show` (showEntityId, seasonNumber,
    episodeNumber) or `podcast` (podcastEntityId, episodeNumber); output is aligned
@@ -216,7 +225,7 @@ unknown operation) + migrated suites green; extension works against invoke.
    `refs` arrays until steps 3–4 move those callers into the plugin. `auth: "user"`.
 4. **First-party recipe typing = a generic typed invoker in `libs/plugin-kit` plus
    plugin-exported operation types.** `plugins/media` exports its operation input/output types
-   (derived from the driver schemas); `libs/plugin-kit` exports a small generic typed `invoke`
+   (derived from the operation schemas); `libs/plugin-kit` exports a small generic typed `invoke`
    wrapper over the `plugins.invoke` contract call. The browser extension imports the media
    operation type and the plugin-kit invoker, so no plugin-specific contract endpoint is added
    (Decision 9).
@@ -244,12 +253,12 @@ replay-ordering issues before the real machinery is built. Record findings in th
 
 Kernel capability:
 
-- Manifest section `workflows: [{ slug, driverRef }]`.
+- Manifest section `workflows: [{ slug, scriptSlug }]`.
 - Workflow scripts are replay-deterministic: the kernel's durable engine (existing Effect
   workflow machinery) runs a _workflow shell_ whose body repeatedly executes the script;
   the script calls host primitives:
-  - `activity(name, input)` — first call runs the payload as a normal sandbox execution of a
-    referenced activity driver (or inline driver of the same script) and journals the
+  - `activity(name, scriptRef, input)` — first call runs the payload through a referenced direct
+    activity script and journals the
     result; replays return the journaled result without re-execution.
   - `sleep(name, duration)` — durable timer via the engine.
   - `child(name, workflowRef, input)` — composes another manifest workflow with a
@@ -261,12 +270,12 @@ Kernel capability:
 - Version pinning: an execution records the script row's `contentHash` at start; every
   replay loads exactly that module (Phase 2's immutable-per-hash script rows make this a
   lookup). A hot swap never changes a running execution's code.
-- Determinism guard rails: workflow drivers use a restricted SDK entry point (no
+- Determinism guard rails: workflow scripts use a restricted SDK entry point (no
   `httpCall`, no cache, no ambient time/random — activities do the IO); enforce by
   capability scoping in the manifest kind, mirroring how automation vs provider host scopes
   already differ (`bridge-adapter.ts` contract scopes).
-- Limits: workflow/activity driver kinds get their own budget profile (a batch activity
-  legitimately makes more host calls than a provider search) — add per-driver-kind limit
+- Limits: workflow/activity script kinds get their own budget profile (a batch activity
+  legitimately makes more host calls than a provider search) — add per-script-kind limit
   selection now, kernel-owned ceilings.
 
 Migrate: `imports/media/population-workflow.ts` and `resolution-workflow.ts` (and the
@@ -291,13 +300,13 @@ suites green; spike findings recorded.
 Kernel capability:
 
 - Manifest section extends integration registration: a plugin declares integration
-  _providers_ `{ slug, lot (yank|sink|push), driverRef, settingsSchema }`; the kernel
+  _providers_ `{ slug, lot (yank|sink|push), scriptSlug, settingsSchema }`; the kernel
   integrations framework (credential storage, enable/disable, auto-disable, run bookkeeping
   — tables in `imports.ts`) serves them generically and lists available providers from the
   registry.
 - Filesystem grants (Decision 10): kernel materializes an uploaded/fetched artifact to a
   path, spawns the execution with `--allow-read` on it plus a per-execution scratch dir
-  (quota'd, kernel-cleaned) with `--allow-write`; grants are declared per driver kind in the
+  (quota'd, kernel-cleaned) with `--allow-write`; grants are declared per script kind in the
   manifest (`capabilities: ["artifact-read", "scratch"]`) and are deny-by-default.
   Implementation lives next to the existing flag assembly in `runtime.ts`
   (`makeSpawnDenoProcess`). Note: pooled pre-warmed processes are spawned _before_ the

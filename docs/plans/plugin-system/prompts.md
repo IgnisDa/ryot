@@ -15,6 +15,9 @@ you rely on. Write the PRD as a thin framing layer (problem statement,
 solution, user stories, testing decisions) that references the plan files for
 all technical decisions instead of restating them. Where the skill's template
 conflicts with the plan (e.g. its "no file paths" rule), the plan wins.
+For Phase 3, treat steps 0-2 as completed prerequisites and scope new work to
+step 3 onward. The completed sandbox single-entrypoint plan is the runtime
+baseline: manifest sections reference direct scripts, not named drivers.
 
 2. Issues (same agent, immediately after)
 

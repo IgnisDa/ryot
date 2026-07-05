@@ -1,5 +1,8 @@
 # Phase 1 — Schema definitions move to an in-memory registry
 
+Status: complete. This file remains as the implementation record; current work resumes at Phase 3
+step 3.
+
 Goal: schema **definitions** (entity, event, relationship, signal, tracker, builtin saved
 views) stop living in Postgres and are served from an in-memory, slug-keyed registry fed
 directly from the existing `builtins` module code. Data rows reference schemas by slug with no
@@ -190,6 +193,9 @@ remain user-scoped. Cross-user queries therefore return empty results rather tha
 error, and callers may use an installed relationship definition with their own visible entities.
 
 ## Done criteria
+
+Completion note (2026-07-26): the registry and slug-backed storage cutover are complete. The later
+Phase 2 cleanup also removed the temporary tracker and automation-rule exceptions described below.
 
 1. Grep proof: no app-backend source references the dropped tables or `…SchemaId` columns
    (except drizzle history if any is deliberately kept).

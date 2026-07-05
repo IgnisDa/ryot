@@ -17,12 +17,12 @@ suites.
 Kernel capability (lands before consumers):
 
 - Extend integration registration so a plugin declares integration _providers_
-  `{ slug, lot (yank|sink|push), driverRef, settingsSchema }`; the kernel integrations framework
+  `{ slug, lot (yank|sink|push), scriptSlug, settingsSchema }`; the kernel integrations framework
   (credential storage, enable/disable, auto-disable, run bookkeeping) serves them generically and
   lists available providers from the registry.
 - Filesystem grants (Decision 10, deny-by-default): the kernel materializes an uploaded/fetched
   artifact to a path and spawns the execution with `--allow-read` on it plus a quota'd,
-  kernel-cleaned per-execution scratch dir with `--allow-write`; grants are declared per driver
+  kernel-cleaned per-execution scratch dir with `--allow-write`; grants are declared per script
   kind in the manifest (`capabilities: ["artifact-read", "scratch"]`). Implement this next to the
   existing flag assembly in `runtime.ts` (`makeSpawnDenoProcess`). Since pooled processes are
   pre-warmed before the execution is known, grant-carrying executions run on a dedicated
@@ -38,6 +38,8 @@ integration being executed). Preserve `createProgressResult` semantics (`sinks/s
 (radarr/sonarr/jellyfin) are already sandbox trigger scripts whose bindings moved in Phase 2 —
 no further migration. Delete the native sink/yank adapter code from `modules/integrations` and
 the media import-source adapters from `modules/imports`, leaving the frameworks.
+Adapter outputs that identify catalog providers use logical `providerSlug`/`providerId`, never
+executable script identity; the kernel resolves each declared adapter script before execution.
 
 See the parent PRD "Step 4 — integration + import-source adapters" user stories and the
 Implementation Decisions "Step 4" pointer for the full spec.
@@ -49,14 +51,15 @@ Derived from the plan §4 done criteria and cross-phase invariants:
 - [ ] Integration-provider manifest registration works; the kernel framework serves and lists
       registry-declared providers generically
 - [ ] Deny-by-default filesystem grants work: artifact `--allow-read` + quota'd,
-      kernel-cleaned scratch `--allow-write`, declared per driver kind
+      kernel-cleaned scratch `--allow-write`, declared per script kind
       (`capabilities: ["artifact-read", "scratch"]`); grant-carrying executions run on a
       dedicated process
 - [ ] `fflate` is an approved sandbox dependency; zip parsing happens inside the sandbox
 - [ ] Native sink/yank adapters and media import-source adapters are moved into the plugin;
       the kernel `integrations`/`imports` modules contain **zero provider-specific code**;
       credential exposure is scoped to the executing integration; `createProgressResult`
-      semantics preserved
+      semantics and logical provider provenance are preserved; no runtime entrypoint selector is
+      introduced
 - [ ] `integrations/` + `imports/` e2e suites re-pointed with assertions preserved
 - [ ] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
       `app-client` check all pass (cross-phase invariant 1)
