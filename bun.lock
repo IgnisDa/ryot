@@ -385,10 +385,14 @@
       },
       "devDependencies": {
         "bun-types": "1.3.14",
+        "vitest": "4.1.9",
       },
     },
     "libs/query-engine": {
       "name": "@ryot/query-engine",
+      "devDependencies": {
+        "vitest": "4.1.9",
+      },
     },
     "libs/sandbox-compiler": {
       "name": "@ryot/sandbox-compiler",
@@ -409,6 +413,9 @@
         "cheerio": "1.2.0",
         "effect": "3.21.4",
         "youtubei.js": "17.2.0",
+      },
+      "devDependencies": {
+        "vitest": "4.1.9",
       },
     },
     "libs/transactional": {
