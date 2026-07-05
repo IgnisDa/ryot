@@ -108,7 +108,7 @@ Ryot Pro adds profile sharing, personalized recommendations, supercharged collec
 
 ## Development
 
-Prerequisites: [Bun](https://bun.sh) 1.3.9+, [Docker](https://www.docker.com) (for PostgreSQL and Redis).
+Prerequisites: [Bun](https://bun.sh) 1.4.0+, [Docker](https://www.docker.com) (for PostgreSQL and Redis).
 
 ```bash
 bun install
