@@ -84,6 +84,7 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 					.select({
 						id: schema.sandboxScript.id,
 						metadata: schema.sandboxScript.metadata,
+						pluginSlug: schema.sandboxScript.pluginSlug,
 						contentHash: schema.sandboxScript.contentHash,
 					})
 					.from(schema.sandboxScript)
@@ -91,7 +92,11 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 					.limit(1),
 			);
 			return row?.metadata.kind === "workflow"
-				? { contentHash: row.contentHash, scriptId: SandboxScriptId.make(row.id) }
+				? {
+						pluginSlug: row.pluginSlug,
+						contentHash: row.contentHash,
+						scriptId: SandboxScriptId.make(row.id),
+					}
 				: null;
 		});
 

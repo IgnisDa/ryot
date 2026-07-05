@@ -116,3 +116,21 @@ export const sandboxScript = pgTable(
 			.where(sql`${table.pluginSlug} is null`),
 	],
 );
+
+export const sandboxWorkflowReference = pgTable(
+	"sandbox_workflow_reference",
+	{
+		contentHash: text().notNull(),
+		executionId: text().primaryKey(),
+		pluginSlug: text()
+			.notNull()
+			.references(() => plugin.slug, { onDelete: "restrict" }),
+		scriptId: text()
+			.notNull()
+			.references(() => sandboxScript.id, { onDelete: "restrict" }),
+	},
+	(table) => [
+		index("sandbox_workflow_reference_plugin_slug_idx").on(table.pluginSlug),
+		index("sandbox_workflow_reference_script_id_idx").on(table.scriptId),
+	],
+);
