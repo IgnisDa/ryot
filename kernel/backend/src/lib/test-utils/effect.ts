@@ -9,7 +9,6 @@ import {
 import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
 import { Database } from "#lib/infrastructure/db/service";
 import type { RedisService } from "#lib/infrastructure/redis";
-import { detachDiscardedWorkflowChildren } from "#lib/infrastructure/workflow";
 
 export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
 	? Omit<TArgs[0], "_tag">
@@ -57,10 +56,7 @@ export const makeWorkflowEngine = (
 		overrides,
 	);
 
-export const workflowEngineTestLayer = Layer.effect(
-	WorkflowEngine,
-	Effect.map(WorkflowEngine, detachDiscardedWorkflowChildren),
-).pipe(Layer.provide(workflowEngineMemoryLayer));
+export const workflowEngineTestLayer = workflowEngineMemoryLayer;
 
 export const makeRedisService = (
 	overrides: Partial<RedisService["Service"]> = {},

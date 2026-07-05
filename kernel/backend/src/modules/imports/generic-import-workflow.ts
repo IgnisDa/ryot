@@ -22,7 +22,7 @@ import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
-import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { slugify } from "#lib/shared/slug";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { CollectionsService } from "#modules/collections/service";
@@ -485,7 +485,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 										: { kind: "import", importRunId: runId },
 								},
 							})
-							.pipe(withoutWorkflowParent, Effect.mapError(toWorkflowError));
+							.pipe(Effect.mapError(toWorkflowError));
 						message ??= eventResult.failure?.reason.code ?? null;
 					}
 				}

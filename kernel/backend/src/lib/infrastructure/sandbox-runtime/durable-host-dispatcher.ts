@@ -19,7 +19,6 @@ import {
 	ProviderHttpAdmissionToken,
 } from "#lib/infrastructure/provider-http-admission";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
-import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
@@ -527,18 +526,16 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					});
 				}
 				if (strategy === "service-workflow") {
-					return engine
-						.execute(SandboxDurableHostServiceWorkflow, {
-							executionId: `${executionId}-host-service-${request.index}`,
-							payload: {
-								request,
-								startedAt,
-								principal,
-								sandbox: payload,
-								parentExecutionId: executionId,
-							},
-						})
-						.pipe(withoutWorkflowParent);
+					return engine.execute(SandboxDurableHostServiceWorkflow, {
+						executionId: `${executionId}-host-service-${request.index}`,
+						payload: {
+							request,
+							startedAt,
+							principal,
+							sandbox: payload,
+							parentExecutionId: executionId,
+						},
+					});
 				}
 
 				if (strategy === "event-workflow") {
@@ -570,12 +567,10 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							),
 						);
 						const result = yield* Effect.exit(
-							engine
-								.execute(EventCreateWorkflow, {
-									payload: eventPayload,
-									executionId: eventPayload.executionId,
-								})
-								.pipe(withoutWorkflowParent),
+							engine.execute(EventCreateWorkflow, {
+								payload: eventPayload,
+								executionId: eventPayload.executionId,
+							}),
 						);
 						if (result._tag === "Failure") {
 							if (Cause.hasDies(result.cause) || Cause.hasInterrupts(result.cause)) {
@@ -630,13 +625,11 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						),
 					);
 					const result = yield* Effect.exit(
-						engine
-							.execute(NotificationDeliveryWorkflow, {
-								discard: true,
-								payload: notificationPayload,
-								executionId: notificationPayload.executionId,
-							})
-							.pipe(withoutWorkflowParent),
+						engine.execute(NotificationDeliveryWorkflow, {
+							discard: true,
+							payload: notificationPayload,
+							executionId: notificationPayload.executionId,
+						}),
 					);
 					if (result._tag === "Failure") {
 						if (Cause.hasDies(result.cause) || Cause.hasInterrupts(result.cause)) {
