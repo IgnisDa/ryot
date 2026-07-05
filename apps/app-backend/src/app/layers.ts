@@ -164,6 +164,10 @@ const PluginLoaderLive = Layer.mergeAll(
 const PluginRuntimeResolverLive = PluginRuntimeResolver.Default.pipe(
 	Layer.provideMerge(PluginLoaderLive),
 );
+const PluginIngestionServiceLive = Layer.provide(
+	PluginIngestionService.Default,
+	Layer.mergeAll(PluginLoaderLive, PluginRepository.Default),
+);
 const RepositoriesLive = Layer.provideMerge(
 	Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive),
 	PluginRuntimeResolverLive,
@@ -252,7 +256,10 @@ const RuntimeSandboxServiceLive = Layer.provide(
 	),
 );
 
-const SandboxApiServiceLive = Layer.provide(SandboxApiService.Default, SandboxCompiler.Default);
+const SandboxApiServiceLive = Layer.provide(
+	SandboxApiService.Default,
+	Layer.mergeAll(SandboxCompiler.Default, PluginRuntimeResolverLive),
+);
 const SandboxServicesLive = Layer.mergeAll(SandboxApiServiceLive, RuntimeSandboxServiceLive);
 
 const ContentServicesLive = Layer.mergeAll(
@@ -334,6 +341,7 @@ const MetadataLookupServiceLive = Layer.provide(
 
 const ServicesLive = Layer.mergeAll(
 	Layer.provideMerge(ServicesBaseLive, SandboxServicesLive),
+	PluginIngestionServiceLive,
 	MetadataLookupServiceLive,
 	MediaMonitoringServiceLive,
 	InterestServicesLive,
@@ -367,10 +375,6 @@ const RuntimeLive = (builtinExercisePreloadLimit: number) =>
 		InfrequentCronSchedulerLive,
 	);
 
-const PluginIngestionServiceLive = Layer.provide(
-	PluginIngestionService.Default,
-	Layer.mergeAll(PluginLoaderLive, PluginRepository.Default),
-);
 const FirstPartyPluginBootstrapLive = Layer.provide(
 	FirstPartyPluginBootstrap.Default,
 	Layer.mergeAll(PluginIngestionServiceLive, PluginRepository.Default),

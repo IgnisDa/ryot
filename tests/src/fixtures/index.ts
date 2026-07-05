@@ -24,6 +24,7 @@ export * from "./relationships";
 export * from "./sandbox";
 export * from "./sandbox-provider";
 export * from "./sandbox-source";
+export * from "./test-plugin";
 export * from "./saved-views";
 export * from "./plugin-workspaces";
 export * from "./translations";

@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 
 import {
-	cleanupBuiltinProviderScript,
+	uninstallTestProvider,
 	createAuthenticatedClient,
 	createNotificationChannel,
 	enableMediaMonitoring,
@@ -9,7 +9,7 @@ import {
 	getBuiltinEntitySchemaSlug,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
-	seedBuiltinProviderScript,
+	installTestProvider,
 	seedMediaEntity,
 	startFakeAppriseServer,
 	triggerCronAndWaitForEntity,
@@ -54,7 +54,7 @@ describe("hierarchical media entity-update signals", () => {
 
 			const { client } = yield* createAuthenticatedClient();
 			const animeSchemaId = yield* getBuiltinEntitySchemaSlug("anime");
-			const animeProvider = yield* seedBuiltinProviderScript({
+			const animeProvider = yield* installTestProvider({
 				client,
 				slug: animeSlug,
 				drivers: { details: buildDetails(12, 2025) },
@@ -106,7 +106,7 @@ describe("hierarchical media entity-update signals", () => {
 					].sort((left, right) => left.localeCompare(right)),
 				);
 			} finally {
-				yield* cleanupBuiltinProviderScript(animeProvider);
+				yield* uninstallTestProvider(animeProvider);
 			}
 		}),
 	);
@@ -176,7 +176,7 @@ describe("hierarchical media entity-update signals", () => {
 
 				const { client } = yield* createAuthenticatedClient();
 				const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
-				const showProvider = yield* seedBuiltinProviderScript({
+				const showProvider = yield* installTestProvider({
 					client,
 					slug: showSlug,
 					drivers: {
@@ -249,7 +249,7 @@ describe("hierarchical media entity-update signals", () => {
 						].sort((left, right) => left.localeCompare(right)),
 					);
 				} finally {
-					yield* cleanupBuiltinProviderScript(showProvider);
+					yield* uninstallTestProvider(showProvider);
 				}
 			}),
 	);

@@ -2,7 +2,7 @@ import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands"
 import { Effect } from "effect";
 
 import {
-	cleanupBuiltinProviderScript,
+	uninstallTestProvider,
 	createAuthenticatedClient,
 	enqueueEntityImport,
 	enqueueEntitySearch,
@@ -15,8 +15,8 @@ import {
 	pollEntityImportResult,
 	pollEntitySearchResult,
 	queryInLibraryRelationship,
-	seedBuiltinProviderScript,
-	type SeededProviderScript,
+	installTestProvider,
+	type InstalledProviderScript,
 } from "~/fixtures";
 import {
 	assertCompleted,
@@ -29,13 +29,13 @@ import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test
 const IMPORT_EXTERNAL_ID = "e2e-audiobook-1";
 const IMPORTED_NAME = "E2E Imported Audiobook";
 
-let providerScript: SeededProviderScript;
+let providerScript: InstalledProviderScript;
 
 beforeAll(async () => {
 	await Effect.runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			providerScript = yield* seedBuiltinProviderScript({
+			providerScript = yield* installTestProvider({
 				client,
 				drivers: {
 					search: fakeProviderSearchResult([
@@ -53,7 +53,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-	await Effect.runPromise(cleanupBuiltinProviderScript(providerScript));
+	await Effect.runPromise(uninstallTestProvider(providerScript));
 });
 
 describe("POST /entity-schemas/search — provider entity search", () => {

@@ -64,14 +64,6 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 	{
 		effect: Effect.gen(function* () {
 			const loader = yield* PluginLoader;
-			const testSchemaScriptLinks = new Map<
-				string,
-				{
-					scriptSlug: string;
-					entitySchemaSlug: EntitySchemaSlug;
-					sandboxScriptId: SandboxScriptId;
-				}
-			>();
 
 			const activeScripts = () =>
 				Object.entries(loader.getSnapshot().plugins).flatMap(([pluginSlug, plugin]) =>
@@ -102,6 +94,45 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 				return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
 			});
 
+			const findActiveScriptById = Effect.fn("PluginRuntimeResolver.findActiveScriptById")(
+				function* (scriptId: SandboxScriptId) {
+					const db = yield* CurrentDb;
+					const [stored] = yield* dbEffect(() =>
+						db
+							.select({
+								slug: schema.sandboxScript.slug,
+								pluginSlug: schema.sandboxScript.pluginSlug,
+							})
+							.from(schema.sandboxScript)
+							.where(eq(schema.sandboxScript.id, scriptId))
+							.limit(1),
+					);
+					if (!stored?.pluginSlug) {
+						return null;
+					}
+					const active = activeScripts().find(
+						(script) => script.pluginSlug === stored.pluginSlug && script.slug === stored.slug,
+					);
+					if (!active) {
+						return null;
+					}
+					const [row] = yield* dbEffect(() =>
+						db
+							.select()
+							.from(schema.sandboxScript)
+							.where(
+								and(
+									eq(schema.sandboxScript.slug, active.slug),
+									eq(schema.sandboxScript.pluginSlug, active.pluginSlug),
+									eq(schema.sandboxScript.contentHash, active.contentHash),
+								),
+							)
+							.limit(1),
+					);
+					return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
+				},
+			);
+
 			const findKernelScript = Effect.fn("PluginRuntimeResolver.findKernelScript")(function* (
 				scriptSlug: string,
 			) {
@@ -130,26 +161,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 				function* (scriptSlug: string) {
 					const link = schemaScriptLinks().find((candidate) => candidate.scriptSlug === scriptSlug);
 					if (!link) {
-						const testLink = [...testSchemaScriptLinks.values()].find(
-							(candidate) => candidate.scriptSlug === scriptSlug,
-						);
-						if (!testLink) {
-							return null;
-						}
-						const db = yield* CurrentDb;
-						const [script] = yield* dbEffect(() =>
-							db
-								.select()
-								.from(schema.sandboxScript)
-								.where(eq(schema.sandboxScript.id, testLink.sandboxScriptId))
-								.limit(1),
-						);
-						return script
-							? {
-									entitySchemaSlug: testLink.entitySchemaSlug,
-									script: { ...script, id: SandboxScriptId.make(script.id) },
-								}
-							: null;
+						return null;
 					}
 					const script = yield* findActiveScript(scriptSlug);
 					return script
@@ -157,42 +169,6 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 						: null;
 				},
 			);
-
-			const registerTestSchemaScript = Effect.fn("PluginRuntimeResolver.registerTestSchemaScript")(
-				function* (input: {
-					entitySchemaSlug: EntitySchemaSlug;
-					sandboxScriptId: SandboxScriptId;
-				}) {
-					const db = yield* CurrentDb;
-					const [script] = yield* dbEffect(() =>
-						db
-							.select()
-							.from(schema.sandboxScript)
-							.where(
-								and(
-									eq(schema.sandboxScript.id, input.sandboxScriptId),
-									isNull(schema.sandboxScript.userId),
-								),
-							)
-							.limit(1),
-					);
-					if (!script?.contentHash) {
-						return null;
-					}
-					const key = `${input.entitySchemaSlug}:${script.slug}`;
-					testSchemaScriptLinks.set(key, { ...input, scriptSlug: script.slug });
-					return { id: key };
-				},
-			);
-
-			const unregisterTestSchemaScript = (sandboxScriptId: SandboxScriptId) =>
-				Effect.sync(() => {
-					for (const [key, link] of testSchemaScriptLinks) {
-						if (link.sandboxScriptId === sandboxScriptId) {
-							testSchemaScriptLinks.delete(key);
-						}
-					}
-				});
 
 			const listSchemaScripts = Effect.fn("PluginRuntimeResolver.listSchemaScripts")(function* (
 				entitySchemaSlugs?: ReadonlyArray<string>,
@@ -212,13 +188,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 							: null;
 					}),
 				).pipe(Effect.map((values) => values.filter((value) => value !== null)));
-				const testLinks = [...testSchemaScriptLinks.values()].filter(
-					(link) => !entitySchemaSlugs || entitySchemaSlugs.includes(link.entitySchemaSlug),
-				);
-				const resolvedTests = yield* Effect.forEach(testLinks, (link) =>
-					findSchemaScriptBySlug(link.scriptSlug),
-				);
-				return [...resolved, ...resolvedTests.filter((value) => value !== null)].sort(
+				return resolved.sort(
 					(left, right) =>
 						left.entitySchemaSlug.localeCompare(right.entitySchemaSlug) ||
 						left.script.slug.localeCompare(right.script.slug),
@@ -346,9 +316,8 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 				findKernelScript,
 				findActiveScript,
 				listSchemaScripts,
+				findActiveScriptById,
 				findSchemaScriptBySlug,
-				registerTestSchemaScript,
-				unregisterTestSchemaScript,
 			};
 		}),
 	},

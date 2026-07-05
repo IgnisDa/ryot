@@ -1,17 +1,19 @@
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
-import { DurableQueue } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { SandboxRunError } from "@ryot/contract/errors";
 import { toSandboxRunError } from "@ryot/contract/errors";
 import type { SandboxCompletedResult as SandboxCompletedResultValue } from "@ryot/contract/modules/sandbox/schemas";
 import { Context, Effect, Layer } from "effect";
 
-import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { processSandboxExecution } from "#modules/sandbox/durable-queues";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 import type { TranslateEntityWorkflowPayload } from "./entity-translation-workflow";
 
 const processSandboxTranslation = (payload: TranslateEntityWorkflowPayload, executionId: string) =>
-	DurableQueue.process(SandboxExecutionQueue, {
+	processSandboxExecution({
 		userId: null,
 		driverName: "translate",
 		scriptId: payload.scriptId,
@@ -41,14 +43,19 @@ export class TranslateEntityWorkflowOperations extends Context.Tag(
 
 export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 	TranslateEntityWorkflowOperations,
-	Effect.map(
-		PersistedQueue.PersistedQueueFactory,
-		(queueFactory) =>
-			({
-				processSandbox: (payload, executionId) =>
-					processSandboxTranslation(payload, executionId).pipe(
-						Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-					),
-			}) satisfies TranslateEntityWorkflowOperationsValue,
-	),
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const repository = yield* SandboxRepository;
+		const pluginRuntime = yield* PluginRuntimeResolver;
+		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
+		return {
+			processSandbox: (payload, executionId) =>
+				processSandboxTranslation(payload, executionId).pipe(
+					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(SandboxRepository, repository),
+					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
+					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+				),
+		} satisfies TranslateEntityWorkflowOperationsValue;
+	}),
 );

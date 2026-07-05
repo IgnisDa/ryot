@@ -16,8 +16,10 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { SandboxCompiler } from "./compiler";
+import { resolveSandboxExecutionPayload } from "./durable-queues";
 import { SandboxRepository, type PatchSandboxScriptInput } from "./repository";
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 import { toSandboxRunResult } from "./sandbox-workflow-live";
@@ -33,6 +35,7 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 		const engine = yield* WorkflowEngine;
 		const compiler = yield* SandboxCompiler;
 		const repository = yield* SandboxRepository;
+		const pluginRuntime = yield* PluginRuntimeResolver;
 		const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 
 		const createScript = Effect.fn("SandboxApiService.createScript")(function* (
@@ -110,19 +113,24 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 			if (!script) {
 				return yield* notFound(sandboxScriptNotFoundError);
 			}
-
 			const executionId = generateId();
+			const resolvedPayload = yield* resolveSandboxExecutionPayload({
+				context,
+				driverName,
+				executionId,
+				userId: user.id,
+				scriptId: script.id,
+			}).pipe(
+				Effect.provideService(DbRunner, runWithDb),
+				Effect.provideService(SandboxRepository, repository),
+				Effect.provideService(PluginRuntimeResolver, pluginRuntime),
+				Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)),
+			);
 			yield* engine
 				.execute(RunSandboxWorkflow, {
 					executionId,
 					discard: true,
-					payload: {
-						context,
-						driverName,
-						executionId,
-						userId: user.id,
-						scriptId: script.id,
-					},
+					payload: resolvedPayload,
 				})
 				.pipe(Effect.orDie);
 
