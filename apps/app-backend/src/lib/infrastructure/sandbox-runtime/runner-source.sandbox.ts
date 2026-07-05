@@ -274,14 +274,10 @@ const transportHostCall =
 			budget.http += 1;
 		}
 		if (budget.total > payload.limits.hostCallCount) {
-			return hostFailure(
-				"Sandbox execution exceeds " + payload.limits.hostCallCount + " host calls",
-			);
+			return hostFailure(payload.limits.hostCallLimitMessage);
 		}
 		if (budget.http > payload.limits.httpCallCount) {
-			return hostFailure(
-				"Sandbox execution exceeds " + payload.limits.httpCallCount + " httpCall calls",
-			);
+			return hostFailure(payload.limits.httpCallLimitMessage);
 		}
 
 		let requestBody: string;
