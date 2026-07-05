@@ -25,6 +25,7 @@ describe("audiobook.audible sandbox script", () => {
 	});
 	it("deduplicates similarity buckets into related entities", () => {
 		const host = makeHost((_method, requestUrl) => {
+			expect(new URL(requestUrl).host).toBe("api.audible.com");
 			if (requestUrl.includes("/source-book?")) {
 				return httpSuccess({
 					product: {
