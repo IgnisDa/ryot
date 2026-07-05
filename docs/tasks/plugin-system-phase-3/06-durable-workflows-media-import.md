@@ -80,6 +80,21 @@ Derived from the plan §3 done criteria and cross-phase invariants:
 - [x] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
       `app-client` check all pass (cross-phase invariant 1)
 
+## Post-completion amendment (2026-07-26)
+
+The initial scale tests replayed plugin workflow functions in process; they did not exercise the
+64 KiB workflow context limit or realistic pool pressure. The import orchestrator now packs ordered
+resolution and population chunks against both exact UTF-8 context bytes and worst-case durable
+steps, resolves one exact workflow script per phase, and runs chunk children under the sandbox
+worker-concurrency bound. A single item that cannot fit an empty chunk is recorded as an item-level
+failure instead of failing the run. Focused backend tests cover 400 resolution items with three
+candidates, 1,001 population items, deterministic chunk ids, one script resolution per phase,
+bounded overlap, malformed chunk isolation, and oversized-item continuation.
+
+These tests close the input and step ceilings but are not a production pool/lock benchmark. Running
+several simultaneous full-size imports against the real workflow pool, Redis, and sandbox process
+remains a Phase 3 gate requirement tracked by task 08.
+
 ## User stories addressed
 
 - User story 18

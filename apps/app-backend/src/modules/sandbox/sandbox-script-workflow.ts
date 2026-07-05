@@ -23,11 +23,7 @@ import {
 	type WorkflowJournalEntry,
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 
-import {
-	resolveSandboxExecutionPayload,
-	SandboxExecutionQueue,
-	type SandboxExecutionResolutionMode,
-} from "./durable-queues";
+import { resolveSandboxExecutionPayload, SandboxExecutionQueue } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
 
@@ -55,6 +51,7 @@ export const SandboxScriptWorkflowPayload = Schema.Struct({
 	scriptId: SandboxScriptId,
 	authority: ExecutionAuthority,
 	resolutionMode: Schema.Literal("active", "exact"),
+	// Effect injects this into child payloads before strict excess-property decoding.
 	"~@effect/workflow/parent": Schema.optional(Schema.Unknown),
 }).annotations({ parseOptions: { onExcessProperty: "error" as const } });
 
@@ -254,6 +251,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 		return yield* references.execute(
 			request.args.workflowSlug,
 			request.args.input,
+			payload.authority,
 			childExecutionId,
 		);
 	}
@@ -264,9 +262,9 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	return yield* engine.execute(SandboxScriptWorkflow, {
 		executionId: childExecutionId,
 		payload: {
-			input: request.args.input,
 			resolutionMode: "exact",
 			scriptId: targetScriptId,
+			input: request.args.input,
 			authority: payload.authority,
 			executionId: childExecutionId,
 		},
@@ -293,7 +291,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 					authority: payload.authority,
 					executionId: payload.executionId,
 				},
-				payload.resolutionMode as SandboxExecutionResolutionMode,
+				payload.resolutionMode,
 			);
 			const repository = yield* SandboxRepository;
 			const pinned = yield* runWithDb(repository.getScriptPin(resolved.scriptId));
