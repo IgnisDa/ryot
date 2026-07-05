@@ -202,7 +202,7 @@ it("exposes global writes only to system runs with explicit capabilities", () =>
 	expect(providerSystem).toEqual({});
 });
 
-it("exposes user relationship changes only to direct user authority", () => {
+it("exposes declared user relationship changes only to user-bound authority", () => {
 	const bound = { changeUserRelationships };
 	const user = selectSandboxHostFunctions(bound, {
 		metadata: { kind: "operation" },
@@ -214,6 +214,11 @@ it("exposes user relationship changes only to direct user authority", () => {
 		metadata: { kind: "automation" },
 		allowedHostFunctions: ["changeUserRelationships"],
 	});
+	const undeclared = selectSandboxHostFunctions(bound, {
+		allowedHostFunctions: [],
+		authority: runInput.authority,
+		metadata: { kind: "automation" },
+	});
 	const system = selectSandboxHostFunctions(bound, {
 		metadata: { kind: "script" },
 		authority: { type: "system" },
@@ -221,6 +226,7 @@ it("exposes user relationship changes only to direct user authority", () => {
 	});
 
 	expect(user).toEqual({ changeUserRelationships });
-	expect(subscription).toEqual({});
+	expect(subscription).toEqual({ changeUserRelationships });
+	expect(undeclared).toEqual({});
 	expect(system).toEqual({});
 });

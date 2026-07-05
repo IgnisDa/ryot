@@ -121,7 +121,6 @@ it.effect("creates events inside workflow activities", () => {
 		LifecycleDispatchNoop,
 		Layer.mock(EventCreateWorkflowOperations, {
 			dispatchLifecycleOccurrence: () => Effect.void,
-			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () => Effect.die("unused"),
 		}),
 		makeEntitiesRepository({
@@ -186,7 +185,6 @@ it.effect(
 					dispatched.push(input);
 					return Effect.void;
 				},
-				ensureLibraryMembership: () => Effect.void,
 				processSandboxExecution: () => Effect.die("unused"),
 			}),
 			makeEntitiesRepository({
@@ -259,7 +257,6 @@ it.effect("does not dispatch a lifecycle occurrence when no lifecycle origin is 
 				dispatchCalls += 1;
 				return Effect.void;
 			},
-			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () => Effect.die("unused"),
 		}),
 		makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(entityScope) }),
