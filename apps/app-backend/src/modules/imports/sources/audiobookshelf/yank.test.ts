@@ -46,7 +46,7 @@ describe("syncAudiobookshelfOwnedItems", () => {
 						kind: "resolved",
 						externalId: "B08G9PRS1K",
 						sourceLabel: "Project Hail Mary",
-						scriptSlug: "audiobook.audible",
+						providerSlug: "audiobook.audible",
 						entitySchemaSlug: "audiobook",
 					},
 				},

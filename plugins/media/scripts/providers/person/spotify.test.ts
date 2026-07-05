@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./spotify.sandbox";
+import { details, manifest, search } from "./spotify";
 
 type SpotifyPersonHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -44,7 +44,7 @@ describe("person.spotify sandbox script", () => {
 			},
 		});
 
-		return runSandboxTestDriver(
+		return runSandboxTestScript(
 			search,
 			{ query: "artist", page: 2, pageSize: 5 },
 			host,
@@ -99,7 +99,7 @@ describe("person.spotify sandbox script", () => {
 			},
 		]);
 
-		return runSandboxTestDriver(details, { externalId: "a1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "a1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.name).toBe("The Artist");
 				expect(result.relatedEntityGroups).toEqual([
@@ -111,7 +111,7 @@ describe("person.spotify sandbox script", () => {
 							{
 								name: "Top Track",
 								externalId: "t1",
-								scriptSlug: "music.spotify",
+								providerSlug: "music.spotify",
 								relationshipProperties: { roles: ["Artist"] },
 							},
 						],
@@ -124,13 +124,13 @@ describe("person.spotify sandbox script", () => {
 							{
 								name: "Album One",
 								externalId: "al1",
-								scriptSlug: "music-group.spotify",
+								providerSlug: "music-group.spotify",
 								relationshipProperties: { roles: ["Artist"] },
 							},
 							{
 								name: "Album Two",
 								externalId: "al2",
-								scriptSlug: "music-group.spotify",
+								providerSlug: "music-group.spotify",
 								relationshipProperties: { roles: ["Artist"] },
 							},
 						],

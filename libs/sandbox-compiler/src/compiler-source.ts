@@ -65,7 +65,6 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	const operationHelpers = new Set<string>();
 	const automationHelpers = new Set<string>();
 	const diagnostics: SandboxCompilerDiagnostic[] = [];
-	const driverHelpers = new Map<string, "generic" | "provider">();
 
 	for (const reference of [
 		...file.referencedFiles,
@@ -107,11 +106,14 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 				if (bindings && ts.isNamedImports(bindings)) {
 					for (const element of bindings.elements) {
 						const importedName = (element.propertyName ?? element.name).text;
-						if (importedName === "defineDriver") {
-							driverHelpers.set(element.name.text, "generic");
-						}
-						if (importedName === "defineProviderDriver") {
-							driverHelpers.set(element.name.text, "provider");
+						if (importedName === "defineDriver" || importedName === "defineProviderDriver") {
+							diagnostics.push(
+								diagnosticAt(
+									element,
+									"RYOT_DEFINITION",
+									`${importedName} is obsolete; export one direct definition helper call instead`,
+								),
+							);
 						}
 						if (importedName === "defineManifest") {
 							manifestHelpers.add(element.name.text);
@@ -171,7 +173,6 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 
 	return {
 		diagnostics,
-		driverHelpers,
 		scriptHelpers,
 		manifestHelpers,
 		providerHelpers,
@@ -180,152 +181,12 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	};
 };
 
-const topLevelDriverName = (call: ts.CallExpression, file: ts.SourceFile) => {
-	const declaration = call.parent;
-	if (
-		!ts.isVariableDeclaration(declaration) ||
-		declaration.initializer !== call ||
-		!ts.isIdentifier(declaration.name)
-	) {
-		return null;
-	}
-	const declarationList = declaration.parent;
-	const statement = declarationList.parent;
-	if (
-		!(declarationList.flags & ts.NodeFlags.Const) ||
-		!ts.isVariableStatement(statement) ||
-		statement.parent !== file
-	) {
-		return null;
-	}
-
-	return declaration.name.text;
-};
-
-type DriverDefinition =
-	| { readonly kind: "generic" }
-	| { readonly kind: "provider"; readonly providerName: string };
-
-const providerDriverNames = new Set(["search", "details", "resolve", "translate"]);
-
-const inspectDriverDefinitions = (
-	file: ts.SourceFile,
-	driverHelpers: ReadonlyMap<string, "generic" | "provider">,
-) => {
-	const diagnostics: SandboxCompilerDiagnostic[] = [];
-	const driverDefinitions = new Map<string, DriverDefinition>();
-	const visit = (node: ts.Node): void => {
-		if (ts.isIdentifier(node) && driverHelpers.has(node.text)) {
-			const parent = node.parent;
-			const isImport = ts.isImportSpecifier(parent) && parent.name === node;
-			const isDirectCall = ts.isCallExpression(parent) && parent.expression === node;
-			if (!isImport && !isDirectCall) {
-				diagnostics.push(
-					diagnosticAt(
-						node,
-						"RYOT_DEFINITION",
-						"defineDriver may only be used as a direct function call",
-					),
-				);
-			}
-		}
-		if (
-			ts.isCallExpression(node) &&
-			ts.isIdentifier(node.expression) &&
-			driverHelpers.has(node.expression.text)
-		) {
-			const helperKind = driverHelpers.get(node.expression.text);
-			const manifest = node.arguments[0];
-			if (
-				node.typeArguments?.length ||
-				!manifest ||
-				!ts.isIdentifier(manifest) ||
-				manifest.text !== "manifest"
-			) {
-				diagnostics.push(
-					diagnosticAt(
-						manifest ?? node,
-						"RYOT_DEFINITION",
-						'defineDriver must receive the exported "manifest" identifier directly',
-					),
-				);
-			} else {
-				const driverName = topLevelDriverName(node, file);
-				if (driverName === null) {
-					diagnostics.push(
-						diagnosticAt(node, "RYOT_DEFINITION", "defineDriver must initialize a top-level const"),
-					);
-				} else if (helperKind === "provider") {
-					const providerName = node.arguments[1];
-					if (
-						node.arguments.length !== 3 ||
-						!providerName ||
-						!ts.isStringLiteralLikeNode(providerName) ||
-						!providerDriverNames.has(providerName.text)
-					) {
-						diagnostics.push(
-							diagnosticAt(
-								providerName ?? node,
-								"RYOT_DEFINITION",
-								"defineProviderDriver must receive a static standard provider driver name",
-							),
-						);
-					} else {
-						driverDefinitions.set(driverName, {
-							kind: "provider",
-							providerName: providerName.text,
-						});
-					}
-				} else if (node.arguments.length !== 2) {
-					diagnostics.push(
-						diagnosticAt(
-							node,
-							"RYOT_DEFINITION",
-							"defineDriver must receive a manifest and driver definition",
-						),
-					);
-				} else {
-					driverDefinitions.set(driverName, { kind: "generic" });
-				}
-			}
-		}
-		node.forEachChild(visit);
-	};
-	visit(file);
-
-	return { diagnostics, driverDefinitions };
-};
-
-const getTopLevelDriverRecord = (file: ts.SourceFile, name: string) => {
-	for (const statement of file.statements) {
-		if (
-			!ts.isVariableStatement(statement) ||
-			!(statement.declarationList.flags & ts.NodeFlags.Const)
-		) {
-			continue;
-		}
-		for (const declaration of statement.declarationList.declarations) {
-			if (
-				ts.isIdentifier(declaration.name) &&
-				declaration.name.text === name &&
-				declaration.initializer &&
-				ts.isObjectLiteralExpression(declaration.initializer)
-			) {
-				return declaration.initializer;
-			}
-		}
-	}
-
-	return null;
-};
-
 const inspectScriptDefinition = (
 	file: ts.SourceFile,
 	scriptHelpers: ReadonlySet<string>,
 	automationHelpers: ReadonlySet<string>,
 	providerHelpers: ReadonlySet<string>,
 	operationHelpers: ReadonlySet<string>,
-	driverDefinitions: ReadonlyMap<string, DriverDefinition>,
 ) => {
 	const defaults = file.statements.filter(
 		(statement): statement is ts.ExportAssignment =>
@@ -333,7 +194,7 @@ const inspectScriptDefinition = (
 	);
 	if (defaults.length !== 1) {
 		return {
-			driverNames: [],
+			providerOperation: null,
 			definitionKind: null,
 			diagnostics: [
 				diagnosticAt(
@@ -368,7 +229,7 @@ const inspectScriptDefinition = (
 		call.arguments.length !== 1
 	) {
 		return {
-			driverNames: [],
+			providerOperation: null,
 			definitionKind: null,
 			diagnostics: [
 				diagnosticAt(
@@ -384,7 +245,7 @@ const inspectScriptDefinition = (
 	if (!definition || !ts.isObjectLiteralExpression(definition)) {
 		return {
 			definitionKind,
-			driverNames: [],
+			providerOperation: null,
 			diagnostics: [
 				diagnosticAt(
 					definition ?? call,
@@ -394,44 +255,12 @@ const inspectScriptDefinition = (
 			],
 		};
 	}
-	if (definitionKind === "automation") {
-		let hasManifest = false;
-		let hasRun = false;
-		for (const property of definition.properties) {
-			if (
-				ts.isShorthandPropertyAssignment(property) &&
-				ts.isIdentifier(property.name) &&
-				property.name.text === "manifest"
-			) {
-				hasManifest = true;
-			} else if (ts.isPropertyAssignment(property) && propertyName(property.name) === "manifest") {
-				hasManifest =
-					ts.isIdentifier(property.initializer) && property.initializer.text === "manifest";
-			} else if (
-				(ts.isPropertyAssignment(property) || ts.isMethodDeclaration(property)) &&
-				propertyName(property.name) === "run"
-			) {
-				hasRun = true;
-			}
-		}
-		return {
-			definitionKind,
-			driverNames: ["automation"],
-			diagnostics:
-				hasManifest && hasRun
-					? []
-					: [
-							diagnosticAt(
-								definition,
-								"RYOT_DEFINITION",
-								`The ${definitionKind} definition must contain the exported "manifest" and a run function`,
-							),
-						],
-		};
-	}
-
 	let hasManifest = false;
-	let drivers: ts.ObjectLiteralExpression | null = null;
+	let hasRun = false;
+	let hasInput = false;
+	let hasOutput = false;
+	let hasDrivers = false;
+	let providerOperation: string | null = null;
 	for (const property of definition.properties) {
 		if (
 			ts.isShorthandPropertyAssignment(property) &&
@@ -439,100 +268,69 @@ const inspectScriptDefinition = (
 			property.name.text === "manifest"
 		) {
 			hasManifest = true;
-		} else if (
-			ts.isShorthandPropertyAssignment(property) &&
-			ts.isIdentifier(property.name) &&
-			property.name.text === "drivers"
-		) {
-			drivers = getTopLevelDriverRecord(file, property.name.text);
 		} else if (ts.isPropertyAssignment(property) && propertyName(property.name) === "manifest") {
 			hasManifest =
 				ts.isIdentifier(property.initializer) && property.initializer.text === "manifest";
-		} else if (ts.isPropertyAssignment(property) && propertyName(property.name) === "drivers") {
-			if (ts.isObjectLiteralExpression(property.initializer)) {
-				drivers = property.initializer;
-			} else if (ts.isIdentifier(property.initializer)) {
-				drivers = getTopLevelDriverRecord(file, property.initializer.text);
-			}
+		}
+		const name = "name" in property ? propertyName(property.name) : null;
+		if (name === "drivers") {
+			hasDrivers = true;
+		} else if (
+			name === "run" &&
+			(ts.isPropertyAssignment(property) || ts.isMethodDeclaration(property))
+		) {
+			hasRun = true;
+		} else if (name === "input" && ts.isPropertyAssignment(property)) {
+			hasInput = true;
+		} else if (name === "output" && ts.isPropertyAssignment(property)) {
+			hasOutput = true;
+		} else if (
+			name === "operation" &&
+			ts.isPropertyAssignment(property) &&
+			ts.isStringLiteralLikeNode(property.initializer)
+		) {
+			providerOperation = property.initializer.text;
 		}
 	}
-	if (!hasManifest || drivers === null) {
+	if (hasDrivers) {
 		return {
 			definitionKind,
-			driverNames: [],
+			providerOperation,
 			diagnostics: [
 				diagnosticAt(
 					definition,
 					"RYOT_DEFINITION",
-					'The definition must contain the exported "manifest" and a static drivers object',
+					'The "drivers" object is obsolete; export one direct definition with a run function',
 				),
 			],
 		};
 	}
-
-	const diagnostics: SandboxCompilerDiagnostic[] = [];
-	const driverNames: string[] = [];
-	for (const property of drivers.properties) {
-		let driver: ts.Identifier | null = null;
-		let exposedName: string | null = null;
-		if (ts.isShorthandPropertyAssignment(property) && ts.isIdentifier(property.name)) {
-			driver = property.name;
-			exposedName = property.name.text;
-		} else if (ts.isPropertyAssignment(property) && ts.isIdentifier(property.initializer)) {
-			driver = property.initializer;
-			exposedName = propertyName(property.name);
-		}
-		const driverDefinition = driver ? driverDefinitions.get(driver.text) : undefined;
-		if (!driver || !exposedName || !driverDefinition) {
-			diagnostics.push(
-				diagnosticAt(
-					property,
-					"RYOT_DEFINITION",
-					"Every script driver must be a top-level defineDriver(manifest, ...) const",
-				),
-			);
-			continue;
-		}
-		driverNames.push(exposedName);
-		if (
-			(definitionKind === "script" || definitionKind === "operation") &&
-			driverDefinition.kind !== "generic"
-		) {
-			diagnostics.push(
-				diagnosticAt(
-					property,
-					"RYOT_DEFINITION",
-					"Generic scripts and operations must use defineDriver",
-				),
-			);
-			continue;
-		}
-		if (
-			definitionKind === "provider" &&
-			providerDriverNames.has(exposedName) &&
-			(driverDefinition.kind !== "provider" || driverDefinition.providerName !== exposedName)
-		) {
-			diagnostics.push(
-				diagnosticAt(
-					property,
-					"RYOT_DEFINITION",
-					`Provider driver "${exposedName}" must use defineProviderDriver(manifest, "${exposedName}", ...)`,
-				),
-			);
-			continue;
-		}
-		if (driverDefinition.kind === "provider" && driverDefinition.providerName !== exposedName) {
-			diagnostics.push(
-				diagnosticAt(
-					property,
-					"RYOT_DEFINITION",
-					`Provider driver "${driverDefinition.providerName}" must use the same drivers object key`,
-				),
-			);
-		}
-	}
-
-	return { definitionKind, diagnostics, driverNames };
+	const requiresSchemas = definitionKind === "script" || definitionKind === "operation";
+	const validProviderOperation =
+		definitionKind !== "provider" ||
+		providerOperation === "details" ||
+		providerOperation === "search" ||
+		providerOperation === "resolve" ||
+		providerOperation === "translate";
+	return {
+		definitionKind,
+		providerOperation,
+		diagnostics:
+			hasManifest &&
+			hasRun &&
+			(!requiresSchemas || (hasInput && hasOutput)) &&
+			validProviderOperation
+				? []
+				: [
+						diagnosticAt(
+							definition,
+							"RYOT_DEFINITION",
+							definitionKind === "provider"
+								? 'The provider definition must contain the exported "manifest", a static standard operation, and a run function'
+								: `The ${definitionKind} definition must contain the exported "manifest"${requiresSchemas ? ", input and output schemas," : ""} and a run function`,
+						),
+					],
+	};
 };
 
 export const inspectSandboxModuleImports = (file: ts.SourceFile) =>
@@ -565,19 +363,9 @@ export const inspectSandboxSource = (
 	const imports = inspectImports(file, options.allowRelativeImports ?? false);
 	if (imports.diagnostics.length > 0) {
 		return {
-			driverNames: [],
+			providerOperation: null,
 			definitionKind: null,
 			diagnostics: imports.diagnostics,
-			manifestHelpers: imports.manifestHelpers,
-		};
-	}
-
-	const drivers = inspectDriverDefinitions(file, imports.driverHelpers);
-	if (drivers.diagnostics.length > 0) {
-		return {
-			driverNames: [],
-			definitionKind: null,
-			diagnostics: drivers.diagnostics,
 			manifestHelpers: imports.manifestHelpers,
 		};
 	}
@@ -588,7 +376,6 @@ export const inspectSandboxSource = (
 		imports.automationHelpers,
 		imports.providerHelpers,
 		imports.operationHelpers,
-		drivers.driverDefinitions,
 	);
 	return { ...definition, manifestHelpers: imports.manifestHelpers };
 };

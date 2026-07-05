@@ -45,11 +45,11 @@ describe("adaptTraktData", () => {
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups).toHaveLength(2);
 			expect(result.entityGroups[0]).toMatchObject({
-				entityRef: { kind: "resolved", externalId: "603", scriptSlug: "movie.tmdb" },
+				entityRef: { kind: "resolved", externalId: "603", providerSlug: "movie.tmdb" },
 				events: [{ eventSchemaSlug: "complete" }],
 			});
 			expect(result.entityGroups[1]).toMatchObject({
-				entityRef: { kind: "resolved", externalId: "1399", scriptSlug: "show.tmdb" },
+				entityRef: { kind: "resolved", externalId: "1399", providerSlug: "show.tmdb" },
 				events: [
 					{
 						eventSchemaSlug: "progress",

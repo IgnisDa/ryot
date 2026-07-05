@@ -1,5 +1,6 @@
 import { badRequest, conflict, notFound } from "@ryot/contract/errors";
 import type { PluginListItem } from "@ryot/contract/modules/plugins/schemas";
+import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, Runtime } from "effect";
@@ -13,23 +14,59 @@ import { PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
 import type { SchemaEvolutionError } from "./schema-evolution";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
-import type { NormalizedPlugin, PluginSource } from "./types";
+import type { NormalizedPlugin, PluginScriptMetadata, PluginSource } from "./types";
 import {
 	decodePluginManifest,
 	PluginValidationError,
-	validatePluginBootDrivers,
-	validatePluginCronDrivers,
 	validatePluginManifestReferences,
-	validatePluginOperationDrivers,
+	validatePluginOperationScripts,
 	validatePluginSourcePaths,
 	validateSignalSchemaFormatterReferences,
 } from "./validation";
 
 const digest = (value: string) => new Bun.CryptoHasher("sha256").update(value).digest("hex");
 
-const declaredScriptMetadata = <Script extends { readonly entry: string }>(script: Script) => {
-	const { entry: _entry, ...metadata } = script;
-	return metadata;
+const declaredScriptMetadata = (
+	script: PluginManifest["scripts"][number],
+): PluginScriptMetadata => {
+	const common = {
+		slug: script.slug,
+		name: script.name,
+		capabilities: script.capabilities,
+		requiredAppConfigKeys: script.requiredAppConfigKeys,
+	};
+	if (script.kind !== "provider") {
+		return script.kind === "script"
+			? {
+					...common,
+					kind: "script",
+					...(script.providerSlug ? { providerSlug: script.providerSlug } : {}),
+				}
+			: { ...common, kind: script.kind };
+	}
+	return {
+		...common,
+		kind: "provider",
+		providerSlug: script.providerSlug,
+		providerOperation: script.providerOperation,
+	};
+};
+
+const compiledScriptMetadata = (script: PluginManifest["scripts"][number]) => {
+	if (script.kind === "script") {
+		const { entry: _entry, providerSlug: _providerSlug, ...compiledMetadata } = script;
+		return compiledMetadata;
+	}
+	if (script.kind !== "provider") {
+		return declaredScriptMetadata(script);
+	}
+	const {
+		entry: _entry,
+		providerSlug: _providerSlug,
+		providerOperation: _providerOperation,
+		...compiledMetadata
+	} = script;
+	return compiledMetadata;
 };
 
 const toListItem = (plugin: NormalizedPlugin): PluginListItem => ({
@@ -57,7 +94,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 			);
 			const validateSnapshot = Effect.fn("PluginIngestionService.validateSnapshot")(function* (
 				snapshot: ReturnType<PluginLoader["getSnapshot"]>,
-				validateCompiledDrivers = true,
+				validateCompiledScripts = true,
 			) {
 				const plugins = Object.values(snapshot.plugins);
 				yield* validateSignalSchemaFormatterReferences(
@@ -71,13 +108,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 					(plugin) =>
 						validatePluginManifestReferences(plugin.manifest, snapshot.definitions).pipe(
 							Effect.andThen(
-								validateCompiledDrivers ? validatePluginCronDrivers(plugin) : Effect.void,
-							),
-							Effect.andThen(
-								validateCompiledDrivers ? validatePluginBootDrivers(plugin) : Effect.void,
-							),
-							Effect.andThen(
-								validateCompiledDrivers ? validatePluginOperationDrivers(plugin) : Effect.void,
+								validateCompiledScripts ? validatePluginOperationScripts(plugin) : Effect.void,
 							),
 						),
 					{ discard: true },
@@ -124,7 +155,14 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 						return cached;
 					}
 
-					const compiled = yield* compilePluginSandboxSourceEntries(files, manifest.scripts);
+					const compilerScripts = manifest.scripts.map((script) => {
+						if (script.kind === "script") {
+							const { providerSlug, ...genericScript } = script;
+							return providerSlug ? { ...genericScript, providerSlug } : genericScript;
+						}
+						return script;
+					});
+					const compiled = yield* compilePluginSandboxSourceEntries(files, compilerScripts);
 					const compiledByEntry = new Map(compiled.map((script) => [script.entry, script]));
 					const scripts = yield* Effect.forEach(manifest.scripts, (script) => {
 						const output = compiledByEntry.get(script.entry);
@@ -136,7 +174,10 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 							);
 						}
 						const metadata = declaredScriptMetadata(script);
-						if (stableStringify(metadata) !== stableStringify(output.compiled.manifest)) {
+						if (
+							stableStringify(compiledScriptMetadata(script)) !==
+							stableStringify(output.compiled.manifest)
+						) {
 							return Effect.fail(
 								new PluginValidationError({
 									issues: [`Declared script metadata does not match ${script.entry}`],
@@ -151,7 +192,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 							compiledFormat: output.compiled.format,
 							compiledCode: output.compiled.javascript,
 							contentHash: digest(output.compiled.javascript),
-							metadata: { ...metadata, driverNames: output.compiled.driverNames },
+							metadata,
 						});
 					});
 					const normalized = { manifest, scripts, sourceHash } satisfies NormalizedPlugin;
@@ -231,9 +272,14 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 							const schemaSlugs = plugin.manifest.entitySchemas.map(
 								({ slug: entitySchemaSlug }) => entitySchemaSlug,
 							);
-							if (yield* repository.hasEntityReferences(schemaSlugs)) {
+							if (
+								yield* repository.hasEntityReferences({
+									pluginSlug: slug,
+									entitySchemaSlugs: schemaSlugs,
+								})
+							) {
 								return yield* conflict(
-									`Plugin '${slug}' cannot be uninstalled while entities reference its schemas`,
+									`Plugin '${slug}' cannot be uninstalled while entities reference its schemas or providers`,
 								);
 							}
 							const remaining = installed.filter(

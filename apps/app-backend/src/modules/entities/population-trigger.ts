@@ -2,7 +2,7 @@ import type { AutomationOrigin } from "@ryot/contract/modules/automations/schema
 import type {
 	EntityId,
 	EntitySchemaSlug,
-	SandboxScriptId,
+	SandboxProviderId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
@@ -12,8 +12,8 @@ export type PopulationRequest = {
 	externalId: string;
 	userId: UserId | null;
 	origin: AutomationOrigin;
+	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
-	sandboxScriptId: SandboxScriptId;
 };
 
 export class EntityPopulationTrigger extends Context.Tag("EntityPopulationTrigger")<

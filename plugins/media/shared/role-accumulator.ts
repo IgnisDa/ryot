@@ -12,7 +12,7 @@ export const createRoleAccumulator = (initial: readonly RoleRelatedEntity[] = []
 	const entities: RoleRelatedEntity[] = [];
 	const byKey = new Map<string, RoleRelatedEntity>();
 	const add = (entity: RoleRelatedEntity) => {
-		const key = `${entity.scriptSlug}:${entity.externalId}`;
+		const key = `${entity.providerSlug}:${entity.externalId}`;
 		const existing = byKey.get(key);
 		if (!existing) {
 			byKey.set(key, entity);

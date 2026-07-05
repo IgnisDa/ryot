@@ -49,7 +49,7 @@ describe("Relationship includes", () => {
 			const fixtureSuffix = crypto.randomUUID();
 			const show = yield* seedMediaEntity({
 				userId: null,
-				sandboxScriptId: null,
+				providerId: null,
 				name: "Episodic Test Show",
 				entitySchemaSlug: showSchema.id,
 				externalId: `show-${fixtureSuffix}`,
@@ -70,7 +70,7 @@ describe("Relationship includes", () => {
 			const specialSeason = yield* seedMediaEntity({
 				userId: null,
 				name: "Specials",
-				sandboxScriptId: null,
+				providerId: null,
 				entitySchemaSlug: showSeasonSchemaId,
 				externalId: `season-0-${fixtureSuffix}`,
 				properties: { seasonNumber: 0, description: "Specials", releaseDate: null },
@@ -78,7 +78,7 @@ describe("Relationship includes", () => {
 			const firstSeason = yield* seedMediaEntity({
 				userId: null,
 				name: "Season 1",
-				sandboxScriptId: null,
+				providerId: null,
 				entitySchemaSlug: showSeasonSchemaId,
 				externalId: `season-1-${fixtureSuffix}`,
 				properties: { seasonNumber: 1, description: "First", releaseDate: null },
@@ -86,7 +86,7 @@ describe("Relationship includes", () => {
 			const secondSeason = yield* seedMediaEntity({
 				userId: null,
 				name: "Season 2",
-				sandboxScriptId: null,
+				providerId: null,
 				entitySchemaSlug: showSeasonSchemaId,
 				externalId: `season-2-${fixtureSuffix}`,
 				properties: { seasonNumber: 2, description: "Second", releaseDate: null },
@@ -94,7 +94,7 @@ describe("Relationship includes", () => {
 			const specialEpisode = yield* seedMediaEntity({
 				userId: null,
 				name: "Special Episode",
-				sandboxScriptId: null,
+				providerId: null,
 				entitySchemaSlug: showEpisodeSchemaId,
 				externalId: `episode-0-1-${fixtureSuffix}`,
 				properties: {
@@ -108,7 +108,7 @@ describe("Relationship includes", () => {
 			const firstEpisode = yield* seedMediaEntity({
 				userId: null,
 				name: "Episode One",
-				sandboxScriptId: null,
+				providerId: null,
 				entitySchemaSlug: showEpisodeSchemaId,
 				externalId: `episode-1-1-${fixtureSuffix}`,
 				properties: {
@@ -122,7 +122,7 @@ describe("Relationship includes", () => {
 			const secondEpisode = yield* seedMediaEntity({
 				userId: null,
 				name: "Episode Two",
-				sandboxScriptId: null,
+				providerId: null,
 				entitySchemaSlug: showEpisodeSchemaId,
 				externalId: `episode-2-1-${fixtureSuffix}`,
 				properties: {

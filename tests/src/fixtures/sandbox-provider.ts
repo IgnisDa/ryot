@@ -1,57 +1,145 @@
 import { randomUUID } from "node:crypto";
 
-import type { ProviderInformation } from "@ryot/sandbox-sdk/core";
+import type { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { PluginProviderInformation } from "@ryot/plugin-kit/manifest";
 import type {
 	ProviderDetailsResult,
+	ProviderResolveResult,
 	ProviderSearchResult,
 	ProviderTranslateResult,
 } from "@ryot/sandbox-sdk/provider";
 import { Effect } from "effect";
 
+import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
+import { getBackendClient } from "./contract-client";
 import {
-	installTestPlugin,
+	installTestPluginBundle,
 	reinstallTestPluginScript,
 	type InstalledTestPlugin,
 	uninstallTestPlugin,
 } from "./test-plugin";
 
-export type InstalledProviderScript = InstalledTestPlugin;
+export type InstalledTestProvider = Omit<InstalledTestPlugin, "scriptId" | "slug"> & {
+	providerId: SandboxProviderId;
+	providerSlug: string;
+	detailsScriptId: SandboxScriptId;
+	searchScriptId?: SandboxScriptId;
+	resolveScriptId?: SandboxScriptId;
+	translateScriptId?: SandboxScriptId;
+};
 
 export const installTestProvider = (input: {
 	slug?: string;
 	name?: string;
 	client: Client;
-	drivers: FakeProviderDrivers;
+	details: ProviderDetailsResult;
+	search?: ProviderSearchResult;
+	resolve?: ProviderResolveResult;
+	translations?: Readonly<Record<string, ProviderTranslateResult>>;
 	linkToEntitySchemaSlug?: string;
-	providerInformation?: ProviderInformation;
+	information?: PluginProviderInformation;
 }) =>
 	Effect.gen(function* () {
-		const slug = input.slug ?? `e2e-provider-${randomUUID()}`;
+		const providerSlug = input.slug ?? `e2e-provider-${randomUUID()}`;
 		const name = input.name ?? "E2E Provider Script";
-		const providerInformation = input.providerInformation ?? { source: "e2e" };
-		const source = providerSandboxSource({
-			name,
-			slug,
-			providerInformation,
-			drivers: input.drivers,
-		});
-		return yield* installTestPlugin({
-			source,
-			linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
-			script: {
-				name,
+		const information = input.information ?? { source: "e2e" };
+		const operations: Array<{
+			operation: "details" | "search" | "resolve" | "translate";
+			result:
+				| ProviderDetailsResult
+				| ProviderSearchResult
+				| ProviderResolveResult
+				| Readonly<Record<string, ProviderTranslateResult>>;
+		}> = [{ operation: "details", result: input.details }];
+		if (input.search) {
+			operations.push({ operation: "search", result: input.search });
+		}
+		if (input.resolve) {
+			operations.push({ operation: "resolve", result: input.resolve });
+		}
+		if (input.translations) {
+			operations.push({ operation: "translate", result: input.translations });
+		}
+		const scripts = operations.map(({ operation }) => {
+			const slug = `${providerSlug}.${operation}`;
+			return {
 				slug,
-				kind: "provider",
+				entry: `scripts/${slug}.sandbox.ts`,
+				kind: "provider" as const,
+				name: `${name} ${operation}`,
+				providerSlug,
 				capabilities: [],
-				providerInformation,
+				providerOperation: operation,
 				requiredAppConfigKeys: [],
-			},
+			};
 		});
+		const files = Object.fromEntries(
+			scripts.map((script) => [
+				script.entry,
+				providerSandboxSource({
+					name: script.name,
+					slug: script.slug,
+					operation: script.providerOperation,
+					result:
+						operations.find(({ operation }) => operation === script.providerOperation)?.result ??
+						input.details,
+				}),
+			]),
+		);
+		const providerOperations = {
+			details: `${providerSlug}.details`,
+			...(input.search ? { search: `${providerSlug}.search` } : {}),
+			...(input.resolve ? { resolve: `${providerSlug}.resolve` } : {}),
+			...(input.translations ? { translate: `${providerSlug}.translate` } : {}),
+		};
+		const installed = yield* installTestPluginBundle({
+			files,
+			scripts,
+			linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
+			providers: [
+				{
+					name,
+					slug: providerSlug,
+					information,
+					operations: providerOperations,
+				},
+			],
+		});
+		const detailsScriptId = installed.scriptIds[`${providerSlug}.details`];
+		if (!detailsScriptId) {
+			return yield* Effect.dieMessage("Installed provider details script was not found");
+		}
+		const storedScripts = yield* Effect.all(
+			Object.values(installed.scriptIds).map((scriptId) =>
+				getBackendClient().call(
+					(c) => c.testSupport.getSandboxScript({ path: { scriptId } }),
+					adminHeaders,
+				),
+			),
+		);
+		const providerId = storedScripts.find((script) => script.id === detailsScriptId)?.providerId;
+		if (!providerId) {
+			return yield* Effect.dieMessage("Installed provider ID was not returned by test support");
+		}
+		if (storedScripts.some((script) => script.providerId !== providerId)) {
+			return yield* Effect.dieMessage(
+				"Installed provider operation scripts do not share one provider ID",
+			);
+		}
+		return {
+			...installed,
+			providerId,
+			providerSlug,
+			detailsScriptId,
+			searchScriptId: installed.scriptIds[`${providerSlug}.search`],
+			resolveScriptId: installed.scriptIds[`${providerSlug}.resolve`],
+			translateScriptId: installed.scriptIds[`${providerSlug}.translate`],
+		};
 	});
 
-export const uninstallTestProvider = (seeded: InstalledProviderScript) =>
-	uninstallTestPlugin(seeded);
+export const uninstallTestProvider = (seeded: InstalledTestProvider) =>
+	uninstallTestPlugin({ ...seeded, scriptId: seeded.detailsScriptId, slug: seeded.providerSlug });
 
 export const replaceSandboxScriptCompiledRepresentation = (
 	_client: Client,
@@ -104,20 +192,15 @@ export function fakeProviderTranslations(
 	return translations;
 }
 
-type FakeProviderDrivers = {
-	readonly details?: ProviderDetailsResult;
-	readonly search?: ProviderSearchResult;
-	readonly translations?: Readonly<Record<string, ProviderTranslateResult>>;
-};
-
 const providerMetadataBySource = new Map<
 	string,
 	{
 		name: string;
 		slug: string;
 		kind: "provider";
+		providerSlug: string;
+		providerOperation: "details" | "search" | "resolve" | "translate";
 		capabilities: ReadonlyArray<string>;
-		providerInformation: ProviderInformation;
 		requiredAppConfigKeys: ReadonlyArray<string>;
 	}
 >();
@@ -125,49 +208,32 @@ const providerMetadataBySource = new Map<
 export function providerSandboxSource(input: {
 	readonly name: string;
 	readonly slug: string;
-	readonly drivers: FakeProviderDrivers;
-	readonly providerInformation: ProviderInformation;
+	readonly operation: "details" | "search" | "resolve" | "translate";
+	readonly result:
+		| ProviderDetailsResult
+		| ProviderSearchResult
+		| ProviderResolveResult
+		| Readonly<Record<string, ProviderTranslateResult>>;
 }) {
-	const declarations: string[] = [];
-	const driverEntries: string[] = [];
-	const providerImports = ["defineProvider", "defineProviderDriver"];
-
-	if (input.drivers.search) {
-		providerImports.push("providerSearchResultSchema");
-		declarations.push(`const searchResult = Schema.decodeUnknownSync(providerSearchResultSchema)(JSON.parse(${JSON.stringify(
-			JSON.stringify(input.drivers.search),
-		)}));
-const search = defineProviderDriver(manifest, "search", () => Effect.succeed(searchResult));`);
-		driverEntries.push("search");
-	}
-	if (input.drivers.details) {
-		providerImports.push("providerDetailsResultSchema");
-		declarations.push(`const detailsResult = Schema.decodeUnknownSync(providerDetailsResultSchema)(JSON.parse(${JSON.stringify(
-			JSON.stringify(input.drivers.details),
-		)}));
-const details = defineProviderDriver(manifest, "details", () => Effect.succeed(detailsResult));`);
-		driverEntries.push("details");
-	}
-	if (input.drivers.translations) {
-		providerImports.push("providerTranslateResultSchema");
-		declarations.push(`const translations = Schema.decodeUnknownSync(
+	const resultSchema = `provider${input.operation[0]?.toUpperCase()}${input.operation.slice(1)}ResultSchema`;
+	const isTranslate = input.operation === "translate";
+	const declarations = isTranslate
+		? `const translations = Schema.decodeUnknownSync(
   Schema.Record({ key: Schema.String, value: providerTranslateResultSchema }),
 )(
-  JSON.parse(${JSON.stringify(JSON.stringify(input.drivers.translations))}),
-);
-const translate = defineProviderDriver(manifest, "translate", ({ language }) =>
-  Effect.succeed(translations[language] ?? {}),
-);`);
-		driverEntries.push("translate");
-	}
-	if (driverEntries.length === 0) {
-		throw new Error("Fake provider requires at least one driver");
-	}
+  JSON.parse(${JSON.stringify(JSON.stringify(input.result))}),
+);`
+		: `const result = Schema.decodeUnknownSync(${resultSchema})(
+  JSON.parse(${JSON.stringify(JSON.stringify(input.result))}),
+);`;
+	const run = isTranslate
+		? "({ language }) => Effect.succeed(translations[language] ?? {})"
+		: "() => Effect.succeed(result)";
 
 	const source = `
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { ${providerImports.join(", ")} } from "@ryot/sandbox-sdk/provider";
+import { defineProvider, ${isTranslate ? "providerTranslateResultSchema" : resultSchema} } from "@ryot/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
   kind: "provider",
@@ -175,23 +241,24 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(input.slug)},
   capabilities: [],
   requiredAppConfigKeys: [],
-  providerInformation: ${JSON.stringify(input.providerInformation)},
 });
 
-${declarations.join("\n\n")}
+${declarations}
 
 export default defineProvider({
   manifest,
-  drivers: { ${driverEntries.join(", ")} },
+  operation: ${JSON.stringify(input.operation)},
+  run: ${run},
 });
 `;
 	providerMetadataBySource.set(source, {
 		name: input.name,
 		slug: input.slug,
 		kind: "provider",
+		providerSlug: input.slug.slice(0, -(input.operation.length + 1)),
+		providerOperation: input.operation,
 		capabilities: [],
 		requiredAppConfigKeys: [],
-		providerInformation: input.providerInformation,
 	});
 	return source;
 }

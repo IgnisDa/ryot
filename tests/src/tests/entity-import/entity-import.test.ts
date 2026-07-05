@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -11,49 +11,49 @@ import {
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
 	getBackendClient,
-	getFirstProviderScriptId,
+	providerSandboxSource,
+	replaceSandboxScriptCompiledRepresentation,
 	pollEntityImportResult,
 	pollEntitySearchResult,
 	queryInLibraryRelationship,
 	installTestProvider,
-	type InstalledProviderScript,
+	type InstalledTestProvider,
 } from "~/fixtures";
 import {
 	assertCompleted,
+	assertPresent,
 	assertTaggedError,
 	requireArray,
 	requireObjectRecord,
 } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, assert, beforeAll, describe, expect, it } from "~/support/effect-test";
 
 const IMPORT_EXTERNAL_ID = "e2e-audiobook-1";
 const IMPORTED_NAME = "E2E Imported Audiobook";
 
-let providerScript: InstalledProviderScript;
+let provider: InstalledTestProvider;
 
 beforeAll(async () => {
 	await Effect.runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			providerScript = yield* installTestProvider({
+			provider = yield* installTestProvider({
 				client,
-				drivers: {
-					search: fakeProviderSearchResult([
-						{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Audiobook One", subtitle: null },
-						{ externalId: "e2e-audiobook-2", title: "E2E Audiobook Two", subtitle: 2 },
-					]),
-					details: fakeProviderDetailsResult({
-						name: IMPORTED_NAME,
-						properties: { description: "Imported by the e2e fake provider." },
-					}),
-				},
+				search: fakeProviderSearchResult([
+					{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Audiobook One", subtitle: null },
+					{ externalId: "e2e-audiobook-2", title: "E2E Audiobook Two", subtitle: 2 },
+				]),
+				details: fakeProviderDetailsResult({
+					name: IMPORTED_NAME,
+					properties: { description: "Imported by the e2e fake provider." },
+				}),
 			});
 		}),
 	);
 });
 
 afterAll(async () => {
-	await Effect.runPromise(uninstallTestProvider(providerScript));
+	await Effect.runPromise(uninstallTestProvider(provider));
 });
 
 describe("provider entity search", () => {
@@ -69,13 +69,15 @@ describe("provider entity search", () => {
 		}),
 	);
 
-	it.live("enqueues a provider search and completes with the seeded results", () =>
+	it.live("uses separate search and details scripts through one provider identity", () =>
 		Effect.gen(function* () {
-			const { userId } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
+			const searchScriptId = provider.searchScriptId;
+			assertPresent(searchScriptId, "Installed provider search script not found");
 
 			const { jobId } = yield* enqueueEntitySearch(userId, {
 				context: { query: "test", page: 1, pageSize: 5 },
-				scriptId: SandboxScriptId.make(providerScript.scriptId),
+				scriptId: searchScriptId,
 			});
 
 			const result = yield* pollEntitySearchResult(userId, jobId);
@@ -83,43 +85,52 @@ describe("provider entity search", () => {
 			const value = requireObjectRecord(result.value, "Expected search result to be an object");
 			const items = requireArray(value.items, "Expected search result items to be an array");
 			expect(items).toHaveLength(2);
+			const firstItem = requireObjectRecord(
+				items[0],
+				"Expected the first search item to be an object",
+			);
+			expect(firstItem.externalId).toBe(IMPORT_EXTERNAL_ID);
+
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "audiobook");
+			const { jobId: importJobId } = yield* enqueueEntityImport(client, {
+				providerId: provider.providerId,
+				entitySchemaSlug: schema.id,
+				externalId: IMPORT_EXTERNAL_ID,
+			});
+			const imported = yield* pollEntityImportResult(client, importJobId);
+			assertCompleted(imported, "import job");
+			expect(imported.data.name).toBe(IMPORTED_NAME);
 		}),
 	);
 });
 
 describe("POST /library/import — provider entity import", () => {
-	it.live("returns 404 when the script does not exist", () =>
+	it.live("returns a failed import job when the provider does not exist", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaWithProviders(client);
 
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.entityImport.import({
-						payload: {
-							entitySchemaSlug: schema.id,
-							externalId: "some-external-id",
-							scriptId: SandboxScriptId.make(crypto.randomUUID()),
-						},
-					}),
-				),
-			);
+			const missingProviderId = SandboxProviderId.make(crypto.randomUUID());
+			const { jobId } = yield* enqueueEntityImport(client, {
+				providerId: missingProviderId,
+				entitySchemaSlug: schema.id,
+				externalId: "some-external-id",
+			});
+			expect(jobId).toBeTruthy();
 
-			assertTaggedError(error, "NotFound");
+			const result = yield* pollEntityImportResult(client, jobId);
+			assert(result.status === "failed");
 		}),
 	);
 
 	it.live("returns 404 when the entity schema does not exist", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaWithProviders(client);
-			const scriptId = getFirstProviderScriptId(schema);
-
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.entityImport.import({
 						payload: {
-							scriptId,
+							providerId: provider.providerId,
 							externalId: "some-external-id",
 							entitySchemaSlug: EntitySchemaSlug.make(crypto.randomUUID()),
 						},
@@ -155,7 +166,7 @@ describe("POST /library/import — provider entity import", () => {
 					c.entityImport.import({
 						payload: {
 							externalId: "some-id",
-							scriptId: SandboxScriptId.make(crypto.randomUUID()),
+							providerId: SandboxProviderId.make(crypto.randomUUID()),
 							entitySchemaSlug: EntitySchemaSlug.make(crypto.randomUUID()),
 						},
 					}),
@@ -176,7 +187,7 @@ describe("GET /library/import/:jobId — provider entity import result", () => {
 			const { jobId } = yield* enqueueEntityImport(client, {
 				entitySchemaSlug: schema.id,
 				externalId: IMPORT_EXTERNAL_ID,
-				scriptId: SandboxScriptId.make(providerScript.scriptId),
+				providerId: provider.providerId,
 			});
 
 			const result = yield* pollEntityImportResult(client, jobId);
@@ -188,6 +199,41 @@ describe("GET /library/import/:jobId — provider entity import result", () => {
 
 			const inLibrary = yield* queryInLibraryRelationship(client, result.data.id, schema.slug);
 			expect(inLibrary.data.items.length).toBeGreaterThan(0);
+		}),
+	);
+
+	it.live("preserves entity identity when the provider details script is reingested", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "audiobook");
+			const externalId = `e2e-reingestion-${crypto.randomUUID()}`;
+			const firstJob = yield* enqueueEntityImport(client, {
+				externalId,
+				entitySchemaSlug: schema.id,
+				providerId: provider.providerId,
+			});
+			const first = yield* pollEntityImportResult(client, firstJob.jobId);
+			assertCompleted(first, "first import job");
+
+			yield* replaceSandboxScriptCompiledRepresentation(
+				client,
+				provider.detailsScriptId,
+				providerSandboxSource({
+					operation: "details",
+					name: "Reingested E2E Provider details",
+					slug: `${provider.providerSlug}.details`,
+					result: fakeProviderDetailsResult({ name: "Reingested Entity", properties: {} }),
+				}),
+			);
+
+			const secondJob = yield* enqueueEntityImport(client, {
+				externalId,
+				entitySchemaSlug: schema.id,
+				providerId: provider.providerId,
+			});
+			const second = yield* pollEntityImportResult(client, secondJob.jobId);
+			assertCompleted(second, "second import job");
+			expect(second.data.id).toBe(first.data.id);
 		}),
 	);
 });

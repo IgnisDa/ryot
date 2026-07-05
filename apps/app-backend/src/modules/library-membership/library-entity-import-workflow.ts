@@ -28,7 +28,7 @@ export const runLibraryEntityImportWorkflow = Effect.fn("LibraryEntityImportWork
 	function* (payload: EntityImportPayload, executionId: string) {
 		yield* Effect.annotateCurrentSpan({
 			executionId,
-			scriptId: payload.scriptId,
+			providerId: payload.providerId,
 			externalId: payload.externalId,
 			entitySchemaSlug: payload.entitySchemaSlug,
 			...(payload.userId ? { userId: payload.userId } : {}),
@@ -49,7 +49,7 @@ export const runLibraryEntityImportWorkflow = Effect.fn("LibraryEntityImportWork
 					userId,
 					mode: "ensure",
 					origin: payload.origin,
-					scriptId: payload.scriptId,
+					providerId: payload.providerId,
 					externalId: payload.externalId,
 					executionId: populationExecutionId,
 					entitySchemaSlug: payload.entitySchemaSlug,

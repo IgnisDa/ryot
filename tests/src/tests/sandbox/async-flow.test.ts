@@ -48,7 +48,7 @@ describe("sandbox async flow", () => {
 			const source = literalSandboxSource({ name: "Plain value", slug, value: 42 });
 			const script = yield* installSandboxScriptScoped({ slug, source, name: "Plain value" });
 			const { scriptId } = script;
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 
@@ -61,13 +61,11 @@ describe("sandbox async flow", () => {
 			const reinstalled = yield* reinstallTestPluginScript(scriptId, updatedSource, {
 				slug,
 				capabilities: [],
-				kind: "provider",
+				kind: "script",
 				name: "Plain value",
 				requiredAppConfigKeys: [],
-				providerInformation: { source: "e2e" },
 			});
 			const updatedJob = yield* enqueueSandboxScript(userId, {
-				driverName: "main",
 				scriptId: reinstalled.scriptId,
 			});
 			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, updatedJob.jobId))).toBe(
@@ -88,7 +86,6 @@ describe("sandbox async flow", () => {
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
-				driverName: "main",
 			});
 
 			const value = requireObjectRecord(
@@ -166,7 +163,7 @@ describe("sandbox async flow", () => {
 					},
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const value = requireArray(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
@@ -221,7 +218,7 @@ describe("sandbox async flow", () => {
 					},
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 
@@ -249,7 +246,7 @@ describe("sandbox async flow", () => {
 					key: "server.progressUpdateThresholdHours",
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const value = requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId));
 			expect(typeof value).toBe("number");
@@ -272,7 +269,7 @@ describe("sandbox async flow", () => {
 					name: "invalid-app-config-value",
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(result, "sandbox job");
@@ -293,7 +290,7 @@ describe("sandbox async flow", () => {
 				capabilities: ["getUserPreferences"],
 				source: userPreferencesSandboxSource({ name: "get-user-prefs", slug }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const prefs = requireObjectRecord(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
@@ -313,7 +310,7 @@ describe("sandbox async flow", () => {
 				name: "throws-error",
 				source: throwingSandboxSource({ name: "throws-error", slug, message: "intentional" }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 

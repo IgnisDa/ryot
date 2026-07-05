@@ -7,21 +7,16 @@ import {
 	upsertGlobalRelationshipsArgsSchema,
 } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, test } from "vitest";
 
-import {
-	SANDBOX_SCRIPT_DEFINITION,
-	defineDriver,
-	defineManifest,
-	defineScript,
-} from "../src/driver";
+import { SANDBOX_SCRIPT_DEFINITION, defineManifest, defineScript } from "../src/driver";
 import { jsonValueSchema } from "../src/wire";
 
 const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decodeUnknownSync(schema);
 
 describe("generic script definitions", () => {
-	test("preserves the manifest, schemas, and inferred driver implementation", async () => {
+	test("preserves the manifest, schemas, and inferred implementation", async () => {
 		const manifest = defineManifest({
 			kind: "script",
 			capabilities: [],
@@ -29,22 +24,18 @@ describe("generic script definitions", () => {
 			slug: "increment",
 			requiredAppConfigKeys: [],
 		});
-		const main = defineDriver(manifest, {
+		const definition = defineScript({
+			manifest,
 			input: Schema.Struct({ value: Schema.Number }),
 			output: Schema.Number,
 			run: (input) => Effect.succeed(input.value + 1),
 		});
-		const definition = defineScript({ manifest, drivers: { main } });
 
 		expect(definition.definitionType).toBe(SANDBOX_SCRIPT_DEFINITION);
 		expect(definition.manifest).toBe(manifest);
 		expect(
 			await Effect.runPromise(
-				definition.drivers.main.run(
-					{ value: 41 },
-					{},
-					{ sandboxScriptId: "script-1", metadata: {} },
-				),
+				definition.run({ value: 41 }, {}, { sandboxScriptId: "script-1", metadata: {} }),
 			),
 		).toBe(42);
 	});
@@ -149,7 +140,7 @@ describe("shared value contracts", () => {
 });
 
 describe("sandbox test hosts", () => {
-	test("invokes a driver with capability-checked host stubs", async () => {
+	test("invokes a script with capability-checked host stubs", async () => {
 		const manifest = defineManifest({
 			kind: "script",
 			name: "Cache reader",
@@ -157,7 +148,8 @@ describe("sandbox test hosts", () => {
 			requiredAppConfigKeys: [],
 			capabilities: ["getCachedValue"],
 		});
-		const main = defineDriver(manifest, {
+		const definition = defineScript({
+			manifest,
 			input: Schema.Struct({ key: Schema.String }),
 			output: Schema.NullOr(Schema.Number),
 			run: (input, host) =>
@@ -171,7 +163,7 @@ describe("sandbox test hosts", () => {
 
 		expect(
 			await Effect.runPromise(
-				runSandboxTestDriver(main, { key: "answer" }, host, {
+				runSandboxTestScript(definition, { key: "answer" }, host, {
 					metadata: {},
 					sandboxScriptId: "script-1",
 				}),
@@ -189,7 +181,8 @@ describe("domain host contracts", () => {
 			requiredAppConfigKeys: [],
 			capabilities: ["getEntity", "executeQueryEngine"],
 		});
-		const main = defineDriver(manifest, {
+		const definition = defineScript({
+			manifest,
 			input: Schema.Struct({ entityId: Schema.String }),
 			output: Schema.Struct({ name: Schema.String, rows: Schema.Number }),
 			run: (input, host) =>
@@ -209,7 +202,7 @@ describe("domain host contracts", () => {
 					id: entityId,
 					name: "Inception",
 					populatedAt: null,
-					sandboxScriptId: null,
+					providerId: null,
 					externalId: "tt1375666",
 					entitySchemaSlug: "movie",
 					properties: { runtime: 148 },
@@ -221,7 +214,7 @@ describe("domain host contracts", () => {
 
 		expect(
 			await Effect.runPromise(
-				runSandboxTestDriver(main, { entityId: "entity-1" }, host, {
+				runSandboxTestScript(definition, { entityId: "entity-1" }, host, {
 					metadata: {},
 					sandboxScriptId: "script-1",
 				}),

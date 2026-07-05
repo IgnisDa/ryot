@@ -40,7 +40,7 @@ const buildDetailsResult = (
 		? [
 				{
 					externalId: collectionId,
-					scriptSlug: "movie-group.tmdb",
+					providerSlug: "movie-group.tmdb",
 					relationshipProperties: { roles: ["Member"] },
 					name: stringValue(collection?.["name"]) ?? "Loading...",
 				},
@@ -76,7 +76,7 @@ const buildDetailsResult = (
 				synchronization: "authoritative",
 				relationshipSchemaSlug: "media-suggestion",
 				entities: collectSuggestions(recommendationsData["results"], {
-					scriptSlug: "movie.tmdb",
+					providerSlug: "movie.tmdb",
 					nameKeys: ["title", "original_title"],
 				}),
 			},

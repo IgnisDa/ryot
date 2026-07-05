@@ -9,10 +9,10 @@ describe("parseFieldPath", () => {
 			slug: "smartphones",
 		});
 
-		expect(parseFieldPath("entity.smartphones.sandboxScriptId")).toEqual({
+		expect(parseFieldPath("entity.smartphones.providerId")).toEqual({
 			type: "entity",
 			slug: "smartphones",
-			path: ["sandboxScriptId"],
+			path: ["providerId"],
 		});
 	});
 
@@ -59,8 +59,8 @@ describe("parseFieldPath", () => {
 		expect(() => parseFieldPath("entity.smartphones.@id")).toThrow(
 			"Invalid field path: entity.smartphones.@id",
 		);
-		expect(() => parseFieldPath("entity.smartphones.@sandboxScriptId")).toThrow(
-			"Invalid field path: entity.smartphones.@sandboxScriptId",
+		expect(() => parseFieldPath("entity.smartphones.@providerId")).toThrow(
+			"Invalid field path: entity.smartphones.@providerId",
 		);
 	});
 

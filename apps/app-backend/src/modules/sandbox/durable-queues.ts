@@ -4,6 +4,7 @@ import {
 	SandboxCompletedResult,
 	SandboxExecutionPayload,
 } from "@ryot/contract/modules/sandbox/schemas";
+import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -59,9 +60,9 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	payload: SandboxExecutionPayload,
 ) {
 	yield* Effect.annotateCurrentSpan({
-		userId: payload.userId,
 		scriptId: payload.scriptId,
 		executionId: payload.executionId,
+		...("userId" in payload.authority ? { userId: payload.authority.userId } : {}),
 	});
 	const runWithDb = yield* DbRunner;
 	const repository = yield* SandboxRepository;
@@ -76,15 +77,15 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	const result = yield* sandbox.run({
 		scriptId: script.id,
 		scriptIsBuiltin,
-		userId: payload.userId,
 		context: payload.context,
 		metadata: script.metadata,
-		driverName: payload.driverName,
+		authority: payload.authority,
+		providerId: script.providerId ? SandboxProviderId.make(script.providerId) : null,
 		executionId: payload.executionId,
 		compiledCode: script.compiledCode,
+		cacheNamespace: script.providerId ?? script.id,
 		compiledFormat: script.compiledFormat,
 		allowedHostFunctions: script.metadata.capabilities ?? [],
-		...(payload.subscriptionRun ? { subscriptionRun: payload.subscriptionRun } : {}),
 	});
 
 	return {

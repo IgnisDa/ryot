@@ -1,11 +1,11 @@
 import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { describe, expect, it } from "vitest";
 
 import { execution } from "../automations/automation-test-utils";
-import { manifest, operation } from "./resolve-episodes.sandbox";
+import definition, { manifest } from "./resolve-episodes.sandbox";
 
 const episodeIdRef = {
 	type: "ref",
@@ -55,7 +55,7 @@ describe("resolve episodes operation", () => {
 		const { documents, host } = createHost([["episode-1"]]);
 
 		await expect(
-			Effect.runPromise(runSandboxTestDriver(operation, { refs: [showRef] }, host, execution)),
+			Effect.runPromise(runSandboxTestScript(definition, { refs: [showRef] }, host, execution)),
 		).resolves.toEqual({ results: [{ entityId: "episode-1" }] });
 		expect(documents[0]).toEqual({
 			output: rowsOutput,
@@ -139,7 +139,7 @@ describe("resolve episodes operation", () => {
 		const { documents, host } = createHost([["episode-9"]]);
 
 		await expect(
-			Effect.runPromise(runSandboxTestDriver(operation, { refs: [podcastRef] }, host, execution)),
+			Effect.runPromise(runSandboxTestScript(definition, { refs: [podcastRef] }, host, execution)),
 		).resolves.toEqual({ results: [{ entityId: "episode-9" }] });
 		expect(documents[0]).toEqual({
 			output: rowsOutput,
@@ -194,7 +194,7 @@ describe("resolve episodes operation", () => {
 		const { documents, host } = createHost([[], []]);
 
 		await Effect.runPromise(
-			runSandboxTestDriver(operation, { refs: [showRef, podcastRef] }, host, execution),
+			runSandboxTestScript(definition, { refs: [showRef, podcastRef] }, host, execution),
 		);
 		for (const document of documents) {
 			expect(() => Schema.decodeUnknownSync(QueryDocument)(document)).not.toThrow();
@@ -211,8 +211,8 @@ describe("resolve episodes operation", () => {
 
 		await expect(
 			Effect.runPromise(
-				runSandboxTestDriver(
-					operation,
+				runSandboxTestScript(
+					definition,
 					{
 						refs: [
 							showRef,

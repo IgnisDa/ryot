@@ -1,9 +1,11 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./music-brainz.sandbox";
+import { manifest } from "./music-brainz";
+import details, { manifest as detailsManifest } from "./music-brainz-details.sandbox";
+import search, { manifest as searchManifest } from "./music-brainz-search.sandbox";
 
 type MusicBrainzHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -18,6 +20,15 @@ const makeHost = (route: (url: string) => unknown) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("music.music-brainz sandbox script", () => {
+	it("declares one narrowly scoped script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation, searchManifest.capabilities],
+			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
+		]).toEqual([
+			["music.music-brainz.search", "search", ["httpCall"]],
+			["music.music-brainz.details", "details", ["httpCall"]],
+		]);
+	});
 	it("maps recording search hits and drops entries missing an id", () => {
 		const host = makeHost(() => ({
 			count: 2,
@@ -28,7 +39,7 @@ describe("music.music-brainz sandbox script", () => {
 			],
 		}));
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "song", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "song", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -66,7 +77,7 @@ describe("music.music-brainz sandbox script", () => {
 			};
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "r1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "r1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("Song One");
 					expect(result.relatedEntityGroups).toEqual([
@@ -78,13 +89,13 @@ describe("music.music-brainz sandbox script", () => {
 								{
 									externalId: "a1",
 									name: "Artist One",
-									scriptSlug: "person.music-brainz",
+									providerSlug: "person.music-brainz",
 									relationshipProperties: { roles: ["Artist"] },
 								},
 								{
 									externalId: "a2",
 									name: "Artist Two",
-									scriptSlug: "person.music-brainz",
+									providerSlug: "person.music-brainz",
 									relationshipProperties: { roles: ["Artist"] },
 								},
 							],
@@ -97,7 +108,7 @@ describe("music.music-brainz sandbox script", () => {
 								{
 									externalId: "g1",
 									name: "Album One",
-									scriptSlug: "music-group.music-brainz",
+									providerSlug: "music-group.music-brainz",
 									relationshipProperties: { roles: ["Member"] },
 								},
 							],

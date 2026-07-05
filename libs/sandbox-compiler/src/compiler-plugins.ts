@@ -1,10 +1,12 @@
 import { Effect } from "effect";
 
-import { compileSandboxPackageEntries } from "./compiler-builtins";
+import { compileSandboxPackageEntries, type SandboxEntryDeclaration } from "./compiler-builtins";
 import { sandboxCompilationFailure, sandboxCompilerDiagnostic } from "./compiler-diagnostics";
 import type { SandboxTypeScriptSources } from "./compiler-project";
 
-export type PluginSandboxScriptEntry = { readonly entry: string };
+export type PluginSandboxScriptEntry = SandboxEntryDeclaration & {
+	readonly entry: string;
+};
 
 const sortedEntries = (scripts: ReadonlyArray<PluginSandboxScriptEntry>) =>
 	scripts.map(({ entry }) => entry).sort();
@@ -19,7 +21,16 @@ export const compilePluginSandboxSourceEntries = (
 			sandboxCompilerDiagnostic("RYOT_PLUGIN_ENTRY", "Plugin script entries must be unique"),
 		]);
 	}
-	return compileSandboxPackageEntries({ entry: entries[0] ?? "", files }, entries);
+	return compileSandboxPackageEntries(
+		{ entry: entries[0] ?? "", files },
+		entries,
+		new Map(
+			scripts.map(
+				({ entry, kind, providerOperation }) =>
+					[entry, providerOperation ? { kind, providerOperation } : { kind }] as const,
+			),
+		),
+	);
 };
 
 const loadPluginSources = (packageRoot: string) =>

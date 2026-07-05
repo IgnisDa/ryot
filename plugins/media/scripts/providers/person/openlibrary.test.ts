@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest } from "./openlibrary.sandbox";
+import { details, manifest } from "./openlibrary";
 
 type OpenLibraryPersonHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -29,7 +29,7 @@ describe("person.openlibrary sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "OL1A" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "OL1A" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.name).toBe("Author Name");
 				expect(result.properties).toEqual({
@@ -51,7 +51,7 @@ describe("person.openlibrary sandbox script", () => {
 		const host = makeHost(() => httpSuccess({ bio: "Bio." }));
 
 		return expect(
-			Effect.runPromise(runSandboxTestDriver(details, { externalId: "OL1A" }, host, execution)),
+			Effect.runPromise(runSandboxTestScript(details, { externalId: "OL1A" }, host, execution)),
 		).rejects.toThrow("OpenLibrary author payload is missing name");
 	});
 });

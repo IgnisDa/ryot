@@ -64,15 +64,13 @@ describe("query engine — translationStatus computed field", () => {
 		Effect.gen(function* () {
 			const base = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaBySlug(base.client, "movie");
-			const sandboxScriptId = schema.providers.find(
-				(provider) => provider.name === "TMDB",
-			)?.scriptId;
-			assertPresent(sandboxScriptId, "TMDB movie provider script not found");
+			const providerId = schema.providers.find((provider) => provider.name === "TMDB")?.providerId;
+			assertPresent(providerId, "TMDB movie provider not found");
 
 			const seedPopulated = (properties: Record<string, unknown> = {}) =>
 				seedPopulatedProviderEntity({
 					properties,
-					sandboxScriptId,
+					providerId,
 					entitySchemaSlug: schema.id,
 					name: `Movie ${crypto.randomUUID()}`,
 					externalId: `tstatus-${crypto.randomUUID()}`,
@@ -98,17 +96,17 @@ describe("query engine — translationStatus computed field", () => {
 			const unpopulatedMovie = yield* seedMediaEntity({
 				userId: null,
 				properties: {},
-				sandboxScriptId,
+				providerId,
 				name: "Unpopulated Movie",
 				entitySchemaSlug: schema.id,
 				externalId: `tstatus-${crypto.randomUUID()}`,
 			});
 
-			const scriptLessMovie = yield* seedMediaEntity({
+			const providerlessMovie = yield* seedMediaEntity({
 				userId: null,
 				properties: {},
-				sandboxScriptId: null,
-				name: "Scriptless Movie",
+				providerId: null,
+				name: "Providerless Movie",
 				entitySchemaSlug: schema.id,
 				externalId: `tstatus-${crypto.randomUUID()}`,
 			});
@@ -123,7 +121,7 @@ describe("query engine — translationStatus computed field", () => {
 			expect(yield* readStatus(viewerEs, negativeMovie.id)).toBe("none");
 			expect(yield* readStatus(viewerEs, pendingMovie.id)).toBe("pending");
 			expect(yield* readStatus(viewerEs, unpopulatedMovie.id)).toBe("none");
-			expect(yield* readStatus(viewerEs, scriptLessMovie.id)).toBe("none");
+			expect(yield* readStatus(viewerEs, providerlessMovie.id)).toBe("none");
 
 			expect(yield* readStatus(viewerCanonical, pendingMovie.id)).toBe("none");
 			expect(yield* readStatus(viewerNoLanguage, pendingMovie.id)).toBe("none");

@@ -5,13 +5,12 @@ import {
 	createAuthenticatedClient,
 	createBuiltinMediaLifecycleFixture,
 	findBuiltinSchemaBySlug,
-	getFirstProviderScriptId,
 	listEventSchemas,
 	requireEventSchemaBySlug,
 	seedMediaEntity,
 	waitForEventCount,
 } from "~/fixtures";
-import { requireNumber, requireObjectRecord } from "~/support/assertions";
+import { assertPresent, requireNumber, requireObjectRecord } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const getProgressPercent = (properties: unknown) =>
@@ -385,12 +384,14 @@ describe("Events built-in status schemas", () => {
 			const eventSchemas = yield* listEventSchemas(apiClient, schema.id);
 			const droppedEventSchema = requireEventSchemaBySlug(eventSchemas, "dropped");
 			const onHoldEventSchema = requireEventSchemaBySlug(eventSchemas, "on_hold");
+			const providerId = schema.providers[0]?.providerId;
+			assertPresent(providerId, "Expected a provider for the show schema");
 			const entity = yield* seedMediaEntity({
 				userId: null,
 				entitySchemaSlug: schema.id,
 				name: `Show Events ${crypto.randomUUID()}`,
 				externalId: `show-events-${crypto.randomUUID()}`,
-				sandboxScriptId: getFirstProviderScriptId(schema),
+				providerId,
 				properties: {
 					genres: [],
 					images: [],

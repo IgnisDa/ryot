@@ -1,7 +1,7 @@
 import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { EntityId } from "@ryot/contract/schema/brands";
-import { EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import type { ImportRunJobData } from "../jobs";
@@ -10,13 +10,13 @@ import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import { ImportsService } from "../service";
 
 export const ResolutionCandidate = Schema.Struct({
-	scriptSlug: Schema.String,
-	sandboxScriptId: Schema.NullOr(SandboxScriptId),
+	providerSlug: Schema.String,
+	providerId: Schema.NullOr(SandboxProviderId),
 });
 
-export const PopulationScript = Schema.Struct({
+export const PopulationProvider = Schema.Struct({
+	providerId: SandboxProviderId,
 	entitySchemaSlug: EntitySchemaSlug,
-	sandboxScriptId: SandboxScriptId,
 });
 
 export const LoadMediaImportFailed = Schema.TaggedStruct("failed", {

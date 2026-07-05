@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search, translate } from "./tvdb.sandbox";
+import { details, manifest, search, translate } from "./tvdb";
 
 type TvdbHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -26,7 +26,7 @@ describe("movie-group.tvdb sandbox script", () => {
 	it("rejects search", () =>
 		expect(
 			Effect.runPromise(
-				runSandboxTestDriver(
+				runSandboxTestScript(
 					search,
 					{ query: "x", page: 1, pageSize: 20 },
 					makeHost((_method, _url) => httpSuccess({})),
@@ -58,7 +58,7 @@ describe("movie-group.tvdb sandbox script", () => {
 		});
 
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "42" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "42" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result).toEqual({
 						name: "My List",
@@ -77,19 +77,19 @@ describe("movie-group.tvdb sandbox script", () => {
 									{
 										name: "Alpha",
 										externalId: "20",
-										scriptSlug: "movie.tvdb",
+										providerSlug: "movie.tvdb",
 										relationshipProperties: { order: 1 },
 									},
 									{
 										name: "Bravo",
 										externalId: "10",
-										scriptSlug: "movie.tvdb",
+										providerSlug: "movie.tvdb",
 										relationshipProperties: { order: 2 },
 									},
 									{
 										name: "Loading...",
 										externalId: "30",
-										scriptSlug: "movie.tvdb",
+										providerSlug: "movie.tvdb",
 										relationshipProperties: { order: 4 },
 									},
 								],
@@ -125,8 +125,8 @@ describe("movie-group.tvdb sandbox script", () => {
 		return Effect.runPromise(
 			Effect.all(
 				[
-					runSandboxTestDriver(details, { externalId: "7" }, missingHost, execution),
-					runSandboxTestDriver(details, { externalId: "8" }, translatedHost, execution),
+					runSandboxTestScript(details, { externalId: "7" }, missingHost, execution),
+					runSandboxTestScript(details, { externalId: "8" }, translatedHost, execution),
 				],
 				{ concurrency: "unbounded" },
 			).pipe(
@@ -165,7 +165,7 @@ describe("movie-group.tvdb sandbox script", () => {
 		});
 
 		return Effect.runPromise(
-			runSandboxTestDriver(
+			runSandboxTestScript(
 				translate,
 				{ externalId: "9", language: "es", entitySchemaSlug: "movie-group" },
 				host,
@@ -184,7 +184,7 @@ describe("movie-group.tvdb sandbox script", () => {
 	it("translate rejects a non-numeric externalId", () =>
 		expect(
 			Effect.runPromise(
-				runSandboxTestDriver(
+				runSandboxTestScript(
 					translate,
 					{ externalId: "abc", language: "es", entitySchemaSlug: "movie-group" },
 					makeHost((_method, _url) => httpSuccess({})),

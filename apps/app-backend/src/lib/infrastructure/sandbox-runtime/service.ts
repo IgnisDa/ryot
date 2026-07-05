@@ -37,6 +37,7 @@ import {
 	isJsonValue,
 	sandboxHostEffect,
 	sandboxHostFailure,
+	sandboxRunUserId,
 	type SandboxHostImplementationMap,
 	type SandboxRunInput,
 } from "./shared";
@@ -52,21 +53,23 @@ const systemCronHostFunctions = new Set<string>(SYSTEM_CRON_SANDBOX_HOST_CAPABIL
 
 export const selectSandboxHostFunctions = (
 	boundApiFunctions: Readonly<Record<string, BoundHostFunction>>,
-	input: Pick<
-		SandboxRunInput,
-		"allowedHostFunctions" | "driverName" | "subscriptionRun" | "userId"
-	>,
+	input: Pick<SandboxRunInput, "allowedHostFunctions" | "authority" | "metadata">,
 ) => {
 	const selectedApiFunctions: Record<string, BoundHostFunction> = {};
+	const isSystemScript =
+		input.authority.type === "system" &&
+		typeof input.metadata === "object" &&
+		input.metadata !== null &&
+		"kind" in input.metadata &&
+		input.metadata.kind === "script";
 	for (const key of input.allowedHostFunctions) {
 		const fn = boundApiFunctions[key];
 		if (
 			fn &&
-			(!automationHostFunctions.has(key) || input.subscriptionRun) &&
-			(!systemCronHostFunctions.has(key) ||
-				(input.userId === null &&
-					(input.driverName === "cron" || input.driverName === "boot") &&
-					!input.subscriptionRun))
+			(!automationHostFunctions.has(key) ||
+				input.authority.type === "subscription" ||
+				(input.authority.type === "system" && key === "emitSignal")) &&
+			(!systemCronHostFunctions.has(key) || isSystemScript)
 		) {
 			selectedApiFunctions[key] = fn;
 		}
@@ -99,7 +102,6 @@ const SandboxRunnerRequest = Schema.Struct({
 	context: Schema.Unknown,
 	scriptId: Schema.String,
 	metadata: Schema.Unknown,
-	driverName: Schema.String,
 	executionId: Schema.String,
 	compiledCode: Schema.String,
 	compiledFormat: Schema.Number,
@@ -161,7 +163,6 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						token,
 						context,
 						scriptId: input.scriptId,
-						driverName: input.driverName,
 						limits: SANDBOX_RUNNER_LIMITS,
 						metadata: input.metadata ?? {},
 						executionId: input.executionId,
@@ -233,7 +234,6 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 				Effect.withSpan("sandbox.execution", {
 					attributes: {
 						scriptId: input.scriptId,
-						driverName: input.driverName,
 						executionId: input.executionId,
 					},
 				}),
@@ -256,7 +256,14 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 
 				return sandboxHostEffect(
 					redis
-						.get(redisKeys.sandboxRunCache(serverRun.id, input.userId, input.scriptId, key.trim()))
+						.get(
+							redisKeys.sandboxRunCache(
+								serverRun.id,
+								sandboxRunUserId(input),
+								input.cacheNamespace,
+								key.trim(),
+							),
+						)
 						.pipe(
 							Effect.flatMap((cached) => {
 								if (cached === null) {
@@ -350,8 +357,8 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 										.set(
 											redisKeys.sandboxRunCache(
 												serverRun.id,
-												input.userId,
-												input.scriptId,
+												sandboxRunUserId(input),
+												input.cacheNamespace,
 												key.trim(),
 											),
 											serialized,

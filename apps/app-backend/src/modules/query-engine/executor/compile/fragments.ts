@@ -15,7 +15,7 @@ const ENTITY_COLUMNS: Record<string, string> = {
 	externalId: "external_id",
 	populatedAt: "populated_at",
 	entitySchemaSlug: "entity_schema_slug",
-	sandboxScriptId: "sandbox_script_id",
+	providerId: "provider_id",
 };
 
 const EVENT_COLUMNS: Record<string, string> = {
@@ -54,7 +54,7 @@ export const entitySourceSql = (language: string | null): SqlFragment => {
 		return sql`entity`;
 	}
 	return sql`(
-		SELECT e0.id, e0.user_id, e0.external_id, e0.entity_schema_slug, e0.sandbox_script_id,
+		SELECT e0.id, e0.user_id, e0.external_id, e0.entity_schema_slug, e0.provider_id,
 			e0.created_at, e0.updated_at, e0.populated_at,
 			COALESCE(et.name, e0.name) AS name,
 			e0.properties || COALESCE(et.properties, '{}'::jsonb) AS properties

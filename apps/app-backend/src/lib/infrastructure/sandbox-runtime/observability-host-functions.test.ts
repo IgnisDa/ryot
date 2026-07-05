@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, HashMap, Layer, Logger, LogLevel, Option, Tracer, type Exit } from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
 import { describe } from "vitest";
@@ -19,14 +20,15 @@ const selectedHostFunction: BoundHostFunction = () => Effect.succeed(null);
 const input: SandboxRunInput = {
 	context: {},
 	metadata: {},
-	userId: "user-1",
+	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
-	driverName: "main",
 	scriptId: "script-1",
 	scriptIsBuiltin: false,
 	executionId: "execution-1",
+	cacheNamespace: "script-1",
 	allowedHostFunctions: ["log", "span"],
+	authority: { type: "user", userId: UserId.make("user-1") },
 };
 
 const makeTracer = (spans: Tracer.Span[]) =>
@@ -70,15 +72,15 @@ describe("sandbox observability host functions", () => {
 
 		expect(
 			selectSandboxHostFunctions(bound, {
-				userId: null,
-				driverName: "search",
+				metadata: {},
 				allowedHostFunctions: [],
+				authority: { type: "system" },
 			}),
 		).toEqual({});
 		expect(
 			selectSandboxHostFunctions(bound, {
-				userId: null,
-				driverName: "search",
+				metadata: {},
+				authority: { type: "system" },
 				allowedHostFunctions: ["log", "unknown"],
 			}),
 		).toEqual({ log: selectedHostFunction });
@@ -202,7 +204,6 @@ describe("sandbox observability host functions", () => {
 						).toMatchObject({
 							plugin: "media",
 							scriptId: input.scriptId,
-							driverName: input.driverName,
 							executionId: input.executionId,
 						});
 
@@ -217,7 +218,6 @@ describe("sandbox observability host functions", () => {
 						expect(Object.fromEntries(pluginSpan?.attributes ?? [])).toMatchObject({
 							plugin: "media",
 							scriptId: input.scriptId,
-							driverName: input.driverName,
 							executionId: input.executionId,
 						});
 					}),

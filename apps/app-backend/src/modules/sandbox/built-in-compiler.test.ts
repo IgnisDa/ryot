@@ -5,23 +5,22 @@ import { Effect } from "effect";
 const entry = `
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
+import { defineProvider } from "@ryot/sandbox-sdk/provider";
 import { value } from "./helper";
 
 export const manifest = defineManifest({
   kind: "provider",
   name: "Built-in provider",
   slug: "builtin.provider",
-  capabilities: [],
-  requiredAppConfigKeys: [],
-  providerInformation: { source: "builtin" },
+	capabilities: [],
+	requiredAppConfigKeys: [],
 });
 
-const resolve = defineProviderDriver(manifest, "resolve", () =>
-  Effect.succeed({ externalId: value }),
-);
-
-export default defineProvider({ manifest, drivers: { resolve } });
+export default defineProvider({
+	manifest,
+	operation: "resolve",
+	run: () => Effect.succeed({ externalId: value }),
+});
 `;
 
 it.effect("compiles a trusted provider with a relative helper into one ESM module", () =>
@@ -41,7 +40,6 @@ it.effect("compiles a trusted provider with a relative helper into one ESM modul
 			slug: "builtin.provider",
 			name: "Built-in provider",
 			requiredAppConfigKeys: [],
-			providerInformation: { source: "builtin" },
 		});
 		expect(result.compiled.javascript).toContain("resolved-id");
 		expect(result.compiled.javascript).not.toContain('from "./helper"');

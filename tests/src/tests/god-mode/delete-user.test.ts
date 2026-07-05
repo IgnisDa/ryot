@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -183,7 +183,7 @@ describe("Delete user automation data cleanup", () => {
 						client: compilerClient,
 						linkToEntitySchemaSlug: personSchemaId,
 						slug: `person.delete-user-e2e-${crypto.randomUUID()}`,
-						drivers: { details: fakeProviderDetailsResult({ name: personName }) },
+						details: fakeProviderDetailsResult({ name: personName }),
 					}),
 					(provider) => uninstallTestProvider(provider),
 				);
@@ -191,26 +191,24 @@ describe("Delete user automation data cleanup", () => {
 					installTestProvider({
 						client: compilerClient,
 						slug: `movie.delete-user-e2e-${crypto.randomUUID()}`,
-						drivers: {
-							details: fakeProviderDetailsResult({
-								name: movieName,
-								relatedEntityGroups: [
-									{
-										direction: "incoming",
-										synchronization: "additive",
-										relationshipSchemaSlug: "person-to-movie",
-										entities: [
-											{
-												name: personName,
-												externalId: personExternalId,
-												scriptSlug: personProvider.slug,
-												relationshipProperties: { roles: ["Actor"] },
-											},
-										],
-									},
-								],
-							}),
-						},
+						details: fakeProviderDetailsResult({
+							name: movieName,
+							relatedEntityGroups: [
+								{
+									direction: "incoming",
+									synchronization: "additive",
+									relationshipSchemaSlug: "person-to-movie",
+									entities: [
+										{
+											name: personName,
+											externalId: personExternalId,
+											providerSlug: personProvider.providerSlug,
+											relationshipProperties: { roles: ["Actor"] },
+										},
+									],
+								},
+							],
+						}),
 					}),
 					(provider) => uninstallTestProvider(provider),
 				);
@@ -220,7 +218,7 @@ describe("Delete user automation data cleanup", () => {
 					name: personName,
 					externalId: personExternalId,
 					entitySchemaSlug: personSchemaId,
-					sandboxScriptId: personProvider.scriptId,
+					providerId: personProvider.providerId,
 				});
 
 				const fakeApprise = yield* startFakeAppriseServerScoped();
@@ -245,7 +243,7 @@ describe("Delete user automation data cleanup", () => {
 				const { jobId } = yield* enqueueEntityImport(importer.client, {
 					externalId: movieExternalId,
 					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
-					scriptId: SandboxScriptId.make(movieProvider.scriptId),
+					providerId: movieProvider.providerId,
 				});
 				const imported = yield* pollEntityImportResult(importer.client, jobId, {
 					timeoutMs: 30_000,

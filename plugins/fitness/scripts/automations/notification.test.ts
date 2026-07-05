@@ -28,7 +28,7 @@ const input: AutomationInput = {
 it("formats workout.created exclusively from the signal snapshot", () => {
 	const messages: string[] = [];
 	return Effect.runPromise(
-		definition.drivers.automation.run(
+		definition.run(
 			input,
 			defineSandboxTestHost(manifest, {
 				sendNotification: (message) => {

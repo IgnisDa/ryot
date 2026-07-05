@@ -1,10 +1,10 @@
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import type { SandboxRunError } from "@ryot/contract/errors";
+import type { DbError, SandboxRunError } from "@ryot/contract/errors";
 import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import type {
 	EntityId,
 	EntitySchemaSlug,
-	SandboxScriptId,
+	SandboxProviderId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import type { ProviderSearchItem } from "@ryot/sandbox-sdk/provider";
@@ -29,22 +29,29 @@ export type MediaImportWorkflowOperationsValue = {
 	resolveExternalId: (input: {
 		value: string;
 		userId: UserId;
+		providerId: SandboxProviderId;
 		executionId: string;
 		identifierType: string;
-		scriptId: SandboxScriptId;
 	}) => Effect.Effect<{ externalId: string | null }, SandboxRunError, MediaSandboxRequirements>;
 	searchEntities?: (input: {
 		query: string;
 		userId: UserId;
+		providerId: SandboxProviderId;
 		executionId: string;
-		scriptId: SandboxScriptId;
 	}) => Effect.Effect<ReadonlyArray<ProviderSearchItem>, SandboxRunError, MediaSandboxRequirements>;
+	resolveProvider: (providerSlug: string) => Effect.Effect<
+		{
+			providerId: SandboxProviderId;
+			entitySchemaSlug: EntitySchemaSlug;
+		} | null,
+		DbError
+	>;
 	importEntity: (input: {
 		userId: UserId;
 		externalId: string;
+		providerId: SandboxProviderId;
 		executionId: string;
 		origin: AutomationOrigin;
-		scriptId: SandboxScriptId;
 		entitySchemaSlug: EntitySchemaSlug;
 	}) => Effect.Effect<{ id: EntityId }, LibraryEntityImportError, MediaSandboxRequirements>;
 	writeCollectionMembership: (input: {

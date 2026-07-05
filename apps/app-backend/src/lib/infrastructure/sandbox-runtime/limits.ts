@@ -90,6 +90,6 @@ export const sandboxRunnerRequestError = (request: string) =>
 export const sandboxContextError = (context: unknown) => {
 	const bytes = jsonByteLength(context);
 	return bytes === null || bytes > SANDBOX_LIMITS.execution.contextBytes
-		? `Sandbox driver context must be JSON and no larger than ${SANDBOX_LIMITS.execution.contextBytes} UTF-8 bytes`
+		? `Sandbox definition context must be JSON and no larger than ${SANDBOX_LIMITS.execution.contextBytes} UTF-8 bytes`
 		: null;
 };

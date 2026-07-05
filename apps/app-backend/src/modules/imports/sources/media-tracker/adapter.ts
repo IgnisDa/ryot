@@ -143,7 +143,7 @@ const getEntityRef = (input: {
 	if (input.mediaType === "movie") {
 		return input.details.tmdbId
 			? {
-					scriptSlug: "movie.tmdb",
+					providerSlug: "movie.tmdb",
 					entitySchemaSlug: "movie",
 					kind: "resolved" as const,
 					sourceLabel: input.sourceLabel,
@@ -155,7 +155,7 @@ const getEntityRef = (input: {
 	if (input.mediaType === "tv") {
 		return input.details.tmdbId
 			? {
-					scriptSlug: "show.tmdb",
+					providerSlug: "show.tmdb",
 					entitySchemaSlug: "show",
 					kind: "resolved" as const,
 					sourceLabel: input.sourceLabel,
@@ -168,7 +168,7 @@ const getEntityRef = (input: {
 		return input.details.igdbId
 			? {
 					kind: "resolved" as const,
-					scriptSlug: "video-game.igdb",
+					providerSlug: "video-game.igdb",
 					sourceLabel: input.sourceLabel,
 					entitySchemaSlug: "video-game",
 					externalId: String(input.details.igdbId),
@@ -184,7 +184,7 @@ const getEntityRef = (input: {
 					kind: "resolved" as const,
 					entitySchemaSlug: "audiobook",
 					sourceLabel: input.sourceLabel,
-					scriptSlug: "audiobook.audible",
+					providerSlug: "audiobook.audible",
 				}
 			: undefined;
 	}
@@ -202,7 +202,7 @@ const getEntityRef = (input: {
 				kind: "resolved" as const,
 				externalId: openlibraryKey,
 				sourceLabel: input.sourceLabel,
-				scriptSlug: "book.openlibrary",
+				providerSlug: "book.openlibrary",
 			}
 		: undefined;
 };

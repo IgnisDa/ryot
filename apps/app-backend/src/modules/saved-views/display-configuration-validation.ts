@@ -23,7 +23,7 @@ const entityBuiltinTypeMap = {
 	createdAt: "date",
 	updatedAt: "date",
 	externalId: "string",
-	sandboxScriptId: "string",
+	providerId: "string",
 } satisfies Record<string, DisplayExpressionType>;
 
 const entitySchemaBuiltinTypeMap = {

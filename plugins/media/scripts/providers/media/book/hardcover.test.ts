@@ -1,9 +1,12 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./hardcover.sandbox";
+import { manifest } from "./hardcover";
+import details, { manifest as detailsManifest } from "./hardcover-details.sandbox";
+import resolve, { manifest as resolveManifest } from "./hardcover-resolve.sandbox";
+import search, { manifest as searchManifest } from "./hardcover-search.sandbox";
 
 type HardcoverBookHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -15,6 +18,17 @@ const makeHost = (httpCall: HardcoverBookHost["httpCall"]) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("book.hardcover sandbox script", () => {
+	it("declares one script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+			[resolveManifest.slug, resolve.operation],
+		]).toEqual([
+			["book.hardcover.search", "search"],
+			["book.hardcover.details", "details"],
+			["book.hardcover.resolve", "resolve"],
+		]);
+	});
 	it("maps search hits and drops documents missing an id or title", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -40,7 +54,7 @@ describe("book.hardcover sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "book", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "book", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -88,7 +102,7 @@ describe("book.hardcover sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "42" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "42" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("The Book");
 					expect(result.relatedEntityGroups).toEqual([
@@ -100,7 +114,7 @@ describe("book.hardcover sandbox script", () => {
 								{
 									name: "Jane Doe",
 									externalId: "7",
-									scriptSlug: "person.hardcover",
+									providerSlug: "person.hardcover",
 									relationshipProperties: { roles: ["Author", "Editor"] },
 								},
 							],
@@ -113,7 +127,7 @@ describe("book.hardcover sandbox script", () => {
 								{
 									name: "Pub House",
 									externalId: "200",
-									scriptSlug: "company.hardcover",
+									providerSlug: "company.hardcover",
 									relationshipProperties: { roles: ["Publisher"] },
 								},
 							],
@@ -126,7 +140,7 @@ describe("book.hardcover sandbox script", () => {
 								{
 									name: "The Series",
 									externalId: "100",
-									scriptSlug: "book-group.hardcover",
+									providerSlug: "book-group.hardcover",
 									relationshipProperties: { roles: ["Member"] },
 								},
 							],

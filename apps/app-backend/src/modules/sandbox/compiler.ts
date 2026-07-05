@@ -1,10 +1,7 @@
 import { Command, CommandExecutor, FileSystem, Path } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import { SandboxCompilationFailure } from "@ryot/contract/modules/sandbox/schemas";
-import {
-	type CompiledSandboxModule,
-	CompilerWorkerResponse,
-} from "@ryot/sandbox-compiler/protocol";
+import { CompilerWorkerResponse } from "@ryot/sandbox-compiler/protocol";
 import { sandboxManifestSchema } from "@ryot/sandbox-sdk/core";
 import { Duration, Effect, Either, Fiber, Ref, Schema, Stream } from "effect";
 
@@ -196,15 +193,11 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 									"Sandbox compiler process returned an invalid manifest",
 								),
 							),
-							Effect.map(
-								(manifest) =>
-									({
-										manifest,
-										format: response.value.format,
-										javascript: response.value.javascript,
-										driverNames: response.value.driverNames,
-									}) satisfies CompiledSandboxModule,
-							),
+							Effect.map((manifest) => ({
+								manifest,
+								format: response.value.format,
+								javascript: response.value.javascript,
+							})),
 						);
 					}),
 				),

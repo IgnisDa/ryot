@@ -25,7 +25,7 @@ const showEntity = entityRecord({
 	name: "Severance",
 	externalId: "371980",
 	entitySchemaSlug: "es-show",
-	sandboxScriptId: "script-show-tvdb",
+	providerId: "script-show-tvdb",
 });
 
 const sonarrIntegration = integrationRecord({
@@ -43,8 +43,8 @@ const sonarrIntegration = integrationRecord({
 const schema = entitySchemaRecord({
 	id: "es-show",
 	providers: [
-		{ name: "TMDB", scriptId: "script-show-tmdb" },
-		{ name: "TVDB", scriptId: "script-show-tvdb" },
+		{ name: "TMDB", providerId: "script-show-tmdb" },
+		{ name: "TVDB", providerId: "script-show-tvdb" },
 	],
 });
 
@@ -84,7 +84,7 @@ describe("sonarr-push sandbox script", () => {
 			httpCall: createHttpCall(calls),
 		});
 		return Effect.runPromise(
-			definition.drivers.automation
+			definition
 				.run(createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }), host, execution)
 				.pipe(
 					Effect.map(() => {
@@ -110,17 +110,17 @@ describe("sonarr-push sandbox script", () => {
 		return Effect.runPromise(
 			Effect.all(
 				[
-					definition.drivers.automation.run(
+					definition.run(
 						createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
 						createHost({ entity: showEntity, integrations: [sonarrIntegration], httpCall }),
 						execution,
 					),
-					definition.drivers.automation.run(
+					definition.run(
 						createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
 						createHost({
 							httpCall,
 							integrations: [sonarrIntegration],
-							entity: entityRecord({ ...showEntity, sandboxScriptId: "script-show-tmdb" }),
+							entity: entityRecord({ ...showEntity, providerId: "script-show-tmdb" }),
 						}),
 						execution,
 					),
@@ -143,7 +143,7 @@ describe("sonarr-push sandbox script", () => {
 			httpCall: () => httpFailure("already exists", 400),
 		});
 		return Effect.runPromise(
-			definition.drivers.automation
+			definition
 				.run(createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }), host, execution)
 				.pipe(
 					Effect.map((result) => {

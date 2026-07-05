@@ -148,10 +148,12 @@ it.effect("runs a signal subscription to completion with full automation context
 		Effect.gen(function* () {
 			expect(yield* runSubscriptionExecutionWorkflow(payload, "execution-1")).toBe(runId);
 			expect(sandboxPayload).toMatchObject({
-				userId,
 				scriptId,
-				driverName: "automation",
-				subscriptionRun: { id: runId, origin: payload.origin, occurredAt: payload.occurredAt },
+				authority: {
+					userId,
+					type: "subscription",
+					subscriptionRun: { id: runId, origin: payload.origin, occurredAt: payload.occurredAt },
+				},
 				context: {
 					automation: {
 						ruleId,

@@ -1,9 +1,12 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search, translate } from "./itunes.sandbox";
+import { manifest } from "./itunes";
+import details, { manifest as detailsManifest } from "./itunes-details.sandbox";
+import search, { manifest as searchManifest } from "./itunes-search.sandbox";
+import translate, { manifest as translateManifest } from "./itunes-translate.sandbox";
 
 type ItunesHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -12,6 +15,17 @@ const makeHost = (httpCall: ItunesHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("podcast.itunes sandbox script", () => {
+	it("declares one narrowly scoped script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+			[translateManifest.slug, translate.operation],
+		]).toEqual([
+			["podcast.itunes.search", "search"],
+			["podcast.itunes.details", "details"],
+			["podcast.itunes.translate", "translate"],
+		]);
+	});
 	it("maps search hits, drops entries missing id or title and paginates", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -27,7 +41,7 @@ describe("podcast.itunes sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "tech", page: 1, pageSize: 1 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "tech", page: 1, pageSize: 1 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -84,7 +98,7 @@ describe("podcast.itunes sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "p1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "p1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("The Podcast");
 					expect(result.childEntities).toEqual([
@@ -133,7 +147,7 @@ describe("podcast.itunes sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(
+			runSandboxTestScript(
 				translate,
 				{ externalId: "p1", language: "es-ES", entitySchemaSlug: "podcast" },
 				host,
@@ -156,7 +170,7 @@ describe("podcast.itunes sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(
+			runSandboxTestScript(
 				translate,
 				{
 					externalId: "55",

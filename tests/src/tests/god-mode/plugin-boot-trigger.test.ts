@@ -10,15 +10,18 @@ import { Effect } from "effect";
 import {
 	ADMIN_TOKEN,
 	adminAccessTokenHeaders,
+	adminHeaders,
 	bootSandboxSource,
 	type Client,
 	createAuthenticatedClient,
 	executeQueryEngine,
+	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
-	installTestPlugin,
+	installTestPluginBundle,
 	type InstalledTestPlugin,
 	pollUntil,
+	providerSandboxSource,
 	uninstallTestPlugin,
 } from "~/fixtures";
 import { assertTaggedError } from "~/support/assertions";
@@ -27,6 +30,8 @@ import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test
 const ENTITY_ALIAS = "entity";
 const EXTERNAL_ID = "e2e-plugin-boot-1";
 const SCRIPT_SLUG = "movie.e2e-test-boot";
+const PROVIDER_SLUG = "movie.e2e-test-boot-provider";
+const DETAILS_SCRIPT_SLUG = `${PROVIDER_SLUG}.details`;
 
 const BOOT_SOURCE = bootSandboxSource({
 	slug: SCRIPT_SLUG,
@@ -60,25 +65,67 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 
 				const { schema: movieSchema } = yield* findBuiltinSchemaBySlug(client, "movie");
 
-				bootPlugin = yield* installTestPlugin({
-					source: BOOT_SOURCE,
+				const detailsEntry = "scripts/provider-details.sandbox.ts";
+				const bootEntry = "scripts/plugin-boot.sandbox.ts";
+				const installed = yield* installTestPluginBundle({
+					files: {
+						[bootEntry]: BOOT_SOURCE,
+						[detailsEntry]: providerSandboxSource({
+							operation: "details",
+							slug: DETAILS_SCRIPT_SLUG,
+							name: "E2E Test Boot Provider details",
+							result: fakeProviderDetailsResult({ name: "E2E Test Boot Provider" }),
+						}),
+					},
 					linkToEntitySchemaSlug: movieSchema.id,
+					scripts: [
+						{
+							kind: "provider",
+							entry: detailsEntry,
+							slug: DETAILS_SCRIPT_SLUG,
+							providerSlug: PROVIDER_SLUG,
+							providerOperation: "details",
+							name: "E2E Test Boot Provider details",
+							capabilities: [],
+							requiredAppConfigKeys: [],
+						},
+						{
+							kind: "script",
+							entry: bootEntry,
+							slug: SCRIPT_SLUG,
+							providerSlug: PROVIDER_SLUG,
+							name: "E2E Test Boot",
+							capabilities: ["upsertGlobalEntities"],
+							requiredAppConfigKeys: [],
+						},
+					],
+					providers: [
+						{
+							slug: PROVIDER_SLUG,
+							name: "E2E Test Boot Provider",
+							information: { source: "e2e" },
+							operations: { details: DETAILS_SCRIPT_SLUG },
+						},
+					],
+				});
+				installed.manifest = {
+					...installed.manifest,
 					boot: [
 						{
 							slug: "e2e-test-boot",
-							driverRef: SCRIPT_SLUG,
+							scriptSlug: SCRIPT_SLUG,
 							description: "Writes an E2E boot fixture entity",
 						},
 					],
-					script: {
-						kind: "provider",
-						slug: SCRIPT_SLUG,
-						name: "E2E Test Boot",
-						requiredAppConfigKeys: [],
-						capabilities: ["upsertGlobalEntities"],
-						providerInformation: { source: "e2e" },
-					},
-				});
+				};
+				yield* getBackendClient().call(
+					(c) =>
+						c.plugins.install({
+							payload: { files: installed.files, manifest: installed.manifest },
+						}),
+					adminHeaders,
+				);
+				bootPlugin = installed;
 			}),
 		);
 	});
@@ -107,7 +154,7 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 	);
 
 	it.live(
-		"triggers an installed custom plugin's boot driver and writes the entity it defines",
+		"triggers an installed custom plugin's boot script and writes the entity it defines",
 		() =>
 			Effect.gen(function* () {
 				const { executionId } = yield* getBackendClient().call(

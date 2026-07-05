@@ -90,10 +90,10 @@ const findEpisodeWatchDate = (
 
 const getEntityTarget = (contentType: string) => {
 	if (contentType === "movie") {
-		return { entitySchemaSlug: "movie" as const, scriptSlug: "movie.tmdb" as const };
+		return { entitySchemaSlug: "movie" as const, providerSlug: "movie.tmdb" as const };
 	}
 	if (contentType === "tv") {
-		return { entitySchemaSlug: "show" as const, scriptSlug: "show.tmdb" as const };
+		return { entitySchemaSlug: "show" as const, providerSlug: "show.tmdb" as const };
 	}
 	return undefined;
 };
@@ -141,7 +141,7 @@ export const adaptWatcharrExport = (jsonText: string): MediaImportAdapterResult 
 			groupMap,
 			{
 				kind: "resolved",
-				scriptSlug: target.scriptSlug,
+				providerSlug: target.providerSlug,
 				sourceLabel: item.content.title,
 				entitySchemaSlug: target.entitySchemaSlug,
 				externalId: String(item.content.tmdbId),

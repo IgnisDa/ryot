@@ -1,5 +1,10 @@
 import type { ContractPayload } from "@ryot/contract/client";
-import { PluginSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import {
+	PluginSlug,
+	type SandboxProviderId,
+	type SandboxScriptId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Brand, Effect } from "effect";
 
@@ -14,7 +19,7 @@ import { installTestDefinitions } from "./test-plugin";
 
 type EnqueueEntitySearchBody = Omit<
 	ContractPayload<"testSupport", "enqueueSandbox">,
-	"driverName" | "executingUserId"
+	"executingUserId"
 >;
 
 type EnqueueEntityImportBody = ContractPayload<"entityImport", "import">;
@@ -71,16 +76,50 @@ export const listEntitySchemas = (
 				adminHeaders,
 			),
 		]);
+		const providers = new Map<
+			string,
+			{
+				name: string;
+				providerId: SandboxProviderId;
+				providerSlug: string;
+				detailsScriptId?: SandboxScriptId;
+				searchScriptId?: SandboxScriptId;
+				resolveScriptId?: SandboxScriptId;
+				translateScriptId?: SandboxScriptId;
+			}
+		>();
+		const providerOperationNames = ["details", "search", "resolve", "translate"] as const;
+		for (const script of scripts) {
+			const providerOperation = providerOperationNames.find((operation) =>
+				script.slug.endsWith(`.${operation}`),
+			);
+			if (!script.providerId || !providerOperation) {
+				continue;
+			}
+			const providerSlug = script.slug.slice(0, -(providerOperation.length + 1));
+			const provider = providers.get(providerSlug) ?? {
+				name: script.name,
+				providerSlug,
+				providerId: script.providerId,
+			};
+			provider[`${providerOperation}ScriptId`] = script.id;
+			providers.set(providerSlug, provider);
+		}
 		return schemas
 			.filter((schema) => !options.slugs || options.slugs.includes(schema.slug))
 			.filter((schema) => !options.pluginSlug || schema.pluginSlug === options.pluginSlug)
 			.map((schema) =>
 				Object.assign({}, schema, {
 					id: makeEntitySchemaSlug(schema.slug),
-					providers: scripts
-						.filter((script) => script.metadata.kind === "provider")
-						.filter((script) => script.slug.startsWith(`${schema.slug}.`))
-						.map((script) => ({ name: script.name, scriptId: script.id })),
+					providers: [...providers.values()]
+						.filter((provider) => provider.providerSlug.startsWith(`${schema.slug}.`))
+						.map((provider) =>
+							Object.assign({}, provider, {
+								name:
+									schema.providers.find(({ providerId }) => providerId === provider.providerId)
+										?.name ?? provider.name,
+							}),
+						),
 					isBuiltin: true,
 					pluginSlug: schema.pluginSlug ?? undefined,
 				}),
@@ -166,7 +205,7 @@ export const enqueueEntitySearch = (executingUserId: string, body: EnqueueEntity
 		const result = yield* getBackendClient().call(
 			(c) =>
 				c.testSupport.enqueueSandbox({
-					payload: { ...body, driverName: "search", executingUserId: UserId.make(executingUserId) },
+					payload: { ...body, executingUserId: UserId.make(executingUserId) },
 				}),
 			adminHeaders,
 		);
@@ -216,11 +255,13 @@ export const pollEntityImportResult = (client: Client, jobId: string, options: P
 		options,
 	);
 
-export function getFirstProviderScriptId(schema: {
-	providers: ReadonlyArray<{ scriptId: string }>;
+export function getFirstProviderSearchScriptId(schema: {
+	providers: ReadonlyArray<{ searchScriptId?: SandboxScriptId }>;
 }) {
-	const scriptId = schema.providers[0]?.scriptId;
-	return SandboxScriptId.make(requirePresent(scriptId, "No provider found for schema"));
+	return requirePresent(
+		schema.providers[0]?.searchScriptId,
+		"No searchable provider found for schema",
+	);
 }
 
 export const createPluginSchema = (

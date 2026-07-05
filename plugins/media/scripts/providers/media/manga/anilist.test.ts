@@ -1,9 +1,12 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest } from "./anilist.sandbox";
+import { manifest } from "./anilist";
+import details, { manifest as detailsManifest } from "./anilist-details.sandbox";
+import search, { manifest as searchManifest } from "./anilist-search.sandbox";
+import translate, { manifest as translateManifest } from "./anilist-translate.sandbox";
 
 type AnilistMangaHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -15,6 +18,17 @@ const makeHost = (httpCall: AnilistMangaHost["httpCall"]) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("manga.anilist sandbox script", () => {
+	it("declares one script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+			[translateManifest.slug, translate.operation],
+		]).toEqual([
+			["manga.anilist.search", "search"],
+			["manga.anilist.details", "details"],
+			["manga.anilist.translate", "translate"],
+		]);
+	});
 	it("keeps recommendations as related entities", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -43,7 +57,7 @@ describe("manga.anilist sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
@@ -51,8 +65,8 @@ describe("manga.anilist sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Anime Pick", externalId: "2", scriptSlug: "anime.anilist" },
-								{ name: "Manga Pick", externalId: "3", scriptSlug: "manga.anilist" },
+								{ name: "Anime Pick", externalId: "2", providerSlug: "anime.anilist" },
+								{ name: "Manga Pick", externalId: "3", providerSlug: "manga.anilist" },
 							],
 						},
 					]);
@@ -86,7 +100,7 @@ describe("manga.anilist sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "4" }, mangaHost, execution).pipe(
+			runSandboxTestScript(details, { externalId: "4" }, mangaHost, execution).pipe(
 				Effect.flatMap((result) => {
 					expect(result.properties).toMatchObject({
 						volumes: 10,
@@ -98,7 +112,7 @@ describe("manga.anilist sandbox script", () => {
 					const animeHost = makeHost(() =>
 						httpSuccess({ data: { Media: { id: 4, type: "ANIME", title: { english: "X" } } } }),
 					);
-					return runSandboxTestDriver(details, { externalId: "4" }, animeHost, execution).pipe(
+					return runSandboxTestScript(details, { externalId: "4" }, animeHost, execution).pipe(
 						Effect.flip,
 						Effect.map((error) =>
 							expect(String(error)).toContain("Anilist media is not a manga entry"),

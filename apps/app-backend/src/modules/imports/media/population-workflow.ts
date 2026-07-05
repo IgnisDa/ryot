@@ -3,14 +3,11 @@ import type { AutomationOrigin } from "@ryot/contract/modules/automations/schema
 import type { IntegrationId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
-import { EntitiesRepository } from "#modules/entities/repository";
-
 import type { ImportRunJobData } from "../jobs";
 import { recordImportRunFailure } from "../runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import { mediaEntityGroupItemIndex } from "./groups";
-import { PopulationScript, type EntityIdsByKey, type ProgressReporter } from "./shared-workflow";
+import { PopulationProvider, type EntityIdsByKey, type ProgressReporter } from "./shared-workflow";
 import type { ImportMediaEntityGroup } from "./types";
 import { importEntityRefKey } from "./types";
 import { MediaImportWorkflowOperations } from "./types-workflow";
@@ -21,8 +18,6 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 	entityGroups: ImportMediaEntityGroup[];
 	payload: Pick<ImportRunJobData, "runId" | "userId"> & { integrationId?: IntegrationId };
 }) {
-	const runWithDb = yield* DbRunner;
-	const entitiesRepository = yield* EntitiesRepository;
 	const operations = yield* MediaImportWorkflowOperations;
 	const entityIdsByKey: EntityIdsByKey = new Map();
 	let failures = 0;
@@ -36,23 +31,14 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 		}
 
 		const itemIndex = mediaEntityGroupItemIndex(group, i);
-		const script = yield* Activity.make({
+		const provider = yield* Activity.make({
 			error: ImportRunError,
 			name: `load-population-script-${i}`,
-			success: Schema.NullOr(PopulationScript),
-			execute: runWithDb(
-				entitiesRepository.findEntitySchemaSandboxScriptBySlug(ref.scriptSlug),
-			).pipe(
-				Effect.map((found) =>
-					found
-						? { entitySchemaSlug: found.entitySchemaSlug, sandboxScriptId: found.sandboxScriptId }
-						: null,
-				),
-				Effect.mapError(toWorkflowError),
-			),
+			success: Schema.NullOr(PopulationProvider),
+			execute: operations.resolveProvider(ref.providerSlug).pipe(Effect.mapError(toWorkflowError)),
 		});
 
-		if (!script) {
+		if (!provider) {
 			failures += 1;
 			yield* Activity.make({
 				error: ImportRunError,
@@ -65,7 +51,7 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 					stage: "input_transformation",
 					sourceIdentifier: ref.externalId,
 					entitySchemaSlug: ref.entitySchemaSlug,
-					message: `Sandbox script not found for slug: ${ref.scriptSlug}`,
+					message: `Provider not found for slug: ${ref.providerSlug}`,
 				}).pipe(Effect.mapError(toWorkflowError)),
 			});
 			yield* input.reportProgress(i + 1);
@@ -76,8 +62,8 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 			.importEntity({
 				externalId: ref.externalId,
 				userId: input.payload.userId,
-				scriptId: script.sandboxScriptId,
-				entitySchemaSlug: script.entitySchemaSlug,
+				providerId: provider.providerId,
+				entitySchemaSlug: provider.entitySchemaSlug,
 				executionId: `${input.executionId}-entity-${i}`,
 				origin: (input.payload.integrationId
 					? {

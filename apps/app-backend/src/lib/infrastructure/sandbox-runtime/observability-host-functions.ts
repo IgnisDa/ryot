@@ -60,7 +60,6 @@ export type SandboxObservabilityCollector = ReturnType<typeof makeSandboxObserva
 
 const correlationAttributes = (input: SandboxRunInput) => ({
 	scriptId: input.scriptId,
-	driverName: input.driverName,
 	executionId: input.executionId,
 });
 

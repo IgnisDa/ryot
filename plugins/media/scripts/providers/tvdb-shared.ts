@@ -265,7 +265,7 @@ export const collectCompanies = (companies: unknown) => {
 			companyByKey.set(companyKey, {
 				name,
 				externalId,
-				scriptSlug: "company.tvdb",
+				providerSlug: "company.tvdb",
 				relationshipProperties: { roles: [role] },
 			});
 		}
@@ -307,7 +307,7 @@ export const collectPeople = (characters: unknown) => {
 		relatedEntityByKey.set(key, {
 			name,
 			externalId,
-			scriptSlug: "person.tvdb",
+			providerSlug: "person.tvdb",
 			relationshipProperties: { roles: [role] },
 		});
 	}

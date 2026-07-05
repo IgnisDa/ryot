@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./hardcover.sandbox";
+import { details, manifest, search } from "./hardcover";
 
 type HardcoverBookGroupHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -44,7 +44,7 @@ describe("book-group.hardcover sandbox script", () => {
 		);
 
 		return Effect.runPromise(
-			runSandboxTestDriver(
+			runSandboxTestScript(
 				search,
 				{ query: "series", page: 1, pageSize: 20 },
 				host,
@@ -87,7 +87,7 @@ describe("book-group.hardcover sandbox script", () => {
 		);
 
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "100" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "100" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("The Series");
 					expect(result.properties).toEqual({
@@ -105,13 +105,13 @@ describe("book-group.hardcover sandbox script", () => {
 								{
 									name: "First",
 									externalId: "1",
-									scriptSlug: "book.hardcover",
+									providerSlug: "book.hardcover",
 									relationshipProperties: { order: 1 },
 								},
 								{
 									name: "Third",
 									externalId: "3",
-									scriptSlug: "book.hardcover",
+									providerSlug: "book.hardcover",
 									relationshipProperties: { order: 3 },
 								},
 							],

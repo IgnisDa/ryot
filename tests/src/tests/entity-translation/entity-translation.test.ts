@@ -9,16 +9,20 @@ import {
 	findBuiltinSchemaBySlug,
 	getEntity,
 	getEntityTranslationRow,
+	enqueueSandboxScript,
 	openInterestStreamScoped,
+	pollSandboxResult,
 	pollEntityUntilTranslationStatus,
+	requireCompletedSandboxValue,
 	installTestProvider,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	setUserLanguage,
 	waitForEntityPopulated,
 	type Client,
-	type InstalledProviderScript,
+	type InstalledTestProvider,
 } from "~/fixtures";
+import { assertPresent, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
 const CANONICAL_LANGUAGE = "en";
@@ -27,7 +31,7 @@ const TRANSLATED_ES_NAME = "Título Traducido E2E";
 const TRANSLATED_ES_DESCRIPTION = "Descripción traducida E2E.";
 const POPULATED_NAME = "E2E Populated Movie";
 
-let providerScript: InstalledProviderScript;
+let provider: InstalledTestProvider;
 
 const seedPopulatedMovie = (client: Client, name: string) =>
 	Effect.gen(function* () {
@@ -35,7 +39,7 @@ const seedPopulatedMovie = (client: Client, name: string) =>
 		return yield* seedPopulatedProviderEntity({
 			name,
 			entitySchemaSlug: schema.id,
-			sandboxScriptId: providerScript.scriptId,
+			providerId: provider.providerId,
 			externalId: `e2e-translate-${crypto.randomUUID()}`,
 			properties: { description: `Canonical overview of ${name}.` },
 		});
@@ -50,32 +54,48 @@ const declareInterest = (auth: { cookies: string }, entityIds: string[]) =>
 
 describe("entity translation via client-declared interest", () => {
 	beforeAll(async () => {
-		providerScript = await Effect.runPromise(
+		provider = await Effect.runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				return yield* installTestProvider({
 					client,
-					providerInformation: { source: "e2e", canonicalLanguage: CANONICAL_LANGUAGE },
-					drivers: {
-						details: fakeProviderDetailsResult({
-							name: POPULATED_NAME,
-							properties: { description: "Populated by the e2e fake provider." },
-						}),
-						translations: fakeProviderTranslations({
-							es: {
-								name: TRANSLATED_ES_NAME,
-								properties: { description: TRANSLATED_ES_DESCRIPTION },
-							},
-						}),
-					},
+					information: { source: "e2e", canonicalLanguage: CANONICAL_LANGUAGE },
+					details: fakeProviderDetailsResult({
+						name: POPULATED_NAME,
+						properties: { description: "Populated by the e2e fake provider." },
+					}),
+					resolve: { externalId: "resolved-e2e-movie" },
+					translations: fakeProviderTranslations({
+						es: {
+							name: TRANSLATED_ES_NAME,
+							properties: { description: TRANSLATED_ES_DESCRIPTION },
+						},
+					}),
 				});
 			}),
 		);
 	});
 
 	afterAll(async () => {
-		await Effect.runPromise(uninstallTestProvider(providerScript));
+		await Effect.runPromise(uninstallTestProvider(provider));
 	});
+
+	it.live("executes the installed resolve operation independently", () =>
+		Effect.gen(function* () {
+			const { userId } = yield* createAuthenticatedClient();
+			const resolveScriptId = provider.resolveScriptId;
+			assertPresent(resolveScriptId, "Installed provider resolve script not found");
+			const { jobId } = yield* enqueueSandboxScript(userId, {
+				scriptId: resolveScriptId,
+				context: { value: "tt-e2e", identifierType: "imdb" },
+			});
+			const value = requireObjectRecord(
+				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId), "resolve job"),
+				"Expected resolve result to be an object",
+			);
+			expect(value.externalId).toBe("resolved-e2e-movie");
+		}),
+	);
 
 	it.scopedLive(
 		"reports pending, translates on interest, then shares the overlay across users",
@@ -169,7 +189,7 @@ describe("entity translation via client-declared interest", () => {
 				const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
 				const provenance = {
 					entitySchemaSlug: schema.slug,
-					sandboxScriptId: providerScript.scriptId,
+					providerId: provider.providerId,
 					externalId: `e2e-translate-unpopulated-${crypto.randomUUID()}`,
 				};
 
@@ -179,7 +199,7 @@ describe("entity translation via client-declared interest", () => {
 					entitySchemaSlug: schema.id,
 					name: "Partial Pulp Fiction",
 					externalId: provenance.externalId,
-					sandboxScriptId: providerScript.scriptId,
+					providerId: provider.providerId,
 				});
 
 				yield* setUserLanguage(client, "es");

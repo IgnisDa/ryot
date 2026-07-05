@@ -1,6 +1,8 @@
+import { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import { EntityId, UserId } from "@ryot/contract/schema/brands";
+import { automationInputSchema } from "@ryot/sandbox-sdk/automation";
 import type { AutomationSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
-import { DateTime, Effect, Option } from "effect";
+import { DateTime, Effect, Option, Schema } from "effect";
 
 import { NotificationsService } from "#modules/notifications/service";
 import { SignalEmissionService } from "#modules/signals/service";
@@ -25,8 +27,29 @@ export const makeAutomationSandboxApiFunctions = (): Effect.Effect<
 		return {
 			emitSignal: (rawInput, request) =>
 				Effect.gen(function* () {
-					const input = yield* requireSubscriptionSandboxRunInput(rawInput, "emitSignal");
-					const occurredAt = DateTime.make(input.subscriptionRun.occurredAt);
+					if (rawInput.authority.type === "user") {
+						return yield* sandboxHostFailure(
+							"emitSignal is available only to subscription or system executions",
+						);
+					}
+					const execution =
+						rawInput.authority.type === "subscription"
+							? rawInput.authority.subscriptionRun
+							: yield* Schema.decodeUnknown(automationInputSchema)(rawInput.context).pipe(
+									Effect.flatMap(({ automation }) =>
+										Schema.decodeUnknown(AutomationOrigin)(automation.origin).pipe(
+											Effect.map((origin) => ({
+												origin,
+												occurredAt: automation.occurredAt,
+												id: rawInput.executionId,
+											})),
+										),
+									),
+									Effect.mapError(() => ({
+										message: "emitSignal requires a trusted automation context",
+									})),
+								);
+					const occurredAt = DateTime.make(execution.occurredAt);
 					if (Option.isNone(occurredAt)) {
 						return yield* sandboxHostFailure("emitSignal received an invalid occurrence time");
 					}
@@ -36,13 +59,14 @@ export const makeAutomationSandboxApiFunctions = (): Effect.Effect<
 							.emit({
 								properties: request.properties,
 								schemaSlug: request.schemaSlug,
-								origin: input.subscriptionRun.origin,
 								discriminator: request.discriminator,
-								executionId: input.subscriptionRun.id,
+								origin: execution.origin,
+								executionId: execution.id,
 								occurredAt: DateTime.toDate(occurredAt.value),
-								principal: input.userId
-									? { kind: "user", userId: UserId.make(input.userId) }
-									: { kind: "system" },
+								principal:
+									rawInput.authority.type === "subscription"
+										? { kind: "user", userId: UserId.make(rawInput.authority.userId) }
+										: { kind: "system" },
 								...(request.subjectEntityId
 									? { subjectEntityId: EntityId.make(request.subjectEntityId) }
 									: {}),
@@ -66,8 +90,8 @@ export const makeAutomationSandboxApiFunctions = (): Effect.Effect<
 						notifications
 							.sendMessage({
 								message: message.trim(),
-								userId: UserId.make(input.userId),
-								executionId: `${input.subscriptionRun.id}-notification`,
+								userId: UserId.make(input.authority.userId),
+								executionId: `${input.authority.subscriptionRun.id}-notification`,
 							})
 							.pipe(Effect.as(null)),
 					);

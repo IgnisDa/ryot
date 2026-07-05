@@ -8,6 +8,7 @@ export const fixtureManifest = () =>
 		savedViews: [],
 		boot: [] as PluginManifest["boot"],
 		crons: [] as PluginManifest["crons"],
+		providers: [] as PluginManifest["providers"],
 		operations: [] as PluginManifest["operations"],
 		metadata: {
 			icon: "box",
@@ -77,7 +78,7 @@ export const fixtureManifest = () =>
 		bindings: {
 			eventAutomations: [],
 			signalAutomations: [],
-			schemaScriptLinks: [],
+			schemaProviderLinks: [],
 			relationshipAutomations: [],
 			entityAutomations: [
 				{

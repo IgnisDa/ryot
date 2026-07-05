@@ -1,9 +1,11 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest } from "./audible.sandbox";
+import { manifest } from "./audible";
+import details, { manifest as detailsManifest } from "./audible-details.sandbox";
+import search, { manifest as searchManifest } from "./audible-search.sandbox";
 
 type AudibleAudiobookHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -12,6 +14,15 @@ const makeHost = (httpCall: AudibleAudiobookHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("audiobook.audible sandbox script", () => {
+	it("declares one script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+		]).toEqual([
+			["audiobook.audible.search", "search"],
+			["audiobook.audible.details", "details"],
+		]);
+	});
 	it("deduplicates similarity buckets into related entities", () => {
 		const host = makeHost((_method, requestUrl) => {
 			if (requestUrl.includes("/source-book?")) {
@@ -44,7 +55,7 @@ describe("audiobook.audible sandbox script", () => {
 			return httpSuccess({ similar_products: [] });
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "source-book" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "source-book" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
@@ -64,8 +75,8 @@ describe("audiobook.audible sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Series Pick", externalId: "book-2", scriptSlug: "audiobook.audible" },
-								{ name: "Similar Pick", externalId: "book-3", scriptSlug: "audiobook.audible" },
+								{ name: "Series Pick", externalId: "book-2", providerSlug: "audiobook.audible" },
+								{ name: "Similar Pick", externalId: "book-3", providerSlug: "audiobook.audible" },
 							],
 						},
 					]);
@@ -96,7 +107,7 @@ describe("audiobook.audible sandbox script", () => {
 			return httpSuccess({ similar_products: [] });
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "mixed-book" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "mixed-book" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("Mixed");
 					expect(result.relatedEntityGroups?.[0]).toEqual({
@@ -107,7 +118,7 @@ describe("audiobook.audible sandbox script", () => {
 							{
 								name: "Jane Doe",
 								externalId: "person-1",
-								scriptSlug: "person.audible",
+								providerSlug: "person.audible",
 								relationshipProperties: { roles: ["Author", "Narrator"] },
 							},
 						],
@@ -116,7 +127,7 @@ describe("audiobook.audible sandbox script", () => {
 						{
 							name: "The Saga",
 							externalId: "series-1",
-							scriptSlug: "audiobook-group.audible",
+							providerSlug: "audiobook-group.audible",
 							relationshipProperties: { roles: ["Member"] },
 						},
 					]);

@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { definePlugin, PluginManifest } from "./manifest";
 
@@ -7,12 +7,12 @@ const manifest = definePlugin({
 	savedViews: [],
 	entitySchemas: [],
 	relationshipSchemas: [],
-	boot: [{ slug: "boot.test", driverRef: "automation.test", description: "Boot test data" }],
+	boot: [{ slug: "boot.test", scriptSlug: "automation.test", description: "Boot test data" }],
 	crons: [
 		{
 			slug: "refresh.test",
 			schedule: "0 * * * *",
-			driverRef: "automation.test",
+			scriptSlug: "automation.test",
 			description: "Refresh test data",
 		},
 	],
@@ -30,8 +30,16 @@ const manifest = definePlugin({
 		{
 			auth: "user",
 			slug: "resolve.test",
-			driverRef: "operation.test",
+			scriptSlug: "operation.test",
 			description: "Resolve test references",
+		},
+	],
+	providers: [
+		{
+			slug: "provider.test",
+			name: "Test provider",
+			information: { source: "Test source", canonicalLanguage: "en" },
+			operations: { details: "provider.test.details", search: "provider.test.search" },
 		},
 	],
 	metadata: {
@@ -46,7 +54,7 @@ const manifest = definePlugin({
 		eventAutomations: [],
 		entityAutomations: [],
 		signalAutomations: [],
-		schemaScriptLinks: [],
+		schemaProviderLinks: [{ entitySchemaSlug: "entity.test", providerSlug: "provider.test" }],
 		relationshipAutomations: [],
 	},
 	scripts: [
@@ -58,6 +66,43 @@ const manifest = definePlugin({
 			capabilities: ["emitSignal"],
 			entry: "scripts/test.sandbox.ts",
 		},
+		{
+			kind: "operation",
+			name: "Test operation",
+			slug: "operation.test",
+			requiredAppConfigKeys: [],
+			capabilities: [],
+			entry: "scripts/operation.sandbox.ts",
+		},
+		{
+			kind: "provider",
+			name: "Test provider details",
+			slug: "provider.test.details",
+			providerSlug: "provider.test",
+			providerOperation: "details",
+			requiredAppConfigKeys: [],
+			capabilities: [],
+			entry: "scripts/provider-details.sandbox.ts",
+		},
+		{
+			kind: "provider",
+			name: "Test provider search",
+			slug: "provider.test.search",
+			providerSlug: "provider.test",
+			providerOperation: "search",
+			requiredAppConfigKeys: [],
+			capabilities: [],
+			entry: "scripts/provider-search.sandbox.ts",
+		},
+		{
+			kind: "script",
+			name: "Test provider preload",
+			slug: "provider.test.preload",
+			providerSlug: "provider.test",
+			requiredAppConfigKeys: [],
+			capabilities: [],
+			entry: "scripts/provider-preload.sandbox.ts",
+		},
 	],
 });
 
@@ -65,10 +110,10 @@ describe("definePlugin", () => {
 	it("preserves manifest literals", () => {
 		const slug: "test" = manifest.metadata.slug;
 		const scriptKind: "automation" = manifest.scripts[0].kind;
-		const driverRef: "automation.test" = manifest.crons[0].driverRef;
+		const scriptSlug: "automation.test" = manifest.crons[0].scriptSlug;
 
 		expect(slug).toBe("test");
-		expect(driverRef).toBe("automation.test");
+		expect(scriptSlug).toBe("automation.test");
 		expect(scriptKind).toBe("automation");
 	});
 
@@ -104,26 +149,41 @@ describe("definePlugin", () => {
 		).toThrow();
 	});
 
-	it("rejects sections and script kinds outside the v1 contract", () => {
+	it("allows signal notification formatters owned by another plugin", () => {
+		const signalSchema = manifest.signalSchemas[0];
+		const notificationScriptSlug = "kernel.notification-formatter";
+		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+			...manifest,
+			signalSchemas: [{ ...signalSchema, notificationScriptSlug }],
+		});
+
+		expect(decoded.signalSchemas[0]?.notificationScriptSlug).toBe(notificationScriptSlug);
+	});
+
+	it("accepts direct scripts and rejects kinds outside the v1 contract", () => {
+		const customScript = Schema.decodeUnknownSync(PluginManifest)(manifest).scripts[4];
+		assert(customScript);
+		expect(customScript).toMatchObject({
+			kind: "script",
+			providerSlug: "provider.test",
+			slug: "provider.test.preload",
+		});
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({ ...manifest, capabilities: [] }),
 		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
-				scripts: [{ ...manifest.scripts[0], kind: "script" }],
+				scripts: [{ ...manifest.scripts[0], kind: "legacy" }],
 			}),
 		).toThrow();
 	});
 
 	it("accepts operation scripts and validates operation declarations", () => {
 		const operation = manifest.operations[0];
-		expect(
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				scripts: [{ ...manifest.scripts[0], kind: "operation" }],
-			}).scripts.map(({ kind }) => kind),
-		).toEqual(["operation"]);
+		const operationScript = Schema.decodeUnknownSync(PluginManifest)(manifest).scripts[1];
+		assert(operationScript);
+		expect(operationScript.kind).toBe("operation");
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
@@ -144,7 +204,7 @@ describe("definePlugin", () => {
 		).toThrow();
 	});
 
-	it("enforces the existing sandbox driver manifest constraints", () => {
+	it("enforces sandbox script manifest constraints", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
@@ -155,6 +215,183 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				scripts: [{ ...manifest.scripts[0], requiredAppConfigKeys: [""] }],
+			}),
+		).toThrow();
+	});
+
+	it("rejects duplicate script slugs within and across script kinds", () => {
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [...manifest.scripts, { ...manifest.scripts[0] }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [...manifest.scripts, { ...manifest.scripts[1], slug: manifest.scripts[0].slug }],
+			}),
+		).toThrow();
+	});
+
+	it("strictly validates providers and their standard operation assignments", () => {
+		const provider = manifest.providers[0];
+		const detailsScript = manifest.scripts[2];
+		const preloadScript = manifest.scripts[4];
+		const otherDetailsScript = {
+			...detailsScript,
+			slug: "provider.other.details",
+			providerSlug: "provider.other",
+		};
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [
+					...manifest.scripts.slice(0, 2),
+					{ ...detailsScript, providerOperation: undefined },
+					...manifest.scripts.slice(3),
+				],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				providers: [...manifest.providers, provider],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				providers: [{ ...provider, operations: { details: "missing.script" } }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				providers: [
+					{
+						...provider,
+						operations: {
+							details: "provider.test.details",
+							search: "provider.test.details",
+						},
+					},
+				],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [
+					...manifest.scripts.slice(0, 2),
+					{ ...detailsScript, providerSlug: "missing.provider" },
+					...manifest.scripts.slice(3),
+				],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [
+					...manifest.scripts.slice(0, 2),
+					{ ...detailsScript, providerOperation: "search" },
+					...manifest.scripts.slice(3),
+				],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [
+					...manifest.scripts.slice(0, 4),
+					{ ...preloadScript, providerSlug: "missing.provider" },
+				],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				providers: [{ ...provider, operations: { details: preloadScript.slug } }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [{ ...manifest.scripts[0], providerSlug: provider.slug }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				providers: [
+					...manifest.providers,
+					{
+						...provider,
+						slug: "provider.other",
+						operations: { details: otherDetailsScript.slug },
+					},
+				],
+				scripts: [
+					...manifest.scripts,
+					otherDetailsScript,
+					{ ...preloadScript, providerSlug: "provider.other" },
+				],
+			}),
+		).toThrow();
+	});
+
+	it("strictly validates provider bindings and removed provider aliases", () => {
+		const providerScript = manifest.scripts[2];
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				bindings: {
+					...manifest.bindings,
+					schemaProviderLinks: [{ entitySchemaSlug: "entity.test", providerSlug: "missing" }],
+				},
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				bindings: {
+					...manifest.bindings,
+					schemaProviderLinks: [{ entitySchemaSlug: "entity.test", scriptSlug: "provider.test" }],
+				},
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [
+					...manifest.scripts.slice(0, 2),
+					{ ...providerScript, providerInformation: { source: "Old source" } },
+					...manifest.scripts.slice(3),
+				],
+			}),
+		).toThrow();
+	});
+
+	it("requires direct and automation bindings to reference existing scripts", () => {
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				boot: [{ ...manifest.boot[0], scriptSlug: "missing.script" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				bindings: {
+					...manifest.bindings,
+					entityAutomations: [
+						{
+							operation: "create",
+							scriptSlug: "missing.script",
+							entitySchemaSlug: "entity.test",
+						},
+					],
+				},
 			}),
 		).toThrow();
 	});
@@ -173,7 +410,7 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
-				crons: [{ ...cron, driverRef: "Invalid/Slug" }],
+				crons: [{ ...cron, scriptSlug: "Invalid/Slug" }],
 			}),
 		).toThrow();
 		expect(() =>
@@ -201,7 +438,7 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
-				boot: [{ ...boot, driverRef: "Invalid/Slug" }],
+				boot: [{ ...boot, scriptSlug: "Invalid/Slug" }],
 			}),
 		).toThrow();
 		expect(() =>

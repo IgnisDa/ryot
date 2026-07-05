@@ -1,15 +1,13 @@
 import { FileSystem } from "@effect/platform";
-import type { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import type { ImportRunId, UserId } from "@ryot/contract/schema/brands";
 import type { ProviderSearchItem } from "@ryot/sandbox-sdk/provider";
 import { Effect, Match } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import {
 	type MetadataLookupTitleMatchCandidate,
 	chooseBestMetadataLookupTitleMatch,
 } from "#lib/shared/title-matching";
 import { extractMetadataLookupBaseTitle } from "#lib/shared/title-parsing";
-import { EntitiesRepository } from "#modules/entities/repository";
 
 import type { MediaImportAdapterResult } from "../../media/adapter-result";
 import { nowIso } from "../../media/dates";
@@ -22,7 +20,7 @@ import {
 import { sanitizeErrorMessage } from "../../runtime/import-run-status";
 import { adaptNetflixExports } from "./adapter";
 
-type SearchScriptSlug = "movie.tmdb" | "show.tmdb";
+type SearchProviderSlug = "movie.tmdb" | "show.tmdb";
 
 type NetflixAdapterInput = {
 	myListCsv: string;
@@ -35,8 +33,7 @@ type NetflixAdapterInput = {
 type NetflixSearchJob = {
 	query: string;
 	jobKey: string;
-	scriptId: SandboxScriptId;
-	scriptSlug: SearchScriptSlug;
+	providerSlug: SearchProviderSlug;
 };
 
 type NetflixSearchResponse = {
@@ -62,12 +59,12 @@ type LoadedNetflixAdapterResult =
 			searchJobs: ReadonlyArray<NetflixSearchJob>;
 	  };
 
-const createNetflixSearchJobKey = (input: { query: string; scriptSlug: SearchScriptSlug }) =>
-	JSON.stringify([input.scriptSlug, input.query]);
+const createNetflixSearchJobKey = (input: { query: string; providerSlug: SearchProviderSlug }) =>
+	JSON.stringify([input.providerSlug, input.query]);
 
 const parseNetflixSearchJobKey = (
 	searchJobKey: string,
-): { query: string; scriptSlug: SearchScriptSlug } => {
+): { query: string; providerSlug: SearchProviderSlug } => {
 	const parsed = JSON.parse(searchJobKey) as unknown;
 	if (
 		!Array.isArray(parsed) ||
@@ -76,7 +73,7 @@ const parseNetflixSearchJobKey = (
 	) {
 		throw new Error("Invalid Netflix search job key");
 	}
-	return { scriptSlug: parsed[0], query: parsed[1] };
+	return { providerSlug: parsed[0], query: parsed[1] };
 };
 
 const getZipEntryByBasename = (
@@ -94,12 +91,12 @@ const collectNetflixSearchJobKeys = Effect.fn(function* (adapterInput: NetflixAd
 			return Effect.fail("Metadata not found");
 		}
 		if (preferredEntitySchemaSlug === "movie") {
-			searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
+			searchJobKeys.add(createNetflixSearchJobKey({ query, providerSlug: "movie.tmdb" }));
 		} else if (preferredEntitySchemaSlug === "show") {
-			searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
+			searchJobKeys.add(createNetflixSearchJobKey({ query, providerSlug: "show.tmdb" }));
 		} else {
-			searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" }));
-			searchJobKeys.add(createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" }));
+			searchJobKeys.add(createNetflixSearchJobKey({ query, providerSlug: "movie.tmdb" }));
+			searchJobKeys.add(createNetflixSearchJobKey({ query, providerSlug: "show.tmdb" }));
 		}
 		return Effect.fail("Netflix title lookup is pending");
 	});
@@ -117,8 +114,8 @@ const adaptNetflixExportsWithSearchResults = (input: {
 			return Effect.fail("Metadata not found");
 		}
 
-		const movieKey = createNetflixSearchJobKey({ query, scriptSlug: "movie.tmdb" });
-		const showKey = createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" });
+		const movieKey = createNetflixSearchJobKey({ query, providerSlug: "movie.tmdb" });
+		const showKey = createNetflixSearchJobKey({ query, providerSlug: "show.tmdb" });
 		const movieResults = input.searchResults.get(movieKey) ?? [];
 		const showResults = input.searchResults.get(showKey) ?? [];
 		const requiredSearchJobKeys = Match.value(preferredEntitySchemaSlug).pipe(
@@ -163,7 +160,7 @@ const adaptNetflixExportsWithSearchResults = (input: {
 				kind: "resolved",
 				sourceLabel: bestMatch.title,
 				externalId: bestMatch.externalId,
-				scriptSlug: bestMatch.scriptSlug,
+				providerSlug: bestMatch.scriptSlug,
 				entitySchemaSlug: bestMatch.entitySchemaSlug,
 			},
 		});
@@ -173,12 +170,12 @@ const toNetflixTitleMatchCandidates = (
 	searchJobKey: string,
 	items: ReadonlyArray<ProviderSearchItem>,
 ): ReadonlyArray<MetadataLookupTitleMatchCandidate> => {
-	const { scriptSlug } = parseNetflixSearchJobKey(searchJobKey);
+	const { providerSlug } = parseNetflixSearchJobKey(searchJobKey);
 	return items.map((item) => ({
-		scriptSlug,
+		scriptSlug: providerSlug,
 		externalId: item.externalId,
 		title: item.titleProperty.value,
-		entitySchemaSlug: scriptSlug === "movie.tmdb" ? "movie" : "show",
+		entitySchemaSlug: providerSlug === "movie.tmdb" ? "movie" : "show",
 		publishYear:
 			item.primarySubtitleProperty?.kind === "number" ? item.primarySubtitleProperty.value : null,
 	}));
@@ -240,9 +237,6 @@ export const loadNetflixAdapterResult = Effect.fn("netflixProcessor.load")(funct
 	filePath?: string | undefined;
 	sourcePayload?: Record<string, unknown> | undefined;
 }) {
-	const runWithDb = yield* DbRunner;
-	const entitiesRepository = yield* EntitiesRepository;
-
 	let extractedDirectoryPath: string | undefined;
 	const currentCleanupPaths = () =>
 		[filePath, extractedDirectoryPath].filter((path): path is string => Boolean(path));
@@ -333,29 +327,6 @@ export const loadNetflixAdapterResult = Effect.fn("netflixProcessor.load")(funct
 		} satisfies LoadedNetflixAdapterResult;
 	}
 
-	const [movieScript, showScript] = yield* Effect.all([
-		runWithDb(entitiesRepository.findEntitySchemaSandboxScriptBySlug("movie.tmdb")),
-		runWithDb(entitiesRepository.findEntitySchemaSandboxScriptBySlug("show.tmdb")),
-	]).pipe(
-		Effect.mapError(
-			(error) =>
-				({
-					cleanupPaths: currentCleanupPaths(),
-					message: sanitizeErrorMessage(error, "Could not parse Netflix export data"),
-				}) satisfies LoadedMediaImportAdapterError,
-		),
-	);
-	if (!movieScript || !showScript) {
-		return yield* Effect.fail({
-			cleanupPaths: currentCleanupPaths(),
-			message: "Netflix importer requires TMDB sandbox scripts",
-		} satisfies LoadedMediaImportAdapterError);
-	}
-	const scriptIdsBySlug: Record<SearchScriptSlug, SandboxScriptId> = {
-		"show.tmdb": showScript.sandboxScriptId,
-		"movie.tmdb": movieScript.sandboxScriptId,
-	};
-
 	return {
 		importedAt,
 		myListPath,
@@ -365,8 +336,8 @@ export const loadNetflixAdapterResult = Effect.fn("netflixProcessor.load")(funct
 		_tag: "netflix-search-planned",
 		cleanupPaths: currentCleanupPaths(),
 		searchJobs: searchJobKeys.map((jobKey) => {
-			const { query, scriptSlug } = parseNetflixSearchJobKey(jobKey);
-			return { query, jobKey, scriptSlug, scriptId: scriptIdsBySlug[scriptSlug] };
+			const { query, providerSlug } = parseNetflixSearchJobKey(jobKey);
+			return { query, jobKey, providerSlug };
 		}),
 	} satisfies LoadedNetflixAdapterResult;
 });

@@ -23,7 +23,7 @@ export const buildMovieOrShowImportRef = (input: {
 			externalId: tmdbId,
 			sourceLabel: input.sourceLabel,
 			entitySchemaSlug: input.entitySchemaSlug,
-			scriptSlug: `${input.entitySchemaSlug}.tmdb`,
+			providerSlug: `${input.entitySchemaSlug}.tmdb`,
 		};
 	}
 
@@ -45,7 +45,7 @@ export const buildMovieOrShowImportRef = (input: {
 			externalId: tvdbId,
 			sourceLabel: input.sourceLabel,
 			entitySchemaSlug: input.entitySchemaSlug,
-			scriptSlug: `${input.entitySchemaSlug}.tvdb`,
+			providerSlug: `${input.entitySchemaSlug}.tvdb`,
 		};
 	}
 

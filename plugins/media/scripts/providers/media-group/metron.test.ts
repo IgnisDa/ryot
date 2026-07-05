@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./metron.sandbox";
+import { details, manifest, search } from "./metron";
 
 type MetronGroupHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -33,7 +33,7 @@ describe("comic-book-group.metron sandbox script", () => {
 		);
 
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "saga", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "saga", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -61,7 +61,7 @@ describe("comic-book-group.metron sandbox script", () => {
 		);
 
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "saga", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "saga", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.details).toEqual({ totalItems: 100, nextPage: 2 });
 				}),
@@ -80,7 +80,7 @@ describe("comic-book-group.metron sandbox script", () => {
 		});
 
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "10" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "10" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("Saga");
 					expect(result.relatedEntityGroups).toEqual([
@@ -92,19 +92,19 @@ describe("comic-book-group.metron sandbox script", () => {
 								{
 									name: "Saga #1",
 									externalId: "1",
-									scriptSlug: "comic-book.metron",
+									providerSlug: "comic-book.metron",
 									relationshipProperties: { order: 1 },
 								},
 								{
 									name: "Saga #2",
 									externalId: "2",
-									scriptSlug: "comic-book.metron",
+									providerSlug: "comic-book.metron",
 									relationshipProperties: { order: 2 },
 								},
 								{
 									name: "Loading...",
 									externalId: "3",
-									scriptSlug: "comic-book.metron",
+									providerSlug: "comic-book.metron",
 									relationshipProperties: { order: 3 },
 								},
 							],

@@ -28,7 +28,7 @@ export const seedPopulatedProviderEntity = (input: {
 	name: string;
 	externalId: string;
 	entitySchemaSlug: string;
-	sandboxScriptId: string;
+	providerId: string;
 	properties: Record<string, unknown>;
 }) =>
 	Effect.gen(function* () {
@@ -38,7 +38,7 @@ export const seedPopulatedProviderEntity = (input: {
 			externalId: input.externalId,
 			properties: input.properties,
 			entitySchemaSlug: input.entitySchemaSlug,
-			sandboxScriptId: input.sandboxScriptId,
+			providerId: input.providerId,
 		});
 		yield* markEntityPopulated(seeded.id);
 

@@ -44,7 +44,7 @@ describe("Relationship includes", () => {
 			const fixtureSuffix = crypto.randomUUID();
 			const podcast = yield* seedMediaEntity({
 				userId: null,
-				sandboxScriptId: null,
+				providerId: null,
 				name: "Episodic Test Podcast",
 				entitySchemaSlug: podcastSchema.id,
 				externalId: `podcast-${fixtureSuffix}`,
@@ -65,7 +65,7 @@ describe("Relationship includes", () => {
 			const secondEpisode = yield* seedMediaEntity({
 				userId: null,
 				name: "Episode Two",
-				sandboxScriptId: null,
+				providerId: null,
 				entitySchemaSlug: podcastEpisodeSchemaId,
 				externalId: `podcast-episode-2-${fixtureSuffix}`,
 				properties: { runtime: 40, episodeNumber: 2, publishDate: null, description: "Second" },
@@ -73,7 +73,7 @@ describe("Relationship includes", () => {
 			const firstEpisode = yield* seedMediaEntity({
 				userId: null,
 				name: "Episode One",
-				sandboxScriptId: null,
+				providerId: null,
 				entitySchemaSlug: podcastEpisodeSchemaId,
 				externalId: `podcast-episode-1-${fixtureSuffix}`,
 				properties: { runtime: 30, episodeNumber: 1, publishDate: null, description: "First" },
@@ -149,7 +149,7 @@ describe("Relationship includes", () => {
 			const fixtureSuffix = crypto.randomUUID();
 			const podcast = yield* seedMediaEntity({
 				userId: null,
-				sandboxScriptId: null,
+				providerId: null,
 				name: "Derivation Podcast",
 				entitySchemaSlug: podcastSchema.id,
 				externalId: `podcast-${fixtureSuffix}`,
@@ -170,7 +170,7 @@ describe("Relationship includes", () => {
 			const firstEpisode = yield* seedMediaEntity({
 				userId: null,
 				name: "Episode One",
-				sandboxScriptId: null,
+				providerId: null,
 				entitySchemaSlug: podcastEpisodeSchemaId,
 				externalId: `podcast-episode-1-${fixtureSuffix}`,
 				properties: { runtime: 30, episodeNumber: 1, publishDate: null, description: "First" },
@@ -178,7 +178,7 @@ describe("Relationship includes", () => {
 			const secondEpisode = yield* seedMediaEntity({
 				userId: null,
 				name: "Episode Two",
-				sandboxScriptId: null,
+				providerId: null,
 				entitySchemaSlug: podcastEpisodeSchemaId,
 				externalId: `podcast-episode-2-${fixtureSuffix}`,
 				properties: { runtime: 40, episodeNumber: 2, publishDate: null, description: "Second" },

@@ -102,16 +102,44 @@ const PluginScriptFields = {
 	capabilities: Schema.Array(Schema.Literal(...SANDBOX_HOST_CAPABILITIES)),
 };
 
+export const PluginProviderOperation = Schema.Literal("details", "search", "resolve", "translate");
+
+export type PluginProviderOperation = Schema.Schema.Type<typeof PluginProviderOperation>;
+
+export const PluginProviderInformation = strictStruct({
+	source: sandboxManifestString,
+	canonicalLanguage: Schema.optional(sandboxManifestString),
+});
+
+export type PluginProviderInformation = Schema.Schema.Type<typeof PluginProviderInformation>;
+
+export const PluginProvider = strictStruct({
+	slug: sandboxManifestSlug,
+	name: sandboxManifestString,
+	information: PluginProviderInformation,
+	operations: strictStruct({
+		details: sandboxManifestSlug,
+		search: Schema.optional(sandboxManifestSlug),
+		resolve: Schema.optional(sandboxManifestSlug),
+		translate: Schema.optional(sandboxManifestSlug),
+	}),
+});
+
+export type PluginProvider = Schema.Schema.Type<typeof PluginProvider>;
+
 export const PluginScript = Schema.Union(
+	strictStruct({
+		...PluginScriptFields,
+		kind: Schema.Literal("script"),
+		providerSlug: Schema.optional(sandboxManifestSlug),
+	}),
 	strictStruct({ ...PluginScriptFields, kind: Schema.Literal("operation") }),
 	strictStruct({ ...PluginScriptFields, kind: Schema.Literal("automation") }),
 	strictStruct({
 		...PluginScriptFields,
 		kind: Schema.Literal("provider"),
-		providerInformation: strictStruct({
-			source: sandboxManifestString,
-			canonicalLanguage: Schema.optional(sandboxManifestString),
-		}),
+		providerSlug: sandboxManifestSlug,
+		providerOperation: PluginProviderOperation,
 	}),
 );
 
@@ -119,7 +147,7 @@ export type PluginScript = Schema.Schema.Type<typeof PluginScript>;
 
 export const PluginCron = strictStruct({
 	slug: sandboxManifestSlug,
-	driverRef: sandboxManifestSlug,
+	scriptSlug: sandboxManifestSlug,
 	schedule: sandboxManifestString,
 	description: sandboxManifestString,
 });
@@ -128,31 +156,31 @@ export type PluginCron = Schema.Schema.Type<typeof PluginCron>;
 
 export const PluginBoot = strictStruct({
 	slug: sandboxManifestSlug,
-	driverRef: sandboxManifestSlug,
+	scriptSlug: sandboxManifestSlug,
 	description: sandboxManifestString,
 });
 
 export type PluginBoot = Schema.Schema.Type<typeof PluginBoot>;
 
-export const PluginOperationAuth = Schema.Literal("user", "admin", "integration");
+export const PluginOperationAuth = Schema.Literal("user", "integration");
 
 export type PluginOperationAuth = Schema.Schema.Type<typeof PluginOperationAuth>;
 
 export const PluginOperation = strictStruct({
 	slug: sandboxManifestSlug,
 	auth: PluginOperationAuth,
-	driverRef: sandboxManifestSlug,
+	scriptSlug: sandboxManifestSlug,
 	description: sandboxManifestString,
 });
 
 export type PluginOperation = Schema.Schema.Type<typeof PluginOperation>;
 
-export const PluginSchemaScriptLink = strictStruct({
-	scriptSlug: Schema.String,
+export const PluginSchemaProviderLink = strictStruct({
+	providerSlug: sandboxManifestSlug,
 	entitySchemaSlug: Schema.String,
 });
 
-export type PluginSchemaScriptLink = Schema.Schema.Type<typeof PluginSchemaScriptLink>;
+export type PluginSchemaProviderLink = Schema.Schema.Type<typeof PluginSchemaProviderLink>;
 
 export const PluginLifecycleOperation = Schema.Literal("create", "delete", "update");
 
@@ -197,24 +225,111 @@ export const PluginBindings = strictStruct({
 	eventAutomations: Schema.Array(PluginEventAutomation),
 	entityAutomations: Schema.Array(PluginEntityAutomation),
 	signalAutomations: Schema.Array(PluginSignalAutomation),
-	schemaScriptLinks: Schema.Array(PluginSchemaScriptLink),
+	schemaProviderLinks: Schema.Array(PluginSchemaProviderLink),
 	relationshipAutomations: Schema.Array(PluginRelationshipAutomation),
 });
 
 export type PluginBindings = Schema.Schema.Type<typeof PluginBindings>;
 
-export const PluginManifest = strictStruct({
+const PluginManifestFields = strictStruct({
 	metadata: PluginMetadata,
 	bindings: PluginBindings,
 	boot: Schema.Array(PluginBoot),
 	crons: Schema.Array(PluginCron),
 	scripts: Schema.Array(PluginScript),
+	providers: Schema.Array(PluginProvider),
 	savedViews: Schema.Array(PluginSavedView),
 	operations: Schema.Array(PluginOperation),
 	entitySchemas: Schema.Array(PluginEntitySchema),
 	signalSchemas: Schema.Array(PluginSignalSchema),
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
 });
+
+export const PluginManifest = PluginManifestFields.pipe(
+	Schema.filter(
+		(manifest) => {
+			const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
+			const providerSlugs = new Set(manifest.providers.map(({ slug }) => slug));
+			if (scriptSlugs.size !== manifest.scripts.length) {
+				return false;
+			}
+			if (providerSlugs.size !== manifest.providers.length) {
+				return false;
+			}
+
+			if (
+				manifest.scripts.some(
+					(script) =>
+						"providerSlug" in script &&
+						script.providerSlug !== undefined &&
+						!providerSlugs.has(script.providerSlug),
+				)
+			) {
+				return false;
+			}
+			const providerScripts = manifest.scripts.filter((script) => script.kind === "provider");
+
+			const operationAssignments = manifest.providers.flatMap((provider) =>
+				Object.entries(provider.operations).map(([operation, scriptSlug]) => ({
+					operation,
+					providerSlug: provider.slug,
+					scriptSlug,
+				})),
+			);
+			if (
+				new Set(operationAssignments.map(({ scriptSlug }) => scriptSlug)).size !==
+				operationAssignments.length
+			) {
+				return false;
+			}
+
+			if (
+				operationAssignments.some(({ operation, providerSlug, scriptSlug }) => {
+					const script = providerScripts.find((candidate) => candidate.slug === scriptSlug);
+					return (
+						!script ||
+						script.providerSlug !== providerSlug ||
+						script.providerOperation !== operation
+					);
+				})
+			) {
+				return false;
+			}
+
+			if (
+				providerScripts.some(
+					(script) =>
+						!operationAssignments.some(
+							(assignment) =>
+								assignment.scriptSlug === script.slug &&
+								assignment.providerSlug === script.providerSlug &&
+								assignment.operation === script.providerOperation,
+						),
+				)
+			) {
+				return false;
+			}
+
+			const referencedScriptSlugs = [
+				...manifest.boot.map(({ scriptSlug }) => scriptSlug),
+				...manifest.crons.map(({ scriptSlug }) => scriptSlug),
+				...manifest.operations.map(({ scriptSlug }) => scriptSlug),
+				...manifest.bindings.eventAutomations.map(({ scriptSlug }) => scriptSlug),
+				...manifest.bindings.entityAutomations.map(({ scriptSlug }) => scriptSlug),
+				...manifest.bindings.signalAutomations.map(({ scriptSlug }) => scriptSlug),
+				...manifest.bindings.relationshipAutomations.map(({ scriptSlug }) => scriptSlug),
+			];
+
+			return (
+				referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug)) &&
+				manifest.bindings.schemaProviderLinks.every(({ providerSlug }) =>
+					providerSlugs.has(providerSlug),
+				)
+			);
+		},
+		{ message: () => "Expected valid plugin provider and script references" },
+	),
+);
 
 export type PluginManifest = Schema.Schema.Type<typeof PluginManifest>;
 
