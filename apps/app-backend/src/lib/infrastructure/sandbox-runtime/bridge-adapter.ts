@@ -173,6 +173,16 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.getCachedValue(input, ...args),
 		defaultFailure("getCachedValue", "getCachedValue expects a non-empty key string"),
 	),
+	log: bindHostFunction(
+		coreSandboxHostContracts.log,
+		(...args) => implementations.log(input, ...args),
+		defaultFailure("log", "log expects an array of valid log entries"),
+	),
+	span: bindHostFunction(
+		coreSandboxHostContracts.span,
+		(...args) => implementations.span(input, ...args),
+		defaultFailure("span", "span expects an array of valid span entries"),
+	),
 	httpCall: bindHostFunction(
 		coreSandboxHostContracts.httpCall,
 		(...args) => implementations.httpCall(input, ...args),

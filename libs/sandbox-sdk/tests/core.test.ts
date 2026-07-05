@@ -7,7 +7,9 @@ import {
 	defineScript,
 	httpCallResultSchema,
 	jsonValueSchema,
+	logArgsSchema,
 	SANDBOX_SCRIPT_DEFINITION,
+	spanArgsSchema,
 } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
@@ -67,6 +69,41 @@ describe("shared value contracts", () => {
 				data: { claimed: false, value: { owner: "other" } },
 			}),
 		).toEqual({ data: { claimed: false, value: { owner: "other" } }, success: true });
+	});
+
+	test("accepts valid log and span batches", () => {
+		expect(
+			decode(logArgsSchema)([
+				[
+					{
+						level: "info",
+						message: "Imported entities",
+						attributes: { count: 2, context: { source: "provider" } },
+					},
+				],
+			]),
+		).toEqual([
+			[
+				{
+					level: "info",
+					message: "Imported entities",
+					attributes: { count: 2, context: { source: "provider" } },
+				},
+			],
+		]);
+		expect(decode(spanArgsSchema)([[{ name: "provider.import" }]])).toEqual([
+			[{ name: "provider.import" }],
+		]);
+	});
+
+	test("rejects malformed or excess log and span entries", () => {
+		expect(() => decode(logArgsSchema)([[{ level: "notice", message: "message" }]])).toThrow();
+		expect(() => decode(logArgsSchema)([[{ level: "error", message: "" }]])).toThrow();
+		expect(() =>
+			decode(logArgsSchema)([[{ level: "debug", message: "message", extra: true }]]),
+		).toThrow();
+		expect(() => decode(spanArgsSchema)([[{ name: "", attributes: {} }]])).toThrow();
+		expect(() => decode(spanArgsSchema)([[{ name: "span", extra: true }]])).toThrow();
 	});
 });
 
