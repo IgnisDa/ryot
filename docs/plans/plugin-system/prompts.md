@@ -5,8 +5,8 @@ Here are the four prompts, parameterized with {N} — swap the phase number and 
 1. PRD (fresh agent, start of phase)
 
 Read docs/plans/plugin-system/00-overview.md fully, then
-docs/plans/plugin-system/0{N}-phase-{N}-\*.md. Then use the write-a-prd skill to
-produce a PRD for Phase {N} at docs/tasks/plugin-system-phase-{N}/README.md.
+docs/plans/plugin-system/01-phase-1-\*.md. Then use the write-a-prd skill to
+produce a PRD for Phase 1 at docs/tasks/plugin-system-phase-1/README.md.
 
 The design phase is already complete: the two plan files are the authoritative
 spec. Do not re-interview me, do not redesign, do not contradict [DECIDED]
@@ -18,22 +18,22 @@ conflicts with the plan (e.g. its "no file paths" rule), the plan wins.
 
 2. Issues (same agent, immediately after)
 
-Now use the prd-to-issues skill on docs/tasks/plugin-system-phase-{N}/README.md.
+Now use the prd-to-issues skill on docs/tasks/plugin-system-phase-1/README.md.
 
 Slicing constraints: prefer honest slices over thin ones — a slice must
 compile and pass gates on its own (e.g. Phase 1's FK→slug cutover is one
 atomic task; do not fake-split it). Order tasks so registry/infrastructure
 lands before its consumers. Every task file must instruct its implementer to
-first read docs/plans/plugin-system/00-overview.md and the Phase {N} plan
+first read docs/plans/plugin-system/00-overview.md and the Phase 1 plan
 file, and must derive acceptance criteria from the phase file's done criteria
 where they apply.
 
 3. Task implementation (fresh agent per task)
 
 Read, in order: docs/plans/plugin-system/00-overview.md,
-docs/plans/plugin-system/0{N}-phase-{N}-\*.md,
-docs/tasks/plugin-system-phase-{N}/README.md, and
-docs/tasks/plugin-system-phase-{N}/{NN}-{task}.md. Then implement that task.
+docs/plans/plugin-system/01-phase-1-\*.md,
+docs/tasks/plugin-system-phase-1/README.md, and
+docs/tasks/plugin-system-phase-1/01-\*.md. Then implement that task.
 
 Rules:
 
@@ -50,23 +50,6 @@ Rules:
   suites at minimum).
 - Update the task file status and the PRD tracking table, then commit this
   task's changes with a message explaining why, not what.
-
-4. Phase review (fresh agent, end of phase)
-
-Phase {N} of docs/plans/plugin-system/ is claimed complete. Review
-adversarially — your job is to refute completion, not confirm it.
-
-1. Walk the done criteria in docs/plans/plugin-system/0{N}-phase-{N}-\*.md one
-   by one; verify each with your own greps and commands, not task statuses.
-2. Run the full gates: backend check + unit tests, the full e2e suite
-   (cd tests && bun run test), and the app-client check.
-3. Review the phase's diff (git log since {start-ref}) against the overview's
-   cross-phase invariants and [DECIDED] items; specifically hunt for e2e
-   assertions that were weakened or deleted rather than re-plumbed.
-4. Confirm every [IMPLEMENTER-DECIDES]/[RECOMMENDED] deviation was recorded in
-   the plan files.
-
-Report COMPLETE, or a numbered list of gaps with evidence. Fix nothing.
 
 Phase 3 variant
 
