@@ -1,42 +1,38 @@
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { createFileRoute } from "@tanstack/react-router";
-import { Effect, Match } from "effect";
 
-import { EntitiesService } from "#/modules/entities/service";
+import { ClientPageHost } from "#/modules/client-pages/page-host";
+import { prepareClientPage } from "#/modules/client-pages/preparation";
 import { AppScreen } from "#/modules/navigation/app-screen";
-import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
-import { resolveEntityRouteTarget } from "#/modules/plugins/route-resolver";
 
 export const Route = createFileRoute("/_authenticated/e/$entityId")({
 	component: EntityPage,
 	errorComponent: EntityError,
 	pendingComponent: EntityPending,
 	loader: async ({ abortController, context, params }) => {
-		const provenance = await context.runtime.runPromise(
-			Effect.flatMap(EntitiesService, (service) =>
-				service.loadRouteProvenance(context.ryot, params.entityId),
-			),
+		const preparation = await context.runtime.runPromise(
+			prepareClientPage(context.scope, {
+				kind: "entity",
+				entityId: EntityId.make(params.entityId),
+			}),
 			{ signal: abortController.signal },
 		);
-		return { provenance };
+		return { preparation };
 	},
 });
 
 function EntityPage() {
-	const { entityId } = Route.useParams();
-	const { provenance } = Route.useLoaderData();
-	const { catalog } = usePluginCatalog();
-	const target = resolveEntityRouteTarget(catalog, entityId, provenance);
-	return Match.value(target).pipe(
-		Match.when({ kind: "plugin" }, () => null),
-		Match.when({ kind: "missing" }, () => <EntityNotice title="Entity not found" />),
-		Match.when({ kind: "unsupported" }, () => (
-			<EntityNotice title="Kernel-owned entity unsupported" />
-		)),
-		Match.when({ kind: "installation-missing" }, () => (
-			<EntityNotice title="Required plugin unavailable" />
-		)),
-		Match.exhaustive,
-	);
+	const { preparation } = Route.useLoaderData();
+	if (preparation.kind === "ready") {
+		return <ClientPageHost title="Entity details" prepared={preparation.prepared} />;
+	}
+	if (preparation.reason.code === "entity-not-found") {
+		return <EntityNotice title="Entity not found" />;
+	}
+	if (preparation.reason.code === "entity-detail-page-not-registered") {
+		return <EntityNotice title="Entity page not registered" />;
+	}
+	return <EntityNotice title="Required plugin unavailable" />;
 }
 
 function EntityPending() {

@@ -1,5 +1,12 @@
+import {
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
+} from "@ryot-app/client-plugin-contract";
+import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import type { UserSettings } from "@ryot-app/contract/modules/user-settings/schemas";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect, Layer } from "effect";
@@ -276,16 +283,83 @@ export const ProviderAddRouteStubs = Layer.succeed(ProviderAddService, {
 	loadSearchOptions: () => Effect.die("not used"),
 });
 
+const preparePluginPage = (
+	target: Exclude<PreparedClientPage["identity"]["target"], { readonly kind: "saved-view" }>,
+): PreparedClientPage => {
+	const pluginId = target.kind === "plugin-route" ? target.pluginId : "plugin-1";
+	const pluginSlug = pluginId === "plugin-2" ? "journal" : "fixture";
+	const operationTargets = [
+		{
+			pluginId,
+			sourceHash: "source-hash",
+			installationId: "installation-1",
+			pluginSlug: PluginSlug.make(pluginSlug),
+		},
+	];
+	return {
+		identity: {
+			target,
+			pluginId,
+			buildId: "build-1",
+			exportName: "page",
+			kind: "plugin-page",
+			graphHash: "graph-1",
+			sourceHash: "source-hash",
+			artifactHash: "artifact-hash",
+			installationId: "installation-1",
+			operationTargets,
+			contributors: [
+				{
+					pluginId,
+					kind: "plugin",
+					sourceHash: "source-hash",
+					installationId: "installation-1",
+					pluginSlug: PluginSlug.make(pluginSlug),
+				},
+			],
+		},
+		context: {
+			settings: {},
+			dataSources: null,
+			route: { params: {} },
+			renderer: { kind: "plugin", pluginId, exportName: "page" },
+			target:
+				target.kind === "entity"
+					? {
+							...target,
+							entitySchemaPluginId: "plugin-1",
+							entitySchemaSlug: EntitySchemaSlug.make("book"),
+						}
+					: target,
+		},
+		artifact: {
+			hash: "artifact-hash",
+			format: CLIENT_ARTIFACT_FORMAT,
+			apiVersion: CLIENT_API_VERSION,
+			compilerVersion: CLIENT_COMPILER_VERSION,
+			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+		},
+	};
+};
+
 export const ClientPagesApiRouteStubs = Layer.succeed(ClientPagesApi, {
-	prepare: () => Effect.die("not used"),
 	renewSession: () => Effect.die("not used"),
 	revokeSession: () => Effect.die("not used"),
 	createSession: () => Effect.die("not used"),
+	prepare: (_scope, request) =>
+		request.payload.target.kind === "saved-view"
+			? Effect.die("not used")
+			: Effect.succeed(preparePluginPage(request.payload.target)),
 });
 
 export const ClientPageSessionsRouteStubs = Layer.succeed(ClientPageSessions, {
 	renew: () => Effect.die("not used"),
-	create: () => Effect.die("not used"),
+	create: (_scope, identity) =>
+		Effect.succeed({
+			sessionId: "session-1",
+			expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+			src: `https://ryot.example/session/${identity.artifactHash}/index.html`,
+		}),
 	revoke: () => Effect.die("not used"),
 });
 

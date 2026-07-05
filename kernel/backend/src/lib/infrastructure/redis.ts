@@ -1,12 +1,6 @@
-import { ClientPageCodeContributor } from "@ryot-app/contract/modules/client-pages/schemas";
+import { PreparedClientPageIdentity } from "@ryot-app/contract/modules/client-pages/schemas";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
-import {
-	ClientRendererId,
-	PluginSlug,
-	SandboxScriptId,
-	SavedViewId,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+import { PluginSlug, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
@@ -52,15 +46,7 @@ export const PluginClientArtifactSessionPayloadFromJson = Schema.fromJsonString(
 
 export const ClientPageSessionPayload = Schema.Struct({
 	userId: UserId,
-	buildId: Schema.String,
-	graphHash: Schema.String,
-	savedViewId: SavedViewId,
-	viewRevision: Schema.Int,
-	artifactHash: Schema.String,
-	publishedHash: Schema.String,
-	rendererId: ClientRendererId,
-	publishedRevision: Schema.Int,
-	contributors: Schema.Array(ClientPageCodeContributor),
+	identity: PreparedClientPageIdentity,
 }).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 export const ClientPageSessionPayloadFromJson = Schema.fromJsonString(ClientPageSessionPayload);

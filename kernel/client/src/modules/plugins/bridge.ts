@@ -20,6 +20,7 @@ import {
 	type PluginBridgeLocation,
 	type PluginBridgeHeader,
 	type PluginBridgeNavigate,
+	type PluginBridgePageSearch,
 	type PluginBridgeTheme,
 	type PluginBridgeViewport,
 	type PluginBridgeOperationRequest,
@@ -83,6 +84,7 @@ type PluginBridgeOptions = {
 	readonly navigation: PluginBridgeNavigationState;
 	readonly onHeader: (request: PluginBridgeHeader) => void;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
+	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onScreenState: (state: PluginScreenReadiness) => void;
 	readonly onAssets: (
@@ -238,7 +240,11 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		void Promise.resolve()
 			.then(() =>
 				options.onOperation(
-					{ input: request.input, operationSlug: request.operationSlug },
+					{
+						input: request.input,
+						pluginSlug: request.pluginSlug,
+						operationSlug: request.operationSlug,
+					},
 					controller.signal,
 				),
 			)
@@ -442,6 +448,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					}),
 					Match.when({ type: "header" }, (request) => options.onHeader(request)),
 					Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
+					Match.when({ type: "page-search" }, (request) => options.onPageSearch(request)),
 					Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
 					Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),
 					Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),

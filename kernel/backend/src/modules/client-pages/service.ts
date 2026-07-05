@@ -10,7 +10,8 @@ import {
 	ClientRendererBadRequest,
 	ClientRendererDefinition,
 	ClientRendererNotFound,
-	type ClientPageCodeContributor,
+	type ClientPageTarget,
+	type PreparedClientPage,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import type { ClientRendererId } from "@ryot-app/contract/schema/brands";
@@ -26,11 +27,13 @@ import {
 } from "#lib/property-schema/property-schema-runtime";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { resolveClientPageGraph, type ResolvedClientPageGraph } from "./graph";
+import { clientPageOperationTargets, resolvePluginPageTarget } from "./prepare";
 import { ClientPagesRepository } from "./repository";
 
 const notFound = () => new ClientRendererNotFound({ reason: { code: "renderer-not-found" } });
@@ -126,10 +129,27 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 	{
 		make: Effect.gen(function* () {
 			const plugins = yield* PluginRepository;
+			const entities = yield* EntitiesRepository;
 			const compiler = yield* ClientPluginCompiler;
 			const repository = yield* ClientPagesRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const inFlightCompilations = new Map<string, Promise<PluginClientArtifact>>();
+			const operationTargetsCurrent = Effect.fn(function* (
+				userId: CurrentUserValue["id"],
+				recorded: PreparedClientPage["identity"]["operationTargets"],
+			) {
+				const current = yield* pluginRuntime.listPluginsAvailableToUser(userId, true);
+				return recorded.every((target) =>
+					current.some(
+						(plugin) =>
+							plugin.health === "ready" &&
+							plugin.id === target.pluginId &&
+							plugin.slug === target.pluginSlug &&
+							plugin.sourceHash === target.sourceHash &&
+							plugin.installationId === target.installationId,
+					),
+				);
+			});
 
 			const resolveGraph = Effect.fn(function* (input: {
 				readonly rendererName: string;
@@ -152,6 +172,33 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							installationId: plugin.installationId,
 						}),
 				});
+			});
+
+			const resolvePluginTarget = Effect.fn(function* (
+				userId: CurrentUserValue["id"],
+				target: Exclude<ClientPageTarget, { readonly kind: "saved-view" }>,
+			) {
+				const snapshot = yield* pluginRuntime.listPluginsAvailableToUser(userId, true);
+				const resolved = yield* resolvePluginPageTarget({
+					target,
+					plugins: snapshot,
+					findEntity: (entityId) => entities.getClientPageEntityForUser({ userId, entityId }),
+				});
+				const graph = yield* resolveClientPageGraph({
+					userId,
+					plugins: snapshot,
+					plugin: resolved.plugin,
+					exportName: resolved.exportName,
+					application: target.kind === "plugin-route" ? "plugin-route" : "page",
+					loadPluginFiles: (plugin) =>
+						plugins.listAuthorizedSourceFiles({
+							userId,
+							pluginId: plugin.id,
+							sourceHash: plugin.sourceHash,
+							installationId: plugin.installationId,
+						}),
+				});
+				return { ...resolved, graph, operationTargets: clientPageOperationTargets(snapshot) };
 			});
 
 			const compileGraph = (graph: ResolvedClientPageGraph) =>
@@ -344,18 +391,22 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 
 			const isIdentityCurrent = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
-				identity: {
-					readonly buildId: string;
-					readonly graphHash: string;
-					readonly savedViewId: string;
-					readonly viewRevision: number;
-					readonly artifactHash: string;
-					readonly publishedHash: string;
-					readonly publishedRevision: number;
-					readonly rendererId: ClientRendererId;
-					readonly contributors: readonly ClientPageCodeContributor[];
-				},
+				identity: PreparedClientPage["identity"],
 			) {
+				if (!(yield* operationTargetsCurrent(userId, identity.operationTargets))) {
+					return false;
+				}
+				if (identity.kind === "plugin-page") {
+					const resolved = yield* resolvePluginTarget(userId, identity.target);
+					return (
+						resolved.plugin.id === identity.pluginId &&
+						resolved.plugin.sourceHash === identity.sourceHash &&
+						resolved.plugin.installationId === identity.installationId &&
+						resolved.exportName === identity.exportName &&
+						resolved.graph.graphHash === identity.graphHash &&
+						Bun.deepEquals(resolved.graph.contributors, identity.contributors)
+					);
+				}
 				const prepared = yield* repository.findPreparedTarget(userId, identity.savedViewId);
 				if (
 					!prepared?.renderer.publishedDefinition ||
@@ -396,7 +447,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				);
 			});
 
-			const prepare = Effect.fn(function* (
+			const prepareSavedView = Effect.fn(function* (
 				user: Pick<CurrentUserValue, "id">,
 				savedViewId: string,
 			) {
@@ -421,6 +472,9 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					rendererId: prepared.rendererId,
 					rendererName: prepared.renderer.name,
 				});
+				const preparedOperationTargets = clientPageOperationTargets(
+					yield* pluginRuntime.listPluginsAvailableToUser(user.id, true),
+				);
 				let build = yield* repository.findBuild({
 					publishedHash,
 					userId: user.id,
@@ -494,13 +548,17 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						buildId: build.id,
 						publishedRevision,
 						graphHash: graph.graphHash,
+						kind: "saved-view" as const,
 						savedViewId: prepared.viewId,
 						rendererId: prepared.rendererId,
 						contributors: graph.contributors,
 						artifactHash: build.artifactHash,
 						viewRevision: prepared.view.revision,
+						operationTargets: preparedOperationTargets,
+						target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
 					},
 					context: {
+						route: { params: {} },
 						settings: prepared.view.settings ?? {},
 						dataSources: prepared.view.dataSources,
 						renderer: { kind: "custom" as const, id: prepared.rendererId },
@@ -512,6 +570,74 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						apiVersion: build.apiVersion,
 						bridgeVersion: build.bridgeVersion,
 						compilerVersion: build.compilerVersion,
+					},
+				};
+			});
+
+			const prepare = Effect.fn(function* (
+				user: Pick<CurrentUserValue, "id">,
+				target: ClientPageTarget,
+			) {
+				if (target.kind === "saved-view") {
+					return yield* prepareSavedView(user, target.savedViewId);
+				}
+				const resolved = yield* resolvePluginTarget(user.id, target);
+				const artifact = yield* compileGraph(resolved.graph).pipe(
+					Effect.mapError(
+						(error) =>
+							new ClientRendererBadRequest({
+								reason: {
+									code: "build-failed",
+									diagnostics: error.diagnostics.map(({ file, message }) => `${file}: ${message}`),
+								},
+							}),
+					),
+				);
+				yield* plugins.persistClientArtifact(artifact);
+				let contextTarget;
+				if (target.kind === "entity") {
+					if (!resolved.entity) {
+						return yield* invalid("Resolved entity page is missing entity context");
+					}
+					contextTarget = {
+						...target,
+						entitySchemaSlug: resolved.entity.entitySchemaSlug,
+						entitySchemaPluginId: resolved.entity.ownerPluginId,
+					};
+				} else {
+					contextTarget = target;
+				}
+				return {
+					identity: {
+						target,
+						artifactHash: artifact.hash,
+						kind: "plugin-page" as const,
+						pluginId: resolved.plugin.id,
+						exportName: resolved.exportName,
+						buildId: resolved.graph.graphHash,
+						graphHash: resolved.graph.graphHash,
+						sourceHash: resolved.plugin.sourceHash,
+						contributors: resolved.graph.contributors,
+						operationTargets: resolved.operationTargets,
+						installationId: resolved.plugin.installationId,
+					},
+					context: {
+						settings: {},
+						dataSources: null,
+						target: contextTarget,
+						route: { params: resolved.params },
+						renderer: {
+							kind: "plugin" as const,
+							pluginId: resolved.plugin.id,
+							exportName: resolved.exportName,
+						},
+					},
+					artifact: {
+						hash: artifact.hash,
+						format: artifact.format,
+						apiVersion: artifact.apiVersion,
+						bridgeVersion: artifact.bridgeVersion,
+						compilerVersion: artifact.compilerVersion,
 					},
 				};
 			});

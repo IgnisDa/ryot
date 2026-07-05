@@ -456,10 +456,25 @@ export const mediaPlugin = definePlugin({
 	providers: mediaProviders,
 	savedViews: mediaSavedViews(),
 	configSchema: mediaConfigSchema,
+	signalSchemas: mediaSignalSchemas("media-monitoring"),
 	client: {
 		apiVersion: 1,
 		entry: "client/index.tsx",
+		routes: { "/": "media-home" },
+		entities: { show: { detailPage: "show-detail" } },
 		exports: {
+			"media-home": {
+				kind: "page",
+				entry: "client/home.tsx",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+			},
+			"show-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/show/screen.tsx",
+				automaticEntityPresentations: false,
+			},
 			"show-progress": {
 				kind: "component",
 				entry: "client/show/progress.tsx",
@@ -467,7 +482,6 @@ export const mediaPlugin = definePlugin({
 			},
 		},
 	},
-	signalSchemas: mediaSignalSchemas("media-monitoring"),
 	httpRateLimits: [
 		{ requests: 90, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
 		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
