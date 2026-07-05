@@ -104,7 +104,7 @@ describe("adaptGoodreadsCsv", () => {
 		]);
 	});
 
-	it("rejects invalid Goodreads ISBN values", () => {
+	it("rejects invalid Goodreads ISBN values with non-digit characters", () => {
 		const csv = [GOODREADS_HEADERS, "Broken Book,abc123,4,2026/01/02,read,,1"].join("\n");
 
 		const result = adaptGoodreadsCsv(csv);
@@ -113,11 +113,41 @@ describe("adaptGoodreadsCsv", () => {
 		expect(result.failures).toEqual([
 			{
 				itemIndex: 0,
-				sourceIdentifier: "123",
-				context: { isbn: "123" },
 				sourceLabel: "Broken Book",
-				message: "ISBN13 is invalid",
+				sourceIdentifier: "abc123",
+				context: { rawIsbn: "abc123" },
+				message: "Invalid ISBN format",
 			},
 		]);
+	});
+
+	it("rejects ISBNs that fail the checksum validation", () => {
+		const csv = [GOODREADS_HEADERS, "Bad Checksum,9780140328722,4,2026/01/02,read,,1"].join("\n");
+
+		const result = adaptGoodreadsCsv(csv);
+
+		expect(result.entityGroups).toEqual([]);
+		expect(result.failures).toEqual([
+			{
+				itemIndex: 0,
+				sourceLabel: "Bad Checksum",
+				message: "ISBN13 is invalid",
+				sourceIdentifier: "9780140328722",
+				context: { isbn: "9780140328722" },
+			},
+		]);
+	});
+
+	it("parses month-first date formats as a fallback", () => {
+		const csv = [GOODREADS_HEADERS, "US Format,9780140328721,4,1/2/23,read,,1"].join("\n");
+
+		const result = adaptGoodreadsCsv(csv);
+
+		expect(result.failures).toEqual([]);
+		expect(result.entityGroups).toHaveLength(1);
+		expect(result.entityGroups[0]?.events[0]).toMatchObject({
+			eventSchemaSlug: "complete",
+			properties: { completedOn: "2023-01-02T00:00:00.000Z" },
+		});
 	});
 });
