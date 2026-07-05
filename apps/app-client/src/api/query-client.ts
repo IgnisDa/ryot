@@ -3,7 +3,7 @@ import { Atom } from "effect/unstable/reactivity";
 import * as Network from "expo-network";
 import { AppState } from "react-native";
 
-import { AppQueryApi } from "@/api/app-api";
+import { AppApi, AppQueryApi } from "@/api/app-api";
 
 const revalidationSignal = Atom.readable((get) => {
 	let version = 0;
@@ -50,4 +50,4 @@ const query = new Proxy(AppQueryApi.query, {
 	},
 });
 
-export const appQueryClient = { query };
+export const appQueryClient = { mutation: AppApi.mutation, query };
