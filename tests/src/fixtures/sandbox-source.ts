@@ -18,10 +18,19 @@ type ScriptModuleSourceInput = SandboxSourceIdentity & {
 };
 
 const scriptModuleSource = (input: ScriptModuleSourceInput) => {
-	const sdkImports = ["defineDriver", "defineManifest", ...(input.sdkImports ?? [])];
+	const coreItems = (input.sdkImports ?? []).filter((i) => i !== "jsonValueSchema");
+	const wireItems = (input.sdkImports ?? []).filter((i) => i === "jsonValueSchema");
+	const wireImportLine =
+		wireItems.length > 0
+			? `\nimport { ${wireItems.join(", ")} } from "@ryot/sandbox-sdk/wire";`
+			: "";
+	const coreImportLine =
+		coreItems.length > 0
+			? `\nimport { ${coreItems.join(", ")} } from "@ryot/sandbox-sdk/core";`
+			: "";
 
 	return `
-import { ${sdkImports.join(", ")} } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";${wireImportLine}${coreImportLine}
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
@@ -314,7 +323,8 @@ export default defineProvider({ manifest, drivers: { cron, trending } });
 
 export function operationSandboxSource(input: SandboxSourceIdentity) {
 	return `
-import { defineDriver, defineManifest, defineOperation } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineOperation } from "@ryot/sandbox-sdk/operation";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
