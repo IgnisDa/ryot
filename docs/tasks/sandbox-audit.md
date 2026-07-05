@@ -108,19 +108,19 @@ const CAPABILITY_REQUIREMENTS = {
 	changeUserRelationships: { authority: ["user", "subscription"] },
 	executeQueryEngine: { authority: ["user", "subscription"], systemKinds: ["activity"] },
 	upsertGlobalEntities: { authority: ["system"], systemKinds: ["script"] },
-	emitSignal: { authority: ["subscription", "system"] },
+	emitSignal: { authority: ["subscription", "system"], systemKinds: ["automation"] },
 	sendNotification: { authority: ["subscription"] },
 	// …
 } satisfies Record<SandboxHostCapability, CapabilityRequirement>;
 ```
 
-- [x] Adopt the declarative capability table. `selectSandboxHostFunctions` filters it and `requireSandboxCapabilityInput` derives runtime narrowing from the same table. `emitSignal` is subscription-only.
+- [x] Adopt the declarative capability table. `selectSandboxHostFunctions` filters it and `requireSandboxCapabilityInput` derives runtime narrowing from the same table. `emitSignal` is available to subscriptions and trusted system automation scripts.
 
 `selectSandboxHostFunctions` becomes a filter over the table (~10 lines). `require*SandboxRunInput` derives its narrowing from the same table instead of restating it. `satisfies Record<SandboxHostCapability, …>` makes a missing entry a compile error, so a new host function _cannot_ ship ungated — which today it silently can, since anything absent from all five sets defaults to allowed.
 
 **Is it over-engineered?** The _count_ of layers is justified (defense in depth across a trust boundary is correct). The _expression_ of layers 4 and 6 is not. Unifying those layers loses no security and removes about 120 lines.
 
-**Doc drift:** README:106 says automation functions require "the server-only subscription-run marker", but service.ts:133 grants `emitSignal` to `system` authority too.
+**Doc drift:** README:106 says automation functions require "the server-only subscription-run marker", but trusted system automation scripts also need `emitSignal` for global lifecycle dispatch.
 
 - [x] Align README automation capability documentation with actual `emitSignal` authority rules.
 
@@ -149,9 +149,9 @@ The runner-side name validation (runner-source.sandbox.ts:120-132) does not help
 
 - [x] Add an `lstat`-equivalent check, reject anything that is not a regular file, and cap depth and entry count. Scratch traversal now rejects symlinks and special entries, with 32 directory levels and 4,096 entries maximum.
 
-**B3 — `emitSignal` origin under system authority. Verify.** automation-sandbox-host-functions.ts:33-49: for non-subscription authority the origin is decoded from `rawInput.context`. For a plugin workflow's `activity()` call, the context _is_ `request.args.input` (sandbox-script-workflow.ts:310) — script-controlled. If any system-authority script can hold `emitSignal`, it can forge signal origin attribution.
+**B3 — `emitSignal` origin under system authority. Verify.** System automation runs receive server-built lifecycle context; ordinary system scripts and activities cannot receive `emitSignal`. The host derives system origin from that trusted automation context and subscription origin from the trusted subscription run.
 
-- [x] Restrict `emitSignal` to subscription executions and derive origin from trusted subscription execution state.
+- [x] Restrict system access to trusted automation metadata and derive origin from trusted execution state.
 
 **B4 — `httpCall` discards non-2xx bodies. Medium.** runtime-host-functions.ts:204-219 skipped the body read for non-2xx and failed with bare `HTTP ${status}`. Every provider script lost API error detail (rate-limit reasons, validation messages) — exactly the payload a provider script needs to react correctly.
 
@@ -254,10 +254,10 @@ You asked for recommendations rather than questions, so:
 
 ---
 
-`emitSignal` no longer accepts system-authority execution context. It uses the trusted subscription
-run origin, so script-controlled system context cannot forge signal attribution. B2 still rejects
-symlink entries in kernel-owned measurement and harvest paths regardless of Deno's `Deno.symlink`
-permission behavior.
+`emitSignal` accepts subscription executions and trusted system automation context only. It uses the
+trusted subscription run or server-built automation origin, so ordinary system scripts cannot forge
+signal attribution. B2 still rejects symlink entries in kernel-owned measurement and harvest paths
+regardless of Deno's `Deno.symlink` permission behavior.
 
 B6 now keeps physical harvest paths kernel-owned. Workflow activity manifests expose opaque handles,
 the kernel resolves them before chunk processing, and handle mappings release with workflow cleanup
