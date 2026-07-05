@@ -1,11 +1,11 @@
 import { Atom, Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react";
 import clsx from "clsx";
-import type { Href } from "expo-router";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 
 import { connectToServerAtom } from "@/lib/api";
+import { getSafeRedirectTo } from "@/lib/redirect";
 import { resolveServerUrl } from "@/lib/server";
 import { useSetServerUrl } from "@/lib/store/server";
 
@@ -22,14 +22,18 @@ export default function Onboarding() {
 	const connectResult = useAtomValue(connectToServerAtom);
 	const [mode, setMode] = useState<ServerMode>("cloud");
 	const connect = useAtomSet(connectToServerAtom, { mode: "promise" });
-	const { next: nextRoute } = useLocalSearchParams<{ next?: Extract<Href, string> }>();
 	const [validationError, setValidationError] = useState<string | null>(null);
 	const [url, setUrl] = useState(
 		Platform.OS === "web" && typeof window !== "undefined" ? window.location.origin : "",
 	);
+	const { redirectTo: redirectToParam } = useLocalSearchParams<
+		"/onboarding",
+		{ redirectTo?: string | string[] }
+	>();
 
-	const resolvedUrl = resolveServerUrl(mode, url);
 	const isPending = connectResult.waiting;
+	const resolvedUrl = resolveServerUrl(mode, url);
+	const redirectTo = getSafeRedirectTo(redirectToParam);
 
 	async function handleConnect() {
 		setValidationError(null);
@@ -41,7 +45,7 @@ export default function Onboarding() {
 		try {
 			await connect(resolvedUrl);
 			setServerUrl(resolvedUrl);
-			router.replace(nextRoute ?? "/auth");
+			router.replace(redirectTo ?? "/auth");
 		} catch {}
 	}
 
