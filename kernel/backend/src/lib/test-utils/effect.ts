@@ -129,6 +129,7 @@ export const makeAppConfigLayer = (
 			proKey: Option.none(),
 			clientDir: "./client",
 			logFile: Option.none(),
+			otlpHeaders: Option.none(),
 			otlpEndpoint: Option.none(),
 			disableNotifications: false,
 			pluginsSystemDir: "./plugins",
