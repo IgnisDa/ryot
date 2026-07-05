@@ -125,9 +125,11 @@ and **implementing agent**.
    dependency (single version matching the host, never bundled per script), so that scripts
    carrying substantial logic can use Effect the same way the host does (Decision 11; plan §0).
 2. As a sandbox script author, I want every host function and driver to use typed `Effect`
-   values exclusively, with backend implementations and typed bridge dispatch using the same
-   model and Promise confined to private platform transport adapters, so that Phase 3 has one
-   authoring and syscall contract rather than parallel APIs (Decision 11; plan Step 0a).
+   values exclusively and every sandbox manifest, driver, host wire contract, and operation
+   contract to use Effect Schema, with backend implementations and typed bridge dispatch using
+   the same model and Promise confined to private platform transport adapters, so that Phase 3
+   has one authoring, schema, and syscall contract rather than parallel APIs (Decision 11; plan
+   Step 0a).
 3. As a sandbox script author, I want `log` and `span` host functions that thread structured
    output into the execution's OTLP trace and bookkeeping, so that plugin code is debuggable
    with better than `console.log` collection (plan §0; standing-rules observability).
@@ -162,8 +164,8 @@ description }`) whose schedule format is whatever the existing scheduler consume
 ### Step 2 — operations (invoke): `metadata-lookup` + `episode-resolver`
 
 11. As the owner, I want an `operations` manifest section (`{ slug, driverRef, inputSchema,
-outputSchema, auth }`, `auth` = authenticated-user vs admin, schemas in the SDK's existing
-    zod contract style), so that a plugin declares named callable operations (plan §2).
+    outputSchema, auth }`, `auth` = authenticated-user vs admin, schemas in the SDK's Effect
+    Schema contract style), so that a plugin declares named callable operations (plan §2).
 12. As an API client, I want a single generic `plugins.invoke(pluginSlug, operationSlug,
 payload)` contract endpoint that validates against the declared schemas, dispatches to the
     driver, and returns the result — batch-first payloads — so that the static typed contract
@@ -305,10 +307,12 @@ them (and risk drift), this PRD points to the exact sections that own them:
   `bridge-adapter.ts` + `host-functions.ts` + limits), and per-call observability: Decision 8
   and plan "Standing rules".
 - **Step 0a — Effect-native sandbox cutover** — vendoring `effect` host-pinned via
-  `sandbox-runtime/dependencies.ts` and the import map; converting every script-facing host
-  function, driver, backend implementation, and typed bridge dispatch path to Effect; removing
-  the raw Promise authoring API; migrating all existing scripts and fixtures; and retaining
-  Promise only inside private platform transport adapters: Decision 11 and plan Step 0a.
+  `sandbox-runtime/dependencies.ts` and the import map; converting every sandbox manifest, driver,
+  and host wire contract from Zod to Effect Schema; converting every script-facing host function,
+  driver, backend implementation, and typed bridge dispatch path to Effect; removing Zod and the
+  raw Promise authoring API from the sandbox surface; migrating all existing scripts and fixtures;
+  and retaining Promise only inside private platform transport adapters: Decision 11 and plan
+  Step 0a.
 - **Step 0b — structured sandbox observability** — batch-first `log`/`span` Effect host
   functions, OTLP trace integration, execution bookkeeping, capability gating, and limits:
   plan Step 0b.

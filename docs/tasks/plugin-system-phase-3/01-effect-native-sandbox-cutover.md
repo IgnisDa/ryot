@@ -18,6 +18,9 @@ host-function stack over to Effect before adding new capabilities:
 - Vendor the host-pinned `effect` version as an approved sandbox dependency through
   `libs/sandbox-sdk` and the import map / `PackageCacheManager` mechanism in
   `sandbox-runtime/dependencies.ts`. Effect is runtime-provided and never bundled per script.
+- Replace the sandbox SDK's Zod schemas with Effect Schema for manifests, driver input/output,
+  and host-function wire contracts; update compiler and runner decoding and remove Zod from the
+  approved sandbox dependency surface. Declarative `AppSchema` property metadata is unchanged.
 - Make every script-facing host function return an `Effect` with a typed error. Remove the raw
   Promise host API rather than retaining wrappers or aliases.
 - Make generic, provider, and automation driver `run` functions return `Effect` values. Update
@@ -36,6 +39,8 @@ only on the Effect-native contract established here.
 
 - [ ] `effect` is available inside the sandbox as one host-pinned approved dependency, resolved
       through the import map and never bundled per script
+- [ ] Sandbox manifests, driver input/output, and host-function wire contracts use Effect Schema;
+      no Zod sandbox SDK or approved runtime dependency remains
 - [ ] All script-facing host functions return typed `Effect` values; no raw Promise authoring API,
       wrapper, or alias remains
 - [ ] Generic, provider, and automation drivers return `Effect`; the Deno runner executes them
