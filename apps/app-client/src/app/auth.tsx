@@ -1,7 +1,7 @@
 import { Result, useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import type { ContractSuccess } from "@ryot/contract/client";
 import clsx from "clsx";
-import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
 	KeyboardAvoidingView,
@@ -15,8 +15,9 @@ import {
 
 import { systemConfigAtom } from "@/lib/api";
 import { clearAuthStorage, useAuthClient } from "@/lib/auth";
-import { getSafeRedirectTo, type SafeRedirectTo } from "@/lib/redirect";
+import { getGateHref, getRedirectDestination, type SafeRedirectTo } from "@/lib/redirect";
 import { useServerUrl, useSetServerUrl } from "@/lib/store/server";
+import { useSafeRedirectTo } from "@/lib/use-redirect-to";
 import { getNameFromEmail } from "@/lib/user";
 
 type AuthMode = "login" | "signup";
@@ -87,7 +88,7 @@ function AuthForm(props: {
 	const [twoFactorMethod, setTwoFactorMethod] = useState<TwoFactorMethod>("totp");
 
 	const modeContent = content[mode];
-	const destination = props.redirectTo ?? "/(app)";
+	const destination = getRedirectDestination(props.redirectTo, "/(app)");
 	const oidcButtonLabel = props.config.oidcButtonLabel ?? "Sign in with OpenID Connect";
 
 	function resetTwoFactor() {
@@ -391,32 +392,28 @@ function AuthForm(props: {
 export default function Auth() {
 	const client = useAuthClient();
 	const serverUrl = useServerUrl();
+	const redirectTo = useSafeRedirectTo();
 	const setServerUrl = useSetServerUrl();
-	const { redirectTo: redirectToParam } = useLocalSearchParams<
-		"/auth",
-		{ redirectTo?: string | string[] }
-	>();
 
 	const config = useAtomValue(systemConfigAtom);
 	const { data: session, isPending } = client.useSession();
 	const refreshConfig = useAtomRefresh(systemConfigAtom);
-	const redirectTo = getSafeRedirectTo(redirectToParam);
 
 	async function handleChangeServer() {
 		await client.signOut().catch(() => undefined);
 		await clearAuthStorage();
 		setServerUrl(null);
-		router.replace({ pathname: "/onboarding", params: { redirectTo } });
+		router.replace(getGateHref("/onboarding", redirectTo));
 	}
 
 	if (!serverUrl) {
-		return <Redirect href={{ pathname: "/onboarding", params: { redirectTo } }} />;
+		return <Redirect href={getGateHref("/onboarding", redirectTo)} />;
 	}
 	if (isPending) {
 		return <AuthLoading />;
 	}
 	if (session) {
-		return <Redirect href={redirectTo ?? "/(app)"} />;
+		return <Redirect href={getRedirectDestination(redirectTo, "/(app)")} />;
 	}
 
 	return Result.builder(config)
