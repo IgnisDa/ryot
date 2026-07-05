@@ -224,7 +224,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 									}),
 							),
 						);
-						const payload = yield* Schema.decodeUnknownEffect(ProcessGenericImportChunksPayload)({
+						const payload = yield* Schema.decodeEffect(ProcessGenericImportChunksPayload)({
 							...decodedInput,
 							executionId,
 							userId: subject.userId,
@@ -253,7 +253,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 									(error) => new SandboxRunError({ message: unknownToMessage(error) }),
 								),
 							);
-						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
+						return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
 							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 						);
 					}
@@ -342,7 +342,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						.pipe(
 							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 						);
-					return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
+					return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
 						Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 					);
 				}).pipe(Effect.provideService(Database, database)),

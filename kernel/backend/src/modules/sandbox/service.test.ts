@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { NotFound, SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Exit, Layer, Option } from "effect";
+import { Effect, Exit, Layer } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -263,8 +263,7 @@ it.effect("returns the completed public result without internal workflow fields"
 			WorkflowEngine,
 			makeWorkflowEngine({
 				execute: () => Effect.succeed(null),
-				poll: () =>
-					Effect.succeed(Option.some(new Workflow.Complete({ exit: Exit.succeed(completed) }))),
+				poll: () => Effect.succeedSome(new Workflow.Complete({ exit: Exit.succeed(completed) })),
 			}),
 		),
 	);

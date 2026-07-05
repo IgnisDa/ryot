@@ -402,7 +402,7 @@ const buildManifest = (
 	if (sections.length + input.assets.length + 1 > limits.maxEntryCount) {
 		throw archiveError("entry_count_exceeded", "ZIP entry limit exceeded");
 	}
-	const manifest = Schema.decodeUnknownSync(ArchiveManifest)({
+	const manifest = Schema.decodeSync(ArchiveManifest)({
 		version: 1,
 		format: "ryot-backup",
 		createdAt: input.createdAt,

@@ -82,7 +82,7 @@ export class EntityInterestTicketService extends Context.Service<EntityInterestT
 				if (typeof raw !== "string") {
 					return yield* invalidTicket();
 				}
-				return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(TicketValue))(raw).pipe(
+				return yield* Schema.decodeEffect(Schema.fromJsonString(TicketValue))(raw).pipe(
 					Effect.mapError(invalidTicket),
 				);
 			});

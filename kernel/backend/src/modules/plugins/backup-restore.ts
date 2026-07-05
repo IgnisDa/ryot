@@ -58,7 +58,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					slugs.add(item.slug);
 					const files = Object.fromEntries(
 						yield* Effect.forEach(Object.entries(item.files), ([path, contents]) =>
-							Schema.decodeUnknownEffect(Schema.Uint8ArrayFromBase64)(contents).pipe(
+							Schema.decodeEffect(Schema.Uint8ArrayFromBase64)(contents).pipe(
 								asInvalidBackup,
 								Effect.map((decoded) => [path, decoded] as const),
 							),

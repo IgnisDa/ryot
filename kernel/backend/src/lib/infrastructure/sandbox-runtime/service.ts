@@ -302,10 +302,9 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 								`Sandbox process exited with code ${Number(exitCode)} before returning a response`,
 							),
 						),
-						Effect.catch((error) =>
-							error instanceof SandboxRunError
-								? Effect.fail(error)
-								: processFailure("Sandbox process exited before returning a response"),
+						Effect.catchIf(
+							(error) => !(error instanceof SandboxRunError),
+							() => processFailure("Sandbox process exited before returning a response"),
 						),
 					);
 

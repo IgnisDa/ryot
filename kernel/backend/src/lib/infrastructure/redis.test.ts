@@ -71,7 +71,7 @@ describe("import source state", () => {
 		};
 		const encoded = Schema.encodeSync(ImportSourceStateFromJson)(state);
 
-		expect(Schema.decodeUnknownSync(ImportSourceStateFromJson)(encoded)).toEqual(state);
+		expect(Schema.decodeSync(ImportSourceStateFromJson)(encoded)).toEqual(state);
 	});
 });
 

@@ -54,7 +54,7 @@ export const SUBSCRIPTION_RUN_TRUNCATION_MARKER = "[subscription run artifact tr
 const truncateArtifact = (value: unknown) => {
 	const serialized = stableStringify(value);
 	if (utf8ByteLength(serialized) <= SUBSCRIPTION_RUN_ARTIFACT_BYTES) {
-		return Schema.decodeUnknownSync(Schema.fromJsonString(AutomationRuleMetadata))(serialized);
+		return Schema.decodeSync(Schema.fromJsonString(AutomationRuleMetadata))(serialized);
 	}
 
 	let low = 0;
@@ -168,7 +168,7 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 							signalSchemaPluginId: definition.pluginId ?? null,
 						});
 					});
-					const rules = yield* Effect.all(states.map(resolveNotificationSubscription));
+					const rules = yield* Effect.forEach(states, resolveNotificationSubscription);
 					return [...bindings, ...rules.filter((rule) => rule !== null)].filter((rule) =>
 						matchesRowOwner(rule, input.rowUserId),
 					);

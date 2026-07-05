@@ -42,7 +42,7 @@ const runtimePackageDirectories = (workspaceRoot: string) =>
 				continue;
 			}
 			reached.add(name);
-			const manifest = yield* Schema.decodeUnknownEffect(WorkspaceManifest)(
+			const manifest = yield* Schema.decodeEffect(WorkspaceManifest)(
 				yield* fs.readFileString(`${packageDirectory(workspaceRoot, name)}/package.json`),
 			);
 			pending.push(

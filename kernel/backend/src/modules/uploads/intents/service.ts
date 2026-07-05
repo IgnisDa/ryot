@@ -169,7 +169,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					.pipe(
 						Effect.flatMap((raw) =>
 							raw
-								? Schema.decodeUnknownEffect(Schema.fromJsonString(UploadIntentMetadata))(raw).pipe(
+								? Schema.decodeEffect(Schema.fromJsonString(UploadIntentMetadata))(raw).pipe(
 										Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })),
 									)
 								: Effect.fail(uploadError({ intentId, code: "intent-expired" })),
@@ -335,9 +335,9 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					if (!raw) {
 						return yield* uploadError({ intentId, code: "intent-expired" });
 					}
-					const metadata = yield* Schema.decodeUnknownEffect(
-						Schema.fromJsonString(UploadIntentMetadata),
-					)(raw).pipe(Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })));
+					const metadata = yield* Schema.decodeEffect(Schema.fromJsonString(UploadIntentMetadata))(
+						raw,
+					).pipe(Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })));
 					if (metadata.state !== "pending") {
 						return yield* uploadError({ intentId, code: "intent-expired" });
 					}
@@ -410,9 +410,9 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
 					return;
 				}
-				const metadata = yield* Schema.decodeUnknownEffect(
-					Schema.fromJsonString(UploadIntentMetadata),
-				)(raw).pipe(Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })));
+				const metadata = yield* Schema.decodeEffect(Schema.fromJsonString(UploadIntentMetadata))(
+					raw,
+				).pipe(Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })));
 				yield* removeIntentRecord(intentId, metadata);
 			});
 
@@ -432,7 +432,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 								if (!raw) {
 									return yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
 								}
-								const metadata = yield* Schema.decodeUnknownEffect(
+								const metadata = yield* Schema.decodeEffect(
 									Schema.fromJsonString(UploadIntentMetadata),
 								)(raw).pipe(
 									Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })),
@@ -463,9 +463,9 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					if (!rawToken) {
 						return yield* uploadError({ code: "token-invalid" });
 					}
-					const tokenValue = yield* Schema.decodeUnknownEffect(
-						Schema.fromJsonString(UploadTokenValue),
-					)(rawToken).pipe(Effect.mapError(() => uploadError({ code: "token-invalid" })));
+					const tokenValue = yield* Schema.decodeEffect(Schema.fromJsonString(UploadTokenValue))(
+						rawToken,
+					).pipe(Effect.mapError(() => uploadError({ code: "token-invalid" })));
 					if (tokenValue.userId !== userId) {
 						return yield* uploadError({ code: "token-forbidden" });
 					}

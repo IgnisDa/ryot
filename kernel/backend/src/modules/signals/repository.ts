@@ -37,7 +37,7 @@ export type InsertSignalInput = {
 
 const toStoredSignal: (row: SignalRow) => Effect.Effect<StoredSignal, DbError> = Effect.fn(
 	function* (row: SignalRow) {
-		const origin = yield* Schema.decodeUnknownEffect(AutomationOrigin)(row.origin).pipe(
+		const origin = yield* Schema.decodeEffect(AutomationOrigin)(row.origin).pipe(
 			Effect.mapError(() => new DbError({ message: `Invalid origin for signal ${row.id}` })),
 		);
 		return {

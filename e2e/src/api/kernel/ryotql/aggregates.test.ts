@@ -344,15 +344,13 @@ describe("RyotQL aggregate outputs", () => {
 				sourceEntitySchemaSlug: otherSchema.schemaId,
 				slug: `ryotql-aggregate-hidden-${crypto.randomUUID()}`,
 			});
-			const ownerEntities = yield* Effect.all(
-				["Visible Source", "Visible Target One", "Visible Target Two"].map((name) =>
+			const ownerEntities = yield* Effect.forEach(
+				["Visible Source", "Visible Target One", "Visible Target Two"],
+				(name) =>
 					createEntityFixture(owner.client, { name, entitySchemaSlug: ownerSchema.schemaId }),
-				),
 			);
-			const otherEntities = yield* Effect.all(
-				["Hidden Source", "Hidden Target"].map((name) =>
-					createEntityFixture(other.client, { name, entitySchemaSlug: otherSchema.schemaId }),
-				),
+			const otherEntities = yield* Effect.forEach(["Hidden Source", "Hidden Target"], (name) =>
+				createEntityFixture(other.client, { name, entitySchemaSlug: otherSchema.schemaId }),
 			);
 			const [ownerSource, ownerTargetOne, ownerTargetTwo] = ownerEntities;
 			const [otherSource, otherTarget] = otherEntities;

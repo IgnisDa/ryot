@@ -474,7 +474,7 @@ describe("entity interest socket session", () => {
 					Layer.mock(EntityInterestStore)({
 						closeSession: () => Effect.succeed(true),
 						renewSession: () => Effect.succeed(true),
-						openSession: () => Effect.sync(() => undefined),
+						openSession: () => Effect.void.pipe(Effect.as(undefined)),
 						markReconciled: () => Deferred.succeed(markAttempted, undefined).pipe(Effect.as([])),
 						replaceInterest: () =>
 							Effect.succeed({
