@@ -61,19 +61,19 @@ export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definiti
 				);
 			}),
 		)
-		.handle("listWorkspaces", ({ query }) =>
+		.handle("listPlugins", ({ query }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* DefinitionsService;
-				return yield* service.listWorkspaces(user, query.includeDisabled).pipe(dieOnDbError);
+				return yield* service.listPlugins(user, query.includeDisabled).pipe(dieOnDbError);
 			}),
 		)
-		.handle("updateWorkspaceState", ({ params, payload }) =>
+		.handle("updatePluginState", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* DefinitionsService;
 				return yield* service
-					.updateWorkspaceState(user, params.pluginSlug, payload)
+					.updatePluginState(user, params.pluginSlug, payload)
 					.pipe(dieOnDbError);
 			}),
 		),

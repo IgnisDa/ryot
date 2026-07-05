@@ -189,7 +189,7 @@ protects live data under hot swap.
   dedicated table **[RECOMMENDED]** `notification_subscription_state`
   `(id, userId, signalSchemaSlug, isActive, metadata?, timestamps)`, unique on
   `(userId, signalSchemaSlug)`, following the same definition-vs-state pattern
-  as the per-user workspace state (`plugin_state`, §9). Re-point
+   as the per-user plugin state (`plugin_state`, §9). Re-point
   `NotificationSubscriptionsService`, the `automations` rule
   endpoints (surface preserved — plumbing only), `ensureDefaultRules`, and the
   `tests/src/tests/kernel/automations/notification-subscriptions.test.ts` suite (assertions
@@ -311,15 +311,15 @@ are authored — writing `trackers` sections only to delete them is wasted motio
 - **Manifest** (`packages/plugin-kit`): no `trackers` section; `metadata` carries the workspace
   display fields (`icon`, `accentColor`, `description`). Rework the implemented contract
   accordingly.
-- **Registry/loader**: no tracker definitions; the workspace list is the installed plugins'
-  metadata merged with per-user state (kernel-owned definitions present no workspace).
+- **Registry/loader**: no tracker definitions; the plugin list is the installed plugins'
+  metadata merged with per-user state (kernel-owned definitions are not plugins).
 - **Storage**: `tracker_state` → `plugin_state` **[RECOMMENDED]** name
   (`userId`, `pluginSlug`, `isDisabled`, `sortOrder`, `config`, timestamps; unique on
   `(userId, pluginSlug)`); `savedView.trackerSlug` → `pluginSlug` (still nullable —
   ungrouped views exist); regenerate the migration; `builtins/trackers.ts` is deleted with
   the module.
-- **Contract**: dissolve the `trackers` group — workspace listing joins the definitions read
-  surface; keep a single workspace-state update endpoint.
+- **Contract**: dissolve the `trackers` group — plugin listing joins the definitions read
+  surface; keep a single plugin-state update endpoint.
 - **E2e**: re-plumb any fixture or suite touching tracker state or `savedView.trackerSlug`
   (assertions preserved). Afterwards, grep `tests/` for `tracker` — remaining hits must be
   about plugins-as-workspaces only.
