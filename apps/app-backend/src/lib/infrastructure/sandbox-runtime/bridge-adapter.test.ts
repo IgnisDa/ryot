@@ -9,6 +9,7 @@ import type { SandboxHostImplementationMap, SandboxRunInput } from "./shared";
 const input: SandboxRunInput = {
 	context: {},
 	metadata: {},
+	contentHash: "",
 	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
