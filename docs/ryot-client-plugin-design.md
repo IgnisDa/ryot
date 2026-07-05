@@ -226,6 +226,7 @@ React
 React DOM
 TypeScript / TSX
 Tailwind CSS
+clsx
 @ryot/client-sdk
 @ryot/client-sdk/react
 @ryot/client-sdk/plugin
@@ -289,6 +290,7 @@ Initially, valid external module imports are limited to approximately:
 react
 react-dom
 react/jsx-runtime
+clsx
 
 @ryot/client-sdk
 @ryot/client-sdk/react
@@ -370,6 +372,7 @@ The compiler owns the effective versions of:
 - React
 - React DOM
 - Tailwind
+- clsx
 - client SDK
 - client UI SDK
 - UI implementation dependencies
