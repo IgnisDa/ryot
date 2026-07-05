@@ -1,7 +1,10 @@
 import type { SandboxScriptMetadata } from "@ryot/contract/modules/sandbox/schemas";
+import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { generateId } from "better-auth";
+import { sql } from "drizzle-orm";
 import {
 	boolean,
+	check,
 	index,
 	integer,
 	jsonb,
@@ -40,9 +43,20 @@ export const trackerState = pgTable(
 	],
 );
 
+export const plugin = pgTable("plugin", {
+	status: text().notNull(),
+	version: text().notNull(),
+	slug: text().primaryKey(),
+	sourceHash: text().notNull(),
+	manifest: jsonb().$type<PluginManifest>().notNull(),
+	compiledHashes: jsonb().$type<Record<string, string>>().notNull(),
+	ingestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+});
+
 export const sandboxScript = pgTable(
 	"sandbox_script",
 	{
+		contentHash: text(),
 		slug: text().notNull(),
 		name: text().notNull(),
 		source: text().notNull(),
@@ -52,6 +66,7 @@ export const sandboxScript = pgTable(
 		metadata: jsonb().$type<SandboxScriptMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		pluginSlug: text().references(() => plugin.slug, { onDelete: "restrict" }),
 		id: text()
 			.notNull()
 			.primaryKey()
@@ -62,8 +77,18 @@ export const sandboxScript = pgTable(
 			.notNull(),
 	},
 	(table) => [
+		check(
+			"sandbox_script_plugin_content_hash_check",
+			sql`${table.pluginSlug} is null or ${table.contentHash} is not null`,
+		),
 		index("sandbox_script_user_id_idx").on(table.userId),
+		index("sandbox_script_plugin_slug_idx").on(table.pluginSlug),
 		unique("sandbox_script_user_slug_unique").on(table.userId, table.slug),
+		unique("sandbox_script_plugin_slug_content_hash_unique").on(
+			table.pluginSlug,
+			table.slug,
+			table.contentHash,
+		),
 	],
 );
 
