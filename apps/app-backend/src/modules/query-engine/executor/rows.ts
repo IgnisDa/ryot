@@ -38,11 +38,9 @@ const idListSql = (schemas: readonly { id: string }[]): SqlFragment =>
 		sql`, `,
 	);
 
-const entitySchemaRowsSql = (
-	schemas: readonly { slug: string; name: string; isBuiltin: boolean }[],
-) =>
+const entitySchemaRowsSql = (schemas: readonly { slug: string; name: string }[]) =>
 	sql.join(
-		schemas.map((schema) => sql`(${schema.slug}, ${schema.name}, ${schema.isBuiltin}::boolean)`),
+		schemas.map((schema) => sql`(${schema.slug}, ${schema.name})`),
 		sql`, `,
 	);
 
@@ -119,7 +117,7 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 		db.execute(sql`
 			SELECT ${selectListSql(output.fields, scope, includes)}
 			FROM ${entitySourceSql(language)} e
-			JOIN (VALUES ${entitySchemaRowsSql(visibleSchemas)}) AS es(slug, name, is_builtin)
+			JOIN (VALUES ${entitySchemaRowsSql(visibleSchemas)}) AS es(slug, name)
 				ON es.slug = e.entity_schema_slug
 			${includes.laterals}
 			WHERE e.entity_schema_slug IN (${idListSql(visibleSchemas)})
