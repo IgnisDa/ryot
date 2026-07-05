@@ -1,6 +1,7 @@
 import { BunContext } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { SandboxRunError } from "@ryot/contract/errors";
 import {
 	EntitySchemaSlug,
 	ImportRunId,
@@ -415,6 +416,51 @@ it.effect(
 		);
 	},
 );
+
+it.effect("awaits every provider population exit and reports failures in input order", () => {
+	const executionIds: string[] = [];
+	const engine = makeWorkflowEngine({
+		execute: (_workflow, options) =>
+			Effect.gen(function* () {
+				executionIds.push(options.executionId);
+				if (options.executionId.endsWith("item-0")) {
+					return yield* new SandboxRunError({ message: "first item failed" });
+				}
+				if (options.executionId.endsWith("item-2")) {
+					return yield* new SandboxRunError({ message: "third item failed" });
+				}
+				return { id: options.executionId };
+			}),
+	});
+
+	return Effect.gen(function* () {
+		const references = yield* KernelWorkflowReferences;
+		const exit = yield* Effect.exit(
+			references.execute(
+				KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+				{
+					mode: "refresh",
+					items: Array.from({ length: 5 }, (_, index) => ({
+						entitySchemaSlug: "book",
+						externalId: `book-${index}`,
+						providerId: "provider-book-catalog",
+					})),
+				},
+				{ type: "system" },
+				"population-reference",
+				"parent-execution",
+				SandboxScriptId.make("caller-script"),
+			),
+		);
+
+		expect(executionIds).toHaveLength(5);
+		expect(exit.toString()).toContain("first item failed");
+		expect(exit.toString()).not.toContain("third item failed");
+	}).pipe(
+		Effect.provide(populationReferencesLayer()),
+		Effect.provideService(WorkflowEngine, engine),
+	);
+});
 
 it.effect("rejects non-system and unauthorized provider population calls", () => {
 	let dispatches = 0;
