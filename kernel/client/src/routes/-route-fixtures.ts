@@ -23,6 +23,7 @@ import { ImportsService } from "#/modules/imports/service";
 import { IntegrationsService } from "#/modules/integrations/service";
 import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import { NavigationService } from "#/modules/navigation/service";
+import { NotificationChannelsService } from "#/modules/notifications/service";
 import { ProviderAddService } from "#/modules/provider-add/service";
 import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";
@@ -253,6 +254,16 @@ export const makeIntegrationsStub = (overrides: Partial<IntegrationsService["Ser
 	});
 
 export const IntegrationRouteStubs = makeIntegrationsStub();
+
+export const makeNotificationChannelsStub = (
+	overrides: Partial<NotificationChannelsService["Service"]> = {},
+) =>
+	Layer.succeed(NotificationChannelsService, {
+		loadChannels: () => Effect.die("not used"),
+		...overrides,
+	});
+
+export const NotificationChannelRouteStubs = makeNotificationChannelsStub();
 
 export const ProviderAddRouteStubs = Layer.succeed(ProviderAddService, {
 	search: () => Effect.die("not used"),
