@@ -42,11 +42,11 @@ CREATE TABLE "apikey" (
 CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
+	"entity_schema_slug" text NOT NULL,
 	"populated_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
-	"entity_schema_slug" text NOT NULL,
 	"provider_id" text,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -112,10 +112,10 @@ CREATE TABLE "import_run_failure" (
 --> statement-breakpoint
 CREATE TABLE "integration" (
 	"name" text,
+	"plugin_slug" text NOT NULL,
 	"lot" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"provider" text NOT NULL,
-	"plugin_slug" text NOT NULL,
 	"sync_ownership" boolean DEFAULT false NOT NULL,
 	"minimum_progress" numeric DEFAULT '2' NOT NULL,
 	"maximum_progress" numeric DEFAULT '95' NOT NULL,
@@ -177,12 +177,12 @@ CREATE TABLE "plugin_state" (
 );
 --> statement-breakpoint
 CREATE TABLE "relationship" (
+	"relationship_schema_slug" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"properties" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"source_entity_id" text NOT NULL,
 	"target_entity_id" text NOT NULL,
-	"relationship_schema_slug" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	CONSTRAINT "relationship_user_source_target_schema_unique" UNIQUE("user_id","source_entity_id","target_entity_id","relationship_schema_slug")
 );
@@ -190,11 +190,11 @@ CREATE TABLE "relationship" (
 CREATE TABLE "sandbox_provider" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"information" jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"plugin_slug" text NOT NULL,
-	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
 	CONSTRAINT "sandbox_provider_plugin_slug_unique" UNIQUE("plugin_slug","slug")
 );
 --> statement-breakpoint
@@ -207,16 +207,16 @@ CREATE TABLE "sandbox_script" (
 	"compiled_format" smallint DEFAULT 1 NOT NULL,
 	"metadata" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"provider_id" text,
 	"plugin_slug" text,
+	"provider_id" text,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "sandbox_script_plugin_slug_content_hash_unique" UNIQUE("plugin_slug","slug","content_hash")
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_workflow_reference" (
-	"execution_id" text PRIMARY KEY NOT NULL,
 	"content_hash" text NOT NULL,
+	"execution_id" text PRIMARY KEY NOT NULL,
 	"plugin_slug" text NOT NULL,
 	"script_id" text NOT NULL
 );
@@ -228,6 +228,7 @@ CREATE TABLE "saved_view" (
 	"icon" text NOT NULL,
 	"accent_color" text NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
+	"is_builtin" boolean DEFAULT false NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"query_document" jsonb NOT NULL,
 	"display_configuration" jsonb NOT NULL,
@@ -236,16 +237,6 @@ CREATE TABLE "saved_view" (
 	"user_id" text NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "saved_view_user_slug_unique" UNIQUE("user_id","slug")
-);
---> statement-breakpoint
-CREATE TABLE "saved_view_state" (
-	"saved_view_slug" text NOT NULL,
-	"sort_order" integer DEFAULT 0 NOT NULL,
-	"is_disabled" boolean DEFAULT false NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"user_id" text NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "saved_view_state_user_slug_unique" UNIQUE("user_id","saved_view_slug")
 );
 --> statement-breakpoint
 CREATE TABLE "session" (
@@ -357,12 +348,11 @@ ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fk" FORE
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fk" FOREIGN KEY ("source_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fk" FOREIGN KEY ("target_entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_provider" ADD CONSTRAINT "sandbox_provider_plugin_slug_plugin_slug_fk" FOREIGN KEY ("plugin_slug") REFERENCES "public"."plugin"("slug") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_provider_id_sandbox_provider_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."sandbox_provider"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_plugin_slug_plugin_slug_fk" FOREIGN KEY ("plugin_slug") REFERENCES "public"."plugin"("slug") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_provider_id_sandbox_provider_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."sandbox_provider"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_plugin_slug_plugin_slug_fk" FOREIGN KEY ("plugin_slug") REFERENCES "public"."plugin"("slug") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fk" FOREIGN KEY ("script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "saved_view_state" ADD CONSTRAINT "saved_view_state_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "signal" ADD CONSTRAINT "signal_actor_user_id_user_id_fk" FOREIGN KEY ("actor_user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "signal" ADD CONSTRAINT "signal_subject_entity_id_entity_id_fk" FOREIGN KEY ("subject_entity_id") REFERENCES "public"."entity"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -416,7 +406,6 @@ CREATE INDEX "sandbox_workflow_reference_plugin_slug_idx" ON "sandbox_workflow_r
 CREATE INDEX "sandbox_workflow_reference_script_id_idx" ON "sandbox_workflow_reference" USING btree ("script_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_plugin_slug_idx" ON "saved_view" USING btree ("plugin_slug");--> statement-breakpoint
-CREATE INDEX "saved_view_state_user_id_idx" ON "saved_view_state" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "signal_actor_user_id_idx" ON "signal" USING btree ("actor_user_id");--> statement-breakpoint
 CREATE INDEX "signal_signal_schema_slug_idx" ON "signal" USING btree ("signal_schema_slug");--> statement-breakpoint
