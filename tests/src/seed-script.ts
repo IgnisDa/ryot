@@ -11,12 +11,12 @@ import {
 } from "@ryot/contract/schema/brands";
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import { buildQueryEngineEntityRowsDocument } from "@ryot/query-engine/documents";
 import {
-	buildQueryEngineEntityRowsDocument,
 	queryEngineField,
 	queryEngineOrder,
 	queryEngineSystemRef,
-} from "@ryot/query-engine";
+} from "@ryot/query-engine/primitives";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 
