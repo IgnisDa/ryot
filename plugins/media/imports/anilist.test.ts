@@ -261,6 +261,7 @@ describe("adaptAnilistExport", () => {
 		expect(result.failures).toHaveLength(3);
 		expect(result.failures[0]).toMatchObject({
 			itemIndex: 0,
+			context: { issues: ["series_id"] },
 			message: "Anilist list item is malformed",
 		});
 		expect(result.failures[1]).toMatchObject({
