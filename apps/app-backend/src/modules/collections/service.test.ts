@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, NotFound } from "@ryot/contract/errors";
+import { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -55,16 +55,6 @@ const memberOfSchema = {
 	targetEntitySchemaSlug: null,
 	id: RelationshipSchemaSlug.make("member-of-schema-id"),
 	propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
-};
-
-const inLibrarySchema = {
-	isBuiltin: true,
-	slug: "in-library",
-	name: "In Library",
-	sourceEntitySchemaSlug: null,
-	targetEntitySchemaSlug: null,
-	propertiesSchema: { fields: {} },
-	id: RelationshipSchemaSlug.make("in-library-schema-id"),
 };
 
 const collectionPropertiesSchema = {
@@ -144,8 +134,7 @@ const makeRelationshipSchemasRepository = (
 ) =>
 	mockRelationshipSchemasRepository({
 		_tag: "RelationshipSchemasRepository",
-		findBuiltinBySlug: (slug: string) =>
-			slug === "member-of" ? Effect.succeed(memberOfSchema) : Effect.succeed(inLibrarySchema),
+		findBuiltinBySlug: () => Effect.succeed(memberOfSchema),
 		...overrides,
 	});
 
@@ -207,21 +196,31 @@ const makeServiceLayer = (
 	);
 };
 
-type CapturedDispatch = { executionId: string; payload: unknown };
+type CapturedDispatch = { executionId: string; payload: unknown; discard: boolean | undefined };
 
 const runAddWorkflow = (input: {
 	entityId: EntityId;
-	collectionId: EntityId;
+	executionId?: string;
 	properties?: unknown;
+	eventError?: unknown;
+	eventResult?: unknown;
+	collectionId: EntityId;
+	eventResults?: unknown[];
 	dispatches?: CapturedDispatch[];
 	layer: Layer.Layer<CollectionsService>;
 }) => {
-	const executionId = "add-workflow-execution-id";
+	const executionId = input.executionId ?? "add-workflow-execution-id";
 	const instance = WorkflowInstance.initial(AddEntityToCollectionWorkflow, executionId);
 	const engine = makeWorkflowActivityEngine(instance, {
 		execute: (_workflow, options) => {
-			input.dispatches?.push({ executionId: options.executionId, payload: options.payload });
-			return Effect.succeed(options.executionId);
+			input.dispatches?.push({
+				discard: options.discard,
+				payload: options.payload,
+				executionId: options.executionId,
+			});
+			return input.eventError
+				? Effect.fail(input.eventError)
+				: Effect.succeed(input.eventResults?.shift() ?? input.eventResult ?? options.executionId);
 		},
 	});
 	const operations = AddEntityToCollectionWorkflowOperationsLive.pipe(Layer.provide(input.layer));
@@ -383,7 +382,7 @@ it.effect("returns not found when entity does not exist", () => {
 	});
 });
 
-it.effect("dispatches EventCreateWorkflow only on first add, not on upsert", () => {
+it.effect("awaits EventCreateWorkflow for a newly inserted membership", () => {
 	const dispatches: CapturedDispatch[] = [];
 
 	const membership = {
@@ -430,12 +429,14 @@ it.effect("dispatches EventCreateWorkflow only on first add, not on upsert", () 
 		});
 
 		expect(dispatches).toHaveLength(1);
+		expect(dispatches[0]?.discard).toBeUndefined();
 		expect(dispatches[0]?.executionId).toBe("collection-membership-added-rel-id");
 	});
 });
 
-it.effect("does not dispatch EventCreateWorkflow on upsert update", () => {
+it.effect("awaits the same stable child for existing membership calls without compensating", () => {
 	const dispatches: CapturedDispatch[] = [];
+	let compensationCalls = 0;
 
 	const membership = {
 		createdAt: now,
@@ -451,6 +452,10 @@ it.effect("does not dispatch EventCreateWorkflow on upsert update", () => {
 		relationshipsRepository: makeRelationshipsRepository({
 			createRelationship: () => Effect.succeed(membership),
 			updateRelationship: () => Effect.succeed(membership),
+			deleteUserRelationshipById: () => {
+				compensationCalls += 1;
+				return Effect.succeed(true);
+			},
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
@@ -477,11 +482,418 @@ it.effect("does not dispatch EventCreateWorkflow on upsert update", () => {
 		yield* runAddWorkflow({
 			layer,
 			dispatches,
+			executionId: "existing-call-1",
+			entityId: EntityId.make("entity-id"),
+			collectionId: EntityId.make("coll-id"),
+		});
+		yield* runAddWorkflow({
+			layer,
+			dispatches,
+			executionId: "existing-call-2",
 			entityId: EntityId.make("entity-id"),
 			collectionId: EntityId.make("coll-id"),
 		});
 
-		expect(dispatches).toHaveLength(0);
+		expect(dispatches.map(({ executionId }) => executionId)).toEqual([
+			"collection-membership-added-rel-id",
+			"collection-membership-added-rel-id",
+		]);
+		expect(compensationCalls).toBe(0);
+	});
+});
+
+it.effect("compensates a newly inserted membership when the awaited policy fails", () => {
+	const compensations: Array<{ userId: UserId; relationshipId: RelationshipId }> = [];
+	const membership = {
+		createdAt: now,
+		properties: {},
+		wasInserted: true,
+		id: RelationshipId.make("rel-id"),
+		targetEntityId: EntityId.make("coll-id"),
+		sourceEntityId: EntityId.make("entity-id"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of-schema-id"),
+	};
+	const layer = makeServiceLayer({
+		relationshipsRepository: makeRelationshipsRepository({
+			createRelationship: () => Effect.succeed(membership),
+			deleteUserRelationshipById: (userId, relationshipId) =>
+				Effect.sync(() => {
+					compensations.push({ userId, relationshipId });
+					return true;
+				}),
+		}),
+		collectionsRepository: makeCollectionsRepository({
+			getEntityForMembership: () =>
+				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+			getCollectionById: () =>
+				Effect.succeed({
+					name: "Coll",
+					createdAt: now,
+					updatedAt: now,
+					properties: {},
+					externalId: null,
+					providerId: null,
+					id: EntityId.make("coll-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
+				}),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const exit = yield* Effect.exit(
+			runAddWorkflow({
+				layer,
+				entityId: EntityId.make("entity-id"),
+				collectionId: EntityId.make("coll-id"),
+				eventResult: {
+					count: 0,
+					outcomes: [],
+					failure: { index: 0, reason: { kind: "bad_request", message: "policy failed" } },
+				},
+			}),
+		);
+
+		assertExitFails(exit, new BadRequest({ message: "policy failed" }));
+		expect(compensations).toEqual([{ userId: user.id, relationshipId: "rel-id" }]);
+	});
+});
+
+it.effect("compensates when child workflow execution fails", () => {
+	const compensatedIds: RelationshipId[] = [];
+	const membership = {
+		createdAt: now,
+		properties: {},
+		wasInserted: true,
+		id: RelationshipId.make("rel-id"),
+		targetEntityId: EntityId.make("coll-id"),
+		sourceEntityId: EntityId.make("entity-id"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of-schema-id"),
+	};
+	const layer = makeServiceLayer({
+		relationshipsRepository: makeRelationshipsRepository({
+			createRelationship: () => Effect.succeed(membership),
+			deleteUserRelationshipById: (_userId, relationshipId) =>
+				Effect.sync(() => {
+					compensatedIds.push(relationshipId);
+					return true;
+				}),
+		}),
+		collectionsRepository: makeCollectionsRepository({
+			getEntityForMembership: () =>
+				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+			getCollectionById: () =>
+				Effect.succeed({
+					name: "Coll",
+					createdAt: now,
+					updatedAt: now,
+					properties: {},
+					externalId: null,
+					providerId: null,
+					id: EntityId.make("coll-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
+				}),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const exit = yield* Effect.exit(
+			runAddWorkflow({
+				layer,
+				entityId: EntityId.make("entity-id"),
+				collectionId: EntityId.make("coll-id"),
+				eventError: new NotFound({ message: "child failed" }),
+			}),
+		);
+
+		assertExitFails(exit, new NotFound({ message: "child failed" }));
+		expect(compensatedIds).toEqual(["rel-id"]);
+	});
+});
+
+it.effect("compensates a non-inserting caller when the shared child fails", () => {
+	const compensatedIds: RelationshipId[] = [];
+	const membership = {
+		createdAt: now,
+		properties: {},
+		wasInserted: false,
+		targetEntityId: EntityId.make("coll-id"),
+		sourceEntityId: EntityId.make("entity-id"),
+		id: RelationshipId.make("other-request-rel-id"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of-schema-id"),
+	};
+	const layer = makeServiceLayer({
+		relationshipsRepository: makeRelationshipsRepository({
+			createRelationship: () => Effect.succeed(membership),
+			updateRelationship: () => Effect.succeed(membership),
+			deleteUserRelationshipById: (_userId, relationshipId) =>
+				Effect.sync(() => {
+					compensatedIds.push(relationshipId);
+					return true;
+				}),
+		}),
+		collectionsRepository: makeCollectionsRepository({
+			getEntityForMembership: () =>
+				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+			getCollectionById: () =>
+				Effect.succeed({
+					name: "Coll",
+					createdAt: now,
+					updatedAt: now,
+					properties: {},
+					externalId: null,
+					providerId: null,
+					id: EntityId.make("coll-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
+				}),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const exit = yield* Effect.exit(
+			runAddWorkflow({
+				layer,
+				entityId: EntityId.make("entity-id"),
+				collectionId: EntityId.make("coll-id"),
+				eventResult: {
+					count: 0,
+					outcomes: [],
+					failure: { index: 0, reason: { kind: "bad_request", message: "policy failed" } },
+				},
+			}),
+		);
+
+		assertExitFails(exit, new BadRequest({ message: "policy failed" }));
+		expect(compensatedIds).toEqual(["other-request-rel-id"]);
+	});
+});
+
+it.effect("can insert and run policy again after a compensated failure", () => {
+	let nextRelationship = 0;
+	const dispatches: CapturedDispatch[] = [];
+	const compensatedIds: RelationshipId[] = [];
+	const membership = (id: RelationshipId, wasInserted: boolean) => ({
+		id,
+		wasInserted,
+		createdAt: now,
+		properties: {},
+		targetEntityId: EntityId.make("coll-id"),
+		sourceEntityId: EntityId.make("entity-id"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of-schema-id"),
+	});
+	let currentRelationship: ReturnType<typeof membership> | null = null;
+	const layer = makeServiceLayer({
+		relationshipsRepository: makeRelationshipsRepository({
+			createRelationship: () =>
+				Effect.sync(() => {
+					if (currentRelationship) {
+						return { ...currentRelationship, wasInserted: false };
+					}
+					nextRelationship += 1;
+					currentRelationship = membership(RelationshipId.make(`rel-${nextRelationship}`), true);
+					return currentRelationship;
+				}),
+			deleteUserRelationshipById: (requestedUserId, relationshipId) =>
+				Effect.sync(() => {
+					if (requestedUserId !== user.id || currentRelationship?.id !== relationshipId) {
+						return false;
+					}
+					compensatedIds.push(relationshipId);
+					currentRelationship = null;
+					return true;
+				}),
+		}),
+		collectionsRepository: makeCollectionsRepository({
+			getEntityForMembership: () =>
+				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+			getCollectionById: () =>
+				Effect.succeed({
+					name: "Coll",
+					createdAt: now,
+					updatedAt: now,
+					properties: {},
+					externalId: null,
+					providerId: null,
+					id: EntityId.make("coll-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
+				}),
+		}),
+	});
+	const eventResults = [
+		{
+			count: 0,
+			outcomes: [],
+			failure: { index: 0, reason: { kind: "bad_request", message: "policy failed" } },
+		},
+		{ count: 1, outcomes: [{ index: 0, status: "written", eventId: "event-1" }], failure: null },
+	];
+
+	return Effect.gen(function* () {
+		const firstExit = yield* Effect.exit(
+			runAddWorkflow({
+				layer,
+				dispatches,
+				eventResults,
+				executionId: "first-add-execution",
+				entityId: EntityId.make("entity-id"),
+				collectionId: EntityId.make("coll-id"),
+			}),
+		);
+		assertExitFails(firstExit, new BadRequest({ message: "policy failed" }));
+
+		const retried = yield* runAddWorkflow({
+			layer,
+			dispatches,
+			eventResults,
+			executionId: "retry-add-execution",
+			entityId: EntityId.make("entity-id"),
+			collectionId: EntityId.make("coll-id"),
+		});
+
+		expect(retried.memberOf.id).toBe("rel-2");
+		expect(compensatedIds).toEqual(["rel-1"]);
+		expect(dispatches.map(({ executionId }) => executionId)).toEqual([
+			"collection-membership-added-rel-1",
+			"collection-membership-added-rel-2",
+		]);
+	});
+});
+
+it.effect("retries compensation after a prior compensation failure", () => {
+	let deleteAttempts = 0;
+	const dispatches: CapturedDispatch[] = [];
+	const membership = {
+		createdAt: now,
+		properties: {},
+		wasInserted: false,
+		id: RelationshipId.make("rel-id"),
+		targetEntityId: EntityId.make("coll-id"),
+		sourceEntityId: EntityId.make("entity-id"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of-schema-id"),
+	};
+	let currentRelationship: typeof membership | null = membership;
+	const layer = makeServiceLayer({
+		relationshipsRepository: makeRelationshipsRepository({
+			createRelationship: () => Effect.succeed(membership),
+			updateRelationship: () => Effect.succeed({ ...membership, wasInserted: false }),
+			deleteUserRelationshipById: (_userId, relationshipId) =>
+				Effect.gen(function* () {
+					deleteAttempts += 1;
+					if (deleteAttempts === 1) {
+						return yield* new DbError({ message: "compensation failed" });
+					}
+					if (currentRelationship?.id !== relationshipId) {
+						return false;
+					}
+					currentRelationship = null;
+					return true;
+				}),
+		}),
+		collectionsRepository: makeCollectionsRepository({
+			getEntityForMembership: () =>
+				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+			getCollectionById: () =>
+				Effect.succeed({
+					name: "Coll",
+					createdAt: now,
+					updatedAt: now,
+					properties: {},
+					externalId: null,
+					providerId: null,
+					id: EntityId.make("coll-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
+				}),
+		}),
+	});
+	const eventResults = [
+		{
+			count: 0,
+			outcomes: [],
+			failure: { index: 0, reason: { kind: "bad_request", message: "policy failed" } },
+		},
+		{
+			count: 0,
+			outcomes: [],
+			failure: { index: 0, reason: { kind: "bad_request", message: "policy failed" } },
+		},
+	];
+
+	return Effect.gen(function* () {
+		const firstExit = yield* Effect.exit(
+			runAddWorkflow({
+				layer,
+				dispatches,
+				eventResults,
+				executionId: "first-call",
+				entityId: EntityId.make("entity-id"),
+				collectionId: EntityId.make("coll-id"),
+			}),
+		);
+		assertExitFails(firstExit, new DbError({ message: "compensation failed" }));
+
+		const retryExit = yield* Effect.exit(
+			runAddWorkflow({
+				layer,
+				dispatches,
+				eventResults,
+				executionId: "retry-call",
+				entityId: EntityId.make("entity-id"),
+				collectionId: EntityId.make("coll-id"),
+			}),
+		);
+
+		assertExitFails(retryExit, new BadRequest({ message: "policy failed" }));
+		expect(deleteAttempts).toBe(2);
+		expect(currentRelationship).toBeNull();
+		expect(dispatches.map(({ executionId }) => executionId)).toEqual([
+			"collection-membership-added-rel-id",
+			"collection-membership-added-rel-id",
+		]);
+	});
+});
+
+it.effect("writes only member-of for a global collection member", () => {
+	const relationshipSchemaSlugs: RelationshipSchemaSlug[] = [];
+	const membership = {
+		createdAt: now,
+		properties: {},
+		wasInserted: true,
+		id: RelationshipId.make("rel-id"),
+		targetEntityId: EntityId.make("coll-id"),
+		sourceEntityId: EntityId.make("entity-id"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of-schema-id"),
+	};
+	const layer = makeServiceLayer({
+		relationshipsRepository: makeRelationshipsRepository({
+			createRelationship: (input) => {
+				relationshipSchemaSlugs.push(input.relationshipSchemaSlug);
+				return Effect.succeed(membership);
+			},
+		}),
+		collectionsRepository: makeCollectionsRepository({
+			getEntityForMembership: () =>
+				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+			getCollectionById: () =>
+				Effect.succeed({
+					name: "Coll",
+					createdAt: now,
+					updatedAt: now,
+					properties: {},
+					externalId: null,
+					providerId: null,
+					id: EntityId.make("coll-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
+				}),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		yield* runAddWorkflow({
+			layer,
+			entityId: EntityId.make("entity-id"),
+			collectionId: EntityId.make("coll-id"),
+		});
+
+		expect(relationshipSchemaSlugs).toEqual(["member-of-schema-id"]);
 	});
 });
 
@@ -580,97 +992,5 @@ it.effect("creates remove event on successful membership deletion", () => {
 		expect(queuedEventCount).toBe(1);
 		expect(result.memberOf.id).toBe("rel-id");
 		expect(capturedExecutionId).toBe("collection-membership-removed-rel-id");
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("merges ownership sources when marking an entity owned in the library", () => {
-	let upserted: { properties: Record<string, unknown> } | undefined;
-
-	const layer = makeServiceLayer({
-		collectionsRepository: makeCollectionsRepository({
-			getUserLibraryEntityId: () => Effect.succeed(EntityId.make("library-entity-id")),
-		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			findRelationshipProperties: () =>
-				Effect.succeed({ owned: true, ownershipSources: ["plex_yank"] }),
-			updateRelationship: (input: { properties: Record<string, unknown> }) => {
-				upserted = input;
-				return Effect.succeed({
-					createdAt: now,
-					wasInserted: true,
-					properties: input.properties,
-					id: RelationshipId.make("rel-id"),
-					sourceEntityId: EntityId.make("entity-id"),
-					targetEntityId: EntityId.make("library-entity-id"),
-					relationshipSchemaSlug: RelationshipSchemaSlug.make("in-library-schema-id"),
-				});
-			},
-		}),
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* CollectionsService;
-		yield* service.markEntityOwnedInLibrary({
-			syncedAt: now,
-			provider: "komga",
-			userId: UserId.make("user-id"),
-			entityId: EntityId.make("entity-id"),
-		});
-
-		expect(upserted?.properties).toEqual({
-			owned: true,
-			ownershipSyncedAt: now,
-			ownershipSources: ["plex_yank", "komga"],
-		});
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("merges ownership sources after a create conflict", () => {
-	let retried: { properties: Record<string, unknown> } | undefined;
-	const layer = makeServiceLayer({
-		collectionsRepository: makeCollectionsRepository({
-			getUserLibraryEntityId: () => Effect.succeed(EntityId.make("library-entity-id")),
-		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			findRelationshipProperties: () => Effect.succeed(null),
-			createRelationship: () =>
-				Effect.succeed({
-					createdAt: now,
-					wasInserted: false,
-					properties: { owned: true, ownershipSources: ["plex_yank"] },
-					id: RelationshipId.make("rel-id"),
-					sourceEntityId: EntityId.make("entity-id"),
-					targetEntityId: EntityId.make("library-entity-id"),
-					relationshipSchemaSlug: RelationshipSchemaSlug.make("in-library-schema-id"),
-				}),
-			updateRelationship: (input: { properties: Record<string, unknown> }) => {
-				retried = input;
-				return Effect.succeed({
-					createdAt: now,
-					wasInserted: false,
-					properties: input.properties,
-					id: RelationshipId.make("rel-id"),
-					sourceEntityId: EntityId.make("entity-id"),
-					targetEntityId: EntityId.make("library-entity-id"),
-					relationshipSchemaSlug: RelationshipSchemaSlug.make("in-library-schema-id"),
-				});
-			},
-		}),
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* CollectionsService;
-		yield* service.markEntityOwnedInLibrary({
-			syncedAt: now,
-			userId: user.id,
-			provider: "komga",
-			entityId: EntityId.make("entity-id"),
-		});
-
-		expect(retried?.properties).toEqual({
-			owned: true,
-			ownershipSources: ["plex_yank", "komga"],
-			ownershipSyncedAt: now,
-		});
 	}).pipe(Effect.provide(layer));
 });

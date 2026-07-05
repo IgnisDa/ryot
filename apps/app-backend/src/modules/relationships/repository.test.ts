@@ -1,5 +1,10 @@
 import { expect, it } from "@effect/vitest";
-import { EntityId, RelationshipSchemaSlug, UserId } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	RelationshipId,
+	RelationshipSchemaSlug,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
@@ -34,6 +39,9 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 		const rendered = dialect.sqlToQuery(condition);
 		const text = rendered.sql;
 		const params = paramsFor(condition);
+		if (text.includes('"relationship"."id"')) {
+			return row.id === params[0] && row.userId === params[1];
+		}
 
 		if (text.includes('"relationship"."userId" is null')) {
 			if (row.userId !== null) {
@@ -113,8 +121,8 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 
 					const row = {
 						...input,
-						id: `relationship-${state.rows.length + 1}`,
 						createdAt: new Date("2026-06-14T00:00:00.000Z"),
+						id: `relationship-${state.rows.length + 1}`,
 					};
 					state.rows.push(row);
 					inserted.push(row);
@@ -271,5 +279,69 @@ it.effect("lists and deletes user relationships without touching global rows", (
 		expect(state.executeCalls).toBe(1);
 		expect(deleted?.id).toBe("user-row");
 		expect(state.rows.map((row) => row.id)).toEqual(["global-row"]);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("deletes by exact relationship and user ids", () => {
+	const { db, state } = makeDb([
+		{
+			properties: {},
+			userId: "user-1",
+			id: "relationship-1",
+			sourceEntityId: "entity-1",
+			targetEntityId: "entity-2",
+			relationshipSchemaSlug: "schema",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+		{
+			properties: {},
+			userId: "user-2",
+			id: "relationship-2",
+			sourceEntityId: "entity-1",
+			targetEntityId: "entity-2",
+			relationshipSchemaSlug: "schema",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+	]);
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		const wrongUser = yield* repository.deleteUserRelationshipById(
+			UserId.make("user-2"),
+			RelationshipId.make("relationship-1"),
+		);
+		const removed = yield* repository.deleteUserRelationshipById(
+			UserId.make("user-1"),
+			RelationshipId.make("relationship-1"),
+		);
+
+		expect(wrongUser).toBe(false);
+		expect(removed).toBe(true);
+		expect(state.rows.map(({ id }) => id)).toEqual(["relationship-2"]);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("does not delete a concurrent replacement with a different id", () => {
+	const { db, state } = makeDb([
+		{
+			properties: {},
+			userId: "user-1",
+			sourceEntityId: "entity-1",
+			targetEntityId: "entity-2",
+			id: "replacement-relationship",
+			relationshipSchemaSlug: "schema",
+			createdAt: new Date("2026-06-14T00:00:00.000Z"),
+		},
+	]);
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		const removed = yield* repository.deleteUserRelationshipById(
+			UserId.make("user-1"),
+			RelationshipId.make("original-relationship"),
+		);
+
+		expect(removed).toBe(false);
+		expect(state.rows.map(({ id }) => id)).toEqual(["replacement-relationship"]);
 	}).pipe(Effect.provide(makeLayer(db)));
 });

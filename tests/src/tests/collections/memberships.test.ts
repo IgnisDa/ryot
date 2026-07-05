@@ -5,9 +5,12 @@ import {
 	createAuthenticatedClient,
 	createCollection,
 	createGlobalBookEntityFixture,
+	createPluginSchema,
 	createPluginSchemaAndEntity,
+	findBuiltinSchemaBySlug,
 	getBackendClient,
 	queryInLibraryRelationship,
+	seedMediaEntity,
 } from "~/fixtures";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -112,6 +115,56 @@ describe("POST /collections/memberships", () => {
 		}),
 	);
 
+	it.live("does not add a global fitness entity to the media library", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const entity = yield* seedMediaEntity({
+				userId: null,
+				providerId: null,
+				entitySchemaSlug: schema.id,
+				name: `Global Workout ${crypto.randomUUID()}`,
+				externalId: `global-workout-${crypto.randomUUID()}`,
+				properties: { endedAt: "2026-04-27T11:00:00Z", startedAt: "2026-04-27T10:00:00Z" },
+			});
+			const collection = yield* createCollection(client, { name: "Fitness Collection" });
+
+			yield* client.call((c) =>
+				c.collections.createMembership({
+					payload: { entityId: entity.id, collectionId: collection.id },
+				}),
+			);
+
+			const membership = yield* queryInLibraryRelationship(client, entity.id, schema.slug);
+			expect(membership.data.items).toHaveLength(0);
+		}),
+	);
+
+	it.live("does not add an unrelated global plugin entity to the media library", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { slug, schemaId } = yield* createPluginSchema(client);
+			const entity = yield* seedMediaEntity({
+				userId: null,
+				providerId: null,
+				entitySchemaSlug: schemaId,
+				properties: { title: "Unrelated" },
+				name: `Global Fixture ${crypto.randomUUID()}`,
+				externalId: `global-fixture-${crypto.randomUUID()}`,
+			});
+			const collection = yield* createCollection(client, { name: "Fixture Collection" });
+
+			yield* client.call((c) =>
+				c.collections.createMembership({
+					payload: { entityId: entity.id, collectionId: collection.id },
+				}),
+			);
+
+			const membership = yield* queryInLibraryRelationship(client, entity.id, slug);
+			expect(membership.data.items).toHaveLength(0);
+		}),
+	);
+
 	it.live("adds an entity with custom properties", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
@@ -143,10 +196,7 @@ describe("POST /collections/memberships", () => {
 				}),
 			);
 
-			expect(data.memberOf.properties).toMatchObject({
-				rating: 5,
-				recommendedBy: "John",
-			});
+			expect(data.memberOf.properties).toMatchObject({ rating: 5, recommendedBy: "John" });
 		}),
 	);
 
