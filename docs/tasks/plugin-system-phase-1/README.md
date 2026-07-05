@@ -20,9 +20,9 @@ items are open, and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 2 of 3 tasks completed
+**Overall Progress:** 3 of 3 tasks completed
 
-**Current Task:** [Task 03](./03-codebase-cleanup.md) (todo)
+**Current Task:** Phase 1 complete
 
 ### Task List
 
@@ -30,7 +30,7 @@ items are open, and you record the choice you make in the plan file.
 | --- | --------------------------------------------------------------------- | ---- | ------ |
 | 01  | [Build the Definition Registry](./01-build-definition-registry.md)    | AFK  | done   |
 | 02  | [FK-to-Slug Storage and Consumer Cutover](./02-fk-to-slug-cutover.md) | AFK  | done   |
-| 03  | [Codebase Cleanup](./03-codebase-cleanup.md)                          | AFK  | todo   |
+| 03  | [Codebase Cleanup](./03-codebase-cleanup.md)                          | AFK  | done   |
 
 ## Problem Statement
 

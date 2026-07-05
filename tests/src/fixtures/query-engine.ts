@@ -3,9 +3,9 @@ import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
 import { createAuthenticatedClient, type Client } from "./auth";
-import { type ContractPayload, getBackendClient } from "./contract-client";
+import { getBackendClient } from "./contract-client";
 import { createEntity } from "./entities";
-import { createEntitySchema } from "./entity-schemas";
+import { createEntitySchema, makeEntitySchemaSlug } from "./entity-schemas";
 import { createEventSchema } from "./event-schemas";
 import { listEventsForEntity } from "./events";
 import { pollUntil } from "./polling";
@@ -39,10 +39,7 @@ export const createQueryEngineEntity = (
 	createEntity(client, {
 		name: input.name,
 		properties: input.properties ?? {},
-		entitySchemaSlug: input.entitySchemaSlug as ContractPayload<
-			"entities",
-			"create"
-		>["entitySchemaSlug"],
+		entitySchemaSlug: makeEntitySchemaSlug(input.entitySchemaSlug),
 	});
 
 export const createQueryEngineEvent = (
