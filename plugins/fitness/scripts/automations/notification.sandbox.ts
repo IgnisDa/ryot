@@ -1,5 +1,5 @@
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
-import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({

@@ -1,4 +1,5 @@
-import type { SandboxHost, SandboxHostError } from "@ryot/sandbox-sdk/core";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import type { SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import type { Effect } from "effect";
 
 type AppConfigHost = SandboxHost<readonly ["getAppConfigValue"]>;

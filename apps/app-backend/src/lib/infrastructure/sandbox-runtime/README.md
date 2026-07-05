@@ -57,7 +57,7 @@ The pool preserves process isolation because every subprocess is still single-us
 
 ## Approved Dependencies
 
-Format-1 modules can import the SDK root plus the explicit `/effect`, `/dayjs`, `/dayjs/custom-parse-format`, `/cheerio`, and `/youtubei` entry points. The compiler bundles the small SDK definition runtime into each script and leaves approved dependency imports external.
+Format-1 modules can import the SDK root plus the explicit `/driver`, `/wire`, `/operation`, `/effect`, `/dayjs`, `/dayjs/custom-parse-format`, `/cheerio`, and `/youtubei` entry points. The compiler bundles the small SDK definition runtime into each script and leaves approved dependency imports external.
 
 `PackageCacheManager` builds the exact pinned package versions into self-contained ESM files under an immutable, content-addressed, read-only directory in `SANDBOX_DENO_DIR`. Its Deno import map resolves approved SDK imports to those local files. A separate content-addressed Deno cache starts without registry packages. Concurrent builders publish atomically and reuse the same verified module set.
 
@@ -100,7 +100,7 @@ Cache keys are isolated per `(executing user, scriptId)`. Executing the same plu
 Format-1 scripts define drivers with SDK input and output schemas. The enqueue request chooses a driver by name; the runner validates input before invoking `run` and output before returning it.
 
 ```ts
-import { defineDriver, defineScript } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 const main = defineDriver(manifest, {

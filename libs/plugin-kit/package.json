@@ -9,10 +9,6 @@
 		"./operations": {
 			"types": "./src/operations.ts",
 			"default": "./src/operations.ts"
-		},
-		"./property-schema": {
-			"types": "./src/property-schema.ts",
-			"default": "./src/property-schema.ts"
 		}
 	},
 	"scripts": {

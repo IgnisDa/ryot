@@ -8,25 +8,6 @@ import {
 	type SandboxHostError,
 } from "./wire.js";
 
-export {
-	defineDriver,
-	defineManifest,
-	defineScript,
-	SANDBOX_SCRIPT_DEFINITION,
-	type GenericDriver,
-	type GenericScriptDefinition,
-} from "./driver.js";
-
-export { defineOperation } from "./operation.js";
-
-export {
-	jsonValueSchema,
-	sandboxHostErrorSchema,
-	type JsonPrimitive,
-	type JsonValue,
-	type SandboxHostError,
-} from "./wire.js";
-
 const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
 	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
 

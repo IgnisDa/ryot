@@ -1,7 +1,8 @@
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
-import type { CreateEventItem, JsonValue } from "@ryot/sandbox-sdk/core";
+import type { CreateEventItem } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { describe, expect, it } from "vitest";
 
 import definition, { manifest } from "./auto-complete-on-full-progress.sandbox";

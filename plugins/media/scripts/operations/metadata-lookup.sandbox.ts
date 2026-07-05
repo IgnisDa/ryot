@@ -1,5 +1,6 @@
-import { defineDriver, defineManifest, defineOperation } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineOperation } from "@ryot/sandbox-sdk/operation";
 
 import {
 	MetadataLookupInput,

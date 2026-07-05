@@ -14,5 +14,8 @@ export const SANDBOX_SDK_IMPORTS = [
 	SANDBOX_SDK_ROOT_IMPORT,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_PROVIDER_IMPORT,
+	"@ryot/sandbox-sdk/driver",
+	"@ryot/sandbox-sdk/operation",
+	"@ryot/sandbox-sdk/wire",
 	...SANDBOX_RUNTIME_SDK_IMPORTS,
 ] as const;

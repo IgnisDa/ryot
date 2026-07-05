@@ -1,12 +1,9 @@
-import {
-	defineDriver,
-	defineManifest,
-	type JsonValue,
-	type SandboxHost,
-} from "@ryot/sandbox-sdk/core";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { dayjs } from "@ryot/sandbox-sdk/dayjs";
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 export const manifest = defineManifest({
 	kind: "provider",
