@@ -45,18 +45,18 @@ export const Route = createFileRoute("/_authenticated")({
 				});
 			}
 		}
-		return { catalog, ryot };
+		return { catalog, rememberedSlug, ryot };
 	},
 	shouldReload: ({ location }) => location.pathname === "/",
 });
 
 function AuthenticatedLayout() {
-	const { catalog, ryot } = Route.useLoaderData();
+	const { catalog, rememberedSlug, ryot } = Route.useLoaderData();
 	const { runtime, scope } = Route.useRouteContext();
 	return (
 		<RyotProvider client={ryot}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
-				<AuthenticatedShell />
+				<AuthenticatedShell initialRememberedSlug={rememberedSlug} />
 			</PluginCatalogProvider>
 		</RyotProvider>
 	);
