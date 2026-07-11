@@ -27,10 +27,11 @@ export const Route = createFileRoute("/onboarding")({
 	component: Onboarding,
 	validateSearch: (search) => ({ redirect: sanitizeRedirect(search.redirect) }),
 	beforeLoad: ({ context, search }) => {
+		const isNative = isNativePlatform();
 		const server = context.runtime.runSync(
 			Effect.flatMap(ServerService, (service) => service.selected),
 		);
-		const decision = decideOnboardingGate(server, search.redirect);
+		const decision = decideOnboardingGate(isNative, server, search.redirect);
 		if (decision.action === "redirect") {
 			return redirect({ to: decision.to, search: { redirect: decision.redirectTo } });
 		}
@@ -44,9 +45,7 @@ function Onboarding() {
 	const navigate = Route.useNavigate();
 	const serverService = runtime.runSync(ServerService);
 	const [mode, setMode] = useState<ServerMode>("cloud");
-	const [serverUrl, setServerUrl] = useState(() =>
-		suggestedServerOrigin(isNativePlatform() ? undefined : window.location.origin),
-	);
+	const [serverUrl, setServerUrl] = useState(() => suggestedServerOrigin(undefined));
 	const [validationError, setValidationError] = useState<string>();
 	const [connection, dispatch] = useReducer(reduceConnectionState, initialConnectionState);
 	const connectionController = useRef<AbortController>(null);
