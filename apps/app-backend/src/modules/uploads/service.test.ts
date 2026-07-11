@@ -8,6 +8,7 @@ import Redis from "ioredis";
 
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
 
 import { UploadsService } from "./service";
@@ -97,8 +98,9 @@ it.effect("rejects unsupported content types for presigned upload", () =>
 	Effect.gen(function* () {
 		const service = yield* UploadsService;
 		const exit = yield* Effect.exit(service.createPresignedUpload(user, "application/pdf"));
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Upload content type must be a supported MIME type" })),
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Upload content type must be a supported MIME type" }),
 		);
 	}).pipe(Effect.provide(makeUploadsLayer())),
 );
@@ -293,8 +295,9 @@ it.effect("rejects unsupported temporary upload file types", () =>
 		const exit = yield* Effect.exit(
 			service.uploadTemporary(user, [fakeFile("document.pdf", "application/pdf")]),
 		);
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Upload content type must be a supported MIME type" })),
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Upload content type must be a supported MIME type" }),
 		);
 	}).pipe(Effect.provide(makeUploadsLayer())),
 );
@@ -330,8 +333,6 @@ it.effect("rejects empty temporary upload requests", () =>
 	Effect.gen(function* () {
 		const service = yield* UploadsService;
 		const exit = yield* Effect.exit(service.uploadTemporary(user, []));
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "At least one upload file is required" })),
-		);
+		assertExitFails(exit, new BadRequest({ message: "At least one upload file is required" }));
 	}).pipe(Effect.provide(makeUploadsLayer())),
 );

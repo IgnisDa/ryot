@@ -1,7 +1,8 @@
 import { expect, it } from "@effect/vitest";
 import { RelationshipSchemaSlug, SignalSchemaSlug } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -138,12 +139,11 @@ it.effect("rejects built-in property contract drift", () => {
 	return Effect.gen(function* () {
 		const service = yield* SignalSchemasService;
 		const exit = yield* Effect.exit(service.ensureBuiltin(definition));
-		expect(exit).toEqual(
-			Exit.fail(
-				new SignalSchemaContractDrift({
-					message: "Built-in signal schema contract drifted: review.created",
-				}),
-			),
+		assertExitFails(
+			exit,
+			new SignalSchemaContractDrift({
+				message: "Built-in signal schema contract drifted: review.created",
+			}),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -166,12 +166,11 @@ it.effect("rejects built-in audience contract drift", () => {
 	return Effect.gen(function* () {
 		const service = yield* SignalSchemasService;
 		const exit = yield* Effect.exit(service.ensureBuiltin(definition));
-		expect(exit).toEqual(
-			Exit.fail(
-				new SignalSchemaContractDrift({
-					message: "Built-in signal schema contract drifted: review.created",
-				}),
-			),
+		assertExitFails(
+			exit,
+			new SignalSchemaContractDrift({
+				message: "Built-in signal schema contract drifted: review.created",
+			}),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -193,13 +192,11 @@ it.effect("rejects an invalid related-users schema contract", () => {
 	return Effect.gen(function* () {
 		const service = yield* SignalSchemasService;
 		const exit = yield* Effect.exit(service.ensureBuiltin(relatedDefinition));
-		expect(exit).toEqual(
-			Exit.fail(
-				new SignalSchemaContractDrift({
-					message:
-						"Built-in signal schema review.created references an invalid relationship schema",
-				}),
-			),
+		assertExitFails(
+			exit,
+			new SignalSchemaContractDrift({
+				message: "Built-in signal schema review.created references an invalid relationship schema",
+			}),
 		);
 	}).pipe(Effect.provide(layer));
 });

@@ -7,8 +7,9 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -126,7 +127,7 @@ it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 				hiddenLayer,
 			),
 		);
-		expect(hidden).toEqual(Exit.fail(new NotFound({ message: "Signal schema not found" })));
+		assertExitFails(hidden, new NotFound({ message: "Signal schema not found" }));
 
 		const duplicate = yield* Effect.exit(
 			Effect.provide(
@@ -136,9 +137,7 @@ it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 				duplicateLayer,
 			),
 		);
-		expect(duplicate).toEqual(
-			Exit.fail(new Conflict({ message: "Notification rule already installed" })),
-		);
+		assertExitFails(duplicate, new Conflict({ message: "Notification rule already installed" }));
 	});
 });
 
@@ -147,8 +146,9 @@ it.effect("returns the same not-found result for inaccessible and nonexistent ru
 	return Effect.gen(function* () {
 		const service = yield* NotificationSubscriptionsService;
 		for (const inaccessibleRuleId of [ruleId, AutomationRuleId.make("missing")]) {
-			expect(yield* Effect.exit(service.getRule({ userId, ruleId: inaccessibleRuleId }))).toEqual(
-				Exit.fail(new NotFound({ message: "Automation rule not found" })),
+			assertExitFails(
+				yield* Effect.exit(service.getRule({ userId, ruleId: inaccessibleRuleId })),
+				new NotFound({ message: "Automation rule not found" }),
 			);
 		}
 	}).pipe(Effect.provide(layer));
@@ -167,8 +167,9 @@ it.effect("does not reveal inaccessible notification state through mutations", (
 			service.setRuleActive({ userId, ruleId, isActive: true }),
 			service.deleteRule({ userId, ruleId }),
 		]) {
-			expect(yield* Effect.exit(mutation)).toEqual(
-				Exit.fail(new NotFound({ message: "Automation rule not found" })),
+			assertExitFails(
+				yield* Effect.exit(mutation),
+				new NotFound({ message: "Automation rule not found" }),
 			);
 		}
 	}).pipe(Effect.provide(layer));
@@ -201,11 +202,13 @@ it.effect("omits state whose signal definition is no longer registered", () => {
 	return Effect.gen(function* () {
 		const service = yield* NotificationSubscriptionsService;
 		expect(yield* service.listRules(userId)).toEqual([]);
-		expect(yield* Effect.exit(service.getRule({ userId, ruleId }))).toEqual(
-			Exit.fail(new NotFound({ message: "Automation rule not found" })),
+		assertExitFails(
+			yield* Effect.exit(service.getRule({ userId, ruleId })),
+			new NotFound({ message: "Automation rule not found" }),
 		);
-		expect(yield* Effect.exit(service.setRuleActive({ userId, ruleId, isActive: false }))).toEqual(
-			Exit.fail(new NotFound({ message: "Automation rule not found" })),
+		assertExitFails(
+			yield* Effect.exit(service.setRuleActive({ userId, ruleId, isActive: false })),
+			new NotFound({ message: "Automation rule not found" }),
 		);
 		expect(mutationAttempted).toBe(false);
 	}).pipe(Effect.provide(layer));
