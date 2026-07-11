@@ -32,7 +32,6 @@ const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 const entry = (index: number, path = `/p${index}`, key = `k${index}`) => ({
 	key,
 	index,
-	screenKey: key,
 	location: routeLocation(path),
 });
 
@@ -75,18 +74,6 @@ describe("reconcileStack", () => {
 		expect(result.transition).toBe("replace");
 		expect(result.stack).toHaveLength(2);
 		expect(result.stack.at(-1)?.key).toBe("k1-replaced");
-	});
-
-	it("keeps the render screen when a same-index replacement retains its screen key", () => {
-		const stack = build(0, 1);
-		const result = reconcileStack(
-			stack,
-			{ ...entry(1, "/p1", "k1-replaced"), screenKey: "k1" },
-			resolve,
-		);
-
-		expect(result.transition).toBe("same");
-		expect(result.stack.at(-1)).toMatchObject({ key: "k1", historyKey: "k1-replaced" });
 	});
 
 	it("pushes the next index onto the stack", () => {

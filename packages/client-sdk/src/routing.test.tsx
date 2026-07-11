@@ -176,7 +176,7 @@ const openChannel = (
 	const send = (
 		path: string,
 		search = "",
-		options: { readonly key?: string; readonly index?: number; readonly screenKey?: string } = {},
+		options: { readonly key?: string; readonly index?: number } = {},
 	) => {
 		position = options.index ?? position + 1;
 		store.setLocation({
@@ -187,7 +187,6 @@ const openChannel = (
 				index: position,
 				key: options.key ?? `k${position}`,
 				location: routeLocation(path, search),
-				screenKey: options.screenKey ?? options.key ?? `k${position}`,
 			},
 		});
 	};
@@ -198,7 +197,6 @@ const openChannel = (
 			readonly key?: string;
 			readonly index?: number;
 			readonly search?: string;
-			readonly screenKey?: string;
 		} = {},
 	) => {
 		position = options.index ?? position + 1;
@@ -211,7 +209,6 @@ const openChannel = (
 				location,
 				index: position,
 				key: options.key ?? `k${position}`,
-				screenKey: options.screenKey ?? options.key ?? `k${position}`,
 			},
 		});
 	};
@@ -297,7 +294,7 @@ const mount = (
 		sendLocation: (
 			path: string,
 			search = "",
-			options: { readonly key?: string; readonly index?: number; readonly screenKey?: string } = {},
+			options: { readonly key?: string; readonly index?: number } = {},
 		) => act(() => channel.send(path, search, options)),
 		sendEntityLocation: (
 			entityId: string,
@@ -690,7 +687,7 @@ describe("PluginRouter", () => {
 		);
 	});
 
-	it("keeps the active screen mounted when history replacement retains its screen key", async () => {
+	it("preserves focus and state when the active entry key is unchanged", async () => {
 		const { container, sendLocation } = mount();
 		sendLocation("/");
 		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
@@ -702,11 +699,13 @@ describe("PluginRouter", () => {
 		}
 		void act(() => greetButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 		await waitFor(() => expect(container.textContent).toContain("Greeted 1 times."));
+		greetButton.focus();
 
-		sendLocation("/", "tab=stats", { index: 0, key: "k0-replaced", screenKey: "k0" });
+		sendLocation("/", "tab=stats", { index: 0, key: "k0" });
 		await waitFor(() => expect(container.textContent).toContain("Tab stats"));
 		expect(container.textContent).toContain("Greeted 1 times.");
 		expect(mountCount).toBe(1);
+		expect(document.activeElement).toBe(greetButton);
 	});
 
 	it("remounts the active screen for an ordinary same-index history replacement", async () => {
@@ -726,7 +725,7 @@ describe("PluginRouter", () => {
 		expect(mountCount).toBe(2);
 	});
 
-	it("moves focus to the route container only after the first rendered location", async () => {
+	it("moves focus to the route container only when the active entry changes", async () => {
 		const { container, sendLocation } = mount();
 		sendLocation("/");
 		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
@@ -740,8 +739,13 @@ describe("PluginRouter", () => {
 		expect(document.hasFocus()).toBe(true);
 		expect(document.activeElement).not.toBe(routeContainer);
 
-		sendLocation("/", "tab=stats", { index: 0 });
-		await waitFor(() => expect(document.activeElement).toBe(routeContainer));
+		sendLocation("/", "tab=stats", { index: 1, key: "k1" });
+		await waitFor(() => {
+			const activeRouteContainer = [
+				...container.querySelectorAll<HTMLElement>('[tabindex="-1"]'),
+			].at(-1);
+			expect(document.activeElement).toBe(activeRouteContainer);
+		});
 	});
 
 	it("retains the previous screen across a pop, without remounting it", async () => {

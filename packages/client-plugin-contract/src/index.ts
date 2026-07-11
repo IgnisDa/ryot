@@ -291,7 +291,6 @@ export type PluginLeadingIntent = Schema.Schema.Type<typeof PluginLeadingIntent>
 export const PluginBridgeLocation = strictStruct({
 	index: Schema.Int,
 	key: Schema.String,
-	screenKey: Schema.String,
 	compact: Schema.Boolean,
 	edgeBack: Schema.Boolean,
 	leading: PluginLeadingIntent,

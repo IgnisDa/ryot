@@ -528,50 +528,47 @@ export const createPluginRuntime = (
 						}
 					}
 				}),
-				Match.when(
-					{ type: "location" },
-					({ compact, edgeBack, index, key, leading, location, screenKey }) => {
-						let accepted: PluginNavigationSnapshot;
-						try {
-							accepted = navigationStore.setLocation({
-								leading,
-								compact,
-								edgeBack,
-								entry: { index, key, location, screenKey },
-							});
-						} catch {
-							finish("failed", "protocol", true);
-							return;
-						}
-						if (state !== "ready" && state !== "active") {
-							return;
-						}
-						const acceptedEntry = accepted.entry;
-						if (acceptedEntry === undefined) {
-							finish("failed", "protocol", true);
-							return;
-						}
-						if (
-							!post({
-								type: "screen-state",
-								key: acceptedEntry.key,
-								index: acceptedEntry.index,
-								hasPreviousScreen: accepted.screens.length > 1,
-							} satisfies PluginBridgeScreenState)
-						) {
-							return;
-						}
-						const activating = state === "ready";
-						hasLocation = true;
-						activate();
-						if (activating && overlayCount > 0) {
-							post({
-								count: overlayCount,
-								type: "overlay-state",
-							} satisfies PluginBridgeOverlayState);
-						}
-					},
-				),
+				Match.when({ type: "location" }, ({ compact, edgeBack, index, key, leading, location }) => {
+					let accepted: PluginNavigationSnapshot;
+					try {
+						accepted = navigationStore.setLocation({
+							leading,
+							compact,
+							edgeBack,
+							entry: { index, key, location },
+						});
+					} catch {
+						finish("failed", "protocol", true);
+						return;
+					}
+					if (state !== "ready" && state !== "active") {
+						return;
+					}
+					const acceptedEntry = accepted.entry;
+					if (acceptedEntry === undefined) {
+						finish("failed", "protocol", true);
+						return;
+					}
+					if (
+						!post({
+							type: "screen-state",
+							key: acceptedEntry.key,
+							index: acceptedEntry.index,
+							hasPreviousScreen: accepted.screens.length > 1,
+						} satisfies PluginBridgeScreenState)
+					) {
+						return;
+					}
+					const activating = state === "ready";
+					hasLocation = true;
+					activate();
+					if (activating && overlayCount > 0) {
+						post({
+							count: overlayCount,
+							type: "overlay-state",
+						} satisfies PluginBridgeOverlayState);
+					}
+				}),
 				Match.when({ type: "viewport" }, ({ safeAreaBottom, safeAreaTop }) =>
 					navigationStore.setViewport({ safeAreaTop, safeAreaBottom }),
 				),

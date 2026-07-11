@@ -86,7 +86,6 @@ const render = (
 		entry: {
 			index: 0,
 			key: "home",
-			screenKey: "home",
 			location: { kind: "route", path: "/", search: "" },
 		},
 	});
@@ -116,7 +115,7 @@ const render = (
 				compact: false,
 				leading: "none",
 				edgeBack: false,
-				entry: { index, key, screenKey: key, location: { kind: "route", path, search: "" } },
+				entry: { index, key, location: { kind: "route", path, search: "" } },
 			}),
 		);
 	return { clock, container, draw, navigate };
