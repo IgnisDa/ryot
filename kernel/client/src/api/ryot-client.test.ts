@@ -37,7 +37,7 @@ const makeRuntime = (cause: unknown) =>
 describe("kernel Ryot client", () => {
 	const declaredFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
-		new AuthRateLimited({ reason: { code: "session-rate-limited", retryAfterMs: 30_000 } }),
+		new AuthRateLimited({ reason: { code: "api-key-rate-limited", retryAfterMs: 30_000 } }),
 		new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
 		new RyotQLInternalError({ reason: { code: "execution-failed" } }),
 	];

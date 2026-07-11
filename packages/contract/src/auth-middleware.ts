@@ -2,6 +2,7 @@ import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Context, Schema } from "effect";
 import { HttpApiMiddleware, HttpApiSchema, HttpApiSecurity } from "effect/unstable/httpapi";
 
+import type { AuthorizationContext as AuthorizationContextValue } from "./oauth";
 import type { UserId } from "./schema/brands";
 
 const AuthUnauthorizedReason = Schema.Union([
@@ -15,7 +16,7 @@ export class AuthUnauthorized extends Schema.TaggedError<AuthUnauthorized>()("Au
 }) {}
 
 const AuthRateLimitReason = Schema.Struct({
-	code: Schema.Literal("session-rate-limited"),
+	code: Schema.Literal("api-key-rate-limited"),
 	retryAfterMs: Schema.NullOr(Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
 });
 
@@ -59,6 +60,11 @@ export type CurrentUserValue = {
 
 export class CurrentUser extends Context.Service<CurrentUser, CurrentUserValue>()("CurrentUser") {}
 
+export class AuthorizationContext extends Context.Service<
+	AuthorizationContext,
+	AuthorizationContextValue
+>()("AuthorizationContext") {}
+
 export class AdminAccess extends Context.Service<AdminAccess, { readonly authorized: true }>()(
 	"AdminAccess",
 ) {}
@@ -70,9 +76,12 @@ export class AdminAccess extends Context.Service<AdminAccess, { readonly authori
  */
 export class AuthMiddleware extends HttpApiMiddleware.Service<
 	AuthMiddleware,
-	{ provides: CurrentUser }
+	{ provides: AuthorizationContext | CurrentUser }
 >()("AuthMiddleware", {
-	security: { apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }) },
+	security: {
+		oauth: HttpApiSecurity.bearer,
+		apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }),
+	},
 	error: [
 		AuthUnauthorized.pipe(HttpApiSchema.status(401)),
 		AuthRateLimited.pipe(HttpApiSchema.status(429)),
