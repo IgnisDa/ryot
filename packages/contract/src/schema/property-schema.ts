@@ -183,7 +183,7 @@ const PropertyValidationIssue = Schema.Struct({
 
 export type PropertyValidationIssue = typeof PropertyValidationIssue.Type;
 
-export class PropertyValidationError extends Schema.TaggedErrorClass<PropertyValidationError>()(
+export class PropertyValidationError extends Schema.TaggedError<PropertyValidationError>()(
 	"PropertyValidationError",
 	{ message: Schema.String, issues: Schema.Array(PropertyValidationIssue) },
 ) {}
