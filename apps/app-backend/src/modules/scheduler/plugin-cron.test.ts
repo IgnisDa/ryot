@@ -1,8 +1,8 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { PluginSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { PluginCron, PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Deferred, Effect, Fiber, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
 import { dbRunnerLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
@@ -14,7 +14,7 @@ import type { NormalizedPlugin } from "#modules/plugins/types";
 
 import { pluginCronExecutionId, PluginCronService } from "./plugin-cron";
 
-type CapturedRun = Parameters<WorkflowEngine["Type"]["execute"]>[1];
+type CapturedRun = Parameters<WorkflowEngine["Service"]["execute"]>[1];
 
 const testDate = new Date(0);
 
@@ -104,16 +104,15 @@ const makeLayer = (
 	captured: Array<CapturedRun>,
 	failingExecutionId?: string,
 	infrequentCronJobsSchedule = "0 0 * * *",
-	resolveActivePluginCron?: PluginRuntimeResolver["resolveActivePluginCron"],
+	resolveActivePluginCron?: PluginRuntimeResolver["Service"]["resolveActivePluginCron"],
 ) =>
-	PluginCronService.Default.pipe(
+	PluginCronService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				makeAppConfigLayer({ scheduler: { infrequentCronJobsSchedule } }),
 				dbRunnerLayer,
-				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader }),
+				Layer.succeed(PluginLoader, { ...loader }),
 				Layer.mock(PluginRuntimeResolver)({
-					_tag: "PluginRuntimeResolver",
 					resolveActivePluginCron:
 						resolveActivePluginCron ??
 						(({ cronSlug, pluginSlug }) => {
@@ -303,7 +302,7 @@ it.effect(
 		return Effect.gen(function* () {
 			const selected = yield* Deferred.make<void>();
 			const release = yield* Deferred.make<void>();
-			const resolveActivePluginCron: PluginRuntimeResolver["resolveActivePluginCron"] = (
+			const resolveActivePluginCron: PluginRuntimeResolver["Service"]["resolveActivePluginCron"] = (
 				identity,
 			) =>
 				Effect.gen(function* () {
@@ -329,7 +328,7 @@ it.effect(
 					};
 				});
 			const layer = makeLayer(loader, captured, undefined, "0 0 * * *", resolveActivePluginCron);
-			const fiber = yield* Effect.fork(
+			const fiber = yield* Effect.forkChild(
 				Effect.gen(function* () {
 					const service = yield* PluginCronService;
 					yield* service.dispatchDue(60_000);
