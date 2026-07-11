@@ -10,17 +10,17 @@ import {
 } from "./shared";
 
 export const exerciseEntityTargets = [
-	{ source: "custom", entitySchemaSlug: "exercise", sandboxScriptSlug: null },
+	{ source: "custom", entitySchemaSlug: "exercise", providerSlug: null },
 	{
 		source: "github",
 		entitySchemaSlug: "exercise",
-		sandboxScriptSlug: "exercise.free-exercise-db",
+		providerSlug: "exercise.free-exercise-db",
 	},
 ] as const satisfies readonly EntityMigrationTarget[];
 
 const exerciseEntityTargetValuesSql = sql.join(
 	exerciseEntityTargets.map(
-		(target) => sql`(${target.source}, ${target.entitySchemaSlug}, ${target.sandboxScriptSlug})`,
+		(target) => sql`(${target.source}, ${target.entitySchemaSlug}, ${target.providerSlug})`,
 	),
 	sql`, `,
 );
@@ -69,7 +69,7 @@ export const getUnsupportedExerciseSources = Effect.gen(function* () {
 	const { db } = yield* DbService;
 	const result = yield* dbEffect(() =>
 		db.execute<{ source: string }>(sql`
-			WITH exercise_targets (source, entity_schema_slug, sandbox_script_slug) AS (
+			WITH exercise_targets (source, entity_schema_slug, provider_slug) AS (
 				VALUES ${exerciseEntityTargetValuesSql}
 			)
 			SELECT DISTINCT
@@ -136,7 +136,7 @@ BEGIN
 	RAISE NOTICE 'exercise -> entity: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
-		WITH exercise_targets (source, entity_schema_slug, sandbox_script_id) AS (
+		WITH exercise_targets (source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT exercise.id::text AS id
@@ -150,7 +150,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH exercise_targets (source, entity_schema_slug, sandbox_script_id) AS (
+		WITH exercise_targets (source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO "entity" (
@@ -162,7 +162,7 @@ BEGIN
 			"user_id",
 			"properties",
 			"entity_schema_slug",
-			"sandbox_script_id",
+			"provider_id",
 			"updated_at"
 		)
 		SELECT
@@ -185,7 +185,7 @@ BEGIN
 				)
 			),
 			exercise_targets.entity_schema_slug,
-			exercise_targets.sandbox_script_id,
+			exercise_targets.provider_id,
 			NOW()
 		FROM "exercise" exercise
 		INNER JOIN exercise_targets ON exercise_targets.source = exercise.source
