@@ -2,7 +2,7 @@ import { Command, CommandExecutor, FileSystem, HttpApp, HttpServer } from "@effe
 import { BunHttpServer } from "@effect/platform-bun";
 import type { PlatformError } from "@effect/platform/Error";
 import { badRequest, internalError, unknownToMessage } from "@ryot/contract/errors";
-import { Clock, Effect, Pool, Queue, Runtime, Schema, Stream, type Tracer } from "effect";
+import { Clock, Deferred, Effect, Pool, Queue, Runtime, Schema, Stream, type Tracer } from "effect";
 
 import { sandboxDenoDirConfig } from "../config/definition";
 import { AppConfig } from "../config/service";
@@ -67,7 +67,9 @@ type ExecutionSession = {
 type ActiveExecutionSession = {
 	readonly hostCallLimit: number;
 	readonly parentSpan: Tracer.AnySpan;
+	readonly semaphore: Effect.Semaphore;
 	readonly budget: SandboxHostCallBudget;
+	readonly closed: Deferred.Deferred<void>;
 	readonly apiFunctions: Record<string, BoundHostFunction>;
 };
 
@@ -143,6 +145,11 @@ export const runSandboxBridgeHostFunction = (
 		}),
 		Effect.withParentSpan(input.parentSpan),
 	);
+
+export const withSandboxHostCallPermit = <A, E, R>(
+	semaphore: Effect.Semaphore,
+	effect: Effect.Effect<A, E, R>,
+) => semaphore.withPermits(1)(effect);
 
 const killProcessHandle = (process: CommandExecutor.Process) =>
 	process.kill().pipe(Effect.orElse(() => Effect.void));
@@ -250,8 +257,14 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 		const activeSessions = new Map<string, ActiveExecutionSession>();
 
 		const removeSession = Effect.fn("BridgeService.removeSession")(function* (executionId: string) {
+			yield* Effect.sync(() => {
+				const session = activeSessions.get(executionId);
+				activeSessions.delete(executionId);
+				if (session) {
+					Deferred.unsafeDone(session.closed, Effect.void);
+				}
+			});
 			yield* redis.del(redisKeys.sandboxSession(executionId));
-			yield* Effect.sync(() => activeSessions.delete(executionId));
 		}, Effect.asVoid);
 
 		const addSession = Effect.fn("BridgeService.addSession")(function* (
@@ -259,6 +272,8 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 			session: ExecutionSession,
 		) {
 			const now = yield* Clock.currentTimeMillis;
+			const closed = yield* Deferred.make<void>();
+			const semaphore = yield* Effect.makeSemaphore(SANDBOX_LIMITS.bridge.concurrentHostCalls);
 			const ttlSeconds = Math.max(1, Math.ceil((session.expiresAt - now) / 1000));
 			yield* redis.set(
 				redisKeys.sandboxSession(executionId),
@@ -267,7 +282,9 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 			);
 			yield* Effect.sync(() =>
 				activeSessions.set(executionId, {
+					closed,
 					budget: { http: 0, total: 0 },
+					semaphore,
 					parentSpan: session.parentSpan,
 					apiFunctions: session.apiFunctions,
 					hostCallLimit: session.hostCallLimit,
@@ -348,7 +365,7 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 					Effect.map((body) => body.args),
 					Effect.mapError(() => badRequest("Invalid request body")),
 				);
-				return yield* runSandboxBridgeHostFunction(fn, args, {
+				const hostCall = runSandboxBridgeHostFunction(fn, args, {
 					fnName,
 					executionId,
 					parentSpan: activeSession.parentSpan,
@@ -357,6 +374,13 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 					Effect.flatMap(sandboxBridgeResultResponse),
 					Effect.catchAll((error) =>
 						Effect.succeed(Response.json({ error: unknownToMessage(error) }, { status: 500 })),
+					),
+				);
+				return yield* withSandboxHostCallPermit(activeSession.semaphore, hostCall).pipe(
+					Effect.raceFirst(
+						Deferred.await(activeSession.closed).pipe(
+							Effect.as(Response.json({ error: "Execution ended" }, { status: 410 })),
+						),
 					),
 				);
 			},

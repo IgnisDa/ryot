@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 10 of 18 tasks completed
+**Overall Progress:** 11 of 18 tasks completed
 
-**Current Task:** [Task 11](./11-per-execution-host-call-concurrency.md) (todo)
+**Current Task:** [Task 12](./12-sandbox-database-limit-retuning.md) (todo)
 
 ### Task List
 
@@ -20,7 +20,7 @@
 | 08  | [Registry Trust and Provenance Simplification](./08-registry-trust-provenance.md)             | done   |
 | 09  | [Effect-Only Authoring Boundary](./09-effect-only-authoring-boundary.md)                      | done   |
 | 10  | [Content-Addressed Disk Modules](./10-content-addressed-disk-modules.md)                      | done   |
-| 11  | [Per-Execution Host-Call Concurrency](./11-per-execution-host-call-concurrency.md)            | todo   |
+| 11  | [Per-Execution Host-Call Concurrency](./11-per-execution-host-call-concurrency.md)            | done   |
 | 12  | [Sandbox and Database Limit Retuning](./12-sandbox-database-limit-retuning.md)                | todo   |
 | 13  | [Race-Safe Resolution and Uninstall Fencing](./13-race-safe-resolution-uninstall.md)          | todo   |
 | 14  | [Superseded Script and Module GC](./14-superseded-script-module-gc.md)                        | todo   |

@@ -124,6 +124,19 @@ correction changes no schema or behavior and is the only domain move included in
 - **In-flight host-call cap** per execution (the bridge has total-count budgets but no
   concurrency cap): a simple kernel-side semaphore per `executionId` in
   `BridgeService.handleRequest`. Pick the limit from observed batch-activity behavior.
+
+  Task 11 implementation record (2026-07-31): each active bridge session now owns an independent
+  four-permit semaphore and a close signal. Four preserves the largest intentional fan-out observed
+  in current workloads: media metadata and Netflix searches use concurrency two, Movary reads three
+  artifacts concurrently, and existing backend fan-out reaches four; import and monitoring batches
+  otherwise dispatch sequentially. Calls beyond four wait without changing the independent total or
+  HTTP call-count budgets. Effect's interruption-safe permit wrapper releases on every exit, while
+  session removal completes the close signal and races both active and queued requests so execution
+  timeout, failure, cancellation, expiry, and teardown cannot strand waiters. Focused bridge tests
+  cover the bound, queued progress, execution-id isolation, removal, and permit release. The backend
+  suite passed 137 files and 952 tests; representative media/fitness imports passed 19 tests and
+  provider search/import passed 11. The owner waived rerunning the standalone 1,001-item operational
+  gate for this task.
 - **Pool/limits retuning** for the heavier post-migration sandbox load: revisit
   `SANDBOX_WORKER_CONCURRENCY`, `DATABASE_WORKFLOW_POOL_MAX`, and the Postgres
   `max_connections` arithmetic documented in `tests/AGENTS.md` (Timeouts & Pool Sizing), and
