@@ -11,3 +11,8 @@ export const pageBackgroundColor = (
 	const scheme = preference === "system" ? systemScheme : preference;
 	return PAGE_BACKGROUND_COLOR[scheme === "dark" ? "dark" : "light"];
 };
+
+export const withPageAlpha = (color: string, alpha: number) =>
+	`${color}${Math.round(alpha * 255)
+		.toString(16)
+		.padStart(2, "0")}`;
