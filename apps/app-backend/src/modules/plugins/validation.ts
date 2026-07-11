@@ -72,6 +72,7 @@ export const validatePluginManifestReferences = (
 	Effect.gen(function* () {
 		const cronSlugs = new Set<string>();
 		const scriptSlugs = new Set<string>();
+		const operationSlugs = new Set<string>();
 		yield* assertSlug("plugin", manifest.metadata.slug);
 		for (const definition of manifest.entitySchemas) {
 			yield* assertSlug("entity schema", definition.slug);
@@ -105,6 +106,14 @@ export const validatePluginManifestReferences = (
 			if (Either.isLeft(Cron.parse(cron.schedule))) {
 				return yield* fail(`Cron ${cron.slug} has invalid schedule: ${cron.schedule}`);
 			}
+		}
+		for (const operation of manifest.operations) {
+			yield* assertSlug("operation", operation.slug);
+			if (operationSlugs.has(operation.slug)) {
+				return yield* fail(`Duplicate operation slug: ${operation.slug}`);
+			}
+			operationSlugs.add(operation.slug);
+			yield* assertReference("Operation", operation.driverRef, scriptSlugs);
 		}
 
 		const eventSchemaSlugs = new Set(
@@ -170,6 +179,38 @@ export const validatePluginCronDrivers = (plugin: {
 			}
 			if (!script.metadata.driverNames?.includes("cron")) {
 				return yield* fail(`Cron ${cron.slug} script ${cron.driverRef} must expose driver: cron`);
+			}
+		}
+		return yield* Effect.void;
+	});
+
+export const validatePluginOperationDrivers = (plugin: {
+	readonly manifest: PluginManifestValue;
+	readonly scripts: ReadonlyArray<{
+		readonly slug: string;
+		readonly metadata: {
+			readonly kind?: PluginScript["kind"];
+			readonly driverNames?: ReadonlyArray<string>;
+		};
+	}>;
+}) =>
+	Effect.gen(function* () {
+		for (const operation of plugin.manifest.operations) {
+			const script = plugin.scripts.find(({ slug }) => slug === operation.driverRef);
+			if (!script) {
+				return yield* fail(
+					`Operation ${operation.slug} references missing compiled script: ${operation.driverRef}`,
+				);
+			}
+			if (script.metadata.kind !== "operation") {
+				return yield* fail(
+					`Operation ${operation.slug} script ${operation.driverRef} must be an operation script`,
+				);
+			}
+			if (!script.metadata.driverNames?.includes("operation")) {
+				return yield* fail(
+					`Operation ${operation.slug} script ${operation.driverRef} must expose driver: operation`,
+				);
 			}
 		}
 		return yield* Effect.void;

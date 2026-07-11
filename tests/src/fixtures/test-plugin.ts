@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { ProviderInformation } from "@ryot/contract/modules/sandbox/schemas";
 import type { SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import type { PluginOperationAuth } from "@ryot/plugin-kit/manifest";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
@@ -28,19 +29,28 @@ type TestPluginScriptBase = {
 };
 
 export type TestPluginScript =
+	| (TestPluginScriptBase & { kind: "operation" })
 	| (TestPluginScriptBase & { kind: "automation" })
 	| (TestPluginScriptBase & { kind: "provider"; providerInformation: ProviderInformation });
 
+export type TestPluginOperation = {
+	slug: string;
+	driverRef: string;
+	description: string;
+	auth: PluginOperationAuth;
+};
+
 export const testPluginManifest = (input: {
 	pluginSlug: string;
+	linkToEntitySchemaSlug?: string;
+	operations?: ReadonlyArray<TestPluginOperation>;
+	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
 	crons?: ReadonlyArray<{
 		slug: string;
 		schedule: string;
 		driverRef: string;
 		description: string;
 	}>;
-	linkToEntitySchemaSlug?: string;
-	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
 	entitySchemas?: ReadonlyArray<{
 		icon: string;
 		name: string;
@@ -61,6 +71,7 @@ export const testPluginManifest = (input: {
 	signalSchemas: [],
 	crons: input.crons ?? [],
 	scripts: input.scripts ?? [],
+	operations: input.operations ?? [],
 	entitySchemas: input.entitySchemas ?? [],
 	relationshipSchemas: input.relationshipSchemas ?? [],
 	metadata: {
@@ -108,6 +119,7 @@ export const installTestPlugin = (input: {
 	script: TestPluginScript;
 	linkToEntitySchemaSlug?: string;
 	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
+	operations?: Parameters<typeof testPluginManifest>[0]["operations"];
 	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
 }) =>
 	Effect.gen(function* () {
@@ -117,6 +129,7 @@ export const installTestPlugin = (input: {
 			pluginSlug,
 			scripts: [{ ...input.script, entry }],
 			...(input.crons ? { crons: input.crons } : {}),
+			...(input.operations ? { operations: input.operations } : {}),
 			...(input.entitySchemas ? { entitySchemas: input.entitySchemas } : {}),
 			...(input.linkToEntitySchemaSlug
 				? { linkToEntitySchemaSlug: input.linkToEntitySchemaSlug }
