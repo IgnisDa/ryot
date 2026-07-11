@@ -24,8 +24,6 @@ import {
 } from "~/fixtures/kernel";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
-
-type PluginHttpRateLimit = PluginManifest["httpRateLimits"][number];
 import {
 	type FakeHttpServer,
 	startFakeHttpServer,
@@ -39,6 +37,8 @@ import {
 	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
+
+type PluginHttpRateLimit = PluginManifest["httpRateLimits"][number];
 
 const ISOLATED_BUCKET_NAME = "ryot-global-rate-limit-test";
 
