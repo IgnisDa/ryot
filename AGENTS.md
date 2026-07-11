@@ -19,7 +19,6 @@ Do not add functionality, abstractions, or generalization the user has not expli
 - **Pattern discovery**: Before writing new code, launch an `explore` subagent to find existing patterns to replicate. `explore` subagents should be used only for discovery, not for any decision making. They should not create any files.
 - **Dates**: Prefer `dayjs` from `@ryot/ts-utils`. Avoid manual `Date` handling.
 - **Comments**: Avoid unless strictly necessary.
-- **File size**: Keep files below 500 lines. Split if exceeded.
 - **Return types**: Omit unless inference is insufficient.
 - **Field/variable ordering**: Ascending line length (shorter first). Exceptions for semantic grouping. Does not apply to imports or function parameters.
 
