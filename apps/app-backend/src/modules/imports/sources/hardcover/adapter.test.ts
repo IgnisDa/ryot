@@ -20,7 +20,7 @@ describe("adaptHardcoverCsv", () => {
 			entityRef: {
 				externalId: "1001",
 				entitySchemaSlug: "book",
-				scriptSlug: "book.hardcover",
+				providerSlug: "book.hardcover",
 			},
 			collectionMemberships: [
 				{ collectionName: "Book Club" },

@@ -72,7 +72,7 @@ it.effect("rejects bundled JavaScript over the compiled-module byte limit", () =
 	Effect.gen(function* () {
 		const enumMembers = Array.from({ length: 25_000 }, (_, index) => `A${index},`).join("");
 		const source = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 export enum LargeCompiledValue { ${enumMembers} }
 export const manifest = defineManifest({
@@ -82,12 +82,12 @@ export const manifest = defineManifest({
   name: "Large compiled value",
   slug: "large-compiled-value",
 	});
-const main = defineDriver(manifest, {
+export default defineScript({
+	manifest,
   output: Schema.Null,
   input: Schema.Struct({}),
   run: () => Effect.succeed(null),
 });
-export default defineScript({ manifest, drivers: { main } });
 `;
 		expect(utf8ByteLength(source)).toBeLessThan(SANDBOX_LIMITS.compiler.sourceBytes);
 		const failure = yield* compile(source).pipe(Effect.flip);

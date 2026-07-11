@@ -1,4 +1,4 @@
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineOperation } from "@ryot/sandbox-sdk/operation";
 
@@ -10,11 +10,11 @@ import {
 import {
 	manifest as movieTmdbManifest,
 	search as movieTmdbSearch,
-} from "../providers/media/movie/tmdb.sandbox";
+} from "../providers/media/movie/tmdb";
 import {
 	manifest as showTmdbManifest,
 	search as showTmdbSearch,
-} from "../providers/media/show/tmdb.sandbox";
+} from "../providers/media/show/tmdb";
 import {
 	chooseBestMetadataLookupTitleMatch,
 	type MetadataLookupTitleMatchCandidate,
@@ -34,20 +34,21 @@ export const manifest = defineManifest({
 
 const searchProviders = [
 	{
-		driver: movieTmdbSearch,
+		script: movieTmdbSearch,
 		entitySchemaSlug: "movie",
-		scriptSlug: movieTmdbManifest.slug,
+		providerSlug: movieTmdbManifest.slug,
 	},
 	{
-		driver: showTmdbSearch,
+		script: showTmdbSearch,
 		entitySchemaSlug: "show",
-		scriptSlug: showTmdbManifest.slug,
+		providerSlug: showTmdbManifest.slug,
 	},
 ] as const;
 
 const notFound = { notFound: true, status: "notFound" } as const satisfies MetadataLookupResult;
 
-export const operation = defineDriver(manifest, {
+export default defineOperation({
+	manifest,
 	input: MetadataLookupInput,
 	output: MetadataLookupOutput,
 	run: (input, host, execution) =>
@@ -72,12 +73,12 @@ export const operation = defineDriver(manifest, {
 				const searched = yield* Effect.forEach(
 					searchProviders,
 					(provider) =>
-						provider.driver.run({ query, page: 1, pageSize: 20 }, host, execution).pipe(
+						provider.script.run({ query, page: 1, pageSize: 20 }, host, execution).pipe(
 							Effect.map(({ items }) =>
 								items.map(
 									(item): MetadataLookupTitleMatchCandidate => ({
 										externalId: item.externalId,
-										scriptSlug: provider.scriptSlug,
+										providerSlug: provider.providerSlug,
 										title: item.titleProperty.value,
 										entitySchemaSlug: provider.entitySchemaSlug,
 										publishYear:
@@ -110,5 +111,3 @@ export const operation = defineDriver(manifest, {
 			return { results };
 		}),
 });
-
-export default defineOperation({ manifest, drivers: { operation } });

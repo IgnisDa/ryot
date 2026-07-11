@@ -2,10 +2,8 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import {
-	EntitySchemaSlug,
 	ImportRunId,
 	IntegrationId,
-	SandboxScriptId,
 	SignalId,
 	SignalSchemaSlug,
 	UserId,
@@ -20,7 +18,6 @@ import {
 	makeRedisService,
 	makeWorkflowActivityEngine,
 } from "#lib/test-utils/effect";
-import { EntitiesRepository } from "#modules/entities/repository";
 import { ImportRunFailuresService } from "#modules/imports/failure-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { loadImportAdapterResult } from "#modules/imports/runtime/source-payload-store";
@@ -46,7 +43,6 @@ const now = "2026-06-17T00:00:00.000Z";
 
 const mockImportsService = Layer.mock(ImportsService);
 const mockImportsRepository = Layer.mock(ImportsRepository);
-const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const mockIntegrationsService = Layer.mock(IntegrationsService);
 const mockSignalEmissionService = Layer.mock(SignalEmissionService);
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
@@ -61,7 +57,7 @@ const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
 		sourceLabel: "Berserk",
 		entitySchemaSlug: "manga",
 		kind: "resolved" as const,
-		scriptSlug: "manga.anilist",
+		providerSlug: "manga.anilist",
 	},
 	...overrides,
 });
@@ -106,40 +102,6 @@ const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegration
 		disableIfEnabled: () => Effect.succeed(false),
 		...overrides,
 		_tag: "IntegrationsService",
-	});
-
-const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
-	mockEntitiesRepository({
-		findEntitySchemaSandboxScriptBySlug: (slug) => {
-			let result: { entitySchemaSlug: EntitySchemaSlug; sandboxScriptId: SandboxScriptId } | null =
-				null;
-			switch (slug) {
-				case "movie.tmdb": {
-					result = {
-						entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
-						sandboxScriptId: SandboxScriptId.make("script-movie-tmdb"),
-					};
-					break;
-				}
-				case "manga.anilist": {
-					result = {
-						entitySchemaSlug: EntitySchemaSlug.make("schema-manga"),
-						sandboxScriptId: SandboxScriptId.make("script-manga-anilist"),
-					};
-					break;
-				}
-				case "music.youtube-music": {
-					result = {
-						entitySchemaSlug: EntitySchemaSlug.make("schema-music"),
-						sandboxScriptId: SandboxScriptId.make("script-youtube-music"),
-					};
-					break;
-				}
-			}
-			return Effect.succeed(result);
-		},
-		...overrides,
-		_tag: "EntitiesRepository",
 	});
 
 const makeSignalEmissionService = (
@@ -208,7 +170,6 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		options.integrationsRepository ?? makeIntegrationsRepository(),
 		options.integrationsService ?? makeIntegrationsService(),
 		options.signalEmissionService ?? makeSignalEmissionService(),
-		makeEntitiesRepository(),
 	);
 
 const withTestLayer = <A, E, R>(
@@ -597,7 +558,6 @@ it.effect("runs a YouTube Music yank through workflow-owned sandbox execution", 
 			expect(sandboxCalls).toEqual([
 				{
 					userId: "user_1",
-					scriptId: "script-youtube-music",
 					executionId: "run_1-youtube-music-history",
 					context: { authCookie: "cookie", timezone: "America/New_York" },
 				},

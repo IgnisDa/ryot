@@ -1,9 +1,11 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest } from "./myanimelist.sandbox";
+import { manifest } from "./myanimelist";
+import details, { manifest as detailsManifest } from "./myanimelist-details.sandbox";
+import search, { manifest as searchManifest } from "./myanimelist-search.sandbox";
 
 type MyAnimeListMangaHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -16,6 +18,15 @@ const makeHost = (httpCall: MyAnimeListMangaHost["httpCall"]) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("manga.myanimelist sandbox script", () => {
+	it("declares one script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+		]).toEqual([
+			["manga.myanimelist.search", "search"],
+			["manga.myanimelist.details", "details"],
+		]);
+	});
 	it("keeps MAL recommendations as related entities", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -36,7 +47,7 @@ describe("manga.myanimelist sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
@@ -44,9 +55,9 @@ describe("manga.myanimelist sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Related Anime", externalId: "3", scriptSlug: "anime.myanimelist" },
-								{ name: "Related Manga", externalId: "4", scriptSlug: "manga.myanimelist" },
-								{ name: "Manga Pick", externalId: "2", scriptSlug: "manga.myanimelist" },
+								{ name: "Related Anime", externalId: "3", providerSlug: "anime.myanimelist" },
+								{ name: "Related Manga", externalId: "4", providerSlug: "manga.myanimelist" },
+								{ name: "Manga Pick", externalId: "2", providerSlug: "manga.myanimelist" },
 							],
 						},
 					]);

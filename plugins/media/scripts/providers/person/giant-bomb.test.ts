@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./giant-bomb.sandbox";
+import { details, manifest, search } from "./giant-bomb";
 
 type GiantBombHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -35,7 +35,7 @@ describe("person.giant-bomb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(
+		return runSandboxTestScript(
 			search,
 			{ query: "jane", page: 1, pageSize: 20 },
 			host,
@@ -80,7 +80,7 @@ describe("person.giant-bomb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "4010-1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "4010-1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.name).toBe("Jane Dev");
 				expect(result.relatedEntityGroups).toEqual([
@@ -92,7 +92,7 @@ describe("person.giant-bomb sandbox script", () => {
 							{
 								name: "Game A",
 								externalId: "3030-9",
-								scriptSlug: "video-game.giant-bomb",
+								providerSlug: "video-game.giant-bomb",
 								relationshipProperties: { roles: ["Person"] },
 							},
 						],
@@ -105,7 +105,7 @@ describe("person.giant-bomb sandbox script", () => {
 							{
 								name: "Zelda",
 								externalId: "3025-1",
-								scriptSlug: "video-game-group.giant-bomb",
+								providerSlug: "video-game-group.giant-bomb",
 								relationshipProperties: { roles: ["Person"] },
 							},
 						],

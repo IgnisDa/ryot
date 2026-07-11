@@ -54,7 +54,7 @@ describe("adaptAnilistExport", () => {
 				kind: "resolved",
 				externalId: "100",
 				entitySchemaSlug: "anime",
-				scriptSlug: "anime.anilist",
+				providerSlug: "anime.anilist",
 			},
 			events: [
 				{
@@ -85,7 +85,7 @@ describe("adaptAnilistExport", () => {
 				kind: "resolved",
 				externalId: "200",
 				entitySchemaSlug: "manga",
-				scriptSlug: "manga.anilist",
+				providerSlug: "manga.anilist",
 			},
 			events: [
 				{ properties: { progressPercent: 100, mangaChapter: 1 } },
@@ -228,7 +228,7 @@ describe("adaptAnilistExport", () => {
 					externalId: "200",
 					sourceLabel: "Manga 200",
 					entitySchemaSlug: "manga",
-					scriptSlug: "manga.anilist",
+					providerSlug: "manga.anilist",
 				},
 			},
 		]);

@@ -2,8 +2,6 @@ import { Activity } from "@effect/workflow";
 import { Effect, Schema } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { DbRunner } from "#lib/infrastructure/db/service";
-import { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
 import { recordImportRunFailure } from "../runtime/import-run-status";
@@ -22,8 +20,6 @@ export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(fu
 	payload: Pick<ImportRunJobData, "runId" | "userId">;
 }) {
 	const config = yield* AppConfig;
-	const runWithDb = yield* DbRunner;
-	const entitiesRepository = yield* EntitiesRepository;
 	const operations = yield* MediaImportWorkflowOperations;
 	const importer = makeImporterConfig(config);
 	let failures = 0;
@@ -55,17 +51,17 @@ export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(fu
 			continue;
 		}
 
-		const candidateScripts = yield* Activity.make({
+		const candidateProviders = yield* Activity.make({
 			error: ImportRunError,
 			name: `load-resolution-candidates-${i}`,
 			success: Schema.Array(ResolutionCandidate),
 			execute: Effect.forEach(
 				candidates,
-				(scriptSlug) =>
-					runWithDb(entitiesRepository.findEntitySchemaSandboxScriptBySlug(scriptSlug)).pipe(
-						Effect.map((script) => ({
-							scriptSlug,
-							sandboxScriptId: script?.sandboxScriptId ?? null,
+				(providerSlug) =>
+					operations.resolveProvider(providerSlug).pipe(
+						Effect.map((provider) => ({
+							providerSlug,
+							providerId: provider?.providerId ?? null,
 						})),
 					),
 				{ concurrency: 1 },
@@ -75,14 +71,14 @@ export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(fu
 		const lookupErrors: string[] = [];
 		let resolved = false;
 
-		for (let candidateIndex = 0; candidateIndex < candidateScripts.length; candidateIndex += 1) {
-			const candidate = candidateScripts[candidateIndex];
+		for (let candidateIndex = 0; candidateIndex < candidateProviders.length; candidateIndex += 1) {
+			const candidate = candidateProviders[candidateIndex];
 			if (!candidate) {
 				continue;
 			}
 
-			if (!candidate.sandboxScriptId) {
-				lookupErrors.push(`${candidate.scriptSlug}: sandbox script not found`);
+			if (!candidate.providerId) {
+				lookupErrors.push(`${candidate.providerSlug}: provider not found`);
 				continue;
 			}
 
@@ -91,13 +87,13 @@ export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(fu
 					value: ref.identifierValue,
 					userId: input.payload.userId,
 					identifierType: ref.identifierType,
-					scriptId: candidate.sandboxScriptId,
+					providerId: candidate.providerId,
 					executionId: `${input.executionId}-resolve-${i}-${candidateIndex}`,
 				})
 				.pipe(Effect.either);
 
 			if (result._tag === "Left") {
-				lookupErrors.push(`${candidate.scriptSlug}: ${result.left.message}`);
+				lookupErrors.push(`${candidate.providerSlug}: ${result.left.message}`);
 				continue;
 			}
 
@@ -105,7 +101,7 @@ export const resolveMediaEntityGroups = Effect.fn("resolveMediaEntityGroups")(fu
 				group.entityRef = {
 					kind: "resolved",
 					sourceLabel: ref.sourceLabel,
-					scriptSlug: candidate.scriptSlug,
+					providerSlug: candidate.providerSlug,
 					externalId: result.right.externalId,
 					entitySchemaSlug: ref.entitySchemaSlug,
 				} satisfies Extract<ImportEntityRef, { kind: "resolved" }>;

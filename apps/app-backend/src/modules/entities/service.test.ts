@@ -2,7 +2,12 @@ import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { NotFound } from "@ryot/contract/errors";
 import type { FieldValue } from "@ryot/contract/modules/query-engine/language";
-import { EntityId, EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	SandboxProviderId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
 import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
@@ -65,7 +70,7 @@ const makeEntityRow = (overrides: Record<string, FieldValue> = {}): Record<strin
 	populatedAt: field("null", null),
 	externalId: field("text", "ext-1"),
 	entitySchemaSlug: field("text", "schema-1"),
-	sandboxScriptId: field("text", "script-1"),
+	providerId: field("text", "provider-1"),
 	translationStatus: field("text", "pending"),
 	...overrides,
 });
@@ -112,7 +117,7 @@ it.effect("returns existing entity when provenance already exists", () => {
 							externalId: "ext-1",
 							id: EntityId.make("created-entity"),
 							entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
-							sandboxScriptId: SandboxScriptId.make("script-id"),
+							providerId: SandboxProviderId.make("provider-id"),
 						},
 					};
 				}),
@@ -136,7 +141,7 @@ it.effect("returns existing entity when provenance already exists", () => {
 					properties: { title: "Existing" },
 					id: EntityId.make("existing-entity"),
 					entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
-					sandboxScriptId: SandboxScriptId.make("script-id"),
+					providerId: SandboxProviderId.make("provider-id"),
 				}),
 		}),
 	);
@@ -150,7 +155,7 @@ it.effect("returns existing entity when provenance already exists", () => {
 			externalId: "ext-1",
 			properties: { title: "Existing" },
 			entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
-			sandboxScriptId: SandboxScriptId.make("script-id"),
+			providerId: SandboxProviderId.make("provider-id"),
 		});
 
 		expect(entity.id).toBe("existing-entity");
@@ -200,7 +205,7 @@ it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatc
 					name: "Workout",
 					externalId: null,
 					populatedAt: null,
-					sandboxScriptId: null,
+					providerId: null,
 					id: EntityId.make("workout-1"),
 					entitySchemaSlug: EntitySchemaSlug.make("workout"),
 				},
@@ -262,7 +267,7 @@ const globalEntity = {
 	properties: { title: "Cooper" },
 	id: EntityId.make("entity-1"),
 	entitySchemaSlug: EntitySchemaSlug.make("person"),
-	sandboxScriptId: SandboxScriptId.make("script-1"),
+	providerId: SandboxProviderId.make("provider-1"),
 };
 
 const upsertInput = (updateExisting: boolean) => ({
@@ -272,7 +277,7 @@ const upsertInput = (updateExisting: boolean) => ({
 	externalId: "ext-1",
 	properties: { title: "Cooper" },
 	entitySchemaSlug: EntitySchemaSlug.make("person"),
-	sandboxScriptId: SandboxScriptId.make("script-1"),
+	providerId: SandboxProviderId.make("provider-1"),
 });
 
 const globalSchemaScope = { slug: "person", propertiesSchema: titlePropertiesSchema };
@@ -350,7 +355,7 @@ it.effect("upsertGlobalEntities remains unbounded without maximumTotal", () => {
 					entitySchemaSlug: EntitySchemaSlug.make("person"),
 				},
 			],
-			SandboxScriptId.make("script-1"),
+			SandboxProviderId.make("provider-1"),
 		);
 
 		expect(result).toEqual([
@@ -365,7 +370,7 @@ it.effect("upsertGlobalEntities remains unbounded without maximumTotal", () => {
 				name: "Replacement",
 				externalId: "ext-1",
 				properties: { title: "Replacement" },
-				sandboxScriptId: SandboxScriptId.make("script-1"),
+				providerId: SandboxProviderId.make("provider-1"),
 				entitySchemaSlug: EntitySchemaSlug.make("person"),
 			},
 		]);
@@ -400,7 +405,7 @@ it.effect("counts existing entities outside the submitted prefix before admittin
 					entitySchemaSlug: EntitySchemaSlug.make("person"),
 				},
 			],
-			SandboxScriptId.make("script-1"),
+			SandboxProviderId.make("provider-1"),
 			{ maximumTotal: 2 },
 		);
 
@@ -433,7 +438,7 @@ it.effect("locks affected provenance scopes in deterministic order", () => {
 				properties: { title: `Entity ${index}` },
 				entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
 			})),
-			SandboxScriptId.make("script-1"),
+			SandboxProviderId.make("provider-1"),
 			{ maximumTotal: 0 },
 		);
 
@@ -472,7 +477,7 @@ it.effect("preserves submitted existing entities when maximumTotal is zero", () 
 					entitySchemaSlug: EntitySchemaSlug.make("person"),
 				},
 			],
-			SandboxScriptId.make("script-1"),
+			SandboxProviderId.make("provider-1"),
 			{ maximumTotal: 0 },
 		);
 
@@ -515,7 +520,7 @@ it.effect("returns aligned existing, inserted, and skipped outcomes at the scope
 				properties: { title: externalId },
 				entitySchemaSlug: EntitySchemaSlug.make("person"),
 			})),
-			SandboxScriptId.make("script-1"),
+			SandboxProviderId.make("provider-1"),
 			{ maximumTotal: 2 },
 		);
 

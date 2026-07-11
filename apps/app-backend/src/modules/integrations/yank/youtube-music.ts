@@ -70,7 +70,7 @@ export const buildYoutubeMusicAdapterResult = Effect.fn("youtubeMusic.buildAdapt
 						sourceLabel: song.title,
 						externalId: song.videoId,
 						entitySchemaSlug: "music",
-						scriptSlug: "music.youtube-music",
+						providerSlug: "music.youtube-music",
 					},
 					idx,
 				);

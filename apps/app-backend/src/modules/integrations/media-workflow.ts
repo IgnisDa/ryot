@@ -1,11 +1,8 @@
 import { Activity } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { unknownToMessage } from "@ryot/contract/errors";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Either, Schema } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
-import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	MediaImportAdapterSummarySchema,
 	toMediaImportAdapterSummary,
@@ -24,11 +21,7 @@ import { IntegrationRunError } from "./jobs";
 import { IntegrationRunOperations } from "./operations-workflow";
 import type { IntegrationRecord } from "./repository";
 import { getSinkAdapterResult } from "./sinks/sink-adapters";
-import {
-	YOUTUBE_MUSIC_SCRIPT_SLUG,
-	buildYoutubeMusicAdapterResult,
-	sourceFetchFailure,
-} from "./yank/youtube-music";
+import { buildYoutubeMusicAdapterResult, sourceFetchFailure } from "./yank/youtube-music";
 
 const IntegrationMediaLoadOutcome = Schema.Union(
 	Schema.TaggedStruct("failed", {
@@ -104,30 +97,10 @@ const buildYoutubeMusicImportResult = Effect.fn("buildYoutubeMusicImportResult")
 	executionId: string,
 	credentials: { authCookie: string; timezone: string },
 ) {
-	const runWithDb = yield* DbRunner;
 	const operations = yield* IntegrationRunOperations;
-	const entitiesRepository = yield* EntitiesRepository;
-
-	const scriptId = yield* Activity.make({
-		error: IntegrationRunError,
-		name: "load-youtube-music-history-script",
-		success: Schema.NullOr(SandboxScriptId),
-		execute: runWithDb(
-			entitiesRepository.findEntitySchemaSandboxScriptBySlug(YOUTUBE_MUSIC_SCRIPT_SLUG),
-		).pipe(
-			Effect.map((script) => script?.sandboxScriptId ?? null),
-			Effect.mapError(toIntegrationWorkflowError),
-		),
-	});
-	if (!scriptId) {
-		return toMediaImportAdapterSummary(
-			sourceFetchFailure("YouTube Music sandbox script is not available"),
-		);
-	}
 
 	const sandbox = yield* operations
 		.runSandboxHistory({
-			scriptId,
 			context: credentials,
 			userId: integration.userId,
 			executionId: `${executionId}-youtube-music-history`,

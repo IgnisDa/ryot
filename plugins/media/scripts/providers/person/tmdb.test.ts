@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest } from "./tmdb.sandbox";
+import { details, manifest } from "./tmdb";
 
 type TmdbHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -37,7 +37,7 @@ describe("person.tmdb sandbox script", () => {
 			});
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
@@ -48,7 +48,7 @@ describe("person.tmdb sandbox script", () => {
 							{
 								name: "Film",
 								externalId: "2",
-								scriptSlug: "movie.tmdb",
+								providerSlug: "movie.tmdb",
 								relationshipProperties: { roles: ["Actor"] },
 							},
 						],
@@ -61,7 +61,7 @@ describe("person.tmdb sandbox script", () => {
 							{
 								name: "Show",
 								externalId: "3",
-								scriptSlug: "show.tmdb",
+								providerSlug: "show.tmdb",
 								relationshipProperties: { roles: ["Director"] },
 							},
 						],

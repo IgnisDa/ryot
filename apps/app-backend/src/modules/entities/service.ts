@@ -7,7 +7,7 @@ import {
 	type ListedEntity,
 } from "@ryot/contract/modules/entities/schemas";
 import type { RowItem } from "@ryot/contract/modules/query-engine/language";
-import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { buildEntityDetailQueryDocument } from "@ryot/query-engine/recipes/app";
 import { generateId } from "better-auth";
@@ -40,13 +40,13 @@ type CreateEntityInput = {
 			scope: "global";
 			externalId: string;
 			populatedAt: Date | null;
-			sandboxScriptId: SandboxScriptId;
+			providerId: SandboxProviderId;
 	  }
 	| {
 			scope: "user";
 			userId: UserId;
 			externalId?: string | undefined;
-			sandboxScriptId?: SandboxScriptId | undefined;
+			providerId?: SandboxProviderId | undefined;
 	  }
 );
 
@@ -66,7 +66,7 @@ type UpsertEntityInput = {
 	properties: unknown;
 	updateExisting: boolean;
 	populatedAt: Date | null;
-	sandboxScriptId: SandboxScriptId;
+	providerId: SandboxProviderId;
 	entitySchemaSlug: EntitySchemaSlug;
 };
 
@@ -86,8 +86,7 @@ type ValidatedGlobalEntityItem = Omit<UpsertGlobalEntityItem, "properties"> & {
 
 const entityNotFoundError = "Entity not found";
 const entitySchemaNotFoundError = "Entity schema not found";
-const partialProvenanceError =
-	"externalId and sandboxScriptId must both be provided or both be omitted";
+const partialProvenanceError = "externalId and providerId must both be provided or both be omitted";
 
 const toMutationSnapshot = (entity: ListedEntity): EntityMutationSnapshot => ({
 	id: entity.id,
@@ -97,7 +96,7 @@ const toMutationSnapshot = (entity: ListedEntity): EntityMutationSnapshot => ({
 });
 
 const toListedEntity = Effect.fn("toListedEntityFromQueryEngine")(function* (row: RowItem) {
-	const sandboxScriptId = yield* getOptionalStringField(row, "sandboxScriptId");
+	const providerId = yield* getOptionalStringField(row, "providerId");
 
 	return {
 		name: yield* requireStringField(row, "name"),
@@ -107,7 +106,7 @@ const toListedEntity = Effect.fn("toListedEntityFromQueryEngine")(function* (row
 		externalId: yield* getOptionalStringField(row, "externalId"),
 		properties: (yield* requireFieldValue(row, "properties")).value,
 		populatedAt: yield* getOptionalIsoStringField(row, "populatedAt"),
-		sandboxScriptId: sandboxScriptId ? SandboxScriptId.make(sandboxScriptId) : null,
+		providerId: providerId ? SandboxProviderId.make(providerId) : null,
 		entitySchemaSlug: EntitySchemaSlug.make(yield* requireStringField(row, "entitySchemaSlug")),
 	};
 });
@@ -134,8 +133,8 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		) {
 			if (input.scope === "user") {
 				const hasExternalId = input.externalId !== undefined;
-				const hasScriptId = input.sandboxScriptId !== undefined;
-				if (hasExternalId !== hasScriptId) {
+				const hasProviderId = input.providerId !== undefined;
+				if (hasExternalId !== hasProviderId) {
 					return yield* badRequest(partialProvenanceError);
 				}
 			}
@@ -155,14 +154,14 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			if (
 				input.scope === "user" &&
 				input.externalId !== undefined &&
-				input.sandboxScriptId !== undefined
+				input.providerId !== undefined
 			) {
 				const existing = yield* runWithDb(
 					repository.findEntityByExternalIdForUser({
 						userId: input.userId,
 						externalId: input.externalId,
 						entitySchemaSlug: input.entitySchemaSlug,
-						sandboxScriptId: input.sandboxScriptId,
+						providerId: input.providerId,
 					}),
 				);
 				if (existing) {
@@ -242,7 +241,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 					externalId: input.externalId,
 					populatedAt: input.populatedAt,
 					entitySchemaSlug: input.entitySchemaSlug,
-					sandboxScriptId: input.sandboxScriptId,
+					providerId: input.providerId,
 				}),
 			);
 			const before = toMutationSnapshot(saved.entity);
@@ -280,7 +279,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 
 		const upsertGlobalEntities = Effect.fn("EntitiesService.upsertGlobalEntities")(function* (
 			items: ReadonlyArray<UpsertGlobalEntityItem>,
-			sandboxScriptId: SandboxScriptId,
+			providerId: SandboxProviderId,
 			options?: UpsertGlobalEntitiesOptions,
 		) {
 			const validated = yield* Effect.forEach(items, (input) =>
@@ -297,7 +296,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			);
 
 			const save = (input: ValidatedGlobalEntityItem) =>
-				repository.insertEntity({ ...input, scope: "global", sandboxScriptId });
+				repository.insertEntity({ ...input, scope: "global", providerId });
 
 			if (options?.maximumTotal === undefined) {
 				return yield* Effect.forEach(validated, (input) =>
@@ -323,7 +322,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 					for (const entitySchemaSlug of scopeSlugs) {
 						yield* repository.lockGlobalEntityProvenanceScope({
 							entitySchemaSlug,
-							sandboxScriptId,
+							providerId,
 						});
 					}
 
@@ -333,7 +332,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 							entitySchemaSlug,
 							yield* repository.countGlobalEntitiesByProvenanceScope({
 								entitySchemaSlug,
-								sandboxScriptId,
+								providerId,
 							}),
 						);
 					}
@@ -341,7 +340,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 					return yield* Effect.forEach(validated, (input) =>
 						Effect.gen(function* () {
 							const existing = yield* repository.findGlobalEntityByExternalId({
-								sandboxScriptId,
+								providerId,
 								externalId: input.externalId,
 								entitySchemaSlug: input.entitySchemaSlug,
 							});

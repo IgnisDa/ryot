@@ -21,8 +21,8 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 						origin: { kind: "api" },
 						externalId: payload.externalId,
 						properties: payload.properties,
+						providerId: payload.providerId,
 						entitySchemaSlug: payload.entitySchemaSlug,
-						sandboxScriptId: payload.sandboxScriptId,
 					})
 					.pipe(dieOnDbError);
 			}),

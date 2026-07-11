@@ -64,7 +64,7 @@ const makeListedEntity = (
 	externalId: null,
 	populatedAt: null,
 	name: "Entity One",
-	sandboxScriptId: null,
+	providerId: null,
 	id: EntityId.make("entity-1"),
 	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 	...overrides,

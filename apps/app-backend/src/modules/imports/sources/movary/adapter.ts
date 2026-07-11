@@ -112,7 +112,7 @@ const getMovieGroup = (
 		groupMap,
 		{
 			kind: "resolved",
-			scriptSlug: "movie.tmdb",
+			providerSlug: "movie.tmdb",
 			externalId: input.tmdbId,
 			entitySchemaSlug: "movie",
 			sourceLabel: input.sourceLabel,

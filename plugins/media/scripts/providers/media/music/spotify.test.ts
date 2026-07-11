@@ -1,9 +1,11 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./spotify.sandbox";
+import { manifest } from "./spotify";
+import details, { manifest as detailsManifest } from "./spotify-details.sandbox";
+import search, { manifest as searchManifest } from "./spotify-search.sandbox";
 
 type SpotifyMusicHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -28,6 +30,23 @@ const makeHost = (
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("music.spotify sandbox script", () => {
+	it("declares one narrowly scoped script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation, searchManifest.capabilities],
+			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
+		]).toEqual([
+			[
+				"music.spotify.search",
+				"search",
+				["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
+			],
+			[
+				"music.spotify.details",
+				"details",
+				["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
+			],
+		]);
+	});
 	it("maps track search hits, drops entries without an id, and reuses the cached token", () => {
 		let tokenPosts = 0;
 		const searchBody = {
@@ -61,7 +80,7 @@ describe("music.spotify sandbox script", () => {
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "track", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "track", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(tokenPosts).toBe(0);
 					expect(result.items).toEqual([
@@ -108,7 +127,7 @@ describe("music.spotify sandbox script", () => {
 			},
 		]);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "t1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "t1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("The Track");
 					expect(result.relatedEntityGroups).toEqual([
@@ -120,13 +139,13 @@ describe("music.spotify sandbox script", () => {
 								{
 									externalId: "a1",
 									name: "First Artist",
-									scriptSlug: "person.spotify",
+									providerSlug: "person.spotify",
 									relationshipProperties: { roles: ["Artist"] },
 								},
 								{
 									externalId: "a2",
 									name: "Second Artist",
-									scriptSlug: "person.spotify",
+									providerSlug: "person.spotify",
 									relationshipProperties: { roles: ["Artist"] },
 								},
 							],
@@ -139,7 +158,7 @@ describe("music.spotify sandbox script", () => {
 								{
 									name: "The Album",
 									externalId: "al1",
-									scriptSlug: "music-group.spotify",
+									providerSlug: "music-group.spotify",
 									relationshipProperties: { roles: ["Member"] },
 								},
 							],
@@ -179,7 +198,7 @@ describe("music.spotify sandbox script", () => {
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "track", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "track", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(cacheWrites).toEqual([["spotify_access_token", "fresh-token", 3300]]);
 					expect(result.items).toEqual([]);

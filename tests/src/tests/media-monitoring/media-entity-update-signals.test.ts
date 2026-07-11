@@ -57,7 +57,7 @@ describe("hierarchical media entity-update signals", () => {
 			const animeProvider = yield* installTestProvider({
 				client,
 				slug: animeSlug,
-				drivers: { details: buildDetails(12, 2025) },
+				details: buildDetails(12, 2025),
 			});
 
 			try {
@@ -66,7 +66,7 @@ describe("hierarchical media entity-update signals", () => {
 					name: animeName,
 					externalId: animeExternalId,
 					entitySchemaSlug: animeSchemaId,
-					sandboxScriptId: animeProvider.scriptId,
+					providerId: animeProvider.providerId,
 				});
 
 				const monitor = yield* createAuthenticatedClient();
@@ -85,12 +85,12 @@ describe("hierarchical media entity-update signals", () => {
 				fakeApprise.requests.length = 0;
 				yield* replaceSandboxScriptCompiledRepresentation(
 					client,
-					animeProvider.scriptId,
+					animeProvider.detailsScriptId,
 					providerSandboxSource({
-						slug: animeSlug,
 						name: animeName,
-						providerInformation: { source: "e2e" },
-						drivers: { details: buildDetails(13, 2026) },
+						slug: `${animeProvider.providerSlug}.details`,
+						operation: "details",
+						result: buildDetails(13, 2026),
 					}),
 				);
 				yield* triggerCronAndWaitForEntity(monitor, anime.id);
@@ -179,15 +179,13 @@ describe("hierarchical media entity-update signals", () => {
 				const showProvider = yield* installTestProvider({
 					client,
 					slug: showSlug,
-					drivers: {
-						details: buildDetails({
-							episodeName: "Episode 1",
-							specialName: "Special 1",
-							specialPublishDate: "2026-01-01",
-							episodePublishDate: "2026-01-01",
-							episodeImageUrl: "https://example.com/entity-update-before.jpg",
-						}),
-					},
+					details: buildDetails({
+						episodeName: "Episode 1",
+						specialName: "Special 1",
+						specialPublishDate: "2026-01-01",
+						episodePublishDate: "2026-01-01",
+						episodeImageUrl: "https://example.com/entity-update-before.jpg",
+					}),
 				});
 
 				try {
@@ -196,7 +194,7 @@ describe("hierarchical media entity-update signals", () => {
 						properties: {},
 						externalId: showExternalId,
 						entitySchemaSlug: showSchemaId,
-						sandboxScriptId: showProvider.scriptId,
+						providerId: showProvider.providerId,
 					});
 
 					const monitor = yield* createAuthenticatedClient();
@@ -219,20 +217,18 @@ describe("hierarchical media entity-update signals", () => {
 					fakeApprise.requests.length = 0;
 					yield* replaceSandboxScriptCompiledRepresentation(
 						client,
-						showProvider.scriptId,
+						showProvider.detailsScriptId,
 						providerSandboxSource({
-							slug: showSlug,
 							name: showName,
-							providerInformation: { source: "e2e" },
-							drivers: {
-								details: buildDetails({
-									specialName: "Special 1 Renamed",
-									episodeName: "Episode 1 Renamed",
-									episodePublishDate: "2026-02-01",
-									specialPublishDate: "2026-02-01",
-									episodeImageUrl: "https://example.com/entity-update-after.jpg",
-								}),
-							},
+							slug: `${showProvider.providerSlug}.details`,
+							operation: "details",
+							result: buildDetails({
+								specialName: "Special 1 Renamed",
+								episodeName: "Episode 1 Renamed",
+								episodePublishDate: "2026-02-01",
+								specialPublishDate: "2026-02-01",
+								episodeImageUrl: "https://example.com/entity-update-after.jpg",
+							}),
 						}),
 					);
 					yield* triggerCronAndWaitForEntity(monitor, show.id);

@@ -25,7 +25,7 @@ const movieEntity = entityRecord({
 	externalId: "603",
 	name: "The Matrix",
 	entitySchemaSlug: "es-movie",
-	sandboxScriptId: "script-movie-tmdb",
+	providerId: "script-movie-tmdb",
 });
 
 const radarrIntegration = integrationRecord({
@@ -43,8 +43,8 @@ const radarrIntegration = integrationRecord({
 const schema = entitySchemaRecord({
 	id: "es-movie",
 	providers: [
-		{ name: "TVDB", scriptId: "script-movie-tvdb" },
-		{ name: "TMDB", scriptId: "script-movie-tmdb" },
+		{ name: "TVDB", providerId: "script-movie-tvdb" },
+		{ name: "TMDB", providerId: "script-movie-tmdb" },
 	],
 });
 
@@ -86,7 +86,7 @@ describe("radarr-push sandbox script", () => {
 			httpCall: createHttpCall(calls),
 		});
 		return Effect.runPromise(
-			definition.drivers.automation
+			definition
 				.run(createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }), host, execution)
 				.pipe(
 					Effect.map(() => {
@@ -129,20 +129,20 @@ describe("radarr-push sandbox script", () => {
 		return Effect.runPromise(
 			Effect.all(
 				[
-					definition.drivers.automation.run(
+					definition.run(
 						createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
 						createHost({ ...base, entity: movieEntity }),
 						execution,
 					),
-					definition.drivers.automation.run(
+					definition.run(
 						createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
 						createHost({
 							...base,
-							entity: entityRecord({ ...movieEntity, sandboxScriptId: "script-movie-tvdb" }),
+							entity: entityRecord({ ...movieEntity, providerId: "script-movie-tvdb" }),
 						}),
 						execution,
 					),
-					definition.drivers.automation.run(
+					definition.run(
 						createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
 						createHost({ entity: movieEntity, httpCall, integrations: [unmatched] }),
 						execution,
@@ -167,7 +167,7 @@ describe("radarr-push sandbox script", () => {
 			httpCall: createHttpCall(calls),
 		});
 		return Effect.runPromise(
-			definition.drivers.automation
+			definition
 				.run(createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }), host, execution)
 				.pipe(
 					Effect.map(() => {
@@ -186,7 +186,7 @@ describe("radarr-push sandbox script", () => {
 			httpCall: () => httpFailure("already exists", 409),
 		});
 		return Effect.runPromise(
-			definition.drivers.automation
+			definition
 				.run(createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }), host, execution)
 				.pipe(
 					Effect.map((result) => {

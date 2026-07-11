@@ -154,12 +154,12 @@ export const collectSuggestions = (recommendations: unknown, titleLanguage: unkn
 		if (!name) {
 			continue;
 		}
-		const scriptSlug = mediaScriptSlug(media["type"]);
-		if (!scriptSlug) {
+		const providerSlug = mediaScriptSlug(media["type"]);
+		if (!providerSlug) {
 			continue;
 		}
 		const externalId = String(Math.trunc(id));
-		suggestionByKey.set(`${scriptSlug}:${externalId}`, { name, externalId, scriptSlug });
+		suggestionByKey.set(`${providerSlug}:${externalId}`, { name, externalId, providerSlug });
 	}
 	return [...suggestionByKey.values()];
 };

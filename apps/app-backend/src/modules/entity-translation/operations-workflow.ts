@@ -6,17 +6,27 @@ import type { SandboxCompletedResult as SandboxCompletedResultValue } from "@ryo
 import { Context, Effect, Layer } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import {
+	PluginRuntimeResolver,
+	type UnsupportedProviderOperationError,
+} from "#modules/plugins/runtime-resolver";
 import { processSandboxExecution } from "#modules/sandbox/durable-queues";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import type { TranslateEntityWorkflowPayload } from "./entity-translation-workflow";
 
-const processSandboxTranslation = (payload: TranslateEntityWorkflowPayload, executionId: string) =>
-	processSandboxExecution({
-		userId: null,
-		driverName: "translate",
-		scriptId: payload.scriptId,
+const processSandboxTranslation = Effect.fn("processSandboxTranslation")(function* (
+	payload: TranslateEntityWorkflowPayload,
+	executionId: string,
+) {
+	const runWithDb = yield* DbRunner;
+	const pluginRuntime = yield* PluginRuntimeResolver;
+	const script = yield* runWithDb(pluginRuntime.resolveTranslateScript(payload.providerId)).pipe(
+		Effect.catchTag("DbError", (error) => Effect.fail(toSandboxRunError(error))),
+	);
+	return yield* processSandboxExecution({
+		scriptId: script.id,
+		authority: { type: "system" },
 		executionId: `${executionId}-sandbox-translate`,
 		context: {
 			language: payload.language,
@@ -25,6 +35,7 @@ const processSandboxTranslation = (payload: TranslateEntityWorkflowPayload, exec
 			entitySchemaSlug: payload.entitySchemaSlug,
 		},
 	}).pipe(Effect.mapError(toSandboxRunError));
+});
 
 export type TranslateEntityWorkflowOperationsValue = {
 	processSandbox: (
@@ -32,7 +43,7 @@ export type TranslateEntityWorkflowOperationsValue = {
 		executionId: string,
 	) => Effect.Effect<
 		SandboxCompletedResultValue,
-		SandboxRunError,
+		SandboxRunError | UnsupportedProviderOperationError,
 		WorkflowEngine | WorkflowInstance
 	>;
 };

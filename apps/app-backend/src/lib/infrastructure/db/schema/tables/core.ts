@@ -1,4 +1,7 @@
-import type { SandboxScriptMetadata } from "@ryot/contract/modules/sandbox/schemas";
+import type {
+	ProviderInformation,
+	SandboxScriptMetadata,
+} from "@ryot/contract/modules/sandbox/schemas";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
@@ -53,6 +56,31 @@ export const plugin = pgTable("plugin", {
 	ingestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 });
 
+export const sandboxProvider = pgTable(
+	"sandbox_provider",
+	{
+		slug: text().notNull(),
+		name: text().notNull(),
+		information: jsonb().$type<ProviderInformation>().notNull(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		pluginSlug: text()
+			.notNull()
+			.references(() => plugin.slug, { onDelete: "restrict" }),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+	},
+	(table) => [
+		index("sandbox_provider_plugin_slug_idx").on(table.pluginSlug),
+		unique("sandbox_provider_plugin_slug_unique").on(table.pluginSlug, table.slug),
+	],
+);
+
 export const sandboxScript = pgTable(
 	"sandbox_script",
 	{
@@ -65,6 +93,7 @@ export const sandboxScript = pgTable(
 		metadata: jsonb().$type<SandboxScriptMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		pluginSlug: text().references(() => plugin.slug, { onDelete: "restrict" }),
+		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
 		id: text()
 			.notNull()
 			.primaryKey()
@@ -75,6 +104,7 @@ export const sandboxScript = pgTable(
 			.notNull(),
 	},
 	(table) => [
+		index("sandbox_script_provider_id_idx").on(table.providerId),
 		index("sandbox_script_plugin_slug_idx").on(table.pluginSlug),
 		unique("sandbox_script_plugin_slug_content_hash_unique").on(
 			table.pluginSlug,

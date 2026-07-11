@@ -63,7 +63,7 @@ export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => 
 			externalId: hardcoverId,
 			entitySchemaSlug: "book",
 			kind: "resolved" as const,
-			scriptSlug: "book.hardcover",
+			providerSlug: "book.hardcover",
 		};
 		const group = getOrCreateMediaEntityGroup(groupMap, entityRef, itemIndex);
 		const startedOn = parseDateWithFormat(row["Date Started"] ?? "", "YYYY-MM-DD");

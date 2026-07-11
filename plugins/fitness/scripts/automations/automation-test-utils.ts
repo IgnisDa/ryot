@@ -76,7 +76,7 @@ export const entityRecord = (overrides: Partial<EntityRecord> = {}): EntityRecor
 	populatedAt: null,
 	createdAt: timestamp,
 	updatedAt: timestamp,
-	sandboxScriptId: null,
+	providerId: null,
 	entitySchemaSlug: "entity-schema-1",
 	...overrides,
 });

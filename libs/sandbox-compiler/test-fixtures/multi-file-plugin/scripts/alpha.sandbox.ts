@@ -1,4 +1,4 @@
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 import { value } from "../shared/value";
@@ -11,10 +11,9 @@ export const manifest = defineManifest({
 	requiredAppConfigKeys: [],
 });
 
-const main = defineDriver(manifest, {
+export default defineScript({
+	manifest,
 	output: Schema.String,
 	input: Schema.Struct({}),
 	run: () => Effect.succeed(value),
 });
-
-export default defineScript({ manifest, drivers: { main } });

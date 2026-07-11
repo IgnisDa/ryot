@@ -109,7 +109,14 @@ export const getTvdbShowDetails = (
 		}
 		const images = collectImages([show["image"]], show["artworks"]);
 		const genres = collectGenres(show["genres"]);
-		const { relatedEntities, unlinkedCreators } = collectPeople(show["characters"]);
+		const people = collectPeople(show["characters"]);
+		const relatedEntities = people.relatedEntities.map((entity) => ({
+			name: entity.name,
+			externalId: entity.externalId,
+			providerSlug: entity.providerSlug,
+			relationshipProperties: entity.relationshipProperties,
+		}));
+		const unlinkedCreators = people.unlinkedCreators;
 		const firstAired = stringValue(show["firstAired"]);
 		const publishYear = parsePublishYear(show["year"]) ?? parsePublishYear(firstAired);
 
@@ -176,7 +183,12 @@ export const getTvdbShowDetails = (
 				{
 					direction: "incoming" as const,
 					synchronization: "additive" as const,
-					entities: collectCompanies(show["companies"]),
+					entities: collectCompanies(show["companies"]).map((entity) => ({
+						name: entity.name,
+						externalId: entity.externalId,
+						providerSlug: entity.providerSlug,
+						relationshipProperties: entity.relationshipProperties,
+					})),
 					relationshipSchemaSlug: "company-to-show",
 				},
 			],

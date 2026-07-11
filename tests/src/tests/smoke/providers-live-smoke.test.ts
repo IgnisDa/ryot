@@ -1,4 +1,4 @@
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -29,13 +29,19 @@ import { describe, expect, it } from "~/support/effect-test";
 const RUN_LIVE =
 	process.env.RUN_LIVE_PROVIDER_TESTS === "1" || process.env.RUN_LIVE_PROVIDER_TESTS === "true";
 
-function providerScriptId(
-	schema: { providers: ReadonlyArray<{ name: string; scriptId: string }> },
+function schemaProvider(
+	schema: {
+		providers: ReadonlyArray<{
+			name: string;
+			providerId: SandboxProviderId;
+			searchScriptId?: SandboxScriptId;
+		}>;
+	},
 	providerName: string,
-): SandboxScriptId {
+) {
 	const provider = schema.providers.find((candidate) => candidate.name === providerName);
 	assertPresent(provider, `Expected a '${providerName}' provider on the builtin schema`);
-	return SandboxScriptId.make(provider.scriptId);
+	return provider;
 }
 
 describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
@@ -43,10 +49,11 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
-			const scriptId = providerScriptId(schema, "OpenLibrary");
+			const provider = schemaProvider(schema, "OpenLibrary");
+			assertPresent(provider.searchScriptId, "Expected OpenLibrary to support search");
 
 			const { jobId } = yield* enqueueEntitySearch(userId, {
-				scriptId,
+				scriptId: provider.searchScriptId,
 				context: { query: "The Hobbit", page: 1, pageSize: 5 },
 			});
 			const search = yield* pollEntitySearchResult(userId, jobId, { timeoutMs: 60_000 });
@@ -65,8 +72,8 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 			);
 
 			const { jobId: importJobId } = yield* enqueueEntityImport(client, {
-				scriptId,
 				externalId,
+				providerId: provider.providerId,
 				entitySchemaSlug: schema.id,
 			});
 			const imported = yield* pollEntityImportResult(client, importJobId, { timeoutMs: 60_000 });
@@ -86,12 +93,12 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 				const auth = yield* createAuthenticatedClient();
 				const { client } = auth;
 				const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
-				const scriptId = providerScriptId(schema, "TMDB");
+				const provider = schemaProvider(schema, "TMDB");
 
 				const movie = yield* seedPopulatedProviderEntity({
 					externalId: "550",
 					entitySchemaSlug: schema.id,
-					sandboxScriptId: scriptId,
+					providerId: provider.providerId,
 					name: "Canonical Fight Club",
 					properties: { description: "Canonical overview of Fight Club." },
 				});

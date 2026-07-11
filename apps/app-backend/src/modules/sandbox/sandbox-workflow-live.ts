@@ -44,7 +44,13 @@ export const toSandboxRunResult = (
 const runSandboxWorkflow = Effect.fn("RunSandboxWorkflow")(
 	function* (payload: SandboxExecutionPayload, executionId: string) {
 		yield* Effect.annotateCurrentSpan({ executionId });
-		return yield* DurableQueue.process(SandboxExecutionQueue, payload).pipe(
+		const executionPayload: SandboxExecutionPayload = {
+			context: payload.context,
+			scriptId: payload.scriptId,
+			authority: payload.authority,
+			executionId: payload.executionId,
+		};
+		return yield* DurableQueue.process(SandboxExecutionQueue, executionPayload).pipe(
 			Effect.mapError(toSandboxRunError),
 		);
 	},

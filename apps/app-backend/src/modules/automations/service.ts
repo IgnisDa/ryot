@@ -227,12 +227,6 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 							return yield* badRequest("Global subscription rules must be built-in");
 						}
 						executionUserId = input.rowUserId;
-						if (executionUserId === null) {
-							const script = yield* repository.findScriptExecution(rule.sandboxScriptId);
-							if (!script) {
-								return yield* badRequest("System subscriptions require a source-zero script");
-							}
-						}
 					}
 
 					const inserted = yield* repository.insertRun({

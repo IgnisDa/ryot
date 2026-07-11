@@ -1,5 +1,5 @@
 import { Activity } from "@effect/workflow";
-import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
+import { SandboxRunError, dieOnDbError, toSandboxRunError } from "@ryot/contract/errors";
 import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
 import type { ProviderTranslateResult } from "@ryot/sandbox-sdk/provider";
 import { DateTime, Effect, Schema } from "effect";
@@ -67,11 +67,13 @@ export const runTranslateEntityWorkflow = Effect.fn("TranslateEntityWorkflow")(
 		yield* Effect.annotateCurrentSpan({
 			executionId,
 			entityId: payload.entityId,
-			scriptId: payload.scriptId,
 			externalId: payload.externalId,
+			providerId: payload.providerId,
 		});
 		const operations = yield* TranslateEntityWorkflowOperations;
-		const sandboxResult = yield* operations.processSandbox(payload, executionId);
+		const sandboxResult = yield* operations
+			.processSandbox(payload, executionId)
+			.pipe(Effect.mapError(toSandboxRunError));
 
 		if (sandboxResult.error) {
 			return yield* new SandboxRunError({ message: sandboxResult.error.message });

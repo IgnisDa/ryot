@@ -23,7 +23,7 @@ describe("adaptGrouveeCsv", () => {
 					externalId: "3030-111",
 					sourceLabel: "Outer Wilds",
 					entitySchemaSlug: "video-game",
-					scriptSlug: "video-game.giant-bomb",
+					providerSlug: "video-game.giant-bomb",
 				},
 				events: [
 					{

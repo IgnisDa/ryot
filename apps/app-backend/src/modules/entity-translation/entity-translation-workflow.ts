@@ -1,15 +1,15 @@
 import { Workflow } from "@effect/workflow";
 import { SandboxRunError } from "@ryot/contract/errors";
-import { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
 
 export const TranslateEntityWorkflowPayload = Schema.Struct({
 	entityId: EntityId,
 	language: Schema.String,
 	externalId: Schema.String,
-	scriptId: SandboxScriptId,
 	properties: Schema.Unknown,
 	executionId: Schema.String,
+	providerId: SandboxProviderId,
 	entitySchemaSlug: Schema.String,
 });
 

@@ -56,6 +56,10 @@ export const SandboxScriptId = Schema.String.pipe(Schema.brand("SandboxScriptId"
 
 export type SandboxScriptId = typeof SandboxScriptId.Type;
 
+export const SandboxProviderId = Schema.String.pipe(Schema.brand("SandboxProviderId"));
+
+export type SandboxProviderId = typeof SandboxProviderId.Type;
+
 export const RelationshipSchemaSlug = makeSchemaSlug();
 
 export type RelationshipSchemaSlug = typeof RelationshipSchemaSlug.Type;

@@ -1,5 +1,11 @@
 import type { PluginManifest, PluginScript } from "@ryot/plugin-kit/manifest";
 
+export type PluginScriptMetadata = PluginScript extends infer Script
+	? Script extends { readonly entry: string }
+		? Omit<Script, "entry">
+		: never
+	: never;
+
 export type PluginSource = {
 	readonly manifest: unknown;
 	readonly files: Readonly<Record<string, string>>;
@@ -13,7 +19,7 @@ export type NormalizedPluginScript = {
 	readonly contentHash: string;
 	readonly compiledCode: string;
 	readonly compiledFormat: number;
-	readonly metadata: Omit<PluginScript, "entry"> & { readonly driverNames?: ReadonlyArray<string> };
+	readonly metadata: PluginScriptMetadata;
 };
 
 export type NormalizedPlugin = {

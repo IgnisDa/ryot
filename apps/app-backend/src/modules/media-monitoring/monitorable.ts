@@ -11,7 +11,7 @@ const mediaMonitorableEntitySchemaSlugSet = new Set(mediaMonitorableEntitySchema
 export const isMediaMonitorableEntity = (entity: {
 	entityUserId: string | null;
 	entitySchemaSlug: string;
-	provenance: { externalId: string; sandboxScriptId: string } | null;
+	provenance: { externalId: string; providerId: string } | null;
 }) =>
 	entity.entityUserId === null &&
 	entity.provenance !== null &&

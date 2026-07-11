@@ -3,7 +3,12 @@ import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { DbError, SandboxRunError } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import { EntityId, EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	SandboxProviderId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
@@ -31,7 +36,7 @@ const populatedEntity = {
 	populatedAt: now,
 	name: "Test Book",
 	externalId: "ext-1",
-	sandboxScriptId: null,
+	providerId: SandboxProviderId.make("provider-1"),
 	id: EntityId.make("entity-1"),
 	properties: { title: "Test Book" },
 	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
@@ -42,7 +47,7 @@ const importPayload = {
 	executionId: "exec-1",
 	userId: UserId.make("user-1"),
 	origin: { kind: "api" } as const,
-	scriptId: SandboxScriptId.make("script-1"),
+	providerId: SandboxProviderId.make("provider-1"),
 	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 } satisfies EntityImportPayload;
 
@@ -115,7 +120,7 @@ it.effect("awaits provider population then dispatches the membership queue", () 
 			});
 			expect(populationCalls).toMatchObject([
 				{
-					payload: { mode: "ensure" },
+					payload: { mode: "ensure", providerId: "provider-1" },
 					executionId: `${importPayload.executionId}-provider-population`,
 				},
 			]);

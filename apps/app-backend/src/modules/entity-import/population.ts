@@ -4,7 +4,7 @@ import type { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schem
 import {
 	EntitySchemaSlug,
 	type EntityId,
-	type SandboxScriptId,
+	type SandboxProviderId,
 } from "@ryot/contract/schema/brands";
 import type { ProviderDetailsChildEntity } from "@ryot/sandbox-sdk/provider";
 import { DateTime, Effect, Schema } from "effect";
@@ -51,7 +51,7 @@ export type ChildEntitySetWriteResult = typeof ChildEntitySetWriteResult.Type;
 export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (input: {
 	syncExisting?: boolean;
 	parentEntityId: EntityId;
-	sandboxScriptId: SandboxScriptId;
+	providerId: SandboxProviderId;
 	parentEntitySchemaSlug: EntitySchemaSlug;
 	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
 	childEntitySchemaSlugs?: Readonly<Record<string, string>> | undefined;
@@ -108,10 +108,10 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 			.upsert({
 				populatedAt,
 				name: childEntity.name,
+				providerId: input.providerId,
 				entitySchemaSlug: entitySchema.id,
 				externalId: childEntity.externalId,
 				properties: childEntity.properties,
-				sandboxScriptId: input.sandboxScriptId,
 				updateExisting: input.syncExisting ?? false,
 			})
 			.pipe(

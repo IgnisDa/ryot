@@ -270,7 +270,7 @@ describe("Event automations", () => {
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 			const entity = yield* seedMediaEntity({
 				userId: null,
-				sandboxScriptId: null,
+				providerId: null,
 				name: "Podcast Episode 1",
 				entitySchemaSlug: podcastEpisodeSchemaId,
 				externalId: `podcast-episode-${crypto.randomUUID()}`,
@@ -309,7 +309,7 @@ describe("Event automations", () => {
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 			const entity = yield* seedMediaEntity({
 				userId: null,
-				sandboxScriptId: null,
+				providerId: null,
 				name: "Show Episode 1",
 				entitySchemaSlug: showEpisodeSchemaId,
 				externalId: `show-episode-${crypto.randomUUID()}`,

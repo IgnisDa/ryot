@@ -8,6 +8,7 @@ import {
 	EntitySchemaSlug,
 	RelationshipId,
 	RelationshipSchemaSlug,
+	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -65,7 +66,7 @@ const baseEntity = {
 	id: EntityId.make("entity-1"),
 	properties: { title: "Test Book" },
 	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-	sandboxScriptId: SandboxScriptId.make("script-1"),
+	providerId: SandboxProviderId.make("provider-1"),
 } satisfies ListedEntity;
 
 type ProviderEntity = Omit<ListedEntity, "properties"> & {
@@ -169,7 +170,7 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 			Effect.succeed(
 				entityIds.map((id) => ({ id, name: `Entity ${id}`, entitySchemaSlug: "test-entity" })),
 			),
-		findEntitySchemaSandboxScriptBySlug: () => Effect.succeed(null),
+		findEntitySchemaProviderBySlug: () => Effect.succeed(null),
 		findGlobalEntityByExternalId: () => Effect.succeed(null),
 		findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
 		...overrides,
@@ -296,7 +297,7 @@ const importPayload = {
 	executionId: "exec-1",
 	origin: { kind: "api" } as const,
 	userId: UserId.make("user-1"),
-	scriptId: SandboxScriptId.make("script-1"),
+	providerId: SandboxProviderId.make("provider-1"),
 	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 };
 
@@ -309,7 +310,8 @@ it.effect("populates entity and writes related entities", () => {
 	const payload = { ...importPayload, executionId: "exec-full" };
 	const relatedEntitySchemaSandboxScript = {
 		entitySchemaSlug: EntitySchemaSlug.make("schema-person"),
-		sandboxScriptId: SandboxScriptId.make("person-script"),
+		providerId: SandboxProviderId.make("person-provider"),
+		detailsScriptId: SandboxScriptId.make("person-details"),
 	};
 	const relationshipSchema = {
 		isBuiltin: true,
@@ -329,7 +331,7 @@ it.effect("populates entity and writes related entities", () => {
 		externalId: "person-ext-1",
 		id: EntityId.make("person-1"),
 		entitySchemaSlug: EntitySchemaSlug.make("schema-person"),
-		sandboxScriptId: SandboxScriptId.make("person-script-id"),
+		providerId: SandboxProviderId.make("person-provider"),
 	} satisfies ListedEntity;
 	const options = {
 		processSandbox: () =>
@@ -348,7 +350,7 @@ it.effect("populates entity and writes related entities", () => {
 							entities: [
 								{
 									name: "Author",
-									scriptSlug: "person.test",
+									providerSlug: "person.test",
 									externalId: "person-ext-1",
 									relationshipProperties: { roles: ["Author"] },
 								},
@@ -361,7 +363,7 @@ it.effect("populates entity and writes related entities", () => {
 			findBuiltinBySlug: () => Effect.succeed(relationshipSchema),
 		}),
 		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaSandboxScriptBySlug: () => Effect.succeed(relatedEntitySchemaSandboxScript),
+			findEntitySchemaProviderBySlug: () => Effect.succeed(relatedEntitySchemaSandboxScript),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
 			listGlobalRelationships: () =>
@@ -447,17 +449,18 @@ it.effect("preserves stale relationships during additive related-entity sync", (
 							synchronization: "additive" as const,
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ externalId: "movie-1", name: "Suggested Movie", scriptSlug: "movie.test" },
+								{ externalId: "movie-1", name: "Suggested Movie", providerSlug: "movie.test" },
 							],
 						},
 					],
 				},
 			}),
 		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaSandboxScriptBySlug: () =>
+			findEntitySchemaProviderBySlug: () =>
 				Effect.succeed({
 					entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
-					sandboxScriptId: SandboxScriptId.make("movie-script"),
+					providerId: SandboxProviderId.make("movie-provider"),
+					detailsScriptId: SandboxScriptId.make("movie-details"),
 				}),
 		}),
 		entitiesService: makeEntitiesService({
@@ -466,7 +469,7 @@ it.effect("preserves stale relationships during additive related-entity sync", (
 					...baseEntity,
 					id: EntityId.make("suggested-movie"),
 					entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
-					sandboxScriptId: SandboxScriptId.make("movie-script"),
+					providerId: SandboxProviderId.make("movie-provider"),
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
@@ -515,7 +518,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 		properties: unknown;
 		updateExisting: boolean;
 		entitySchemaSlug: EntitySchemaSlug;
-		sandboxScriptId: SandboxScriptId;
+		providerId: SandboxProviderId;
 	}> = [];
 	const relationshipSchemas = new Map([
 		[
@@ -584,7 +587,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 					externalId: input.externalId,
 					updateExisting: input.updateExisting,
 					entitySchemaSlug: input.entitySchemaSlug,
-					sandboxScriptId: input.sandboxScriptId,
+					providerId: input.providerId,
 				});
 				return Effect.succeed({
 					...baseEntity,
@@ -592,7 +595,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 					name: input.name,
 					externalId: input.externalId,
 					entitySchemaSlug: input.entitySchemaSlug,
-					sandboxScriptId: input.sandboxScriptId,
+					providerId: input.providerId,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 					id: EntityId.make(`${input.entitySchemaSlug}-${input.externalId}`),
 				});
@@ -688,7 +691,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 					syncExisting,
 					childEntities: [season],
 					parentEntityId: baseEntity.id,
-					sandboxScriptId: SandboxScriptId.make("script-1"),
+					providerId: SandboxProviderId.make("provider-1"),
 					parentEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 				});
 				const processedSeason = processedSeasons.processedChildren[0];
@@ -697,7 +700,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 					syncExisting,
 					childEntities: season.childEntities,
 					parentEntityId: processedSeason.entity.id,
-					sandboxScriptId: SandboxScriptId.make("script-1"),
+					providerId: SandboxProviderId.make("provider-1"),
 					parentEntitySchemaSlug: processedSeason.entitySchemaSlug,
 				});
 			}),
@@ -720,7 +723,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 		const season = entityWrites.find((write) => write.externalId === "season-1");
 		const episode = entityWrites.find((write) => write.externalId === "episode-1");
 
-		expect(season?.sandboxScriptId).toBe("script-1");
+		expect(season?.providerId).toBe("provider-1");
 		expect(season?.entitySchemaSlug).toBe("schema-season");
 		expect(season?.properties).toEqual({
 			seasonNumber: 1,
@@ -813,12 +816,13 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 		externalId: string;
 		populatedAt: string | null;
 		entitySchemaSlug: EntitySchemaSlug;
-		sandboxScriptId: SandboxScriptId;
+		providerId: SandboxProviderId;
 		properties: Record<string, unknown>;
 	}> = [];
 	const movieSchemaScript = {
 		entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
-		sandboxScriptId: SandboxScriptId.make("movie-script"),
+		providerId: SandboxProviderId.make("movie-provider"),
+		detailsScriptId: SandboxScriptId.make("movie-details"),
 	};
 	const payload = { ...importPayload, executionId: "exec-suggestions" };
 	const options = {
@@ -836,11 +840,11 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ externalId: "movie-1", scriptSlug: "movie.tmdb", name: "Recommended Movie" },
+								{ externalId: "movie-1", providerSlug: "movie.tmdb", name: "Recommended Movie" },
 								{
 									externalId: "missing-1",
 									name: "Missing Suggestion",
-									scriptSlug: "missing.provider",
+									providerSlug: "missing.provider",
 								},
 							],
 						},
@@ -848,7 +852,7 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 				},
 			}),
 		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaSandboxScriptBySlug: (slug: string) =>
+			findEntitySchemaProviderBySlug: (slug: string) =>
 				Effect.succeed(slug === "movie.tmdb" ? movieSchemaScript : null),
 		}),
 		entitiesService: makeEntitiesService({
@@ -868,7 +872,7 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 					name: input.name,
 					externalId: input.externalId,
 					entitySchemaSlug: input.entitySchemaSlug,
-					sandboxScriptId: input.sandboxScriptId,
+					providerId: input.providerId,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 				});
 				return Effect.succeed({
@@ -878,7 +882,7 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 					populatedAt: null,
 					externalId: input.externalId,
 					entitySchemaSlug: input.entitySchemaSlug,
-					sandboxScriptId: input.sandboxScriptId,
+					providerId: input.providerId,
 					id: EntityId.make(`suggestion-${input.externalId}`),
 				});
 			},
@@ -920,7 +924,7 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 					externalId: "movie-1",
 					name: "Recommended Movie",
 					entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
-					sandboxScriptId: SandboxScriptId.make("movie-script"),
+					providerId: SandboxProviderId.make("movie-provider"),
 				},
 			]);
 			expect(relationshipWrites).toEqual([
@@ -942,7 +946,8 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 	const syncCalls: Array<ReadonlyArray<EntityId>> = [];
 	const movieSchemaScript = {
 		entitySchemaSlug: EntitySchemaSlug.make("schema-movie"),
-		sandboxScriptId: SandboxScriptId.make("movie-script"),
+		providerId: SandboxProviderId.make("movie-provider"),
+		detailsScriptId: SandboxScriptId.make("movie-details"),
 	};
 	const makeStoredRelationship = (targetEntityId: EntityId) => ({
 		targetEntityId,
@@ -956,7 +961,7 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 
 	const runAttempt = (
 		executionId: string,
-		suggestions: ReadonlyArray<{ name: string; externalId: string; scriptSlug: string }>,
+		suggestions: ReadonlyArray<{ name: string; externalId: string; providerSlug: string }>,
 	) =>
 		withTestLayer(
 			{
@@ -979,7 +984,7 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 						},
 					}),
 				entitiesRepository: makeEntitiesRepository({
-					findEntitySchemaSandboxScriptBySlug: (slug: string) =>
+					findEntitySchemaProviderBySlug: (slug: string) =>
 						Effect.succeed(slug === "movie.tmdb" ? movieSchemaScript : null),
 					findGlobalEntityByExternalId: () => Effect.succeed(storedPrimaryEntity),
 				}),
@@ -995,7 +1000,7 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 							externalId: input.externalId,
 							properties: { title: "Test Book" },
 							entitySchemaSlug: input.entitySchemaSlug,
-							sandboxScriptId: input.sandboxScriptId,
+							providerId: input.providerId,
 						};
 						return Effect.succeed({
 							...storedPrimaryEntity,
@@ -1013,7 +1018,7 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 							populatedAt: null,
 							externalId: input.externalId,
 							entitySchemaSlug: input.entitySchemaSlug,
-							sandboxScriptId: input.sandboxScriptId,
+							providerId: input.providerId,
 							id: EntityId.make(`suggestion-${input.externalId}`),
 						});
 					},
@@ -1066,14 +1071,14 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 		yield* runAttempt("exec-suggestions-replace-1", [
 			{
 				externalId: "movie-1",
-				scriptSlug: "movie.tmdb",
+				providerSlug: "movie.tmdb",
 				name: "First Recommendation",
 			},
 		]);
 		yield* runAttempt("exec-suggestions-replace-2", [
 			{
 				externalId: "movie-2",
-				scriptSlug: "movie.tmdb",
+				providerSlug: "movie.tmdb",
 				name: "Second Recommendation",
 			},
 		]);
@@ -1236,7 +1241,7 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 							entities: [
 								{
 									name: "Author",
-									scriptSlug: "person.test",
+									providerSlug: "person.test",
 									externalId: "person-ext-1",
 									relationshipProperties: {},
 								},
@@ -1268,10 +1273,11 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 		}),
 		entitiesRepository: makeEntitiesRepository({
 			findGlobalEntityByExternalId: () => Effect.succeed(storedEntity),
-			findEntitySchemaSandboxScriptBySlug: () =>
+			findEntitySchemaProviderBySlug: () =>
 				Effect.succeed({
 					entitySchemaSlug: EntitySchemaSlug.make("person"),
-					sandboxScriptId: SandboxScriptId.make("person-script"),
+					providerId: SandboxProviderId.make("person-provider"),
+					detailsScriptId: SandboxScriptId.make("person-details"),
 				}),
 		}),
 		entitiesService: makeEntitiesService({
@@ -1296,7 +1302,7 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 					externalId: input.externalId,
 					id: EntityId.make("person-1"),
 					entitySchemaSlug: input.entitySchemaSlug,
-					sandboxScriptId: input.sandboxScriptId,
+					providerId: input.providerId,
 				});
 			},
 			update: (input) => {
@@ -1364,7 +1370,7 @@ it.effect("fails workflow when related relationship properties are not objects",
 							entities: [
 								{
 									name: "Author",
-									scriptSlug: "person.test",
+									providerSlug: "person.test",
 									externalId: "person-ext-1",
 									relationshipProperties: [],
 								},
@@ -1386,10 +1392,11 @@ it.effect("fails workflow when related relationship properties are not objects",
 				}),
 		}),
 		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaSandboxScriptBySlug: () =>
+			findEntitySchemaProviderBySlug: () =>
 				Effect.succeed({
 					entitySchemaSlug: EntitySchemaSlug.make("schema-person"),
-					sandboxScriptId: SandboxScriptId.make("person-script"),
+					providerId: SandboxProviderId.make("person-provider"),
+					detailsScriptId: SandboxScriptId.make("person-details"),
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -1444,10 +1451,11 @@ it.effect("retries related writes after a failed related validation", () => {
 		}),
 		entitiesRepository: makeEntitiesRepository({
 			findGlobalEntityByExternalId: () => Effect.succeed(storedEntity),
-			findEntitySchemaSandboxScriptBySlug: () =>
+			findEntitySchemaProviderBySlug: () =>
 				Effect.succeed({
 					entitySchemaSlug: EntitySchemaSlug.make("schema-person"),
-					sandboxScriptId: SandboxScriptId.make("person-script"),
+					providerId: SandboxProviderId.make("person-provider"),
+					detailsScriptId: SandboxScriptId.make("person-details"),
 				}),
 		}),
 		entitiesService: makeEntitiesService({
@@ -1461,7 +1469,7 @@ it.effect("retries related writes after a failed related validation", () => {
 					externalId: input.externalId,
 					id: EntityId.make("entity-1"),
 					entitySchemaSlug: input.entitySchemaSlug,
-					sandboxScriptId: input.sandboxScriptId,
+					providerId: input.providerId,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 				};
 				storedEntity = nextEntity;
@@ -1481,7 +1489,7 @@ it.effect("retries related writes after a failed related validation", () => {
 					externalId: input.externalId,
 					id: EntityId.make("person-1"),
 					entitySchemaSlug: input.entitySchemaSlug,
-					sandboxScriptId: input.sandboxScriptId,
+					providerId: input.providerId,
 				});
 			},
 			update: (input) => {
@@ -1528,7 +1536,7 @@ it.effect("retries related writes after a failed related validation", () => {
 										{
 											name: "Author",
 											relationshipProperties,
-											scriptSlug: "person.test",
+											providerSlug: "person.test",
 											externalId: "person-ext-1",
 										},
 									],
@@ -1601,17 +1609,18 @@ it.effect("commits earlier population scopes when a later scope fails", () => {
 							synchronization: "authoritative" as const,
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Suggestion", scriptSlug: "media.test", externalId: "suggestion-1" },
+								{ name: "Suggestion", providerSlug: "media.test", externalId: "suggestion-1" },
 							],
 						},
 					],
 				},
 			}),
 		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaSandboxScriptBySlug: () =>
+			findEntitySchemaProviderBySlug: () =>
 				Effect.succeed({
 					entitySchemaSlug: EntitySchemaSlug.make("schema-related"),
-					sandboxScriptId: SandboxScriptId.make("script-related"),
+					providerId: SandboxProviderId.make("provider-related"),
+					detailsScriptId: SandboxScriptId.make("related-details"),
 				}),
 		}),
 		entitiesService: makeEntitiesService({
@@ -1624,7 +1633,7 @@ it.effect("commits earlier population scopes when a later scope fails", () => {
 						externalId: input.externalId,
 						id: EntityId.make("entity-1"),
 						entitySchemaSlug: input.entitySchemaSlug,
-						sandboxScriptId: input.sandboxScriptId,
+						providerId: input.providerId,
 						populatedAt: input.populatedAt?.toISOString() ?? null,
 					};
 				}),
@@ -1639,8 +1648,8 @@ it.effect("commits earlier population scopes when a later scope fails", () => {
 						externalId: input.scope === "global" ? input.externalId : null,
 						populatedAt:
 							input.scope === "global" ? (input.populatedAt?.toISOString() ?? null) : null,
-						sandboxScriptId:
-							input.scope === "global" ? input.sandboxScriptId : SandboxScriptId.make("script-1"),
+						providerId:
+							input.scope === "global" ? input.providerId : SandboxProviderId.make("provider-1"),
 					};
 				}),
 			update: () =>
@@ -2018,7 +2027,7 @@ it.effect("resumes from the failed population scope without duplicating committe
 					name: input.name,
 					externalId: input.externalId,
 					entitySchemaSlug: input.entitySchemaSlug,
-					sandboxScriptId: input.sandboxScriptId,
+					providerId: input.providerId,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 					id:
 						storedEntities.get(key)?.id ??

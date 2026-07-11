@@ -1,6 +1,6 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { notFound } from "@ryot/contract/errors";
-import type { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -14,7 +14,7 @@ export type RequestFillInput = {
 	externalId: string;
 	properties: unknown;
 	entitySchemaSlug: string;
-	scriptId: SandboxScriptId;
+	providerId: SandboxProviderId;
 };
 
 export class TranslationsService extends Effect.Service<TranslationsService>()(
@@ -41,9 +41,9 @@ export class TranslationsService extends Effect.Service<TranslationsService>()(
 						payload: {
 							executionId,
 							language: input.language,
-							scriptId: input.scriptId,
 							entityId: input.entityId,
 							externalId: input.externalId,
+							providerId: input.providerId,
 							properties: input.properties,
 							entitySchemaSlug: input.entitySchemaSlug,
 						},

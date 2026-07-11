@@ -26,17 +26,21 @@ const sendNotification = () => Effect.succeed(null);
 const upsertGlobalEntities = () => Effect.void;
 
 const runInput = {
-	userId,
 	context: {},
 	metadata: {},
+	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
 	scriptId: "script-1",
 	scriptIsBuiltin: true,
-	driverName: "automation",
+	cacheNamespace: "script-1",
 	executionId: `${runId}-sandbox`,
 	allowedHostFunctions: ["emitSignal", "sendNotification"],
-	subscriptionRun: { id: runId, occurredAt, origin: { kind: "api" } },
+	authority: {
+		userId,
+		type: "subscription",
+		subscriptionRun: { id: runId, occurredAt, origin: { kind: "api" } },
+	},
 } as const satisfies SandboxRunInput;
 
 it.effect("derives signal authority and identity from the subscription run", () => {
@@ -137,45 +141,62 @@ it.effect("returns context failures through the Effect error channel", () => {
 	return Effect.gen(function* () {
 		const host = yield* makeAutomationSandboxApiFunctions();
 		const error = yield* Effect.flip(
-			host.sendNotification({ ...runInput, userId: null }, "Review posted for Dune"),
+			host.sendNotification(
+				{ ...runInput, authority: { type: "system" } },
+				"Review posted for Dune",
+			),
 		);
 
-		expect(error).toEqual({ message: "sendNotification is not available for system executions" });
+		expect(error).toEqual({
+			message: "sendNotification is available only to subscription executions",
+		});
 	}).pipe(Effect.provide(Layer.mergeAll(signals, notifications)));
 });
 
-it("exposes automation capabilities only to trusted subscription runs", () => {
+it("exposes notification delivery only to subscriptions and signal emission to trusted runs", () => {
 	const bound = { emitSignal, getEntity, sendNotification };
 	const direct = selectSandboxHostFunctions(bound, {
-		userId: "user-1",
-		driverName: "automation",
+		metadata: { kind: "script" },
+		authority: { type: "user", userId },
 		allowedHostFunctions: ["emitSignal", "getEntity", "sendNotification"],
 	});
 	const subscription = selectSandboxHostFunctions(bound, runInput);
+	const system = selectSandboxHostFunctions(bound, {
+		metadata: { kind: "automation" },
+		authority: { type: "system" },
+		allowedHostFunctions: ["emitSignal", "getEntity", "sendNotification"],
+	});
 
 	expect(direct).toEqual({ getEntity });
+	expect(system).toEqual({ emitSignal, getEntity });
 	expect(subscription).toEqual({ emitSignal, sendNotification });
 });
 
 it("exposes global writes only to system runs with explicit capabilities", () => {
 	const bound = { getEntity, upsertGlobalEntities };
 	const user = selectSandboxHostFunctions(bound, {
-		userId: "user-1",
-		driverName: "search",
+		metadata: { kind: "script" },
+		authority: { type: "user", userId },
 		allowedHostFunctions: ["getEntity", "upsertGlobalEntities"],
 	});
-	const systemNonCron = selectSandboxHostFunctions(bound, {
-		userId: null,
-		driverName: "search",
+	const subscription = selectSandboxHostFunctions(bound, {
+		metadata: { kind: "automation" },
+		authority: runInput.authority,
 		allowedHostFunctions: ["upsertGlobalEntities"],
 	});
-	const systemCron = selectSandboxHostFunctions(bound, {
-		userId: null,
-		driverName: "cron",
+	const system = selectSandboxHostFunctions(bound, {
+		metadata: { kind: "script" },
+		authority: { type: "system" },
+		allowedHostFunctions: ["upsertGlobalEntities"],
+	});
+	const providerSystem = selectSandboxHostFunctions(bound, {
+		metadata: { kind: "provider" },
+		authority: { type: "system" },
 		allowedHostFunctions: ["upsertGlobalEntities"],
 	});
 
 	expect(user).toEqual({ getEntity });
-	expect(systemNonCron).toEqual({});
-	expect(systemCron).toEqual({ upsertGlobalEntities });
+	expect(subscription).toEqual({});
+	expect(system).toEqual({ upsertGlobalEntities });
+	expect(providerSystem).toEqual({});
 });

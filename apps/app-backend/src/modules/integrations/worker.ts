@@ -1,4 +1,6 @@
-import type { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { Activity } from "@effect/workflow";
+import { SandboxRunError } from "@ryot/contract/errors";
+import { type ImportRunId, SandboxScriptId, type UserId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -11,11 +13,13 @@ import {
 	syncAudiobookshelfOwnedItems,
 } from "#modules/imports/sources/audiobookshelf/adapter";
 import { adaptPlexData, syncPlexYankOwnedItems } from "#modules/imports/sources/plex/adapter";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { processSandboxExecution } from "#modules/sandbox/durable-queues";
 
 import type { IntegrationRecord } from "./repository";
 import { IntegrationsService } from "./service";
 import { adaptKomgaData, syncKomgaOwnedItems } from "./yank/komga";
+import { YOUTUBE_MUSIC_SCRIPT_SLUG } from "./yank/youtube-music";
 
 type OwnedItem = { entityRef: ImportEntityRef; provider: string };
 
@@ -110,16 +114,31 @@ export const loadYankAdapterResult = (integration: IntegrationRecord) => {
 
 export const runYoutubeMusicHistorySandbox = (input: {
 	userId: UserId;
-	scriptId: SandboxScriptId;
 	executionId: string;
 	context: { authCookie: string; timezone: string };
 }) =>
-	processSandboxExecution({
-		driverName: "history",
-		userId: input.userId,
-		context: input.context,
-		scriptId: input.scriptId,
-		executionId: input.executionId,
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const pluginRuntime = yield* PluginRuntimeResolver;
+		const scriptId = yield* Activity.make({
+			error: SandboxRunError,
+			success: SandboxScriptId,
+			name: `resolve-youtube-music-history-script-${input.executionId}`,
+			execute: runWithDb(pluginRuntime.findActiveScript(YOUTUBE_MUSIC_SCRIPT_SLUG)).pipe(
+				Effect.mapError((error) => new SandboxRunError({ message: error.message })),
+				Effect.flatMap((script) =>
+					script
+						? Effect.succeed(script.id)
+						: new SandboxRunError({ message: "YouTube Music sandbox script is not available" }),
+				),
+			),
+		});
+		return yield* processSandboxExecution({
+			context: input.context,
+			scriptId,
+			executionId: input.executionId,
+			authority: { type: "user", userId: input.userId },
+		});
 	});
 
 export const finalizeIntegrationRun = Effect.fn("integrationsWorker.finalizeIntegrationRun")(

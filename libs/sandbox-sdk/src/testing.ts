@@ -26,12 +26,12 @@ export function defineSandboxTestHost(_manifest: SandboxManifest, host: unknown)
 	return host;
 }
 
-export const runSandboxTestDriver = <
+export const runSandboxTestScript = <
 	Input extends Schema.Schema.AnyNoContext,
 	Output extends Schema.Schema.AnyNoContext,
 	Host,
 >(
-	driver: {
+	script: {
 		readonly input: Input;
 		readonly output: Output;
 		readonly run: (
@@ -44,8 +44,8 @@ export const runSandboxTestDriver = <
 	host: NoInfer<Host>,
 	execution: ExecutionMetadata,
 ) => {
-	return Schema.decodeUnknown(driver.input)(input).pipe(
-		Effect.flatMap((parsedInput) => driver.run(parsedInput, host, execution)),
-		Effect.flatMap(Schema.decodeUnknown(driver.output)),
+	return Schema.decodeUnknown(script.input)(input).pipe(
+		Effect.flatMap((parsedInput) => script.run(parsedInput, host, execution)),
+		Effect.flatMap(Schema.decodeUnknown(script.output)),
 	);
 };

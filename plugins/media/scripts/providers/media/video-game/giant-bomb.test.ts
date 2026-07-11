@@ -1,9 +1,11 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest } from "./giant-bomb.sandbox";
+import { manifest } from "./giant-bomb";
+import details, { manifest as detailsManifest } from "./giant-bomb-details.sandbox";
+import search, { manifest as searchManifest } from "./giant-bomb-search.sandbox";
 
 type GiantBombHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -15,6 +17,15 @@ const makeHost = (httpCall: GiantBombHost["httpCall"]) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("video-game.giant-bomb sandbox script", () => {
+	it("declares one narrowly scoped script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation, searchManifest.capabilities],
+			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
+		]).toEqual([
+			["video-game.giant-bomb.search", "search", ["httpCall", "getAppConfigValue"]],
+			["video-game.giant-bomb.details", "details", ["httpCall", "getAppConfigValue"]],
+		]);
+	});
 	it("keeps similar games as related entities", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -39,7 +50,7 @@ describe("video-game.giant-bomb sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "3030-1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "3030-1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
@@ -59,7 +70,7 @@ describe("video-game.giant-bomb sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Pick One", externalId: "3030-2", scriptSlug: "video-game.giant-bomb" },
+								{ name: "Pick One", externalId: "3030-2", providerSlug: "video-game.giant-bomb" },
 							],
 						},
 					]);

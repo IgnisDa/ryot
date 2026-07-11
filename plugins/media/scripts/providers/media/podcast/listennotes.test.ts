@@ -1,9 +1,11 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./listennotes.sandbox";
+import { manifest } from "./listennotes";
+import details, { manifest as detailsManifest } from "./listennotes-details.sandbox";
+import search, { manifest as searchManifest } from "./listennotes-search.sandbox";
 
 type ListennotesHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -21,6 +23,15 @@ const makeHost = (
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("podcast.listennotes sandbox script", () => {
+	it("declares one narrowly scoped script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+		]).toEqual([
+			["podcast.listennotes.search", "search"],
+			["podcast.listennotes.details", "details"],
+		]);
+	});
 	it("maps search hits and derives nextPage from next_offset", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -38,7 +49,7 @@ describe("podcast.listennotes sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "news", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "news", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -95,7 +106,7 @@ describe("podcast.listennotes sandbox script", () => {
 			},
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "pod-1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "pod-1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("My Podcast");
 					expect(result.childEntities).toEqual([
@@ -118,7 +129,11 @@ describe("podcast.listennotes sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Recommended One", externalId: "rec-1", scriptSlug: "podcast.listennotes" },
+								{
+									name: "Recommended One",
+									externalId: "rec-1",
+									providerSlug: "podcast.listennotes",
+								},
 							],
 						},
 					]);

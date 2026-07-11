@@ -222,7 +222,15 @@ it.effect("runs policies in position order and validates each replacement before
 				},
 			},
 		});
-		expect(test.sandboxPayloads.every((entry) => entry.subscriptionRun === undefined)).toBe(true);
+		expect(test.sandboxPayloads[0]?.authority).toEqual({
+			userId,
+			type: "subscription",
+			subscriptionRun: {
+				origin: { kind: "api" },
+				occurredAt: now,
+				id: "event-policy-execution-policy-0-early",
+			},
+		});
 		expect(test.created[0]).toMatchObject({ properties: { rating: 10 }, sessionEntityId });
 	});
 });

@@ -6,7 +6,7 @@ import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
 	ImportRunId,
-	SandboxScriptId,
+	SandboxProviderId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import {
@@ -24,7 +24,6 @@ import {
 	makeWorkflowActivityEngine,
 } from "#lib/test-utils/effect";
 import { CollectionsService } from "#modules/collections/service";
-import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
@@ -46,7 +45,6 @@ const now = "2026-06-17T00:00:00.000Z";
 
 const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
 const mockImportsService = Layer.mock(ImportsService);
-const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const mockCollectionsService = Layer.mock(CollectionsService);
 const mockEventsService = Layer.mock(EventsService);
 const mockOperationsService = Layer.mock(OperationsService);
@@ -69,13 +67,6 @@ const makeImportsService = (overrides: MockOverrides<typeof mockImportsService> 
 		_tag: "ImportsService",
 	});
 
-const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
-	mockEntitiesRepository({
-		findEntitySchemaSandboxScriptBySlug: () => Effect.succeed(null),
-		...overrides,
-		_tag: "EntitiesRepository",
-	});
-
 const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsService> = {}) =>
 	mockCollectionsService({
 		markEntityOwnedInLibrary: () => Effect.void,
@@ -86,7 +77,7 @@ const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsS
 				properties: {},
 				externalId: null,
 				name: "Collection",
-				sandboxScriptId: null,
+				providerId: null,
 				id: EntityId.make("collection-1"),
 				entitySchemaSlug: EntitySchemaSlug.make("schema-collection"),
 			}),
@@ -154,7 +145,14 @@ const makeEntitySchemasRepository = (
 	});
 
 const makeMediaOperations = (overrides: Partial<MediaImportWorkflowOperationsValue> = {}) =>
-	Layer.mock(MediaImportWorkflowOperations, overrides);
+	Layer.mock(MediaImportWorkflowOperations, {
+		resolveProvider: (providerSlug) =>
+			Effect.succeed({
+				providerId: SandboxProviderId.make(`provider-${providerSlug}`),
+				entitySchemaSlug: EntitySchemaSlug.make(`schema-${providerSlug.split(".")[0]}`),
+			}),
+		...overrides,
+	});
 
 const makeRedisLayer = () => {
 	const store = new Map<string, string>();
@@ -184,7 +182,6 @@ type TestLayerOptions = {
 	eventsService?: Layer.Layer<EventsService>;
 	importsService?: Layer.Layer<ImportsService>;
 	collectionsService?: Layer.Layer<CollectionsService>;
-	entitiesRepository?: Layer.Layer<EntitiesRepository>;
 	mediaOperations?: Layer.Layer<MediaImportWorkflowOperations>;
 	operationsService?: Layer.Layer<OperationsService>;
 	eventSchemasRepository?: Layer.Layer<EventSchemasRepository>;
@@ -201,7 +198,6 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		options.mediaOperations ?? makeMediaOperations(),
 		options.importsService ?? makeImportsService(),
 		options.importRunFailuresService ?? makeImportRunFailuresService(),
-		options.entitiesRepository ?? makeEntitiesRepository(),
 		options.collectionsService ?? makeCollectionsService(),
 		options.operationsService ?? makeOperationsService(),
 		options.eventsService ?? makeEventsService(),
@@ -238,7 +234,7 @@ const resolvedBookGroup = (input: { externalId: string; sourceLabel: string }) =
 	events: [],
 	entityRef: {
 		kind: "resolved" as const,
-		scriptSlug: "book.openlibrary",
+		providerSlug: "book.openlibrary",
 		entitySchemaSlug: "book",
 		externalId: input.externalId,
 		sourceLabel: input.sourceLabel,
@@ -283,17 +279,6 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 					collectionAdds.push(input);
 				}),
 		}),
-		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaSandboxScriptBySlug: (slug) =>
-				Effect.succeed(
-					slug === "book.openlibrary"
-						? {
-								entitySchemaSlug: EntitySchemaSlug.make("schema-book"),
-								sandboxScriptId: SandboxScriptId.make("script-book-openlibrary"),
-							}
-						: null,
-				),
-		}),
 		collectionsService: makeCollectionsService({
 			ensureEntityInLibrary: () => Effect.void,
 			markEntityOwnedInLibrary: (input) => {
@@ -307,7 +292,7 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 					updatedAt: now,
 					properties: {},
 					externalId: null,
-					sandboxScriptId: null,
+					providerId: null,
 					id: EntityId.make(`${name}-id`),
 					entitySchemaSlug: EntitySchemaSlug.make("schema-collection"),
 				}),
@@ -354,7 +339,7 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 					userId: "user-1",
 					value: "9781234567890",
 					identifierType: "isbn",
-					scriptId: "script-book-openlibrary",
+					providerId: "provider-book.openlibrary",
 					executionId: "normalized-1-resolve-0-0",
 				},
 			]);
@@ -363,7 +348,7 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 					userId: "user-1",
 					externalId: "OL123M",
 					entitySchemaSlug: "schema-book",
-					scriptId: "script-book-openlibrary",
+					providerId: "provider-book.openlibrary",
 					executionId: "normalized-1-entity-0",
 					origin: { kind: "import", importRunId: "run-1" },
 				},
@@ -450,17 +435,6 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 		mediaOperations: makeMediaOperations({
 			importEntity: () => Effect.succeed({ id: EntityId.make("show-entity-1") }),
 		}),
-		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaSandboxScriptBySlug: (slug) =>
-				Effect.succeed(
-					slug === "show.tmdb"
-						? {
-								entitySchemaSlug: EntitySchemaSlug.make("schema-show"),
-								sandboxScriptId: SandboxScriptId.make("script-show-tmdb"),
-							}
-						: null,
-				),
-		}),
 		collectionsService: makeCollectionsService({
 			ensureEntityInLibrary: () => Effect.void,
 		}),
@@ -517,7 +491,7 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 						entityRef: {
 							kind: "resolved",
 							externalId: "show-1",
-							scriptSlug: "show.tmdb",
+							providerSlug: "show.tmdb",
 							sourceLabel: "Test Show",
 							entitySchemaSlug: "show",
 						},
@@ -630,17 +604,6 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 		mediaOperations: makeMediaOperations({
 			importEntity: () => Effect.succeed({ id: EntityId.make("podcast-entity-1") }),
 		}),
-		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaSandboxScriptBySlug: (slug) =>
-				Effect.succeed(
-					slug === "podcast.itunes"
-						? {
-								entitySchemaSlug: EntitySchemaSlug.make("schema-podcast"),
-								sandboxScriptId: SandboxScriptId.make("script-podcast-itunes"),
-							}
-						: null,
-				),
-		}),
 		collectionsService: makeCollectionsService({
 			ensureEntityInLibrary: () => Effect.void,
 		}),
@@ -702,7 +665,7 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 							externalId: "podcast-1",
 							sourceLabel: "Test Podcast",
 							entitySchemaSlug: "podcast",
-							scriptSlug: "podcast.itunes",
+							providerSlug: "podcast.itunes",
 						},
 						events: [
 							{
@@ -799,17 +762,6 @@ it.effect(
 								new LibraryEntityImportError({ stage: "population", message: "pop fail" }),
 							),
 			}),
-			entitiesRepository: makeEntitiesRepository({
-				findEntitySchemaSandboxScriptBySlug: (slug) =>
-					Effect.succeed(
-						slug === "book.openlibrary"
-							? {
-									entitySchemaSlug: EntitySchemaSlug.make("schema-book"),
-									sandboxScriptId: SandboxScriptId.make("script-book-openlibrary"),
-								}
-							: null,
-					),
-			}),
 		} satisfies TestLayerOptions;
 
 		return withTestLayer(
@@ -883,7 +835,7 @@ it.effect("round-trips the adapter result through the artifact store", () => {
 				entityRef: {
 					kind: "resolved",
 					externalId: "book-1",
-					scriptSlug: "book.openlibrary",
+					providerSlug: "book.openlibrary",
 					entitySchemaSlug: "book",
 					sourceLabel: "Round Trip Book",
 				},

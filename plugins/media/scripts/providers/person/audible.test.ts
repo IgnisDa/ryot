@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./audible.sandbox";
+import { details, manifest, search } from "./audible";
 
 type AudiblePersonHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -26,7 +26,7 @@ describe("person.audible sandbox script", () => {
 			]),
 		);
 
-		return runSandboxTestDriver(
+		return runSandboxTestScript(
 			search,
 			{ query: "author", page: 1, pageSize: 2 },
 			host,
@@ -59,7 +59,7 @@ describe("person.audible sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "a1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "a1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.name).toBe("Author Name");
 				expect(result.properties).toEqual({
@@ -78,7 +78,7 @@ describe("person.audible sandbox script", () => {
 		const host = makeHost(() => httpSuccess({ description: "Bio." }));
 
 		return expect(
-			Effect.runPromise(runSandboxTestDriver(details, { externalId: "a1" }, host, execution)),
+			Effect.runPromise(runSandboxTestScript(details, { externalId: "a1" }, host, execution)),
 		).rejects.toThrow("Audnex returned no author name");
 	});
 });

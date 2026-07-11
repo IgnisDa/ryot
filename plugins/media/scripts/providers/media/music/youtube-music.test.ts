@@ -1,7 +1,7 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { describe, expect, it } from "vitest";
 
-import { buildHistory, buildTrackDetails } from "./youtube-music.sandbox";
+import { buildHistory, buildTrackDetails } from "./youtube-music";
 
 describe("music.youtube-music sandbox script", () => {
 	it("keeps queue neighbors as related entities", () => {
@@ -48,7 +48,7 @@ describe("music.youtube-music sandbox script", () => {
 								{
 									name: "Artist",
 									externalId: "artist-1",
-									scriptSlug: "person.youtube-music",
+									providerSlug: "person.youtube-music",
 									relationshipProperties: { roles: ["Artist"] },
 								},
 							],
@@ -61,7 +61,7 @@ describe("music.youtube-music sandbox script", () => {
 								{
 									name: "Album",
 									externalId: "album-1",
-									scriptSlug: "music-group.youtube-music",
+									providerSlug: "music-group.youtube-music",
 									relationshipProperties: { roles: ["Member"] },
 								},
 							],
@@ -71,8 +71,8 @@ describe("music.youtube-music sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Pick One", externalId: "track-2", scriptSlug: "music.youtube-music" },
-								{ name: "Pick Two", externalId: "track-3", scriptSlug: "music.youtube-music" },
+								{ name: "Pick One", externalId: "track-2", providerSlug: "music.youtube-music" },
+								{ name: "Pick Two", externalId: "track-3", providerSlug: "music.youtube-music" },
 							],
 						},
 					]);

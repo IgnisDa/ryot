@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./tvdb.sandbox";
+import { details, manifest, search } from "./tvdb";
 
 type TvdbHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -32,7 +32,7 @@ describe("company.tvdb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
@@ -43,19 +43,19 @@ describe("company.tvdb sandbox script", () => {
 							{
 								name: "Film",
 								externalId: "2",
-								scriptSlug: "movie.tvdb",
+								providerSlug: "movie.tvdb",
 								relationshipProperties: { roles: ["Company"] },
 							},
 							{
 								name: "Sequel",
 								externalId: "4",
-								scriptSlug: "movie.tvdb",
+								providerSlug: "movie.tvdb",
 								relationshipProperties: { roles: ["Company"] },
 							},
 							{
 								name: "Loading...",
 								externalId: "6",
-								scriptSlug: "movie.tvdb",
+								providerSlug: "movie.tvdb",
 								relationshipProperties: { roles: ["Company"] },
 							},
 						],
@@ -68,7 +68,7 @@ describe("company.tvdb sandbox script", () => {
 							{
 								name: "Show",
 								externalId: "3",
-								scriptSlug: "show.tvdb",
+								providerSlug: "show.tvdb",
 								relationshipProperties: { roles: ["Company"] },
 							},
 						],
@@ -92,7 +92,7 @@ describe("company.tvdb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.name).toBe("Studio");
 				expect(result.properties).toEqual({
@@ -109,21 +109,21 @@ describe("company.tvdb sandbox script", () => {
 	it("throws when the company payload has no data", () => {
 		const host = makeHost(() => httpSuccess({ data: null }));
 		return expect(
-			Effect.runPromise(runSandboxTestDriver(details, { externalId: "1" }, host, execution)),
+			Effect.runPromise(runSandboxTestScript(details, { externalId: "1" }, host, execution)),
 		).rejects.toThrow("TVDB returned no data for this company");
 	});
 
 	it("throws when the company has no name", () => {
 		const host = makeHost(() => httpSuccess({ data: { movies: [] } }));
 		return expect(
-			Effect.runPromise(runSandboxTestDriver(details, { externalId: "1" }, host, execution)),
+			Effect.runPromise(runSandboxTestScript(details, { externalId: "1" }, host, execution)),
 		).rejects.toThrow("TVDB returned no name for this company");
 	});
 
 	it("throws for a non-numeric external id", () => {
 		const host = makeHost(() => httpSuccess({ data: {} }));
 		return expect(
-			Effect.runPromise(runSandboxTestDriver(details, { externalId: "abc" }, host, execution)),
+			Effect.runPromise(runSandboxTestScript(details, { externalId: "abc" }, host, execution)),
 		).rejects.toThrow("externalId must be a numeric TVDB company ID");
 	});
 
@@ -135,7 +135,7 @@ describe("company.tvdb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(
+		return runSandboxTestScript(
 			search,
 			{ query: "studio", page: 1, pageSize: 20 },
 			host,

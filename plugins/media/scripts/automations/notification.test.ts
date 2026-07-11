@@ -96,7 +96,7 @@ it.each([
 ] as const)("formats %s exclusively from the signal snapshot", (slug, properties, expected) => {
 	const messages: string[] = [];
 	return Effect.runPromise(
-		definition.drivers.automation
+		definition
 			.run(
 				input(slug, properties),
 				defineSandboxTestHost(manifest, {

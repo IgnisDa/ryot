@@ -20,7 +20,7 @@ const makeEntity = () => ({
 	name: "Library",
 	externalId: null,
 	populatedAt: null,
-	sandboxScriptId: null,
+	providerId: null,
 	entitySchemaSlug: librarySchemaId,
 	updatedAt: "2026-07-16T00:00:00.000Z",
 	createdAt: "2026-07-16T00:00:00.000Z",

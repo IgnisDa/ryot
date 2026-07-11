@@ -1,11 +1,10 @@
 import type { Headers as PlatformHeaders } from "@effect/platform";
-import { badRequest, notFound, SandboxRunError, unauthorized } from "@ryot/contract/errors";
+import { badRequest, notFound, SandboxRunError } from "@ryot/contract/errors";
 import { IntegrationId, type UserId } from "@ryot/contract/schema/brands";
 import type { PluginOperationAuth } from "@ryot/plugin-kit/manifest";
 import { generateId } from "better-auth";
-import { Effect, Redacted, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { AuthService } from "#modules/auth/service";
@@ -22,12 +21,11 @@ type DispatchInput = {
 	readonly payload: unknown;
 	readonly pluginSlug: string;
 	readonly operationSlug: string;
-	readonly userId: UserId | null;
+	readonly userId: UserId;
 };
 
 export class OperationsService extends Effect.Service<OperationsService>()("OperationsService", {
 	effect: Effect.gen(function* () {
-		const config = yield* AppConfig;
 		const auth = yield* AuthService;
 		const loader = yield* PluginLoader;
 		const runWithDb = yield* DbRunner;
@@ -48,7 +46,7 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 
 		const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: DispatchInput) {
 			const operation = yield* resolveOperation(input.pluginSlug, input.operationSlug);
-			const script = yield* runWithDb(runtime.findActiveScript(operation.driverRef));
+			const script = yield* runWithDb(runtime.findActiveScript(operation.scriptSlug));
 			if (!script) {
 				return yield* new SandboxRunError({
 					message: `Operation '${input.pluginSlug}/${input.operationSlug}' script is unavailable`,
@@ -58,9 +56,8 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 			const result = yield* executeSandboxExecution({
 				executionId,
 				scriptId: script.id,
-				userId: input.userId,
 				context: input.payload,
-				driverName: "operation",
+				authority: { type: "user", userId: input.userId },
 			}).pipe(
 				Effect.provideService(DbRunner, runWithDb),
 				Effect.provideService(RuntimeSandboxService, sandbox),
@@ -89,16 +86,6 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 				return integration.userId;
 			});
 
-		const resolveAdminUserId = (headers: PlatformHeaders.Headers) =>
-			Effect.gen(function* () {
-				const token = headers["admin-access-token"];
-				const expected = Redacted.value(config.server.adminAccessToken);
-				if (!token || expected === "" || token !== expected) {
-					return yield* unauthorized();
-				}
-				return null;
-			});
-
 		const resolveUserId = (
 			operationAuth: PluginOperationAuth,
 			payload: unknown,
@@ -106,9 +93,6 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 		) => {
 			if (operationAuth === "user") {
 				return auth.currentUser(new Headers(headers)).pipe(Effect.map((user) => user.id));
-			}
-			if (operationAuth === "admin") {
-				return resolveAdminUserId(headers);
 			}
 			return resolveIntegrationUserId(payload);
 		};
@@ -134,7 +118,7 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 				readonly payload: unknown;
 				readonly pluginSlug: string;
 				readonly operationSlug: string;
-				readonly userId: UserId | null;
+				readonly userId: UserId;
 			}) => dispatch(input),
 		);
 

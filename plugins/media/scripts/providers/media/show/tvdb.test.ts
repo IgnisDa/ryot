@@ -1,9 +1,12 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search, translate } from "./tvdb.sandbox";
+import { manifest } from "./tvdb";
+import details, { manifest as detailsManifest } from "./tvdb-details.sandbox";
+import search, { manifest as searchManifest } from "./tvdb-search.sandbox";
+import translate, { manifest as translateManifest } from "./tvdb-translate.sandbox";
 
 type TvdbHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -17,6 +20,17 @@ const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("show.tvdb sandbox script", () => {
+	it("declares one narrowly scoped script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+			[translateManifest.slug, translate.operation],
+		]).toEqual([
+			["show.tvdb.search", "search"],
+			["show.tvdb.details", "details"],
+			["show.tvdb.translate", "translate"],
+		]);
+	});
 	it("dedupes seasons by number, keeps only official ones sorted by number", () => {
 		const requested: string[] = [];
 		const host = makeHost((_method, url) => {
@@ -78,7 +92,7 @@ describe("show.tvdb sandbox script", () => {
 			return httpSuccess({ data: {} });
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(requested).toEqual(
 						expect.arrayContaining([
@@ -195,7 +209,7 @@ describe("show.tvdb sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "123" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "123" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("Localized Name");
 					expect(result.properties).toEqual({
@@ -217,7 +231,7 @@ describe("show.tvdb sandbox script", () => {
 								{
 									name: "Alice",
 									externalId: "5",
-									scriptSlug: "person.tvdb",
+									providerSlug: "person.tvdb",
 									relationshipProperties: { roles: ["Actor", "Director"] },
 								},
 							],
@@ -230,7 +244,7 @@ describe("show.tvdb sandbox script", () => {
 								{
 									name: "Studio X",
 									externalId: "7",
-									scriptSlug: "company.tvdb",
+									providerSlug: "company.tvdb",
 									relationshipProperties: { roles: ["Studio", "Network"] },
 								},
 							],
@@ -262,7 +276,7 @@ describe("show.tvdb sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(
+			runSandboxTestScript(
 				translate,
 				{
 					language: "en",
@@ -290,7 +304,7 @@ describe("show.tvdb sandbox script", () => {
 								images: [{ type: "remote", url: "art.jpg" }],
 							},
 						});
-						return runSandboxTestDriver(
+						return runSandboxTestScript(
 							translate,
 							{
 								language: "en",
@@ -322,7 +336,7 @@ describe("show.tvdb sandbox script", () => {
 		const host = makeHost(() => httpSuccess({ data: {} }));
 		return expect(
 			Effect.runPromise(
-				runSandboxTestDriver(
+				runSandboxTestScript(
 					translate,
 					{
 						externalId: "1",
@@ -347,7 +361,7 @@ describe("show.tvdb sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "test", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "test", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{

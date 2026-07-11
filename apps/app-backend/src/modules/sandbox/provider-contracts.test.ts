@@ -73,7 +73,7 @@ it.effect("keeps Effect provider decoders in parity with SDK encoded results", (
 						{
 							name: "Creator",
 							externalId: "person-1",
-							scriptSlug: "person.tmdb",
+							providerSlug: "tmdb",
 							relationshipProperties: { roles: ["Creator"] },
 						},
 					],

@@ -1,5 +1,5 @@
 import { DbError } from "@ryot/contract/errors";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -36,10 +36,7 @@ const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArr
 			source: stored.source,
 			compiledCode: stored.compiledCode,
 			compiledFormat: stored.compiledFormat,
-			metadata: {
-				...metadata,
-				...(stored.metadata.driverNames ? { driverNames: stored.metadata.driverNames } : {}),
-			},
+			metadata,
 		});
 	}
 	return {
@@ -87,22 +84,30 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 			);
 		});
 
-		const hasEntityReferences = Effect.fn("PluginRepository.hasEntityReferences")(function* (
-			entitySchemaSlugs: ReadonlyArray<string>,
-		) {
-			if (entitySchemaSlugs.length === 0) {
-				return false;
-			}
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
-				db
-					.select({ id: schema.entity.id })
-					.from(schema.entity)
-					.where(inArray(schema.entity.entitySchemaSlug, [...entitySchemaSlugs]))
-					.limit(1),
-			);
-			return row !== undefined;
-		});
+		const hasEntityReferences = Effect.fn("PluginRepository.hasEntityReferences")(
+			function* (input: { pluginSlug: string; entitySchemaSlugs: ReadonlyArray<string> }) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({ id: schema.entity.id })
+						.from(schema.entity)
+						.leftJoin(
+							schema.sandboxProvider,
+							eq(schema.entity.providerId, schema.sandboxProvider.id),
+						)
+						.where(
+							input.entitySchemaSlugs.length > 0
+								? or(
+										inArray(schema.entity.entitySchemaSlug, [...input.entitySchemaSlugs]),
+										eq(schema.sandboxProvider.pluginSlug, input.pluginSlug),
+									)
+								: eq(schema.sandboxProvider.pluginSlug, input.pluginSlug),
+						)
+						.limit(1),
+				);
+				return row !== undefined;
+			},
+		);
 
 		const findBySourceHash = Effect.fn("PluginRepository.findBySourceHash")(function* (input: {
 			slug: string;
@@ -201,29 +206,74 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 						},
 					}),
 			);
-			if (plugin.scripts.length > 0) {
-				yield* dbEffect(() =>
-					db
-						.insert(schema.sandboxScript)
-						.values(
-							plugin.scripts.map((script) => ({
-								pluginSlug: slug,
-								slug: script.slug,
-								name: script.name,
-								source: script.source,
-								metadata: script.metadata,
-								contentHash: script.contentHash,
-								compiledCode: script.compiledCode,
-								compiledFormat: script.compiledFormat,
-							})),
+			const providers =
+				plugin.manifest.providers.length > 0
+					? yield* dbEffect(() =>
+							db
+								.insert(schema.sandboxProvider)
+								.values(
+									plugin.manifest.providers.map((provider) => ({
+										slug: provider.slug,
+										name: provider.name,
+										pluginSlug: slug,
+										information: provider.information,
+									})),
+								)
+								.onConflictDoUpdate({
+									target: [schema.sandboxProvider.pluginSlug, schema.sandboxProvider.slug],
+									set: {
+										updatedAt: sql`now()`,
+										name: sql`excluded.name`,
+										information: sql`excluded.information`,
+									},
+								})
+								.returning({ id: schema.sandboxProvider.id, slug: schema.sandboxProvider.slug }),
 						)
-						.onConflictDoNothing({
-							target: [
-								schema.sandboxScript.pluginSlug,
-								schema.sandboxScript.slug,
-								schema.sandboxScript.contentHash,
-							],
-						}),
+					: [];
+			const providerIdBySlug = new Map(providers.map((provider) => [provider.slug, provider.id]));
+			if (plugin.scripts.length > 0) {
+				yield* Effect.forEach(
+					plugin.scripts,
+					(script) => {
+						const providerSlug =
+							"providerSlug" in script.metadata ? script.metadata.providerSlug : undefined;
+						const providerId = providerSlug ? providerIdBySlug.get(providerSlug) : undefined;
+						if (providerSlug && !providerId) {
+							return Effect.fail(
+								new DbError({
+									message: `Plugin ${slug} is missing provider ${providerSlug}`,
+								}),
+							);
+						}
+						return dbEffect(() =>
+							db
+								.insert(schema.sandboxScript)
+								.values({
+									providerId: providerId ?? null,
+									pluginSlug: slug,
+									slug: script.slug,
+									name: script.name,
+									source: script.source,
+									metadata: script.metadata,
+									contentHash: script.contentHash,
+									compiledCode: script.compiledCode,
+									compiledFormat: script.compiledFormat,
+								})
+								.onConflictDoUpdate({
+									target: [
+										schema.sandboxScript.pluginSlug,
+										schema.sandboxScript.slug,
+										schema.sandboxScript.contentHash,
+									],
+									set: {
+										updatedAt: sql`now()`,
+										providerId: providerId ?? null,
+										metadata: script.metadata,
+									},
+								}),
+						);
+					},
+					{ discard: true },
 				);
 			}
 		});

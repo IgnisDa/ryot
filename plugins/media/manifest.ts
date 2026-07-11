@@ -26,7 +26,96 @@ const creditRelationshipSlugs = relationshipSchemas
 		return isCreditSource && isCreditTarget;
 	})
 	.map(({ slug }) => slug);
-const schemaScriptLinks = (
+type ProviderOperation = "details" | "resolve" | "search" | "translate";
+const provider = (
+	slug: string,
+	name: string,
+	source: string,
+	operations: readonly ["details", ...ProviderOperation[]],
+	canonicalLanguage?: string,
+) => ({
+	name,
+	slug,
+	information: canonicalLanguage ? { source, canonicalLanguage } : { source },
+	operations: {
+		details: `${slug}.details`,
+		...(operations.includes("resolve") ? { resolve: `${slug}.resolve` } : {}),
+		...(operations.includes("search") ? { search: `${slug}.search` } : {}),
+		...(operations.includes("translate") ? { translate: `${slug}.translate` } : {}),
+	},
+});
+const mediaProviders = [
+	provider("anime.anilist", "Anilist", "anilist", ["details", "search", "translate"], "en"),
+	provider("anime.myanimelist", "MyAnimeList", "myanimelist", ["details", "search"]),
+	provider("audiobook-group.audible", "Audible", "audible", ["details", "search"]),
+	provider("audiobook.audible", "Audible", "audible", ["details", "search"]),
+	provider("book-group.hardcover", "Hardcover", "hardcover", ["details", "search"]),
+	provider("book.google-books", "Google Books", "google-books", ["details", "resolve", "search"]),
+	provider("book.hardcover", "Hardcover", "hardcover", ["details", "resolve", "search"]),
+	provider("book.openlibrary", "OpenLibrary", "openlibrary", ["details", "resolve", "search"]),
+	provider("comic-book-group.metron", "Metron", "metron", ["details", "search"]),
+	provider("comic-book.metron", "Metron", "metron", ["details", "search"]),
+	provider("company.anilist", "Anilist", "anilist", ["details", "search"]),
+	provider("company.giant-bomb", "GiantBomb", "giant-bomb", ["details", "search"]),
+	provider("company.hardcover", "Hardcover", "hardcover", ["details", "search"]),
+	provider("company.igdb", "IGDB", "igdb", ["details", "search"]),
+	provider("company.tmdb", "TMDB", "tmdb", ["details", "search"]),
+	provider("company.tvdb", "TVDB", "tvdb", ["details", "search"]),
+	provider("company.vndb", "VNDB", "vndb", ["details", "search"]),
+	provider("manga.anilist", "Anilist", "anilist", ["details", "search", "translate"], "en"),
+	provider("manga.manga-updates", "MangaUpdates", "manga-updates", ["details", "search"]),
+	provider("manga.myanimelist", "MyAnimeList", "myanimelist", ["details", "search"]),
+	provider("movie-group.tmdb", "TMDB", "tmdb", ["details", "search", "translate"], "en"),
+	provider("movie-group.tvdb", "TVDB", "tvdb", ["details", "search", "translate"], "en"),
+	provider("movie.tmdb", "TMDB", "tmdb", ["details", "resolve", "search", "translate"], "en"),
+	provider("movie.tvdb", "TVDB", "tvdb", ["details", "search", "translate"], "en"),
+	provider("music-group.music-brainz", "MusicBrainz", "music-brainz", ["details", "search"]),
+	provider("music-group.spotify", "Spotify", "spotify", ["details", "search"]),
+	provider(
+		"music-group.youtube-music",
+		"YouTube Music",
+		"youtube-music",
+		["details", "search", "translate"],
+		"en",
+	),
+	provider("music.music-brainz", "MusicBrainz", "music-brainz", ["details", "search"]),
+	provider("music.spotify", "Spotify", "spotify", ["details", "search"]),
+	provider(
+		"music.youtube-music",
+		"YouTube Music",
+		"youtube-music",
+		["details", "search", "translate"],
+		"en",
+	),
+	provider("person.anilist", "Anilist", "anilist", ["details", "search"]),
+	provider("person.audible", "Audible", "audible", ["details", "search"]),
+	provider("person.giant-bomb", "GiantBomb", "giant-bomb", ["details", "search"]),
+	provider("person.hardcover", "Hardcover", "hardcover", ["details", "search"]),
+	provider("person.manga-updates", "MangaUpdates", "manga-updates", ["details", "search"]),
+	provider("person.metron", "Metron", "metron", ["details", "search"]),
+	provider("person.music-brainz", "MusicBrainz", "music-brainz", ["details", "search"]),
+	provider("person.openlibrary", "OpenLibrary", "openlibrary", ["details"]),
+	provider("person.spotify", "Spotify", "spotify", ["details", "search"]),
+	provider("person.tmdb", "TMDB", "tmdb", ["details", "search", "translate"], "en"),
+	provider("person.tvdb", "TVDB", "tvdb", ["details", "search", "translate"], "en"),
+	provider(
+		"person.youtube-music",
+		"YouTube Music",
+		"youtube-music",
+		["details", "search", "translate"],
+		"en",
+	),
+	provider("podcast.itunes", "iTunes", "itunes", ["details", "search", "translate"], "en"),
+	provider("podcast.listennotes", "Listen Notes", "listennotes", ["details", "search"]),
+	provider("show.tmdb", "TMDB", "tmdb", ["details", "resolve", "search", "translate"], "en"),
+	provider("show.tvdb", "TVDB", "tvdb", ["details", "search", "translate"], "en"),
+	provider("video-game-group.giant-bomb", "GiantBomb", "giant-bomb", ["details", "search"]),
+	provider("video-game-group.igdb", "IGDB", "igdb", ["details", "search"]),
+	provider("video-game.giant-bomb", "GiantBomb", "giant-bomb", ["details", "search"]),
+	provider("video-game.igdb", "IGDB", "igdb", ["details", "search"]),
+	provider("visual-novel.vndb", "VNDB", "vndb", ["details", "search"]),
+] as const;
+const schemaProviderLinks = (
 	[
 		["show", "show.tmdb"],
 		["show", "show.tvdb"],
@@ -80,15 +169,16 @@ const schemaScriptLinks = (
 		["comic-book-group", "comic-book-group.metron"],
 		["video-game-group", "video-game-group.giant-bomb"],
 	] as const
-).map(([entitySchemaSlug, scriptSlug]) => ({ entitySchemaSlug, scriptSlug }));
+).map(([entitySchemaSlug, providerSlug]) => ({ entitySchemaSlug, providerSlug }));
 
 export const mediaPlugin = definePlugin({
 	boot: [],
+	providers: mediaProviders,
 	crons: [
 		{
 			slug: "media-trending",
 			schedule: "0 0 * * *",
-			driverRef: "media-trending",
+			scriptSlug: "media-trending",
 			description: "Refresh global media trending rankings daily",
 		},
 	],
@@ -96,13 +186,13 @@ export const mediaPlugin = definePlugin({
 		{
 			auth: "integration",
 			slug: "metadata-lookup",
-			driverRef: "operation.metadata-lookup",
+			scriptSlug: "operation.metadata-lookup",
 			description: "Match browser extension titles to TMDB movies and shows",
 		},
 		{
 			auth: "user",
 			slug: "resolve-episodes",
-			driverRef: "operation.resolve-episodes",
+			scriptSlug: "operation.resolve-episodes",
 			description: "Resolve show and podcast episode references to entity ids",
 		},
 	],
@@ -121,7 +211,7 @@ export const mediaPlugin = definePlugin({
 	signalSchemas: mediaSignalSchemas("media-monitoring"),
 	relationshipSchemas,
 	bindings: {
-		schemaScriptLinks,
+		schemaProviderLinks,
 		signalAutomations: [],
 		entityAutomations: [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].map(
 			(entitySchemaSlug) => ({

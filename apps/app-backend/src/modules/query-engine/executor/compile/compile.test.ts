@@ -251,14 +251,12 @@ describe("translationStatus computed field", () => {
 		expect(sql).toBe("'text'");
 	});
 
-	it("emits its own correlated sandbox_script and entity_translation reads when a language is set", () => {
+	it("emits its own correlated sandbox_provider and entity_translation reads when a language is set", () => {
 		const { sql, params } = render(compileValue(translationStatusRef, scope("es")).value);
 		expect(sql).toContain("CASE");
-		expect(sql).toContain("sandbox_script_id IS NULL");
+		expect(sql).toContain("provider_id IS NULL");
 		expect(sql).toContain("populated_at IS NULL");
-		expect(sql).toContain(
-			"SELECT s.metadata -> 'providerInformation' ->> 'canonicalLanguage' FROM sandbox_script s",
-		);
+		expect(sql).toContain("SELECT p.information ->> 'canonicalLanguage' FROM sandbox_provider p");
 		expect(sql).toContain("NOT EXISTS (SELECT 1 FROM entity_translation t");
 		expect(params).toContain("es");
 	});

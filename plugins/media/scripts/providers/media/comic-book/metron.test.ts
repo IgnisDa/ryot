@@ -1,9 +1,11 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest } from "./metron.sandbox";
+import { manifest } from "./metron";
+import details, { manifest as detailsManifest } from "./metron-details.sandbox";
+import search, { manifest as searchManifest } from "./metron-search.sandbox";
 
 type MetronComicBookHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -16,6 +18,15 @@ const makeHost = (httpCall: MetronComicBookHost["httpCall"]) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("comic-book.metron sandbox script", () => {
+	it("declares one script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+		]).toEqual([
+			["comic-book.metron.search", "search"],
+			["comic-book.metron.details", "details"],
+		]);
+	});
 	it("keeps arc issues as related entities", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/issue/1/")) {
@@ -36,7 +47,7 @@ describe("comic-book.metron sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
@@ -53,7 +64,7 @@ describe("comic-book.metron sandbox script", () => {
 								{
 									name: "Saga",
 									externalId: "10",
-									scriptSlug: "comic-book-group.metron",
+									providerSlug: "comic-book-group.metron",
 									relationshipProperties: { roles: ["Member"] },
 								},
 							],
@@ -62,7 +73,7 @@ describe("comic-book.metron sandbox script", () => {
 							direction: "outgoing",
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
-							entities: [{ name: "Saga #2", externalId: "2", scriptSlug: "comic-book.metron" }],
+							entities: [{ name: "Saga #2", externalId: "2", providerSlug: "comic-book.metron" }],
 						},
 					]);
 					return undefined;
@@ -87,7 +98,7 @@ describe("comic-book.metron sandbox script", () => {
 			return httpSuccess({ results: [] });
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("Saga #5");
 					const people = result.relatedEntityGroups?.find(
@@ -98,7 +109,7 @@ describe("comic-book.metron sandbox script", () => {
 						{
 							name: "Jane Doe",
 							externalId: "7",
-							scriptSlug: "person.metron",
+							providerSlug: "person.metron",
 							relationshipProperties: { roles: ["Writer", "Artist"] },
 						},
 					]);

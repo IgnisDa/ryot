@@ -5,7 +5,7 @@ import { assert } from "vitest";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { fixtureManifest } from "./test-support";
-import { validatePluginCronDrivers, validatePluginManifestReferences } from "./validation";
+import { validatePluginManifestReferences } from "./validation";
 
 const cronManifest = () => {
 	const manifest = fixtureManifest();
@@ -17,7 +17,7 @@ const cronManifest = () => {
 			{
 				slug: "fixture-cron",
 				schedule: "* * * * *",
-				driverRef: script.slug,
+				scriptSlug: script.slug,
 				description: "Fixture cron",
 			},
 		],
@@ -34,7 +34,7 @@ it.effect("rejects duplicate cron slugs, unknown scripts, and invalid schedules"
 		(manifest: ReturnType<typeof cronManifest>) => {
 			const cron = manifest.crons[0];
 			assert(cron);
-			return { ...manifest, crons: [{ ...cron, driverRef: "missing-script" }] };
+			return { ...manifest, crons: [{ ...cron, scriptSlug: "missing-script" }] };
 		},
 		(manifest: ReturnType<typeof cronManifest>) => {
 			const cron = manifest.crons[0];
@@ -50,21 +50,5 @@ it.effect("rejects duplicate cron slugs, unknown scripts, and invalid schedules"
 			const exit = yield* Effect.exit(validatePluginManifestReferences(manifest, snapshot));
 			expect(Exit.isFailure(exit)).toBe(true);
 		});
-	});
-});
-
-it.effect("requires every compiled cron script to expose the cron driver", () => {
-	const manifest = cronManifest();
-	const script = manifest.scripts[0];
-	assert(script);
-	const normalized = {
-		manifest,
-		scripts: [{ slug: script.slug, metadata: { driverNames: ["automation"] } }],
-	};
-
-	return Effect.gen(function* () {
-		const exit = yield* Effect.exit(validatePluginCronDrivers(normalized));
-		expect(Exit.isFailure(exit)).toBe(true);
-		expect(String(exit)).toContain("must expose driver: cron");
 	});
 });

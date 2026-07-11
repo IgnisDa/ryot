@@ -1,9 +1,11 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./manga-updates.sandbox";
+import { manifest } from "./manga-updates";
+import details, { manifest as detailsManifest } from "./manga-updates-details.sandbox";
+import search, { manifest as searchManifest } from "./manga-updates-search.sandbox";
 
 type MangaUpdatesMangaHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -12,6 +14,15 @@ const makeHost = (httpCall: MangaUpdatesMangaHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("manga.manga-updates sandbox script", () => {
+	it("declares one script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+		]).toEqual([
+			["manga.manga-updates.search", "search"],
+			["manga.manga-updates.details", "details"],
+		]);
+	});
 	it("keeps recommendation and related-series entities", () => {
 		const host = makeHost((_method, requestUrl) => {
 			if (requestUrl.endsWith("/series/1")) {
@@ -30,7 +41,7 @@ describe("manga.manga-updates sandbox script", () => {
 			return httpSuccess({ title: "Related", series_id: 3 });
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
@@ -38,8 +49,8 @@ describe("manga.manga-updates sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Recommendation", externalId: "2", scriptSlug: "manga.manga-updates" },
-								{ name: "Related", externalId: "3", scriptSlug: "manga.manga-updates" },
+								{ name: "Recommendation", externalId: "2", providerSlug: "manga.manga-updates" },
+								{ name: "Related", externalId: "3", providerSlug: "manga.manga-updates" },
 							],
 						},
 					]);
@@ -67,7 +78,7 @@ describe("manga.manga-updates sandbox script", () => {
 				: httpSuccess({}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "7" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "7" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("Source");
 					expect(result.properties).toEqual({
@@ -106,7 +117,7 @@ describe("manga.manga-updates sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "hit", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "hit", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
