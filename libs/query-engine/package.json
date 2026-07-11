@@ -8,7 +8,10 @@
 	},
 	"scripts": {
 		"build": "tsc",
-		"test": "bun test --only-failures",
+		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"devDependencies": {
+		"vitest": "4.1.9"
 	}
 }
