@@ -6,6 +6,7 @@ import { AppConfig } from "./config/service";
 
 export const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
 const localUploadPath = (intentId: string) => `/uploads/local/${intentId}`;
+const localDownloadPath = "/uploads/local/download";
 
 const base64UrlEncode = (bytes: Uint8Array) => {
 	let value = "";
@@ -193,6 +194,76 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				return void 0;
 			});
 
+			const createDownloadTarget = Effect.fn("LocalStorageService.createDownloadTarget")(function* (
+				key: string,
+				contentType: string,
+				now: number,
+			) {
+				yield* requireConfigured;
+				yield* resolvePath(key);
+				const expiresAt = now + UPLOAD_URL_EXPIRY_SECONDS;
+				const signature = yield* sign(
+					"GET,HEAD",
+					`${localDownloadPath}\n${key}\n${contentType}`,
+					expiresAt,
+				);
+				const query = new URLSearchParams({
+					key,
+					signature,
+					contentType,
+					expires: String(expiresAt),
+				});
+				return `${localDownloadPath.slice(1)}?${query.toString()}`;
+			});
+
+			const verifyDownloadTarget = Effect.fn("LocalStorageService.verifyDownloadTarget")(function* (
+				method: string,
+				url: string,
+				now: number,
+			) {
+				yield* requireConfigured;
+				const parsed = yield* Effect.try({
+					try: () => new URL(url, "http://local.invalid"),
+					catch: () => badRequest("Local download target is malformed"),
+				});
+				const contentType = parsed.searchParams.get("contentType");
+				const expiresValue = parsed.searchParams.get("expires");
+				const expiresAt = Number(expiresValue);
+				const key = parsed.searchParams.get("key");
+				const signature = parsed.searchParams.get("signature");
+				if (
+					(method !== "GET" && method !== "HEAD") ||
+					parsed.pathname !== localDownloadPath ||
+					!contentType ||
+					!key ||
+					!expiresValue ||
+					!/^[0-9]+$/.test(expiresValue) ||
+					!Number.isSafeInteger(expiresAt) ||
+					expiresAt < now ||
+					!signature
+				) {
+					return yield* badRequest("Local download target is invalid or expired");
+				}
+				const actualBytes = base64UrlDecode(signature);
+				if (actualBytes === null) {
+					return yield* badRequest("Local download target is invalid or expired");
+				}
+				const valid = yield* Effect.tryPromise(() =>
+					crypto.subtle.verify(
+						"HMAC",
+						signingKey as CryptoKey,
+						actualBytes,
+						new TextEncoder().encode(
+							`GET,HEAD\n${parsed.pathname}\n${key}\n${contentType}\n${expiresAt}`,
+						),
+					),
+				).pipe(Effect.orDie);
+				if (!valid) {
+					return yield* badRequest("Local download target is invalid or expired");
+				}
+				return { contentType, key };
+			});
+
 			const existingPath = (key: string) =>
 				Effect.gen(function* () {
 					const target = yield* resolvePath(key);
@@ -285,6 +356,12 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 					.pipe(Effect.mapError(() => badRequest("Local upload object is missing or invalid")));
 			});
 
+			const resolveObjectPath = Effect.fn("LocalStorageService.resolveObjectPath")(function* (
+				key: string,
+			) {
+				return yield* existingPath(key);
+			});
+
 			const deleteObject = Effect.fn("LocalStorageService.deleteObject")(function* (key: string) {
 				const target = yield* resolvePath(key);
 				yield* fs.remove(target, { force: true }).pipe(Effect.orDie);
@@ -296,8 +373,11 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				writeObject,
 				isConfigured,
 				deleteObject,
+				resolveObjectPath,
 				createUploadTarget,
 				verifyUploadTarget,
+				createDownloadTarget,
+				verifyDownloadTarget,
 			};
 		}),
 	},
