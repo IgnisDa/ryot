@@ -89,7 +89,7 @@ export const createEventTestFixture = (client: Client) =>
 			name: "Test Book",
 			properties: { title: "Test" },
 		});
-		return { entityId: entity.id, eventSchemaSlug: eventSchema.id };
+		return { entityId: entity.id, entitySchemaSlug, eventSchemaSlug: eventSchema.id };
 	});
 
 export const createRuleEventFixture = (client: Client) =>

@@ -17,11 +17,19 @@ it("decodes generic media write intents without admitting plugin-private event f
 		items: [
 			{
 				itemIndex: 1,
-				relationships: [],
 				sourceLabel: "Arrival",
 				sourceIdentifier: "10",
-				ownerships: [{ entityAlias: "media", provider: "watcharr" }],
+				subjectEntityAlias: "media",
 				collectionMemberships: [{ entityAlias: "media", collectionName: "Pinned" }],
+				relationships: [
+					{
+						sourceAlias: "media",
+						targetAlias: "library",
+						propertiesMode: "merge",
+						relationshipSchemaSlug: "in-library",
+						properties: { ownershipSources: ["watcharr"] },
+					},
+				],
 				entities: [
 					{
 						alias: "media",
@@ -29,6 +37,14 @@ it("decodes generic media write intents without admitting plugin-private event f
 						name: "Arrival",
 						entityId: "movie-1",
 						entitySchemaSlug: "movie",
+					},
+					{
+						scope: "user",
+						properties: {},
+						name: "Library",
+						alias: "library",
+						existingOnly: true,
+						entitySchemaSlug: "library",
 					},
 				],
 				events: [

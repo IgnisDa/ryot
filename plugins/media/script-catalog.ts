@@ -3,6 +3,7 @@ import type { ActivityManifest, SandboxManifest } from "@ryot/sandbox-sdk/core";
 import { manifest as manifest0 } from "./scripts/automations/auto-complete-on-full-progress.sandbox";
 import { manifest as manifest1 } from "./scripts/automations/integration-progress-policy.sandbox";
 import { manifest as manifest2 } from "./scripts/automations/jellyfin-push.sandbox";
+import { manifest as manifest178 } from "./scripts/automations/library-membership-policy.sandbox";
 import { manifest as manifest3 } from "./scripts/automations/media-association.sandbox";
 import { manifest as manifest4 } from "./scripts/automations/media-entity-updated.sandbox";
 import { manifest as manifest5 } from "./scripts/automations/media-relationship-sync.sandbox";
@@ -202,6 +203,7 @@ const providerActivity = <const Manifest extends ActivityManifest>(
 export const mediaScripts = [
 	directScript(manifest0, "scripts/automations/auto-complete-on-full-progress.sandbox.ts"),
 	directScript(manifest1, "scripts/automations/integration-progress-policy.sandbox.ts"),
+	directScript(manifest178, "scripts/automations/library-membership-policy.sandbox.ts"),
 	directScript(manifest2, "scripts/automations/jellyfin-push.sandbox.ts"),
 	directScript(manifest3, "scripts/automations/media-association.sandbox.ts"),
 	directScript(manifest4, "scripts/automations/media-entity-updated.sandbox.ts"),

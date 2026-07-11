@@ -115,8 +115,7 @@ export const validateSystemConfig = (
 			);
 		}
 
-		// The +2 accounts for the two always-on DurableQueue workers
-		// (EnsureLibraryMembershipQueue and DefaultSavedViewQueue, concurrency 1 each).
+		// The +2 accounts for the two always-on DurableQueue workers, concurrency 1 each.
 		if (config.sandbox.workerConcurrency + 2 >= usableWorkflowConnections) {
 			yield* Effect.logWarning("workflow pool connection headroom exhausted").pipe(
 				Effect.annotateLogs({

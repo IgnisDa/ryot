@@ -36,7 +36,6 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
-import { EntityImportPayload } from "./entity-import-workflow";
 import {
 	EntityImportWorkflowOperations,
 	type EntityImportWorkflowOperationsValue,
@@ -46,6 +45,7 @@ import {
 	type ProviderEntityPopulationPayload,
 	runProviderEntityPopulationWorkflow,
 } from "./provider-entity-population-workflow";
+import { EntityImportPayload } from "./schemas";
 
 const TestEntityImportWorkflow = Workflow.make({
 	success: ListedEntity,

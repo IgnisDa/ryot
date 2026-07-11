@@ -75,7 +75,7 @@ export const MediaImportPopulationWorkflowInput = Schema.Struct({
 	),
 });
 
-export const KernelLibraryEntityImportResult = Schema.Union(
+export const KernelEntityImportResult = Schema.Union(
 	Schema.Struct({
 		status: Schema.Literal("completed"),
 		entity: Schema.Struct({ id: Schema.String }),
@@ -83,7 +83,7 @@ export const KernelLibraryEntityImportResult = Schema.Union(
 	Schema.Struct({
 		message: Schema.String,
 		status: Schema.Literal("failed"),
-		stage: Schema.Literal("population", "membership"),
+		stage: Schema.Literal("population"),
 	}),
 );
 
@@ -99,7 +99,7 @@ export const MediaImportPopulationWorkflowOutput = Schema.Struct({
 				index: Schema.Number,
 				message: Schema.String,
 				status: Schema.Literal("failed"),
-				stage: Schema.Literal("population", "membership"),
+				stage: Schema.Literal("population"),
 			}),
 		),
 	),

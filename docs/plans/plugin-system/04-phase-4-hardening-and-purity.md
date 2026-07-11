@@ -29,6 +29,14 @@ permanently allowlist, the following production-domain ownership leaks:
   and workflow code. Preserve externally observable outcomes and awaited ordering; shared database
   transaction boundaries may change where sandbox isolation requires it. Automatic membership is
   for media-owned schemas only, not fitness or unrelated plugin schemas.
+
+  **Implementation choice (2026-07-30):** media event membership runs as an awaited event policy
+  using its declared `changeUserRelationships` capability under user-bound subscription authority.
+  This remains user-safe because the backend supplies the subscription's user identity and the
+  mutation payload cannot select another user. Subscription relationship writes remain user-bound,
+  and endpoints owned by another user or otherwise invisible to that user are rejected. Undeclared
+  capability calls and system-authority calls remain unavailable.
+
 - Add a separate `userBootstrap` manifest section for the trusted boot-configured plugins that
   Phase 4 loads globally. It targets sandbox scripts running with user authority. Add the smallest
   batch-first, schema-owner-restricted host capability needed for the media plugin to idempotently

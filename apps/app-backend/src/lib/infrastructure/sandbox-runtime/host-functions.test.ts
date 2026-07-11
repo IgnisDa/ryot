@@ -354,6 +354,22 @@ const runChangeUserRelationships = (
 	authority: ExecutionAuthority,
 	batches: ReadonlyArray<ChangeUserRelationshipBatch>,
 	repository: Layer.Layer<RelationshipsRepository>,
+	getEntityScopeForUser: (input: { userId: UserId; entityId: EntityId }) => Effect.Effect<{
+		entityId: EntityId;
+		isBuiltin: boolean;
+		entityName: string;
+		entityUserId: UserId | null;
+		entitySchemaSlug: EntitySchemaSlug;
+	} | null> = ({ entityId }) =>
+		Effect.succeed({
+			entityId,
+			isBuiltin: true,
+			entityUserId: null,
+			entityName: "Entity",
+			entitySchemaSlug: EntitySchemaSlug.make(
+				entityId === "collection-1" ? "collection" : "entity",
+			),
+		}),
 ) =>
 	makeAdditionalSandboxApiFunctions().pipe(
 		Effect.flatMap((functions) =>
@@ -375,19 +391,7 @@ const runChangeUserRelationships = (
 					_tag: "DefinitionRegistry",
 					...makeDefinitionRegistry(),
 				}),
-				Layer.mock(EntitiesRepository)({
-					_tag: "EntitiesRepository",
-					getEntityScopeForUser: ({ entityId }) =>
-						Effect.succeed({
-							entityId,
-							isBuiltin: true,
-							entityName: "Entity",
-							entityUserId: null,
-							entitySchemaSlug: EntitySchemaSlug.make(
-								entityId === "collection-1" ? "collection" : "entity",
-							),
-						}),
-				}),
+				Layer.mock(EntitiesRepository)({ getEntityScopeForUser, _tag: "EntitiesRepository" }),
 			),
 		),
 	);
@@ -436,7 +440,77 @@ describe("changeUserRelationships", () => {
 		});
 	});
 
-	it.effect("rejects delegated user authority and total change overflow before writing", () => {
+	it.effect("derives the relationship owner from subscription authority", () => {
+		const created: unknown[] = [];
+		const repository = Layer.mock(RelationshipsRepository)({
+			_tag: "RelationshipsRepository",
+			createRelationship: (input) => {
+				created.push(input);
+				return Effect.succeed({
+					...input,
+					wasInserted: true,
+					createdAt: "2026-07-28T00:00:00.000Z",
+					id: RelationshipId.make("relationship-1"),
+				});
+			},
+		});
+
+		return Effect.gen(function* () {
+			const result = yield* runChangeUserRelationships(
+				subscriptionAuthority({ kind: "api" }),
+				[batch],
+				repository,
+			);
+
+			expect(Either.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
+			expect(created).toEqual([
+				{
+					scope: "user",
+					userId: "user-1",
+					properties: { rank: 0 },
+					sourceEntityId: "entity-1",
+					targetEntityId: "collection-1",
+					relationshipSchemaSlug: "member-of",
+				},
+			]);
+		});
+	});
+
+	it.effect("rejects a subscription relationship with an endpoint invisible to its user", () => {
+		let writes = 0;
+		const repository = Layer.mock(RelationshipsRepository)({
+			_tag: "RelationshipsRepository",
+			createRelationship: () => {
+				writes += 1;
+				return Effect.die("must not write");
+			},
+		});
+
+		return Effect.gen(function* () {
+			const result = yield* runChangeUserRelationships(
+				subscriptionAuthority({ kind: "api" }),
+				[batch],
+				repository,
+				({ entityId, userId }) =>
+					entityId === "collection-1" && userId === "user-1"
+						? Effect.succeed(null)
+						: Effect.succeed({
+								entityId,
+								isBuiltin: true,
+								entityUserId: null,
+								entityName: "Entity",
+								entitySchemaSlug: EntitySchemaSlug.make("entity"),
+							}),
+			);
+
+			expect(Either.getLeft(result)).toMatchObject(
+				Option.some({ _tag: "NotFound", message: "Entity not found" }),
+			);
+			expect(writes).toBe(0);
+		});
+	});
+
+	it.effect("rejects system authority and total change overflow before writing", () => {
 		let writes = 0;
 		const repository = Layer.mock(RelationshipsRepository)({
 			_tag: "RelationshipsRepository",
@@ -448,19 +522,15 @@ describe("changeUserRelationships", () => {
 		const overflow = Array.from({ length: 501 }, () => identity);
 
 		return Effect.gen(function* () {
-			const delegated = yield* runChangeUserRelationships(
-				subscriptionAuthority({ kind: "api" }),
-				[batch],
-				repository,
-			);
+			const system = yield* runChangeUserRelationships({ type: "system" }, [batch], repository);
 			const tooMany = yield* runChangeUserRelationships(
 				{ type: "user", userId: UserId.make("trusted-user") },
 				[{ creates: [], deletes: overflow }],
 				repository,
 			);
 
-			expect(Either.getLeft(delegated)).toEqual(
-				Option.some({ message: "changeUserRelationships is available only to user executions" }),
+			expect(Either.getLeft(system)).toEqual(
+				Option.some({ message: "changeUserRelationships is not available for system executions" }),
 			);
 			expect(Either.getLeft(tooMany)).toEqual(
 				Option.some({ message: "changeUserRelationships exceeds 500 changes" }),
