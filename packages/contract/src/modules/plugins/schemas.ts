@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { PluginSlug } from "../../schema/brands";
+import { PluginSlug, SavedViewId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../sandbox/schemas";
@@ -80,6 +80,8 @@ export const reservedPluginSlugs: ReadonlySet<string> = new Set([
 const PluginRequestFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("upload-unavailable") }),
 	Schema.Struct({ code: Schema.Literal("slug-reserved"), pluginSlug: PluginSlug }),
+	Schema.Struct({ code: Schema.Literal("home-view-disabled"), savedViewId: SavedViewId }),
+	Schema.Struct({ code: Schema.Literal("home-view-not-found"), savedViewId: SavedViewId }),
 	Schema.Struct({
 		issue: PluginPackageArchiveIssue,
 		code: Schema.Literal("package-archive-invalid"),
@@ -108,6 +110,10 @@ const PluginRequestFailureReason = Schema.Union([
 		pluginSlug: PluginSlug,
 		operationSlug: Schema.String,
 		code: Schema.Literal("invalid-operation-scope"),
+	}),
+	Schema.Struct({
+		savedViewId: SavedViewId,
+		code: Schema.Literal("home-view-renderer-unavailable"),
 	}),
 ]);
 
@@ -219,6 +225,12 @@ export const UpdatePluginInstallationBody = strictStruct({
 
 export type UpdatePluginInstallationBody = typeof UpdatePluginInstallationBody.Type;
 
+export const PluginHomeViewSelection = strictStruct({
+	savedViewId: Schema.NullOr(SavedViewId),
+});
+
+export type PluginHomeViewSelection = typeof PluginHomeViewSelection.Type;
+
 export const CreatePluginClientArtifactSessionBody = strictStruct({
 	sourceHash: Schema.String,
 	artifactHash: Schema.String,
@@ -263,6 +275,7 @@ export const PluginInstallationItem = Schema.Struct({
 	configSchema: PluginConfigSchema,
 	health: PluginInstallationHealth,
 	healthReason: Schema.NullOr(Schema.String),
+	homeSavedViewId: Schema.NullOr(SavedViewId),
 	scope: Schema.Literals(["system", "user"]),
 	configuredSecrets: Schema.Array(Schema.String),
 	config: Schema.Record(Schema.String, JsonValue),

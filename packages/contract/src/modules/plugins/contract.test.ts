@@ -84,6 +84,14 @@ describe("PluginsGroup", () => {
 		}
 	});
 
+	it("defines the authenticated home-view selection endpoint", () => {
+		const endpoint = PluginsGroup.endpoints.setHomeView;
+
+		expect(endpoint.method).toBe("PUT");
+		expect(endpoint.path).toBe("/plugins/:pluginSlug/home-view");
+		expect(endpoint.middlewares.size).toBeGreaterThan(0);
+	});
+
 	it("uses strict artifact session request and response schemas", () => {
 		const strictFixtures = [
 			[

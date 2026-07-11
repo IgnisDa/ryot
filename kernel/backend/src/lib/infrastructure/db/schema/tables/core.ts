@@ -98,6 +98,7 @@ export const pluginInstallation = snakeCase.table(
 	"plugin_installation",
 	{
 		healthReason: text(),
+		homeSavedViewId: text(),
 		sortOrder: integer().notNull().default(0),
 		isDisabled: boolean().notNull().default(false),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),

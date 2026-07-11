@@ -252,9 +252,10 @@ const pluginInstallation: CatalogTable = {
 	fields: {
 		id: physicalField("id", "text", false),
 		health: physicalField("health", "text", false),
+		homeSavedViewId: physicalField("home_saved_view_id", "text"),
+		pluginId: physicalField("plugin_id", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
-		pluginId: physicalField("plugin_id", "text", false),
 		sortOrder: physicalField("sort_order", "number", false),
 		isDisabled: physicalField("is_disabled", "boolean", false),
 	},

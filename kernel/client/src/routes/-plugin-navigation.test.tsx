@@ -12,7 +12,12 @@ import {
 	type ClientPageTarget,
 	type PreparedClientPage,
 } from "@ryot-app/contract/modules/client-pages/schemas";
-import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginSlug,
+	SavedViewId,
+} from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -114,6 +119,32 @@ const preparedFor = (
 	};
 };
 
+const preparedSavedView = (savedViewId: SavedViewId): PreparedClientPage => {
+	const prepared = preparedFor({
+		path: "/",
+		search: "",
+		kind: "plugin-route",
+		pluginId: "plugin-1",
+	});
+	return {
+		...prepared,
+		context: { ...prepared.context, target: { kind: "saved-view", savedViewId } },
+		identity: {
+			savedViewId,
+			viewRevision: 1,
+			kind: "kernel-saved-view",
+			rendererName: "dashboard",
+			sourceHash: "source-plugin-1",
+			buildId: prepared.identity.buildId,
+			graphHash: prepared.identity.graphHash,
+			target: { kind: "saved-view", savedViewId },
+			artifactHash: prepared.identity.artifactHash,
+			contributors: prepared.identity.contributors,
+			operationTargets: prepared.identity.operationTargets,
+		},
+	};
+};
+
 function mount(options: {
 	readonly entry: string;
 	readonly entries?: PluginClientCatalog;
@@ -129,7 +160,7 @@ function mount(options: {
 			targets.push(request.payload.target);
 			const target = request.payload.target;
 			if (target.kind === "saved-view") {
-				return Effect.die("not used");
+				return Effect.succeed(preparedSavedView(target.savedViewId));
 			}
 			const pluginId = target.kind === "plugin-route" ? target.pluginId : "plugin-1";
 			return Effect.succeed(preparedFor(target, pluginId));
@@ -228,6 +259,74 @@ const preparationFailure = (reason: ClientPagePreparationError["reason"]) =>
 	Effect.fail(new AuthenticatedApiError({ cause: new ClientPagePreparationError({ reason }) }));
 
 describe("client page routes", () => {
+	it("renders the selected home view at the active workspace URL through one page host", async () => {
+		const savedViewId = SavedViewId.make("home-view-1");
+		const view = mount({
+			entry: "/fixture",
+			entries: [{ ...catalog[0], homeSavedViewId: savedViewId }],
+		});
+		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+		const bridge = connectFrame(frame);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+
+		expect(view.targets).toEqual([{ kind: "saved-view", savedViewId }]);
+		expect(view.router.state.location.pathname).toBe("/fixture");
+		expect(screen.getByRole("button", { name: "Fixture workspace, fixture" })).toBeTruthy();
+		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
+		expect(globalThis.document.querySelectorAll("iframe")).toHaveLength(1);
+		expect(globalThis.document.querySelectorAll("main")).toHaveLength(1);
+		expect(
+			globalThis.document.querySelectorAll('[data-testid="authenticated-shell"]'),
+		).toHaveLength(1);
+		expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
+			location: { kind: "route", path: "/fixture", search: "" },
+		});
+	});
+
+	it("uses the normal plugin home route when no override is selected", async () => {
+		const view = mount({ entry: "/fixture" });
+		await screen.findByTitle("fixture plugin");
+
+		expect(view.targets).toEqual([
+			{ kind: "plugin-route", pluginId: "plugin-1", path: "/", search: "" },
+		]);
+		expect(view.router.state.location.pathname).toBe("/fixture");
+	});
+
+	it("shows a selected home-view preparation error without falling back", async () => {
+		const savedViewId = SavedViewId.make("broken-home-view");
+		const targets: ClientPageTarget[] = [];
+		mount({
+			entry: "/fixture",
+			entries: [{ ...catalog[0], homeSavedViewId: savedViewId }],
+			prepare: (_scope, request) => {
+				targets.push(request.payload.target);
+				return preparationFailure({ code: "plugin-unavailable", pluginId: "renderer-plugin" });
+			},
+		});
+
+		await screen.findByRole("heading", { name: "Plugin page not found" });
+		expect(targets).toEqual([{ kind: "saved-view", savedViewId }]);
+		expect(screen.queryByTitle(/plugin$/)).toBeNull();
+	});
+
+	it("shows a selected home-view build failure without falling back", async () => {
+		const savedViewId = SavedViewId.make("failed-home-view");
+		const targets: ClientPageTarget[] = [];
+		mount({
+			entry: "/fixture",
+			entries: [{ ...catalog[0], homeSavedViewId: savedViewId }],
+			prepare: (_scope, request) => {
+				targets.push(request.payload.target);
+				return Effect.fail(new AuthenticatedApiError({ cause: new Error("build failed") }));
+			},
+		});
+
+		await screen.findByRole("heading", { name: "Plugin page unavailable" });
+		expect(targets).toEqual([{ kind: "saved-view", savedViewId }]);
+		expect(screen.queryByTitle(/plugin$/)).toBeNull();
+	});
+
 	it("prepares an ordinary plugin route and mounts the shared page session", async () => {
 		const view = mount({ entry: "/fixture/details/one?tab=stats" });
 		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
