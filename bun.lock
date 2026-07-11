@@ -292,6 +292,8 @@
     "packages/client-plugin-compiler": {
       "name": "@ryot/client-plugin-compiler",
       "dependencies": {
+        "@fontsource-variable/lora": "5.3.0",
+        "@fontsource-variable/outfit": "5.3.0",
         "@ryot/client-sdk": "workspace:*",
         "@ryot/client-ui-sdk": "workspace:*",
         "@ryot/contract": "workspace:*",
