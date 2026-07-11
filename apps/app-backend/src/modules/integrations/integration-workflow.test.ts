@@ -137,6 +137,7 @@ const makeRedisLayer = () => {
 
 type TestLayerOptions = {
 	sandboxFailure?: string;
+	sandboxInterrupt?: boolean;
 	importsService?: Layer.Layer<ImportsService>;
 	sandboxCalls?: Array<Record<string, unknown>>;
 	importsRepository?: Layer.Layer<ImportsRepository>;
@@ -184,6 +185,9 @@ const makeTestLayer = (options: TestLayerOptions) =>
 			resolveWorkflowScript: () => Effect.succeed(SandboxScriptId.make("workflow.media-import")),
 			executeWorkflow: (input) => {
 				options.sandboxCalls?.push({ executionId: input.executionId, payload: input.input });
+				if (options.sandboxInterrupt) {
+					return Effect.interrupt;
+				}
 				return options.sandboxFailure
 					? Effect.fail(new SandboxRunError({ message: options.sandboxFailure }))
 					: Effect.succeed(null);
@@ -369,6 +373,30 @@ it.effect("fails the whole run on catastrophic yank provider failure", () => {
 			);
 		}),
 		captureChildExecute(childDispatches),
+	);
+});
+
+it.effect("preserves workflow suspension while awaiting the plugin import child", () => {
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const options = {
+		sandboxInterrupt: true,
+		importsService: makeImportsService({
+			update: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"run_1",
+		Effect.gen(function* () {
+			const exit = yield* Effect.exit(runIntegrationRunWorkflow(sinkPayload, "run_1"));
+
+			expect(exit._tag).toBe("Failure");
+			expect(recordedUpdates).not.toContainEqual(expect.objectContaining({ status: "failed" }));
+		}),
 	);
 });
 

@@ -1,4 +1,5 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineActivity } from "@ryot/sandbox-sdk/activity";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
@@ -6,13 +7,14 @@ import { resolvedMediaRef } from "../../../imports/source-helpers";
 import { failureResult, jsonRecord, progressResult, showEpisodeRef, SinkInput } from "../shared";
 
 export const manifest = defineManifest({
-	kind: "script",
+	kind: "activity",
 	name: "Kodi sink",
 	slug: "integration.kodi",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	capabilities: ["getIntegration"],
 });
+
 export const parseKodi = (rawBody: string) =>
 	Effect.try(() => {
 		const payload = jsonRecord(rawBody);
@@ -57,7 +59,8 @@ export const parseKodi = (rawBody: string) =>
 			...(locator ? { unresolvedEpisode: locator } : {}),
 		});
 	}).pipe(Effect.orElseSucceed(() => failureResult("Could not parse Kodi webhook payload")));
-export default defineScript({
+
+export default defineActivity({
 	manifest,
 	input: SinkInput,
 	output: MediaIntegrationAdapterResult,

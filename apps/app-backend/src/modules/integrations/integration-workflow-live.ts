@@ -90,11 +90,13 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 
 	yield* runIntegrationImport(integration, payload, executionId).pipe(
 		Effect.catchAllCause((cause) =>
-			failRun(
-				"fail-integration-run-unexpected",
-				payload.runId,
-				sanitizeErrorMessage(Cause.squash(cause), "Integration job failed unexpectedly"),
-			),
+			Cause.isInterruptedOnly(cause)
+				? Effect.failCause(cause)
+				: failRun(
+						"fail-integration-run-unexpected",
+						payload.runId,
+						sanitizeErrorMessage(Cause.squash(cause), "Integration job failed unexpectedly"),
+					),
 		),
 	);
 
