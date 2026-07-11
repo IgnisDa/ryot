@@ -65,7 +65,7 @@ describe("plugins", () => {
 									)
 									.pipe(
 										Effect.catchAll((error) =>
-											Effect.logError("[plugins-e2e] entity cleanup failed (non-fatal)", error),
+											Effect.logWarning("[plugins-e2e] entity cleanup failed (non-fatal)", error),
 										),
 									);
 							}
