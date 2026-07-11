@@ -142,6 +142,10 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					path: "effect",
 					namespace: EFFECT_NAMESPACE,
 				}));
+				builder.onResolve({ filter: /^effect\/(?:Match|Result|Schema)$/ }, ({ path }) => ({
+					namespace: "file",
+					path: Bun.resolveSync(path, compilerRoot),
+				}));
 				builder.onLoad({ filter: /.*/, namespace: EFFECT_NAMESPACE }, () => ({
 					loader: "js" as const,
 					contents: `
@@ -191,9 +195,9 @@ export * as Schema from "effect/Schema";
 					format: "esm",
 					splitting: false,
 					plugins: [plugin],
+					sourcemap: "none",
 					target: "browser",
 					packages: "bundle",
-					sourcemap: "none",
 					entrypoints: [CLIENT_ENTRY_SPECIFIER],
 					define: { "process.env.NODE_ENV": '"production"' },
 				}),
