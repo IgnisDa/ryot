@@ -11,6 +11,7 @@ describe("fixture client registration", () => {
 		});
 		expect(fixturePlugin.client.notFoundPage).toBe("fixture-not-found");
 		expect(fixturePlugin.client.entities).toEqual({
+			move: { listPresentation: "move-row", gridPresentation: "move-card" },
 			pokemon: {
 				detailPage: "pokemon-detail",
 				listPresentation: "pokemon-row",
@@ -20,6 +21,8 @@ describe("fixture client registration", () => {
 		expect(fixturePlugin.client.exports).toMatchObject({
 			"fixture-home": { kind: "page", entry: "client/home.tsx" },
 			"fixture-details": { kind: "page", entry: "client/details.tsx" },
+			"move-row": { kind: "presentation", entry: "client/move-row.ts" },
+			"move-card": { kind: "presentation", entry: "client/move-card.ts" },
 			"fixture-not-found": { kind: "page", entry: "client/not-found.tsx" },
 			"fixture-full-bleed": { kind: "page", entry: "client/full-bleed.tsx" },
 			"pokemon-detail": { kind: "page", entry: "client/pokemon-detail.tsx" },

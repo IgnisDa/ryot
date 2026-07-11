@@ -1,6 +1,6 @@
 import type { Hotkey } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
-import { useRef, type ReactNode } from "react";
+import { useRef, type ReactNode, type RefObject } from "react";
 
 import { Badge } from "./badge";
 import { useFieldEscape } from "./field-escape";
@@ -17,12 +17,14 @@ type SearchFieldProps = {
 	readonly placeholder?: string;
 	readonly onSubmit?: () => void;
 	readonly onChange: (value: string) => void;
+	readonly inputRef?: RefObject<HTMLInputElement | null>;
 };
 
 export function SearchField({
 	icon,
 	label,
 	value,
+	inputRef,
 	shortcut,
 	onChange,
 	onSubmit,
@@ -31,7 +33,8 @@ export function SearchField({
 	className,
 	placeholder,
 }: SearchFieldProps) {
-	const input = useRef<HTMLInputElement>(null);
+	const fallbackRef = useRef<HTMLInputElement>(null);
+	const input = inputRef ?? fallbackRef;
 	useShortcut(shortcut ?? "/", () => input.current?.focus(), {
 		enabled: shortcut !== undefined,
 	});

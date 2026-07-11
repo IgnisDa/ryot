@@ -9,6 +9,7 @@ import { reconcileStack, type PluginScreen, type ResolvePluginScreen } from "./s
 export type PluginNavigationEntry = {
 	readonly key: string;
 	readonly index: number;
+	readonly screenKey: string;
 	readonly location: PluginLogicalLocation;
 };
 
@@ -46,6 +47,7 @@ export type PluginRouterNavigation = PluginNavigationStore & {
 	readonly openDrawer: () => void;
 	readonly completeTransition: (id: number) => void;
 	readonly publishTitle: (title: string | null) => void;
+	readonly registerShortcut: (shortcut: string, press: () => void) => () => void;
 };
 
 export type PluginNavigationController = PluginNavigationStore & {

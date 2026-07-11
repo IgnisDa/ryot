@@ -580,7 +580,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}?keep=1&layout=table`);
 		const runtime = page.locator("iframe").contentFrame();
-		yield* runtime.getByRole("heading", { level: 1, name: "Entity browser" }).waitFor();
+		yield* runtime.getByRole("heading", { level: 1, name: "Configured entity browser" }).waitFor();
 		yield* runtime.getByText(alpha.name, { exact: true }).waitFor({ state: "visible" });
 		expect(yield* runtime.getByRole("button", { name: "Add", exact: true }).count).toBe(0);
 		expect(yield* runtime.getByRole("columnheader").allInnerTexts()).toEqual(["Schema", "Name"]);
@@ -590,11 +590,13 @@ it.live("keeps configured entity-browser controls within their declared source",
 		]);
 		expect(yield* runtime.getByText(excluded.name, { exact: true }).count).toBe(0);
 
-		yield* runtime.getByRole("searchbox", { name: "Search this view" }).fill("Alpha");
+		yield* runtime
+			.getByRole("searchbox", { name: "Search Configured entity browser" })
+			.fill("Alpha");
 		yield* page.waitForURL((url) => url.searchParams.get("search") === "Alpha");
 		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
 		yield* runtime.getByText("02 Zulu member", { exact: true }).waitFor({ state: "hidden" });
-		yield* runtime.getByRole("searchbox", { name: "Search this view" }).fill("");
+		yield* runtime.getByRole("searchbox", { name: "Search Configured entity browser" }).fill("");
 
 		yield* runtime.getByRole("button", { name: "Sort results: Default order" }).click();
 		yield* runtime.getByRole("radio", { name: "Name descending" }).click();
@@ -656,7 +658,7 @@ it.live(
 			yield* signInThroughHostedOAuth(page, email, password);
 			yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
 			const runtime = page.locator("iframe").contentFrame();
-			yield* runtime.getByRole("heading", { level: 1, name: "Results table" }).waitFor();
+			yield* runtime.getByRole("heading", { level: 1, name: view.name }).waitFor();
 			expect(yield* runtime.getByRole("columnheader").allInnerTexts()).toEqual([
 				"Note",
 				"Occurred",
@@ -680,7 +682,8 @@ it.live(
 				eventSchemaSlug: eventSchema.slug,
 				occurredAt: "2026-09-07T10:00:00.000Z",
 			});
-			yield* runtime.getByRole("button", { name: "Refresh", exact: true }).click();
+			yield* page.reload;
+			yield* runtime.getByRole("heading", { level: 1, name: view.name }).waitFor();
 			yield* rows.getByText("Third row", { exact: true }).waitFor({ state: "visible" });
 			expect(yield* rows.count).toBe(3);
 		}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
@@ -879,7 +882,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		expect(yield* frames.count).toBe(1);
 		const iframe = Option.getOrThrow(yield* frames.first().elementHandle());
 		const runtime = frames.first().contentFrame();
-		yield* runtime.getByRole("heading", { level: 1, name: "Entity browser" }).waitFor({
+		yield* runtime.getByRole("heading", { level: 1, name: "Mixed entity browser" }).waitFor({
 			state: "visible",
 		});
 		yield* expectVisibleText(runtime.locator("body"), "01 Alpha fallback");
@@ -888,7 +891,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		yield* runtime.locator("body").evaluate((body) => body.setAttribute("data-e2e-page", "stable"));
 
 		yield* runtime.getByRole("button", { name: "Count all" }).click();
-		yield* expectVisibleText(runtime.locator("body"), "5 total");
+		yield* expectVisibleText(runtime.locator("body"), "2 of 5 results");
 		yield* runtime.getByRole("button", { name: "Load more" }).click();
 		yield* runtime
 			.getByRole("link", { name: "04 Composed Strength Workout", exact: true })

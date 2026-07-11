@@ -30,8 +30,8 @@ const entityLocation = (entityId: string) =>
 const location = (index: number, path: string, key = `k${index}`) => ({
 	compact: true,
 	edgeBack: index > 0,
-	entry: { index, key, location: routeLocation(path) },
 	leading: index > 0 ? ("back" as const) : ("drawer" as const),
+	entry: { index, key, screenKey: key, location: routeLocation(path) },
 });
 
 describe("plugin navigation store", () => {
@@ -83,7 +83,7 @@ describe("plugin navigation store", () => {
 				compact: true,
 				edgeBack: index > 0,
 				leading: index > 0 ? "back" : "drawer",
-				entry: { index, key, location: entityLocation(`entity-${index}`) },
+				entry: { index, key, screenKey: key, location: entityLocation(`entity-${index}`) },
 			});
 
 		setEntityLocation(0);

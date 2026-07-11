@@ -13,7 +13,12 @@ const compileSandboxRunnerScript = Bun.fileURLToPath(
 	new URL("../../../kernel/backend/scripts/compile-sandbox-runner.ts", import.meta.url),
 );
 
+const generateRenderersScript = Bun.fileURLToPath(
+	new URL("../../../packages/kernel-renderers/scripts/generate-sources.ts", import.meta.url),
+);
+
 const compileCommand: ProcessCommand = [process.execPath, "run", compileSandboxRunnerScript];
+const generateRenderersCommand: ProcessCommand = [process.execPath, "run", generateRenderersScript];
 const pluginBuildCommand: ProcessCommand = [
 	process.execPath,
 	"turbo",
@@ -38,7 +43,12 @@ const runCommand = ([executable, ...args]: ProcessCommand) =>
 	);
 
 const program = Effect.gen(function* () {
-	for (const command of [compileCommand, pluginBuildCommand, assembleCommand]) {
+	for (const command of [
+		compileCommand,
+		generateRenderersCommand,
+		pluginBuildCommand,
+		assembleCommand,
+	]) {
 		const exitCode = yield* runCommand(command);
 		if (exitCode === 0) {
 			continue;

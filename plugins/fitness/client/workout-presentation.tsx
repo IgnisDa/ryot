@@ -6,6 +6,7 @@ import {
 	type EntityPresentationLoader,
 } from "@ryot-app/client-sdk/plugin";
 import { Badge } from "@ryot-app/client-ui-sdk";
+import { isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 
 import {
 	workoutPresentationRecipe,
@@ -129,17 +130,18 @@ export const WorkoutPresentation = ({
 			data-layout={layout}
 			data-compact={compact}
 			data-entity-id={reference.entityId}
-			className={`min-w-0 rounded-xl border border-border bg-surface shadow-card ${
-				compact ? "p-3" : "p-4"
-			}`}
+			className={`min-w-0 border-b border-border ${compact ? "py-3" : "py-4"}`}
 		>
 			<div className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-2">
 				<div className="min-w-0 flex-1">
-					<PluginLink to={{ kind: "entity", entityId: reference.entityId }}>
-						<span className={`${compact ? "text-base" : "text-lg"} font-semibold text-text`}>
-							{data.name}
-						</span>
-					</PluginLink>
+					<span className="flex min-w-0 items-baseline gap-1.5">
+						<PluginLink to={{ kind: "entity", entityId: reference.entityId }}>
+							<span className={`${compact ? "text-base" : "text-lg"} font-semibold text-text`}>
+								{data.name}
+							</span>
+						</PluginLink>
+						{isTitleProvisional(reference) && <SyncPip reason="translating" />}
+					</span>
 					{date && <time className="mt-1 block text-sm text-text-muted">{date}</time>}
 				</div>
 				{duration && <Badge>{duration}</Badge>}

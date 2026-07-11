@@ -1,0 +1,18 @@
+{
+	"exclude": ["dist"],
+	"extends": "../../tsconfig.options.json",
+	"compilerOptions": {
+		"strict": true,
+		"noEmit": true,
+		"jsx": "react-jsx",
+		"module": "ESNext",
+		"types": ["bun-types"],
+		"isolatedModules": true,
+		"lib": ["ESNext", "DOM"],
+		"noImplicitReturns": true,
+		"verbatimModuleSyntax": true,
+		"moduleResolution": "bundler",
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true
+	}
+}

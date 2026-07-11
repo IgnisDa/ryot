@@ -108,6 +108,7 @@ function mount(
 			compact: true,
 			key: `k${index}`,
 			edgeBack: index > 0,
+			screenKey: `k${index}`,
 			leading: index > 0 ? ("back" as const) : ("drawer" as const),
 		},
 	});

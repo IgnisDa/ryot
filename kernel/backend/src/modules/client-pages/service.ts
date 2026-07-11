@@ -613,6 +613,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							route: { params: {} },
 							settings: prepared.view.settings,
 							dataSources: prepared.view.dataSources,
+							view: { name: prepared.view.name, icon: prepared.view.icon },
 							renderer: { kind: "kernel" as const, name: kernelRendererName },
 							target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
 						},
@@ -739,6 +740,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						settings: prepared.view.settings,
 						dataSources: prepared.view.dataSources,
 						renderer: { kind: "custom" as const, id: rendererId },
+						view: { name: prepared.view.name, icon: prepared.view.icon },
 						target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
 					},
 					artifact: {
@@ -799,6 +801,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						installationId: resolved.plugin.installationId,
 					},
 					context: {
+						view: null,
 						settings: {},
 						dataSources: null,
 						target: contextTarget,

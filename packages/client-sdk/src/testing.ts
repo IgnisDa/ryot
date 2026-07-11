@@ -62,12 +62,13 @@ const inertNavigation = (): PluginRouterNavigation => {
 		element: createElement(Fragment),
 	}));
 	return {
-		subscribe: store.subscribe,
-		getSnapshot: store.getSnapshot,
-		completeTransition: store.completeTransition,
 		back: () => undefined,
+		subscribe: store.subscribe,
 		openDrawer: () => undefined,
 		publishTitle: () => undefined,
+		getSnapshot: store.getSnapshot,
+		registerShortcut: () => () => undefined,
+		completeTransition: store.completeTransition,
 	};
 };
 
@@ -156,6 +157,7 @@ export const entityPageContext = (options: {
 	readonly settings?: Record<string, unknown> | undefined;
 }): ClientPageContext =>
 	Schema.decodeUnknownSync(ClientPageContext)({
+		view: null,
 		dataSources: null,
 		settings: options.settings ?? {},
 		route: { params: options.params ?? {} },
@@ -163,9 +165,25 @@ export const entityPageContext = (options: {
 		target: {
 			kind: "entity",
 			entityId: options.entityId,
-			entitySchemaSlug: options.entitySchemaSlug,
 			entitySchemaPluginId: options.pluginId,
+			entitySchemaSlug: options.entitySchemaSlug,
 		},
+	});
+
+export const savedViewPageContext = (options: {
+	readonly savedViewId: string;
+	readonly rendererName: string;
+	readonly settings: Record<string, unknown>;
+	readonly dataSources: Record<string, unknown>;
+	readonly view?: { readonly name: string; readonly icon: string } | undefined;
+}): ClientPageContext =>
+	Schema.decodeUnknownSync(ClientPageContext)({
+		route: { params: {} },
+		settings: options.settings,
+		dataSources: options.dataSources,
+		renderer: { kind: "kernel", name: options.rendererName },
+		view: options.view ?? { name: "All Records", icon: "library" },
+		target: { kind: "saved-view", savedViewId: options.savedViewId },
 	});
 
 const mounted: Array<{ dispose: () => void }> = [];
@@ -230,6 +248,7 @@ export const mountPluginPage = (
 			key: "k0",
 			compact: false,
 			edgeBack: false,
+			screenKey: "k0",
 			type: "location",
 			leading: "drawer",
 			...overrides,

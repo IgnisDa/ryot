@@ -30,6 +30,7 @@
 		"@ryot-app/client-plugin-contract": "workspace:*",
 		"@ryot-app/config": "workspace:*",
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/kernel-renderers": "workspace:*",
 		"@ryot-app/plugin-archive": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",

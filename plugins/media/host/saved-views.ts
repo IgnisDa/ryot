@@ -64,11 +64,9 @@ export const mediaSavedViews = () => {
 		if (!schema) {
 			throw new Error(`Missing media entity schema: ${view.entitySchemaSlug}`);
 		}
-		const expressions = buildViewExpressions(view.entitySchemaSlug, schema.name);
+		const expressions = buildViewExpressions(view.entitySchemaSlug);
 		const projections = buildSavedViewLayoutProjections({
 			table: { ...expressions.table, entity },
-			grid: { entity, card: expressions.grid },
-			list: { entity, card: expressions.list },
 		});
 		const fields = [
 			...projections.table.fields,
@@ -89,20 +87,31 @@ export const mediaSavedViews = () => {
 			}).document,
 			settings: {
 				pageSize: 20,
-				sourceName: "savedView",
+				sortChoices: [],
 				defaultLayout: "grid",
-				layouts: ["grid", "list", "table"],
+				sourceName: "savedView",
+				searchFields: ["column0"],
 				entityIdField: "entityId",
+				layouts: ["grid", "list", "table"],
 				ownerPluginIdField: "ownerPluginId",
 				entitySchemaSlugField: "entitySchemaSlug",
-				searchFields: ["column0"],
-				sortChoices: [],
-				tableColumns: projections.table.mappings.columns,
 				addAction: {
-					type: "provider-search",
 					ownerPluginId: "media",
+					type: "provider-search",
 					entitySchemaSlug: view.entitySchemaSlug,
 				},
+				tableColumns: [
+					...(projections.table.mappings.imageField === null
+						? []
+						: [
+								{
+									label: "Image",
+									displayKind: "managed-asset" as const,
+									field: projections.table.mappings.imageField,
+								},
+							]),
+					...projections.table.mappings.columns,
+				],
 			},
 		};
 	});

@@ -147,6 +147,7 @@ const mountSelectedPage = (page: ClientPageContext, location: PluginLogicalLocat
 		location,
 		key: "k0",
 		compact: false,
+		screenKey: "k0",
 		edgeBack: false,
 		type: "location",
 		leading: "drawer",
@@ -204,6 +205,7 @@ describe("bootstrapClientPlugin", () => {
 			index: 0,
 			key: "k0",
 			compact: false,
+			screenKey: "k0",
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
@@ -239,6 +241,7 @@ describe("bootstrapClientPlugin", () => {
 				data: {
 					...init,
 					page: {
+						view: null,
 						settings: {},
 						dataSources: null,
 						route: { params: {} },
@@ -252,6 +255,7 @@ describe("bootstrapClientPlugin", () => {
 			index: 0,
 			key: "k0",
 			compact: false,
+			screenKey: "k0",
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
@@ -266,6 +270,7 @@ describe("bootstrapClientPlugin", () => {
 	it("renders a selected dynamic page at its logical route with prepared params", async () => {
 		mountSelectedPage(
 			{
+				view: null,
 				settings: {},
 				dataSources: null,
 				route: { params: { itemId: "item-1" } },
@@ -288,6 +293,7 @@ describe("bootstrapClientPlugin", () => {
 	it("renders an already-selected not-found page at the unmatched logical route", async () => {
 		mountSelectedPage(
 			{
+				view: null,
 				settings: {},
 				dataSources: null,
 				route: { params: {} },
@@ -305,6 +311,7 @@ describe("bootstrapClientPlugin", () => {
 	it("renders a selected entity page with entity renderer props", async () => {
 		const channel = mountSelectedPage(
 			{
+				view: null,
 				settings: {},
 				dataSources: null,
 				route: { params: {} },
@@ -333,8 +340,9 @@ describe("bootstrapClientPlugin", () => {
 			key: "k1",
 			compact: false,
 			edgeBack: true,
-			type: "location",
+			screenKey: "k1",
 			leading: "back",
+			type: "location",
 			location: {
 				search: "",
 				kind: "entity",
@@ -349,6 +357,7 @@ describe("bootstrapClientPlugin", () => {
 			index: 0,
 			key: "k0",
 			compact: false,
+			screenKey: "k0",
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
@@ -381,6 +390,7 @@ describe("bootstrapClientPlugin", () => {
 				compact,
 				index: 0,
 				key: "k0",
+				screenKey: "k0",
 				edgeBack: false,
 				type: "location",
 				leading: "drawer",
@@ -441,6 +451,7 @@ describe("bootstrapClientPlugin", () => {
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
+			screenKey: "movie",
 			location: {
 				search: "",
 				kind: "entity",
@@ -483,6 +494,7 @@ describe("bootstrapClientPlugin", () => {
 			channel.port1.postMessage({
 				key,
 				index,
+				screenKey: key,
 				compact: false,
 				type: "location",
 				edgeBack: index > 0,
@@ -541,6 +553,7 @@ describe("bootstrapClientPlugin", () => {
 			key: "k0",
 			compact: false,
 			edgeBack: false,
+			screenKey: "k0",
 			type: "location",
 			leading: "drawer",
 			location: routeLocation("/"),
@@ -589,6 +602,7 @@ describe("bootstrapClientPlugin", () => {
 			index: 0,
 			key: "k0",
 			compact: false,
+			screenKey: "k0",
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
@@ -620,6 +634,7 @@ describe("bootstrapClientPlugin", () => {
 			index: 0,
 			key: "k0",
 			compact: false,
+			screenKey: "k0",
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
@@ -656,6 +671,7 @@ describe("bootstrapClientPlugin", () => {
 			key: "k0",
 			compact: false,
 			edgeBack: false,
+			screenKey: "k0",
 			type: "location",
 			leading: "drawer",
 			location: routeLocation("/"),
@@ -694,6 +710,7 @@ describe("bootstrapClientPlugin", () => {
 			key: "k0",
 			compact: false,
 			edgeBack: false,
+			screenKey: "k0",
 			type: "location",
 			leading: "drawer",
 			location: routeLocation("/"),
@@ -743,6 +760,7 @@ describe("bootstrapClientPlugin", () => {
 			key: "k0",
 			compact: false,
 			edgeBack: false,
+			screenKey: "k0",
 			type: "location",
 			leading: "drawer",
 			location: routeLocation("/"),

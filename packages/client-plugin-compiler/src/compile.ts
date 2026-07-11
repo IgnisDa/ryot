@@ -571,6 +571,7 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 					.filter(([path]) => SCANNED_EXTENSIONS.has(extensionOf(path)))
 					.map(([path]) => ({ extension: extensionOf(path), content: sourceFiles[path] ?? "" })),
 				...dependencies.uiSdkScanSources,
+				...dependencies.clientSdkScanSources,
 			],
 		});
 		const reachablePaths = new Set([
