@@ -199,21 +199,11 @@ export const SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES = [
 	"upsertGlobalRelationships",
 ] as const;
 export const integrationLotSchema = Schema.Literal("push", "sink", "yank");
-export const integrationProviderSchema = Schema.Literal(
-	"emby",
-	"kodi",
-	"komga",
-	"radarr",
-	"sonarr",
-	"plex_sink",
-	"plex_yank",
-	"generic_json",
-	"youtube_music",
-	"jellyfin_push",
-	"jellyfin_sink",
-	"audiobookshelf",
-	"ryot_browser_extension",
-);
+export const integrationProviderSchema = Schema.String;
+export const integrationProviderSettingsSchema = Schema.Record({
+	key: Schema.String,
+	value: jsonValueSchema,
+});
 export const entityRecordSchema = strictStruct({
 	id: Schema.String,
 	name: Schema.String,
@@ -276,11 +266,11 @@ export const integrationRecordSchema = strictStruct({
 	syncOwnership: Schema.Boolean,
 	minimumProgress: Schema.Number,
 	maximumProgress: Schema.Number,
-	providerSpecifics: jsonValueSchema,
 	provider: integrationProviderSchema,
 	name: Schema.NullOr(Schema.String),
 	webhookUrl: Schema.optional(Schema.String),
 	lastFinishedAt: Schema.NullOr(Schema.String),
+	providerSpecifics: integrationProviderSettingsSchema,
 	extraSettings: strictStruct({ disableOnContinuousErrors: Schema.Boolean }),
 });
 export type IntegrationRecord = Schema.Schema.Type<typeof integrationRecordSchema>;

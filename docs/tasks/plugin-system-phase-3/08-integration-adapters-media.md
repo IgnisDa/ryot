@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -42,20 +42,20 @@ coverage where the migration exposes a gap.
 
 ## Acceptance criteria
 
-- [ ] All six sink adapters and all four yank adapters run as `plugins/media` scripts declared
+- [x] All six sink adapters and all four yank adapters run as `plugins/media` scripts declared
       through `integrationProviders`; push targets have registry entries only
-- [ ] `modules/integrations` contains **zero provider-specific code**; the framework
+- [x] `modules/integrations` contains **zero provider-specific code**; the framework
       (credentials, lifecycle, auto-disable, webhook endpoint, run bookkeeping) is unchanged in
       behavior
-- [ ] The hardcoded provider union and lot tables are deleted from `libs/contract`
-- [ ] Credential exposure is scoped to the executing integration
-- [ ] `createProgressResult` semantics are preserved (`occurredAt` always set) and the
+- [x] The hardcoded provider union and lot tables are deleted from `libs/contract`
+- [x] Credential exposure is scoped to the executing integration
+- [x] `createProgressResult` semantics are preserved (`occurredAt` always set) and the
       progress-policy automation still fires
-- [ ] Adapter outputs identify catalog providers by logical `providerSlug`/`providerId`, never by
+- [x] Adapter outputs identify catalog providers by logical `providerSlug`/`providerId`, never by
       executable script identity
-- [ ] Adapter unit tests live in `plugins/media` with assertions preserved
-- [ ] `integrations/` e2e suites re-pointed with assertions preserved
-- [ ] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
+- [x] Adapter unit tests live in `plugins/media` with assertions preserved
+- [x] `integrations/` e2e suites re-pointed with assertions preserved
+- [x] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
       `app-client` check all pass (cross-phase invariant 1)
 
 ## User stories addressed

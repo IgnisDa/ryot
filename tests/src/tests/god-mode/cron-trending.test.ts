@@ -15,7 +15,6 @@ import {
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
 	trendingSandboxSource,
-	pollUntil,
 	providerSandboxSource,
 	type InstalledTestPlugin,
 	uninstallTestPlugin,
@@ -200,21 +199,14 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 				);
 			});
 
-			const rows = yield* pollUntil(
-				"media-trending self-edges for seeded provider",
-				Effect.gen(function* () {
-					const candidates = yield* listCandidates;
-					const matching = candidates
-						.filter(
-							(row) =>
-								row.providerId === providerId &&
-								(row.external_id === EXTERNAL_ID_ONE || row.external_id === EXTERNAL_ID_TWO),
-						)
-						.sort((a, b) => Number(a.rank) - Number(b.rank));
-					return matching.length === 2 ? matching : null;
-				}),
-				{ timeoutMs: 90_000, intervalMs: 1_000 },
-			);
+			const candidates = yield* listCandidates;
+			const rows = candidates
+				.filter(
+					(row) =>
+						row.providerId === providerId &&
+						(row.external_id === EXTERNAL_ID_ONE || row.external_id === EXTERNAL_ID_TWO),
+				)
+				.sort((a, b) => Number(a.rank) - Number(b.rank));
 
 			expect(rows).toHaveLength(2);
 			for (const row of rows) {

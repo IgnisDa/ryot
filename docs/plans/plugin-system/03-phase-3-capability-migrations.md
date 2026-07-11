@@ -74,9 +74,9 @@ Kernel capability:
 
 - Manifest section `crons: [{ slug, schedule, scriptSlug, description }]` (cron expression
   format = whatever the existing scheduler module consumes; the kernel owns the tick).
-- Scheduler dispatches each due cron as a sandbox execution of the referenced script
-  (fire-and-forget through the durable queue machinery consistent with
-  `apps/app-backend/AGENTS.md` durable-ownership rules; idempotency stays with the script).
+- Scheduler dispatches each due cron as a sandbox execution of the referenced script and awaits
+  its terminal workflow result before advancing the scheduler loop; idempotency stays with the
+  script.
 - New host functions (shapes **[IMPLEMENTER-DECIDES]**, semantics fixed):
   - `upsertGlobalEntities(items[])` — batch, coarse-atomic per item (entity + provenance),
     preserve-existing semantics matching today's trending refresh writes.
@@ -110,8 +110,8 @@ one-time catalog seeding, not periodic refresh work, and the `crons` scheduler o
 its wall-clock schedule — a server that restarts before the next tick (or a fresh install)
 never seeds any exercises, regressing the native preloader's per-boot behavior. A sibling
 manifest section `boot: [{ slug, scriptSlug, description }]` (no `schedule`) declares scripts
-the kernel dispatches exactly once per server start, non-blocking (forked so server readiness
-is never gated on it), immediately after plugin ingestion; dispatch is skipped when
+the kernel dispatches exactly once per server start, immediately after plugin ingestion, and
+server startup awaits every terminal boot-script result; dispatch is skipped when
 `scheduler.disableDispatchers` is set, matching the other schedulers. Boot scripts expose a
 direct generic entrypoint, and the `upsertGlobalEntities`/`upsertGlobalRelationships` gate uses
 server-created system authority. Scheduler-owned cron and boot executions receive that authority;
@@ -120,6 +120,13 @@ standard provider scripts do not, including when called by scheduler-driven popu
 because it is genuinely periodic. Boot dispatch uses a per-boot execution id, so the already
 idempotent preload script (preserve-existing upserts + `maximumTotal`) absorbs re-runs exactly
 as it did as a cron.
+
+**Implementation choice amendment (2026-07-28, owner-approved):** cron and boot dispatch use one
+awaited path in every environment. Each `RunSandboxWorkflow` is awaited to a terminal result;
+production no longer passes `discard: true`, and boot dispatch is no longer forked from server
+startup. There are no dependent clients or rollout constraints requiring early readiness, and one
+path avoids leaving durable work behind after the caller has reported completion. Failures remain
+isolated per manifest entry and are logged so later entries still run.
 
 Migrate: `modules/media-trending` (poll providers → write trending global entities +
 refresh workflow + infrequent task) becomes a cron-driven plugin script, and
@@ -645,6 +652,24 @@ Task 07 landed the capability slice with no consumers. Five findings bind the la
    dispatch path works for all nineteen existing slugs, but a genuinely new plugin-declared source
    cannot reach `startImportRun` over HTTP until that union opens. No client-facing source-listing
    endpoint exists today; `ImportSourceCatalog.list()` is what one would read from.
+
+### Task 08 implementation record (2026-07-28, owner-approved)
+
+The e2e runner now executes files in parallel against one shared backend. Migrating integration
+adapters added a sandbox queue stage before normalized import workflows; with the previous
+50-connection workflow pool, full-suite runs developed nondeterministic 180-second timeouts across
+otherwise unrelated workflow-backed suites while every affected suite passed in isolation. The
+owner chose to preserve file parallelism and raise test-only capacity rather than run the gate
+serially: the app and workflow pools are both 100 for 32 sandbox workers, and the test Postgres
+`max_connections` ceiling is 400. Measurement after that increase peaked at 120 connections with
+only four active, disproving connection exhaustion; unrestricted Vitest workers instead consumed
+all ten logical cores alongside the backend, containers, and Deno workers. File parallelism is
+therefore retained with `maxWorkers: 3`; six workers still allowed accumulated durable work to
+produce late-suite timeouts even though the timed-out query suites completed in 13 seconds when run
+together in isolation. Integration e2e cases also await every run they create before exiting, so
+tests do not deliberately leave adapter/import work for other files. The owner subsequently chose
+one awaited cron/boot dispatch path for production and tests; the Step 1 amendment above owns that
+runtime change. Production pool defaults and adapter semantics remain unchanged.
 
 ### Event subject selection: `episodeLocator` becomes `subjectEntityId` [DECIDED]
 

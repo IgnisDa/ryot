@@ -163,7 +163,6 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 				yield* engine
 					.execute(InfrequentCronWorkflow, {
 						executionId,
-						discard: true,
 						payload: { executionId },
 					})
 					.pipe(Effect.orDie);

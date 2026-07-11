@@ -54,7 +54,6 @@ export class PluginBootService extends Effect.Service<PluginBootService>()("Plug
 			}
 			return yield* engine
 				.execute(RunSandboxWorkflow, {
-					discard: true,
 					executionId,
 					payload: {
 						authority: { type: "system" },
@@ -114,6 +113,6 @@ export const PluginBootDispatcherLive = Layer.scopedDiscard(
 
 		const boots = yield* PluginBootService;
 		const bootMs = yield* Clock.currentTimeMillis;
-		yield* boots.dispatchAll(bootMs).pipe(Effect.forkScoped);
+		yield* boots.dispatchAll(bootMs);
 	}),
 );

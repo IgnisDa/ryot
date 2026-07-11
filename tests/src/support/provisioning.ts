@@ -28,7 +28,7 @@ export async function startCoreTestInfrastructure(input: {
 			.withDatabase("test_db")
 			.withUsername("test_user")
 			.withPassword("test_password")
-			.withCommand(["postgres", "-c", "max_connections=200"])
+			.withCommand(["postgres", "-c", "max_connections=400"])
 			.withWaitStrategy(Wait.forLogMessage("database system is ready"))
 			.start(),
 		new GenericContainer("redis:alpine")
@@ -86,14 +86,14 @@ export function buildBackendEnv(input: {
 	return {
 		...process.env,
 		NODE_ENV: "test",
-		DATABASE_POOL_MAX: "50",
+		DATABASE_POOL_MAX: "100",
 		SERVER_LOG_FILE: logFile,
 		DATABASE_URL: input.dbUrl,
 		REDIS_URL: input.redisUrl,
 		PORT: input.port.toString(),
 		FRONTEND_URL: input.frontendUrl,
 		SANDBOX_WORKER_CONCURRENCY: "32",
-		DATABASE_WORKFLOW_POOL_MAX: "50",
+		DATABASE_WORKFLOW_POOL_MAX: "100",
 		FILE_STORAGE_S3_REGION: "us-east-1",
 		BUILTIN_EXERCISE_PRELOAD_LIMIT: "20",
 		FILE_STORAGE_S3_URL: input.s3Endpoint,

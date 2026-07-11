@@ -8,31 +8,31 @@ import type { IntegrationRecord } from "./repository";
 
 const integration = (): IntegrationRecord => ({
 	lot: "yank",
-	name: "Plex",
+	name: "Test integration",
 	isDisabled: false,
 	minimumProgress: 2,
 	maximumProgress: 95,
 	syncOwnership: false,
 	lastFinishedAt: null,
-	provider: "plex_yank",
+	provider: "test-provider",
 	userId: UserId.make("user-1"),
 	createdAt: "2026-07-27T00:00:00.000Z",
 	updatedAt: "2026-07-27T00:00:00.000Z",
 	id: IntegrationId.make("integration-1"),
 	extraSettings: { disableOnContinuousErrors: false },
-	providerSpecifics: { kind: "plex_yank", token: "secret-token", baseUrl: "https://plex.test" },
+	providerSpecifics: { token: "secret-token", endpoint: "https://provider.test" },
 });
 
 const registered = (secret: boolean): RegisteredIntegrationProvider => ({
 	lot: "yank",
-	name: "Plex",
-	slug: "plex_yank",
+	name: "Test provider",
+	slug: "test-provider",
 	pluginSlug: "media",
-	description: "Plex yank",
-	scriptSlug: "media.plex",
+	description: "Test yank",
+	scriptSlug: "integration.test-provider",
 	settingsSchema: {
 		fields: {
-			baseUrl: { type: "string", label: "Base URL", description: "Server URL" },
+			endpoint: { type: "string", label: "Endpoint", description: "Server URL" },
 			token: {
 				type: "string",
 				label: "Token",
@@ -52,17 +52,39 @@ it("omits secret settings keys and keeps the rest for a registry-known provider"
 	const record = integration();
 
 	expect(redactIntegrationForClient(lookup(registered(true)), record).providerSpecifics).toEqual({
-		kind: "plex_yank",
-		baseUrl: "https://plex.test",
+		endpoint: "https://provider.test",
 	});
 	expect(record.providerSpecifics).toMatchObject({ token: "secret-token" });
 });
 
-it("returns credentials verbatim when no registry provider marks a field secret", () => {
+it("returns credentials when a registry-known provider does not mark them secret", () => {
 	expect(
 		redactIntegrationForClient(lookup(registered(false)), integration()).providerSpecifics,
 	).toMatchObject({ token: "secret-token" });
-	expect(redactIntegrationForClient(lookup(null), integration()).providerSpecifics).toMatchObject({
+});
+
+it("keeps only a string kind when the registry provider is unavailable", () => {
+	const providerSpecifics = {
+		kind: "test-kind",
 		token: "secret-token",
+		password: "secret-password",
+	};
+	const record = { ...integration(), providerSpecifics };
+
+	expect(redactIntegrationForClient(lookup(null), record).providerSpecifics).toEqual({
+		kind: "test-kind",
 	});
+	expect(providerSpecifics).toEqual({
+		kind: "test-kind",
+		token: "secret-token",
+		password: "secret-password",
+	});
+});
+
+it("removes all provider settings without a string kind when the registry provider is unavailable", () => {
+	const providerSpecifics = { kind: 1, token: "secret-token" };
+	const record = { ...integration(), providerSpecifics };
+
+	expect(redactIntegrationForClient(lookup(null), record).providerSpecifics).toEqual({});
+	expect(providerSpecifics).toEqual({ kind: 1, token: "secret-token" });
 });
