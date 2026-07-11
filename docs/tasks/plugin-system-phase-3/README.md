@@ -29,9 +29,9 @@ and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 6 of 9 tasks completed
+**Overall Progress:** 6 of 12 tasks completed
 
-**Current Task:** [Task 07](./07-integration-import-adapters.md) (todo)
+**Current Task:** [Task 07](./07-integration-import-kernel-capability.md) (todo)
 
 ### Task List
 
@@ -43,9 +43,12 @@ and you record the choice you make in the plan file.
 | 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md) | AFK  | done   |
 | 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                          | HITL | done   |
 | 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)   | AFK  | done   |
-| 07  | [Step 4 — Integration + Import-Source Adapters + FS Grants](./07-integration-import-adapters.md)            | AFK  | todo   |
-| 08  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./08-media-monitoring-and-phase-gate.md)   | AFK  | todo   |
-| 09  | [Codebase Cleanup](./09-codebase-cleanup.md)                                                                | AFK  | todo   |
+| 07  | [Step 4a — Kernel Capability: Manifest Sections, FS Grants, Deps](./07-integration-import-kernel-capability.md) | AFK | todo |
+| 08  | [Step 4b — Integration Adapters: Sinks + Yanks into media](./08-integration-adapters-media.md)              | AFK  | todo   |
+| 09  | [Step 4c — Import Framework Collapse + Fitness Import Sources](./09-import-framework-fitness-sources.md)    | AFK  | todo   |
+| 10  | [Step 4d — Media Import Sources into media](./10-media-import-sources.md)                                   | AFK  | todo   |
+| 11  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./11-media-monitoring-and-phase-gate.md)   | AFK  | todo   |
+| 12  | [Codebase Cleanup](./12-codebase-cleanup.md)                                                                | AFK  | todo   |
 
 Steps are strictly ordered (`00-overview.md` phase ordering; plan intro): each task starts only
 after the previous task's done criteria and gates pass (one capability in flight at a time,
@@ -53,13 +56,21 @@ cross-phase invariant 4). Tasks 01 and 02 are ordered Step 0 prerequisites. Task
 mandatory spike, HITL) gates task 06: its
 recorded findings and owner sign-off must land before the real workflow machinery is built.
 
+Plan Step 4 is large enough that it spans **four gated tasks (07–10)** rather than one. Their order
+is fixed: kernel capability first with no consumers, then integration adapters, then the import
+framework collapse plus the three fitness sources, then the sixteen media sources. Fitness precedes
+media deliberately — three simple CSV adapters prove the generic import dispatch path before the
+large migration lands on it. Every design question in Step 4 was settled with the owner on
+2026-07-27 and is recorded in plan §4; nothing there is open.
+
 ## Problem Statement
 
-Phases 1 and 2 and Phase 3 Steps 0-2 are complete. The plugin format, loader, direct-script
-runtime, logical providers, authority model, crons, boot entries, and operations are established;
-`media-trending`, `exercises`, `metadata-lookup`, and `episode-resolver` have moved into plugins.
-The remaining domain logic is the media import population/resolution workflows, integration
-sink/yank and import-source adapters, `media-monitoring`, and residual media branches. Until this
+Phases 1 and 2 and Phase 3 Steps 0-3 are complete. The plugin format, loader, direct-script
+runtime, logical providers, authority model, crons, boot entries, operations, and durable workflows
+are established; `media-trending`, `exercises`, `metadata-lookup`, `episode-resolver`, and the media
+import population/resolution workflows have moved into plugins. The remaining domain logic is the
+integration sink/yank adapters, all nineteen import-source adapters plus the media/non-media import
+orchestration split, `media-monitoring`, and residual media branches. Until this
 code moves into plugins, the kernel-purity goal (Decision 2 — no media/fitness strings, branches,
 or imports) remains unmet and the syscall surface is not yet proven against all real workloads.
 
@@ -93,9 +104,13 @@ operations and migrating the browser extension to invoke. **Step 3** — gated b
 **mandatory throwaway spike** — builds the replay-deterministic durable-workflow primitives
 (`activity`/`sleep`/`child`, version pinning, determinism guard rails, per-script-kind limits)
 and moves the media import population/resolution workflows into the media plugin. **Step 4**
-adds integration-provider registration and deny-by-default filesystem permission grants (with
-`fflate` as an approved dep), moving the yank/sink/push and import-source adapters into the
-plugin while the kernel keeps the integrations and imports _frameworks_. **Step 5** is
+(tasks 07–10) adds the `integrationProviders` and `importSources` manifest sections,
+deny-by-default filesystem permission grants, and three approved deps (`fflate`, `papaparse`,
+`fast-xml-parser`); it moves every integration adapter and all nineteen import sources into the
+plugin that owns their domain — sixteen media sources into `plugins/media`, three fitness sources
+into `plugins/fitness` — collapsing the kernel's media-vs-non-media import branch into one
+registry-driven dispatch path while the kernel keeps the integrations and imports _frameworks_ and
+retains ownership of every entity/event/relationship write. **Step 5** is
 composition: `media-monitoring` and any remaining media logic become cron +
 `executeQueryEngine` pushdown + signals + step-3 workflows + step-2 operations, ending with
 **no module under `apps/app-backend/src/modules/` being media- or fitness-specific**.
@@ -228,13 +243,15 @@ duration)` (durable timer), and `child(name, workflowRef, input)` (composes anot
     callable as an activity host op or composed via `child` (`[IMPLEMENTER-DECIDES]`) — so that
     single durable ownership stays intact (plan §3).
 
-### Step 4 — integration + import-source adapters
+### Step 4 — integration adapters, import sources, and filesystem grants
 
-26. As the owner, I want the integration-registration manifest section extended so a plugin
-    declares integration _providers_ (`{ slug, lot: yank|sink|push, scriptSlug, settingsSchema
-}`), with the kernel integrations framework (credential storage, enable/disable,
-    auto-disable, run bookkeeping) serving them generically and listing available providers
-    from the registry, so that provider registration is declarative (Decision 14; plan §4).
+26. As the owner, I want a **lot-discriminated** `integrationProviders` manifest section — `yank`
+    and `sink` entries carry `scriptSlug`, `push` entries do not, because push targets are already
+    automation scripts dispatched through `bindings.eventAutomations` — with the kernel integrations
+    framework (credential storage, enable/disable, auto-disable, webhook endpoint, run bookkeeping)
+    serving them generically and listing available providers from the registry, so that provider
+    registration is declarative without an optional field that is meaningless for a third of its
+    values (Decision 14; plan §4).
 27. As the kernel, I want deny-by-default filesystem permission grants: I materialize an
     uploaded/fetched artifact to a path and spawn the execution with `--allow-read` on it plus
     a quota'd, kernel-cleaned per-execution scratch dir with `--allow-write`, with grants
@@ -244,20 +261,46 @@ duration)` (durable timer), and `child(name, workflowRef, input)` (composes anot
     (non-pooled) process since pooled processes are pre-warmed before the execution is known,
     measuring before optimizing, so that per-execution grants are honored without prematurely
     reworking the pool (`[RECOMMENDED]`; plan §4).
-29. As a sandbox script author, I want `fflate` added as an approved sandbox dependency, so that
-    zip parsing (CPU-bound work) happens inside the sandbox rather than as a host function
-    (Decision 10; plan §4).
+29. As a sandbox script author, I want `fflate`, `papaparse`, and `fast-xml-parser` added as
+    approved sandbox dependencies, so that zip, CSV, and XML parsing (CPU-bound work) happens
+    inside the sandbox rather than as host functions, with CSV parity to the parser the kernel uses
+    today (Decision 10; plan §4).
 30. As the owner, I want the sink normalization + yank connectors + import-source adapters moved
-    into media-plugin scripts (bounded network via `httpCall` with integration credentials
-    through the existing `getIntegration`, with credential exposure audited to stay scoped to
-    the integration being executed) and the native provider-specific code deleted from
-    `modules/integrations` and `modules/imports`, leaving the frameworks, so that the kernel
-    integrations/imports modules contain zero provider-specific code (Decision 14; plan §4).
+    into the plugin that owns their domain (bounded network via `httpCall` with integration
+    credentials through a `getIntegration` scoped to the executing integration) and the native
+    provider-specific code deleted from `modules/integrations` and `modules/imports`, leaving the
+    frameworks, so that the kernel integrations/imports modules contain zero provider-specific code
+    (Decision 14; plan §4).
 31. As the kernel, I want `createProgressResult` semantics preserved (`occurredAt` always set),
     so that the progress-policy automation keeps working (plan §4).
 32. As the owner, I want push targets (radarr/sonarr/jellyfin) — already sandbox trigger
     scripts whose binding declarations moved in Phase 2 — to need no further migration here, so
     that step 4 does not redo Phase 2 work (plan §4).
+42. As the owner, I want `settingsSchema` expressed as a declarative `AppSchema` validated by the
+    existing property-schema runtime, and a `secret?: true` flag on `AppPropertyBase` that makes
+    the client render a password input and makes the kernel **redact marked fields when an
+    integration is read**, so that the hardcoded provider-specifics union leaves the kernel and
+    stored credentials stop being returned in plaintext (an owner-signed-off behavioral change;
+    Decision 6; plan §4).
+43. As the owner, I want an `importSources` manifest section and the kernel's media-versus-non-media
+    import branch collapsed into **one** registry-driven dispatch path (resolve the run's source
+    slug to its owning plugin's workflow), so that the kernel stops knowing which sources are media
+    (Decision 2; plan §4).
+44. As a sandbox adapter script, I want to return output too large for `execution.resultBytes` by
+    writing chunk files into my granted scratch directory and returning a small manifest, with the
+    **kernel** harvesting those files at execution end into run-scoped storage before cleanup, so
+    that full-size imports cross the boundary without raising `resultBytes` and re-introducing the
+    context-pressure failure mode the step-3 spike hit (Decision 10; plan §4).
+45. As the kernel, I want to keep ownership of every entity, event, and relationship write — plugins
+    parse and orchestrate, they never write import results — so that the four proposed run-scoped
+    syscalls (`putRunBlobs`, `getRunBlobs`, `recordImportFailures`, `reportImportProgress`) are
+    **not built** and the kernel still owns counters and failure rows (Decision 8; plan §4).
+46. As the owner, I want `ImportMediaEvent.episodeLocator` replaced by an already-resolved optional
+    `subjectEntityId`, with the plugin workflow resolving subjects between population and writing
+    via its own `resolve-episodes` operation, so that the kernel writing path collapses to
+    `subjectEntityId ?? group.entityId` and `event-target-workflow.ts` — which imports
+    `@ryot/plugin-media` and branches on season/episode numbers — is deleted with no kernel
+    replacement (Decision 2; plan §4).
 
 ### Step 5 — `media-monitoring` + remaining media logic
 
@@ -336,12 +379,16 @@ them (and risk drift), this PRD points to the exact sections that own them:
   scoping, the per-script-kind limit profile, the population/resolution migration, and the
   `EventCreateWorkflow` `[IMPLEMENTER-DECIDES]` (activity host op vs `child`): Decisions 7 and
   11, `apps/app-backend/AGENTS.md` §Queues, and plan §3.
-- **Step 4 — integration + import-source adapters** — the integration-provider manifest
-  registration, the deny-by-default filesystem grants (`artifact-read` / `scratch`) implemented
-  next to `runtime.ts`'s flag assembly, the dedicated-process `[RECOMMENDED]` for grant-carrying
-  executions, `fflate` as an approved dep, the credential-scope audit, the `createProgressResult`
-  preservation, and the migrate/delete lists leaving the frameworks: Decisions 10 and 14 and
-  plan §4.
+- **Step 4 — integration adapters, import sources, and filesystem grants** — the lot-discriminated
+  `integrationProviders` and the `importSources` manifest sections, `settingsSchema` as declarative
+  `AppSchema` with `secret?: true` and redaction on read, the single registry-driven import dispatch
+  path, the deny-by-default filesystem grants (`artifact-read` / `scratch`) implemented next to
+  `runtime.ts`'s flag assembly with the dedicated-process `[RECOMMENDED]` and the 5 MiB
+  post-execution quota, the scratch-dir chunk-harvest transport, the four **withdrawn** host
+  functions, the three approved deps, the credential scoping, the `createProgressResult`
+  preservation, the `episodeLocator` → `subjectEntityId` change, and the per-plugin migrate/delete
+  lists leaving the frameworks: Decisions 10 and 14 and plan §4. Every question in that section is
+  settled (owner, 2026-07-27); nothing is left to decide.
 - **Step 5 — `media-monitoring` + remaining media logic** — the composition approach (cron +
   pushdown + signals + step-3 workflows), the user-facing surface becoming step-2 operations,
   the leftover-reference cleanup in `signals`/`events`/`entity-interest`, and the
@@ -375,7 +422,10 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   trigger) and the trending coverage (the `triggerInfrequentCron` fixture already exists); step
   2 re-points the metadata-lookup / browser-extension integration tests
   to `invoke`; step 3 re-points the `entity-import` / `imports` suites; step 4 re-points the
-  `integrations/` and `imports/` suites; step 5 re-points the four `media-monitoring/` suites
+  `integrations/` suites in task 08, the OpenScale and Hevy coverage in task 09, and the Watcharr
+  coverage in task 10 — and moves the far larger body of per-adapter unit tests out of
+  `apps/app-backend` into the plugin packages, assertions intact; step 5 re-points the four
+  `media-monitoring/` suites
   (association detectors and cron-refresh coverage) — these are the acceptance test that the
   syscall surface is sufficient, since they exercise nearly every capability at once (plan
   §1–§5).
@@ -436,19 +486,24 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   CI, `apps/app-backend` is not deployed, dev databases are wipeable, and the single initial
   drizzle migration may be regenerated freely — so any storage change a step needs is done by
   regenerating the migration, not by authoring ALTERs (`00-overview.md` status line).
-- **The plans are living documents during implementation.** Record `[RECOMMENDED]` deviations
-  and `[IMPLEMENTER-DECIDES]` choices (the global-write host-function shapes, the recipe typing
-  wrapper, the `EventCreateWorkflow` composition mechanism, the dedicated-process decision for
-  grants) — and the **step-3 spike findings** — by editing the relevant plan file, not this PRD.
+- **The plans are living documents during implementation.** Record `[RECOMMENDED]` deviations and
+  `[IMPLEMENTER-DECIDES]` choices by editing the relevant plan file, not this PRD. Steps 0–4 have no
+  open markers left: the global-write host-function shapes, the recipe typing wrapper, the
+  `EventCreateWorkflow` composition mechanism, the step-3 spike findings, and every Step 4 question
+  (manifest section shapes, `secret` and redaction, grants and quota, the chunk-harvest transport,
+  the withdrawn syscalls, `subjectEntityId`, and the plugin split) are all recorded as settled in
+  `03-phase-3-capability-migrations.md`.
 - **Strict ordering is load-bearing.** Step 0a, Step 0b, and Steps 1–5 run in order and one
-  capability is in flight at a time; step 3's mandatory spike gates step 3's real implementation
-  (`00-overview.md` phase ordering; cross-phase invariant 4; plan §3).
+  capability is in flight at a time; step 3's mandatory spike gated step 3's real implementation,
+  and Step 4's own four tasks (07–10) are internally ordered with gates between them
+  (`00-overview.md` phase ordering; cross-phase invariant 4; plan §3, §4).
 - **Pattern discovery before writing.** Per `AGENTS.md`, launch an `explore` subagent to find
   existing patterns to replicate — the existing host-function contract/validation/implementation
   triplet, the sandbox-runtime host-call bridge and flag assembly in `runtime.ts`, the existing
   Effect durable workflow machinery, the scheduler module, the `getIntegration` credential path,
   and the Phase 2 loader/fixture — before writing new code; `explore` is for discovery only.
-- **Task 09 is the mandatory final cleanup task** (following the `codebase-cleanup` skill): a
+- **Task 12 is the mandatory final cleanup task** (following the `codebase-cleanup` skill): a
   final pass over the touched files and directly affected modules to remove dead, duplicated, or
-  leftover code, notably residue of the five deleted native domain modules, the temporary step-2
-  `invokeOperation` scaffolding, or Promise-based sandbox compatibility aliases.
+  leftover code, notably residue of the five deleted native domain modules, the deleted adapters and
+  import orchestration split, the temporary step-2 `invokeOperation` scaffolding, or Promise-based
+  sandbox compatibility aliases.

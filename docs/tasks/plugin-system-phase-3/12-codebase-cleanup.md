@@ -16,11 +16,19 @@ directly affected modules, not unrelated opportunistic refactors.
 
 Pay particular attention to residue of the five deleted native domain modules (`media-trending`,
 `exercises`, `metadata-lookup`, `episode-resolver`, `media-monitoring`), the deleted native
-sink/yank + import-source adapters, the temporary step-2 `invokeOperation` scaffolding, and any
-Promise-based sandbox entrypoint/host compatibility wrapper or alias left after the Effect-native
-cutover. Also remove any runtime entrypoint selector, driver-map compatibility path,
-script-backed provider provenance, or script-scoped cache key retained for provider-associated
-scripts.
+sink/yank adapters and all nineteen import-source adapters, the deleted media/non-media import
+orchestration split, the temporary step-2 `invokeOperation` scaffolding, and any Promise-based
+sandbox entrypoint/host compatibility wrapper or alias left after the Effect-native cutover. Also
+remove any runtime entrypoint selector, driver-map compatibility path, script-backed provider
+provenance, or script-scoped cache key retained for provider-associated scripts.
+
+Step 4 specifically leaves these to verify as fully gone: the hardcoded
+`IntegrationProviderSpecifics` union and `providerLotByProvider` tables, the hardcoded import
+source table in `imports/runtime/source-definitions.ts`, `episodeLocator` and every remnant of the
+subject-selection branch, Netflix's `"netflix-search-planned"` two-phase path, and
+`lib/shared/title-parsing.ts` / `title-matching.ts`. Confirm none of the four withdrawn host
+functions (`putRunBlobs`, `getRunBlobs`, `recordImportFailures`, `reportImportProgress`) was
+introduced anywhere.
 
 ## Acceptance criteria
 
