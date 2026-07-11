@@ -13,7 +13,7 @@ A deep module (as opposed to a shallow module) is one which encapsulates a lot o
 
 Check with the user that these modules match their expectations. Check with the user which modules they want tests written for.
 
-2. Once you have a complete understanding of the problem and solution, use the template below to write the PRD. Note that when the PRD is later broken into tasks via the `prd-to-issues` skill, a **mandatory final cleanup task** will always be appended. That task must follow the `codebase-cleanup` skill and should be described as a final pass over the touched files and directly affected modules. The PRD should be written to `docs/tasks/{feature-name}/README.md` where `{feature-name}` is in kebab-case based on the feature name.
+2. Once you have a complete understanding of the problem and solution, use the template below to write the PRD. Note that when the PRD is later broken into tasks via the `prd-to-issues` skill, a **mandatory final cleanup task** will always be appended. That task must follow the `codebase-cleanup` skill and should be described as a final pass over the touched files and directly affected modules. The PRD should be written to `docs/tasks/{plan-name}/README.md` where `{plan-name}` is a single lowercase word with no spaces, hyphens, or underscores. Choose it as the concise name for the plan, such as `ryotql`.
 
 <prd-template>
 
