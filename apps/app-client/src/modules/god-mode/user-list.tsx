@@ -1,5 +1,4 @@
 import { useAtomSet } from "@effect/atom-react";
-import { dayjs } from "@ryot/ts-utils/dayjs";
 import clsx from "clsx";
 import { Exit } from "effect";
 import { useEffect, useRef, useState } from "react";
@@ -12,6 +11,7 @@ import {
 	setUserDisabledAtom,
 } from "@/modules/god-mode/atoms";
 import { isUnauthorizedCause } from "@/modules/god-mode/errors";
+import { formatLocalDateLabel } from "@/modules/ui/date";
 
 const authBadges = {
 	oidc: { label: "OIDC", box: "bg-info-soft", text: "text-info" },
@@ -156,7 +156,7 @@ function UserRow(props: {
 					</Text>
 					{props.user.disabledAt && (
 						<Text className="font-ui text-xs text-text-subtle">
-							Disabled since {dayjs(props.user.disabledAt).format("MMM D, YYYY")}
+							Disabled since {formatLocalDateLabel(props.user.disabledAt)}
 						</Text>
 					)}
 				</View>
