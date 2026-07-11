@@ -1,0 +1,20 @@
+{
+	"name": "@ryot/ryotql-recipes",
+	"exports": {
+		"./*": {
+			"types": "./src/*.ts",
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@ryot/ryotql": "workspace:*"
+	},
+	"devDependencies": {
+		"@ryot/testing": "workspace:*",
+		"vitest": "4.1.9"
+	}
+}
