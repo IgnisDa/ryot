@@ -83,6 +83,14 @@ const schemaScriptLinks = (
 ).map(([entitySchemaSlug, scriptSlug]) => ({ entitySchemaSlug, scriptSlug }));
 
 export const mediaPlugin = definePlugin({
+	crons: [
+		{
+			slug: "media-trending",
+			schedule: "0 0 * * *",
+			driverRef: "media-trending",
+			description: "Refresh global media trending rankings daily",
+		},
+	],
 	metadata: {
 		icon: "film",
 		name: "Media",

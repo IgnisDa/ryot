@@ -67,11 +67,22 @@ const resolveAppConfigValue = Effect.fn("resolveAppConfigValue")(function* (
 export const getSandboxAppConfigValue = (
 	config: unknown,
 	key: string,
-	scriptIsBuiltin: boolean,
+	access: {
+		scriptIsBuiltin: boolean;
+		requiredAppConfigKeys: ReadonlyArray<string>;
+	},
 ): Effect.Effect<unknown, string> =>
 	resolveAppConfigValue(config, key).pipe(
 		Effect.flatMap(({ meta, value }) => {
-			if (meta.sensitive && !scriptIsBuiltin) {
+			if (meta.builtinOnly && !access.scriptIsBuiltin) {
+				return Effect.fail(`Config key "${key}" is only available to builtin scripts`);
+			}
+
+			if (
+				meta.sensitive &&
+				!access.scriptIsBuiltin &&
+				!access.requiredAppConfigKeys.includes(key)
+			) {
 				return Effect.fail(`Config key "${key}" is sensitive`);
 			}
 

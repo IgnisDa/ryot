@@ -3,7 +3,7 @@ import {
 	type PluginManifest as PluginManifestValue,
 	type PluginScript,
 } from "@ryot/plugin-kit/manifest";
-import { Data, Effect, Schema } from "effect";
+import { Cron, Data, Effect, Either, Schema } from "effect";
 
 import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 
@@ -70,6 +70,7 @@ export const validatePluginManifestReferences = (
 	snapshot: DefinitionSnapshot,
 ) =>
 	Effect.gen(function* () {
+		const cronSlugs = new Set<string>();
 		const scriptSlugs = new Set<string>();
 		yield* assertSlug("plugin", manifest.metadata.slug);
 		for (const definition of manifest.entitySchemas) {
@@ -93,6 +94,17 @@ export const validatePluginManifestReferences = (
 				return yield* fail(`Duplicate script slug: ${script.slug}`);
 			}
 			scriptSlugs.add(script.slug);
+		}
+		for (const cron of manifest.crons) {
+			yield* assertSlug("cron", cron.slug);
+			if (cronSlugs.has(cron.slug)) {
+				return yield* fail(`Duplicate cron slug: ${cron.slug}`);
+			}
+			cronSlugs.add(cron.slug);
+			yield* assertReference("Cron", cron.driverRef, scriptSlugs);
+			if (Either.isLeft(Cron.parse(cron.schedule))) {
+				return yield* fail(`Cron ${cron.slug} has invalid schedule: ${cron.schedule}`);
+			}
 		}
 
 		const eventSchemaSlugs = new Set(
@@ -137,6 +149,28 @@ export const validatePluginManifestReferences = (
 				binding.signalSchemaSlug,
 				new Set(Object.keys(snapshot.signalSchemas)),
 			);
+		}
+		return yield* Effect.void;
+	});
+
+export const validatePluginCronDrivers = (plugin: {
+	readonly manifest: PluginManifestValue;
+	readonly scripts: ReadonlyArray<{
+		readonly slug: string;
+		readonly metadata: { readonly driverNames?: ReadonlyArray<string> };
+	}>;
+}) =>
+	Effect.gen(function* () {
+		for (const cron of plugin.manifest.crons) {
+			const script = plugin.scripts.find(({ slug }) => slug === cron.driverRef);
+			if (!script) {
+				return yield* fail(
+					`Cron ${cron.slug} references missing compiled script: ${cron.driverRef}`,
+				);
+			}
+			if (!script.metadata.driverNames?.includes("cron")) {
+				return yield* fail(`Cron ${cron.slug} script ${cron.driverRef} must expose driver: cron`);
+			}
 		}
 		return yield* Effect.void;
 	});

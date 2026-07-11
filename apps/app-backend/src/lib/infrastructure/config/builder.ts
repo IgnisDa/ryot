@@ -8,6 +8,7 @@ export type FieldMeta = {
 	required: boolean;
 	sensitive: boolean;
 	description: string;
+	builtinOnly: boolean;
 	default: string | undefined;
 };
 
@@ -24,7 +25,12 @@ export type ConfigLeaf<A, M extends AnyMeta = AnyMeta> = {
 	readonly config: Config.Config<A>;
 };
 
-type FieldOptions<D> = { default?: D; hidden?: boolean; sensitive?: boolean };
+type FieldOptions<D> = {
+	default?: D;
+	hidden?: boolean;
+	sensitive?: boolean;
+	builtinOnly?: boolean;
+};
 
 const makeFieldMeta = (
 	envKey: string,
@@ -32,10 +38,12 @@ const makeFieldMeta = (
 	defaultStr: string | undefined,
 	hidden: boolean,
 	sensitive: boolean,
+	builtinOnly: boolean,
 ): FieldMeta => ({
 	envKey,
 	hidden,
 	sensitive,
+	builtinOnly,
 	description,
 	kind: "field",
 	default: defaultStr,
@@ -57,6 +65,7 @@ export const strField = (
 			opts?.default,
 			opts?.hidden ?? false,
 			opts?.sensitive ?? false,
+			opts?.builtinOnly ?? false,
 		),
 	};
 };
@@ -77,6 +86,7 @@ export const secretField = (
 			opts?.default,
 			opts?.hidden ?? false,
 			opts?.sensitive ?? true,
+			opts?.builtinOnly ?? false,
 		),
 	};
 };
@@ -96,6 +106,7 @@ export const boolField = (
 			opts?.default?.toString(),
 			opts?.hidden ?? false,
 			opts?.sensitive ?? false,
+			opts?.builtinOnly ?? false,
 		),
 	};
 };
@@ -115,6 +126,7 @@ export const intField = (
 			opts?.default?.toString(),
 			opts?.hidden ?? false,
 			opts?.sensitive ?? false,
+			opts?.builtinOnly ?? false,
 		),
 	};
 };
@@ -130,7 +142,4 @@ export const group = <A, T extends Record<string, AnyMeta>>(
 	description: string,
 	config: Config.Config<A>,
 	children: T,
-): ConfigLeaf<A, GroupMeta<T>> => ({
-	config,
-	meta: { kind: "group", description, children },
-});
+): ConfigLeaf<A, GroupMeta<T>> => ({ config, meta: { kind: "group", description, children } });

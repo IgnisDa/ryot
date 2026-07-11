@@ -15,6 +15,7 @@ import { TranslationsService } from "#modules/entity-translation/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
+import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { SignalsService } from "#modules/signals/service";
 
 import { TestSupportService } from "./service";
@@ -26,8 +27,9 @@ const mockAuth = Layer.mock(AuthService);
 const mockSignals = Layer.mock(SignalsService);
 const mockEntities = Layer.mock(EntitiesService);
 const mockInterest = Layer.mock(InterestService);
-const mockSandbox = Layer.mock(SandboxExecutionService);
+const mockPluginCrons = Layer.mock(PluginCronService);
 const mockAutomations = Layer.mock(AutomationsService);
+const mockSandbox = Layer.mock(SandboxExecutionService);
 const mockTranslations = Layer.mock(TranslationsService);
 const mockRelationships = Layer.mock(RelationshipsService);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemasRepository);
@@ -40,6 +42,7 @@ const makeServiceLayer = (
 	overrides: {
 		sandbox?: MockOverrides<typeof mockSandbox>;
 		entities?: MockOverrides<typeof mockEntities>;
+		pluginCrons?: MockOverrides<typeof mockPluginCrons>;
 	} = {},
 	definitions = makeDefinitionRegistry(),
 ) => {
@@ -52,6 +55,11 @@ const makeServiceLayer = (
 				Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...definitions }),
 				mockEntities({ _tag: "EntitiesService", ...overrides.entities }),
 				mockSandbox({ _tag: "SandboxExecutionService", ...overrides.sandbox }),
+				mockPluginCrons({
+					_tag: "PluginCronService",
+					triggerAll: () => Effect.void,
+					...overrides.pluginCrons,
+				}),
 				mockInterest({ _tag: "InterestService" }),
 				mockTranslations({ _tag: "TranslationsService" }),
 				mockRelationships({ _tag: "RelationshipsService" }),
@@ -124,5 +132,24 @@ it.effect("delegates sandbox execution with the explicit executing user", () => 
 			userId: executingUserId,
 			payload: { scriptId, driverName: "main" },
 		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("triggers plugin crons with the native infrequent execution id", () => {
+	let pluginCronExecutionId: string | undefined;
+	const layer = makeServiceLayer({
+		pluginCrons: {
+			triggerAll: (executionId) =>
+				Effect.sync(() => {
+					pluginCronExecutionId = executionId;
+				}),
+		},
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* TestSupportService;
+		const result = yield* service.triggerInfrequentCron();
+		expect(result.executionId).toMatch(/^infrequent-cron-manual-/);
+		expect(pluginCronExecutionId).toBe(result.executionId);
 	}).pipe(Effect.provide(layer));
 });

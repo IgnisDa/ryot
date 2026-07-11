@@ -3,7 +3,10 @@ import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform
 import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
-import { AUTOMATION_SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk/core";
+import {
+	AUTOMATION_SANDBOX_HOST_CAPABILITIES,
+	SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES,
+} from "@ryot/sandbox-sdk/core";
 import { generateId } from "better-auth";
 import { Clock, Duration, Effect, Match, Schema, Stream } from "effect";
 
@@ -45,15 +48,24 @@ const encoder = new TextEncoder();
 const invalidResponseMessage = "Invalid JSON response from Deno process";
 const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
 const automationHostFunctions = new Set<string>(AUTOMATION_SANDBOX_HOST_CAPABILITIES);
+const systemCronHostFunctions = new Set<string>(SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES);
 
 export const selectSandboxHostFunctions = (
 	boundApiFunctions: Readonly<Record<string, BoundHostFunction>>,
-	input: Pick<SandboxRunInput, "allowedHostFunctions" | "subscriptionRun">,
+	input: Pick<
+		SandboxRunInput,
+		"allowedHostFunctions" | "driverName" | "subscriptionRun" | "userId"
+	>,
 ) => {
 	const selectedApiFunctions: Record<string, BoundHostFunction> = {};
 	for (const key of input.allowedHostFunctions) {
 		const fn = boundApiFunctions[key];
-		if (fn && (!automationHostFunctions.has(key) || input.subscriptionRun)) {
+		if (
+			fn &&
+			(!automationHostFunctions.has(key) || input.subscriptionRun) &&
+			(!systemCronHostFunctions.has(key) ||
+				(input.userId === null && input.driverName === "cron" && !input.subscriptionRun))
+		) {
 			selectedApiFunctions[key] = fn;
 		}
 	}

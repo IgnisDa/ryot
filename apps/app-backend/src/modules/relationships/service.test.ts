@@ -8,8 +8,10 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer } from "effect";
 
+import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
@@ -40,8 +42,26 @@ const makeRelationshipsRepository = (
 	});
 
 const makeServiceLayer = (overrides: Parameters<typeof makeRelationshipsRepository>[0] = {}) =>
-	RelationshipsService.Default.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, makeRelationshipsRepository(overrides))),
+	Layer.provideMerge(
+		RelationshipsService.Default,
+		Layer.mergeAll(
+			dbRunnerLayer,
+			makeRelationshipsRepository(overrides),
+			Layer.succeed(TransactionRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+				Effect.provideService(effect, CurrentDb, Object.create(null)),
+			),
+			Layer.succeed(DefinitionRegistry, {
+				_tag: "DefinitionRegistry",
+				...makeDefinitionRegistry(),
+				getRelationshipSchema: () => ({
+					name: "Relationship",
+					slug: "rel-schema-id",
+					sourceEntitySchemaSlug: null,
+					targetEntitySchemaSlug: null,
+					propertiesSchema: { fields: {} },
+				}),
+			}),
+		),
 	);
 
 const baseInput = {
@@ -180,5 +200,51 @@ it.effect("deletes one relationship through the repository", () => {
 			targetEntityId,
 			relationshipSchemaSlug,
 		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("reconciles a global self-relationship group atomically and deletes stale edges", () => {
+	const created: unknown[] = [];
+	const deleted: unknown[] = [];
+	const updated: unknown[] = [];
+	const existing = {
+		...relationship,
+		wasInserted: false,
+		sourceEntityId: EntityId.make("removed-entity-id"),
+		targetEntityId: EntityId.make("removed-entity-id"),
+	};
+	const layer = makeServiceLayer({
+		listGlobalRelationships: () => Effect.succeed([existing]),
+		deleteRelationship: (input) =>
+			Effect.sync(() => {
+				deleted.push(input);
+				return existing;
+			}),
+		updateRelationship: (input) =>
+			Effect.sync(() => {
+				updated.push(input);
+				return { ...relationship, wasInserted: false };
+			}),
+		createRelationship: (input) =>
+			Effect.sync(() => {
+				created.push(input);
+				return { ...relationship, wasInserted: false };
+			}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		const result = yield* service.reconcileGlobal([
+			{
+				relationshipSchemaSlug,
+				selector: { type: "self" },
+				relationships: [{ properties: {}, sourceEntityId, targetEntityId: sourceEntityId }],
+			},
+		]);
+
+		expect(result).toEqual([{ deleted: 1, upserted: 1 }]);
+		expect(created).toHaveLength(1);
+		expect(updated).toHaveLength(1);
+		expect(deleted).toHaveLength(1);
 	}).pipe(Effect.provide(layer));
 });

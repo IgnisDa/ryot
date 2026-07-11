@@ -39,6 +39,8 @@ const makeImplementations = (
 	getAppConfigValue: () => Effect.fail({ message: "unused" }),
 	executeQueryEngine: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
+	upsertGlobalEntities: () => Effect.fail({ message: "unused" }),
+	upsertGlobalRelationships: () => Effect.fail({ message: "unused" }),
 	...overrides,
 });
 
@@ -153,6 +155,10 @@ describe("bindSandboxHostFunctions", () => {
 					calls.push({ fnName: "createEvents", value: items });
 					return Effect.fail({ message: "reached" });
 				},
+				upsertGlobalEntities: (_runInput, items, options) => {
+					calls.push({ fnName: "upsertGlobalEntities", value: { items, options } });
+					return Effect.succeed([{ status: "skipped" as const }]);
+				},
 				listIntegrations: (_runInput, options) => {
 					calls.push({ fnName: "listIntegrations", value: options });
 					return Effect.fail({ message: "reached" });
@@ -178,6 +184,24 @@ describe("bindSandboxHostFunctions", () => {
 				success: false,
 				error: "createEvents expects an array of event items",
 			});
+			expect(
+				yield* bound.upsertGlobalEntities([
+					[
+						{
+							name: "Entity",
+							properties: {},
+							populatedAt: null,
+							externalId: "external-1",
+							entitySchemaSlug: "person",
+						},
+					],
+					{ maximumTotal: 0 },
+				]),
+			).toEqual({ data: [{ status: "skipped" }], success: true });
+			expect(yield* bound.upsertGlobalEntities([[], { maximumTotal: -1 }])).toEqual({
+				success: false,
+				error: "upsertGlobalEntities expects an array of valid entity items",
+			});
 
 			expect(yield* bound.listIntegrations([{ provider: "plex_yank" }])).toEqual({
 				error: "reached",
@@ -198,6 +222,21 @@ describe("bindSandboxHostFunctions", () => {
 				{
 					fnName: "createEvents",
 					value: [{ entityId: "e-1", eventSchemaSlug: "es-1", properties: { watched: true } }],
+				},
+				{
+					fnName: "upsertGlobalEntities",
+					value: {
+						options: { maximumTotal: 0 },
+						items: [
+							{
+								name: "Entity",
+								properties: {},
+								populatedAt: null,
+								externalId: "external-1",
+								entitySchemaSlug: "person",
+							},
+						],
+					},
 				},
 				{ fnName: "listIntegrations", value: { provider: "plex_yank" } },
 			]);

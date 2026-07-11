@@ -227,7 +227,7 @@ yield* engine.execute(ChildWorkflow, {
 The random-id form is correct **only** for a genuinely fresh, top-level dispatch — an HTTP handler
 starting a brand-new job that has no parent workflow and will never be replayed. Several places in
 this codebase correctly use `generateId()` for exactly that reason (e.g.
-`sandbox/service.ts`'s `SandboxExecutionService.enqueue`, `exercises/preload.ts`'s per-boot preload run).
+`sandbox/service.ts`'s `SandboxExecutionService.enqueue`).
 The rule only bites when the dispatching code itself can run more than once.
 
 **The actual, correctly-executed example of this pattern in this codebase** lives in
@@ -638,11 +638,11 @@ above:
   pipeline (record failures, resolve, populate, write, finalize). Both parents (one-time import,
   integration run) persist the adapter result to a Redis artifact and await the child with a
   deterministic `${parentExecutionId}-normalized` id.
-- **Cron fan-out shells** — `MediaTrendingRefreshWorkflow` (`media-trending/refresh-workflow.ts`)
-  and `IntegrationReconciliationWorkflow` (`integrations/reconciliation-workflow.ts`, whose activity
-  prepares the eligible runs and whose body dispatches one `ProcessIntegrationRunWorkflow` child per
-  run id) both exist so cron ticks only fan out children and never run feature work — or dispatch a
-  child — inside the tick's own activity.
+- **Cron owners** — `PluginCronService` (`scheduler/plugin-cron.ts`) dispatches plugin manifest crons
+  as sandbox executions; this owns media trending and exercise preloading. The native
+  `IntegrationReconciliationWorkflow` (`integrations/reconciliation-workflow.ts`) remains a fan-out
+  shell whose activity prepares eligible runs and whose body dispatches one
+  `ProcessIntegrationRunWorkflow` child per run id.
 - **Pre-existing owners** unchanged by this structure: `ProviderEntityPopulationWorkflow`,
   `TranslateEntityWorkflow`, `NotificationDeliveryWorkflow`, `RunSandboxWorkflow` +
   `SandboxExecutionQueue`, `CreateDefaultSavedViewWorkflow`, `ProcessImportRunWorkflow`,
