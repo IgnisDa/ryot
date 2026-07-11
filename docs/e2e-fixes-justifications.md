@@ -7,7 +7,7 @@ Status: the standard Turbo e2e gate, backend checks, and opt-in Phase 3 operatio
 The repair began from the Phase 3 Task 10/11 baseline and reproduced every documented failure
 before changing code:
 
-- Watcharr in `tests/src/tests/imports/imports.test.ts` stayed `running` until the 60-second poll
+- Watcharr in `tests/src/tests/plugins/media/imports/imports.test.ts` stayed `running` until the 60-second poll
   expired.
 - The Kodi episode-progress integration reached terminal `failed` with
   `Workflow activity reference could not be resolved`.
@@ -190,7 +190,7 @@ logs were removed after establishing the timeline.
 ### Adapter-only integration failures remain failed runs
 
 After the integration adapters became resolvable activities, the fail-fast sweep exposed
-`integrations/continuous-error-disable.test.ts`: an empty Kodi payload correctly produced a
+`tests/src/tests/kernel/integrations/continuous-error-disable.test.ts`: an empty Kodi payload correctly produced a
 structured `input_transformation` failure, but the generic import writer finalized the run as
 `completed`. The pre-migration sink path treated an adapter result with failures and no entity
 groups as a failed run. The earlier activity-resolution defect had accidentally preserved that
@@ -206,7 +206,7 @@ from observing a transient `completed` status before the parent integration work
 ### Built-in schema lookup does not refetch catalogs per workspace
 
 The next fail-fast run timed out in the first
-`query-engine/media-suggestions.test.ts` case after 180 seconds. The query itself was not the
+`tests/src/tests/plugins/media/query-engine/media-suggestions.test.ts` case after 180 seconds. The query itself was not the
 bottleneck: both cases passed independently in 5.17 seconds before the fix. Each global-book fixture
 called `findBuiltinSchemaBySlug`, which fetched all entity definitions and sandbox scripts, then
 repeated those same two full-catalog requests for every installed plugin workspace before filtering
@@ -231,15 +231,15 @@ setup hook already allows 120 seconds. Its health check now retries for up to 90
 
 Current verified results:
 
-- `tests/src/tests/imports/imports.test.ts`: 10/10 passed.
-- `tests/src/tests/integrations/integrations.test.ts`: 21/21 passed.
-- `tests/src/tests/integrations/continuous-error-disable.test.ts`: 1/1 passed after reproducing the
+- Import coverage now owned by `tests/src/tests/kernel/imports/imports.test.ts`, `tests/src/tests/plugins/media/imports/imports.test.ts`, and `tests/src/tests/plugins/fitness/imports/imports.test.ts`: the original 10/10 passed.
+- Integration coverage now owned by `tests/src/tests/kernel/integrations/integrations.test.ts` and `tests/src/tests/plugins/media/integrations/integrations.test.ts`: the original 21/21 passed.
+- `tests/src/tests/kernel/integrations/continuous-error-disable.test.ts`: 1/1 passed after reproducing the
   original failure independently.
 - `plugins/media/scripts/imports/import.test.ts`: 12/12 passed, including the adapter-only failure
   dispatch regression.
-- `tests/src/tests/query-engine/media-suggestions.test.ts`: 2/2 passed in 2.39 seconds after the
+- `tests/src/tests/plugins/media/query-engine/media-suggestions.test.ts`: 2/2 passed in 2.39 seconds after the
   catalog lookup repair.
-- `tests/src/tests/media-monitoring/association-detectors.test.ts`: 4/4 passed independently.
+- `tests/src/tests/plugins/media/media-monitoring/association-detectors.test.ts`: 4/4 passed independently.
 - All four media-monitoring files passed together: 13/13 tests in 40.92 seconds.
 - The manga auto-completion case passed independently in 1.5 seconds before applying the same
   terminal-polling workaround to its loaded execution path.

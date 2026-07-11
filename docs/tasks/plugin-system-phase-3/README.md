@@ -426,12 +426,15 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   not a quiet test edit (cross-phase invariant 2). Test app-owned behavior and branching, not
   library behavior, per `AGENTS.md`.
 - **Suites re-pointed per step (assertions preserved):** step 1 re-points
-  `tests/src/tests/exercises/` (seeded through boot dispatch at backend startup, no manual
+  `tests/src/tests/plugins/fitness/exercises.test.ts` (seeded through boot dispatch at backend startup, no manual
   trigger) and the trending coverage (the `triggerPluginCron` fixture already exists); step
   2 re-points the metadata-lookup / browser-extension integration tests
-  to `invoke`; step 3 re-points the `entity-import` / `imports` suites; step 4 re-points the
-  `integrations/` suites in task 08, the OpenScale and Hevy coverage in task 09, and the Watcharr
-  coverage in task 10 — and moves the far larger body of per-adapter unit tests out of
+  to `invoke`; step 3 re-points `tests/src/tests/kernel/entity-import/entity-import.test.ts` and
+  `tests/src/tests/kernel/imports/imports.test.ts`; step 4 splits integration coverage between
+  `tests/src/tests/kernel/integrations/integrations.test.ts` and
+  `tests/src/tests/plugins/media/integrations/integrations.test.ts`, moves OpenScale and Hevy to
+  `tests/src/tests/plugins/fitness/imports/imports.test.ts`, and moves Watcharr to
+  `tests/src/tests/plugins/media/imports/imports.test.ts` — and moves the far larger body of per-adapter unit tests out of
   `apps/app-backend` into the plugin packages, assertions intact; step 5 re-points the four
   `media-monitoring/` suites
   (association detectors and cron-refresh coverage) — these are the acceptance test that the

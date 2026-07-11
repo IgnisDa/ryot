@@ -5,11 +5,11 @@ This document describes the query language accepted by `POST /query-engine/execu
 For concrete executable examples, see:
 
 - `tests/src/fixtures/query-engine.ts` (helpers and fixtures)
-- `tests/src/tests/query-engine/query-engine.test.ts` (entity rows, includes, filters, aggregates, time series, validation)
-- `tests/src/tests/query-engine/events-mode.test.ts` (event root rows, first expressions)
-- `tests/src/tests/query-engine/time-series.test.ts` (time series over events/entities/relationships)
-- `tests/src/tests/query-engine/field-resolution.test.ts` (field selector resolution)
-- `tests/src/tests/query-engine/entity-schema-fields.test.ts` (schema metadata fields)
+- `tests/src/tests/kernel/query-engine/query-engine.test.ts` (entity rows, includes, filters, aggregates, time series, validation)
+- `tests/src/tests/kernel/query-engine/events-mode.test.ts` (event root rows, first expressions)
+- `tests/src/tests/kernel/query-engine/time-series.test.ts` (time series over events/entities/relationships)
+- `tests/src/tests/kernel/query-engine/field-resolution.test.ts` (field selector resolution)
+- `tests/src/tests/kernel/query-engine/entity-schema-fields.test.ts` (schema metadata fields)
 
 ## Mental Model
 

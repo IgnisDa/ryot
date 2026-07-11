@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -17,15 +17,15 @@ pure plumbing.
 
 ## Acceptance criteria
 
-- [ ] Every e2e file is classified as kernel, media plugin, or fitness plugin by behavior rather than its old directory name
-- [ ] Mixed files are split without changing assertion meaning or silently dropping cases
-- [ ] Media imports, integrations, monitoring, recipes, and crons live under media ownership
-- [ ] Fitness imports, workouts, templates, measurements, and exercises live under fitness ownership
-- [ ] Generic loader, sandbox, auth, persistence, collection, and query semantics live under kernel ownership
-- [ ] Test discovery, aliases, lint rules, targeted commands, and operational/live opt-in gates still work
-- [ ] Searches show no suites left in obsolete top-level ownership directories
-- [ ] Test counts and assertions are reconciled before/after moves
-- [ ] The full standard e2e suite passes after reorganization
+- [x] Every e2e file is classified as kernel, media plugin, or fitness plugin by behavior rather than its old directory name
+- [x] Mixed files are split without changing assertion meaning or silently dropping cases
+- [x] Media imports, integrations, monitoring, recipes, and crons live under media ownership
+- [x] Fitness imports, workouts, templates, measurements, and exercises live under fitness ownership
+- [x] Generic loader, sandbox, auth, persistence, collection, and query semantics live under kernel ownership
+- [x] Test discovery, aliases, lint rules, targeted commands, and operational/live opt-in gates still work
+- [x] Searches show no suites left in obsolete top-level ownership directories
+- [x] Test counts and assertions are reconciled before/after moves
+- [x] The full standard e2e suite passes after reorganization
 
 ## User stories addressed
 

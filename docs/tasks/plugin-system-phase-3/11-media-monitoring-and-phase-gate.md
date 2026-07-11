@@ -87,7 +87,7 @@ Task 11 gate progress.
 The repair began from the documented Task 10/11 baseline and reproduced both failure classes in
 isolation before changing code:
 
-- Watcharr in `imports/imports.test.ts` stayed `running` until the 60-second poll expired.
+- Watcharr in `tests/src/tests/plugins/media/imports/imports.test.ts` stayed `running` until the 60-second poll expired.
 - The Kodi episode-progress integration reached terminal `failed` with
   `Workflow activity reference could not be resolved`.
 - The below-minimum progress case subsequently exposed
@@ -95,8 +95,8 @@ isolation before changing code:
 
 Current e2e verification after the fixes:
 
-- `tests/src/tests/imports/imports.test.ts`: 1 file, 10 tests passed.
-- `tests/src/tests/integrations/integrations.test.ts`: 1 file, 21 tests passed.
+- Import coverage now owned by `tests/src/tests/kernel/imports/imports.test.ts`, `tests/src/tests/plugins/media/imports/imports.test.ts`, and `tests/src/tests/plugins/fitness/imports/imports.test.ts`: the original 10 tests passed.
+- Integration coverage now owned by `tests/src/tests/kernel/integrations/integrations.test.ts` and `tests/src/tests/plugins/media/integrations/integrations.test.ts`: the original 21 tests passed.
 - The formerly failing Watcharr, Kodi episode attachment, maximum-progress normalization, and
   minimum-progress filtering cases also pass independently.
 - `bun turbo --filter=@ryot/tests check`: 12/12 tasks passed with zero warnings and errors.

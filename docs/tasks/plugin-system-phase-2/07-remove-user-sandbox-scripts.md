@@ -14,7 +14,7 @@ plan markers (`[DECIDED]`/`[RECOMMENDED]`/`[IMPLEMENTER-DECIDES]`) as described 
 PRD. Per `AGENTS.md`, launch an `explore` subagent first — the `sandbox` contract group and
 its consumers, the authoring service/routes in `apps/app-backend/src/modules/sandbox`, the
 current `sandbox_script` storage, and the
-`tests/src/tests/sandbox/` suites and any fixture still compiling through the authenticated
+`tests/src/tests/kernel/sandbox/` suites and any fixture still compiling through the authenticated
 script-creation API. **Depends on task 04** — until `installTestPlugin` exists, the e2e
 provider tests depend on the script-creation API this task deletes.
 Also depends on task 06, which establishes notification-script ownership before this task finalizes
@@ -36,7 +36,7 @@ Delete the per-user standalone script feature so plugins are the single extensio
    NULL only for immutable, content-addressed source-zero scripts; regenerate the initial
    migration. Retain the `sandbox_script` table name. `entity.sandboxScriptId` provenance and
    per-_executing_-user cache isolation are unchanged.
-4. **E2e**: port `tests/src/tests/sandbox/` execution-semantics/limits/fault coverage to
+4. **E2e**: port `tests/src/tests/kernel/sandbox/` execution-semantics/limits/fault coverage to
    scripts installed via `installTestPlugin`; delete authoring-CRUD coverage; no fixture may
    compile through the script-creation API afterwards.
 5. **Docs**: update the "Sandbox Scripts" and cache sections of `apps/app-backend/AGENTS.md`

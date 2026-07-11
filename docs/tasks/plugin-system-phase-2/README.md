@@ -237,7 +237,7 @@ code inside a package), **admin** (installs/uninstalls plugins through the contr
     plugin or kernel source zero, with no `userId` or per-user slug uniqueness — while execution
     machinery, `entity.sandboxScriptId` provenance, and per-executing-user cache isolation remain
     unchanged (Decision 19; plan §8; done criterion 6).
-37. As the implementing agent, I want the `tests/src/tests/sandbox/` execution/limits/fault
+37. As the implementing agent, I want the `tests/src/tests/kernel/sandbox/` execution/limits/fault
     coverage ported to plugin-installed scripts and the authoring-CRUD coverage deleted, so
     that behavior coverage survives the feature's removal (plan §8).
 38. As the kernel, I want no tracker concept — plugin `metadata` carries the workspace display
@@ -323,7 +323,7 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
 - **The `installTestPlugin` fixture is the central test change:** every provider-driven e2e
   test now exercises the real loader implicitly; the `automations` notification-subscriptions
   suite is re-plumbed to the new state table with assertions preserved (plan §5–6). After
-  task 07, the `tests/src/tests/sandbox/` execution/limits/fault coverage also runs against
+  task 07, the `tests/src/tests/kernel/sandbox/` execution/limits/fault coverage also runs against
   plugin-installed scripts, and authoring-CRUD coverage is deleted with its feature (plan §8).
 - **Notification formatter ownership:** task 06 preserves every notification message assertion
   while running media and fitness formatters from their owning plugins and the
