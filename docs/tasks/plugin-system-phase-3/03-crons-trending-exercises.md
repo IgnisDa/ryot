@@ -20,7 +20,7 @@ Kernel capability (lands before consumers):
 - Add the `boot: [{ slug, driverRef, description }]` manifest section (no `schedule`) for
   one-time-per-server-start work: the kernel dispatches every boot entry once, non-blocking,
   immediately after plugin ingestion, and skips dispatch entirely when
-  `server.disableBackgroundJobs` is set — the same flag the other schedulers honor.
+  `scheduler.disableDispatchers` is set — the same flag the other schedulers honor.
 - The scheduler dispatches each due cron, and the boot dispatcher dispatches each boot entry, as
   a sandbox execution of its referenced driver, fire-and-forget through the durable queue
   machinery per `apps/app-backend/AGENTS.md` durable-ownership rules; idempotency stays with the

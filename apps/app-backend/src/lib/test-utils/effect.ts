@@ -111,7 +111,6 @@ export const makeAppConfigLayer = (
 			otlpEndpoint: Option.none(),
 			traktClientId: Option.none(),
 			disableNotifications: false,
-			disableBackgroundJobs: false,
 			progressUpdateThresholdHours: 2,
 			adminAccessToken: Redacted.make("unused"),
 			smtp: {
@@ -123,6 +122,7 @@ export const makeAppConfigLayer = (
 			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
 		},
 		scheduler: {
+			disableDispatchers: false,
 			frequentCronJobsSchedule: "every 5 minutes",
 			infrequentCronJobsSchedule: "every midnight",
 		},
