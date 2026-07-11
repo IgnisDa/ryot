@@ -14,7 +14,7 @@ code. They are the authoritative spec; this task file only frames the slice. Hon
 markers (`[DECIDED]`/`[RECOMMENDED]`/`[IMPLEMENTER-DECIDES]`) as described in the parent PRD.
 Per `AGENTS.md`, launch an `explore` subagent first — the full contents of
 `apps/app-backend/src/modules/builtins/` (`registry.ts`, `seed.ts`, the definition files
-including `trackers.ts`, the sandbox scripts, and `CLAUDE.md` semantics), the after-migrations
+including `trackers.ts`, the sandbox scripts, and `AGENTS.md` semantics), the after-migrations
 slot in `app/layers.ts`, `automations/lifecycle-dispatch.ts`, and the tracker layer this task
 deletes (the `trackers` contract group, `tracker_state`, `savedView.trackerSlug`, the
 manifest `trackers` section in `libs/plugin-kit`). Depends on tasks 01 and 02.
@@ -60,7 +60,7 @@ must be fed from exactly one source at boot.
 Out of this slice: the per-user notification-subscription move and the `automation_rule` table
 deletion (task 05 — the table still holds `userId`-set rows and keeps working here); the admin
 install endpoint and the e2e fixture swap (task 04 — the old `promoteSandboxScript` provider
-fixture still works, keeping the suite green). Move affected `CLAUDE.md` semantics with the
+fixture still works, keeping the suite green). Move affected `AGENTS.md` semantics with the
 code (single-owner rule; cross-phase invariant 7).
 
 Full spec: plan §9 (tracker-concept removal), §2 (packages, content assignment), §4 (boot
@@ -85,7 +85,7 @@ flow), §5 (global-binding dispatch). Do not restate or re-derive it.
 - [x] The full e2e suite is green using the still-existing provider fixture (fixture swap is
       task 04); backend `check` + unit tests and `app-client` check pass (cross-phase invariant 1)
 - [x] Ambiguous plugin-vs-kernel ownership decisions are recorded in the plan; affected
-      `CLAUDE.md`/`README.md` docs are moved with the code (cross-phase invariant 7)
+      `AGENTS.md`/`README.md` docs are moved with the code (cross-phase invariant 7)
 
 ## User stories addressed
 
