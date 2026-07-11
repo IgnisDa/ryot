@@ -137,7 +137,7 @@ export default defineWorkflow({
   output: genericImportWorkflowResultSchema,
   run: (input, replay) =>
     Effect.gen(function* () {
-      yield* replay.sleep("hold-plugin-pin", 1500);
+      yield* replay.sleep("hold-plugin-pin", 30_000);
       return yield* replay.child("complete-import", kernelImport, {
         totalItems: 0,
         chunkFiles: [],
