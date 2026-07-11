@@ -10,7 +10,7 @@
 
 Before starting, read `docs/plans/plugin-system/00-overview.md` in full and then
 `docs/plans/plugin-system/03-phase-3-capability-migrations.md` in full. Do not begin until the
-Step 3a spike (task 04) is done and its findings/design are signed off. This slice builds the
+Step 3a spike (task 05) is done and its findings/design are signed off. This slice builds the
 real durable-workflow machinery per plan §3 (as adjusted by the recorded spike findings) and
 migrates the media import workflows.
 

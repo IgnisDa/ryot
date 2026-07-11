@@ -7,16 +7,18 @@ files**, which this document references rather than restates:
   verified current-state map, the target architecture, and the cross-phase invariants that
   bind every phase.
 - `docs/plans/plugin-system/03-phase-3-capability-migrations.md` — the complete Phase 3
-  spec: the standing host-function rules, and the strictly-ordered steps 0–5 (sandbox
-  authoring upgrades; crons; operations/invoke; durable workflows with a mandatory spike;
-  integration + import-source adapters with filesystem grants; and `media-monitoring` plus
+  spec: the standing host-function rules, and the strictly-ordered steps 0–5 (Effect-native
+  sandbox cutover and structured observability; crons; operations/invoke; durable workflows
+  with a mandatory spike; integration + import-source adapters with filesystem grants; and
+  `media-monitoring` plus
   the remaining media logic), followed by the phase gate.
 
 Read both in full before starting any task. Phase 3 must not begin until Phase 2's done
 criteria are all met (`00-overview.md` phase ordering; Phase 2's PRD marks all eight of its
-tasks done). Within Phase 3 the numbered steps are **strictly ordered** — a step is done only
-when its native code is deleted and the re-pointed e2e suite is green (`00-overview.md` phase
-ordering; plan intro; cross-phase invariant 4). Where this framing and the plans appear to
+tasks done). Within Phase 3 the numbered steps are **strictly ordered** — the two Step 0
+prerequisites must meet their explicit done criteria, and each capability step is done only when
+its native code is deleted and the re-pointed e2e suite is green (`00-overview.md` phase ordering;
+plan intro; cross-phase invariant 4). Where this framing and the plans appear to
 conflict, **the plan files win** — including where they name specific file paths, tables, and
 modules (the write-a-prd "no file paths / no restating decisions" conventions are deliberately
 overridden here because the design phase is already complete and the plans are the source of
@@ -27,26 +29,28 @@ and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 0 of 8 tasks completed
+**Overall Progress:** 0 of 9 tasks completed
 
-**Current Task:** [Task 01](./01-sandbox-authoring-upgrades.md) (todo)
+**Current Task:** [Task 01](./01-effect-native-sandbox-cutover.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                        | Type | Status |
 | --- | ----------------------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Step 0 — Sandbox Authoring Upgrades](./01-sandbox-authoring-upgrades.md)                                   | AFK  | todo   |
-| 02  | [Step 1 — Crons: media-trending + exercises](./02-crons-trending-exercises.md)                              | AFK  | todo   |
-| 03  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./03-operations-invoke-lookup-resolver.md) | AFK  | todo   |
-| 04  | [Step 3a — Durable Workflow Spike](./04-durable-workflow-spike.md)                                          | HITL | todo   |
-| 05  | [Step 3b — Durable Workflows: media import population/resolution](./05-durable-workflows-media-import.md)   | AFK  | todo   |
-| 06  | [Step 4 — Integration + Import-Source Adapters + FS Grants](./06-integration-import-adapters.md)            | AFK  | todo   |
-| 07  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./07-media-monitoring-and-phase-gate.md)   | AFK  | todo   |
-| 08  | [Codebase Cleanup](./08-codebase-cleanup.md)                                                                | AFK  | todo   |
+| 01  | [Step 0a — Effect-Native Sandbox Cutover](./01-effect-native-sandbox-cutover.md)                           | AFK  | todo   |
+| 02  | [Step 0b — Structured Sandbox Observability](./02-structured-sandbox-observability.md)                     | AFK  | todo   |
+| 03  | [Step 1 — Crons: media-trending + exercises](./03-crons-trending-exercises.md)                              | AFK  | todo   |
+| 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md) | AFK  | todo   |
+| 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                          | HITL | todo   |
+| 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)   | AFK  | todo   |
+| 07  | [Step 4 — Integration + Import-Source Adapters + FS Grants](./07-integration-import-adapters.md)            | AFK  | todo   |
+| 08  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./08-media-monitoring-and-phase-gate.md)   | AFK  | todo   |
+| 09  | [Codebase Cleanup](./09-codebase-cleanup.md)                                                                | AFK  | todo   |
 
 Steps are strictly ordered (`00-overview.md` phase ordering; plan intro): each task starts only
-after the previous one's native code is deleted and its suite is green (one capability in flight
-at a time, cross-phase invariant 4). Task 04 (the mandatory spike, HITL) gates task 05: its
+after the previous task's done criteria and gates pass (one capability in flight at a time,
+cross-phase invariant 4). Tasks 01 and 02 are ordered Step 0 prerequisites. Task 05 (the
+mandatory spike, HITL) gates task 06: its
 recorded findings and owner sign-off must land before the real workflow machinery is built.
 
 ## Problem Statement
@@ -82,11 +86,11 @@ standing rules — batch-first signatures, query pushdown via `executeQueryEngin
 new list-and-filter functions, coarse atomic writes, and generic naming that is never
 explicable by only one plugin (Decision 8; plan standing rules).
 
-The steps, in order: **Step 0** upgrades sandbox authoring (vendor `effect` host-pinned,
-expose host functions as typed `Effect` values, add `log`/`span` host functions) so scripts
-carrying substantial logic are writable and debuggable. **Step 1** adds the `crons` manifest
-section and global-write host functions, moving `media-trending` and `exercises` to
-cron-driven scripts. **Step 2** adds the `operations` manifest section and the single generic
+The steps, in order: **Step 0a** atomically cuts scripts, drivers, backend host implementations,
+and typed bridge dispatch over to an Effect-only API with no raw Promise compatibility surface.
+**Step 0b** independently adds structured, batch-first `log`/`span` host functions. **Step 1**
+adds the `crons` manifest section and global-write host functions, moving `media-trending` and
+`exercises` to cron-driven scripts. **Step 2** adds the `operations` manifest section and the single generic
 `plugins.invoke` contract endpoint, moving `metadata-lookup` and `episode-resolver` to plugin
 operations and migrating the browser extension to invoke. **Step 3** — gated behind a
 **mandatory throwaway spike** — builds the replay-deterministic durable-workflow primitives
@@ -120,10 +124,10 @@ and **implementing agent**.
 1. As a sandbox script author, I want `effect` vendored as a host-pinned approved sandbox
    dependency (single version matching the host, never bundled per script), so that scripts
    carrying substantial logic can use Effect the same way the host does (Decision 11; plan §0).
-2. As a sandbox script author, I want the SDK to expose host functions as typed `Effect`
-   values with typed errors (thin wrappers) while the raw promise API stays for existing
-   scripts, so that new plugin logic is written idiomatically without breaking current scripts
-   (plan §0).
+2. As a sandbox script author, I want every host function and driver to use typed `Effect`
+   values exclusively, with backend implementations and typed bridge dispatch using the same
+   model and Promise confined to private platform transport adapters, so that Phase 3 has one
+   authoring and syscall contract rather than parallel APIs (Decision 11; plan Step 0a).
 3. As a sandbox script author, I want `log` and `span` host functions that thread structured
    output into the execution's OTLP trace and bookkeeping, so that plugin code is debuggable
    with better than `console.log` collection (plan §0; standing-rules observability).
@@ -300,10 +304,14 @@ them (and risk drift), this PRD points to the exact sections that own them:
   never explicable by one plugin, the existing contract pattern (`libs/sandbox-sdk` +
   `bridge-adapter.ts` + `host-functions.ts` + limits), and per-call observability: Decision 8
   and plan "Standing rules".
-- **Step 0 — sandbox authoring upgrades** — vendoring `effect` host-pinned via
-  `sandbox-runtime/dependencies.ts` and the import map, the Effect-valued SDK wrappers keeping
-  the raw promise API, the `log`/`span` host functions, and the shared mechanism for later
-  approved deps: Decision 11 and plan §0.
+- **Step 0a — Effect-native sandbox cutover** — vendoring `effect` host-pinned via
+  `sandbox-runtime/dependencies.ts` and the import map; converting every script-facing host
+  function, driver, backend implementation, and typed bridge dispatch path to Effect; removing
+  the raw Promise authoring API; migrating all existing scripts and fixtures; and retaining
+  Promise only inside private platform transport adapters: Decision 11 and plan Step 0a.
+- **Step 0b — structured sandbox observability** — batch-first `log`/`span` Effect host
+  functions, OTLP trace integration, execution bookkeeping, capability gating, and limits:
+  plan Step 0b.
 - **Step 1 — crons** — the `crons` manifest section, scheduler dispatch through the durable
   queue machinery, the `upsertGlobalEntities` / `upsertGlobalRelationships` host functions
   (shapes `[IMPLEMENTER-DECIDES]`, semantics fixed, capability-gated), the trending-read-path
@@ -334,9 +342,9 @@ them (and risk drift), this PRD points to the exact sections that own them:
   triaged (deleted, generalized, or justified in the plan file): plan "Phase gate".
 - **Cross-cutting rules** — kernel purity (Decision 2), sandbox-only runtime with boot-vs-install
   as the only first/third-party difference (Decision 3), file access via Deno permission grants
-  not IPC (Decision 10), Effect vendored in the sandbox (Decision 11), source-canonical
-  content-addressed ingestion and workflow pinning (Decision 12), hot-load semantics (Decision
-  13), integration adapters into plugins with the framework kept in kernel (Decision 14), and
+  not IPC (Decision 10), Effect-only sandbox authoring and typed bridge APIs (Decision 11),
+  source-canonical content-addressed ingestion and workflow pinning (Decision 12), hot-load
+  semantics (Decision 13), integration adapters into plugins with the framework kept in kernel (Decision 14), and
   the module conventions in `apps/app-backend/AGENTS.md` (Effect services, thin routes,
   repository-owned writes, no transaction across a sandbox execution): overview decision record
   and cross-phase invariants.
@@ -362,6 +370,11 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   (association detectors and cron-refresh coverage) — these are the acceptance test that the
   syscall surface is sufficient, since they exercise nearly every capability at once (plan
   §1–§5).
+- **Step 0 cutover coverage:** type-level tests reject Promise-returning host functions and
+  drivers; runtime tests execute every existing media, fitness, and kernel source-zero script
+  through the Effect-native runner; dependency tests prove Effect is import-map-resolved and not
+  bundled per script; observability tests cover bridge validation, OTLP emission, bookkeeping,
+  capability gating, and limits.
 - **New kernel tests this phase owns:** the `plugins.invoke` endpoint (schema validation, auth,
   unknown operation) at step 2 (plan §2 done); and the **replay-determinism tests** at step 3 —
   induced suspend/replay, nondeterminism detection, and **module pinning across a hot swap**,
@@ -418,15 +431,15 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   and `[IMPLEMENTER-DECIDES]` choices (the global-write host-function shapes, the recipe typing
   wrapper, the `EventCreateWorkflow` composition mechanism, the dedicated-process decision for
   grants) — and the **step-3 spike findings** — by editing the relevant plan file, not this PRD.
-- **Strict ordering is load-bearing.** Steps 0–5 run in order and one capability is in flight
-  at a time; step 3's mandatory spike gates step 3's real implementation (`00-overview.md`
-  phase ordering; cross-phase invariant 4; plan §3).
+- **Strict ordering is load-bearing.** Step 0a, Step 0b, and Steps 1–5 run in order and one
+  capability is in flight at a time; step 3's mandatory spike gates step 3's real implementation
+  (`00-overview.md` phase ordering; cross-phase invariant 4; plan §3).
 - **Pattern discovery before writing.** Per `AGENTS.md`, launch an `explore` subagent to find
   existing patterns to replicate — the existing host-function contract/validation/implementation
   triplet, the sandbox-runtime host-call bridge and flag assembly in `runtime.ts`, the existing
   Effect durable workflow machinery, the scheduler module, the `getIntegration` credential path,
   and the Phase 2 loader/fixture — before writing new code; `explore` is for discovery only.
-- **A mandatory final cleanup task** (following the `codebase-cleanup` skill) will be appended
-  when this PRD is broken into tasks — a final pass over the touched files and directly affected
-  modules to remove dead, duplicated, or leftover code (notably any residue of the five deleted
-  native domain modules and the temporary step-2 `invokeOperation` scaffolding).
+- **Task 09 is the mandatory final cleanup task** (following the `codebase-cleanup` skill): a
+  final pass over the touched files and directly affected modules to remove dead, duplicated, or
+  leftover code, notably residue of the five deleted native domain modules, the temporary step-2
+  `invokeOperation` scaffolding, or Promise-based sandbox compatibility aliases.

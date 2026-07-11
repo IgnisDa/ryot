@@ -9,8 +9,8 @@
 ## What to build
 
 Before starting, read `docs/plans/plugin-system/00-overview.md` in full and then
-`docs/plans/plugin-system/03-phase-3-capability-migrations.md` in full. Do not begin until Step 0
-(task 01) is done. This slice implements plan §1 end-to-end: kernel capability first, then the
+`docs/plans/plugin-system/03-phase-3-capability-migrations.md` in full. Do not begin until Steps 0a
+and 0b (tasks 01 and 02) are done. This slice implements plan §1 end-to-end: kernel capability first, then the
 plugin scripts that consume it, then delete the native modules and re-point the suites.
 
 Kernel capability (lands before consumers):
