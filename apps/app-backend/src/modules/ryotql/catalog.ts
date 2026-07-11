@@ -98,7 +98,22 @@ const event: CatalogTable = {
 	},
 };
 
-const tables: Readonly<Record<string, CatalogTable>> = { entity, event };
+const relationship: CatalogTable = {
+	primaryKey: "id",
+	name: "relationship",
+	userIdColumn: "user_id",
+	fields: {
+		id: physicalField("id", "text"),
+		userId: physicalField("user_id", "text"),
+		createdAt: physicalField("created_at", "date"),
+		properties: physicalField("properties", "json"),
+		sourceEntityId: physicalField("source_entity_id", "text"),
+		targetEntityId: physicalField("target_entity_id", "text"),
+		relationshipSchemaSlug: physicalField("relationship_schema_slug", "text"),
+	},
+};
+
+const tables: Readonly<Record<string, CatalogTable>> = { entity, event, relationship };
 
 export const getCatalogTable = (name: string) => tables[name];
 

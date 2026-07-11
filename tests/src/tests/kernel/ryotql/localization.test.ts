@@ -25,6 +25,7 @@ import {
 	findBuiltinSchemaBySlug,
 	getBackendClient,
 	installTestProvider,
+	requireRyotQLFieldValue,
 	seedEntityTranslation,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
@@ -81,7 +82,7 @@ const readStatus = (client: Parameters<typeof executeRyotQL>[0], entityId: strin
 		const response = yield* executeRyotQL(client, statusDocument(entityId));
 		const item = requireRows(response.data["entity"], "entity").items[0];
 		assertPresent(item, `Expected entity '${entityId}'`);
-		return item["translationStatus"]?.value;
+		return requireRyotQLFieldValue(item, "translationStatus").value;
 	});
 
 describe("RyotQL entity localization", () => {
@@ -123,8 +124,8 @@ describe("RyotQL entity localization", () => {
 			const canonical = yield* executeRyotQL(client, localizedDocument(slug));
 			expect(
 				requireRows(canonical.data["entities"], "entities").items.map((item) => [
-					item["name"]?.value,
-					item["description"]?.value,
+					requireRyotQLFieldValue(item, "name").value,
+					requireRyotQLFieldValue(item, "description").value,
 				]),
 			).toEqual([
 				["Alpha", "Canonical Alpha overview"],
@@ -135,9 +136,9 @@ describe("RyotQL entity localization", () => {
 			const localized = yield* executeRyotQL(client, localizedDocument(slug));
 			expect(
 				requireRows(localized.data["entities"], "entities").items.map((item) => [
-					item["name"]?.value,
-					item["rating"]?.value,
-					item["description"]?.value,
+					requireRyotQLFieldValue(item, "name").value,
+					requireRyotQLFieldValue(item, "rating").value,
+					requireRyotQLFieldValue(item, "description").value,
 				]),
 			).toEqual([
 				["Alfa", 5, "Resumen traducido de Zulu"],
@@ -145,7 +146,7 @@ describe("RyotQL entity localization", () => {
 			]);
 			expect(
 				requireRows(localized.data["filtered"], "filtered").items.map(
-					(item) => item["name"]?.value,
+					(item) => requireRyotQLFieldValue(item, "name").value,
 				),
 			).toEqual(["Alfa"]);
 		}),
