@@ -155,13 +155,6 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			},
 		);
 
-		const triggerInfrequentCron = () =>
-			Effect.gen(function* () {
-				const executionId = `infrequent-cron-manual-${generateId()}`;
-				yield* pluginCrons.triggerAll(executionId);
-				return { executionId };
-			});
-
 		const triggerPluginCron = (input: TestSupportTriggerPluginCronBody) =>
 			pluginCrons.trigger(input.pluginSlug, input.cronSlug, `plugin-cron-manual-${generateId()}`);
 
@@ -198,7 +191,6 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			createGlobalEntity,
 			countAutomationRules,
 			setEntityPopulatedAt,
-			triggerInfrequentCron,
 			upsertEntityTranslation,
 			upsertGlobalRelationship,
 			listSignals: signals.list,

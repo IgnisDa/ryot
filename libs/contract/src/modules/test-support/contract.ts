@@ -55,7 +55,6 @@ const CreateGlobalEntityBody = Schema.Struct({
 	populatedAt: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
-const TriggerInfrequentCronResponse = Schema.Struct({ executionId: Schema.String });
 const TriggerPluginBootResponse = Schema.Struct({ executionId: Schema.String });
 const MediaPopulationGateResultBody = Schema.Struct({
 	itemCount: Schema.Int.pipe(Schema.positive(), Schema.lessThanOrEqualTo(1_001)),
@@ -212,20 +211,11 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.add(
 		HttpApiEndpoint.post("linkAuthAccount", "/test-support/auth-accounts")
 			.setPayload(
-				Schema.Struct({
-					userId: UserId,
-					accountId: Schema.String,
-					providerId: Schema.String,
-				}),
+				Schema.Struct({ userId: UserId, accountId: Schema.String, providerId: Schema.String }),
 			)
 			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 })
 			.addError(InternalError, { status: 500 })
 			.annotate(OpenApi.Description, "Links an authentication account to a user"),
-	)
-	.add(
-		HttpApiEndpoint.post("triggerInfrequentCron", "/test-support/cron/infrequent")
-			.addSuccess(TriggerInfrequentCronResponse)
-			.annotate(OpenApi.Description, "Triggers the infrequent cron job"),
 	)
 	.add(
 		HttpApiEndpoint.post("triggerPluginCron", "/test-support/cron/plugin")
@@ -266,12 +256,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	)
 	.add(
 		HttpApiEndpoint.post("listSubscriptionRuns", "/test-support/subscription-runs/list")
-			.setPayload(
-				Schema.Struct({
-					executionUserId: UserId,
-					signalId: Schema.optional(SignalId),
-				}),
-			)
+			.setPayload(Schema.Struct({ executionUserId: UserId, signalId: Schema.optional(SignalId) }))
 			.addSuccess(Schema.Array(TestSupportSubscriptionRun))
 			.annotate(OpenApi.Description, "Lists subscription runs for an execution user"),
 	);

@@ -156,10 +156,9 @@ scheduler:
   # @env SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE
   frequent_cron_jobs_schedule: "every 5 minutes"
 
-  # English expression for infrequent cron jobs (cleaning up data, refreshing calendar).
-  # Uses https://github.com/kaplanelad/english-to-cron.
+  # Cron expression used by plugin crons assigned to the infrequent tier.
   # @env SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE
-  infrequent_cron_jobs_schedule: "every midnight"
+  infrequent_cron_jobs_schedule: "0 0 * * *"
 
 # Settings related to server.
 server:
