@@ -16,7 +16,7 @@ const PropertyFieldSelector = strictStruct({
 
 const SchemaMetadataFieldSelector = strictStruct({
 	type: Schema.Literal("schema"),
-	name: Schema.Literal("slug", "name", "isBuiltin"),
+	name: Schema.Literal("slug", "name"),
 }).annotations({ identifier: "SchemaMetadataFieldSelector" });
 
 // A server-derived value that is not a physical column: it is computed in SQL at read time. Valid
