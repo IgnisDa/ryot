@@ -1,6 +1,9 @@
+import type { SavedViewControllerState } from "./controller";
+
 export type SavedViewSessionEntry = {
 	readonly query: string;
 	readonly scrollOffset: number;
+	readonly controller?: SavedViewControllerState;
 };
 
 export type SavedViewSession = {
@@ -40,6 +43,16 @@ export function withSavedViewQuery(
 	query: string,
 ) {
 	return withSavedViewEntry(session, workspace, slug, { query, scrollOffset: 0 });
+}
+
+export function withSavedViewController(
+	session: SavedViewSession,
+	workspace: string,
+	slug: string,
+	controller: SavedViewControllerState,
+) {
+	const current = savedViewSessionEntry(session, workspace, slug);
+	return withSavedViewEntry(session, workspace, slug, { ...current, controller });
 }
 
 export function withSavedViewScrollOffset(
