@@ -1,5 +1,3 @@
-import { Activity, DurableQueue } from "@effect/workflow";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import {
 	SandboxCompletedResult,
@@ -7,6 +5,8 @@ import {
 } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import { Activity, DurableQueue } from "effect/unstable/workflow";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -132,7 +132,7 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 		{ concurrency },
 	);
 
-export const SandboxExecutionQueueWorkerLive = Layer.unwrapEffect(
+export const SandboxExecutionQueueWorkerLive = Layer.unwrap(
 	Effect.map(AppConfig, (config) =>
 		makeSandboxExecutionQueueWorkerLive(config.sandbox.workerConcurrency),
 	),
