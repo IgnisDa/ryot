@@ -1,7 +1,7 @@
 import { DbError, unknownToDbError } from "@ryot/contract/errors";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Context, Effect, Exit, Layer, Option, Redacted, Runtime } from "effect";
+import { Context, Effect, Exit, Layer, Option, Redacted } from "effect";
 import { Pool } from "pg";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -19,10 +19,10 @@ export type DbTransaction = Parameters<Parameters<DbRoot["transaction"]>[0]>[0];
 export type DbExecutor = DbRoot | DbTransaction;
 
 /** @effect-leakable-service */
-export class CurrentDb extends Context.Tag("CurrentDb")<CurrentDb, DbExecutor>() {}
+export class CurrentDb extends Context.Service<CurrentDb, DbExecutor>()("CurrentDb") {}
 
-export class DbService extends Effect.Service<DbService>()("DbService", {
-	scoped: Effect.gen(function* () {
+export class DbService extends Context.Service<DbService>()("DbService", {
+	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const pool = new Pool({
 			max: config.database.poolMax,
@@ -32,7 +32,9 @@ export class DbService extends Effect.Service<DbService>()("DbService", {
 		yield* Effect.addFinalizer(() => Effect.promise(() => pool.end()).pipe(Effect.orDie));
 		return { pool, db: makeDb(pool) };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
 export const dbEffect = <A>(try_: () => Promise<A>): Effect.Effect<A, DbError> =>
 	Effect.tryPromise({ try: try_, catch: unknownToDbError });
@@ -65,7 +67,7 @@ const withTransaction = Effect.fn("withTransaction")(function* <A, E, R>(
 	effect: Effect.Effect<A, E, R>,
 ) {
 	const { db } = yield* DbService;
-	const runtime = yield* Effect.runtime<Exclude<R, CurrentDb>>();
+	const runtime = yield* Effect.context<Exclude<R, CurrentDb>>();
 	// The effect runs on a detached fiber (Runtime.runPromiseExit) to bridge into Drizzle's
 	// callback-based transaction. pg cannot cancel an in-flight statement, so the await runs
 	// uninterruptibly: an interrupt is deferred until the transaction commits or rolls back,
@@ -75,7 +77,7 @@ const withTransaction = Effect.fn("withTransaction")(function* <A, E, R>(
 	const runTransaction = Effect.tryPromise({
 		try: () =>
 			db.transaction((tx) =>
-				Runtime.runPromiseExit(runtime)(effect.pipe(Effect.provideService(CurrentDb, tx))).then(
+				Effect.runPromiseExitWith(runtime)(effect.pipe(Effect.provideService(CurrentDb, tx))).then(
 					(innerExit) => {
 						if (Exit.isFailure(innerExit)) {
 							throw new RollbackTransaction(innerExit);
@@ -86,7 +88,7 @@ const withTransaction = Effect.fn("withTransaction")(function* <A, E, R>(
 			),
 		catch: (cause) => (isRollbackTransaction<A, E>(cause) ? cause : unknownToDbError(cause)),
 	}).pipe(
-		Effect.catchAll((cause) =>
+		Effect.catch((cause) =>
 			isRollbackTransaction<A, E>(cause) ? Effect.succeed(cause.exit) : Effect.fail(cause),
 		),
 	);
@@ -100,10 +102,10 @@ const withTransaction = Effect.fn("withTransaction")(function* <A, E, R>(
 	return yield* Effect.failCause(exit.cause);
 });
 
-export class DbRunner extends Context.Tag("DbRunner")<
+export class DbRunner extends Context.Service<
 	DbRunner,
 	<A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, Exclude<R, CurrentDb>>
->() {}
+>()("DbRunner") {}
 
 export const DbRunnerLive = Layer.effect(
 	DbRunner,
@@ -123,10 +125,10 @@ export const DbRunnerLive = Layer.effect(
 	}),
 );
 
-export class TransactionRunner extends Context.Tag("TransactionRunner")<
+export class TransactionRunner extends Context.Service<
 	TransactionRunner,
 	<A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E | DbError, Exclude<R, CurrentDb>>
->() {}
+>()("TransactionRunner") {}
 
 export const TransactionRunnerLive = Layer.effect(
 	TransactionRunner,
