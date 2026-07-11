@@ -2,6 +2,7 @@ import { unknownToMessage } from "@ryot/contract/errors";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import type {
 	JsonValue,
+	SandboxHostError,
 	SandboxHostImplementationMap as SdkSandboxHostImplementationMap,
 } from "@ryot/sandbox-sdk/core";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
@@ -21,7 +22,7 @@ export type SandboxRunInput = {
 	readonly subscriptionRun?: NonNullable<SandboxExecutionPayload["subscriptionRun"]>;
 };
 
-export type BoundHostFunction = (args: ReadonlyArray<unknown>) => Promise<unknown>;
+export type BoundHostFunction = (args: ReadonlyArray<unknown>) => Effect.Effect<unknown, unknown>;
 
 export type UserSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
 	readonly userId: string;
@@ -37,16 +38,15 @@ export type AdditionalSandboxHostImplementationMap = Omit<
 export const apiSuccess = <T>(data: T) => ({ data, success: true as const });
 export const apiFailure = (error: string) => ({ error, success: false as const });
 
-export const runSandboxHostEffect = <A>(
-	runPromise: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>,
-	effect: Effect.Effect<A, unknown>,
-) =>
-	runPromise(
-		effect.pipe(
-			Effect.map(apiSuccess),
-			Effect.catchAll((error) => Effect.succeed(apiFailure(unknownToMessage(error)))),
-		),
-	);
+export const toSandboxHostError = (error: unknown): SandboxHostError =>
+	isObjectRecord(error) && typeof error["message"] === "string"
+		? { ...error, message: error["message"] }
+		: { message: unknownToMessage(error) };
+
+export const sandboxHostFailure = (message: string) => Effect.fail(toSandboxHostError(message));
+
+export const sandboxHostEffect = <A, E>(effect: Effect.Effect<A, E>) =>
+	effect.pipe(Effect.mapError(toSandboxHostError));
 
 export const isJsonValue = (value: unknown): value is JsonValue => {
 	if (
@@ -88,21 +88,21 @@ const hasSubscriptionRun = (input: SandboxRunInput): input is SubscriptionSandbo
 export const requireSubscriptionSandboxRunInput = (
 	input: SandboxRunInput,
 	fnName: string,
-): SubscriptionSandboxRunInput => {
+): Effect.Effect<SubscriptionSandboxRunInput, SandboxHostError> => {
 	if (!hasSubscriptionRun(input)) {
-		throw new Error(`${fnName} is available only to subscription executions`);
+		return sandboxHostFailure(`${fnName} is available only to subscription executions`);
 	}
 
-	return input;
+	return Effect.succeed(input);
 };
 
 export const requireUserSandboxRunInput = <Input extends SandboxRunInput>(
 	input: Input,
 	fnName: string,
-): UserSandboxRunInput<Input> => {
+): Effect.Effect<UserSandboxRunInput<Input>, SandboxHostError> => {
 	if (!hasUserContext(input)) {
-		throw new Error(`${fnName} is not available for system executions`);
+		return sandboxHostFailure(`${fnName} is not available for system executions`);
 	}
 
-	return input as UserSandboxRunInput<Input>;
+	return Effect.succeed(input as UserSandboxRunInput<Input>);
 };

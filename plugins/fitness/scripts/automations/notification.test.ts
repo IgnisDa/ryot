@@ -1,5 +1,6 @@
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import definition, { manifest } from "./notification.sandbox";
@@ -26,18 +27,19 @@ const input: AutomationInput = {
 
 it("formats workout.created exclusively from the signal snapshot", () => {
 	const messages: string[] = [];
-	return runSandboxTestDriver(
-		definition.drivers.automation,
-		input,
-		defineSandboxTestHost(manifest, {
-			sendNotification: (message) => {
-				messages.push(message);
-				return Promise.resolve({ data: null, success: true });
-			},
-		}),
-		{ metadata: {}, sandboxScriptId: "script-1" },
+	return Effect.runPromise(
+		definition.drivers.automation.run(
+			input,
+			defineSandboxTestHost(manifest, {
+				sendNotification: (message) => {
+					messages.push(message);
+					return Effect.succeed(null);
+				},
+			}),
+			{ metadata: {}, sandboxScriptId: "script-1" },
+		),
 	).then((result) => {
-		expect(result).toEqual({ data: null, success: true });
+		expect(result).toBeNull();
 		expect(messages).toEqual(["Workout Morning Run was created"]);
 		return undefined;
 	});

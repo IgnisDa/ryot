@@ -1,5 +1,6 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../../script-helpers/records";
@@ -23,16 +24,12 @@ export const manifest = defineManifest({
 	requiredAppConfigKeys: ["videoGames.twitchClientId", "videoGames.twitchClientSecret"],
 	capabilities: ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
 });
-
 const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big";
-
 const getImageUrl = (imageId: string) => buildIgdbImageUrl(IMAGE_BASE_URL, imageId);
-
 const extractYear = (unixTimestamp: unknown) => {
 	const value = numberValue(unixTimestamp);
 	return value === null ? null : dayjs.unix(value).year();
 };
-
 const unixToIsoDate = (unixTimestamp: unknown) => {
 	const value = numberValue(unixTimestamp);
 	if (value === null) {
@@ -41,12 +38,10 @@ const unixToIsoDate = (unixTimestamp: unknown) => {
 	const parsed = dayjs.unix(value);
 	return parsed.isValid() ? (parsed.toISOString().split("T")[0] ?? null) : null;
 };
-
 const secondsToMinutes = (seconds: unknown) => {
 	const value = numberValue(seconds);
 	return value === null || value <= 0 ? null : Math.round(value / 60);
 };
-
 const buildPlatformReleases = (releaseDates: unknown) => {
 	if (!Array.isArray(releaseDates) || releaseDates.length === 0) {
 		return null;
@@ -70,7 +65,6 @@ const buildPlatformReleases = (releaseDates: unknown) => {
 	releases.sort((a, b) => a.name.localeCompare(b.name));
 	return releases;
 };
-
 const collectCompanies = (involvedCompanies: unknown) => {
 	const accumulator = createRoleAccumulator();
 	for (const ic of Array.isArray(involvedCompanies) ? involvedCompanies : []) {
@@ -103,7 +97,6 @@ const collectCompanies = (involvedCompanies: unknown) => {
 	}
 	return accumulator.entities;
 };
-
 const collectGroups = (collections: unknown) => {
 	const groupByKey = new Map<string, RoleRelatedEntity>();
 	for (const collection of Array.isArray(collections) ? collections : []) {
@@ -125,7 +118,6 @@ const collectGroups = (collections: unknown) => {
 	}
 	return [...groupByKey.values()];
 };
-
 const collectSuggestions = (similarGames: unknown) =>
 	(Array.isArray(similarGames) ? similarGames : []).flatMap((game) => {
 		const record = asRecord(game);
@@ -136,9 +128,7 @@ const collectSuggestions = (similarGames: unknown) =>
 		}
 		return [{ name, externalId: String(Math.trunc(id)), scriptSlug: "video-game.igdb" }];
 	});
-
 const SEARCH_FIELDS = "id, name, cover.image_id, first_release_date";
-
 const DETAIL_FIELDS = [
 	"id",
 	"slug",
@@ -162,7 +152,6 @@ const DETAIL_FIELDS = [
 	"similar_games.id",
 	"similar_games.name",
 ].join(", ");
-
 export const search = defineProviderDriver(manifest, "search", (input, host) => {
 	const offset = (input.page - 1) * input.pageSize;
 	const body = [
@@ -172,128 +161,133 @@ export const search = defineProviderDriver(manifest, "search", (input, host) => 
 		`limit ${input.pageSize};`,
 		`offset ${offset};`,
 	].join("\n");
-	return makeIgdbRequest(host, "games", body).then(({ data: results, headers }) => {
-		if (!Array.isArray(results)) {
-			throw new Error("IGDB search returned unexpected response format");
-		}
-		const totalItems = readTotalItems(headers, results.length, offset);
-		const items = results.flatMap((game) => {
-			const record = asRecord(game);
-			const id = numberValue(record?.["id"]);
-			const name = stringValue(record?.["name"]);
-			if (id === null || !name) {
-				return [];
+	return makeIgdbRequest(host, "games", body).pipe(
+		Effect.flatMap(({ data: results, headers }) => {
+			if (!Array.isArray(results)) {
+				return Effect.fail(new Error("IGDB search returned unexpected response format"));
 			}
-			const publishYear = extractYear(record?.["first_release_date"]);
-			const imageId = stringValue(asRecord(record?.["cover"])?.["image_id"]);
-			const image = imageId ? getImageUrl(imageId) : null;
-			return [
-				{
-					externalId: String(id),
-					calloutProperty: { kind: "null" as const, value: null },
-					titleProperty: { kind: "text" as const, value: name },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					imageProperty:
-						image === null
-							? { kind: "null" as const, value: null }
-							: { kind: "image" as const, value: { type: "remote" as const, url: image } },
-					primarySubtitleProperty:
-						publishYear === null
-							? { kind: "null" as const, value: null }
-							: { kind: "number" as const, value: publishYear },
-				},
-			];
-		});
-		return { items, details: buildPagination(offset, results.length, totalItems, input.page) };
-	});
+			const totalItems = readTotalItems(headers, results.length, offset);
+			const items = results.flatMap((game) => {
+				const record = asRecord(game);
+				const id = numberValue(record?.["id"]);
+				const name = stringValue(record?.["name"]);
+				if (id === null || !name) {
+					return [];
+				}
+				const publishYear = extractYear(record?.["first_release_date"]);
+				const imageId = stringValue(asRecord(record?.["cover"])?.["image_id"]);
+				const image = imageId ? getImageUrl(imageId) : null;
+				return [
+					{
+						externalId: String(id),
+						calloutProperty: { kind: "null" as const, value: null },
+						titleProperty: { kind: "text" as const, value: name },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						imageProperty:
+							image === null
+								? { kind: "null" as const, value: null }
+								: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+						primarySubtitleProperty:
+							publishYear === null
+								? { kind: "null" as const, value: null }
+								: { kind: "number" as const, value: publishYear },
+					},
+				];
+			});
+			return Effect.succeed({
+				items,
+				details: buildPagination(offset, results.length, totalItems, input.page),
+			});
+		}),
+	);
 });
-
 export const details = defineProviderDriver(manifest, "details", (input, host) => {
 	if (!/^\d+$/.test(input.externalId)) {
-		throw new Error("externalId must be a numeric IGDB game ID (e.g., '1020')");
+		return Effect.fail(new Error("externalId must be a numeric IGDB game ID (e.g., '1020')"));
 	}
 	const gameBody = [`fields ${DETAIL_FIELDS};`, `where id = ${input.externalId};`].join("\n");
 	const ttbBody = [
 		"fields normally, hastily, completely;",
 		`where game_id = ${input.externalId};`,
 	].join("\n");
-	return Promise.all([
+	return Effect.all([
 		makeIgdbRequest(host, "games", gameBody),
 		makeIgdbRequest(host, "game_time_to_beats", ttbBody),
-	]).then(([gameResult, ttbResult]) => {
-		const gameList = gameResult.data;
-		if (!Array.isArray(gameList) || gameList.length === 0) {
-			throw new Error("IGDB returned no game data for this externalId");
-		}
-		const game = asRecord(gameList[0]);
-		const name = stringValue(game?.["name"]);
-		if (!name) {
-			throw new Error("IGDB game payload is missing name");
-		}
-
-		const images: Array<{ type: "remote"; url: string }> = [];
-		const coverImageId = stringValue(asRecord(game?.["cover"])?.["image_id"]);
-		if (coverImageId) {
-			images.push({ type: "remote", url: getImageUrl(coverImageId) });
-		}
-		for (const artwork of Array.isArray(game?.["artworks"]) ? game["artworks"] : []) {
-			const artworkImageId = stringValue(asRecord(artwork)?.["image_id"]);
-			if (artworkImageId) {
-				images.push({ type: "remote", url: getImageUrl(artworkImageId) });
-			}
-		}
-
-		const genres = (Array.isArray(game?.["genres"]) ? game["genres"] : []).flatMap((g) => {
-			const genreName = stringValue(asRecord(g)?.["name"]);
-			return genreName ? [genreName] : [];
-		});
-
-		const ttbList = ttbResult.data;
-		const ttbEntry = Array.isArray(ttbList) && ttbList.length > 0 ? asRecord(ttbList[0]) : null;
-		const timeToBeat = ttbEntry
-			? {
-					hastily: secondsToMinutes(ttbEntry["hastily"]),
-					normally: secondsToMinutes(ttbEntry["normally"]),
-					completely: secondsToMinutes(ttbEntry["completely"]),
+	]).pipe(
+		Effect.flatMap(([gameResult, ttbResult]) =>
+			Effect.gen(function* () {
+				const gameList = gameResult.data;
+				if (!Array.isArray(gameList) || gameList.length === 0) {
+					return yield* Effect.fail(new Error("IGDB returned no game data for this externalId"));
 				}
-			: null;
-
-		const gameSlug = stringValue(game?.["slug"]) ?? toSlug(name);
-
-		return {
-			name,
-			relatedEntityGroups: [
-				{
-					direction: "incoming" as const,
-					synchronization: "additive" as const,
-					entities: collectCompanies(game?.["involved_companies"]),
-					relationshipSchemaSlug: "company-to-video-game",
-				},
-				{
-					direction: "incoming" as const,
-					synchronization: "additive" as const,
-					entities: collectGroups(game?.["collections"]),
-					relationshipSchemaSlug: "video-game-group-to-video-game",
-				},
-				{
-					direction: "outgoing" as const,
-					synchronization: "authoritative" as const,
-					entities: collectSuggestions(game?.["similar_games"]),
-					relationshipSchemaSlug: "media-suggestion",
-				},
-			],
-			properties: {
-				images,
-				genres,
-				timeToBeat,
-				description: stringValue(game?.["summary"]),
-				providerRating: numberValue(game?.["rating"]),
-				platformReleases: buildPlatformReleases(game?.["release_dates"]),
-				sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
-				publishYear: extractYear(game?.["first_release_date"]),
-			},
-		};
-	});
+				const game = asRecord(gameList[0]);
+				const name = stringValue(game?.["name"]);
+				if (!name) {
+					return yield* Effect.fail(new Error("IGDB game payload is missing name"));
+				}
+				const images: Array<{
+					type: "remote";
+					url: string;
+				}> = [];
+				const coverImageId = stringValue(asRecord(game?.["cover"])?.["image_id"]);
+				if (coverImageId) {
+					images.push({ type: "remote", url: getImageUrl(coverImageId) });
+				}
+				for (const artwork of Array.isArray(game?.["artworks"]) ? game["artworks"] : []) {
+					const artworkImageId = stringValue(asRecord(artwork)?.["image_id"]);
+					if (artworkImageId) {
+						images.push({ type: "remote", url: getImageUrl(artworkImageId) });
+					}
+				}
+				const genres = (Array.isArray(game?.["genres"]) ? game["genres"] : []).flatMap((g) => {
+					const genreName = stringValue(asRecord(g)?.["name"]);
+					return genreName ? [genreName] : [];
+				});
+				const ttbList = ttbResult.data;
+				const ttbEntry = Array.isArray(ttbList) && ttbList.length > 0 ? asRecord(ttbList[0]) : null;
+				const timeToBeat = ttbEntry
+					? {
+							hastily: secondsToMinutes(ttbEntry["hastily"]),
+							normally: secondsToMinutes(ttbEntry["normally"]),
+							completely: secondsToMinutes(ttbEntry["completely"]),
+						}
+					: null;
+				const gameSlug = stringValue(game?.["slug"]) ?? toSlug(name);
+				return {
+					name,
+					relatedEntityGroups: [
+						{
+							direction: "incoming" as const,
+							synchronization: "additive" as const,
+							entities: collectCompanies(game?.["involved_companies"]),
+							relationshipSchemaSlug: "company-to-video-game",
+						},
+						{
+							direction: "incoming" as const,
+							synchronization: "additive" as const,
+							entities: collectGroups(game?.["collections"]),
+							relationshipSchemaSlug: "video-game-group-to-video-game",
+						},
+						{
+							direction: "outgoing" as const,
+							synchronization: "authoritative" as const,
+							entities: collectSuggestions(game?.["similar_games"]),
+							relationshipSchemaSlug: "media-suggestion",
+						},
+					],
+					properties: {
+						images,
+						genres,
+						timeToBeat,
+						description: stringValue(game?.["summary"]),
+						providerRating: numberValue(game?.["rating"]),
+						platformReleases: buildPlatformReleases(game?.["release_dates"]),
+						sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
+						publishYear: extractYear(game?.["first_release_date"]),
+					},
+				};
+			}),
+		),
+	);
 });
-
 export default defineProvider({ manifest, drivers: { search, details } });

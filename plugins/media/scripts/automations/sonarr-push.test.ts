@@ -1,5 +1,6 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -82,50 +83,56 @@ describe("sonarr-push sandbox script", () => {
 			integrations: [sonarrIntegration],
 			httpCall: createHttpCall(calls),
 		});
-		return runSandboxTestDriver(
-			definition.drivers.automation,
-			createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
-			host,
-			execution,
-		).then(() => {
-			expect(calls).toHaveLength(1);
-			expect(calls[0]?.url).toBe("http://sonarr.local/api/v3/series");
-			expect(JSON.parse(String(calls[0]?.options["body"]))).toEqual({
-				tags: [5],
-				tvdbId: 371980,
-				monitored: true,
-				qualityProfileId: 2,
-				rootFolderPath: "/tv",
-				addOptions: { searchForMissingEpisodes: true },
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			definition.drivers.automation
+				.run(createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }), host, execution)
+				.pipe(
+					Effect.map(() => {
+						expect(calls).toHaveLength(1);
+						expect(calls[0]?.url).toBe("http://sonarr.local/api/v3/series");
+						expect(JSON.parse(String(calls[0]?.options["body"]))).toEqual({
+							tags: [5],
+							tvdbId: 371980,
+							monitored: true,
+							qualityProfileId: 2,
+							rootFolderPath: "/tv",
+							addOptions: { searchForMissingEpisodes: true },
+						});
+						return undefined;
+					}),
+				),
+		);
 	});
 
 	it("no-ops for non-shows and non-TVDB entities", () => {
 		const calls: HttpCall[] = [];
 		const httpCall = createHttpCall(calls);
-		return Promise.all([
-			runSandboxTestDriver(
-				definition.drivers.automation,
-				createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
-				createHost({ entity: showEntity, integrations: [sonarrIntegration], httpCall }),
-				execution,
-			),
-			runSandboxTestDriver(
-				definition.drivers.automation,
-				createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
-				createHost({
-					httpCall,
-					integrations: [sonarrIntegration],
-					entity: entityRecord({ ...showEntity, sandboxScriptId: "script-show-tmdb" }),
+		return Effect.runPromise(
+			Effect.all(
+				[
+					definition.drivers.automation.run(
+						createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+						createHost({ entity: showEntity, integrations: [sonarrIntegration], httpCall }),
+						execution,
+					),
+					definition.drivers.automation.run(
+						createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
+						createHost({
+							httpCall,
+							integrations: [sonarrIntegration],
+							entity: entityRecord({ ...showEntity, sandboxScriptId: "script-show-tmdb" }),
+						}),
+						execution,
+					),
+				],
+				{ concurrency: "unbounded" },
+			).pipe(
+				Effect.map(() => {
+					expect(calls).toHaveLength(0);
+					return undefined;
 				}),
-				execution,
 			),
-		]).then(() => {
-			expect(calls).toHaveLength(0);
-			return undefined;
-		});
+		);
 	});
 
 	it("treats an expected Sonarr HTTP failure as non-fatal", () => {
@@ -135,16 +142,17 @@ describe("sonarr-push sandbox script", () => {
 			integrations: [sonarrIntegration],
 			httpCall: () => httpFailure("already exists", 400),
 		});
-		return runSandboxTestDriver(
-			definition.drivers.automation,
-			createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
-			host,
-			execution,
-		).then((result) => {
-			expect(result).toBeNull();
-			expect(warning).toHaveBeenCalledWith("Sonarr push failed: already exists");
-			warning.mockRestore();
-			return undefined;
-		});
+		return Effect.runPromise(
+			definition.drivers.automation
+				.run(createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }), host, execution)
+				.pipe(
+					Effect.map((result) => {
+						expect(result).toBeNull();
+						expect(warning).toHaveBeenCalledWith("Sonarr push failed: already exists");
+						warning.mockRestore();
+						return undefined;
+					}),
+				),
+		);
 	});
 });

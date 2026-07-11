@@ -1,5 +1,6 @@
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -14,7 +15,7 @@ export default defineAutomation({
 	run: ({ automation }, host) => {
 		const event = automation.source.kind === "event" ? automation.source.after : undefined;
 		if (automation.origin.kind !== "api" || event?.eventSchemaSlug !== "review") {
-			return Promise.resolve(null);
+			return Effect.succeed(null);
 		}
 
 		return host.emitSignal({

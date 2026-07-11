@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const getUserIsNsfw = (host: SandboxHost<readonly ["getUserPreferences"]>) =>
-	host.getUserPreferences().then((preferences) => preferences.success && preferences.data.isNsfw);
+	host.getUserPreferences().pipe(Effect.map((preferences) => preferences.isNsfw));

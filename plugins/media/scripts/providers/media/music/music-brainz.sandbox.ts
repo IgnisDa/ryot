@@ -1,4 +1,5 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../script-helpers/records";
@@ -25,56 +26,59 @@ export const search = defineProviderDriver(manifest, "search", (input, host) => 
 		query: luceneQuery,
 		limit: String(input.pageSize),
 		offset: String((input.page - 1) * input.pageSize),
-	}).then((dataValue) => {
-		const data = asRecord(dataValue);
-		if (!data) {
-			throw new Error("MusicBrainz recording search returned no data");
-		}
-		const totalItems = Math.max(0, numberValue(data["count"]) ?? 0);
-		const recordings = data["recordings"];
-		const items = (Array.isArray(recordings) ? recordings : []).flatMap((recording) => {
-			const record = asRecord(recording);
-			const id = stringValue(record?.["id"]);
-			if (!id) {
-				return [];
+	}).pipe(
+		Effect.flatMap((dataValue) => {
+			const data = asRecord(dataValue);
+			if (!data) {
+				return Effect.fail(new Error("MusicBrainz recording search returned no data"));
 			}
-			const title = stringValue(record?.["title"]) ?? id;
-			const publishYear = getPublishYear(record?.["first-release-date"]);
-			return [
-				{
-					externalId: id,
-					imageProperty: { kind: "null" as const, value: null },
-					titleProperty: { kind: "text" as const, value: title },
-					calloutProperty: { kind: "null" as const, value: null },
-					secondarySubtitleProperty: { kind: "null" as const, value: null },
-					primarySubtitleProperty:
-						publishYear === null
-							? { kind: "null" as const, value: null }
-							: { kind: "number" as const, value: publishYear },
+			const totalItems = Math.max(0, numberValue(data["count"]) ?? 0);
+			const recordings = data["recordings"];
+			const items = (Array.isArray(recordings) ? recordings : []).flatMap((recording) => {
+				const record = asRecord(recording);
+				const id = stringValue(record?.["id"]);
+				if (!id) {
+					return [];
+				}
+				const title = stringValue(record?.["title"]) ?? id;
+				const publishYear = getPublishYear(record?.["first-release-date"]);
+				return [
+					{
+						externalId: id,
+						imageProperty: { kind: "null" as const, value: null },
+						titleProperty: { kind: "text" as const, value: title },
+						calloutProperty: { kind: "null" as const, value: null },
+						secondarySubtitleProperty: { kind: "null" as const, value: null },
+						primarySubtitleProperty:
+							publishYear === null
+								? { kind: "null" as const, value: null }
+								: { kind: "number" as const, value: publishYear },
+					},
+				];
+			});
+			return Effect.succeed({
+				items,
+				details: {
+					totalItems,
+					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
 				},
-			];
-		});
-		return {
-			items,
-			details: {
-				totalItems,
-				nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
-			},
-		};
-	});
+			});
+		}),
+	);
 });
 
 export const details = defineProviderDriver(manifest, "details", (input, host) =>
-	mbGet(host, `recording/${input.externalId}`, {
-		inc: "artists+releases+release-groups",
-	}).then((dataValue) => {
+	Effect.gen(function* () {
+		const dataValue = yield* mbGet(host, `recording/${input.externalId}`, {
+			inc: "artists+releases+release-groups",
+		});
 		const data = asRecord(dataValue);
 		if (!data) {
-			throw new Error(`MusicBrainz recording not found: ${input.externalId}`);
+			return yield* Effect.fail(new Error(`MusicBrainz recording not found: ${input.externalId}`));
 		}
 		const title = stringValue(data["title"]);
 		if (!title) {
-			throw new Error("MusicBrainz recording is missing title");
+			return yield* Effect.fail(new Error("MusicBrainz recording is missing title"));
 		}
 
 		const publishYear = getPublishYear(data["first-release-date"]);
@@ -113,39 +117,38 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 			});
 		}
 
-		return findCoverArtFromReleases(host, releases).then((coverUrl) => {
-			const durationMs = numberValue(data["length"]);
-			const duration = durationMs === null ? null : Math.trunc(durationMs / 1000);
-			return {
-				name: title,
-				relatedEntityGroups: [
-					{
-						direction: "incoming" as const,
-						synchronization: "additive" as const,
-						relationshipSchemaSlug: "person-to-music",
-						entities: accumulator.entities.filter(
-							(entity) => entity.scriptSlug === "person.music-brainz",
-						),
-					},
-					{
-						direction: "incoming" as const,
-						synchronization: "additive" as const,
-						relationshipSchemaSlug: "music-group-to-music",
-						entities: accumulator.entities.filter(
-							(entity) => entity.scriptSlug === "music-group.music-brainz",
-						),
-					},
-				],
-				properties: {
-					duration,
-					genres: [],
-					publishYear,
-					byVariousArtists,
-					images: coverUrl ? [{ type: "remote" as const, url: coverUrl }] : [],
-					sourceUrl: `https://musicbrainz.org/recording/${input.externalId}`,
+		const coverUrl = yield* findCoverArtFromReleases(host, releases);
+		const durationMs = numberValue(data["length"]);
+		const duration = durationMs === null ? null : Math.trunc(durationMs / 1000);
+		return {
+			name: title,
+			relatedEntityGroups: [
+				{
+					direction: "incoming" as const,
+					synchronization: "additive" as const,
+					relationshipSchemaSlug: "person-to-music",
+					entities: accumulator.entities.filter(
+						(entity) => entity.scriptSlug === "person.music-brainz",
+					),
 				},
-			};
-		});
+				{
+					direction: "incoming" as const,
+					synchronization: "additive" as const,
+					relationshipSchemaSlug: "music-group-to-music",
+					entities: accumulator.entities.filter(
+						(entity) => entity.scriptSlug === "music-group.music-brainz",
+					),
+				},
+			],
+			properties: {
+				duration,
+				genres: [],
+				publishYear,
+				byVariousArtists,
+				images: coverUrl ? [{ type: "remote" as const, url: coverUrl }] : [],
+				sourceUrl: `https://musicbrainz.org/recording/${input.externalId}`,
+			},
+		};
 	}),
 );
 

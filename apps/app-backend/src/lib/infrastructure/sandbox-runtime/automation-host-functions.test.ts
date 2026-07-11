@@ -20,9 +20,9 @@ import type { SandboxRunInput } from "./shared";
 const userId = UserId.make("user-1");
 const occurredAt = "2026-07-20T10:00:00.000Z";
 const runId = SubscriptionRunId.make("run-1");
-const getEntity = () => Promise.resolve(null);
-const emitSignal = () => Promise.resolve(null);
-const sendNotification = () => Promise.resolve(null);
+const getEntity = () => Effect.succeed(null);
+const emitSignal = () => Effect.succeed(null);
+const sendNotification = () => Effect.succeed(null);
 
 const runInput = {
 	userId,
@@ -65,25 +65,23 @@ it.effect("derives signal authority and identity from the subscription run", () 
 
 	return Effect.gen(function* () {
 		const host = yield* makeAutomationSandboxApiFunctions();
-		const result = yield* Effect.promise(() =>
-			host.emitSignal(runInput, {
-				discriminator: "episode-1",
-				properties: { message: "trace" },
-				schemaSlug: "review.created",
-			}),
-		);
+		const result = yield* host.emitSignal(runInput, {
+			discriminator: "episode-1",
+			schemaSlug: "review.created",
+			properties: { message: "trace" },
+		});
 
 		expect(result).toEqual({
-			success: true,
-			data: { signalId: "signal-1", wasCreated: true },
+			signalId: "signal-1",
+			wasCreated: true,
 		});
 		expect(captured).toMatchObject({
 			executionId: runId,
 			origin: { kind: "api" },
 			discriminator: "episode-1",
+			schemaSlug: "review.created",
 			properties: { message: "trace" },
 			principal: { kind: "user", userId },
-			schemaSlug: "review.created",
 		});
 		expect(captured?.occurredAt.toISOString()).toBe(occurredAt);
 	}).pipe(Effect.provide(Layer.mergeAll(signals, notifications)));
@@ -114,10 +112,9 @@ it.effect("uses one run-derived message delivery identity across replay", () => 
 
 	return Effect.gen(function* () {
 		const host = yield* makeAutomationSandboxApiFunctions();
-		const runNotifier = () =>
-			Effect.promise(() => host.sendNotification(runInput, "Review posted for Dune"));
-		expect(yield* runNotifier()).toEqual({ data: null, success: true });
-		expect(yield* runNotifier()).toEqual({ data: null, success: true });
+		const runNotifier = () => host.sendNotification(runInput, "Review posted for Dune");
+		expect(yield* runNotifier()).toBeNull();
+		expect(yield* runNotifier()).toBeNull();
 		expect(deliveries).toHaveLength(2);
 		for (const delivery of deliveries) {
 			expect(delivery).toMatchObject({
@@ -129,6 +126,20 @@ it.effect("uses one run-derived message delivery identity across replay", () => 
 				},
 			});
 		}
+	}).pipe(Effect.provide(Layer.mergeAll(signals, notifications)));
+});
+
+it.effect("returns context failures through the Effect error channel", () => {
+	const signals = Layer.mock(SignalEmissionService, { _tag: "SignalEmissionService" });
+	const notifications = Layer.mock(NotificationsService, { _tag: "NotificationsService" });
+
+	return Effect.gen(function* () {
+		const host = yield* makeAutomationSandboxApiFunctions();
+		const error = yield* Effect.flip(
+			host.sendNotification({ ...runInput, userId: null }, "Review posted for Dune"),
+		);
+
+		expect(error).toEqual({ message: "sendNotification is not available for system executions" });
 	}).pipe(Effect.provide(Layer.mergeAll(signals, notifications)));
 });
 

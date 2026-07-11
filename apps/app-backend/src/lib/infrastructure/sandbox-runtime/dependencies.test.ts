@@ -1,7 +1,7 @@
 import { FileSystem } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	ensureSandboxRuntimeDependencies,
@@ -33,7 +33,7 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 			expect((yield* ensureSandboxRuntimeDependencies(root)).directory).toBe(runtime.directory);
 			expect(yield* fs.exists(runtime.cacheDirectory)).toBe(true);
 			expect(SANDBOX_APPROVED_DEPENDENCIES).toMatchObject([
-				{ name: "zod", version: "4.4.3" },
+				{ name: "effect", version: "3.21.4" },
 				{ name: "dayjs", version: "1.11.21" },
 				{ name: "cheerio", version: "1.2.0" },
 				{ name: "youtubei", version: "17.2.0" },
@@ -45,10 +45,19 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 				"cheerio-1.2.0.mjs",
 				"dayjs-1.11.21.mjs",
 				"dayjs-custom-parse-format-1.11.21.mjs",
+				"effect-3.21.4.mjs",
 				"import-map.json",
 				"youtubei-17.2.0.mjs",
-				"zod-4.4.3.mjs",
 			]);
+			const parsedImportMap = yield* Schema.decodeUnknown(
+				Schema.parseJson(
+					Schema.Struct({ imports: Schema.Record({ key: Schema.String, value: Schema.String }) }),
+				),
+			)(importMap);
+			expect(parsedImportMap.imports["@ryot/sandbox-sdk/effect"]).toBe("./effect-3.21.4.mjs");
+			expect(
+				Object.values(parsedImportMap.imports).filter((file) => file === "./effect-3.21.4.mjs"),
+			).toHaveLength(1);
 
 			const directory = yield* fs.stat(runtime.directory);
 			const importMapInfo = yield* fs.stat(runtime.importMapPath);

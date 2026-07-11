@@ -1,3 +1,4 @@
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import type { ProviderDetailsInput, ProviderDetailsResult } from "@ryot/sandbox-sdk/provider";
 
 import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
@@ -107,14 +108,23 @@ export const getTmdbMovieDetails = (
 	token: string,
 ) => {
 	if (!/^\d+$/.test(input.externalId)) {
-		return Promise.reject(new Error("externalId must be a numeric TMDB movie ID"));
+		return Effect.fail(new Error("externalId must be a numeric TMDB movie ID"));
 	}
-	return Promise.all([
-		tmdbGet(host, `/movie/${input.externalId}`, { language }, token),
-		tmdbGet(host, `/movie/${input.externalId}/credits`, { language }, token),
-		tmdbGet(host, `/movie/${input.externalId}/images`, {}, token),
-		tmdbGet(host, `/movie/${input.externalId}/recommendations`, { language }, token),
-	]).then(([movieData, creditsData, imagesData, recommendationsData]) =>
-		buildDetailsResult(input, movieData, creditsData, imagesData, recommendationsData),
+	return Effect.all(
+		[
+			tmdbGet(host, `/movie/${input.externalId}`, { language }, token),
+			tmdbGet(host, `/movie/${input.externalId}/credits`, { language }, token),
+			tmdbGet(host, `/movie/${input.externalId}/images`, {}, token),
+			tmdbGet(host, `/movie/${input.externalId}/recommendations`, { language }, token),
+		],
+		{ concurrency: "unbounded" },
+	).pipe(
+		Effect.flatMap(([movieData, creditsData, imagesData, recommendationsData]) =>
+			Effect.try({
+				try: () =>
+					buildDetailsResult(input, movieData, creditsData, imagesData, recommendationsData),
+				catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+			}),
+		),
 	);
 };

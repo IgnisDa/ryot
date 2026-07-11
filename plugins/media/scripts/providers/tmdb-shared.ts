@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import type { ProviderDetailsRelatedEntity } from "@ryot/sandbox-sdk/provider";
 
 import {
@@ -21,18 +22,17 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 
 export const getTmdbAccessToken = (host: TmdbHost) =>
-	host.getAppConfigValue("moviesAndShows.tmdbAccessToken").then((response) => {
-		if (!response.success) {
-			throw new Error(response.error);
-		}
-		const token = stringValue(response.data);
-		if (!token) {
-			throw new Error(
-				"TMDB access token is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN in your environment.",
-			);
-		}
-		return token;
-	});
+	host.getAppConfigValue("moviesAndShows.tmdbAccessToken").pipe(
+		Effect.map((value) => {
+			const token = stringValue(value);
+			if (!token) {
+				throw new Error(
+					"TMDB access token is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN in your environment.",
+				);
+			}
+			return token;
+		}),
+	);
 
 export const tmdbGet = (
 	host: TmdbHost,
@@ -45,22 +45,22 @@ export const tmdbGet = (
 		.httpCall("GET", `${TMDB_BASE_URL}${path}?${query.toString()}`, {
 			headers: { Authorization: `Bearer ${token}` },
 		})
-		.then((response) => {
-			if (!response.success) {
-				throw new Error(response.error || `TMDB request failed: ${path}`);
-			}
-			const payload = asRecord(parseJsonResponse(response.data.body, "TMDB"));
-			if (!payload) {
-				throw new Error("TMDB returned an invalid response object");
-			}
-			const statusCode = numberValue(payload["status_code"]);
-			if (statusCode !== null && statusCode !== 1) {
-				throw new Error(
-					stringValue(payload["status_message"]) ?? `TMDB API error (status ${statusCode})`,
-				);
-			}
-			return payload;
-		});
+		.pipe(
+			Effect.mapError((error) => new Error(error.message || `TMDB request failed: ${path}`)),
+			Effect.map((response) => {
+				const payload = asRecord(parseJsonResponse(response.body, "TMDB"));
+				if (!payload) {
+					throw new Error("TMDB returned an invalid response object");
+				}
+				const statusCode = numberValue(payload["status_code"]);
+				if (statusCode !== null && statusCode !== 1) {
+					throw new Error(
+						stringValue(payload["status_message"]) ?? `TMDB API error (status ${statusCode})`,
+					);
+				}
+				return payload;
+			}),
+		);
 };
 
 export const getImageUrl = (path: unknown) => {
@@ -227,18 +227,24 @@ export const fetchTrendingItems = (
 	options: { readonly nameKeys: readonly string[]; readonly scriptSlug: string },
 ) =>
 	[1, 2, 3]
-		.reduce<Promise<unknown[]>>(
+		.reduce<Effect.Effect<unknown[], unknown>>(
 			(result, page) =>
-				result.then((items) =>
-					tmdbGet(host, path, { language, page: String(page) }, token).then((data) => {
-						const pageResults = data["results"];
-						return Array.isArray(pageResults) ? [...items, ...pageResults] : items;
-					}),
+				result.pipe(
+					Effect.flatMap((items) =>
+						tmdbGet(host, path, { language, page: String(page) }, token).pipe(
+							Effect.map((data) => {
+								const pageResults = data["results"];
+								return Array.isArray(pageResults) ? [...items, ...pageResults] : items;
+							}),
+						),
+					),
 				),
-			Promise.resolve([]),
+			Effect.succeed([]),
 		)
-		.then((results) =>
-			collectSuggestions(results, options).map(({ name, externalId }) => ({ name, externalId })),
+		.pipe(
+			Effect.map((results) =>
+				collectSuggestions(results, options).map(({ name, externalId }) => ({ name, externalId })),
+			),
 		);
 
 export const parseTranslationLanguage = (language: string) => {

@@ -1,25 +1,19 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest, search } from "./hardcover.sandbox";
 
 type HardcoverBookHost = SandboxHost<typeof manifest.capabilities>;
-
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
-
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 const makeHost = (httpCall: HardcoverBookHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Promise.resolve({ success: true as const, data: "hardcover-key" }),
+		getAppConfigValue: () => Effect.succeed("hardcover-key"),
 	});
-
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
-
 describe("book.hardcover sandbox script", () => {
 	it("maps search hits and drops documents missing an id or title", () => {
 		const host = makeHost(() =>
@@ -45,28 +39,25 @@ describe("book.hardcover sandbox script", () => {
 				},
 			}),
 		);
-
-		return runSandboxTestDriver(
-			search,
-			{ query: "book", page: 1, pageSize: 20 },
-			host,
-			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "b1",
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Book One" },
-					primarySubtitleProperty: { kind: "number", value: 2020 },
-					secondarySubtitleProperty: { kind: "null", value: null },
-					imageProperty: { kind: "image", value: { type: "remote", url: "https://img/1.jpg" } },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 3, nextPage: null });
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(search, { query: "book", page: 1, pageSize: 20 }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.items).toEqual([
+						{
+							externalId: "b1",
+							calloutProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "Book One" },
+							primarySubtitleProperty: { kind: "number", value: 2020 },
+							secondarySubtitleProperty: { kind: "null", value: null },
+							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/1.jpg" } },
+						},
+					]);
+					expect(result.details).toEqual({ totalItems: 3, nextPage: null });
+					return undefined;
+				}),
+			),
+		);
 	});
-
 	it("groups contributors, publishers and series, merging duplicate contributor roles", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -96,64 +87,67 @@ describe("book.hardcover sandbox script", () => {
 				},
 			}),
 		);
-
-		return runSandboxTestDriver(details, { externalId: "42" }, host, execution).then((result) => {
-			expect(result.name).toBe("The Book");
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "incoming",
-					synchronization: "additive",
-					relationshipSchemaSlug: "person-to-book",
-					entities: [
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "42" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("The Book");
+					expect(result.relatedEntityGroups).toEqual([
 						{
-							name: "Jane Doe",
-							externalId: "7",
-							scriptSlug: "person.hardcover",
-							relationshipProperties: { roles: ["Author", "Editor"] },
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "person-to-book",
+							entities: [
+								{
+									name: "Jane Doe",
+									externalId: "7",
+									scriptSlug: "person.hardcover",
+									relationshipProperties: { roles: ["Author", "Editor"] },
+								},
+							],
 						},
-					],
-				},
-				{
-					direction: "incoming",
-					synchronization: "additive",
-					relationshipSchemaSlug: "company-to-book",
-					entities: [
 						{
-							name: "Pub House",
-							externalId: "200",
-							scriptSlug: "company.hardcover",
-							relationshipProperties: { roles: ["Publisher"] },
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "company-to-book",
+							entities: [
+								{
+									name: "Pub House",
+									externalId: "200",
+									scriptSlug: "company.hardcover",
+									relationshipProperties: { roles: ["Publisher"] },
+								},
+							],
 						},
-					],
-				},
-				{
-					direction: "incoming",
-					synchronization: "additive",
-					relationshipSchemaSlug: "book-group-to-book",
-					entities: [
 						{
-							name: "The Series",
-							externalId: "100",
-							scriptSlug: "book-group.hardcover",
-							relationshipProperties: { roles: ["Member"] },
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "book-group-to-book",
+							entities: [
+								{
+									name: "The Series",
+									externalId: "100",
+									scriptSlug: "book-group.hardcover",
+									relationshipProperties: { roles: ["Member"] },
+								},
+							],
 						},
-					],
-				},
-			]);
-			expect(result.properties).toEqual({
-				pages: 300,
-				publishYear: 2020,
-				unlinkedCreators: [],
-				description: "A book.",
-				publishDate: "2020-01-01",
-				genres: ["Science Fiction", "Adventure"],
-				sourceUrl: "https://hardcover.app/books/the-book",
-				images: [
-					{ type: "remote", url: "https://img/cover.jpg" },
-					{ type: "remote", url: "https://img/alt.jpg" },
-				],
-			});
-			return undefined;
-		});
+					]);
+					expect(result.properties).toEqual({
+						pages: 300,
+						publishYear: 2020,
+						unlinkedCreators: [],
+						description: "A book.",
+						publishDate: "2020-01-01",
+						genres: ["Science Fiction", "Adventure"],
+						sourceUrl: "https://hardcover.app/books/the-book",
+						images: [
+							{ type: "remote", url: "https://img/cover.jpg" },
+							{ type: "remote", url: "https://img/alt.jpg" },
+						],
+					});
+					return undefined;
+				}),
+			),
+		);
 	});
 });

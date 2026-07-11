@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,15 +8,12 @@ import { details, manifest, search } from "./giant-bomb.sandbox";
 type GiantBombHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: GiantBombHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Promise.resolve({ success: true as const, data: "api-key" }),
+		getAppConfigValue: () => Effect.succeed("api-key"),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -30,25 +28,23 @@ describe("video-game-group.giant-bomb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(
-			search,
-			{ query: "zelda", page: 1, pageSize: 20 },
-			host,
-			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "3025-1",
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Zelda" },
-					primarySubtitleProperty: { kind: "null", value: null },
-					secondarySubtitleProperty: { kind: "null", value: null },
-					imageProperty: { kind: "image", value: { type: "remote", url: "https://img/f.jpg" } },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 1, nextPage: null });
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(search, { query: "zelda", page: 1, pageSize: 20 }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.items).toEqual([
+						{
+							externalId: "3025-1",
+							calloutProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "Zelda" },
+							primarySubtitleProperty: { kind: "null", value: null },
+							secondarySubtitleProperty: { kind: "null", value: null },
+							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/f.jpg" } },
+						},
+					]);
+					expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				}),
+			),
+		);
 	});
 
 	it("orders franchise members and defaults missing names to Loading", () => {
@@ -69,38 +65,39 @@ describe("video-game-group.giant-bomb sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "3025-1" }, host, execution).then(
-			(result) => {
-				expect(result.name).toBe("Zelda");
-				expect(result.relatedEntityGroups).toEqual([
-					{
-						direction: "outgoing",
-						synchronization: "authoritative",
-						relationshipSchemaSlug: "video-game-group-to-video-game",
-						entities: [
-							{
-								name: "Zelda I",
-								externalId: "3030-1",
-								scriptSlug: "video-game.giant-bomb",
-								relationshipProperties: { order: 1 },
-							},
-							{
-								name: "Loading...",
-								externalId: "3030-2",
-								scriptSlug: "video-game.giant-bomb",
-								relationshipProperties: { order: 2 },
-							},
-						],
-					},
-				]);
-				expect(result.properties).toEqual({
-					parts: 2,
-					description: "Series.\n\n<p>d</p>",
-					sourceUrl: "https://www.giantbomb.com/zelda/",
-					images: [{ type: "remote", url: "https://img/f.jpg" }],
-				});
-				return undefined;
-			},
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "3025-1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("Zelda");
+					expect(result.relatedEntityGroups).toEqual([
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "video-game-group-to-video-game",
+							entities: [
+								{
+									name: "Zelda I",
+									externalId: "3030-1",
+									scriptSlug: "video-game.giant-bomb",
+									relationshipProperties: { order: 1 },
+								},
+								{
+									name: "Loading...",
+									externalId: "3030-2",
+									scriptSlug: "video-game.giant-bomb",
+									relationshipProperties: { order: 2 },
+								},
+							],
+						},
+					]);
+					expect(result.properties).toEqual({
+						parts: 2,
+						description: "Series.\n\n<p>d</p>",
+						sourceUrl: "https://www.giantbomb.com/zelda/",
+						images: [{ type: "remote", url: "https://img/f.jpg" }],
+					});
+				}),
+			),
 		);
 	});
 });

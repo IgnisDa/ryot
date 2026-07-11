@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,19 +8,13 @@ import { details, manifest, search } from "./metron.sandbox";
 type MetronPersonHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: MetronPersonHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
 		getAppConfigValue: (key) =>
-			Promise.resolve({
-				success: true as const,
-				data: key === "comicBooks.metronUsername" ? "user" : "pass",
-			}),
+			Effect.succeed(key === "comicBooks.metronUsername" ? "user" : "pass"),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -41,20 +36,26 @@ describe("person.metron sandbox script", () => {
 			{ query: "jane", page: 1, pageSize: 20 },
 			host,
 			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "3",
-					calloutProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Jane Doe" },
-					primarySubtitleProperty: { kind: "number", value: 1980 },
-					secondarySubtitleProperty: { kind: "null", value: null },
-					imageProperty: { kind: "image", value: { type: "remote", url: "https://img/jane.jpg" } },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 2, nextPage: null });
-			return undefined;
-		});
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([
+					{
+						externalId: "3",
+						calloutProperty: { kind: "null", value: null },
+						titleProperty: { kind: "text", value: "Jane Doe" },
+						primarySubtitleProperty: { kind: "number", value: 1980 },
+						secondarySubtitleProperty: { kind: "null", value: null },
+						imageProperty: {
+							kind: "image",
+							value: { type: "remote", url: "https://img/jane.jpg" },
+						},
+					},
+				]);
+				expect(result.details).toEqual({ totalItems: 2, nextPage: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("maps creator details into person properties", () => {
@@ -68,17 +69,20 @@ describe("person.metron sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "3" }, host, execution).then((result) => {
-			expect(result.name).toBe("Jane Doe");
-			expect(result.properties).toEqual({
-				deathDate: null,
-				alternateNames: [],
-				birthDate: "1980-05-01",
-				description: "A creator.",
-				sourceUrl: "https://metron.cloud/creator/3",
-				images: [{ type: "remote", url: "https://img/jane.jpg" }],
-			});
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "3" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("Jane Doe");
+				expect(result.properties).toEqual({
+					deathDate: null,
+					alternateNames: [],
+					birthDate: "1980-05-01",
+					description: "A creator.",
+					sourceUrl: "https://metron.cloud/creator/3",
+					images: [{ type: "remote", url: "https://img/jane.jpg" }],
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 });

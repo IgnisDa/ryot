@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { Schema as SandboxSchema } from "@ryot/sandbox-sdk/effect";
 import {
 	providerDetailsResultSchema,
 	providerResolveResultSchema,
@@ -14,23 +15,26 @@ import {
 	decodeProviderTranslateResult,
 } from "./provider-contracts";
 
+const decodeSdkSearch = SandboxSchema.decodeUnknown(providerSearchResultSchema);
+const decodeSdkDetails = SandboxSchema.decodeUnknown(providerDetailsResultSchema);
+const decodeSdkResolve = SandboxSchema.decodeUnknown(providerResolveResultSchema);
+const decodeSdkTranslate = SandboxSchema.decodeUnknown(providerTranslateResultSchema);
+
 it.effect("keeps Effect provider decoders in parity with SDK encoded results", () =>
 	Effect.gen(function* () {
 		const rawSearch = {
 			items: [{ externalId: " show-1 ", titleProperty: { kind: "text", value: " Show " } }],
 		};
-		expect(yield* decodeProviderSearchResult(rawSearch)).toEqual(
-			providerSearchResultSchema.parse(rawSearch),
-		);
+		expect(yield* decodeProviderSearchResult(rawSearch)).toEqual(yield* decodeSdkSearch(rawSearch));
 		const excessSearch = {
 			items: [
 				{ extra: true, externalId: "show-1", titleProperty: { kind: "text", value: "Show" } },
 			],
 		};
-		expect(providerSearchResultSchema.safeParse(excessSearch).success).toBe(false);
+		expect((yield* Effect.exit(decodeSdkSearch(excessSearch)))._tag).toBe("Failure");
 		expect((yield* Effect.exit(decodeProviderSearchResult(excessSearch)))._tag).toBe("Failure");
 
-		const search = providerSearchResultSchema.parse({
+		const search = yield* decodeSdkSearch({
 			details: { totalItems: 1, nextPage: null },
 			items: [
 				{
@@ -41,7 +45,7 @@ it.effect("keeps Effect provider decoders in parity with SDK encoded results", (
 				},
 			],
 		});
-		const details = providerDetailsResultSchema.parse({
+		const details = yield* decodeSdkDetails({
 			name: "Show",
 			properties: { year: 2024 },
 			childEntities: [
@@ -76,8 +80,8 @@ it.effect("keeps Effect provider decoders in parity with SDK encoded results", (
 				},
 			],
 		});
-		const resolve = providerResolveResultSchema.parse({ externalId: null });
-		const translate = providerTranslateResultSchema.parse({
+		const resolve = yield* decodeSdkResolve({ externalId: null });
+		const translate = yield* decodeSdkTranslate({
 			name: "Localized",
 			properties: { description: "Translated" },
 		});

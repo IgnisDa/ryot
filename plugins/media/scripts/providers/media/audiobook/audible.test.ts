@@ -1,22 +1,16 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest } from "./audible.sandbox";
 
 type AudibleAudiobookHost = SandboxHost<typeof manifest.capabilities>;
-
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
-
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 const makeHost = (httpCall: AudibleAudiobookHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
-
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
-
 describe("audiobook.audible sandbox script", () => {
 	it("deduplicates similarity buckets into related entities", () => {
 		const host = makeHost((_method, requestUrl) => {
@@ -49,37 +43,37 @@ describe("audiobook.audible sandbox script", () => {
 			}
 			return httpSuccess({ similar_products: [] });
 		});
-
-		return runSandboxTestDriver(details, { externalId: "source-book" }, host, execution).then(
-			(result) => {
-				expect(result.relatedEntityGroups).toEqual([
-					{
-						direction: "incoming",
-						synchronization: "authoritative",
-						entities: [],
-						relationshipSchemaSlug: "person-to-audiobook",
-					},
-					{
-						entities: [],
-						direction: "incoming",
-						synchronization: "additive",
-						relationshipSchemaSlug: "audiobook-group-to-audiobook",
-					},
-					{
-						direction: "outgoing",
-						synchronization: "authoritative",
-						relationshipSchemaSlug: "media-suggestion",
-						entities: [
-							{ name: "Series Pick", externalId: "book-2", scriptSlug: "audiobook.audible" },
-							{ name: "Similar Pick", externalId: "book-3", scriptSlug: "audiobook.audible" },
-						],
-					},
-				]);
-				return undefined;
-			},
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "source-book" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.relatedEntityGroups).toEqual([
+						{
+							direction: "incoming",
+							synchronization: "authoritative",
+							entities: [],
+							relationshipSchemaSlug: "person-to-audiobook",
+						},
+						{
+							entities: [],
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "audiobook-group-to-audiobook",
+						},
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "media-suggestion",
+							entities: [
+								{ name: "Series Pick", externalId: "book-2", scriptSlug: "audiobook.audible" },
+								{ name: "Similar Pick", externalId: "book-3", scriptSlug: "audiobook.audible" },
+							],
+						},
+					]);
+					return undefined;
+				}),
+			),
 		);
 	});
-
 	it("merges author and narrator roles, splits genres and title-cases them", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/mixed-book?")) {
@@ -101,45 +95,46 @@ describe("audiobook.audible sandbox script", () => {
 			}
 			return httpSuccess({ similar_products: [] });
 		});
-
-		return runSandboxTestDriver(details, { externalId: "mixed-book" }, host, execution).then(
-			(result) => {
-				expect(result.name).toBe("Mixed");
-				expect(result.relatedEntityGroups?.[0]).toEqual({
-					direction: "incoming",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "person-to-audiobook",
-					entities: [
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "mixed-book" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("Mixed");
+					expect(result.relatedEntityGroups?.[0]).toEqual({
+						direction: "incoming",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-audiobook",
+						entities: [
+							{
+								name: "Jane Doe",
+								externalId: "person-1",
+								scriptSlug: "person.audible",
+								relationshipProperties: { roles: ["Author", "Narrator"] },
+							},
+						],
+					});
+					expect(result.relatedEntityGroups?.[1]?.entities).toEqual([
 						{
-							name: "Jane Doe",
-							externalId: "person-1",
-							scriptSlug: "person.audible",
-							relationshipProperties: { roles: ["Author", "Narrator"] },
+							name: "The Saga",
+							externalId: "series-1",
+							scriptSlug: "audiobook-group.audible",
+							relationshipProperties: { roles: ["Member"] },
 						},
-					],
-				});
-				expect(result.relatedEntityGroups?.[1]?.entities).toEqual([
-					{
-						name: "The Saga",
-						externalId: "series-1",
-						scriptSlug: "audiobook-group.audible",
-						relationshipProperties: { roles: ["Member"] },
-					},
-				]);
-				expect(result.properties).toEqual({
-					isNsfw: true,
-					runtime: 610,
-					publishYear: 2020,
-					providerRating: 4.5,
-					publishDate: "2020-05-02",
-					description: "Line one\nLine two",
-					genres: ["Science Fiction", "Fantasy"],
-					unlinkedCreators: [{ role: "Author", name: "No Asin" }],
-					sourceUrl: "https://www.audible.com/pd/mixed-book",
-					images: [{ type: "remote", url: "https://img/big.jpg" }],
-				});
-				return undefined;
-			},
+					]);
+					expect(result.properties).toEqual({
+						isNsfw: true,
+						runtime: 610,
+						publishYear: 2020,
+						providerRating: 4.5,
+						publishDate: "2020-05-02",
+						description: "Line one\nLine two",
+						genres: ["Science Fiction", "Fantasy"],
+						unlinkedCreators: [{ role: "Author", name: "No Asin" }],
+						sourceUrl: "https://www.audible.com/pd/mixed-book",
+						images: [{ type: "remote", url: "https://img/big.jpg" }],
+					});
+					return undefined;
+				}),
+			),
 		);
 	});
 });

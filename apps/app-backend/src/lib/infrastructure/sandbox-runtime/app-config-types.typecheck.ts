@@ -1,12 +1,13 @@
-import type { HostResult, SandboxHost } from "@ryot/sandbox-sdk/core";
+import type { SandboxHost, SandboxHostError } from "@ryot/sandbox-sdk/core";
+import type { Effect } from "effect";
 
 type AppConfigHost = SandboxHost<readonly ["getAppConfigValue"]>;
 
 const verifyAppConfigHost = (host: AppConfigHost) => {
-	const numberResult: Promise<HostResult<number>> = host.getAppConfigValue(
+	const numberResult: Effect.Effect<number, SandboxHostError> = host.getAppConfigValue(
 		"server.progressUpdateThresholdHours",
 	);
-	const stringResult: Promise<HostResult<string>> =
+	const stringResult: Effect.Effect<string, SandboxHostError> =
 		host.getAppConfigValue("books.googleBooksApiKey");
 
 	// @ts-expect-error Only leaf config keys are exposed.

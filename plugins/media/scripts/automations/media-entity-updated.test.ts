@@ -1,6 +1,7 @@
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import type { JsonValue } from "@ryot/sandbox-sdk/core";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import definition, { manifest } from "./media-entity-updated.sandbox";
@@ -54,20 +55,18 @@ const input = (
 
 const run = (value: AutomationInput) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
-	return runSandboxTestDriver(
-		definition.drivers.automation,
-		value,
-		defineSandboxTestHost(manifest, {
-			emitSignal: (request) => {
-				calls.push(request);
-				return Promise.resolve({
-					success: true,
-					data: { wasCreated: true, signalId: `signal-${calls.length}` },
-				});
-			},
-		}),
-		{ metadata: {}, sandboxScriptId: "script-1" },
-	).then(() => calls);
+	return definition.drivers.automation
+		.run(
+			value,
+			defineSandboxTestHost(manifest, {
+				emitSignal: (request) => {
+					calls.push(request);
+					return Effect.succeed({ wasCreated: true, signalId: `signal-${calls.length}` });
+				},
+			}),
+			{ metadata: {}, sandboxScriptId: "script-1" },
+		)
+		.pipe(Effect.as(calls));
 };
 
 it("emits independent status, publish-year, and anime-count signals for a populated root", () =>
@@ -82,20 +81,23 @@ it("emits independent status, publish-year, and anime-count signals for a popula
 				properties: { episodes: 13, publishYear: 2026, productionStatus: "Ended" },
 			},
 		}),
-	).then((calls) => {
-		expect(calls).toMatchObject([
-			{ schemaSlug: "media.status.changed", subjectEntityId: "show-1" },
-			{ schemaSlug: "media.release-date.changed", subjectEntityId: "show-1" },
-			{ schemaSlug: "media.content-count.changed", subjectEntityId: "show-1" },
-		]);
-		expect(calls[2]?.["properties"]).toEqual({
-			oldCount: 12,
-			newCount: 13,
-			entityName: "Severance",
-			contentType: "episodes",
-		});
-		return undefined;
-	}));
+	).pipe(
+		Effect.map((calls) => {
+			expect(calls).toMatchObject([
+				{ schemaSlug: "media.status.changed", subjectEntityId: "show-1" },
+				{ schemaSlug: "media.release-date.changed", subjectEntityId: "show-1" },
+				{ schemaSlug: "media.content-count.changed", subjectEntityId: "show-1" },
+			]);
+			expect(calls[2]?.["properties"]).toEqual({
+				oldCount: 12,
+				newCount: 13,
+				entityName: "Severance",
+				contentType: "episodes",
+			});
+			return undefined;
+		}),
+		Effect.runPromise,
+	));
 
 it("uses the parent show and owning season for episode facts", () =>
 	run(
@@ -120,45 +122,55 @@ it("uses the parent show and owning season for episode facts", () =>
 				},
 			},
 		}),
-	).then((calls) => {
-		expect(calls.map(({ schemaSlug }) => schemaSlug)).toEqual([
-			"media.episode.name.changed",
-			"media.episode.images.changed",
-			"media.release-date.changed",
-		]);
-		expect(calls[0]?.["properties"]).toEqual({
-			seasonNumber: 1,
-			episodeNumber: 1,
-			oldName: "Pilot",
-			newName: "Premiere",
-			entityName: "Severance",
-		});
-		return undefined;
-	}));
+	).pipe(
+		Effect.map((calls) => {
+			expect(calls.map(({ schemaSlug }) => schemaSlug)).toEqual([
+				"media.episode.name.changed",
+				"media.episode.images.changed",
+				"media.release-date.changed",
+			]);
+			expect(calls[0]?.["properties"]).toEqual({
+				seasonNumber: 1,
+				episodeNumber: 1,
+				oldName: "Pilot",
+				newName: "Premiere",
+				entityName: "Severance",
+			});
+			return undefined;
+		}),
+		Effect.runPromise,
+	));
 
 it("stays silent for initial population and special seasons", () =>
-	Promise.all([
-		run(input({ rootPreviouslyPopulated: false })),
-		run(
-			input({
-				owningSeason: { name: "Specials", number: 0 },
-				before: {
-					name: "Old",
-					properties: { episodeNumber: 1 },
-					entitySchemaSlug: "show-episode",
-				},
-				after: {
-					name: "New",
-					properties: { episodeNumber: 1 },
-					entitySchemaSlug: "show-episode",
-				},
+	Effect.runPromise(
+		Effect.all(
+			[
+				run(input({ rootPreviouslyPopulated: false })),
+				run(
+					input({
+						owningSeason: { name: "Specials", number: 0 },
+						before: {
+							name: "Old",
+							properties: { episodeNumber: 1 },
+							entitySchemaSlug: "show-episode",
+						},
+						after: {
+							name: "New",
+							properties: { episodeNumber: 1 },
+							entitySchemaSlug: "show-episode",
+						},
+					}),
+				),
+			],
+			{ concurrency: "unbounded" },
+		).pipe(
+			Effect.map(([initial, special]) => {
+				expect(initial).toEqual([]);
+				expect(special).toEqual([]);
+				return undefined;
 			}),
 		),
-	]).then(([initial, special]) => {
-		expect(initial).toEqual([]);
-		expect(special).toEqual([]);
-		return undefined;
-	}));
+	));
 
 it("treats image order and duplicates as equal and ignores null-sided dates", () =>
 	run(
@@ -190,4 +202,7 @@ it("treats image order and duplicates as equal and ignores null-sided dates", ()
 				},
 			},
 		}),
-	).then((calls) => expect(calls).toEqual([])));
+	).pipe(
+		Effect.map((calls) => expect(calls).toEqual([])),
+		Effect.runPromise,
+	));

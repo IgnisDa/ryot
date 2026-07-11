@@ -1,3 +1,5 @@
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+
 import {
 	createLogCollector,
 	executionError,
@@ -11,14 +13,11 @@ import {
 } from "./runner-utilities.sandbox.ts";
 
 type HostBudget = { http: number; total: number };
-
-type SafeParseResult =
-	| { success: true; data: unknown }
-	| { success: false; error: { message: string } };
+type SandboxHostError = { readonly message: string; readonly data?: unknown };
 
 type CompiledDriver = {
-	input: { safeParseAsync: (value: unknown) => Promise<SafeParseResult> };
-	output: { safeParseAsync: (value: unknown) => Promise<SafeParseResult> };
+	input: Schema.Schema.AnyNoContext;
+	output: Schema.Schema.AnyNoContext;
 	run: (input: unknown, host: Record<string, unknown>, execution: unknown) => unknown;
 };
 
@@ -49,6 +48,25 @@ const performanceNow = performance.now.bind(performance);
 const generatorFunction = Object.getPrototypeOf(function* () {}).constructor as Function;
 const asyncFunction = Object.getPrototypeOf(async function () {}).constructor as Function;
 const asyncGeneratorFunction = Object.getPrototypeOf(async function* () {}).constructor as Function;
+
+const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
+	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
+const hostResultSchema = Schema.Union(
+	strictStruct({
+		error: Schema.String,
+		success: Schema.Literal(false),
+		data: Schema.optional(Schema.Unknown),
+	}),
+	strictStruct({
+		data: Schema.Unknown.pipe(
+			Schema.filter((value) => value !== undefined, {
+				message: () => "Host result data is required",
+			}),
+		),
+		success: Schema.Literal(true),
+	}),
+);
+const decodeHostResult = Schema.decodeUnknown(hostResultSchema);
 
 let buffer = "";
 
@@ -97,9 +115,17 @@ async function readLine(): Promise<string> {
 
 const hostFailure = (error: string) => ({ error, success: false as const });
 
-const createApiStub =
+const sandboxHostError = (error: unknown): SandboxHostError => {
+	const message =
+		isRecord(error) && typeof error.message === "string" ? error.message : nativeString(error);
+	return isRecord(error) && error.data !== undefined
+		? { message, data: error.data as SandboxHostError["data"] }
+		: { message };
+};
+
+const transportHostCall =
 	(fnName: string, payload: SandboxRunnerPayload, budget: HostBudget) =>
-	async (...args: unknown[]): Promise<unknown> => {
+	async (args: readonly unknown[]): Promise<unknown> => {
 		budget.total += 1;
 		if (fnName === "httpCall") {
 			budget.http += 1;
@@ -160,6 +186,21 @@ const createApiStub =
 		}
 		return body.result;
 	};
+
+const createApiStub = (fnName: string, payload: SandboxRunnerPayload, budget: HostBudget) => {
+	return (...args: unknown[]) =>
+		Effect.tryPromise({
+			try: () => transportHostCall(fnName, payload, budget)(args),
+			catch: sandboxHostError,
+		}).pipe(
+			Effect.flatMap((result) => decodeHostResult(result).pipe(Effect.mapError(sandboxHostError))),
+			Effect.flatMap((result) =>
+				result.success
+					? Effect.succeed(result.data)
+					: Effect.fail(sandboxHostError({ message: result.error, data: result.data })),
+			),
+		);
+};
 
 const createHost = (payload: SandboxRunnerPayload, declaredCapabilities: unknown) => {
 	const approved = arrayIsArray(payload.apiFunctions) ? payload.apiFunctions : [];
@@ -289,50 +330,51 @@ const executeDefinition = async (
 	if (!isRecord(driver) || typeof driver.run !== "function") {
 		return throwPhase("load", 'Driver "' + payload.driverName + '" is not defined in this script');
 	}
-	if (
-		!isRecord(driver.input) ||
-		typeof driver.input.safeParseAsync !== "function" ||
-		!isRecord(driver.output) ||
-		typeof driver.output.safeParseAsync !== "function"
-	) {
+	if (!Schema.isSchema(driver.input) || !Schema.isSchema(driver.output)) {
 		return throwPhase("load", 'Driver "' + payload.driverName + '" has invalid schemas');
 	}
 	const typedDriver = driver as unknown as CompiledDriver;
 
 	setPhase("input");
-	let input: SafeParseResult;
+	let parsedInput: unknown;
 	try {
-		input = await typedDriver.input.safeParseAsync(payload.context ?? {});
+		parsedInput = await Effect.runPromise(
+			Schema.decodeUnknown(typedDriver.input)(payload.context ?? {}),
+		);
 	} catch (error) {
-		return throwPhase("input", error);
+		return throwPhase("input", "Driver input validation failed: " + nativeString(error));
 	}
-	if (!input.success) {
-		return throwPhase("input", "Driver input validation failed: " + input.error.message);
-	}
-	const parsedInput = input.data;
 
 	setPhase("execute");
 	let result: unknown;
 	try {
-		result = await typedDriver.run(parsedInput, host, {
+		const execution = typedDriver.run(parsedInput, host, {
 			metadata: payload.metadata ?? {},
 			sandboxScriptId: payload.scriptId,
 		});
+		if (!Effect.isEffect(execution)) {
+			return throwPhase("execute", "Sandbox driver must return an Effect");
+		}
+		const outcome = await Effect.runPromise(
+			Effect.match(execution as Effect.Effect<unknown, unknown>, {
+				onFailure: (error) => ({ error, success: false as const }),
+				onSuccess: (value) => ({ value, success: true as const }),
+			}),
+		);
+		if (!outcome.success) {
+			return throwPhase("execute", outcome.error);
+		}
+		result = outcome.value;
 	} catch (error) {
 		return throwPhase("execute", error);
 	}
 
 	setPhase("output");
-	let output: SafeParseResult;
 	try {
-		output = await typedDriver.output.safeParseAsync(result);
+		return await Effect.runPromise(Schema.decodeUnknown(typedDriver.output)(result));
 	} catch (error) {
-		return throwPhase("output", error);
+		return throwPhase("output", "Driver output validation failed: " + nativeString(error));
 	}
-	if (!output.success) {
-		return throwPhase("output", "Driver output validation failed: " + output.error.message);
-	}
-	return output.data;
 };
 
 void (async () => {
