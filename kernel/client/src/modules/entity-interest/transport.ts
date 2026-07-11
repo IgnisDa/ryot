@@ -7,6 +7,30 @@ export type InterestSocket = Pick<EventTarget, "addEventListener"> & {
 	send(frame: string): void;
 };
 
+type ListenNativeResume = (notify: () => void) => Promise<PluginListenerHandle> | undefined;
+
+export const subscribeNativeResume = (
+	resumed: () => void,
+	listenResume: ListenNativeResume = (notify) =>
+		Capacitor.isNativePlatform() ? App.addListener("resume", notify) : undefined,
+) => {
+	let disposed = false;
+	const notify = () => {
+		if (!disposed) {
+			resumed();
+		}
+	};
+	const native = listenResume(notify);
+	void native?.catch(() => undefined);
+	return () => {
+		if (disposed) {
+			return;
+		}
+		disposed = true;
+		void native?.then((listener) => listener.remove()).catch(() => undefined);
+	};
+};
+
 export const subscribeEntityInterestLifecycle = (
 	changed: () => void,
 	platform: {
@@ -24,8 +48,7 @@ export const subscribeEntityInterestLifecycle = (
 	platform.document.addEventListener("visibilitychange", notify);
 	platform.window.addEventListener("offline", notify);
 	platform.window.addEventListener("online", notify);
-	const native = platform.listenResume(notify);
-	void native?.catch(() => undefined);
+	const releaseResume = subscribeNativeResume(notify, platform.listenResume);
 	return () => {
 		if (disposed) {
 			return;
@@ -34,7 +57,7 @@ export const subscribeEntityInterestLifecycle = (
 		platform.document.removeEventListener("visibilitychange", notify);
 		platform.window.removeEventListener("offline", notify);
 		platform.window.removeEventListener("online", notify);
-		void native?.then((listener) => listener.remove()).catch(() => undefined);
+		releaseResume();
 	};
 };
 
