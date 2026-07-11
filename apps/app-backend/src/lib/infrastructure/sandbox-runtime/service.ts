@@ -22,9 +22,11 @@ import {
 	sandboxCacheValueError,
 	sandboxContextError,
 	sandboxHttpRequestBodyError,
+	isWorkflowSandboxMetadata,
 	sandboxRunnerRequestError,
+	sandboxRunnerLimits,
 	SANDBOX_LIMITS,
-	SANDBOX_RUNNER_LIMITS,
+	WORKFLOW_SANDBOX_LIMITS,
 } from "./limits";
 import {
 	makeObservabilitySandboxApiFunctions,
@@ -41,6 +43,7 @@ import {
 	type SandboxHostImplementationMap,
 	type SandboxRunInput,
 } from "./shared";
+import { makeWorkflowDurableCallsHostFunction } from "./workflow-journal";
 
 const httpCallTimeoutMs = 8_000;
 const sessionTtlBufferMs = 2_000;
@@ -56,6 +59,10 @@ export const selectSandboxHostFunctions = (
 	input: Pick<SandboxRunInput, "allowedHostFunctions" | "authority" | "metadata">,
 ) => {
 	const selectedApiFunctions: Record<string, BoundHostFunction> = {};
+	if (isWorkflowSandboxMetadata(input.metadata)) {
+		const durableCalls = boundApiFunctions["durableCalls"];
+		return durableCalls ? { durableCalls } : selectedApiFunctions;
+	}
 	const isSystemScript =
 		input.authority.type === "system" &&
 		typeof input.metadata === "object" &&
@@ -63,6 +70,9 @@ export const selectSandboxHostFunctions = (
 		"kind" in input.metadata &&
 		input.metadata.kind === "script";
 	for (const key of input.allowedHostFunctions) {
+		if (key === "durableCalls") {
+			continue;
+		}
 		const fn = boundApiFunctions[key];
 		if (
 			fn &&
@@ -144,7 +154,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 			Effect.scoped(
 				Effect.gen(function* () {
 					const context = input.context ?? {};
-					const contextError = sandboxContextError(context);
+					const contextError = sandboxContextError(context, input.metadata);
 					if (contextError) {
 						return yield* new SandboxRunError({ message: contextError });
 					}
@@ -154,8 +164,10 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						...apiFunctions,
 						...makeObservabilitySandboxApiFunctions(collector),
 					};
-					const boundApiFunctions: Readonly<Record<string, BoundHostFunction>> =
-						bindSandboxHostFunctions(executionApiFunctions, input);
+					const boundApiFunctions: Readonly<Record<string, BoundHostFunction>> = {
+						...bindSandboxHostFunctions(executionApiFunctions, input),
+						durableCalls: makeWorkflowDurableCallsHostFunction(input.workflowExecutionId, redis),
+					};
 					const selectedApiFunctions = selectSandboxHostFunctions(boundApiFunctions, input);
 
 					const token = generateId();
@@ -163,12 +175,12 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						token,
 						context,
 						scriptId: input.scriptId,
-						limits: SANDBOX_RUNNER_LIMITS,
 						metadata: input.metadata ?? {},
 						executionId: input.executionId,
 						compiledCode: input.compiledCode,
 						compiledFormat: input.compiledFormat,
 						apiBase: `http://127.0.0.1:${bridge.port}`,
+						limits: sandboxRunnerLimits(input.metadata),
 						apiFunctions: Object.keys(selectedApiFunctions),
 					})}\n`;
 					const requestError = sandboxRunnerRequestError(requestLine);
@@ -180,13 +192,20 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					yield* Effect.addFinalizer(() => invalidateProcess(pool, worker).pipe(Effect.orDie));
 					yield* worker.responseQueue.takeAll.pipe(Effect.asVoid);
 
+					const workflow = isWorkflowSandboxMetadata(input.metadata);
+					const timeoutMs = workflow
+						? Math.max(config.sandbox.timeoutMs, WORKFLOW_SANDBOX_LIMITS.timeoutMs)
+						: config.sandbox.timeoutMs;
 					const now = yield* Clock.currentTimeMillis;
 					const parentSpan = yield* Effect.currentSpan;
 					yield* bridge.addSession(input.executionId, {
 						token,
 						parentSpan,
 						apiFunctions: selectedApiFunctions,
-						expiresAt: now + config.sandbox.timeoutMs + sessionTtlBufferMs,
+						expiresAt: now + timeoutMs + sessionTtlBufferMs,
+						hostCallLimit: workflow
+							? WORKFLOW_SANDBOX_LIMITS.hostCalls.total
+							: SANDBOX_LIMITS.hostCalls.total,
 					});
 					yield* Effect.addFinalizer(() =>
 						bridge.removeSession(input.executionId).pipe(Effect.orDie),
@@ -196,11 +215,11 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 
 					const responseLine = yield* Effect.raceFirst(
 						worker.responseQueue.take,
-						Effect.sleep(Duration.millis(config.sandbox.timeoutMs)).pipe(
+						Effect.sleep(Duration.millis(timeoutMs)).pipe(
 							Effect.zipRight(
 								Effect.fail(
 									new TimeoutError({
-										message: `Sandbox timed out after ${config.sandbox.timeoutMs}ms`,
+										message: `Sandbox timed out after ${timeoutMs}ms`,
 									}),
 								),
 							),

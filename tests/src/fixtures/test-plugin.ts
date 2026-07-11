@@ -96,6 +96,7 @@ export const testPluginManifest = (input: {
 		targetEntitySchemaSlug: string | null;
 	}>;
 }) => ({
+	workflows: [],
 	savedViews: [],
 	signalSchemas: [],
 	boot: input.boot ?? [],

@@ -22,8 +22,13 @@ export const SandboxExecutionQueue = DurableQueue.make({
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
+export type SandboxExecutionResolutionMode = "active" | "exact";
+
 export const resolveSandboxExecutionPayload = Effect.fn("resolveSandboxExecutionPayload")(
-	function* (payload: SandboxExecutionPayload) {
+	function* (payload: SandboxExecutionPayload, mode: SandboxExecutionResolutionMode) {
+		if (mode === "exact") {
+			return payload;
+		}
 		const runWithDb = yield* DbRunner;
 		const repository = yield* SandboxRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
@@ -45,7 +50,7 @@ export const makeSandboxExecutionResolutionActivity = (payload: SandboxExecution
 		error: SandboxRunError,
 		success: SandboxExecutionPayload,
 		name: `resolve-sandbox-execution-${payload.executionId}`,
-		execute: resolveSandboxExecutionPayload(payload).pipe(
+		execute: resolveSandboxExecutionPayload(payload, "active").pipe(
 			Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 		),
 	});
@@ -73,6 +78,10 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		return yield* new SandboxRunError({ message: "Sandbox script not found" });
 	}
 	const scriptIsBuiltin = !(yield* runWithDb(repository.isPluginScript(payload.scriptId)));
+	const workflowExecutionId =
+		script.metadata.kind === "workflow"
+			? /^(.*)-replay-\d+$/.exec(payload.executionId)?.[1]
+			: undefined;
 
 	const result = yield* sandbox.run({
 		scriptId: script.id,
@@ -86,6 +95,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		cacheNamespace: script.providerId ?? script.id,
 		compiledFormat: script.compiledFormat,
 		allowedHostFunctions: script.metadata.capabilities ?? [],
+		...(workflowExecutionId ? { workflowExecutionId } : {}),
 	});
 
 	return {

@@ -108,6 +108,7 @@ import {
 	FrequentCronWorkflowDefinitionsLive,
 	InfrequentCronWorkflowDefinitionsLive,
 } from "./cron-workflow-definitions";
+import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 import { ServerLive } from "./server";
 
 const ConfigLive = Layer.mergeAll(AppConfig.Default, BunContext.layer);
@@ -359,7 +360,7 @@ const RuntimeLive = Layer.mergeAll(
 	ImportWorkflowDefinitionsLive,
 	ProcessNormalizedMediaImportWorkflowDefinitionsLive,
 	IntegrationWorkflowDefinitionsLive,
-	SandboxWorkflowDefinitionsLive,
+	Layer.provide(SandboxWorkflowDefinitionsLive, KernelWorkflowReferencesLive),
 	TranslateEntityWorkflowDefinitionsLive,
 	ServerLive,
 	FrequentCronWorkflowDefinitionsLive,

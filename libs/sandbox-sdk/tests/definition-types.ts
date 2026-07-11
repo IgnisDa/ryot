@@ -1,5 +1,7 @@
+import { defineActivity } from "@ryot/sandbox-sdk/activity";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineOperation } from "@ryot/sandbox-sdk/operation";
+import { defineWorkflow, type WorkflowReplayEnvelope } from "@ryot/sandbox-sdk/workflow";
 
 import { defineManifest, defineScript } from "../src/driver.js";
 import type { Equal, Expect } from "./type-assertions.js";
@@ -35,10 +37,72 @@ const operation = defineOperation({
 	run: (input) => Effect.succeed(String(input.value)),
 });
 
+const activityManifest = defineManifest({
+	kind: "activity",
+	capabilities: ["httpCall"],
+	name: "Typed activity",
+	slug: "typed-activity",
+	requiredAppConfigKeys: [],
+});
+const activity = defineActivity({
+	manifest: activityManifest,
+	input: Schema.String,
+	output: Schema.String,
+	run: (input, host) => host.httpCall("GET", input).pipe(Effect.map(({ body }) => body)),
+});
+
+const workflowManifest = defineManifest({
+	kind: "workflow",
+	capabilities: [],
+	name: "Typed workflow",
+	slug: "typed-workflow",
+	requiredAppConfigKeys: [],
+});
+const workflow = defineWorkflow({
+	manifest: workflowManifest,
+	input: Schema.Struct({ value: Schema.Number }),
+	output: Schema.String,
+	run: (input, replay) =>
+		replay.activity(
+			"format",
+			{
+				scriptSlug: "format-value",
+				input: Schema.Struct({ value: Schema.Number }),
+				output: Schema.String,
+			},
+			input,
+		),
+});
+
 const scriptInputType: Expect<Equal<Parameters<typeof script.run>[0], { readonly key: string }>> =
 	true;
 const operationOutputType: Expect<
 	Equal<Effect.Effect.Success<ReturnType<typeof operation.run>>, string>
 > = true;
+const activityOutputType: Expect<
+	Equal<Effect.Effect.Success<ReturnType<typeof activity.run>>, string>
+> = true;
+const workflowOutputType: Expect<
+	Equal<Effect.Effect.Success<ReturnType<typeof workflow.run>>, WorkflowReplayEnvelope>
+> = true;
 void scriptInputType;
+void activityOutputType;
 void operationOutputType;
+void workflowOutputType;
+
+defineWorkflow({
+	manifest: workflowManifest,
+	input: Schema.Struct({}),
+	output: Schema.String,
+	run: (_input, replay) =>
+		replay.activity(
+			"invalid",
+			{
+				scriptSlug: "typed-activity",
+				input: Schema.Struct({ value: Schema.Number }),
+				output: Schema.String,
+			},
+			// @ts-expect-error activity inputs are inferred from the direct script reference.
+			{ value: "wrong" },
+		),
+});

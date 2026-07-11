@@ -9,11 +9,6 @@ import { PROGRESS_UPDATE_INTERVAL } from "../runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import { ImportsService } from "../service";
 
-export const ResolutionCandidate = Schema.Struct({
-	providerSlug: Schema.String,
-	providerId: Schema.NullOr(SandboxProviderId),
-});
-
 export const PopulationProvider = Schema.Struct({
 	providerId: SandboxProviderId,
 	entitySchemaSlug: EntitySchemaSlug,

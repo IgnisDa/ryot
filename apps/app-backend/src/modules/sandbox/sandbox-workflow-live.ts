@@ -11,6 +11,7 @@ import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
 
 import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";
+import { runSandboxScriptWorkflow, SandboxScriptWorkflow } from "./sandbox-script-workflow";
 
 const workflowFailureResult = (
 	cause: Cause.Cause<SandboxRunError>,
@@ -59,8 +60,10 @@ const runSandboxWorkflow = Effect.fn("RunSandboxWorkflow")(
 );
 
 const RunSandboxWorkflowLive = RunSandboxWorkflow.toLayer(runSandboxWorkflow);
+const SandboxScriptWorkflowLive = SandboxScriptWorkflow.toLayer(runSandboxScriptWorkflow);
 
 export const SandboxWorkflowDefinitionsLive = Layer.mergeAll(
 	RunSandboxWorkflowLive,
+	SandboxScriptWorkflowLive,
 	SandboxExecutionQueueWorkerLive,
 );

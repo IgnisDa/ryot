@@ -20,8 +20,16 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
 	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-library");
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.scripts).toHaveLength(136);
+	expect(mediaPlugin.scripts).toHaveLength(143);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
+	expect(
+		mediaPlugin.scripts.filter(({ slug }) => slug.startsWith("activity.media-import-resolve.")),
+	).toHaveLength(5);
+	expect(
+		mediaPlugin.scripts
+			.filter(({ slug }) => slug.startsWith("activity.media-import-resolve."))
+			.every(({ kind }) => kind === "activity"),
+	).toBe(true);
 	expect(mediaPlugin.scripts.filter(({ slug }) => slug.endsWith(".tmdb.trending"))).toEqual([
 		expect.objectContaining({
 			kind: "script",
