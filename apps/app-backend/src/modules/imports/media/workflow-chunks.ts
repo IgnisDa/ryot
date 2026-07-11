@@ -8,7 +8,9 @@ const emptyItemsContextBytes = jsonByteLength({ items: [] }) ?? 0;
 
 export type WorkflowChunkRejection = "context" | "json" | "steps";
 
-export const chunkWorkflowItems = <Item>(entries: ReadonlyArray<{ item: Item; steps: number }>) => {
+export const chunkWorkflowItems = <Item>(
+	entries: ReadonlyArray<{ item: Item; steps: number; bytes: number | null }>,
+) => {
 	const chunks: Array<{ items: Item[] }> = [];
 	const rejected: Array<{ item: Item; reason: WorkflowChunkRejection }> = [];
 	let items: Item[] = [];
@@ -16,7 +18,7 @@ export const chunkWorkflowItems = <Item>(entries: ReadonlyArray<{ item: Item; st
 	let contextBytes = emptyItemsContextBytes;
 
 	for (const entry of entries) {
-		const itemBytes = jsonByteLength(entry.item);
+		const itemBytes = entry.bytes;
 		if (itemBytes === null) {
 			rejected.push({ item: entry.item, reason: "json" });
 			continue;
