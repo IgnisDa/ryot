@@ -54,12 +54,12 @@ const apiUrl = () => `http://127.0.0.1:${apiPort}/api`;
 const adminSession = () => makeSession(apiUrl());
 
 const reconcilePluginInstallations = () =>
-	adminSession().call((c) => c.testSupport.reconcilePluginInstallations(), adminHeaders);
+	adminSession().call((c) => c.testSupport.reconcilePluginInstallations(), adminHeaders());
 
 const uninstallShippedPlugin = (pluginSlug: PluginSlug) =>
 	adminSession().call(
 		(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginSlug } }),
-		adminHeaders,
+		adminHeaders(),
 	);
 
 const installShippedPlugin = (
@@ -91,7 +91,7 @@ const installShippedPlugin = (
 		adminSession()
 			.call(
 				(c) => c.testSupport.installSystemPlugin({ payload: { files, manifest } }),
-				adminHeaders,
+				adminHeaders(),
 			)
 			.pipe(Effect.as(pluginSlug)),
 		() =>

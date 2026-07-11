@@ -14,18 +14,18 @@ export const getMediaPopulationGateResult = (input: {
 			client.testSupport.getWorkflowLoadGateResult({
 				payload: { ...input, itemCount: input.itemCount ?? 1_001 },
 			}),
-		adminHeaders,
+		adminHeaders(),
 	);
 
 export const sampleSandboxRuntime = Effect.suspend(() =>
 	getApiClient().call(
 		(client) => client.testSupport.sampleSandboxRuntime({ query: {} }),
-		adminHeaders,
+		adminHeaders(),
 	),
 );
 
 export const sampleOperationalPressure = (executionIds: ReadonlyArray<string>) =>
 	getApiClient().call(
 		(client) => client.testSupport.sampleOperationalPressure({ payload: { executionIds } }),
-		adminHeaders,
+		adminHeaders(),
 	);

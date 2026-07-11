@@ -8,9 +8,8 @@ import {
 } from "@ryot-app/contract/oauth";
 import { Effect } from "effect";
 
-import { getApiUrl } from "~/support/api";
 import { describe, expect, it } from "~/support/effect-test";
-import { getFrontendUrl } from "~/support/frontend";
+import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
 // Better Auth coerces a non-loopback http issuer to https; issued tokens keep http.
 const advertisedIssuer = (origin: string) =>

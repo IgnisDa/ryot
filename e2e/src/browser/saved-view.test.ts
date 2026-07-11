@@ -29,11 +29,10 @@ import {
 	uninstallTestProvider,
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/api";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it } from "~/support/effect-test";
-import { getFrontendUrl } from "~/support/frontend";
+import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
 const SUITE_ID = crypto.randomUUID();
 const VIEW_NAME = `Browser View ${SUITE_ID}`;

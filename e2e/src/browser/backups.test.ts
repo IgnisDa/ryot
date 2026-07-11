@@ -4,7 +4,7 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import { createTestUser } from "~/fixtures/kernel";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { beforeAll, expect, it } from "~/support/effect-test";
-import { getFrontendUrl } from "~/support/frontend";
+import { getFrontendUrl } from "~/support/harness-target";
 
 const RUN_SETTLE_TIMEOUT_MS = 90_000;
 

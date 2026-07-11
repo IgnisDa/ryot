@@ -3,7 +3,6 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import getPort from "get-port";
-import type { TestProject } from "vitest/node";
 
 import {
 	buildApiEnv,
@@ -14,21 +13,13 @@ import {
 	waitForHealthCheck,
 } from "./src/support/provisioning";
 
-declare module "vitest" {
-	export interface ProvidedContext {
-		apiUrl: string;
-		apiLogFile: string;
-		frontendUrl: string;
-	}
-}
-
 const S3_BUCKET_NAME = "ryot-test";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const serverCwd = fileURLToPath(new URL("../apps/server", import.meta.url));
 const clientDist = fileURLToPath(new URL("../kernel/client/dist", import.meta.url));
 
-export default async function ({ provide }: TestProject) {
+export default async function () {
 	const build = spawnSync(
 		"bun",
 		[
@@ -87,9 +78,9 @@ export default async function ({ provide }: TestProject) {
 		await waitForHealthCheck(healthCheckUrl, "E2E Setup");
 		await waitForHealthCheck(frontendUrl, "E2E SPA");
 
-		provide("apiUrl", `http://127.0.0.1:${apiPort}/api`);
-		provide("apiLogFile", String(apiEnv.SERVER_LOG_FILE));
-		provide("frontendUrl", frontendUrl);
+		process.env.E2E_FRONTEND_URL = frontendUrl;
+		process.env.E2E_API_URL = `http://127.0.0.1:${apiPort}/api`;
+		process.env.E2E_ADMIN_ACCESS_TOKEN = String(apiEnv.SERVER_ADMIN_ACCESS_TOKEN);
 	} catch (error) {
 		await stopApiProcess(apiProcess);
 		await stopCoreTestInfrastructure(coreInfrastructure);

@@ -8,8 +8,8 @@ import {
 } from "@ryot-app/ryotql-recipes/import-runs";
 import { Effect, Schema } from "effect";
 
-import { getApiUrl } from "~/support/api";
 import { requirePresent } from "~/support/assertions";
+import { getApiUrl } from "~/support/harness-target";
 
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";

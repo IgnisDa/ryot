@@ -18,9 +18,9 @@ import {
 	startBackupExport,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/api";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 describe("backup lifecycle", () => {
 	it.live("exports, isolates, downloads, and deletes a completed backup", () =>

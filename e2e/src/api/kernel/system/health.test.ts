@@ -1,9 +1,8 @@
 import { Effect } from "effect";
 
 import { getApiClient } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/api";
 import { describe, expect, it } from "~/support/effect-test";
-import { getFrontendUrl } from "~/support/frontend";
+import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
 describe("Health endpoint", () => {
 	it.live("should return healthy status", () =>
