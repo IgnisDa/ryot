@@ -307,7 +307,23 @@ describe("show screen content", () => {
 	it("links each recommendation to its own entity route", async () => {
 		await renderContent(readyState());
 
-		expect(screen.getByRole("link", { name: "Open Bad Girls" })).toHaveProp("href", "/e/show-2");
+		expect(screen.getByRole("link", { name: "Open Bad Girls" })).toHaveProp(
+			"href",
+			expect.stringContaining("/e/show-2"),
+		);
+	});
+
+	it("links people and companies to their entity routes", async () => {
+		await renderContent(readyState());
+
+		expect(screen.getByRole("link", { name: "Open Owen Cooper" })).toHaveProp(
+			"href",
+			expect.stringContaining("/e/person-1"),
+		);
+		expect(screen.getByRole("link", { name: "Open Warp Films" })).toHaveProp(
+			"href",
+			expect.stringContaining("/e/company-1"),
+		);
 	});
 
 	it("leaves the overview unchanged for deferred view-all actions", async () => {
