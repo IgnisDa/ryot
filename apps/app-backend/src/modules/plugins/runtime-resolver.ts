@@ -269,7 +269,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 							left.entitySchemaSlug.localeCompare(right.entitySchemaSlug) ||
 							left.providerSlug.localeCompare(right.providerSlug),
 					);
-				const resolved = yield* Effect.forEach(links, (link) =>
+				const forEachLinks = Effect.forEach(links, (link) =>
 					Effect.gen(function* () {
 						const provider = yield* findActiveProvider(link.providerSlug);
 						return provider
@@ -277,6 +277,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 							: null;
 					}),
 				).pipe(Effect.map((values) => values.filter((value) => value !== null)));
+				const resolved = yield* forEachLinks;
 				return resolved.sort(
 					(left, right) =>
 						left.entitySchemaSlug.localeCompare(right.entitySchemaSlug) ||
@@ -326,8 +327,12 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 									),
 						),
 					);
-			const findDetailsScript = (providerId: SandboxProviderId) =>
-				findProviderOperationScript(providerId, "details").pipe(Effect.map(({ script }) => script));
+			const findDetailsScript = (providerId: SandboxProviderId) => {
+				const findOperation = findProviderOperationScript(providerId, "details").pipe(
+					Effect.map(({ script }) => script),
+				);
+				return findOperation;
+			};
 			const resolveSearchScript = resolveOperation("search");
 			const resolveDetailsScript = resolveOperation("details");
 			const resolveResolveScript = resolveOperation("resolve");
@@ -438,9 +443,10 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 						binding.target.kind === input.target.kind &&
 						binding.target.id === input.target.id,
 				);
-				return yield* Effect.forEach(bindings, resolveAutomation).pipe(
+				const forEachBindings = Effect.forEach(bindings, resolveAutomation).pipe(
 					Effect.map((resolved) => resolved.filter((value) => value !== null)),
 				);
+				return yield* forEachBindings;
 			});
 
 			const findAutomation = Effect.fn("PluginRuntimeResolver.findAutomation")(function* (

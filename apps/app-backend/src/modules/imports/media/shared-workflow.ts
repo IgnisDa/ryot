@@ -75,12 +75,13 @@ export const createProgressReporter = (input: {
 			}
 
 			last = progress;
+			const updateProgress = imports
+				.update({ progress, runId: input.payload.runId })
+				.pipe(Effect.mapError(toWorkflowError));
 			yield* Activity.make({
 				error: ImportRunError,
 				name: `report-progress-${input.phase}-${processed}`,
-				execute: imports
-					.update({ progress, runId: input.payload.runId })
-					.pipe(Effect.mapError(toWorkflowError)),
+				execute: updateProgress,
 			});
 		});
 };

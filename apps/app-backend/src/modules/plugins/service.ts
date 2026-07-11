@@ -308,10 +308,11 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 										`Plugin '${slug}' cannot be uninstalled while active plugin schemas reference its definitions: ${String(error)}`,
 									),
 							});
-							const dangling = yield* validateSnapshot(snapshot).pipe(
+							const validateAndCatch = validateSnapshot(snapshot).pipe(
 								Effect.as(null),
 								Effect.catchTag("PluginValidationError", (error) => Effect.succeed(error)),
 							);
+							const dangling = yield* validateAndCatch;
 							if (dangling) {
 								return yield* conflict(
 									`Plugin '${slug}' cannot be uninstalled while active plugin bindings reference its definitions: ${validationMessage(dangling)}`,

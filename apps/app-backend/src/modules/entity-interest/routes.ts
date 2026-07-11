@@ -1,6 +1,7 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
+import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
 
 import { StreamRegistry } from "./registry";
@@ -20,7 +21,7 @@ export const InterestRoutesLive = HttpApiBuilder.group(AppContract, "entity-inte
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* InterestService;
-				return yield* service.declareInterest(user, payload);
+				return yield* service.declareInterest(user, payload).pipe(dieOnDbError);
 			}),
 		),
 );
