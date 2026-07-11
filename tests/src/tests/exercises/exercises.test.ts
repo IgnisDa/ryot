@@ -261,7 +261,7 @@ describe("Exercises E2E", () => {
 			);
 
 			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Exercises must have the same kind");
+			expect(error.message).toBe("Entities must have the same 'kind' property");
 		}),
 	);
 });

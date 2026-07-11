@@ -10,7 +10,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Exit, Layer, Schema } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -45,6 +45,7 @@ import {
 } from "#modules/sandbox/kernel-workflow-references";
 
 const PROVIDER_ENTITY_POPULATION_MAX_ITEMS = 100;
+const PROVIDER_ENTITY_POPULATION_CONCURRENCY = 4;
 
 const ProviderEntityPopulationReferenceInput = Schema.Struct({
 	mode: Schema.Literal("ensure", "refresh"),
@@ -167,27 +168,35 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							),
 						);
 						const engine = yield* WorkflowEngine;
-						const results = yield* Effect.forEach(ownedItems, ({ item, resolved }, index) => {
-							const childExecutionId = `${executionId}-item-${index}`;
-							return engine
-								.execute(ProviderEntityPopulationWorkflow, {
-									executionId: childExecutionId,
-									payload: {
-										userId: null,
-										mode: decoded.mode,
-										externalId: item.externalId,
+						const exits = yield* Effect.forEach(
+							ownedItems,
+							({ item, resolved }, index) => {
+								const childExecutionId = `${executionId}-item-${index}`;
+								return engine
+									.execute(ProviderEntityPopulationWorkflow, {
 										executionId: childExecutionId,
-										providerId: resolved.provider.id,
-										origin: { kind: "provider_refresh" },
-										entitySchemaSlug: resolved.entitySchemaSlug,
-									} satisfies ProviderEntityPopulationPayload,
-								})
-								.pipe(
-									Effect.mapError(
-										(error) => new SandboxRunError({ message: unknownToMessage(error) }),
-									),
-								);
-						});
+										payload: {
+											userId: null,
+											mode: decoded.mode,
+											externalId: item.externalId,
+											executionId: childExecutionId,
+											providerId: resolved.provider.id,
+											origin: { kind: "provider_refresh" },
+											entitySchemaSlug: resolved.entitySchemaSlug,
+										} satisfies ProviderEntityPopulationPayload,
+									})
+									.pipe(
+										Effect.mapError(
+											(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+										),
+										Effect.exit,
+									);
+							},
+							{ concurrency: PROVIDER_ENTITY_POPULATION_CONCURRENCY },
+						);
+						const results = yield* Effect.forEach(exits, (exit) =>
+							Exit.match(exit, { onSuccess: Effect.succeed, onFailure: Effect.failCause }),
+						);
 						return yield* Schema.decodeUnknown(jsonValueSchema)(results).pipe(
 							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 						);

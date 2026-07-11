@@ -136,6 +136,7 @@ export const genericImportWorkflowResultSchema = strictStruct({
 
 export const genericImportKernelInputSchema = strictStruct({
 	runId: Schema.String,
+	failRun: Schema.optional(Schema.Boolean),
 	chunkFiles: Schema.Array(Schema.String),
 	integrationId: Schema.optional(Schema.String),
 	totalItems: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
@@ -143,9 +144,9 @@ export const genericImportKernelInputSchema = strictStruct({
 	writeItemCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
 });
 
+export type GenericImportChunk = Schema.Schema.Type<typeof genericImportChunkSchema>;
 export type GenericImportFailure = Schema.Schema.Type<typeof genericImportFailureSchema>;
 export type GenericImportWriteItem = Schema.Schema.Type<typeof genericImportWriteItemSchema>;
-export type GenericImportChunk = Schema.Schema.Type<typeof genericImportChunkSchema>;
 export type GenericImportAdapterManifest = Schema.Schema.Type<
 	typeof genericImportAdapterManifestSchema
 >;
