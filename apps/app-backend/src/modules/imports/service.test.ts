@@ -4,7 +4,7 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import type { ListedImportRun } from "@ryot/contract/modules/imports/schemas";
 import { ImportRunId, UserId } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { ConfigProvider, Effect, Layer } from "effect";
 import { assert } from "vitest";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -26,6 +26,16 @@ import { ImportsRepository } from "./repository";
 import { ImportsService, type CreateImportRunInput } from "./service";
 
 const now = "2026-07-16T00:00:00.000Z";
+const configSchema = {
+	unknownKeys: "strict",
+	fields: {
+		hardcoverApiKey: {
+			type: "string",
+			label: "Hardcover API key",
+			description: "Hardcover API key",
+		},
+	},
+} as const;
 
 const createdRun = {
 	progress: 0,
@@ -90,6 +100,7 @@ const makeServiceLayer = (
 				BunFileSystem.layer,
 				dbRunnerLayer,
 				makeAppConfigLayer(),
+				Layer.setConfigProvider(ConfigProvider.fromMap(new Map())),
 				Layer.succeed(RedisService, makeRedisService()),
 				makeImportRunFailuresService(),
 				dependencies,
@@ -114,7 +125,8 @@ const goodreadsSource = (overrides: Partial<SingleImportSource> = {}) =>
 		slug: "goodreads",
 		name: "Goodreads",
 		pluginSlug: "media",
-		requiredAppConfigKeys: [],
+		configSchema,
+		requiredPluginConfigKeys: [],
 		allowedFileExtensions: ["csv"],
 		description: "Goodreads export",
 		workflowSlug: "goodreads-import",
@@ -191,7 +203,8 @@ it.effect("claims and queues registry-declared named artifacts under stable keys
 		name: "Movary",
 		slug: "movary",
 		pluginSlug: "media",
-		requiredAppConfigKeys: [],
+		configSchema,
+		requiredPluginConfigKeys: [],
 		description: "Movary export",
 		workflowSlug: "movary-import",
 		artifacts: [
@@ -288,13 +301,11 @@ it.effect("rejects an undeclared file source", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("rejects a registry source whose declared app config keys are unset", () => {
+it.effect("rejects a registry source whose declared plugin config keys are unset", () => {
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
-			makeImportSourceCatalog(
-				goodreadsSource({ requiredAppConfigKeys: ["books.hardcoverApiKey"] }),
-			),
+			makeImportSourceCatalog(goodreadsSource({ requiredPluginConfigKeys: ["hardcoverApiKey"] })),
 			makeUploadsService(),
 			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 		),
@@ -307,7 +318,9 @@ it.effect("rejects a registry source whose declared app config keys are unset", 
 			service.startImportRun(user, { source: "goodreads", uploadToken: "tok_goodreads" }),
 		);
 
-		expect(error.message).toBe("Goodreads importer is not configured. Set books.hardcoverApiKey.");
+		expect(error.message).toBe(
+			"Goodreads importer is not configured. Set RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY.",
+		);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -335,7 +348,8 @@ it.effect("queues a payload run when the registry declares the source as payload
 				slug: "goodreads",
 				name: "Goodreads",
 				pluginSlug: "media",
-				requiredAppConfigKeys: [],
+				configSchema,
+				requiredPluginConfigKeys: [],
 				description: "Goodreads account",
 				workflowSlug: "goodreads-import",
 			}),

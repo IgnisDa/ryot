@@ -14,8 +14,8 @@ const makeHost = (overrides: Partial<IgdbGroupHost>): IgdbGroupHost =>
 	defineSandboxTestHost(manifest, {
 		getCachedValue: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
-		getAppConfigValue: (key) =>
-			Effect.succeed(key === "videoGames.twitchClientId" ? "client-id" : "client-secret"),
+		getPluginConfigValue: (key) =>
+			Effect.succeed(key === "twitchClientId" ? "client-id" : "client-secret"),
 		httpCall: () => Effect.fail({ message: "no route" }),
 		...overrides,
 	});

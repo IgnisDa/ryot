@@ -23,7 +23,7 @@ const createHost = (integration = integrationRecord({ provider: "ryot_browser_ex
 		queries,
 		host: defineSandboxTestHost(manifest, {
 			getIntegration: () => Effect.succeed(integration),
-			getAppConfigValue: () => Effect.succeed("token"),
+			getPluginConfigValue: () => Effect.succeed("token"),
 			getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
 			httpCall: (_method, url) => {
 				const requestUrl = new URL(url);

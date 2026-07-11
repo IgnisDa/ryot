@@ -15,7 +15,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Kodi sink",
 	slug: "integration.kodi",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["getIntegration"],
 });
 export const parseKodi = (rawBody: string) =>

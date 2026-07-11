@@ -13,7 +13,7 @@ import {
 import type { RoleRelatedEntity } from "../script-helpers/role-accumulator";
 
 export type TvdbHost = SandboxHost<
-	readonly ["httpCall", "getCachedValue", "setCachedValue", "getAppConfigValue"]
+	readonly ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfigValue"]
 >;
 
 export type RemoteImage = { type: "remote"; url: string };
@@ -27,13 +27,13 @@ export const firstStringValue = (record: UnknownRecord, keys: readonly string[])
 	keys.reduce<string | null>((value, key) => value ?? stringValue(record[key]), null);
 
 const getTvdbApiKey = (host: TvdbHost) =>
-	host.getAppConfigValue("moviesAndShows.tvdbApiKey").pipe(
+	host.getPluginConfigValue("tvdbApiKey").pipe(
 		Effect.mapError((error) => new Error(error.message || "Failed to retrieve TVDB API key")),
 		Effect.map((value) => {
 			const key = stringValue(value);
 			if (!key) {
 				throw new Error(
-					"TVDB API key is not configured. Set MOVIES_AND_SHOWS_TVDB_API_KEY in your environment.",
+					"TVDB API key is not configured. Set RYOT_PLUGIN_MEDIA_TVDB_API_KEY in your environment.",
 				);
 			}
 			return key;

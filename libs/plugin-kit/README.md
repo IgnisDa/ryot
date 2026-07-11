@@ -2,6 +2,15 @@
 
 `@ryot/plugin-kit/manifest` provides the schemas and types used to declare plugins.
 
+## Configuration
+
+Every manifest declares a `configSchema` for plugin-owned environment configuration. It uses the
+canonical `AppSchema` format with `unknownKeys: "strict"` and top-level string, number, integer,
+boolean, or enum fields. Fields support labels, descriptions, secrets, defaults, and their ordinary
+validation. Nested values, arrays, dates, translation, transforms, and schema rules are not allowed.
+Every `requiredPluginConfigKeys` entry on a script or import source must name a declared field.
+Scripts separately declare `requiredSystemConfigKeys` for host-owned configuration.
+
 ## Entity Merge Identity
 
 An entity schema may declare `mergeIdentityProperties`, listing top-level property names that must
@@ -86,7 +95,7 @@ importSources: [
 		input: "file",
 		lot: "single",
 		allowedFileExtensions: ["csv"],
-		// slug, name, description, workflowSlug, requiredAppConfigKeys
+		// slug, name, description, workflowSlug, requiredPluginConfigKeys
 	},
 	{
 		input: "file",
@@ -99,7 +108,7 @@ importSources: [
 				uploadTokenField: "historyUploadToken",
 			},
 		],
-		// slug, name, description, workflowSlug, requiredAppConfigKeys
+		// slug, name, description, workflowSlug, requiredPluginConfigKeys
 	},
 ];
 ```

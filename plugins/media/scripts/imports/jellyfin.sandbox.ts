@@ -11,7 +11,8 @@ export const manifest = defineManifest({
 	name: "Fetch Jellyfin import",
 	slug: "activity.import.jellyfin",
 	capabilities: ["httpCall"],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineActivity({

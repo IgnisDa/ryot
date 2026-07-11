@@ -7,8 +7,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Person Details",
 	slug: "person.tmdb.details",
-	capabilities: ["httpCall", "getAppConfigValue", "getUserPreferences"],
-	requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+	capabilities: ["httpCall", "getPluginConfigValue", "getUserPreferences"],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });

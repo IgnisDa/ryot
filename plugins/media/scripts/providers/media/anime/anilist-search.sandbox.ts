@@ -7,7 +7,8 @@ export const manifest = defineManifest({
 	name: "Anilist Search",
 	kind: "provider",
 	slug: "anime.anilist.search",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getUserPreferences"],
 });
 

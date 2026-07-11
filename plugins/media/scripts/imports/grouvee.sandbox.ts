@@ -10,7 +10,8 @@ import { readImportArtifactText } from "./shared";
 export const manifest = defineManifest({
 	kind: "activity",
 	name: "Parse Grouvee import",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	slug: "activity.import.grouvee",
 	capabilities: ["artifact-read"],
 });

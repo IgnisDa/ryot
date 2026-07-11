@@ -1,9 +1,12 @@
-import type { PluginImportSource } from "@ryot/plugin-kit/manifest";
+import type { PluginConfigSchema, PluginImportSource } from "@ryot/plugin-kit/manifest";
 import { Effect, Layer } from "effect";
 
 import { PluginLoader, PluginLoaderLive } from "./loader";
 
-export type RegisteredImportSource = PluginImportSource & { readonly pluginSlug: string };
+export type RegisteredImportSource = PluginImportSource & {
+	readonly pluginSlug: string;
+	readonly configSchema: PluginConfigSchema;
+};
 
 export class ImportSourceCatalog extends Effect.Service<ImportSourceCatalog>()(
 	"ImportSourceCatalog",
@@ -14,7 +17,11 @@ export class ImportSourceCatalog extends Effect.Service<ImportSourceCatalog>()(
 			const list = (): ReadonlyArray<RegisteredImportSource> =>
 				Object.entries(loader.getSnapshot().plugins)
 					.flatMap(([pluginSlug, plugin]) =>
-						plugin.manifest.importSources.map((source) => ({ ...source, pluginSlug })),
+						plugin.manifest.importSources.map((source) => ({
+							...source,
+							pluginSlug,
+							configSchema: plugin.manifest.configSchema,
+						})),
 					)
 					.sort(
 						(left, right) =>

@@ -15,8 +15,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "IGDB",
 	slug: "video-game-group.igdb",
-	requiredAppConfigKeys: ["videoGames.twitchClientId", "videoGames.twitchClientSecret"],
-	capabilities: ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
+	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
+	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
 });
 
 const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big";

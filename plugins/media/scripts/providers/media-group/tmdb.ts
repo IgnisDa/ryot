@@ -18,8 +18,9 @@ export const manifest = defineManifest({
 	name: "TMDB",
 	kind: "provider",
 	slug: "movie-group.tmdb",
-	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+	capabilities: ["httpCall", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
+	requiredSystemConfigKeys: [],
 });
 
 const stripCollectionSuffix = (name: string) =>

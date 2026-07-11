@@ -7,7 +7,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "OpenLibrary Person Details",
 	slug: "person.openlibrary.details",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 });
 

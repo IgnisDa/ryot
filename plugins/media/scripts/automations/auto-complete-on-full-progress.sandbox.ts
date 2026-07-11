@@ -10,7 +10,8 @@ import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 export const manifest = defineManifest({
 	kind: "automation",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	name: "Auto-Complete on Full Progress",
 	slug: "trigger.auto-complete-on-full-progress",
 	capabilities: ["getEntity", "listEvents", "createEvents", "listEventSchemas"],

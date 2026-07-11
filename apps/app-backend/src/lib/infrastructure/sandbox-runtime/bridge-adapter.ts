@@ -245,10 +245,15 @@ export const bindSandboxHostFunctions = (
 			return invalidArguments("claimCachedValue", error, message);
 		},
 	),
-	getAppConfigValue: bindHostFunction(
-		coreSandboxHostContracts.getAppConfigValue,
-		(...args) => implementations.getAppConfigValue(input, ...args),
-		defaultFailure("getAppConfigValue", "getAppConfigValue expects a non-empty key string"),
+	getPluginConfigValue: bindHostFunction(
+		coreSandboxHostContracts.getPluginConfigValue,
+		(...args) => implementations.getPluginConfigValue(input, ...args),
+		defaultFailure("getPluginConfigValue", "getPluginConfigValue expects a non-empty key string"),
+	),
+	getSystemConfigValue: bindHostFunction(
+		coreSandboxHostContracts.getSystemConfigValue,
+		(...args) => implementations.getSystemConfigValue(input, ...args),
+		defaultFailure("getSystemConfigValue", "getSystemConfigValue expects a non-empty key string"),
 	),
 	getUserPreferences: bindHostFunction(
 		coreSandboxHostContracts.getUserPreferences,

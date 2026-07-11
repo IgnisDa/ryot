@@ -173,6 +173,18 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 					return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
 				},
 			);
+			const findActivePluginConfigByScriptId = Effect.fn(
+				"PluginRuntimeResolver.findActivePluginConfigByScriptId",
+			)(function* (scriptId: SandboxScriptId) {
+				const script = yield* findActiveScriptById(scriptId);
+				if (!script?.pluginSlug) {
+					return null;
+				}
+				const plugin = loader.getSnapshot().plugins[script.pluginSlug];
+				return plugin
+					? { pluginSlug: script.pluginSlug, configSchema: plugin.manifest.configSchema }
+					: null;
+			});
 			const resolveSystemQueryActivity = Effect.fn(
 				"PluginRuntimeResolver.resolveSystemQueryActivity",
 			)(function* (scriptId: SandboxScriptId) {
@@ -518,6 +530,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 				findKernelScript,
 				findActiveScript,
 				findDetailsScript,
+				findActivePluginConfigByScriptId,
 				listSchemaProviders,
 				resolveSearchScript,
 				findActiveScriptById,

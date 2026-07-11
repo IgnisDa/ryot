@@ -25,6 +25,7 @@
 		"@effect/sql-pg": "0.52.1",
 		"@effect/workflow": "0.18.2",
 		"@opentelemetry/api": "1.9.1",
+		"@ryot/config": "workspace:*",
 		"@ryot/contract": "workspace:*",
 		"@ryot/plugin-fitness": "workspace:*",
 		"@ryot/plugin-kit": "workspace:*",

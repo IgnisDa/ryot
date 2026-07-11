@@ -25,7 +25,8 @@ export const manifest = defineManifest({
   name: "Automation",
   slug: "automation.test",
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -49,7 +50,8 @@ it.effect("compiles one SDK script to an inline-source-mapped ESM module", () =>
 			capabilities: [],
 			name: "Plain value",
 			slug: "plain-value",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 		});
 		expect(compiled.javascript).toContain("export {");
 		expect(compiled.javascript).toContain("sourceMappingURL=data:application/json;base64,");

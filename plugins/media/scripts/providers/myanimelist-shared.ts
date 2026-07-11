@@ -10,18 +10,18 @@ import { getUserIsNsfw } from "../script-helpers/host";
 import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
 
 export type MyAnimeListHost = SandboxHost<
-	readonly ["httpCall", "getAppConfigValue", "getUserPreferences"]
+	readonly ["httpCall", "getPluginConfigValue", "getUserPreferences"]
 >;
 
 const MAL_API_BASE_URL = "https://api.myanimelist.net/v2";
 
 export const getMalClientId = (host: MyAnimeListHost) =>
-	host.getAppConfigValue("animeAndManga.malClientId").pipe(
+	host.getPluginConfigValue("malClientId").pipe(
 		Effect.mapError((error) => new Error(error.message || "Could not load MyAnimeList client ID")),
 		Effect.map((value) => {
 			const clientId = typeof value === "string" ? value.trim() : "";
 			if (!clientId) {
-				throw new Error("ANIME_AND_MANGA_MAL_CLIENT_ID is not configured");
+				throw new Error("RYOT_PLUGIN_MEDIA_MAL_CLIENT_ID is not configured");
 			}
 			return clientId;
 		}),

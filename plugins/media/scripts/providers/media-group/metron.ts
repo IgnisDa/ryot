@@ -9,8 +9,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Metron",
 	slug: "comic-book-group.metron",
-	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["comicBooks.metronUsername", "comicBooks.metronPassword"],
+	capabilities: ["httpCall", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
+	requiredSystemConfigKeys: [],
 });
 
 const METRON_BASE_URL = "https://metron.cloud/api";

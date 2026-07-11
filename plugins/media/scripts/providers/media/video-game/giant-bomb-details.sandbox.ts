@@ -7,8 +7,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb Video Game Details",
 	slug: "video-game.giant-bomb.details",
-	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["videoGames.giantBombApiKey"],
+	capabilities: ["httpCall", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["giantBombApiKey"],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });

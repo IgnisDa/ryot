@@ -7,8 +7,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Movie Group Translate",
 	slug: "movie-group.tmdb.translate",
-	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+	capabilities: ["httpCall", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, operation: "translate", run: translate.run });

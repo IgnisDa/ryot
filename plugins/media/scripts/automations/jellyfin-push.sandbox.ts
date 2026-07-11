@@ -21,7 +21,8 @@ export const manifest = defineManifest({
 	kind: "automation",
 	name: "Jellyfin Push",
 	slug: "trigger.jellyfin-push",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: [
 		"httpCall",
 		"getEntity",

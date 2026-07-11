@@ -15,6 +15,7 @@ const installEchoOperationPlugin = () => {
 	return Effect.acquireRelease(
 		installTestPlugin({
 			pluginSlug: `e2e-operations-${crypto.randomUUID()}`,
+			configSchema: { fields: {}, unknownKeys: "strict" },
 			source: operationSandboxSource({ name: "E2E Echo Operation", slug: scriptSlug }),
 			operations: [
 				{
@@ -28,7 +29,8 @@ const installEchoOperationPlugin = () => {
 				capabilities: [],
 				slug: scriptSlug,
 				kind: "operation",
-				requiredAppConfigKeys: [],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
 				name: "E2E Echo Operation",
 			},
 		}),

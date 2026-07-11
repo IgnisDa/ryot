@@ -11,7 +11,8 @@ const scriptManifest = defineManifest({
 	capabilities: ["getCachedValue"],
 	name: "Typed script",
 	slug: "typed-script",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 const script = defineScript({
 	manifest: scriptManifest,
@@ -28,7 +29,8 @@ const operationManifest = defineManifest({
 	capabilities: [],
 	name: "Typed operation",
 	slug: "typed-operation",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 const operation = defineOperation({
 	manifest: operationManifest,
@@ -42,7 +44,8 @@ const activityManifest = defineManifest({
 	capabilities: ["httpCall"],
 	name: "Typed activity",
 	slug: "typed-activity",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 const activity = defineActivity({
 	manifest: activityManifest,
@@ -56,7 +59,8 @@ const workflowManifest = defineManifest({
 	capabilities: [],
 	name: "Typed workflow",
 	slug: "typed-workflow",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 const workflow = defineWorkflow({
 	manifest: workflowManifest,

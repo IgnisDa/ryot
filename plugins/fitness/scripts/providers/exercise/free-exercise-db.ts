@@ -9,7 +9,7 @@ type ExercisePreloadHost = SandboxHost<
 		"httpCall",
 		"getCachedValue",
 		"setCachedValue",
-		"getAppConfigValue",
+		"getPluginConfigValue",
 		"upsertGlobalEntities",
 	]
 >;
@@ -510,7 +510,7 @@ export const preloadResultSchema = Schema.Struct({
 
 export const preloadExercises = (host: ExercisePreloadHost) =>
 	Effect.gen(function* () {
-		const configuredLimit = yield* host.getAppConfigValue("builtinExercisePreloadLimit");
+		const configuredLimit = yield* host.getPluginConfigValue("exercisePreloadLimit");
 		if (typeof configuredLimit !== "number") {
 			return yield* Effect.fail(new Error("Exercise preload limit must be a number"));
 		}

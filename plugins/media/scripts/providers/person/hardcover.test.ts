@@ -13,7 +13,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: HardcoverPersonHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Effect.succeed("hardcover-key"),
+		getPluginConfigValue: () => Effect.succeed("hardcover-key"),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };

@@ -8,7 +8,8 @@ export const manifest = defineManifest({
 	slug: "zeta",
 	kind: "script",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineScript({

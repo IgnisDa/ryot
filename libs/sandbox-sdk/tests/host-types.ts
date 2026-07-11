@@ -10,7 +10,8 @@ const allCapabilitiesManifest = defineManifest({
 	kind: "script",
 	name: "All core capabilities",
 	slug: "all-core-capabilities",
-	requiredAppConfigKeys: ["timezone"],
+	requiredPluginConfigKeys: ["timezone"],
+	requiredSystemConfigKeys: ["log-level"],
 	capabilities: [
 		"log",
 		"span",
@@ -18,7 +19,8 @@ const allCapabilitiesManifest = defineManifest({
 		"getCachedValue",
 		"setCachedValue",
 		"claimCachedValue",
-		"getAppConfigValue",
+		"getPluginConfigValue",
+		"getSystemConfigValue",
 		"getUserPreferences",
 	],
 });
@@ -55,12 +57,14 @@ defineScript({
 				const value: JsonValue | null = claim.value;
 				void value;
 			}
-			const config: JsonValue = yield* host.getAppConfigValue("timezone");
+			const pluginConfig: string = yield* host.getPluginConfigValue<string>("timezone");
+			const systemConfig: JsonValue = yield* host.getSystemConfigValue("log-level");
 			const preferences = yield* host.getUserPreferences();
 			const isNsfw: boolean = preferences.isNsfw;
 			void cached;
 			void stored;
-			void config;
+			void pluginConfig;
+			void systemConfig;
 			void isNsfw;
 
 			const errorType: Expect<
@@ -82,7 +86,8 @@ defineScript({
 
 const narrowedManifest = defineManifest({
 	kind: "script",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	name: "Narrowed capabilities",
 	slug: "narrowed-capabilities",
 	capabilities: ["getCachedValue"],
@@ -105,7 +110,8 @@ defineSandboxTestHost(narrowedManifest, {
 const allDomainManifest = defineManifest({
 	kind: "script",
 	name: "All domain capabilities",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	slug: "all-domain-capabilities",
 	capabilities: [
 		"getEntity",
@@ -204,7 +210,8 @@ defineScript({
 const promiseScriptManifest = defineManifest({
 	kind: "script",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	name: "Promise driver rejection",
 	slug: "promise-driver-rejection",
 });

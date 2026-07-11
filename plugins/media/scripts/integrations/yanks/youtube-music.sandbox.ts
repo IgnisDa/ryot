@@ -9,7 +9,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "YouTube Music yank",
 	slug: "integration.youtube-music",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getIntegration", "claimCachedValue"],
 });
 const Input = Schema.Struct({});

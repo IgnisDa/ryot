@@ -7,8 +7,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Spotify Person Details",
 	slug: "person.spotify.details",
-	requiredAppConfigKeys: ["music.spotifyClientId", "music.spotifyClientSecret"],
-	capabilities: ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
+	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
+	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });

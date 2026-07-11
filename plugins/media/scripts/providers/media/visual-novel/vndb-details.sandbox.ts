@@ -7,7 +7,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "VNDB Visual Novel Details",
 	slug: "visual-novel.vndb.details",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 });
 

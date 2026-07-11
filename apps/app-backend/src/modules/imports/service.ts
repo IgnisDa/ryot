@@ -235,7 +235,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			if (!registered) {
 				return yield* badRequest("Import source is not available");
 			}
-			const startError = registryImportSourceStartError(registered, config);
+			const startError = yield* registryImportSourceStartError(registered);
 			if (startError) {
 				return yield* badRequest(startError);
 			}

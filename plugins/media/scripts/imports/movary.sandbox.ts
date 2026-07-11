@@ -11,7 +11,8 @@ import { readNamedImportArtifactText } from "./shared";
 export const manifest = defineManifest({
 	kind: "activity",
 	name: "Parse Movary import",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	slug: "activity.import.movary",
 	capabilities: ["artifact-read"],
 });

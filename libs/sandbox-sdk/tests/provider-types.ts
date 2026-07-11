@@ -9,7 +9,8 @@ const manifest = defineManifest({
 	kind: "provider",
 	name: "Typed provider",
 	slug: "typed.provider",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["getCachedValue"],
 });
 const provider = defineProvider({
