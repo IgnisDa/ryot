@@ -48,10 +48,7 @@ function EntityDocument(props: {
 }
 
 function EntityPending() {
-	if (useHasPublishedClientPageDocument()) {
-		return null;
-	}
-	return <EntityNotice title="Entity loading" />;
+	return useHasPublishedClientPageDocument() ? null : <EntityNotice title="Entity loading" />;
 }
 
 function EntityError() {

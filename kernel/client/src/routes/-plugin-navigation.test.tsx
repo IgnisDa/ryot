@@ -148,6 +148,7 @@ const preparedSavedView = (savedViewId: SavedViewId): PreparedClientPage => {
 function mount(options: {
 	readonly entry: string;
 	readonly entries?: PluginClientCatalog;
+	readonly auth?: ReturnType<typeof makeAuthStub>;
 	readonly prepare?: ClientPagesApi["Service"]["prepare"];
 	readonly renew?: ClientPageSessions["Service"]["renew"];
 }) {
@@ -174,7 +175,7 @@ function mount(options: {
 			ImportsRouteStubs,
 			IntegrationRouteStubs,
 			NotificationChannelRouteStubs,
-			makeAuthStub(),
+			options.auth ?? makeAuthStub(),
 			GodModeRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
@@ -399,6 +400,72 @@ describe("client page routes", () => {
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/one"));
 		expect(view.sessions).toHaveLength(2);
 		expect(screen.getAllByTitle("fixture plugin")).toContain(pluginFrame);
+	});
+
+	it("rebuilds a retained frame when its prepared context settings change", async () => {
+		let defaultLayout = "grid";
+		const view = mount({
+			entry: "/fixture/details/one",
+			prepare: (_scope, request) => {
+				const target = request.payload.target;
+				if (target.kind === "saved-view") {
+					return Effect.succeed(preparedSavedView(target.savedViewId));
+				}
+				const prepared = preparedFor(
+					target,
+					target.kind === "plugin-route" ? target.pluginId : "plugin-1",
+				);
+				return Effect.succeed({
+					...prepared,
+					context: { ...prepared.context, settings: { defaultLayout } },
+				});
+			},
+		});
+		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+		await waitFor(() => expect(view.sessions).toHaveLength(1));
+
+		await view.router.navigate({ href: "/fixture/details/two" });
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/two"));
+		expect(view.sessions).toHaveLength(1);
+		expect(screen.getAllByTitle("fixture plugin")).toContain(frame);
+
+		defaultLayout = "list";
+		await view.router.navigate({ href: "/fixture/details/one" });
+		await waitFor(() => expect(view.sessions).toHaveLength(2));
+	});
+
+	it("drops every retained frame and revokes its session when the api scope changes", async () => {
+		let userId = "user-1";
+		const entries = Array.from({ length: 2 }, (_, index) => ({
+			...catalog[0],
+			name: `Plugin ${index + 1}`,
+			slug: `plugin-${index + 1}`,
+			pluginId: `plugin-${index + 1}`,
+			installationId: `installation-${index + 1}`,
+		}));
+		const view = mount({
+			entries,
+			entry: "/plugin-1",
+			auth: makeAuthStub({
+				settledSession: () =>
+					Effect.succeed({
+						status: "authenticated",
+						user: { id: userId, image: null, name: "Test User", email: "user@ryot.example" },
+					}),
+			}),
+		});
+		await screen.findByTitle("fixture plugin");
+		await view.router.navigate({ href: "/plugin-2" });
+		await waitFor(() => expect(view.sessions).toHaveLength(2));
+		expect(document.querySelectorAll("iframe")).toHaveLength(2);
+
+		userId = "user-2";
+		await act(async () => {
+			await view.router.invalidate();
+		});
+
+		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(1));
+		expect(view.revoked).toContain("session-1");
 	});
 
 	it("evicts the least recently active frame after retaining three realms", async () => {

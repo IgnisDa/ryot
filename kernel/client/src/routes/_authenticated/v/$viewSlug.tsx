@@ -193,10 +193,9 @@ function SavedViewPage() {
 }
 
 function SavedViewPending() {
-	if (useHasPublishedClientPageDocument()) {
-		return null;
-	}
-	return <SavedViewNotice title="Loading saved view" message="Loading saved view..." />;
+	return useHasPublishedClientPageDocument() ? null : (
+		<SavedViewNotice title="Loading saved view" message="Loading saved view..." />
+	);
 }
 
 function SavedViewNotFound() {
