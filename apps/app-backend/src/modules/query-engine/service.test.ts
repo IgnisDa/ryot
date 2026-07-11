@@ -1,10 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
-import {
-	EntitySchemaSlug,
-	PluginSlug,
-	RelationshipSchemaSlug,
-} from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, PluginSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 

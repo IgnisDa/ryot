@@ -1,5 +1,5 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { PluginSlug } from "@ryot/contract/schema/brands";
+import type { PluginSlug } from "@ryot/contract/schema/brands";
 import type { PluginCron } from "@ryot/plugin-kit/manifest";
 import { Clock, Cron, Duration, Effect, Either, Layer } from "effect";
 
