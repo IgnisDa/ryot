@@ -1,6 +1,7 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import type { SelectedRow } from "@ryot-app/client-sdk/ryotql";
 
+import type { MediaLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaSummarySelection } from "../../shared/media-recipes";
 import {
 	collectManagedAssetLocators,
@@ -129,6 +130,18 @@ export const mediaSummaryStateMapper = <
 		return { summary, status: "ready" };
 	},
 });
+
+const MEDIA_FLAT_LIFECYCLE_LABELS: Record<MediaLifecycleState, string> = {
+	on_hold: "On hold",
+	dropped: "Dropped",
+	complete: "Complete",
+	backlog: "In backlog",
+	untracked: "Not tracked",
+	in_progress: "In progress",
+};
+
+export const mediaFlatLifecycleLabel = (state: MediaLifecycleState) =>
+	MEDIA_FLAT_LIFECYCLE_LABELS[state];
 
 export const mediaOwnershipLabel = (owned: boolean | null) => {
 	if (owned === null) {

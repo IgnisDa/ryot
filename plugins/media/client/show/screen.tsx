@@ -11,7 +11,11 @@ import {
 	type MediaStatusCopy,
 } from "../media/detail-screen";
 import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT } from "../media/hero";
-import { MediaOverviewRelations, type MediaOverviewRelationsRender } from "../media/overview";
+import {
+	MediaOverviewRelations,
+	type MediaCreditCopy,
+	type MediaOverviewRelationsRender,
+} from "../media/overview";
 import {
 	mediaOverviewManagedAssets,
 	mediaRelationsAreEmpty,
@@ -47,6 +51,12 @@ const SHOW_LOADING: MediaStatusCopy = {
 	detail: "Fetching the latest details for this show.",
 };
 
+const SHOW_CREDIT_COPY: MediaCreditCopy = {
+	people: "Cast & crew",
+	companies: "Production companies",
+	notice: "Cast, companies and recommendations",
+};
+
 const showOverviewRelations: MediaOverviewRelationsRender<MediaOverviewRows> = ({
 	compact,
 	divided,
@@ -56,6 +66,7 @@ const showOverviewRelations: MediaOverviewRelationsRender<MediaOverviewRows> = (
 		compact={compact}
 		divided={divided}
 		overview={overview}
+		copy={SHOW_CREDIT_COPY}
 		onViewAllPeople={() => console.log("TODO: open all show credits")}
 	/>
 );
@@ -105,6 +116,7 @@ export function ShowScreenBody(props: {
 			overviewIsEmpty={mediaRelationsAreEmpty}
 			overviewRelations={showOverviewRelations}
 			summaryUnavailable={showSummaryUnavailable}
+			overviewNoticeTitle={SHOW_CREDIT_COPY.notice}
 			summaryRefreshStatus={props.summaryRefreshStatus}
 			overviewRefreshStatus={props.overviewRefreshStatus}
 			tabContent={{ episodes: props.episodes, activity: props.activity }}

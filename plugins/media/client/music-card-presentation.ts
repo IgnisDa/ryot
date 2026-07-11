@@ -1,1 +1,3 @@
-export { musicCardPresentation as default } from "./music/presentation";
+import { musicSchema } from "./music/schema";
+
+export default musicSchema.cardPresentation;
