@@ -91,11 +91,18 @@ export const ExecutionAuthority = Schema.Union(
 
 export type ExecutionAuthority = Schema.Schema.Type<typeof ExecutionAuthority>;
 
+export const SandboxExecutionGrants = strictStruct({
+	artifactPath: Schema.optional(Schema.String),
+});
+
+export type SandboxExecutionGrants = Schema.Schema.Type<typeof SandboxExecutionGrants>;
+
 export const SandboxExecutionPayload = strictStruct({
 	context: Schema.Unknown,
 	scriptId: SandboxScriptId,
-	authority: ExecutionAuthority,
 	executionId: Schema.String,
+	authority: ExecutionAuthority,
+	grants: Schema.optional(SandboxExecutionGrants),
 });
 
 export type SandboxExecutionPayload = Schema.Schema.Type<typeof SandboxExecutionPayload>;

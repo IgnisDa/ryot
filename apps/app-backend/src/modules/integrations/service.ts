@@ -4,6 +4,7 @@ import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
 	CreateIntegrationBody,
 	IntegrationExtraSettings,
+	IntegrationProvider,
 	IntegrationProviderSpecifics,
 	IntegrationWebhookPayload,
 	UpdateIntegrationBody,
@@ -17,8 +18,14 @@ import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/b
 import { Effect, Either, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import {
+	formatPropertyIssues,
+	parseAppSchemaProperties,
+} from "#lib/property-schema/property-schema-runtime";
 import { ImportsService } from "#modules/imports/service";
+import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 
+import { redactIntegrationForClient, type RegisteredProviderLookup } from "./client-redaction";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import type { IntegrationReconciliationRun } from "./jobs";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
@@ -45,6 +52,11 @@ const buildIntegrationInputSummary = (
 	...(integration.name ? { name: integration.name } : {}),
 });
 
+export const resolveIntegrationLot = (
+	findProvider: RegisteredProviderLookup,
+	provider: IntegrationProvider,
+) => findProvider(provider)?.lot ?? providerLotByProvider[provider];
+
 export const validateProgressThresholds = (
 	minimumProgress: number,
 	maximumProgress: number,
@@ -67,12 +79,29 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 		effect: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
-			const runInTransaction = yield* TransactionRunner;
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
+			const runInTransaction = yield* TransactionRunner;
+			const providerCatalog = yield* IntegrationProviderCatalog;
 
 			const failCreatedRun = (runId: ImportRunId, message: string) =>
 				importsService.failRunForIntegration(runId, message);
+
+			const validateRegisteredSettings = (provider: IntegrationProvider, settings: unknown) => {
+				const registered = providerCatalog.find(provider);
+				return registered
+					? parseAppSchemaProperties({
+							properties: settings,
+							kind: `${provider} integration`,
+							propertiesSchema: registered.settingsSchema,
+						}).pipe(
+							Effect.mapError((error) =>
+								badRequest(`Invalid providerSpecifics: ${formatPropertyIssues(error.issues)}`),
+							),
+							Effect.asVoid,
+						)
+					: Effect.void;
+			};
 
 			const requireIntegration = Effect.fn("IntegrationsService.requireIntegration")(function* (
 				userId: UserId,
@@ -93,6 +122,8 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 					return yield* badRequest("providerSpecifics.kind must match provider");
 				}
 
+				yield* validateRegisteredSettings(body.provider, body.providerSpecifics);
+
 				const minimumProgress = body.minimumProgress ?? 2;
 				const maximumProgress = body.maximumProgress ?? 95;
 				const thresholdError = validateProgressThresholds(minimumProgress, maximumProgress);
@@ -103,15 +134,15 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				const created = yield* runWithDb(
 					repository.createForUser({
 						userId: user.id,
-						provider: body.provider,
 						name: body.name ?? null,
+						provider: body.provider,
 						isDisabled: body.isDisabled ?? false,
-						lot: providerLotByProvider[body.provider],
 						providerSpecifics: body.providerSpecifics,
 						syncOwnership: body.syncOwnership ?? false,
 						minimumProgress: String(minimumProgress),
 						maximumProgress: String(maximumProgress),
 						extraSettings: body.extraSettings ?? defaultExtraSettings,
+						lot: resolveIntegrationLot(providerCatalog.find, body.provider),
 					}),
 				);
 
@@ -149,6 +180,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 					if (merged.kind !== existing.provider) {
 						return yield* badRequest("providerSpecifics.kind must match provider");
 					}
+					yield* validateRegisteredSettings(existing.provider, merged);
 					providerSpecifics = merged;
 				}
 
@@ -234,7 +266,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				if (!integration) {
 					return yield* notFound("Integration not found");
 				}
-				if (integration.lot !== "sink") {
+				if (resolveIntegrationLot(providerCatalog.find, integration.provider) !== "sink") {
 					return yield* badRequest("Integration is not a sink integration");
 				}
 
@@ -265,11 +297,11 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 						discard: true,
 						executionId: run.id,
 						payload: {
+							rawBody,
 							runId: run.id,
 							userId: integration.userId,
 							integrationId: integration.id,
 							contentType: "application/json",
-							rawBody,
 						},
 					})
 					.pipe(Effect.either);
@@ -320,13 +352,26 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				},
 			);
 
+			const redactForClient = (integration: IntegrationRecord) =>
+				redactIntegrationForClient(providerCatalog.find, integration);
+
+			const getForClient = (user: CurrentUserValue, integrationId: IntegrationId) =>
+				get(user, integrationId).pipe(Effect.map(redactForClient));
+
+			const listForClient = (...input: Parameters<typeof list>) =>
+				list(...input).pipe(Effect.map((integrations) => integrations.map(redactForClient)));
+
+			const updateForClient = (...input: Parameters<typeof update>) =>
+				update(...input).pipe(Effect.map(redactForClient));
+
 			return {
-				get,
-				list,
 				create,
 				update,
 				listRuns,
+				getForClient,
 				handleWebhook,
+				listForClient,
+				updateForClient,
 				disableIfEnabled,
 				prepareScheduledYankRuns,
 				delete: deleteIntegration,

@@ -173,11 +173,13 @@ const schemaProviderLinks = (
 
 export const mediaPlugin = definePlugin({
 	boot: [],
+	importSources: [],
+	integrationProviders: [],
+	providers: mediaProviders,
 	workflows: [
 		{ slug: "media-import-population", scriptSlug: "workflow.media-import-population" },
 		{ slug: "media-import-resolution", scriptSlug: "workflow.media-import-resolution" },
 	],
-	providers: mediaProviders,
 	crons: [
 		{
 			slug: "media-trending",
