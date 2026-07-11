@@ -5,7 +5,8 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 export const manifest = defineManifest({
 	capabilities: [],
 	kind: "automation",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	name: "Fixture Automation",
 	slug: "fixture.automation",
 });

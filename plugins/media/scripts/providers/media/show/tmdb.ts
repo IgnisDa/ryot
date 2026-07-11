@@ -21,16 +21,18 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Show",
 	slug: "show.tmdb",
-	requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
-	capabilities: ["httpCall", "getAppConfigValue", "getUserPreferences"],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
+	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getPluginConfigValue", "getUserPreferences"],
 });
 
 const httpManifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Show",
 	slug: "show.tmdb",
-	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+	capabilities: ["httpCall", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
+	requiredSystemConfigKeys: [],
 });
 
 export const search = defineProvider({

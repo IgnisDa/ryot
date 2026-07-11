@@ -15,7 +15,7 @@ const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 		httpCall,
 		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		setCachedValue: () => Effect.succeed(null),
-		getAppConfigValue: () => Effect.succeed("test-api-key"),
+		getPluginConfigValue: () => Effect.succeed("test-api-key"),
 	});
 
 const detailsHost = (person: unknown, translation: unknown = { data: {} }) =>

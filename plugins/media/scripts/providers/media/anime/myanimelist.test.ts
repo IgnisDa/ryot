@@ -13,7 +13,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: MyAnimeListAnimeHost["httpCall"], isNsfw = false) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Effect.succeed("client-id"),
+		getPluginConfigValue: () => Effect.succeed("client-id"),
 		getUserPreferences: () => Effect.succeed({ isNsfw, disableIntegrations: false }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };

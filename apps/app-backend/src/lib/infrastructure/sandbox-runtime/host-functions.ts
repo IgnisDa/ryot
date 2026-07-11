@@ -27,11 +27,10 @@ import {
 	reconcileGlobalRelationships,
 } from "#modules/relationships/service";
 
-import { AppConfig } from "../config/service";
 import * as schema from "../db/schema/tables/combined";
 import { CurrentDb, DbRunner, dbEffect, TransactionRunner } from "../db/service";
 import { RedisService, redisKeys } from "../redis";
-import { getSandboxAppConfigValue } from "./app-config";
+import { getPluginConfigValue, getSystemConfigValue } from "./app-config";
 import {
 	sandboxCacheKeyError,
 	sandboxCacheTtlError,
@@ -54,7 +53,6 @@ import {
 
 type SandboxHostFunctionContext =
 	| DbRunner
-	| AppConfig
 	| RedisService
 	| EventsService
 	| EntitiesService
@@ -114,7 +112,6 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 	SandboxHostFunctionContext
 > =>
 	Effect.gen(function* () {
-		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
 		const events = yield* EventsService;
@@ -392,26 +389,43 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					sandboxHostEffect,
 				);
 			},
-			getAppConfigValue: (input, key) => {
+			getPluginConfigValue: (input, key) => {
 				if (typeof key !== "string" || !key.trim()) {
-					return sandboxHostFailure("getAppConfigValue expects a non-empty key string");
+					return sandboxHostFailure("getPluginConfigValue expects a non-empty key string");
 				}
 
 				return sandboxHostEffect(
-					getSandboxAppConfigValue(config, key.trim(), {
-						scriptIsBuiltin: input.scriptIsBuiltin,
-						requiredAppConfigKeys:
-							isObjectRecord(input.metadata) &&
-							Array.isArray(input.metadata["requiredAppConfigKeys"])
-								? input.metadata["requiredAppConfigKeys"].filter(
-										(value): value is string => typeof value === "string",
-									)
-								: [],
-					}).pipe(
+					runWithDb(
+						pluginRuntime.findActivePluginConfigByScriptId(SandboxScriptId.make(input.scriptId)),
+					).pipe(
+						Effect.flatMap((plugin) =>
+							plugin
+								? getPluginConfigValue({
+										key: key.trim(),
+										metadata: input.metadata,
+										pluginSlug: plugin.pluginSlug,
+										configSchema: plugin.configSchema,
+									})
+								: Effect.fail("Plugin config is available only to active plugin scripts"),
+						),
 						Effect.flatMap((value) =>
 							isJsonValue(value)
 								? Effect.succeed(value)
-								: Effect.fail(`Config key "${key.trim()}" is not JSON-compatible`),
+								: Effect.fail(`Plugin config key "${key.trim()}" is not JSON-compatible`),
+						),
+					),
+				);
+			},
+			getSystemConfigValue: (input, key) => {
+				if (typeof key !== "string" || !key.trim()) {
+					return sandboxHostFailure("getSystemConfigValue expects a non-empty key string");
+				}
+				return sandboxHostEffect(
+					getSystemConfigValue(key.trim(), input.metadata).pipe(
+						Effect.flatMap((value) =>
+							isJsonValue(value)
+								? Effect.succeed(value)
+								: Effect.fail(`System config key "${key.trim()}" is not JSON-compatible`),
 						),
 					),
 				);

@@ -7,6 +7,18 @@ const manifest = definePlugin({
 	savedViews: [],
 	entitySchemas: [],
 	relationshipSchemas: [],
+	configSchema: {
+		unknownKeys: "strict",
+		fields: {
+			TEST_KEY: {
+				secret: true,
+				type: "string",
+				label: "Test key",
+				description: "Test plugin key",
+				validation: { required: true, minLength: 1 },
+			},
+		},
+	},
 	boot: [{ slug: "boot.test", scriptSlug: "automation.test", description: "Boot test data" }],
 	crons: [
 		{
@@ -44,7 +56,7 @@ const manifest = definePlugin({
 			name: "Test import source",
 			allowedFileExtensions: ["json"],
 			workflowSlug: "refresh.workflow",
-			requiredAppConfigKeys: ["TEST_KEY"],
+			requiredPluginConfigKeys: ["TEST_KEY"],
 			description: "Import test data from a file",
 		},
 	],
@@ -102,7 +114,8 @@ const manifest = definePlugin({
 			kind: "automation",
 			name: "Test automation",
 			slug: "automation.test",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 			capabilities: ["emitSignal"],
 			entry: "scripts/test.sandbox.ts",
 		},
@@ -110,7 +123,8 @@ const manifest = definePlugin({
 			kind: "operation",
 			name: "Test operation",
 			slug: "operation.test",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 			capabilities: [],
 			entry: "scripts/operation.sandbox.ts",
 		},
@@ -120,7 +134,8 @@ const manifest = definePlugin({
 			slug: "provider.test.details",
 			providerSlug: "provider.test",
 			providerOperation: "details",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 			capabilities: [],
 			entry: "scripts/provider-details.sandbox.ts",
 		},
@@ -130,7 +145,8 @@ const manifest = definePlugin({
 			slug: "provider.test.search",
 			providerSlug: "provider.test",
 			providerOperation: "search",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 			capabilities: [],
 			entry: "scripts/provider-search.sandbox.ts",
 		},
@@ -139,7 +155,8 @@ const manifest = definePlugin({
 			name: "Test provider preload",
 			slug: "provider.test.preload",
 			providerSlug: "provider.test",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 			capabilities: [],
 			entry: "scripts/provider-preload.sandbox.ts",
 		},
@@ -148,7 +165,8 @@ const manifest = definePlugin({
 			name: "Test workflow",
 			slug: "workflow.test",
 			capabilities: [],
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 			entry: "scripts/workflow.sandbox.ts",
 		},
 		{
@@ -157,7 +175,8 @@ const manifest = definePlugin({
 			slug: "activity.test",
 			providerSlug: "provider.test",
 			capabilities: ["httpCall"],
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 			entry: "scripts/activity.sandbox.ts",
 		},
 	],
@@ -342,7 +361,115 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
-				scripts: [{ ...manifest.scripts[0], requiredAppConfigKeys: [""] }],
+				scripts: [{ ...manifest.scripts[0], requiredPluginConfigKeys: [""] }],
+			}),
+		).toThrow();
+	});
+
+	it("restricts plugin config schemas to environment-safe top-level fields", () => {
+		for (const configSchema of [
+			{ ...manifest.configSchema, unknownKeys: "strip" },
+			{ ...manifest.configSchema, rules: [] },
+			{
+				...manifest.configSchema,
+				fields: {
+					...manifest.configSchema.fields,
+					value: {
+						type: "string",
+						label: "Value",
+						translatable: true,
+						description: "A translated value",
+					},
+				},
+			},
+			{
+				...manifest.configSchema,
+				fields: {
+					...manifest.configSchema.fields,
+					value: {
+						type: "number",
+						label: "Value",
+						description: "A transformed value",
+						transform: { round: { scale: 1, mode: "half_up" } },
+					},
+				},
+			},
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({ ...manifest, configSchema }),
+			).toThrow();
+		}
+
+		for (const field of [
+			{ type: "date", label: "Value", description: "A date value" },
+			{ type: "datetime", label: "Value", description: "A datetime value" },
+			{
+				type: "enum-array",
+				label: "Value",
+				options: ["one"],
+				description: "An enum array value",
+			},
+			{
+				type: "array",
+				label: "Value",
+				description: "An array value",
+				items: { type: "string", label: "Item", description: "An item" },
+			},
+			{
+				type: "object",
+				label: "Value",
+				properties: {},
+				description: "An object value",
+			},
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({
+					...manifest,
+					configSchema: {
+						...manifest.configSchema,
+						fields: { ...manifest.configSchema.fields, value: field },
+					},
+				}),
+			).toThrow();
+		}
+	});
+
+	it("requires declared plugin config keys to exist in the config schema", () => {
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [
+					{ ...manifest.scripts[0], requiredPluginConfigKeys: ["MISSING_KEY"] },
+					...manifest.scripts.slice(1),
+				],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				importSources: [
+					{ ...manifest.importSources[0], requiredPluginConfigKeys: ["MISSING_KEY"] },
+				],
+			}),
+		).toThrow();
+	});
+
+	it("rejects plugin config keys that normalize to the same environment variable", () => {
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				configSchema: {
+					unknownKeys: "strict",
+					fields: {
+						"api-token": { type: "string", label: "API token", description: "Token" },
+						api_token: { type: "string", label: "API token", description: "Token" },
+					},
+				},
+				importSources: [],
+				scripts: manifest.scripts.map((script) => ({
+					...script,
+					requiredPluginConfigKeys: [],
+				})),
 			}),
 		).toThrow();
 	});
@@ -717,7 +844,7 @@ describe("definePlugin", () => {
 			slug: "import.named",
 			name: "Named import source",
 			workflowSlug: "refresh.workflow",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
 			description: "Import named files",
 			artifacts: [
 				{

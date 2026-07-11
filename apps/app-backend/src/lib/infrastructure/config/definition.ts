@@ -1,460 +1,302 @@
-import { Config, ConfigError, Either, LogLevel } from "effect";
+import { booleanField, defineConfig, group, integerField, stringField } from "@ryot/config";
+import { Config } from "effect";
 
-import type { ConfigLeaf, FieldMeta } from "./builder";
-import { boolField, group, intField, optField, secretField, strField } from "./builder";
-
-const fields = {
-	redisUrl: secretField("REDIS_URL", "Redis connection string"),
-	databaseUrl: secretField("DATABASE_URL", "PostgreSQL connection string"),
-	smtpUser: optField(secretField("SERVER_SMTP_USER", "SMTP username")),
-	s3Region: optField(strField("FILE_STORAGE_S3_REGION", "S3 bucket region")),
-	oidcClientId: optField(strField("SERVER_OIDC_CLIENT_ID", "OIDC client ID")),
-	port: intField("PORT", "HTTP port the server listens on", { default: 8000 }),
-	smtpServer: optField(strField("SERVER_SMTP_SERVER", "SMTP server hostname")),
-	smtpPassword: optField(secretField("SERVER_SMTP_PASSWORD", "SMTP password")),
-	oidcIssuerUrl: optField(strField("SERVER_OIDC_ISSUER_URL", "OIDC issuer URL")),
-	s3Url: optField(strField("FILE_STORAGE_S3_URL", "S3-compatible endpoint URL")),
-	s3BucketName: optField(strField("FILE_STORAGE_S3_BUCKET_NAME", "S3 bucket name")),
-	tvdbApiKey: optField(secretField("MOVIES_AND_SHOWS_TVDB_API_KEY", "TVDB API key")),
-	spotifyClientId: optField(strField("MUSIC_SPOTIFY_CLIENT_ID", "Spotify client ID")),
-	metronUsername: optField(strField("COMIC_BOOK_METRON_USERNAME", "Metron username")),
-	logFile: optField(strField("SERVER_LOG_FILE", "File path for appended structured logs")),
-	s3AccessKeyId: optField(secretField("FILE_STORAGE_S3_ACCESS_KEY_ID", "S3 access key ID")),
-	otlpEndpoint: optField(strField("SERVER_OTLP_ENDPOINT", "Base URL for OTLP trace export")),
-	oidcClientSecret: optField(secretField("SERVER_OIDC_CLIENT_SECRET", "OIDC client secret")),
-	listennotesApiKey: optField(secretField("PODCASTS_LISTENNOTES_API_KEY", "ListenNotes API key")),
-	frontendUrl: strField("FRONTEND_URL", "Public URL of the frontend application", {
-		default: "http://localhost:3000",
-	}),
-	smtpMailbox: strField("SERVER_SMTP_MAILBOX", "SMTP sender mailbox", {
-		default: "Ryot <no-reply@ryot.io>",
-	}),
-	jobIdSecret: secretField("SANDBOX_JOB_ID_SECRET", "Secret used to sign sandbox job identifiers", {
-		default: "changeme",
-	}),
-	s3SecretAccessKey: optField(
-		secretField("FILE_STORAGE_S3_SECRET_ACCESS_KEY", "S3 secret access key"),
-	),
-	disableNotifications: boolField(
-		"SERVER_DISABLE_NOTIFICATIONS",
-		"Disable delivery of all notifications",
-		{ default: false },
-	),
-	databaseConnectionTimeoutMs: intField(
-		"DATABASE_CONNECTION_TIMEOUT_MS",
-		"Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool",
-		{ default: 10_000 },
-	),
-	databasePoolMax: intField(
-		"DATABASE_POOL_MAX",
-		"Maximum number of PostgreSQL connections held in the pool",
-		{ default: 10 },
-	),
-	databaseWorkflowPoolMax: intField(
-		"DATABASE_WORKFLOW_POOL_MAX",
-		"Maximum number of PostgreSQL connections held in the dedicated workflow engine pool",
-		{ default: 10 },
-	),
-	oidcButtonLabel: optField(
-		strField("FRONTEND_OIDC_BUTTON_LABEL", "Label for the OIDC sign-in button"),
-	),
-	corsOrigins: optField(
-		strField("SERVER_CORS_ORIGINS", "Comma-separated list of allowed CORS origins"),
-	),
-	timezone: strField(
-		"TZ",
-		"IANA timezone used for interpreting timezone-less datetimes during imports",
-		{ default: "Etc/GMT" },
-	),
-	allowRegistration: boolField(
-		"USERS_ALLOW_REGISTRATION",
-		"Allow new users to register via email and password",
-		{ default: true },
-	),
-	disableLocalAuth: boolField(
-		"USERS_DISABLE_LOCAL_AUTH",
-		"Disable local email/password authentication, requiring OIDC",
-		{ default: false },
-	),
-	progressUpdateThresholdHours: intField(
-		"SERVER_PROGRESS_UPDATE_THRESHOLD",
-		"Minimum hours between automatic progress updates for an entity",
-		{ default: 2 },
-	),
-	builtinExercisePreloadLimit: intField(
-		"BUILTIN_EXERCISE_PRELOAD_LIMIT",
-		"Maximum number of built-in exercises to preload",
-		{ default: 873 },
-	),
-	frequentCronJobsSchedule: strField(
-		"SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE",
-		"Interval phrase for the frequent cron tier",
-		{ default: "every 5 minutes" },
-	),
-	infrequentCronJobsSchedule: strField(
-		"SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE",
-		"Cron expression used by plugin crons assigned to the infrequent tier",
-		{ default: "0 0 * * *" },
-	),
-	disableDispatchers: boolField(
-		"SCHEDULER_DISABLE_DISPATCHERS",
-		"Disable automatic scheduler dispatchers (the frequent/infrequent cron tiers, plugin manifest crons, and the one-time plugin boot dispatcher)",
-		{ default: false },
-	),
-	timeoutMs: intField(
-		"SANDBOX_TIMEOUT_MS",
-		"Maximum execution time for a sandbox job in milliseconds",
-		{ default: 10_000 },
-	),
-	workerConcurrency: intField(
-		"SANDBOX_WORKER_CONCURRENCY",
-		"Maximum number of concurrent sandbox jobs",
-		{ default: 5 },
-	),
-	denoDir: strField(
-		"SANDBOX_DENO_DIR",
-		"Directory used for the local sandbox dependency runtime and Deno cache",
-		{ default: "/tmp/ryot-sandbox-deno" },
-	),
-	adminAccessToken: secretField(
-		"SERVER_ADMIN_ACCESS_TOKEN",
-		"Bearer token required for god-mode admin endpoints",
-	),
-	nodeEnv: strField("NODE_ENV", "Runtime environment name", {
-		hidden: true,
-		default: "development",
-	}),
-	traktClientId: optField(
-		strField("SERVER_IMPORTER_TRAKT_CLIENT_ID", "Trakt client ID for the Trakt importer"),
-	),
-	malClientId: optField(
-		strField("ANIME_AND_MANGA_MAL_CLIENT_ID", "MyAnimeList client ID for anime and manga lookups"),
-	),
-	twitchClientId: optField(
-		strField("VIDEO_GAMES_TWITCH_CLIENT_ID", "Twitch client ID for IGDB video game lookups"),
-	),
-	hardcoverApiKey: optField(
-		secretField("BOOKS_HARDCOVER_API_KEY", "Hardcover API key for the Hardcover book importer"),
-	),
-	googleBooksApiKey: optField(
-		secretField("BOOKS_GOOGLE_BOOKS_API_KEY", "Google Books API key for ISBN book lookups"),
-	),
-	metronPassword: optField(secretField("COMIC_BOOK_METRON_PASSWORD", "Metron password")),
-	spotifyClientSecret: optField(
-		secretField("MUSIC_SPOTIFY_CLIENT_SECRET", "Spotify client secret"),
-	),
-	giantBombApiKey: optField(
-		secretField("VIDEO_GAMES_GIANT_BOMB_API_KEY", "Giant Bomb API key for the Grouvee importer"),
-	),
-	twitchClientSecret: optField(
-		secretField(
-			"VIDEO_GAMES_TWITCH_CLIENT_SECRET",
-			"Twitch client secret for IGDB video game lookups",
-		),
-	),
-	tmdbAccessToken: optField(
-		secretField(
-			"MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
-			"TMDB access token for movie and show lookups",
-		),
-	),
-};
-
-const logLevelField = strField("SERVER_LOG_LEVEL", "Minimum application log level", {
-	default: "info",
-});
-
-const logLevel = {
-	meta: logLevelField.meta,
-	config: logLevelField.config.pipe(
-		Config.mapOrFail((value) => {
-			const levels: Record<string, LogLevel.LogLevel> = {
-				all: LogLevel.All,
-				off: LogLevel.None,
-				info: LogLevel.Info,
-				none: LogLevel.None,
-				debug: LogLevel.Debug,
-				error: LogLevel.Error,
-				fatal: LogLevel.Fatal,
-				trace: LogLevel.Trace,
-				warn: LogLevel.Warning,
-				warning: LogLevel.Warning,
-			};
-			const level = levels[value.toLowerCase()];
-			return level
-				? Either.right(level)
-				: Either.left(ConfigError.InvalidData([], `Unsupported SERVER_LOG_LEVEL '${value}'`));
+const scheduler = group(
+	{ label: "Scheduler", description: "Scheduler settings" },
+	{
+		disableDispatchers: booleanField({
+			label: "Disable dispatchers",
+			envKey: "SCHEDULER_DISABLE_DISPATCHERS",
+			defaultValue: false,
+			description:
+				"Disable automatic scheduler dispatchers (the frequent/infrequent cron tiers, plugin manifest crons, and the one-time plugin boot dispatcher)",
 		}),
-	),
-};
-
-export const sandboxDenoDirConfig = fields.denoDir.config;
-export const builtinExercisePreloadLimitConfig = fields.builtinExercisePreloadLimit.config;
-
-const tmpDir: ConfigLeaf<string, FieldMeta> = {
-	config: Config.string("TMPDIR").pipe(
-		Config.orElse(() => Config.string("TMP")),
-		Config.orElse(() => Config.string("TEMP")),
-		Config.withDefault("/tmp"),
-	),
-	meta: {
-		hidden: true,
-		kind: "field",
-		default: "/tmp",
-		required: false,
-		envKey: "TMPDIR",
-		sensitive: false,
-		builtinOnly: false,
-		description: "Directory for temporary import and upload files",
+		frequentCronJobsSchedule: stringField({
+			label: "Frequent cron jobs schedule",
+			envKey: "SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE",
+			defaultValue: "every 5 minutes",
+			description: "Interval phrase for the frequent cron tier",
+		}),
+		infrequentCronJobsSchedule: stringField({
+			label: "Infrequent cron jobs schedule",
+			envKey: "SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE",
+			defaultValue: "0 0 * * *",
+			description: "Cron expression used by plugin crons assigned to the infrequent tier",
+		}),
 	},
-};
-
-const frontendGroup = group(
-	"Frontend display settings",
-	Config.all({ oidcButtonLabel: fields.oidcButtonLabel.config }),
-	{ oidcButtonLabel: fields.oidcButtonLabel.meta },
 );
 
-const smtpGroup = group(
-	"SMTP delivery settings",
-	Config.all({
-		user: fields.smtpUser.config,
-		server: fields.smtpServer.config,
-		mailbox: fields.smtpMailbox.config,
-		password: fields.smtpPassword.config,
-	}),
+const users = group(
+	{ label: "Users", description: "User account settings" },
 	{
-		user: fields.smtpUser.meta,
-		server: fields.smtpServer.meta,
-		mailbox: fields.smtpMailbox.meta,
-		password: fields.smtpPassword.meta,
+		disableLocalAuth: booleanField({
+			label: "Disable local auth",
+			envKey: "USERS_DISABLE_LOCAL_AUTH",
+			defaultValue: false,
+			description: "Disable local email/password authentication, requiring OIDC",
+		}),
+		allowRegistration: booleanField({
+			label: "Allow registration",
+			envKey: "USERS_ALLOW_REGISTRATION",
+			defaultValue: true,
+			description: "Allow new users to register via email and password",
+		}),
 	},
 );
 
-const usersGroup = group(
-	"User account settings",
-	Config.all({
-		disableLocalAuth: fields.disableLocalAuth.config,
-		allowRegistration: fields.allowRegistration.config,
-	}),
+const frontend = group(
+	{ label: "Frontend", description: "Frontend display settings" },
 	{
-		disableLocalAuth: fields.disableLocalAuth.meta,
-		allowRegistration: fields.allowRegistration.meta,
+		oidcButtonLabel: stringField({
+			label: "OIDC button label",
+			envKey: "FRONTEND_OIDC_BUTTON_LABEL",
+			description: "Label for the OIDC sign-in button",
+		}),
 	},
 );
 
-const schedulerGroup = group(
-	"Scheduler settings",
-	Config.all({
-		disableDispatchers: fields.disableDispatchers.config,
-		frequentCronJobsSchedule: fields.frequentCronJobsSchedule.config,
-		infrequentCronJobsSchedule: fields.infrequentCronJobsSchedule.config,
-	}),
+const database = group(
+	{ label: "Database", description: "PostgreSQL connection settings" },
 	{
-		disableDispatchers: fields.disableDispatchers.meta,
-		frequentCronJobsSchedule: fields.frequentCronJobsSchedule.meta,
-		infrequentCronJobsSchedule: fields.infrequentCronJobsSchedule.meta,
+		url: stringField({
+			secret: true,
+			label: "Database URL",
+			envKey: "DATABASE_URL",
+			validation: { required: true },
+			description: "PostgreSQL connection string",
+		}),
+		poolMax: integerField({
+			label: "Pool maximum",
+			envKey: "DATABASE_POOL_MAX",
+			defaultValue: 10,
+			description: "Maximum number of PostgreSQL connections held in the pool",
+		}),
+		workflowPoolMax: integerField({
+			label: "Workflow pool maximum",
+			envKey: "DATABASE_WORKFLOW_POOL_MAX",
+			defaultValue: 10,
+			description:
+				"Maximum number of PostgreSQL connections held in the dedicated workflow engine pool",
+		}),
+		connectionTimeoutMs: integerField({
+			label: "Connection timeout",
+			envKey: "DATABASE_CONNECTION_TIMEOUT_MS",
+			defaultValue: 10_000,
+			description:
+				"Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool",
+		}),
 	},
 );
 
-const databaseGroup = group(
-	"PostgreSQL connection settings",
-	Config.all({
-		url: fields.databaseUrl.config,
-		poolMax: fields.databasePoolMax.config,
-		workflowPoolMax: fields.databaseWorkflowPoolMax.config,
-		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.config,
-	}),
+const sandbox = group(
+	{ label: "Sandbox", description: "Sandbox execution settings" },
 	{
-		url: fields.databaseUrl.meta,
-		poolMax: fields.databasePoolMax.meta,
-		workflowPoolMax: fields.databaseWorkflowPoolMax.meta,
-		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.meta,
+		denoDir: stringField({
+			label: "Deno directory",
+			envKey: "SANDBOX_DENO_DIR",
+			defaultValue: "/tmp/ryot-sandbox-deno",
+			description: "Directory used for the local sandbox dependency runtime and Deno cache",
+		}),
+		timeoutMs: integerField({
+			label: "Timeout",
+			envKey: "SANDBOX_TIMEOUT_MS",
+			defaultValue: 10_000,
+			description: "Maximum execution time for a sandbox job in milliseconds",
+		}),
+		jobIdSecret: stringField({
+			secret: true,
+			label: "Job ID secret",
+			envKey: "SANDBOX_JOB_ID_SECRET",
+			defaultValue: "changeme",
+			description: "Secret used to sign sandbox job identifiers",
+		}),
+		workerConcurrency: integerField({
+			label: "Worker concurrency",
+			envKey: "SANDBOX_WORKER_CONCURRENCY",
+			defaultValue: 5,
+			description: "Maximum number of concurrent sandbox jobs",
+		}),
 	},
 );
 
-const sandboxGroup = group(
-	"Sandbox execution settings",
-	Config.all({
-		denoDir: sandboxDenoDirConfig,
-		timeoutMs: fields.timeoutMs.config,
-		jobIdSecret: fields.jobIdSecret.config,
-		workerConcurrency: fields.workerConcurrency.config,
-	}),
+const fileStorage = group(
+	{ label: "File storage", description: "S3-compatible file storage" },
 	{
-		denoDir: fields.denoDir.meta,
-		timeoutMs: fields.timeoutMs.meta,
-		jobIdSecret: fields.jobIdSecret.meta,
-		workerConcurrency: fields.workerConcurrency.meta,
+		url: stringField({
+			label: "S3 URL",
+			envKey: "FILE_STORAGE_S3_URL",
+			description: "S3-compatible endpoint URL",
+		}),
+		region: stringField({
+			label: "S3 region",
+			envKey: "FILE_STORAGE_S3_REGION",
+			description: "S3 bucket region",
+		}),
+		bucketName: stringField({
+			label: "S3 bucket name",
+			envKey: "FILE_STORAGE_S3_BUCKET_NAME",
+			description: "S3 bucket name",
+		}),
+		accessKeyId: stringField({
+			secret: true,
+			label: "S3 access key ID",
+			envKey: "FILE_STORAGE_S3_ACCESS_KEY_ID",
+			description: "S3 access key ID",
+		}),
+		secretAccessKey: stringField({
+			secret: true,
+			label: "S3 secret access key",
+			envKey: "FILE_STORAGE_S3_SECRET_ACCESS_KEY",
+			description: "S3 secret access key",
+		}),
 	},
 );
 
-const oidcGroup = group(
-	"OIDC provider",
-	Config.all({
-		clientId: fields.oidcClientId.config,
-		issuerUrl: fields.oidcIssuerUrl.config,
-		clientSecret: fields.oidcClientSecret.config,
-	}),
+const oidc = group(
+	{ label: "OIDC", description: "OIDC provider" },
 	{
-		clientId: fields.oidcClientId.meta,
-		issuerUrl: fields.oidcIssuerUrl.meta,
-		clientSecret: fields.oidcClientSecret.meta,
+		clientId: stringField({
+			label: "OIDC client ID",
+			envKey: "SERVER_OIDC_CLIENT_ID",
+			description: "OIDC client ID",
+		}),
+		issuerUrl: stringField({
+			label: "OIDC issuer URL",
+			envKey: "SERVER_OIDC_ISSUER_URL",
+			description: "OIDC issuer URL",
+		}),
+		clientSecret: stringField({
+			secret: true,
+			label: "OIDC client secret",
+			envKey: "SERVER_OIDC_CLIENT_SECRET",
+			description: "OIDC client secret",
+		}),
 	},
 );
 
-const serverGroup = group(
-	"Server settings",
-	Config.all({
-		oidc: oidcGroup.config,
-		smtp: smtpGroup.config,
-		logLevel: logLevel.config,
-		logFile: fields.logFile.config,
-		corsOrigins: fields.corsOrigins.config,
-		otlpEndpoint: fields.otlpEndpoint.config,
-		traktClientId: fields.traktClientId.config,
-		adminAccessToken: fields.adminAccessToken.config,
-		disableNotifications: fields.disableNotifications.config,
-		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.config,
-	}),
+const smtp = group(
+	{ label: "SMTP", description: "SMTP delivery settings" },
 	{
-		oidc: oidcGroup.meta,
-		smtp: smtpGroup.meta,
-		logLevel: logLevel.meta,
-		logFile: fields.logFile.meta,
-		corsOrigins: fields.corsOrigins.meta,
-		otlpEndpoint: fields.otlpEndpoint.meta,
-		traktClientId: fields.traktClientId.meta,
-		adminAccessToken: fields.adminAccessToken.meta,
-		disableNotifications: fields.disableNotifications.meta,
-		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.meta,
+		user: stringField({
+			secret: true,
+			label: "SMTP user",
+			envKey: "SERVER_SMTP_USER",
+			description: "SMTP username",
+		}),
+		server: stringField({
+			label: "SMTP server",
+			envKey: "SERVER_SMTP_SERVER",
+			description: "SMTP server hostname",
+		}),
+		mailbox: stringField({
+			label: "SMTP mailbox",
+			envKey: "SERVER_SMTP_MAILBOX",
+			defaultValue: "Ryot <no-reply@ryot.io>",
+			description: "SMTP sender mailbox",
+		}),
+		password: stringField({
+			secret: true,
+			label: "SMTP password",
+			envKey: "SERVER_SMTP_PASSWORD",
+			description: "SMTP password",
+		}),
 	},
 );
 
-export const moviesAndShowsConfigDefinition = group(
-	"Movies and Shows configuration",
-	Config.all({
-		tvdbApiKey: fields.tvdbApiKey.config,
-		tmdbAccessToken: fields.tmdbAccessToken.config,
-	}),
+const server = group(
+	{ label: "Server", description: "Server settings" },
 	{
-		tvdbApiKey: fields.tvdbApiKey.meta,
-		tmdbAccessToken: fields.tmdbAccessToken.meta,
+		oidc,
+		smtp,
+		logLevel: stringField({
+			label: "Log level",
+			envKey: "SERVER_LOG_LEVEL",
+			defaultValue: "info",
+			description: "Minimum application log level",
+		}),
+		logFile: stringField({
+			label: "Log file",
+			envKey: "SERVER_LOG_FILE",
+			description: "File path for appended structured logs",
+		}),
+		corsOrigins: stringField({
+			label: "CORS origins",
+			envKey: "SERVER_CORS_ORIGINS",
+			description: "Comma-separated list of allowed CORS origins",
+		}),
+		otlpEndpoint: stringField({
+			label: "OTLP endpoint",
+			envKey: "SERVER_OTLP_ENDPOINT",
+			description: "Base URL for OTLP trace export",
+		}),
+		adminAccessToken: stringField({
+			secret: true,
+			label: "Admin access token",
+			envKey: "SERVER_ADMIN_ACCESS_TOKEN",
+			validation: { required: true },
+			description: "Bearer token required for god-mode admin endpoints",
+		}),
+		disableNotifications: booleanField({
+			label: "Disable notifications",
+			envKey: "SERVER_DISABLE_NOTIFICATIONS",
+			defaultValue: false,
+			description: "Disable delivery of all notifications",
+		}),
 	},
 );
 
-export const animeAndMangaConfigDefinition = group(
-	"Anime and Manga configuration",
-	Config.all({ malClientId: fields.malClientId.config }),
-	{ malClientId: fields.malClientId.meta },
-);
-
-export const comicBooksConfigDefinition = group(
-	"Comic Books configuration",
-	Config.all({
-		metronUsername: fields.metronUsername.config,
-		metronPassword: fields.metronPassword.config,
-	}),
+export const appConfigDefinition = defineConfig(
 	{
-		metronUsername: fields.metronUsername.meta,
-		metronPassword: fields.metronPassword.meta,
+		port: integerField({
+			label: "Port",
+			envKey: "PORT",
+			defaultValue: 8000,
+			description: "HTTP port the server listens on",
+		}),
+		tmpDir: stringField({
+			hidden: true,
+			label: "Temporary directory",
+			envKey: "TMPDIR",
+			defaultValue: "/tmp",
+			description: "Directory for temporary import and upload files",
+		}),
+		users,
+		server,
+		sandbox,
+		nodeEnv: stringField({
+			hidden: true,
+			label: "Node environment",
+			envKey: "NODE_ENV",
+			defaultValue: "development",
+			description: "Runtime environment name",
+		}),
+		frontend,
+		database,
+		timezone: stringField({
+			label: "Timezone",
+			envKey: "TZ",
+			defaultValue: "Etc/GMT",
+			description: "IANA timezone used for interpreting timezone-less datetimes during imports",
+		}),
+		redisUrl: stringField({
+			secret: true,
+			label: "Redis URL",
+			envKey: "REDIS_URL",
+			validation: { required: true },
+			description: "Redis connection string",
+		}),
+		scheduler,
+		fileStorage,
+		frontendUrl: stringField({
+			label: "Frontend URL",
+			envKey: "FRONTEND_URL",
+			defaultValue: "http://localhost:3000",
+			description: "Public URL of the frontend application",
+		}),
 	},
+	{ description: "Application configuration" },
 );
 
-export const booksConfigDefinition = group(
-	"Books configuration",
-	Config.all({
-		hardcoverApiKey: fields.hardcoverApiKey.config,
-		googleBooksApiKey: fields.googleBooksApiKey.config,
-	}),
-	{
-		hardcoverApiKey: fields.hardcoverApiKey.meta,
-		googleBooksApiKey: fields.googleBooksApiKey.meta,
-	},
-);
-
-export const musicConfigDefinition = group(
-	"Music configuration",
-	Config.all({
-		spotifyClientId: fields.spotifyClientId.config,
-		spotifyClientSecret: fields.spotifyClientSecret.config,
-	}),
-	{
-		spotifyClientId: fields.spotifyClientId.meta,
-		spotifyClientSecret: fields.spotifyClientSecret.meta,
-	},
-);
-
-export const podcastsConfigDefinition = group(
-	"Podcasts configuration",
-	Config.all({ listennotesApiKey: fields.listennotesApiKey.config }),
-	{ listennotesApiKey: fields.listennotesApiKey.meta },
-);
-
-export const videoGamesConfigDefinition = group(
-	"Video Games configuration",
-	Config.all({
-		twitchClientId: fields.twitchClientId.config,
-		giantBombApiKey: fields.giantBombApiKey.config,
-		twitchClientSecret: fields.twitchClientSecret.config,
-	}),
-	{
-		twitchClientId: fields.twitchClientId.meta,
-		giantBombApiKey: fields.giantBombApiKey.meta,
-		twitchClientSecret: fields.twitchClientSecret.meta,
-	},
-);
-
-const fileStorageGroup = group(
-	"S3-compatible file storage",
-	Config.all({
-		url: fields.s3Url.config,
-		region: fields.s3Region.config,
-		bucketName: fields.s3BucketName.config,
-		accessKeyId: fields.s3AccessKeyId.config,
-		secretAccessKey: fields.s3SecretAccessKey.config,
-	}),
-	{
-		url: fields.s3Url.meta,
-		region: fields.s3Region.meta,
-		bucketName: fields.s3BucketName.meta,
-		accessKeyId: fields.s3AccessKeyId.meta,
-		secretAccessKey: fields.s3SecretAccessKey.meta,
-	},
-);
-
-export const systemConfigDefinition = group(
-	"Core system configuration",
-	Config.all({
-		tmpDir: tmpDir.config,
-		port: fields.port.config,
-		users: usersGroup.config,
-		server: serverGroup.config,
-		sandbox: sandboxGroup.config,
-		nodeEnv: fields.nodeEnv.config,
-		frontend: frontendGroup.config,
-		database: databaseGroup.config,
-		timezone: fields.timezone.config,
-		redisUrl: fields.redisUrl.config,
-		scheduler: schedulerGroup.config,
-		fileStorage: fileStorageGroup.config,
-		frontendUrl: fields.frontendUrl.config,
-		builtinExercisePreloadLimit: builtinExercisePreloadLimitConfig,
-	}),
-	{
-		tmpDir: tmpDir.meta,
-		port: fields.port.meta,
-		users: usersGroup.meta,
-		server: serverGroup.meta,
-		sandbox: sandboxGroup.meta,
-		nodeEnv: fields.nodeEnv.meta,
-		frontend: frontendGroup.meta,
-		database: databaseGroup.meta,
-		timezone: fields.timezone.meta,
-		redisUrl: fields.redisUrl.meta,
-		scheduler: schedulerGroup.meta,
-		fileStorage: fileStorageGroup.meta,
-		frontendUrl: fields.frontendUrl.meta,
-		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.meta,
-	},
+export const sandboxDenoDirConfig = Config.string("SANDBOX_DENO_DIR").pipe(
+	Config.withDefault("/tmp/ryot-sandbox-deno"),
 );

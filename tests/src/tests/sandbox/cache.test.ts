@@ -30,7 +30,8 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: [${JSON.stringify(input.operation === "details" ? "setCachedValue" : "getCachedValue")}],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({
@@ -62,6 +63,7 @@ const installCacheProviderScoped = (key: string, value: string) => {
 	const readerEntry = `scripts/${readerSlug}.sandbox.ts`;
 	return Effect.acquireRelease(
 		installTestPluginBundle({
+			configSchema: { fields: {}, unknownKeys: "strict" },
 			files: {
 				[writerEntry]: providerCacheSource({
 					key,
@@ -85,7 +87,8 @@ const installCacheProviderScoped = (key: string, value: string) => {
 					slug: writerSlug,
 					entry: writerEntry,
 					name: "Cache writer",
-					requiredAppConfigKeys: [],
+					requiredPluginConfigKeys: [],
+					requiredSystemConfigKeys: [],
 					providerOperation: "details",
 					capabilities: ["setCachedValue"],
 				},
@@ -95,7 +98,8 @@ const installCacheProviderScoped = (key: string, value: string) => {
 					slug: readerSlug,
 					entry: readerEntry,
 					name: "Cache reader",
-					requiredAppConfigKeys: [],
+					requiredPluginConfigKeys: [],
+					requiredSystemConfigKeys: [],
 					providerOperation: "search",
 					capabilities: ["getCachedValue"],
 				},

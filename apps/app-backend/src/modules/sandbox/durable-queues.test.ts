@@ -65,7 +65,8 @@ esac
 			name: "Workflow",
 			slug: "workflow",
 			kind: "workflow" as const,
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 		},
 	});
 	const historical = script(historicalScriptId, historicalContent);

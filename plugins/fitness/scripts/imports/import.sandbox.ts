@@ -11,7 +11,8 @@ export const manifest = defineManifest({
 	capabilities: [],
 	name: "Fitness import",
 	slug: "workflow.import",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 const activityReference = (scriptSlug: string) => ({

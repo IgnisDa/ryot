@@ -4,7 +4,7 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
 
 export type SpotifyHost = SandboxHost<
-	readonly ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"]
+	readonly ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"]
 >;
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -33,14 +33,14 @@ export const getCredentials = (host: SpotifyHost) =>
 	Effect.all(
 		[
 			host
-				.getAppConfigValue("music.spotifyClientId")
+				.getPluginConfigValue("spotifyClientId")
 				.pipe(
 					Effect.mapError(
 						(error) => new Error(error.message || "Failed to retrieve Spotify client ID"),
 					),
 				),
 			host
-				.getAppConfigValue("music.spotifyClientSecret")
+				.getPluginConfigValue("spotifyClientSecret")
 				.pipe(
 					Effect.mapError(
 						(error) => new Error(error.message || "Failed to retrieve Spotify client secret"),
@@ -54,12 +54,12 @@ export const getCredentials = (host: SpotifyHost) =>
 			const clientSecret = stringValue(clientSecretValue);
 			if (!clientId) {
 				throw new Error(
-					"Spotify client ID is not configured. Set MUSIC_SPOTIFY_CLIENT_ID in your environment.",
+					"Spotify client ID is not configured. Set RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_ID in your environment.",
 				);
 			}
 			if (!clientSecret) {
 				throw new Error(
-					"Spotify client secret is not configured. Set MUSIC_SPOTIFY_CLIENT_SECRET in your environment.",
+					"Spotify client secret is not configured. Set RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_SECRET in your environment.",
 				);
 			}
 			return { clientId, clientSecret };

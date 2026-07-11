@@ -9,7 +9,7 @@ import {
 	type UnknownRecord,
 } from "../script-helpers/records";
 
-export type HardcoverHost = SandboxHost<readonly ["httpCall", "getAppConfigValue"]>;
+export type HardcoverHost = SandboxHost<readonly ["httpCall", "getPluginConfigValue"]>;
 
 const HARDCOVER_GQL_URL = "https://api.hardcover.app/v1/graphql";
 
@@ -25,12 +25,12 @@ export const idValue = (value: unknown) => {
 };
 
 export const getHardcoverApiKey = (host: HardcoverHost) =>
-	host.getAppConfigValue("books.hardcoverApiKey").pipe(
+	host.getPluginConfigValue("hardcoverApiKey").pipe(
 		Effect.mapError((error) => new Error(error.message || "Could not load Hardcover API key")),
 		Effect.map((value) => {
 			const apiKey = stringValue(value);
 			if (!apiKey) {
-				throw new Error("BOOKS_HARDCOVER_API_KEY is not configured");
+				throw new Error("RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY is not configured");
 			}
 			return apiKey;
 		}),
