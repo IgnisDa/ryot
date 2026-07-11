@@ -48,6 +48,7 @@ Provider targets resolve against active plugin-loader declarations. Persisted pr
 - Migrate `user_to_entity` global rows to `in-library`; skip collections and user-owned custom exercises in this path.
 - Migrate `Owned` collection normally, then annotate existing library relationships with legacy ownership metadata.
 - Migrate `Monitoring` collection normally and create `media-monitoring` relationships for monitorable global provider entities.
+- Create a historical `add-entity-to-collection` event for each migrated collection membership.
 
 ### Integrations, Notifications, And Preferences
 
