@@ -16,15 +16,62 @@ it("declares the complete fitness-owned source", () => {
 	expect(fitnessPlugin.boot).toEqual([
 		{
 			slug: "preload-exercises",
-			driverRef: "exercise.free-exercise-db",
+			scriptSlug: "exercise.free-exercise-db.preload",
 			description: "Preload the built-in exercise catalog",
 		},
 	]);
-	expect(fitnessPlugin.scripts).toHaveLength(3);
-	expect(fitnessPlugin.scripts.find(({ slug }) => slug === "exercise.free-exercise-db")).toEqual(
+	expect(fitnessPlugin.providers).toEqual([
+		{
+			name: "Free Exercise DB",
+			slug: "exercise.free-exercise-db",
+			information: { source: "free-exercise-db" },
+			operations: {
+				search: "exercise.free-exercise-db.search",
+				details: "exercise.free-exercise-db.details",
+			},
+		},
+	]);
+	expect(fitnessPlugin.bindings.schemaProviderLinks).toEqual([
+		{ entitySchemaSlug: "exercise", providerSlug: "exercise.free-exercise-db" },
+	]);
+	expect(fitnessPlugin.scripts).toHaveLength(5);
+	expect(
+		fitnessPlugin.scripts.find(({ slug }) => slug === "exercise.free-exercise-db.preload"),
+	).toEqual(
 		expect.objectContaining({
+			providerSlug: "exercise.free-exercise-db",
 			requiredAppConfigKeys: ["builtinExercisePreloadLimit"],
 		}),
 	);
+	expect(
+		fitnessPlugin.scripts.flatMap((script) =>
+			"providerSlug" in script
+				? [
+						{
+							slug: script.slug,
+							providerSlug: script.providerSlug,
+							providerOperation:
+								"providerOperation" in script ? script.providerOperation : undefined,
+						},
+					]
+				: [],
+		),
+	).toEqual([
+		{
+			slug: "exercise.free-exercise-db.details",
+			providerSlug: "exercise.free-exercise-db",
+			providerOperation: "details",
+		},
+		{
+			slug: "exercise.free-exercise-db.preload",
+			providerSlug: "exercise.free-exercise-db",
+			providerOperation: undefined,
+		},
+		{
+			slug: "exercise.free-exercise-db.search",
+			providerSlug: "exercise.free-exercise-db",
+			providerOperation: "search",
+		},
+	]);
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
 });

@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./igdb.sandbox";
+import { details, manifest, search } from "./igdb";
 
 type IgdbCompanyHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -37,7 +37,7 @@ describe("company.igdb sandbox script", () => {
 			},
 		});
 
-		return runSandboxTestDriver(
+		return runSandboxTestScript(
 			search,
 			{ query: "studio", page: 1, pageSize: 20 },
 			host,
@@ -92,7 +92,7 @@ describe("company.igdb sandbox script", () => {
 			},
 		});
 
-		return runSandboxTestDriver(details, { externalId: "7" }, host, execution).pipe(
+		return runSandboxTestScript(details, { externalId: "7" }, host, execution).pipe(
 			Effect.map((result) => {
 				expect(result.name).toBe("Studio");
 				expect(result.relatedEntityGroups).toEqual([
@@ -104,13 +104,13 @@ describe("company.igdb sandbox script", () => {
 							{
 								name: "Alpha",
 								externalId: "10",
-								scriptSlug: "video-game.igdb",
+								providerSlug: "video-game.igdb",
 								relationshipProperties: { roles: ["Developer", "Publisher"] },
 							},
 							{
 								name: "Beta",
 								externalId: "11",
-								scriptSlug: "video-game.igdb",
+								providerSlug: "video-game.igdb",
 								relationshipProperties: { roles: ["Developer"] },
 							},
 						],

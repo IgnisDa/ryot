@@ -17,9 +17,8 @@ import { pluginCronExecutionId, PluginCronService } from "./plugin-cron";
 type CapturedRun = {
 	readonly executionId: string;
 	readonly payload: {
-		readonly userId: null;
+		readonly authority: { readonly type: "system" };
 		readonly context: unknown;
-		readonly driverName: string;
 		readonly executionId: string;
 		readonly scriptId: SandboxScriptId;
 	};
@@ -43,13 +42,13 @@ const normalizedPlugin = (pluginSlug: string, schedule = "* * * * *"): Normalize
 			eventAutomations: [],
 			entityAutomations: [],
 			signalAutomations: [],
-			schemaScriptLinks: [],
+			schemaProviderLinks: [],
 			relationshipAutomations: [],
 		},
 		crons: [
 			{
 				schedule,
-				driverRef: scriptSlug,
+				scriptSlug,
 				slug: `${pluginSlug}-cron`,
 				description: `${pluginSlug} cron`,
 			},
@@ -68,7 +67,7 @@ const normalizedPlugin = (pluginSlug: string, schedule = "* * * * *"): Normalize
 				compiledFormat: 1,
 				compiledCode: "compiled",
 				contentHash: `${pluginSlug}-compiled`,
-				metadata: { ...metadata, driverNames: ["cron"] },
+				metadata,
 			},
 		],
 	};
@@ -94,6 +93,7 @@ const makeLayer = (
 							source: "source",
 							compiledFormat: 1,
 							pluginSlug: "fixture",
+							providerId: null,
 							compiledCode: "compiled",
 							contentHash: `${slug}-hash`,
 							createdAt: new Date(0),
@@ -104,7 +104,6 @@ const makeLayer = (
 								name: slug,
 								capabilities: [],
 								kind: "automation",
-								driverNames: ["cron"],
 								requiredAppConfigKeys: [],
 							},
 						}),
@@ -138,9 +137,8 @@ it.effect("dispatches due plugin crons as deterministic system sandbox runs", ()
 				discard: true,
 				executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
 				payload: {
+					authority: { type: "system" },
 					context: {},
-					userId: null,
-					driverName: "cron",
 					scriptId: SandboxScriptId.make("fixture-script-id"),
 					executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
 				},

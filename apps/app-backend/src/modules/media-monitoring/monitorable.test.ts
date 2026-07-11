@@ -12,7 +12,7 @@ describe("isMediaMonitorableEntity", () => {
 					entity({
 						entitySchemaSlug,
 						entityUserId: null,
-						provenance: { externalId: "provider-id", sandboxScriptId: "provider-script" },
+						provenance: { externalId: "provider-id", providerId: "provider" },
 					}),
 				),
 			).toBe(true);
@@ -24,17 +24,17 @@ describe("isMediaMonitorableEntity", () => {
 			entity({
 				entityUserId: null,
 				entitySchemaSlug: "show-season",
-				provenance: { externalId: "season", sandboxScriptId: "provider-script" },
+				provenance: { externalId: "season", providerId: "provider" },
 			}),
 			entity({
 				entityUserId: null,
 				entitySchemaSlug: "movie-group",
-				provenance: { externalId: "group", sandboxScriptId: "provider-script" },
+				provenance: { externalId: "group", providerId: "provider" },
 			}),
 			entity({
 				entityUserId: "user-id",
 				entitySchemaSlug: "movie",
-				provenance: { externalId: "movie", sandboxScriptId: "provider-script" },
+				provenance: { externalId: "movie", providerId: "provider" },
 			}),
 			entity({ entitySchemaSlug: "movie", entityUserId: null, provenance: null }),
 		]) {

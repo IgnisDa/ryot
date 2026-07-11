@@ -1,5 +1,6 @@
 import { unknownToMessage } from "@ryot/contract/errors";
-import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
+import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxProviderId } from "@ryot/contract/schema/brands";
 import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
 import type { JsonValue, SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
@@ -9,34 +10,36 @@ export type SandboxRunInput = {
 	readonly context: unknown;
 	readonly scriptId: string;
 	readonly metadata: unknown;
-	readonly driverName: string;
 	readonly executionId: string;
 	readonly compiledCode: string;
-	readonly userId: string | null;
+	readonly cacheNamespace: string;
 	readonly compiledFormat: number;
 	readonly scriptIsBuiltin: boolean;
+	readonly authority: ExecutionAuthority;
+	readonly providerId: SandboxProviderId | null;
 	readonly allowedHostFunctions: readonly string[];
-	readonly subscriptionRun?: NonNullable<SandboxExecutionPayload["subscriptionRun"]>;
 };
 
 export type BoundHostFunction = (args: ReadonlyArray<unknown>) => Effect.Effect<unknown, unknown>;
 
 export type UserSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
-	readonly userId: string;
+	readonly authority: Extract<ExecutionAuthority, { readonly userId: string }>;
 };
 
 export type SystemSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
-	readonly userId: null;
-	readonly subscriptionRun?: never;
-	readonly driverName: "cron" | "boot";
+	readonly authority: Extract<ExecutionAuthority, { readonly type: "system" }>;
 };
+
+export type SystemProviderSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> =
+	SystemSandboxRunInput<Input> & { readonly providerId: SandboxProviderId };
 
 const hasSystemContext = <Input extends SandboxRunInput>(
 	input: Input,
-): input is SystemSandboxRunInput<Input> =>
-	input.userId === null &&
-	(input.driverName === "cron" || input.driverName === "boot") &&
-	input.subscriptionRun === undefined;
+): input is SystemSandboxRunInput<Input> => input.authority.type === "system";
+
+const hasProviderContext = <Input extends SandboxRunInput>(
+	input: SystemSandboxRunInput<Input>,
+): input is SystemProviderSandboxRunInput<Input> => input.providerId !== null;
 
 export type SandboxHostImplementationMap = SdkSandboxHostImplementationMap<SandboxRunInput>;
 
@@ -91,15 +94,19 @@ export const isJsonValue = (value: unknown): value is JsonValue => {
 export const toSandboxJsonValue = (value: unknown): JsonValue =>
 	isJsonValue(value) ? value : null;
 
-const hasUserContext = (input: SandboxRunInput): input is UserSandboxRunInput =>
-	input.userId !== null;
+export const sandboxRunUserId = (input: SandboxRunInput) =>
+	"userId" in input.authority ? input.authority.userId : null;
+
+const hasUserContext = <Input extends SandboxRunInput>(
+	input: Input,
+): input is UserSandboxRunInput<Input> => "userId" in input.authority;
 
 export type SubscriptionSandboxRunInput = SandboxRunInput & {
-	readonly subscriptionRun: NonNullable<SandboxRunInput["subscriptionRun"]>;
+	readonly authority: Extract<ExecutionAuthority, { readonly type: "subscription" }>;
 };
 
 const hasSubscriptionRun = (input: SandboxRunInput): input is SubscriptionSandboxRunInput =>
-	input.subscriptionRun !== undefined;
+	input.authority.type === "subscription";
 
 export const requireSubscriptionSandboxRunInput = (
 	input: SandboxRunInput,
@@ -120,7 +127,7 @@ export const requireUserSandboxRunInput = <Input extends SandboxRunInput>(
 		return sandboxHostFailure(`${fnName} is not available for system executions`);
 	}
 
-	return Effect.succeed(input as UserSandboxRunInput<Input>);
+	return Effect.succeed(input);
 };
 
 export const requireSystemSandboxRunInput = <Input extends SandboxRunInput>(
@@ -133,3 +140,15 @@ export const requireSystemSandboxRunInput = <Input extends SandboxRunInput>(
 
 	return Effect.succeed(input);
 };
+
+export const requireSystemProviderSandboxRunInput = <Input extends SandboxRunInput>(
+	input: Input,
+	fnName: string,
+): Effect.Effect<SystemProviderSandboxRunInput<Input>, SandboxHostError> =>
+	requireSystemSandboxRunInput(input, fnName).pipe(
+		Effect.flatMap((systemInput) =>
+			hasProviderContext(systemInput)
+				? Effect.succeed(systemInput)
+				: sandboxHostFailure(`${fnName} is available only to provider-associated scripts`),
+		),
+	);

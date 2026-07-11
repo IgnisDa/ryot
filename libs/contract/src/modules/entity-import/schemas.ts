@@ -1,10 +1,10 @@
 import { Schema } from "effect";
 
-import { SandboxScriptId, EntitySchemaSlug } from "../../schema/brands";
+import { EntitySchemaSlug, SandboxProviderId } from "../../schema/brands";
 import { ListedEntity } from "../entities/schemas";
 
 export const ImportEntityBody = Schema.Struct({
-	scriptId: SandboxScriptId,
+	providerId: SandboxProviderId,
 	externalId: Schema.String,
 	entitySchemaSlug: EntitySchemaSlug,
 });

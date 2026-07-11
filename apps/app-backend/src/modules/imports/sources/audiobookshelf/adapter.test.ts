@@ -45,7 +45,7 @@ describe("adaptAudiobookshelfData", () => {
 				entityRef: {
 					kind: "resolved",
 					externalId: "B08G9PRS1K",
-					scriptSlug: "audiobook.audible",
+					providerSlug: "audiobook.audible",
 					entitySchemaSlug: "audiobook",
 				},
 			});

@@ -1,25 +1,26 @@
-import { EntityId, EntitySchemaSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
 	adminHeaders,
 	createAuthenticatedClient,
+	createEntitySchema,
 	enqueueSandboxScript,
 	enqueueEntityImport,
 	enqueueEntitySearch,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
 	getBackendClient,
-	getGlobalEntityByProvenance,
-	installTestPlugin,
+	installTestProvider,
 	pollEntityImportResult,
 	pollEntitySearchResult,
 	providerSandboxSource,
-	uninstallTestPlugin,
-	uninstallTestPluginStrict,
+	replaceSandboxScriptCompiledRepresentation,
+	uninstallTestProvider,
 } from "~/fixtures";
 import {
 	assertCompleted,
+	assertPresent,
 	assertTaggedError,
 	requireArray,
 	requireObjectRecord,
@@ -33,41 +34,22 @@ describe("plugins", () => {
 			Effect.gen(function* () {
 				const externalId = `plugin-entity-${crypto.randomUUID()}`;
 				const schemaSlug = `e2e-hot-entity-${crypto.randomUUID()}`;
-				const pluginSlug = `e2e-hot-plugin-${crypto.randomUUID()}`;
-				const scriptSlug = `e2e-hot-provider-${crypto.randomUUID()}`;
-				const source = providerSandboxSource({
-					name: "E2E Hot Provider",
-					slug: scriptSlug,
-					providerInformation: { source: "e2e" },
-					drivers: {
-						details: fakeProviderDetailsResult({ name: "Hot Installed Entity" }),
-						search: fakeProviderSearchResult([{ externalId, title: "Hot Installed Entity" }]),
-					},
+				const providerSlug = `e2e-hot-provider-${crypto.randomUUID()}`;
+				const { client, userId } = yield* createAuthenticatedClient();
+				yield* createEntitySchema(client, {
+					slug: schemaSlug,
+					name: "E2E Hot Entity",
+					pluginSlug: `e2e-hot-schema-${crypto.randomUUID()}`,
 				});
 				let entityId: string | null = null;
-				const plugin = yield* Effect.acquireRelease(
-					installTestPlugin({
-						source,
-						pluginSlug,
+				const provider = yield* Effect.acquireRelease(
+					installTestProvider({
+						client,
+						slug: providerSlug,
+						name: "E2E Hot Provider",
 						linkToEntitySchemaSlug: schemaSlug,
-						entitySchemas: [
-							{
-								icon: "box",
-								slug: schemaSlug,
-								eventSchemas: [],
-								name: "E2E Hot Entity",
-								accentColor: "#64748b",
-								propertiesSchema: { fields: {} },
-							},
-						],
-						script: {
-							slug: scriptSlug,
-							kind: "provider",
-							capabilities: [],
-							name: "E2E Hot Provider",
-							requiredAppConfigKeys: [],
-							providerInformation: { source: "e2e" },
-						},
+						details: fakeProviderDetailsResult({ name: "Hot Installed Entity" }),
+						search: fakeProviderSearchResult([{ externalId, title: "Hot Installed Entity" }]),
 					}),
 					(installed) =>
 						Effect.gen(function* () {
@@ -87,16 +69,75 @@ describe("plugins", () => {
 										),
 									);
 							}
-							yield* uninstallTestPlugin(installed);
+							yield* uninstallTestProvider(installed);
 						}),
 				);
-				const { client, userId } = yield* createAuthenticatedClient();
 				const listed = yield* getBackendClient().call((c) => c.plugins.list({}), adminHeaders);
-				expect(listed.some(({ slug }) => slug === pluginSlug)).toBe(true);
+				expect(listed.some(({ slug }) => slug === provider.pluginSlug)).toBe(true);
+
+				assertPresent(provider.searchScriptId, "Missing hot-installed provider search script");
+				const originalDetailsScriptId = provider.detailsScriptId;
+				const originalSearchScriptId = provider.searchScriptId;
+				const updatedDetailsSource = providerSandboxSource({
+					operation: "details",
+					name: "E2E Hot Provider details",
+					slug: `${providerSlug}.details`,
+					result: fakeProviderDetailsResult({ name: "Reingested Hot Installed Entity" }),
+				});
+				const updatedSearchSource = providerSandboxSource({
+					operation: "search",
+					name: "E2E Hot Provider search",
+					slug: `${providerSlug}.search`,
+					result: fakeProviderSearchResult([
+						{ externalId, title: "Reingested Hot Installed Entity" },
+					]),
+				});
+				yield* replaceSandboxScriptCompiledRepresentation(
+					client,
+					originalDetailsScriptId,
+					updatedDetailsSource,
+				);
+				yield* replaceSandboxScriptCompiledRepresentation(
+					client,
+					originalSearchScriptId,
+					updatedSearchSource,
+				);
+				const reingestedDetailsScriptId = provider.scriptIds[`${providerSlug}.details`];
+				const reingestedSearchScriptId = provider.scriptIds[`${providerSlug}.search`];
+				assertPresent(reingestedDetailsScriptId, "Missing reingested provider details script ID");
+				assertPresent(reingestedSearchScriptId, "Missing reingested provider search script ID");
+				const [reingestedDetails, reingestedSearch] = yield* Effect.all([
+					getBackendClient().call(
+						(c) =>
+							c.testSupport.getSandboxScript({
+								path: { scriptId: reingestedDetailsScriptId },
+							}),
+						adminHeaders,
+					),
+					getBackendClient().call(
+						(c) =>
+							c.testSupport.getSandboxScript({
+								path: { scriptId: reingestedSearchScriptId },
+							}),
+						adminHeaders,
+					),
+				]);
+				expect(reingestedDetailsScriptId).not.toBe(originalDetailsScriptId);
+				expect(reingestedSearchScriptId).not.toBe(originalSearchScriptId);
+				expect(reingestedDetails).toMatchObject({
+					providerId: provider.providerId,
+					source: updatedDetailsSource,
+					slug: `${providerSlug}.details`,
+				});
+				expect(reingestedSearch).toMatchObject({
+					providerId: provider.providerId,
+					source: updatedSearchSource,
+					slug: `${providerSlug}.search`,
+				});
 
 				const search = yield* enqueueEntitySearch(userId, {
 					context: { query: "hot", page: 1, pageSize: 5 },
-					scriptId: SandboxScriptId.make(plugin.scriptId),
+					scriptId: reingestedSearchScriptId,
 				});
 				const searchResult = yield* pollEntitySearchResult(userId, search.jobId);
 				assertCompleted(searchResult, "hot-installed provider search");
@@ -104,39 +145,46 @@ describe("plugins", () => {
 					searchResult.value,
 					"Missing provider search result",
 				);
-				expect(requireArray(searchValue.items, "Missing provider search items")).toHaveLength(1);
+				const searchItems = requireArray(searchValue.items, "Missing provider search items");
+				expect(searchItems).toHaveLength(1);
+				const searchItem = requireObjectRecord(searchItems[0], "Missing provider search item");
+				expect(
+					requireObjectRecord(searchItem.titleProperty, "Missing provider search title"),
+				).toEqual({ kind: "text", value: "Reingested Hot Installed Entity" });
 
 				const imported = yield* enqueueEntityImport(client, {
 					externalId,
+					providerId: provider.providerId,
 					entitySchemaSlug: EntitySchemaSlug.make(schemaSlug),
-					scriptId: SandboxScriptId.make(plugin.scriptId),
 				});
-				assertCompleted(
-					yield* pollEntityImportResult(client, imported.jobId),
-					"hot-installed provider import",
-				);
-				const entity = yield* getGlobalEntityByProvenance(client, {
-					externalId,
-					entitySchemaSlug: schemaSlug,
-					sandboxScriptId: plugin.scriptId,
-				});
-				entityId = entity.id;
-				expect(entity.name).toBe("Hot Installed Entity");
+				const importResult = yield* pollEntityImportResult(client, imported.jobId);
+				assertCompleted(importResult, "hot-installed provider import");
+				entityId = importResult.data.id;
+				expect(importResult.data.name).toBe("Reingested Hot Installed Entity");
 
-				const refusal = yield* Effect.flip(uninstallTestPluginStrict(plugin));
+				const refusal = yield* Effect.flip(
+					getBackendClient().call(
+						(c) => c.plugins.uninstall({ path: { pluginSlug: provider.pluginSlug } }),
+						adminHeaders,
+					),
+				);
 				assertTaggedError(refusal, "Conflict");
 
 				yield* getBackendClient().call(
 					(c) =>
 						c.testSupport.deleteGlobalEntities({
-							payload: { ids: [EntityId.make(entity.id)] },
+							payload: { ids: [EntityId.make(importResult.data.id)] },
 						}),
 					adminHeaders,
 				);
 				entityId = null;
-				yield* uninstallTestPluginStrict(plugin);
+				yield* getBackendClient().call(
+					(c) => c.plugins.uninstall({ path: { pluginSlug: provider.pluginSlug } }),
+					adminHeaders,
+				);
+				provider.active = false;
 				const after = yield* getBackendClient().call((c) => c.plugins.list({}), adminHeaders);
-				expect(after.some(({ slug }) => slug === pluginSlug)).toBe(false);
+				expect(after.some(({ slug }) => slug === provider.pluginSlug)).toBe(false);
 			}),
 	);
 
@@ -162,30 +210,19 @@ describe("plugins", () => {
 
 	it.scopedLive("rejects execution after a plugin is uninstalled", () =>
 		Effect.gen(function* () {
-			const scriptSlug = `e2e-uninstalled-provider-${crypto.randomUUID()}`;
-			const plugin = yield* installTestPlugin({
-				source: providerSandboxSource({
-					name: "E2E Uninstalled Provider",
-					slug: scriptSlug,
-					drivers: { search: fakeProviderSearchResult([]) },
-					providerInformation: { source: "e2e" },
-				}),
-				script: {
-					kind: "provider",
-					capabilities: [],
-					slug: scriptSlug,
-					name: "E2E Uninstalled Provider",
-					requiredAppConfigKeys: [],
-					providerInformation: { source: "e2e" },
-				},
+			const { client, userId } = yield* createAuthenticatedClient();
+			const provider = yield* installTestProvider({
+				client,
+				name: "E2E Uninstalled Provider",
+				details: fakeProviderDetailsResult({ name: "Uninstalled Entity" }),
+				search: fakeProviderSearchResult([]),
 			});
-			const { userId } = yield* createAuthenticatedClient();
-			yield* uninstallTestPluginStrict(plugin);
+			assertPresent(provider.searchScriptId, "Missing provider search script");
+			yield* uninstallTestProvider(provider);
 			const failure = yield* Effect.flip(
 				enqueueSandboxScript(userId, {
 					context: {},
-					driverName: "search",
-					scriptId: SandboxScriptId.make(plugin.scriptId),
+					scriptId: provider.searchScriptId,
 				}),
 			);
 			assertTaggedError(failure, "NotFound");

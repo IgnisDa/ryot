@@ -1,9 +1,12 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, resolve, search } from "./openlibrary.sandbox";
+import { manifest } from "./openlibrary";
+import details, { manifest as detailsManifest } from "./openlibrary-details.sandbox";
+import resolve, { manifest as resolveManifest } from "./openlibrary-resolve.sandbox";
+import search, { manifest as searchManifest } from "./openlibrary-search.sandbox";
 
 type OpenLibraryBookHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
@@ -12,6 +15,17 @@ const makeHost = (httpCall: OpenLibraryBookHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("book.openlibrary sandbox script", () => {
+	it("declares one script per operation", () => {
+		expect([
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
+			[resolveManifest.slug, resolve.operation],
+		]).toEqual([
+			["book.openlibrary.search", "search"],
+			["book.openlibrary.details", "details"],
+			["book.openlibrary.resolve", "resolve"],
+		]);
+	});
 	it("maps search docs and drops docs missing a key or title", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -23,7 +37,7 @@ describe("book.openlibrary sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "work", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "work", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -70,7 +84,7 @@ describe("book.openlibrary sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "OL1W" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "OL1W" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("The Work");
 					expect(result.relatedEntityGroups).toEqual([
@@ -82,7 +96,7 @@ describe("book.openlibrary sandbox script", () => {
 								{
 									externalId: "OL1A",
 									name: "Author Name",
-									scriptSlug: "person.openlibrary",
+									providerSlug: "person.openlibrary",
 									relationshipProperties: { roles: ["Author"] },
 								},
 							],
@@ -115,8 +129,8 @@ describe("book.openlibrary sandbox script", () => {
 		const missing = makeHost(() => Effect.fail(new Error("not found")));
 		return Effect.runPromise(
 			Effect.all([
-				runSandboxTestDriver(resolve, { value: "123", identifierType: "isbn" }, found, execution),
-				runSandboxTestDriver(resolve, { value: "999", identifierType: "isbn" }, missing, execution),
+				runSandboxTestScript(resolve, { value: "123", identifierType: "isbn" }, found, execution),
+				runSandboxTestScript(resolve, { value: "999", identifierType: "isbn" }, missing, execution),
 			]).pipe(
 				Effect.map(([foundResult, missingResult]) => {
 					expect(foundResult).toEqual({ externalId: "OL1W" });

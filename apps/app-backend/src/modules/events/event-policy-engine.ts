@@ -12,7 +12,12 @@ import type {
 	SandboxExecutionPayload,
 } from "@ryot/contract/modules/sandbox/schemas";
 import type { EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/schema/brands";
-import { AutomationRuleId, EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import {
+	AutomationRuleId,
+	EntityId,
+	SandboxScriptId,
+	SubscriptionRunId,
+} from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type { AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
 import { Effect, Match, Schema } from "effect";
@@ -143,6 +148,7 @@ export const runEventCreatePolicies = Effect.fn(function* (
 	};
 
 	for (const step of steps) {
+		const executionId = `${payload.executionId}-policy-${itemIndex}-${step.id}`;
 		const policyContext = {
 			automation: {
 				ruleId: step.id,
@@ -162,11 +168,18 @@ export const runEventCreatePolicies = Effect.fn(function* (
 			},
 		} satisfies AutomationPolicyInput;
 		const sandboxResult = yield* processSandboxExecution({
-			userId,
-			scriptId: step.sandboxScriptId,
-			driverName: "automation",
+			executionId,
 			context: policyContext,
-			executionId: `${payload.executionId}-policy-${itemIndex}-${step.id}`,
+			scriptId: step.sandboxScriptId,
+			authority: {
+				userId,
+				type: "subscription",
+				subscriptionRun: {
+					origin: policyOrigin,
+					occurredAt: draft.occurredAt,
+					id: SubscriptionRunId.make(executionId),
+				},
+			},
 		}).pipe(Effect.mapError((error) => policyFailed(unknownToMessage(error))));
 
 		if (sandboxResult.error) {

@@ -49,7 +49,7 @@ export class FirstPartyPluginBootstrap extends Effect.Service<FirstPartyPluginBo
 								compiledFormat: output.compiled.format,
 								compiledCode: output.compiled.javascript,
 								contentHash: digest(output.compiled.javascript),
-								metadata: { ...declaredMetadata, driverNames: output.compiled.driverNames },
+								metadata: declaredMetadata,
 							}),
 						);
 					}

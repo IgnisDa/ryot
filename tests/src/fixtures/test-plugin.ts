@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import type { ProviderInformation } from "@ryot/contract/modules/sandbox/schemas";
 import type { SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import type { PluginOperationAuth } from "@ryot/plugin-kit/manifest";
+import type {
+	PluginOperationAuth,
+	PluginProviderInformation,
+	PluginProviderOperation,
+} from "@ryot/plugin-kit/manifest";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
@@ -14,11 +17,17 @@ export type InstalledTestPlugin = {
 	active: boolean;
 	pluginSlug: string;
 	scriptId: SandboxScriptId;
+	scriptIds: Record<string, SandboxScriptId>;
 	files: Record<string, string>;
 	manifest: ReturnType<typeof testPluginManifest>;
 };
 
-const installedByScriptId = new Map<string, InstalledTestPlugin>();
+type InstalledScriptRegistration = {
+	installed: InstalledTestPlugin;
+	targetSlug: string;
+};
+
+const installedByScriptId = new Map<string, InstalledScriptRegistration>();
 const definitionManifests = new Map<string, ReturnType<typeof testPluginManifest>>();
 
 type TestPluginScriptBase = {
@@ -31,11 +40,28 @@ type TestPluginScriptBase = {
 export type TestPluginScript =
 	| (TestPluginScriptBase & { kind: "operation" })
 	| (TestPluginScriptBase & { kind: "automation" })
-	| (TestPluginScriptBase & { kind: "provider"; providerInformation: ProviderInformation });
+	| (TestPluginScriptBase & { kind: "script"; providerSlug?: string })
+	| (TestPluginScriptBase & {
+			kind: "provider";
+			providerSlug: string;
+			providerOperation: PluginProviderOperation;
+	  });
+
+export type TestPluginProvider = {
+	name: string;
+	slug: string;
+	information: PluginProviderInformation;
+	operations: {
+		details: string;
+		search?: string;
+		resolve?: string;
+		translate?: string;
+	};
+};
 
 export type TestPluginOperation = {
 	slug: string;
-	driverRef: string;
+	scriptSlug: string;
 	description: string;
 	auth: PluginOperationAuth;
 };
@@ -43,13 +69,15 @@ export type TestPluginOperation = {
 export const testPluginManifest = (input: {
 	pluginSlug: string;
 	linkToEntitySchemaSlug?: string;
+	linkToProviderSlug?: string;
+	providers?: ReadonlyArray<TestPluginProvider>;
 	operations?: ReadonlyArray<TestPluginOperation>;
 	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
-	boot?: ReadonlyArray<{ slug: string; driverRef: string; description: string }>;
+	boot?: ReadonlyArray<{ slug: string; scriptSlug: string; description: string }>;
 	crons?: ReadonlyArray<{
 		slug: string;
 		schedule: string;
-		driverRef: string;
+		scriptSlug: string;
 		description: string;
 	}>;
 	entitySchemas?: ReadonlyArray<{
@@ -73,6 +101,7 @@ export const testPluginManifest = (input: {
 	boot: input.boot ?? [],
 	crons: input.crons ?? [],
 	scripts: input.scripts ?? [],
+	providers: input.providers ?? [],
 	operations: input.operations ?? [],
 	entitySchemas: input.entitySchemas ?? [],
 	relationshipSchemas: input.relationshipSchemas ?? [],
@@ -89,10 +118,10 @@ export const testPluginManifest = (input: {
 		entityAutomations: [],
 		signalAutomations: [],
 		relationshipAutomations: [],
-		schemaScriptLinks: input.linkToEntitySchemaSlug
+		schemaProviderLinks: input.linkToEntitySchemaSlug
 			? [
 					{
-						scriptSlug: input.scripts?.[0]?.slug ?? "",
+						providerSlug: input.linkToProviderSlug ?? input.providers?.[0]?.slug ?? "",
 						entitySchemaSlug: input.linkToEntitySchemaSlug,
 					},
 				]
@@ -124,6 +153,7 @@ export const installTestPlugin = (input: {
 	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
 	operations?: Parameters<typeof testPluginManifest>[0]["operations"];
 	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
+	providers?: Parameters<typeof testPluginManifest>[0]["providers"];
 }) =>
 	Effect.gen(function* () {
 		const entry = `scripts/${input.script.kind}.sandbox.ts`;
@@ -131,12 +161,16 @@ export const installTestPlugin = (input: {
 		const manifest = testPluginManifest({
 			pluginSlug,
 			scripts: [{ ...input.script, entry }],
+			providers: input.providers ?? [],
 			...(input.boot ? { boot: input.boot } : {}),
 			...(input.crons ? { crons: input.crons } : {}),
 			...(input.operations ? { operations: input.operations } : {}),
 			...(input.entitySchemas ? { entitySchemas: input.entitySchemas } : {}),
-			...(input.linkToEntitySchemaSlug
-				? { linkToEntitySchemaSlug: input.linkToEntitySchemaSlug }
+			...(input.linkToEntitySchemaSlug && input.providers?.[0]
+				? {
+						linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
+						linkToProviderSlug: input.providers[0].slug,
+					}
 				: {}),
 		});
 		const files = { [entry]: input.source };
@@ -149,11 +183,64 @@ export const installTestPlugin = (input: {
 			files,
 			manifest,
 			scriptId,
+			scriptIds: { [input.script.slug]: scriptId },
 			pluginSlug,
 			active: true,
 			slug: input.script.slug,
 		};
-		installedByScriptId.set(scriptId, installed);
+		installedByScriptId.set(scriptId, { installed, targetSlug: input.script.slug });
+		return installed;
+	});
+
+export const installTestPluginBundle = (input: {
+	files: Record<string, string>;
+	pluginSlug?: string;
+	scripts: ReadonlyArray<TestPluginScript & { entry: string }>;
+	providers: ReadonlyArray<TestPluginProvider>;
+	linkToEntitySchemaSlug?: string;
+}) =>
+	Effect.gen(function* () {
+		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
+		const manifest = testPluginManifest({
+			pluginSlug,
+			scripts: input.scripts,
+			providers: input.providers,
+			...(input.linkToEntitySchemaSlug
+				? {
+						linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
+						linkToProviderSlug: input.providers[0]?.slug,
+					}
+				: {}),
+		});
+		yield* getBackendClient().call(
+			(c) => c.plugins.install({ payload: { files: input.files, manifest } }),
+			adminHeaders,
+		);
+		const scriptIds = Object.fromEntries(
+			yield* Effect.all(
+				input.scripts.map((script) =>
+					findInstalledScriptId(script.slug, input.files[script.entry] ?? "").pipe(
+						Effect.map((scriptId) => [script.slug, scriptId] as const),
+					),
+				),
+			),
+		);
+		const scriptId = scriptIds[input.providers[0]?.operations.details ?? ""];
+		if (!scriptId) {
+			return yield* Effect.dieMessage("Test plugin bundle requires a provider details script");
+		}
+		const installed: InstalledTestPlugin = {
+			files: input.files,
+			manifest,
+			scriptId,
+			scriptIds,
+			pluginSlug,
+			active: true,
+			slug: input.providers[0]?.slug ?? input.scripts[0]?.slug ?? pluginSlug,
+		};
+		for (const [targetSlug, id] of Object.entries(scriptIds)) {
+			installedByScriptId.set(id, { installed, targetSlug });
+		}
 		return installed;
 	});
 
@@ -195,27 +282,36 @@ export const reinstallTestPluginScript = (
 	script: TestPluginScript,
 ) =>
 	Effect.gen(function* () {
-		const installed = installedByScriptId.get(targetScriptId);
-		if (!installed) {
+		const registration = installedByScriptId.get(targetScriptId);
+		if (!registration) {
 			throw new Error(`Installed test plugin for script '${targetScriptId}' was not found`);
 		}
-		const entry = installed.manifest.scripts[0]?.entry;
-		if (!entry) {
+		const { installed } = registration;
+		const targetSlug = registration.targetSlug;
+		const targetIndex = installed.manifest.scripts.findIndex(({ slug }) => slug === targetSlug);
+		const target = installed.manifest.scripts[targetIndex];
+		if (!target) {
 			throw new Error(`Installed test plugin '${installed.pluginSlug}' has no script entry`);
 		}
-		const files = { [entry]: source };
-		const manifest = { ...installed.manifest, scripts: [{ ...script, entry }] };
+		const files = { ...installed.files, [target.entry]: source };
+		const scripts = [...installed.manifest.scripts];
+		scripts[targetIndex] = { ...script, entry: target.entry };
+		const manifest = { ...installed.manifest, scripts };
 		yield* getBackendClient().call(
 			(c) => c.plugins.install({ payload: { files, manifest } }),
 			adminHeaders,
 		);
 		const scriptId = yield* findInstalledScriptId(script.slug, source);
-		installedByScriptId.delete(targetScriptId);
+		const updatesPrimaryScript = installed.scriptId === installed.scriptIds[targetSlug];
 		installed.files = files;
-		installed.slug = script.slug;
 		installed.manifest = manifest;
-		installed.scriptId = scriptId;
-		installedByScriptId.set(scriptId, installed);
+		if (updatesPrimaryScript) {
+			installed.scriptId = scriptId;
+		}
+		delete installed.scriptIds[targetSlug];
+		installed.scriptIds[script.slug] = scriptId;
+		registration.targetSlug = script.slug;
+		installedByScriptId.set(scriptId, registration);
 		return installed;
 	});
 
@@ -229,7 +325,11 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 			adminHeaders,
 		);
 		installed.active = false;
-		installedByScriptId.delete(installed.scriptId);
+		for (const [scriptId, registration] of installedByScriptId) {
+			if (registration.installed === installed) {
+				installedByScriptId.delete(scriptId);
+			}
+		}
 	});
 
 export const uninstallTestPlugin = (installed: InstalledTestPlugin) =>

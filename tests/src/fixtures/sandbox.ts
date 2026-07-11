@@ -27,11 +27,10 @@ export const installSandboxScript = (input: {
 	installTestPlugin({
 		source: input.source,
 		script: {
-			kind: "provider",
+			kind: "script",
 			name: input.name,
 			slug: input.slug,
 			capabilities: input.capabilities ?? [],
-			providerInformation: { source: "e2e" },
 			requiredAppConfigKeys: input.requiredAppConfigKeys ?? [],
 		},
 	});

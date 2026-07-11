@@ -1,8 +1,9 @@
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
+import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import type { SandboxRunError } from "@ryot/contract/errors";
-import { toSandboxRunError } from "@ryot/contract/errors";
+import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
 import type { SandboxCompletedResult as SandboxCompletedResultValue } from "@ryot/contract/modules/sandbox/schemas";
+import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -13,12 +14,24 @@ import { SandboxRepository } from "#modules/sandbox/repository";
 import type { EntityImportPayload } from "./entity-import-workflow";
 
 const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
-	processSandboxExecution({
-		driverName: "details",
-		userId: payload.userId,
-		scriptId: payload.scriptId,
-		context: { externalId: payload.externalId },
-		executionId: `${executionId}-sandbox-details`,
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const pluginRuntime = yield* PluginRuntimeResolver;
+		const scriptId = yield* Activity.make({
+			error: SandboxRunError,
+			success: SandboxScriptId,
+			name: `resolve-provider-details-script-${executionId}`,
+			execute: runWithDb(pluginRuntime.resolveDetailsScript(payload.providerId)).pipe(
+				Effect.map(({ id }) => id),
+				Effect.mapError(toSandboxRunError),
+			),
+		});
+		return yield* processSandboxExecution({
+			scriptId,
+			context: { externalId: payload.externalId },
+			executionId: `${executionId}-sandbox-details`,
+			authority: payload.userId ? { type: "user", userId: payload.userId } : { type: "system" },
+		});
 	}).pipe(Effect.mapError(toSandboxRunError));
 
 export type EntityImportWorkflowOperationsValue = {

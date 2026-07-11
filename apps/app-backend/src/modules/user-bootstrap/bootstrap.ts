@@ -34,7 +34,7 @@ const ensureLibraryEntity = Effect.fn(function* (userId: UserId) {
 					eq(schema.entity.userId, userId),
 					eq(schema.entity.entitySchemaSlug, slug),
 					isNull(schema.entity.externalId),
-					isNull(schema.entity.sandboxScriptId),
+					isNull(schema.entity.providerId),
 				),
 			)
 			.limit(1),
