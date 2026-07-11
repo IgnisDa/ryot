@@ -238,9 +238,8 @@ describe("media show query recipes", () => {
 			],
 		});
 		expect(
-			recipe.decode({
-				data: { shows: showRows([{ ...row, images: [{ type: "ftp", url: 12 }] }]) },
-			})._tag,
+			recipe.decode({ data: { shows: showRows([{ ...row, images: [{ type: "ftp", url: 12 }] }]) } })
+				._tag,
 		).toBe("Failure");
 	});
 

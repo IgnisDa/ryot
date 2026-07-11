@@ -34,9 +34,7 @@ export const updateNotificationChannel = (
 
 export const deleteNotificationChannel = (client: Client, channelId: string) =>
 	client.call((c) =>
-		c.notifications.deleteChannel({
-			params: { channelId: NotificationChannelId.make(channelId) },
-		}),
+		c.notifications.deleteChannel({ params: { channelId: NotificationChannelId.make(channelId) } }),
 	);
 
 export const testNotificationChannels = (client: Client) =>

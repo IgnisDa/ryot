@@ -16,10 +16,7 @@ export const createIntegration = (client: Client, body: CreateIntegrationBody) =
 	client.call((c) => c.integrations.create({ payload: body }));
 
 export const createKodiIntegration = (client: Client) =>
-	createIntegration(client, {
-		provider: "kodi",
-		providerSpecifics: { kind: "kodi" },
-	});
+	createIntegration(client, { provider: "kodi", providerSpecifics: { kind: "kodi" } });
 
 export const createAudiobookshelfIntegration = (client: Client) =>
 	createIntegration(client, {

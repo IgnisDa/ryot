@@ -2,9 +2,7 @@ import { Text } from "@react-email/components";
 
 import Layout from "../layout";
 
-type LoginCodeEmailProps = {
-	code: string;
-};
+type LoginCodeEmailProps = { code: string };
 
 const subject = "Login request for Ryot";
 

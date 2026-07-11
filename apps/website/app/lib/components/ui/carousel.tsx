@@ -61,10 +61,7 @@ const Carousel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & Car
 			...rest
 		} = props;
 		const [carouselRef, api] = useEmblaCarousel(
-			{
-				...opts,
-				axis: orientation === "horizontal" ? "x" : "y",
-			},
+			{ ...opts, axis: orientation === "horizontal" ? "x" : "y" },
 			plugins,
 		);
 		const [canScrollPrev, setCanScrollPrev] = useState(false);

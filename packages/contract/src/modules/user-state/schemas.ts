@@ -42,10 +42,7 @@ export const ClearUserStateResponse = Schema.Struct({
 
 export type ClearUserStateResponse = typeof ClearUserStateResponse.Type;
 
-export const MergeUserStateBody = Schema.Struct({
-	mergeFrom: EntityId,
-	mergeInto: EntityId,
-});
+export const MergeUserStateBody = Schema.Struct({ mergeFrom: EntityId, mergeInto: EntityId });
 
 export type MergeUserStateBody = typeof MergeUserStateBody.Type;
 

@@ -76,9 +76,7 @@ const executionStartedAt = (execution: ExecutionMetadata) =>
 		? Effect.succeed(execution.startedAt)
 		: Effect.fail(new Error("Sandbox execution startedAt metadata is required"));
 
-const equipmentAliases: Record<string, string> = {
-	"e-z curl bar": "ez_curl_bar",
-};
+const equipmentAliases: Record<string, string> = { "e-z curl bar": "ez_curl_bar" };
 
 const validForce = new Set(["pull", "push", "static"]);
 const validLevel = new Set(["beginner", "intermediate", "expert"]);
@@ -538,13 +536,15 @@ export const preloadExercises = (host: ExercisePreloadHost, execution: Execution
 		let inserted = 0;
 
 		for (let offset = 0; offset < exercises.length; offset += PRELOAD_BATCH_SIZE) {
-			const batch = exercises.slice(offset, offset + PRELOAD_BATCH_SIZE).map((exercise) => ({
-				populatedAt,
-				name: exercise.name,
-				properties: exercise.properties,
-				externalId: exercise.externalId,
-				entitySchemaSlug: "exercise",
-			}));
+			const batch = exercises
+				.slice(offset, offset + PRELOAD_BATCH_SIZE)
+				.map((exercise) => ({
+					populatedAt,
+					name: exercise.name,
+					properties: exercise.properties,
+					externalId: exercise.externalId,
+					entitySchemaSlug: "exercise",
+				}));
 			const results = yield* host.upsertGlobalEntities(batch, { maximumTotal: preloadLimit });
 			inserted += results.filter(
 				(result) => result.status === "upserted" && result.wasInserted,

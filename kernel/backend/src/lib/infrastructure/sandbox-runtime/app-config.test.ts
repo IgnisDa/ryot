@@ -11,22 +11,14 @@ const pluginSlug = "test-plugin";
 const pluginConfigSchema = {
 	unknownKeys: "strict",
 	fields: {
-		enabled: {
-			type: "boolean",
-			label: "Enabled",
-			description: "Whether the plugin is enabled",
-		},
+		enabled: { type: "boolean", label: "Enabled", description: "Whether the plugin is enabled" },
 		apiToken: {
 			type: "string",
 			label: "API token",
 			description: "Token used by the plugin",
 			validation: { required: true },
 		},
-		requestLimit: {
-			type: "integer",
-			label: "Request limit",
-			description: "Maximum requests",
-		},
+		requestLimit: { type: "integer", label: "Request limit", description: "Maximum requests" },
 	},
 } satisfies AppSchema;
 
@@ -92,19 +84,13 @@ describe("getPluginConfig", () => {
 	});
 
 	it("returns an empty record without loading config", () => {
-		expect(runPluginConfig([], {})).toMatchObject({
-			_tag: "Success",
-			success: {},
-		});
+		expect(runPluginConfig([], {})).toMatchObject({ _tag: "Success", success: {} });
 	});
 
 	it("rejects undeclared, unknown, and unconfigured plugin config", () => {
 		expect(
 			runPluginConfig(["apiToken", "requestLimit"], { apiToken: "secret" }, ["apiToken"]),
-		).toMatchObject({
-			_tag: "Failure",
-			failure: expect.stringContaining("is not declared"),
-		});
+		).toMatchObject({ _tag: "Failure", failure: expect.stringContaining("is not declared") });
 		expect(runPluginConfig(["missing"], { apiToken: "secret" })).toMatchObject({
 			_tag: "Failure",
 			failure: expect.stringContaining("does not exist"),

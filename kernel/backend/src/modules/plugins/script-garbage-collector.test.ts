@@ -53,9 +53,7 @@ const withCollector = <A, E, R>(
 	]);
 	const loadedPlugin = loader.getSnapshot().plugins["fixture"];
 	assert(loadedPlugin);
-	const loaderLayer = Layer.succeed(PluginLoader, {
-		...loader,
-	});
+	const loaderLayer = Layer.succeed(PluginLoader, { ...loader });
 	const repositoryLayer = Layer.mock(PluginRepository)({
 		lockIngestion: input.lockIngestion ?? (() => Effect.void),
 		hasIntegrationReferences: () => Effect.succeed(false),

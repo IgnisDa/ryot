@@ -29,9 +29,7 @@ const makeBootstrapDb = (options?: {
 				}
 				return {
 					where: () =>
-						Object.assign(Effect.succeed(userRows), {
-							for: () => Effect.succeed(userRows),
-						}),
+						Object.assign(Effect.succeed(userRows), { for: () => Effect.succeed(userRows) }),
 				};
 			},
 		}),
@@ -64,9 +62,7 @@ const makeLayer = (options: {
 				}),
 			),
 		),
-		Layer.mock(PluginUserBootstrapDispatcher)({
-			dispatchAll: options.dispatch,
-		}),
+		Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: options.dispatch }),
 		Layer.mock(PluginInstallationService)({
 			provisionSystemInstallations: (inputUserId) =>
 				Effect.sync(() => options.onProvisionInstallations?.(inputUserId)),

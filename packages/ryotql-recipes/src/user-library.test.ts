@@ -32,10 +32,7 @@ describe("user library recipe", () => {
 					right: { type: "literal", value: "library" },
 					left: { type: "column", tableAlias: "library", field: "entitySchemaSlug" },
 				},
-				{
-					type: "isNotNull",
-					expr: { type: "column", tableAlias: "library", field: "userId" },
-				},
+				{ type: "isNotNull", expr: { type: "column", tableAlias: "library", field: "userId" } },
 			],
 		});
 		expect(query.output.fields).toEqual([
@@ -51,12 +48,7 @@ describe("user library recipe", () => {
 
 	it("rejects a malformed selected field", () => {
 		const response = {
-			data: {
-				library: {
-					...userLibraryResponse.data.library,
-					items: [{ entityId: 1 }],
-				},
-			},
+			data: { library: { ...userLibraryResponse.data.library, items: [{ entityId: 1 }] } },
 		};
 
 		expect(Result.isFailure(userLibraryRecipe().decode(response))).toBe(true);

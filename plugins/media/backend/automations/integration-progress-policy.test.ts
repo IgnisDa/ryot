@@ -21,10 +21,7 @@ const createPolicyContext = (
 	origin?: AutomationPolicyInput["automation"]["origin"],
 ) =>
 	policyAutomationContext(
-		{
-			properties: { progressPercent: 50, consumedOn: "Plex" },
-			...overrides,
-		},
+		{ properties: { progressPercent: 50, consumedOn: "Plex" }, ...overrides },
 		origin,
 	);
 

@@ -102,10 +102,7 @@ describe("config definitions", () => {
 			},
 		} satisfies AppSchema;
 		const config = configFromAppSchema(schema, (path) => `PLUGIN_${path.join("_").toUpperCase()}`);
-		expect(load(config, { PLUGIN_PROVIDER: "remote" })).toEqual({
-			retries: 2,
-			provider: "remote",
-		});
+		expect(load(config, { PLUGIN_PROVIDER: "remote" })).toEqual({ retries: 2, provider: "remote" });
 	});
 
 	it("reports the environment key and allowed values for invalid enums", () => {

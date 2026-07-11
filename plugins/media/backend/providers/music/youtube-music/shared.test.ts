@@ -149,11 +149,7 @@ describe("music.youtube-music sandbox script", () => {
 			runHistory(
 				{ authCookie: "cookie", timezone: "UTC" },
 				host,
-				{
-					metadata: {},
-					sandboxScriptId: "script_test",
-					startedAt: "2026-08-05T12:00:00.000Z",
-				},
+				{ metadata: {}, sandboxScriptId: "script_test", startedAt: "2026-08-05T12:00:00.000Z" },
 				() => Effect.succeed(client),
 			).pipe(
 				Effect.map((result) => {

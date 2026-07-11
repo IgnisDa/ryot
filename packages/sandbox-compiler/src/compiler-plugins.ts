@@ -10,9 +10,7 @@ import type { SandboxTypeScriptSources } from "./compiler-project";
 
 export type CompiledPluginSandboxEntry = CompiledBuiltInSandboxEntry;
 
-export type PluginSandboxScriptEntry = SandboxEntryDeclaration & {
-	readonly entry: string;
-};
+export type PluginSandboxScriptEntry = SandboxEntryDeclaration & { readonly entry: string };
 
 const sortedEntries = (scripts: ReadonlyArray<PluginSandboxScriptEntry>) =>
 	scripts.map(({ entry }) => entry).sort();

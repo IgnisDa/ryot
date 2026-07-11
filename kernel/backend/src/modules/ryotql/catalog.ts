@@ -3,10 +3,7 @@ import { sql } from "drizzle-orm";
 
 export type CatalogFieldKind = "boolean" | "date" | "json" | "number" | "text";
 
-export type CatalogFieldContext = {
-	readonly sqlAlias: string;
-	readonly language: string | null;
-};
+export type CatalogFieldContext = { readonly sqlAlias: string; readonly language: string | null };
 
 export type CatalogField = {
 	readonly kind: CatalogFieldKind;

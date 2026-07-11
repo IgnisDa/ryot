@@ -6,11 +6,7 @@ import { Badge } from "~/lib/components/ui/badge";
 import { Button } from "~/lib/components/ui/button";
 import { SECTION_CONTAINER, SECTION_Y_PADDING_LARGE } from "~/lib/styles";
 
-type ImageProps = {
-	src: string;
-	alt: string;
-	className: string;
-};
+type ImageProps = { src: string; alt: string; className: string };
 
 const Image = (props: ImageProps) => (
 	<img

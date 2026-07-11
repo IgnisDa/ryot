@@ -21,21 +21,13 @@ const target = (entityId: string, monitoringLibraryId: string | null = null) => 
 });
 const rows = (items: unknown[]) => ({
 	data: {
-		targets: {
-			type: "rows",
-			items,
-			pageInfo: { hasMore: false, limit: 50, nextCursor: null },
-		},
+		targets: { type: "rows", items, pageInfo: { hasMore: false, limit: 50, nextCursor: null } },
 	},
 });
 
 const libraryRows = (items: unknown[]) => ({
 	data: {
-		library: {
-			type: "rows",
-			items,
-			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
-		},
+		library: { type: "rows", items, pageInfo: { hasMore: false, limit: 1, nextCursor: null } },
 	},
 });
 

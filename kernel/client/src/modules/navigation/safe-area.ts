@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 
-export type SafeAreaInsets = {
-	readonly safeAreaTop: number;
-	readonly safeAreaBottom: number;
-};
+export type SafeAreaInsets = { readonly safeAreaTop: number; readonly safeAreaBottom: number };
 
 const PROBE_STYLE =
 	"position:fixed;top:0;left:0;width:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)";

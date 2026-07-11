@@ -12,10 +12,7 @@ import type {
 	CustomizeSection,
 } from "#/modules/navigation/customize/customize-state";
 
-export type CustomizeUpdate = {
-	readonly viewSlug: string;
-	readonly payload: UpdateSavedViewBody;
-};
+export type CustomizeUpdate = { readonly viewSlug: string; readonly payload: UpdateSavedViewBody };
 
 export type CustomizePlan = {
 	readonly updates: readonly CustomizeUpdate[];

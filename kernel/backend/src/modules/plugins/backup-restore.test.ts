@@ -36,12 +36,7 @@ const privateManifest = () => ({
 const snapshot = {
 	plugins: {},
 	httpRateLimits: { byKey: {}, byOrigin: {} },
-	definitions: {
-		savedViews: {},
-		entitySchemas: {},
-		signalSchemas: {},
-		relationshipSchemas: {},
-	},
+	definitions: { savedViews: {}, entitySchemas: {}, signalSchemas: {}, relationshipSchemas: {} },
 	bindings: {
 		eventAutomations: [],
 		entityAutomations: [],

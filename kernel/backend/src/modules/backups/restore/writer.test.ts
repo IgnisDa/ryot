@@ -56,11 +56,7 @@ it("keeps restored installations inactive when required secrets were redacted", 
 it("preserves needs-configuration health when the secret was already absent", () => {
 	expect(
 		resolveRestoredInstallationLifecycle(
-			{
-				disabledIntent: true,
-				configuredSecretPaths: [],
-				lifecycleIntent: "needs-configuration",
-			},
+			{ disabledIntent: true, configuredSecretPaths: [], lifecycleIntent: "needs-configuration" },
 			{ fields: {}, unknownKeys: "strict" },
 		),
 	).toEqual({ health: "needs-configuration", isDisabled: true });
@@ -489,11 +485,7 @@ it.effect("preflights all qualified schema provenance including streamed events"
 				event: provenanceEvent(),
 				records: provenanceRecords({ subscriptionKey: "foreign-key" }),
 			},
-			{
-				name: "event",
-				records: provenanceRecords(),
-				event: provenanceEvent("foreign-key"),
-			},
+			{ name: "event", records: provenanceRecords(), event: provenanceEvent("foreign-key") },
 			{
 				name: "undeclared event key",
 				records: provenanceRecords(),

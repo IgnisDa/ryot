@@ -14,10 +14,7 @@ import {
 	buildReportSql,
 } from "./shared";
 
-type MetadataGroupRelationshipTarget = {
-	lot: string;
-	relationshipSchemaSlug: string;
-};
+type MetadataGroupRelationshipTarget = { lot: string; relationshipSchemaSlug: string };
 
 export const metadataGroupEntityTargets = [
 	{
@@ -26,12 +23,7 @@ export const metadataGroupEntityTargets = [
 		entitySchemaSlug: "audiobook-group",
 		providerSlug: "audiobook-group.audible",
 	},
-	{
-		lot: "audio_book",
-		source: "custom",
-		entitySchemaSlug: "audiobook-group",
-		providerSlug: null,
-	},
+	{ lot: "audio_book", source: "custom", entitySchemaSlug: "audiobook-group", providerSlug: null },
 	{ lot: "book", source: "custom", entitySchemaSlug: "book-group", providerSlug: null },
 	{ lot: "book", source: "google_books", entitySchemaSlug: "book-group", providerSlug: null },
 	{
@@ -41,12 +33,7 @@ export const metadataGroupEntityTargets = [
 		providerSlug: "book-group.hardcover",
 	},
 	{ lot: "book", source: "openlibrary", entitySchemaSlug: "book-group", providerSlug: null },
-	{
-		lot: "comic_book",
-		source: "custom",
-		entitySchemaSlug: "comic-book-group",
-		providerSlug: null,
-	},
+	{ lot: "comic_book", source: "custom", entitySchemaSlug: "comic-book-group", providerSlug: null },
 	{
 		lot: "comic_book",
 		source: "metron",
@@ -85,12 +72,7 @@ export const metadataGroupEntityTargets = [
 		entitySchemaSlug: "music-group",
 		providerSlug: "music-group.youtube-music",
 	},
-	{
-		lot: "video_game",
-		source: "custom",
-		entitySchemaSlug: "video-game-group",
-		providerSlug: null,
-	},
+	{ lot: "video_game", source: "custom", entitySchemaSlug: "video-game-group", providerSlug: null },
 	{
 		lot: "video_game",
 		source: "giant_bomb",

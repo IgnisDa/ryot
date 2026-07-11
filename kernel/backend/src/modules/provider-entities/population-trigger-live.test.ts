@@ -63,9 +63,7 @@ it.effect("does not enqueue user population for a disabled system provider", () 
 				}),
 				Layer.succeed(
 					WorkflowEngine,
-					makeWorkflowEngine({
-						execute: () => Effect.sync(() => void (enqueued = true)),
-					}),
+					makeWorkflowEngine({ execute: () => Effect.sync(() => void (enqueued = true)) }),
 				),
 			),
 		),
@@ -151,8 +149,6 @@ it.effect("keeps user-triggered private provider entities user-owned", () => {
 			entitySchemaSlug: EntitySchemaSlug.make("record"),
 			providerId: SandboxProviderId.make("provider-1"),
 		});
-		expect(capture.getPayload()).toMatchObject({
-			entityScope: { type: "user", userId: "user-1" },
-		});
+		expect(capture.getPayload()).toMatchObject({ entityScope: { type: "user", userId: "user-1" } });
 	}).pipe(Effect.provide(capture.layer));
 });

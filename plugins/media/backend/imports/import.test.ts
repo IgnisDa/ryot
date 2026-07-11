@@ -41,10 +41,7 @@ it("passes Netflix profile selection from source payload to its parser activity"
 		requests: [
 			{
 				kind: "activity",
-				args: {
-					scriptSlug: "import.netflix",
-					input: { start: 0, limit: 25, profileName: "Kids" },
-				},
+				args: { scriptSlug: "import.netflix", input: { start: 0, limit: 25, profileName: "Kids" } },
 			},
 		],
 	});
@@ -234,11 +231,7 @@ const driveWatcharrImport = (input: {
 			const request = envelope.requests[journal.length];
 			assert(request);
 			if (request.kind === "activity" && request.args.scriptSlug === "import.watcharr") {
-				journal.push({
-					failures: [],
-					totalItems: 1,
-					entityGroups: [...input.entityGroups],
-				});
+				journal.push({ failures: [], totalItems: 1, entityGroups: [...input.entityGroups] });
 			} else if (
 				request.kind === "child" &&
 				request.args.workflowSlug === "media-import-population"

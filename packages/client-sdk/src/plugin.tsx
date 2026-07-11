@@ -86,9 +86,7 @@ const bootstrapClientApplication = (
 				return;
 			}
 			try {
-				root = createRoot(rootElement, {
-					onUncaughtError: () => runtime?.fatal(),
-				});
+				root = createRoot(rootElement, { onUncaughtError: () => runtime?.fatal() });
 				root.render(
 					<RyotProvider runtime={sdkRuntime}>
 						<EntityPresentationRegistryProvider registrations={registrations}>

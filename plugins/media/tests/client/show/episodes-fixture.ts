@@ -66,10 +66,7 @@ const seasonRows = (input: SeasonEpisodeRows) => {
 	}
 	const { episodes = [], hasMore = false, ...row } = season;
 	return [
-		{
-			...row,
-			episodes: nestedRows(input.episodes ?? episodes, input.hasMore ?? hasMore, 60),
-		},
+		{ ...row, episodes: nestedRows(input.episodes ?? episodes, input.hasMore ?? hasMore, 60) },
 	];
 };
 

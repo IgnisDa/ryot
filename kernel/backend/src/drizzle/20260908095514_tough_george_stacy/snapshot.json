@@ -4,24 +4,9 @@
 	"id": "feb9d538-511d-472b-bf7f-0905b55a2d91",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
-		{
-			"isRlsEnabled": false,
-			"name": "account",
-			"entityType": "tables",
-			"schema": "public"
-		},
-		{
-			"isRlsEnabled": false,
-			"name": "apikey",
-			"entityType": "tables",
-			"schema": "public"
-		},
-		{
-			"isRlsEnabled": false,
-			"name": "backup_run",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
+		{ "isRlsEnabled": false, "name": "apikey", "entityType": "tables", "schema": "public" },
+		{ "isRlsEnabled": false, "name": "backup_run", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "client_page_build",
@@ -34,60 +19,30 @@
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "entity",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "entity", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "entity_translation",
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "event",
-			"entityType": "tables",
-			"schema": "public"
-		},
-		{
-			"isRlsEnabled": false,
-			"name": "import_run",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "event", "entityType": "tables", "schema": "public" },
+		{ "isRlsEnabled": false, "name": "import_run", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "import_run_failure",
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "integration",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "integration", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "integration_auto_disable_claim",
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "jwks",
-			"entityType": "tables",
-			"schema": "public"
-		},
-		{
-			"isRlsEnabled": false,
-			"name": "managed_asset",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "jwks", "entityType": "tables", "schema": "public" },
+		{ "isRlsEnabled": false, "name": "managed_asset", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "migration_report",
@@ -112,12 +67,7 @@
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "oauth_client",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "oauth_client", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "oauth_client_assertion",
@@ -130,30 +80,15 @@
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "oauth_consent",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "oauth_consent", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "oauth_refresh_token",
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "oauth_resource",
-			"entityType": "tables",
-			"schema": "public"
-		},
-		{
-			"isRlsEnabled": false,
-			"name": "plugin",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "oauth_resource", "entityType": "tables", "schema": "public" },
+		{ "isRlsEnabled": false, "name": "plugin", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "plugin_client_artifact",
@@ -178,12 +113,7 @@
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "relationship",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "relationship", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "sandbox_provider",
@@ -196,36 +126,16 @@
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "sandbox_script",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "sandbox_script", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "sandbox_workflow_reference",
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "saved_view",
-			"entityType": "tables",
-			"schema": "public"
-		},
-		{
-			"isRlsEnabled": false,
-			"name": "session",
-			"entityType": "tables",
-			"schema": "public"
-		},
-		{
-			"isRlsEnabled": false,
-			"name": "signal",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "saved_view", "entityType": "tables", "schema": "public" },
+		{ "isRlsEnabled": false, "name": "session", "entityType": "tables", "schema": "public" },
+		{ "isRlsEnabled": false, "name": "signal", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "signal_recipient",
@@ -238,30 +148,15 @@
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "two_factor",
-			"entityType": "tables",
-			"schema": "public"
-		},
-		{
-			"isRlsEnabled": false,
-			"name": "user",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "two_factor", "entityType": "tables", "schema": "public" },
+		{ "isRlsEnabled": false, "name": "user", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
 			"name": "user_lifecycle_operation",
 			"entityType": "tables",
 			"schema": "public"
 		},
-		{
-			"isRlsEnabled": false,
-			"name": "verification",
-			"entityType": "tables",
-			"schema": "public"
-		},
+		{ "isRlsEnabled": false, "name": "verification", "entityType": "tables", "schema": "public" },
 		{
 			"type": "text",
 			"typeSchema": null,
@@ -6165,13 +6060,7 @@
 		{
 			"nameExplicit": true,
 			"columns": [
-				{
-					"value": "key",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
+				{ "value": "key", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
 			],
 			"isUnique": false,
 			"where": null,
@@ -6851,13 +6740,7 @@
 					"nullsFirst": false,
 					"opclass": null
 				},
-				{
-					"value": "id",
-					"isExpression": false,
-					"asc": false,
-					"nullsFirst": false,
-					"opclass": null
-				}
+				{ "value": "id", "isExpression": false, "asc": false, "nullsFirst": false, "opclass": null }
 			],
 			"isUnique": false,
 			"where": null,
@@ -6900,13 +6783,7 @@
 					"nullsFirst": false,
 					"opclass": null
 				},
-				{
-					"value": "id",
-					"isExpression": false,
-					"asc": false,
-					"nullsFirst": false,
-					"opclass": null
-				}
+				{ "value": "id", "isExpression": false, "asc": false, "nullsFirst": false, "opclass": null }
 			],
 			"isUnique": false,
 			"where": null,

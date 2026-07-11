@@ -74,10 +74,9 @@ it.live("automatically populates and translates a partial Show in the compiled M
 		const frame = page.locator('iframe[title="media plugin"]');
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
-		yield* media.getByRole("heading", { level: 1, name: translatedName, exact: true }).waitFor({
-			state: "visible",
-			timeout: 150_000,
-		});
+		yield* media
+			.getByRole("heading", { level: 1, name: translatedName, exact: true })
+			.waitFor({ state: "visible", timeout: 150_000 });
 		yield* expectVisibleText(media.locator("body"), translatedDescription);
 		yield* expectVisibleText(
 			media

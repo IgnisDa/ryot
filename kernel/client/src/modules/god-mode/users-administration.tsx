@@ -82,16 +82,8 @@ const formatDate = (value: string) =>
 
 const userColumns: ReadonlyArray<DataTableColumn<GodModeUser>> = [
 	{ id: "email", header: "Email", headerClassName: "px-2 py-3 font-semibold" },
-	{
-		id: "name",
-		header: "Name",
-		headerClassName: "hidden px-2 py-3 font-semibold md:table-cell",
-	},
-	{
-		id: "auth",
-		header: "Auth",
-		headerClassName: "hidden px-2 py-3 font-semibold md:table-cell",
-	},
+	{ id: "name", header: "Name", headerClassName: "hidden px-2 py-3 font-semibold md:table-cell" },
+	{ id: "auth", header: "Auth", headerClassName: "hidden px-2 py-3 font-semibold md:table-cell" },
 	{ id: "status", header: "Status", headerClassName: "px-2 py-3 font-semibold" },
 	{
 		id: "created",

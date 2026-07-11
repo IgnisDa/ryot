@@ -6,10 +6,7 @@ const MetadataLookupData = Schema.Struct({
 	lot: Schema.Literals(["movie", "show"]),
 });
 
-const MetadataLookupShowInformation = Schema.Struct({
-	season: Schema.Int,
-	episode: Schema.Int,
-});
+const MetadataLookupShowInformation = Schema.Struct({ season: Schema.Int, episode: Schema.Int });
 
 const MetadataLookupFound = Schema.Struct({
 	title: Schema.String,
@@ -34,9 +31,7 @@ export const MetadataLookupInput = Schema.Struct({
 
 export type MetadataLookupInput = Schema.Schema.Type<typeof MetadataLookupInput>;
 
-export const MetadataLookupOutput = Schema.Struct({
-	results: Schema.Array(MetadataLookupResult),
-});
+export const MetadataLookupOutput = Schema.Struct({ results: Schema.Array(MetadataLookupResult) });
 
 export type MetadataLookupOutput = Schema.Schema.Type<typeof MetadataLookupOutput>;
 
@@ -66,9 +61,7 @@ export const ResolveEpisodesRef = Schema.Union([ShowEpisodeRef, ShowSeasonRef, P
 
 export type ResolveEpisodesRef = Schema.Schema.Type<typeof ResolveEpisodesRef>;
 
-export const ResolveEpisodesInput = Schema.Struct({
-	refs: Schema.Array(ResolveEpisodesRef),
-});
+export const ResolveEpisodesInput = Schema.Struct({ refs: Schema.Array(ResolveEpisodesRef) });
 
 export type ResolveEpisodesInput = Schema.Schema.Type<typeof ResolveEpisodesInput>;
 

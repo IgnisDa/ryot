@@ -304,9 +304,7 @@ const makeTokenService = (
 					storage.removeTokenSet(origin).pipe(Effect.catch(() => Effect.void)),
 					storage.clearPending(origin),
 				],
-				{
-					discard: true,
-				},
+				{ discard: true },
 			),
 	};
 };

@@ -22,11 +22,7 @@ const groupRolesPropertiesSchema = {
 			label: "Roles",
 			type: "array" as const,
 			description: "Roles this group filled in this media",
-			items: {
-				label: "Role",
-				type: "string" as const,
-				description: "A specific role name",
-			},
+			items: { label: "Role", type: "string" as const, description: "A specific role name" },
 		},
 	},
 };
@@ -55,11 +51,7 @@ const buildCreditRelationshipSchemas = (input: {
 							},
 						}
 					: {}),
-				order: {
-					label: "Order",
-					type: "number" as const,
-					description: input.orderDescription,
-				},
+				order: { label: "Order", type: "number" as const, description: input.orderDescription },
 				roles: {
 					label: "Roles",
 					type: "array" as const,

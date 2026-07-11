@@ -74,19 +74,13 @@ describe("saved-view record recipes", () => {
 		expect(decoded).toEqual({
 			pageInfo,
 			items: [
-				{
-					...item,
-					createdAt: "2025-12-31T23:00:00.000Z",
-					updatedAt: "2026-01-01T23:00:00.000Z",
-				},
+				{ ...item, createdAt: "2025-12-31T23:00:00.000Z", updatedAt: "2026-01-01T23:00:00.000Z" },
 			],
 		});
 		expect(
 			Result.getOrThrow(
 				savedViewRecordsRecipe({ limit: 2 }).decode({
-					data: {
-						savedViews: rows([{ ...item, pluginSlug: null }]),
-					},
+					data: { savedViews: rows([{ ...item, pluginSlug: null }]) },
 				}),
 			).items[0],
 		).toMatchObject({ pluginSlug: null });

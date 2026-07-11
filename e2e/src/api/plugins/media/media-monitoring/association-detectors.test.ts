@@ -365,11 +365,7 @@ describe("association lifecycle via cron refresh", () => {
 			const personMonitor = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(personMonitor.client, {
 				channel: "apprise",
-				channelSpecifics: {
-					baseUrl: fakeApprise.url,
-					key: "role-update-monitor",
-					kind: "apprise",
-				},
+				channelSpecifics: { baseUrl: fakeApprise.url, key: "role-update-monitor", kind: "apprise" },
 			});
 			yield* enableMediaMonitoring(personMonitor.client, person.id);
 			yield* enableMediaMonitoring(personMonitor.client, movie.id);

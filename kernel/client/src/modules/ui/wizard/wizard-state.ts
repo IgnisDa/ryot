@@ -11,10 +11,7 @@ export type WizardStep = (typeof WIZARD_STEPS)[number];
 
 export type WizardStepHeadings = Record<WizardStep, string>;
 
-export type WizardState = {
-	readonly step: WizardStep;
-	readonly slug: string | undefined;
-};
+export type WizardState = { readonly step: WizardStep; readonly slug: string | undefined };
 
 export type WizardAction =
 	| { readonly type: "back" }

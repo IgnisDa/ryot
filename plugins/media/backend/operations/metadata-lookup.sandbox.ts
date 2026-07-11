@@ -66,21 +66,24 @@ export default defineOperation({
 				const searched = yield* Effect.forEach(
 					searchProviders,
 					(provider) =>
-						provider.script.run({ query, page: 1, pageSize: 20 }, host, execution).pipe(
-							Effect.map(({ items }) =>
-								items.map(
-									(item): MetadataLookupTitleMatchCandidate => ({
-										title: item.title,
-										externalId: item.externalId,
-										providerSlug: provider.providerSlug,
-										entitySchemaSlug: provider.entitySchemaSlug,
-										publishYear:
-											item.metadata?.find((value): value is number => typeof value === "number") ??
-											null,
-									}),
+						provider.script
+							.run({ query, page: 1, pageSize: 20 }, host, execution)
+							.pipe(
+								Effect.map(({ items }) =>
+									items.map(
+										(item): MetadataLookupTitleMatchCandidate => ({
+											title: item.title,
+											externalId: item.externalId,
+											providerSlug: provider.providerSlug,
+											entitySchemaSlug: provider.entitySchemaSlug,
+											publishYear:
+												item.metadata?.find(
+													(value): value is number => typeof value === "number",
+												) ?? null,
+										}),
+									),
 								),
 							),
-						),
 					{ concurrency: 2 },
 				);
 

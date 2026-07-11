@@ -53,9 +53,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 		input.childEntities.map(({ entitySchemaSlug }) => entitySchemaSlug),
 	);
 	if (childSchemaSlugs.size > 1) {
-		return yield* new SandboxRunError({
-			message: "Child entities must use one entity schema",
-		});
+		return yield* new SandboxRunError({ message: "Child entities must use one entity schema" });
 	}
 	const rowChildEntitySchemaSlug = input.childEntities[0]?.entitySchemaSlug;
 	if (

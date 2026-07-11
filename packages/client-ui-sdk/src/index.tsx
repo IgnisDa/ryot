@@ -33,9 +33,7 @@ const variantClasses = {
 		"min-h-9.5 rounded-md font-semibold text-text-muted aria-pressed:bg-raised aria-pressed:text-text aria-pressed:shadow-sm",
 } as const;
 
-type ButtonProps = ComponentProps<"button"> & {
-	variant?: keyof typeof variantClasses;
-};
+type ButtonProps = ComponentProps<"button"> & { variant?: keyof typeof variantClasses };
 
 export function Button({ className, variant = "primary", ...props }: ButtonProps) {
 	return <button className={clsx(variantClasses[variant], className)} {...props} />;
@@ -47,9 +45,7 @@ const toneClasses = {
 	pending: "text-text-muted",
 } as const;
 
-type StatusMessageProps = ComponentProps<"p"> & {
-	tone: keyof typeof toneClasses;
-};
+type StatusMessageProps = ComponentProps<"p"> & { tone: keyof typeof toneClasses };
 
 export function StatusMessage({ className, tone, ...props }: StatusMessageProps) {
 	return (

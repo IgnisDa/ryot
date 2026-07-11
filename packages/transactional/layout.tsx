@@ -13,10 +13,7 @@ import {
 } from "@react-email/components";
 import type { ReactNode } from "react";
 
-type LayoutProps = {
-	headingText: string;
-	children: ReactNode;
-};
+type LayoutProps = { headingText: string; children: ReactNode };
 
 const Layout = (props: LayoutProps) => (
 	<Html>
@@ -25,12 +22,7 @@ const Layout = (props: LayoutProps) => (
 		<Tailwind
 			config={{
 				theme: {
-					extend: {
-						colors: {
-							"paragraph-gray": "#3c4149",
-							"brand-heading-gray": "#484848",
-						},
-					},
+					extend: { colors: { "paragraph-gray": "#3c4149", "brand-heading-gray": "#484848" } },
 				},
 			}}
 		>

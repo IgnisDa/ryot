@@ -103,10 +103,7 @@ export const coalesce = (
 export const concat = (
 	first: ScalarExpression,
 	...rest: readonly ScalarExpression[]
-): Extract<ScalarExpression, { type: "concat" }> => ({
-	type: "concat",
-	values: [first, ...rest],
-});
+): Extract<ScalarExpression, { type: "concat" }> => ({ type: "concat", values: [first, ...rest] });
 
 export const conditional = (
 	condition: Predicate,
@@ -530,10 +527,7 @@ const decodeSelectedRows = <Selection extends SelectedSelection, Includes extend
 		return Result.flatMap(decodeRowsPageInfo(rowsResult["pageInfo"]), (pageInfo) =>
 			Result.map(
 				Result.all(rawItems.map((row) => decodeSelectedRow(row, selection, includes))),
-				(decodedItems) => ({
-					items: decodedItems,
-					pageInfo,
-				}),
+				(decodedItems) => ({ items: decodedItems, pageInfo }),
 			),
 		);
 	});
@@ -656,10 +650,7 @@ export const selectedInclude = <
 					(pageInfo) =>
 						Result.map(
 							Result.all(rawItems.map((row) => decodeSelectedRow(row, selection, includes))),
-							(decodedItems) => ({
-								items: decodedItems,
-								pageInfo,
-							}),
+							(decodedItems) => ({ items: decodedItems, pageInfo }),
 						),
 				);
 			}),

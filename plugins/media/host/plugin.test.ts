@@ -114,11 +114,7 @@ it("declares the complete media-owned source", () => {
 	for (const [slug, registration] of Object.entries(registrations)) {
 		expect(registration).toEqual(
 			slug === "show"
-				? {
-						detailPage: "show-detail",
-						gridPresentation: "show-card",
-						listPresentation: "show-row",
-					}
+				? { detailPage: "show-detail", gridPresentation: "show-card", listPresentation: "show-row" }
 				: { gridPresentation: "media-card", listPresentation: "media-row" },
 		);
 	}
@@ -148,18 +144,8 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.configSchema.fields.tmdbAccessToken?.secret).toBe(true);
 	expect(mediaPlugin.configSchema.fields.progressUpdateThresholdHours?.defaultValue).toBe(2);
 	expect(mediaPlugin.httpRateLimits).toEqual([
-		{
-			requests: 90,
-			key: "anilist",
-			intervalMs: 60_000,
-			origins: ["https://graphql.anilist.co"],
-		},
-		{
-			requests: 1,
-			intervalMs: 1_000,
-			key: "musicbrainz",
-			origins: ["https://musicbrainz.org"],
-		},
+		{ requests: 90, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
+		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
 	]);
 	expect(mediaPlugin.httpRateLimits.flatMap(({ origins }) => origins)).not.toContain(
 		"https://coverartarchive.org",
@@ -326,9 +312,7 @@ it("binds library membership to media events and collection membership", () => {
 		["collection:add-entity-to-collection", ...mediaEventSchemaSlugs].sort(),
 	);
 	expect(bindings).toContainEqual(
-		expect.objectContaining({
-			eventSchemaSlug: "collection:add-entity-to-collection",
-		}),
+		expect.objectContaining({ eventSchemaSlug: "collection:add-entity-to-collection" }),
 	);
 	expect(bindings).not.toContainEqual(
 		expect.objectContaining({ eventSchemaSlug: "workout:workout" }),

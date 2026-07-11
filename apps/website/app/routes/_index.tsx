@@ -65,19 +65,14 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.insert(customers)
 				.values({ paymentProvider, email: submission.email })
 				.returning({ id: customers.id })
-				.onConflictDoUpdate({
-					target: customers.email,
-					set: { email: submission.email },
-				});
+				.onConflictDoUpdate({ target: customers.email, set: { email: submission.email } });
 			const customerId = dbCustomer.at(0)?.id;
 			if (!customerId) {
 				throw new Error("There was an error registering the user.");
 			}
 			console.log("Customer login successful:", { customerId });
 			return redirect($path("/me"), {
-				headers: {
-					"set-cookie": await websiteAuthCookie.serialize(customerId),
-				},
+				headers: { "set-cookie": await websiteAuthCookie.serialize(customerId) },
 			});
 		})
 		.with("registerWithOidc", async () => {
@@ -125,9 +120,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
-const turnstileTokenSchema = z.object({
-	turnstileToken: z.string(),
-});
+const turnstileTokenSchema = z.object({ turnstileToken: z.string() });
 
 const emailSchema = z.object({ email: z.email() });
 

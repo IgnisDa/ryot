@@ -91,9 +91,6 @@ export const CreateMembershipBody = Schema.Struct({
 
 export type CreateMembershipBody = typeof CreateMembershipBody.Type;
 
-export const DeleteMembershipBody = Schema.Struct({
-	entityId: EntityId,
-	collectionId: EntityId,
-});
+export const DeleteMembershipBody = Schema.Struct({ entityId: EntityId, collectionId: EntityId });
 
 export type DeleteMembershipBody = typeof DeleteMembershipBody.Type;

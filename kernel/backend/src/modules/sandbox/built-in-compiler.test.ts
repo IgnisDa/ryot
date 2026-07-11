@@ -28,10 +28,7 @@ it.effect("compiles a trusted provider with a relative helper into one ESM modul
 	Effect.gen(function* () {
 		const result = yield* compileBuiltInSandboxEntry({
 			entry: "provider.sandbox.ts",
-			files: {
-				"helper.ts": 'export const value = "resolved-id";',
-				"provider.sandbox.ts": entry,
-			},
+			files: { "helper.ts": 'export const value = "resolved-id";', "provider.sandbox.ts": entry },
 		});
 
 		expect(result.compiled.format).toBe(1);

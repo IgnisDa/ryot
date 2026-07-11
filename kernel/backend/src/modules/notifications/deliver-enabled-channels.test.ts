@@ -112,10 +112,7 @@ it.effect("preserves the message for every enabled channel", () => {
 	const requests: unknown[] = [];
 	const first = makeChannel("channel-1");
 	const deliveryLayer = makeDeliveryLayer(-1, calls, messages);
-	const second = makeChannel("channel-2", {
-		kind: "email",
-		recipient: "recipient@example.com",
-	});
+	const second = makeChannel("channel-2", { kind: "email", recipient: "recipient@example.com" });
 	const repositoryLayer = makeRepositoryLayer([first, second], requests);
 
 	return Effect.gen(function* () {
@@ -158,10 +155,7 @@ it.effect("reports an unavailable delivery as failed", () => {
 	const calls: string[] = [];
 	const requests: unknown[] = [];
 	const deliveryLayer = makeDeliveryLayer(0, calls);
-	const channel = makeChannel("channel-1", {
-		kind: "email",
-		recipient: "recipient@example.com",
-	});
+	const channel = makeChannel("channel-1", { kind: "email", recipient: "recipient@example.com" });
 	const repositoryLayer = makeRepositoryLayer([channel], requests);
 
 	return Effect.gen(function* () {

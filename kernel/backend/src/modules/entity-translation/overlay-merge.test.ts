@@ -52,10 +52,7 @@ describe("mergeTranslationOverlay", () => {
 	});
 
 	it("returns status none for an empty negative-cache row", () => {
-		const result = mergeTranslationOverlay({
-			canonical,
-			overlay: { name: null, properties: {} },
-		});
+		const result = mergeTranslationOverlay({ canonical, overlay: { name: null, properties: {} } });
 
 		expect(result.status).toBe("none");
 		expect(result.fields).toEqual(canonical);

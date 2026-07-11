@@ -77,25 +77,23 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 					yield* auth.purgeApiKeyCaches(claimed.operation.userId, claimed.metadata.apiKeys);
 					return (
 						(yield* repository.markAccessRevoked(operationId)) ??
-						(yield* new GodModeInternalFailure({
-							reason: { code: "access-revocation-failed" },
-						}))
+						(yield* new GodModeInternalFailure({ reason: { code: "access-revocation-failed" } }))
 					);
 				}).pipe(
 					Effect.catchCause((cause) =>
-						repository.releaseAccessRevocation(operationId).pipe(
-							Effect.ignoreCause,
-							Effect.andThen(
-								Effect.logError("user lifecycle access revocation failed", cause).pipe(
-									Effect.annotateLogs({ operationId }),
+						repository
+							.releaseAccessRevocation(operationId)
+							.pipe(
+								Effect.ignoreCause,
+								Effect.andThen(
+									Effect.logError("user lifecycle access revocation failed", cause).pipe(
+										Effect.annotateLogs({ operationId }),
+									),
+								),
+								Effect.andThen(
+									new GodModeInternalFailure({ reason: { code: "access-revocation-failed" } }),
 								),
 							),
-							Effect.andThen(
-								new GodModeInternalFailure({
-									reason: { code: "access-revocation-failed" },
-								}),
-							),
-						),
 					),
 				);
 			});
@@ -132,9 +130,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 							Effect.gen(function* () {
 								const preparation = yield* repository.loadPreparationForUpdate(userId, kind);
 								if (!preparation) {
-									return yield* new GodModeNotFound({
-										reason: { code: "user-not-found", userId },
-									});
+									return yield* new GodModeNotFound({ reason: { code: "user-not-found", userId } });
 								}
 								if (preparation.active) {
 									return preparation.active;

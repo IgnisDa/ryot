@@ -114,9 +114,7 @@ describe("media query recipes", () => {
 			"populationStatus",
 			"translationStatus",
 		]);
-		expect(recommendations.output.measures[0]).toMatchObject({
-			key: "recommendingSourceCount",
-		});
+		expect(recommendations.output.measures[0]).toMatchObject({ key: "recommendingSourceCount" });
 	});
 
 	it("keeps trending timestamps as dates in fields and predicates", () => {
@@ -129,10 +127,7 @@ describe("media query recipes", () => {
 		if (trending?.output.type !== "rows") {
 			throw new Error("Expected trending rows query");
 		}
-		expect(trending.output.pagination).toEqual({
-			limit: 20,
-			after: "trending-cursor",
-		});
+		expect(trending.output.pagination).toEqual({ limit: 20, after: "trending-cursor" });
 		const fetchedAt = trending.output.fields.find(
 			(field) => "key" in field && field.key === "fetchedAt",
 		);

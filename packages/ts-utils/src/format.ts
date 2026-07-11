@@ -16,9 +16,7 @@ export const humanizeDuration = (duration: number, options?: HumanizeDurationOpt
 };
 
 export const formatQuantityWithCompactNotation = (value: number) =>
-	new Intl.NumberFormat("en-US", {
-		notation: "compact",
-	}).format(value);
+	new Intl.NumberFormat("en-US", { notation: "compact" }).format(value);
 
 /**
  * Format a `Date` into a Rust `NaiveDate`

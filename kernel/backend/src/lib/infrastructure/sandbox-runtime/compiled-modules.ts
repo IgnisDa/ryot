@@ -5,9 +5,7 @@ import type { SandboxRuntimePaths } from "./dependencies";
 
 export class SandboxCompiledModuleMaterializationError extends Data.TaggedError(
 	"SandboxCompiledModuleMaterializationError",
-)<{
-	message: string;
-}> {}
+)<{ message: string }> {}
 
 const verifiedModulePaths = new Set<string>();
 const compiledModuleName = /^([0-9a-f]{64})\.mjs$/;

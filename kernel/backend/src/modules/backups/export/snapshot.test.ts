@@ -413,9 +413,7 @@ it.effect(
 					}),
 					Layer.mock(PluginRepository, {
 						listSourceFiles: () =>
-							Effect.succeed({
-								"client/asset.png": new Uint8Array([0x00, 0xff, 0x80, 0x41]),
-							}),
+							Effect.succeed({ "client/asset.png": new Uint8Array([0x00, 0xff, 0x80, 0x41]) }),
 						listPrivateForUser: () =>
 							Effect.succeed([
 								{

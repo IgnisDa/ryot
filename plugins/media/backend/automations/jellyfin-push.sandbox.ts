@@ -49,10 +49,7 @@ const authenticateJellyfin = (
 				Username: username,
 				Pw: typeof password === "string" ? password : "",
 			}),
-			headers: {
-				"Content-Type": "application/json",
-				"X-Emby-Authorization": JELLYFIN_AUTH_HEADER,
-			},
+			headers: { "Content-Type": "application/json", "X-Emby-Authorization": JELLYFIN_AUTH_HEADER },
 		})
 		.pipe(
 			Effect.map((result): JellyfinSession | null => {

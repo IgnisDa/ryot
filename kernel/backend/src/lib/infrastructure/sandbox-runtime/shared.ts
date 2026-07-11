@@ -124,9 +124,7 @@ type SandboxRunInputForSubject<Input extends SandboxRunInput, Subject> = Subject
 export type SandboxRunInputForCapability<
 	Capability extends SandboxHostCapability,
 	Input extends SandboxRunInput = SandboxRunInput,
-> = (typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability] extends {
-	readonly requiresProvider: true;
-}
+> = (typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability] extends { readonly requiresProvider: true }
 	? SystemProviderSandboxRunInput<Input>
 	: SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>;
 

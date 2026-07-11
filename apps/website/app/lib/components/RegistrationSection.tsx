@@ -14,13 +14,8 @@ import { TurnstileWidget } from "~/lib/components/ui/turnstile";
 
 type RegistrationSectionProps = {
 	isLoading: boolean;
-	configData?: {
-		isLoggedIn: boolean;
-		turnstileSiteKey: string;
-	};
-	query: {
-		email?: string;
-	};
+	configData?: { isLoggedIn: boolean; turnstileSiteKey: string };
+	query: { email?: string };
 	loginOtpTurnstileToken: string;
 	setLoginOtpTurnstileToken: (token: string) => void;
 };

@@ -13,11 +13,7 @@ describe("EdgeGesture", () => {
 
 	it("renders only when the kernel owns an available edge", () => {
 		const progress = motionValue(0);
-		const common = {
-			progress,
-			onBack: () => undefined,
-			onOpenChange: () => undefined,
-		};
+		const common = { progress, onBack: () => undefined, onOpenChange: () => undefined };
 		const { rerender } = render(
 			<EdgeGesture
 				{...common}

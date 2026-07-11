@@ -169,10 +169,7 @@ export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
 			paletteStylesheet: await Bun.file(
 				Bun.resolveSync("@ryot-app/client-ui-sdk/palette.css", from),
 			).text(),
-			tailwindStylesheet: {
-				path: tailwindEntry,
-				content: await Bun.file(tailwindEntry).text(),
-			},
+			tailwindStylesheet: { path: tailwindEntry, content: await Bun.file(tailwindEntry).text() },
 		};
 	},
 	catch: (error) =>

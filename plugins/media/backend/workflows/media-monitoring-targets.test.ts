@@ -53,10 +53,7 @@ describe("media monitoring targets", () => {
 				targets: {
 					from: { table: "entity", alias: "entity" },
 					where: { type: "and" },
-					output: {
-						type: "rows",
-						pagination: { after: "targets-cursor", limit: 100 },
-					},
+					output: { type: "rows", pagination: { after: "targets-cursor", limit: 100 } },
 				},
 			},
 		});

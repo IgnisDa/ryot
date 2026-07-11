@@ -48,9 +48,7 @@ describe("Exercises E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-			const schemas = yield* listEntitySchemas(client, {
-				pluginSlug: fitnessPlugin.slug,
-			});
+			const schemas = yield* listEntitySchemas(client, { pluginSlug: fitnessPlugin.slug });
 			const exerciseSchema = schemas.find((schema) => schema.slug === "exercise");
 
 			expect(exerciseSchema).toBeDefined();
@@ -96,9 +94,7 @@ describe("Exercises E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-			const views = yield* listSavedViews(client, {
-				pluginSlug: fitnessPlugin.slug,
-			});
+			const views = yield* listSavedViews(client, { pluginSlug: fitnessPlugin.slug });
 			const allExercisesView = views.find((view) => view.name === "All Exercises");
 			assertPresent(allExercisesView, "Expected the built-in All Exercises saved view");
 			const dataSources = requirePresent(

@@ -34,10 +34,7 @@ describe("OpenAPI documentation", () => {
 	it("documents OAuth and API-key authentication without Better Auth cookie internals", () => {
 		const spec = OpenApi.fromApi(AppContract);
 		expect(spec.paths["/ryotql/execute"]?.post?.security).toEqual([{ oauth: [] }, { apiKey: [] }]);
-		expect(spec.components.securitySchemes["oauth"]).toEqual({
-			type: "http",
-			scheme: "Bearer",
-		});
+		expect(spec.components.securitySchemes["oauth"]).toEqual({ type: "http", scheme: "Bearer" });
 		expect(spec.components.securitySchemes["apiKey"]).toEqual({
 			in: "header",
 			type: "apiKey",

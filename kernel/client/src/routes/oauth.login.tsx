@@ -68,12 +68,14 @@ function OAuthLogin() {
 	async function submitCredentials(values: CredentialsValues) {
 		const outcome = await runtime
 			.runPromise(
-				auth.submitCredentials({ mode, values }).pipe(
-					Effect.match({
-						onFailure: (error) => ({ error }) as const,
-						onSuccess: (result) => ({ result }) as const,
-					}),
-				),
+				auth
+					.submitCredentials({ mode, values })
+					.pipe(
+						Effect.match({
+							onFailure: (error) => ({ error }) as const,
+							onSuccess: (result) => ({ result }) as const,
+						}),
+					),
 				{ signal: controller.current.signal },
 			)
 			.then(

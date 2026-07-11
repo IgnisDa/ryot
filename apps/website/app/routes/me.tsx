@@ -72,9 +72,7 @@ export const meta = () => {
 const getAllSubscriptionsForCustomer = async (customerId: string) => {
 	const paddleClient = getPaddleServerClient();
 	const allSubscriptions = [];
-	const subscriptionsQuery = paddleClient.subscriptions.list({
-		customerId: [customerId],
-	});
+	const subscriptionsQuery = paddleClient.subscriptions.list({ customerId: [customerId] });
 
 	for await (const subscription of subscriptionsQuery) {
 		allSubscriptions.push(subscription);
@@ -86,9 +84,7 @@ const getAllSubscriptionsForCustomer = async (customerId: string) => {
 const getAllPolarSubscriptionsForCustomer = async (customerId: string) => {
 	const allSubscriptions = [];
 	const polar = getPolarClient();
-	const subscriptionsIterator = await polar.subscriptions.list({
-		externalCustomerId: customerId,
-	});
+	const subscriptionsIterator = await polar.subscriptions.list({ externalCustomerId: customerId });
 
 	for await (const page of subscriptionsIterator) {
 		allSubscriptions.push(...page.result.items);
@@ -110,10 +106,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				throw new Error("No unkey key found");
 			}
 			const unkey = getUnkeyClient();
-			await unkey.keys.updateKey({
-				enabled: false,
-				keyId: customer.unkeyKeyId,
-			});
+			await unkey.keys.updateKey({ enabled: false, keyId: customer.unkeyKeyId });
 			const renewOnDayjs = customer.renewOn ? dayjs(customer.renewOn) : undefined;
 			const created = await createUnkeyKey(
 				customer,
@@ -167,10 +160,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				await polar.subscriptions.revoke({ id: activeSubscription.id });
 				setCancellation(customer.id);
 
-				return data({
-					success: true,
-					message: "Subscription cancelled successfully",
-				});
+				return data({ success: true, message: "Subscription cancelled successfully" });
 			}
 
 			if (!customer.paddleCustomerId) {
@@ -198,10 +188,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			});
 			setCancellation(customer.id);
 
-			return data({
-				success: true,
-				message: "Subscription cancelled successfully",
-			});
+			return data({ success: true, message: "Subscription cancelled successfully" });
 		})
 		.with("checkoutPolar", async () => {
 			if (!customer) {
@@ -257,9 +244,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			}
 		})
 		.with("logout", async () => {
-			const cookies = await websiteAuthCookie.serialize("", {
-				expires: new Date(0),
-			});
+			const cookies = await websiteAuthCookie.serialize("", { expires: new Date(0) });
 			return data({}, { headers: { "set-cookie": cookies } });
 		})
 		.run();
@@ -453,9 +438,7 @@ export default function Index() {
 						paddle?.Checkout.open({
 							items: [{ priceId, quantity: 1 }],
 							settings: paddleCustomerId ? { allowLogout: false } : undefined,
-							customData: {
-								customerId: loaderData.customerDetails.id,
-							} as PaddleCustomData,
+							customData: { customerId: loaderData.customerDetails.id } as PaddleCustomData,
 							customer: paddleCustomerId
 								? { id: paddleCustomerId }
 								: { email: loaderData.customerDetails.email },

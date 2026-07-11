@@ -44,9 +44,7 @@ const createSchema = (client: Parameters<typeof createPluginEntitySchema>[0], na
 		schemaName: name,
 		propertiesSchema: {
 			unknownKeys: "passthrough",
-			fields: {
-				sortValue: { type: "integer", label: "Sort Value", description: "Sort Value" },
-			},
+			fields: { sortValue: { type: "integer", label: "Sort Value", description: "Sort Value" } },
 		},
 	});
 

@@ -174,13 +174,9 @@ it.effect("exposes reusable reference liveness queries and idempotent release", 
 		select: (selection?: unknown) => ({
 			from: () => {
 				if (selection) {
-					return {
-						where: () => ({ limit: () => Effect.succeed(rows.slice(0, 1)) }),
-					};
+					return { where: () => ({ limit: () => Effect.succeed(rows.slice(0, 1)) }) };
 				}
-				return Object.assign(Effect.succeed(rows), {
-					where: () => Effect.succeed(rows),
-				});
+				return Object.assign(Effect.succeed(rows), { where: () => Effect.succeed(rows) });
 			},
 		}),
 	};

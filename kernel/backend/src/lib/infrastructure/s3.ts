@@ -71,10 +71,12 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 		) {
 			const configuredClient = yield* requireConfigured;
 			return yield* Effect.sync(() =>
-				configuredClient.file(key).presign({
-					expiresIn: expiresInSeconds,
-					...(contentDisposition === undefined ? {} : { contentDisposition }),
-				}),
+				configuredClient
+					.file(key)
+					.presign({
+						expiresIn: expiresInSeconds,
+						...(contentDisposition === undefined ? {} : { contentDisposition }),
+					}),
 			).pipe(Effect.orDie);
 		});
 
@@ -147,11 +149,9 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 			if (offset !== body.byteLength) {
 				return yield* badRequest("S3 object write failed");
 			}
-			const uploadUrl = configuredClient.file(key).presign({
-				method: "PUT",
-				type: contentType,
-				expiresIn: 15 * 60,
-			});
+			const uploadUrl = configuredClient
+				.file(key)
+				.presign({ method: "PUT", type: contentType, expiresIn: 15 * 60 });
 			const request = HttpClientRequest.make("PUT")(uploadUrl).pipe(
 				HttpClientRequest.setHeaders({ "if-none-match": "*" }),
 				HttpClientRequest.setBody(HttpBody.uint8Array(body, contentType)),

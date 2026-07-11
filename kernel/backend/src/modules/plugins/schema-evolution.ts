@@ -20,10 +20,7 @@ export class SchemaEvolutionError extends Data.TaggedError("SchemaEvolutionError
 	readonly issues: ReadonlyArray<SchemaEvolutionIssue>;
 }> {}
 
-type PropertySchemaDefinition = {
-	readonly slug: string;
-	readonly propertiesSchema: AppSchema;
-};
+type PropertySchemaDefinition = { readonly slug: string; readonly propertiesSchema: AppSchema };
 
 const comparableProperty = (property: AppPropertyDefinition) => {
 	if (property.type === "enum" || property.type === "enum-array") {

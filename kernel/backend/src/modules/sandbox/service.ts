@@ -48,10 +48,7 @@ const sandboxExecutionFailure = (error: SandboxRunError) => ({
 });
 
 const toPluginWorkflowResult = (result: Workflow.Result<JsonValue, SandboxRunError> | undefined) =>
-	toWorkflowRunResult(result, {
-		onFailure: String,
-		onSuccess: (output) => ({ output }),
-	});
+	toWorkflowRunResult(result, { onFailure: String, onSuccess: (output) => ({ output }) });
 
 const toSandboxRunResult = (result: Workflow.Result<JsonValue, SandboxRunError> | undefined) =>
 	toWorkflowRunResult(result, {

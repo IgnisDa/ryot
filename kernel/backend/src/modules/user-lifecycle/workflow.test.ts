@@ -160,9 +160,7 @@ it.effect(
 					Layer.mock(PluginUserBootstrapDispatcher)({}),
 					Layer.mock(PluginInstallationService)({}),
 					Layer.mock(NotificationSubscriptionsService)({}),
-					Layer.mock(UserLifecycleRepository)({
-						getInternalById: () => Effect.succeed(operation),
-					}),
+					Layer.mock(UserLifecycleRepository)({ getInternalById: () => Effect.succeed(operation) }),
 					Layer.mock(ObjectStorageService)({
 						deleteObject: (locator) =>
 							Effect.suspend(() => {

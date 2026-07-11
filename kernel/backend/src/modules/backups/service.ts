@@ -107,9 +107,7 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 		});
 
 		const listRuns = Effect.fn("BackupsService.listRuns")(function* (user: CurrentUserValue) {
-			return {
-				items: yield* mapDbToInternal(repository.listRunsByUserId({ userId: user.id })),
-			};
+			return { items: yield* mapDbToInternal(repository.listRunsByUserId({ userId: user.id })) };
 		});
 
 		const getRun = Effect.fn("BackupsService.getRun")(function* (

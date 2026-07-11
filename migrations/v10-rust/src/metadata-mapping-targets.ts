@@ -8,12 +8,7 @@ export const metadataMigrationTargets = [
 		providerSlug: "audiobook.audible",
 	},
 	{ lot: "audio_book", source: "custom", entitySchemaSlug: "audiobook", providerSlug: null },
-	{
-		lot: "anime",
-		source: "anilist",
-		entitySchemaSlug: "anime",
-		providerSlug: "anime.anilist",
-	},
+	{ lot: "anime", source: "anilist", entitySchemaSlug: "anime", providerSlug: "anime.anilist" },
 	{ lot: "anime", source: "custom", entitySchemaSlug: "anime", providerSlug: null },
 	{
 		lot: "anime",
@@ -28,12 +23,7 @@ export const metadataMigrationTargets = [
 		entitySchemaSlug: "book",
 		providerSlug: "book.google-books",
 	},
-	{
-		lot: "book",
-		source: "hardcover",
-		entitySchemaSlug: "book",
-		providerSlug: "book.hardcover",
-	},
+	{ lot: "book", source: "hardcover", entitySchemaSlug: "book", providerSlug: "book.hardcover" },
 	{
 		lot: "book",
 		source: "openlibrary",
@@ -47,12 +37,7 @@ export const metadataMigrationTargets = [
 		entitySchemaSlug: "comic-book",
 		providerSlug: "comic-book.metron",
 	},
-	{
-		lot: "manga",
-		source: "anilist",
-		entitySchemaSlug: "manga",
-		providerSlug: "manga.anilist",
-	},
+	{ lot: "manga", source: "anilist", entitySchemaSlug: "manga", providerSlug: "manga.anilist" },
 	{ lot: "manga", source: "custom", entitySchemaSlug: "manga", providerSlug: null },
 	{
 		lot: "manga",
@@ -76,12 +61,7 @@ export const metadataMigrationTargets = [
 		entitySchemaSlug: "music",
 		providerSlug: "music.music-brainz",
 	},
-	{
-		lot: "music",
-		source: "spotify",
-		entitySchemaSlug: "music",
-		providerSlug: "music.spotify",
-	},
+	{ lot: "music", source: "spotify", entitySchemaSlug: "music", providerSlug: "music.spotify" },
 	{
 		lot: "music",
 		source: "youtube_music",
@@ -89,12 +69,7 @@ export const metadataMigrationTargets = [
 		providerSlug: "music.youtube-music",
 	},
 	{ lot: "podcast", source: "custom", entitySchemaSlug: "podcast", providerSlug: null },
-	{
-		lot: "podcast",
-		source: "itunes",
-		entitySchemaSlug: "podcast",
-		providerSlug: "podcast.itunes",
-	},
+	{ lot: "podcast", source: "itunes", entitySchemaSlug: "podcast", providerSlug: "podcast.itunes" },
 	{
 		lot: "podcast",
 		source: "listennotes",
@@ -117,12 +92,7 @@ export const metadataMigrationTargets = [
 		entitySchemaSlug: "video-game",
 		providerSlug: "video-game.igdb",
 	},
-	{
-		lot: "visual_novel",
-		source: "custom",
-		entitySchemaSlug: "visual-novel",
-		providerSlug: null,
-	},
+	{ lot: "visual_novel", source: "custom", entitySchemaSlug: "visual-novel", providerSlug: null },
 	{
 		lot: "visual_novel",
 		source: "vndb",

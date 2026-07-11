@@ -2,10 +2,7 @@ import { Context, Effect, Layer } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 
-export type GodModeSession = {
-	readonly token: string;
-	readonly origin: ServerOrigin;
-};
+export type GodModeSession = { readonly token: string; readonly origin: ServerOrigin };
 
 export type GodModeSessionServiceShape = {
 	readonly clear: (sessionId: string) => Effect.Effect<void>;

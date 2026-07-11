@@ -29,10 +29,7 @@ export type PluginInstallationState = PluginInstallationRow & {
 type RestoreInstallationInput = Omit<
 	PluginInstallationRow,
 	"userId" | "healthReason" | "homeSavedViewId"
-> & {
-	readonly userId: UserId;
-	readonly preserveExistingConfig: boolean;
-};
+> & { readonly userId: UserId; readonly preserveExistingConfig: boolean };
 
 const provisionSystemInstallations = (
 	userId: UserId | null,
@@ -349,11 +346,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.pluginInstallation)
-						.set({
-							config: input.config,
-							sortOrder: input.sortOrder,
-							isDisabled: input.isDisabled,
-						})
+						.set({ config: input.config, sortOrder: input.sortOrder, isDisabled: input.isDisabled })
 						.where(eq(schema.pluginInstallation.id, input.id))
 						.returning(),
 				);

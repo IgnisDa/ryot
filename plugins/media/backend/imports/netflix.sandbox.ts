@@ -62,41 +62,45 @@ export default defineScript({
 					const movieResults =
 						preferredEntitySchemaSlug === "show"
 							? Effect.succeed<MetadataLookupTitleMatchCandidate[]>([])
-							: movieSearch.run({ query, page: 1, pageSize: 20 }, host, execution).pipe(
-									Effect.map(({ items }) =>
-										items.map(
-											(item): MetadataLookupTitleMatchCandidate => ({
-												title: item.title,
-												entitySchemaSlug: "movie",
-												externalId: item.externalId,
-												providerSlug: movieManifest.slug,
-												publishYear:
-													item.metadata?.find(
-														(value): value is number => typeof value === "number",
-													) ?? null,
-											}),
+							: movieSearch
+									.run({ query, page: 1, pageSize: 20 }, host, execution)
+									.pipe(
+										Effect.map(({ items }) =>
+											items.map(
+												(item): MetadataLookupTitleMatchCandidate => ({
+													title: item.title,
+													entitySchemaSlug: "movie",
+													externalId: item.externalId,
+													providerSlug: movieManifest.slug,
+													publishYear:
+														item.metadata?.find(
+															(value): value is number => typeof value === "number",
+														) ?? null,
+												}),
+											),
 										),
-									),
-								);
+									);
 					const showResults =
 						preferredEntitySchemaSlug === "movie"
 							? Effect.succeed<MetadataLookupTitleMatchCandidate[]>([])
-							: showSearch.run({ query, page: 1, pageSize: 20 }, host, execution).pipe(
-									Effect.map(({ items }) =>
-										items.map(
-											(item): MetadataLookupTitleMatchCandidate => ({
-												title: item.title,
-												entitySchemaSlug: "show",
-												externalId: item.externalId,
-												providerSlug: showManifest.slug,
-												publishYear:
-													item.metadata?.find(
-														(value): value is number => typeof value === "number",
-													) ?? null,
-											}),
+							: showSearch
+									.run({ query, page: 1, pageSize: 20 }, host, execution)
+									.pipe(
+										Effect.map(({ items }) =>
+											items.map(
+												(item): MetadataLookupTitleMatchCandidate => ({
+													title: item.title,
+													entitySchemaSlug: "show",
+													externalId: item.externalId,
+													providerSlug: showManifest.slug,
+													publishYear:
+														item.metadata?.find(
+															(value): value is number => typeof value === "number",
+														) ?? null,
+												}),
+											),
 										),
-									),
-								);
+									);
 					return Effect.all([movieResults, showResults], { concurrency: 2 }).pipe(
 						Effect.flatMap((searched) => {
 							const results = searched.flat();

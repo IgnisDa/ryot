@@ -34,9 +34,7 @@ const makeRelationshipFixture = (client: Client) =>
 			name: "Test Relationship",
 			slug: `test-rel-${crypto.randomUUID()}`,
 			propertiesSchema: {
-				fields: {
-					rating: { type: "integer", label: "Rating", description: "Rating" },
-				},
+				fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 			},
 		});
 		return { source, target, relSchema };

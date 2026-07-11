@@ -435,11 +435,7 @@ export const showActivityView = (result: ShowActivityResult): ShowActivityView |
 		return undefined;
 	}
 	const coverage = showActivityCoverage(result);
-	return {
-		coverage,
-		timeline,
-		summary: showActivitySummary({ result, coverage, rows: spanned }),
-	};
+	return { coverage, timeline, summary: showActivitySummary({ result, coverage, rows: spanned }) };
 };
 
 export const mapShowActivity = (result: RyotQueryResult<ShowActivityResult>): ShowActivityState => {
@@ -530,11 +526,7 @@ const spanRangeLabel = (earliest: string, latest: string) => {
 
 export const showActivitySpanLabel = (summary: ShowActivitySummary) => {
 	if (summary.span.bound === "partial") {
-		return {
-			label: "Latest",
-			detail: undefined,
-			value: formatLocalDateLabel(summary.span.latest),
-		};
+		return { label: "Latest", detail: undefined, value: formatLocalDateLabel(summary.span.latest) };
 	}
 	const { days, earliest, latest } = summary.span;
 	return {

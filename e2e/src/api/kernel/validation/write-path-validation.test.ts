@@ -143,10 +143,7 @@ describe("Event write path — propertiesSchema validation", () => {
 			expect(result).toMatchObject({
 				count: 0,
 				outcomes: [],
-				failure: {
-					index: 0,
-					reason: { code: "invalid-properties" },
-				},
+				failure: { index: 0, reason: { code: "invalid-properties" } },
 			});
 		}),
 	);
@@ -232,9 +229,7 @@ describe("Collection entity write path — propertiesSchema validation", () => {
 			});
 
 			expect(collection.id).toBeDefined();
-			expect(collection.properties).toMatchObject({
-				description: "A perfectly valid description",
-			});
+			expect(collection.properties).toMatchObject({ description: "A perfectly valid description" });
 		}),
 	);
 

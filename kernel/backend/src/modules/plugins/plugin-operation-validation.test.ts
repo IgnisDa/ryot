@@ -56,12 +56,7 @@ it.effect("requires operation declarations to reference operation scripts", () =
 	const manifest = operationManifest();
 	const normalized = {
 		manifest,
-		scripts: [
-			{
-				slug: "operation.fixture",
-				metadata: { kind: "automation" as const },
-			},
-		],
+		scripts: [{ slug: "operation.fixture", metadata: { kind: "automation" as const } }],
 	};
 
 	return Effect.gen(function* () {

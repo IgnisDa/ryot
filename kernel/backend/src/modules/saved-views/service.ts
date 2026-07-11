@@ -270,9 +270,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 						yield* installations.clearHomeSavedViewReferences(user.id, current.id);
 						return (
 							(yield* repository.deleteBySlug(user.id, viewSlug)) ??
-							(yield* new SavedViewNotFound({
-								reason: { code: "saved-view-not-found", viewSlug },
-							}))
+							(yield* new SavedViewNotFound({ reason: { code: "saved-view-not-found", viewSlug } }))
 						);
 					}).pipe(Effect.provideService(Database, transaction)),
 				),

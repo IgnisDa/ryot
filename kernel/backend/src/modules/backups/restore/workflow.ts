@@ -189,13 +189,15 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 
 		const claim = (payload: RestoreBackupWorkflowPayload) =>
 			asWorkflowError(
-				uploadIntents.claimTemporaryUpload(payload.uploadToken, payload.userId, payload.runId).pipe(
-					Effect.map(({ intentId, locator }) => ({
-						intentId,
-						key: locator.key,
-						provider: locator.type,
-					})),
-				),
+				uploadIntents
+					.claimTemporaryUpload(payload.uploadToken, payload.userId, payload.runId)
+					.pipe(
+						Effect.map(({ intentId, locator }) => ({
+							intentId,
+							key: locator.key,
+							provider: locator.type,
+						})),
+					),
 				{ code: "upload-unavailable" },
 			);
 
