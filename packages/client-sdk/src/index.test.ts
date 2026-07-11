@@ -28,8 +28,99 @@ const resolutions = assets.map((asset) => ({
 	expiresAt: "2026-01-01T00:15:00.000Z",
 	url: `https://ryot.test/api/uploads/${asset.type}/download?key=${encodeURIComponent(asset.key)}`,
 }));
+const membership = {
+	memberOf: {
+		properties: {},
+		id: "relationship-1",
+		sourceEntityId: "entity-1",
+		targetEntityId: "collection-1",
+		relationshipSchemaSlug: "member-of",
+		createdAt: "2026-09-07T00:00:00.000Z",
+	},
+};
 
 describe("createRyotClient", () => {
+	it("validates and dispatches semantic collection membership methods", async () => {
+		const requests: unknown[] = [];
+		const client = createRyotClient(
+			createTestRyotAdapter({
+				mutateCollection: (request) => {
+					requests.push(request);
+					return Promise.resolve(membership);
+				},
+			}),
+		);
+
+		await expect(
+			client.collections.upsertMembership({
+				entityId: "entity-1",
+				properties: { rank: 1 },
+				collectionId: "collection-1",
+			}),
+		).resolves.toEqual(membership);
+		expect(requests).toEqual([
+			{
+				action: "upsert-membership",
+				input: { entityId: "entity-1", properties: { rank: 1 }, collectionId: "collection-1" },
+			},
+		]);
+		await expect(
+			Reflect.apply(client.collections.removeMembership, client.collections, [
+				{ collectionId: "collection-1" },
+			]),
+		).rejects.toEqual(new RyotClientError("invalid-input"));
+		expect(requests).toHaveLength(1);
+	});
+
+	it("validates collection results and reports a missing capability", async () => {
+		const malformed = createRyotClient(
+			createTestRyotAdapter({ mutateCollection: () => Promise.resolve({ memberOf: {} }) }),
+		);
+		await expect(
+			malformed.collections.removeMembership({
+				entityId: "entity-1",
+				collectionId: "collection-1",
+			}),
+		).rejects.toEqual(new RyotClientError("malformed-result"));
+
+		const unsupported = createRyotClient(createTestRyotAdapter());
+		await expect(unsupported.collections.create({ name: "Favorites" })).rejects.toEqual(
+			new RyotClientError("unsupported-capability"),
+		);
+	});
+
+	it("signals only successful domain mutations at the capability boundary", async () => {
+		let hints = 0;
+		const client = createRyotClient(
+			createTestRyotAdapter({
+				invokeOperation: () => Promise.resolve({ greeting: "hello" }),
+				mutateCollection: (request) =>
+					request.action === "remove-membership"
+						? Promise.reject(new RyotClientError("collection-failed"))
+						: Promise.resolve(membership),
+			}),
+		);
+		client.mutationCompleted.subscribe(() => hints++);
+
+		await client.operations.invoke({ pluginSlug, slug: "greet", input: {}, output: Greeting });
+		await client.collections.upsertMembership({
+			entityId: "entity-1",
+			collectionId: "collection-1",
+		});
+		await expect(
+			client.collections.removeMembership({
+				entityId: "entity-1",
+				collectionId: "collection-1",
+			}),
+		).rejects.toEqual(new RyotClientError("collection-failed"));
+		await client.uploads.uploadTemporary({
+			fileName: "value.txt",
+			contentType: "text/plain",
+			source: new Blob(["value"]),
+		});
+
+		expect(hints).toBe(2);
+	});
 	it("normalizes mutable entity watches without capping declarations and disposes once", () => {
 		let disposals = 0;
 		const interests: EntityInterest[] = [];

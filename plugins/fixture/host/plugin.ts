@@ -72,6 +72,11 @@ export const fixturePlugin = definePlugin({
 				entry: "client/pokemon-types.tsx",
 				automaticEntityPresentations: false,
 			},
+			"pokemon-picker": {
+				kind: "component",
+				entry: "client/pokemon-picker.tsx",
+				automaticEntityPresentations: false,
+			},
 			"pokemon-card": {
 				kind: "presentation",
 				entry: "client/pokemon-card.ts",

@@ -29,15 +29,22 @@ export type ClientPageScreenController = {
 	readonly publish: (owner: string, state: PluginScreenReadiness | null) => void;
 };
 
+export type ClientPageOverlayController = {
+	readonly clear: (owner: string) => void;
+	readonly publish: (owner: string, count: number) => void;
+};
+
 export function createClientDocumentControllers(
 	activeOwner: RefObject<string | null>,
 	setHeader: (state: PluginHeaderState | null) => void,
 	setScreen: (state: ClientPageScreenState | null) => void,
+	setOverlayCount: (count: number) => void,
 ) {
 	const header: PluginHeaderController = {
 		activate: (owner) => {
 			if (activeOwner.current !== owner) {
 				setHeader(null);
+				setOverlayCount(0);
 			}
 			activeOwner.current = owner;
 		},
@@ -71,10 +78,25 @@ export function createClientDocumentControllers(
 			}
 		},
 	};
-	return { header, screen };
+	const overlay: ClientPageOverlayController = {
+		clear: (owner) => {
+			if (activeOwner.current === owner) {
+				setOverlayCount(0);
+			}
+		},
+		publish: (owner, count) => {
+			if (activeOwner.current === owner) {
+				setOverlayCount(count);
+			}
+		},
+	};
+	return { header, screen, overlay };
 }
 
 export const ClientPageScreenContext = createContext<ClientPageScreenController | undefined>(
+	undefined,
+);
+export const ClientPageOverlayContext = createContext<ClientPageOverlayController | undefined>(
 	undefined,
 );
 
@@ -153,4 +175,12 @@ export const useClientPageScreen = () => {
 		throw new Error("useClientPageScreen must be used inside AuthenticatedShell");
 	}
 	return screen;
+};
+
+export const useClientPageOverlay = () => {
+	const overlay = useContext(ClientPageOverlayContext);
+	if (overlay === undefined) {
+		throw new Error("useClientPageOverlay must be used inside AuthenticatedShell");
+	}
+	return overlay;
 };

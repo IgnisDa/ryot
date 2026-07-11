@@ -9,6 +9,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PluginFrame } from "#/modules/plugins/plugin-host";
 import type { ThemeStore } from "#/modules/theme/store";
 
@@ -27,16 +28,32 @@ const session = {
 };
 
 function mount() {
+	const backInterceptors = createBackInterceptors();
 	const states: unknown[] = [];
 	const searches: unknown[] = [];
 	const navigations: unknown[] = [];
 	const providerSearches: unknown[] = [];
 	const operations: PluginOperationRequest[] = [];
-	const props = (location: PluginLogicalLocation, index: number, pageRefreshToken = 0) => ({
+	const refreshListeners = new Set<() => void>();
+	const mutationCompleted = {
+		hint: () => {
+			for (const listener of refreshListeners) {
+				listener();
+			}
+		},
+		subscribe: (listener: () => void) => {
+			refreshListeners.add(listener);
+			return () => {
+				refreshListeners.delete(listener);
+			};
+		},
+	};
+	const props = (location: PluginLogicalLocation, index: number) => ({
 		theme,
 		location,
 		title: "Fixture",
-		pageRefreshToken,
+		backInterceptors,
+		mutationCompleted,
 		chromeLeading: null,
 		sourceHash: "graph-hash",
 		installationId: "build-1",
@@ -45,6 +62,7 @@ function mount() {
 		onOpenDrawer: () => undefined,
 		onNavigateBack: () => undefined,
 		onStaleSession: () => undefined,
+		onOverlayState: () => undefined,
 		onKernelShortcut: () => undefined,
 		chromeTriggerRef: { current: null },
 		artifactSessionScopeKey: "server:user",
@@ -59,6 +77,8 @@ function mount() {
 		onQuery: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onAssets: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onUpload: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
+		onCollection: () =>
+			Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onRenewArtifactSession: () =>
 			Promise.resolve({ outcome: "renewed" as const, expiresAt: session.expiresAt }),
 		onInvokeOperation: (request: PluginOperationRequest) => {
@@ -82,7 +102,8 @@ function mount() {
 		operations,
 		navigations,
 		providerSearches,
-		refresh: (token: number) => view.rerender(<PluginFrame {...props(home, 0, token)} />),
+		backInterceptors,
+		refresh: mutationCompleted.hint,
 		move: (location: PluginLogicalLocation, index: number) =>
 			view.rerender(<PluginFrame {...props(location, index)} />),
 	};
@@ -193,14 +214,14 @@ describe("PluginFrame", () => {
 		expect(host.states).toContainEqual({ index: 0, key: "k0", hasPreviousScreen: true });
 	});
 
-	it("sends one page refresh when the host token changes", async () => {
+	it("sends one page refresh for a host mutation-completed hint", async () => {
 		const host = mount();
 		await flush();
 		const bridge = connect(screen.getByTitle("Fixture plugin"));
 		bridge.port.postMessage(bridge.ready);
 		await waitFor(() => expect(bridge.messages).toHaveLength(1));
 
-		host.refresh(1);
+		host.refresh();
 
 		await waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" }));
 		expect(
@@ -211,5 +232,25 @@ describe("PluginFrame", () => {
 					Reflect.get(message, "type") === "page-refresh",
 			),
 		).toHaveLength(1);
+	});
+
+	it("registers iframe overlay Back ownership and releases it after acknowledgement", async () => {
+		const host = mount();
+		await flush();
+		const bridge = connect(screen.getByTitle("Fixture plugin"));
+		bridge.port.postMessage(bridge.ready);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+		bridge.port.postMessage({ count: 1, type: "overlay-state" });
+		await waitFor(() => expect(host.backInterceptors.run()).toBe(true));
+		await waitFor(() =>
+			expect(bridge.messages).toContainEqual({ requestId: "overlay-1", type: "dismiss-overlay" }),
+		);
+
+		bridge.port.postMessage({
+			dismissed: true,
+			requestId: "overlay-1",
+			type: "dismiss-overlay-result",
+		});
+		await waitFor(() => expect(host.backInterceptors.run()).toBe(false));
 	});
 });

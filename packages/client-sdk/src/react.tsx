@@ -5,6 +5,7 @@ import {
 	useAtomSet,
 	useAtomValue,
 } from "@effect/atom-react";
+import { OverlayBackProvider } from "@ryot-app/client-ui-sdk";
 import { SETTLE_RING_DURATION_MS } from "@ryot-app/client-ui-sdk/sync";
 import { MANAGED_ASSET_RESOLUTION_MAX_ASSETS } from "@ryot-app/contract/modules/uploads/schemas";
 import * as Cause from "effect/Cause";
@@ -50,6 +51,12 @@ const staleTime = 30 * 1_000;
 const idleTTL = 5 * 60 * 1_000;
 const queryTypeId = Symbol("@ryot-app/client-sdk/react/query");
 const mutationTypeId = Symbol("@ryot-app/client-sdk/react/mutation");
+type PageRefreshHandle = () => void | Promise<void>;
+type PageRefreshRegistry = {
+	readonly hint: () => void;
+	readonly register: (handle: PageRefreshHandle) => () => void;
+};
+const PageRefreshRegistryContext = createContext<PageRefreshRegistry | undefined>(undefined);
 const RyotContext = createContext<
 	| {
 			readonly client: RyotClient;
@@ -84,6 +91,10 @@ export type RyotQueryResult<Data> = {
 	readonly refetch: () => void;
 	readonly data: Data | undefined;
 	readonly status: "pending" | "error" | "success";
+};
+
+export type RyotQueryHookOptions = {
+	readonly refreshOnMutation?: boolean;
 };
 
 export type RyotMutationResult<Input, Data> = {
@@ -243,11 +254,46 @@ export const RyotProvider = ({
 			),
 		[runtime],
 	);
+	const refreshRegistry = useMemo(() => {
+		const handles = new Set<PageRefreshHandle>();
+		const refresh = createEntityRefresh(value.schedule, async () => {
+			await Promise.all([...handles].map((handle) => Promise.resolve().then(handle)));
+		});
+		return {
+			hint: refresh.hint,
+			register: (handle: PageRefreshHandle) => {
+				handles.add(handle);
+				return () => handles.delete(handle);
+			},
+		};
+	}, [value.schedule]);
+	useEffect(() => {
+		const unsubscribe = value.client.mutationCompleted.subscribe(refreshRegistry.hint);
+		return unsubscribe;
+	}, [refreshRegistry, value.client]);
 	return (
 		<RegistryProvider defaultIdleTTL={idleTTL}>
-			<RyotContext.Provider value={value}>{children}</RyotContext.Provider>
+			<RyotContext.Provider value={value}>
+				<OverlayBackProvider adapter={value.client.overlayBack}>
+					<PageRefreshRegistryContext.Provider value={refreshRegistry}>
+						{children}
+					</PageRefreshRegistryContext.Provider>
+				</OverlayBackProvider>
+			</RyotContext.Provider>
 		</RegistryProvider>
 	);
+};
+
+export const usePageRefresh = (handle: PageRefreshHandle) => {
+	const active = useContext(ActiveScreenContext);
+	const registry = useContext(PageRefreshRegistryContext);
+	const refresh = useEffectEvent(handle);
+	useEffect(() => {
+		if (!active || !registry) {
+			return undefined;
+		}
+		return registry.register(refresh);
+	}, [active, registry]);
 };
 
 export const useRyot = () => {
@@ -284,6 +330,72 @@ const interestedQueries = new WeakMap<
 	AtomRegistry.AtomRegistry,
 	WeakMap<object, { users: number; readonly hint: () => void; readonly dispose: () => void } | null>
 >();
+const pageQueries = new WeakMap<
+	AtomRegistry.AtomRegistry,
+	WeakMap<
+		object,
+		{
+			users: number;
+			pending: boolean;
+			readonly hint: () => void;
+			readonly dispose: () => void;
+		} | null
+	>
+>();
+
+const useQueryPageRefresh = <Data,>(
+	atom: ReturnType<typeof makeQueryAtom<Data>>,
+	refreshOnMutation: boolean,
+) => {
+	const active = useContext(ActiveScreenContext);
+	const registry = useContext(RegistryContext);
+	const pageRegistry = useContext(PageRefreshRegistryContext);
+	useEffect(() => {
+		if (!active || !pageRegistry || !refreshOnMutation) {
+			return undefined;
+		}
+		let controllers = pageQueries.get(registry);
+		if (!controllers) {
+			controllers = new WeakMap();
+			pageQueries.set(registry, controllers);
+		}
+		let controller = controllers.get(atom);
+		if (!controller) {
+			const current = {
+				users: 0,
+				pending: false,
+				hint: () => {
+					if (registry.get(atom).waiting) {
+						current.pending = true;
+					} else {
+						registry.refresh(atom);
+					}
+				},
+				dispose: () => undefined,
+			};
+			const unsubscribe = registry.subscribe(atom, () => {
+				if (current.pending && !registry.get(atom).waiting) {
+					current.pending = false;
+					registry.refresh(atom);
+				}
+			});
+			const unregister = pageRegistry.register(current.hint);
+			current.dispose = () => {
+				unregister();
+				unsubscribe();
+			};
+			controller = current;
+			controllers.set(atom, controller);
+		}
+		controller.users++;
+		return () => {
+			if (--controller.users === 0) {
+				controller.dispose();
+				controllers.set(atom, null);
+			}
+		};
+	}, [active, atom, pageRegistry, refreshOnMutation, registry]);
+};
 
 const useQueryInterest = <Data,>(
 	client: RyotClient,
@@ -481,14 +593,20 @@ export const useEntityRefresh = (options: {
 	return { settled };
 };
 
-export function useRyotQuery<Data>(query: RyotQuery<void, Data>): RyotQueryResult<Data>;
+export function useRyotQuery<Data>(
+	query: RyotQuery<void, Data>,
+	input?: void,
+	options?: RyotQueryHookOptions,
+): RyotQueryResult<Data>;
 export function useRyotQuery<Input, Data>(
 	query: RyotQuery<Input, Data>,
 	input: Input,
+	options?: RyotQueryHookOptions,
 ): RyotQueryResult<Data>;
 export function useRyotQuery<Data>(
 	query: RyotQuery<unknown, Data>,
 	input?: unknown,
+	options?: RyotQueryHookOptions,
 ): RyotQueryResult<Data> {
 	const client = useRyot();
 	const schedule = useRyotSchedule();
@@ -499,6 +617,7 @@ export function useRyotQuery<Data>(
 	useQueryInterest(client, schedule, atom, input, query.entityInterest);
 	const result = useAtomValue(atom);
 	const refetch = useAtomRefresh(atom);
+	useQueryPageRefresh(atom, options?.refreshOnMutation !== false);
 	const isError = AsyncResult.isFailure(result);
 	const isSuccess = AsyncResult.isSuccess(result);
 	let data: Data | undefined;
