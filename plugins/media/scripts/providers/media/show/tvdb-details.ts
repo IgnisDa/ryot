@@ -72,6 +72,7 @@ const buildSeason = (
 		externalId: String(id),
 		name: `Season ${seasonNumber}`,
 		entitySchemaSlug: "show-season",
+		expectedChildEntitySchemaSlug: "show-episode",
 		properties: {
 			seasonNumber,
 			parentShowExternalId,
@@ -173,6 +174,7 @@ export const getTvdbShowDetails = (
 		return {
 			name: title,
 			childEntities,
+			expectedChildEntitySchemaSlug: "show-season",
 			relatedEntityGroups: [
 				{
 					direction: "incoming" as const,

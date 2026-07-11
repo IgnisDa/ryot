@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 
 import {
-	uninstallTestProvider,
 	createAuthenticatedClient,
 	createNotificationChannel,
 	enableMediaMonitoring,
@@ -58,56 +57,53 @@ describe("hierarchical media entity-update signals", () => {
 				client,
 				slug: animeSlug,
 				details: buildDetails(12, 2025),
+				linkToEntitySchemaSlug: animeSchemaId,
 			});
 
-			try {
-				const anime = yield* seedMediaEntity({
-					properties: {},
+			const anime = yield* seedMediaEntity({
+				properties: {},
+				name: animeName,
+				externalId: animeExternalId,
+				entitySchemaSlug: animeSchemaId,
+				providerId: animeProvider.providerId,
+			});
+
+			const monitor = yield* createAuthenticatedClient();
+			yield* createNotificationChannel(monitor.client, {
+				channel: "apprise",
+				channelSpecifics: { baseUrl: fakeApprise.url, key: "anime-monitor", kind: "apprise" },
+			});
+			yield* enableMediaMonitoring(monitor.client, anime.id);
+
+			fakeApprise.requests.length = 0;
+			yield* triggerCronAndWaitForEntity(monitor, anime.id);
+			expect(fakeApprise.requests.filter(({ path }) => path === "/notify/anime-monitor")).toEqual(
+				[],
+			);
+
+			fakeApprise.requests.length = 0;
+			yield* replaceSandboxScriptCompiledRepresentation(
+				client,
+				animeProvider.detailsScriptId,
+				providerSandboxSource({
 					name: animeName,
-					externalId: animeExternalId,
-					entitySchemaSlug: animeSchemaId,
-					providerId: animeProvider.providerId,
-				});
+					slug: `${animeProvider.providerSlug}.details`,
+					operation: "details",
+					result: buildDetails(13, 2026),
+				}),
+			);
+			yield* triggerCronAndWaitForEntity(monitor, anime.id);
 
-				const monitor = yield* createAuthenticatedClient();
-				yield* createNotificationChannel(monitor.client, {
-					channel: "apprise",
-					channelSpecifics: { baseUrl: fakeApprise.url, key: "anime-monitor", kind: "apprise" },
-				});
-				yield* enableMediaMonitoring(monitor.client, anime.id);
-
-				fakeApprise.requests.length = 0;
-				yield* triggerCronAndWaitForEntity(monitor, anime.id);
-				expect(fakeApprise.requests.filter(({ path }) => path === "/notify/anime-monitor")).toEqual(
-					[],
-				);
-
-				fakeApprise.requests.length = 0;
-				yield* replaceSandboxScriptCompiledRepresentation(
-					client,
-					animeProvider.detailsScriptId,
-					providerSandboxSource({
-						name: animeName,
-						slug: `${animeProvider.providerSlug}.details`,
-						operation: "details",
-						result: buildDetails(13, 2026),
-					}),
-				);
-				yield* triggerCronAndWaitForEntity(monitor, anime.id);
-
-				const delivered = yield* pollNotificationBodies("anime-monitor", 2);
-				const bodies = delivered
-					.map(({ body }) => requireObjectRecord(body, "Missing notification body").body)
-					.sort((left, right) => String(left).localeCompare(String(right)));
-				expect(bodies).toEqual(
-					[
-						`Number of episodes changed from 12 to 13 for ${animeName}`,
-						`Publish year changed from 2025 to 2026 for ${animeName}`,
-					].sort((left, right) => left.localeCompare(right)),
-				);
-			} finally {
-				yield* uninstallTestProvider(animeProvider);
-			}
+			const delivered = yield* pollNotificationBodies("anime-monitor", 2);
+			const bodies = delivered
+				.map(({ body }) => requireObjectRecord(body, "Missing notification body").body)
+				.sort((left, right) => String(left).localeCompare(String(right)));
+			expect(bodies).toEqual(
+				[
+					`Number of episodes changed from 12 to 13 for ${animeName}`,
+					`Publish year changed from 2025 to 2026 for ${animeName}`,
+				].sort((left, right) => left.localeCompare(right)),
+			);
 		}),
 	);
 
@@ -179,6 +175,7 @@ describe("hierarchical media entity-update signals", () => {
 				const showProvider = yield* installTestProvider({
 					client,
 					slug: showSlug,
+					linkToEntitySchemaSlug: showSchemaId,
 					details: buildDetails({
 						episodeName: "Episode 1",
 						specialName: "Special 1",
@@ -188,65 +185,61 @@ describe("hierarchical media entity-update signals", () => {
 					}),
 				});
 
-				try {
-					const show = yield* seedMediaEntity({
+				const show = yield* seedMediaEntity({
+					name: showName,
+					properties: {},
+					externalId: showExternalId,
+					entitySchemaSlug: showSchemaId,
+					providerId: showProvider.providerId,
+				});
+
+				const monitor = yield* createAuthenticatedClient();
+				yield* createNotificationChannel(monitor.client, {
+					channel: "apprise",
+					channelSpecifics: {
+						kind: "apprise",
+						baseUrl: fakeApprise.url,
+						key: "show-episode-monitor",
+					},
+				});
+				yield* enableMediaMonitoring(monitor.client, show.id);
+
+				fakeApprise.requests.length = 0;
+				yield* triggerCronAndWaitForEntity(monitor, show.id);
+				expect(
+					fakeApprise.requests.filter(({ path }) => path === "/notify/show-episode-monitor"),
+				).toEqual([]);
+
+				fakeApprise.requests.length = 0;
+				yield* replaceSandboxScriptCompiledRepresentation(
+					client,
+					showProvider.detailsScriptId,
+					providerSandboxSource({
 						name: showName,
-						properties: {},
-						externalId: showExternalId,
-						entitySchemaSlug: showSchemaId,
-						providerId: showProvider.providerId,
-					});
-
-					const monitor = yield* createAuthenticatedClient();
-					yield* createNotificationChannel(monitor.client, {
-						channel: "apprise",
-						channelSpecifics: {
-							kind: "apprise",
-							baseUrl: fakeApprise.url,
-							key: "show-episode-monitor",
-						},
-					});
-					yield* enableMediaMonitoring(monitor.client, show.id);
-
-					fakeApprise.requests.length = 0;
-					yield* triggerCronAndWaitForEntity(monitor, show.id);
-					expect(
-						fakeApprise.requests.filter(({ path }) => path === "/notify/show-episode-monitor"),
-					).toEqual([]);
-
-					fakeApprise.requests.length = 0;
-					yield* replaceSandboxScriptCompiledRepresentation(
-						client,
-						showProvider.detailsScriptId,
-						providerSandboxSource({
-							name: showName,
-							slug: `${showProvider.providerSlug}.details`,
-							operation: "details",
-							result: buildDetails({
-								specialName: "Special 1 Renamed",
-								episodeName: "Episode 1 Renamed",
-								episodePublishDate: "2026-02-01",
-								specialPublishDate: "2026-02-01",
-								episodeImageUrl: "https://example.com/entity-update-after.jpg",
-							}),
+						slug: `${showProvider.providerSlug}.details`,
+						operation: "details",
+						result: buildDetails({
+							specialName: "Special 1 Renamed",
+							episodeName: "Episode 1 Renamed",
+							episodePublishDate: "2026-02-01",
+							specialPublishDate: "2026-02-01",
+							episodeImageUrl: "https://example.com/entity-update-after.jpg",
 						}),
-					);
-					yield* triggerCronAndWaitForEntity(monitor, show.id);
+					}),
+				);
+				yield* triggerCronAndWaitForEntity(monitor, show.id);
 
-					const delivered = yield* pollNotificationBodies("show-episode-monitor", 3);
-					const bodies = delivered
-						.map(({ body }) => requireObjectRecord(body, "Missing notification body").body)
-						.sort((left, right) => String(left).localeCompare(String(right)));
-					expect(bodies).toEqual(
-						[
-							`Episode image changed for S1E1 in ${showName}`,
-							`Episode name changed from "Episode 1" to "Episode 1 Renamed" (S1E1) for ${showName}`,
-							`Episode release date changed from 2026-01-01 to 2026-02-01 (S1E1) for ${showName}`,
-						].sort((left, right) => left.localeCompare(right)),
-					);
-				} finally {
-					yield* uninstallTestProvider(showProvider);
-				}
+				const delivered = yield* pollNotificationBodies("show-episode-monitor", 3);
+				const bodies = delivered
+					.map(({ body }) => requireObjectRecord(body, "Missing notification body").body)
+					.sort((left, right) => String(left).localeCompare(String(right)));
+				expect(bodies).toEqual(
+					[
+						`Episode image changed for S1E1 in ${showName}`,
+						`Episode name changed from "Episode 1" to "Episode 1 Renamed" (S1E1) for ${showName}`,
+						`Episode release date changed from 2026-01-01 to 2026-02-01 (S1E1) for ${showName}`,
+					].sort((left, right) => left.localeCompare(right)),
+				);
 			}),
 	);
 });

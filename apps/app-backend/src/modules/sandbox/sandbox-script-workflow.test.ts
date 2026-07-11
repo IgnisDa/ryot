@@ -105,6 +105,7 @@ fi
 `;
 	const replacementContent = `printf '{"state":"completed","requests":[],"output":{"content":"active-v2","journal":[]}}'`;
 	let activeId = historicalScriptId;
+	let kernelCallerScriptId: SandboxScriptId | undefined;
 	const executedContent: string[] = [];
 	const hashes = new Map<string, Map<string, string>>();
 	const redisClient: RedisService["client"] = Object.assign(Object.create(null), {
@@ -217,7 +218,18 @@ fi
 				}).pipe(Effect.orDie),
 		}),
 		Layer.mock(KernelWorkflowReferences)({
-			execute: () => Effect.succeed({ kernel: "recorded" }),
+			execute: (
+				_workflowSlug,
+				_input,
+				_authority,
+				_executionId,
+				_parentExecutionId,
+				callerScriptId,
+			) =>
+				Effect.sync(() => {
+					kernelCallerScriptId = callerScriptId;
+					return { kernel: "recorded" };
+				}),
 		}),
 	);
 	const payload = {
@@ -236,6 +248,7 @@ fi
 		);
 		expect(result).toEqual({ content: "pinned-v1", journal: [{ kernel: "recorded" }] });
 		expect(activeId).toBe(replacementScriptId);
+		expect(kernelCallerScriptId).toBe(historicalScriptId);
 		expect(executedContent).toEqual([historicalContent, historicalContent]);
 		expect(executedContent).not.toContain(replacementContent);
 	}).pipe(Effect.provide(layer));
@@ -361,6 +374,7 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 		authority: unknown;
 		executionId: string;
 		workflowSlug: string;
+		callerScriptId: string;
 		parentExecutionId: string;
 	}> = [];
 	return Effect.gen(function* () {
@@ -394,6 +408,7 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 				executionId: "parent-child-import-3-4",
 				authority: { type: "user", userId: "trusted-user" },
 				workflowSlug: KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
+				callerScriptId: "parent-script",
 			},
 		]);
 	}).pipe(
@@ -402,9 +417,16 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 			makeWorkflowEngine({ execute: () => Effect.die("unused") }),
 		),
 		Effect.provideService(KernelWorkflowReferences, {
-			execute: (workflowSlug, input, authority, executionId, parentExecutionId) =>
+			execute: (workflowSlug, input, authority, executionId, parentExecutionId, callerScriptId) =>
 				Effect.sync(() => {
-					calls.push({ workflowSlug, input, authority, executionId, parentExecutionId });
+					calls.push({
+						workflowSlug,
+						input,
+						authority,
+						executionId,
+						callerScriptId,
+						parentExecutionId,
+					});
 					return { status: "completed", entity: { id: "entity-1" } };
 				}),
 		}),

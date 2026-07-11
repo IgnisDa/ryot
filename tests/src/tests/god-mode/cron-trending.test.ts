@@ -107,6 +107,7 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 					...installed.manifest,
 					crons: [
 						{
+							lot: "script",
 							schedule: "0 0 * * *",
 							scriptSlug: SCRIPT_SLUG,
 							slug: "e2e-test-trending",

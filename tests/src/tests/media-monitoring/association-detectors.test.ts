@@ -3,7 +3,6 @@ import { Effect } from "effect";
 
 import {
 	adminHeaders,
-	uninstallTestProvider,
 	createAuthenticatedClient,
 	createNotificationChannel,
 	enableMediaMonitoring,
@@ -51,6 +50,7 @@ beforeAll(async () => {
 			movieProvider = yield* installTestProvider({
 				client,
 				slug: `movie.association-e2e-${crypto.randomUUID()}`,
+				linkToEntitySchemaSlug: movieSchemaId,
 				details: fakeProviderDetailsResult({
 					name: movieName,
 					relatedEntityGroups: [
@@ -83,14 +83,8 @@ beforeAll(async () => {
 	fakeApprise = await startFakeAppriseServer();
 });
 
-afterAll(async () => {
+afterAll(() => {
 	fakeApprise.stop();
-	await Effect.runPromise(
-		Effect.gen(function* () {
-			yield* uninstallTestProvider(movieProvider);
-			yield* uninstallTestProvider(personProvider);
-		}),
-	);
 });
 
 it.live("notifies only a credited person's monitor once per role on first media population", () =>
@@ -212,66 +206,61 @@ describe("dual-writer canonical identity", () => {
 					}),
 				});
 
-				try {
-					const person = yield* seedMediaEntity({
-						properties: {},
-						name: dwPersonName,
-						externalId: dwPersonExternalId,
-						entitySchemaSlug: personSchemaId,
-						providerId: dwPersonProvider.providerId,
-					});
-					// Mark the person already-populated so its own later cron refresh below is a
-					// rewrite, not a first population — isolating the noop assertion from the
-					// initial-population carve-out (covered separately).
-					yield* getBackendClient().call(
-						(c) =>
-							c.testSupport.setEntityPopulatedAt({
-								path: { entityId: EntityId.make(person.id) },
-								payload: { populatedAt: new Date().toISOString() },
-							}),
-						adminHeaders,
-					);
+				const person = yield* seedMediaEntity({
+					properties: {},
+					name: dwPersonName,
+					externalId: dwPersonExternalId,
+					entitySchemaSlug: personSchemaId,
+					providerId: dwPersonProvider.providerId,
+				});
+				// Mark the person already-populated so its own later cron refresh below is a
+				// rewrite, not a first population — isolating the noop assertion from the
+				// initial-population carve-out (covered separately).
+				yield* getBackendClient().call(
+					(c) =>
+						c.testSupport.setEntityPopulatedAt({
+							path: { entityId: EntityId.make(person.id) },
+							payload: { populatedAt: new Date().toISOString() },
+						}),
+					adminHeaders,
+				);
 
-					const personMonitor = yield* createAuthenticatedClient();
-					const importer = yield* createAuthenticatedClient();
-					yield* createNotificationChannel(personMonitor.client, {
-						channel: "apprise",
-						channelSpecifics: {
-							kind: "apprise",
-							baseUrl: fakeApprise.url,
-							key: "dual-writer-monitor",
-						},
-					});
-					yield* enableMediaMonitoring(personMonitor.client, person.id);
+				const personMonitor = yield* createAuthenticatedClient();
+				const importer = yield* createAuthenticatedClient();
+				yield* createNotificationChannel(personMonitor.client, {
+					channel: "apprise",
+					channelSpecifics: {
+						kind: "apprise",
+						baseUrl: fakeApprise.url,
+						key: "dual-writer-monitor",
+					},
+				});
+				yield* enableMediaMonitoring(personMonitor.client, person.id);
 
-					fakeApprise.requests.length = 0;
-					const { jobId } = yield* enqueueEntityImport(importer.client, {
-						externalId: dwMovieExternalId,
-						entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
-						providerId: SandboxProviderId.make(dwMovieProvider.providerId),
-					});
-					const imported = yield* pollEntityImportResult(importer.client, jobId, {
-						timeoutMs: 30_000,
-					});
-					assertCompleted(imported, "dual-writer media-rooted import");
-					const created = yield* pollAssociationNotification("dual-writer-monitor");
-					expect(created).toHaveLength(1);
-					expect(requireObjectRecord(created[0]?.body, "Missing notification body").body).toBe(
-						`${dwPersonName} has been associated with ${dwMovieName} as Actor`,
-					);
+				fakeApprise.requests.length = 0;
+				const { jobId } = yield* enqueueEntityImport(importer.client, {
+					externalId: dwMovieExternalId,
+					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
+					providerId: SandboxProviderId.make(dwMovieProvider.providerId),
+				});
+				const imported = yield* pollEntityImportResult(importer.client, jobId, {
+					timeoutMs: 30_000,
+				});
+				assertCompleted(imported, "dual-writer media-rooted import");
+				const created = yield* pollAssociationNotification("dual-writer-monitor");
+				expect(created).toHaveLength(1);
+				expect(requireObjectRecord(created[0]?.body, "Missing notification body").body).toBe(
+					`${dwPersonName} has been associated with ${dwMovieName} as Actor`,
+				);
 
-					// The person's own authoritative outgoing sync now rewrites the same edge with
-					// the identical role: it must resolve to the existing canonical row (not a
-					// duplicate) and dispatch nothing, since the write is a noop.
-					fakeApprise.requests.length = 0;
-					yield* triggerCronAndWaitForEntity(personMonitor, person.id);
-					expect(
-						fakeApprise.requests.filter(({ path }) => path === "/notify/dual-writer-monitor"),
-					).toEqual([]);
-				} finally {
-					yield* uninstallTestProvider(dwMovieProvider);
-					yield* uninstallTestProvider(dwPersonProvider);
-				}
+				// The person's own authoritative outgoing sync now rewrites the same edge with
+				// the identical role: it must resolve to the existing canonical row (not a
+				// duplicate) and dispatch nothing, since the write is a noop.
+				fakeApprise.requests.length = 0;
+				yield* triggerCronAndWaitForEntity(personMonitor, person.id);
+				expect(
+					fakeApprise.requests.filter(({ path }) => path === "/notify/dual-writer-monitor"),
+				).toEqual([]);
 			}),
 	);
 });
@@ -343,72 +332,67 @@ describe("association lifecycle via cron refresh", () => {
 				}),
 			});
 
-			try {
-				const person = yield* seedMediaEntity({
-					properties: {},
-					name: ruPersonName,
-					externalId: ruPersonExternalId,
-					entitySchemaSlug: personSchemaId,
-					providerId: ruPersonProvider.providerId,
-				});
-				const movie = yield* seedMediaEntity({
-					properties: {},
-					name: ruMovieName,
-					externalId: ruMovieExternalId,
-					entitySchemaSlug: movieSchemaId,
-					providerId: ruMovieProvider.providerId,
-				});
-				// Mark the person already-populated so its later cron-driven authoritative sync
-				// below is a role update, not a first population — the carve-out would otherwise
-				// silence it since the person is both the refresh root and the credited subject.
-				yield* getBackendClient().call(
-					(c) =>
-						c.testSupport.setEntityPopulatedAt({
-							path: { entityId: EntityId.make(person.id) },
-							payload: { populatedAt: new Date().toISOString() },
-						}),
-					adminHeaders,
-				);
+			const person = yield* seedMediaEntity({
+				properties: {},
+				name: ruPersonName,
+				externalId: ruPersonExternalId,
+				entitySchemaSlug: personSchemaId,
+				providerId: ruPersonProvider.providerId,
+			});
+			const movie = yield* seedMediaEntity({
+				properties: {},
+				name: ruMovieName,
+				externalId: ruMovieExternalId,
+				entitySchemaSlug: movieSchemaId,
+				providerId: ruMovieProvider.providerId,
+			});
+			// Mark the person already-populated so its later cron-driven authoritative sync
+			// below is a role update, not a first population — the carve-out would otherwise
+			// silence it since the person is both the refresh root and the credited subject.
+			yield* getBackendClient().call(
+				(c) =>
+					c.testSupport.setEntityPopulatedAt({
+						path: { entityId: EntityId.make(person.id) },
+						payload: { populatedAt: new Date().toISOString() },
+					}),
+				adminHeaders,
+			);
 
-				const personMonitor = yield* createAuthenticatedClient();
-				yield* createNotificationChannel(personMonitor.client, {
-					channel: "apprise",
-					channelSpecifics: {
-						baseUrl: fakeApprise.url,
-						key: "role-update-monitor",
-						kind: "apprise",
-					},
-				});
-				yield* enableMediaMonitoring(personMonitor.client, person.id);
-				yield* enableMediaMonitoring(personMonitor.client, movie.id);
+			const personMonitor = yield* createAuthenticatedClient();
+			yield* createNotificationChannel(personMonitor.client, {
+				channel: "apprise",
+				channelSpecifics: {
+					baseUrl: fakeApprise.url,
+					key: "role-update-monitor",
+					kind: "apprise",
+				},
+			});
+			yield* enableMediaMonitoring(personMonitor.client, person.id);
+			yield* enableMediaMonitoring(personMonitor.client, movie.id);
 
-				fakeApprise.requests.length = 0;
-				yield* triggerCronAndWaitForEntity(personMonitor, movie.id);
-				const baseline = yield* pollAssociationNotification("role-update-monitor");
-				expect(baseline).toHaveLength(1);
-				expect(requireObjectRecord(baseline[0]?.body, "Missing notification body").body).toBe(
-					`${ruPersonName} has been associated with ${ruMovieName} as Actor`,
-				);
+			fakeApprise.requests.length = 0;
+			yield* triggerCronAndWaitForEntity(personMonitor, movie.id);
+			const baseline = yield* pollAssociationNotification("role-update-monitor");
+			expect(baseline).toHaveLength(1);
+			expect(requireObjectRecord(baseline[0]?.body, "Missing notification body").body).toBe(
+				`${ruPersonName} has been associated with ${ruMovieName} as Actor`,
+			);
 
-				// The movie's additive incoming sync never touches an existing edge's properties
-				// (it always preserves them), so the role addition must come from the person's own
-				// authoritative outgoing sync instead of re-driving the movie's cron.
-				fakeApprise.requests.length = 0;
-				yield* replaceSandboxScriptCompiledRepresentation(
-					client,
-					ruPersonProvider.detailsScriptId,
-					buildPersonSource(["Actor", "Director"]),
-				);
-				yield* triggerCronAndWaitForEntity(personMonitor, person.id);
-				const updated = yield* pollAssociationNotification("role-update-monitor");
-				expect(updated).toHaveLength(1);
-				expect(requireObjectRecord(updated[0]?.body, "Missing notification body").body).toBe(
-					`${ruPersonName} has been associated with ${ruMovieName} as Director`,
-				);
-			} finally {
-				yield* uninstallTestProvider(ruMovieProvider);
-				yield* uninstallTestProvider(ruPersonProvider);
-			}
+			// The movie's additive incoming sync never touches an existing edge's properties
+			// (it always preserves them), so the role addition must come from the person's own
+			// authoritative outgoing sync instead of re-driving the movie's cron.
+			fakeApprise.requests.length = 0;
+			yield* replaceSandboxScriptCompiledRepresentation(
+				client,
+				ruPersonProvider.detailsScriptId,
+				buildPersonSource(["Actor", "Director"]),
+			);
+			yield* triggerCronAndWaitForEntity(personMonitor, person.id);
+			const updated = yield* pollAssociationNotification("role-update-monitor");
+			expect(updated).toHaveLength(1);
+			expect(requireObjectRecord(updated[0]?.body, "Missing notification body").body).toBe(
+				`${ruPersonName} has been associated with ${ruMovieName} as Director`,
+			);
 		}),
 	);
 
@@ -449,7 +433,7 @@ describe("association lifecycle via cron refresh", () => {
 					});
 
 				const { client } = yield* createAuthenticatedClient();
-				const drMovieProvider = yield* installTestProvider({
+				yield* installTestProvider({
 					client,
 					slug: drMovieSlug,
 					linkToEntitySchemaSlug: movieSchemaId,
@@ -458,6 +442,7 @@ describe("association lifecycle via cron refresh", () => {
 				const drPersonProvider = yield* installTestProvider({
 					client,
 					slug: drPersonSlug,
+					linkToEntitySchemaSlug: personSchemaId,
 					details: fakeProviderDetailsResult({
 						name: drPersonName,
 						relatedEntityGroups: [
@@ -471,64 +456,59 @@ describe("association lifecycle via cron refresh", () => {
 					}),
 				});
 
-				try {
-					const person = yield* seedMediaEntity({
-						properties: {},
-						name: drPersonName,
-						externalId: drPersonExternalId,
-						entitySchemaSlug: personSchemaId,
-						providerId: drPersonProvider.providerId,
-					});
+				const person = yield* seedMediaEntity({
+					properties: {},
+					name: drPersonName,
+					externalId: drPersonExternalId,
+					entitySchemaSlug: personSchemaId,
+					providerId: drPersonProvider.providerId,
+				});
 
-					const personMonitor = yield* createAuthenticatedClient();
-					yield* createNotificationChannel(personMonitor.client, {
-						channel: "apprise",
-						channelSpecifics: {
-							kind: "apprise",
-							baseUrl: fakeApprise.url,
-							key: "delete-recreate-monitor",
-						},
-					});
-					yield* enableMediaMonitoring(personMonitor.client, person.id);
+				const personMonitor = yield* createAuthenticatedClient();
+				yield* createNotificationChannel(personMonitor.client, {
+					channel: "apprise",
+					channelSpecifics: {
+						kind: "apprise",
+						baseUrl: fakeApprise.url,
+						key: "delete-recreate-monitor",
+					},
+				});
+				yield* enableMediaMonitoring(personMonitor.client, person.id);
 
-					// First population of the monitored person is the credited subject's own root:
-					// the carve-out silences it even though the edge is genuinely created.
-					fakeApprise.requests.length = 0;
-					yield* triggerCronAndWaitForEntity(personMonitor, person.id);
-					expect(
-						fakeApprise.requests.filter(({ path }) => path === "/notify/delete-recreate-monitor"),
-					).toEqual([]);
+				// First population of the monitored person is the credited subject's own root:
+				// the carve-out silences it even though the edge is genuinely created.
+				fakeApprise.requests.length = 0;
+				yield* triggerCronAndWaitForEntity(personMonitor, person.id);
+				expect(
+					fakeApprise.requests.filter(({ path }) => path === "/notify/delete-recreate-monitor"),
+				).toEqual([]);
 
-					// An authoritative sync dropping the movie deletes the edge; deletes never notify.
-					fakeApprise.requests.length = 0;
-					yield* replaceSandboxScriptCompiledRepresentation(
-						client,
-						drPersonProvider.detailsScriptId,
-						buildPersonSource([]),
-					);
-					yield* triggerCronAndWaitForEntity(personMonitor, person.id);
-					expect(
-						fakeApprise.requests.filter(({ path }) => path === "/notify/delete-recreate-monitor"),
-					).toEqual([]);
+				// An authoritative sync dropping the movie deletes the edge; deletes never notify.
+				fakeApprise.requests.length = 0;
+				yield* replaceSandboxScriptCompiledRepresentation(
+					client,
+					drPersonProvider.detailsScriptId,
+					buildPersonSource([]),
+				);
+				yield* triggerCronAndWaitForEntity(personMonitor, person.id);
+				expect(
+					fakeApprise.requests.filter(({ path }) => path === "/notify/delete-recreate-monitor"),
+				).toEqual([]);
 
-					// Re-adding the movie re-creates the edge. The root is no longer on its first
-					// population, so the carve-out no longer applies and the fresh create notifies.
-					fakeApprise.requests.length = 0;
-					yield* replaceSandboxScriptCompiledRepresentation(
-						client,
-						drPersonProvider.detailsScriptId,
-						buildPersonSource([movieRelatedEntity]),
-					);
-					yield* triggerCronAndWaitForEntity(personMonitor, person.id);
-					const recreated = yield* pollAssociationNotification("delete-recreate-monitor");
-					expect(recreated).toHaveLength(1);
-					expect(requireObjectRecord(recreated[0]?.body, "Missing notification body").body).toBe(
-						`${drPersonName} has been associated with ${drMovieName} as Actor`,
-					);
-				} finally {
-					yield* uninstallTestProvider(drPersonProvider);
-					yield* uninstallTestProvider(drMovieProvider);
-				}
+				// Re-adding the movie re-creates the edge. The root is no longer on its first
+				// population, so the carve-out no longer applies and the fresh create notifies.
+				fakeApprise.requests.length = 0;
+				yield* replaceSandboxScriptCompiledRepresentation(
+					client,
+					drPersonProvider.detailsScriptId,
+					buildPersonSource([movieRelatedEntity]),
+				);
+				yield* triggerCronAndWaitForEntity(personMonitor, person.id);
+				const recreated = yield* pollAssociationNotification("delete-recreate-monitor");
+				expect(recreated).toHaveLength(1);
+				expect(requireObjectRecord(recreated[0]?.body, "Missing notification body").body).toBe(
+					`${drPersonName} has been associated with ${drMovieName} as Actor`,
+				);
 			}),
 	);
 });

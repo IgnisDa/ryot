@@ -28,6 +28,7 @@ import {
 import {
 	ProviderDetailsChildEntitySchema,
 	ProviderDetailsRelatedEntityGroupSchema,
+	SandboxJsonValueSchema,
 	decodeProviderDetailsResult,
 } from "#modules/sandbox/provider-contracts";
 
@@ -36,31 +37,27 @@ import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ChildEntitySetWriteResult, writeChildEntitySet } from "./population";
 import { syncRelatedEntityGroup } from "./relationship-population";
 
-// Child schema hierarchy for provider container types. Only consulted during
-// refresh, where stale children must be reconciled even when the provider
-// returns none this run (e.g. a show that dropped a season).
-const CHILD_ENTITY_SCHEMA_SLUGS: Readonly<Record<string, string>> = {
-	show: "show-season",
-	podcast: "podcast-episode",
-	"show-season": "show-episode",
-};
-
 const REDIS_RETRY_SCHEDULE = Schedule.spaced("30 seconds");
 
 type SynchronizeOptions = {
 	entitySchemaSlug: EntitySchemaSlug;
 	mode: "initial" | "refresh";
-	childEntitySchemaSlugs?: Readonly<Record<string, string>>;
 };
 
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
-	properties: Schema.Unknown,
+	properties: SandboxJsonValueSchema,
+	expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
 	childEntities: Schema.Array(ProviderDetailsChildEntitySchema),
 	relatedEntityGroups: Schema.Array(ProviderDetailsRelatedEntityGroupSchema),
 });
 
 type ValidatedEntityDetails = typeof ValidatedEntityDetails.Type;
+
+const SandboxJsonObjectSchema = Schema.Record({
+	key: Schema.String,
+	value: SandboxJsonValueSchema,
+});
 
 type ChildEntitySetScope = {
 	parentName: string;
@@ -70,6 +67,7 @@ type ChildEntitySetScope = {
 	parentEntitySchemaSlug: EntitySchemaSlug;
 	scopeEntity: LifecyclePopulationContext["scopeEntity"];
 	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
+	expectedChildEntitySchemaSlug?: string;
 };
 
 const ProviderEntitySaveEnvelope = Schema.Struct({
@@ -117,6 +115,9 @@ const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (valu
 			return {
 				name: details.name,
 				properties: details.properties,
+				...(details.expectedChildEntitySchemaSlug
+					? { expectedChildEntitySchemaSlug: details.expectedChildEntitySchemaSlug }
+					: {}),
 				childEntities: details.childEntities ?? [],
 				relatedEntityGroups: details.relatedEntityGroups ?? [],
 			};
@@ -199,7 +200,7 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 				parentEntityId: scope.parentEntityId,
 				syncExisting: options.mode === "refresh",
 				parentEntitySchemaSlug: scope.parentEntitySchemaSlug,
-				childEntitySchemaSlugs: options.childEntitySchemaSlugs,
+				expectedChildEntitySchemaSlug: scope.expectedChildEntitySchemaSlug,
 			}),
 		).pipe(mapDbErrorToSandbox),
 	});
@@ -258,8 +259,10 @@ const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function*
 
 const shouldWriteChildEntitySet = (options: SynchronizeOptions, scope: ChildEntitySetScope) =>
 	scope.childEntities.length > 0 ||
-	(!!scope.parentEntitySchemaSlug &&
-		!!options.childEntitySchemaSlugs?.[scope.parentEntitySchemaSlug]);
+	(options.mode === "refresh" && scope.expectedChildEntitySchemaSlug !== undefined);
+
+const toSandboxJsonObject = (value: unknown) =>
+	Schema.is(SandboxJsonObjectSchema)(value) ? value : {};
 
 const toLifecycleSnapshot = (snapshot: ProviderEntitySaveResult["outcome"]["after"]) => ({
 	...snapshot,
@@ -390,17 +393,6 @@ const dispatchRelationshipSync = Effect.fn("dispatchProviderRelationshipSync")(f
 	}
 });
 
-const owningSeasonForScope = (scope: ChildEntitySetScope) => {
-	if (scope.parentEntitySchemaSlug !== "show-season") {
-		return undefined;
-	}
-	const seasonNumber = asRecord(scope.parentProperties)?.["seasonNumber"];
-	return {
-		name: scope.parentName,
-		number: typeof seasonNumber === "number" && Number.isFinite(seasonNumber) ? seasonNumber : null,
-	};
-};
-
 const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 	payload: EntityImportPayload,
 	executionId: string,
@@ -415,7 +407,11 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 			continue;
 		}
 		const processed = yield* writeChildEntitySetScope(payload, options, scope);
-		const owningSeason = owningSeasonForScope(scope);
+		const parentEntity = {
+			name: scope.parentName,
+			properties: toSandboxJsonObject(scope.parentProperties),
+			entitySchemaSlug: scope.parentEntitySchemaSlug,
+		};
 		yield* dispatchRelationshipSync({
 			executionId,
 			direction: "outgoing",
@@ -424,9 +420,9 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 			anchorEntityId: scope.parentEntityId,
 			outcomes: processed.relationshipOutcomes,
 			population: {
+				parentEntity,
 				rootPreviouslyPopulated,
 				scopeEntity: scope.scopeEntity,
-				...(owningSeason ? { owningSeason } : {}),
 			},
 		});
 		for (const [index, childEntity] of scope.childEntities.entries()) {
@@ -441,9 +437,9 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 				phase: `children:${scope.parentExternalId}`,
 				result: { entity: child.entity, outcome: child.entityOutcome },
 				population: {
+					parentEntity,
 					rootPreviouslyPopulated,
 					scopeEntity: scope.scopeEntity,
-					...(owningSeason ? { owningSeason } : {}),
 				},
 			});
 			pending.push({
@@ -454,6 +450,9 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 				parentProperties: child.entity.properties,
 				parentEntitySchemaSlug: child.entitySchemaSlug,
 				childEntities: childEntity.childEntities ?? [],
+				...(childEntity.expectedChildEntitySchemaSlug
+					? { expectedChildEntitySchemaSlug: childEntity.expectedChildEntitySchemaSlug }
+					: {}),
 			});
 		}
 	}
@@ -507,6 +506,9 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 		parentExternalId: payload.externalId,
 		childEntities: details.childEntities,
 		parentEntitySchemaSlug: options.entitySchemaSlug,
+		...(details.expectedChildEntitySchemaSlug
+			? { expectedChildEntitySchemaSlug: details.expectedChildEntitySchemaSlug }
+			: {}),
 	});
 	const stamped = yield* stampRootPopulatedAt(payload, details);
 	yield* dispatchEntityMutation({
@@ -569,11 +571,7 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 		return yield* synchronizeEntityGraph(
 			payload,
 			executionId,
-			{
-				mode: "refresh",
-				entitySchemaSlug: payload.entitySchemaSlug,
-				childEntitySchemaSlugs: CHILD_ENTITY_SCHEMA_SLUGS,
-			},
+			{ mode: "refresh", entitySchemaSlug: payload.entitySchemaSlug },
 			rootPreviouslyPopulated,
 		);
 	},

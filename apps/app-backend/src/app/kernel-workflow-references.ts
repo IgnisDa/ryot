@@ -2,7 +2,12 @@ import { Path } from "@effect/platform";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
-import { ImportRunId, type IntegrationId, type UserId } from "@ryot/contract/schema/brands";
+import {
+	ImportRunId,
+	SandboxProviderId,
+	type IntegrationId,
+	type UserId,
+} from "@ryot/contract/schema/brands";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect, Layer, Schema } from "effect";
@@ -15,6 +20,10 @@ import {
 } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { EntityImportPayload } from "#modules/entity-import/entity-import-workflow";
+import {
+	ProviderEntityPopulationWorkflow,
+	type ProviderEntityPopulationPayload,
+} from "#modules/entity-import/provider-entity-population-workflow";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
@@ -31,8 +40,22 @@ import {
 	KERNEL_EVENT_CREATE_WORKFLOW,
 	KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 	KernelWorkflowReferences,
 } from "#modules/sandbox/kernel-workflow-references";
+
+const PROVIDER_ENTITY_POPULATION_MAX_ITEMS = 100;
+
+const ProviderEntityPopulationReferenceInput = Schema.Struct({
+	mode: Schema.Literal("ensure", "refresh"),
+	items: Schema.Array(
+		Schema.Struct({
+			externalId: Schema.String,
+			providerId: Schema.String,
+			entitySchemaSlug: Schema.String,
+		}),
+	).pipe(Schema.minItems(1), Schema.maxItems(PROVIDER_ENTITY_POPULATION_MAX_ITEMS)),
+});
 
 const attributionIds = (origin: AutomationOrigin | undefined) => ({
 	integrationIds: origin?.kind === "integration" ? [origin.integrationId] : [],
@@ -82,16 +105,92 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 			]);
 
 		return {
-			execute: (workflowSlug, input, authority, executionId, parentExecutionId) =>
+			execute: (workflowSlug, input, authority, executionId, parentExecutionId, callerScriptId) =>
 				Effect.gen(function* () {
 					if (
 						workflowSlug !== KERNEL_EVENT_CREATE_WORKFLOW &&
 						workflowSlug !== KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW &&
-						workflowSlug !== KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW
+						workflowSlug !== KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW &&
+						workflowSlug !== KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW
 					) {
 						return yield* new SandboxRunError({
 							message: `Unknown kernel workflow reference '${workflowSlug}'`,
 						});
+					}
+					if (workflowSlug === KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW) {
+						if (authority.type !== "system") {
+							return yield* new SandboxRunError({
+								message: `Kernel workflow '${workflowSlug}' is available only for system executions`,
+							});
+						}
+						const caller = yield* runWithDb(
+							pluginRuntime.findActiveScriptById(callerScriptId),
+						).pipe(
+							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+						);
+						if (!caller?.pluginSlug || caller.metadata.kind !== "workflow") {
+							return yield* new SandboxRunError({
+								message: "Provider entity population requires an active plugin workflow caller",
+							});
+						}
+						const callerPluginSlug = caller.pluginSlug;
+						const decoded = yield* Schema.decodeUnknown(ProviderEntityPopulationReferenceInput)(
+							input,
+						).pipe(
+							Effect.mapError(
+								(error) =>
+									new SandboxRunError({
+										message: `Invalid kernel workflow input: ${unknownToMessage(error)}`,
+									}),
+							),
+						);
+						const ownedItems = yield* Effect.forEach(decoded.items, (item) =>
+							runWithDb(
+								pluginRuntime.findAuthorizedSchemaProviderById({
+									pluginSlug: callerPluginSlug,
+									entitySchemaSlug: item.entitySchemaSlug,
+									providerId: SandboxProviderId.make(item.providerId),
+								}),
+							).pipe(
+								Effect.mapError(
+									(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+								),
+								Effect.flatMap((resolved) =>
+									resolved
+										? Effect.succeed({ item, resolved })
+										: Effect.fail(
+												new SandboxRunError({
+													message: `Provider '${item.providerId}' is not active or has no exact binding to entity schema '${item.entitySchemaSlug}' owned by plugin '${callerPluginSlug}'`,
+												}),
+											),
+								),
+							),
+						);
+						const engine = yield* WorkflowEngine;
+						const results = yield* Effect.forEach(ownedItems, ({ item, resolved }, index) => {
+							const childExecutionId = `${executionId}-item-${index}`;
+							return engine
+								.execute(ProviderEntityPopulationWorkflow, {
+									executionId: childExecutionId,
+									payload: {
+										userId: null,
+										mode: decoded.mode,
+										externalId: item.externalId,
+										executionId: childExecutionId,
+										providerId: resolved.provider.id,
+										origin: { kind: "provider_refresh" },
+										entitySchemaSlug: resolved.entitySchemaSlug,
+									} satisfies ProviderEntityPopulationPayload,
+								})
+								.pipe(
+									Effect.mapError(
+										(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+									),
+								);
+						});
+						return yield* Schema.decodeUnknown(jsonValueSchema)(results).pipe(
+							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+						);
 					}
 					if (!("userId" in authority)) {
 						return yield* new SandboxRunError({

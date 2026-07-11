@@ -34,6 +34,16 @@ media-specific rules are:
   returned per candidate episode however many relationship rows link it — this is what makes
   "exactly one candidate wins, zero or ambiguous resolves to `null`" hold. User-ownership scoping is
   the query engine's, per executing user.
+- **Media monitoring** status, enable, and disable are user operations over batches of at most 50
+  entity ids. The shared target query pushes global/provider-backed/monitorable checks and monitoring
+  status into SQL. Enable queries the caller's library and submits one atomic relationship batch for
+  both `in-library` and `media-monitoring`; disable deletes only `media-monitoring`. Operation results
+  remain input-aligned and unsupported or invisible targets are `notFound` values.
+- **Monitoring sweep.** The `media-monitoring` workflow cron pages through the pinned
+  `activity.media-monitoring-targets` system query. Its root is the global monitored entity; the
+  relationship traversal sees monitoring edges across users. The workflow deduplicates entity ids and
+  invokes `kernel:provider-entity-population` in refresh batches of at most 100 using each row's
+  provider id. Keep query-engine access in the activity and durable child dispatch in the workflow.
 - `shared/title-parsing.ts` and `shared/title-matching.ts` own Netflix import title matching. They
   must stay within the sandbox compiler's ES2022 lib, which is why roman numerals are read with an
   index loop instead of `toReversed` — `oxlint --fix` rewrites `[...x].reverse()` back into that

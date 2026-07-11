@@ -178,6 +178,7 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"listEventSchemas",
 	"listIntegrations",
 	"executeQueryEngine",
+	"changeUserRelationships",
 	"upsertGlobalEntities",
 	"upsertGlobalRelationships",
 ] as const;
@@ -194,6 +195,11 @@ export const GLOBAL_WRITE_SANDBOX_LIMITS = {
 	relationshipGroups: 50,
 	relationshipsTotal: 1_000,
 	relationshipsPerGroup: 500,
+} as const;
+export const USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS = {
+	batches: 50,
+	changesTotal: 500,
+	changesPerBatch: 100,
 } as const;
 export const SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES = [
 	"upsertGlobalEntities",
@@ -344,6 +350,32 @@ export const upsertGlobalRelationshipResultSchema = strictStruct({
 export type UpsertGlobalRelationshipResult = Schema.Schema.Type<
 	typeof upsertGlobalRelationshipResultSchema
 >;
+const userRelationshipIdentitySchema = strictStruct({
+	sourceEntityId: sandboxIdSchema,
+	targetEntityId: sandboxIdSchema,
+	relationshipSchemaSlug: nonEmptyString,
+});
+export const createUserRelationshipSchema = strictStruct({
+	...userRelationshipIdentitySchema.fields,
+	properties: globalPropertiesSchema,
+});
+export const changeUserRelationshipBatchSchema = strictStruct({
+	creates: Schema.Array(createUserRelationshipSchema),
+	deletes: Schema.Array(userRelationshipIdentitySchema),
+}).pipe(
+	Schema.filter(
+		(batch) =>
+			batch.creates.length + batch.deletes.length <=
+			USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS.changesPerBatch,
+	),
+);
+export type ChangeUserRelationshipBatch = Schema.Schema.Type<
+	typeof changeUserRelationshipBatchSchema
+>;
+export const changeUserRelationshipResultSchema = strictStruct({
+	created: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	deleted: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+});
 export const createEventsResultDataSchema = strictStruct({
 	count: Schema.Number.pipe(Schema.int()),
 });
@@ -396,6 +428,15 @@ export const upsertGlobalRelationshipsArgsSchema = Schema.Tuple(
 		Schema.maxItems(GLOBAL_WRITE_SANDBOX_LIMITS.relationshipGroups),
 	),
 );
+export const changeUserRelationshipsArgsSchema = Schema.Tuple(
+	Schema.Array(changeUserRelationshipBatchSchema).pipe(
+		Schema.maxItems(USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS.batches),
+	),
+);
+export const changeUserRelationshipsDataSchema = Schema.Array(changeUserRelationshipResultSchema);
+export const changeUserRelationshipsResultSchema = hostResultSchema(
+	changeUserRelationshipsDataSchema,
+);
 export const upsertGlobalEntitiesArgsSchema = Schema.Tuple(
 	Schema.Array(upsertGlobalEntityItemSchema).pipe(
 		Schema.maxItems(GLOBAL_WRITE_SANDBOX_LIMITS.entityItems),
@@ -413,6 +454,11 @@ export const domainSandboxHostContracts = {
 		args: listEventsArgsSchema,
 		success: listEventsDataSchema,
 		result: listEventsResultSchema,
+	},
+	changeUserRelationships: {
+		args: changeUserRelationshipsArgsSchema,
+		success: changeUserRelationshipsDataSchema,
+		result: changeUserRelationshipsResultSchema,
 	},
 	createEvents: {
 		args: createEventsArgsSchema,

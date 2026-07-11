@@ -73,8 +73,12 @@ const automationSourceSchema = Schema.Union(
 );
 const automationPopulationSchema = strictStruct({
 	rootPreviouslyPopulated: Schema.Boolean,
-	owningSeason: Schema.optional(
-		strictStruct({ number: Schema.NullOr(Schema.Number), name: Schema.NullOr(Schema.String) }),
+	parentEntity: Schema.optional(
+		strictStruct({
+			name: Schema.String,
+			properties: propertiesSchema,
+			entitySchemaSlug: Schema.String,
+		}),
 	),
 	scopeEntity: entityReferenceSchema,
 	batch: Schema.optional(

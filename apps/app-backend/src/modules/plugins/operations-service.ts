@@ -121,15 +121,6 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 			});
 		});
 
-		const invokeOperation = Effect.fn("OperationsService.invokeOperation")(
-			(input: {
-				readonly userId: UserId;
-				readonly payload: unknown;
-				readonly pluginSlug: string;
-				readonly operationSlug: string;
-			}) => dispatch(input),
-		);
-
-		return { invoke, invokeOperation };
+		return { invoke };
 	}),
 }) {}
