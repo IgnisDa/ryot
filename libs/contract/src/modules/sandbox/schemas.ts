@@ -4,7 +4,7 @@ import {
 } from "@ryot/sandbox-sdk/core";
 import { Schema } from "effect";
 
-import { SandboxScriptId, SubscriptionRunId, UserId } from "../../schema/brands";
+import { IntegrationId, SandboxScriptId, SubscriptionRunId, UserId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { AutomationOrigin } from "../automations/schemas";
 
@@ -76,8 +76,14 @@ export type EnqueueSandboxBody = Schema.Schema.Type<typeof EnqueueSandboxBody>;
 export const EnqueueResponse = Schema.Struct({ jobId: Schema.String });
 
 export const ExecutionAuthority = Schema.Union(
-	strictStruct({ type: Schema.Literal("user"), userId: UserId }),
 	strictStruct({ type: Schema.Literal("system") }),
+	// `integrationId` is the integration the execution belongs to. Only trusted kernel dispatch sets
+	// it, so a script can never widen its own credential scope by supplying an id.
+	strictStruct({
+		userId: UserId,
+		type: Schema.Literal("user"),
+		integrationId: Schema.optional(IntegrationId),
+	}),
 	strictStruct({
 		type: Schema.Literal("subscription"),
 		userId: UserId,

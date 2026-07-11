@@ -609,6 +609,43 @@ dependency set is open: later steps may vendor more through the same mechanism.
 execution state — the integration the execution belongs to — rather than from an arbitrary id
 supplied by the script.
 
+### Task 07 implementation record and constraints it leaves for 08–10 (2026-07-27)
+
+Task 07 landed the capability slice with no consumers. Five findings bind the later tasks.
+
+1. **`getIntegration` takes no arguments; the integration id lives on `ExecutionAuthority`.** The
+   `user` variant gained an optional `integrationId`, set only by the `auth: "integration"`
+   operation dispatch — where the same id already authenticated the call — so a script cannot
+   substitute another. The subscription path reads the existing
+   `authority.subscriptionRun.origin.integrationId` rather than duplicating the value, because two
+   copies of one fact can disagree. Authority was chosen over a payload sibling field because every
+   durable re-dispatch site forwards `authority` wholesale, while sites that rebuild the payload
+   field-by-field would silently drop a new sibling. Executions with no integration in scope fail
+   the call rather than falling back to "any integration this user owns".
+   `metadata-lookup`'s `integrationId` operation input **stays** — it is the credential
+   `plugins.invoke` authenticates against, not a redundant argument, and the browser extension
+   needed no change.
+2. **Task 08 must delete the contract provider union in the same change that declares the first
+   `secret` field.** `ListedIntegration.providerSpecifics` is still the closed union with required
+   credential fields, so once a manifest marks e.g. `token` secret, `Schema.encode` rejects the
+   redacted object and `integrations.get`/`list` fail at the response boundary. Nothing triggers it
+   today because no plugin declares a provider. This is a hard ordering constraint, not a soft one.
+3. **The filesystem grant is inert until a script can reach it.** The Deno runner sets `Deno` to
+   `undefined` in `disableCodeGeneration()`, and neither the artifact path nor the scratch path is
+   passed into the runner payload. Before any adapter can use `artifact-read` / `scratch`, task 09
+   must add a script-facing filesystem primitive and the path handoff. Harvested output lands in a
+   kernel-owned run-scoped directory and is not garbage-collected — whoever consumes it owns
+   deleting it.
+4. **`importSources` cannot express a multi-artifact source.** `input: "file"` plus a flat
+   `allowedFileExtensions` carries exactly one artifact, and the dispatch payload carries one
+   `artifactPath`. `movary` needs three named upload fields and `myanimelist` two optional ones.
+   Task 10 decides: either the section gains a multi-artifact shape, or those sources accept one
+   archive and split it inside the script. Not retrofitted speculatively.
+5. **`CreateImportRunBody["source"]` is still a closed literal union in `@ryot/contract`.** The
+   dispatch path works for all nineteen existing slugs, but a genuinely new plugin-declared source
+   cannot reach `startImportRun` over HTTP until that union opens. No client-facing source-listing
+   endpoint exists today; `ImportSourceCatalog.list()` is what one would read from.
+
 ### Event subject selection: `episodeLocator` becomes `subjectEntityId` [DECIDED]
 
 `imports/media/event-target-workflow.ts` imports `@ryot/plugin-media` directly and branches on

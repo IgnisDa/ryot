@@ -260,12 +260,8 @@ describe("bindSandboxHostFunctions", () => {
 				});
 				const bound = bindSandboxHostFunctions(implementations, input);
 
-				yield* bound.getIntegration(["integration-1"]);
-				const surplus = yield* bound.getIntegration([
-					"integration-1",
-					"user-2",
-					{ userId: "user-2" },
-				]);
+				yield* bound.getIntegration([]);
+				const surplus = yield* bound.getIntegration(["integration-1"]);
 
 				expect(surplus).toEqual({
 					success: false,

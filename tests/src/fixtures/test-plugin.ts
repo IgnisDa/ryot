@@ -98,8 +98,10 @@ export const testPluginManifest = (input: {
 }) => ({
 	workflows: [],
 	savedViews: [],
+	importSources: [],
 	signalSchemas: [],
 	boot: input.boot ?? [],
+	integrationProviders: [],
 	crons: input.crons ?? [],
 	scripts: input.scripts ?? [],
 	providers: input.providers ?? [],
