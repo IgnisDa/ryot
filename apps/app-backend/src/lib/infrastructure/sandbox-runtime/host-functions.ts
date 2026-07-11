@@ -13,6 +13,7 @@ import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { AppConfig } from "../config/service";
@@ -37,9 +38,10 @@ type SandboxHostFunctionContext =
 	| RedisService
 	| EventsService
 	| EntitiesRepository
+	| DefinitionRegistry
 	| QueryEngineService
-	| IntegrationsRepository
-	| DefinitionRegistry;
+	| PluginRuntimeResolver
+	| IntegrationsRepository;
 
 const entityNotFoundError = "Entity not found";
 
@@ -89,10 +91,11 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 		const runWithDb = yield* DbRunner;
 		const events = yield* EventsService;
 		const runtime = yield* Effect.runtime();
+		const definitions = yield* DefinitionRegistry;
+		const pluginRuntime = yield* PluginRuntimeResolver;
 		const entitiesRepository = yield* EntitiesRepository;
 		const queryEngineService = yield* QueryEngineService;
 		const integrationsRepository = yield* IntegrationsRepository;
-		const definitions = yield* DefinitionRegistry;
 
 		const runPromise = Runtime.runPromise(runtime);
 
@@ -283,42 +286,23 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 							if (!definition) {
 								return Effect.fail("Entity schema not found");
 							}
-							const tracker = Object.values(definitions.getSnapshot().trackers).find((item) =>
-								item.entitySchemaSlugs.includes(resolvedEntitySchemaSlug),
-							);
-							if (!tracker) {
-								return Effect.fail("Entity schema tracker not found");
+							if (!definition.pluginSlug) {
+								return Effect.fail("Entity schema plugin not found");
 							}
+							const pluginSlug = definition.pluginSlug;
 							return runWithDb(
 								Effect.gen(function* () {
-									const db = yield* CurrentDb;
-									const providers = yield* dbEffect(() =>
-										db
-											.select({
-												name: schema.sandboxScript.name,
-												scriptId: schema.sandboxScript.id,
-											})
-											.from(schema.entitySchemaSandboxScript)
-											.innerJoin(
-												schema.sandboxScript,
-												eq(
-													schema.sandboxScript.id,
-													schema.entitySchemaSandboxScript.sandboxScriptId,
-												),
-											)
-											.where(
-												eq(
-													schema.entitySchemaSandboxScript.entitySchemaSlug,
-													resolvedEntitySchemaSlug,
-												),
-											),
-									);
+									const links = yield* pluginRuntime.listSchemaScripts([resolvedEntitySchemaSlug]);
+									const providers = links.map(({ script }) => ({
+										name: script.name,
+										scriptId: script.id,
+									}));
 									return {
 										...definition,
-										id: resolvedEntitySchemaSlug,
-										trackerId: tracker.slug,
-										isBuiltin: true,
 										providers,
+										pluginSlug,
+										isBuiltin: true,
+										id: resolvedEntitySchemaSlug,
 										propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
 									};
 								}),

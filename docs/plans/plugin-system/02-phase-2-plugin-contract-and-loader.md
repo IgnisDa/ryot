@@ -75,6 +75,18 @@ Content assignment when dissolving `apps/app-backend/src/modules/builtins/` (fro
   the test is Decision 2's litmus, and `media-schema-slugs.ts`-style derivations belong to
   the plugin that owns the schemas.
 
+**Implementation choice (2026-07-24, owner-confirmed):** under the kernel-purity litmus,
+`library` and `in-library` are media-owned because they model media catalog membership rather
+than generic kernel mechanics. Media also owns every media/person/company schema and property
+schema, every media relationship, all media saved views and signals, all providers except
+`exercise.free-exercise-db`, and the named media automations (including Jellyfin/Radarr/Sonarr
+push). Fitness owns the exercise/workout/workout-template/measurement schemas, workout
+relationships and saved views, `exercise.free-exercise-db`, `automation.workout-created`, and
+`workout.created`. Source zero stays deliberately minimal: only `collection`, `member-of`, the
+Collections saved view, `integration.disabled`, and `automation.notification`. This keeps domain
+catalog concepts out of the kernel while retaining generic collection and notification mechanics
+there.
+
 Multi-file authoring: scripts may import from the package's `shared/` — the compiler bundles
 each script entry point into one compiled module. Single-file `.sandbox.ts` isolation is no
 longer a constraint inside a plugin package.

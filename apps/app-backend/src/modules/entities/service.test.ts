@@ -8,7 +8,7 @@ import { Effect, Exit, Layer } from "effect";
 import { type MockOverrides, dbRunnerLayer } from "#lib/test-utils/effect";
 import { QueryEngineService } from "#modules/query-engine/service";
 
-import { LifecycleDispatchNoop } from "./lifecycle-dispatch";
+import { LifecycleDispatch, LifecycleDispatchNoop } from "./lifecycle-dispatch";
 import { EntitiesRepository } from "./repository";
 import { EntitiesService } from "./service";
 
@@ -173,6 +173,64 @@ it.effect("returns not found when entity schema is not visible", () => {
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity schema not found" })));
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatcher", () => {
+	let dispatched = false;
+	const repository = makeEntitiesRepository({
+		getEntitySchemaScopeForUser: () =>
+			Effect.succeed({
+				slug: "workout",
+				userId: user.id,
+				isBuiltin: true,
+				propertiesSchema: { fields: {} },
+				id: EntitySchemaSlug.make("workout"),
+			}),
+		insertEntity: () =>
+			Effect.succeed({
+				wasInserted: true,
+				entity: {
+					createdAt: now,
+					updatedAt: now,
+					properties: {},
+					name: "Workout",
+					externalId: null,
+					populatedAt: null,
+					sandboxScriptId: null,
+					id: EntityId.make("workout-1"),
+					entitySchemaSlug: EntitySchemaSlug.make("workout"),
+				},
+			}),
+	});
+	const dependencies = Layer.mergeAll(dbRunnerLayer, makeQueryEngine(), repository);
+	const bootstrap = Layer.fresh(EntitiesService.Default).pipe(
+		Layer.provide(Layer.mergeAll(dependencies, LifecycleDispatchNoop)),
+	);
+	const runtime = EntitiesService.Default.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				dependencies,
+				Layer.succeed(LifecycleDispatch, {
+					dispatch: () => Effect.sync(() => (dispatched = true)),
+				}),
+			),
+		),
+	);
+	const layer = bootstrap.pipe(Layer.flatMap(() => runtime));
+
+	return Effect.gen(function* () {
+		const service = yield* EntitiesService;
+		yield* service.create({
+			scope: "user",
+			properties: {},
+			name: "Workout",
+			userId: user.id,
+			origin: { kind: "api" },
+			entitySchemaSlug: EntitySchemaSlug.make("workout"),
+		});
+
+		expect(dispatched).toBe(true);
 	}).pipe(Effect.provide(layer));
 });
 

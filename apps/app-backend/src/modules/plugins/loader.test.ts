@@ -1,15 +1,16 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Fiber, Ref } from "effect";
+import { Effect, Fiber, Layer, Ref } from "effect";
 import { assert } from "vitest";
 
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
-import { makePluginLoader } from "./loader";
+import { makePluginLoader, PluginLoader } from "./loader";
+import { PluginRuntimeResolverLive } from "./runtime-resolver";
 import { fixtureManifest } from "./test-support";
 import type { NormalizedPlugin } from "./types";
 
 const emptySource = {
-	trackers: [],
 	savedViews: [],
 	entitySchemas: [],
 	signalSchemas: [],
@@ -92,4 +93,31 @@ it("rejects definition collisions without replacing the current snapshot", () =>
 
 	expect(() => loader.load(collision)).toThrow(/Duplicate entity schema slug/);
 	expect(loader.getSnapshot()).toBe(original);
+});
+
+it.effect("shares boot-loaded definitions with runtime repositories", () => {
+	const layer = RelationshipSchemasRepository.Default.pipe(
+		Layer.provideMerge(PluginRuntimeResolverLive),
+	);
+
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const relationshipSchemas = yield* RelationshipSchemasRepository;
+		loader.load(normalizedPlugin("1"));
+
+		expect(yield* relationshipSchemas.findBuiltinBySlug("fixture-link")).toMatchObject({
+			isBuiltin: true,
+			slug: "fixture-link",
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it("orders plugin relationship definitions before kernel source-zero definitions", () => {
+	const loader = makePluginLoader(makeDefinitionRegistry());
+	loader.load(normalizedPlugin("1"));
+
+	expect(Object.keys(loader.getSnapshot().definitions.relationshipSchemas)).toEqual([
+		"fixture-link",
+		"member-of",
+	]);
 });

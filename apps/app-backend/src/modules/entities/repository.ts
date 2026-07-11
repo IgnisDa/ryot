@@ -1,11 +1,13 @@
 import { DbError } from "@ryot/contract/errors";
-import { EntityId, EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import type { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, UserId } from "@ryot/contract/schema/brands";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import type { EntityReferenceSnapshot } from "./mutation-outcomes";
 import {
@@ -52,6 +54,7 @@ export type {
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
 	effect: Effect.gen(function* () {
 		const definitions = yield* DefinitionRegistry;
+		const pluginRuntime = yield* PluginRuntimeResolver;
 		const listMatchCandidatesBySchema = Effect.fn("EntitiesRepository.listMatchCandidatesBySchema")(
 			function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
 				const db = yield* CurrentDb;
@@ -290,33 +293,17 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 
 		const findEntitySchemaSandboxScriptBySlug = Effect.fn(
 			"EntitiesRepository.findEntitySchemaSandboxScriptBySlug",
-		)(function* (scriptSlug: string) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
-				db
-					.select({
-						entitySchemaSlug: schema.entitySchemaSandboxScript.entitySchemaSlug,
-						sandboxScriptId: schema.entitySchemaSandboxScript.sandboxScriptId,
-					})
-					.from(schema.sandboxScript)
-					.innerJoin(
-						schema.entitySchemaSandboxScript,
-						eq(schema.entitySchemaSandboxScript.sandboxScriptId, schema.sandboxScript.id),
-					)
-					.where(
-						and(eq(schema.sandboxScript.slug, scriptSlug), isNull(schema.sandboxScript.userId)),
-					)
-					.orderBy(desc(schema.sandboxScript.createdAt))
-					.limit(1),
-			);
-
-			return row
-				? {
-						entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
-						sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
-					}
-				: null;
-		});
+		)((scriptSlug: string) =>
+			pluginRuntime
+				.findSchemaScriptBySlug(scriptSlug)
+				.pipe(
+					Effect.map((resolved) =>
+						resolved
+							? { sandboxScriptId: resolved.script.id, entitySchemaSlug: resolved.entitySchemaSlug }
+							: null,
+					),
+				),
+		);
 
 		const insertEntity = Effect.fn("EntitiesRepository.insertEntity")(function* (
 			input: InsertEntityInput,

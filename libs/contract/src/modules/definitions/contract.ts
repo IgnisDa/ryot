@@ -1,12 +1,19 @@
-import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { RateLimited, Unauthorized } from "../../errors";
-import { EntityDefinition, RelationshipDefinition, TrackerDefinition } from "./schemas";
+import { NotFound, RateLimited, Unauthorized } from "../../errors";
+import {
+	EntityDefinition,
+	ListedWorkspace,
+	RelationshipDefinition,
+	UpdateWorkspaceStateBody,
+} from "./schemas";
+
+const pluginSlugParam = HttpApiSchema.param("pluginSlug", Schema.String);
 
 export const DefinitionsGroup = HttpApiGroup.make("definitions")
-	.annotate(OpenApi.Description, "Reads installed schema and tracker definitions.")
+	.annotate(OpenApi.Description, "Reads installed definitions and plugin workspaces.")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.middleware(AuthMiddleware)
@@ -21,7 +28,19 @@ export const DefinitionsGroup = HttpApiGroup.make("definitions")
 			.addSuccess(Schema.Array(RelationshipDefinition)),
 	)
 	.add(
-		HttpApiEndpoint.get("listTrackers", "/definitions/trackers")
-			.annotate(OpenApi.Description, "List installed tracker definitions.")
-			.addSuccess(Schema.Array(TrackerDefinition)),
+		HttpApiEndpoint.get("listWorkspaces", "/definitions/workspaces")
+			.annotate(OpenApi.Description, "List plugin workspaces with per-user state.")
+			.setUrlParams(
+				Schema.Struct({
+					includeDisabled: Schema.optionalWith(Schema.BooleanFromString, { default: () => false }),
+				}),
+			)
+			.addSuccess(Schema.Array(ListedWorkspace)),
+	)
+	.add(
+		HttpApiEndpoint.patch("updateWorkspaceState")`/definitions/workspaces/${pluginSlugParam}`
+			.annotate(OpenApi.Description, "Update a plugin workspace's per-user state.")
+			.setPayload(UpdateWorkspaceStateBody)
+			.addSuccess(ListedWorkspace)
+			.addError(NotFound, { status: 404 }),
 	);

@@ -228,7 +228,7 @@ export const entitySchemaRecordSchema = z
 		name: z.string(),
 		slug: z.string(),
 		isBuiltin: z.boolean(),
-		trackerId: z.string(),
+		pluginSlug: z.string(),
 		accentColor: z.string(),
 		propertiesSchema: jsonValueSchema,
 		providers: z.array(entitySchemaProviderSchema).readonly(),

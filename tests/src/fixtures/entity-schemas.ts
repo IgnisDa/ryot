@@ -1,4 +1,4 @@
-import { SandboxScriptId, TrackerSlug } from "@ryot/contract/schema/brands";
+import { PluginSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Brand, Effect } from "effect";
 
@@ -8,8 +8,8 @@ export type { AppSchema };
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { type ContractPayload, getBackendClient } from "./contract-client";
+import { createPluginScope, listPluginWorkspaces } from "./plugin-workspaces";
 import { type PollOptions, pollUntil } from "./polling";
-import { createTracker, listTrackers } from "./trackers";
 
 type EnqueueEntitySearchBody = Omit<ContractPayload<"sandbox", "enqueue">, "driverName">;
 
@@ -21,7 +21,7 @@ export interface CreateEntitySchemaOptions {
 	icon?: string;
 	name?: string;
 	slug?: string;
-	trackerSlug: string;
+	pluginSlug: string;
 	accentColor?: string;
 	propertiesSchema?: AppSchema;
 }
@@ -29,7 +29,7 @@ export interface CreateEntitySchemaOptions {
 export const createEntitySchema = (client: Client, options: CreateEntitySchemaOptions) =>
 	Effect.gen(function* () {
 		const {
-			trackerSlug,
+			pluginSlug,
 			icon = "book",
 			name = "Test Schema",
 			accentColor = "#00FF00",
@@ -38,15 +38,11 @@ export const createEntitySchema = (client: Client, options: CreateEntitySchemaOp
 				fields: { title: { label: "Title", description: "Title", type: "string" as const } },
 			},
 		} = options;
-		const trackers = yield* client.call((c) => c.definitions.listTrackers({}));
-		const tracker = requirePresent(
-			trackers.find((candidate) => candidate.slug === trackerSlug),
-			`Tracker '${trackerSlug}' not found`,
-		);
 		const schema = {
 			icon,
 			name,
 			slug,
+			pluginSlug,
 			accentColor,
 			propertiesSchema,
 			eventSchemas: [],
@@ -56,12 +52,6 @@ export const createEntitySchema = (client: Client, options: CreateEntitySchemaOp
 				c.testSupport.installDefinitions({
 					payload: {
 						entitySchemas: [schema],
-						trackers: [
-							{
-								...tracker,
-								entitySchemaSlugs: [...new Set([...tracker.entitySchemaSlugs, slug])],
-							},
-						],
 					},
 				}),
 			adminHeaders,
@@ -70,29 +60,25 @@ export const createEntitySchema = (client: Client, options: CreateEntitySchemaOp
 		return {
 			slug: schemaSlug,
 			schemaId: schemaSlug,
-			data: { ...schema, id: schemaSlug, trackerSlug: TrackerSlug.make(trackerSlug) },
+			data: { ...schema, id: schemaSlug, pluginSlug: PluginSlug.make(pluginSlug) },
 		};
 	});
 
 export const listEntitySchemas = (
 	client: Client,
-	options: { slugs?: string[]; trackerSlug?: string },
+	options: { slugs?: string[]; pluginSlug?: string },
 ) =>
 	Effect.gen(function* () {
-		const [schemas, trackers, scripts] = yield* Effect.all([
+		const [schemas, scripts] = yield* Effect.all([
 			client.call((c) => c.definitions.listEntities({})),
-			client.call((c) => c.definitions.listTrackers({})),
 			getBackendClient().call(
 				(c) => c.testSupport.listSandboxScripts({ urlParams: {} }),
 				adminHeaders,
 			),
 		]);
-		const tracker = options.trackerSlug
-			? trackers.find((candidate) => candidate.slug === options.trackerSlug)
-			: undefined;
 		return schemas
 			.filter((schema) => !options.slugs || options.slugs.includes(schema.slug))
-			.filter((schema) => !options.trackerSlug || tracker?.entitySchemaSlugs.includes(schema.slug))
+			.filter((schema) => !options.pluginSlug || schema.pluginSlug === options.pluginSlug)
 			.map((schema) =>
 				Object.assign({}, schema, {
 					id: makeEntitySchemaSlug(schema.slug),
@@ -101,9 +87,7 @@ export const listEntitySchemas = (
 						.filter((script) => script.slug.startsWith(`${schema.slug}.`))
 						.map((script) => ({ name: script.name, scriptId: script.id })),
 					isBuiltin: true,
-					trackerSlug:
-						tracker?.slug ??
-						trackers.find((item) => item.entitySchemaSlugs.includes(schema.slug))?.slug,
+					pluginSlug: schema.pluginSlug ?? undefined,
 				}),
 			);
 	});
@@ -116,37 +100,40 @@ export const getEntitySchema = (client: Client, entitySchemaSlug: string) =>
 
 export const findBuiltinEntitySchema = (client: Client) =>
 	Effect.gen(function* () {
-		const { schemas, builtinTracker } = yield* listBuiltinEntitySchemas(client);
+		const { schemas, builtinWorkspace } = yield* listBuiltinEntitySchemas(client);
 		const firstSchema = schemas[0];
 
 		return {
-			builtinTracker,
+			builtinWorkspace,
 			schema: requirePresent(firstSchema, "No built-in entity schema found"),
 		};
 	});
 
 export const findBuiltinSchemaBySlug = (client: Client, slug: string) =>
 	Effect.gen(function* () {
-		const trackers = yield* listTrackers(client, {
+		const [schema] = yield* listEntitySchemas(client, { slugs: [slug] });
+		if (schema && schema.pluginSlug == null) {
+			return { schema, builtinWorkspace: null };
+		}
+		const workspaces = yield* listPluginWorkspaces(client, {
 			includeDisabled: true,
 		});
-		const builtinTrackers = trackers;
-		const schemasByTracker = yield* Effect.all(
-			builtinTrackers.map((builtinTracker) =>
+		const schemasByWorkspace = yield* Effect.all(
+			workspaces.map((builtinWorkspace) =>
 				Effect.gen(function* () {
 					const schemas = yield* listEntitySchemas(client, {
 						slugs: [slug],
-						trackerSlug: builtinTracker.id,
+						pluginSlug: builtinWorkspace.slug,
 					});
 
-					return { builtinTracker, schema: schemas[0] };
+					return { builtinWorkspace, schema: schemas[0] };
 				}),
 			),
 		);
 
-		for (const result of schemasByTracker) {
+		for (const result of schemasByWorkspace) {
 			if (result.schema) {
-				return { schema: result.schema, builtinTracker: result.builtinTracker };
+				return { schema: result.schema, builtinWorkspace: result.builtinWorkspace };
 			}
 		}
 
@@ -165,15 +152,15 @@ export const getBuiltinEntitySchemaSlug = (slug: string) =>
 
 export const listBuiltinEntitySchemas = (client: Client) =>
 	Effect.gen(function* () {
-		const trackers = yield* listTrackers(client, {
+		const workspaces = yield* listPluginWorkspaces(client, {
 			includeDisabled: true,
 		});
-		const builtinTracker = trackers[0];
-		assertPresent(builtinTracker, "Built-in tracker not found");
+		const builtinWorkspace = workspaces[0];
+		assertPresent(builtinWorkspace, "Built-in plugin workspace not found");
 		const schemas = yield* listEntitySchemas(client, {
-			trackerSlug: builtinTracker.id,
+			pluginSlug: builtinWorkspace.slug,
 		});
-		return { schemas, builtinTracker };
+		return { schemas, builtinWorkspace };
 	});
 
 export const findBuiltinSchemaWithProviders = (client: Client) =>
@@ -226,12 +213,14 @@ export function getFirstProviderScriptId(schema: {
 	return SandboxScriptId.make(requirePresent(scriptId, "No provider found for schema"));
 }
 
-export const createTrackerWithSchema = (
+export const createPluginSchema = (
 	client: Client,
-	options: Partial<Omit<CreateEntitySchemaOptions, "trackerSlug">> = {},
+	options: Partial<Omit<CreateEntitySchemaOptions, "pluginSlug">> = {},
 ) =>
 	Effect.gen(function* () {
-		const { trackerSlug } = yield* createTracker(client);
-		const { slug, schemaId } = yield* createEntitySchema(client, { ...options, trackerSlug });
+		const pluginSlug = createPluginScope();
+		const { slug, schemaId } = yield* createEntitySchema(client, { ...options, pluginSlug });
 		return { slug, schemaId };
 	});
+
+export const createTrackerWithSchema = createPluginSchema;

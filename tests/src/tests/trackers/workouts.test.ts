@@ -11,7 +11,7 @@ import {
 	executeQueryEngine,
 	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
-	findBuiltinTrackerBySlug,
+	findBuiltinWorkspaceBySlug,
 	findWorkoutSetEventSchema,
 	getEntity,
 	getQueryEngineFieldOrThrow,
@@ -25,18 +25,18 @@ import {
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Workouts E2E", () => {
-	it.live("links the built-in workout schema to the fitness tracker", () =>
+	it.live("links the built-in workout schema to the fitness plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
+			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				trackerSlug: fitnessTracker.id,
+				pluginSlug: fitnessWorkspace.slug,
 			});
 			const workoutSchema = schemas.find((schema) => schema.slug === "workout");
 
 			expect(workoutSchema).toBeDefined();
 			expect(workoutSchema?.name).toBe("Workout");
-			expect(workoutSchema?.trackerSlug).toBe(fitnessTracker.id);
+			expect(workoutSchema?.pluginSlug).toBe(fitnessWorkspace.slug);
 			expect(workoutSchema?.isBuiltin).toBe(true);
 		}),
 	);
@@ -74,9 +74,9 @@ describe("Workouts E2E", () => {
 	it.live("creates the built-in All Workouts saved view with workout defaults", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessTracker = yield* findBuiltinTrackerBySlug(client, "fitness");
+			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
 			const views = yield* listSavedViews(client, {
-				trackerSlug: fitnessTracker.id,
+				pluginSlug: fitnessWorkspace.slug,
 			});
 			const allWorkoutsView = views.find((view) => view.name === "All Workouts");
 
@@ -84,7 +84,7 @@ describe("Workouts E2E", () => {
 			expect(allWorkoutsView).toMatchObject({
 				isBuiltin: true,
 				name: "All Workouts",
-				trackerSlug: fitnessTracker.id,
+				pluginSlug: fitnessWorkspace.slug,
 				queryDocument: { source: { schemas: ["workout"] } },
 				displayConfiguration: {
 					grid: {

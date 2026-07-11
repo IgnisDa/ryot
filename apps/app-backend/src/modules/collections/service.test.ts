@@ -30,7 +30,10 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
 import { AddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow";
-import { runAddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow-live";
+import {
+	AddEntityToCollectionWorkflowOperationsLive,
+	runAddEntityToCollectionWorkflow,
+} from "./add-entity-to-collection-workflow-live";
 import { CollectionsRepository } from "./repository";
 import { CollectionsService } from "./service";
 
@@ -220,6 +223,7 @@ const runAddWorkflow = (input: {
 			return Effect.succeed(options.executionId);
 		},
 	});
+	const operations = AddEntityToCollectionWorkflowOperationsLive.pipe(Layer.provide(input.layer));
 	return runAddEntityToCollectionWorkflow(
 		{
 			executionId,
@@ -232,7 +236,7 @@ const runAddWorkflow = (input: {
 	).pipe(
 		Effect.provideService(WorkflowEngine, engine),
 		Effect.provideService(WorkflowInstance, instance),
-		Effect.provide(input.layer),
+		Effect.provide(operations),
 	);
 };
 

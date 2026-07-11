@@ -63,7 +63,6 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 				db
 					.insert(schema.sandboxScript)
 					.values({
-						isBuiltin: false,
 						slug: input.slug,
 						name: input.name,
 						source: input.source,
@@ -125,7 +124,8 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 						source: schema.sandboxScript.source,
 						userId: schema.sandboxScript.userId,
 						metadata: schema.sandboxScript.metadata,
-						isBuiltin: schema.sandboxScript.isBuiltin,
+						pluginSlug: schema.sandboxScript.pluginSlug,
+						contentHash: schema.sandboxScript.contentHash,
 						compiledCode: schema.sandboxScript.compiledCode,
 						compiledFormat: schema.sandboxScript.compiledFormat,
 					})
@@ -144,7 +144,15 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 					.limit(1),
 			);
 
-			return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
+			if (!row) {
+				return null;
+			}
+			const { pluginSlug, contentHash, ...stored } = row;
+			return {
+				...stored,
+				id: SandboxScriptId.make(row.id),
+				isBuiltin: pluginSlug !== null || (row.userId === null && contentHash !== null),
+			};
 		});
 
 		const getScriptById = Effect.fn("SandboxRepository.getScriptById")(function* (
@@ -198,10 +206,21 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			scriptId: SandboxScriptId,
 		) {
 			const db = yield* CurrentDb;
+			const [script] = yield* dbEffect(() =>
+				db
+					.select({ compiledCode: schema.sandboxScript.compiledCode })
+					.from(schema.sandboxScript)
+					.where(eq(schema.sandboxScript.id, scriptId))
+					.limit(1),
+			);
+			if (!script) {
+				return null;
+			}
+			const contentHash = new Bun.CryptoHasher("sha256").update(script.compiledCode).digest("hex");
 			const [row] = yield* dbEffect(() =>
 				db
 					.update(schema.sandboxScript)
-					.set({ isBuiltin: true, userId: null })
+					.set({ userId: null, contentHash })
 					.where(eq(schema.sandboxScript.id, scriptId))
 					.returning(storedScriptSelection),
 			);

@@ -144,11 +144,5 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				const svc = yield* TestSupportService;
 				return yield* svc.countAutomationRules(path.userId);
 			}).pipe(dieOnDbError),
-		)
-		.handle("trackerExists", ({ path }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.trackerExists(path.trackerSlug);
-			}).pipe(dieOnDbError),
 		),
 );

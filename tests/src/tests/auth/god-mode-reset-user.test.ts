@@ -10,9 +10,10 @@ import {
 	createApiKey,
 	createTestAuthClient,
 	createTestUser,
-	createTracker,
+	findBuiltinWorkspaceBySlug,
 	getBackendClient,
 	signInWithPassword,
+	updatePluginWorkspaceState,
 } from "~/fixtures";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -23,7 +24,7 @@ const godModeListQuery = (search?: string) => ({
 	offset: 0,
 	...(search ? { search } : {}),
 });
-const trackersListQuery = { includeDisabled: false };
+const workspaceListQuery = { includeDisabled: false };
 const unique = () => randomUUID();
 
 const getUserIdByEmail = (email: string) =>
@@ -112,15 +113,18 @@ describe("Reset user for credential user", () => {
 			const apiKey = yield* createApiKey(cookies);
 
 			// Both auth methods work before the reset.
-			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
 				Cookie: cookies,
 			});
-			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
 				"X-Api-Key": apiKey,
 			});
 
-			const { tracker } = yield* createTracker(userClient, { name: "Custom Reset Tracker" });
-			expect(tracker.config).toEqual({ fixture: true });
+			const workspace = yield* findBuiltinWorkspaceBySlug(userClient, "media");
+			const configuredWorkspace = yield* updatePluginWorkspaceState(userClient, workspace.slug, {
+				config: { fixture: true },
+			});
+			expect(configuredWorkspace.config).toEqual({ fixture: true });
 
 			const resetData = yield* client.call(
 				(c) => c.godMode.resetUser({ path: { userId } }),
@@ -132,12 +136,14 @@ describe("Reset user for credential user", () => {
 			expect(resetData.resetUrl).toMatch(/\/reset-password\?token=.+/);
 
 			const oldSession = yield* Effect.flip(
-				client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), { Cookie: cookies }),
+				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
+					Cookie: cookies,
+				}),
 			);
 			assertTaggedError(oldSession, "Unauthorized");
 
 			const oldApiKey = yield* Effect.flip(
-				client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+				client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
 					"X-Api-Key": apiKey,
 				}),
 			);
@@ -158,14 +164,14 @@ describe("Reset user for credential user", () => {
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.cookies, "expected cookies after sign-in");
 
-			const trackers = yield* client.call(
-				(c) => c.trackers.list({ urlParams: { includeDisabled: true } }),
+			const workspaces = yield* client.call(
+				(c) => c.definitions.listWorkspaces({ urlParams: { includeDisabled: true } }),
 				{ Cookie: signInRes.cookies },
 			);
-			expect(trackers.some((t) => t.slug === "media")).toBe(true);
-			const resetTracker = trackers.find((candidate) => candidate.slug === tracker.id);
-			assertPresent(resetTracker, "expected the installed tracker definition after reset");
-			expect(resetTracker.config).toEqual({});
+			expect(workspaces.some((candidate) => candidate.slug === "media")).toBe(true);
+			const resetWorkspace = workspaces.find((candidate) => candidate.slug === workspace.slug);
+			assertPresent(resetWorkspace, "expected the installed plugin workspace after reset");
+			expect(resetWorkspace.config).toEqual({});
 		}),
 	);
 });
@@ -257,7 +263,7 @@ describe("Reset user for mixed-auth user", () => {
 			expect(error.message).toMatch(/mixed/i);
 
 			// The reset is rejected before any mutation, so the pre-existing session keeps working.
-			yield* client.call((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+			yield* client.call((c) => c.definitions.listWorkspaces({ urlParams: workspaceListQuery }), {
 				Cookie: cookies,
 			});
 		}),

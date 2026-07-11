@@ -1,5 +1,5 @@
 {
-	"id": "bd70d259-512f-4898-a172-2cda4ec90adb",
+	"id": "d860a254-349f-490a-bbfc-17823811f6c9",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1048,98 +1048,6 @@
 			"checkConstraints": {},
 			"isRLSEnabled": false
 		},
-		"public.entity_schema_sandbox_script": {
-			"name": "entity_schema_sandbox_script",
-			"schema": "",
-			"columns": {
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp with time zone",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
-				"entity_schema_slug": {
-					"name": "entity_schema_slug",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"sandbox_script_id": {
-					"name": "sandbox_script_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"id": {
-					"name": "id",
-					"type": "text",
-					"primaryKey": true,
-					"notNull": true
-				},
-				"updated_at": {
-					"name": "updated_at",
-					"type": "timestamp with time zone",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				}
-			},
-			"indexes": {
-				"entity_schema_sandbox_script_entity_schema_slug_idx": {
-					"name": "entity_schema_sandbox_script_entity_schema_slug_idx",
-					"columns": [
-						{
-							"expression": "entity_schema_slug",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
-				"entity_schema_sandbox_script_sandbox_script_id_idx": {
-					"name": "entity_schema_sandbox_script_sandbox_script_id_idx",
-					"columns": [
-						{
-							"expression": "sandbox_script_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				}
-			},
-			"foreignKeys": {
-				"entity_schema_sandbox_script_sandbox_script_id_sandbox_script_id_fk": {
-					"name": "entity_schema_sandbox_script_sandbox_script_id_sandbox_script_id_fk",
-					"tableFrom": "entity_schema_sandbox_script",
-					"tableTo": "sandbox_script",
-					"columnsFrom": ["sandbox_script_id"],
-					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "no action"
-				}
-			},
-			"compositePrimaryKeys": {},
-			"uniqueConstraints": {
-				"entity_schema_sandbox_script_unique": {
-					"name": "entity_schema_sandbox_script_unique",
-					"nullsNotDistinct": false,
-					"columns": ["entity_schema_slug", "sandbox_script_id"]
-				}
-			},
-			"policies": {},
-			"checkConstraints": {},
-			"isRLSEnabled": false
-		},
 		"public.entity_translation": {
 			"name": "entity_translation",
 			"schema": "",
@@ -2098,12 +2006,6 @@
 			"name": "plugin",
 			"schema": "",
 			"columns": {
-				"slug": {
-					"name": "slug",
-					"type": "text",
-					"primaryKey": true,
-					"notNull": true
-				},
 				"status": {
 					"name": "status",
 					"type": "text",
@@ -2114,6 +2016,12 @@
 					"name": "version",
 					"type": "text",
 					"primaryKey": false,
+					"notNull": true
+				},
+				"slug": {
+					"name": "slug",
+					"type": "text",
+					"primaryKey": true,
 					"notNull": true
 				},
 				"source_hash": {
@@ -2128,24 +2036,122 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"compiled_hashes": {
+					"name": "compiled_hashes",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"ingested_at": {
 					"name": "ingested_at",
 					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
-				},
-				"compiled_hashes": {
-					"name": "compiled_hashes",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
 				}
 			},
 			"indexes": {},
 			"foreignKeys": {},
 			"compositePrimaryKeys": {},
 			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.plugin_state": {
+			"name": "plugin_state",
+			"schema": "",
+			"columns": {
+				"plugin_slug": {
+					"name": "plugin_slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"sort_order": {
+					"name": "sort_order",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"is_disabled": {
+					"name": "is_disabled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"config": {
+					"name": "config",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'{}'::jsonb"
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"plugin_state_user_id_idx": {
+					"name": "plugin_state_user_id_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"plugin_state_user_id_user_id_fk": {
+					"name": "plugin_state_user_id_user_id_fk",
+					"tableFrom": "plugin_state",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"plugin_state_user_slug_unique": {
+					"name": "plugin_state_user_slug_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_id", "plugin_slug"]
+				}
+			},
 			"policies": {},
 			"checkConstraints": {},
 			"isRLSEnabled": false
@@ -2334,6 +2340,12 @@
 			"name": "sandbox_script",
 			"schema": "",
 			"columns": {
+				"content_hash": {
+					"name": "content_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"slug": {
 					"name": "slug",
 					"type": "text",
@@ -2358,25 +2370,6 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"plugin_slug": {
-					"name": "plugin_slug",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"content_hash": {
-					"name": "content_hash",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"is_builtin": {
-					"name": "is_builtin",
-					"type": "boolean",
-					"primaryKey": false,
-					"notNull": true,
-					"default": false
-				},
 				"compiled_format": {
 					"name": "compiled_format",
 					"type": "smallint",
@@ -2399,6 +2392,12 @@
 				},
 				"user_id": {
 					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"plugin_slug": {
+					"name": "plugin_slug",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
@@ -2447,18 +2446,31 @@
 					"concurrently": false,
 					"method": "btree",
 					"with": {}
+				},
+				"sandbox_script_kernel_slug_content_hash_unique": {
+					"name": "sandbox_script_kernel_slug_content_hash_unique",
+					"columns": [
+						{
+							"expression": "slug",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "content_hash",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"sandbox_script\".\"user_id\" is null and \"sandbox_script\".\"plugin_slug\" is null and \"sandbox_script\".\"content_hash\" is not null",
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
 				}
 			},
 			"foreignKeys": {
-				"sandbox_script_plugin_slug_plugin_slug_fk": {
-					"name": "sandbox_script_plugin_slug_plugin_slug_fk",
-					"tableFrom": "sandbox_script",
-					"tableTo": "plugin",
-					"columnsFrom": ["plugin_slug"],
-					"columnsTo": ["slug"],
-					"onDelete": "restrict",
-					"onUpdate": "no action"
-				},
 				"sandbox_script_user_id_user_id_fk": {
 					"name": "sandbox_script_user_id_user_id_fk",
 					"tableFrom": "sandbox_script",
@@ -2466,6 +2478,15 @@
 					"columnsFrom": ["user_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"sandbox_script_plugin_slug_plugin_slug_fk": {
+					"name": "sandbox_script_plugin_slug_plugin_slug_fk",
+					"tableFrom": "sandbox_script",
+					"tableTo": "plugin",
+					"columnsFrom": ["plugin_slug"],
+					"columnsTo": ["slug"],
+					"onDelete": "restrict",
 					"onUpdate": "no action"
 				}
 			},
@@ -2552,8 +2573,8 @@
 					"notNull": true,
 					"default": "now()"
 				},
-				"tracker_slug": {
-					"name": "tracker_slug",
+				"plugin_slug": {
+					"name": "plugin_slug",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
@@ -2594,11 +2615,11 @@
 					"method": "btree",
 					"with": {}
 				},
-				"saved_view_tracker_slug_idx": {
-					"name": "saved_view_tracker_slug_idx",
+				"saved_view_plugin_slug_idx": {
+					"name": "saved_view_plugin_slug_idx",
 					"columns": [
 						{
-							"expression": "tracker_slug",
+							"expression": "plugin_slug",
 							"isExpression": false,
 							"asc": true,
 							"nulls": "last"
@@ -3255,104 +3276,6 @@
 					"value": "((\"subscription_run\".\"source_kind\" = 'signal' and \"subscription_run\".\"operation\" = 'signal' and \"subscription_run\".\"signal_id\" is not null and \"subscription_run\".\"record_id\" is null) or (\"subscription_run\".\"source_kind\" <> 'signal' and \"subscription_run\".\"operation\" <> 'signal' and \"subscription_run\".\"signal_id\" is null and \"subscription_run\".\"record_id\" is not null))"
 				}
 			},
-			"isRLSEnabled": false
-		},
-		"public.tracker_state": {
-			"name": "tracker_state",
-			"schema": "",
-			"columns": {
-				"tracker_slug": {
-					"name": "tracker_slug",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"sort_order": {
-					"name": "sort_order",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": true,
-					"default": 0
-				},
-				"is_disabled": {
-					"name": "is_disabled",
-					"type": "boolean",
-					"primaryKey": false,
-					"notNull": true,
-					"default": false
-				},
-				"created_at": {
-					"name": "created_at",
-					"type": "timestamp with time zone",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				},
-				"config": {
-					"name": "config",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "'{}'::jsonb"
-				},
-				"user_id": {
-					"name": "user_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"id": {
-					"name": "id",
-					"type": "text",
-					"primaryKey": true,
-					"notNull": true
-				},
-				"updated_at": {
-					"name": "updated_at",
-					"type": "timestamp with time zone",
-					"primaryKey": false,
-					"notNull": true,
-					"default": "now()"
-				}
-			},
-			"indexes": {
-				"tracker_state_user_id_idx": {
-					"name": "tracker_state_user_id_idx",
-					"columns": [
-						{
-							"expression": "user_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				}
-			},
-			"foreignKeys": {
-				"tracker_state_user_id_user_id_fk": {
-					"name": "tracker_state_user_id_user_id_fk",
-					"tableFrom": "tracker_state",
-					"tableTo": "user",
-					"columnsFrom": ["user_id"],
-					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "no action"
-				}
-			},
-			"compositePrimaryKeys": {},
-			"uniqueConstraints": {
-				"tracker_state_user_slug_unique": {
-					"name": "tracker_state_user_slug_unique",
-					"nullsNotDistinct": false,
-					"columns": ["user_id", "tracker_slug"]
-				}
-			},
-			"policies": {},
-			"checkConstraints": {},
 			"isRLSEnabled": false
 		},
 		"public.two_factor": {

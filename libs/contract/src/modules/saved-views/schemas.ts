@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 
 import { DisplayConfiguration } from "../../display-configuration";
-import { SavedViewId, TrackerSlug } from "../../schema/brands";
+import { PluginSlug, SavedViewId } from "../../schema/brands";
 import { QueryDocument } from "../query-engine/language";
 
 export const ListedSavedView = Schema.Struct({
@@ -16,7 +16,7 @@ export const ListedSavedView = Schema.Struct({
 	isDisabled: Schema.Boolean,
 	accentColor: Schema.String,
 	queryDocument: QueryDocument,
-	trackerSlug: Schema.NullOr(TrackerSlug),
+	pluginSlug: Schema.NullOr(PluginSlug),
 	displayConfiguration: DisplayConfiguration,
 });
 
@@ -28,7 +28,7 @@ export const CreateSavedViewBody = Schema.Struct({
 	accentColor: Schema.String,
 	queryDocument: QueryDocument,
 	displayConfiguration: DisplayConfiguration,
-	trackerSlug: Schema.optional(TrackerSlug),
+	pluginSlug: Schema.optional(PluginSlug),
 });
 
 export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
@@ -40,13 +40,13 @@ export const UpdateSavedViewBody = Schema.Struct({
 	accentColor: Schema.String,
 	queryDocument: QueryDocument,
 	displayConfiguration: DisplayConfiguration,
-	trackerSlug: Schema.optional(TrackerSlug),
+	pluginSlug: Schema.optional(PluginSlug),
 });
 
 export type UpdateSavedViewBody = typeof UpdateSavedViewBody.Type;
 
 export const ReorderSavedViewsBody = Schema.Struct({
-	trackerSlug: Schema.optional(TrackerSlug),
+	pluginSlug: Schema.optional(PluginSlug),
 	viewSlugs: Schema.Array(Schema.String),
 });
 

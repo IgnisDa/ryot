@@ -9,7 +9,6 @@ import {
 	RelationshipSchemaSlug,
 	SandboxScriptId,
 	SignalId,
-	TrackerSlug,
 	UserId,
 } from "../../schema/brands";
 import { ListedEntity } from "../entities/schemas";
@@ -28,7 +27,6 @@ import {
 const userIdParam = HttpApiSchema.param("userId", UserId);
 const slugParam = HttpApiSchema.param("slug", Schema.String);
 const entityIdParam = HttpApiSchema.param("entityId", EntityId);
-const trackerSlugParam = HttpApiSchema.param("trackerSlug", TrackerSlug);
 const scriptIdParam = HttpApiSchema.param("scriptId", SandboxScriptId);
 const properties = Schema.Record({ key: Schema.String, value: Schema.Unknown });
 const entitySchemaSlugParam = HttpApiSchema.param("entitySchemaSlug", EntitySchemaSlug);
@@ -91,11 +89,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		)`/test-support/users/${userIdParam}/automation-rules/count`
 			.addSuccess(Schema.Struct({ count: Schema.Number }))
 			.annotate(OpenApi.Description, "Counts automation rules for a user"),
-	)
-	.add(
-		HttpApiEndpoint.get("trackerExists")`/test-support/trackers/${trackerSlugParam}/exists`
-			.addSuccess(Schema.Struct({ exists: Schema.Boolean }))
-			.annotate(OpenApi.Description, "Checks whether a tracker exists"),
 	)
 	.add(
 		HttpApiEndpoint.patch("patchSandboxScript")`/test-support/sandbox-scripts/${scriptIdParam}`

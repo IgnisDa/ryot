@@ -28,7 +28,7 @@ Every provider-driven test except the live smoke suite runs offline against a fa
 
 - `seedBuiltinProviderScript` (`fixtures/sandbox-provider.ts`) builds a complete SDK TypeScript provider module, compiles it through the authenticated script-creation API, then promotes that exact row through `testSupport.promoteSandboxScript`. Pair it with `cleanupBuiltinProviderScript` in `afterAll`/`afterEach`; the idempotent `testSupport.deleteSandboxScript` endpoint removes the script and its generated entities, relationships, and schema links without masking a test failure.
 - Build fixed provider data with `fakeProviderSearchResult`, `fakeProviderDetailsResult`, and `fakeProviderTranslations`, then pass the results as `drivers` to `seedBuiltinProviderScript`. The values use public `@ryot/sandbox-sdk/provider` contracts and are serialized into one complete module; never concatenate driver registrations or place uncompiled source in an executable column.
-- Link a script to an entity schema (`linkToEntitySchemaSlug` → `entity_schema_sandbox_script`) only when a `details` result references a related entity by the provider's slug, so it resolves as that schema's provider. Plain search/import (by `scriptId`) and provenance-based population need no schema link — the entity's own `sandbox_script_id` provenance selects the driver.
+- Link a promoted fixture script to an entity schema only when a `details` result references a related entity by the provider's slug. Test support keeps this legacy task-04 fixture link in memory; production links come exclusively from the active plugin manifest's `bindings.schemaScriptLinks`. Plain search/import (by `scriptId`) and provenance-based population need no schema link because the entity's `sandbox_script_id` provenance selects the driver.
 - A non-empty `translations` fixture always defines the provider's `translate` driver: it returns a fixed overlay for each named language and an empty object (an all-null negative-cache overlay) for any other. Include it even in "must not translate" cases so an erroneous premature translate writes a detectable all-null overlay instead of erroring out.
 - Provider metadata carries `providerInformation.canonicalLanguage`, which the backend read path uses to compute `translationStatus` (semantics owned by `apps/app-backend/src/modules/entity-interest/AGENTS.md`).
 - When one provider owns a relationship into another provider's entities, clean up sequentially, owner first (for example, `entity-schemas/search-import.test.ts` cleans the anime provider before the linked company provider).
@@ -37,11 +37,11 @@ Every provider-driven test except the live smoke suite runs offline against a fa
 
 Admin-only fixture operations use the typed `testSupport` contract group with `adminHeaders` from `fixtures/admin.ts`.
 
-- `installDefinitions` adds ephemeral entity, relationship, and tracker definitions to the shared
+- `installDefinitions` adds ephemeral entity and relationship definitions to the shared
   backend registry. Slugs must be collision-free across the sequential run; builtin slugs are
   rejected and definitions are not persisted.
 - `seedGlobalShowEpisodeTree` and `seedMediaEntity` use `createGlobalEntity` and `upsertGlobalRelationship`; user-scoped entities continue through the authenticated entities API.
-- `getBuiltinEntitySchemaSlug` uses `getBuiltinEntitySchema` for structural schemas that tracker-scoped listing cannot see.
+- `getBuiltinEntitySchemaSlug` uses `getBuiltinEntitySchema` for structural schemas outside plugin workspaces.
 - Translation fixtures use `setEntityPopulatedAt`, `upsertEntityTranslation`, and `listEntityTranslations`; null overlay values model a negative cache.
 - Mixed-auth fixtures use `linkAuthAccount`, while sandbox fault injection uses `patchSandboxScript` only after compiling executable code through the public sandbox API.
 - Media-monitoring refresh waits use `setEntityInterest` to register an authenticated stream without reconciliation before triggering cron. This preserves cron-first population while synchronizing through the normal `entity:updated` event.
