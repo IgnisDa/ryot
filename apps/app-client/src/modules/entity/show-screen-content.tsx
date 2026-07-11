@@ -14,8 +14,6 @@ export function ShowScreenContent(props: {
 	readonly state: ShowSummaryState;
 	readonly refreshOverview: () => void;
 	readonly overview: ShowOverviewState;
-	readonly managedUrls: ReadonlyMap<string, string>;
-	readonly overviewManagedUrls: ReadonlyMap<string, string>;
 }) {
 	const { state } = props;
 	if (state.status === "loading") {
@@ -34,14 +32,12 @@ export function ShowScreenContent(props: {
 	}
 	return (
 		<>
-			<ShowSummaryHeader show={state.show} managedUrls={props.managedUrls} />
+			<ShowSummaryHeader show={state.show} />
 			<ShowTabBar activeTab="overview" />
 			<ShowOverview
 				show={state.show}
 				overview={props.overview}
-				managedUrls={props.managedUrls}
 				refreshOverview={props.refreshOverview}
-				overviewManagedUrls={props.overviewManagedUrls}
 			/>
 		</>
 	);
