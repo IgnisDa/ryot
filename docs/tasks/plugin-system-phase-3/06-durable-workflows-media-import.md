@@ -50,6 +50,15 @@ from `imports/`.
 See the parent PRD "Step 3 — durable workflows" user stories and the Implementation Decisions
 "Step 3" pointer for the full spec.
 
+Suggested sequence
+
+1. Kernel slice first, with the bulk journal read from day one. The workflows manifest section, the workflow script kind, the journal host function. Do not build the per-entry read and optimize later — the spike already measured per-entry as inadequate (~5 ms per entry, ~1 s of overhead at 200 steps). Build the shape the plan records.
+2. Pinning, the resolveSandboxExecutionPayload mode change, and the kernel-side capability gate. All three are small, all three are load-bearing, and the capability gate is a genuine hole today (a capability outside the two known sets is granted to any script that declares it). Cheap now, annoying later.
+3. child early, not last. It's the only primitive neither spike exercised, and it's on the critical path because EventCreateWorkflow composition depends on it — that's step 3 of the import example. If child has a surprise in it, you want to know in week one.
+4. The determinism tests as the kernel slice lands. Induced replay, nondeterminism detection, and pinning across a hot swap — the plan calls the last one "one of the most important tests in the repo". The stashed spike has all three working; stash@{0} is worth reading as a reference (not building on).
+5. Load-test at realistic scale before deleting the native modules. This is the sequencing point that matters most. Task 06's done criterion is "native code deleted + suite green," so deletion is the point of no return. Run a 200+ step import and ~10 concurrent imports while the old path still exists. If the quadratic bookkeeping re-reads bite, you want the fallback intact.
+6. Then migrate population/resolution and delete.
+
 ## Acceptance criteria
 
 Derived from the plan §3 done criteria and cross-phase invariants:
