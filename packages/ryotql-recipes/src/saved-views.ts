@@ -18,9 +18,11 @@ import {
 import {
 	EntityBrowserSavedViewSettings,
 	type EntityBrowserSavedViewSettings as EntityBrowserSavedViewSettingsValue,
+	ResultsTableSavedViewSettings,
+	SavedViewDisplayValue,
+	type ResultsTableSavedViewSettings as ResultsTableSavedViewSettingsValue,
 	type SavedViewCardMapping,
 	type SavedViewDisplayKind,
-	type SavedViewDisplayValue,
 	type SavedViewTableMapping,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
@@ -30,13 +32,17 @@ import {
 import {
 	and,
 	ascending,
+	castText,
 	column,
+	contains,
 	defineRecipe,
+	descending,
 	document,
 	eq,
 	field,
 	inArray,
 	literal,
+	or,
 	type PreparedRecipe,
 	rows,
 	selectedAggregate,
@@ -294,6 +300,12 @@ const displayValue = (
 	if (displayKind === "json") {
 		return Result.succeed({ displayKind, value });
 	}
+	if (displayKind === "managed-asset") {
+		return Result.map(Schema.decodeUnknownResult(AssetLocator)(value), (asset) => ({
+			displayKind,
+			value: asset,
+		}));
+	}
 	if (displayKind === "date") {
 		return typeof value === "string" && Option.isSome(DateTime.make(value))
 			? Result.succeed({ displayKind, value })
@@ -520,6 +532,13 @@ export const EntityBrowserResultItem = Schema.Struct({
 	entityId: Schema.String,
 	entitySchemaSlug: Schema.String,
 	ownerPluginId: Schema.NullOr(Schema.String),
+	cells: Schema.Array(
+		Schema.Struct({
+			key: Schema.String,
+			label: Schema.String,
+			value: SavedViewDisplayValue,
+		}),
+	),
 });
 export type EntityBrowserResultItem = typeof EntityBrowserResultItem.Type;
 
@@ -528,6 +547,8 @@ export type EntityBrowserResult = SavedViewResult<EntityBrowserResultItem>;
 type EntityBrowserRecipeInput = {
 	readonly after?: string | undefined;
 	readonly queryDocument: RyotQLDocument;
+	readonly searchText?: string | undefined;
+	readonly sortChoice?: string | undefined;
 	readonly settings: EntityBrowserSavedViewSettingsValue;
 };
 
@@ -562,13 +583,77 @@ const unusedFieldKey = (fields: readonly FieldSelection[], base: string) => {
 	return key;
 };
 
+const selectedFields = (source: RowsQuery) =>
+	source.output.fields.flatMap((selection) => ("key" in selection ? [selection] : []));
+
+const browserSearchPredicate = (
+	source: RowsQuery,
+	settings: Pick<EntityBrowserSavedViewSettingsValue, "searchFields">,
+	searchText: string | undefined,
+): Result.Result<Predicate | undefined, Error> => {
+	if (searchText === undefined || searchText.length === 0) {
+		return Result.succeed(undefined);
+	}
+	const fields = selectedFields(source);
+	const expressions: ScalarExpression[] = [];
+	for (const key of settings.searchFields) {
+		const selection = fields.find((candidate) => candidate.key === key);
+		if (!selection) {
+			return Result.fail(new Error(`Entity-browser search field '${key}' is missing or unusable`));
+		}
+		expressions.push(selection.expr);
+	}
+	return expressions.length === 0
+		? Result.succeed(undefined)
+		: Result.succeed(
+				or(...expressions.map((expression) => contains(castText(expression), literal(searchText)))),
+			);
+};
+
+const combineWhere = (fixed: Predicate | undefined, runtime: Predicate | undefined) => {
+	if (!runtime) {
+		return fixed;
+	}
+	return fixed ? and(fixed, runtime) : runtime;
+};
+
+const browserOrderBy = (
+	source: RowsQuery,
+	settings: EntityBrowserSavedViewSettingsValue,
+	sortChoice: string | undefined,
+	entityId: FieldSelection,
+): Result.Result<readonly OrderBy[], Error> => {
+	const fields = selectedFields(source);
+	const choice =
+		sortChoice === undefined
+			? undefined
+			: settings.sortChoices.find((candidate) => candidate.name === sortChoice);
+	if (sortChoice !== undefined && !choice) {
+		return Result.fail(new Error(`Entity-browser sort choice '${sortChoice}' is not declared`));
+	}
+	const configured: OrderBy[] = [];
+	for (const ordering of choice ? choice.orderBy : []) {
+		const selection = fields.find((candidate) => candidate.key === ordering.field);
+		if (!selection) {
+			return Result.fail(
+				new Error(`Entity-browser sort field '${ordering.field}' is missing or unusable`),
+			);
+		}
+		configured.push(
+			ordering.direction === "asc" ? ascending(selection.expr) : descending(selection.expr),
+		);
+	}
+	return Result.succeed([
+		...(choice ? configured : source.output.orderBy),
+		ascending(entityId.expr),
+	]);
+};
+
 export const entityBrowserRecipe = (
 	input: EntityBrowserRecipeInput,
 ): Result.Result<PreparedRecipe<EntityBrowserResult>, Error> =>
 	Result.flatMap(getNamedRowsQuery(input.queryDocument, input.settings.sourceName), (source) => {
-		const fields = source.output.fields.flatMap((selection) =>
-			"key" in selection ? [selection] : [],
-		);
+		const fields = selectedFields(source);
 		const entityId = fields.find(({ key }) => key === input.settings.entityIdField);
 		if (entityId?.expr.type !== "column") {
 			return Result.fail(
@@ -577,14 +662,26 @@ export const entityBrowserRecipe = (
 				),
 			);
 		}
+		const searchResult = browserSearchPredicate(source, input.settings, input.searchText);
+		if (Result.isFailure(searchResult)) {
+			return Result.fail(searchResult.failure);
+		}
+		const orderByResult = browserOrderBy(source, input.settings, input.sortChoice, entityId);
+		if (Result.isFailure(orderByResult)) {
+			return Result.fail(orderByResult.failure);
+		}
+		const search = searchResult.success;
+		const orderBy = orderByResult.success;
 		const nameField = unusedFieldKey(fields, "__entityBrowserName");
 		const populationField = unusedFieldKey(fields, "__entityBrowserPopulationStatus");
 		const translationField = unusedFieldKey(fields, "__entityBrowserTranslationStatus");
 		const entity = table("entity", entityId.expr.tableAlias);
 		const query = {
 			...source,
+			where: combineWhere(source.where, search),
 			output: {
 				...source.output,
+				orderBy,
 				pagination: {
 					limit: input.settings.pageSize,
 					...(input.after === undefined ? {} : { after: input.after }),
@@ -609,8 +706,21 @@ export const entityBrowserRecipe = (
 									const decoded = yield* Result.all(
 										items.map((row) =>
 											Result.gen(function* () {
+												const cells = yield* Result.all(
+													(input.settings.tableColumns ?? []).map(
+														({ field: fieldName, label, displayKind }) =>
+															Result.flatMap(rawField(row, fieldName), (value) =>
+																Result.map(
+																	displayValue(value, displayKind, fieldName),
+																	(cellValue) => ({ label, key: fieldName, value: cellValue }),
+																),
+															),
+													),
+												);
 												const item = {
+													cells,
 													name: yield* textField(row, nameField),
+													sync: yield* syncFields(row, populationField, translationField),
 													entityId: yield* textField(row, input.settings.entityIdField),
 													ownerPluginId: yield* nullableTextField(
 														row,
@@ -620,7 +730,6 @@ export const entityBrowserRecipe = (
 														row,
 														input.settings.entitySchemaSlugField,
 													),
-													sync: yield* syncFields(row, populationField, translationField),
 												};
 												return yield* Schema.decodeUnknownResult(EntityBrowserResultItem)(item);
 											}),
@@ -649,7 +758,11 @@ export const entityBrowserRecipe = (
 
 export const entityBrowserCountRecipe = (
 	queryDocument: RyotQLDocument,
-	settings: Pick<EntityBrowserSavedViewSettingsValue, "sourceName" | "entityIdField">,
+	settings: Pick<
+		EntityBrowserSavedViewSettingsValue,
+		"sourceName" | "entityIdField" | "searchFields"
+	>,
+	input: { readonly searchText?: string | undefined } = {},
 ): Result.Result<PreparedRecipe<number>, Error> =>
 	Result.flatMap(getNamedRowsQuery(queryDocument, settings.sourceName), (query) => {
 		const selection = query.output.fields.find(
@@ -661,11 +774,16 @@ export const entityBrowserCountRecipe = (
 				new Error(`Entity-browser ID field '${settings.entityIdField}' is missing or unusable`),
 			);
 		}
+		const searchResult = browserSearchPredicate(query, settings, input.searchText);
+		if (Result.isFailure(searchResult)) {
+			return Result.fail(searchResult.failure);
+		}
+		const search = searchResult.success;
 		const recipe = defineRecipe(() => ({
 			queries: {
 				entityBrowserCount: selectedAggregate(query.from, {
-					where: query.where,
 					joins: query.joins,
+					where: combineWhere(query.where, search),
 					measures: {
 						total: selectedMeasure(
 							{ expr: selection.expr, function: "countDistinct" },
@@ -677,4 +795,121 @@ export const entityBrowserCountRecipe = (
 			map: ({ entityBrowserCount }) => Result.succeed(entityBrowserCount.total),
 		}));
 		return Result.succeed(recipe());
+	});
+
+export const ResultsTablePageInput = Schema.Struct({
+	dataSources: RyotQLDocument,
+	settings: ResultsTableSavedViewSettings,
+	target: Schema.Struct({ savedViewId: Schema.String }),
+});
+
+export type ResultsTableResultItem = {
+	readonly key: string;
+	readonly entityId: string | undefined;
+	readonly cells: readonly {
+		readonly key: string;
+		readonly label: string;
+		readonly value: SavedViewDisplayValue;
+	}[];
+};
+
+export type ResultsTableResult = SavedViewResult<ResultsTableResultItem>;
+
+type ResultsTableRecipeInput = {
+	readonly after?: string | undefined;
+	readonly queryDocument: RyotQLDocument;
+	readonly settings: ResultsTableSavedViewSettingsValue;
+};
+
+const isJsonRecord = (value: JsonValueType): value is Readonly<Record<string, JsonValueType>> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
+const typedKeyPart = (value: JsonValueType): JsonValueType => {
+	if (Array.isArray(value)) {
+		return { type: "array", value: value.map(typedKeyPart) };
+	}
+	if (isJsonRecord(value)) {
+		return {
+			type: "object",
+			value: Object.fromEntries(
+				Object.entries(value)
+					.sort(([left], [right]) => left.localeCompare(right))
+					.map(([key, part]) => [key, typedKeyPart(part)]),
+			),
+		};
+	}
+	return { type: typeof value, value };
+};
+
+const resultsTableItem = (row: SavedViewRawRow, settings: ResultsTableSavedViewSettingsValue) =>
+	Result.gen(function* () {
+		const keyParts = yield* Result.all(
+			settings.rowKeyFields.map((fieldName) =>
+				Result.flatMap(rawField(row, fieldName), (value) =>
+					value === null
+						? Result.fail(new Error(`Results-table row key field '${fieldName}' must not be null`))
+						: Result.succeed(typedKeyPart(value)),
+				),
+			),
+		);
+		const cells = yield* Result.all(
+			settings.columns.map(({ field: fieldName, label, displayKind }) =>
+				Result.flatMap(rawField(row, fieldName), (value) =>
+					Result.map(displayValue(value, displayKind, fieldName), (decoded) => ({
+						label,
+						key: fieldName,
+						value: decoded,
+					})),
+				),
+			),
+		);
+		const entityId = settings.entityLink
+			? yield* textField(row, settings.entityLink.entityIdField)
+			: undefined;
+		return { key: JSON.stringify(keyParts), entityId, cells };
+	});
+
+export const resultsTableRecipe = (
+	input: ResultsTableRecipeInput,
+): Result.Result<PreparedRecipe<ResultsTableResult>, Error> =>
+	Result.map(getNamedRowsQuery(input.queryDocument, input.settings.sourceName), (source) => {
+		const query = {
+			...source,
+			output: {
+				...source.output,
+				pagination: {
+					limit: input.settings.pageSize,
+					...(input.after === undefined ? {} : { after: input.after }),
+				},
+			},
+		};
+		const recipe = defineRecipe(() => ({
+			queries: {
+				resultsTable: {
+					document: query,
+					decodeResult: (result: unknown) =>
+						Result.flatMap(
+							Schema.decodeUnknownResult(savedViewRows)(result),
+							({ items, pageInfo }) =>
+								Result.gen(function* () {
+									const decoded = yield* Result.all(
+										items.map((row) => resultsTableItem(row, input.settings)),
+									);
+									const keys = new Set<string>();
+									for (const item of decoded) {
+										if (keys.has(item.key)) {
+											return yield* Result.fail(
+												new Error(`Results-table page contains duplicate row key '${item.key}'`),
+											);
+										}
+										keys.add(item.key);
+									}
+									return { items: decoded, pageInfo };
+								}),
+						),
+				},
+			},
+			map: ({ resultsTable }) => Result.succeed(resultsTable),
+		}));
+		return recipe();
 	});

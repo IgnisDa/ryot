@@ -2,6 +2,8 @@ import {
 	EntityInterest,
 	type PluginOperationRequest,
 	type PluginPageSearchUpdate,
+	ProviderSearchScreenRequest,
+	type ProviderSearchScreenRequest as ProviderSearchScreenRequestValue,
 	PluginThemeSnapshot,
 	type PluginThemeSnapshot as PluginThemeSnapshotValue,
 	PluginManagedAssetResolution,
@@ -67,6 +69,9 @@ export type OperationAdapterRequest = Omit<OperationRequest, "operationSlug"> & 
 };
 
 export type RyotPageSearchUpdate = PluginPageSearchUpdate;
+export type RyotProviderSearchScreenRequest = Schema.Codec.Encoded<
+	typeof ProviderSearchScreenRequest
+>;
 
 export type OperationInvocation<Output extends Schema.Codec<unknown, unknown>> = Omit<
 	OperationRequest,
@@ -95,6 +100,7 @@ export type RyotNavigationTarget = Schema.Codec.Encoded<typeof RyotNavigationTar
 export type RyotClientAdapter = {
 	readonly uploadTemporary: (request: TemporaryUploadRequest) => Promise<unknown>;
 	readonly invokeOperation?: (request: OperationAdapterRequest) => Promise<unknown>;
+	readonly openProviderSearch?: (request: ProviderSearchScreenRequestValue) => void;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly navigatePageSearch?: (mode: "push" | "replace", update: RyotPageSearchUpdate) => void;
 	readonly watchEntities?: (
@@ -160,8 +166,23 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			throw asTransportError(error);
 		}
 	};
+	const openProviderSearch = (request: RyotProviderSearchScreenRequest) => {
+		const decoded = Schema.decodeUnknownResult(ProviderSearchScreenRequest)(request);
+		if (Result.isFailure(decoded)) {
+			throw new RyotClientError("invalid-input");
+		}
+		if (!adapter.openProviderSearch) {
+			throw new RyotClientError("unsupported-capability");
+		}
+		try {
+			adapter.openProviderSearch(decoded.success);
+		} catch (error) {
+			throw asTransportError(error);
+		}
+	};
 
 	return {
+		screens: { openProviderSearch },
 		entities: {
 			watch: (
 				interest: EntityInterest,

@@ -8,6 +8,7 @@ import type {
 	PluginOperationOutcome,
 	PluginOperationRequest,
 	PluginBridgePageSearch,
+	PluginBridgeProviderSearchScreen,
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
 } from "@ryot-app/client-plugin-contract";
@@ -85,6 +86,7 @@ const noticeMessages: Record<PluginHostStatus, string> = {
 
 export function PluginFrame(props: {
 	readonly title: string;
+	readonly inert?: boolean;
 	readonly theme: ThemeStore;
 	readonly sourceHash: string;
 	readonly artifactHash: string;
@@ -92,6 +94,7 @@ export function PluginFrame(props: {
 	readonly page?: ClientPageContext;
 	readonly chromeLeading: ReactNode;
 	readonly onOpenDrawer: () => void;
+	readonly pageRefreshToken?: number;
 	readonly onStaleSession: () => void;
 	readonly onNavigateBack: () => void;
 	readonly watchEntities: WatchEntities;
@@ -107,6 +110,7 @@ export function PluginFrame(props: {
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onScreenState: (state: PluginScreenReadiness | null) => void;
+	readonly onProviderSearch: (request: PluginBridgeProviderSearchScreen) => void;
 	readonly onAssets: (
 		request: PluginAssetRequest,
 		signal: AbortSignal,
@@ -323,6 +327,14 @@ export function PluginFrame(props: {
 		bridge.current?.sendViewport(props.viewport);
 	}, [props.viewport]);
 
+	const initialPageRefreshToken = useRef(props.pageRefreshToken);
+	useEffect(() => {
+		if (props.pageRefreshToken !== initialPageRefreshToken.current) {
+			initialPageRefreshToken.current = props.pageRefreshToken;
+			bridge.current?.sendPageRefresh();
+		}
+	}, [props.pageRefreshToken]);
+
 	function connect() {
 		if (artifact.status !== "active") {
 			return;
@@ -346,6 +358,7 @@ export function PluginFrame(props: {
 			onOpenDrawer: () => latest.current.onOpenDrawer(),
 			onPageSearch: (request) => latest.current.onPageSearch(request),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
+			onProviderSearch: (request) => latest.current.onProviderSearch(request),
 			onAssets: (request, signal) => latest.current.onAssets(request, signal),
 			onUpload: (request, signal) => latest.current.onUpload(request, signal),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
@@ -419,6 +432,7 @@ export function PluginFrame(props: {
 		<main {...mainContentProps} className="relative h-full w-full">
 			<iframe
 				onLoad={connect}
+				inert={props.inert}
 				sandbox="allow-scripts"
 				src={artifact.session.src}
 				referrerPolicy="no-referrer"

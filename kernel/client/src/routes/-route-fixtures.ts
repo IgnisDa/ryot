@@ -283,7 +283,7 @@ export const ProviderAddRouteStubs = Layer.succeed(ProviderAddService, {
 	loadSearchOptions: () => Effect.die("not used"),
 });
 
-const preparePluginPage = (
+export const preparePluginPage = (
 	target: Exclude<PreparedClientPage["identity"]["target"], { readonly kind: "saved-view" }>,
 ): PreparedClientPage => {
 	const pluginId = target.kind === "plugin-route" ? target.pluginId : "plugin-1";

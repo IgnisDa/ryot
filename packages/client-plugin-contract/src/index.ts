@@ -4,6 +4,7 @@ import {
 } from "@ryot-app/contract/modules/entity-interest/messages";
 import { CLIENT_API_VERSION } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLDocument, RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
+import { EntityBrowserAddAction } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	ManagedAssetResolutionBatch,
 	ManagedAssetLocator,
@@ -22,9 +23,9 @@ import { Schema } from "effect";
 
 export { CLIENT_API_VERSION };
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
-export const CLIENT_COMPILER_VERSION = 3 as const;
+export const CLIENT_COMPILER_VERSION = 4 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
-export const CLIENT_BRIDGE_PROTOCOL_VERSION = 2 as const;
+export const CLIENT_BRIDGE_PROTOCOL_VERSION = 3 as const;
 
 export const KERNEL_SHORTCUTS = {
 	commandCenter: "Mod+K",
@@ -288,6 +289,27 @@ export const PluginBridgePageSearch = strictStruct({
 });
 
 export type PluginBridgePageSearch = Schema.Schema.Type<typeof PluginBridgePageSearch>;
+
+export const ProviderSearchScreenRequest = strictStruct({
+	initialQuery: Schema.optional(Schema.String),
+	ownerPluginId: EntityBrowserAddAction.fields.ownerPluginId,
+	entitySchemaSlug: EntityBrowserAddAction.fields.entitySchemaSlug,
+});
+
+export type ProviderSearchScreenRequest = Schema.Schema.Type<typeof ProviderSearchScreenRequest>;
+
+export const PluginBridgeProviderSearchScreen = strictStruct({
+	...ProviderSearchScreenRequest.fields,
+	type: Schema.Literal("provider-search-screen"),
+});
+
+export type PluginBridgeProviderSearchScreen = Schema.Schema.Type<
+	typeof PluginBridgeProviderSearchScreen
+>;
+
+export const PluginBridgePageRefresh = strictStruct({ type: Schema.Literal("page-refresh") });
+
+export type PluginBridgePageRefresh = Schema.Schema.Type<typeof PluginBridgePageRefresh>;
 
 export const PluginBridgeScreenState = strictStruct({
 	index: Schema.Int,
@@ -627,6 +649,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeKernelShortcut,
 	PluginBridgeEntityInterest,
 	PluginBridgeOperationRequest,
+	PluginBridgeProviderSearchScreen,
 ]);
 
 export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
@@ -636,6 +659,7 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeLocation,
 	PluginBridgeViewport,
 	PluginBridgeAssetResult,
+	PluginBridgePageRefresh,
 	PluginBridgeRyotQLResult,
 	PluginBridgeUploadResult,
 	PluginBridgeEntityUpdated,
