@@ -1,13 +1,10 @@
 # Plugin System Rewrite — Overview
 
-Status: in progress. Phases 1 and 2, Phase 3 steps 0-4, the Step 5 migration and purity triage, and
-Task 12's final cleanup pass are complete (11 of 12 Phase 3 tasks). Task 12 was completed under an
-explicit owner waiver of its Task 11 prerequisite, so **Task 11 and the Phase 3 gate remain open** —
-resume with Task 11's operational and deferred gate closure; do not repeat the Step 5 implementation
-or the Task 12 cleanup. Still open: the opt-in operational gate timed out at two concurrent
-1,001-item imports; the Task 10 imports e2e case times out waiting for its import run; and three
-`integrations.test.ts` webhook/progress-normalization cases report a `failed` import run. All three
-were reproduced at `763720970` with Task 12's changes stashed, so they are Task 11's to close.
+Status: complete. Phases 1 and 2 and all 12 Phase 3 tasks are complete. The Task 10 imports and
+integration failures were reproduced and repaired, the standard e2e suite passes all 79 files and
+501 tests, and the opt-in operational gate passes at its unchanged two-concurrent-1,001-item workload
+and 15-minute budget. Task 12 was completed under an explicit owner waiver of its then-open Task 11
+prerequisite; Task 11 subsequently closed the full Phase 3 gate.
 Branch: `ultra-rewrite` (all work is local; there is no
 CI and `apps/app-backend` is not deployed anywhere, so there are no release, rollout, or
 data-migration constraints — dev databases are wipeable and the initial drizzle migration may
@@ -279,8 +276,8 @@ purity grep and triage are recorded in `03-phase-3-capability-migrations.md`. Ta
 additionally removed the last native import-adapter residue from the kernel
 (`modules/imports/runtime/source-api.ts` and `runtime/csv.ts`, whose surfaces the plugins now own),
 and moved `legacy-bootstrap`'s V2 entity provenance from script identity to logical `provider_id`.
-Phase 3 remains open for the operational gate and the Task 10 imports / integrations e2e follow-ups,
-not Step 5 implementation or cleanup.
+The Task 10 imports and integrations e2e follow-ups were repaired, and the successful operational
+gate closed Phase 3.
 
 ### Contract (`libs/contract/src/modules/`)
 
@@ -293,9 +290,9 @@ surfaces.
 The suite uses one shared backend per run and Effect-native fixtures. Hermetic provider coverage
 installs real test plugins with stable logical providers and separate operation scripts. The Step 5
 media-monitoring suites pass unchanged (4 files, 13 tests), and the system-query suite passes 9 tests
-covering 11 cases; combined, they pass 5 files and 22 tests. The full e2e gate is not green: the owner
-skipped Task 10's imports failure, and the opt-in operational test remains a blocker. Conventions
-live in `tests/AGENTS.md`.
+covering 11 cases; combined, they pass 5 files and 22 tests. The standard e2e suite passes all 79
+files and 501 tests, and the opt-in operational test passes at its unchanged full-size workload.
+Conventions live in `tests/AGENTS.md`.
 
 ## Target architecture (end state)
 

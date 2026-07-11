@@ -29,9 +29,9 @@ and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 11 of 12 tasks completed
+**Overall Progress:** 12 of 12 tasks completed
 
-**Current Task:** [Task 11](./11-media-monitoring-and-phase-gate.md) (in progress)
+**Current Task:** none (phase complete)
 
 ### Task List
 
@@ -47,7 +47,7 @@ and you record the choice you make in the plan file.
 | 08  | [Step 4b — Integration Adapters: Sinks + Yanks into media](./08-integration-adapters-media.md)                  | AFK  | done        |
 | 09  | [Step 4c — Import Framework Collapse + Fitness Import Sources](./09-import-framework-fitness-sources.md)        | AFK  | done        |
 | 10  | [Step 4d — Media Import Sources into media](./10-media-import-sources.md)                                       | AFK  | done        |
-| 11  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./11-media-monitoring-and-phase-gate.md)       | AFK  | in progress |
+| 11  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./11-media-monitoring-and-phase-gate.md)       | AFK  | done        |
 | 12  | [Codebase Cleanup](./12-codebase-cleanup.md)                                                                    | AFK  | done        |
 
 Steps are strictly ordered (`00-overview.md` phase ordering; plan intro): each task starts only
@@ -68,14 +68,13 @@ large migration lands on it. Every design question in Step 4 was settled with th
 Phases 1 and 2, Phase 3 Steps 0-4, and the Step 5 migration and comprehensive purity triage are
 complete. Native `media-monitoring` and its contract are deleted; operations, workflows, and crons
 are plugin-owned; and no media- or fitness-specific module remains outside the documented
-`legacy-bootstrap` V1-adoption quarantine. Task 12's cleanup pass is complete (11 of 12), executed
-under an explicit owner waiver of its Task 11 prerequisite.
+`legacy-bootstrap` V1-adoption quarantine. Task 12's cleanup pass is complete, executed under an
+explicit owner waiver of its Task 11 prerequisite.
 
-Task 11 remains in progress and the full Phase 3 gate is **not** closed. The Task 10 imports and
-integration failures are repaired, and the standard full e2e suite passes all 79 files and 501 tests.
-The opt-in operational gate still times out at its two-concurrent-1,001-item workload: 2 of 8
-workflows completed and 6 remained pending after 900 seconds. That load failure is Task 11's only
-remaining gate blocker; see [Task 12](./12-codebase-cleanup.md) for the earlier reproduction record.
+Task 11 and the full Phase 3 gate are complete. The Task 10 imports and integration failures are
+repaired, and the standard full e2e suite passes all 79 files and 501 tests. The opt-in operational
+gate also passes at its unchanged two-concurrent-1,001-item workload: all eight workflows completed
+in 361,548 ms with no pool waits, advisory-lock waits, deadlocks, or Redis projection errors.
 
 The full rationale, and why this phase comes third, is in
 `docs/plans/plugin-system/00-overview.md` (see "Sequencing rationale": Phase 3 "orders
@@ -416,9 +415,9 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
 - **Current verification:** the system-query suite passes 1 file and 9 tests covering 11 cases; the
   media-monitoring suites pass 4 files and 13 tests; combined they pass 5 files and 22 tests. Backend
   unit tests pass 131 files and 931 tests, media-plugin tests pass 92 files and 351 tests, and the
-  backend, app-client, and media-plugin checks pass with zero warnings. These focused results do not
-  close the owner-skipped Task 10 imports failure or the timed-out two-concurrent-1,001-item
-  operational gate.
+  backend, app-client, and media-plugin checks pass with zero warnings. The standard e2e suite passes
+  all 79 files and 501 tests, and the opt-in two-concurrent-1,001-item operational gate passes at its
+  unchanged workload and 15-minute budget.
 - **What a good test is here:** the e2e suite (`tests/`) is the behavioral spec (Decision 16),
   and this phase migrates it in lockstep with each capability — plumbing changes (native
   modules become plugin scripts, contract endpoints become `invoke`, ids/fixtures shift), but

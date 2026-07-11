@@ -4,16 +4,16 @@
 
 **Type:** AFK
 
-**Status:** in progress
+**Status:** complete
 
-## Current scope
+## Completed scope
 
-Read `docs/plans/plugin-system/00-overview.md` in full and then
-`docs/plans/plugin-system/03-phase-3-capability-migrations.md` in full before resuming gate work.
+The governing decisions and final verification are recorded in `docs/plans/plugin-system/00-overview.md`
+and `docs/plans/plugin-system/03-phase-3-capability-migrations.md`.
 
-The Step 5 migration and comprehensive purity triage are complete. Remaining work is Phase 3 gate
-closure: the timed-out opt-in operational gate and the owner-skipped Task 10 imports e2e
-follow-up. Do not repeat the migration or treat the deferred failure as green.
+The Step 5 migration, comprehensive purity triage, Task 10 imports e2e follow-up, and opt-in
+operational gate are complete. The successful gate retained the original workload, assertions,
+infrastructure path, and 15-minute budget.
 
 Completed migration:
 
@@ -27,9 +27,9 @@ Completed migration:
 - The media resolution provider-to-activity-script map remains private media-plugin implementation
   data, and no kernel import of `@ryot/plugin-media/workflows/schemas` remains.
 
-Remaining Phase gate work: close the timed-out concurrent full-size media-import operational gate
-and the owner-skipped Task 10 imports e2e follow-up. The kernel media/fitness vocabulary grep and triage
-are complete, and the temporary step-2 `invokeOperation` scaffolding is gone.
+The Phase gate is closed. The kernel media/fitness vocabulary grep and triage are complete, the
+temporary step-2 `invokeOperation` scaffolding is gone, the standard e2e suite passes, and the
+concurrent full-size media-import operational gate passes at its unchanged workload.
 
 See the parent PRD "Step 5 — media-monitoring + remaining media logic" and "Cross-cutting" user
 stories and the Implementation Decisions "Step 5" / "Phase gate" pointers for the full spec.
@@ -49,7 +49,7 @@ Derived from the plan §5 done criteria, the phase gate, and cross-phase invaria
 - [x] The phase-gate grep for media/fitness vocabulary is run and every hit is triaged (deleted,
       generalized, or justified in the plan file); each touched `AGENTS.md`/`README.md` is
       updated where conventions changed (cross-phase invariant 7)
-- [ ] The branch stays shippable and the full e2e suite is green: backend `check` + unit tests,
+- [x] The branch stays shippable and the full e2e suite is green: backend `check` + unit tests,
       `cd tests && bun run test`, and the `app-client` check all pass (cross-phase invariant 1)
 
 ## Blockers and verification
@@ -69,16 +69,16 @@ Derived from the plan §5 done criteria, the phase gate, and cross-phase invaria
 - Backend, app-client, and media-plugin checks: passed with zero warnings.
 - Monitoring not-found behavior: the owner-approved change remains an aligned per-item
   `{ status: "notFound" }` result, preserving successful siblings in mixed batches.
-- Operational gate: reproducible but timed out for two concurrent 1,001-item imports after 901,013 ms.
+- Initial operational gate: reproducible but timed out for two concurrent 1,001-item imports after
+  901,013 ms.
   All eight packed workflows remained pending and zero reached terminal state. Recorded maxima and
   final deltas: database 5 active / 25 total connections, app-pool wait 0, lock wait 0, advisory
   locks sampled 0, advisory wait 0, deadlocks 0, Redis projections 8 / high-water 158 / errors 0,
-  and sandbox executions 1,702 / max overlap 5. The opt-in test remains a blocker and runs only with
-  `RUN_OPERATIONAL_GATES=1` (or `true`).
-- Task 10 imports e2e: owner-skipped. Its deferred failure remains
-  open; no branch-wide or full e2e run is claimed green.
+  and sandbox executions 1,702 / max overlap 5.
+- Task 10 imports e2e: the deferred failure was reproduced and repaired; the full standard suite is
+  green.
 
-## E2e gate repair record (2026-07-30, standard gate complete)
+## E2e gate repair record (2026-07-30, full gate complete)
 
 The detailed causes, code changes, and justifications are owned by
 [`docs/e2e-fixes-justifications.md`](../../e2e-fixes-justifications.md). This section records only
@@ -102,9 +102,10 @@ Current e2e verification after the fixes:
 - `bun turbo --filter=@ryot/tests check`: 12/12 tasks passed with zero warnings and errors.
 - `bun turbo --filter=@ryot/tests test`: all 79 standard files and 501 standard tests passed.
 
-The opt-in operational gate remains open: with its workload and 900-second budget unchanged, 2 of 8
-workflows completed and 6 remained pending. The standard branch gate is green, but this record does
-not claim the full Phase 3 gate green until that load failure is resolved.
+The opt-in operational gate passed with its workload and 900-second budget unchanged. All eight
+workflows completed in 361,548 ms, both imports returned 1,001 completed results, and the run observed
+4,012 sandbox executions with overlap peaking at eight. It recorded no app-pool or advisory-lock
+waits, deadlocks, or Redis projection errors. This closes Task 11 and the full Phase 3 gate.
 
 ## User stories addressed
 
