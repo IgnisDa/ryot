@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 
-import { useDesktopEffect } from "#/modules/navigation/breakpoint";
 import { useRememberedWorkspaceSlug } from "#/modules/navigation/authenticated-shell";
+import { useDesktopEffect } from "#/modules/navigation/breakpoint";
 import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { SettingsSectionNav } from "#/modules/settings/section-nav";
