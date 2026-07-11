@@ -29,7 +29,7 @@ export type ImportSourceState = typeof ImportSourceState.Type;
 
 export const ImportSourceStateFromJson = Schema.fromJsonString(ImportSourceState);
 
-export const ClientPageSessionPayload = Schema.Struct({
+const ClientPageSessionPayload = Schema.Struct({
 	userId: UserId,
 	identity: PreparedClientPageIdentity,
 }).annotate({ parseOptions: { onExcessProperty: "error" as const } });
