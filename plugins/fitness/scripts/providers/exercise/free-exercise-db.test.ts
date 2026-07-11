@@ -54,7 +54,8 @@ const makeStatefulHost = (
 	let httpCallCount = 0;
 
 	const host: ExerciseHost = defineSandboxTestHost(searchManifest, {
-		httpCall: () => {
+		httpCall: (_method, url) => {
+			expect(new URL(url).host).toBe("raw.githubusercontent.com");
 			httpCallCount += 1;
 			return httpSuccess(httpBody);
 		},

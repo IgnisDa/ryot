@@ -23,8 +23,11 @@ describe("visual-novel.vndb sandbox script", () => {
 		]);
 	});
 	it("maps VN search hits and drops entries missing an id or title", () => {
-		const host = makeHost(() =>
-			httpSuccess({
+		const host = makeHost((_method, url) => {
+			const requestUrl = new URL(url);
+			expect(requestUrl.host).toBe("api.vndb.org");
+			expect(requestUrl.pathname).toBe("/kana/vn");
+			return httpSuccess({
 				count: 3,
 				more: true,
 				results: [
@@ -38,8 +41,8 @@ describe("visual-novel.vndb sandbox script", () => {
 					{ id: "v19", title: "" },
 					{ title: "No Id" },
 				],
-			}),
-		);
+			});
+		});
 		return Effect.runPromise(
 			runSandboxTestScript(search, { query: "ever", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {

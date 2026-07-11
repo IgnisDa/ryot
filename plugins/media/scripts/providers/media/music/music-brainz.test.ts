@@ -30,14 +30,19 @@ describe("music.music-brainz sandbox script", () => {
 		]);
 	});
 	it("maps recording search hits and drops entries missing an id", () => {
-		const host = makeHost(() => ({
-			count: 2,
-			recordings: [
-				{ id: "r1", title: "Song One", "first-release-date": "2001-05-01" },
-				{ id: "", title: "Skip Empty" },
-				{ title: "No Id" },
-			],
-		}));
+		const host = makeHost((url) => {
+			const requestUrl = new URL(url);
+			expect(requestUrl.host).toBe("musicbrainz.org");
+			expect(requestUrl.pathname).toBe("/ws/2/recording");
+			return {
+				count: 2,
+				recordings: [
+					{ id: "r1", title: "Song One", "first-release-date": "2001-05-01" },
+					{ id: "", title: "Skip Empty" },
+					{ title: "No Id" },
+				],
+			};
+		});
 		return Effect.runPromise(
 			runSandboxTestScript(search, { query: "song", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {

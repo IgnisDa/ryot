@@ -189,12 +189,14 @@ describe("music.spotify sandbox script", () => {
 				return Effect.succeed(null);
 			},
 			httpCall: (_method, url) => {
-				if (url.includes("accounts.spotify.com")) {
+				const requestUrl = new URL(url);
+				if (requestUrl.host === "accounts.spotify.com") {
+					expect(requestUrl.pathname).toBe("/api/token");
 					return httpSuccess({ access_token: "fresh-token", expires_in: 3600 });
 				}
-				return url.includes("/search")
-					? httpSuccess({ tracks: { total: 0, items: [] } })
-					: Effect.fail(new Error(`no route: ${url}`));
+				expect(requestUrl.host).toBe("api.spotify.com");
+				expect(requestUrl.pathname).toBe("/v1/search");
+				return httpSuccess({ tracks: { total: 0, items: [] } });
 			},
 		});
 		return Effect.runPromise(

@@ -30,8 +30,11 @@ describe("book.google-books sandbox script", () => {
 		]);
 	});
 	it("maps volumes and drops entries missing an id or title", () => {
-		const host = makeHost(() =>
-			httpSuccess({
+		const host = makeHost((_method, url) => {
+			const requestUrl = new URL(url);
+			expect(requestUrl.host).toBe("www.googleapis.com");
+			expect(requestUrl.pathname).toBe("/books/v1/volumes");
+			return httpSuccess({
 				totalItems: 2,
 				items: [
 					{
@@ -44,8 +47,8 @@ describe("book.google-books sandbox script", () => {
 					},
 					{ id: "g2", volumeInfo: { title: "" } },
 				],
-			}),
-		);
+			});
+		});
 		return Effect.runPromise(
 			runSandboxTestScript(search, { query: "g", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
