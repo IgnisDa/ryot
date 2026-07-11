@@ -20,6 +20,7 @@ it.effect("round trips request and response bytes through canonical Base64", () 
 			name: "Fixture plugin",
 			pluginDependencies: ["media"],
 			apiVersion: CLIENT_API_VERSION,
+			stylexTracer: { fingerprint: "stylex-package-fingerprint" },
 			files: { "client/index.tsx": new Uint8Array([0x00, 0xff, 0x7f]) },
 			publicExports: { summary: { kind: "component" as const, entry: "client/summary.tsx" } },
 		};
@@ -73,6 +74,7 @@ it.effect("round trips namespaced contributor graphs and authorized exports", ()
 			application: "page" as const,
 			apiVersion: CLIENT_API_VERSION,
 			contributorOrder: ["user-id", "plugin-id"],
+			stylexTracer: { fingerprint: "stylex-build-fingerprint" },
 			entry: { contributor: "user-id", path: "client/page.tsx" },
 			publicExports: {
 				"@ryot-app/plugins/media/card": {
