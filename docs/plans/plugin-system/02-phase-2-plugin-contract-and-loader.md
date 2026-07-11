@@ -1,5 +1,8 @@
 # Phase 2 — Plugin contract, ingestion, loader
 
+Status: complete. The logical-provider and direct-script refinements completed by the sandbox
+single-entrypoint rewrite are recorded inline below.
+
 Goal: define the plugin manifest, build the ingestion pipeline and hot-capable loader, and
 restructure the `builtins` module into two real plugin packages (`plugins/media`,
 `plugins/fitness`) plus a kernel-owned definition set. At the end of this phase the plugins
@@ -26,10 +29,10 @@ definePlugin({
   relationshipSchemas: [...],
   signalSchemas: [...],              // subscribable signals select notificationScriptSlug
   savedViews: [...],
-  scripts: [...],                  // source refs + driver manifests (existing
-                                   // SandboxScriptMetadata kinds: provider, automation)
+  providers: [...],                  // stable logical identities + standard operation mappings
+  scripts: [...],                    // source refs for one direct executable entrypoint each
   bindings: {
-    schemaScriptLinks: [...],      // entity-schema slug ↔ script slug (provider selection)
+    schemaProviderLinks: [...],      // entity-schema slug ↔ provider slug
     entityAutomations: [...],      // { entitySchemaSlug, operation, scriptSlug }
     relationshipAutomations: [...],
     eventAutomations: [...],       // { eventSchemaSlug (qualified), kind, position?, metadata? }
@@ -38,8 +41,9 @@ definePlugin({
 })
 ```
 
-Phase 3 adds `crons`, `operations`, `workflows`, and `capabilities` sections — do not add
-them now (invariant 3). Version is a display/change-detection string; there is no
+Phase 3 has added `crons`, `boot`, and `operations`. The remaining steps add workflows,
+integration registration, and filesystem capabilities when consumed. Version is a
+display/change-detection string; there is no
 inter-plugin dependency mechanism (non-goal). Cross-plugin references are limited to manifest
 references whose target definitions the loader validates.
 
@@ -159,9 +163,10 @@ whether to keep it or accept compile-on-first-boot; measure boot time before cho
 extra machinery.
 
 **Implementation choice (2026-07-23):** compile on first boot, then use the persisted
-`sourceHash` short-circuit on subsequent boots. Compiling the current 63-script first-party set
-through `compilePluginSandboxEntries` took 816 ms on the implementation machine, which does not
-justify retaining a second generated-cache path. The project owner confirmed this choice.
+`sourceHash` short-circuit on subsequent boots. The later single-entrypoint split increased the
+production catalog to 142 direct scripts without changing this source-canonical decision.
+Re-measure boot cost during Phase 4 performance work rather than restoring a second generated-cache
+path. The project owner confirmed the original choice.
 
 Schema evolution diff (hot path only): when an ingestion _replaces_ an existing plugin
 version, diff old vs new entity/event/relationship/signal property schemas. Additive changes
@@ -210,7 +215,7 @@ subscription therefore produces a new ID, preserving the existing API behavior. 
 record stores that ID, or the manifest binding's existing deterministic `binding:...` ID, directly
 in `subscription_run.ruleId`. This is the run's single durable attribution field.
 
-Also delete: `entity_schema_sandbox_script` (links come from `bindings.schemaScriptLinks`),
+Also delete: `entity_schema_sandbox_script` (links come from `bindings.schemaProviderLinks`),
 `builtins/registry.ts`, `builtins/seed.ts`, and the rest of the `builtins` module once its
 contents have moved. The `user-bootstrap` module should by now contain no builtin
 materialization at all.
@@ -239,7 +244,7 @@ plugins in memory, and avoids adding archive extraction machinery and its path-s
   test plugin source installed through `installTestPlugin`, then delete that installer endpoint
   and its registry mutation helper. Phase 2 is not complete while any fixture references the
   temporary seam.
-- Keep the fixture's driver-fault-injection ability (`patchSandboxScript`) working — port it
+- Keep the fixture's script-fault-injection ability (`patchSandboxScript`) working — port it
   to reinstall-with-modified-source, which is more honest anyway.
 
 ## 7. New kernel tests (this phase's own coverage)
@@ -274,28 +279,31 @@ functions, limits, faults, and per-executing-user cache isolation remain covered
 plugin-installed scripts. Delete assertions specific to the removed public endpoint's
 authentication and job-ownership behavior along with that endpoint; preserve sandbox-runtime
 behavior assertions.
+
 - **Backend** (`modules/sandbox`): delete the user-facing script authoring service/routes
   and owner-based access checks. The execution services and the compiler service
   (`modules/sandbox/compiler.ts`) survive — ingestion (§4) is now their consumer.
 - **Storage**: `sandbox_script.userId` dropped; `pluginSlug` is non-null for plugin scripts and
   null only for immutable, content-addressed kernel source-zero scripts; per-user slug
-  uniqueness replaced by the §4 content-addressed scheme. `entity.sandboxScriptId`
-  provenance is unchanged (it now always points at plugin script rows; entities with no
-  provider keep NULL).
-- **Cache semantics**: the per-`(user, scriptId)` sandbox cache isolation keys on the
-  _executing_ user and is unchanged; only script-ownership checks disappear.
+  uniqueness replaced by the §4 content-addressed scheme. The later single-entrypoint rewrite
+  replaced `entity.sandboxScriptId` with stable logical `entity.providerId`; entities without a
+  provider keep NULL.
+- **Cache semantics**: cache isolation keys on the _executing_ user and logical execution owner.
+  Provider-associated scripts use `providerId`, allowing split search/details/resolve/translate
+  scripts to share cache state; standalone scripts use `scriptId`.
 
 **Implementation clarification (2026-07-24, owner-confirmed):** the pre-Task-07 runtime cache
 key actually used `(serverRunId, scriptId, key)`, so user-owned scripts were isolated only
 incidentally by having different script IDs while builtin/plugin script IDs could share entries
 across executing users. Removing per-user script ownership exposed that contradiction with
-Decision 19. Task 07 therefore makes the intended boundary explicit and includes
-`(executingUserId, scriptId, key)` in cache identity for both plugin and kernel source-zero
-scripts. The existing lifecycle distinction remains: `getCachedValue`/`setCachedValue` also
+Decision 19. Task 07 therefore makes the intended user boundary explicit. The later provider split
+refined the second partition key to `providerId` for provider-associated scripts and `scriptId`
+otherwise. The existing lifecycle distinction remains: `getCachedValue`/`setCachedValue` also
 include `serverRunId` and reset across backend restarts, while `claimCachedValue` uses the
 persistent user/script partition. Userless kernel executions use their own partition. This is the
 security-preserving interpretation of the decided per-executing-user isolation rule, not a
 continuation of isolation that depended on script ownership.
+
 - **E2e**: `tests/src/tests/sandbox/` — port execution-semantics/limits/fault coverage to
   scripts installed via `installTestPlugin`; delete authoring-CRUD coverage. Any remaining
   fixture that compiles "through the authenticated script-creation API" moves to the install
@@ -325,6 +333,9 @@ are authored — writing `trackers` sections only to delete them is wasted motio
   about plugins-as-workspaces only.
 
 ## Done criteria
+
+Completion note (2026-07-26): all criteria below are complete. Plugin reingestion now also preserves
+logical provider IDs while atomically activating newly compiled operation scripts.
 
 1. `apps/app-backend/src/modules/builtins/` no longer exists; media/fitness definitions and
    scripts, including their notification formatters, live in `plugins/media` and
