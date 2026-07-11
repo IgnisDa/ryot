@@ -5,6 +5,10 @@ import {
 } from "@ryot/plugin-kit/manifest";
 import { Cron, Data, Effect, Either, Schema } from "effect";
 
+import {
+	formatPropertyIssues,
+	parseLabeledPropertySchemaInput,
+} from "#lib/property-schema/property-schema-runtime";
 import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 
 export class PluginValidationError extends Data.TaggedError("PluginValidationError")<{
@@ -183,6 +187,23 @@ export const validatePluginManifestReferences = (
 		}
 		return yield* Effect.void;
 	});
+
+export const validateIntegrationProviderSettingsSchemas = (manifest: PluginManifestValue) =>
+	Effect.forEach(
+		manifest.integrationProviders,
+		(provider) =>
+			parseLabeledPropertySchemaInput(
+				provider.settingsSchema,
+				`Integration provider ${provider.slug} settings`,
+			).pipe(
+				Effect.mapError((error) =>
+					fail(
+						`Integration provider ${provider.slug} in plugin ${manifest.metadata.slug} has an invalid settingsSchema: ${formatPropertyIssues(error.issues)}`,
+					),
+				),
+			),
+		{ discard: true },
+	);
 
 export const validatePluginExecutableScripts = (plugin: {
 	readonly manifest: PluginManifestValue;

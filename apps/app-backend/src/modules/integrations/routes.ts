@@ -15,7 +15,7 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* IntegrationsService;
-					return yield* service.list(user, urlParams).pipe(dieOnDbError);
+					return yield* service.listForClient(user, urlParams).pipe(dieOnDbError);
 				}),
 			)
 			.handle("create", ({ payload }) =>
@@ -29,14 +29,16 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* IntegrationsService;
-					return yield* service.get(user, path.integrationId).pipe(dieOnDbError);
+					return yield* service.getForClient(user, path.integrationId).pipe(dieOnDbError);
 				}),
 			)
 			.handle("update", ({ path, payload }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* IntegrationsService;
-					return yield* service.update(user.id, path.integrationId, payload).pipe(dieOnDbError);
+					return yield* service
+						.updateForClient(user.id, path.integrationId, payload)
+						.pipe(dieOnDbError);
 				}),
 			)
 			.handle("delete", ({ path }) =>

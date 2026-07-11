@@ -18,6 +18,7 @@ import type { NormalizedPlugin, PluginScriptMetadata, PluginSource } from "./typ
 import {
 	decodePluginManifest,
 	PluginValidationError,
+	validateIntegrationProviderSettingsSchemas,
 	validatePluginExecutableScripts,
 	validatePluginManifestReferences,
 	validatePluginSourcePaths,
@@ -123,6 +124,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 					plugins,
 					(plugin) =>
 						validatePluginManifestReferences(plugin.manifest, snapshot.definitions).pipe(
+							Effect.andThen(validateIntegrationProviderSettingsSchemas(plugin.manifest)),
 							Effect.andThen(
 								validateCompiledScripts ? validatePluginExecutableScripts(plugin) : Effect.void,
 							),

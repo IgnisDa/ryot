@@ -1,4 +1,8 @@
-import { collectTranslatableProperties } from "@ryot/contract/schema/property-schema";
+import {
+	type AppSchema,
+	collectSecretProperties,
+	collectTranslatableProperties,
+} from "@ryot/contract/schema/property-schema";
 import {
 	moviePropertiesSchema,
 	personPropertiesSchema,
@@ -19,5 +23,28 @@ describe("collectTranslatableProperties", () => {
 			"images",
 			"description",
 		]);
+	});
+});
+
+describe("collectSecretProperties", () => {
+	const settingsSchema: AppSchema = {
+		fields: {
+			baseUrl: { type: "string", label: "Base URL", description: "Instance base URL" },
+			apiKey: { secret: true, type: "string", label: "API key", description: "Provider API key" },
+			password: {
+				secret: true,
+				type: "string",
+				label: "Password",
+				description: "Account password",
+			},
+		},
+	};
+
+	it("collects only the properties marked secret", () => {
+		expect(collectSecretProperties(settingsSchema)).toEqual(["apiKey", "password"]);
+	});
+
+	it("returns nothing for a schema without secret properties", () => {
+		expect(collectSecretProperties(personPropertiesSchema)).toEqual([]);
 	});
 });

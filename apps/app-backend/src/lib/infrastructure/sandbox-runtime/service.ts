@@ -1,5 +1,5 @@
 import type { HttpClientResponse } from "@effect/platform";
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
+import { FetchHttpClient, FileSystem, HttpClient, HttpClientRequest, Path } from "@effect/platform";
 import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
@@ -8,13 +8,25 @@ import {
 	SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES,
 } from "@ryot/sandbox-sdk/core";
 import { generateId } from "better-auth";
-import { Clock, Duration, Effect, Match, Schema, Stream } from "effect";
+import { Clock, Duration, Effect, Match, Option, Schema, Stream } from "effect";
 
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
 import { ServerRun } from "../server-run";
 import { makeAutomationSandboxApiFunctions } from "./automation-host-functions";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
+import {
+	acquireSandboxScratchDirectory,
+	declaresSandboxFilesystemGrant,
+	decodeSandboxScratchManifest,
+	harvestSandboxScratchChunks,
+	isSandboxFilesystemGrantCapability,
+	measureSandboxScratchBytes,
+	SANDBOX_HARVEST_DIRECTORY_PREFIX,
+	sandboxArtifactGrantPath,
+	sandboxGrantPathError,
+	type SandboxProcessGrants,
+} from "./filesystem-grants";
 import { makeAdditionalSandboxApiFunctions } from "./host-functions";
 import {
 	sandboxCacheKeyError,
@@ -25,6 +37,7 @@ import {
 	isWorkflowSandboxMetadata,
 	sandboxRunnerRequestError,
 	sandboxRunnerLimits,
+	sandboxScratchQuotaError,
 	SANDBOX_LIMITS,
 	WORKFLOW_SANDBOX_LIMITS,
 } from "./limits";
@@ -70,7 +83,9 @@ export const selectSandboxHostFunctions = (
 		"kind" in input.metadata &&
 		input.metadata.kind === "script";
 	for (const key of input.allowedHostFunctions) {
-		if (key === "durableCalls") {
+		// `artifact-read` and `scratch` are per-execution Deno permission grants honoured at spawn
+		// time, never bridge-callable syscalls, so they must never resolve to a bound host function.
+		if (key === "durableCalls" || isSandboxFilesystemGrantCapability(key)) {
 			continue;
 		}
 		const fn = boundApiFunctions[key];
@@ -133,16 +148,26 @@ const decodeSandboxRunnerResponse = Schema.decodeUnknownSync(
 );
 
 const makeInvalidResponse = () => new SandboxRunError({ message: invalidResponseMessage });
+
+const sanitizeExecutionSegment = (executionId: string) =>
+	executionId.replace(/[^a-zA-Z0-9._-]/g, "-");
+
 export class SandboxService extends Effect.Service<SandboxService>()("SandboxService", {
 	dependencies: [FetchHttpClient.layer, ProcessPool.Default, BridgeService.Default],
 	effect: Effect.gen(function* () {
-		const pool = yield* ProcessPool;
+		const path = yield* Path.Path;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const serverRun = yield* ServerRun;
 		const bridge = yield* BridgeService;
+		const processes = yield* ProcessPool;
+		const fs = yield* FileSystem.FileSystem;
 
 		const httpClient = yield* HttpClient.HttpClient;
+		const harvestRoot = path.join(
+			config.tmpDir,
+			`${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`,
+		);
 
 		// `runSandbox` reads `apiFunctions`, and some host functions are built from `runSandbox`
 		// (an automation can create events, which evaluates further policies and subscriptions).
@@ -188,8 +213,46 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						return yield* new SandboxRunError({ message: requestError });
 					}
 
-					const worker = yield* pool.get;
-					yield* Effect.addFinalizer(() => invalidateProcess(pool, worker).pipe(Effect.orDie));
+					const artifactPath = sandboxArtifactGrantPath(
+						input.allowedHostFunctions,
+						input.grants?.artifactPath,
+					);
+					if (artifactPath !== undefined) {
+						const pathError = sandboxGrantPathError(
+							path,
+							"Sandbox artifact grant path",
+							artifactPath,
+							config.tmpDir,
+						);
+						if (pathError) {
+							return yield* new SandboxRunError({ message: pathError });
+						}
+					}
+
+					// Acquired before the process and bridge finalizers so LIFO teardown removes the scratch
+					// directory last — after the script's process is dead.
+					const scratchDirectory = declaresSandboxFilesystemGrant(
+						input.allowedHostFunctions,
+						"scratch",
+					)
+						? yield* acquireSandboxScratchDirectory(config.tmpDir)
+						: undefined;
+
+					const grants: SandboxProcessGrants = {
+						...(artifactPath !== undefined ? { artifactPath } : {}),
+						...(scratchDirectory !== undefined ? { scratchDirectory } : {}),
+					};
+					// `ProcessPool` pre-warms processes before the execution's grants are known, so a
+					// grant-carrying execution gets a process spawned for it alone.
+					const dedicated = artifactPath !== undefined || scratchDirectory !== undefined;
+					const worker = dedicated
+						? yield* processes.spawnDedicated(grants)
+						: yield* processes.pool.get;
+					if (!dedicated) {
+						yield* Effect.addFinalizer(() =>
+							invalidateProcess(processes.pool, worker).pipe(Effect.orDie),
+						);
+					}
 					yield* worker.responseQueue.takeAll.pipe(Effect.asVoid);
 
 					const workflow = isWorkflowSandboxMetadata(input.metadata);
@@ -231,6 +294,40 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						catch: makeInvalidResponse,
 					});
 
+					// Deno offers no preventive filesystem quota, so the ceiling is measured once the run is
+					// over and before anything is harvested out of the directory.
+					if (scratchDirectory !== undefined) {
+						const quotaError = sandboxScratchQuotaError(
+							yield* measureSandboxScratchBytes(scratchDirectory),
+						);
+						if (quotaError) {
+							return yield* new SandboxRunError({ message: quotaError });
+						}
+					}
+
+					const manifest =
+						scratchDirectory !== undefined && raw.success
+							? decodeSandboxScratchManifest(raw.value)
+							: Option.none();
+					const harvest = Option.isSome(manifest)
+						? {
+								directory: path.join(harvestRoot, sanitizeExecutionSegment(input.executionId)),
+								chunkFiles: manifest.value.chunkFiles,
+							}
+						: null;
+					const chunkPaths =
+						harvest && scratchDirectory !== undefined
+							? yield* harvestSandboxScratchChunks({
+									scratchDirectory,
+									destination: harvest.directory,
+									chunkFiles: harvest.chunkFiles,
+								}).pipe(
+									Effect.mapError(
+										(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+									),
+								)
+							: [];
+
 					const executionMs = raw.timing?.executionMs;
 					const finishedAt = yield* Clock.currentTimeMillis;
 					const error = raw.success
@@ -246,21 +343,21 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						success: raw.success,
 						executionId: input.executionId,
 						value: raw.success ? (raw.value ?? null) : null,
+						harvest: harvest ? { chunkPaths, directory: harvest.directory } : null,
 						timing: { totalMs, executionMs: typeof executionMs === "number" ? executionMs : 0 },
 					};
 				}),
 			).pipe(
 				Effect.withSpan("sandbox.execution", {
-					attributes: {
-						scriptId: input.scriptId,
-						executionId: input.executionId,
-					},
+					attributes: { scriptId: input.scriptId, executionId: input.executionId },
 				}),
 				Effect.mapError((error) =>
 					error instanceof TimeoutError || error instanceof SandboxRunError
 						? error
 						: new SandboxRunError({ message: unknownToMessage(error) }),
 				),
+				Effect.provideService(Path.Path, path),
+				Effect.provideService(FileSystem.FileSystem, fs),
 			);
 
 		const additionalApiFunctions = yield* makeAdditionalSandboxApiFunctions();

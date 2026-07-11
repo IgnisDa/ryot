@@ -27,6 +27,14 @@
 			"types": "./src/effect.ts",
 			"default": "./src/effect.ts"
 		},
+		"./fast-xml-parser": {
+			"types": "./src/fast-xml-parser.ts",
+			"default": "./src/fast-xml-parser.ts"
+		},
+		"./fflate": {
+			"types": "./src/fflate.ts",
+			"default": "./src/fflate.ts"
+		},
 		"./testing": {
 			"types": "./src/testing.ts",
 			"default": "./src/testing.ts"
@@ -38,6 +46,10 @@
 		"./operation": {
 			"types": "./src/operation.ts",
 			"default": "./src/operation.ts"
+		},
+		"./papaparse": {
+			"types": "./src/papaparse.ts",
+			"default": "./src/papaparse.ts"
 		},
 		"./provider": {
 			"types": "./src/provider.ts",
@@ -64,10 +76,14 @@
 	"dependencies": {
 		"cheerio": "1.2.0",
 		"effect": "3.21.4",
+		"fast-xml-parser": "5.8.0",
+		"fflate": "0.8.3",
+		"papaparse": "5.5.3",
 		"youtubei.js": "17.2.0"
 	},
 	"devDependencies": {
 		"@ryot/testing": "workspace:*",
+		"@types/papaparse": "5.5.2",
 		"vitest": "4.1.9"
 	}
 }
