@@ -128,7 +128,6 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 							);
 						}
 						return Effect.succeed({
-							metadata,
 							slug: script.slug,
 							name: script.name,
 							entry: script.entry,
@@ -136,6 +135,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 							compiledFormat: output.compiled.format,
 							compiledCode: output.compiled.javascript,
 							contentHash: digest(output.compiled.javascript),
+							metadata: { ...metadata, driverNames: output.compiled.driverNames },
 						});
 					});
 					const normalized = { manifest, scripts, sourceHash } satisfies NormalizedPlugin;

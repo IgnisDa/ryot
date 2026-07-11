@@ -26,6 +26,7 @@ it.effect("compiles plugin scripts in deterministic order with package-local sha
 		for (const result of first) {
 			expect(result.compiled.javascript).toContain("shared-value");
 			expect(result.compiled.javascript).not.toContain('from "../shared/value"');
+			expect(result.compiled.driverNames).toEqual(["main"]);
 		}
 	}),
 );
