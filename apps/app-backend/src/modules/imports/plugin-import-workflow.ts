@@ -26,14 +26,19 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	const cleanupPaths: string[] = [];
 	if (payload.namedArtifactPaths) {
 		for (const [key, suppliedPath] of Object.entries(payload.namedArtifactPaths)) {
-			const [resolvedPath] = yield* resolveImportPath(suppliedPath, config.tmpDir);
+			const [resolvedPath] = yield* resolveImportPath(
+				suppliedPath,
+				config.fileStorage.localTempDir,
+			);
 			if (resolvedPath) {
 				namedArtifactPaths[key] = resolvedPath;
 				cleanupPaths.push(resolvedPath);
 			}
 		}
 	} else if (payload.filePath) {
-		cleanupPaths.push(...(yield* resolveImportPath(payload.filePath, config.tmpDir)));
+		cleanupPaths.push(
+			...(yield* resolveImportPath(payload.filePath, config.fileStorage.localTempDir)),
+		);
 	}
 	const artifactPath = payload.namedArtifactPaths ? undefined : cleanupPaths[0];
 	let grants: SandboxExecutionGrants | undefined;
