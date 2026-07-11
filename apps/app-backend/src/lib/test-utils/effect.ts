@@ -91,7 +91,23 @@ export const makeAppConfigLayer = (
 		frontendUrl: "http://localhost:3000",
 		redisUrl: Redacted.make("unused"),
 		frontend: { oidcButtonLabel: Option.none() },
+		animeAndManga: { malClientId: Option.none() },
+		podcasts: { listennotesApiKey: Option.none() },
 		users: { allowRegistration: true, disableLocalAuth: false },
+		books: { hardcoverApiKey: Option.none(), googleBooksApiKey: Option.none() },
+		comicBooks: { metronUsername: Option.none(), metronPassword: Option.none() },
+		moviesAndShows: { tvdbApiKey: Option.none(), tmdbAccessToken: Option.none() },
+		music: { spotifyClientId: Option.none(), spotifyClientSecret: Option.none() },
+		videoGames: {
+			twitchClientId: Option.none(),
+			giantBombApiKey: Option.none(),
+			twitchClientSecret: Option.none(),
+		},
+		scheduler: {
+			disableDispatchers: false,
+			infrequentCronJobsSchedule: "0 0 * * *",
+			frequentCronJobsSchedule: "every 5 minutes",
+		},
 		database: {
 			poolMax: 10,
 			workflowPoolMax: 10,
@@ -104,28 +120,6 @@ export const makeAppConfigLayer = (
 			workerConcurrency: 5,
 			jobIdSecret: Redacted.make("test-secret"),
 		},
-		server: {
-			logFile: Option.none(),
-			logLevel: LogLevel.Info,
-			corsOrigins: Option.none(),
-			otlpEndpoint: Option.none(),
-			traktClientId: Option.none(),
-			disableNotifications: false,
-			progressUpdateThresholdHours: 2,
-			adminAccessToken: Redacted.make("unused"),
-			smtp: {
-				user: Option.none(),
-				server: Option.none(),
-				password: Option.none(),
-				mailbox: "Ryot <no-reply@ryot.io>",
-			},
-			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
-		},
-		scheduler: {
-			disableDispatchers: false,
-			frequentCronJobsSchedule: "every 5 minutes",
-			infrequentCronJobsSchedule: "every midnight",
-		},
 		fileStorage: {
 			url: Option.none(),
 			region: Option.none(),
@@ -133,32 +127,22 @@ export const makeAppConfigLayer = (
 			accessKeyId: Option.none(),
 			secretAccessKey: Option.none(),
 		},
-		moviesAndShows: {
-			tmdbAccessToken: Option.none(),
-			tvdbApiKey: Option.none(),
-		},
-		animeAndManga: {
-			malClientId: Option.none(),
-		},
-		comicBooks: {
-			metronUsername: Option.none(),
-			metronPassword: Option.none(),
-		},
-		books: {
-			hardcoverApiKey: Option.none(),
-			googleBooksApiKey: Option.none(),
-		},
-		music: {
-			spotifyClientId: Option.none(),
-			spotifyClientSecret: Option.none(),
-		},
-		podcasts: {
-			listennotesApiKey: Option.none(),
-		},
-		videoGames: {
-			giantBombApiKey: Option.none(),
-			twitchClientId: Option.none(),
-			twitchClientSecret: Option.none(),
+		server: {
+			logFile: Option.none(),
+			logLevel: LogLevel.Info,
+			corsOrigins: Option.none(),
+			otlpEndpoint: Option.none(),
+			disableNotifications: false,
+			traktClientId: Option.none(),
+			progressUpdateThresholdHours: 2,
+			adminAccessToken: Redacted.make("unused"),
+			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
+			smtp: {
+				user: Option.none(),
+				server: Option.none(),
+				password: Option.none(),
+				mailbox: "Ryot <no-reply@ryot.io>",
+			},
 		},
 	};
 	// oxlint-disable-next-line no-unsafe-type-assertion -- deepMergeConfig is an untyped structural merge; the result is always the complete defaults with overrides applied, so it matches typeof defaults

@@ -123,8 +123,8 @@ export const validatePluginManifestReferences = (
 						cron.workflowSlug,
 						new Set(manifest.workflows.map(({ slug }) => slug)),
 					);
-			if (Either.isLeft(Cron.parse(cron.schedule))) {
-				return yield* fail(`Cron ${cron.slug} has invalid schedule: ${cron.schedule}`);
+			if ("cron" in cron.schedule && Either.isLeft(Cron.parse(cron.schedule.cron))) {
+				return yield* fail(`Cron ${cron.slug} has invalid schedule: ${cron.schedule.cron}`);
 			}
 		}
 		for (const operation of manifest.operations) {
