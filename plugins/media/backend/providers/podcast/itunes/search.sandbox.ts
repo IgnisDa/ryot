@@ -5,11 +5,11 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	name: "iTunes Podcast Search",
-	slug: "podcast.itunes.search",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
+	name: "iTunes Podcast Search",
+	slug: "podcast.itunes.search",
 });
 
-export default defineProvider({ manifest, operation: "search", run: search.run });
+export default defineProvider({ manifest, run: search.run, operation: "search" });

@@ -6,12 +6,12 @@ import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { getImagesSortedBySize, spotifyGet } from "../../../lib/vendors/spotify";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "Spotify",
+	kind: "provider",
 	slug: "music-group.spotify",
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
-	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
+	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 export const search = defineProvider({
@@ -98,6 +98,14 @@ export const details = defineProvider({
 
 			return {
 				name: title,
+				relatedEntityGroups: [
+					{
+						entities: relatedEntities,
+						direction: "outgoing" as const,
+						synchronization: "authoritative" as const,
+						relationshipSchemaSlug: "music-group-to-music",
+					},
+				],
 				properties: {
 					parts,
 					sourceUrl,
@@ -108,14 +116,6 @@ export const details = defineProvider({
 						purpose: "cover" as const,
 					})),
 				},
-				relatedEntityGroups: [
-					{
-						direction: "outgoing" as const,
-						entities: relatedEntities,
-						synchronization: "authoritative" as const,
-						relationshipSchemaSlug: "music-group-to-music",
-					},
-				],
 			};
 		}),
 });

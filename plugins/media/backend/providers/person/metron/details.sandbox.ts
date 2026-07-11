@@ -5,11 +5,11 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
+	requiredSystemConfigKeys: [],
 	name: "Metron Person Details",
 	slug: "person.metron.details",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
-	requiredSystemConfigKeys: [],
 });
 
-export default defineProvider({ manifest, operation: "details", run: details.run });
+export default defineProvider({ manifest, run: details.run, operation: "details" });

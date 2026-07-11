@@ -45,16 +45,16 @@ export const ProcessGenericImportChunksPayload = Schema.Struct({
 	userId: UserId,
 	runId: ImportRunId,
 	executionId: Schema.String,
-	chunkHandles: Schema.Array(Schema.String),
 	artifactOwnerExecutionId: Schema.String,
-	artifactReferenceExecutionId: Schema.String,
 	failRun: Schema.optional(Schema.Boolean),
+	chunkHandles: Schema.Array(Schema.String),
+	artifactReferenceExecutionId: Schema.String,
 	integrationId: Schema.optional(IntegrationId),
-	failureCount: Schema.Finite.pipe(
+	totalItems: Schema.Finite.pipe(
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
 	),
-	totalItems: Schema.Finite.pipe(
+	failureCount: Schema.Finite.pipe(
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
 	),
@@ -77,9 +77,9 @@ export const ProcessGenericImportChunksWorkflow = Workflow.make(
 	"ProcessGenericImportChunksWorkflow",
 	{
 		error: ImportRunError satisfies DurableSchema,
+		idempotencyKey: ({ executionId }) => executionId,
 		success: genericImportWorkflowResultSchema satisfies DurableSchema,
 		payload: ProcessGenericImportChunksPayload satisfies DurableSchema,
-		idempotencyKey: ({ executionId }) => executionId,
 	},
 );
 
@@ -193,8 +193,8 @@ const writeGenericItem = (
 	definitions: GenericImportDefinitions,
 ) =>
 	Activity.make({
-		name: `write-generic-import-item-${index}`,
 		success: ItemWriteOutcome,
+		name: `write-generic-import-item-${index}`,
 		execute: Effect.gen(function* () {
 			const collections = yield* CollectionsService;
 			const relationships = yield* RelationshipsService;
@@ -298,8 +298,8 @@ const writeGenericItem = (
 					targetEntityId,
 					properties: intent.properties,
 					propertiesSchema: relationshipSchema.propertiesSchema,
-					relationshipSchemaSlug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
 					relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
+					relationshipSchemaSlug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
 				} as const;
 				yield* intent.propertiesMode === "merge"
 					? relationships.mergeUserProperties(input)
@@ -341,7 +341,7 @@ const writeGenericItem = (
 				);
 				collectionMemberships.push({ entityId, collectionId: collection.id });
 			}
-			return { _tag: "ready" as const, events, collectionMemberships };
+			return { events, collectionMemberships, _tag: "ready" as const };
 		}).pipe(
 			Effect.catch((error) =>
 				Effect.succeed({ _tag: "failed" as const, message: unknownToMessage(error) }),
@@ -428,7 +428,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 				observedFailureCount += 1;
 				failureReason ??= failureReasonByStage[stage];
 				yield* Effect.logWarning("plugin import item failed", failure.message).pipe(
-					Effect.annotateLogs({ itemIndex: failure.itemIndex, runId, stage }),
+					Effect.annotateLogs({ runId, stage, itemIndex: failure.itemIndex }),
 				);
 				yield* Activity.make({
 					error: ImportRunError,
@@ -483,7 +483,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 									origin: integrationId ? "integration" : "import",
 									executionId: `${executionId}-item-${processedItems}-events`,
 									lifecycleOrigin: integrationId
-										? { kind: "integration", importRunId: runId, integrationId }
+										? { integrationId, importRunId: runId, kind: "integration" }
 										: { kind: "import", importRunId: runId },
 								},
 							})
@@ -495,7 +495,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 					failedItems += 1;
 					failureReason ??= { code: "database-commit-failed" };
 					yield* Effect.logError("generic import item write failed", message).pipe(
-						Effect.annotateLogs({ itemIndex: item.itemIndex, runId }),
+						Effect.annotateLogs({ runId, itemIndex: item.itemIndex }),
 					);
 					yield* Activity.make({
 						error: ImportRunError,
@@ -570,13 +570,13 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 		return { failedItems, importedItems, processedItems };
 	}).pipe(
 		Effect.matchCauseEffect({
+			onSuccess: (result) => release.pipe(Effect.as(result)),
 			onFailure: (cause) =>
 				Effect.flatMap(WorkflowInstance, (instance) =>
 					instance.suspended && Cause.hasInterruptsOnly(cause)
 						? Effect.failCause(cause)
 						: release.pipe(Effect.andThen(Effect.failCause(cause))),
 				),
-			onSuccess: (result) => release.pipe(Effect.as(result)),
 		}),
 	);
 });

@@ -39,7 +39,7 @@ const init: PluginBridgeInit = {
 const rows = (items: readonly Record<string, unknown>[]) => ({
 	items,
 	type: "rows",
-	pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+	pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 });
 
 const emptyOverviewResponse = {
@@ -57,9 +57,9 @@ const readyResponse = {
 				totalEpisodes: 12,
 				publishYear: 2025,
 				state: "complete",
+				publishDate: null,
 				isInLibrary: false,
 				isMonitored: false,
-				publishDate: null,
 				schemaSlug: "show",
 				name: "Tracer Show",
 				providerName: "TMDB",
@@ -69,10 +69,10 @@ const readyResponse = {
 				genres: ["Drama", "Mystery"],
 				productionStatus: "Returning Series",
 				description: "A deterministic show description.",
-				collections: { pageInfo: { hasMore: false, limit: 6 }, items: [] },
+				collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
 				images: [
-					{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
-					{ type: "remote", url: "https://images.test/cover.jpg", purpose: "cover" },
+					{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
+					{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
 				],
 			},
 		]),
@@ -138,8 +138,8 @@ const openShow = () => {
 	channel.port1.start();
 	window.dispatchEvent(
 		new MessageEvent("message", {
-			ports: [channel.port2],
 			source: window.parent,
+			ports: [channel.port2],
 			data: {
 				...init,
 				page: {
@@ -165,7 +165,7 @@ const openShow = () => {
 		edgeBack: false,
 		type: "location",
 		leading: "drawer",
-		location: { entityId: "show-1", entitySchemaSlug: "show", kind: "entity", search: "" },
+		location: { search: "", kind: "entity", entityId: "show-1", entitySchemaSlug: "show" },
 	});
 	return { channel, messages, container: document.getElementById("app") };
 };
@@ -231,7 +231,7 @@ const reply = (
 	result:
 		| { readonly outcome: "failure"; readonly reason: "query-failed" }
 		| { readonly outcome: "success"; readonly response: unknown },
-) => channel.port1.postMessage({ type: "ryotql-result", requestId, ...result });
+) => channel.port1.postMessage({ requestId, type: "ryotql-result", ...result });
 
 const assetReply = (
 	channel: MessageChannel,
@@ -239,7 +239,7 @@ const assetReply = (
 	result:
 		| { readonly outcome: "failure"; readonly reason: "asset-failed" }
 		| { readonly outcome: "success"; readonly resolutions: readonly AssetResolution[] },
-) => channel.port1.postMessage({ type: "asset-result", requestId, ...result });
+) => channel.port1.postMessage({ requestId, type: "asset-result", ...result });
 
 const replyOverview = (channel: MessageChannel, messages: readonly unknown[], index = 0) =>
 	reply(channel, queryRequestFor(messages, "people", index).requestId, {
@@ -286,14 +286,14 @@ describe("ShowScreen", () => {
 			edgeBack: true,
 			leading: "back",
 			type: "location",
-			location: { entityId: "show-2", entitySchemaSlug: "show", kind: "entity", search: "" },
+			location: { search: "", kind: "entity", entityId: "show-2", entitySchemaSlug: "show" },
 		});
 		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(2));
 		expect(JSON.stringify(queryRequestsFor(messages, "show")[1]?.document)).toContain("show-2");
 	});
 
 	it("renders pending status while the summary and overview queries are in flight", async () => {
-		const { container, messages } = openShow();
+		const { messages, container } = openShow();
 
 		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
 		await waitFor(() => expect(queryRequestsFor(messages, "people")).toHaveLength(1));
@@ -301,7 +301,7 @@ describe("ShowScreen", () => {
 	});
 
 	it("renders an error and retries through the query result", async () => {
-		const { channel, container, messages } = openShow();
+		const { channel, messages, container } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
 		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "failure",
@@ -330,7 +330,7 @@ describe("ShowScreen", () => {
 		await waitFor(() => expect(queryRequestsFor(missing.messages, "show")).toHaveLength(1));
 		reply(missing.channel, queryRequestFor(missing.messages, "show").requestId, {
 			outcome: "success",
-			response: { data: { requested: rows([]), show: rows([]) } },
+			response: { data: { show: rows([]), requested: rows([]) } },
 		});
 		await waitFor(() =>
 			expect(missing.container?.textContent).toContain("This entity no longer exists."),
@@ -342,7 +342,7 @@ describe("ShowScreen", () => {
 		await waitFor(() => expect(queryRequestsFor(wrongSchema.messages, "show")).toHaveLength(1));
 		reply(wrongSchema.channel, queryRequestFor(wrongSchema.messages, "show").requestId, {
 			outcome: "success",
-			response: { data: { requested: rows([{ schemaSlug: "movie" }]), show: rows([]) } },
+			response: { data: { show: rows([]), requested: rows([{ schemaSlug: "movie" }]) } },
 		});
 		await waitFor(() =>
 			expect(wrongSchema.container?.textContent).toContain(
@@ -352,7 +352,7 @@ describe("ShowScreen", () => {
 	});
 
 	it("renders seeded summary fields and publishes the Show title", async () => {
-		const { channel, container, messages } = openShow();
+		const { channel, messages, container } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
 		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
@@ -389,13 +389,13 @@ describe("ShowScreen", () => {
 	});
 
 	it("renders a managed cover placeholder before resolving its signed URL", async () => {
-		const { channel, container, messages } = openShow();
+		const { channel, messages, container } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
 		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
 			response: responseWithImages([
-				{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
-				{ type: "local", key: "managed-cover", purpose: "cover" },
+				{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
+				{ type: "local", purpose: "cover", key: "managed-cover" },
 			]),
 		});
 
@@ -419,11 +419,11 @@ describe("ShowScreen", () => {
 	});
 
 	it("shows an unavailable managed cover after the initial asset request fails", async () => {
-		const { channel, container, messages } = openShow();
+		const { channel, messages, container } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
 		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
-			response: responseWithImages([{ type: "local", key: "managed-cover", purpose: "cover" }]),
+			response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
 		});
 		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
 
@@ -438,11 +438,11 @@ describe("ShowScreen", () => {
 
 	it("refreshes one minute before expiry and keeps the stale URL after failure", async () => {
 		const clock = openTestClock();
-		const { channel, container, messages } = openShow();
+		const { channel, messages, container } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
 		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
-			response: responseWithImages([{ type: "local", key: "managed-cover", purpose: "cover" }]),
+			response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
 		});
 		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
 
@@ -475,7 +475,7 @@ describe("ShowScreen", () => {
 		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
 		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
-			response: responseWithImages([{ type: "local", key: "managed-cover", purpose: "cover" }]),
+			response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
 		});
 		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
 
@@ -486,7 +486,7 @@ describe("ShowScreen", () => {
 			leading: "none",
 			type: "location",
 			key: "replacement",
-			location: { kind: "route", path: "/replacement", search: "" },
+			location: { search: "", kind: "route", path: "/replacement" },
 		});
 
 		await waitFor(() => expect(assetCancels(messages)).toHaveLength(1));
@@ -497,7 +497,7 @@ describe("ShowScreen", () => {
 	});
 
 	it("omits absent optional fields", async () => {
-		const { channel, container, messages } = openShow();
+		const { channel, messages, container } = openShow();
 		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
 		reply(channel, queryRequestFor(messages, "show").requestId, {
 			outcome: "success",
@@ -512,10 +512,10 @@ describe("ShowScreen", () => {
 							images: null,
 							publishYear: null,
 							description: null,
+							publishDate: null,
 							state: "untracked",
 							totalSeasons: null,
 							providerName: null,
-							publishDate: null,
 							isInLibrary: false,
 							isMonitored: false,
 							schemaSlug: "show",
@@ -525,7 +525,7 @@ describe("ShowScreen", () => {
 							productionStatus: null,
 							populationStatus: "none",
 							translationStatus: "none",
-							collections: { pageInfo: { hasMore: false, limit: 6 }, items: [] },
+							collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
 						},
 					]),
 				},

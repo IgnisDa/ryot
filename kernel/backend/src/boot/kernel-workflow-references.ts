@@ -188,7 +188,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 											providerId: resolved.provider.id,
 											origin: { kind: "provider_refresh" },
 											entitySchemaSlug: resolved.entitySchemaSlug,
-											entityScope: { type: "global", userId: null },
+											entityScope: { userId: null, type: "global" },
 										} satisfies ProviderEntityPopulationPayload,
 									})
 									.pipe(
@@ -247,7 +247,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							integrationIds: payload.integrationId ? [payload.integrationId] : [],
 						});
 						const result = yield* engine
-							.execute(ProcessGenericImportChunksWorkflow, { executionId, payload })
+							.execute(ProcessGenericImportChunksWorkflow, { payload, executionId })
 							.pipe(
 								Effect.mapError(
 									(error) => new SandboxRunError({ message: unknownToMessage(error) }),
@@ -298,15 +298,15 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							...attributionIds(payload.origin),
 						});
 						const result = yield* engine
-							.execute(EntityImportWorkflow, { executionId, payload })
+							.execute(EntityImportWorkflow, { payload, executionId })
 							.pipe(
 								Effect.match({
+									onSuccess: (entity) => ({ entity, status: "completed" as const }),
 									onFailure: (error: EntityImportError) => ({
 										stage: error.stage,
 										message: error.message,
 										status: "failed" as const,
 									}),
-									onSuccess: (entity) => ({ status: "completed" as const, entity }),
 								}),
 							);
 						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
@@ -338,7 +338,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						],
 					});
 					const result = yield* engine
-						.execute(EventCreateWorkflow, { executionId, payload })
+						.execute(EventCreateWorkflow, { payload, executionId })
 						.pipe(
 							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 						);

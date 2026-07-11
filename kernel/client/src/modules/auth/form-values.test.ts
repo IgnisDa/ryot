@@ -9,7 +9,7 @@ import {
 
 describe("authentication form values", () => {
 	it("normalizes email without changing the password", () => {
-		expect(normalizeCredentials({ email: "  USER@Example.COM ", password: " pass word " })).toEqual(
+		expect(normalizeCredentials({ password: " pass word ", email: "  USER@Example.COM " })).toEqual(
 			{ password: " pass word ", email: "user@example.com" },
 		);
 		expect(registrationName("user@example.com")).toBe("user");

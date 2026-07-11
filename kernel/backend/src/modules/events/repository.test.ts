@@ -7,9 +7,9 @@ import { Database } from "#lib/infrastructure/db/service";
 import { BACKUP_EVENT_PAGE_SIZE, EventsRepository } from "./repository";
 
 const restoreEventInput = (id: string) => ({
+	id: EventId.make(id),
 	sessionEntityId: null,
 	properties: { rating: 80 },
-	id: EventId.make(id),
 	userId: UserId.make("user-id"),
 	entityId: EntityId.make("entity-id"),
 	eventSchemaSlug: EventSchemaSlug.make("review"),

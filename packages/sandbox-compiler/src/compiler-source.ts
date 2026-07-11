@@ -344,8 +344,8 @@ const inspectImports = (
 		scriptHelpers,
 		manifestHelpers,
 		providerHelpers,
-		operationHelpers,
 		workflowHelpers,
+		operationHelpers,
 		automationHelpers,
 	};
 };
@@ -364,8 +364,8 @@ const inspectScriptDefinition = (
 	);
 	if (defaults.length !== 1) {
 		return {
-			providerOperation: null,
 			definitionKind: null,
+			providerOperation: null,
 			diagnostics: [
 				diagnosticAt(
 					file,
@@ -401,8 +401,8 @@ const inspectScriptDefinition = (
 		call.arguments.length !== 1
 	) {
 		return {
-			providerOperation: null,
 			definitionKind: null,
+			providerOperation: null,
 			diagnostics: [
 				diagnosticAt(
 					assignment ?? file,
@@ -537,8 +537,8 @@ export const inspectSandboxSource = (
 	const imports = inspectImports(file, options.allowRelativeImports ?? false);
 	if (imports.diagnostics.length > 0) {
 		return {
-			providerOperation: null,
 			definitionKind: null,
+			providerOperation: null,
 			diagnostics: imports.diagnostics,
 			manifestHelpers: imports.manifestHelpers,
 		};

@@ -57,9 +57,9 @@ export const entityVisibleToUserClause = (userId: UserId) =>
 
 export const toListedEntity = (row: EntityRow) => ({
 	name: row.name,
+	id: EntityId.make(row.id),
 	properties: row.properties,
 	externalId: row.externalId,
-	id: EntityId.make(row.id),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	populatedAt: row.populatedAt?.toISOString() ?? null,

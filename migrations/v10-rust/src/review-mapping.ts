@@ -243,6 +243,6 @@ BEGIN
 		])}
 	END IF;
 
-	${buildReportSql("review -> event", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
+	${buildReportSql("review -> event", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;

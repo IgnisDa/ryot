@@ -21,8 +21,8 @@ describe("adaptNetflixExports", () => {
 		const result = Effect.runSync(
 			adaptNetflixExports(
 				{
-					importedAt: "2026-02-10T00:00:00.000Z",
 					profileName: "Kids",
+					importedAt: "2026-02-10T00:00:00.000Z",
 					myListCsv: ["Title Name,Profile Name", "The Queen's Gambit,Kids"].join("\n"),
 					ratingsCsv: [
 						"Title Name,Profile Name,Event Utc Ts,Star Value,Thumbs Value",
@@ -49,22 +49,22 @@ describe("adaptNetflixExports", () => {
 					if (title.startsWith("Stranger Things")) {
 						found = {
 							externalId: "66732",
-							providerSlug: "show.tmdb",
 							entitySchemaSlug: "show",
+							providerSlug: "show.tmdb",
 							sourceLabel: "Stranger Things",
 						};
 					} else if (title === "The Irishman") {
 						found = {
 							externalId: "398978",
-							providerSlug: "movie.tmdb",
 							entitySchemaSlug: "movie",
+							providerSlug: "movie.tmdb",
 							sourceLabel: "The Irishman",
 						};
 					} else if (title === "The Queen's Gambit") {
 						found = {
 							externalId: "87739",
-							providerSlug: "show.tmdb",
 							entitySchemaSlug: "show",
+							providerSlug: "show.tmdb",
 							sourceLabel: "The Queen's Gambit",
 						};
 					}
@@ -86,8 +86,8 @@ describe("adaptNetflixExports", () => {
 				entityRef: {
 					kind: "resolved",
 					externalId: "66732",
-					providerSlug: "show.tmdb",
 					entitySchemaSlug: "show",
+					providerSlug: "show.tmdb",
 					sourceLabel: "Stranger Things",
 				},
 				events: [
@@ -110,8 +110,8 @@ describe("adaptNetflixExports", () => {
 				entityRef: {
 					kind: "resolved",
 					externalId: "398978",
-					providerSlug: "movie.tmdb",
 					entitySchemaSlug: "movie",
+					providerSlug: "movie.tmdb",
 					sourceLabel: "The Irishman",
 				},
 				events: [
@@ -128,16 +128,16 @@ describe("adaptNetflixExports", () => {
 			{
 				itemIndex: 5,
 				collectionMemberships: [],
-				entityRef: {
-					kind: "resolved",
-					externalId: "87739",
-					providerSlug: "show.tmdb",
-					entitySchemaSlug: "show",
-					sourceLabel: "The Queen's Gambit",
-				},
 				events: [
 					{ properties: {}, eventSchemaSlug: "backlog", occurredAt: "2026-02-10T00:00:00.000Z" },
 				],
+				entityRef: {
+					kind: "resolved",
+					externalId: "87739",
+					entitySchemaSlug: "show",
+					providerSlug: "show.tmdb",
+					sourceLabel: "The Queen's Gambit",
+				},
 			},
 		]);
 		expect(lookupCalls).toEqual([
@@ -168,11 +168,11 @@ describe("adaptNetflixExports", () => {
 						? Effect.succeed({
 								matchedTitle: "The Gentlemen",
 								entityRef: {
-									kind: "resolved" as const,
 									externalId: "123",
-									providerSlug: "show.tmdb" as const,
-									entitySchemaSlug: "show" as const,
+									kind: "resolved" as const,
 									sourceLabel: "The Gentlemen",
+									entitySchemaSlug: "show" as const,
+									providerSlug: "show.tmdb" as const,
 								},
 							})
 						: Effect.fail("Metadata not found"),

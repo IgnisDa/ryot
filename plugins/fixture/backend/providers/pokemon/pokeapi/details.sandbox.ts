@@ -12,4 +12,4 @@ export const manifest = defineManifest({
 	slug: "pokemon.pokeapi.details",
 });
 
-export default defineProvider({ manifest, operation: "details", run: details.run });
+export default defineProvider({ manifest, run: details.run, operation: "details" });

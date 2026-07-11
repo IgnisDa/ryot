@@ -15,9 +15,9 @@ export type CreateCollectionOptions = Partial<
 export const createCollection = (client: Client, options: CreateCollectionOptions = {}) =>
 	Effect.gen(function* () {
 		const {
-			name = `Test Collection ${crypto.randomUUID()}`,
-			description = "A test collection",
 			membershipPropertiesSchema,
+			description = "A test collection",
+			name = `Test Collection ${crypto.randomUUID()}`,
 		} = options;
 
 		const collection = yield* client.call((c) =>

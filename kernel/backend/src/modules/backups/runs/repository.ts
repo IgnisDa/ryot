@@ -64,7 +64,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.insert(schema.backupRun)
-					.values({ userId: input.userId, kind: input.kind, status: "pending", progress: 0 })
+					.values({ progress: 0, kind: input.kind, status: "pending", userId: input.userId })
 					.returning(),
 			).pipe(
 				Effect.catchIf(isUniqueConstraintError("backup_run_user_active_unique"), () =>
@@ -200,7 +200,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 							artifactKey: input.artifactKey,
 							artifactProvider: input.artifactProvider,
 						}
-					: { artifactProvider: null, artifactKey: null, expiresAt: null };
+					: { expiresAt: null, artifactKey: null, artifactProvider: null };
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.update(schema.backupRun)
@@ -227,7 +227,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.update(schema.backupRun)
-					.set({ status: "failed", failure: input.failure, finishedAt })
+					.set({ finishedAt, status: "failed", failure: input.failure })
 					.where(
 						and(
 							eq(schema.backupRun.id, input.runId),

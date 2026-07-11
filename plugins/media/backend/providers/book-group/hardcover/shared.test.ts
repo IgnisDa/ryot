@@ -47,7 +47,7 @@ describe("book-group.hardcover sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				search,
-				{ query: "series", page: 1, pageSize: 20 },
+				{ page: 1, pageSize: 20, query: "series" },
 				host,
 				execution,
 			).pipe(

@@ -9,7 +9,7 @@ import { PokemonPicker } from "./pokemon-picker";
 const rows = (items: readonly Record<string, unknown>[]) => ({
 	items,
 	type: "rows" as const,
-	pageInfo: { hasMore: false, limit: 100, nextCursor: null },
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
 const replyChoices = async (page: ReturnType<typeof mountPluginPage>) => {
@@ -18,7 +18,7 @@ const replyChoices = async (page: ReturnType<typeof mountPluginPage>) => {
 		if ("collections" in request.document.queries) {
 			page.replyQuery(request.requestId, {
 				outcome: "success",
-				response: { data: { collections: rows([{ id: "collection-1", name: "Favorites" }]) } },
+				response: { data: { collections: rows([{ name: "Favorites", id: "collection-1" }]) } },
 			});
 		} else {
 			page.replyQuery(request.requestId, {
@@ -47,7 +47,7 @@ describe("PokemonPicker", () => {
 			expect(page.clientMessages()).toContainEqual({
 				mode: "push",
 				type: "page-search",
-				update: { dialog: "add-to-collection", entityId: "pokemon-2" },
+				update: { entityId: "pokemon-2", dialog: "add-to-collection" },
 			}),
 		);
 		page.navigate(routeLocation("/", "keep=1&dialog=add-to-collection&entityId=pokemon-2"), {

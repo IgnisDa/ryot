@@ -14,7 +14,7 @@ import {
 } from "./shared";
 
 export const exerciseEntityTargets = [
-	{ source: "custom", entitySchemaSlug: "exercise", providerSlug: null },
+	{ source: "custom", providerSlug: null, entitySchemaSlug: "exercise" },
 	{ source: "github", entitySchemaSlug: "exercise", providerSlug: "exercise.free-exercise-db" },
 ] as const satisfies readonly EntityMigrationTarget[];
 
@@ -182,6 +182,6 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	${buildReportSql("exercise -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
+	${buildReportSql("exercise -> entity", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;

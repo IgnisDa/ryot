@@ -13,13 +13,13 @@ import type { ClientRuntime } from "#/runtime";
 
 const invalidTokenMessage = "The admin access token is invalid or expired.";
 const sections = [
-	{ path: "/god-mode/users", label: "Users", icon: "users" },
-	{ path: "/god-mode/migration-report", label: "Migration report", icon: "file-text" },
+	{ icon: "users", label: "Users", path: "/god-mode/users" },
+	{ icon: "file-text", label: "Migration report", path: "/god-mode/migration-report" },
 ] as const;
 
 type GodModeShellProps = { readonly server: ServerOrigin; readonly runtime: ClientRuntime };
 
-export function GodModeShell({ runtime, server }: GodModeShellProps) {
+export function GodModeShell({ server, runtime }: GodModeShellProps) {
 	const sessionService = runtime.runSync(GodModeSessionService);
 	const sessionIdRef = useRef<string>(null);
 	const [sessionId, setSessionId] = useState<string>();
@@ -69,7 +69,7 @@ export function GodModeShell({ runtime, server }: GodModeShellProps) {
 	return (
 		// The provider only exists for one unlocked session and is removed when it changes.
 		// oxlint-disable-next-line react/jsx-no-constructed-context-values
-		<GodModeContext.Provider value={{ sessionId, lock, unauthorized }}>
+		<GodModeContext.Provider value={{ lock, sessionId, unauthorized }}>
 			<GodModeWorkspace onLock={lock} />
 		</GodModeContext.Provider>
 	);
@@ -145,9 +145,9 @@ function GodModeTokenGate(props: {
 						}}
 					/>
 				</label>
-				<div className="flex min-h-11 items-center" aria-live="polite">
+				<div aria-live="polite" className="flex min-h-11 items-center">
 					{error && (
-						<p id="god-mode-token-error" role="alert" className="ui-form-status text-danger">
+						<p role="alert" id="god-mode-token-error" className="ui-form-status text-danger">
 							{error}
 						</p>
 					)}
@@ -188,7 +188,7 @@ function GodModeWorkspace({ onLock }: { readonly onLock: () => void }) {
 								section === active && "bg-nav-indicator text-text",
 							)}
 						>
-							<AppIcon name={section.icon} size={17} />
+							<AppIcon size={17} name={section.icon} />
 							{section.label}
 						</Link>
 					))}
@@ -201,7 +201,7 @@ function GodModeWorkspace({ onLock }: { readonly onLock: () => void }) {
 						aria-label="Back to Ryot"
 						className="flex size-11 items-center justify-center md:hidden"
 					>
-						<AppIcon name="chevron-left" size={20} />
+						<AppIcon size={20} name="chevron-left" />
 					</Link>
 					<div className="min-w-0 flex-1">
 						<p className="truncate font-display text-lg font-semibold md:text-xl">{active.label}</p>
@@ -221,7 +221,7 @@ function GodModeWorkspace({ onLock }: { readonly onLock: () => void }) {
 							type="button"
 							key={section.path}
 							aria-current={section === active ? "page" : undefined}
-							onClick={() => void navigate({ to: section.path, replace: true })}
+							onClick={() => void navigate({ replace: true, to: section.path })}
 							className={clsx(
 								"shrink-0 rounded-lg px-3 py-2 text-sm text-text-muted",
 								section === active && "bg-nav-indicator text-text",

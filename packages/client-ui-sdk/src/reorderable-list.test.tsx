@@ -23,7 +23,7 @@ function Harness(props: { readonly onReorder?: (from: number, to: number) => voi
 			itemKey={(item) => item.slug}
 			itemLabel={(item) => item.name}
 			handleIcon={<span data-testid="grip" />}
-			renderItem={({ handle, item }) => (
+			renderItem={({ item, handle }) => (
 				<div>
 					{handle}
 					<span>{item.name}</span>

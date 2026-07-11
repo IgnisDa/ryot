@@ -13,13 +13,13 @@ export const settingsSections = [
 		path: "/settings/notification-channels",
 	},
 	{
-		icon: "clipboard-list",
 		slug: "import-data",
 		label: "Import data",
+		icon: "clipboard-list",
 		path: "/settings/import-data",
 	},
 	{ icon: "archive", slug: "backups", label: "Backups", path: "/settings/backups" },
-	{ slug: "account", label: "Account", icon: "user", path: "/settings/account" },
+	{ icon: "user", slug: "account", label: "Account", path: "/settings/account" },
 ] as const;
 
 export type SettingsSection = (typeof settingsSections)[number];

@@ -29,21 +29,21 @@ describe("person.anilist sandbox script", () => {
 						description: null,
 						image: { large: null },
 						name: { full: "Creator" },
-						characterMedia: {
-							pageInfo: { hasNextPage: false },
-							edges: [
-								{
-									characters: [{ name: { full: "Hero" } }],
-									node: { id: 2, type: "ANIME", title: { userPreferred: "Anime Credit" } },
-								},
-							],
-						},
 						staffMedia: {
 							pageInfo: { hasNextPage: false },
 							edges: [
 								{
 									staffRole: "Writer",
 									node: { id: 3, type: "MANGA", title: { userPreferred: "Manga Credit" } },
+								},
+							],
+						},
+						characterMedia: {
+							pageInfo: { hasNextPage: false },
+							edges: [
+								{
+									characters: [{ name: { full: "Hero" } }],
+									node: { id: 2, type: "ANIME", title: { userPreferred: "Anime Credit" } },
 								},
 							],
 						},
@@ -106,18 +106,6 @@ describe("person.anilist sandbox script", () => {
 						description: null,
 						image: { large: null },
 						name: { full: "Creator" },
-						characterMedia: {
-							pageInfo: { hasNextPage: page === 1 },
-							edges:
-								page === 1
-									? [
-											{
-												characters: [{ name: { full: "Hero" } }],
-												node: { id: 2, type: "ANIME", title: { userPreferred: "Anime Credit" } },
-											},
-										]
-									: [],
-						},
 						staffMedia: {
 							pageInfo: { hasNextPage: page === 1 },
 							edges:
@@ -129,6 +117,18 @@ describe("person.anilist sandbox script", () => {
 												node: { id: 3, type: "MANGA", title: { userPreferred: "Manga Credit" } },
 											},
 										],
+						},
+						characterMedia: {
+							pageInfo: { hasNextPage: page === 1 },
+							edges:
+								page === 1
+									? [
+											{
+												characters: [{ name: { full: "Hero" } }],
+												node: { id: 2, type: "ANIME", title: { userPreferred: "Anime Credit" } },
+											},
+										]
+									: [],
 						},
 					},
 				},
@@ -157,12 +157,12 @@ describe("person.anilist sandbox script", () => {
 						gender: "Male",
 						homeTown: "Tokyo, Japan",
 						name: { full: "Creator" },
-						dateOfDeath: { year: 2020, month: 12 },
+						dateOfDeath: { month: 12, year: 2020 },
 						description: "First line<br>Second line",
 						image: { large: "https://img/creator.jpg" },
-						dateOfBirth: { year: 1970, month: 2, day: 9 },
-						staffMedia: { pageInfo: { hasNextPage: false }, edges: [] },
-						characterMedia: { pageInfo: { hasNextPage: false }, edges: [] },
+						dateOfBirth: { day: 9, month: 2, year: 1970 },
+						staffMedia: { edges: [], pageInfo: { hasNextPage: false } },
+						characterMedia: { edges: [], pageInfo: { hasNextPage: false } },
 					},
 				},
 			}),
@@ -179,7 +179,7 @@ describe("person.anilist sandbox script", () => {
 					birthPlace: "Tokyo, Japan",
 					description: "First line\nSecond line",
 					sourceUrl: "https://anilist.co/staff/9",
-					images: [{ type: "remote", url: "https://img/creator.jpg", purpose: "profile" }],
+					images: [{ type: "remote", purpose: "profile", url: "https://img/creator.jpg" }],
 				});
 				return undefined;
 			}),

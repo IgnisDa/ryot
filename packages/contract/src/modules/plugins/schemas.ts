@@ -20,8 +20,8 @@ const PluginCompilerDiagnostic = Schema.Struct({
 
 const PluginRuntimeDiagnostic = Schema.Struct({
 	code: Schema.String,
-	line: SandboxExecutionError.fields.line,
 	severity: Schema.Literal("error"),
+	line: SandboxExecutionError.fields.line,
 	phase: SandboxExecutionError.fields.phase,
 	column: SandboxExecutionError.fields.column,
 	message: SandboxExecutionError.fields.message,
@@ -79,9 +79,9 @@ export const reservedPluginSlugs: ReadonlySet<string> = new Set([
 
 const PluginRequestFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("upload-unavailable") }),
-	Schema.Struct({ code: Schema.Literal("slug-reserved"), pluginSlug: PluginSlug }),
-	Schema.Struct({ code: Schema.Literal("home-view-disabled"), savedViewId: SavedViewId }),
-	Schema.Struct({ code: Schema.Literal("home-view-not-found"), savedViewId: SavedViewId }),
+	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("slug-reserved") }),
+	Schema.Struct({ savedViewId: SavedViewId, code: Schema.Literal("home-view-disabled") }),
+	Schema.Struct({ savedViewId: SavedViewId, code: Schema.Literal("home-view-not-found") }),
 	Schema.Struct({
 		issue: PluginPackageArchiveIssue,
 		code: Schema.Literal("package-archive-invalid"),
@@ -103,8 +103,8 @@ const PluginRequestFailureReason = Schema.Union([
 		code: Schema.Literal("unsupported-manifest-surface"),
 	}),
 	Schema.Struct({
-		issues: Schema.Array(PluginSchemaEvolutionIssue),
 		code: Schema.Literal("schema-evolution-failed"),
+		issues: Schema.Array(PluginSchemaEvolutionIssue),
 	}),
 	Schema.Struct({
 		pluginSlug: PluginSlug,
@@ -118,14 +118,14 @@ const PluginRequestFailureReason = Schema.Union([
 ]);
 
 const PluginConflictReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("system-plugin"), pluginSlug: PluginSlug }),
-	Schema.Struct({ code: Schema.Literal("boot-configured"), pluginSlug: PluginSlug }),
-	Schema.Struct({ code: Schema.Literal("already-installed"), pluginSlug: PluginSlug }),
-	Schema.Struct({ code: Schema.Literal("entity-referenced"), pluginSlug: PluginSlug }),
-	Schema.Struct({ code: Schema.Literal("workflow-referenced"), pluginSlug: PluginSlug }),
-	Schema.Struct({ code: Schema.Literal("source-revision-stale"), pluginSlug: PluginSlug }),
-	Schema.Struct({ code: Schema.Literal("saved-view-referenced"), pluginSlug: PluginSlug }),
-	Schema.Struct({ code: Schema.Literal("integration-referenced"), pluginSlug: PluginSlug }),
+	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("system-plugin") }),
+	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("boot-configured") }),
+	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("already-installed") }),
+	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("entity-referenced") }),
+	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("workflow-referenced") }),
+	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("source-revision-stale") }),
+	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("saved-view-referenced") }),
+	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("integration-referenced") }),
 	Schema.Struct({
 		pluginSlug: PluginSlug,
 		code: Schema.Literal("definition-referenced"),
@@ -139,7 +139,7 @@ const PluginConflictReason = Schema.Union([
 ]);
 
 const PluginNotFoundReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("plugin-not-found"), pluginSlug: PluginSlug }),
+	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("plugin-not-found") }),
 	Schema.Struct({
 		pluginSlug: PluginSlug,
 		operationSlug: Schema.String,
@@ -200,7 +200,7 @@ export const UpdatePluginInstallationBody = strictStruct({
 	config: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 	sortOrder: Schema.optional(
 		Schema.Int.pipe(
-			Schema.check(Schema.isBetween({ minimum: -2_147_483_648, maximum: 2_147_483_647 })),
+			Schema.check(Schema.isBetween({ maximum: 2_147_483_647, minimum: -2_147_483_648 })),
 		),
 	),
 });
@@ -231,8 +231,8 @@ export const PluginInstallationItem = Schema.Struct({
 	configSchema: PluginConfigSchema,
 	health: PluginInstallationHealth,
 	healthReason: Schema.NullOr(Schema.String),
-	homeSavedViewId: Schema.NullOr(SavedViewId),
 	scope: Schema.Literals(["system", "user"]),
+	homeSavedViewId: Schema.NullOr(SavedViewId),
 	configuredSecrets: Schema.Array(Schema.String),
 	config: Schema.Record(Schema.String, JsonValue),
 });

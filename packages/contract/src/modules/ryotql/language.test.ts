@@ -11,7 +11,7 @@ const document = {
 				orderBy: [],
 				type: "rows",
 				pagination: { limit: 20 },
-				fields: [{ key: "id", expr: { type: "column", tableAlias: "collection", field: "id" } }],
+				fields: [{ key: "id", expr: { field: "id", type: "column", tableAlias: "collection" } }],
 			},
 		},
 	},
@@ -24,8 +24,8 @@ const makeDocument = (expr: unknown) => ({
 			output: {
 				orderBy: [],
 				type: "rows",
-				fields: [{ key: "value", expr }],
 				pagination: { limit: 20 },
+				fields: [{ expr, key: "value" }],
 			},
 		},
 	},
@@ -44,7 +44,7 @@ describe("RyotQLDocument", () => {
 					...document.queries.collections,
 					output: {
 						...document.queries.collections.output,
-						fields: [{ tableAlias: "collection", type: "wildcard" }],
+						fields: [{ type: "wildcard", tableAlias: "collection" }],
 					},
 				},
 			},
@@ -78,7 +78,7 @@ describe("RyotQLDocument", () => {
 	});
 
 	it("decodes recursive JSON and predicate expressions", () => {
-		const properties = { type: "column", tableAlias: "entity", field: "properties" } as const;
+		const properties = { type: "column", field: "properties", tableAlias: "entity" } as const;
 		const score = {
 			type: "cast",
 			target: "number",
@@ -95,19 +95,19 @@ describe("RyotQLDocument", () => {
 								left: score,
 								operator: "gte",
 								type: "comparison",
-								right: { type: "literal", value: 4 },
+								right: { value: 4, type: "literal" },
 							},
-							{ type: "isNotNull", expr: score },
+							{ expr: score, type: "isNotNull" },
 						],
 					},
 					output: {
 						type: "rows",
 						pagination: { limit: 20 },
-						orderBy: [{ direction: "desc", expr: score }],
+						orderBy: [{ expr: score, direction: "desc" }],
 						fields: [
 							{
 								key: "score",
-								expr: { type: "coalesce", values: [score, { type: "literal", value: 0 }] },
+								expr: { type: "coalesce", values: [score, { value: 0, type: "literal" }] },
 							},
 						],
 					},
@@ -124,8 +124,8 @@ describe("RyotQLDocument", () => {
 			where: {
 				operator: "eq",
 				type: "comparison",
-				right: { type: "column", tableAlias: "entity", field: "id" },
-				left: { type: "column", tableAlias: "event", field: "entityId" },
+				right: { field: "id", type: "column", tableAlias: "entity" },
+				left: { type: "column", field: "entityId", tableAlias: "event" },
 			},
 		} as const;
 		const correlated = {
@@ -157,7 +157,7 @@ describe("RyotQLDocument", () => {
 								expr: {
 									type: "arithmetic",
 									operator: "divide",
-									right: { type: "literal", value: 2 },
+									right: { value: 2, type: "literal" },
 									left: {
 										type: "aggregate",
 										query: eventQuery,
@@ -175,21 +175,21 @@ describe("RyotQLDocument", () => {
 	});
 
 	it("decodes scalar operations with recursive expressions and predicates", () => {
-		const value = { type: "column", tableAlias: "entity", field: "name" } as const;
-		const createdAt = { type: "column", tableAlias: "entity", field: "createdAt" } as const;
+		const value = { field: "name", type: "column", tableAlias: "entity" } as const;
+		const createdAt = { type: "column", field: "createdAt", tableAlias: "entity" } as const;
 		const expressions = [
 			{ type: "concat", values: [value, { type: "literal", value: " suffix" }] },
 			{
 				type: "conditional",
-				whenFalse: { type: "literal", value: null },
-				condition: { type: "isNotNull", expr: value },
-				whenTrue: { type: "transform", expr: value, name: "titleCase" },
+				whenFalse: { value: null, type: "literal" },
+				condition: { expr: value, type: "isNotNull" },
+				whenTrue: { expr: value, type: "transform", name: "titleCase" },
 			},
-			{ type: "transform", expr: value, name: "kebabCase" },
-			{ type: "round", expr: value },
-			{ type: "floor", expr: value },
-			{ type: "integer", expr: value },
-			{ type: "isNotNull", expr: value },
+			{ expr: value, type: "transform", name: "kebabCase" },
+			{ expr: value, type: "round" },
+			{ expr: value, type: "floor" },
+			{ expr: value, type: "integer" },
+			{ expr: value, type: "isNotNull" },
 			{ bucket: "day", expr: createdAt, type: "dateBucket", timeZone: "America/New_York" },
 		] as const;
 
@@ -201,9 +201,9 @@ describe("RyotQLDocument", () => {
 	});
 
 	it("exports positive cursor pagination and non-empty output field-key schemas", () => {
-		expect(Schema.decodeUnknownSync(Pagination)({ after: "cursor", limit: 20 })).toEqual({
-			after: "cursor",
+		expect(Schema.decodeUnknownSync(Pagination)({ limit: 20, after: "cursor" })).toEqual({
 			limit: 20,
+			after: "cursor",
 		});
 		expect(Schema.decodeUnknownSync(OutputFieldKey)("value")).toBe("value");
 		for (const value of [""]) {
@@ -213,14 +213,14 @@ describe("RyotQLDocument", () => {
 
 	it("rejects malformed scalar expressions and legacy keys", () => {
 		for (const expr of [
-			{ type: "concat", values: [] },
+			{ values: [], type: "concat" },
 			{
-				type: "dateBucket",
 				bucket: "year",
+				type: "dateBucket",
 				timeZone: "America/New_York",
-				expr: { type: "column", tableAlias: "entity", field: "createdAt" },
+				expr: { type: "column", field: "createdAt", tableAlias: "entity" },
 			},
-			{ type: "transform", expression: { type: "literal", value: "value" }, name: "titleCase" },
+			{ type: "transform", name: "titleCase", expression: { value: "value", type: "literal" } },
 		]) {
 			expect(() => Schema.decodeUnknownSync(RyotQLDocument)(makeDocument(expr))).toThrow();
 		}
@@ -237,7 +237,7 @@ describe("RyotQLDocument", () => {
 						orderBy: [{ key: "count", direction: "desc" }],
 						measures: [{ key: "count", aggregation: { function: "count" } }],
 						groupBy: [
-							{ key: "difficulty", expr: { type: "column", tableAlias: "lesson", field: "name" } },
+							{ key: "difficulty", expr: { field: "name", type: "column", tableAlias: "lesson" } },
 						],
 					},
 				},
@@ -250,12 +250,12 @@ describe("RyotQLDocument", () => {
 					pageInfo: { limit: 10, hasMore: false },
 					items: [
 						{
-							active: true,
 							count: 2,
-							createdAt: "2026-01-01T00:00:00.000Z",
+							active: true,
+							optional: null,
 							difficulty: "advanced",
 							metadata: { source: "catalog" },
-							optional: null,
+							createdAt: "2026-01-01T00:00:00.000Z",
 						},
 					],
 				},
@@ -267,7 +267,7 @@ describe("RyotQLDocument", () => {
 	});
 
 	it("rejects invalid aggregate output shapes", () => {
-		const expr = { type: "column", tableAlias: "lesson", field: "id" } as const;
+		const expr = { field: "id", type: "column", tableAlias: "lesson" } as const;
 		const output = {
 			type: "aggregate",
 			measures: [{ key: "count", aggregation: { function: "count" } }],
@@ -277,12 +277,12 @@ describe("RyotQLDocument", () => {
 			{ ...output, limit: 0 },
 			{ ...output, orderBy: [] },
 			{ ...output, unknown: true },
-			{ ...output, groupBy: [{ tableAlias: "lesson", type: "wildcard" }] },
-			{ ...output, measures: [{ key: "count", aggregation: { function: "count", expr } }] },
+			{ ...output, groupBy: [{ type: "wildcard", tableAlias: "lesson" }] },
+			{ ...output, measures: [{ key: "count", aggregation: { expr, function: "count" } }] },
 		]) {
 			expect(() =>
 				Schema.decodeUnknownSync(RyotQLDocument)({
-					queries: { lessons: { from: { table: "entity", alias: "lesson" }, output: invalid } },
+					queries: { lessons: { output: invalid, from: { table: "entity", alias: "lesson" } } },
 				}),
 			).toThrow();
 		}
@@ -298,7 +298,7 @@ describe("RyotQLDocument", () => {
 						measure: { aggregation: { function: "count" } },
 						time: {
 							bucket: "day",
-							expr: { type: "column", tableAlias: "completion", field: "occurredAt" },
+							expr: { type: "column", field: "occurredAt", tableAlias: "completion" },
 							range: { endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
 						},
 					},
@@ -331,37 +331,37 @@ describe("RyotQLDocument", () => {
 			{
 				time,
 				type: "timeSeries",
-				measure: { aggregation: { function: "countDistinct", expr: time.expr } },
+				measure: { aggregation: { expr: time.expr, function: "countDistinct" } },
 			},
 			{
 				type: "timeSeries",
 				time: { ...time, bucket: "year" },
 				measure: { aggregation: { function: "count" } },
 			},
-			{ time, type: "timeSeries", measure: { aggregation: { function: "count" } }, limit: 10 },
+			{ time, limit: 10, type: "timeSeries", measure: { aggregation: { function: "count" } } },
 		]) {
 			expect(() =>
-				Schema.decodeUnknownSync(RyotQLDocument)({ queries: { events: { from: event, output } } }),
+				Schema.decodeUnknownSync(RyotQLDocument)({ queries: { events: { output, from: event } } }),
 			).toThrow();
 		}
 	});
 
 	it("rejects malformed JSON paths, cast targets, and nested unknown keys", () => {
-		const expression = { type: "column", tableAlias: "entity", field: "properties" };
+		const expression = { type: "column", field: "properties", tableAlias: "entity" };
 
 		expect(() =>
 			Schema.decodeUnknownSync(RyotQLDocument)(
-				makeDocument({ type: "jsonPath", path: [], expr: expression }),
+				makeDocument({ path: [], type: "jsonPath", expr: expression }),
 			),
 		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(RyotQLDocument)(
-				makeDocument({ type: "cast", target: "integer", expr: expression }),
+				makeDocument({ type: "cast", expr: expression, target: "integer" }),
 			),
 		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(RyotQLDocument)(
-				makeDocument({ type: "cast", target: "json", expr: expression, unsafe: true }),
+				makeDocument({ type: "cast", unsafe: true, target: "json", expr: expression }),
 			),
 		).toThrow();
 		expect(() =>
@@ -370,7 +370,7 @@ describe("RyotQLDocument", () => {
 			),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(RyotQLDocument)(makeDocument({ type: "literal", value: 1n })),
+			Schema.decodeUnknownSync(RyotQLDocument)(makeDocument({ value: 1n, type: "literal" })),
 		).toThrow();
 	});
 
@@ -380,7 +380,7 @@ describe("RyotQLDocument", () => {
 
 		for (const value of [new Date(0), Array(1), { [Symbol("value")]: true }, cyclic]) {
 			expect(() =>
-				Schema.decodeUnknownSync(RyotQLDocument)(makeDocument({ type: "literal", value })),
+				Schema.decodeUnknownSync(RyotQLDocument)(makeDocument({ value, type: "literal" })),
 			).toThrow();
 		}
 	});
@@ -401,14 +401,14 @@ describe("RyotQLDocument", () => {
 								orderBy: [
 									{
 										direction: "asc",
-										expr: { type: "column", tableAlias: "courseModule", field: "id" },
+										expr: { field: "id", type: "column", tableAlias: "courseModule" },
 									},
 								],
 								where: {
 									operator: "eq",
 									type: "comparison",
-									right: { type: "column", tableAlias: "collection", field: "id" },
-									left: { type: "column", tableAlias: "courseModule", field: "sourceEntityId" },
+									right: { field: "id", type: "column", tableAlias: "collection" },
+									left: { type: "column", field: "sourceEntityId", tableAlias: "courseModule" },
 								},
 							},
 						],
@@ -426,11 +426,11 @@ describe("RyotQLDocument", () => {
 					items: [
 						{
 							active: false,
-							createdAt: "2026-01-01T00:00:00.000Z",
 							id: "course-1",
-							metadata: { source: "catalog" },
-							modules: { items: [], pageInfo: { limit: 10, hasMore: false } },
 							optional: null,
+							metadata: { source: "catalog" },
+							createdAt: "2026-01-01T00:00:00.000Z",
+							modules: { items: [], pageInfo: { limit: 10, hasMore: false } },
 						},
 					],
 				},
@@ -454,8 +454,8 @@ describe("RyotQLDocument", () => {
 			limit: 1,
 			fields: [],
 			key: "children",
-			from: { table: "entity", alias: "child" },
-			orderBy: [{ direction: "asc", expr: { type: "column", tableAlias: "child", field: "id" } }],
+			from: { alias: "child", table: "entity" },
+			orderBy: [{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "child" } }],
 		} as const;
 		for (const invalid of [
 			{ ...nested, joins: [] },

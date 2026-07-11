@@ -120,8 +120,8 @@ export const OAuthCallbackQuery = strictStruct({
 });
 export type OAuthCallbackQuery = typeof OAuthCallbackQuery.Type;
 
-const OAuthCredential = strictStruct({ kind: Schema.Literal("oauth"), clientId: Schema.String });
-const ApiKeyCredential = strictStruct({ kind: Schema.Literal("api-key"), keyId: Schema.String });
+const OAuthCredential = strictStruct({ clientId: Schema.String, kind: Schema.Literal("oauth") });
+const ApiKeyCredential = strictStruct({ keyId: Schema.String, kind: Schema.Literal("api-key") });
 
 export const AuthorizationContext = strictStruct({
 	userId: Schema.String,

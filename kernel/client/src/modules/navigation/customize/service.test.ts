@@ -34,15 +34,15 @@ const savedView: ContractSuccess<"savedViews", "update"> = {
 	slug: "all",
 	icon: "list",
 	sortOrder: 0,
+	settings: {},
 	pluginSlug: null,
 	isBuiltin: false,
 	isDisabled: false,
-	settings: {},
 	dataSources: null,
-	renderer: { kind: "kernel", name: "results-table" },
 	id: SavedViewId.make("view-1"),
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
+	renderer: { kind: "kernel", name: "results-table" },
 };
 
 const installation: ContractSuccess<"definitions", "updatePluginState"> = {
@@ -94,7 +94,7 @@ const plan: CustomizePlan = {
 	],
 	updates: [
 		{ viewSlug: "shows", payload: { icon: "list", name: "Shows", isDisabled: true } },
-		{ viewSlug: "all", payload: { icon: "list", name: "All", isDisabled: false } },
+		{ viewSlug: "all", payload: { name: "All", icon: "list", isDisabled: false } },
 	],
 };
 
@@ -115,7 +115,7 @@ describe("customize sidebar service", () => {
 				{
 					kind: "update",
 					params: { viewSlug: "all" },
-					payload: { icon: "list", name: "All", isDisabled: false },
+					payload: { name: "All", icon: "list", isDisabled: false },
 				},
 				{ kind: "reorder", payload: { viewSlugs: ["all", "recent"] } },
 				{

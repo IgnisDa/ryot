@@ -135,8 +135,8 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			const resolved = relationshipSchema(mediaPluginId, target.relationshipSchemaSlug);
 			return {
 				lot: target.lot,
-				relationshipSchemaPluginId: resolved.pluginId,
 				relationshipSchemaSlug: resolved.slug,
+				relationshipSchemaPluginId: resolved.pluginId,
 			};
 		},
 	);
@@ -151,14 +151,14 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		mediaPluginId,
 	);
 	const resolvedPersonRelationshipTargets = resolveRelationshipMigrationTargets({
-		pluginId: mediaPluginId,
 		resolution,
+		pluginId: mediaPluginId,
 		sourceEntitySchemaSlug: "person",
 		lotToEntitySchemaSlug: metadataEntitySchemaSlugByLot,
 	});
 	const resolvedCompanyRelationshipTargets = resolveRelationshipMigrationTargets({
-		pluginId: mediaPluginId,
 		resolution,
+		pluginId: mediaPluginId,
 		sourceEntitySchemaSlug: "company",
 		lotToEntitySchemaSlug: metadataEntitySchemaSlugByLot,
 	});
@@ -169,8 +169,8 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		const resolved = relationshipSchema(mediaPluginId, slug);
 		return {
 			lot,
-			relationshipSchemaPluginId: resolved.pluginId,
 			relationshipSchemaSlug: resolved.slug,
+			relationshipSchemaPluginId: resolved.pluginId,
 		};
 	});
 	const collectionEntitySchema = entitySchema(null, "collection");
@@ -247,7 +247,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		installationId: requireInstallation(resolution, userId, mediaPluginId),
 	}));
 	const mediaInstallationIdsByUserId = new Map(
-		mediaInstallations.map(({ installationId, userId }) => [userId, installationId]),
+		mediaInstallations.map(({ userId, installationId }) => [userId, installationId]),
 	);
 	const integrationProgressScript = requireMapped(
 		resolution.scripts,
@@ -289,7 +289,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		? Effect.die(
 				new Error(
 					`Unsupported legacy person sources: ${unsupportedPersonSources
-						.map(({ entity_kind, source }) => `${entity_kind}|${source}`)
+						.map(({ source, entity_kind }) => `${entity_kind}|${source}`)
 						.join(", ")}`,
 				),
 			)
@@ -512,8 +512,8 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		}
 		yield* parseAppSchemaProperties({
 			properties: row.settings,
-			kind: `${row.provider} legacy integration`,
 			propertiesSchema: provider.settingsSchema,
+			kind: `${row.provider} legacy integration`,
 		}).pipe(
 			Effect.mapError(
 				(error) =>
@@ -534,13 +534,13 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		),
 	);
 	yield* migrateIntegrationProgressCache({
+		scriptId: integrationProgressScript.id,
 		cacheRows: legacyIntegrationProgressCache,
 		installationIdsByUserId: mediaInstallationIdsByUserId,
-		scriptId: integrationProgressScript.id,
 	});
 	yield* migrateYoutubeMusicCache({
-		installationIds: mediaInstallations.map(({ installationId }) => installationId),
 		scriptId: youtubeMusicScript.id,
+		installationIds: mediaInstallations.map(({ installationId }) => installationId),
 	});
 	yield* withReservedConnection((connection) =>
 		connection.executeRaw(buildNotificationPlatformMigrationSql(), []),

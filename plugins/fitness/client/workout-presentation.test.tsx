@@ -77,7 +77,7 @@ describe("workout presentation", () => {
 
 	it("omits invalid dates, durations, and empty summaries in compact layout", async () => {
 		const page = renderWorkout(
-			{ ...workout, startedAt: "invalid", endedAt: null, exercises: [] },
+			{ ...workout, endedAt: null, exercises: [], startedAt: "invalid" },
 			true,
 		);
 		await waitFor(() => expect(page.container?.textContent).toContain("Push day"));

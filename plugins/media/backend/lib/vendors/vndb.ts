@@ -42,8 +42,8 @@ export const vndbPost = (
 ): Effect.Effect<unknown, unknown> =>
 	host
 		.httpCall("POST", `${BASE_URL}/${path}`, {
-			headers: { Accept: "application/json", "Content-Type": "application/json" },
 			body: JSON.stringify(body),
+			headers: { Accept: "application/json", "Content-Type": "application/json" },
 		})
 		.pipe(
 			Effect.mapError((error) => new Error(error.message || failureMessage)),

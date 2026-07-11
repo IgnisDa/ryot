@@ -81,7 +81,7 @@ function FitnessFacts(props: { readonly data: FitnessPresentationData }) {
 				{schemaLabel(props.data.schemaSlug)}
 			</span>
 			<span className="flex min-w-0 items-baseline gap-1.5">
-				<PluginLink to={{ kind: "entity", entityId: props.data.id }} className="min-w-0">
+				<PluginLink className="min-w-0" to={{ kind: "entity", entityId: props.data.id }}>
 					<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">
 						{props.data.name}
 					</span>
@@ -128,7 +128,7 @@ function FitnessPresentation(props: {
 					to={{ kind: "entity", entityId: props.data.id }}
 					className={props.layout === "grid" ? "block min-w-0" : "block shrink-0"}
 				>
-					<FitnessArtwork compact={props.compact} layout={props.layout} data={props.data} />
+					<FitnessArtwork data={props.data} layout={props.layout} compact={props.compact} />
 				</PluginLink>
 				<div className="min-w-0 flex-1">
 					<FitnessFacts data={props.data} />
@@ -140,12 +140,12 @@ function FitnessPresentation(props: {
 
 function FitnessCard({ data }: EntityPresentationComponentProps<FitnessPresentationViewData>) {
 	const { compact } = useRyotViewport();
-	return <FitnessPresentation compact={compact} layout="grid" data={data} />;
+	return <FitnessPresentation data={data} layout="grid" compact={compact} />;
 }
 
 function FitnessRow({ data }: EntityPresentationComponentProps<FitnessPresentationViewData>) {
 	const { compact } = useRyotViewport();
-	return <FitnessPresentation compact={compact} layout="list" data={data} />;
+	return <FitnessPresentation data={data} layout="list" compact={compact} />;
 }
 
 export const fitnessCardPresentation = defineEntityPresentation({

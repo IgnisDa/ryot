@@ -46,7 +46,7 @@ const seasonsResponse = {
 				...showSummaryRow,
 				seasons: rows([
 					showSeasonRow,
-					{ ...showSeasonRow, id: "season-2", name: "Season 2", seasonNumber: 2 },
+					{ ...showSeasonRow, id: "season-2", seasonNumber: 2, name: "Season 2" },
 				]),
 			},
 		]),
@@ -72,14 +72,14 @@ const recordingAdapter = () => {
 	}> = [];
 	const adapter: Partial<RyotClientAdapter> = {
 		query: (document) =>
-			new Promise((resolve, reject) => requests.push({ document, resolve, reject })),
+			new Promise((resolve, reject) => requests.push({ reject, resolve, document })),
 		watchEntities: (interest, onUpdate) => {
 			hints.push(onUpdate);
 			interests.push(interest);
 			return { update: (next) => interests.push(next), dispose: () => disposed.push(interest) };
 		},
 	};
-	return { hints, adapter, requests, interests, disposed };
+	return { hints, adapter, requests, disposed, interests };
 };
 
 function queryBehavior<Input, Data>(
@@ -103,15 +103,15 @@ function queryBehavior<Input, Data>(
 		}
 		const view = mountRyotClient(recording.adapter, <Probe />);
 		await flushRyotClient();
-		expect(recording.interests[0]).toEqual({ foreground: [...foreground].sort(), visible: [] });
+		expect(recording.interests[0]).toEqual({ visible: [], foreground: [...foreground].sort() });
 		await act(async () => {
 			recording.requests[0]?.resolve(response);
 			await Promise.resolve();
 		});
 		await waitFor(() => expect(view.container.textContent).toContain("ready"));
 		expect(recording.interests.at(-1)).toEqual({
-			foreground: [...foreground].sort(),
 			visible: [...visible].sort(),
+			foreground: [...foreground].sort(),
 		});
 		act(() => recording.hints[0]?.({ entityId: "show-1", reason: "populated" }));
 		await view.advance(ENTITY_REFRESH_DEBOUNCE_MS);
@@ -125,8 +125,8 @@ function queryBehavior<Input, Data>(
 		);
 		expect(view.container.textContent).toContain("ready");
 		expect(recording.interests.at(-1)).toEqual({
-			foreground: [...foreground].sort(),
 			visible: [...visible].sort(),
+			foreground: [...foreground].sort(),
 		});
 		await act(() => fireEvent.click(getByRole(view.container, "button", { name: "Try again" })));
 		await flushRyotClient();
@@ -146,7 +146,7 @@ describe("show query entity interest", () => {
 		"summary",
 		showSummaryQuery,
 		{ entityId: "show-1" },
-		{ data: { requested: rows([{ schemaSlug: "show" }]), show: rows([showSummaryRow]) } },
+		{ data: { show: rows([showSummaryRow]), requested: rows([{ schemaSlug: "show" }]) } },
 		["show-1"],
 		["collection-1"],
 	);
@@ -227,7 +227,7 @@ describe("show query entity interest", () => {
 		await flushRyotClient();
 		expect(view.container.textContent).not.toContain(showEpisodeRow.name);
 		expect(view.container.textContent).toContain("Loading season");
-		expect(recording.interests.at(-1)).toEqual({ foreground: ["season-2", "show-1"], visible: [] });
+		expect(recording.interests.at(-1)).toEqual({ visible: [], foreground: ["season-2", "show-1"] });
 		expect(JSON.stringify(recording.requests[2]?.document)).toContain("season-2");
 		await act(async () => {
 			recording.requests[2]?.resolve({
@@ -245,10 +245,10 @@ describe("show query entity interest", () => {
 		});
 		await waitFor(() => expect(view.container.textContent).toContain("Aftermath"));
 		expect(recording.interests.at(-1)).toEqual({
-			foreground: ["season-2", "show-1"],
 			visible: ["episode-2"],
+			foreground: ["season-2", "show-1"],
 		});
-		expect(recording.disposed).toContainEqual({ foreground: ["season-1", "show-1"], visible: [] });
+		expect(recording.disposed).toContainEqual({ visible: [], foreground: ["season-1", "show-1"] });
 		await act(() =>
 			fireEvent.click(getByRole(view.container, "button", { name: "Refresh seasons" })),
 		);

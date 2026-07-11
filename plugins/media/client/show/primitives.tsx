@@ -51,7 +51,7 @@ export function ShowFactDivider() {
 export function ShowProgressBar(props: { readonly percent: number }) {
 	return (
 		<div className="h-1 max-w-md overflow-hidden rounded-pill bg-surface-2">
-			<div className="h-full rounded-pill bg-success" style={{ width: `${props.percent}%` }} />
+			<div style={{ width: `${props.percent}%` }} className="h-full rounded-pill bg-success" />
 		</div>
 	);
 }
@@ -72,7 +72,7 @@ export function ShowRailRow(props: {
 			)}
 		>
 			<div className="flex items-center gap-3">
-				{props.compact && <AppIcon name={props.icon} size={18} className="text-text-subtle" />}
+				{props.compact && <AppIcon size={18} name={props.icon} className="text-text-subtle" />}
 				<div className="min-w-0 flex-1">
 					<p className="font-ui font-medium text-[14px] text-text">{props.title}</p>
 					{props.detail === undefined ? null : (

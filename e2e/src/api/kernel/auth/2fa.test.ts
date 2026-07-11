@@ -22,7 +22,7 @@ describe("Two-factor sign-in flow", () => {
 			const { token, email, password, sessionCookie } = yield* createTestUser();
 
 			const { backupCodes, token: twoFactorToken } = yield* Effect.promise(() =>
-				enableTwoFactorForSession({ baseUrl, token, password, sessionCookie }),
+				enableTwoFactorForSession({ token, baseUrl, password, sessionCookie }),
 			);
 
 			const [backupCode] = requireNonEmptyArray(
@@ -77,7 +77,7 @@ describe("Two-factor sign-in flow", () => {
 			const client = getApiClient();
 			const { token, email, password, sessionCookie } = yield* createTestUser();
 			const { totpCodes } = yield* Effect.promise(() =>
-				enableTwoFactorForSession({ baseUrl, token, password, sessionCookie }),
+				enableTwoFactorForSession({ token, baseUrl, password, sessionCookie }),
 			);
 
 			const signIn = yield* signInWithPassword(email, password, baseUrl);

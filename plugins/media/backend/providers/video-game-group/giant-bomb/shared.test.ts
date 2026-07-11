@@ -25,12 +25,12 @@ describe("video-game-group.giant-bomb sandbox script", () => {
 			httpSuccess({
 				error: "OK",
 				number_of_total_results: 1,
-				results: [{ guid: "3025-1", name: "Zelda", image: { original_url: "https://img/f.jpg" } }],
+				results: [{ name: "Zelda", guid: "3025-1", image: { original_url: "https://img/f.jpg" } }],
 			}),
 		);
 
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "zelda", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "zelda" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{ title: "Zelda", externalId: "3025-1", imageUrl: "https://img/f.jpg" },
@@ -72,14 +72,14 @@ describe("video-game-group.giant-bomb sandbox script", () => {
 								{
 									name: "Zelda I",
 									externalId: "3030-1",
-									providerSlug: "video-game.giant-bomb",
 									relationshipProperties: { order: 1 },
+									providerSlug: "video-game.giant-bomb",
 								},
 								{
 									name: "Loading...",
 									externalId: "3030-2",
-									providerSlug: "video-game.giant-bomb",
 									relationshipProperties: { order: 2 },
+									providerSlug: "video-game.giant-bomb",
 								},
 							],
 						},
@@ -88,7 +88,7 @@ describe("video-game-group.giant-bomb sandbox script", () => {
 						parts: 2,
 						description: "Series.\n\n<p>d</p>",
 						sourceUrl: "https://www.giantbomb.com/zelda/",
-						images: [{ type: "remote", url: "https://img/f.jpg", purpose: "cover" }],
+						images: [{ type: "remote", purpose: "cover", url: "https://img/f.jpg" }],
 					});
 				}),
 			),

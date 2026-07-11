@@ -13,7 +13,7 @@ const IMAGE_CLASS_NAME = "h-16 w-11 shrink-0 overflow-hidden rounded-md object-c
 function InLibraryBadge() {
 	return (
 		<div className="flex items-center gap-1.5">
-			<AppIcon className="text-text-muted" name="check" size={14} />
+			<AppIcon size={14} name="check" className="text-text-muted" />
 			<span className="text-xs text-text-muted">In library</span>
 		</div>
 	);
@@ -66,7 +66,7 @@ function ResultAction(props: {
 				aria-label={`Add ${props.title}`}
 				className="flex h-7 shrink-0 items-center gap-1 rounded-pill bg-accent-soft px-2.5 md:rounded-md md:border md:border-border-strong md:bg-transparent md:px-3"
 			>
-				<AppIcon className="text-accent-text md:hidden" name="plus" size={13} />
+				<AppIcon size={13} name="plus" className="text-accent-text md:hidden" />
 				<span className="text-xs font-medium text-accent-text md:text-text">Add</span>
 			</button>
 		)),
@@ -85,9 +85,9 @@ export function ProviderSearchResultRow(props: {
 		<div className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5 md:bg-transparent">
 			<EntityArtWell
 				state="absent"
+				url={display.imageUrl}
 				monogram={display.title}
 				className={IMAGE_CLASS_NAME}
-				url={display.imageUrl}
 			/>
 			<div className="grid min-w-0 flex-1 gap-0.5">
 				<p className="line-clamp-2 text-[15px] font-medium text-text">{display.title}</p>

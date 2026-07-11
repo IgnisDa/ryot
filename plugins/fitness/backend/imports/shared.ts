@@ -22,17 +22,17 @@ export const writeImportChunks = (
 			items: [],
 			failures: failures.slice(index, index + CHUNK_SIZE),
 		} satisfies GenericImportChunk;
-		chunks.push({ name: `failures-${index / CHUNK_SIZE}.json`, contents: JSON.stringify(chunk) });
+		chunks.push({ contents: JSON.stringify(chunk), name: `failures-${index / CHUNK_SIZE}.json` });
 	}
 	for (let index = 0; index < items.length; index += CHUNK_SIZE) {
 		const chunk = {
 			failures: [],
 			items: items.slice(index, index + CHUNK_SIZE),
 		} satisfies GenericImportChunk;
-		chunks.push({ name: `writes-${index / CHUNK_SIZE}.json`, contents: JSON.stringify(chunk) });
+		chunks.push({ contents: JSON.stringify(chunk), name: `writes-${index / CHUNK_SIZE}.json` });
 	}
 	if (chunks.length === 0) {
-		chunks.push({ name: "writes-0.json", contents: JSON.stringify({ failures: [], items: [] }) });
+		chunks.push({ name: "writes-0.json", contents: JSON.stringify({ items: [], failures: [] }) });
 	}
 	return writeScratchChunks(chunks).pipe(
 		Effect.map(({ chunkFiles }) => ({

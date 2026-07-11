@@ -150,8 +150,8 @@ const makePluginCatalogEventsService = (
 								return yield* Effect.never;
 							}
 							const unauthorized = yield* Effect.tryPromise({
-								try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
 								catch: (cause) => new CatalogStreamClosed({ cause }),
+								try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
 							});
 							if (!unauthorized) {
 								return yield* new CatalogStreamClosed({ cause: "stream ended" });

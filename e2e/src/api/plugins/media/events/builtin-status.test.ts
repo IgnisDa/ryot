@@ -56,13 +56,13 @@ describe("Events built-in status schemas", () => {
 						payload: [
 							{
 								entityId,
-								eventSchemaSlug: progressEventSchemaSlug,
 								properties: { progressPercent: 25.555 },
+								eventSchemaSlug: progressEventSchemaSlug,
 							},
 							{
 								entityId,
-								eventSchemaSlug: progressEventSchemaSlug,
 								properties: { progressPercent: 50.444 },
+								eventSchemaSlug: progressEventSchemaSlug,
 							},
 						],
 					}),
@@ -129,7 +129,7 @@ describe("Events built-in status schemas", () => {
 						{
 							entityId,
 							eventSchemaSlug: completeEventSchemaSlug,
-							properties: { completionMode: "just_now", timeSpent: 120 },
+							properties: { timeSpent: 120, completionMode: "just_now" },
 						},
 					],
 				}),
@@ -140,7 +140,7 @@ describe("Events built-in status schemas", () => {
 			const events = yield* waitForEventCount(apiClient, entityId, 1);
 			expect(events).toHaveLength(1);
 			expect(events[0]?.eventSchemaSlug).toBe("complete");
-			expect(events[0]?.properties).toMatchObject({ completionMode: "just_now", timeSpent: 120 });
+			expect(events[0]?.properties).toMatchObject({ timeSpent: 120, completionMode: "just_now" });
 		}),
 	);
 
@@ -178,7 +178,7 @@ describe("Events built-in status schemas", () => {
 						{
 							entityId,
 							eventSchemaSlug: completeEventSchemaSlug,
-							properties: { completionMode: "just_now", timeSpent: -10 },
+							properties: { timeSpent: -10, completionMode: "just_now" },
 						},
 					],
 				}),
@@ -205,7 +205,7 @@ describe("Events built-in status schemas", () => {
 						{
 							entityId,
 							eventSchemaSlug: reviewEventSchemaSlug,
-							properties: { text: "Even better", rating: 5 },
+							properties: { rating: 5, text: "Even better" },
 						},
 					],
 				}),
@@ -217,7 +217,7 @@ describe("Events built-in status schemas", () => {
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["review", "review"]);
 			expect(events.map((event) => event.properties)).toEqual([
-				{ text: "Even better", rating: 5 },
+				{ rating: 5, text: "Even better" },
 				{ rating: 4 },
 			]);
 		}),
@@ -235,7 +235,7 @@ describe("Events built-in status schemas", () => {
 						{
 							entityId,
 							eventSchemaSlug: droppedEventSchemaSlug,
-							properties: { progressPercent: 40, timeSpent: 90 },
+							properties: { timeSpent: 90, progressPercent: 40 },
 						},
 					],
 				}),
@@ -245,7 +245,7 @@ describe("Events built-in status schemas", () => {
 
 			const events = yield* waitForEventCount(apiClient, entityId, 1);
 			expect(events[0]?.eventSchemaSlug).toBe("dropped");
-			expect(events[0]?.properties).toMatchObject({ progressPercent: 40, timeSpent: 90 });
+			expect(events[0]?.properties).toMatchObject({ timeSpent: 90, progressPercent: 40 });
 		}),
 	);
 
@@ -261,7 +261,7 @@ describe("Events built-in status schemas", () => {
 						{
 							entityId,
 							eventSchemaSlug: onHoldEventSchemaSlug,
-							properties: { progressPercent: 60, timeSpent: 45 },
+							properties: { timeSpent: 45, progressPercent: 60 },
 						},
 					],
 				}),
@@ -271,7 +271,7 @@ describe("Events built-in status schemas", () => {
 
 			const events = yield* waitForEventCount(apiClient, entityId, 1);
 			expect(events[0]?.eventSchemaSlug).toBe("on_hold");
-			expect(events[0]?.properties).toMatchObject({ progressPercent: 60, timeSpent: 45 });
+			expect(events[0]?.properties).toMatchObject({ timeSpent: 45, progressPercent: 60 });
 		}),
 	);
 
@@ -287,7 +287,7 @@ describe("Events built-in status schemas", () => {
 						{
 							entityId,
 							eventSchemaSlug: droppedEventSchemaSlug,
-							properties: { progressPercent: 50, timeSpent: -5 },
+							properties: { timeSpent: -5, progressPercent: 50 },
 						},
 					],
 				}),
@@ -379,11 +379,11 @@ describe("Events built-in status schemas", () => {
 			const providerId = schema.providers[0]?.providerId;
 			assertPresent(providerId, "Expected a provider for the show schema");
 			const entity = yield* seedMediaEntity({
+				providerId,
 				userId: null,
 				entitySchemaSlug: schema.id,
 				name: `Show Events ${crypto.randomUUID()}`,
 				externalId: `show-events-${crypto.randomUUID()}`,
-				providerId,
 				properties: {
 					genres: [],
 					images: [],

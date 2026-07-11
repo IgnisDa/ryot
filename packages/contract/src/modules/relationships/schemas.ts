@@ -19,8 +19,8 @@ const RelationshipBadRequestReason = Schema.Union([
 const RelationshipNotFoundReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("relationship-not-found") }),
 	Schema.Struct({
-		entityIds: Schema.NonEmptyArray(EntityId),
 		code: Schema.Literal("entity-not-found"),
+		entityIds: Schema.NonEmptyArray(EntityId),
 	}),
 	Schema.Struct({
 		relationshipSchemaSlug: RelationshipSchemaSlug,
@@ -53,8 +53,8 @@ export type RelationshipScope = typeof RelationshipScope.Type;
 export const CreateRelationshipBody = Schema.Struct({
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,
-	relationshipSchemaSlug: RelationshipSchemaSlug,
 	properties: Schema.optional(Schema.Unknown),
+	relationshipSchemaSlug: RelationshipSchemaSlug,
 });
 
 export type CreateRelationshipBody = typeof CreateRelationshipBody.Type;

@@ -9,7 +9,7 @@ import { mediaPlugin } from "./plugin";
 const uploadToken = "upload-1";
 
 it("builds a typed media request accepted by the open import envelope", () => {
-	const body = createMediaImportRunBody({ source: "igdb", uploadToken, collection: "Favorites" });
+	const body = createMediaImportRunBody({ uploadToken, source: "igdb", collection: "Favorites" });
 
 	expect(Schema.decodeUnknownSync(CreateImportRunBody)(body)).toEqual(body);
 	expect(body.collection).toBe("Favorites");
@@ -17,13 +17,13 @@ it("builds a typed media request accepted by the open import envelope", () => {
 
 it("keeps media-specific request validation in the media plugin", () => {
 	expect(() =>
-		Schema.decodeUnknownSync(MediaCreateImportRunBody)({ source: "igdb", uploadToken }),
+		Schema.decodeUnknownSync(MediaCreateImportRunBody)({ uploadToken, source: "igdb" }),
 	).toThrow();
 });
 
 it.each([
-	["API key", "plex", "apiKey", { source: "plex", apiUrl: "https://plex.example", apiKey: "" }],
-	["Trakt username", "trakt", "username", { source: "trakt", mode: "user", username: "" }],
+	["API key", "plex", "apiKey", { apiKey: "", source: "plex", apiUrl: "https://plex.example" }],
+	["Trakt username", "trakt", "username", { mode: "user", username: "", source: "trakt" }],
 	[
 		"Trakt collection",
 		"trakt",
@@ -35,12 +35,12 @@ it.each([
 			url: "https://trakt.tv/users/alice/lists/favorites",
 		},
 	],
-	["IGDB collection", "igdb", "collection", { source: "igdb", uploadToken, collection: "" }],
+	["IGDB collection", "igdb", "collection", { uploadToken, source: "igdb", collection: "" }],
 	[
 		"Jellyfin username",
 		"jellyfin",
 		"username",
-		{ source: "jellyfin", apiUrl: "https://jellyfin.example", username: "" },
+		{ username: "", source: "jellyfin", apiUrl: "https://jellyfin.example" },
 	],
 ])(
 	"rejects an empty required %s in both manifest metadata and the plugin guard",
@@ -75,7 +75,7 @@ it.each([
 		"Netflix profile name",
 		"netflix",
 		"profileName",
-		{ source: "netflix", uploadToken, profileName: null },
+		{ uploadToken, source: "netflix", profileName: null },
 	],
 	[
 		"Plex insecure-connections flag",
@@ -93,11 +93,11 @@ it.each([
 		"jellyfin",
 		"password",
 		{
-			source: "jellyfin",
-			apiUrl: "https://jellyfin.example",
-			username: "alice",
 			password: null,
+			username: "alice",
+			source: "jellyfin",
 			allowInsecureConnections: null,
+			apiUrl: "https://jellyfin.example",
 		},
 	],
 ])("accepts a null optional %s in both the manifest and plugin guard", (_, slug, field, body) => {
@@ -130,7 +130,7 @@ it("accepts explicit Trakt export, user, and list requests", () => {
 
 it.each([
 	["legacy user request", { source: "trakt", username: "alice" }],
-	["user request without a username", { source: "trakt", mode: "user" }],
+	["user request without a username", { mode: "user", source: "trakt" }],
 	[
 		"mixed user and list request",
 		{
@@ -141,14 +141,14 @@ it.each([
 			url: "https://trakt.tv/users/alice/lists/favorites",
 		},
 	],
-	["export request without a file", { source: "trakt", mode: "export" }],
+	["export request without a file", { mode: "export", source: "trakt" }],
 	[
 		"mixed export and user request",
-		{ source: "trakt", mode: "export", exportUploadToken: uploadToken, username: "alice" },
+		{ mode: "export", source: "trakt", username: "alice", exportUploadToken: uploadToken },
 	],
 	[
 		"list request without a collection",
-		{ source: "trakt", mode: "list", url: "https://trakt.tv/users/alice/lists/favorites" },
+		{ mode: "list", source: "trakt", url: "https://trakt.tv/users/alice/lists/favorites" },
 	],
 	[
 		"mixed list and user request",
@@ -162,7 +162,7 @@ it.each([
 	],
 	[
 		"list request with an invalid URL",
-		{ source: "trakt", mode: "list", url: "not-a-url", collection: "Favorites" },
+		{ mode: "list", source: "trakt", url: "not-a-url", collection: "Favorites" },
 	],
 ])("rejects $0", (_, body) => {
 	expect(() => Schema.decodeUnknownSync(MediaCreateImportRunBody)(body)).toThrow();
@@ -190,34 +190,34 @@ it("accepts either MyAnimeList export and rejects an empty pair", () => {
 
 it("keeps every manifest source aligned with a strict plugin-owned guard", () => {
 	const validBodies = {
-		imdb: { source: "imdb", uploadToken },
-		igdb: { source: "igdb", uploadToken, collection: "Favorites" },
+		imdb: { uploadToken, source: "imdb" },
+		anilist: { uploadToken, source: "anilist" },
+		grouvee: { uploadToken, source: "grouvee" },
+		watcharr: { uploadToken, source: "watcharr" },
+		hardcover: { uploadToken, source: "hardcover" },
+		goodreads: { uploadToken, source: "goodreads" },
+		storygraph: { uploadToken, source: "storygraph" },
+		trakt: { mode: "user", source: "trakt", username: "alice" },
+		igdb: { uploadToken, source: "igdb", collection: "Favorites" },
+		netflix: { uploadToken, source: "netflix", profileName: "Kids" },
+		myanimelist: { source: "myanimelist", animeUploadToken: uploadToken },
 		plex: { source: "plex", apiKey: "secret", apiUrl: "https://plex.example" },
-		trakt: { source: "trakt", mode: "user", username: "alice" },
+		jellyfin: { username: "alice", source: "jellyfin", apiUrl: "https://jellyfin.example" },
+		media_tracker: {
+			apiKey: "secret",
+			source: "media_tracker",
+			apiUrl: "https://media-tracker.example",
+		},
+		audiobookshelf: {
+			apiKey: "secret",
+			source: "audiobookshelf",
+			apiUrl: "https://audiobookshelf.example",
+		},
 		movary: {
 			source: "movary",
 			historyUploadToken: uploadToken,
 			ratingsUploadToken: uploadToken,
 			watchlistUploadToken: uploadToken,
-		},
-		anilist: { source: "anilist", uploadToken },
-		grouvee: { source: "grouvee", uploadToken },
-		jellyfin: { source: "jellyfin", apiUrl: "https://jellyfin.example", username: "alice" },
-		netflix: { source: "netflix", uploadToken, profileName: "Kids" },
-		watcharr: { source: "watcharr", uploadToken },
-		hardcover: { source: "hardcover", uploadToken },
-		goodreads: { source: "goodreads", uploadToken },
-		storygraph: { source: "storygraph", uploadToken },
-		myanimelist: { source: "myanimelist", animeUploadToken: uploadToken },
-		media_tracker: {
-			source: "media_tracker",
-			apiKey: "secret",
-			apiUrl: "https://media-tracker.example",
-		},
-		audiobookshelf: {
-			source: "audiobookshelf",
-			apiKey: "secret",
-			apiUrl: "https://audiobookshelf.example",
 		},
 	} as const;
 
@@ -253,13 +253,13 @@ it("accepts unknown JSON-compatible sources only through the generic envelope", 
 	expect(
 		Schema.decodeUnknownSync(CreateImportRunBody)({
 			source: "fixture_source",
-			options: { dryRun: true, limit: 10 },
+			options: { limit: 10, dryRun: true },
 		}),
-	).toEqual({ source: "fixture_source", options: { dryRun: true, limit: 10 } });
+	).toEqual({ source: "fixture_source", options: { limit: 10, dryRun: true } });
 	expect(() =>
 		Schema.decodeUnknownSync(CreateImportRunBody)({ source: "", value: "invalid" }),
 	).toThrow();
 	expect(() =>
-		Schema.decodeUnknownSync(CreateImportRunBody)({ source: "fixture_source", value: Number.NaN }),
+		Schema.decodeUnknownSync(CreateImportRunBody)({ value: Number.NaN, source: "fixture_source" }),
 	).toThrow();
 });

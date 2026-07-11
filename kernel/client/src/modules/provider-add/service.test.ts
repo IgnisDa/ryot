@@ -18,7 +18,7 @@ const providerId = SandboxProviderId.make("provider-1");
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 
 const pageInfo = { limit: 100, hasMore: false, nextCursor: null } as const;
-const rowsResult = (items: readonly unknown[]) => ({ type: "rows", items, pageInfo });
+const rowsResult = (items: readonly unknown[]) => ({ items, pageInfo, type: "rows" });
 const providerRow = {
 	providerId,
 	searchOptionsSchema: null,
@@ -72,7 +72,7 @@ const dataClient = (queries: unknown[]) =>
 					data:
 						queries.length === 1
 							? { providers: rowsResult([providerRow]) }
-							: { links: rowsResult([{ entityId: "entity-1", externalId: "ext-1" }]) },
+							: { links: rowsResult([{ externalId: "ext-1", entityId: "entity-1" }]) },
 				});
 			},
 		}),
@@ -96,7 +96,7 @@ describe("ProviderAddService", () => {
 			});
 
 			expect(providers.items).toEqual([providerRow]);
-			expect(links).toEqual([{ entityId: "entity-1", externalId: "ext-1" }]);
+			expect(links).toEqual([{ externalId: "ext-1", entityId: "entity-1" }]);
 			expect(queries).toHaveLength(2);
 			expect(queries[0]).toMatchObject({
 				queries: {
@@ -125,7 +125,7 @@ describe("ProviderAddService", () => {
 		return Effect.gen(function* () {
 			const service = yield* ProviderAddService;
 			yield* service.loadSearchOptions(scope, providerId);
-			yield* service.search(scope, { providerId, page: 1, pageSize: 20, query: "dune" });
+			yield* service.search(scope, { page: 1, providerId, pageSize: 20, query: "dune" });
 			yield* service.startImport(scope, { providerId, externalId: "ext-1" });
 			yield* service.pollImport(scope, "job-1");
 
@@ -133,7 +133,7 @@ describe("ProviderAddService", () => {
 				{ method: "searchOptions", request: { payload: { providerId } } },
 				{
 					method: "search",
-					request: { payload: { providerId, page: 1, pageSize: 20, query: "dune" } },
+					request: { payload: { page: 1, providerId, pageSize: 20, query: "dune" } },
 				},
 				{ method: "import", request: { payload: { providerId, externalId: "ext-1" } } },
 				{ method: "getImportResult", request: { params: { jobId: "job-1" } } },
@@ -152,7 +152,7 @@ describe("ProviderAddService", () => {
 				),
 				yield* Effect.flip(service.loadSearchOptions(scope, providerId)),
 				yield* Effect.flip(
-					service.search(scope, { providerId, page: 1, pageSize: 20, query: "dune" }),
+					service.search(scope, { page: 1, providerId, pageSize: 20, query: "dune" }),
 				),
 				yield* Effect.flip(service.startImport(scope, { providerId, externalId: "ext-1" })),
 				yield* Effect.flip(service.pollImport(scope, "job-1")),

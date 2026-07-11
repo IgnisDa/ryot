@@ -10,12 +10,12 @@ import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { toPluginLocation } from "#/modules/plugins/plugin-location";
 
 export const Route = createFileRoute("/_authenticated/$pluginSlug")({
+	shouldReload: true,
 	component: PluginRoute,
-	errorComponent: () => <PluginNotice title="Plugin page unavailable" />,
 	notFoundComponent: PluginNotFound,
 	pendingComponent: () => <PluginNotice title="Plugin loading" />,
-	shouldReload: true,
-	loader: async ({ abortController, context, location, params }) => {
+	errorComponent: () => <PluginNotice title="Plugin page unavailable" />,
+	loader: async ({ params, context, location, abortController }) => {
 		const catalog = await context.runtime.runPromise(
 			Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
 			{ signal: abortController.signal },
@@ -41,7 +41,7 @@ export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 		const preparation = await context.runtime.runPromise(prepareClientPage(context.scope, target), {
 			signal: abortController.signal,
 		});
-		return { installation, preparation, kind: "resolved" as const };
+		return { preparation, installation, kind: "resolved" as const };
 	},
 });
 
@@ -69,7 +69,7 @@ function PluginNotFound() {
 				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
 			>
 				<div>
-					<h1 id="plugin-route-title" className="ui-heading">
+					<h1 className="ui-heading" id="plugin-route-title">
 						Plugin not found
 					</h1>
 					<p role="status" className="ui-subtitle">

@@ -9,8 +9,8 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-	resolve: { tsconfigPaths: true },
 	server: { allowedHosts: true },
+	resolve: { tsconfigPaths: true },
 	plugins: [
 		{
 			enforce: "pre",

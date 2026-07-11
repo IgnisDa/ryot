@@ -27,34 +27,34 @@ type EpisodeSource = "chapter" | "episode" | "parentheses";
 type GeneralSource = "season_episode" | "sxxexx";
 
 const wordToNumberMap: Record<string, number> = {
-	zero: 0,
 	one: 1,
 	two: 2,
-	three: 3,
+	six: 6,
+	zero: 0,
 	four: 4,
 	five: 5,
-	six: 6,
-	seven: 7,
-	eight: 8,
 	nine: 9,
 	ten: 10,
-	eleven: 11,
-	twelve: 12,
-	thirteen: 13,
-	fourteen: 14,
-	fifteen: 15,
-	sixteen: 16,
-	seventeen: 17,
-	eighteen: 18,
-	nineteen: 19,
-	twenty: 20,
-	thirty: 30,
+	three: 3,
+	seven: 7,
+	eight: 8,
 	forty: 40,
 	fifty: 50,
 	sixty: 60,
-	seventy: 70,
+	eleven: 11,
+	twelve: 12,
+	twenty: 20,
+	thirty: 30,
 	eighty: 80,
 	ninety: 90,
+	fifteen: 15,
+	sixteen: 16,
+	seventy: 70,
+	thirteen: 13,
+	fourteen: 14,
+	eighteen: 18,
+	nineteen: 19,
+	seventeen: 17,
 };
 
 const collapseSpaces = (value: string): string =>
@@ -159,17 +159,17 @@ const extractEpisode = (
 	const parenthesesMatch = segment.match(/\(Episode\s+([A-Za-z0-9]+)\)/i)?.[1];
 	const parenthesesEpisode = parenthesesMatch ? parseNumberToken(parenthesesMatch) : undefined;
 	if (parenthesesEpisode !== undefined) {
-		return { episode: parenthesesEpisode, source: "parentheses" };
+		return { source: "parentheses", episode: parenthesesEpisode };
 	}
 
 	const plainEpisodeMatch = segment.match(/\bEpisode\s+([A-Za-z0-9]+)\b/i)?.[1];
 	const plainEpisode = plainEpisodeMatch ? parseNumberToken(plainEpisodeMatch) : undefined;
 	if (plainEpisode !== undefined) {
-		return { episode: plainEpisode, source: "episode" };
+		return { source: "episode", episode: plainEpisode };
 	}
 
 	const chapterEpisode = parseLabelledEpisode(segment);
-	return chapterEpisode !== undefined ? { episode: chapterEpisode, source: "chapter" } : undefined;
+	return chapterEpisode !== undefined ? { source: "chapter", episode: chapterEpisode } : undefined;
 };
 
 const parseLabelledSeason = (segment: string): number | undefined => {
@@ -240,7 +240,7 @@ const extractGeneralSeasonEpisode = (
 		const season = parseNumberToken(sxxExxMatch[1] ?? "");
 		const episode = parseNumberToken(sxxExxMatch[2] ?? "");
 		if (season !== undefined && episode !== undefined) {
-			return { episode, season, source: "sxxexx" };
+			return { season, episode, source: "sxxexx" };
 		}
 	}
 
@@ -251,7 +251,7 @@ const extractGeneralSeasonEpisode = (
 		const season = parseNumberToken(seasonEpisodeMatch[1] ?? "");
 		const episode = parseNumberToken(seasonEpisodeMatch[2] ?? "");
 		if (season !== undefined && episode !== undefined) {
-			return { episode, season, source: "season_episode" };
+			return { season, episode, source: "season_episode" };
 		}
 	}
 
@@ -317,7 +317,7 @@ const resolveSeasonEpisode = (input: {
 	}
 
 	return resolvedSeason !== undefined && resolvedEpisode !== undefined
-		? { episode: resolvedEpisode, season: resolvedSeason }
+		? { season: resolvedSeason, episode: resolvedEpisode }
 		: undefined;
 };
 
@@ -381,7 +381,7 @@ const parseNetflixTitle = (
 
 	return {
 		baseTitle: constructBaseTitle(trimmed, baseSegments),
-		episodeInfo: resolveSeasonEpisode({ episode, season, episodeSource, generalPair }),
+		episodeInfo: resolveSeasonEpisode({ season, episode, generalPair, episodeSource }),
 	};
 };
 

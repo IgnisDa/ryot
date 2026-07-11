@@ -65,7 +65,7 @@ export const makePluginUserBootstrapDispatcher = (
 					context: {},
 					executionId,
 					scriptId: resolved.script.id,
-					subject: { type: "user", userId },
+					subject: { userId, type: "user" },
 				}).pipe(
 					Effect.mapError(
 						(error) =>

@@ -27,9 +27,9 @@ type UserLifecycleWorkflowPayload = typeof UserLifecycleWorkflowPayload.Type;
 const WorkflowOperationKind = Schema.NullOr(Schema.Literals(["delete", "reset"]));
 
 export const UserLifecycleWorkflow = Workflow.make("UserLifecycleWorkflow", {
-	idempotencyKey: ({ operationId }) => operationId,
 	success: Schema.Void satisfies DurableSchema,
 	error: InternalError satisfies DurableSchema,
+	idempotencyKey: ({ operationId }) => operationId,
 	payload: UserLifecycleWorkflowPayload satisfies DurableSchema,
 });
 
@@ -186,7 +186,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 					const resetUrl = metadata.usesLocalAuth
 						? (yield* auth.requestPasswordResetLink(metadata.user.email)).resetUrl
 						: null;
-					return { userId: operation.operation.userId, email: metadata.user.email, resetUrl };
+					return { resetUrl, email: metadata.user.email, userId: operation.operation.userId };
 				}),
 				"Reset user recreation failed",
 			);

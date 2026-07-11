@@ -139,8 +139,8 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			) {
 				const entity = yield* entities.getByIdAnyScope(entityId);
 				return yield* entities.update({
-					scope: "global",
 					entityId,
+					scope: "global",
 					name: entity.name,
 					properties: entity.properties,
 					populatedAt: populatedAt === null ? null : yield* parseDate(populatedAt),
@@ -169,8 +169,8 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 						sourceEntityId: input.sourceEntityId,
 						targetEntityId: input.targetEntityId,
 						relationshipSchemaSlug: input.relationshipSchemaSlug,
-						relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
 						propertiesSchema: relationshipSchema.propertiesSchema,
+						relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
 					});
 				},
 			);
@@ -275,14 +275,14 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				uninstallSystemPlugin: pluginIngestion.uninstallPlugin,
 				listSubscriptionRuns: automations.listRunsByExecutionUserId,
 				setEntityInterestMembership: interest.setEntityInterestMembership,
-				deleteSandboxReplayProjection: (executionId: string) =>
-					redis
-						.del(redisKeys.sandboxWorkflowJournal(executionId))
-						.pipe(Effect.map((deleted) => ({ deleted: deleted > 0 }))),
 				enqueueSandbox: (input: TestSupportEnqueueSandboxBody) => {
 					const { executingUserId, ...payload } = input;
 					return sandbox.enqueue(executingUserId, payload);
 				},
+				deleteSandboxReplayProjection: (executionId: string) =>
+					redis
+						.del(redisKeys.sandboxWorkflowJournal(executionId))
+						.pipe(Effect.map((deleted) => ({ deleted: deleted > 0 }))),
 				getBuiltinEntitySchema: (slug: string) =>
 					Effect.succeed(definitions.getEntitySchema(slug)).pipe(
 						Effect.flatMap((definition) =>

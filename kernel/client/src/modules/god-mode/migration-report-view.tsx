@@ -66,7 +66,7 @@ function MigrationReportTable(props: { readonly entries: ReadonlyArray<Migration
 								</td>
 								<td className="px-2 py-3">
 									<span className={clsx("flex items-center gap-1.5 font-semibold", level.tone)}>
-										<AppIcon name={level.icon} size={13} />
+										<AppIcon size={13} name={level.icon} />
 										{level.label}
 									</span>
 								</td>
@@ -141,7 +141,7 @@ export function MigrationReportView(props: {
 	} else if (state.entries.length === 0) {
 		content = (
 			<div className="grid justify-items-center gap-2 py-12 text-center">
-				<AppIcon className="text-text-subtle" name="clipboard-list" size={36} />
+				<AppIcon size={36} name="clipboard-list" className="text-text-subtle" />
 				<h2 className="font-display text-lg font-semibold">No migration report</h2>
 				<p className="text-sm text-text-muted">This server has no legacy migration activity.</p>
 			</div>

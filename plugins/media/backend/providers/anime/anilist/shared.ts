@@ -125,10 +125,10 @@ const collectStudios = (studios: unknown) => {
 		}
 		seenStudios.add(studioId);
 		entities.push({
-			providerSlug: "company.anilist",
 			externalId: String(studioId),
-			relationshipProperties: { roles: ["Animation Studio"] },
+			providerSlug: "company.anilist",
 			name: stringValue(record["name"]) ?? "Loading...",
+			relationshipProperties: { roles: ["Animation Studio"] },
 		});
 	}
 	return entities;
@@ -176,13 +176,13 @@ export const details = defineProvider({
 					},
 				],
 				properties: {
-					providerRating: numberValue(media["averageScore"]),
 					publishYear: parsePublishYear(media["startDate"]),
-					description: cleanHtmlDescription(media["description"]),
+					providerRating: numberValue(media["averageScore"]),
 					genres: collectGenres(media["genres"], media["tags"]),
+					description: cleanHtmlDescription(media["description"]),
 					productionStatus: statusValue ? toTitleCase(statusValue) : null,
-					isNsfw: typeof media["isAdult"] === "boolean" ? media["isAdult"] : null,
 					images: collectImages(media["coverImage"], media["bannerImage"]),
+					isNsfw: typeof media["isAdult"] === "boolean" ? media["isAdult"] : null,
 					episodes: episodesValue === null ? null : Math.max(0, Math.trunc(episodesValue)),
 					sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
 					airingSchedule: parseAiringSchedule(media["airingSchedule"], media["nextAiringEpisode"]),

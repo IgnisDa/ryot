@@ -20,6 +20,7 @@ export const entityInterestRecipe = defineRecipe(
 	(input: { readonly entityIds: readonly [string, ...string[]] }) => {
 		const entity = table("entity", "entity");
 		return {
+			map: ({ entities }) => Result.succeed(entities.items),
 			queries: {
 				entities: selectedRows(entity, {
 					limit: input.entityIds.length,
@@ -33,19 +34,18 @@ export const entityInterestRecipe = defineRecipe(
 						properties: selectedField(column(entity, "properties"), JsonValue),
 						externalId: selectedField(column(entity, "externalId"), Schema.NullOr(Schema.String)),
 						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
-						providerId: selectedField(
-							column(entity, "providerId"),
-							Schema.NullOr(SandboxProviderId),
-						),
 						populationStatus: selectedField(column(entity, "populationStatus"), PopulationStatus),
 						translationStatus: selectedField(
 							column(entity, "translationStatus"),
 							TranslationStatus,
 						),
+						providerId: selectedField(
+							column(entity, "providerId"),
+							Schema.NullOr(SandboxProviderId),
+						),
 					},
 				}),
 			},
-			map: ({ entities }) => Result.succeed(entities.items),
 		};
 	},
 );
@@ -55,6 +55,7 @@ export type EntityInterestResult = Recipe.Success<typeof entityInterestRecipe>;
 export const entityRouteProvenanceRecipe = defineRecipe((input: { readonly entityId: string }) => {
 	const entity = table("entity", "entity");
 	return {
+		map: ({ entity: provenance }) => Result.succeed(provenance ?? null),
 		queries: {
 			entity: selectedOptionalRow(entity, {
 				orderBy: [ascending(column(entity, "id"))],
@@ -68,7 +69,6 @@ export const entityRouteProvenanceRecipe = defineRecipe((input: { readonly entit
 				},
 			}),
 		},
-		map: ({ entity: provenance }) => Result.succeed(provenance ?? null),
 	};
 });
 

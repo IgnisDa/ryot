@@ -48,7 +48,7 @@ it.effect("formats import input schema definition issues", () =>
 									path: ["missing"],
 									kind: "validation" as const,
 									validation: { required: true as const },
-									when: { operator: "exists" as const, path: ["uploadToken"] },
+									when: { path: ["uploadToken"], operator: "exists" as const },
 								},
 							],
 						},

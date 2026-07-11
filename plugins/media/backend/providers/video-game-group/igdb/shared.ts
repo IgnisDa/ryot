@@ -12,11 +12,11 @@ import {
 } from "../../../lib/vendors/igdb";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "IGDB",
+	kind: "provider",
+	requiredSystemConfigKeys: [],
 	slug: "video-game-group.igdb",
 	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
-	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
@@ -39,7 +39,7 @@ export const search = defineProvider({
 				`limit ${input.pageSize};`,
 				`offset: ${offset};`,
 			].join("\n");
-			const { data: results, headers } = yield* makeIgdbRequest(host, "collections", body);
+			const { headers, data: results } = yield* makeIgdbRequest(host, "collections", body);
 			if (!Array.isArray(results)) {
 				return yield* Effect.fail(new Error("IGDB search returned unexpected response format"));
 			}
@@ -111,8 +111,8 @@ export const details = defineProvider({
 				}
 				return [
 					{
-						externalId: String(Math.trunc(id)),
 						providerSlug: "video-game.igdb",
+						externalId: String(Math.trunc(id)),
 						relationshipProperties: { order: index + 1 },
 						name: stringValue(record?.["name"]) ?? "Loading...",
 					},
@@ -128,8 +128,8 @@ export const details = defineProvider({
 				},
 				relatedEntityGroups: [
 					{
-						direction: "outgoing" as const,
 						entities: relatedEntities,
+						direction: "outgoing" as const,
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "video-game-group-to-video-game",
 					},

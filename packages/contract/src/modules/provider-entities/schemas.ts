@@ -14,8 +14,8 @@ export const ProviderEntityReference = strictStruct({
 export type ProviderEntityReference = typeof ProviderEntityReference.Type;
 
 export const ImportEntityBody = strictStruct({
-	providerId: SandboxProviderId,
 	externalId: Schema.String,
+	providerId: SandboxProviderId,
 });
 export type ImportEntityBody = typeof ImportEntityBody.Type;
 
@@ -38,7 +38,7 @@ export const ImportEntityRunResult = Schema.Union([
 			identifier: "FailedImportEntityRunResult",
 		}),
 	),
-	Schema.Struct({ status: Schema.Literal("completed"), data: ListedEntity }).pipe(
+	Schema.Struct({ data: ListedEntity, status: Schema.Literal("completed") }).pipe(
 		Schema.annotate({
 			title: "Completed Import Run Result",
 			identifier: "CompletedImportEntityRunResult",
@@ -48,8 +48,9 @@ export const ImportEntityRunResult = Schema.Union([
 export type ImportEntityRunResult = typeof ImportEntityRunResult.Type;
 
 export const SearchProviderEntitiesBody = strictStruct({
-	providerId: SandboxProviderId,
 	query: Schema.String,
+	providerId: SandboxProviderId,
+	options: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
 	page: Schema.Number.pipe(
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isGreaterThanOrEqualTo(1)),
@@ -58,7 +59,6 @@ export const SearchProviderEntitiesBody = strictStruct({
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
 	),
-	options: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
 });
 export type SearchProviderEntitiesBody = typeof SearchProviderEntitiesBody.Type;
 
@@ -75,16 +75,16 @@ const providerSearchResultMetadataValueSchema = Schema.Union([
 ]);
 export const ProviderSearchResultItem = strictStruct({
 	title: trimmedNonEmptyString,
-	externalId: ProviderEntityReference.fields.externalId,
 	imageUrl: Schema.optional(trimmedNonEmptyString),
+	externalId: ProviderEntityReference.fields.externalId,
 	metadata: Schema.optional(Schema.NonEmptyArray(providerSearchResultMetadataValueSchema)),
 });
 export type ProviderSearchResultItem = typeof ProviderSearchResultItem.Type;
 
 export const SearchProviderEntitiesResponse = strictStruct({
 	providerName: Schema.String,
-	providerId: ProviderEntityReference.fields.providerId,
 	items: Schema.Array(ProviderSearchResultItem),
+	providerId: ProviderEntityReference.fields.providerId,
 	rootEntitySchemaSlug: ProviderEntityReference.fields.entitySchemaSlug,
 	details: Schema.optional(
 		strictStruct({ totalItems: Schema.Number, nextPage: Schema.NullOr(Schema.Number) }),
@@ -97,7 +97,7 @@ const ProviderEntityBadRequestReason = Schema.Union([
 	strictStruct({ code: Schema.Literal("invalid-search-result") }),
 	strictStruct({ code: Schema.Literal("invalid-search-options") }),
 	strictStruct({ code: Schema.Literal("search-options-unavailable") }),
-	strictStruct({ code: Schema.Literal("search-unsupported"), providerId: SandboxProviderId }),
+	strictStruct({ providerId: SandboxProviderId, code: Schema.Literal("search-unsupported") }),
 	strictStruct({
 		code: Schema.Literal("invalid-import-input"),
 		field: Schema.Literals(["providerId", "externalId"]),
@@ -109,8 +109,8 @@ const ProviderEntityBadRequestReason = Schema.Union([
 ]);
 
 const ProviderEntityNotFoundReason = Schema.Union([
-	strictStruct({ code: Schema.Literal("import-job-not-found"), jobId: Schema.String }),
-	strictStruct({ code: Schema.Literal("provider-not-found"), providerId: SandboxProviderId }),
+	strictStruct({ jobId: Schema.String, code: Schema.Literal("import-job-not-found") }),
+	strictStruct({ providerId: SandboxProviderId, code: Schema.Literal("provider-not-found") }),
 	strictStruct({
 		entitySchemaSlug: EntitySchemaSlug,
 		code: Schema.Literal("entity-schema-not-found"),

@@ -13,14 +13,14 @@ const httpSuccess = (body: unknown) =>
 const httpMissing = () =>
 	Effect.fail({
 		message: "HTTP 404",
-		data: { body: JSON.stringify({ status: "failure" }), status: 404 },
+		data: { status: 404, body: JSON.stringify({ status: "failure" }) },
 	});
 
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		setCachedValue: () => Effect.succeed(null),
+		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "test-api-key"]))),
 	});
@@ -33,7 +33,7 @@ describe("movie-group.tvdb sandbox script", () => {
 			Effect.runPromise(
 				runSandboxTestScript(
 					search,
-					{ query: "x", page: 1, pageSize: 20 },
+					{ page: 1, query: "x", pageSize: 20 },
 					makeHost((_method, _url) => httpSuccess({})),
 					execution,
 				),
@@ -47,14 +47,14 @@ describe("movie-group.tvdb sandbox script", () => {
 					status: "success",
 					data: {
 						name: "My List",
+						url: "  cool-list  ",
 						overview: "An overview",
 						image: "  https://img/x.jpg  ",
-						url: "  cool-list  ",
 						entities: [
-							{ movieId: "  10  ", name: "  Bravo  ", order: 2 },
-							{ movieId: "20", name: "Alpha", order: 1 },
-							{ movieId: 999, name: "Numeric", order: 3 },
-							{ movieId: "30", order: 4 },
+							{ order: 2, movieId: "  10  ", name: "  Bravo  " },
+							{ order: 1, movieId: "20", name: "Alpha" },
+							{ order: 3, movieId: 999, name: "Numeric" },
+							{ order: 4, movieId: "30" },
 						],
 					},
 				});
@@ -69,9 +69,9 @@ describe("movie-group.tvdb sandbox script", () => {
 						name: "My List",
 						properties: {
 							parts: 4,
-							images: [{ type: "remote", url: "https://img/x.jpg", purpose: "cover" }],
-							sourceUrl: "https://thetvdb.com/lists/cool-list",
 							description: "An overview",
+							sourceUrl: "https://thetvdb.com/lists/cool-list",
+							images: [{ type: "remote", purpose: "cover", url: "https://img/x.jpg" }],
 						},
 						relatedEntityGroups: [
 							{
@@ -92,8 +92,8 @@ describe("movie-group.tvdb sandbox script", () => {
 										relationshipProperties: { order: 2 },
 									},
 									{
-										name: "Loading...",
 										externalId: "30",
+										name: "Loading...",
 										providerSlug: "movie.tvdb",
 										relationshipProperties: { order: 4 },
 									},
@@ -162,7 +162,7 @@ describe("movie-group.tvdb sandbox script", () => {
 					status: "success",
 					data: [
 						{ name: "First", overview: "First overview" },
-						{ name: "Primary", overview: "Primary overview", isPrimary: true },
+						{ name: "Primary", isPrimary: true, overview: "Primary overview" },
 					],
 				});
 			}
@@ -172,7 +172,7 @@ describe("movie-group.tvdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ externalId: "9", language: "es", entitySchemaSlug: "movie-group" },
+				{ language: "es", externalId: "9", entitySchemaSlug: "movie-group" },
 				host,
 				execution,
 			).pipe(
@@ -191,7 +191,7 @@ describe("movie-group.tvdb sandbox script", () => {
 			Effect.runPromise(
 				runSandboxTestScript(
 					translate,
-					{ externalId: "abc", language: "es", entitySchemaSlug: "movie-group" },
+					{ language: "es", externalId: "abc", entitySchemaSlug: "movie-group" },
 					makeHost((_method, _url) => httpSuccess({})),
 					execution,
 				),

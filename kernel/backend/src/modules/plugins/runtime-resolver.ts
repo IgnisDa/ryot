@@ -210,7 +210,7 @@ export const findActiveWorkflowScriptInSnapshot = (
 		({ slug }) => slug === input.workflowSlug,
 	)?.scriptSlug;
 	return scriptSlug
-		? findActiveScriptInPluginSnapshot(snapshot, { pluginSlug: input.pluginSlug, scriptSlug })
+		? findActiveScriptInPluginSnapshot(snapshot, { scriptSlug, pluginSlug: input.pluginSlug })
 		: Effect.succeed(null);
 };
 
@@ -523,7 +523,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					pluginId: plugin.id,
 					scriptSlug: operation.scriptSlug,
 				});
-				return script ? { plugin, operation, script } : null;
+				return script ? { plugin, script, operation } : null;
 			});
 
 			const findActiveScript = Effect.fn("PluginRuntimeResolver.findActiveScript")(function* (
@@ -640,8 +640,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 								cron,
 								pluginId: row.pluginId,
 								pluginSlug: row.pluginSlug,
-								installationId: row.installationId,
 								userId: UserId.make(row.userId),
+								installationId: row.installationId,
 							})),
 						)
 						.sort(
@@ -744,7 +744,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					pluginSlug: input.pluginSlug,
 					scriptSlug: bootstrap.scriptSlug,
 				});
-				return script ? { bootstrap, script } : null;
+				return script ? { script, bootstrap } : null;
 			});
 			const findActiveScriptByIdInSnapshot = Effect.fn(
 				"PluginRuntimeResolver.findActiveScriptByIdInSnapshot",
@@ -1040,7 +1040,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			) {
 				const provider = yield* findActiveProviderByIdInSnapshot(snapshot, providerId);
 				if (!provider) {
-					return { provider: null, script: null, reason: "inactive_provider" as const };
+					return { script: null, provider: null, reason: "inactive_provider" as const };
 				}
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
@@ -1094,7 +1094,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						const snapshot = loader.getSnapshot();
 						return findProviderOperationScriptInSnapshot(snapshot, providerId, operation);
 					}).pipe(
-						Effect.flatMap(({ provider, reason, script }) =>
+						Effect.flatMap(({ reason, script, provider }) =>
 							script
 								? Effect.succeed(script)
 								: Effect.fail(
@@ -1348,8 +1348,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						);
 						if (!declared) {
 							return yield* new InvalidProviderEntityImportAutomationError({
-								reason: "missing_script",
 								pluginSlug: plugin.slug,
+								reason: "missing_script",
 								scriptSlug: binding.scriptSlug,
 							});
 						}

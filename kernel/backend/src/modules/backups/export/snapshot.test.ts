@@ -172,7 +172,7 @@ it.effect(
 			config: {
 				unit: "minutes",
 				credentials: { token: "secret", region: "local" },
-				accounts: [{ token: "array-secret", label: "primary" }],
+				accounts: [{ label: "primary", token: "array-secret" }],
 			},
 		};
 		const privateManifest = {
@@ -183,31 +183,6 @@ it.effect(
 			providers: [],
 			operations: [],
 			savedViews: [],
-			entitySchemas: [
-				{
-					icon: "box",
-					name: "Private Record",
-					slug: "private-record",
-					eventSchemas: [],
-					propertiesSchema: {
-						fields: {
-							title: { label: "Title", description: "Title", type: "string" as const },
-							token: {
-								secret: true as const,
-								label: "Token",
-								description: "Token",
-								type: "string" as const,
-							},
-							relatedEntityId: {
-								label: "Related entity",
-								description: "Related entity",
-								type: "string" as const,
-								reference: { kind: "entity-id" as const },
-							},
-						},
-					},
-				},
-			],
 			signalSchemas: [],
 			userBootstrap: [],
 			relationshipSchemas: [],
@@ -219,47 +194,31 @@ it.effect(
 				relationshipAutomations: [],
 				providerEntityImportAutomations: [],
 			},
-			configSchema: {
-				unknownKeys: "strict" as const,
-				fields: {
-					accounts: {
-						label: "Accounts",
-						type: "array" as const,
-						description: "Accounts",
-						items: {
-							label: "Account",
-							description: "Account",
-							type: "object" as const,
-							properties: {
-								label: { type: "string" as const, label: "Label", description: "Label" },
-								token: {
-									label: "Token",
-									description: "Token",
-									secret: true as const,
-									type: "string" as const,
-									validation: { required: true as const },
-								},
-							},
-						},
-					},
-					credentials: {
-						label: "Credentials",
-						type: "object" as const,
-						description: "Credentials",
-						properties: {
-							region: { type: "string" as const, label: "Region", description: "Region" },
+			entitySchemas: [
+				{
+					icon: "box",
+					eventSchemas: [],
+					name: "Private Record",
+					slug: "private-record",
+					propertiesSchema: {
+						fields: {
+							title: { label: "Title", description: "Title", type: "string" as const },
 							token: {
 								label: "Token",
 								description: "Token",
 								secret: true as const,
 								type: "string" as const,
-								validation: { required: true as const },
+							},
+							relatedEntityId: {
+								label: "Related entity",
+								type: "string" as const,
+								description: "Related entity",
+								reference: { kind: "entity-id" as const },
 							},
 						},
 					},
-					unit: { label: "Unit", validation: {}, description: "Unit", type: "string" as const },
 				},
-			},
+			],
 			integrationProviders: [
 				{
 					lot: "push" as const,
@@ -269,6 +228,12 @@ it.effect(
 					settingsSchema: {
 						unknownKeys: "strict" as const,
 						fields: {
+							endpoint: {
+								validation: {},
+								label: "Endpoint",
+								description: "Endpoint",
+								type: "string" as const,
+							},
 							credentials: {
 								label: "Credentials",
 								type: "object" as const,
@@ -283,16 +248,51 @@ it.effect(
 									},
 								},
 							},
-							endpoint: {
-								validation: {},
-								label: "Endpoint",
-								description: "Endpoint",
-								type: "string" as const,
-							},
 						},
 					},
 				},
 			],
+			configSchema: {
+				unknownKeys: "strict" as const,
+				fields: {
+					unit: { label: "Unit", validation: {}, description: "Unit", type: "string" as const },
+					credentials: {
+						label: "Credentials",
+						type: "object" as const,
+						description: "Credentials",
+						properties: {
+							region: { label: "Region", description: "Region", type: "string" as const },
+							token: {
+								label: "Token",
+								description: "Token",
+								secret: true as const,
+								type: "string" as const,
+								validation: { required: true as const },
+							},
+						},
+					},
+					accounts: {
+						label: "Accounts",
+						type: "array" as const,
+						description: "Accounts",
+						items: {
+							label: "Account",
+							description: "Account",
+							type: "object" as const,
+							properties: {
+								label: { label: "Label", description: "Label", type: "string" as const },
+								token: {
+									label: "Token",
+									description: "Token",
+									secret: true as const,
+									type: "string" as const,
+									validation: { required: true as const },
+								},
+							},
+						},
+					},
+				},
+			},
 		};
 		const privateSourceHash = pluginSourceHash(privateManifest, {});
 		const differentOwnerManifest = {
@@ -308,7 +308,7 @@ it.effect(
 		const effectiveDefinitions = buildDefinitionSnapshot(
 			mergeManifestDefinitions(
 				{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
-				[{ id: "different-plugin-id", slug: "private-plugin", manifest: differentOwnerManifest }],
+				[{ slug: "private-plugin", id: "different-plugin-id", manifest: differentOwnerManifest }],
 			),
 		);
 		const privateTimestamp = new Date("2026-08-24T12:00:00.000Z");
@@ -329,7 +329,7 @@ it.effect(
 					}),
 					Layer.mock(AuthRepository, {
 						getPortableProfile: () =>
-							Effect.succeed({ name: "Owner", image: null, preferences: {} }),
+							Effect.succeed({ image: null, name: "Owner", preferences: {} }),
 					}),
 					Layer.mock(EventsRepository, { listUserEventsForBackup: () => Effect.succeed([]) }),
 					Layer.mock(IntegrationsRepository, {
@@ -348,9 +348,9 @@ it.effect(
 									provider: "private-push",
 									pluginSlug: "private-plugin",
 									pluginInstallationId: "installation-private",
-									extraSettings: { disableOnContinuousErrors: true },
 									createdAt: new Date("2026-08-24T12:00:00.000Z"),
 									updatedAt: new Date("2026-08-24T12:00:00.000Z"),
+									extraSettings: { disableOnContinuousErrors: true },
 									providerSpecifics: {
 										endpoint: "local",
 										credentials: { token: "integration-secret" },
@@ -359,6 +359,26 @@ it.effect(
 							]),
 					}),
 					Layer.mock(EntitiesRepository, {
+						listReferencedGlobalEntitiesForBackup: () => Effect.succeed([]),
+						listGlobalEntitiesByIdsForBackup: (ids) =>
+							Effect.sync(() => {
+								embeddedDependencyIds = ids;
+								return [
+									{
+										origin: null,
+										provider: null,
+										externalId: null,
+										populatedAt: null,
+										id: "private-dependency",
+										name: "Private dependency",
+										createdAt: privateTimestamp,
+										updatedAt: privateTimestamp,
+										entitySchemaSlug: "private-record",
+										entitySchemaPluginId: "private-plugin-id",
+										properties: { title: "Dependency", token: "dependency-secret" },
+									},
+								];
+							}),
 						listUserEntitiesForBackup: () =>
 							Effect.succeed([
 								{
@@ -379,26 +399,6 @@ it.effect(
 									},
 								},
 							]),
-						listGlobalEntitiesByIdsForBackup: (ids) =>
-							Effect.sync(() => {
-								embeddedDependencyIds = ids;
-								return [
-									{
-										origin: null,
-										provider: null,
-										externalId: null,
-										populatedAt: null,
-										id: "private-dependency",
-										name: "Private dependency",
-										createdAt: privateTimestamp,
-										updatedAt: privateTimestamp,
-										entitySchemaSlug: "private-record",
-										entitySchemaPluginId: "private-plugin-id",
-										properties: { token: "dependency-secret", title: "Dependency" },
-									},
-								];
-							}),
-						listReferencedGlobalEntitiesForBackup: () => Effect.succeed([]),
 					}),
 					Layer.mock(SavedViewsRepository, { listForBackup: () => Effect.succeed([]) }),
 					Layer.mock(TranslationsRepository, { listForBackup: () => Effect.succeed([]) }),
@@ -436,8 +436,8 @@ it.effect(
 									slug: "default-plugin",
 									id: "default-plugin-id",
 									integrationProviders: [],
-									relationshipSchemaSlugs: [],
 									sourceHash: "b".repeat(64),
+									relationshipSchemaSlugs: [],
 									configSchema: { fields: {}, unknownKeys: "strict" as const },
 									metadata: {
 										icon: "box",
@@ -454,8 +454,8 @@ it.effect(
 									signalSchemaSlugs: [],
 									id: "system-plugin-id",
 									integrationProviders: [],
-									relationshipSchemaSlugs: [],
 									sourceHash: "a".repeat(64),
+									relationshipSchemaSlugs: [],
 									metadata: {
 										icon: "box",
 										version: "1.0.0",
@@ -544,19 +544,19 @@ it.effect(
 				credentials: { region: "local" },
 			});
 			expect(prepared.records.installations[1]?.configuredSecretPaths).toEqual([
-				"/accounts/0/token",
 				"/credentials/token",
+				"/accounts/0/token",
 			]);
 			expect(prepared.records.integrations).toEqual([
 				expect.objectContaining({
 					configuredSecretPaths: ["/credentials/token"],
 					packageKey: `user:private-plugin:${privateSourceHash}`,
-					providerSpecifics: { endpoint: "local", credentials: {} },
+					providerSpecifics: { credentials: {}, endpoint: "local" },
 				}),
 			]);
 			expect(prepared.redactions.some((path) => path.includes("installation-system"))).toBe(false);
 			expect(prepared.requiredPlugins).toEqual([
-				{ slug: "system-plugin", sourceHash: "a".repeat(64), version: "1.0.0" },
+				{ version: "1.0.0", slug: "system-plugin", sourceHash: "a".repeat(64) },
 			]);
 		}).pipe(Effect.provide(Layer.mergeAll(layer, databaseLayer)));
 	},
@@ -598,7 +598,7 @@ it.effect("reuses one export context across every event page", () => {
 						slug: "watched",
 						propertiesSchema: {
 							fields: {
-								note: { type: "string" as const, label: "Note", description: "Note" },
+								note: { label: "Note", description: "Note", type: "string" as const },
 								token: {
 									label: "Token",
 									description: "Token",
@@ -652,13 +652,13 @@ it.effect("reuses one export context across every event page", () => {
 							buildDefinitionSnapshot(
 								mergeManifestDefinitions(
 									{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
-									[{ id: "private-plugin-id", slug: "private-plugin", manifest }],
+									[{ manifest, slug: "private-plugin", id: "private-plugin-id" }],
 								),
 							),
 						),
 				}),
 				Layer.mock(AuthRepository, {
-					getPortableProfile: () => Effect.succeed({ name: "Owner", image: null, preferences: {} }),
+					getPortableProfile: () => Effect.succeed({ image: null, name: "Owner", preferences: {} }),
 				}),
 				Layer.mock(EventsRepository, {
 					listUserEventsForBackup: ({ afterId }) =>
@@ -671,8 +671,8 @@ it.effect("reuses one export context across every event page", () => {
 						}),
 				}),
 				Layer.mock(EntitiesRepository, {
-					listReferencedGlobalEntitiesForBackup: () => Effect.succeed([]),
 					listGlobalEntitiesByIdsForBackup: () => Effect.succeed([]),
+					listReferencedGlobalEntitiesForBackup: () => Effect.succeed([]),
 					listUserEntitiesForBackup: () =>
 						Effect.succeed([
 							{

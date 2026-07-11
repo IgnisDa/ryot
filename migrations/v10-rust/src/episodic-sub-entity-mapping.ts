@@ -420,17 +420,17 @@ BEGIN
 	GET DIAGNOSTICS podcast_episode_relationships_inserted = ROW_COUNT;
 
 	${buildReportSql("legacy episodic sub-entities", [
-		{ message: "show seasons migrated", count: "show_seasons_inserted" },
-		{ message: "show episodes migrated", count: "show_episodes_inserted" },
-		{ message: "podcast episodes migrated", count: "podcast_episodes_inserted" },
-		{ message: "show-season relationships migrated", count: "show_season_relationships_inserted" },
+		{ count: "show_seasons_inserted", message: "show seasons migrated" },
+		{ count: "show_episodes_inserted", message: "show episodes migrated" },
+		{ count: "podcast_episodes_inserted", message: "podcast episodes migrated" },
+		{ count: "show_season_relationships_inserted", message: "show-season relationships migrated" },
 		{
-			message: "show-episode relationships migrated",
 			count: "show_episode_relationships_inserted",
+			message: "show-episode relationships migrated",
 		},
 		{
-			message: "podcast-episode relationships migrated",
 			count: "podcast_episode_relationships_inserted",
+			message: "podcast-episode relationships migrated",
 		},
 	])}
 END $$;

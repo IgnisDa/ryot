@@ -15,7 +15,7 @@ const getEntitySchemaSlug = (titleType: string) => {
 };
 
 export const adaptImdbCsv = (csvText: string) => {
-	const { headers, rows } = parseCsvText(csvText);
+	const { rows, headers } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Const", "Title Type"], "IMDb");
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ImportMediaEntityGroupBuilder>();
@@ -56,8 +56,8 @@ export const adaptImdbCsv = (csvText: string) => {
 		group.events.push(createBacklogEvent(importedAt));
 	}
 	return {
+		failures,
 		totalItems: rows.length,
 		entityGroups: finalizeEntityGroups(groupMap.values()),
-		failures,
 	};
 };

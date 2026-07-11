@@ -27,9 +27,9 @@ const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 	const translations = yield* TranslationsService;
 
 	return yield* Activity.make({
+		name: "write-translation-overlay",
 		success: Schema.Void satisfies DurableSchema,
 		error: SandboxRunError satisfies DurableSchema,
-		name: "write-translation-overlay",
 		execute: Effect.gen(function* () {
 			const populatedAt = yield* DateTime.nowAsDate;
 			yield* translations

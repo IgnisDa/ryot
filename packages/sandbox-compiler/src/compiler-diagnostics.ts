@@ -111,8 +111,8 @@ export const sandboxDiagnosticAt = (
 		message,
 		severity: "error",
 		line: location.line + 1,
-		column: location.character + 1,
 		length: node.getWidth(file),
+		column: location.character + 1,
 		file: sandboxLogicalFile(file.fileName),
 	};
 };

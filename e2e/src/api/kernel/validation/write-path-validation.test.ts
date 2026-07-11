@@ -40,7 +40,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 			);
 
 			assertTaggedError(error, "EntityBadRequest");
-			expect(error.reason).toMatchObject({ code: "invalid-properties", paths: [["title"]] });
+			expect(error.reason).toMatchObject({ paths: [["title"]], code: "invalid-properties" });
 		}),
 	);
 
@@ -74,7 +74,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 			);
 
 			assertTaggedError(error, "EntityBadRequest");
-			expect(error.reason).toMatchObject({ code: "invalid-properties", paths: [["count"]] });
+			expect(error.reason).toMatchObject({ paths: [["count"]], code: "invalid-properties" });
 		}),
 	);
 
@@ -121,11 +121,11 @@ describe("Entity write path — propertiesSchema validation", () => {
 			const entity = yield* createEntity(client, {
 				name: "Valid Entity",
 				entitySchemaSlug: schemaId,
-				properties: { title: "My Item", rating: 4 },
+				properties: { rating: 4, title: "My Item" },
 			});
 
 			expect(entity.id).toBeDefined();
-			expect(entity.properties).toMatchObject({ title: "My Item", rating: 4 });
+			expect(entity.properties).toMatchObject({ rating: 4, title: "My Item" });
 		}),
 	);
 });
@@ -137,7 +137,7 @@ describe("Event write path — propertiesSchema validation", () => {
 			const { entityId, eventSchemaSlug } = yield* createEventTestFixture(client);
 
 			const result = yield* client.call((c) =>
-				c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: {} }] }),
+				c.events.create({ payload: [{ entityId, properties: {}, eventSchemaSlug }] }),
 			);
 
 			expect(result).toMatchObject({
@@ -211,8 +211,8 @@ describe("Collection entity write path — propertiesSchema validation", () => {
 			const response = yield* Effect.promise(() =>
 				fetch(`${getApiUrl()}/collections`, {
 					method: "POST",
-					headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
 					body: JSON.stringify({ description: 12345, name: "Invalid Description Type" }),
+					headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
 				}),
 			);
 
@@ -270,7 +270,7 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 
 			const data = yield* client.call((c) =>
 				c.collections.createMembership({
-					payload: { entityId, collectionId: collection.id, properties: { score: 8 } },
+					payload: { entityId, properties: { score: 8 }, collectionId: collection.id },
 				}),
 			);
 
@@ -301,15 +301,15 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 				const error = yield* Effect.flip(
 					client.call((c) =>
 						c.collections.createMembership({
-							payload: { entityId, collectionId: collection.id, properties: { score: 999 } },
+							payload: { entityId, properties: { score: 999 }, collectionId: collection.id },
 						}),
 					),
 				);
 
 				assertTaggedError(error, "CollectionBadRequest");
 				expect(error.reason).toMatchObject({
-					code: "invalid-membership-properties",
 					paths: [["score"]],
+					code: "invalid-membership-properties",
 				});
 			}),
 	);
@@ -327,12 +327,12 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 						payload: {
 							entityId,
 							collectionId: collection.id,
-							properties: { arbitrary: "any-value", number: 42 },
+							properties: { number: 42, arbitrary: "any-value" },
 						},
 					}),
 				);
 
-				expect(data.memberOf.properties).toMatchObject({ arbitrary: "any-value", number: 42 });
+				expect(data.memberOf.properties).toMatchObject({ number: 42, arbitrary: "any-value" });
 			}),
 	);
 });

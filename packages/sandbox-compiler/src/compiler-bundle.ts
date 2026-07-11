@@ -39,15 +39,26 @@ const buildDiagnosticSeverity = (level: BuildMessage["level"]) => {
 const toBuildDiagnostic = (log: BuildMessage | ResolveMessage): SandboxCompilerDiagnostic => ({
 	code: "RYOT_BUNDLE",
 	message: log.message,
-	severity: buildDiagnosticSeverity(log.level),
-	file: log.position?.file ?? SANDBOX_SOURCE_FILE,
 	line: Math.max(1, log.position?.line ?? 1),
+	severity: buildDiagnosticSeverity(log.level),
 	column: Math.max(1, log.position?.column ?? 1),
+	file: log.position?.file ?? SANDBOX_SOURCE_FILE,
 	...(log.position === null ? {} : { length: log.position.length }),
 });
 
 const bundleSandboxScript = (plugin: Bun.BunPlugin, entrypoint: string) =>
 	Effect.tryPromise({
+		catch: (error) =>
+			sandboxCompilationFailure([
+				{
+					line: 1,
+					column: 1,
+					severity: "error",
+					code: "RYOT_BUNDLE",
+					file: SANDBOX_SOURCE_FILE,
+					message: `JavaScript bundling failed: ${String(error)}`,
+				},
+			]),
 		try: () =>
 			Bun.build({
 				throw: false,
@@ -61,17 +72,6 @@ const bundleSandboxScript = (plugin: Bun.BunPlugin, entrypoint: string) =>
 				allowUnresolved: [],
 				entrypoints: [entrypoint],
 			}),
-		catch: (error) =>
-			sandboxCompilationFailure([
-				{
-					line: 1,
-					column: 1,
-					severity: "error",
-					code: "RYOT_BUNDLE",
-					file: SANDBOX_SOURCE_FILE,
-					message: `JavaScript bundling failed: ${String(error)}`,
-				},
-			]),
 	}).pipe(
 		Effect.flatMap((result): Effect.Effect<BundleResult, SandboxCompilerFailure> => {
 			if (!result.success) {
@@ -125,8 +125,8 @@ export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<str
 				contents: source,
 			}));
 			builder.onResolve({ filter: bundledSdkImportPattern }, ({ path }) => ({
-				path: sdkEntries[path] ?? path,
 				namespace: "file",
+				path: sdkEntries[path] ?? path,
 			}));
 			builder.onResolve({ filter: dependencyImportPattern }, ({ path }) => ({
 				path,
@@ -190,14 +190,14 @@ export const bundleBuiltInScript = (
 				external: true,
 			}));
 			builder.onResolve({ filter: bundledSdkImportPattern }, ({ path }) => ({
-				path: sdkEntries[path] ?? path,
 				namespace: "file",
+				path: sdkEntries[path] ?? path,
 			}));
 			builder.onResolve({ filter: /^\.{1,2}\// }, (args) => {
 				return Object.hasOwn(sources.files, args.importer)
 					? {
-							path: resolveBuiltInImport(sources.files, args.importer, args.path) ?? args.path,
 							namespace: "sandbox-built-in",
+							path: resolveBuiltInImport(sources.files, args.importer, args.path) ?? args.path,
 						}
 					: undefined;
 			});

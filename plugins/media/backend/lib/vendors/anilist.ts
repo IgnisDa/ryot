@@ -179,7 +179,7 @@ export const collectImages = (coverImage: unknown, bannerImage: unknown) => {
 		const url = stringValue(candidate);
 		if (url && !urls.has(url)) {
 			urls.add(url);
-			images.push({ type: "remote", url, purpose });
+			images.push({ url, purpose, type: "remote" });
 		}
 	}
 	return images;
@@ -240,9 +240,9 @@ export const searchAnilistMedia = (
 	getUserAllowNsfw(host).pipe(
 		Effect.flatMap((allowNsfw) =>
 			anilistGraphql(host, `${options.label} search`, MEDIA_SEARCH_QUERY, {
+				page: input.page,
 				type: options.type,
 				search: input.query,
-				page: input.page,
 				perPage: input.pageSize,
 				// null = no isAdult filter (all content); false = non-adult only
 				isAdult: allowNsfw ? null : false,

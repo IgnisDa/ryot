@@ -43,7 +43,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 			const otpCode = setOtpCode(submission.email);
 			if (IS_DEVELOPMENT_ENV) {
-				console.log("Generated OTP code for login:", { email: submission.email, otpCode });
+				console.log("Generated OTP code for login:", { otpCode, email: submission.email });
 			}
 			await sendEmail({
 				recipient: submission.email,
@@ -135,7 +135,7 @@ const contactSubmissionSchema = z
 
 export default function Page() {
 	const [searchParams] = useSearchParams();
-	const { configData, isLoading } = usePaddleInitialization();
+	const { isLoading, configData } = usePaddleInitialization();
 
 	const query = {
 		email: searchParams.get("email") ?? undefined,

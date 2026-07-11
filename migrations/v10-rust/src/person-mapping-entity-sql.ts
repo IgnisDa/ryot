@@ -151,7 +151,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	${buildReportSql(`${kindNotice} -> entity`, [{ message: "row(s) migrated total", count: "rows_inserted" }])}
+	${buildReportSql(`${kindNotice} -> entity`, [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;
 };

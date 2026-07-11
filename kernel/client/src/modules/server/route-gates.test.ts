@@ -44,9 +44,9 @@ describe("route gates", () => {
 	assert(result.ok);
 
 	it("always routes web to auth and keeps native onboarding", () => {
-		expect(decideRootGate(false, null)).toEqual({ action: "redirect", to: "/auth" });
-		expect(decideRootGate(true, null)).toEqual({ action: "redirect", to: "/onboarding" });
-		expect(decideRootGate(true, result.origin)).toEqual({ action: "redirect", to: "/auth" });
+		expect(decideRootGate(false, null)).toEqual({ to: "/auth", action: "redirect" });
+		expect(decideRootGate(true, null)).toEqual({ to: "/onboarding", action: "redirect" });
+		expect(decideRootGate(true, result.origin)).toEqual({ to: "/auth", action: "redirect" });
 	});
 
 	it("keeps safe intent while onboarding and uses it after connection", () => {

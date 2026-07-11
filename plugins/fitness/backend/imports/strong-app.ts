@@ -31,9 +31,9 @@ const parseStrongAppRow = (row: Record<string, string>, rowIdx: number): StrongA
 	seconds: readOptionalCsvNumber(row, ["Seconds"]),
 	date: readRequiredCsvCell(row, ["Date"], "Date"),
 	weight: readOptionalCsvNumber(row, ["Weight (kg)", "Weight"]),
+	setOrder: readRequiredCsvCell(row, ["Set Order"], "Set Order"),
 	workoutNotes: readCsvCell(row, ["Workout Notes", "WorkoutNotes"]),
 	distance: readOptionalCsvNumber(row, ["Distance (m)", "Distance"]),
-	setOrder: readRequiredCsvCell(row, ["Set Order"], "Set Order"),
 	workoutName: readRequiredCsvCell(row, ["Workout Name", "WorkoutName"], "Workout Name"),
 	exerciseName: readRequiredCsvCell(row, ["Exercise Name", "ExerciseName"], "Exercise Name"),
 	workoutDuration: readRequiredCsvCell(
@@ -96,9 +96,9 @@ const parseWorkoutDurationSeconds = (value: string) => {
 
 const toWorkoutSet = (row: StrongAppRow): WorkoutImportSet => {
 	const setLots: Record<string, WorkoutImportSet["setLot"]> = {
+		D: "drop",
 		W: "warm_up",
 		F: "failure",
-		D: "drop",
 	};
 	const set: WorkoutImportSet = { setLot: setLots[row.setOrder] ?? "normal" };
 	if (row.notes) {
@@ -124,7 +124,7 @@ const sourceIdentifierForWorkout = (row: Pick<StrongAppRow, "date" | "workoutNam
 	`${row.date}:${row.workoutName}`;
 
 export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAdapterResult => {
-	const { headers, rows } = parseCsvText(csvText);
+	const { rows, headers } = parseCsvText(csvText);
 	if (headers.length === 0) {
 		throw new Error("StrongApp CSV is empty or has no header row");
 	}

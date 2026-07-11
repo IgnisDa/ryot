@@ -9,8 +9,8 @@ import { toWorkoutWriteItem } from "./workout";
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.strong-app",
-	requiredPluginConfigKeys: [],
 	name: "Parse Strong import",
+	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: ["timezone"],
 	capabilities: ["artifact-read", "scratch", "getSystemConfig"],
 });

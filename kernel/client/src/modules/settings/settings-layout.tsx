@@ -19,7 +19,7 @@ export function SettingsLayout(props: { readonly children: ReactNode }) {
 					<SettingsSectionNav
 						showDisclosure={false}
 						active={activeSettingsSection(pathname)}
-						onSelect={(section) => navigate({ href: section.path, replace: true })}
+						onSelect={(section) => navigate({ replace: true, href: section.path })}
 					/>
 				</nav>
 			</aside>

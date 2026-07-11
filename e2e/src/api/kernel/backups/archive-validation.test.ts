@@ -103,7 +103,7 @@ const refreshedClient = Effect.fn(function* (email: string) {
 describe("V1 backup archive validation", () => {
 	it.live("restores the checked-in minimal golden archive", () =>
 		Effect.gen(function* () {
-			const { client, email } = yield* createAuthenticatedClient();
+			const { email, client } = yield* createAuthenticatedClient();
 			const before = yield* inspectAccount(client);
 			const restored = yield* restoreBackup(client, zipSync(yield* readFixtureEntries()));
 
@@ -138,7 +138,7 @@ describe("V1 backup archive validation", () => {
 
 	it.live("rejects every non-V1 manifest version without mutating the account", () =>
 		Effect.gen(function* () {
-			const { client, email } = yield* createAuthenticatedClient();
+			const { email, client } = yield* createAuthenticatedClient();
 			const before = yield* inspectAccount(client);
 
 			for (const version of [0, 2]) {
@@ -161,7 +161,7 @@ describe("V1 backup archive validation", () => {
 
 	it.live("rejects a stale section checksum without mutating the account", () =>
 		Effect.gen(function* () {
-			const { client, email } = yield* createAuthenticatedClient();
+			const { email, client } = yield* createAuthenticatedClient();
 			const before = yield* inspectAccount(client);
 			const entries = yield* readFixtureEntries();
 			const profile = entries["profile.json"]?.slice();
@@ -177,7 +177,7 @@ describe("V1 backup archive validation", () => {
 
 	it.live("rejects a traversal entry without mutating or blocking the account", () =>
 		Effect.gen(function* () {
-			const { client, email } = yield* createAuthenticatedClient();
+			const { email, client } = yield* createAuthenticatedClient();
 			const before = yield* inspectAccount(client);
 			const entries = yield* readFixtureEntries();
 			const archive = zipSync({ ...entries, "../escape": new Uint8Array([1]) });

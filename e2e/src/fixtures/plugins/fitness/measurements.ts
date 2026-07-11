@@ -13,7 +13,7 @@ export const createMeasurementEntityFixture = (client: Client) =>
 			entitySchemaSlug: measurementSchema.id,
 			properties: {
 				recordedAt: "2026-04-27T08:00:00Z",
-				statistics: [{ key: "weight", label: "Weight", value: 75.5 }],
+				statistics: [{ value: 75.5, key: "weight", label: "Weight" }],
 			},
 		});
 

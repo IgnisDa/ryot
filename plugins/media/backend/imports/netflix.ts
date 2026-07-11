@@ -85,9 +85,9 @@ const lookupFailure = (input: {
 	sourceLabel: string;
 	sourceIdentifier?: string;
 }): MediaImportAdapterFailure => ({
-	stage: "provider_resolution",
 	message: input.message,
 	itemIndex: input.itemIndex,
+	stage: "provider_resolution",
 	sourceLabel: input.sourceLabel,
 	...(input.sourceIdentifier ? { sourceIdentifier: input.sourceIdentifier } : {}),
 });
@@ -161,9 +161,9 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 		if (Result.isFailure(lookup)) {
 			failures.push(
 				lookupFailure({
-					message: lookup.failure,
 					itemIndex: index,
 					sourceLabel: label,
+					message: lookup.failure,
 					sourceIdentifier: title,
 				}),
 			);
@@ -173,19 +173,19 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			if (!parsed.success.episode) {
 				failures.push(
 					lookupFailure({
-						message: "Viewing activity matched a show but no season or episode could be extracted",
 						itemIndex: index,
 						sourceLabel: label,
 						sourceIdentifier: title,
+						message: "Viewing activity matched a show but no season or episode could be extracted",
 					}),
 				);
 				continue;
 			}
 			const group = getOrCreateMediaEntityGroup(groups, lookup.success.entityRef, index);
 			group.events.push({
-				properties: { progressPercent: 100 },
 				eventSchemaSlug: "progress",
 				occurredAt: parsed.success.date,
+				properties: { progressPercent: 100 },
 				unresolvedEpisode: {
 					type: "show",
 					seasonNumber: parsed.success.episode.season,
@@ -235,9 +235,9 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 		if (Result.isFailure(lookup)) {
 			failures.push(
 				lookupFailure({
-					message: lookup.failure,
 					itemIndex: index,
 					sourceLabel: label,
+					message: lookup.failure,
 					sourceIdentifier: title,
 				}),
 			);
@@ -281,9 +281,9 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 		if (Result.isFailure(lookup)) {
 			failures.push(
 				lookupFailure({
-					message: lookup.failure,
 					itemIndex: index,
 					sourceLabel: label,
+					message: lookup.failure,
 					sourceIdentifier: title,
 				}),
 			);

@@ -58,7 +58,7 @@ const data: NavigationData = {
 	],
 };
 
-const draft = initCustomizeDraft({ catalog, data, workspaceSlug: "media" });
+const draft = initCustomizeDraft({ data, catalog, workspaceSlug: "media" });
 
 describe("initCustomizeDraft", () => {
 	it("initializes all workspaces in catalog order, including disabled ones", () => {
@@ -83,45 +83,45 @@ describe("initCustomizeDraft", () => {
 	});
 
 	it("leaves the views section empty when no workspace is selected", () => {
-		expect(initCustomizeDraft({ catalog, data, workspaceSlug: undefined }).views).toEqual([]);
+		expect(initCustomizeDraft({ data, catalog, workspaceSlug: undefined }).views).toEqual([]);
 	});
 });
 
 describe("moveCustomizeItem", () => {
 	it("moves an item within its own section", () => {
-		const moved = moveCustomizeItem({ draft, section: "views", fromIndex: 0, toIndex: 1 });
+		const moved = moveCustomizeItem({ draft, toIndex: 1, fromIndex: 0, section: "views" });
 
 		expect(moved.views.map((item) => item.slug)).toEqual(["shows", "movies"]);
 		expect(moved.savedViews).toBe(draft.savedViews);
 	});
 
 	it("clamps an out-of-range target into the section", () => {
-		const moved = moveCustomizeItem({ draft, section: "views", fromIndex: 0, toIndex: 9 });
+		const moved = moveCustomizeItem({ draft, toIndex: 9, fromIndex: 0, section: "views" });
 
 		expect(moved.views.map((item) => item.slug)).toEqual(["shows", "movies"]);
 	});
 
 	it("moves an item within the workspaces section", () => {
-		const moved = moveCustomizeItem({ draft, section: "workspaces", fromIndex: 0, toIndex: 2 });
+		const moved = moveCustomizeItem({ draft, toIndex: 2, fromIndex: 0, section: "workspaces" });
 
 		expect(moved.workspaces.map((item) => item.slug)).toEqual(["fitness", "media", "disabled"]);
 	});
 
 	it("returns the same draft for a move that changes nothing", () => {
-		expect(moveCustomizeItem({ draft, section: "views", fromIndex: 1, toIndex: 1 })).toBe(draft);
+		expect(moveCustomizeItem({ draft, toIndex: 1, fromIndex: 1, section: "views" })).toBe(draft);
 	});
 });
 
 describe("toggleCustomizeItem", () => {
 	it("flips visibility without moving the item", () => {
-		const toggled = toggleCustomizeItem({ draft, section: "views", slug: "shows" });
+		const toggled = toggleCustomizeItem({ draft, slug: "shows", section: "views" });
 
 		expect(toggled.views.map((item) => item.slug)).toEqual(["movies", "shows"]);
 		expect(toggled.views.map((item) => item.isDisabled)).toEqual([true, true]);
 	});
 
 	it("ignores a slug that is not in the section", () => {
-		expect(toggleCustomizeItem({ draft, section: "views", slug: "all" })).toBe(draft);
+		expect(toggleCustomizeItem({ draft, slug: "all", section: "views" })).toBe(draft);
 	});
 
 	it("refuses to disable the final enabled workspace", () => {
@@ -133,18 +133,18 @@ describe("toggleCustomizeItem", () => {
 		};
 
 		expect(
-			toggleCustomizeItem({ draft: onlyEnabled, section: "workspaces", slug: "fitness" }),
+			toggleCustomizeItem({ slug: "fitness", draft: onlyEnabled, section: "workspaces" }),
 		).toBe(onlyEnabled);
 	});
 
 	it("allows a disabled workspace to be enabled", () => {
-		const toggled = toggleCustomizeItem({ draft, section: "workspaces", slug: "disabled" });
+		const toggled = toggleCustomizeItem({ draft, slug: "disabled", section: "workspaces" });
 
 		expect(toggled.workspaces[0]?.isDisabled).toBe(false);
 	});
 
 	it("leaves the draft it was given untouched", () => {
-		toggleCustomizeItem({ draft, section: "views", slug: "shows" });
+		toggleCustomizeItem({ draft, slug: "shows", section: "views" });
 
 		expect(draft.views.map((item) => item.isDisabled)).toEqual([true, false]);
 	});
@@ -152,19 +152,19 @@ describe("toggleCustomizeItem", () => {
 
 describe("isCustomizeDraftDirty", () => {
 	it("reports an order change", () => {
-		const moved = moveCustomizeItem({ draft, section: "views", fromIndex: 0, toIndex: 1 });
+		const moved = moveCustomizeItem({ draft, toIndex: 1, fromIndex: 0, section: "views" });
 
 		expect(isCustomizeDraftDirty({ draft: moved, initial: draft })).toBe(true);
 	});
 
 	it("reports a visibility change", () => {
-		const toggled = toggleCustomizeItem({ draft, section: "savedViews", slug: "all" });
+		const toggled = toggleCustomizeItem({ draft, slug: "all", section: "savedViews" });
 
 		expect(isCustomizeDraftDirty({ draft: toggled, initial: draft })).toBe(true);
 	});
 
 	it("reports a workspace change", () => {
-		const moved = moveCustomizeItem({ draft, section: "workspaces", fromIndex: 0, toIndex: 1 });
+		const moved = moveCustomizeItem({ draft, toIndex: 1, fromIndex: 0, section: "workspaces" });
 
 		expect(isCustomizeDraftDirty({ draft: moved, initial: draft })).toBe(true);
 	});
@@ -194,7 +194,7 @@ describe("customizeSectionCounts", () => {
 	});
 
 	it("counts an empty section as Home alone", () => {
-		const empty: CustomizeDraft = { workspaces: [], views: [], savedViews: [] };
+		const empty: CustomizeDraft = { views: [], workspaces: [], savedViews: [] };
 
 		expect(customizeSectionCounts({ draft: empty, section: "views" })).toEqual({
 			shown: 1,

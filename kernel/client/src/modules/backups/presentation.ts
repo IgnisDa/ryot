@@ -44,10 +44,10 @@ export const canDownloadBackupRun = (run: BackupRunExpiry, nowMs: number) =>
 
 export const backupRunProgress = (run: BackupRunProgress): RunProgress => {
 	if (run.status === "pending") {
-		return { kind: "indeterminate", label: "Preparing" };
+		return { label: "Preparing", kind: "indeterminate" };
 	}
 	const percent = Math.min(Math.max(Math.round(run.progress), 0), 100);
-	return { kind: "determinate", label: `${percent}%`, percent };
+	return { percent, kind: "determinate", label: `${percent}%` };
 };
 
 export const backupRunProgressValue = (run: BackupRunProgress): RunProgressValue => {

@@ -77,8 +77,8 @@ describe("sandbox enqueue by script ID", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `runtime-manifest-mismatch-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "Runtime manifest mismatch",
 				source: runtimeManifestMismatchSandboxSource({ slug, name: "Runtime manifest mismatch" }),
 			});

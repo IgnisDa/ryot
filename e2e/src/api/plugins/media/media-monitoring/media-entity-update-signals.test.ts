@@ -50,7 +50,7 @@ describe("hierarchical media entity-update signals", () => {
 			const buildDetails = (episodes: number, publishYear: number) =>
 				fakeProviderDetailsResult({
 					name: animeName,
-					properties: { productionStatus: "Continuing", episodes, publishYear },
+					properties: { episodes, publishYear, productionStatus: "Continuing" },
 				});
 
 			const { client } = yield* createAuthenticatedClient();
@@ -74,7 +74,7 @@ describe("hierarchical media entity-update signals", () => {
 			const monitor = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(monitor.client, {
 				channel: "apprise",
-				channelSpecifics: { baseUrl: fakeApprise.url, key: "anime-monitor", kind: "apprise" },
+				channelSpecifics: { kind: "apprise", key: "anime-monitor", baseUrl: fakeApprise.url },
 			});
 			yield* enableMediaMonitoring(monitor.client, anime.id);
 
@@ -90,9 +90,9 @@ describe("hierarchical media entity-update signals", () => {
 				animeProvider.detailsScriptId,
 				providerSandboxSource({
 					name: animeName,
-					slug: `${animeProvider.providerSlug}.details`,
 					operation: "details",
 					result: buildDetails(13, 2026),
+					slug: `${animeProvider.providerSlug}.details`,
 				}),
 			);
 			yield* triggerCronAndWaitForEntity(monitor, anime.id);
@@ -131,7 +131,7 @@ describe("hierarchical media entity-update signals", () => {
 				}) =>
 					fakeProviderDetailsResult({
 						name: showName,
-						properties: { productionStatus: "Continuing", publishYear: 2025 },
+						properties: { publishYear: 2025, productionStatus: "Continuing" },
 						childEntities: [
 							{
 								name: "Season 1",
@@ -147,7 +147,7 @@ describe("hierarchical media entity-update signals", () => {
 											seasonNumber: 1,
 											episodeNumber: 1,
 											publishDate: input.episodePublishDate,
-											images: [{ type: "remote", url: input.episodeImageUrl, purpose: "still" }],
+											images: [{ type: "remote", purpose: "still", url: input.episodeImageUrl }],
 										},
 									},
 								],
@@ -177,8 +177,8 @@ describe("hierarchical media entity-update signals", () => {
 				const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
 				const showProvider = yield* installTestProvider({
 					client,
-					scope: "system",
 					slug: showSlug,
+					scope: "system",
 					rootEntitySchemaSlug: showSchemaId,
 					details: buildDetails({
 						episodeName: "Episode 1",
@@ -220,8 +220,8 @@ describe("hierarchical media entity-update signals", () => {
 					showProvider.detailsScriptId,
 					providerSandboxSource({
 						name: showName,
-						slug: `${showProvider.providerSlug}.details`,
 						operation: "details",
+						slug: `${showProvider.providerSlug}.details`,
 						result: buildDetails({
 							specialName: "Special 1 Renamed",
 							episodeName: "Episode 1 Renamed",

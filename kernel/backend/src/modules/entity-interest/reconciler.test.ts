@@ -28,7 +28,7 @@ const responseWithItems = (items: readonly InterestItem[]) =>
 			entities: {
 				items,
 				type: "rows",
-				pageInfo: { hasMore: false, limit: items.length, nextCursor: null },
+				pageInfo: { hasMore: false, nextCursor: null, limit: items.length },
 			},
 		},
 	}) satisfies RyotQLResponse;
@@ -53,7 +53,7 @@ it.effect("omits IDs filtered from the visible rows", () => {
 					executeForUser: () =>
 						Effect.succeed(
 							responseWithItems([
-								row("entity-1", { populationStatus: "pending", translationStatus: "none" }),
+								row("entity-1", { translationStatus: "none", populationStatus: "pending" }),
 							]),
 						),
 				}),

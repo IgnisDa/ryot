@@ -97,7 +97,7 @@ const eventContext = (
 		eventSchemaSlug: "complete",
 		createdAt: "2026-01-04T00:00:00.000Z",
 		occurredAt: "2026-01-04T00:00:00.000Z",
-		subject: { id: "episode-2", name: "Finale", entitySchemaSlug },
+		subject: { name: "Finale", id: "episode-2", entitySchemaSlug },
 		...overrides,
 	});
 
@@ -114,17 +114,17 @@ const entityContext = (
 		occurredAt: "2026-01-10T00:00:00.000Z",
 		source: {
 			kind: "entity",
-			before: {
-				id: "show-1",
-				name: "Show",
-				entitySchemaSlug,
-				properties: beforeStatus === null ? {} : { productionStatus: beforeStatus },
-			},
 			after: {
 				id: "show-1",
 				name: "Show",
 				entitySchemaSlug,
 				properties: afterStatus === null ? {} : { productionStatus: afterStatus },
+			},
+			before: {
+				id: "show-1",
+				name: "Show",
+				entitySchemaSlug,
+				properties: beforeStatus === null ? {} : { productionStatus: beforeStatus },
 			},
 		},
 	},
@@ -209,17 +209,6 @@ const createHost = (
 						entitySchemaSlug: entitySchemaSlugs[0] ?? "show",
 					},
 				]),
-			claimPersistentValue: (key, value, ttl) => {
-				const claimedValue = value === true;
-				claims.push([key, claimedValue, ttl]);
-				return options.claim
-					? options.claim(key, claimedValue, ttl)
-					: hostSuccess(
-							options.claimed === false
-								? { claimed: false as const, value: null }
-								: { claimed: true as const },
-						);
-			},
 			executeRyotql: (document) => {
 				documents.push(document);
 				const response = responses[queryIndex];
@@ -228,6 +217,17 @@ const createHost = (
 					throw new Error(`Unexpected lifecycle query ${queryIndex}`);
 				}
 				return hostSuccess(response.response);
+			},
+			claimPersistentValue: (key, value, ttl) => {
+				const claimedValue = value === true;
+				claims.push([key, claimedValue, ttl]);
+				return options.claim
+					? options.claim(key, claimedValue, ttl)
+					: hostSuccess(
+							options.claimed === false
+								? { value: null, claimed: false as const }
+								: { claimed: true as const },
+						);
 			},
 		}),
 	};
@@ -290,7 +290,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 	it.each([
 		{
 			name: "incomplete coverage",
-			fixture: { ...completeCoverage(), state: "in_progress" as const, coverageComplete: false },
+			fixture: { ...completeCoverage(), coverageComplete: false, state: "in_progress" as const },
 		},
 		{ name: "nonterminal status", fixture: completeCoverage("Continuing") },
 		{ name: "unknown status", fixture: completeCoverage("Unknown") },
@@ -526,7 +526,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		const created: CreateEventItem[][] = [];
 		const claim = (_key: string, _value: boolean, _ttl: number) => {
 			if (held) {
-				return hostSuccess({ claimed: false as const, value: null });
+				return hostSuccess({ value: null, claimed: false as const });
 			}
 			held = true;
 			return hostSuccess({ claimed: true as const });
@@ -673,8 +673,8 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		const resumed: SnapshotFixture = {
 			...onHold,
 			state: "caught_up",
-			events: [firstComplete, finalComplete],
 			coverageComplete: true,
+			events: [firstComplete, finalComplete],
 		};
 		const testHost = createHost([onHold, resumed, resumed]);
 		await Effect.runPromise(run(entityContext("Continuing", "Ended"), testHost.host));

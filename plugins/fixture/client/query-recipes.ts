@@ -21,6 +21,7 @@ const installation = table("pluginInstallation", "installation");
 export const fixtureCollectionChoicesRecipe = defineRecipe(() => {
 	const collection = table("entity", "collectionChoice");
 	return {
+		map: ({ collections }) => Result.succeed(collections.items),
 		queries: {
 			collections: selectedRows(collection, {
 				limit: 100,
@@ -35,7 +36,6 @@ export const fixtureCollectionChoicesRecipe = defineRecipe(() => {
 				},
 			}),
 		},
-		map: ({ collections }) => Result.succeed(collections.items),
 	};
 });
 
@@ -44,39 +44,39 @@ export type FixtureCollectionChoice = Recipe.Success<typeof fixtureCollectionCho
 export const fixturePokemonChoicesRecipe = defineRecipe(() => {
 	const pokemon = table("entity", "pokemonChoice");
 	return {
+		map: ({ pokemon: pokemonRows }) => Result.succeed(pokemonRows.items),
 		queries: {
 			pokemon: selectedRows(pokemon, {
 				limit: 100,
-				orderBy: [ascending(column(pokemon, "name")), ascending(column(pokemon, "id"))],
 				where: eq(column(pokemon, "entitySchemaSlug"), literal("pokemon")),
+				orderBy: [ascending(column(pokemon, "name")), ascending(column(pokemon, "id"))],
 				selection: {
 					id: selectedField(column(pokemon, "id"), Schema.String),
 					name: selectedField(column(pokemon, "name"), Schema.String),
 				},
 			}),
 		},
-		map: ({ pokemon: pokemonRows }) => Result.succeed(pokemonRows.items),
 	};
 });
 
 export type FixturePokemonChoice = Recipe.Success<typeof fixturePokemonChoicesRecipe>[number];
 
 export const fixtureClientPluginCatalogRecipe = defineRecipe(() => ({
+	map: ({ installations }) => Result.succeed(installations.items),
 	queries: {
 		installations: selectedRows(installation, {
 			limit: 100,
+			selection: { slug: selectedField(column(plugin, "slug"), Schema.String) },
+			orderBy: [ascending(column(plugin, "slug")), ascending(column(installation, "id"))],
+			joins: [join("inner", plugin, eq(column(plugin, "id"), column(installation, "pluginId")))],
 			where: and(
 				eq(column(plugin, "status"), literal("active")),
 				eq(column(installation, "health"), literal("ready")),
 				eq(column(installation, "isDisabled"), literal(false)),
 				isNotNull(column(plugin, "clientApiVersion")),
 			),
-			orderBy: [ascending(column(plugin, "slug")), ascending(column(installation, "id"))],
-			joins: [join("inner", plugin, eq(column(plugin, "id"), column(installation, "pluginId")))],
-			selection: { slug: selectedField(column(plugin, "slug"), Schema.String) },
 		}),
 	},
-	map: ({ installations }) => Result.succeed(installations.items),
 }));
 
 export type FixtureClientPluginCatalog = Recipe.Success<typeof fixtureClientPluginCatalogRecipe>;

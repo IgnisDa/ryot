@@ -27,13 +27,13 @@ export const canDeleteImportRun = (status: RunStatus) =>
 
 export const importRunProgress = (run: RunCounts): RunProgress => {
 	if (run.totalItems === null) {
-		return { kind: "indeterminate", label: "Preparing" };
+		return { label: "Preparing", kind: "indeterminate" };
 	}
 	const percent =
 		run.totalItems <= 0
 			? 100
 			: Math.min(Math.max(Math.round((run.processedItems / run.totalItems) * 100), 0), 100);
-	return { kind: "determinate", label: `${percent}%`, percent };
+	return { percent, kind: "determinate", label: `${percent}%` };
 };
 
 export const importRunProgressValue = (run: RunCounts): RunProgressValue =>

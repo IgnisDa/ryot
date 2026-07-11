@@ -39,7 +39,7 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 		entityId:
 			typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
 	}),
-	loader: async ({ abortController, context, params }) => {
+	loader: async ({ params, context, abortController }) => {
 		const slug = params.viewSlug.trim();
 		if (slug.length === 0) {
 			// oxlint-disable-next-line typescript/only-throw-error
@@ -89,8 +89,8 @@ function SavedViewPage() {
 	const router = useRouter();
 	const navigate = useNavigate();
 	const loaded = Route.useLoaderData();
-	const { add, layout, q } = Route.useSearch();
-	const { runtime, scope } = Route.useRouteContext();
+	const { q, add, layout } = Route.useSearch();
+	const { scope, runtime } = Route.useRouteContext();
 	const location = useRouterState({
 		select: (current) => current.resolvedLocation ?? current.location,
 	});
@@ -127,7 +127,7 @@ function SavedViewPage() {
 			router.history.back();
 			return;
 		}
-		navigateAddSearch({ add: null, q: null }, true);
+		navigateAddSearch({ q: null, add: null }, true);
 	};
 
 	useEffect(() => {
@@ -202,9 +202,9 @@ function SavedViewError() {
 	const router = useRouter();
 	return (
 		<SavedViewNotice
-			action={<Button onClick={() => void router.invalidate()}>Retry</Button>}
 			title="Saved view unavailable"
 			message="The saved view could not be loaded."
+			action={<Button onClick={() => void router.invalidate()}>Retry</Button>}
 		/>
 	);
 }

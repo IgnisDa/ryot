@@ -21,8 +21,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Show",
 	slug: "show.tmdb",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
 });
 
@@ -30,9 +30,9 @@ const httpManifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Show",
 	slug: "show.tmdb",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	requiredSystemConfigKeys: [],
 });
 
 export const search = defineProvider({
@@ -83,8 +83,8 @@ export const search = defineProvider({
 });
 
 export const details = defineProvider({
-	manifest: httpManifest,
 	operation: "details",
+	manifest: httpManifest,
 	run: (input, host) =>
 		Effect.flatMap(getTmdbAccessToken(host), (token) =>
 			getTmdbShowDetails(input, host, canonicalLanguage, token),
@@ -92,8 +92,8 @@ export const details = defineProvider({
 });
 
 export const resolve = defineProvider({
-	manifest: httpManifest,
 	operation: "resolve",
+	manifest: httpManifest,
 	run: (input, host) => {
 		if (input.identifierType !== "imdb") {
 			return Effect.fail(new Error("TMDB show resolve supports only imdb identifiers"));
@@ -130,8 +130,8 @@ export const trending = {
 	run: (_input: unknown, host: TmdbHost) =>
 		Effect.flatMap(getTmdbAccessToken(host), (token) =>
 			fetchTrendingItems(host, "/trending/tv/day", canonicalLanguage, token, {
-				nameKeys: ["name", "original_name"],
 				providerSlug: manifest.slug,
+				nameKeys: ["name", "original_name"],
 			}).pipe(Effect.map((items) => ({ items }))),
 		),
 };

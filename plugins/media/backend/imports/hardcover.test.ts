@@ -37,7 +37,7 @@ describe("adaptHardcoverCsv", () => {
 			{
 				eventSchemaSlug: "review",
 				occurredAt: "2026-03-08T10:30:00.000Z",
-				properties: { rating: 90, text: "Excellent", isSpoiler: true },
+				properties: { rating: 90, isSpoiler: true, text: "Excellent" },
 			},
 		]);
 	});
@@ -55,7 +55,7 @@ describe("adaptHardcoverCsv", () => {
 			{ properties: {}, eventSchemaSlug: "backlog", occurredAt: expect.any(String) },
 		]);
 		expect(result.failures).toEqual([
-			{ itemIndex: 1, message: "Empty Hardcover Book ID", sourceLabel: "Broken Book" },
+			{ itemIndex: 1, sourceLabel: "Broken Book", message: "Empty Hardcover Book ID" },
 		]);
 	});
 

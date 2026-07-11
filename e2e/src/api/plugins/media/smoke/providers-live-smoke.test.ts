@@ -70,8 +70,8 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 				const movie = yield* seedPopulatedProviderEntity({
 					externalId: "550",
 					entitySchemaSlug: schema.id,
-					providerId: provider.providerId,
 					name: "Canonical Fight Club",
+					providerId: provider.providerId,
 					properties: { description: "Canonical overview of Fight Club." },
 				});
 

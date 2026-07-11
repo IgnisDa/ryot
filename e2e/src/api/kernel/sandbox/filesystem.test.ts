@@ -16,8 +16,8 @@ describe("sandbox filesystem grants", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `scratch-entry-limit-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				capabilities: ["scratch"],
 				name: "Scratch entry limit",
 				source: scratchEntryLimitSandboxSource({
@@ -40,8 +40,8 @@ describe("sandbox filesystem grants", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `scratch-result-boundary-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				capabilities: ["scratch"],
 				name: "Scratch result boundary",
 				source: scratchEntryLimitSandboxSource({

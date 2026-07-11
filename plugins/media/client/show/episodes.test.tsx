@@ -97,7 +97,7 @@ const textOf = (container: HTMLElement, text: string) =>
 
 describe("show episodes tab", () => {
 	it("renders the season header from the loaded season and episode state", () => {
-		const { container, unmount } = renderEpisodes(readyState());
+		const { unmount, container } = renderEpisodes(readyState());
 
 		expect(container.textContent).toContain("Season 1");
 		expect(textOf(container, "Released Mar 13, 2025 • 1 episode • 1 watched")).not.toBeUndefined();
@@ -106,7 +106,7 @@ describe("show episodes tab", () => {
 	});
 
 	it("renders episode metadata and a quiet lifecycle indicator", () => {
-		const { container, unmount } = renderEpisodes(readyState());
+		const { unmount, container } = renderEpisodes(readyState());
 
 		expect(container.textContent).toContain("E1");
 		expect(container.textContent).toContain("Episode 1: The Arrest");
@@ -117,7 +117,7 @@ describe("show episodes tab", () => {
 	});
 
 	it("omits episode metadata the provider did not record", () => {
-		const { container, unmount } = renderEpisodes(
+		const { unmount, container } = renderEpisodes(
 			readyState([showSeasonRow]),
 			readySeasonEpisodes({
 				episodes: [
@@ -135,7 +135,7 @@ describe("show episodes tab", () => {
 	});
 
 	it("never presents a partially loaded season as an exact total", () => {
-		const { container, unmount } = renderEpisodes(
+		const { unmount, container } = renderEpisodes(
 			readyState([showSeasonRow]),
 			readySeasonEpisodes({ hasMore: true }),
 		);
@@ -147,7 +147,7 @@ describe("show episodes tab", () => {
 	});
 
 	it("offers the next regular episode to continue with", () => {
-		const { container, unmount } = renderEpisodes(
+		const { unmount, container } = renderEpisodes(
 			readyState([showSeasonRow]),
 			readySeasonEpisodes({ episodes: [showEpisodeRow, secondEpisode] }),
 		);
@@ -164,7 +164,7 @@ describe("show episodes tab", () => {
 	});
 
 	it("hides next up when nothing sensible follows", () => {
-		const { container, unmount } = renderEpisodes(readyState());
+		const { unmount, container } = renderEpisodes(readyState());
 
 		expect(container.textContent).not.toContain("Next up");
 		unmount();
@@ -186,7 +186,7 @@ describe("show episodes tab", () => {
 			selections.push(seasonId);
 			selectedId = seasonId;
 		};
-		const { container, rerender, unmount } = renderEpisodes(state, readySeasonEpisodes(), {
+		const { unmount, rerender, container } = renderEpisodes(state, readySeasonEpisodes(), {
 			onSelect,
 		});
 
@@ -227,7 +227,7 @@ describe("show episodes tab", () => {
 		const onSelect = (seasonId: string) => {
 			selectedId = seasonId;
 		};
-		const { container, rerender, unmount } = renderEpisodes(state, readySeasonEpisodes(), {
+		const { unmount, rerender, container } = renderEpisodes(state, readySeasonEpisodes(), {
 			onSelect,
 		});
 
@@ -266,7 +266,7 @@ describe("show episodes tab", () => {
 		const onSelect = (seasonId: string) => {
 			selectedId = seasonId;
 		};
-		const { container, rerender, unmount } = renderEpisodes(state, regularEpisodes, { onSelect });
+		const { unmount, rerender, container } = renderEpisodes(state, regularEpisodes, { onSelect });
 
 		expect(container.textContent).toContain("Next up");
 
@@ -288,7 +288,7 @@ describe("show episodes tab", () => {
 	});
 
 	it("keeps a show with only specials readable", () => {
-		const { container, unmount } = renderEpisodes(
+		const { unmount, container } = renderEpisodes(
 			readyState([specialsSeason]),
 			readySeasonEpisodes({
 				season: specialsSeason,
@@ -310,7 +310,7 @@ describe("show episodes tab", () => {
 	});
 
 	it("explains a season that has no episodes recorded", () => {
-		const { container, unmount } = renderEpisodes(
+		const { unmount, container } = renderEpisodes(
 			readyState([showSeasonRow]),
 			readySeasonEpisodes({ episodes: [] }),
 		);
@@ -320,14 +320,14 @@ describe("show episodes tab", () => {
 	});
 
 	it("explains a show that has no seasons at all", () => {
-		const { container, unmount } = renderEpisodes(readyState([]));
+		const { unmount, container } = renderEpisodes(readyState([]));
 
 		expect(container.textContent).toContain("No episodes yet");
 		unmount();
 	});
 
 	it("renders a tab-local loading branch", () => {
-		const { container, unmount } = renderEpisodes(mapShowEpisodes(pendingQueryResult()));
+		const { unmount, container } = renderEpisodes(mapShowEpisodes(pendingQueryResult()));
 
 		expect(container.textContent).toContain("Loading episodes...");
 		unmount();
@@ -335,7 +335,7 @@ describe("show episodes tab", () => {
 
 	it("offers a retry when the episodes query fails", () => {
 		const retries: number[] = [];
-		const { container, unmount } = renderEpisodes(
+		const { unmount, container } = renderEpisodes(
 			mapShowEpisodes(transportErrorQueryResult()),
 			readySeasonEpisodes(),
 			{ refresh: () => retries.push(1) },
@@ -355,14 +355,14 @@ describe("show episodes tab", () => {
 	});
 
 	it("hides episode decoder internals behind a stable message", () => {
-		const { container, unmount } = renderEpisodes(mapShowEpisodes(malformedQueryResult()));
+		const { unmount, container } = renderEpisodes(mapShowEpisodes(malformedQueryResult()));
 
 		expect(container.textContent).toContain("Unable to load episodes");
 		unmount();
 	});
 
 	it("leaves the tab unchanged when a deferred episode action is pressed", async () => {
-		const { container, unmount } = renderEpisodes(
+		const { unmount, container } = renderEpisodes(
 			readyState([showSeasonRow]),
 			readySeasonEpisodes({ episodes: [showEpisodeRow, secondEpisode] }),
 		);

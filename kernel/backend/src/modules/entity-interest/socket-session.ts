@@ -328,7 +328,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 		Effect.gen(function* () {
 			const pending = yield* Queue.take(reconciliation);
 			const terminal = yield* service
-				.reconcile({ sessionId, principal, pending })
+				.reconcile({ pending, sessionId, principal })
 				.pipe(Effect.retry(makeReconciliationSchedule()));
 			for (const item of pending) {
 				reconciliationKeys.delete(`${item.entityId}:${item.revision}`);
@@ -346,7 +346,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 				Effect.gen(function* () {
 					const nonce = crypto.randomUUID();
 					heartbeatNonce = nonce;
-					yield* output.enqueue({ type: "ping", nonce });
+					yield* output.enqueue({ nonce, type: "ping" });
 					yield* Effect.sleep(ENTITY_INTEREST_HEARTBEAT_TIMEOUT).pipe(
 						Effect.andThen(
 							Effect.suspend(() =>

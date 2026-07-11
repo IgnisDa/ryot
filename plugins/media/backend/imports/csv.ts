@@ -3,7 +3,7 @@ import { parse } from "@ryot-app/sandbox-sdk/papaparse";
 export const parseCsvText = (text: string, delimiter = "") => {
 	const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 	if (normalized.length === 0) {
-		return { headers: [], rows: [] };
+		return { rows: [], headers: [] };
 	}
 	const result = parse<Record<string, string>>(normalized, {
 		delimiter,
@@ -11,5 +11,5 @@ export const parseCsvText = (text: string, delimiter = "") => {
 		skipEmptyLines: true,
 		transform: (value) => value.trim(),
 	});
-	return { headers: result.meta.fields ?? [], rows: result.data };
+	return { rows: result.data, headers: result.meta.fields ?? [] };
 };

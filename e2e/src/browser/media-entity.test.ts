@@ -75,7 +75,7 @@ it.live("automatically populates and translates a partial Show in the compiled M
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		yield* media
-			.getByRole("heading", { level: 1, name: translatedName, exact: true })
+			.getByRole("heading", { level: 1, exact: true, name: translatedName })
 			.waitFor({ state: "visible", timeout: 150_000 });
 		yield* expectVisibleText(media.locator("body"), translatedDescription);
 		yield* expectVisibleText(
@@ -141,7 +141,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		yield* page
 			.locator("iframe")
 			.contentFrame()
-			.getByRole("link", { name: SHOW_NAME, exact: true })
+			.getByRole("link", { exact: true, name: SHOW_NAME })
 			.click();
 		yield* page.waitForURL(`${frontendUrl}/e/${showId}`);
 		expect(new URL(page.url()).pathname).toBe(`/e/${showId}`);
@@ -243,7 +243,7 @@ it.live("shows a kernel notice for an unsupported Media schema", () =>
 		yield* page.waitForURL(`${frontendUrl}/e/${movie.id}`);
 
 		yield* page
-			.getByRole("heading", { level: 1, name: "Entity page not registered", exact: true })
+			.getByRole("heading", { level: 1, exact: true, name: "Entity page not registered" })
 			.waitFor({ state: "visible" });
 		expect(yield* page.locator('iframe[title="media plugin"]').count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),

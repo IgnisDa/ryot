@@ -110,8 +110,8 @@ describe("Events bulk POST", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaSlug: progressEventSchemaSlug,
 							properties: { progressPercent: 25 },
+							eventSchemaSlug: progressEventSchemaSlug,
 						},
 						{
 							entityId,

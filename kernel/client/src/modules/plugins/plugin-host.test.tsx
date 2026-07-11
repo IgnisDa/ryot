@@ -18,14 +18,14 @@ const theme: ThemeStore = {
 	destroy: () => undefined,
 	getPreference: () => "light",
 	setPreference: () => undefined,
-	getSnapshot: () => ({ resolvedMode: "light" }),
 	subscribe: () => () => undefined,
+	getSnapshot: () => ({ resolvedMode: "light" }),
 };
-const home: PluginLogicalLocation = { kind: "route", path: "/", search: "keep=1" };
+const home: PluginLogicalLocation = { path: "/", kind: "route", search: "keep=1" };
 const session = {
 	sessionId: "session-1",
-	expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
 	src: "https://artifacts.example/session-1/index.html",
+	expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
 };
 
 function mount(
@@ -80,12 +80,12 @@ function mount(
 		subscribeResume: options.subscribeResume,
 		viewport: { safeAreaTop: 7, safeAreaBottom: 11 },
 		onRevokeArtifactSession: () => Promise.resolve(),
-		onReloadCurrent: options.onReloadCurrent ?? (() => undefined),
 		onScreenState: (state: unknown) => states.push(state),
 		onPageSearch: (request: unknown) => searches.push(request),
 		onNavigate: (request: unknown) => navigations.push(request),
-		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+		onReloadCurrent: options.onReloadCurrent ?? (() => undefined),
 		onProviderSearch: (request: unknown) => providerSearches.push(request),
+		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		onCreateArtifactSession: options.onCreateArtifactSession ?? (() => Promise.resolve(session)),
 		onQuery: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onAssets: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
@@ -95,13 +95,6 @@ function mount(
 		onRenewArtifactSession:
 			options.onRenewArtifactSession ??
 			(() => Promise.resolve({ outcome: "renewed" as const, expiresAt: session.expiresAt })),
-		onInvokeOperation: (request: PluginOperationRequest) => {
-			operations.push(request);
-			return (
-				options.onInvokeOperation?.(request) ??
-				Promise.resolve({ outcome: "success" as const, value: null })
-			);
-		},
 		navigation: {
 			index,
 			location,
@@ -109,6 +102,13 @@ function mount(
 			key: `k${index}`,
 			edgeBack: index > 0,
 			leading: index > 0 ? ("back" as const) : ("drawer" as const),
+		},
+		onInvokeOperation: (request: PluginOperationRequest) => {
+			operations.push(request);
+			return (
+				options.onInvokeOperation?.(request) ??
+				Promise.resolve({ value: null, outcome: "success" as const })
+			);
 		},
 	});
 	const view = render(<PluginFrame {...props(home, 0)} />);
@@ -157,7 +157,7 @@ function connect(frame: HTMLIFrameElement) {
 		throw new Error("Bridge did not connect");
 	}
 	const { mode: _mode, safeAreaTop: _top, safeAreaBottom: _bottom, ...ready } = init;
-	return { init, messages, port, ready };
+	return { init, port, ready, messages };
 }
 
 describe("PluginFrame", () => {
@@ -192,7 +192,7 @@ describe("PluginFrame", () => {
 		bridge.port.postMessage({
 			mode: "push",
 			type: "navigate",
-			target: { kind: "plugin-route", pluginSlug: "media", path: "/shows", search: "q=x" },
+			target: { search: "q=x", path: "/shows", pluginSlug: "media", kind: "plugin-route" },
 		});
 		bridge.port.postMessage({
 			entitySchemaSlug: "movie",
@@ -202,7 +202,7 @@ describe("PluginFrame", () => {
 		bridge.port.postMessage({
 			mode: "replace",
 			type: "page-search",
-			update: { dialog: null, q: "dune" },
+			update: { q: "dune", dialog: null },
 		});
 		bridge.port.postMessage({
 			input: null,
@@ -211,12 +211,12 @@ describe("PluginFrame", () => {
 			operationSlug: "greet",
 			type: "operation-request",
 		});
-		bridge.port.postMessage({ type: "screen-state", index: 0, key: "k0", hasPreviousScreen: true });
+		bridge.port.postMessage({ index: 0, key: "k0", type: "screen-state", hasPreviousScreen: true });
 
 		await waitFor(() => expect(host.operations).toHaveLength(1));
-		expect(host.navigations).toEqual([{ href: "/media/shows?q=x", replace: false }]);
+		expect(host.navigations).toEqual([{ replace: false, href: "/media/shows?q=x" }]);
 		expect(host.searches).toEqual([
-			{ mode: "replace", update: { dialog: null, q: "dune" }, type: "page-search" },
+			{ mode: "replace", type: "page-search", update: { q: "dune", dialog: null } },
 		]);
 		expect(host.providerSearches).toEqual([
 			{
@@ -351,7 +351,7 @@ describe("PluginFrame", () => {
 			},
 			onRenewArtifactSession: () => {
 				renewals += 1;
-				return Promise.resolve({ outcome: "replace", reason: "stale" });
+				return Promise.resolve({ reason: "stale", outcome: "replace" });
 			},
 		});
 		await flush();

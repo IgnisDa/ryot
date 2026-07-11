@@ -69,8 +69,8 @@ const ReportRow = Schema.Struct({
 	phase: Schema.String,
 	message: Schema.String,
 	count: Schema.NullOr(Schema.Finite),
-	elapsedSeconds: Schema.NullOr(Schema.Finite),
 	level: Schema.Literals(["info", "warning"]),
+	elapsedSeconds: Schema.NullOr(Schema.Finite),
 });
 
 type ReportEntry = { count?: string; message: string; level?: typeof ReportRow.Type.level };

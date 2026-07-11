@@ -26,7 +26,7 @@ const pokemonChoicesQuery = createRyotQuery(({ client, signal }) =>
 const addToCollectionMutation = createRyotMutation<
 	{ readonly collectionId: string; readonly entityId: string },
 	unknown
->(({ client, input }) => client.collections.upsertMembership(input));
+>(({ input, client }) => client.collections.upsertMembership(input));
 
 const samePage = (
 	left: ReturnType<typeof usePluginLocation>,
@@ -88,14 +88,14 @@ export const PokemonPicker = () => {
 			return;
 		}
 		mutation
-			.mutateAsync({ collectionId, entityId })
+			.mutateAsync({ entityId, collectionId })
 			.then(close)
 			.catch(() => undefined);
 	};
 
 	return (
 		<>
-			<section aria-labelledby="pokemon-picker-heading" className="flex flex-col gap-2">
+			<section className="flex flex-col gap-2" aria-labelledby="pokemon-picker-heading">
 				<h2 id="pokemon-picker-heading" className="font-display text-lg text-text">
 					Pokemon picker
 				</h2>
@@ -164,7 +164,7 @@ export const PokemonPicker = () => {
 								>
 									Cancel
 								</Button>
-								<Button type="button" disabled={mutation.isPending} onClick={confirm}>
+								<Button type="button" onClick={confirm} disabled={mutation.isPending}>
 									{mutation.status === "error" ? "Try again" : "Confirm"}
 								</Button>
 							</div>
@@ -191,26 +191,26 @@ export const PokemonPicker = () => {
 									value={collectionId}
 									onChange={setCollectionId}
 									className="flex flex-col gap-2"
-									renderOption={(choice, selected) => ({
-										content: choice.label,
-										className: `min-h-11 rounded-lg border px-3 py-2 text-left ${selected ? "border-accent bg-accent-soft text-text" : "border-border text-text"}`,
-									})}
 									options={choices.data.map((choice) => ({
 										id: choice.id,
 										value: choice.id,
 										name: choice.name,
 										label: choice.name,
 									}))}
+									renderOption={(choice, selected) => ({
+										content: choice.label,
+										className: `min-h-11 rounded-lg border px-3 py-2 text-left ${selected ? "border-accent bg-accent-soft text-text" : "border-border text-text"}`,
+									})}
 								/>
 							) : null}
 							<div className="flex justify-end gap-2">
-								<Button type="button" variant="secondary" onClick={close}>
+								<Button type="button" onClick={close} variant="secondary">
 									Cancel
 								</Button>
 								<Button
 									type="button"
-									disabled={collectionId === undefined}
 									onClick={() => setReviewing(true)}
+									disabled={collectionId === undefined}
 								>
 									Review
 								</Button>

@@ -43,12 +43,12 @@ describe("sandbox HTTP response limits", () => {
 	it("fails while streaming as soon as the response exceeds the limit", () => {
 		let cancelled = false;
 		const body = new ReadableStream<Uint8Array>({
+			cancel() {
+				cancelled = true;
+			},
 			start(controller) {
 				controller.enqueue(new Uint8Array(SANDBOX_LIMITS.http.responseBytes));
 				controller.enqueue(new Uint8Array([1]));
-			},
-			cancel() {
-				cancelled = true;
 			},
 		});
 		return Effect.runPromise(

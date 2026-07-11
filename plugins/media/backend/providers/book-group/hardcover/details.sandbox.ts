@@ -5,11 +5,11 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
+	requiredSystemConfigKeys: [],
 	name: "Hardcover Book Group Details",
 	slug: "book-group.hardcover.details",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["hardcoverApiKey"],
-	requiredSystemConfigKeys: [],
 });
 
-export default defineProvider({ manifest, operation: "details", run: details.run });
+export default defineProvider({ manifest, run: details.run, operation: "details" });

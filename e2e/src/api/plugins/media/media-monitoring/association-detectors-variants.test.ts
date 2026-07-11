@@ -54,14 +54,14 @@ describe("company and media-group association variants", () => {
 				client,
 				scope: "system",
 				rootEntitySchemaSlug: companySchemaId,
-				slug: `company.association-variant-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({ name: companyName }),
+				slug: `company.association-variant-e2e-${crypto.randomUUID()}`,
 			});
 			const movieProvider = yield* installTestProvider({
 				client,
 				scope: "system",
-				slug: `movie.association-variant-e2e-${crypto.randomUUID()}`,
 				rootEntitySchemaSlug: movieSchemaId,
+				slug: `movie.association-variant-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({
 					name: movieName,
 					relatedEntityGroups: [
@@ -94,7 +94,7 @@ describe("company and media-group association variants", () => {
 			const importer = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(companyMonitor.client, {
 				channel: "apprise",
-				channelSpecifics: { baseUrl: fakeApprise.url, key: "company-monitor", kind: "apprise" },
+				channelSpecifics: { kind: "apprise", key: "company-monitor", baseUrl: fakeApprise.url },
 			});
 			yield* enableMediaMonitoring(companyMonitor.client, company.id);
 
@@ -156,8 +156,8 @@ describe("company and media-group association variants", () => {
 							entities: [
 								{
 									name: personName,
-									providerSlug: personProvider.providerSlug,
 									externalId: personExternalId,
+									providerSlug: personProvider.providerSlug,
 									relationshipProperties: { roles: ["Artist"] },
 								},
 							],
@@ -169,8 +169,8 @@ describe("company and media-group association variants", () => {
 							entities: [
 								{
 									name: companyName,
-									providerSlug: companyProvider.providerSlug,
 									externalId: companyExternalId,
+									providerSlug: companyProvider.providerSlug,
 									relationshipProperties: { roles: ["Label"] },
 								},
 							],

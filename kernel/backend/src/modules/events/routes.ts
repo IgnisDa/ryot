@@ -12,7 +12,7 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 		Effect.gen(function* () {
 			const user = yield* CurrentUser;
 			const service = yield* EventsService;
-			return yield* service.create({ userId: user.id, payload, source: "api" }).pipe(
+			return yield* service.create({ payload, source: "api", userId: user.id }).pipe(
 				Effect.catchTag("EventCreateItemError", (error) =>
 					Effect.logError("event creation escaped item failure handling", error).pipe(
 						Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),

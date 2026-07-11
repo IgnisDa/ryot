@@ -53,16 +53,15 @@ const resolveTypeScriptEntries = (from: string) => {
 		"react-dom/client": `${reactDomTypesRoot}/client.d.ts`,
 		"react/jsx-runtime": `${reactTypesRoot}/jsx-runtime.d.ts`,
 		"@ryot-app/client-sdk": Bun.resolveSync("@ryot-app/client-sdk", from),
+		"@ryot-app/client-ui-sdk": Bun.resolveSync("@ryot-app/client-ui-sdk", from),
+		"@ryot-app/client-sdk/react": Bun.resolveSync("@ryot-app/client-sdk/react", from),
 		"@ryot-app/client-sdk/effect": Bun.resolveSync("@ryot-app/client-sdk/effect", from),
 		"@ryot-app/client-sdk/plugin": Bun.resolveSync("@ryot-app/client-sdk/plugin", from),
-		"@ryot-app/client-sdk/react": Bun.resolveSync("@ryot-app/client-sdk/react", from),
 		"@ryot-app/client-sdk/ryotql": Bun.resolveSync("@ryot-app/client-sdk/ryotql", from),
 		"@ryot-app/client-sdk/screen": Bun.resolveSync("@ryot-app/client-sdk/screen", from),
-		"@ryot-app/ryotql-recipes/saved-views": Bun.resolveSync(
-			"@ryot-app/ryotql-recipes/saved-views",
-			from,
-		),
-		"@ryot-app/client-ui-sdk": Bun.resolveSync("@ryot-app/client-ui-sdk", from),
+		"@ryot-app/plugin-kit/effect": Bun.resolveSync("@ryot-app/plugin-kit/effect", from),
+		"@ryot-app/plugin-kit/ryotql": Bun.resolveSync("@ryot-app/plugin-kit/ryotql", from),
+		"@ryot-app/plugin-kit/schema": Bun.resolveSync("@ryot-app/plugin-kit/schema", from),
 		"@ryot-app/client-ui-sdk/icon": Bun.resolveSync("@ryot-app/client-ui-sdk/icon", from),
 		"@ryot-app/client-ui-sdk/sync": Bun.resolveSync("@ryot-app/client-ui-sdk/sync", from),
 		"@ryot-app/client-ui-sdk/tint": Bun.resolveSync("@ryot-app/client-ui-sdk/tint", from),
@@ -71,9 +70,10 @@ const resolveTypeScriptEntries = (from: string) => {
 			"@ryot-app/client-ui-sdk/schema-form",
 			from,
 		),
-		"@ryot-app/plugin-kit/effect": Bun.resolveSync("@ryot-app/plugin-kit/effect", from),
-		"@ryot-app/plugin-kit/ryotql": Bun.resolveSync("@ryot-app/plugin-kit/ryotql", from),
-		"@ryot-app/plugin-kit/schema": Bun.resolveSync("@ryot-app/plugin-kit/schema", from),
+		"@ryot-app/ryotql-recipes/saved-views": Bun.resolveSync(
+			"@ryot-app/ryotql-recipes/saved-views",
+			from,
+		),
 	};
 };
 
@@ -129,7 +129,7 @@ const readFontsource = async (specifier: string, from: string) => {
 		});
 		declaration.value = valueParser.stringify(parsed.nodes);
 	});
-	return { assets: assets.map(({ file }) => file), stylesheet: root.toString() };
+	return { stylesheet: root.toString(), assets: assets.map(({ file }) => file) };
 };
 
 const readScanSources = async (root: string) => {
@@ -145,6 +145,14 @@ const readScanSources = async (root: string) => {
 };
 
 export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
+	catch: (error) =>
+		clientPluginCompilationFailure([
+			clientPluginCompilerDiagnostic(
+				"RYOT_CLIENT_COMPILER",
+				"client",
+				`Client plugin compiler dependencies could not be resolved: ${String(error)}`,
+			),
+		]),
 	try: async () => {
 		const from = Bun.fileURLToPath(new URL(".", import.meta.url));
 		const uiSdkRoot = directoryOf(Bun.resolveSync("@ryot-app/client-ui-sdk", from));
@@ -159,25 +167,17 @@ export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
 			compilerRoot: from,
 			typeScriptEntries: resolveTypeScriptEntries(from),
 			tsserverPath: resolveTypeScriptCompilerPath(from),
+			fontAssets: fonts.flatMap(({ assets }) => assets),
 			uiSdkScanSources: await readScanSources(uiSdkRoot),
 			clientSdkScanSources: await readScanSources(clientSdkRoot),
-			fontAssets: fonts.flatMap(({ assets }) => assets),
 			fontStylesheet: fonts.map(({ stylesheet }) => stylesheet).join("\n"),
+			tailwindStylesheet: { path: tailwindEntry, content: await Bun.file(tailwindEntry).text() },
 			themeStylesheet: await Bun.file(
 				Bun.resolveSync("@ryot-app/client-ui-sdk/theme.css", from),
 			).text(),
 			paletteStylesheet: await Bun.file(
 				Bun.resolveSync("@ryot-app/client-ui-sdk/palette.css", from),
 			).text(),
-			tailwindStylesheet: { path: tailwindEntry, content: await Bun.file(tailwindEntry).text() },
 		};
 	},
-	catch: (error) =>
-		clientPluginCompilationFailure([
-			clientPluginCompilerDiagnostic(
-				"RYOT_CLIENT_COMPILER",
-				"client",
-				`Client plugin compiler dependencies could not be resolved: ${String(error)}`,
-			),
-		]),
 });

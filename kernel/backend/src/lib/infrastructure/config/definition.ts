@@ -11,6 +11,12 @@ import { Config } from "effect";
 const scheduler = group(
 	{ label: "Scheduler", description: "Scheduler settings" },
 	{
+		infrequentCronJobsSchedule: stringField({
+			defaultValue: "0 0 * * *",
+			label: "Infrequent cron jobs schedule",
+			envKey: "SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE",
+			description: "Cron expression used by plugin crons assigned to the infrequent tier",
+		}),
 		disableDispatchers: booleanField({
 			defaultValue: false,
 			label: "Disable dispatchers",
@@ -25,29 +31,23 @@ const scheduler = group(
 			description:
 				"Interval phrase for the frequent cron tier; runs are aligned to interval boundaries rather than to process start time",
 		}),
-		infrequentCronJobsSchedule: stringField({
-			defaultValue: "0 0 * * *",
-			label: "Infrequent cron jobs schedule",
-			envKey: "SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE",
-			description: "Cron expression used by plugin crons assigned to the infrequent tier",
-		}),
 	},
 );
 
 const users = group(
 	{ label: "Users", description: "User account settings" },
 	{
-		disableLocalAuth: booleanField({
-			defaultValue: false,
-			label: "Disable local auth",
-			envKey: "USERS_DISABLE_LOCAL_AUTH",
-			description: "Disable local email/password authentication, requiring OIDC",
-		}),
 		allowRegistration: booleanField({
 			defaultValue: true,
 			label: "Allow registration",
 			envKey: "USERS_ALLOW_REGISTRATION",
 			description: "Allow new users to register via email and password",
+		}),
+		disableLocalAuth: booleanField({
+			defaultValue: false,
+			label: "Disable local auth",
+			envKey: "USERS_DISABLE_LOCAL_AUTH",
+			description: "Disable local email/password authentication, requiring OIDC",
 		}),
 	},
 );
@@ -90,8 +90,8 @@ const database = group(
 		}),
 		poolMax: integerField({
 			defaultValue: 10,
-			label: "Shared pool maximum",
 			envKey: "DATABASE_POOL_MAX",
+			label: "Shared pool maximum",
 			description:
 				"Maximum number of PostgreSQL connections shared by application and workflow operations",
 		}),
@@ -108,13 +108,6 @@ const database = group(
 const sandbox = group(
 	{ label: "Sandbox", description: "Sandbox execution settings" },
 	{
-		processMode: enumField({
-			defaultValue: "on-demand",
-			label: "Process mode",
-			envKey: "SANDBOX_PROCESS_MODE",
-			choices: { kind: "static", values: [{ value: "on-demand" }, { value: "warm" }] },
-			description: "Spawn processes on demand or keep a warm pool ready for executions",
-		}),
 		denoDir: stringField({
 			hidden: true,
 			defaultValue: "./tmp",
@@ -122,35 +115,28 @@ const sandbox = group(
 			envKey: "SANDBOX_DENO_DIR",
 			description: "Directory used for the local sandbox dependency runtime and Deno cache",
 		}),
+		processMode: enumField({
+			label: "Process mode",
+			defaultValue: "on-demand",
+			envKey: "SANDBOX_PROCESS_MODE",
+			choices: { kind: "static", values: [{ value: "on-demand" }, { value: "warm" }] },
+			description: "Spawn processes on demand or keep a warm pool ready for executions",
+		}),
 	},
 );
 
 const fileStorage = group(
 	{ label: "File storage", description: "S3-compatible and local file storage" },
 	{
-		localDir: stringField({
-			hidden: true,
-			defaultValue: "./storage",
-			envKey: "FILE_STORAGE_LOCAL_DIR",
-			label: "Local permanent directory",
-			description: "Writable persistent directory for permanent local objects",
-		}),
-		localTempDir: stringField({
-			hidden: true,
-			defaultValue: "./work",
-			label: "Local working directory",
-			envKey: "FILE_STORAGE_LOCAL_TEMP_DIR",
-			description: "Directory used for temporary uploads, imports, and sandbox working files",
+		region: stringField({
+			label: "S3 region",
+			description: "S3 bucket region",
+			envKey: "FILE_STORAGE_S3_REGION",
 		}),
 		url: stringField({
 			label: "S3 URL",
 			envKey: "FILE_STORAGE_S3_URL",
 			description: "S3-compatible endpoint URL",
-		}),
-		region: stringField({
-			label: "S3 region",
-			description: "S3 bucket region",
-			envKey: "FILE_STORAGE_S3_REGION",
 		}),
 		bucketName: stringField({
 			label: "S3 bucket name",
@@ -168,6 +154,20 @@ const fileStorage = group(
 			label: "S3 secret access key",
 			description: "S3 secret access key",
 			envKey: "FILE_STORAGE_S3_SECRET_ACCESS_KEY",
+		}),
+		localDir: stringField({
+			hidden: true,
+			defaultValue: "./storage",
+			envKey: "FILE_STORAGE_LOCAL_DIR",
+			label: "Local permanent directory",
+			description: "Writable persistent directory for permanent local objects",
+		}),
+		localTempDir: stringField({
+			hidden: true,
+			defaultValue: "./work",
+			label: "Local working directory",
+			envKey: "FILE_STORAGE_LOCAL_TEMP_DIR",
+			description: "Directory used for temporary uploads, imports, and sandbox working files",
 		}),
 	},
 );
@@ -197,28 +197,28 @@ const oidc = group(
 const smtp = group(
 	{ label: "SMTP", description: "SMTP delivery settings" },
 	{
+		server: stringField({
+			label: "SMTP server",
+			envKey: "SERVER_SMTP_SERVER",
+			description: "SMTP server hostname",
+		}),
 		user: stringField({
 			secret: true,
 			label: "SMTP user",
 			envKey: "SERVER_SMTP_USER",
 			description: "SMTP username",
 		}),
-		server: stringField({
-			label: "SMTP server",
-			envKey: "SERVER_SMTP_SERVER",
-			description: "SMTP server hostname",
+		password: stringField({
+			secret: true,
+			label: "SMTP password",
+			description: "SMTP password",
+			envKey: "SERVER_SMTP_PASSWORD",
 		}),
 		mailbox: stringField({
 			label: "SMTP mailbox",
 			envKey: "SERVER_SMTP_MAILBOX",
 			description: "SMTP sender mailbox",
 			defaultValue: "Ryot <no-reply@ryot.io>",
-		}),
-		password: stringField({
-			secret: true,
-			label: "SMTP password",
-			description: "SMTP password",
-			envKey: "SERVER_SMTP_PASSWORD",
 		}),
 	},
 );
@@ -228,27 +228,6 @@ const server = group(
 	{
 		oidc,
 		smtp,
-		clientDir: stringField({
-			hidden: true,
-			defaultValue: "./client",
-			label: "Client directory",
-			envKey: "SERVER_CLIENT_DIR",
-			description: "Directory containing the client application",
-		}),
-		pluginsSystemDir: stringField({
-			hidden: true,
-			defaultValue: "./plugins",
-			label: "System plugin directory",
-			envKey: "SERVER_PLUGINS_SYSTEM_DIR",
-			description:
-				"Directory containing deployment-controlled system plugin archives; archives are not cryptographically authenticated",
-		}),
-		logLevel: stringField({
-			label: "Log level",
-			defaultValue: "info",
-			envKey: "SERVER_LOG_LEVEL",
-			description: "Minimum application log level",
-		}),
 		logFile: stringField({
 			label: "Log file",
 			envKey: "SERVER_LOG_FILE",
@@ -259,18 +238,37 @@ const server = group(
 			envKey: "SERVER_OTLP_ENDPOINT",
 			description: "Base URL for OTLP trace export",
 		}),
-		adminAccessToken: stringField({
-			secret: true,
-			label: "Admin access token",
-			validation: { required: true },
-			envKey: "SERVER_ADMIN_ACCESS_TOKEN",
-			description: "Bearer token required for god-mode admin endpoints",
+		logLevel: stringField({
+			label: "Log level",
+			defaultValue: "info",
+			envKey: "SERVER_LOG_LEVEL",
+			description: "Minimum application log level",
 		}),
 		proKey: stringField({
 			secret: true,
 			label: "Pro key",
 			envKey: "SERVER_PRO_KEY",
 			description: "The key that can be used to enable Ryot Pro features",
+		}),
+		clientDir: stringField({
+			hidden: true,
+			defaultValue: "./client",
+			label: "Client directory",
+			envKey: "SERVER_CLIENT_DIR",
+			description: "Directory containing the client application",
+		}),
+		disableNotifications: booleanField({
+			defaultValue: false,
+			label: "Disable notifications",
+			envKey: "SERVER_DISABLE_NOTIFICATIONS",
+			description: "Disable delivery of all notifications",
+		}),
+		adminAccessToken: stringField({
+			secret: true,
+			label: "Admin access token",
+			validation: { required: true },
+			envKey: "SERVER_ADMIN_ACCESS_TOKEN",
+			description: "Bearer token required for god-mode admin endpoints",
 		}),
 		proKeyVerificationUrl: stringField({
 			hidden: true,
@@ -279,11 +277,13 @@ const server = group(
 			envKey: "SERVER_PRO_KEY_VERIFICATION_URL",
 			description: "Base URL used to verify the Pro key",
 		}),
-		disableNotifications: booleanField({
-			defaultValue: false,
-			label: "Disable notifications",
-			envKey: "SERVER_DISABLE_NOTIFICATIONS",
-			description: "Disable delivery of all notifications",
+		pluginsSystemDir: stringField({
+			hidden: true,
+			defaultValue: "./plugins",
+			label: "System plugin directory",
+			envKey: "SERVER_PLUGINS_SYSTEM_DIR",
+			description:
+				"Directory containing deployment-controlled system plugin archives; archives are not cryptographically authenticated",
 		}),
 	},
 );
@@ -303,6 +303,13 @@ export const appConfigDefinition = defineConfig(
 			defaultValue: 8000,
 			description: "HTTP port the server listens on",
 		}),
+		redisUrl: stringField({
+			secret: true,
+			label: "Redis URL",
+			envKey: "REDIS_URL",
+			validation: { required: true },
+			description: "Redis connection string",
+		}),
 		nodeEnv: stringField({
 			hidden: true,
 			envKey: "NODE_ENV",
@@ -316,12 +323,11 @@ export const appConfigDefinition = defineConfig(
 			defaultValue: "Etc/GMT",
 			description: "IANA timezone used for interpreting timezone-less datetimes during imports",
 		}),
-		redisUrl: stringField({
-			secret: true,
-			label: "Redis URL",
-			envKey: "REDIS_URL",
-			validation: { required: true },
-			description: "Redis connection string",
+		disableTelemetry: booleanField({
+			defaultValue: false,
+			label: "Disable telemetry",
+			envKey: "DISABLE_TELEMETRY",
+			description: "Disable anonymous usage analytics reported by the client",
 		}),
 		frontendUrl: stringField({
 			label: "Frontend URL",
@@ -330,12 +336,6 @@ export const appConfigDefinition = defineConfig(
 			defaultValue: "https://app.ryot.io",
 			description:
 				"Exact origin users browse to; defines OAuth issuer and callbacks. HTTPS strongly recommended",
-		}),
-		disableTelemetry: booleanField({
-			defaultValue: false,
-			label: "Disable telemetry",
-			envKey: "DISABLE_TELEMETRY",
-			description: "Disable anonymous usage analytics reported by the client",
 		}),
 	},
 	{ description: "Application configuration" },

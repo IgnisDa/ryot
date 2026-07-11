@@ -75,8 +75,8 @@ const physicalField = (column: string, kind: CatalogFieldKind, nullable = true):
 });
 
 const installationPluginSlug = (nullable: boolean): CatalogField => ({
-	kind: "text",
 	nullable,
+	kind: "text",
 	resolve: ({ sqlAlias }) =>
 		sql.raw(
 			`(SELECT plugin.slug FROM plugin_installation installation INNER JOIN plugin ON plugin.id = installation.plugin_id WHERE installation.id = ${sqlAlias}.plugin_installation_id)`,
@@ -166,17 +166,17 @@ const entity: CatalogTable = {
 	fields: {
 		name: localizedEntityName,
 		properties: localizedEntityProperties,
-		populationStatus: entityPopulationStatus,
-		translationStatus: entityTranslationStatus,
-		userId: physicalField("user_id", "text"),
 		id: physicalField("id", "text", false),
+		populationStatus: entityPopulationStatus,
+		userId: physicalField("user_id", "text"),
+		translationStatus: entityTranslationStatus,
 		externalId: physicalField("external_id", "text"),
 		providerId: physicalField("provider_id", "text"),
 		populatedAt: physicalField("populated_at", "date"),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
-		entitySchemaPluginId: physicalField("entity_schema_plugin_id", "text"),
 		entitySchemaSlug: physicalField("entity_schema_slug", "text", false),
+		entitySchemaPluginId: physicalField("entity_schema_plugin_id", "text"),
 	},
 };
 
@@ -190,12 +190,12 @@ const event: CatalogTable = {
 	fields: {
 		id: physicalField("id", "text", false),
 		userId: physicalField("user_id", "text", false),
-		sessionEntityId: physicalField("session_entity_id", "text"),
 		entityId: physicalField("entity_id", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
 		properties: physicalField("properties", "json", false),
 		occurredAt: physicalField("occurred_at", "date", false),
+		sessionEntityId: physicalField("session_entity_id", "text"),
 		eventSchemaSlug: physicalField("event_schema_slug", "text", false),
 	},
 };
@@ -213,8 +213,8 @@ const relationship: CatalogTable = {
 		},
 	},
 	fields: {
-		userId: physicalField("user_id", "text"),
 		id: physicalField("id", "text", false),
+		userId: physicalField("user_id", "text"),
 		createdAt: physicalField("created_at", "date", false),
 		properties: physicalField("properties", "json", false),
 		sourceEntityId: physicalField("source_entity_id", "text", false),
@@ -230,8 +230,8 @@ const plugin: CatalogTable = {
 	fields: {
 		icon: pluginMetadataField("icon"),
 		name: pluginMetadataField("name"),
-		clientApiVersion: pluginClientApiVersion,
 		id: physicalField("id", "text", false),
+		clientApiVersion: pluginClientApiVersion,
 		slug: physicalField("slug", "text", false),
 		scope: physicalField("scope", "text", false),
 		status: physicalField("status", "text", false),
@@ -248,12 +248,12 @@ const pluginInstallation: CatalogTable = {
 	fields: {
 		id: physicalField("id", "text", false),
 		health: physicalField("health", "text", false),
-		homeSavedViewId: physicalField("home_saved_view_id", "text"),
 		pluginId: physicalField("plugin_id", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
 		sortOrder: physicalField("sort_order", "number", false),
 		isDisabled: physicalField("is_disabled", "boolean", false),
+		homeSavedViewId: physicalField("home_saved_view_id", "text"),
 	},
 };
 
@@ -265,9 +265,9 @@ const sandboxProvider: CatalogTable = {
 		id: physicalField("id", "text", false),
 		slug: physicalField("slug", "text", false),
 		name: physicalField("name", "text", false),
+		pluginId: physicalField("plugin_id", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
-		pluginId: physicalField("plugin_id", "text", false),
 		information: physicalField("information", "json", false),
 		rootEntitySchemaSlug: physicalField("root_entity_schema_slug", "text", false),
 	},
@@ -276,13 +276,13 @@ const sandboxProvider: CatalogTable = {
 const sandboxProviderOperation: CatalogTable = {
 	primaryKey: "id",
 	name: "sandbox_provider_operation",
-	visibility: { user: { type: "effectiveProviderPlugin", providerColumn: "provider_id" } },
+	visibility: { user: { providerColumn: "provider_id", type: "effectiveProviderPlugin" } },
 	fields: {
 		id: physicalField("id", "text", false),
-		optionsSchema: physicalField("options_schema", "json"),
 		operation: physicalField("operation", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
+		optionsSchema: physicalField("options_schema", "json"),
 		providerId: physicalField("provider_id", "text", false),
 	},
 };
@@ -292,14 +292,14 @@ const savedView: CatalogTable = {
 	name: "saved_view",
 	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		pluginSlug: installationPluginSlug(true),
-		renderer: physicalField("renderer", "json", false),
-		settings: physicalField("settings", "json", false),
 		id: physicalField("id", "text", false),
-		dataSources: physicalField("data_sources", "json"),
+		pluginSlug: installationPluginSlug(true),
 		slug: physicalField("slug", "text", false),
 		name: physicalField("name", "text", false),
 		icon: physicalField("icon", "text", false),
+		renderer: physicalField("renderer", "json", false),
+		settings: physicalField("settings", "json", false),
+		dataSources: physicalField("data_sources", "json"),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
 		sortOrder: physicalField("sort_order", "number", false),
@@ -343,11 +343,11 @@ const integration: CatalogTable = {
 		name: physicalField("name", "text"),
 		id: physicalField("id", "text", false),
 		lot: physicalField("lot", "text", false),
-		lastFinishedAt: physicalField("last_finished_at", "date"),
+		pluginSlug: installationPluginSlug(false),
 		provider: physicalField("provider", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
-		pluginSlug: installationPluginSlug(false),
+		lastFinishedAt: physicalField("last_finished_at", "date"),
 		isDisabled: physicalField("is_disabled", "boolean", false),
 		extraSettings: physicalField("extra_settings", "json", false),
 		syncOwnership: physicalField("sync_ownership", "boolean", false),
@@ -357,21 +357,21 @@ const integration: CatalogTable = {
 };
 
 const importRun: CatalogTable = {
-	name: "import_run",
 	primaryKey: "id",
+	name: "import_run",
 	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		startedAt: physicalField("started_at", "date"),
-		finishedAt: physicalField("finished_at", "date"),
 		id: physicalField("id", "text", false),
-		totalItems: physicalField("total_items", "number"),
-		failureReason: physicalField("failure_reason", "json"),
-		integrationId: physicalField("integration_id", "text"),
+		startedAt: physicalField("started_at", "date"),
 		source: physicalField("source", "text", false),
 		status: physicalField("status", "text", false),
+		finishedAt: physicalField("finished_at", "date"),
+		totalItems: physicalField("total_items", "number"),
 		progress: physicalField("progress", "number", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
+		failureReason: physicalField("failure_reason", "json"),
+		integrationId: physicalField("integration_id", "text"),
 		failedItems: physicalField("failed_items", "number", false),
 		inputSummary: physicalField("input_summary", "json", false),
 		importedItems: physicalField("imported_items", "number", false),
@@ -393,15 +393,15 @@ const importRunFailure: CatalogTable = {
 	},
 	fields: {
 		id: physicalField("id", "text", false),
-		sourceLabel: physicalField("source_label", "text"),
 		stage: physicalField("stage", "text", false),
 		runId: physicalField("run_id", "text", false),
 		reason: physicalField("reason", "json", false),
+		sourceLabel: physicalField("source_label", "text"),
+		createdAt: physicalField("created_at", "date", false),
+		itemIndex: physicalField("item_index", "number", false),
 		eventSchemaSlug: physicalField("event_schema_slug", "text"),
 		sourceIdentifier: physicalField("source_identifier", "text"),
 		entitySchemaSlug: physicalField("entity_schema_slug", "text"),
-		createdAt: physicalField("created_at", "date", false),
-		itemIndex: physicalField("item_index", "number", false),
 	},
 };
 
@@ -442,14 +442,14 @@ export const expandCatalogSelections = (
 		}
 		const table = resolveTable(selection.tableAlias);
 		if (!table) {
-			return { error: `Unknown table alias '${selection.tableAlias}'`, fields: [] };
+			return { fields: [], error: `Unknown table alias '${selection.tableAlias}'` };
 		}
 		for (const field of Object.keys(table.fields)) {
 			fields.push({
 				key: field,
-				expr: { field, tableAlias: selection.tableAlias, type: "column" },
+				expr: { field, type: "column", tableAlias: selection.tableAlias },
 			});
 		}
 	}
-	return { error: null, fields };
+	return { fields, error: null };
 };

@@ -67,20 +67,38 @@ const installCacheProviderScoped = (client: Client, key: string, value: string) 
 		installTestPluginBundle({
 			client,
 			configSchema: { fields: {}, unknownKeys: "strict" },
+			entitySchemas: [
+				{
+					icon: "box",
+					eventSchemas: [],
+					name: "Cache entity",
+					slug: entitySchemaSlug,
+					propertiesSchema: { fields: {}, unknownKeys: "strict" },
+				},
+			],
+			providers: [
+				{
+					slug: providerSlug,
+					name: "Cache provider",
+					information: { source: "e2e" },
+					rootEntitySchemaSlug: entitySchemaSlug,
+					operations: { search: readerSlug, details: writerSlug },
+				},
+			],
 			files: {
-				[writerEntry]: providerCacheSource({
-					key,
-					value,
-					slug: writerSlug,
-					operation: "details",
-					name: "Cache writer",
-				}),
 				[readerEntry]: providerCacheSource({
 					key,
 					value,
 					slug: readerSlug,
 					operation: "search",
 					name: "Cache reader",
+				}),
+				[writerEntry]: providerCacheSource({
+					key,
+					value,
+					slug: writerSlug,
+					operation: "details",
+					name: "Cache writer",
 				}),
 			},
 			scripts: [
@@ -101,28 +119,10 @@ const installCacheProviderScoped = (client: Client, key: string, value: string) 
 					slug: readerSlug,
 					entry: readerEntry,
 					name: "Cache reader",
+					providerOperation: "search",
 					requiredPluginConfigKeys: [],
 					requiredSystemConfigKeys: [],
-					providerOperation: "search",
 					capabilities: ["getCachedValue"],
-				},
-			],
-			providers: [
-				{
-					slug: providerSlug,
-					name: "Cache provider",
-					information: { source: "e2e" },
-					rootEntitySchemaSlug: entitySchemaSlug,
-					operations: { details: writerSlug, search: readerSlug },
-				},
-			],
-			entitySchemas: [
-				{
-					icon: "box",
-					eventSchemas: [],
-					name: "Cache entity",
-					slug: entitySchemaSlug,
-					propertiesSchema: { fields: {}, unknownKeys: "strict" },
 				},
 			],
 		}),
@@ -157,8 +157,8 @@ describe("sandbox cache functions", () => {
 				const cacheKey = `cache-test-${crypto.randomUUID()}`;
 				const slug = `cache-round-trip-${crypto.randomUUID()}`;
 				const { scriptId } = yield* installSandboxScriptScoped({
-					client,
 					slug,
+					client,
 					name: "cache-round-trip",
 					capabilities: ["setCachedValue", "getCachedValue"],
 					source: cacheSandboxSource({
@@ -187,8 +187,8 @@ describe("sandbox cache functions", () => {
 			const missingKey = `cache-missing-${crypto.randomUUID()}`;
 			const slug = `cache-miss-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "cache-miss",
 				capabilities: ["getCachedValue"],
 				source: cacheSandboxSource({ slug, key: missingKey, operation: "get", name: "cache-miss" }),
@@ -210,8 +210,8 @@ describe("sandbox cache functions", () => {
 			const cacheKey = `persistent-cache-test-${crypto.randomUUID()}`;
 			const slug = `persistent-cache-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "persistent-cache",
 				capabilities: ["claimPersistentValue"],
 				source: cacheSandboxSource({

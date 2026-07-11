@@ -34,9 +34,9 @@ export const customers = pgTable("customer", {
 	ryotUserId: text("ryot_user_id"),
 	email: text("email").notNull().unique(),
 	oidcIssuerId: text("oidc_issuer_id").unique(),
+	polarCustomerId: text("polar_customer_id").unique(),
 	id: uuid("id").notNull().primaryKey().defaultRandom(),
 	paddleCustomerId: text("paddle_customer_id").unique(),
-	polarCustomerId: text("polar_customer_id").unique(),
 	paymentProvider: paymentProviders("payment_provider").notNull().default("paddle"),
 	createdOn: timestamp("created_on", { withTimezone: true }).defaultNow().notNull(),
 });

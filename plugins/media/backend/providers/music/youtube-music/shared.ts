@@ -83,7 +83,7 @@ export const buildTrackSearch = (client: MusicSearchClient, query: string, pageS
 				});
 			});
 			const items = allItems.slice(0, pageSize);
-			return { items, details: { totalItems: items.length, nextPage: null } };
+			return { items, details: { nextPage: null, totalItems: items.length } };
 		}),
 	);
 
@@ -120,8 +120,8 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 					accumulator.add({
 						externalId: artistId,
 						providerSlug: "person.youtube-music",
-						name: stringValue(artistRecord?.["name"]) ?? "Loading...",
 						relationshipProperties: { roles: ["Artist"] },
+						name: stringValue(artistRecord?.["name"]) ?? "Loading...",
 					});
 				}
 				const artistCount = accumulator.entities.length;
@@ -139,6 +139,18 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 				const suggestions = collectSuggestions(contents, externalId);
 				return {
 					name: title,
+					properties: {
+						genres: [],
+						publishYear,
+						byVariousArtists,
+						duration: duration ?? null,
+						sourceUrl: `https://music.youtube.com/watch?v=${externalId}`,
+						images: getThumbnailUrls(trackRecord["thumbnail"]).map((url) => ({
+							url,
+							type: "remote" as const,
+							purpose: "cover" as const,
+						})),
+					},
 					relatedEntityGroups: [
 						{
 							direction: "incoming" as const,
@@ -163,18 +175,6 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 							relationshipSchemaSlug: "media-suggestion",
 						},
 					],
-					properties: {
-						genres: [],
-						publishYear,
-						byVariousArtists,
-						duration: duration ?? null,
-						sourceUrl: `https://music.youtube.com/watch?v=${externalId}`,
-						images: getThumbnailUrls(trackRecord["thumbnail"]).map((url) => ({
-							url,
-							type: "remote" as const,
-							purpose: "cover" as const,
-						})),
-					},
 				};
 			}),
 		),

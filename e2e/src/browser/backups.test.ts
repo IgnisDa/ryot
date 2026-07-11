@@ -43,8 +43,8 @@ const attachArchive = (page: Playwright.Page) =>
 		yield* wizard(page).getByRole("button", { name: "Choose a file for Backup archive" }).click();
 		const picked = Option.getOrThrow(yield* Fiber.join(chooser));
 		yield* picked.setFiles({
-			mimeType: "application/zip",
 			name: "ryot-backup.zip",
+			mimeType: "application/zip",
 			buffer: Buffer.from([80, 75, 5, 6, ...Array.from({ length: 18 }, () => 0)]),
 		});
 		yield* wizard(page).getByText("Ready to restore").waitFor({ state: "visible" });

@@ -58,8 +58,8 @@ export const plugin = snakeCase.table(
 		scope: text().$type<"system" | "user">().notNull(),
 		manifest: jsonb().$type<PluginManifest>().notNull(),
 		compiledHashes: jsonb().$type<Record<string, string>>().notNull(),
-		ingestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		ownerId: text().references(() => user.id, { onDelete: "cascade" }),
+		ingestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		id: text()
 			.notNull()
 			.primaryKey()
@@ -107,18 +107,18 @@ export const pluginInstallation = snakeCase.table(
 		pluginId: text()
 			.notNull()
 			.references(() => plugin.id, { onDelete: "cascade" }),
-		health: text()
-			.$type<"installing" | "ready" | "needs-configuration" | "incompatible" | "failed">()
-			.notNull()
-			.default("ready"),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 		id: text()
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+		health: text()
+			.$type<"installing" | "ready" | "needs-configuration" | "incompatible" | "failed">()
+			.notNull()
+			.default("ready"),
 	},
 	(table) => [
 		index("plugin_installation_user_id_idx").on(table.userId),
@@ -139,14 +139,14 @@ export const sandboxProvider = snakeCase.table(
 		pluginId: text()
 			.notNull()
 			.references(() => plugin.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 		id: text()
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
 	},
 	(table) => [
 		index("sandbox_provider_plugin_id_idx").on(table.pluginId),
@@ -197,16 +197,16 @@ export const sandboxProviderOperation = snakeCase.table(
 		optionsSchema: jsonb().$type<AppSchema | null>(),
 		operation: text().$type<PluginProviderOperation>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		scriptId: text()
 			.notNull()
 			.references(() => sandboxScript.id, { onDelete: "restrict" }),
 		providerId: text()
 			.notNull()
 			.references(() => sandboxProvider.id, { onDelete: "cascade" }),
-		id: text()
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
@@ -228,10 +228,10 @@ export const sandboxWorkflowReference = snakeCase.table(
 	{
 		contentHash: text().notNull(),
 		executionId: text().primaryKey(),
-		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "restrict" }),
 		pluginId: text()
 			.notNull()
 			.references(() => plugin.id, { onDelete: "cascade" }),
+		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "restrict" }),
 		scriptId: text()
 			.notNull()
 			.references(() => sandboxScript.id, { onDelete: "cascade" }),

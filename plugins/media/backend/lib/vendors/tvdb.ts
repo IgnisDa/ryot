@@ -187,7 +187,7 @@ export const getLocalizedArtwork = (
 		(art) => stringValue(art["language"]) === language && stringValue(art["image"]),
 	);
 	const image = artwork ? stringValue(artwork["image"]) : null;
-	return image ? { type: "remote" as const, url: image, purpose } : null;
+	return image ? { purpose, url: image, type: "remote" as const } : null;
 };
 
 export const buildTranslationResult = (
@@ -235,7 +235,7 @@ export const collectImages = (
 		const url = stringValue(value);
 		if (url && !seen.has(url)) {
 			seen.add(url);
-			images.push({ type: "remote", url, purpose });
+			images.push({ url, purpose, type: "remote" });
 		}
 	};
 
@@ -364,7 +364,7 @@ export const collectPeople = (characters: unknown) => {
 		});
 	}
 
-	return { relatedEntities: [...relatedEntityByKey.values()], unlinkedCreators };
+	return { unlinkedCreators, relatedEntities: [...relatedEntityByKey.values()] };
 };
 
 export const searchTvdb = (

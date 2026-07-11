@@ -40,7 +40,7 @@ describe("sandbox filesystem grant gating", () => {
 	});
 
 	vitestIt("never binds a host function for a filesystem grant capability", () => {
-		const bound = { httpCall: unusedHostFunction, scratch: unusedHostFunction };
+		const bound = { scratch: unusedHostFunction, httpCall: unusedHostFunction };
 
 		expect(
 			Object.keys(
@@ -277,7 +277,7 @@ describe("sandbox scratch chunk harvest", () => {
 	);
 
 	vitestIt("harvests only when the returned value carries a chunk manifest", () => {
-		expect(decodeSandboxScratchManifest({ chunkFiles: ["chunk-0.json"], groups: 12 })).toEqual(
+		expect(decodeSandboxScratchManifest({ groups: 12, chunkFiles: ["chunk-0.json"] })).toEqual(
 			Option.some({ chunkFiles: ["chunk-0.json"] }),
 		);
 		expect(Option.isNone(decodeSandboxScratchManifest({ groups: 12 }))).toBe(true);

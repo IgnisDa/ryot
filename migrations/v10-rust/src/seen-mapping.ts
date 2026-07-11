@@ -516,10 +516,10 @@ BEGIN
 
 	${buildReportSql("seen -> event", [
 		{ message: "progress", count: "prog_inserted" },
-		{ message: "show/podcast episode complete", count: "child_complete_inserted" },
-		{ message: "terminal events total", count: "term_inserted" },
-		{ message: "episodic child events assigned parent session", count: "parent_session_events" },
-		{ message: "special episode events left sessionless", count: "special_episode_events" },
+		{ count: "child_complete_inserted", message: "show/podcast episode complete" },
+		{ count: "term_inserted", message: "terminal events total" },
+		{ count: "parent_session_events", message: "episodic child events assigned parent session" },
+		{ count: "special_episode_events", message: "special episode events left sessionless" },
 	])}
 END $$;
 `;

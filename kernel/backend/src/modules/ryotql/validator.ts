@@ -316,27 +316,27 @@ const validateQuerySet = (
 ) => {
 	const joins = query.joins ?? [];
 	if (joins.length > MAX_QUERY_JOINS) {
-		return { error: `A query may contain at most ${MAX_QUERY_JOINS} joins`, scope: null };
+		return { scope: null, error: `A query may contain at most ${MAX_QUERY_JOINS} joins` };
 	}
 	const scope = new Map(ancestors);
 	const rootError = addTable(scope, query.from, executionScope);
 	if (rootError) {
-		return { error: rootError, scope: null };
+		return { scope: null, error: rootError };
 	}
 	for (const join of joins) {
 		const tableError = addTable(scope, join.table, executionScope);
 		if (tableError) {
-			return { error: tableError, scope: null };
+			return { scope: null, error: tableError };
 		}
 		const onError = validatePredicate(join.on, scope, correlatedDepth, executionScope);
 		if (onError) {
-			return { error: onError, scope: null };
+			return { scope: null, error: onError };
 		}
 	}
 	const whereError = query.where
 		? validatePredicate(query.where, scope, correlatedDepth, executionScope)
 		: null;
-	return whereError ? { error: whereError, scope: null } : { error: null, scope };
+	return whereError ? { scope: null, error: whereError } : { scope, error: null };
 };
 
 const validateSelections = (
@@ -504,10 +504,10 @@ const countTimeSeriesBuckets = (output: TimeSeriesOutput) => {
 	const startAt = DateTime.make(output.time.range.startAt);
 	const endAt = DateTime.make(output.time.range.endAt);
 	if (Option.isNone(startAt) || Option.isNone(endAt)) {
-		return { count: null, endAt, startAt };
+		return { endAt, startAt, count: null };
 	}
 	if (!DateTime.isLessThan(startAt.value, endAt.value)) {
-		return { count: null, endAt, startAt };
+		return { endAt, startAt, count: null };
 	}
 	let count = 0;
 	let cursor: DateTime.DateTime = DateTime.startOf(startAt.value, output.time.bucket, {

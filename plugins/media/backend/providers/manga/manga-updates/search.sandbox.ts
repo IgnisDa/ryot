@@ -5,11 +5,11 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
+	capabilities: ["httpCall"],
 	name: "MangaUpdates Search",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
 	slug: "manga.manga-updates.search",
 });
 
-export default defineProvider({ manifest, operation: "search", run: search.run });
+export default defineProvider({ manifest, run: search.run, operation: "search" });

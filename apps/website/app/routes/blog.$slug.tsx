@@ -85,7 +85,7 @@ export default function Page(props: Route.ComponentProps) {
 								<p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
 									On this page
 								</p>
-								<nav aria-label="Table of contents" className="space-y-2">
+								<nav className="space-y-2" aria-label="Table of contents">
 									{post.tableOfContents.map((item) => (
 										<a
 											key={item.id}

@@ -57,6 +57,14 @@ const Details = Schema.Struct({
 	goodreadsId: Schema.optional(Schema.NullOr(Schema.Int)),
 	audibleId: Schema.optional(Schema.NullOr(Schema.String)),
 	openlibraryId: Schema.optional(Schema.NullOr(Schema.String)),
+	seasons: Schema.Array(Season).pipe(
+		Schema.withDecodingDefault(Effect.succeed<ReadonlyArray<typeof Season.Type>>([])),
+		Schema.withConstructorDefault(Effect.sync(() => [])),
+	),
+	seenHistory: Schema.Array(SeenHistory).pipe(
+		Schema.withDecodingDefault(Effect.succeed<ReadonlyArray<typeof SeenHistory.Type>>([])),
+		Schema.withConstructorDefault(Effect.sync(() => [])),
+	),
 	userRating: Schema.optional(
 		Schema.NullOr(
 			Schema.Struct({
@@ -66,14 +74,6 @@ const Details = Schema.Struct({
 				date: Schema.optional(Schema.NullOr(Schema.Union([Schema.Number, Schema.String]))),
 			}),
 		),
-	),
-	seasons: Schema.Array(Season).pipe(
-		Schema.withDecodingDefault(Effect.succeed<ReadonlyArray<typeof Season.Type>>([])),
-		Schema.withConstructorDefault(Effect.sync(() => [])),
-	),
-	seenHistory: Schema.Array(SeenHistory).pipe(
-		Schema.withDecodingDefault(Effect.succeed<ReadonlyArray<typeof SeenHistory.Type>>([])),
-		Schema.withConstructorDefault(Effect.sync(() => [])),
 	),
 });
 type Details = typeof Details.Type;
@@ -105,8 +105,8 @@ const entityRef = (
 	if (type === "movie" || type === "tv") {
 		return details.tmdbId
 			? {
-					kind: "resolved",
 					sourceLabel,
+					kind: "resolved",
 					externalId: String(details.tmdbId),
 					entitySchemaSlug: type === "movie" ? "movie" : "show",
 					providerSlug: type === "movie" ? "movie.tmdb" : "show.tmdb",
@@ -116,11 +116,11 @@ const entityRef = (
 	if (type === "video_game") {
 		return details.igdbId
 			? {
-					kind: "resolved",
 					sourceLabel,
-					externalId: String(details.igdbId),
-					providerSlug: "video-game.igdb",
+					kind: "resolved",
 					entitySchemaSlug: "video-game",
+					providerSlug: "video-game.igdb",
+					externalId: String(details.igdbId),
 				}
 			: null;
 	}
@@ -128,9 +128,9 @@ const entityRef = (
 		const id = details.audibleId?.trim();
 		return id
 			? {
-					kind: "resolved",
-					externalId: id,
 					sourceLabel,
+					externalId: id,
+					kind: "resolved",
 					entitySchemaSlug: "audiobook",
 					providerSlug: "audiobook.audible",
 				}
@@ -142,9 +142,9 @@ const entityRef = (
 	const id = details.openlibraryId ? openLibraryKey(details.openlibraryId) : undefined;
 	return id
 		? {
-				kind: "resolved",
-				externalId: id,
 				sourceLabel,
+				externalId: id,
+				kind: "resolved",
 				entitySchemaSlug: "book",
 				providerSlug: "book.openlibrary",
 			}
@@ -223,8 +223,8 @@ export const adaptMediaTrackerData = (
 			const ref = entityRef(details, item.mediaType, sourceLabel);
 			if (ref === "goodreads") {
 				failures.push({
-					itemIndex: currentIndex,
 					sourceLabel,
+					itemIndex: currentIndex,
 					stage: "input_transformation",
 					sourceIdentifier: String(item.id),
 					message: "MediaTracker book uses an unsupported Goodreads identifier",
@@ -233,8 +233,8 @@ export const adaptMediaTrackerData = (
 			}
 			if (!ref) {
 				failures.push({
-					itemIndex: currentIndex,
 					sourceLabel,
+					itemIndex: currentIndex,
 					stage: "input_transformation",
 					sourceIdentifier: String(item.id),
 					message: `MediaTracker ${item.mediaType} item is missing a supported provider identifier`,
@@ -268,10 +268,10 @@ export const adaptMediaTrackerData = (
 				if (Result.isFailure(details)) {
 					failures.push(
 						sourceFetchFailure({
-							itemIndex: currentIndex,
 							sourceLabel: list.name,
-							sourceIdentifier: String(mediaItem.id),
+							itemIndex: currentIndex,
 							host: sourceApiHost(input.apiUrl),
+							sourceIdentifier: String(mediaItem.id),
 							message: "Failed to fetch MediaTracker item details",
 						}),
 					);
@@ -327,9 +327,9 @@ export const adaptMediaTrackerData = (
 					if (!episode) {
 						failures.push({
 							itemIndex: currentIndex,
-							sourceLabel: normalized.sourceLabel,
 							stage: "input_transformation",
 							sourceIdentifier: String(item.id),
+							sourceLabel: normalized.sourceLabel,
 							message: "MediaTracker show history item is missing episode coverage",
 						});
 						continue;
@@ -355,13 +355,13 @@ export const adaptMediaTrackerData = (
 			}
 			const review = createReviewEvent({
 				text: details.success.userRating?.review ?? null,
+				occurredAt:
+					parseDateInput(details.success.userRating?.date) ??
+					fallbackDate(details.success, importedAt),
 				rating:
 					typeof details.success.userRating?.rating === "number"
 						? Math.round(Math.min(details.success.userRating.rating * 20, 100) * 100) / 100
 						: null,
-				occurredAt:
-					parseDateInput(details.success.userRating?.date) ??
-					fallbackDate(details.success, importedAt),
 			});
 			if (review) {
 				group.events.push(review);

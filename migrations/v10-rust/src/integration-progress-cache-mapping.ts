@@ -18,15 +18,15 @@ const consumedOnByLegacyProvider = new Map([
 ]);
 
 const LegacyProgressCacheRow = Schema.Struct({
-	cacheId: Schema.String,
 	userId: Schema.String,
+	cacheId: Schema.String,
+	expiresAtMs: Schema.Finite,
+	validValue: Schema.Boolean,
 	entityId: Schema.NullOr(Schema.String),
+	mangaVolume: Schema.NullOr(Schema.String),
 	animeEpisode: Schema.NullOr(Schema.String),
 	mangaChapter: Schema.NullOr(Schema.String),
-	mangaVolume: Schema.NullOr(Schema.String),
-	expiresAtMs: Schema.Finite,
 	providersConsumedOn: Schema.NullOr(Schema.Array(Schema.String)),
-	validValue: Schema.Boolean,
 });
 
 export type LegacyProgressCacheRow = typeof LegacyProgressCacheRow.Type;
@@ -165,9 +165,9 @@ export const migrateIntegrationProgressCache = (input: {
 			const existing = claimsByIdentity.get(identity);
 			if (!existing || existing.expiresAtMs < row.expiresAtMs) {
 				claimsByIdentity.set(identity, {
-					expiresAtMs: row.expiresAtMs,
 					fingerprint,
 					userId: row.userId,
+					expiresAtMs: row.expiresAtMs,
 				});
 			}
 		}
@@ -183,7 +183,7 @@ export const migrateIntegrationProgressCache = (input: {
 
 			yield* Effect.forEach(
 				claimsByIdentity.values(),
-				({ expiresAtMs, fingerprint, userId }) => {
+				({ userId, expiresAtMs, fingerprint }) => {
 					const ttlSeconds = Math.ceil((expiresAtMs - Date.now()) / 1000);
 					if (ttlSeconds <= 0) {
 						return Effect.void;
@@ -201,10 +201,10 @@ export const migrateIntegrationProgressCache = (input: {
 		}
 
 		const reportEntries = [
-			{ message: "unexpired completed marker row(s) found", count: "cache_rows" },
-			{ message: "distinct persistent claim(s) resolved", count: "resolved_claims" },
-			{ message: "duplicate claim row(s) collapsed", count: "duplicate_rows" },
-			{ message: "persistent Redis key(s) created", count: "keys_created" },
+			{ count: "cache_rows", message: "unexpired completed marker row(s) found" },
+			{ count: "resolved_claims", message: "distinct persistent claim(s) resolved" },
+			{ count: "duplicate_rows", message: "duplicate claim row(s) collapsed" },
+			{ count: "keys_created", message: "persistent Redis key(s) created" },
 			...(unsupportedProviderRows > 0
 				? [
 						{
@@ -218,8 +218,8 @@ export const migrateIntegrationProgressCache = (input: {
 			...(unresolvedRows > 0
 				? [
 						{
-							level: "warning" as const,
 							count: "unresolved_rows",
+							level: "warning" as const,
 							message: "cache row(s) skipped because their target entity could not be resolved",
 						},
 					]

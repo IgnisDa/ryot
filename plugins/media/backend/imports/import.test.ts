@@ -31,7 +31,7 @@ it("dispatches every declared source to its matching parser activity", () => {
 it("passes Netflix profile selection from source payload to its parser activity", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
-			{ runId: "run-netflix", source: "netflix", sourcePayload: { profileName: "Kids" } },
+			{ source: "netflix", runId: "run-netflix", sourcePayload: { profileName: "Kids" } },
 			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
@@ -62,7 +62,7 @@ it.each([
 ])("passes Trakt $0 fields to its parser activity", async (_, sourcePayload, input) => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
-			{ runId: `run-trakt-${_}`, source: "trakt", sourcePayload },
+			{ sourcePayload, source: "trakt", runId: `run-trakt-${_}` },
 			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
@@ -131,7 +131,7 @@ it("selects optional MyAnimeList artifacts from source payload field markers", a
 				kind: "activity",
 				args: {
 					scriptSlug: "import.myanimelist",
-					input: { start: 0, limit: 25, hasAnimeFile: false, hasMangaFile: true },
+					input: { start: 0, limit: 25, hasMangaFile: true, hasAnimeFile: false },
 				},
 			},
 		],
@@ -165,7 +165,7 @@ it("marks adapter-only integration failures as failed kernel runs", async () => 
 	});
 	journal.push({
 		entityGroups: [],
-		failures: [{ itemIndex: 0, stage: "input_transformation", message: "Invalid payload" }],
+		failures: [{ itemIndex: 0, message: "Invalid payload", stage: "input_transformation" }],
 	});
 
 	envelope = await replay();
@@ -255,13 +255,13 @@ const driveWatcharrImport = (input: {
 			return replay();
 		});
 
-	return { requests, replay };
+	return { replay, requests };
 };
 
 it("fails the workflow rather than dying when a source payload is incomplete", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
-			{ runId: "run-igdb", source: "igdb", sourcePayload: { collection: "  " } },
+			{ source: "igdb", runId: "run-igdb", sourcePayload: { collection: "  " } },
 			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
@@ -301,7 +301,7 @@ it.each([
 	],
 	[
 		"blank list collection",
-		{ mode: "list", url: "https://trakt.tv/users/alice/lists/favorites", collection: "   " },
+		{ mode: "list", collection: "   ", url: "https://trakt.tv/users/alice/lists/favorites" },
 		"Import job is missing Trakt collection",
 	],
 	[
@@ -313,7 +313,7 @@ it.each([
 ])("fails the Trakt workflow on $0", async (_, sourcePayload, error) => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
-			{ runId: "run-trakt-invalid", source: "trakt", sourcePayload },
+			{ sourcePayload, source: "trakt", runId: "run-trakt-invalid" },
 			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
@@ -324,13 +324,13 @@ it.each([
 });
 
 const singleShowGroup = (events: ReadonlyArray<JsonValue>) => [
-	{ itemIndex: 0, collectionMemberships: [], entityRef: showEntityRef, events: [...events] },
+	{ itemIndex: 0, events: [...events], entityRef: showEntityRef, collectionMemberships: [] },
 ];
 
-const completedShowPopulation = [{ index: 0, status: "completed", entityId: "show-1" }];
+const completedShowPopulation = [{ index: 0, entityId: "show-1", status: "completed" }];
 
 it("deterministically composes Watcharr parsing, population, episode resolution, and kernel writes", async () => {
-	const { requests, replay } = driveWatcharrImport({
+	const { replay, requests } = driveWatcharrImport({
 		populationResults: completedShowPopulation,
 		episodeResults: { results: [{ index: 0, entityId: null }] },
 		entityGroups: singleShowGroup([progressEvent("2026-01-01T00:00:00.000Z", showEpisode(1, 99))]),
@@ -375,14 +375,8 @@ it("deterministically composes Watcharr parsing, population, episode resolution,
 });
 
 it("subjects resolved episodes, omits unresolved ones as failures, and keeps sibling events", async () => {
-	const { requests, replay } = driveWatcharrImport({
+	const { replay, requests } = driveWatcharrImport({
 		populationResults: completedShowPopulation,
-		entityGroups: singleShowGroup([
-			progressEvent("2026-01-01T00:00:00.000Z", showEpisode(1, 1)),
-			progressEvent("2026-01-02T00:00:00.000Z", showEpisode(1, 99)),
-			{ properties: {}, eventSchemaSlug: "backlog", occurredAt: "2026-01-03T00:00:00.000Z" },
-			progressEvent("2026-01-04T00:00:00.000Z", showEpisode(2, 5)),
-		]),
 		episodeResults: {
 			results: [
 				{ index: 2, entityId: "episode-5" },
@@ -390,6 +384,12 @@ it("subjects resolved episodes, omits unresolved ones as failures, and keeps sib
 				{ index: 1, entityId: null },
 			],
 		},
+		entityGroups: singleShowGroup([
+			progressEvent("2026-01-01T00:00:00.000Z", showEpisode(1, 1)),
+			progressEvent("2026-01-02T00:00:00.000Z", showEpisode(1, 99)),
+			{ properties: {}, eventSchemaSlug: "backlog", occurredAt: "2026-01-03T00:00:00.000Z" },
+			progressEvent("2026-01-04T00:00:00.000Z", showEpisode(2, 5)),
+		]),
 	});
 
 	await replay();
@@ -397,9 +397,9 @@ it("subjects resolved episodes, omits unresolved ones as failures, and keeps sib
 		args: {
 			input: {
 				refs: [
-					{ index: 0, kind: "show", showEntityId: "show-1", seasonNumber: 1, episodeNumber: 1 },
-					{ index: 1, kind: "show", showEntityId: "show-1", seasonNumber: 1, episodeNumber: 99 },
-					{ index: 2, kind: "show", showEntityId: "show-1", seasonNumber: 2, episodeNumber: 5 },
+					{ index: 0, kind: "show", seasonNumber: 1, episodeNumber: 1, showEntityId: "show-1" },
+					{ index: 1, kind: "show", seasonNumber: 1, episodeNumber: 99, showEntityId: "show-1" },
+					{ index: 2, kind: "show", seasonNumber: 2, episodeNumber: 5, showEntityId: "show-1" },
 				],
 			},
 		},
@@ -435,21 +435,21 @@ it("subjects resolved episodes, omits unresolved ones as failures, and keeps sib
 });
 
 it("reports the podcast episode that could not be resolved", async () => {
-	const { requests, replay } = driveWatcharrImport({
-		populationResults: [{ index: 0, status: "completed", entityId: "podcast-1" }],
+	const { replay, requests } = driveWatcharrImport({
 		episodeResults: { results: [{ index: 0, entityId: null }] },
+		populationResults: [{ index: 0, status: "completed", entityId: "podcast-1" }],
 		entityGroups: [
 			{
 				itemIndex: 0,
 				collectionMemberships: [],
+				events: [progressEvent("2026-01-01T00:00:00.000Z", { type: "podcast", episodeNumber: 7 })],
 				entityRef: {
 					kind: "resolved",
 					sourceLabel: "Serial",
 					externalId: "917918570",
-					providerSlug: "podcast.itunes",
 					entitySchemaSlug: "podcast",
+					providerSlug: "podcast.itunes",
 				},
-				events: [progressEvent("2026-01-01T00:00:00.000Z", { type: "podcast", episodeNumber: 7 })],
 			},
 		],
 	});
@@ -464,9 +464,9 @@ it("reports the podcast episode that could not be resolved", async () => {
 				entityGroups: [{ events: [] }],
 				failures: [
 					{
-						sourceIdentifier: "917918570",
 						entitySchemaSlug: "podcast",
 						stage: "provider_resolution",
+						sourceIdentifier: "917918570",
 						message: "Could not resolve podcast episode 7",
 					},
 				],
@@ -498,7 +498,7 @@ it.each([
 		results: [{ index: 0, entityId: "episode-1" }],
 	},
 ])("fails the workflow on $label episode result indices", async ({ error, results }) => {
-	const { requests, replay } = driveWatcharrImport({
+	const { replay, requests } = driveWatcharrImport({
 		episodeResults: { results },
 		populationResults: completedShowPopulation,
 		entityGroups: singleShowGroup([

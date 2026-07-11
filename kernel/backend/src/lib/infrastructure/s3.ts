@@ -90,8 +90,8 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 		const openObject = Effect.fn("S3Service.openObject")(function* (key: string) {
 			const configuredClient = yield* requireConfigured;
 			return Stream.fromReadableStream({
-				evaluate: () => configuredClient.file(key).stream(),
 				onError: () => badRequest("S3 object read failed"),
+				evaluate: () => configuredClient.file(key).stream(),
 			});
 		});
 

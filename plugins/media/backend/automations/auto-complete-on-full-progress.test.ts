@@ -70,7 +70,7 @@ const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host
 
 describe("auto-complete-on-full-progress sandbox script", () => {
 	it("ignores progress events below full completion", () => {
-		const { created, host } = createHost({});
+		const { host, created } = createHost({});
 		return Effect.runPromise(
 			run(eventAutomationContext({ properties: { progressPercent: 50 } }), host).pipe(
 				Effect.map((result) => {
@@ -83,7 +83,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 	});
 
 	it("completes non-episodic media at the progress event timestamp", () => {
-		const { created, host } = createHost({});
+		const { host, created } = createHost({});
 		return Effect.runPromise(
 			run(
 				eventAutomationContext(
@@ -119,7 +119,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 	it.each(["show-episode", "podcast-episode"] as const)(
 		"copies the session entity to a %s completion event",
 		(entitySchemaSlug) => {
-			const { created, host } = createHost({});
+			const { host, created } = createHost({});
 			return Effect.runPromise(
 				run(
 					eventAutomationContext({
@@ -143,12 +143,12 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 			eventRecord({
 				id: "episode-1",
 				occurredAt: "2026-01-01T00:00:00.000Z",
-				properties: { progressPercent: 100, animeEpisode: 1 },
+				properties: { animeEpisode: 1, progressPercent: 100 },
 			}),
 			eventRecord({
 				id: "episode-2",
 				occurredAt: "2026-01-02T00:00:00.000Z",
-				properties: { progressPercent: 100, animeEpisode: 2 },
+				properties: { animeEpisode: 2, progressPercent: 100 },
 			}),
 		];
 		const complete = createHost({ events, entityProperties: { episodes: 2 } });
@@ -162,16 +162,16 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 					run(
 						eventAutomationContext({
 							id: "episode-2",
-							properties: { progressPercent: 100, animeEpisode: 2 },
-							subject: { id: "entity-1", name: "Anime", entitySchemaSlug: "anime" },
+							properties: { animeEpisode: 2, progressPercent: 100 },
+							subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
 						}),
 						complete.host,
 					),
 					run(
 						eventAutomationContext({
 							id: "episode-1",
-							properties: { progressPercent: 100, animeEpisode: 1 },
-							subject: { id: "entity-1", name: "Anime", entitySchemaSlug: "anime" },
+							properties: { animeEpisode: 1, progressPercent: 100 },
+							subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
 						}),
 						incomplete.host,
 					),
@@ -192,31 +192,31 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 			eventRecord({
 				id: "chapter-1a",
 				occurredAt: "2026-01-01T00:00:00.000Z",
-				properties: { progressPercent: 100, mangaChapter: 1 },
+				properties: { mangaChapter: 1, progressPercent: 100 },
 			}),
 			eventRecord({
 				id: "chapter-2a",
 				occurredAt: "2026-01-02T00:00:00.000Z",
-				properties: { progressPercent: 100, mangaChapter: 2 },
+				properties: { mangaChapter: 2, progressPercent: 100 },
 			}),
 			eventRecord({
 				id: "chapter-1b",
 				occurredAt: "2026-01-03T00:00:00.000Z",
-				properties: { progressPercent: 100, mangaChapter: 1 },
+				properties: { mangaChapter: 1, progressPercent: 100 },
 			}),
 			eventRecord({
 				id: "chapter-2b",
 				occurredAt: "2026-01-04T00:00:00.000Z",
-				properties: { progressPercent: 100, mangaChapter: 2 },
+				properties: { mangaChapter: 2, progressPercent: 100 },
 			}),
 		];
-		const { created, host } = createHost({ events, entityProperties: { chapters: 2 } });
+		const { host, created } = createHost({ events, entityProperties: { chapters: 2 } });
 		return Effect.runPromise(
 			run(
 				eventAutomationContext({
 					id: "chapter-2b",
-					properties: { progressPercent: 100, mangaChapter: 2 },
-					subject: { id: "entity-1", name: "Manga", entitySchemaSlug: "manga" },
+					properties: { mangaChapter: 2, progressPercent: 100 },
+					subject: { name: "Manga", id: "entity-1", entitySchemaSlug: "manga" },
 				}),
 				host,
 			).pipe(
@@ -238,10 +238,10 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		);
 		const finalEvent = eventRecord({
 			id: "episode-101",
-			properties: { progressPercent: 100, animeEpisode: 101 },
+			properties: { animeEpisode: 101, progressPercent: 100 },
 			occurredAt: new Date(Date.UTC(2026, 0, 1, 0, 100)).toISOString(),
 		});
-		const { created, documents, host } = createHost({
+		const { host, created, documents } = createHost({
 			entityProperties: { episodes: 101 },
 			eventPages: [firstPage, [finalEvent]],
 		});
@@ -249,8 +249,8 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 			run(
 				eventAutomationContext({
 					id: finalEvent.id,
-					properties: { progressPercent: 100, animeEpisode: 101 },
-					subject: { id: "entity-1", name: "Anime", entitySchemaSlug: "anime" },
+					properties: { animeEpisode: 101, progressPercent: 100 },
+					subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
 				}),
 				host,
 			).pipe(

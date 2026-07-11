@@ -90,7 +90,7 @@ function Harness(props: {
 				scrollRootRef={scrollRootRef}
 				safeAreaTop={props.safeAreaTop ?? 0}
 				leading={<button type="button">Open navigation</button>}
-				hero={props.hero === undefined ? undefined : { height: HERO_HEIGHT, node: props.hero }}
+				hero={props.hero === undefined ? undefined : { node: props.hero, height: HERO_HEIGHT }}
 			>
 				<p>Body</p>
 			</ScreenFrame>
@@ -174,7 +174,7 @@ describe("ScreenFrame", () => {
 		expect(screen.queryByText("12 results")).toBeNull();
 		compact.unmount();
 
-		render(<Harness compact={false} hideTitle />);
+		render(<Harness hideTitle compact={false} />);
 
 		expect(screen.queryByRole("heading", { name: "All Shows" })).toBeNull();
 	});
@@ -219,13 +219,13 @@ describe("ScreenFrame", () => {
 		expect(screen.getByAltText("Cover")).not.toBeNull();
 		unmount();
 
-		render(<Harness compact={false} hero={hero} />);
+		render(<Harness hero={hero} compact={false} />);
 
 		expect(screen.getByAltText("Cover")).not.toBeNull();
 	});
 
 	it("still collapses a hero screen that has no title block", () => {
-		render(<Harness compact hero={<img alt="" src="art.png" />} searchRow={<span />} />);
+		render(<Harness compact searchRow={<span />} hero={<img alt="" src="art.png" />} />);
 
 		expect(observations).toHaveLength(1);
 	});

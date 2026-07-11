@@ -12,4 +12,4 @@ export const manifest = defineManifest({
 	slug: "book.openlibrary.search",
 });
 
-export default defineProvider({ manifest, operation: "search", run: search.run });
+export default defineProvider({ manifest, run: search.run, operation: "search" });

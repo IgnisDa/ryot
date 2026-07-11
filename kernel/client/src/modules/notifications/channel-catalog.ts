@@ -30,6 +30,63 @@ export type NotificationChannelDefinition = {
 };
 
 const notificationChannelDefinitions = {
+	push_safer: {
+		badge: "Push",
+		name: "Pushsafer",
+		slug: "push_safer",
+		group: GROUPS.push,
+		description: "Push to your Pushsafer devices.",
+		schema: {
+			fields: {
+				key: {
+					position: 1,
+					secret: true,
+					type: "string",
+					label: "Private key",
+					validation: { required: true },
+					description: "The private or alias key from your Pushsafer dashboard.",
+				},
+			},
+		},
+	},
+	email: {
+		slug: "email",
+		name: "Email",
+		badge: "SMTP",
+		group: GROUPS.email,
+		description: "Email you through the SMTP server this Ryot server is configured with.",
+		schema: {
+			fields: {
+				recipient: {
+					position: 1,
+					type: "string",
+					label: "Recipient",
+					format: { kind: "email" },
+					validation: { required: true },
+					description: "The address notifications are sent to.",
+				},
+			},
+		},
+	},
+	push_bullet: {
+		badge: "Push",
+		name: "Pushbullet",
+		group: GROUPS.push,
+		slug: "push_bullet",
+		description: "Push to the devices signed in to your Pushbullet account.",
+		schema: {
+			fields: {
+				accessToken: {
+					position: 1,
+					secret: true,
+					type: "string",
+					label: "Access token",
+					validation: { required: true },
+					description: "Create one under Settings, Account, Access Tokens.",
+				},
+			},
+		},
+	},
 	discord: {
 		slug: "discord",
 		name: "Discord",
@@ -57,6 +114,13 @@ const notificationChannelDefinitions = {
 		description: "Send messages to a Telegram chat from your own bot.",
 		schema: {
 			fields: {
+				chatId: {
+					position: 2,
+					type: "string",
+					label: "Chat ID",
+					validation: { required: true },
+					description: "The chat the bot posts to. Your bot must already be in it.",
+				},
 				botToken: {
 					position: 1,
 					secret: true,
@@ -65,69 +129,64 @@ const notificationChannelDefinitions = {
 					validation: { required: true },
 					description: "The token BotFather gave you when you created the bot.",
 				},
-				chatId: {
+			},
+		},
+	},
+	apprise: {
+		badge: "Relay",
+		slug: "apprise",
+		name: "Apprise",
+		group: GROUPS.relay,
+		description: "Hand off to an Apprise API server, which fans out to everything it knows.",
+		schema: {
+			fields: {
+				key: {
 					position: 2,
+					secret: true,
 					type: "string",
-					label: "Chat ID",
+					label: "Configuration key",
 					validation: { required: true },
-					description: "The chat the bot posts to. Your bot must already be in it.",
-				},
-			},
-		},
-	},
-	email: {
-		slug: "email",
-		name: "Email",
-		badge: "SMTP",
-		group: GROUPS.email,
-		description: "Email you through the SMTP server this Ryot server is configured with.",
-		schema: {
-			fields: {
-				recipient: {
-					position: 1,
-					type: "string",
-					label: "Recipient",
-					format: { kind: "email" },
-					validation: { required: true },
-					description: "The address notifications are sent to.",
-				},
-			},
-		},
-	},
-	ntfy: {
-		slug: "ntfy",
-		name: "ntfy",
-		badge: "Push",
-		group: GROUPS.push,
-		description: "Publish to an ntfy topic, on ntfy.sh or your own server.",
-		schema: {
-			fields: {
-				topic: {
-					position: 1,
-					type: "string",
-					label: "Topic",
-					validation: { required: true },
-					description: "The topic to publish to. Anyone who knows it can read it.",
+					description: "The Apprise configuration to notify.",
 				},
 				baseUrl: {
-					position: 2,
+					position: 1,
 					type: "string",
 					label: "Server URL",
 					format: { kind: "url" },
-					description: "Leave blank to use https://ntfy.sh.",
+					validation: { required: true },
+					description: "Where your Apprise API server is reachable.",
 				},
-				accessToken: {
+			},
+		},
+	},
+	push_over: {
+		badge: "Push",
+		name: "Pushover",
+		slug: "push_over",
+		group: GROUPS.push,
+		description: "Push to your Pushover devices.",
+		schema: {
+			fields: {
+				device: {
 					position: 3,
+					type: "string",
+					label: "Device",
+					description: "Leave blank to reach every device on your account.",
+				},
+				userKey: {
+					position: 1,
 					secret: true,
 					type: "string",
-					label: "Access token",
-					description: "Only needed for a protected topic.",
+					label: "User key",
+					validation: { required: true },
+					description: "Found on your Pushover dashboard.",
 				},
-				priority: {
-					position: 4,
-					type: "integer",
-					label: "Priority",
-					description: "1 is lowest and 5 is highest. Defaults to 3.",
+				appToken: {
+					position: 2,
+					secret: true,
+					type: "string",
+					label: "Application token",
+					description: "Leave blank to send through Ryot's own Pushover application.",
 				},
 			},
 		},
@@ -140,6 +199,12 @@ const notificationChannelDefinitions = {
 		description: "Send messages to your self-hosted Gotify server.",
 		schema: {
 			fields: {
+				priority: {
+					position: 3,
+					type: "integer",
+					label: "Priority",
+					description: "Defaults to 5.",
+				},
 				baseUrl: {
 					position: 1,
 					type: "string",
@@ -156,108 +221,43 @@ const notificationChannelDefinitions = {
 					validation: { required: true },
 					description: "The token of the Gotify application to post as.",
 				},
+			},
+		},
+	},
+	ntfy: {
+		slug: "ntfy",
+		name: "ntfy",
+		badge: "Push",
+		group: GROUPS.push,
+		description: "Publish to an ntfy topic, on ntfy.sh or your own server.",
+		schema: {
+			fields: {
 				priority: {
-					position: 3,
+					position: 4,
 					type: "integer",
 					label: "Priority",
-					description: "Defaults to 5.",
+					description: "1 is lowest and 5 is highest. Defaults to 3.",
 				},
-			},
-		},
-	},
-	push_over: {
-		badge: "Push",
-		name: "Pushover",
-		slug: "push_over",
-		group: GROUPS.push,
-		description: "Push to your Pushover devices.",
-		schema: {
-			fields: {
-				userKey: {
-					position: 1,
-					secret: true,
-					type: "string",
-					label: "User key",
-					validation: { required: true },
-					description: "Found on your Pushover dashboard.",
-				},
-				appToken: {
-					position: 2,
-					secret: true,
-					type: "string",
-					label: "Application token",
-					description: "Leave blank to send through Ryot's own Pushover application.",
-				},
-				device: {
-					position: 3,
-					type: "string",
-					label: "Device",
-					description: "Leave blank to reach every device on your account.",
-				},
-			},
-		},
-	},
-	push_bullet: {
-		badge: "Push",
-		name: "Pushbullet",
-		group: GROUPS.push,
-		slug: "push_bullet",
-		description: "Push to the devices signed in to your Pushbullet account.",
-		schema: {
-			fields: {
 				accessToken: {
-					position: 1,
+					position: 3,
 					secret: true,
 					type: "string",
 					label: "Access token",
-					validation: { required: true },
-					description: "Create one under Settings, Account, Access Tokens.",
+					description: "Only needed for a protected topic.",
 				},
-			},
-		},
-	},
-	push_safer: {
-		badge: "Push",
-		name: "Pushsafer",
-		slug: "push_safer",
-		group: GROUPS.push,
-		description: "Push to your Pushsafer devices.",
-		schema: {
-			fields: {
-				key: {
-					position: 1,
-					secret: true,
-					type: "string",
-					label: "Private key",
-					validation: { required: true },
-					description: "The private or alias key from your Pushsafer dashboard.",
-				},
-			},
-		},
-	},
-	apprise: {
-		badge: "Relay",
-		slug: "apprise",
-		name: "Apprise",
-		group: GROUPS.relay,
-		description: "Hand off to an Apprise API server, which fans out to everything it knows.",
-		schema: {
-			fields: {
 				baseUrl: {
-					position: 1,
+					position: 2,
 					type: "string",
 					label: "Server URL",
 					format: { kind: "url" },
-					validation: { required: true },
-					description: "Where your Apprise API server is reachable.",
+					description: "Leave blank to use https://ntfy.sh.",
 				},
-				key: {
-					position: 2,
-					secret: true,
+				topic: {
+					position: 1,
 					type: "string",
-					label: "Configuration key",
+					label: "Topic",
 					validation: { required: true },
-					description: "The Apprise configuration to notify.",
+					description: "The topic to publish to. Anyone who knows it can read it.",
 				},
 			},
 		},

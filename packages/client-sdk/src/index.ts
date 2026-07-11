@@ -101,7 +101,7 @@ export type TemporaryUploadRequest = {
 
 export const RyotNavigationTarget = Schema.Union([
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
-	strictStruct({ kind: Schema.Literal("saved-view"), savedViewId: SavedViewId }),
+	strictStruct({ savedViewId: SavedViewId, kind: Schema.Literal("saved-view") }),
 	strictStruct({
 		path: Schema.String,
 		pluginSlug: PluginSlug,
@@ -257,65 +257,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	return {
 		overlayBack,
 		mutationCompleted,
-		collections: {
-			create: (input: typeof CreateCollectionBody.Encoded) =>
-				mutateCollection({ action: "create", input }, CollectionResponse),
-			upsertMembership: (input: typeof CreateMembershipBody.Encoded) =>
-				mutateCollection({ action: "upsert-membership", input }, MembershipResponse),
-			removeMembership: (input: typeof DeleteMembershipBody.Encoded) =>
-				mutateCollection({ action: "remove-membership", input }, MembershipResponse),
-		},
 		screens: { openProviderSearch },
-		entities: {
-			watch: (
-				interest: EntityInterest,
-				onUpdate: (update: EntityUpdate) => void,
-			): EntityInterestSubscription => {
-				const normalized = normalizeInterest(interest);
-				if (!adapter.watchEntities) {
-					throw new RyotClientError("unsupported-capability");
-				}
-				let disposed = false;
-				try {
-					const subscription = adapter.watchEntities(normalized, (value) => {
-						if (disposed) {
-							return;
-						}
-						const decoded = Schema.decodeUnknownResult(EntityUpdatedMessage)(value);
-						if (Result.isFailure(decoded)) {
-							throw new RyotClientError("malformed-result");
-						}
-						onUpdate({ entityId: decoded.success.entityId, reason: decoded.success.reason });
-					});
-					return {
-						update: (next) => {
-							const normalizedNext = normalizeInterest(next);
-							if (disposed) {
-								throw new RyotClientError("disposed");
-							}
-							try {
-								subscription.update(normalizedNext);
-							} catch (error) {
-								throw asTransportError(error);
-							}
-						},
-						dispose: () => {
-							if (disposed) {
-								return;
-							}
-							disposed = true;
-							try {
-								subscription.dispose();
-							} catch (error) {
-								throw asTransportError(error);
-							}
-						},
-					};
-				} catch (error) {
-					throw asTransportError(error);
-				}
-			},
-		},
 		navigation: {
 			push: (target: RyotNavigationTarget) => navigate("push", target),
 			replace: (target: RyotNavigationTarget) => navigate("replace", target),
@@ -324,45 +266,43 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				replace: (update: RyotPageSearchUpdate) => navigatePageSearch("replace", update),
 			},
 		},
-		assets: {
-			resolve: async (
-				assets: readonly ManagedAssetLocatorValue[],
-				options?: { readonly signal?: AbortSignal },
-			) => {
-				if (options?.signal?.aborted) {
-					throw options.signal.reason;
-				}
-				const decodedAssets = Schema.decodeUnknownResult(ManagedAssetResolutionBatch)(assets);
-				if (Result.isFailure(decodedAssets)) {
-					throw new RyotClientError("invalid-input");
-				}
-				if (!adapter.resolveAssets) {
+		theme: {
+			getSnapshot: getThemeSnapshot,
+			subscribe: (listener: () => void) => {
+				if (!adapter.theme) {
 					throw new RyotClientError("unsupported-capability");
+				}
+				try {
+					return adapter.theme.subscribe(() => {
+						getThemeSnapshot();
+						listener();
+					});
+				} catch (error) {
+					throw asTransportError(error);
+				}
+			},
+		},
+		collections: {
+			create: (input: typeof CreateCollectionBody.Encoded) =>
+				mutateCollection({ input, action: "create" }, CollectionResponse),
+			upsertMembership: (input: typeof CreateMembershipBody.Encoded) =>
+				mutateCollection({ input, action: "upsert-membership" }, MembershipResponse),
+			removeMembership: (input: typeof DeleteMembershipBody.Encoded) =>
+				mutateCollection({ input, action: "remove-membership" }, MembershipResponse),
+		},
+		uploads: {
+			uploadTemporary: async (request: TemporaryUploadRequest) => {
+				if (!(request.source instanceof Blob)) {
+					throw new RyotClientError("invalid-input");
 				}
 				let value: unknown;
 				try {
-					value = await adapter.resolveAssets(decodedAssets.success, options?.signal);
+					value = await adapter.uploadTemporary(request);
 				} catch (error) {
-					if (options?.signal?.aborted) {
-						throw options.signal.reason;
-					}
 					throw asTransportError(error);
 				}
-				const decoded = Schema.decodeUnknownResult(Schema.Array(PluginManagedAssetResolution))(
-					value,
-				);
-				if (
-					Result.isFailure(decoded) ||
-					decoded.success.length !== decodedAssets.success.length ||
-					decoded.success.some((resolution, index) => {
-						const requested = decodedAssets.success[index];
-						return (
-							requested === undefined ||
-							resolution.asset.type !== requested.type ||
-							resolution.asset.key !== requested.key
-						);
-					})
-				) {
+				const decoded = Schema.decodeUnknownResult(TemporaryUploadToken)(value);
+				if (Result.isFailure(decoded)) {
 					throw new RyotClientError("malformed-result");
 				}
 				return decoded.success;
@@ -428,38 +368,98 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				return decoded.success;
 			},
 		},
-		uploads: {
-			uploadTemporary: async (request: TemporaryUploadRequest) => {
-				if (!(request.source instanceof Blob)) {
+		entities: {
+			watch: (
+				interest: EntityInterest,
+				onUpdate: (update: EntityUpdate) => void,
+			): EntityInterestSubscription => {
+				const normalized = normalizeInterest(interest);
+				if (!adapter.watchEntities) {
+					throw new RyotClientError("unsupported-capability");
+				}
+				let disposed = false;
+				try {
+					const subscription = adapter.watchEntities(normalized, (value) => {
+						if (disposed) {
+							return;
+						}
+						const decoded = Schema.decodeUnknownResult(EntityUpdatedMessage)(value);
+						if (Result.isFailure(decoded)) {
+							throw new RyotClientError("malformed-result");
+						}
+						onUpdate({ reason: decoded.success.reason, entityId: decoded.success.entityId });
+					});
+					return {
+						dispose: () => {
+							if (disposed) {
+								return;
+							}
+							disposed = true;
+							try {
+								subscription.dispose();
+							} catch (error) {
+								throw asTransportError(error);
+							}
+						},
+						update: (next) => {
+							const normalizedNext = normalizeInterest(next);
+							if (disposed) {
+								throw new RyotClientError("disposed");
+							}
+							try {
+								subscription.update(normalizedNext);
+							} catch (error) {
+								throw asTransportError(error);
+							}
+						},
+					};
+				} catch (error) {
+					throw asTransportError(error);
+				}
+			},
+		},
+		assets: {
+			resolve: async (
+				assets: readonly ManagedAssetLocatorValue[],
+				options?: { readonly signal?: AbortSignal },
+			) => {
+				if (options?.signal?.aborted) {
+					throw options.signal.reason;
+				}
+				const decodedAssets = Schema.decodeUnknownResult(ManagedAssetResolutionBatch)(assets);
+				if (Result.isFailure(decodedAssets)) {
 					throw new RyotClientError("invalid-input");
+				}
+				if (!adapter.resolveAssets) {
+					throw new RyotClientError("unsupported-capability");
 				}
 				let value: unknown;
 				try {
-					value = await adapter.uploadTemporary(request);
+					value = await adapter.resolveAssets(decodedAssets.success, options?.signal);
 				} catch (error) {
+					if (options?.signal?.aborted) {
+						throw options.signal.reason;
+					}
 					throw asTransportError(error);
 				}
-				const decoded = Schema.decodeUnknownResult(TemporaryUploadToken)(value);
-				if (Result.isFailure(decoded)) {
+				const decoded = Schema.decodeUnknownResult(Schema.Array(PluginManagedAssetResolution))(
+					value,
+				);
+				if (
+					Result.isFailure(decoded) ||
+					decoded.success.length !== decodedAssets.success.length ||
+					decoded.success.some((resolution, index) => {
+						const requested = decodedAssets.success[index];
+						return (
+							requested === undefined ||
+							resolution.asset.type !== requested.type ||
+							resolution.asset.key !== requested.key
+						);
+					})
+				) {
 					throw new RyotClientError("malformed-result");
 				}
 				return decoded.success;
-			},
-		},
-		theme: {
-			getSnapshot: getThemeSnapshot,
-			subscribe: (listener: () => void) => {
-				if (!adapter.theme) {
-					throw new RyotClientError("unsupported-capability");
-				}
-				try {
-					return adapter.theme.subscribe(() => {
-						getThemeSnapshot();
-						listener();
-					});
-				} catch (error) {
-					throw asTransportError(error);
-				}
 			},
 		},
 	};

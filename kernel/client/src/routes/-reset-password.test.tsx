@@ -89,7 +89,7 @@ const makeView = (
 		),
 	);
 	const router = getRouter(
-		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		{ theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [path] }),
 	);
 	const view = render(<RouterProvider router={router} />);
@@ -142,7 +142,7 @@ describe("Reset password route", () => {
 
 		await user.click(screen.getByRole("button", { name: "Update password" }));
 		await screen.findByRole("heading", { name: "Password updated" });
-		expect(view.calls).toEqual([{ token: "reset-secret", password: "new-password", server }]);
+		expect(view.calls).toEqual([{ server, token: "reset-secret", password: "new-password" }]);
 
 		await user.click(screen.getByRole("button", { name: "Sign in" }));
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/auth"));

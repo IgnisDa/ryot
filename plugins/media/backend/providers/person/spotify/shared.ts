@@ -11,12 +11,12 @@ import {
 } from "../../../lib/vendors/spotify";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "Spotify",
+	kind: "provider",
 	slug: "person.spotify",
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
-	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
+	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 const PAGE_SIZE = 20;
@@ -66,8 +66,8 @@ const fetchArtistAlbums = (
 	collected: readonly unknown[],
 ): Effect.Effect<readonly unknown[], unknown> =>
 	spotifyGet(host, `/artists/${encodeURIComponent(externalId)}/albums`, {
-		include_groups: "album,single",
 		offset: String(offset),
+		include_groups: "album,single",
 		limit: String(ALBUM_PAGE_LIMIT),
 	}).pipe(
 		Effect.flatMap((dataValue) => {
@@ -139,20 +139,6 @@ export const details = defineProvider({
 								});
 								return {
 									name,
-									relatedEntityGroups: [
-										{
-											direction: "outgoing" as const,
-											entities: mediaEntities,
-											synchronization: "authoritative" as const,
-											relationshipSchemaSlug: "person-to-music",
-										},
-										{
-											direction: "outgoing" as const,
-											entities: groupEntities,
-											synchronization: "authoritative" as const,
-											relationshipSchemaSlug: "person-to-music-group",
-										},
-									],
 									properties: {
 										sourceUrl,
 										description,
@@ -163,6 +149,20 @@ export const details = defineProvider({
 											purpose: "profile" as const,
 										})),
 									},
+									relatedEntityGroups: [
+										{
+											entities: mediaEntities,
+											direction: "outgoing" as const,
+											synchronization: "authoritative" as const,
+											relationshipSchemaSlug: "person-to-music",
+										},
+										{
+											entities: groupEntities,
+											direction: "outgoing" as const,
+											synchronization: "authoritative" as const,
+											relationshipSchemaSlug: "person-to-music-group",
+										},
+									],
 								};
 							}),
 						);

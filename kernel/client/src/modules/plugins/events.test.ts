@@ -81,11 +81,11 @@ const makeRuntime = (
 			options.responseStatuses?.[requests.length - 1] ??
 			(requests.length <= (options.rejectAttempts ?? 0) ? 503 : 200);
 		if (status < 200 || status >= 300) {
-			return Promise.resolve({ ok: false, status, body: null });
+			return Promise.resolve({ status, ok: false, body: null });
 		}
 		const stream = new TestStream(request.signal);
 		streams.push(stream);
-		return Promise.resolve({ ok: true, status, body: stream.body });
+		return Promise.resolve({ status, ok: true, body: stream.body });
 	}, Schedule.spaced("1 millis"));
 	const runtimeClient = Layer.succeed(
 		RuntimeOAuthClientService,
@@ -100,10 +100,10 @@ const makeRuntime = (
 		requests,
 		clientIds,
 		tokenRequests,
-		runtime: ManagedRuntime.make(events.pipe(Layer.provide(tokens), Layer.provide(runtimeClient))),
 		setToken: (value: string) => {
 			token = value;
 		},
+		runtime: ManagedRuntime.make(events.pipe(Layer.provide(tokens), Layer.provide(runtimeClient))),
 	};
 };
 
@@ -124,7 +124,7 @@ const waitUntil = (predicate: () => boolean, message: string) =>
 
 describe("plugin catalog events service", () => {
 	it("streams the canonical endpoint with a bearer token and routes catalog events", async () => {
-		const { requests, runtime, streams } = makeRuntime({ token: "token-1" });
+		const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
@@ -176,7 +176,7 @@ describe("plugin catalog events service", () => {
 	});
 
 	it("reconnects with a fresh token when the stream ends", async () => {
-		const { requests, runtime, setToken, streams } = makeRuntime({ token: "token-1" });
+		const { runtime, streams, requests, setToken } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
@@ -202,7 +202,7 @@ describe("plugin catalog events service", () => {
 	});
 
 	it("reconnects when the server rejects the stream", async () => {
-		const { requests, runtime, streams } = makeRuntime({ token: "token-1", rejectAttempts: 2 });
+		const { runtime, streams, requests } = makeRuntime({ token: "token-1", rejectAttempts: 2 });
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
 				service.subscribe(scope, () => undefined),
@@ -219,7 +219,7 @@ describe("plugin catalog events service", () => {
 	});
 
 	it("aborts the stream on interruption and stops reconnecting", async () => {
-		const { requests, runtime, streams } = makeRuntime({ token: "token-1" });
+		const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
 				service.subscribe(scope, () => undefined),
@@ -236,7 +236,7 @@ describe("plugin catalog events service", () => {
 	});
 
 	it("does not open a stream when no token is stored", async () => {
-		const { requests, runtime, tokenRequests } = makeRuntime();
+		const { runtime, requests, tokenRequests } = makeRuntime();
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
 				service.subscribe(scope, () => undefined),
@@ -253,7 +253,7 @@ describe("plugin catalog events service", () => {
 	});
 
 	it("force-refreshes once and retries once after an unauthorized response", async () => {
-		const { requests, runtime, streams, tokenRequests } = makeRuntime({
+		const { runtime, streams, requests, tokenRequests } = makeRuntime({
 			token: "token-1",
 			refreshedToken: "token-2",
 			responseStatuses: [401, 200],
@@ -277,7 +277,7 @@ describe("plugin catalog events service", () => {
 	});
 
 	it("stops after a second unauthorized response", async () => {
-		const { requests, runtime, tokenRequests } = makeRuntime({
+		const { runtime, requests, tokenRequests } = makeRuntime({
 			token: "token-1",
 			refreshedToken: "token-2",
 			responseStatuses: [401, 401],
@@ -300,7 +300,7 @@ describe("plugin catalog events service", () => {
 	});
 
 	it("uses the native OAuth client for an installed application", async () => {
-		const { clientIds, runtime, streams } = makeRuntime({ isNative: true, token: "token-1" });
+		const { runtime, streams, clientIds } = makeRuntime({ isNative: true, token: "token-1" });
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
 				service.subscribe(scope, () => undefined),

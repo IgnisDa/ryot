@@ -42,7 +42,7 @@ describe("runtime OAuth client", () => {
 		() => Promise.resolve("io.ryot.unknown"),
 		() => Promise.reject(new Error("unavailable")),
 	])("rejects an unreadable or unknown native application", async (getApplicationId) => {
-		const client = makeRuntimeOAuthClient({ isNative: () => true, getApplicationId });
+		const client = makeRuntimeOAuthClient({ getApplicationId, isNative: () => true });
 
 		await expect(Effect.runPromise(client.forServer(origin))).rejects.toMatchObject({
 			_tag: "RuntimeOAuthClientError",

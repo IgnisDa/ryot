@@ -14,7 +14,7 @@ type ExercisePreloadHost = SandboxHost<
 	]
 >;
 
-const exerciseImageSchema = Schema.Struct({ type: Schema.Literal("remote"), url: Schema.String });
+const exerciseImageSchema = Schema.Struct({ url: Schema.String, type: Schema.Literal("remote") });
 type ExerciseImage = Schema.Schema.Type<typeof exerciseImageSchema>;
 
 const exercisePropertiesSchema = Schema.Struct({
@@ -48,8 +48,8 @@ const cachedExerciseSchema = Schema.Struct({
 		force: Schema.optional(Schema.Unknown),
 		mechanic: Schema.optional(Schema.Unknown),
 		images: Schema.Array(exerciseImageSchema),
-		equipment: Schema.optional(Schema.Unknown),
 		instructions: Schema.Array(Schema.String),
+		equipment: Schema.optional(Schema.Unknown),
 	}),
 });
 const cachedExercisesMetadataSchema = Schema.Struct({
@@ -256,13 +256,13 @@ const normalizeExercise = (value: unknown): NormalizedExercise | null => {
 	const muscles = [...new Set([...primaryMuscles, ...secondaryMuscles])];
 	const properties: ExerciseProperties = {
 		kind,
-		force: force.value,
 		level,
 		images,
 		muscles,
+		instructions,
+		force: force.value,
 		mechanic: mechanic.value,
 		equipment: equipment.value,
-		instructions,
 	};
 
 	return {
@@ -302,7 +302,7 @@ const reviveExercise = (value: unknown): NormalizedExercise | null => {
 		if (url === null) {
 			return null;
 		}
-		images.push({ type: "remote", url });
+		images.push({ url, type: "remote" });
 	}
 	return {
 		name,
@@ -512,11 +512,11 @@ export const getExerciseDetails = (
 const PRELOAD_BATCH_SIZE = 100;
 const MAX_PRELOAD_EXERCISE_LIMIT = 873;
 export const preloadResultSchema = Schema.Struct({
-	processed: Schema.Number.pipe(
+	inserted: Schema.Number.pipe(
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
 	),
-	inserted: Schema.Number.pipe(
+	processed: Schema.Number.pipe(
 		Schema.check(Schema.isInt()),
 		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
 	),
@@ -541,9 +541,9 @@ export const preloadExercises = (host: ExercisePreloadHost, execution: Execution
 				.map((exercise) => ({
 					populatedAt,
 					name: exercise.name,
+					entitySchemaSlug: "exercise",
 					properties: exercise.properties,
 					externalId: exercise.externalId,
-					entitySchemaSlug: "exercise",
 				}));
 			const results = yield* host.upsertGlobalEntities(batch, { maximumTotal: preloadLimit });
 			inserted += results.filter(

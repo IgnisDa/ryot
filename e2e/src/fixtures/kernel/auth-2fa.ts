@@ -115,7 +115,7 @@ export async function verifyBackupCodeForSession(input: {
 	twoFactorToken?: string;
 }) {
 	const twoFactorToken = requirePresent(input.twoFactorToken, "Missing two-factor browser cookie");
-	const { data, response, token, sessionCookie } = await completeTwoFactorSignIn(
+	const { data, token, response, sessionCookie } = await completeTwoFactorSignIn(
 		input.baseUrl,
 		twoFactorToken,
 		"/two-factor/verify-backup-code",

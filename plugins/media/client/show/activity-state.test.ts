@@ -199,8 +199,8 @@ describe("show activity coverage", () => {
 	it("keeps specials out of the headline total", () => {
 		const coverage = showActivityCoverage(decodeShowActivity());
 
-		expect(coverage.headline).toEqual({ watched: 2, total: 4 });
-		expect(coverage.specials).toMatchObject({ label: "Specials", watched: 0, total: 2 });
+		expect(coverage.headline).toEqual({ total: 4, watched: 2 });
+		expect(coverage.specials).toMatchObject({ total: 2, watched: 0, label: "Specials" });
 		expect(coverage.seasons.map((season) => season.seasonNumber)).toEqual([1]);
 	});
 
@@ -232,7 +232,7 @@ describe("show activity coverage", () => {
 	it("reports coverage as a percentage of each season", () => {
 		const coverage = showActivityCoverage(decodeShowActivity());
 
-		expect(coverage.seasons[0]).toMatchObject({ percent: 50, watched: 2, total: 4 });
+		expect(coverage.seasons[0]).toMatchObject({ total: 4, watched: 2, percent: 50 });
 	});
 });
 

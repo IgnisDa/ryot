@@ -15,7 +15,7 @@ const operationManifest = () => {
 		...manifest,
 		scripts: [
 			...manifest.scripts,
-			{ ...script, kind: "operation" as const, name: "Operation", slug: "operation.fixture" },
+			{ ...script, name: "Operation", slug: "operation.fixture", kind: "operation" as const },
 		],
 		operations: [
 			{

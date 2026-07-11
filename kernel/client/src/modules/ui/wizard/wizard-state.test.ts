@@ -25,7 +25,7 @@ describe("wizard state", () => {
 	});
 
 	it("advances from a picked service through review", () => {
-		expect(picked).toEqual({ step: "configure", slug: "netflix" });
+		expect(picked).toEqual({ slug: "netflix", step: "configure" });
 		expect(wizardReducer(picked, { type: "review-requested" }).step).toBe("review");
 	});
 
@@ -42,7 +42,7 @@ describe("wizard state", () => {
 	});
 
 	it("recovers at a step only while something is held", () => {
-		expect(wizardReducer(picked, { type: "recover-at", step: "pick" }).step).toBe("pick");
-		expect(wizardReducer(initial, { type: "recover-at", step: "configure" })).toEqual(initial);
+		expect(wizardReducer(picked, { step: "pick", type: "recover-at" }).step).toBe("pick");
+		expect(wizardReducer(initial, { step: "configure", type: "recover-at" })).toEqual(initial);
 	});
 });

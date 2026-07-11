@@ -11,9 +11,9 @@ const providerManifest = () => {
 	assert(script);
 	const details = {
 		...script,
-		kind: "provider" as const,
 		name: "Fixture details",
 		slug: "fixture.details",
+		kind: "provider" as const,
 		providerSlug: "fixture-provider",
 		providerOperation: "details" as const,
 	};

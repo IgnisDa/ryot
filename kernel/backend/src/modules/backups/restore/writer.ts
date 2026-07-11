@@ -118,7 +118,7 @@ export const resolveRestoredIntegrationDisabled = (
 	integration.configuredSecretPaths.some((path) => isRequiredSecretPath(path, schema));
 
 const validateProperties = (properties: unknown, propertiesSchema: AppSchema, kind: string) =>
-	parseAppSchemaProperties({ properties, propertiesSchema, kind }).pipe(
+	parseAppSchemaProperties({ kind, properties, propertiesSchema }).pipe(
 		Effect.mapError((error) => badRequest(error.message)),
 	);
 
@@ -422,9 +422,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						isDisabled: true,
 						health: "installing",
 						sortOrder: state.sortOrder,
-						preserveExistingConfig: state.packageKey.startsWith("system:"),
 						createdAt: parseDate(state.createdAt),
 						updatedAt: parseDate(state.updatedAt),
+						preserveExistingConfig: state.packageKey.startsWith("system:"),
 						config: yield* rewriteManagedAssetLocators(
 							decodeArchiveJsonObject(state.config),
 							installedPlugin.configSchema,
@@ -467,14 +467,14 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								pluginId !== undefined &&
 								pluginKeyById.get(pluginId)?.startsWith("user:") === true,
 						)
-						.map(({ slug, name, icon, renderer, settings, dataSources, sortOrder, pluginId }) => ({
+						.map(({ slug, name, icon, renderer, settings, pluginId, sortOrder, dataSources }) => ({
 							slug,
 							name,
 							icon,
 							renderer,
 							settings,
-							dataSources,
 							sortOrder,
+							dataSources,
 							pluginInstallationId: pluginId
 								? (installationIdByKey.get(pluginKeyById.get(pluginId) ?? "") ?? null)
 								: null,
@@ -506,10 +506,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						provider: integration.provider,
 						extraSettings: integration.extraSettings,
 						syncOwnership: integration.syncOwnership,
-						minimumProgress: integration.minimumProgress,
-						maximumProgress: integration.maximumProgress,
 						createdAt: parseDate(integration.createdAt),
 						updatedAt: parseDate(integration.updatedAt),
+						minimumProgress: integration.minimumProgress,
+						maximumProgress: integration.maximumProgress,
 						isDisabled: resolveRestoredIntegrationDisabled(integration, provider.settingsSchema),
 						lastFinishedAt: integration.lastFinishedAt
 							? parseDate(integration.lastFinishedAt)
@@ -582,11 +582,11 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						target = yield* entities.findGlobalEntityForRestore({
 							entitySchemaSlug,
 							entitySchemaPluginId,
-							provider: {
-								providerSlug: archivedProvider.providerSlug,
-								pluginSlug: providerPlugin.slug,
-							},
 							externalId: dependency.externalId,
+							provider: {
+								pluginSlug: providerPlugin.slug,
+								providerSlug: archivedProvider.providerSlug,
+							},
 						});
 					} else if (dependency.identity.kind === "bootstrap") {
 						target = yield* entities.findGlobalEntityForRestore({
@@ -629,9 +629,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							name: dependency.name,
 							providerId: provider?.id ?? null,
 							externalId: dependency.externalId,
-							entitySchemaSlug: dependency.entitySchemaSlug,
 							createdAt: parseDate(dependency.createdAt),
 							updatedAt: parseDate(dependency.updatedAt),
+							entitySchemaSlug: dependency.entitySchemaSlug,
 							populatedAt: dependency.populatedAt ? parseDate(dependency.populatedAt) : null,
 							entitySchemaPluginId: dependency.entitySchemaPluginKey
 								? (pluginIdByKey.get(dependency.entitySchemaPluginKey) ?? null)
@@ -697,9 +697,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						origin: entity.origin,
 						externalId: entity.externalId,
 						providerId: provider?.id ?? null,
-						entitySchemaSlug: entity.entitySchemaSlug,
 						createdAt: parseDate(entity.createdAt),
 						updatedAt: parseDate(entity.updatedAt),
+						entitySchemaSlug: entity.entitySchemaSlug,
 						populatedAt: entity.populatedAt ? parseDate(entity.populatedAt) : null,
 						entitySchemaPluginId: entity.entitySchemaPluginKey
 							? (pluginIdByKey.get(entity.entitySchemaPluginKey) ?? null)
@@ -779,8 +779,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							sessionEntityId,
 							createdAt: parseDate(event.createdAt),
 							updatedAt: parseDate(event.updatedAt),
-							occurredAt: parseDate(event.occurredAt),
 							eventSchemaSlug: event.eventSchemaSlug,
+							occurredAt: parseDate(event.occurredAt),
 							eventSchemaPluginId: event.eventSchemaPluginKey
 								? (pluginIdByKey.get(event.eventSchemaPluginKey) ?? null)
 								: null,
@@ -824,7 +824,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						if (!pluginId) {
 							return yield* badRequest("Backup saved view renderer mapping is invalid");
 						}
-						renderer = { exportName: view.renderer.exportName, kind: "plugin" as const, pluginId };
+						renderer = { pluginId, kind: "plugin" as const, exportName: view.renderer.exportName };
 					} else if (view.renderer.kind === "custom") {
 						const rendererId = clientRendererIdMap.get(view.renderer.rendererId);
 						if (!rendererId) {
@@ -851,19 +851,19 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 					const restored = yield* savedViews.restoreCustomView({
 						userId,
-						id: crypto.randomUUID(),
+						renderer,
 						slug: view.slug,
 						name: view.name,
 						icon: view.icon,
-						renderer,
-						settings: view.settings,
-						dataSources: view.dataSources,
 						clientRendererId,
+						pluginInstallationId,
+						id: crypto.randomUUID(),
+						settings: view.settings,
 						sortOrder: view.sortOrder,
 						isDisabled: view.isDisabled,
+						dataSources: view.dataSources,
 						createdAt: parseDate(view.createdAt),
 						updatedAt: parseDate(view.updatedAt),
-						pluginInstallationId,
 					});
 					if (!restored) {
 						return yield* badRequest("Backup saved view could not be restored");

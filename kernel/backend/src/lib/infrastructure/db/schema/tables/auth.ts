@@ -34,12 +34,12 @@ export const session = snakeCase.table(
 		token: text().notNull().unique(),
 		expiresAt: timestamp({ withTimezone: true }).notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		updatedAt: timestamp({ withTimezone: true })
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		updatedAt: timestamp({ withTimezone: true })
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
 	},
 	(table) => [index("session_userId_idx").on(table.userId)],
 );
@@ -102,8 +102,8 @@ export const apikey = snakeCase.table(
 		requestCount: integer().default(0),
 		rateLimitMax: integer().default(10),
 		rateLimitEnabled: boolean().default(true),
-		configId: text().default("default").notNull(),
 		expiresAt: timestamp({ withTimezone: true }),
+		configId: text().default("default").notNull(),
 		lastRequest: timestamp({ withTimezone: true }),
 		lastRefillAt: timestamp({ withTimezone: true }),
 		rateLimitTimeWindow: integer().default(86400000),
@@ -170,15 +170,15 @@ export const oauthClient = snakeCase.table(
 		backchannelLogoutUri: text(),
 		responseTypes: text().array(),
 		tokenEndpointAuthMethod: text(),
+		disabled: boolean().default(false),
 		clientId: text().notNull().unique(),
 		redirectUris: text().array().notNull(),
 		postLogoutRedirectUris: text().array(),
-		disabled: boolean().default(false),
 		backchannelLogoutSessionRequired: boolean(),
-		metadata: jsonb().$type<Record<string, unknown>>(),
 		createdAt: timestamp({ withTimezone: true }),
 		updatedAt: timestamp({ withTimezone: true }),
 		dpopBoundAccessTokens: boolean().default(false),
+		metadata: jsonb().$type<Record<string, unknown>>(),
 		clientCredentialsScopes: text().array().default([]),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 	},
@@ -193,12 +193,12 @@ export const oauthResource = snakeCase.table("oauth_resource", {
 	accessTokenTtl: integer(),
 	refreshTokenTtl: integer(),
 	allowedScopes: text().array(),
-	identifier: text().notNull().unique(),
 	disabled: boolean().default(false),
 	policyVersion: integer().default(1),
-	metadata: jsonb().$type<Record<string, unknown>>(),
+	identifier: text().notNull().unique(),
 	createdAt: timestamp({ withTimezone: true }),
 	updatedAt: timestamp({ withTimezone: true }),
+	metadata: jsonb().$type<Record<string, unknown>>(),
 	customClaims: jsonb().$type<Record<string, unknown>>(),
 	dpopBoundAccessTokensRequired: boolean().default(false),
 });
@@ -207,8 +207,8 @@ export const oauthClientResource = snakeCase.table(
 	"oauth_client_resource",
 	{
 		id: text().primaryKey(),
-		metadata: jsonb().$type<Record<string, unknown>>(),
 		createdAt: timestamp({ withTimezone: true }),
+		metadata: jsonb().$type<Record<string, unknown>>(),
 		clientId: text()
 			.notNull()
 			.references(() => oauthClient.clientId, { onDelete: "cascade" }),
@@ -275,11 +275,11 @@ export const oauthAccessToken = snakeCase.table(
 		expiresAt: timestamp({ withTimezone: true }).notNull(),
 		createdAt: timestamp({ withTimezone: true }).notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		refreshId: text().references(() => oauthRefreshToken.id, { onDelete: "cascade" }),
 		sessionId: text().references(() => session.id, { onDelete: "set null" }),
 		clientId: text()
 			.notNull()
 			.references(() => oauthClient.clientId),
+		refreshId: text().references(() => oauthRefreshToken.id, { onDelete: "cascade" }),
 	},
 	(table) => [
 		index("oauth_access_token_clientId_idx").on(table.clientId),

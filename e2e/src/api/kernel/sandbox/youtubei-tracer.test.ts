@@ -68,7 +68,7 @@ describe("Youtubei durable tracer", () => {
 				installTestPluginBundle({
 					client,
 					pluginSlug: `e2e-youtubei-tracer-${crypto.randomUUID()}`,
-					files: { [entry]: youtubeiSource({ name: "Youtubei tracer", slug: scriptSlug }) },
+					files: { [entry]: youtubeiSource({ slug: scriptSlug, name: "Youtubei tracer" }) },
 					scripts: [
 						{
 							entry,
@@ -83,7 +83,7 @@ describe("Youtubei durable tracer", () => {
 				}),
 				uninstallTestPlugin,
 			);
-			const { executionId, jobId } = yield* enqueueSandboxScript(userId, {
+			const { jobId, executionId } = yield* enqueueSandboxScript(userId, {
 				scriptId: plugin.scriptIds[scriptSlug] ?? plugin.scriptId,
 				context: { firstUrl: `${http.url}/first`, secondUrl: `${http.url}/second` },
 			});

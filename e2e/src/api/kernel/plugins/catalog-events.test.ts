@@ -101,8 +101,8 @@ describe("plugin catalog events", () => {
 			const packageA = yield* fixtureClientPluginPackage("A", variant);
 			const installing = yield* installPrivatePluginPackage({
 				config: {},
-				client: owner.client,
 				baseUrl: apiUrl(),
+				client: owner.client,
 				pluginPackage: packageA,
 			});
 			expect(installing).toMatchObject({ health: "installing", slug: FIXTURE_CLIENT_PLUGIN_SLUG });
@@ -117,7 +117,7 @@ describe("plugin catalog events", () => {
 			yield* outsiderEvents.drainQueuedEvents();
 
 			const before = yield* fixtureCatalogEntry(owner.client);
-			expect(before).toMatchObject({ name: "Fixture", icon: "puzzle", sortOrder: 2 });
+			expect(before).toMatchObject({ sortOrder: 2, icon: "puzzle", name: "Fixture" });
 			const revisionB = yield* updateFixtureClientPlugin(owner.client, "B", variant, apiUrl());
 			yield* ownerEvents.waitForCatalogInvalidated();
 			yield* outsiderEvents.assertNoInvalidation();
@@ -163,7 +163,7 @@ describe("plugin catalog events", () => {
 					},
 				],
 			});
-			const files = { [entry]: literalSandboxSource({ name, slug: scriptSlug, value: true }) };
+			const files = { [entry]: literalSandboxSource({ name, value: true, slug: scriptSlug }) };
 			yield* adminSession().call(
 				(client) =>
 					client.testSupport.installSystemPlugin({

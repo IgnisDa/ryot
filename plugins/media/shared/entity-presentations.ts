@@ -87,6 +87,7 @@ export const mediaPresentationRecipe = defineRecipe(
 	(input: { readonly slug: string; readonly entityIds: readonly string[] }) => {
 		const media = table("entity", "presentationMedia");
 		return {
+			map: ({ media: rows }) => Result.succeed(rows.items),
 			queries: {
 				media: selectedRows(media, {
 					limit: 100,
@@ -113,7 +114,6 @@ export const mediaPresentationRecipe = defineRecipe(
 					},
 				}),
 			},
-			map: ({ media: rows }) => Result.succeed(rows.items),
 		};
 	},
 );

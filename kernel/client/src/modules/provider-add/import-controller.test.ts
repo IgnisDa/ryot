@@ -52,7 +52,7 @@ it.effect("surfaces a failed run result without waiting further", () =>
 		const entry = yield* importProviderEntity({
 			start: Effect.succeed({ jobId: "job-1" }),
 			poll: scripted([
-				{ status: "failed", reason: { code: "import-failed", stage: "population" } },
+				{ status: "failed", reason: { stage: "population", code: "import-failed" } },
 			]),
 		});
 

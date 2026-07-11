@@ -51,8 +51,8 @@ const Rating = Schema.Struct({
 const Watchlist = Schema.Struct({
 	show: Schema.optional(Item),
 	movie: Schema.optional(Item),
-	listed_at: Schema.optional(Schema.String),
 	type: Schema.Literals(["movie", "show"]),
+	listed_at: Schema.optional(Schema.String),
 });
 const ListItem = Schema.Struct({
 	type: Schema.String,
@@ -380,8 +380,8 @@ const ref = (item: Item, entitySchemaSlug: "movie" | "show"): ImportEntityRef | 
 				sourceLabel,
 				entitySchemaSlug,
 				kind: "unresolved",
-				identifierType: "imdb",
 				identifierValue: imdb,
+				identifierType: "imdb",
 			}
 		: null;
 };
@@ -456,8 +456,8 @@ export const adaptTraktData = (target: TraktApiTarget, clientId: string, host: H
 		};
 		if (target.mode === "list") {
 			const listPath = yield* Effect.try({
-				try: () => parseListUrl(target.url),
 				catch: () => invalidListUrl(),
+				try: () => parseListUrl(target.url),
 			});
 			const items = yield* fetchAll(listPath, ListItem);
 			importListItems(items, target.collection);
@@ -511,7 +511,7 @@ export const adaptTraktData = (target: TraktApiTarget, clientId: string, host: H
 					missing(source, type === "movies" ? "Movie" : "Show", currentIndex);
 					continue;
 				}
-				const review = createReviewEvent({ occurredAt: item.rated_at, rating: item.rating * 10 });
+				const review = createReviewEvent({ rating: item.rating * 10, occurredAt: item.rated_at });
 				if (review) {
 					getOrCreateMediaEntityGroup(groups, entityRef, currentIndex).events.push(review);
 				}

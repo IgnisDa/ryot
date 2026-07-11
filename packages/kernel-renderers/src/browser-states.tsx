@@ -6,7 +6,7 @@ const panel = "grid min-h-96 place-content-center justify-items-center gap-2 tex
 export function BrowserSearching() {
 	return (
 		<section className={panel}>
-			<AppIcon name="search" size={36} className="animate-pulse text-text-subtle" />
+			<AppIcon size={36} name="search" className="animate-pulse text-text-subtle" />
 			<p className="text-sm text-text-muted">Searching...</p>
 		</section>
 	);
@@ -23,7 +23,7 @@ export function BrowserEmpty({
 }) {
 	return (
 		<section className={panel}>
-			<AppIcon name="library" size={40} className="text-text-subtle" />
+			<AppIcon size={40} name="library" className="text-text-subtle" />
 			<h2 className="text-xl font-semibold">{name} is empty</h2>
 			<p className="text-sm text-text-muted">
 				{canAdd
@@ -32,7 +32,7 @@ export function BrowserEmpty({
 			</p>
 			{canAdd && (
 				<Button onClick={onAdd} className="mt-2 flex items-center gap-2 rounded-pill py-2">
-					<AppIcon name="search" size={16} />
+					<AppIcon size={16} name="search" />
 					Search online
 				</Button>
 			)}
@@ -53,7 +53,7 @@ export function BrowserNoMatches({
 }) {
 	return (
 		<section className={panel}>
-			<AppIcon name="search-x" size={36} className="text-text-subtle" />
+			<AppIcon size={36} name="search-x" className="text-text-subtle" />
 			<h2 className="text-xl font-semibold">No matches in {name}</h2>
 			<p className="text-sm text-text-muted">Nothing in this view matches “{query}”.</p>
 			{canAdd && (
@@ -63,11 +63,11 @@ export function BrowserNoMatches({
 						onClick={onAdd}
 						className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-left"
 					>
-						<AppIcon name="globe" size={16} className="text-accent-text" />
+						<AppIcon size={16} name="globe" className="text-accent-text" />
 						<span className="min-w-0 flex-1 truncate text-sm font-medium text-text">
 							Search online for “{query}”
 						</span>
-						<AppIcon name="arrow-right" size={15} className="text-text-subtle" />
+						<AppIcon size={15} name="arrow-right" className="text-text-subtle" />
 					</button>
 				</div>
 			)}

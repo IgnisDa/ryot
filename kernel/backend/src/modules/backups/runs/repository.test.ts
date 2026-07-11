@@ -23,10 +23,10 @@ const row = {
 	finishedAt: null,
 	artifactKey: null,
 	artifactProvider: null,
-	kind: "restore" as const,
-	status: "running" as const,
 	createdAt: new Date(0),
 	startedAt: new Date(1),
+	kind: "restore" as const,
+	status: "running" as const,
 };
 
 it.effect("scopes every workflow run mutation by run and user IDs", () => {
@@ -53,7 +53,7 @@ it.effect("scopes every workflow run mutation by run and user IDs", () => {
 		yield* repository.failRun({
 			runId,
 			userId,
-			failure: { code: "unexpected-failure", operation: "restore" },
+			failure: { operation: "restore", code: "unexpected-failure" },
 		});
 
 		expect(predicates).toHaveLength(4);
@@ -74,6 +74,7 @@ it.effect("scopes every workflow run mutation by run and user IDs", () => {
 it.effect("returns an existing running run without resetting its start time", () => {
 	let updates = 0;
 	const db = {
+		select: () => ({ from: () => ({ where: () => ({ limit: () => Effect.succeed([row]) }) }) }),
 		update: () => ({
 			set: () => ({
 				where: () => ({
@@ -84,7 +85,6 @@ it.effect("returns an existing running run without resetting its start time", ()
 				}),
 			}),
 		}),
-		select: () => ({ from: () => ({ where: () => ({ limit: () => Effect.succeed([row]) }) }) }),
 	};
 
 	return Effect.gen(function* () {

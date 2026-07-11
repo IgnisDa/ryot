@@ -17,11 +17,11 @@ describe("sandbox result observability", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `observability-check-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "Observability check",
 				capabilities: ["log", "span"],
-				source: observabilitySandboxSource({ name: "Observability check", slug }),
+				source: observabilitySandboxSource({ slug, name: "Observability check" }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
@@ -51,10 +51,10 @@ describe("sandbox process failures", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `process-failure-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "Process failure",
-				source: processFailureSandboxSource({ name: "Process failure", slug }),
+				source: processFailureSandboxSource({ slug, name: "Process failure" }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 

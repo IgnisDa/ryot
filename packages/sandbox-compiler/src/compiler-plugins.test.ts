@@ -101,9 +101,9 @@ export default defineWorkflow({
 `;
 		const compiled = yield* compilePluginSandboxSourceEntries(
 			{
+				"workflow.sandbox.ts": workflow,
 				"operation.sandbox.ts": operation,
 				"automation.sandbox.ts": automation,
-				"workflow.sandbox.ts": workflow,
 			},
 			[
 				{ kind: "operation", entry: "operation.sandbox.ts" },
@@ -176,7 +176,7 @@ export default defineWorkflow({
 export const nondeterministic = () => globalThis.Math.random();
 `;
 		const failure = yield* compilePluginSandboxSourceEntries(
-			{ "workflow.sandbox.ts": source, "shared.ts": shared },
+			{ "shared.ts": shared, "workflow.sandbox.ts": source },
 			[{ kind: "workflow", entry: "workflow.sandbox.ts" }],
 		).pipe(Effect.flip);
 
@@ -257,7 +257,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 export const nondeterministic = typeof Effect.clockWith;
 `;
 		const failure = yield* compilePluginSandboxSourceEntries(
-			{ "workflow.sandbox.ts": source, "shared.ts": shared },
+			{ "shared.ts": shared, "workflow.sandbox.ts": source },
 			[{ kind: "workflow", entry: "workflow.sandbox.ts" }],
 		).pipe(Effect.flip);
 
@@ -311,7 +311,7 @@ export default defineWorkflow({
 });
 `;
 		const failure = yield* compilePluginSandboxSourceEntries(
-			{ "workflow.sandbox.ts": source, "shared.ts": shared },
+			{ "shared.ts": shared, "workflow.sandbox.ts": source },
 			[{ kind: "workflow", entry: "workflow.sandbox.ts" }],
 		).pipe(Effect.flip);
 

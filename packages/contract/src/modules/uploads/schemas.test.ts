@@ -32,7 +32,7 @@ describe("upload response schemas", () => {
 		expect(Schema.decodeUnknownSync(DownloadResolutionInput)({ assets })).toEqual({ assets });
 		expect(() =>
 			Schema.decodeUnknownSync(DownloadResolutionInput)({
-				assets: [...assets, { key: "permanent/overflow.png", type: "local" }],
+				assets: [...assets, { type: "local", key: "permanent/overflow.png" }],
 			}),
 		).toThrow();
 	});

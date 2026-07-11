@@ -55,8 +55,8 @@ function IntegrationRow(props: {
 	return (
 		<Link
 			to="/settings/integrations/$integrationId"
-			params={{ integrationId: props.integration.id }}
 			aria-label={`Open the ${title} integration`}
+			params={{ integrationId: props.integration.id }}
 			className={clsx(
 				"flex items-center gap-3 border-b border-border py-3",
 				props.isFirst && "border-t",
@@ -128,8 +128,8 @@ export function IntegrationsView(props: IntegrationsViewProps) {
 						<Button
 							type="button"
 							variant="secondary"
-							disabled={props.isSyncing}
 							onClick={props.onSyncAll}
+							disabled={props.isSyncing}
 							aria-label="Sync all integrations"
 							className="flex min-h-9 items-center gap-1.5 px-3 py-1.5 text-sm"
 						>
@@ -138,7 +138,7 @@ export function IntegrationsView(props: IntegrationsViewProps) {
 						</Button>
 					</div>
 					{props.syncDetail === undefined ? null : (
-						<StatusMessage tone={props.syncSucceeded ? "success" : "error"} className="text-sm">
+						<StatusMessage className="text-sm" tone={props.syncSucceeded ? "success" : "error"}>
 							{props.syncDetail}
 						</StatusMessage>
 					)}

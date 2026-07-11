@@ -5,7 +5,7 @@ import { AppIcon } from "./icon";
 
 describe("app icon", () => {
 	it("renders a registered icon", () => {
-		const { container } = render(<AppIcon name="film" className="fixture-icon" size={24} />);
+		const { container } = render(<AppIcon size={24} name="film" className="fixture-icon" />);
 		const icon = container.querySelector("svg");
 
 		expect(icon?.getAttribute("data-app-icon")).toBe("film");

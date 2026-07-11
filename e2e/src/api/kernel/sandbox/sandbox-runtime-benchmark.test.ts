@@ -420,6 +420,15 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						client,
 						scripts,
 						pluginSlug: `sandbox-benchmark-${crypto.randomUUID()}`,
+						providers: [
+							{
+								name: "Benchmark provider",
+								slug: "benchmark-provider",
+								rootEntitySchemaSlug: "book",
+								information: { source: "benchmark" },
+								operations: { search: PROVIDER_SEARCH_SLUG, details: PROVIDER_DETAILS_SLUG },
+							},
+						],
 						files: {
 							"scripts/automation-full.sandbox.ts": fullAutomationSource,
 							"scripts/automation-no-host.sandbox.ts": noHostAutomationSource,
@@ -430,15 +439,6 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 								unmatchedHttpServer.url,
 							),
 						},
-						providers: [
-							{
-								name: "Benchmark provider",
-								slug: "benchmark-provider",
-								rootEntitySchemaSlug: "book",
-								information: { source: "benchmark" },
-								operations: { search: PROVIDER_SEARCH_SLUG, details: PROVIDER_DETAILS_SLUG },
-							},
-						],
 					}),
 					uninstallTestPlugin,
 				);
@@ -468,8 +468,8 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 					SAMPLE_COUNT,
 					runDirectSample({
 						userId,
-						scriptId: scriptId(AUTOMATION_FULL_SLUG),
 						context: automationContext(100),
+						scriptId: scriptId(AUTOMATION_FULL_SLUG),
 					}),
 				);
 				const controlledHttpProvider = yield* collectSamples(

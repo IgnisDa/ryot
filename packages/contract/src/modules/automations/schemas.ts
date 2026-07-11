@@ -27,7 +27,7 @@ export const AutomationProperties = Schema.Record(Schema.String, AutomationRuleM
 
 export const AutomationPolicyResult = Schema.Union([
 	strictStruct({ action: Schema.Literal("allow") }),
-	strictStruct({ action: Schema.Literal("skip"), reason: Schema.String }),
+	strictStruct({ reason: Schema.String, action: Schema.Literal("skip") }),
 	strictStruct({
 		action: Schema.Literal("replace"),
 		body: strictStruct({
@@ -88,9 +88,9 @@ export const SignalAudiencePolicy = Schema.Union([
 export type SignalAudiencePolicy = typeof SignalAudiencePolicy.Type;
 
 export const CatalogSignalSchema = Schema.Struct({
-	id: SignalSchemaSlug,
 	name: Schema.String,
 	slug: Schema.String,
+	id: SignalSchemaSlug,
 	propertiesSchema: AppSchema,
 });
 
@@ -112,7 +112,7 @@ export const InstallNotificationRuleBody = strictStruct({ signalSchemaSlug: Sign
 export type InstallNotificationRuleBody = typeof InstallNotificationRuleBody.Type;
 
 const AutomationNotFoundReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("rule-not-found"), ruleId: AutomationRuleId }),
+	Schema.Struct({ ruleId: AutomationRuleId, code: Schema.Literal("rule-not-found") }),
 	Schema.Struct({
 		signalSchemaSlug: SignalSchemaSlug,
 		code: Schema.Literal("signal-schema-not-found"),

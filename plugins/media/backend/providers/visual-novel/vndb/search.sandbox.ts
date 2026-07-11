@@ -5,11 +5,11 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	name: "VNDB Visual Novel Search",
-	slug: "visual-novel.vndb.search",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
+	name: "VNDB Visual Novel Search",
+	slug: "visual-novel.vndb.search",
 });
 
-export default defineProvider({ manifest, operation: "search", run: search.run });
+export default defineProvider({ manifest, run: search.run, operation: "search" });

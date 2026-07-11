@@ -44,7 +44,7 @@ describe("podcast.itunes sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "tech", page: 1, pageSize: 1 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 1, query: "tech" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -54,7 +54,7 @@ describe("podcast.itunes sandbox script", () => {
 							imageUrl: "https://img/600.jpg",
 						},
 					]);
-					expect(result.details).toEqual({ totalItems: 2, nextPage: 2 });
+					expect(result.details).toEqual({ nextPage: 2, totalItems: 2 });
 					return undefined;
 				}),
 			),
@@ -67,16 +67,16 @@ describe("podcast.itunes sandbox script", () => {
 					results: [
 						{
 							trackId: 20,
+							trackTimeMillis: 1800000,
 							trackName: "Later Episode",
 							releaseDate: "2020-01-02T00:00:00Z",
-							trackTimeMillis: 1800000,
 							artworkUrl600: "https://img/ep20.jpg",
 						},
 						{
 							trackId: 10,
+							trackTimeMillis: 600000,
 							trackName: "Earlier Episode",
 							releaseDate: "2020-01-01T00:00:00Z",
-							trackTimeMillis: 600000,
 						},
 					],
 				});
@@ -85,12 +85,12 @@ describe("podcast.itunes sandbox script", () => {
 				results: [
 					{
 						trackCount: 2,
+						description: "A show.",
 						artistName: "Some Artist",
 						collectionName: "The Podcast",
-						description: "A show.",
 						releaseDate: "2020-01-01T00:00:00Z",
-						genres: ["Technology", { name: "News" }],
 						artworkUrl600: "https://img/cover.jpg",
+						genres: ["Technology", { name: "News" }],
 					},
 				],
 			});
@@ -102,9 +102,9 @@ describe("podcast.itunes sandbox script", () => {
 					expect(result.expectedChildEntitySchemaSlug).toBe("podcast-episode");
 					expect(result.childEntities).toEqual([
 						{
-							entitySchemaSlug: "podcast-episode",
 							externalId: "10",
 							name: "Earlier Episode",
+							entitySchemaSlug: "podcast-episode",
 							properties: {
 								runtime: 10,
 								episodeNumber: 1,
@@ -114,22 +114,22 @@ describe("podcast.itunes sandbox script", () => {
 							},
 						},
 						{
-							entitySchemaSlug: "podcast-episode",
 							externalId: "20",
 							name: "Later Episode",
+							entitySchemaSlug: "podcast-episode",
 							properties: {
 								runtime: 30,
 								episodeNumber: 2,
 								description: null,
 								publishDate: "2020-01-02",
 								parentPodcastExternalId: "p1",
-								images: [{ type: "remote", url: "https://img/ep20.jpg", purpose: "cover" }],
+								images: [{ type: "remote", purpose: "cover", url: "https://img/ep20.jpg" }],
 							},
 						},
 					]);
 					expect(result.properties).toMatchObject({
-						publishYear: 2020,
 						totalEpisodes: 2,
+						publishYear: 2020,
 						genres: ["Technology", "News"],
 						unlinkedCreators: [{ role: "Artist", name: "Some Artist" }],
 						sourceUrl: "https://podcasts.apple.com/us/podcast/the-podcast/idp1",
@@ -141,7 +141,7 @@ describe("podcast.itunes sandbox script", () => {
 	});
 	it("translates a podcast entity from the collection payload", () => {
 		const host = makeHost(() =>
-			httpSuccess({ results: [{ collectionName: "Traducido", description: "Descripción" }] }),
+			httpSuccess({ results: [{ description: "Descripción", collectionName: "Traducido" }] }),
 		);
 		return Effect.runPromise(
 			runSandboxTestScript(

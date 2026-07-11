@@ -121,7 +121,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				const name = trimToNull(payload.name);
 				if (!name) {
 					return yield* new CollectionBadRequest({
-						reason: { code: "name-required", field: "name" },
+						reason: { field: "name", code: "name-required" },
 					});
 				}
 
@@ -273,8 +273,8 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 								properties: validatedProperties,
 								targetEntityId: input.collectionId,
 								relationshipSchemaSlug: memberOfRelationshipSchema.id,
-								relationshipSchemaPluginId: memberOfRelationshipSchema.pluginId ?? null,
 								propertiesSchema: memberOfRelationshipSchema.propertiesSchema,
+								relationshipSchemaPluginId: memberOfRelationshipSchema.pluginId ?? null,
 							} as const;
 							const created = yield* relationships
 								.create(membershipInput)
@@ -297,6 +297,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 										.update(membershipInput)
 										.pipe(
 											Effect.catchTags({
+												RelationshipNotFound: (error) => Effect.die(error),
 												RelationshipBadRequest: (error) =>
 													new CollectionBadRequest({
 														reason: {
@@ -307,7 +308,6 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 																	: [],
 														},
 													}),
-												RelationshipNotFound: (error) => Effect.die(error),
 											}),
 										);
 						}).pipe(Effect.provideService(Database, transaction)),
@@ -373,8 +373,8 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					userId: user.id,
 					sourceEntityId: payload.entityId,
 					relationshipSchemaSlug: memberOf.id,
-					relationshipSchemaPluginId: memberOf.pluginId ?? null,
 					targetEntityId: payload.collectionId,
+					relationshipSchemaPluginId: memberOf.pluginId ?? null,
 				});
 
 				if (!deleted) {
@@ -393,8 +393,8 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					yield* queueCollectionEvent({
 						userId: user.id,
 						occurredAt: now.toISOString(),
-						eventSchemaSlug: removeEvent.id,
 						entityId: payload.collectionId,
+						eventSchemaSlug: removeEvent.id,
 						executionId: `collection-membership-removed-${deleted.id}`,
 						properties: {
 							entityId: entity.id,

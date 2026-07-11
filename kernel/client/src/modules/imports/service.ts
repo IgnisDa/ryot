@@ -60,7 +60,7 @@ export const importRunsQuery = createRyotQuery<
 	{ readonly limit: number },
 	ImportRunList,
 	KernelHostServices
->(({ client, hostServices, input, signal }) =>
+>(({ input, client, signal, hostServices }) =>
 	hostServices.runtime.runPromise(
 		Effect.flatMap(ImportsService, (service) => service.loadRuns(client, input)),
 		{ signal },
@@ -71,7 +71,7 @@ export const importRunQuery = createRyotQuery<
 	{ readonly runId: string; readonly failureLimit: number },
 	ImportRunDetail,
 	KernelHostServices
->(({ client, hostServices, input, signal }) =>
+>(({ input, client, signal, hostServices }) =>
 	hostServices.runtime.runPromise(
 		Effect.flatMap(ImportsService, (service) => service.loadRun(client, input)),
 		{ signal },
@@ -82,7 +82,7 @@ export const importSourcesQuery = createRyotQuery<
 	void,
 	readonly ListedImportSource[],
 	KernelHostServices
->(({ hostServices, signal }) =>
+>(({ signal, hostServices }) =>
 	hostServices.runtime.runPromise(
 		Effect.flatMap(ImportsApi, (api) => api.listSources(hostServices.scope)),
 		{ signal },
@@ -95,7 +95,7 @@ export const createImportRunMutation = createRyotMutation<
 	CreateRunPayload,
 	unknown,
 	KernelHostServices
->(async ({ client, hostServices, input, signal }) => {
+>(async ({ input, client, signal, hostServices }) => {
 	const created = await hostServices.runtime.runPromise(
 		Effect.flatMap(ImportsApi, (api) => api.createRun(hostServices.scope, { payload: input })),
 		{ signal },
@@ -105,7 +105,7 @@ export const createImportRunMutation = createRyotMutation<
 });
 
 export const deleteImportRunMutation = createRyotMutation<string, unknown, KernelHostServices>(
-	async ({ client, hostServices, input, signal }) => {
+	async ({ input, client, signal, hostServices }) => {
 		const deleted = await hostServices.runtime.runPromise(
 			Effect.flatMap(ImportsApi, (api) =>
 				api.deleteRun(hostServices.scope, { params: { runId: ImportRunId.make(input) } }),

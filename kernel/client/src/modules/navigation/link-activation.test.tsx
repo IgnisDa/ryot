@@ -20,7 +20,7 @@ const renderLink = () => {
 
 describe("activateLink", () => {
 	it("runs the activation and prevents default navigation on a plain left click", () => {
-		const { activations, link } = renderLink();
+		const { link, activations } = renderLink();
 
 		expect(fireEvent.click(link)).toBe(false);
 		expect(activations).toEqual(["activated"]);
@@ -33,7 +33,7 @@ describe("activateLink", () => {
 		["shift", { shiftKey: true }],
 		["middle button", { button: 1 }],
 	])("leaves the browser to handle a %s click", (_label, init) => {
-		const { activations, link } = renderLink();
+		const { link, activations } = renderLink();
 
 		expect(fireEvent.click(link, init)).toBe(true);
 		expect(activations).toEqual([]);

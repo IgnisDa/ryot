@@ -92,14 +92,14 @@ export function MobileDrawer(props: MobileDrawerProps) {
 	}
 
 	return (
-		<OverlayScope enabled={props.isOpen} onEscape={close}>
+		<OverlayScope onEscape={close} enabled={props.isOpen}>
 			<div
 				ref={rootRef}
 				id={props.drawerId}
 				hidden={!presented}
+				aria-label="Navigation"
 				data-testid="mobile-drawer"
 				role={props.isOpen ? "dialog" : undefined}
-				aria-label="Navigation"
 				aria-modal={props.isOpen ? true : undefined}
 				aria-hidden={props.isOpen ? undefined : true}
 				className={clsx("ui-chrome fixed inset-0 z-40 md:hidden", presented ? "block" : "hidden")}
@@ -126,10 +126,10 @@ export function MobileDrawer(props: MobileDrawerProps) {
 							activeHome={props.activeHome}
 							key={props.isOpen ? "open" : "closed"}
 							workspaceSwitcherOpen={workspaceSwitcherOpen}
-							onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
 							onCustomize={() => closeThen(props.onCustomize)}
 							onOpenSearch={() => closeThen(props.onOpenSearch)}
 							onNavigateHome={() => closeThen(props.onNavigateHome)}
+							onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
 							onNavigateItem={(item) => closeThen(() => props.onNavigateItem(item))}
 							onSelectWorkspace={(slug) => closeThen(() => props.onSelectWorkspace(slug))}
 						/>

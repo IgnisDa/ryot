@@ -49,14 +49,14 @@ export function useScreenLeadingControl(backFallbackHref?: string) {
 					chrome.triggerRef.current = node;
 				}}
 			>
-				<AppIcon name="menu" size={22} />
+				<AppIcon size={22} name="menu" />
 			</ScreenBarButton>
 		);
 	}
 	if (edge.intent === "back" || backFallbackHref !== undefined) {
 		return (
 			<ScreenBarButton label="Go back" onClick={goBack} className="text-text hover:bg-surface-2">
-				<AppIcon name="chevron-left" size={22} />
+				<AppIcon size={22} name="chevron-left" />
 			</ScreenBarButton>
 		);
 	}

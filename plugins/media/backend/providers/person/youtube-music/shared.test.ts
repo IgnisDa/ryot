@@ -9,14 +9,6 @@ describe("person.youtube-music sandbox script", () => {
 			music: {
 				getArtist: () =>
 					Promise.resolve({
-						header: {
-							title: { text: "The Artist" },
-							description: { text: "Bio." },
-							thumbnail: [
-								{ url: "https://img/small.jpg", width: 60, height: 60 },
-								{ url: "https://img/big.jpg", width: 600, height: 600 },
-							],
-						},
 						sections: [
 							{
 								title: { text: "Songs" },
@@ -24,6 +16,14 @@ describe("person.youtube-music sandbox script", () => {
 							},
 							{ title: { text: "Albums" }, contents: [{ id: "al1", title: "Album One" }] },
 						],
+						header: {
+							title: { text: "The Artist" },
+							description: { text: "Bio." },
+							thumbnail: [
+								{ width: 60, height: 60, url: "https://img/small.jpg" },
+								{ width: 600, height: 600, url: "https://img/big.jpg" },
+							],
+						},
 					}),
 			},
 		};
@@ -31,12 +31,12 @@ describe("person.youtube-music sandbox script", () => {
 		const details = await Effect.runPromise(buildArtistDetails(client, "artist-1"));
 		expect(details.name).toBe("The Artist");
 		expect(details.properties).toEqual({
-			description: "Bio.",
 			alternateNames: [],
+			description: "Bio.",
 			sourceUrl: "https://music.youtube.com/channel/artist-1",
 			images: [
-				{ type: "remote", url: "https://img/big.jpg", purpose: "profile" },
-				{ type: "remote", url: "https://img/small.jpg", purpose: "profile" },
+				{ type: "remote", purpose: "profile", url: "https://img/big.jpg" },
+				{ type: "remote", purpose: "profile", url: "https://img/small.jpg" },
 			],
 		});
 		expect(details.relatedEntityGroups).toEqual([

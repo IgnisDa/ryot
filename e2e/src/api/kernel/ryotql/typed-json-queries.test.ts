@@ -115,22 +115,24 @@ describe("RyotQL typed JSON entity queries", () => {
 			const result = yield* executeRyotQL(
 				client,
 				document({
-					books: rows(entity, {
-						orderBy: [descending(score)],
-						fields: [
-							field("name", column(entity, "name")),
-							field("score", score),
-							field("available", castBoolean(jsonPath(properties, "details", "available"))),
-							field("publishedAt", castDate(jsonPath(properties, "details", "publishedAt"))),
-							field("metadata", castJson(jsonPath(properties, "details", "metadata"))),
-							field("contributor", jsonPath(properties, "details", "contributors", 0)),
-						],
+					noBooks: rows(entity, { fields: [], where: and(eq(schema, literal(book.slug)), or()) }),
+					allBooks: rows(entity, { fields: [], where: and(eq(schema, literal(book.slug)), and()) }),
+					unknown: rows(entity, {
+						fields: [],
+						where: eq(schema, literal(`unknown-${crypto.randomUUID()}`)),
+					}),
+					bookCounts: aggregate(entity, {
+						where: eq(schema, literal(book.slug)),
+						measures: [measure("count", { function: "count" })],
+					}),
+					structuralBooks: rows(entity, {
+						fields: [],
 						where: and(
 							eq(schema, literal(book.slug)),
-							gte(score, literal(3)),
-							contains(jsonPath(properties, "tags"), literal(["featured"])),
-							contains(jsonPath(properties, "details", "metadata"), literal({ edition: 2 })),
-							isNotNull(jsonPath(properties, "author")),
+							eq(
+								jsonPath(properties, "details", "metadata"),
+								literal({ edition: 2, format: "hardcover" }),
+							),
 						),
 					}),
 					media: rows(entity, {
@@ -160,25 +162,23 @@ describe("RyotQL typed JSON entity queries", () => {
 							contains(jsonPath(properties, "tags"), literal(["advanced"])),
 						),
 					}),
-					structuralBooks: rows(entity, {
-						fields: [],
+					books: rows(entity, {
+						orderBy: [descending(score)],
 						where: and(
 							eq(schema, literal(book.slug)),
-							eq(
-								jsonPath(properties, "details", "metadata"),
-								literal({ edition: 2, format: "hardcover" }),
-							),
+							gte(score, literal(3)),
+							contains(jsonPath(properties, "tags"), literal(["featured"])),
+							contains(jsonPath(properties, "details", "metadata"), literal({ edition: 2 })),
+							isNotNull(jsonPath(properties, "author")),
 						),
-					}),
-					allBooks: rows(entity, { fields: [], where: and(eq(schema, literal(book.slug)), and()) }),
-					noBooks: rows(entity, { fields: [], where: and(eq(schema, literal(book.slug)), or()) }),
-					unknown: rows(entity, {
-						fields: [],
-						where: eq(schema, literal(`unknown-${crypto.randomUUID()}`)),
-					}),
-					bookCounts: aggregate(entity, {
-						where: eq(schema, literal(book.slug)),
-						measures: [measure("count", { function: "count" })],
+						fields: [
+							field("name", column(entity, "name")),
+							field("score", score),
+							field("available", castBoolean(jsonPath(properties, "details", "available"))),
+							field("publishedAt", castDate(jsonPath(properties, "details", "publishedAt"))),
+							field("metadata", castJson(jsonPath(properties, "details", "metadata"))),
+							field("contributor", jsonPath(properties, "details", "contributors", 0)),
+						],
 					}),
 				}),
 			);
@@ -188,18 +188,18 @@ describe("RyotQL typed JSON entity queries", () => {
 			expect(books.items).toEqual([
 				{
 					score: 4.8,
-					name: "Book Alpha",
 					available: true,
+					name: "Book Alpha",
 					contributor: { name: "Editor A" },
 					publishedAt: "2024-03-10T12:00:00.000Z",
 					metadata: { edition: 2, format: "hardcover" },
 				},
 				{
 					score: 3.1,
+					available: false,
 					publishedAt: null,
 					name: "Book Beta",
 					contributor: null,
-					available: false,
 					metadata: { edition: 2, format: "paperback" },
 				},
 			]);
@@ -214,7 +214,7 @@ describe("RyotQL typed JSON entity queries", () => {
 				["Movie Gamma", "Director G"],
 			]);
 			expect(requireRows(result.data["courses"], "courses").items).toEqual([
-				{ name: "Course Advanced", duration: 90 },
+				{ duration: 90, name: "Course Advanced" },
 			]);
 			expect(requireRows(result.data["structuralBooks"], "structuralBooks").items).toHaveLength(1);
 			expect(requireRows(result.data["allBooks"], "allBooks").items).toHaveLength(2);
@@ -263,6 +263,11 @@ describe("RyotQL typed JSON entity queries", () => {
 				client,
 				document({
 					casts: rows(entity, {
+						where: and(
+							eq(column(entity, "entitySchemaSlug"), literal(schemaDefinition.slug)),
+							not(eq(number, literal(1))),
+							or(isNull(number), isNotNull(number)),
+						),
 						fields: [
 							field("name", column(entity, "name")),
 							field("text", castText(jsonPath(properties, "text"))),
@@ -276,11 +281,6 @@ describe("RyotQL typed JSON entity queries", () => {
 							field("infiniteDate", castDate(literal("infinity"))),
 							field("constant", literal(true)),
 						],
-						where: and(
-							eq(column(entity, "entitySchemaSlug"), literal(schemaDefinition.slug)),
-							not(eq(number, literal(1))),
-							or(isNull(number), isNotNull(number)),
-						),
 					}),
 				}),
 			);
@@ -295,20 +295,20 @@ describe("RyotQL typed JSON entity queries", () => {
 				number: null,
 				missing: null,
 				boolean: null,
+				constant: true,
 				nonFinite: null,
 				outOfRange: null,
-				constant: true,
 				infiniteDate: null,
 				name: "Cast Invalid",
 			});
 			expect(byName.get("Cast Valid")).toEqual({
+				number: 12.5,
 				text: "ready",
 				missing: null,
-				number: 12.5,
-				nonFinite: null,
-				outOfRange: null,
 				boolean: true,
 				constant: true,
+				nonFinite: null,
+				outOfRange: null,
 				name: "Cast Valid",
 				infiniteDate: null,
 				json: { nested: true },

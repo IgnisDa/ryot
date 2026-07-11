@@ -152,6 +152,7 @@ describe("POST /collections/memberships", () => {
 			const scriptSlug = `${pluginSlug}.fixture`;
 			const entry = "scripts/fixture.sandbox.ts";
 			yield* installTestPluginBundle({
+				pluginSlug,
 				scope: "system",
 				files: {
 					[entry]: literalSandboxSource({
@@ -171,7 +172,6 @@ describe("POST /collections/memberships", () => {
 						name: "Global fixture schema",
 					},
 				],
-				pluginSlug,
 				entitySchemas: [
 					{
 						icon: "book",
@@ -386,7 +386,7 @@ describe("POST /collections/memberships", () => {
 			);
 
 			assertTaggedError(error, "CollectionNotFound");
-			expect(error.reason).toEqual({ code: "collection-not-found", collectionId: collection.id });
+			expect(error.reason).toEqual({ collectionId: collection.id, code: "collection-not-found" });
 		}),
 	);
 
@@ -457,9 +457,9 @@ describe("DELETE /collections/memberships", () => {
 
 			assertTaggedError(error, "CollectionNotFound");
 			expect(error.reason).toEqual({
-				code: "membership-not-found",
 				entityId,
 				collectionId: collection.id,
+				code: "membership-not-found",
 			});
 		}),
 	);
@@ -505,7 +505,7 @@ describe("DELETE /collections/memberships", () => {
 			);
 
 			assertTaggedError(error, "CollectionNotFound");
-			expect(error.reason).toEqual({ code: "collection-not-found", collectionId: collection.id });
+			expect(error.reason).toEqual({ collectionId: collection.id, code: "collection-not-found" });
 		}),
 	);
 

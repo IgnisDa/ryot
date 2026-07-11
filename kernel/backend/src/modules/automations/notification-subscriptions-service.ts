@@ -69,7 +69,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 				const signalSchema = effective.signalSchemas[id];
 				if (signalSchema?.catalogState !== "active") {
 					return yield* new AutomationNotFoundError({
-						reason: { code: "signal-schema-not-found", signalSchemaSlug: id },
+						reason: { signalSchemaSlug: id, code: "signal-schema-not-found" },
 					});
 				}
 				return toCatalogSignalSchema(signalSchema);
@@ -82,13 +82,13 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 				const state = yield* repository.findNotificationSubscription(input);
 				if (!state) {
 					return yield* new AutomationNotFoundError({
-						reason: { code: "rule-not-found", ruleId: input.ruleId },
+						reason: { ruleId: input.ruleId, code: "rule-not-found" },
 					});
 				}
 				const signalSchema = yield* resolveStateSignalSchema(state);
 				if (!signalSchema) {
 					return yield* new AutomationNotFoundError({
-						reason: { code: "rule-not-found", ruleId: input.ruleId },
+						reason: { ruleId: input.ruleId, code: "rule-not-found" },
 					});
 				}
 				return { state, signalSchema };
@@ -161,7 +161,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 								const state = yield* repository.setNotificationSubscriptionActive(input);
 								if (!state) {
 									return yield* new AutomationNotFoundError({
-										reason: { code: "rule-not-found", ruleId: input.ruleId },
+										reason: { ruleId: input.ruleId, code: "rule-not-found" },
 									});
 								}
 								return toInstalledNotificationRule(state, loaded.signalSchema);
@@ -184,7 +184,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 					return (
 						deleted ??
 						(yield* new AutomationNotFoundError({
-							reason: { code: "rule-not-found", ruleId: input.ruleId },
+							reason: { ruleId: input.ruleId, code: "rule-not-found" },
 						}))
 					);
 				},

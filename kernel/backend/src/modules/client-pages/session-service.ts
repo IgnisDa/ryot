@@ -137,7 +137,7 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 				);
 			});
 
-			return { create, renew, revoke, findFile };
+			return { renew, create, revoke, findFile };
 		}),
 	},
 ) {

@@ -419,6 +419,12 @@ export const buildCollectionWorkflowRendererDefinition = () =>
 			PluginSlug.make("fitness"),
 			PluginSlug.make("media"),
 		],
+		files: [
+			{
+				path: "client/page.tsx",
+				content: encodeClientRendererSource(collectionWorkflowRendererSource),
+			},
+		],
 		settingsSchema: {
 			unknownKeys: "strict",
 			fields: {
@@ -436,12 +442,6 @@ export const buildCollectionWorkflowRendererDefinition = () =>
 				},
 			},
 		},
-		files: [
-			{
-				path: "client/page.tsx",
-				content: encodeClientRendererSource(collectionWorkflowRendererSource),
-			},
-		],
 	});
 
 export const createClientRenderer = (
@@ -471,7 +471,7 @@ export const replaceClientRendererDraft = (
 	payload: ReplaceRendererDraftRequest["payload"],
 ) =>
 	client.call((contract) =>
-		contract.clientPages.replaceRendererDraft({ params: { rendererId }, payload }),
+		contract.clientPages.replaceRendererDraft({ payload, params: { rendererId } }),
 	);
 
 export const publishClientRenderer = (
@@ -494,7 +494,7 @@ export const prepareClientPage = (
 	savedViewId: SavedViewClientPageTarget["savedViewId"],
 ) =>
 	client.call((contract) =>
-		contract.clientPages.prepare({ payload: { target: { kind: "saved-view", savedViewId } } }),
+		contract.clientPages.prepare({ payload: { target: { savedViewId, kind: "saved-view" } } }),
 	);
 
 export const createClientPageSession = (
@@ -516,7 +516,7 @@ export const buildRendererSavedViewPayload = (
 	settings,
 	dataSources: null,
 	icon: "layout-dashboard",
-	renderer: { kind: "custom", rendererId },
+	renderer: { rendererId, kind: "custom" },
 	name: `Renderer view ${crypto.randomUUID()}`,
 	...overrides,
 });
@@ -629,19 +629,19 @@ export const createResultsTableSavedView = (
 					entityLink: { entityIdField: "entityId" },
 					columns: [
 						{ field: "note", label: "Note", displayKind: "text" },
-						{ field: "occurredAt", label: "Occurred", displayKind: "date" },
+						{ label: "Occurred", field: "occurredAt", displayKind: "date" },
 						{ field: "missing", label: "Missing", displayKind: "managed-asset" },
 					],
 				},
 				dataSources: document({
 					events: rows(event, {
 						limit: 10,
+						orderBy: [ascending(column(event, "occurredAt"))],
 						joins: [join("inner", entity, eq(column(entity, "id"), column(event, "entityId")))],
 						where: and(
 							eq(column(event, "entityId"), literal(input.entityId)),
 							eq(column(event, "eventSchemaSlug"), literal(input.eventSchemaSlug)),
 						),
-						orderBy: [ascending(column(event, "occurredAt"))],
 						fields: [
 							field("entityId", column(entity, "id")),
 							field("occurredAt", column(event, "occurredAt")),
@@ -665,6 +665,13 @@ export const buildNamedDataSources = (
 		entityIds.map((entityId) => literal(entityId)),
 	);
 	return document({
+		timeline: timeSeries(entity, {
+			...range,
+			bucket: "day",
+			where: selected,
+			measure: { function: "count" },
+			time: column(entity, "createdAt"),
+		}),
 		native: rows(entity, {
 			limit: 10,
 			where: selected,
@@ -677,13 +684,6 @@ export const buildNamedDataSources = (
 			orderBy: [groupAscending("schema")],
 			measures: [measure("count", { function: "count" })],
 			groupBy: [field("schema", column(entity, "entitySchemaSlug"))],
-		}),
-		timeline: timeSeries(entity, {
-			...range,
-			bucket: "day",
-			where: selected,
-			measure: { function: "count" },
-			time: column(entity, "createdAt"),
 		}),
 	});
 };

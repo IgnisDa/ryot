@@ -51,13 +51,13 @@ const PROVIDER_SLUG = `${ENTITY_SCHEMA_SLUG}.saved-view-add`;
 const plugin = table("plugin", "savedViewPlugin");
 const pluginIdRecipe = (slug: string) =>
 	defineRecipe(() => ({
+		map: ({ plugin: row }) => Result.succeed(row?.id ?? null),
 		queries: {
 			plugin: selectedOptionalRow(plugin, {
 				where: eq(column(plugin, "slug"), literal(slug)),
 				selection: { id: selectedField(column(plugin, "id"), Schema.String) },
 			}),
 		},
-		map: ({ plugin: row }) => Result.succeed(row?.id ?? null),
 	}))();
 
 let email: string;
@@ -137,8 +137,8 @@ beforeAll(async () => {
 					properties: { description: "Imported by the saved-view browser fixture." },
 				}),
 				search: fakeProviderSearchResult([
-					{ externalId: FIRST_EXTERNAL_ID, title: FIRST_RESULT_TITLE },
-					{ externalId: SECOND_EXTERNAL_ID, title: SECOND_RESULT_TITLE },
+					{ title: FIRST_RESULT_TITLE, externalId: FIRST_EXTERNAL_ID },
+					{ title: SECOND_RESULT_TITLE, externalId: SECOND_EXTERNAL_ID },
 				]),
 				entitySchemas: [
 					{
@@ -225,7 +225,7 @@ it.live("automatically populates and translates entities rendered by a saved vie
 			client,
 			rootEntitySchemaSlug: schemaSlug,
 			information: { source: "e2e", canonicalLanguage: "en" },
-			translations: fakeProviderTranslations({ es: { name: translatedName, properties: {} } }),
+			translations: fakeProviderTranslations({ es: { properties: {}, name: translatedName } }),
 			details: fakeProviderDetailsResult({
 				name: `Populated record ${id}`,
 				properties: { publishYear: 2042 },
@@ -238,7 +238,7 @@ it.live("automatically populates and translates entities rendered by a saved vie
 					name: "Browser Interest Record",
 					propertiesSchema: {
 						fields: {
-							publishYear: { type: "integer", label: "Year", description: "Publication year" },
+							publishYear: { label: "Year", type: "integer", description: "Publication year" },
 						},
 					},
 				},
@@ -306,7 +306,7 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 					name: "Browser Translating Record",
 					propertiesSchema: {
 						fields: {
-							publishYear: { type: "integer", label: "Year", description: "Publication year" },
+							publishYear: { label: "Year", type: "integer", description: "Publication year" },
 						},
 					},
 				},

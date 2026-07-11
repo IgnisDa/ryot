@@ -44,7 +44,7 @@ const listState = (response: ListRunsResponse): BackupRunListState =>
 	response.items.length === 0 ? { status: "empty" } : { status: "ready", runs: response.items };
 
 const backupRunsQuery = createRyotQuery<void, ListRunsResponse, KernelHostServices>(
-	({ hostServices, signal }) =>
+	({ signal, hostServices }) =>
 		hostServices.runtime.runPromise(
 			Effect.flatMap(BackupsApi, (api) => api.listRuns(hostServices.scope)),
 			{ signal },
@@ -53,7 +53,7 @@ const backupRunsQuery = createRyotQuery<void, ListRunsResponse, KernelHostServic
 );
 
 const createBackupMutation = createRyotMutation<void, BackupRunIdResponse, KernelHostServices>(
-	async ({ client, hostServices, signal }) => {
+	async ({ client, signal, hostServices }) => {
 		const result = await hostServices.runtime.runPromise(
 			Effect.flatMap(BackupsApi, (api) => api.createExport(hostServices.scope)),
 			{ signal },
@@ -64,7 +64,7 @@ const createBackupMutation = createRyotMutation<void, BackupRunIdResponse, Kerne
 );
 
 const deleteBackupMutation = createRyotMutation<BackupRun, BackupRunIdResponse, KernelHostServices>(
-	async ({ client, hostServices, input, signal }) => {
+	async ({ input, client, signal, hostServices }) => {
 		const result = await hostServices.runtime.runPromise(
 			Effect.flatMap(BackupsApi, (api) =>
 				api.deleteRun(hostServices.scope, { params: { id: input.id } }),
@@ -97,7 +97,7 @@ function BackupsRoute() {
 	const query = useRyotQuery(backupRunsQuery);
 	const createMutation = useRyotMutation(createBackupMutation);
 	const deleteMutation = useRyotMutation(deleteBackupMutation);
-	const { runtime, scope } = Route.useRouteContext();
+	const { scope, runtime } = Route.useRouteContext();
 	const downloading = useRef<string | undefined>(undefined);
 	const controller = useRef(new AbortController());
 	const deleteTrigger = useRef<HTMLButtonElement | null>(null);
@@ -162,9 +162,9 @@ function BackupsRoute() {
 	});
 
 	useRunPolling({
-		intervalMs: RUN_LIST_POLL_MS,
 		refresh: query.refetch,
 		enabled: live !== undefined,
+		intervalMs: RUN_LIST_POLL_MS,
 	});
 
 	if (state === undefined) {

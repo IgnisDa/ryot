@@ -15,12 +15,12 @@ import {
 const configSchema = {
 	unknownKeys: "strict",
 	fields: {
+		deltaApiKey: { type: "string", label: "Delta API key", description: "Delta API key" },
 		alphaAccessToken: {
 			type: "string",
 			label: "Alpha access token",
 			description: "Alpha access token",
 		},
-		deltaApiKey: { type: "string", label: "Delta API key", description: "Delta API key" },
 	},
 } as const;
 
@@ -28,24 +28,24 @@ const uploadProperty = (allowedFileExtensions: ReadonlyArray<string>, required =
 	label: "Export file",
 	type: "string" as const,
 	description: "Export file",
-	format: { kind: "upload" as const, allowedFileExtensions },
+	format: { allowedFileExtensions, kind: "upload" as const },
 	...(required ? { validation: { minLength: 1 as const, required: true as const } } : {}),
 });
 
 const registeredSource = (
 	overrides: Partial<RegisteredImportSource> = {},
 ): RegisteredImportSource => ({
-	configSchema,
 	name: "Nu",
 	slug: "nu",
+	configSchema,
 	pluginSlug: "example",
 	pluginScope: "system",
-	pluginId: "example-plugin-id",
-	requiredPluginConfigKeys: [],
 	description: "Nu export",
 	workflowSlug: "nu-import",
+	requiredPluginConfigKeys: [],
+	pluginId: "example-plugin-id",
 	installationId: "example-installation",
-	configContext: { kind: "environment", pluginSlug: "example", configSchema },
+	configContext: { configSchema, kind: "environment", pluginSlug: "example" },
 	inputSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -89,13 +89,13 @@ it.effect("returns only the visible required upload after schema parsing", () =>
 			},
 		});
 		const properties = yield* parseRegistryImportSourceInput(source, {
-			mode: "history",
 			source: "nu",
+			mode: "history",
 			historyUploadToken: "history",
 		});
 
 		expect(registryImportSourceFileInputs(source, properties)).toEqual([
-			{ key: "historyUploadToken", uploadToken: "history", allowedExtensions: ["csv"] },
+			{ uploadToken: "history", key: "historyUploadToken", allowedExtensions: ["csv"] },
 		]);
 	}),
 );
@@ -106,8 +106,8 @@ it("orders upload inputs by position with unpositioned fields last", () => {
 			unknownKeys: "strict",
 			fields: {
 				lastUploadToken: uploadProperty(["json"], false),
-				secondUploadToken: { ...uploadProperty(["csv"], false), position: 2 },
 				firstUploadToken: { ...uploadProperty(["zip"], false), position: 1 },
+				secondUploadToken: { ...uploadProperty(["csv"], false), position: 2 },
 			},
 		},
 	});
@@ -168,13 +168,13 @@ const epsilonSource = () =>
 					kind: "validation",
 					path: ["primaryUploadToken"],
 					validation: { required: true },
-					when: { path: ["secondaryUploadToken"], operator: "not_exists" },
+					when: { operator: "not_exists", path: ["secondaryUploadToken"] },
 				},
 				{
 					kind: "validation",
 					path: ["secondaryUploadToken"],
 					validation: { required: true },
-					when: { path: ["primaryUploadToken"], operator: "not_exists" },
+					when: { operator: "not_exists", path: ["primaryUploadToken"] },
 				},
 			],
 		},
@@ -204,7 +204,7 @@ it.effect("accepts a single conditional upload token and leaves the sibling null
 		});
 
 		expect(registryImportSourceFileInputs(source, properties)).toEqual([
-			{ key: "primaryUploadToken", uploadToken: "primary", allowedExtensions: ["xml"] },
+			{ uploadToken: "primary", key: "primaryUploadToken", allowedExtensions: ["xml"] },
 		]);
 	}),
 );
@@ -236,8 +236,8 @@ it.effect("builds payload from decoded properties and replaces upload tokens wit
 		const source = registeredSource();
 		const properties = yield* parseRegistryImportSourceInput(source, {
 			source: "nu",
-			profileName: "Kids",
 			uploadToken: "nu",
+			profileName: "Kids",
 		});
 
 		expect(buildImportSourcePayload(properties, source)).toEqual({

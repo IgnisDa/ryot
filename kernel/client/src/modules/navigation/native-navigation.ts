@@ -10,12 +10,12 @@ import {
 const capacitorAppSource: NativeAppSource = {
 	exitApp: () => void App.exitApp(),
 	getLaunchUrl: () => App.getLaunchUrl().then((launch) => launch?.url ?? null),
+	onBackButton: (handler) =>
+		App.addListener("backButton", () => handler()).then((listener) => () => void listener.remove()),
 	onUrlOpen: (handler) =>
 		App.addListener("appUrlOpen", (event) => handler(event.url)).then(
 			(listener) => () => void listener.remove(),
 		),
-	onBackButton: (handler) =>
-		App.addListener("backButton", () => handler()).then((listener) => () => void listener.remove()),
 };
 
 export const isNativePlatform = () => Capacitor.isNativePlatform();

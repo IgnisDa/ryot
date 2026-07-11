@@ -31,7 +31,7 @@ const catalog: PluginClientCatalog = [
 const ryot = createTestRyotClock();
 
 function CatalogConsumer(props: { readonly name: string }) {
-	const { catalog: current, refetch, invalidationRevision } = usePluginCatalog();
+	const { refetch, catalog: current, invalidationRevision } = usePluginCatalog();
 	return (
 		<div>
 			<p>{`${props.name}:${current.map((entry) => entry.sourceHash).join(",")}`}</p>
@@ -52,7 +52,7 @@ const makeView = (
 		Layer.mergeAll(events.layer, Layer.succeed(PluginCatalogService, { load })),
 	);
 	const tree = (content: ReactNode) => (
-		<RyotProvider runtime={ryot.runtime} hostServices={{ runtime, scope }}>
+		<RyotProvider runtime={ryot.runtime} hostServices={{ scope, runtime }}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
 				{content}
 			</PluginCatalogProvider>

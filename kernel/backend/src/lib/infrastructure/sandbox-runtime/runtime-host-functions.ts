@@ -102,54 +102,27 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 	const httpClient = yield* HttpClient.HttpClient;
 
 	return {
-		claimPersistentValue: (input, key, value, ttlSeconds) => {
+		setCachedValue: (input, key, value, expiry) => {
 			return sandboxCacheInputGuard(
-				"claimPersistentValue",
+				"setCachedValue",
 				key,
 				() => {
-					const redisKey = redisKeys.sandboxCache(
+					const redisKey = redisKeys.sandboxRunCache(
+						serverRun.id,
 						sandboxRunUserId(input),
 						input.principal.providerId ?? input.principal.scriptId,
 						key.trim(),
 					);
 
-					return Effect.gen(function* () {
-						yield* encodeSandboxCacheValue("claimPersistentValue", value);
-						const serialized = yield* encodePersistentClaimEnvelope({
-							value,
-							owner: input.workflowExecutionId ? input.executionId : null,
-						}).pipe(Effect.mapError(() => "claimPersistentValue value must be JSON-serializable"));
-
-						const setResult = yield* Effect.tryPromise({
-							try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
-							catch: unknownToMessage,
-						});
-						if (setResult !== null) {
-							return { claimed: true as const };
-						}
-
-						const existing = yield* Effect.tryPromise({
-							try: () => redis.client.get(redisKey),
-							catch: unknownToMessage,
-						});
-						if (existing === null) {
-							return { claimed: false, value: null };
-						}
-						return yield* decodePersistentClaimEnvelope(existing).pipe(
-							Effect.map(({ owner, value: storedValue }) =>
-								owner !== null && owner === input.executionId
-									? ({ claimed: true as const } as const)
-									: ({
-											claimed: false as const,
-											value: isJsonValue(storedValue) ? storedValue : null,
-										} as const),
-							),
-							Effect.orElseSucceed(() => ({ claimed: false as const, value: null })),
-						);
-					}).pipe(sandboxHostEffect);
+					return encodeSandboxCacheValue("setCachedValue", value).pipe(
+						Effect.flatMap((serialized) =>
+							redis.set(redisKey, serialized, expiry).pipe(Effect.as(null)),
+						),
+						sandboxHostEffect,
+					);
 				},
-				ttlSeconds,
-				"TTL",
+				expiry,
+				"expiry",
 			);
 		},
 		getCachedValue: (input, key) => {
@@ -182,6 +155,56 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 					sandboxHostEffect,
 				);
 			});
+		},
+		claimPersistentValue: (input, key, value, ttlSeconds) => {
+			return sandboxCacheInputGuard(
+				"claimPersistentValue",
+				key,
+				() => {
+					const redisKey = redisKeys.sandboxCache(
+						sandboxRunUserId(input),
+						input.principal.providerId ?? input.principal.scriptId,
+						key.trim(),
+					);
+
+					return Effect.gen(function* () {
+						yield* encodeSandboxCacheValue("claimPersistentValue", value);
+						const serialized = yield* encodePersistentClaimEnvelope({
+							value,
+							owner: input.workflowExecutionId ? input.executionId : null,
+						}).pipe(Effect.mapError(() => "claimPersistentValue value must be JSON-serializable"));
+
+						const setResult = yield* Effect.tryPromise({
+							catch: unknownToMessage,
+							try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
+						});
+						if (setResult !== null) {
+							return { claimed: true as const };
+						}
+
+						const existing = yield* Effect.tryPromise({
+							catch: unknownToMessage,
+							try: () => redis.client.get(redisKey),
+						});
+						if (existing === null) {
+							return { value: null, claimed: false };
+						}
+						return yield* decodePersistentClaimEnvelope(existing).pipe(
+							Effect.map(({ owner, value: storedValue }) =>
+								owner !== null && owner === input.executionId
+									? ({ claimed: true as const } as const)
+									: ({
+											claimed: false as const,
+											value: isJsonValue(storedValue) ? storedValue : null,
+										} as const),
+							),
+							Effect.orElseSucceed(() => ({ value: null, claimed: false as const })),
+						);
+					}).pipe(sandboxHostEffect);
+				},
+				ttlSeconds,
+				"TTL",
+			);
 		},
 		httpCall: (_input, method, url, options) => {
 			if (typeof method !== "string" || !method.trim()) {
@@ -231,29 +254,6 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 
 					return { body, status: response.status, headers: response.headers };
 				}),
-			);
-		},
-		setCachedValue: (input, key, value, expiry) => {
-			return sandboxCacheInputGuard(
-				"setCachedValue",
-				key,
-				() => {
-					const redisKey = redisKeys.sandboxRunCache(
-						serverRun.id,
-						sandboxRunUserId(input),
-						input.principal.providerId ?? input.principal.scriptId,
-						key.trim(),
-					);
-
-					return encodeSandboxCacheValue("setCachedValue", value).pipe(
-						Effect.flatMap((serialized) =>
-							redis.set(redisKey, serialized, expiry).pipe(Effect.as(null)),
-						),
-						sandboxHostEffect,
-					);
-				},
-				expiry,
-				"expiry",
 			);
 		},
 	};

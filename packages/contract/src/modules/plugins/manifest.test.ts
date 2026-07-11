@@ -15,8 +15,8 @@ const queryDocument = {
 				type: "rows",
 				pagination: { limit: 20 },
 				fields: [
-					{ key: "entityId", expr: { field: "id", tableAlias: "entity", type: "column" } },
-					{ key: "title", expr: { field: "name", tableAlias: "entity", type: "column" } },
+					{ key: "entityId", expr: { field: "id", type: "column", tableAlias: "entity" } },
+					{ key: "title", expr: { field: "name", type: "column", tableAlias: "entity" } },
 				],
 			},
 		},
@@ -27,60 +27,20 @@ const authoredManifest = definePlugin({
 	entitySchemas: [],
 	httpRateLimits: [],
 	relationshipSchemas: [],
-	configSchema: {
-		unknownKeys: "strict",
-		fields: {
-			TEST_KEY: {
-				secret: true,
-				type: "string",
-				label: "Test key",
-				description: "Test plugin key",
-				validation: { required: true, minLength: 1 },
-			},
-		},
-	},
-	savedViews: [
-		{
-			sortOrder: 0,
-			icon: "bookmark",
-			pluginSlug: "test",
-			name: "All entities",
-			slug: "all-entities",
-			renderer: { kind: "kernel", name: "results-table" },
-			dataSources: queryDocument,
-			settings: {
-				pageSize: 20,
-				sourceName: "entities",
-				rowKeyFields: ["entityId"],
-				entityLink: { entityIdField: "entityId" },
-				columns: [{ label: "Title", field: "title", displayKind: "text" }],
-			},
-		},
-	],
+	workflows: [{ slug: "refresh.workflow", scriptSlug: "workflow.test" }],
 	boot: [{ slug: "boot.test", scriptSlug: "automation.test", description: "Boot test data" }],
+	metadata: {
+		icon: "box",
+		name: "Test",
+		slug: "test",
+		version: "1.0.0",
+		description: "Test plugin",
+	},
 	userBootstrap: [
 		{
 			slug: "bootstrap.test",
 			description: "Bootstrap user data",
 			scriptSlug: "provider.test.preload",
-		},
-	],
-	crons: [
-		{
-			slug: "refresh.test",
-			scriptSlug: "automation.test",
-			schedule: { cron: "0 * * * *" },
-			description: "Refresh test data",
-		},
-	],
-	signalSchemas: [
-		{
-			name: "Test signal",
-			slug: "test.signal",
-			catalogState: "active",
-			propertiesSchema: { fields: {} },
-			audiencePolicy: { kind: "actor" },
-			notificationScriptSlug: "automation.test",
 		},
 	],
 	operations: [
@@ -91,29 +51,67 @@ const authoredManifest = definePlugin({
 			description: "Resolve test references",
 		},
 	],
-	workflows: [{ slug: "refresh.workflow", scriptSlug: "workflow.test" }],
-	importSources: [
+	crons: [
 		{
-			slug: "import.test",
-			name: "Test import source",
-			workflowSlug: "refresh.workflow",
-			requiredPluginConfigKeys: ["TEST_KEY"],
-			description: "Import test data from a file",
-			exportHelp: {
-				docsUrl: "https://example.com/export",
-				steps: ["Export the data as JSON", "Upload the exported file"],
+			slug: "refresh.test",
+			scriptSlug: "automation.test",
+			schedule: { cron: "0 * * * *" },
+			description: "Refresh test data",
+		},
+	],
+	bindings: {
+		eventAutomations: [],
+		entityAutomations: [],
+		signalAutomations: [],
+		relationshipAutomations: [],
+		providerEntityImportAutomations: [],
+	},
+	signalSchemas: [
+		{
+			name: "Test signal",
+			slug: "test.signal",
+			catalogState: "active",
+			propertiesSchema: { fields: {} },
+			audiencePolicy: { kind: "actor" },
+			notificationScriptSlug: "automation.test",
+		},
+	],
+	configSchema: {
+		unknownKeys: "strict",
+		fields: {
+			TEST_KEY: {
+				secret: true,
+				type: "string",
+				label: "Test key",
+				description: "Test plugin key",
+				validation: { minLength: 1, required: true },
 			},
-			inputSchema: {
-				unknownKeys: "strict",
-				fields: {
-					file: {
-						label: "File",
-						type: "string",
-						validation: { required: true },
-						description: "Exported JSON file",
-						format: { kind: "upload", allowedFileExtensions: ["json"] },
-					},
-				},
+		},
+	},
+	providers: [
+		{
+			slug: "provider.test",
+			name: "Test provider",
+			rootEntitySchemaSlug: "entity.test",
+			information: { source: "Test source", canonicalLanguage: "en" },
+			operations: { search: "provider.test.search", details: "provider.test.details" },
+		},
+	],
+	savedViews: [
+		{
+			sortOrder: 0,
+			icon: "bookmark",
+			pluginSlug: "test",
+			name: "All entities",
+			slug: "all-entities",
+			dataSources: queryDocument,
+			renderer: { kind: "kernel", name: "results-table" },
+			settings: {
+				pageSize: 20,
+				sourceName: "entities",
+				rowKeyFields: ["entityId"],
+				entityLink: { entityIdField: "entityId" },
+				columns: [{ label: "Title", field: "title", displayKind: "text" }],
 			},
 		},
 	],
@@ -143,29 +141,31 @@ const authoredManifest = definePlugin({
 			settingsSchema: { fields: {} },
 		},
 	],
-	providers: [
+	importSources: [
 		{
-			slug: "provider.test",
-			name: "Test provider",
-			rootEntitySchemaSlug: "entity.test",
-			information: { source: "Test source", canonicalLanguage: "en" },
-			operations: { details: "provider.test.details", search: "provider.test.search" },
+			slug: "import.test",
+			name: "Test import source",
+			workflowSlug: "refresh.workflow",
+			requiredPluginConfigKeys: ["TEST_KEY"],
+			description: "Import test data from a file",
+			exportHelp: {
+				docsUrl: "https://example.com/export",
+				steps: ["Export the data as JSON", "Upload the exported file"],
+			},
+			inputSchema: {
+				unknownKeys: "strict",
+				fields: {
+					file: {
+						label: "File",
+						type: "string",
+						validation: { required: true },
+						description: "Exported JSON file",
+						format: { kind: "upload", allowedFileExtensions: ["json"] },
+					},
+				},
+			},
 		},
 	],
-	metadata: {
-		icon: "box",
-		name: "Test",
-		slug: "test",
-		version: "1.0.0",
-		description: "Test plugin",
-	},
-	bindings: {
-		eventAutomations: [],
-		entityAutomations: [],
-		signalAutomations: [],
-		relationshipAutomations: [],
-		providerEntityImportAutomations: [],
-	},
 });
 
 const scripts = [
@@ -294,8 +294,8 @@ describe("definePlugin", () => {
 			exports: {
 				page: {
 					kind: "page" as const,
-					entry: "client/pages/index.tsx",
 					settingsSchema: { fields: {} },
+					entry: "client/pages/index.tsx",
 					automaticEntityPresentations: false,
 				},
 			},
@@ -307,23 +307,13 @@ describe("definePlugin", () => {
 
 	it("decodes declarative public client exports by kind", () => {
 		const client = {
-			apiVersion: CLIENT_API_VERSION,
 			homeView: null,
 			notFoundPage: "dashboard",
+			apiVersion: CLIENT_API_VERSION,
 			pluginDependencies: ["media", "private-fixture"],
 			routes: { "/": "dashboard", "/things/$thingId": "dashboard" },
 			entities: { thing: { detailPage: "dashboard", gridPresentation: "row" } },
 			exports: {
-				dashboard: {
-					kind: "page" as const,
-					entry: "client/dashboard.tsx",
-					automaticEntityPresentations: true,
-					settingsSchema: {
-						fields: {
-							title: { type: "string" as const, label: "Title", description: "Page title" },
-						},
-					},
-				},
 				card: {
 					entry: "client/card.tsx",
 					kind: "component" as const,
@@ -333,6 +323,16 @@ describe("definePlugin", () => {
 					entry: "client/row.tsx",
 					kind: "presentation" as const,
 					automaticEntityPresentations: false,
+				},
+				dashboard: {
+					kind: "page" as const,
+					entry: "client/dashboard.tsx",
+					automaticEntityPresentations: true,
+					settingsSchema: {
+						fields: {
+							title: { label: "Title", type: "string" as const, description: "Page title" },
+						},
+					},
 				},
 			},
 		};
@@ -395,13 +395,13 @@ describe("definePlugin", () => {
 		};
 		const pluginView = {
 			icon: "box",
+			sortOrder: 1,
+			settings: {},
+			dataSources: null,
+			pluginSlug: "test",
 			name: "Plugin page",
 			slug: "plugin-page",
-			sortOrder: 1,
-			pluginSlug: "test",
-			dataSources: null,
-			settings: {},
-			renderer: { kind: "plugin" as const, exportName: "page" },
+			renderer: { exportName: "page", kind: "plugin" as const },
 		};
 
 		expect(
@@ -413,7 +413,7 @@ describe("definePlugin", () => {
 		).toEqual({ kind: "plugin", exportName: "page" });
 		for (const renderer of [
 			{ kind: "custom", rendererId: "runtime-id" },
-			{ kind: "plugin", pluginId: "runtime-plugin-id", exportName: "page" },
+			{ kind: "plugin", exportName: "page", pluginId: "runtime-plugin-id" },
 		]) {
 			expect(() =>
 				Schema.decodeUnknownSync(PluginManifest)({
@@ -706,7 +706,7 @@ describe("definePlugin", () => {
 					eventSchemas: [],
 					mergeIdentityProperties: ["kind"],
 					propertiesSchema: {
-						fields: { kind: { type: "string", label: "Kind", description: "Entity kind" } },
+						fields: { kind: { label: "Kind", type: "string", description: "Entity kind" } },
 					},
 				},
 			],
@@ -899,7 +899,7 @@ describe("definePlugin", () => {
 
 		for (const field of [
 			{ type: "date", label: "Value", description: "A date value" },
-			{ type: "datetime", label: "Value", description: "A datetime value" },
+			{ label: "Value", type: "datetime", description: "A datetime value" },
 			{
 				label: "Value",
 				type: "enum-array",
@@ -910,7 +910,7 @@ describe("definePlugin", () => {
 				type: "array",
 				label: "Value",
 				description: "An array value",
-				items: { type: "string", label: "Item", description: "An item" },
+				items: { label: "Item", type: "string", description: "An item" },
 			},
 			{ type: "object", label: "Value", properties: {}, description: "An object value" },
 		]) {
@@ -950,15 +950,15 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
+				importSources: [],
+				scripts: manifest.scripts.map((script) => ({ ...script, requiredPluginConfigKeys: [] })),
 				configSchema: {
 					unknownKeys: "strict",
 					fields: {
-						"api-token": { type: "string", label: "API token", description: "Token" },
 						api_token: { type: "string", label: "API token", description: "Token" },
+						"api-token": { type: "string", label: "API token", description: "Token" },
 					},
 				},
-				importSources: [],
-				scripts: manifest.scripts.map((script) => ({ ...script, requiredPluginConfigKeys: [] })),
 			}),
 		).toThrow();
 	});
@@ -1000,7 +1000,7 @@ describe("definePlugin", () => {
 						label: "Status",
 						type: "enum" as const,
 						description: "Status",
-						choices: { kind: "dynamic" as const, source: "statuses" },
+						choices: { source: "statuses", kind: "dynamic" as const },
 					},
 				},
 			},
@@ -1093,7 +1093,7 @@ describe("definePlugin", () => {
 				providers: [
 					{
 						...provider,
-						operations: { details: "provider.test.details", search: "provider.test.details" },
+						operations: { search: "provider.test.details", details: "provider.test.details" },
 					},
 				],
 			}),
@@ -1142,14 +1142,14 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
-				providers: [
-					...manifest.providers,
-					{ ...provider, slug: "provider.other", operations: { details: otherDetailsScript.slug } },
-				],
 				scripts: [
 					...manifest.scripts,
 					otherDetailsScript,
 					{ ...preloadScript, providerSlug: "provider.other" },
+				],
+				providers: [
+					...manifest.providers,
+					{ ...provider, slug: "provider.other", operations: { details: otherDetailsScript.slug } },
 				],
 			}),
 		).toThrow();
@@ -1162,7 +1162,7 @@ describe("definePlugin", () => {
 				...manifest,
 				bindings: {
 					...manifest.bindings,
-					schemaProviderLinks: [{ entitySchemaSlug: "entity.test", providerSlug: "missing" }],
+					schemaProviderLinks: [{ providerSlug: "missing", entitySchemaSlug: "entity.test" }],
 				},
 			}),
 		).toThrow();
@@ -1171,7 +1171,7 @@ describe("definePlugin", () => {
 				...manifest,
 				bindings: {
 					...manifest.bindings,
-					schemaProviderLinks: [{ entitySchemaSlug: "entity.test", scriptSlug: "provider.test" }],
+					schemaProviderLinks: [{ scriptSlug: "provider.test", entitySchemaSlug: "entity.test" }],
 				},
 			}),
 		).toThrow();
@@ -1211,7 +1211,7 @@ describe("definePlugin", () => {
 				bindings: {
 					...manifest.bindings,
 					providerEntityImportAutomations: [
-						{ entitySchemaSlug: "entity.test", scriptSlug: "missing.script" },
+						{ scriptSlug: "missing.script", entitySchemaSlug: "entity.test" },
 					],
 				},
 			}),
@@ -1423,7 +1423,7 @@ describe("definePlugin", () => {
 
 		for (const inputSchema of [
 			{ fields: {} },
-			{ unknownKeys: "strip", fields: {} },
+			{ fields: {}, unknownKeys: "strip" },
 			{ unknownKeys: "strict", fields: { options: nestedUpload } },
 			{ unknownKeys: "strict", fields: { account: dynamicChoice } },
 		]) {

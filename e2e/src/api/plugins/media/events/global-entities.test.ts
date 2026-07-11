@@ -82,7 +82,7 @@ describe("media membership event exclusions", () => {
 	it.live("does not add unrelated fixture entities to the media library", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { entityId, entitySchemaSlug, eventSchemaSlug } = yield* createEventTestFixture(client);
+			const { entityId, eventSchemaSlug, entitySchemaSlug } = yield* createEventTestFixture(client);
 
 			const result = yield* client.call((c) =>
 				c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: { rating: 4 } }] }),

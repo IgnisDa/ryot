@@ -9,10 +9,10 @@ import { initialSchemaFormValues, type SchemaFormMode, type SchemaFormValues } f
 
 const icons: SchemaFormIcons = {
 	file: "file",
-	remove: "remove",
-	upload: "upload",
 	check: "check",
 	close: "close",
+	remove: "remove",
+	upload: "upload",
 	search: "search",
 	chevron: "chevron",
 };
@@ -22,13 +22,13 @@ const uploadNothing: SchemaFileUpload = () =>
 
 const schema = {
 	fields: {
+		title: { type: "string", label: "Title", description: "Title", validation: { required: true } },
 		adult: {
 			label: "Adult",
 			type: "boolean",
 			defaultValue: false,
 			description: "Include adult results",
 		},
-		title: { type: "string", label: "Title", description: "Title", validation: { required: true } },
 		region: {
 			type: "enum",
 			label: "Region",
@@ -45,7 +45,7 @@ const visibilitySchema = {
 			path: ["secret"],
 			kind: "visibility",
 			visibility: { hidden: true },
-			when: { operator: "neq", path: ["advanced"], value: true },
+			when: { value: true, operator: "neq", path: ["advanced"] },
 		},
 	],
 	fields: {
@@ -61,7 +61,7 @@ const visibilitySchema = {
 
 const uploadSchema = {
 	fields: {
-		name: { type: "string", label: "Name", description: "Name" },
+		name: { label: "Name", type: "string", description: "Name" },
 		archive: {
 			type: "string",
 			label: "Archive",
@@ -73,17 +73,17 @@ const uploadSchema = {
 
 const credentialsSchema = {
 	fields: {
+		baseUrl: {
+			type: "string",
+			label: "Base URL",
+			description: "Base URL",
+			validation: { required: true },
+		},
 		apiKey: {
 			secret: true,
 			type: "string",
 			label: "API key",
 			description: "API key",
-			validation: { required: true },
-		},
-		baseUrl: {
-			type: "string",
-			label: "Base URL",
-			description: "Base URL",
 			validation: { required: true },
 		},
 	},
@@ -107,7 +107,7 @@ const listSchema = {
 			label: "Sites",
 			validation: { maxItems: 2 },
 			description: "Ignored sites",
-			items: { type: "string", label: "Site", description: "Hostname" },
+			items: { label: "Site", type: "string", description: "Hostname" },
 		},
 	},
 } satisfies AppSchema;
@@ -139,15 +139,15 @@ const multiSelectSchema = {
 
 const dateSchema = {
 	fields: {
-		startDate: { type: "date", label: "Start date", description: "Start date" },
 		startAt: { type: "datetime", label: "Start at", description: "Start at" },
+		startDate: { type: "date", label: "Start date", description: "Start date" },
 	},
 } satisfies AppSchema;
 
 const unsupportedSchema = {
 	fields: {
-		name: { type: "string", label: "Name", description: "Name" },
-		metadata: { type: "object", label: "Metadata", description: "Metadata", properties: {} },
+		name: { label: "Name", type: "string", description: "Name" },
+		metadata: { type: "object", properties: {}, label: "Metadata", description: "Metadata" },
 	},
 } satisfies AppSchema;
 

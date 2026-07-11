@@ -118,7 +118,7 @@ const seedCredit = (input: {
 		name: input.name,
 		entitySchemaSlug: input.schemaSlug,
 		externalId: `overview-${crypto.randomUUID()}`,
-		properties: { images: input.images, description: null, sourceUrl: null },
+		properties: { sourceUrl: null, description: null, images: input.images },
 	});
 
 const seedActivityShow = (client: Client) =>
@@ -501,7 +501,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const summary = yield* executeRyotQLRecipe(
 				client,
-				showSummaryRecipe({ collectionLimit: 5, entityId: show.id }),
+				showSummaryRecipe({ entityId: show.id, collectionLimit: 5 }),
 			);
 			const summaryRow = summary.show;
 			assertPresent(summaryRow, "Expected show summary row");
@@ -579,7 +579,7 @@ describe("Media RyotQL query recipe results", () => {
 					seedCredit({
 						schemaSlug: companySchemaId,
 						name: `Overview Studio ${suffix}`,
-						images: [{ type: "s3", key: "studio-logo", purpose: "logo" }],
+						images: [{ type: "s3", purpose: "logo", key: "studio-logo" }],
 					}),
 					seedCredit({
 						images: [],
@@ -664,7 +664,7 @@ describe("Media RyotQL query recipe results", () => {
 			const studioCredit = overview.companies.items[0];
 			assertPresent(studioCredit, "Expected the studio credit");
 			expect(studioCredit.roles).toEqual(["Production Company"]);
-			expect(studioCredit.images).toEqual([{ type: "s3", key: "studio-logo", purpose: "logo" }]);
+			expect(studioCredit.images).toEqual([{ type: "s3", purpose: "logo", key: "studio-logo" }]);
 			expect(overview.recommendations.items.map((item) => item.id)).toEqual([
 				suggestedFirst.id,
 				suggestedSecond.id,
@@ -775,7 +775,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const podcastRow = yield* executeRyotQLRecipe(
 				client,
-				podcastDetailRecipe({ entityId: seeded.podcast.id, episodeLimit: 2 }),
+				podcastDetailRecipe({ episodeLimit: 2, entityId: seeded.podcast.id }),
 			);
 			assertPresent(podcastRow, "Expected podcast row");
 			const episodes = podcastRow.episodes;

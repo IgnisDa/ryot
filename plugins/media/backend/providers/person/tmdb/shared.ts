@@ -25,8 +25,8 @@ export const manifest = defineManifest({
 	name: "TMDB",
 	kind: "provider",
 	slug: "person.tmdb",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
 });
 
@@ -111,8 +111,8 @@ const collectCredits = (combinedCredits: UnknownRecord) => {
 		relatedEntities.set(key, {
 			externalId,
 			providerSlug,
-			name: stringValue(media["title"]) ?? stringValue(media["name"]) ?? "Loading...",
 			relationshipProperties: { roles: [role] },
+			name: stringValue(media["title"]) ?? stringValue(media["name"]) ?? "Loading...",
 		});
 	};
 
@@ -140,7 +140,7 @@ export const details = defineProvider({
 							tmdbGet(
 								host,
 								`/person/${input.externalId}`,
-								{ append_to_response: "images", language: "en" },
+								{ language: "en", append_to_response: "images" },
 								token,
 							),
 							tmdbGet(
@@ -174,8 +174,8 @@ export const details = defineProvider({
 					}
 					const genderValue = numberValue(personData["gender"]);
 					const genders: Readonly<Record<number, string>> = {
-						1: "Female",
 						2: "Male",
+						1: "Female",
 						3: "Non-Binary",
 					};
 					const gender = genderValue === null ? null : (genders[Math.trunc(genderValue)] ?? null);
@@ -187,6 +187,21 @@ export const details = defineProvider({
 					const relatedEntities = collectCredits(combinedCredits);
 					return {
 						name,
+						properties: {
+							gender,
+							alternateNames,
+							website: stringValue(personData["homepage"]),
+							birthDate: stringValue(personData["birthday"]),
+							deathDate: stringValue(personData["deathday"]),
+							description: stringValue(personData["biography"]),
+							birthPlace: stringValue(personData["place_of_birth"]),
+							sourceUrl: `https://www.themoviedb.org/person/${input.externalId}`,
+							images: [...imageUrls].map((url) => ({
+								url,
+								type: "remote" as const,
+								purpose: "profile" as const,
+							})),
+						},
 						relatedEntityGroups: [
 							{
 								direction: "outgoing" as const,
@@ -198,28 +213,13 @@ export const details = defineProvider({
 							},
 							{
 								direction: "outgoing" as const,
-								synchronization: "authoritative" as const,
 								relationshipSchemaSlug: "person-to-show",
+								synchronization: "authoritative" as const,
 								entities: relatedEntities.filter(
 									({ providerSlug }) => providerSlug === "show.tmdb",
 								),
 							},
 						],
-						properties: {
-							gender,
-							alternateNames,
-							website: stringValue(personData["homepage"]),
-							birthDate: stringValue(personData["birthday"]),
-							deathDate: stringValue(personData["deathday"]),
-							description: stringValue(personData["biography"]),
-							birthPlace: stringValue(personData["place_of_birth"]),
-							sourceUrl: `https://www.themoviedb.org/person/${input.externalId}`,
-							images: [...imageUrls].map((url) => ({
-								type: "remote" as const,
-								url,
-								purpose: "profile" as const,
-							})),
-						},
 					};
 				}),
 			);
@@ -233,7 +233,7 @@ export const translate = defineProvider({
 		if (!/^\d+$/.test(input.externalId)) {
 			throw new Error("externalId must be a numeric TMDB person ID");
 		}
-		const { langCode, region } = parseTranslationLanguage(input.language);
+		const { region, langCode } = parseTranslationLanguage(input.language);
 		return getTmdbAccessToken(host)
 			.pipe(
 				Effect.flatMap((token) =>
@@ -262,7 +262,7 @@ export const translate = defineProvider({
 						properties["description"] = description;
 					}
 					if (imageUrl) {
-						properties["images"] = [{ type: "remote", url: imageUrl, purpose: "profile" }];
+						properties["images"] = [{ url: imageUrl, type: "remote", purpose: "profile" }];
 					}
 					const result: { name?: string; properties?: typeof properties } = {};
 					if (name) {

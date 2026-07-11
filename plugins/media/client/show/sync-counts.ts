@@ -8,6 +8,6 @@ export const showSyncCounts = <Item extends EntitySyncState>(
 	items: readonly Item[],
 	artOf: (item: Item) => ShowImageAsset | undefined,
 ): ShowSyncCounts => ({
-	populating: items.filter((item) => fieldSyncState(artOf(item), item) === "pending").length,
 	translating: items.filter((item) => item.translationStatus === "pending").length,
+	populating: items.filter((item) => fieldSyncState(artOf(item), item) === "pending").length,
 });

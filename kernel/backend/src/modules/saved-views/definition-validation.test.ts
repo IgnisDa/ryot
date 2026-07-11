@@ -19,29 +19,29 @@ import {
 const entity = table("entity", "entity");
 const dataSources = document({
 	entities: rows(entity, {
+		where: and(
+			eq(column(entity, "entitySchemaPluginId"), literal("media-plugin-id")),
+			eq(column(entity, "entitySchemaSlug"), literal("book")),
+		),
 		fields: [
 			field("entityId", column(entity, "id")),
 			field("name", column(entity, "name")),
 			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 			field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 		],
-		where: and(
-			eq(column(entity, "entitySchemaPluginId"), literal("media-plugin-id")),
-			eq(column(entity, "entitySchemaSlug"), literal("book")),
-		),
 	}),
 });
 const browserSettings = {
 	pageSize: 20,
-	sourceName: "entities",
+	sortChoices: [],
+	tableColumns: null,
 	defaultLayout: "grid",
+	sourceName: "entities",
+	searchFields: ["name"],
 	layouts: ["grid", "list"],
 	entityIdField: "entityId",
 	ownerPluginIdField: "ownerPluginId",
 	entitySchemaSlugField: "entitySchemaSlug",
-	searchFields: ["name"],
-	sortChoices: [],
-	tableColumns: null,
 	addAction: {
 		type: "provider-search",
 		ownerPluginId: "media-plugin-id",
@@ -50,7 +50,7 @@ const browserSettings = {
 } satisfies EntityBrowserSavedViewSettings;
 
 it.effect("accepts a canonical entity-browser definition", () =>
-	validateEntityBrowserSavedViewDefinition({ settings: browserSettings, dataSources }),
+	validateEntityBrowserSavedViewDefinition({ dataSources, settings: browserSettings }),
 );
 
 it.effect("rejects provider add provenance that does not match the source", () =>
@@ -81,22 +81,22 @@ it.effect("accepts a canonical results-table definition", () => {
 		pageSize: 20,
 		sourceName: "entities",
 		rowKeyFields: ["entityId"],
-		columns: [{ label: "Name", field: "name", displayKind: "text" }],
 		entityLink: { entityIdField: "entityId" },
+		columns: [{ label: "Name", field: "name", displayKind: "text" }],
 	} satisfies ResultsTableSavedViewSettings;
 	return validateResultsTableSavedViewDefinition({ settings, dataSources });
 });
 
 it.effect("authorizes plugin page renderers and validates their settings", () =>
 	Effect.gen(function* () {
-		const renderer = { kind: "plugin" as const, pluginId: "plugin-id", exportName: "summary" };
+		const renderer = { pluginId: "plugin-id", exportName: "summary", kind: "plugin" as const };
 		const page = {
 			settingsSchema: {
 				unknownKeys: "strict" as const,
 				fields: {
 					title: {
-						type: "string" as const,
 						label: "Title",
+						type: "string" as const,
 						description: "Summary title",
 						validation: { required: true as const },
 					},
@@ -110,7 +110,7 @@ it.effect("authorizes plugin page renderers and validates their settings", () =>
 		assertExitFails(
 			exit,
 			new SavedViewBadRequest({
-				reason: { code: "settings-incompatible", message: "title: is missing" },
+				reason: { message: "title: is missing", code: "settings-incompatible" },
 			}),
 		);
 	}),

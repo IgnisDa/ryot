@@ -45,7 +45,7 @@ describe("RyotQL collections tracer", () => {
 			expect(first.pageInfo.nextCursor).not.toBeNull();
 			const second = yield* executeRyotQLRecipe(
 				client,
-				allCollectionsRecipe({ after: first.pageInfo.nextCursor ?? undefined, limit: 1 }),
+				allCollectionsRecipe({ limit: 1, after: first.pageInfo.nextCursor ?? undefined }),
 			);
 			expect(second.pageInfo).toEqual({ limit: 1, hasMore: false, nextCursor: null });
 			expect(second.items.map((item) => item.name)).toEqual(["RyotQL Total Two"]);

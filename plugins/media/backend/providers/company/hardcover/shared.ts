@@ -15,9 +15,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Hardcover",
 	slug: "company.hardcover",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["hardcoverApiKey"],
-	requiredSystemConfigKeys: [],
 });
 
 export const search = defineProvider({

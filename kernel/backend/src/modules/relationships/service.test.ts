@@ -121,7 +121,7 @@ const baseInput = {
 
 const ownershipPropertiesSchema = {
 	fields: {
-		owned: { type: "boolean", label: "Owned", description: "Owned" },
+		owned: { label: "Owned", type: "boolean", description: "Owned" },
 		ownershipSyncedAt: { type: "datetime", label: "Synced at", description: "Synced at" },
 		ownershipSources: {
 			type: "array",
@@ -160,7 +160,7 @@ it.effect("returns bad request when create properties violate the relationship s
 			if (failure._tag === "Some") {
 				expect(failure.value).toBeInstanceOf(RelationshipBadRequest);
 				expect(failure.value).toMatchObject({
-					reason: { code: "invalid-properties", paths: [["status"]] },
+					reason: { paths: [["status"]], code: "invalid-properties" },
 				});
 			}
 		}
@@ -183,11 +183,11 @@ it.effect("creates a validated user relationship", () => {
 		expect(result).toEqual(relationship);
 		expect(createdInput).toEqual({
 			userId,
+			scope: "user",
 			properties: {},
 			sourceEntityId,
 			targetEntityId,
 			relationshipSchemaSlug,
-			scope: "user",
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -297,8 +297,8 @@ it.effect("atomically ensures and deletes generic user relationship batches", ()
 					{
 						properties: {},
 						sourceEntityId,
-						targetEntityId: libraryEntityId,
 						relationshipSchemaSlug,
+						targetEntityId: libraryEntityId,
 					},
 					{
 						properties: {},
@@ -345,15 +345,15 @@ it.effect("treats existing creates and missing deletes as successful no-ops", ()
 	const transactionDatabases: unknown[] = [];
 	const layer = makeServiceLayer(
 		{
-			createRelationship: () =>
-				Effect.gen(function* () {
-					transactionDatabases.push(yield* Database);
-					return { ...relationship, wasInserted: false };
-				}),
 			deleteRelationship: () =>
 				Effect.gen(function* () {
 					transactionDatabases.push(yield* Database);
 					return null;
+				}),
+			createRelationship: () =>
+				Effect.gen(function* () {
+					transactionDatabases.push(yield* Database);
+					return { ...relationship, wasInserted: false };
 				}),
 		},
 		(callback) => callback(Object.create(null)),
@@ -363,8 +363,8 @@ it.effect("treats existing creates and missing deletes as successful no-ops", ()
 		const service = yield* RelationshipsService;
 		const [result] = yield* service.changeUser(userId, [
 			{
-				creates: [{ properties: {}, sourceEntityId, targetEntityId, relationshipSchemaSlug }],
 				deletes: [{ sourceEntityId, targetEntityId, relationshipSchemaSlug }],
+				creates: [{ properties: {}, sourceEntityId, targetEntityId, relationshipSchemaSlug }],
 			},
 		]);
 
@@ -377,16 +377,16 @@ it.effect("treats existing creates and missing deletes as successful no-ops", ()
 it.effect("merges unique array values while replacing scalar user relationship properties", () => {
 	const updates: Array<Record<string, unknown>> = [];
 	const layer = makeServiceLayer({
+		updateRelationship: (input) =>
+			Effect.sync(() => {
+				updates.push(input);
+				return { ...relationship, ...input };
+			}),
 		findRelationshipProperties: () =>
 			Effect.succeed({
 				owned: false,
 				ownershipSources: ["lambda", "shared"],
 				ownershipSyncedAt: "2026-01-01T00:00:00.000Z",
-			}),
-		updateRelationship: (input) =>
-			Effect.sync(() => {
-				updates.push(input);
-				return { ...relationship, ...input };
 			}),
 	});
 
@@ -418,6 +418,13 @@ it.effect("re-reads and merges a concurrent winner after the initial create conf
 	let reads = 0;
 	const updates: Array<Record<string, unknown>> = [];
 	const layer = makeServiceLayer({
+		createRelationship: (input) =>
+			Effect.succeed({ ...relationship, ...input, wasInserted: false }),
+		updateRelationship: (input) =>
+			Effect.sync(() => {
+				updates.push(input);
+				return { ...relationship, ...input };
+			}),
 		findRelationshipProperties: () =>
 			Effect.sync(() => {
 				reads += 1;
@@ -428,13 +435,6 @@ it.effect("re-reads and merges a concurrent winner after the initial create conf
 							ownershipSources: ["lambda"],
 							ownershipSyncedAt: "2026-01-01T00:00:00.000Z",
 						};
-			}),
-		createRelationship: (input) =>
-			Effect.succeed({ ...relationship, ...input, wasInserted: false }),
-		updateRelationship: (input) =>
-			Effect.sync(() => {
-				updates.push(input);
-				return { ...relationship, ...input };
 			}),
 	});
 
@@ -502,7 +502,7 @@ it.effect("deletes an exact user relationship through the owning repository", ()
 	const layer = makeServiceLayer({
 		deleteUserRelationshipById: (requestedUserId, relationshipId) =>
 			Effect.sync(() => {
-				calls.push({ userId: requestedUserId, relationshipId });
+				calls.push({ relationshipId, userId: requestedUserId });
 				return true;
 			}),
 	});

@@ -16,8 +16,8 @@ const uploadInputSchema = (label: string, description: string) => ({
 			position: 0,
 			description,
 			type: "string" as const,
-			format: { kind: "upload" as const, allowedFileExtensions: ["csv"] },
 			validation: { minLength: 1 as const, required: true as const },
+			format: { kind: "upload" as const, allowedFileExtensions: ["csv"] },
 		},
 	},
 });
@@ -34,57 +34,6 @@ export const fitnessPlugin = definePlugin({
 	signalSchemas: fitnessSignalSchemas(),
 	relationshipSchemas: fitnessRelationshipSchemas(),
 	workflows: [{ slug: "import", scriptSlug: "workflow.import" }],
-	boot: [
-		{
-			slug: "preload-exercises",
-			scriptSlug: "exercise.free-exercise-db.preload",
-			description: "Preload the built-in exercise catalog",
-		},
-	],
-	client: {
-		apiVersion: 1,
-		homeView: null,
-		entities: {
-			workout: { listPresentation: "workout-row", gridPresentation: "workout-card" },
-			exercise: { listPresentation: "entity-row", gridPresentation: "entity-card" },
-			measurement: { listPresentation: "entity-row", gridPresentation: "entity-card" },
-			"workout-template": { listPresentation: "entity-row", gridPresentation: "entity-card" },
-		},
-		exports: {
-			"workout-card": {
-				kind: "presentation",
-				entry: "client/workout-card.ts",
-				automaticEntityPresentations: false,
-			},
-			"workout-row": {
-				kind: "presentation",
-				entry: "client/workout-row.ts",
-				automaticEntityPresentations: false,
-			},
-			"entity-card": {
-				kind: "presentation",
-				entry: "client/entity-card.ts",
-				automaticEntityPresentations: false,
-			},
-			"entity-row": {
-				kind: "presentation",
-				entry: "client/entity-row.ts",
-				automaticEntityPresentations: false,
-			},
-		},
-	},
-	providers: [
-		{
-			name: "Free Exercise DB",
-			rootEntitySchemaSlug: "exercise",
-			slug: "exercise.free-exercise-db",
-			information: { source: "free-exercise-db" },
-			operations: {
-				search: "exercise.free-exercise-db.search",
-				details: "exercise.free-exercise-db.details",
-			},
-		},
-	],
 	metadata: {
 		name: "Fitness",
 		slug: "fitness",
@@ -92,6 +41,13 @@ export const fitnessPlugin = definePlugin({
 		icon: "heart-pulse",
 		description: "Track workouts, measurements, and progress.",
 	},
+	boot: [
+		{
+			slug: "preload-exercises",
+			scriptSlug: "exercise.free-exercise-db.preload",
+			description: "Preload the built-in exercise catalog",
+		},
+	],
 	bindings: {
 		eventAutomations: [],
 		signalAutomations: [],
@@ -105,6 +61,18 @@ export const fitnessPlugin = definePlugin({
 			},
 		],
 	},
+	providers: [
+		{
+			name: "Free Exercise DB",
+			rootEntitySchemaSlug: "exercise",
+			slug: "exercise.free-exercise-db",
+			information: { source: "free-exercise-db" },
+			operations: {
+				search: "exercise.free-exercise-db.search",
+				details: "exercise.free-exercise-db.details",
+			},
+		},
+	],
 	importSources: [
 		{
 			slug: "hevy",
@@ -134,6 +102,38 @@ export const fitnessPlugin = definePlugin({
 			inputSchema: uploadInputSchema("OpenScale export", "OpenScale measurements export CSV"),
 		},
 	],
+	client: {
+		apiVersion: 1,
+		homeView: null,
+		entities: {
+			exercise: { listPresentation: "entity-row", gridPresentation: "entity-card" },
+			workout: { listPresentation: "workout-row", gridPresentation: "workout-card" },
+			measurement: { listPresentation: "entity-row", gridPresentation: "entity-card" },
+			"workout-template": { listPresentation: "entity-row", gridPresentation: "entity-card" },
+		},
+		exports: {
+			"entity-row": {
+				kind: "presentation",
+				entry: "client/entity-row.ts",
+				automaticEntityPresentations: false,
+			},
+			"workout-row": {
+				kind: "presentation",
+				entry: "client/workout-row.ts",
+				automaticEntityPresentations: false,
+			},
+			"entity-card": {
+				kind: "presentation",
+				entry: "client/entity-card.ts",
+				automaticEntityPresentations: false,
+			},
+			"workout-card": {
+				kind: "presentation",
+				entry: "client/workout-card.ts",
+				automaticEntityPresentations: false,
+			},
+		},
+	},
 });
 
 export default fitnessPlugin;

@@ -124,7 +124,7 @@ export const chooseBestMetadataLookupTitleMatch = (input: {
 			originalTitle: cleanedOriginal,
 		});
 		if (!bestMatch || score > bestMatch.score) {
-			bestMatch = { result, score };
+			bestMatch = { score, result };
 		}
 	});
 

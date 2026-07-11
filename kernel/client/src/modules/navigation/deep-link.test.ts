@@ -21,10 +21,10 @@ const makeHarness = (launchUrl: string | null = null) => {
 	let urlOpen: ((url: string) => void) | undefined;
 
 	const source: NativeAppSource = {
-		getLaunchUrl: () => Promise.resolve(launchUrl),
 		exitApp: () => {
 			exited += 1;
 		},
+		getLaunchUrl: () => Promise.resolve(launchUrl),
 		onUrlOpen: (handler) => {
 			urlOpen = handler;
 			return Promise.resolve(() => removed.push("appUrlOpen"));
@@ -40,6 +40,9 @@ const makeHarness = (launchUrl: string | null = null) => {
 		back: () => {
 			backCount += 1;
 		},
+		navigate: (href, options) => {
+			navigated.push({ href, replace: options.replace });
+		},
 		dismissOverlay: () => {
 			if (!overlayOpen) {
 				return false;
@@ -47,9 +50,6 @@ const makeHarness = (launchUrl: string | null = null) => {
 			overlayOpen = false;
 			dismissed += 1;
 			return true;
-		},
-		navigate: (href, options) => {
-			navigated.push({ href, replace: options.replace });
 		},
 	};
 
@@ -60,13 +60,13 @@ const makeHarness = (launchUrl: string | null = null) => {
 		navigated,
 		pressBack: () => backButton?.(),
 		openUrl: (url: string) => urlOpen?.(url),
-		counts: () => ({ exited, backCount, dismissed }),
 		allowBack: () => {
 			canGoBack = true;
 		},
 		openOverlay: () => {
 			overlayOpen = true;
 		},
+		counts: () => ({ exited, backCount, dismissed }),
 	};
 };
 
@@ -123,8 +123,8 @@ describe("createDeepLinkBridge", () => {
 		bridge.destroy();
 
 		expect(harness.navigated).toEqual([
-			{ href: "/e/entity123", replace: true },
-			{ href: "/media/search", replace: false },
+			{ replace: true, href: "/e/entity123" },
+			{ replace: false, href: "/media/search" },
 		]);
 	});
 

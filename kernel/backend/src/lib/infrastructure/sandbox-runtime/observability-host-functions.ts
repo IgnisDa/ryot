@@ -88,7 +88,7 @@ export const makeSandboxObservabilityCollector = () => {
 		return null;
 	}
 
-	return { record, logs };
+	return { logs, record };
 };
 
 export type SandboxObservabilityCollector = ReturnType<typeof makeSandboxObservabilityCollector>;

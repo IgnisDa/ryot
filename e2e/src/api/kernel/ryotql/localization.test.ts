@@ -39,6 +39,13 @@ const localizedDocument = (schemaSlug: string) => {
 	const properties = column(entity, "properties");
 	const schemaPredicate = eq(column(entity, "entitySchemaSlug"), literal(schemaSlug));
 	return document({
+		filtered: rows(entity, {
+			fields: [field("name", column(entity, "name"))],
+			where: and(
+				schemaPredicate,
+				contains(castText(jsonPath(properties, "description")), literal("traducido de Zulu")),
+			),
+		}),
 		entities: rows(entity, {
 			where: schemaPredicate,
 			orderBy: [ascending(column(entity, "name"))],
@@ -47,13 +54,6 @@ const localizedDocument = (schemaSlug: string) => {
 				field("rating", jsonPath(properties, "rating")),
 				field("description", jsonPath(properties, "description")),
 			],
-		}),
-		filtered: rows(entity, {
-			fields: [field("name", column(entity, "name"))],
-			where: and(
-				schemaPredicate,
-				contains(castText(jsonPath(properties, "description")), literal("traducido de Zulu")),
-			),
 		}),
 	});
 };
@@ -81,7 +81,7 @@ describe("RyotQL entity localization", () => {
 	it.live("localizes selection, JSON paths, predicates, and ordering with canonical fallback", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createPluginEntitySchema(client, {
+			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLLocalizedItem",
 				propertiesSchema: {
 					fields: {

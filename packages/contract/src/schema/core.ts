@@ -32,7 +32,7 @@ export const stringArrayField = (label: string, description: string) =>
 		label,
 		description,
 		type: "array",
-		items: { type: "string", label: "Item", description: "Item" },
+		items: { label: "Item", type: "string", description: "Item" },
 	}) as const;
 
 export const managedAssetItemSchema = {
@@ -42,8 +42,8 @@ export const managedAssetItemSchema = {
 	unknownKeys: "strict",
 	validation: { asset: true },
 	properties: {
-		key: { type: "string", label: "Key", description: "Key" },
-		url: { type: "string", label: "Url", description: "Url" },
+		key: { label: "Key", type: "string", description: "Key" },
+		url: { label: "Url", type: "string", description: "Url" },
 		type: {
 			type: "enum",
 			label: "Type",

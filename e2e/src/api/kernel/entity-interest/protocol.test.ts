@@ -31,14 +31,14 @@ describe("entity interest protocol", () => {
 				yield* Effect.promise(() =>
 					socket.replaceInterest(Array.from({ length: 501 }, () => entity.id)),
 				),
-			).toEqual({ type: "applied", revision: 1 });
+			).toEqual({ revision: 1, type: "applied" });
 
 			const additionalIds = Array.from(
 				{ length: MAX_INTEREST_ENTITY_IDS },
 				(_, index) => `interest-limit-${crypto.randomUUID()}-${index}`,
 			);
 			expect(
-				yield* Effect.promise(() => socket.updateInterest({ add: additionalIds, remove: [] })),
+				yield* Effect.promise(() => socket.updateInterest({ remove: [], add: additionalIds })),
 			).toEqual({
 				revision: 2,
 				type: "rejected",
@@ -50,7 +50,7 @@ describe("entity interest protocol", () => {
 				yield* Effect.promise(() =>
 					socket.updateInterest({ add: additionalIds, remove: [entity.id] }),
 				),
-			).toEqual({ type: "applied", revision: 2 });
+			).toEqual({ revision: 2, type: "applied" });
 		}),
 	);
 });

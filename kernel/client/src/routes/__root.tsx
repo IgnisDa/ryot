@@ -20,11 +20,11 @@ export type RouterContext = {
 export const Route = createRootRouteWithContext<RouterContext>()({ component: RootComponent });
 
 function RootComponent() {
-	const { runtime, theme } = Route.useRouteContext();
+	const { theme, runtime } = Route.useRouteContext();
 	return (
 		<PageTitleProvider>
 			<SkipToContentLink />
-			<ThemeController runtime={runtime} theme={theme} />
+			<ThemeController theme={theme} runtime={runtime} />
 			<Outlet />
 		</PageTitleProvider>
 	);

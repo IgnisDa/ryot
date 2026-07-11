@@ -11,15 +11,15 @@ import { sanitizeRedirect } from "#/modules/server/redirect";
 
 export const Route = createFileRoute("/auth")({
 	component: OAuthLaunch,
+	errorComponent: OAuthLaunchUnavailable,
+	validateSearch: (search) => ({ redirect: sanitizeRedirect(search.redirect) }),
 	pendingComponent: () => (
 		<AuthStatus
 			title="Preparing sign-in"
 			message="Restoring your session and contacting the server..."
 		/>
 	),
-	errorComponent: OAuthLaunchUnavailable,
-	validateSearch: (search) => ({ redirect: sanitizeRedirect(search.redirect) }),
-	beforeLoad: async ({ context, search }) => {
+	beforeLoad: async ({ search, context }) => {
 		const result = await context.runtime.runPromise(
 			Effect.flatMap(OAuthLauncher, (launcher) => launcher.prepare(search.redirect)),
 		);
@@ -49,8 +49,8 @@ function OAuthLaunchUnavailable({ error }: { error: unknown }) {
 	);
 	return (
 		<AuthStatus
-			title="Could not start sign-in"
 			message={message}
+			title="Could not start sign-in"
 			actions={
 				<Button
 					type="button"

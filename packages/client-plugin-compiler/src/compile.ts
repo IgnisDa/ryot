@@ -380,7 +380,7 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			}
 			automaticRegistry = sortBy(
 				checkedAutomaticRegistry,
-				({ ownerPluginId, entitySchemaSlug, layout, exportSpecifier }) =>
+				({ layout, ownerPluginId, exportSpecifier, entitySchemaSlug }) =>
 					`${ownerPluginId}\u0000${entitySchemaSlug}\u0000${layout}\u0000${exportSpecifier}`,
 			);
 			automaticExports = automaticRegistry.map(({ exportSpecifier }) => exportSpecifier);
@@ -505,8 +505,8 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 		const dependencies = yield* resolveClientPluginCompilerDependencies;
 		const bundled = yield* bundleClientPlugin(
 			{
-				entry: buildEntry,
 				assetNames,
+				entry: buildEntry,
 				files: sourceFiles,
 				publicExports: publicExportPaths,
 				...(!graphInput ? { unresolvedPluginDependencies: input.pluginDependencies ?? [] } : {}),

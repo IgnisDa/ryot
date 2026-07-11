@@ -191,19 +191,19 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const foreignScriptSlug = `e2e-ryotql-auth-foreign-script-${suffix}`;
 			const foreignEntitySchemas: PluginEntitySchema[] = [
 				{
+					icon: "ban",
+					name: "Foreign root",
+					slug: foreignRootSlug,
+					propertiesSchema: { fields: {} },
 					eventSchemas: [
 						{
 							name: "Foreign event",
 							slug: foreignEventSlug,
 							propertiesSchema: {
-								fields: { value: { description: "Value", label: "Value", type: "integer" } },
+								fields: { value: { label: "Value", type: "integer", description: "Value" } },
 							},
 						},
 					],
-					icon: "ban",
-					name: "Foreign root",
-					slug: foreignRootSlug,
-					propertiesSchema: { fields: {} },
 				},
 				{
 					eventSchemas: [],
@@ -220,7 +220,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					sourceEntitySchemaSlug: foreignRootSlug,
 					targetEntitySchemaSlug: foreignTargetSlug,
 					propertiesSchema: {
-						fields: { rank: { description: "Rank", label: "Rank", type: "integer" } },
+						fields: { rank: { label: "Rank", type: "integer", description: "Rank" } },
 					},
 				},
 			];
@@ -268,14 +268,14 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					slug: rootSlug,
 					name: "Owned root",
 					propertiesSchema: {
-						fields: { score: { description: "Score", label: "Score", type: "integer" } },
+						fields: { score: { label: "Score", type: "integer", description: "Score" } },
 					},
 					eventSchemas: [
 						{
 							slug: eventSlug,
 							name: "Owned event",
 							propertiesSchema: {
-								fields: { value: { description: "Value", label: "Value", type: "integer" } },
+								fields: { value: { label: "Value", type: "integer", description: "Value" } },
 							},
 						},
 					],
@@ -302,7 +302,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					sourceEntitySchemaSlug: rootSlug,
 					targetEntitySchemaSlug: targetSlug,
 					propertiesSchema: {
-						fields: { rank: { description: "Rank", label: "Rank", type: "integer" } },
+						fields: { rank: { label: "Rank", type: "integer", description: "Rank" } },
 					},
 				},
 			];
@@ -310,18 +310,18 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const entity = table("entity", "entity");
 			const pluginEntityDocument = document({
 				entities: rows(entity, {
-					fields: [
-						field("id", column(entity, "id")),
-						field("name", column(entity, "name")),
-						field("userId", column(entity, "userId")),
-						field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
-					],
 					limit: 20,
 					orderBy: [ascending(column(entity, "id"))],
 					where: inArray(column(entity, "entitySchemaSlug"), [
 						literal(rootSlug),
 						literal(targetSlug),
 					]),
+					fields: [
+						field("id", column(entity, "id")),
+						field("name", column(entity, "name")),
+						field("userId", column(entity, "userId")),
+						field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+					],
 				}),
 			});
 			const foreignEntityDocument = document({
@@ -388,6 +388,9 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const nestedCountLink = table("relationship", "countLink");
 			const nestedDocument = document({
 				entities: rows(nestedRoot, {
+					limit: 20,
+					orderBy: [ascending(column(nestedRoot, "id"))],
+					where: eq(column(nestedRoot, "entitySchemaSlug"), literal(rootSlug)),
 					fields: [
 						field("name", column(nestedRoot, "name")),
 						field(
@@ -429,12 +432,9 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					],
 					include: [
 						include(nestedLink, {
-							fields: [
-								field("userId", column(nestedLink, "userId")),
-								field("targetId", column(nestedLink, "targetEntityId")),
-								field("targetName", column(nestedTarget, "name")),
-								field("targetUserId", column(nestedTarget, "userId")),
-							],
+							limit: 10,
+							key: "links",
+							orderBy: [ascending(column(nestedLink, "id"))],
 							joins: [
 								join(
 									"left",
@@ -442,26 +442,29 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 									eq(column(nestedLink, "targetEntityId"), column(nestedTarget, "id")),
 								),
 							],
-							key: "links",
-							limit: 10,
-							orderBy: [ascending(column(nestedLink, "id"))],
 							where: and(
 								eq(column(nestedLink, "sourceEntityId"), column(nestedRoot, "id")),
 								eq(column(nestedLink, "relationshipSchemaSlug"), literal(relationshipSlug)),
 							),
+							fields: [
+								field("userId", column(nestedLink, "userId")),
+								field("targetId", column(nestedLink, "targetEntityId")),
+								field("targetName", column(nestedTarget, "name")),
+								field("targetUserId", column(nestedTarget, "userId")),
+							],
 						}),
 						include(nestedHiddenEntity, {
-							fields: [field("name", column(nestedHiddenEntity, "name"))],
-							key: "hiddenEntities",
 							limit: 10,
+							key: "hiddenEntities",
 							orderBy: [ascending(column(nestedHiddenEntity, "id"))],
+							fields: [field("name", column(nestedHiddenEntity, "name"))],
 							where: eq(column(nestedHiddenEntity, "name"), literal("User A root")),
 						}),
 						include(nestedForeignLink, {
-							fields: [field("id", column(nestedForeignLink, "id"))],
-							key: "foreignLinks",
 							limit: 10,
+							key: "foreignLinks",
 							orderBy: [ascending(column(nestedForeignLink, "id"))],
+							fields: [field("id", column(nestedForeignLink, "id"))],
 							where: and(
 								eq(column(nestedForeignLink, "sourceEntityId"), column(nestedRoot, "id")),
 								eq(
@@ -471,9 +474,6 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 							),
 						}),
 					],
-					limit: 20,
-					orderBy: [ascending(column(nestedRoot, "id"))],
-					where: eq(column(nestedRoot, "entitySchemaSlug"), literal(rootSlug)),
 				}),
 			});
 
@@ -486,25 +486,42 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const probes = [
 				{ name: "Plugin entities", query: pluginEntityDocument },
 				{ name: "Foreign entities", query: foreignEntityDocument },
-				{ name: "Plugin events", query: eventDocument },
+				{ query: eventDocument, name: "Plugin events" },
 				{ name: "Foreign events", query: foreignEventDocument },
-				{ name: "Plugin relationships", query: relationshipDocument },
+				{ query: relationshipDocument, name: "Plugin relationships" },
 				{ name: "Foreign relationships", query: foreignRelationshipDocument },
-				{ name: "Nested authorization", query: nestedDocument },
+				{ query: nestedDocument, name: "Nested authorization" },
 				{ name: "Application table", query: applicationTableDocument },
 			].map((probe) => {
 				const slug = probe.name.toLowerCase().replaceAll(" ", "-");
 				return Object.assign(probe, {
+					slug: `e2e-ryotql-auth-probe-${slug}-${suffix}`,
 					cronSlug: `e2e-ryotql-auth-cron-${slug}-${suffix}`,
 					externalId: `e2e-ryotql-auth-marker-${slug}-${suffix}`,
-					slug: `e2e-ryotql-auth-probe-${slug}-${suffix}`,
 				});
 			}) satisfies readonly AuthorizationProbe[];
 
 			yield* Effect.acquireRelease(
 				installTestPluginBundle({
-					scope: "system",
 					pluginSlug,
+					entitySchemas,
+					scope: "system",
+					relationshipSchemas,
+					crons: probes.map((probe) => ({
+						slug: probe.cronSlug,
+						scriptSlug: probe.slug,
+						schedule: { cron: "0 0 * * *" },
+						description: `Run ${probe.name}`,
+					})),
+					providers: [
+						{
+							slug: providerSlug,
+							rootEntitySchemaSlug: rootSlug,
+							information: { source: "e2e" },
+							name: "RyotQL authorization provider",
+							operations: { details: providerScriptSlug },
+						},
+					],
 					files: {
 						...Object.fromEntries(
 							probes.map((probe) => [
@@ -540,28 +557,11 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 									name: probe.name,
 									requiredPluginConfigKeys: [],
 									requiredSystemConfigKeys: [],
-									entry: `backend/providers/${providerSlug}/${probe.slug}.sandbox.ts`,
 									capabilities: ["executeRyotql", "upsertGlobalEntities"],
+									entry: `backend/providers/${providerSlug}/${probe.slug}.sandbox.ts`,
 								}) satisfies PluginScript,
 						),
 					],
-					providers: [
-						{
-							slug: providerSlug,
-							rootEntitySchemaSlug: rootSlug,
-							information: { source: "e2e" },
-							name: "RyotQL authorization provider",
-							operations: { details: providerScriptSlug },
-						},
-					],
-					entitySchemas,
-					relationshipSchemas,
-					crons: probes.map((probe) => ({
-						slug: probe.cronSlug,
-						scriptSlug: probe.slug,
-						schedule: { cron: "0 0 * * *" },
-						description: `Run ${probe.name}`,
-					})),
 				}),
 				(plugin) => uninstallTestPlugin(plugin).pipe(Effect.ignore),
 			);

@@ -17,7 +17,7 @@ describe("media monitoring targets", () => {
 						data: {
 							targets: {
 								type: "rows",
-								pageInfo: { hasMore: true, limit: 100, nextCursor: "next-targets" },
+								pageInfo: { limit: 100, hasMore: true, nextCursor: "next-targets" },
 								items: [
 									{
 										entityId: "entity-a",
@@ -34,9 +34,10 @@ describe("media monitoring targets", () => {
 
 		await expect(
 			Effect.runPromise(
-				runSandboxTestScript(definition, { after: "targets-cursor", limit: 100 }, host, execution),
+				runSandboxTestScript(definition, { limit: 100, after: "targets-cursor" }, host, execution),
 			),
 		).resolves.toEqual({
+			nextCursor: "next-targets",
 			items: [
 				{
 					entityId: "entity-a",
@@ -45,15 +46,14 @@ describe("media monitoring targets", () => {
 					entitySchemaSlug: "movie",
 				},
 			],
-			nextCursor: "next-targets",
 		});
 		expect(Schema.is(RyotQLDocument)(documents[0])).toBe(true);
 		expect(documents[0]).toMatchObject({
 			queries: {
 				targets: {
-					from: { table: "entity", alias: "entity" },
 					where: { type: "and" },
-					output: { type: "rows", pagination: { after: "targets-cursor", limit: 100 } },
+					from: { table: "entity", alias: "entity" },
+					output: { type: "rows", pagination: { limit: 100, after: "targets-cursor" } },
 				},
 			},
 		});

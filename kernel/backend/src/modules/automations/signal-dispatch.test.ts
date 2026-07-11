@@ -57,9 +57,9 @@ it.effect("matches shared signals once per global rule and recipient-owned rule"
 	const engine = makeWorkflowActivityEngine(instance, {
 		execute: (_workflow, options) => {
 			const payload = Schema.decodeUnknownSync(
-				Schema.Struct({ rowUserId: Schema.NullOr(UserId), ruleId: AutomationRuleId }),
+				Schema.Struct({ ruleId: AutomationRuleId, rowUserId: Schema.NullOr(UserId) }),
 			)(options.payload);
-			executions.push({ rowUserId: payload.rowUserId, ruleId: payload.ruleId });
+			executions.push({ ruleId: payload.ruleId, rowUserId: payload.rowUserId });
 			return Effect.void;
 		},
 	});

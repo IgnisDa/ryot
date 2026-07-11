@@ -14,7 +14,7 @@ export function SettingsIndex() {
 	const workspace = resolveRememberedWorkspace(catalog, rememberedSlug);
 	const backFallbackHref = workspace === null ? "/" : `/${workspace.slug}`;
 
-	useDesktopEffect(() => void navigate({ to: "/settings/preferences", replace: true }));
+	useDesktopEffect(() => void navigate({ replace: true, to: "/settings/preferences" }));
 
 	return (
 		<SettingsFrame title="Settings" backFallbackHref={backFallbackHref}>

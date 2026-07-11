@@ -18,7 +18,7 @@ export const showPersonRow = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	roles: ["Actor", "Guest Star"],
-	images: [{ type: "remote", url: "https://images.test/owen.jpg", purpose: "profile" }],
+	images: [{ type: "remote", purpose: "profile", url: "https://images.test/owen.jpg" }],
 };
 
 export const showCompanyRow = {
@@ -28,7 +28,7 @@ export const showCompanyRow = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	roles: ["Production Company"],
-	images: [{ type: "remote", url: "https://images.test/warp.png", purpose: "logo" }],
+	images: [{ type: "remote", purpose: "logo", url: "https://images.test/warp.png" }],
 };
 
 export const showRecommendationRow = {
@@ -36,7 +36,7 @@ export const showRecommendationRow = {
 	name: "Bad Girls",
 	populationStatus: "ready",
 	translationStatus: "none",
-	images: [{ type: "remote", url: "https://images.test/bad-girls.jpg", purpose: "cover" }],
+	images: [{ type: "remote", purpose: "cover", url: "https://images.test/bad-girls.jpg" }],
 };
 
 type OverviewRows = {
@@ -46,7 +46,7 @@ type OverviewRows = {
 };
 
 const overviewRows = (items: readonly Record<string, unknown>[]) =>
-	rowsResult(items, { hasMore: false, limit: 12, nextCursor: null });
+	rowsResult(items, { limit: 12, hasMore: false, nextCursor: null });
 
 export const decodeShowOverview = (input: OverviewRows = {}) => {
 	return Result.getOrThrow(
