@@ -1,5 +1,6 @@
 import {
 	claimCachedValueResultSchema,
+	httpCallArgsSchema,
 	httpCallResultSchema,
 	logArgsSchema,
 	spanArgsSchema,
@@ -51,6 +52,13 @@ describe("shared value contracts", () => {
 	});
 
 	test("preserves core host result variants", () => {
+		expect(
+			decode(httpCallArgsSchema)([
+				"GET",
+				"https://example.com",
+				{ allowInsecureConnections: true },
+			]),
+		).toEqual(["GET", "https://example.com", { allowInsecureConnections: true }]);
 		expect(
 			decode(httpCallResultSchema)({
 				success: false,

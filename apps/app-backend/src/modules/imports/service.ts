@@ -21,14 +21,9 @@ import {
 	resolveSafeImportFilePath,
 	validateFileExtension,
 } from "./runtime/import-files";
-import { makeImporterConfig } from "./runtime/importer-config";
 import {
-	buildInputSummary,
-	buildSourcePayload,
-	getImportSourceFileInputs,
-	getImportSourceStartError,
-} from "./runtime/source-definitions";
-import {
+	buildImportInputSummary,
+	buildImportSourcePayload,
 	registryImportSourceFileInputs,
 	registryImportSourceStartError,
 	type ImportSourceFileInput,
@@ -112,8 +107,9 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			const tempDir = config.tmpDir;
 			const queuedFilePaths: string[] = [];
 			const claimedFilePaths: string[] = [];
+			const namedArtifactPaths: Record<string, string> = {};
 
-			const sourcePayload = buildSourcePayload(body) ?? {};
+			const sourcePayload = buildImportSourcePayload(body) ?? {};
 
 			for (const sourceFileInput of sourceFileInputs) {
 				if (!sourceFileInput.uploadToken) {
@@ -150,6 +146,9 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				if (sourceFileInput.payloadKey) {
 					sourcePayload[sourceFileInput.payloadKey] = safePath;
 				}
+				if (sourceFileInput.artifactKey) {
+					namedArtifactPaths[sourceFileInput.artifactKey] = safePath;
+				}
 			}
 
 			const filePath = queuedFilePaths[0];
@@ -168,6 +167,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 						runId: run.id,
 						userId: user.id,
 						source: body.source,
+						...(Object.keys(namedArtifactPaths).length > 0 ? { namedArtifactPaths } : {}),
 						...(Object.keys(sourcePayload).length > 0 ? { sourcePayload } : {}),
 					},
 				})
@@ -187,7 +187,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				body: CreateImportRunBody,
 				inputSummary: Record<string, unknown>,
 			) {
-				const sourcePayload = buildSourcePayload(body);
+				const sourcePayload = buildImportSourcePayload(body);
 				const run = yield* create({ userId: user.id, source: body.source, inputSummary });
 
 				if (sourcePayload) {
@@ -232,21 +232,16 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			body: CreateImportRunBody,
 		) {
 			const registered = importSources.find(body.source);
-			// Transitional: sources no plugin manifest declares still read their allowed extensions,
-			// upload-token body fields, and required app config from the hardcoded
-			// `runtime/source-definitions.ts` table. Tasks 09 and 10 move all nineteen sources onto the
-			// registry and delete both that table and these fallback arms.
-			const startError = registered
-				? registryImportSourceStartError(registered, config)
-				: getImportSourceStartError(body.source, makeImporterConfig(config));
+			if (!registered) {
+				return yield* badRequest("Import source is not available");
+			}
+			const startError = registryImportSourceStartError(registered, config);
 			if (startError) {
 				return yield* badRequest(startError);
 			}
 
-			const inputSummary = buildInputSummary(body);
-			const sourceFileInputs = registered
-				? registryImportSourceFileInputs(registered, body)
-				: getImportSourceFileInputs(body);
+			const inputSummary = buildImportInputSummary(body, registered);
+			const sourceFileInputs = registryImportSourceFileInputs(registered, body);
 
 			return sourceFileInputs.length > 0
 				? yield* startFileImportRun(user, body, inputSummary, sourceFileInputs)

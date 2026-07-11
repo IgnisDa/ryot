@@ -10,6 +10,7 @@ import {
 	decodeSandboxScratchManifest,
 	harvestSandboxScratchChunks,
 	measureSandboxScratchBytes,
+	removeSandboxHarvestDirectories,
 	sandboxArtifactGrantPath,
 	sandboxGrantPathError,
 } from "./filesystem-grants";
@@ -183,6 +184,28 @@ describe("sandbox scratch chunk harvest", () => {
 		expect(Option.isNone(decodeSandboxScratchManifest({ groups: 12 }))).toBe(true);
 		expect(Option.isNone(decodeSandboxScratchManifest(null))).toBe(true);
 	});
+
+	it.scoped("removes only harvested directories owned by one execution prefix", () =>
+		withTempRoot((root) =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const harvestRoot = path.join(root, "harvest");
+				const owned = path.join(harvestRoot, "import-1-activity-parse-0");
+				const sibling = path.join(harvestRoot, "import-2-activity-parse-0");
+				yield* fs.makeDirectory(owned, { recursive: true });
+				yield* fs.makeDirectory(sibling, { recursive: true });
+
+				yield* removeSandboxHarvestDirectories({
+					harvestRoot,
+					executionPrefix: "import-1-activity-",
+				});
+
+				expect(yield* fs.exists(owned)).toBe(false);
+				expect(yield* fs.exists(sibling)).toBe(true);
+			}),
+		),
+	);
 });
 
 describe("sandbox scratch cleanup", () => {

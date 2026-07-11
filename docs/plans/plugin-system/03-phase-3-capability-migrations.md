@@ -1,7 +1,7 @@
 # Phase 3 — Capability migrations
 
-Status: in progress. Steps 0-3 are complete; resume with Step 4, whose design is fully settled
-(owner, 2026-07-27) in §4 below and which spans tasks 07-10. Do not recreate the removed
+Status: in progress. Steps 0-4 are complete; resume with Step 5. Step 4's focused imports e2e
+failure is deferred to the Phase 3 gate and recorded in §4. Do not recreate the removed
 multi-entrypoint driver model while implementing later steps.
 
 Goal: move the remaining native domain code into the plugins, one capability at a time. Step 0's
@@ -487,8 +487,9 @@ suites green; spike findings recorded (done — see the spike findings subsectio
 
 ## Step 4 — Integration adapters, import sources, and filesystem grants
 
-Status: not started. Every design question in this step was settled with the project owner on
-2026-07-27; the subsections below are the authoritative record and there is nothing left open.
+Status: complete (owner, 2026-07-28), with the focused imports e2e failure recorded below deferred
+to follow-up before the Phase 3 gate. Every design question in this step was settled with the
+project owner; the subsections below are the authoritative record and there is nothing left open.
 
 This step is larger than the others: it lands one kernel capability slice, then migrates every
 integration adapter and every import source into the two plugins, and ends with
@@ -643,11 +644,20 @@ Task 07 landed the capability slice with no consumers. Five findings bind the la
    must add a script-facing filesystem primitive and the path handoff. Harvested output lands in a
    kernel-owned run-scoped directory and is not garbage-collected — whoever consumes it owns
    deleting it.
-4. **`importSources` cannot express a multi-artifact source.** `input: "file"` plus a flat
-   `allowedFileExtensions` carries exactly one artifact, and the dispatch payload carries one
-   `artifactPath`. `movary` needs three named upload fields and `myanimelist` two optional ones.
-   Task 10 decides: either the section gains a multi-artifact shape, or those sources accept one
-   archive and split it inside the script. Not retrofitted speculatively.
+4. **`importSources` originally could not express a multi-artifact source; Task 10 chose manifest
+   multi-artifact** [DECIDED]. `movary` needs three named upload fields and `myanimelist` two
+   optional ones, so requiring provider-specific archives would move packaging work onto users and
+   diverge from the shipped HTTP request contracts. The approved foundation keeps payload sources
+   unchanged and makes file sources lot-discriminated:
+   `{ input: "file", lot: "single", allowedFileExtensions }` or
+   `{ input: "file", lot: "named", artifacts: [{ key, uploadTokenField,
+   allowedFileExtensions, required }] }`. Each named artifact's stable `key` is both its existing
+   source-payload path identity (`historyFilePath`, `animeFilePath`, etc.) and the key scripts pass
+   to `readNamedArtifact(key)`; `uploadTokenField` names the existing
+   `CreateImportRunBody` token property. The kernel claims and validates each declared upload,
+   forwards only declared keys as scoped Deno read grants, owns cleanup, and retains
+   `readArtifact()` for single-file fitness imports. No blob, failure-recording, progress, or
+   provider-specific host call is added.
 5. **`CreateImportRunBody["source"]` is still a closed literal union in `@ryot/contract`.** The
    dispatch path works for all nineteen existing slugs, but a genuinely new plugin-declared source
    cannot reach `startImportRun` over HTTP until that union opens. No client-facing source-listing
@@ -670,6 +680,27 @@ together in isolation. Integration e2e cases also await every run they create be
 tests do not deliberately leave adapter/import work for other files. The owner subsequently chose
 one awaited cron/boot dispatch path for production and tests; the Step 1 amendment above owns that
 runtime change. Production pool defaults and adapter semantics remain unchanged.
+
+### Task 10 implementation record and deferred e2e follow-up (2026-07-28, owner-approved)
+
+All sixteen media import sources now live in `plugins/media`; the native source adapters, media
+orchestration, hardcoded source-definition table, and kernel title parsing/matching copies are
+deleted. `modules/imports` uses one registry dispatch and retains only the generic run, artifact,
+failure, and write framework. Media adapters resolve subjects in the plugin and send optional
+`subjectEntityId` to the generic kernel writer. The owner marked Task 10 complete while explicitly
+deferring one focused e2e failure; it remains a required follow-up before the Phase 3 gate and is not
+a relaxation of the preserved assertions.
+
+The affected imports file currently reports two symptoms when run as a whole: the Hevy test once
+reached terminal `failed`, although it passes when run alone; the Watcharr test consistently times
+out with the run left `running`. Watcharr reaches `totalItems: 2`, records the expected
+`provider_resolution` failure (`Could not resolve show episode S1E99`), and enters the generic
+kernel writer. Instrumentation showed its `EventCreateWorkflow` child writing the progress event,
+dispatching lifecycle work, and completing library-membership handling, but the generic parent did
+not resume past the awaited child before the 60-second poll timeout. The leading theory is a replay
+or nested-workflow-resumption issue at the generic writer → `EventCreateWorkflow` boundary, possibly
+exposed by the progress event's auto-complete lifecycle child; it is not evidence that the
+unresolvable subject was attached to the parent. Temporary diagnostic logging was removed.
 
 ### Event subject selection: `episodeLocator` becomes `subjectEntityId` [DECIDED]
 

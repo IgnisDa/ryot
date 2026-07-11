@@ -1,5 +1,5 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { readArtifact, writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
+import { readArtifact, readNamedArtifact, writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
 import { afterEach, expect, test } from "vitest";
 
 const filesystemKey = Symbol.for("@ryot/sandbox-sdk/filesystem");
@@ -10,9 +10,11 @@ afterEach(() => {
 
 test("fails closed when filesystem grants are unavailable", async () => {
 	const read = await Effect.runPromise(Effect.flip(readArtifact()));
+	const readNamed = await Effect.runPromise(Effect.flip(readNamedArtifact("historyFilePath")));
 	const write = await Effect.runPromise(Effect.flip(writeScratchChunks([])));
 
 	expect(read.message).toBe("Sandbox artifact grant is unavailable");
+	expect(readNamed.message).toBe("Sandbox artifact grant is unavailable");
 	expect(write.message).toBe("Sandbox scratch grant is unavailable");
 });
 
@@ -20,6 +22,7 @@ test("reads the artifact and writes a batch of named chunks through the runner b
 	const writes: Array<{ readonly name: string; readonly contents: Uint8Array }> = [];
 	Reflect.set(globalThis, filesystemKey, {
 		readArtifact: () => Promise.resolve(new TextEncoder().encode("artifact")),
+		readNamedArtifact: (key: string) => Promise.resolve(new TextEncoder().encode(`named:${key}`)),
 		writeScratchChunks: (
 			chunks: ReadonlyArray<{ readonly name: string; readonly contents: Uint8Array }>,
 		) => {
@@ -29,6 +32,7 @@ test("reads the artifact and writes a batch of named chunks through the runner b
 	});
 
 	const artifact = await Effect.runPromise(readArtifact());
+	const namedArtifact = await Effect.runPromise(readNamedArtifact("historyFilePath"));
 	const manifest = await Effect.runPromise(
 		writeScratchChunks([
 			{ name: "chunk-0.json", contents: "[0]" },
@@ -37,6 +41,7 @@ test("reads the artifact and writes a batch of named chunks through the runner b
 	);
 
 	expect(new TextDecoder().decode(artifact)).toBe("artifact");
+	expect(new TextDecoder().decode(namedArtifact)).toBe("named:historyFilePath");
 	expect(manifest).toEqual({ chunkFiles: ["chunk-0.json", "chunk-1.bin"] });
 	expect(writes.map(({ name }) => name)).toEqual(["chunk-0.json", "chunk-1.bin"]);
 	expect(new TextDecoder().decode(writes[0]?.contents)).toBe("[0]");
