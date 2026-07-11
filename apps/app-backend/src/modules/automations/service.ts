@@ -229,8 +229,8 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 						executionUserId = input.rowUserId;
 						if (executionUserId === null) {
 							const script = yield* repository.findScriptExecution(rule.sandboxScriptId);
-							if (!script?.isBuiltin || script.userId !== null) {
-								return yield* badRequest("System subscriptions require a built-in global script");
+							if (!script) {
+								return yield* badRequest("System subscriptions require a source-zero script");
 							}
 						}
 					}
@@ -292,9 +292,6 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 					const script = yield* repository.findScriptExecution(input.sandboxScriptId);
 					if (!script) {
 						return yield* notFound("Sandbox script not found");
-					}
-					if (run.executionUserId === null && (!script.isBuiltin || script.userId !== null)) {
-						return yield* badRequest("System subscriptions require a built-in global script");
 					}
 					const running = yield* repository.markRunRunning({
 						id: run.id,

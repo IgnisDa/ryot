@@ -17,7 +17,6 @@ import { NotificationsGroup } from "./modules/notifications/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
 import { QueryEngineGroup } from "./modules/query-engine/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
-import { SandboxGroup } from "./modules/sandbox/contract";
 import { SavedViewsGroup } from "./modules/saved-views/contract";
 import { SystemGroup } from "./modules/system/contract";
 import { TestSupportGroup } from "./modules/test-support/contract";
@@ -29,7 +28,6 @@ export const AppContract = HttpApi.make("ryot")
 	.addError(BadRequest, { status: 400 })
 	.add(SystemGroup)
 	.add(AutomationsGroup)
-	.add(SandboxGroup)
 	.add(DefinitionsGroup)
 	.add(RelationshipsGroup)
 	.add(EntitiesGroup)

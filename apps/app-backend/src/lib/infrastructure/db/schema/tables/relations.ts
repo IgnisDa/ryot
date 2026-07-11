@@ -13,9 +13,8 @@ export const pluginStateRelations = relations(pluginState, ({ one }) => ({
 	user: one(user, { references: [user.id], fields: [pluginState.userId] }),
 }));
 
-export const sandboxScriptRelations = relations(sandboxScript, ({ one, many }) => ({
+export const sandboxScriptRelations = relations(sandboxScript, ({ many }) => ({
 	entities: many(entity),
-	user: one(user, { references: [user.id], fields: [sandboxScript.userId] }),
 }));
 
 export const entityRelations = relations(entity, ({ one, many }) => ({

@@ -1,5 +1,5 @@
 {
-	"id": "949c7efb-2f92-40c9-882a-e059ce28e29d",
+	"id": "939f610e-12a4-4e43-8625-3d02a09c1c70",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1957,7 +1957,7 @@
 					"name": "content_hash",
 					"type": "text",
 					"primaryKey": false,
-					"notNull": false
+					"notNull": true
 				},
 				"slug": {
 					"name": "slug",
@@ -2003,12 +2003,6 @@
 					"notNull": true,
 					"default": "now()"
 				},
-				"user_id": {
-					"name": "user_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false
-				},
 				"plugin_slug": {
 					"name": "plugin_slug",
 					"type": "text",
@@ -2030,21 +2024,6 @@
 				}
 			},
 			"indexes": {
-				"sandbox_script_user_id_idx": {
-					"name": "sandbox_script_user_id_idx",
-					"columns": [
-						{
-							"expression": "user_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
-					],
-					"isUnique": false,
-					"concurrently": false,
-					"method": "btree",
-					"with": {}
-				},
 				"sandbox_script_plugin_slug_idx": {
 					"name": "sandbox_script_plugin_slug_idx",
 					"columns": [
@@ -2077,22 +2056,13 @@
 						}
 					],
 					"isUnique": true,
-					"where": "\"sandbox_script\".\"user_id\" is null and \"sandbox_script\".\"plugin_slug\" is null and \"sandbox_script\".\"content_hash\" is not null",
+					"where": "\"sandbox_script\".\"plugin_slug\" is null",
 					"concurrently": false,
 					"method": "btree",
 					"with": {}
 				}
 			},
 			"foreignKeys": {
-				"sandbox_script_user_id_user_id_fk": {
-					"name": "sandbox_script_user_id_user_id_fk",
-					"tableFrom": "sandbox_script",
-					"tableTo": "user",
-					"columnsFrom": ["user_id"],
-					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "no action"
-				},
 				"sandbox_script_plugin_slug_plugin_slug_fk": {
 					"name": "sandbox_script_plugin_slug_plugin_slug_fk",
 					"tableFrom": "sandbox_script",
@@ -2105,11 +2075,6 @@
 			},
 			"compositePrimaryKeys": {},
 			"uniqueConstraints": {
-				"sandbox_script_user_slug_unique": {
-					"name": "sandbox_script_user_slug_unique",
-					"nullsNotDistinct": false,
-					"columns": ["user_id", "slug"]
-				},
 				"sandbox_script_plugin_slug_content_hash_unique": {
 					"name": "sandbox_script_plugin_slug_content_hash_unique",
 					"nullsNotDistinct": false,
@@ -2117,12 +2082,7 @@
 				}
 			},
 			"policies": {},
-			"checkConstraints": {
-				"sandbox_script_plugin_content_hash_check": {
-					"name": "sandbox_script_plugin_content_hash_check",
-					"value": "\"sandbox_script\".\"plugin_slug\" is null or \"sandbox_script\".\"content_hash\" is not null"
-				}
-			},
+			"checkConstraints": {},
 			"isRLSEnabled": false
 		},
 		"public.saved_view": {

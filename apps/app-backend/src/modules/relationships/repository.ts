@@ -4,7 +4,6 @@ import {
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
-	type SandboxScriptId,
 } from "@ryot/contract/schema/brands";
 import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
@@ -302,24 +301,6 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				},
 			);
 
-			const deleteTouchingEntitiesOfSandboxScript = Effect.fn(
-				"RelationshipsRepository.deleteTouchingEntitiesOfSandboxScript",
-			)(function* (sandboxScriptId: SandboxScriptId) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
-					db
-						.delete(schema.relationship)
-						.where(
-							or(
-								sql`${schema.relationship.sourceEntityId} in (select ${schema.entity.id} from ${schema.entity} where ${schema.entity.sandboxScriptId} = ${sandboxScriptId})`,
-								sql`${schema.relationship.targetEntityId} in (select ${schema.entity.id} from ${schema.entity} where ${schema.entity.sandboxScriptId} = ${sandboxScriptId})`,
-							),
-						)
-						.returning({ id: schema.relationship.id }),
-				);
-				return rows.length;
-			});
-
 			return {
 				createRelationship,
 				updateRelationship,
@@ -328,7 +309,6 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				findRelationshipProperties,
 				listEnabledOwnersForSubject,
 				listUserRelationshipsForEntity,
-				deleteTouchingEntitiesOfSandboxScript,
 			};
 		},
 	},

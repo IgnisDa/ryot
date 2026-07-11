@@ -17,23 +17,20 @@ type ScriptModuleSourceInput = SandboxSourceIdentity & {
 };
 
 const scriptModuleSource = (input: ScriptModuleSourceInput) => {
-	const sdkImports = [
-		"defineDriver",
-		"defineManifest",
-		"defineScript",
-		...(input.sdkImports ?? []),
-	];
+	const sdkImports = ["defineDriver", "defineManifest", ...(input.sdkImports ?? [])];
 
 	return `
 import { ${sdkImports.join(", ")} } from "@ryot/sandbox-sdk/core";
+import { defineProvider } from "@ryot/sandbox-sdk/provider";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
-  kind: "script",
+  kind: "provider",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: ${JSON.stringify(input.capabilities)},
   requiredAppConfigKeys: ${JSON.stringify(input.requiredAppConfigKeys ?? [])},
+  providerInformation: { source: "e2e" },
 });
 
 ${input.declarations ?? ""}
@@ -44,7 +41,7 @@ const main = defineDriver(manifest, {
   run: ${input.run},
 });
 
-export default defineScript({ manifest, drivers: { ${input.driverName ?? "main"}: main } });
+export default defineProvider({ manifest, drivers: { ${input.driverName ?? "main"}: main } });
 `;
 };
 
@@ -58,30 +55,6 @@ export function literalSandboxSource(
 		outputSchema: `z.literal(${JSON.stringify(input.value)})`,
 		run: `async () => ${JSON.stringify(input.value)} as const`,
 	});
-}
-
-export function invalidTypeScriptSandboxSource(input: SandboxSourceIdentity) {
-	return scriptModuleSource({
-		...input,
-		capabilities: [],
-		declarations: 'const invalid: number = "not a number";',
-		inputSchema: "z.object({})",
-		outputSchema: "z.number()",
-		run: "async () => invalid",
-	});
-}
-
-export function nonStaticManifestSandboxSource(input: SandboxSourceIdentity) {
-	return literalSandboxSource({ ...input, value: true })
-		.replace("defineScript }", "defineScript, type SandboxManifest }")
-		.replace(
-			"export const manifest = defineManifest",
-			"export const manifest: SandboxManifest = defineManifest",
-		);
-}
-
-export function forbiddenImportSandboxSource(input: SandboxSourceIdentity) {
-	return `import "zod";\n${literalSandboxSource({ ...input, value: true })}`;
 }
 
 export function httpCallSandboxSource(
@@ -159,9 +132,21 @@ export function throwingSandboxSource(input: SandboxSourceIdentity & { readonly 
 	});
 }
 
+export function runtimeManifestMismatchSandboxSource(input: SandboxSourceIdentity) {
+	return scriptModuleSource({
+		...input,
+		capabilities: [],
+		inputSchema: "z.object({})",
+		outputSchema: "z.literal(true)",
+		run: "async () => true as const",
+		declarations: 'Object.assign(manifest, { name: "Runtime-tampered name" });',
+	});
+}
+
 type CacheSandboxSourceInput = SandboxSourceIdentity &
 	(
 		| { readonly key: string; readonly operation: "get" }
+		| { readonly key: string; readonly operation: "byInput"; readonly value: JsonValue }
 		| {
 				readonly key: string;
 				readonly value: JsonValue;
@@ -171,6 +156,22 @@ type CacheSandboxSourceInput = SandboxSourceIdentity &
 	);
 
 export function cacheSandboxSource(input: CacheSandboxSourceInput) {
+	if (input.operation === "byInput") {
+		return scriptModuleSource({
+			...input,
+			capabilities: ["setCachedValue", "getCachedValue"],
+			inputSchema: 'z.object({ operation: z.enum(["get", "set"]) })',
+			outputSchema: "getCachedValueResultSchema",
+			sdkImports: ["getCachedValueResultSchema", "unwrapHostResult"],
+			run: `async (input, host) => {
+    if (input.operation === "set") {
+      unwrapHostResult(await host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), 60));
+    }
+    return host.getCachedValue(${JSON.stringify(input.key)});
+  }`,
+		});
+	}
+
 	if (input.operation === "get") {
 		return scriptModuleSource({
 			...input,
@@ -203,16 +204,6 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
     unwrapHostResult(await host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds}));
     return host.getCachedValue(${JSON.stringify(input.key)});
   }`,
-	});
-}
-
-export function undeclaredHostSandboxSource(input: SandboxSourceIdentity) {
-	return scriptModuleSource({
-		...input,
-		capabilities: [],
-		inputSchema: "z.object({})",
-		outputSchema: "z.unknown()",
-		run: "async (_input, host) => host.executeQueryEngine({})",
 	});
 }
 

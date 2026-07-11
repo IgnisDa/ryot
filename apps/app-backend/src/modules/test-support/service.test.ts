@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Effect, Layer } from "effect";
 
@@ -14,7 +14,7 @@ import { InterestService } from "#modules/entity-interest/service";
 import { TranslationsService } from "#modules/entity-translation/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
-import { SandboxApiService } from "#modules/sandbox/service";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 import { SignalsService } from "#modules/signals/service";
 
 import { TestSupportService } from "./service";
@@ -26,7 +26,7 @@ const mockAuth = Layer.mock(AuthService);
 const mockSignals = Layer.mock(SignalsService);
 const mockEntities = Layer.mock(EntitiesService);
 const mockInterest = Layer.mock(InterestService);
-const mockSandbox = Layer.mock(SandboxApiService);
+const mockSandbox = Layer.mock(SandboxExecutionService);
 const mockAutomations = Layer.mock(AutomationsService);
 const mockTranslations = Layer.mock(TranslationsService);
 const mockRelationships = Layer.mock(RelationshipsService);
@@ -51,7 +51,7 @@ const makeServiceLayer = (
 				mockSignals({ _tag: "SignalsService" }),
 				Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...definitions }),
 				mockEntities({ _tag: "EntitiesService", ...overrides.entities }),
-				mockSandbox({ _tag: "SandboxApiService", ...overrides.sandbox }),
+				mockSandbox({ _tag: "SandboxExecutionService", ...overrides.sandbox }),
 				mockInterest({ _tag: "InterestService" }),
 				mockTranslations({ _tag: "TranslationsService" }),
 				mockRelationships({ _tag: "RelationshipsService" }),
@@ -97,6 +97,32 @@ it.effect("updates populatedAt without changing entity fields", () => {
 			name: entity.name,
 			populatedAt: populatedAtDate,
 			properties: entity.properties,
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("delegates sandbox execution with the explicit executing user", () => {
+	const scriptId = SandboxScriptId.make("script-id");
+	const executingUserId = UserId.make("user-id");
+	let enqueueInput: unknown;
+	const layer = makeServiceLayer({
+		sandbox: {
+			enqueue: (userId, payload) =>
+				Effect.sync(() => {
+					enqueueInput = { userId, payload };
+					return { jobId: "job-id" };
+				}),
+		},
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* TestSupportService;
+		expect(
+			yield* service.enqueueSandbox({ scriptId, executingUserId, driverName: "main" }),
+		).toEqual({ jobId: "job-id" });
+		expect(enqueueInput).toEqual({
+			userId: executingUserId,
+			payload: { scriptId, driverName: "main" },
 		});
 	}).pipe(Effect.provide(layer));
 });

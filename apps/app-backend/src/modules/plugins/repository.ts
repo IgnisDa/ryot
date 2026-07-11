@@ -14,7 +14,7 @@ type PersistedScript = Omit<NormalizedPluginScript, "entry">;
 
 const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArray<ScriptRow>) {
 	const scriptsBySlugAndHash = new Map(
-		scripts.map((script) => [`${script.slug}:${script.contentHash ?? ""}`, script]),
+		scripts.map((script) => [`${script.slug}:${script.contentHash}`, script]),
 	);
 	const currentScripts: Array<NormalizedPluginScript> = [];
 	for (const script of row.manifest.scripts) {
@@ -138,7 +138,6 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 						and(
 							eq(schema.sandboxScript.slug, script.slug),
 							eq(schema.sandboxScript.contentHash, script.contentHash),
-							isNull(schema.sandboxScript.userId),
 							isNull(schema.sandboxScript.pluginSlug),
 						),
 					)
@@ -157,7 +156,6 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 				db
 					.insert(schema.sandboxScript)
 					.values({
-						userId: null,
 						pluginSlug: null,
 						slug: script.slug,
 						name: script.name,
@@ -206,7 +204,6 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 						.insert(schema.sandboxScript)
 						.values(
 							plugin.scripts.map((script) => ({
-								userId: null,
 								pluginSlug: slug,
 								slug: script.slug,
 								name: script.name,

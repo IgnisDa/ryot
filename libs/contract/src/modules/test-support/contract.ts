@@ -13,30 +13,23 @@ import {
 } from "../../schema/brands";
 import { ListedEntity } from "../entities/schemas";
 import { RelationshipScope } from "../relationships/schemas";
-import { SandboxScriptMetadata } from "../sandbox/schemas";
+import { EnqueueResponse, SandboxRunResult } from "../sandbox/schemas";
 import {
 	TestSupportBuiltinEntitySchema,
 	TestSupportEntityTranslation,
 	TestSupportGlobalRelationship,
 	TestSupportSignal,
+	TestSupportEnqueueSandboxBody,
 	TestSupportStoredSandboxScript,
 	TestSupportSubscriptionRun,
 } from "./schemas";
 
 const userIdParam = HttpApiSchema.param("userId", UserId);
 const slugParam = HttpApiSchema.param("slug", Schema.String);
+const jobIdParam = HttpApiSchema.param("jobId", Schema.String);
 const entityIdParam = HttpApiSchema.param("entityId", EntityId);
 const scriptIdParam = HttpApiSchema.param("scriptId", SandboxScriptId);
 const properties = Schema.Record({ key: Schema.String, value: Schema.Unknown });
-
-const PatchSandboxScriptBody = Schema.Struct({
-	slug: Schema.optional(Schema.String),
-	name: Schema.optional(Schema.String),
-	source: Schema.optional(Schema.String),
-	compiledCode: Schema.optional(Schema.String),
-	compiledFormat: Schema.optional(Schema.Number),
-	metadata: Schema.optional(SandboxScriptMetadata),
-});
 
 const CreateGlobalEntityBody = Schema.Struct({
 	properties,
@@ -67,13 +60,27 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		HttpApiEndpoint.get("getSandboxScript")`/test-support/sandbox-scripts/${scriptIdParam}`
 			.addSuccess(TestSupportStoredSandboxScript)
 			.addError(NotFound, { status: 404 })
-			.annotate(OpenApi.Description, "Gets a stored sandbox script by ID"),
+			.annotate(OpenApi.Description, "Gets an installed sandbox script by ID"),
 	)
 	.add(
 		HttpApiEndpoint.get("listSandboxScripts", "/test-support/sandbox-scripts")
-			.setUrlParams(Schema.Struct({ userId: Schema.optional(UserId) }))
+			.setUrlParams(Schema.Struct({}))
 			.addSuccess(Schema.Array(TestSupportStoredSandboxScript))
-			.annotate(OpenApi.Description, "Lists stored sandbox scripts with an optional user filter"),
+			.annotate(OpenApi.Description, "Lists installed sandbox scripts"),
+	)
+	.add(
+		HttpApiEndpoint.post("enqueueSandbox", "/test-support/sandbox/enqueue")
+			.setPayload(TestSupportEnqueueSandboxBody)
+			.addSuccess(EnqueueResponse)
+			.addError(NotFound, { status: 404 })
+			.annotate(OpenApi.Description, "Enqueues an installed sandbox script for a user"),
+	)
+	.add(
+		HttpApiEndpoint.get("getSandboxResult")`/test-support/sandbox/result/${jobIdParam}`
+			.setUrlParams(Schema.Struct({ executingUserId: UserId }))
+			.addSuccess(SandboxRunResult)
+			.addError(NotFound, { status: 404 })
+			.annotate(OpenApi.Description, "Returns an installed sandbox script execution result"),
 	)
 	.add(
 		HttpApiEndpoint.get(
@@ -81,13 +88,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		)`/test-support/users/${userIdParam}/automation-rules/count`
 			.addSuccess(Schema.Struct({ count: Schema.Number }))
 			.annotate(OpenApi.Description, "Counts automation rules for a user"),
-	)
-	.add(
-		HttpApiEndpoint.patch("patchSandboxScript")`/test-support/sandbox-scripts/${scriptIdParam}`
-			.setPayload(PatchSandboxScriptBody)
-			.addSuccess(TestSupportStoredSandboxScript)
-			.addError(NotFound, { status: 404 })
-			.annotate(OpenApi.Description, "Updates fields on a stored sandbox script"),
 	)
 	.add(
 		HttpApiEndpoint.post("createGlobalEntity", "/test-support/entities/global")
