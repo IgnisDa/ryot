@@ -1,7 +1,7 @@
 import type { Schema } from "@ryot/sandbox-sdk/effect";
 
-import type { OperationManifest } from "./core.js";
-import { SANDBOX_SCRIPT_DEFINITION, type GenericScriptDefinition } from "./driver.js";
+import type { OperationManifest } from "./core";
+import { SANDBOX_SCRIPT_DEFINITION, type GenericScriptDefinition } from "./driver";
 
 export const defineOperation = <
 	const Manifest extends OperationManifest,
