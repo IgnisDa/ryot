@@ -5,8 +5,8 @@ Here are the four prompts, parameterized with {N} — swap the phase number and 
 1. PRD (fresh agent, start of phase)
 
 Read docs/plans/plugin-system/00-overview.md fully, then
-docs/plans/plugin-system/02-phase-2-\*.md. Then use the write-a-prd skill to
-produce a PRD for Phase 2 at docs/tasks/plugin-system-phase-2/README.md.
+docs/plans/plugin-system/03-phase-3-\*.md. Then use the write-a-prd skill to
+produce a PRD for Phase 3 at docs/tasks/plugin-system-phase-3/README.md.
 
 The design phase is already complete: the two plan files are the authoritative
 spec. Do not re-interview me, do not redesign, do not contradict [DECIDED]
@@ -18,21 +18,21 @@ conflicts with the plan (e.g. its "no file paths" rule), the plan wins.
 
 2. Issues (same agent, immediately after)
 
-Now use the prd-to-issues skill on docs/tasks/plugin-system-phase-2/README.md.
+Now use the prd-to-issues skill on docs/tasks/plugin-system-phase-3/README.md.
 
 Slicing constraints: prefer honest slices over thin ones — a slice must
 compile and pass gates on its own. Order tasks so registry/infrastructure
 lands before its consumers. Every task file must instruct its implementer to
-first read docs/plans/plugin-system/00-overview.md and the Phase 2 plan
+first read docs/plans/plugin-system/00-overview.md and the Phase 3 plan
 file, and must derive acceptance criteria from the phase file's done criteria
 where they apply.
 
 1. Task implementation (fresh agent per task)
 
 Read, in order: docs/plans/plugin-system/00-overview.md,
-docs/plans/plugin-system/02-phase-2-\*.md,
-docs/tasks/plugin-system-phase-2/README.md, and
-docs/tasks/plugin-system-phase-2/01-\*.md. Then implement that task.
+docs/plans/plugin-system/03-phase-3-\*.md,
+docs/tasks/plugin-system-phase-3/README.md, and
+docs/tasks/plugin-system-phase-3/01-\*.md. Then implement that task.
 
 Rules:
 
