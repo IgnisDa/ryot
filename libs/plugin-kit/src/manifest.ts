@@ -27,6 +27,12 @@ export const PluginEventSchema = strictStruct({
 
 export type PluginEventSchema = Schema.Schema.Type<typeof PluginEventSchema>;
 
+export const PluginEntityUserStatePolicy = strictStruct({
+	deniedOperations: Schema.Array(Schema.Literal("clear", "merge")),
+});
+
+export type PluginEntityUserStatePolicy = Schema.Schema.Type<typeof PluginEntityUserStatePolicy>;
+
 export const PluginEntitySchema = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
@@ -34,6 +40,7 @@ export const PluginEntitySchema = strictStruct({
 	accentColor: Schema.String,
 	propertiesSchema: AppSchema,
 	eventSchemas: Schema.Array(PluginEventSchema),
+	userState: Schema.optional(PluginEntityUserStatePolicy),
 	mergeIdentityProperties: Schema.optional(Schema.Array(Schema.String)),
 });
 

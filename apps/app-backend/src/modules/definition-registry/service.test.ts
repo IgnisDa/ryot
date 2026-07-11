@@ -62,6 +62,16 @@ describe("definition registry", () => {
 		expect(Object.isFrozen(collection.mergeIdentityProperties)).toBe(true);
 	});
 
+	it("preserves declared entity user-state restrictions and permissive defaults", () => {
+		const registry = makeDefinitionRegistry(pluginDefinitionSource());
+
+		expect(registry.getEntitySchema("library")?.userState?.deniedOperations).toEqual([
+			"clear",
+			"merge",
+		]);
+		expect(registry.getEntitySchema("movie")?.userState).toBeUndefined();
+	});
+
 	it("replaces the snapshot only after the next source passes validation", () => {
 		const registry = makeDefinitionRegistry(pluginDefinitionSource());
 		const original = registry.getSnapshot();

@@ -38,6 +38,7 @@ import { EntityImportWorkflowDefinitionsLive } from "#modules/entity-import/enti
 import { EntityImportWorkflowOperationsLive } from "#modules/entity-import/operations-workflow";
 import { EntityPopulationTriggerLive } from "#modules/entity-import/population-trigger-live";
 import { ProviderEntityPopulationWorkflowDefinitionsLive } from "#modules/entity-import/provider-entity-population-workflow";
+import { EntityImportService } from "#modules/entity-import/service";
 import { StreamRegistry } from "#modules/entity-interest/registry";
 import { InterestReconciler, InterestService } from "#modules/entity-interest/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -63,10 +64,6 @@ import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integr
 import { IntegrationReconciliationWorkflowDefinitionsLive } from "#modules/integrations/reconciliation-workflow";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
-import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-membership/library-entity-import-workflow";
-import { EnsureLibraryMembershipWorkerLive } from "#modules/library-membership/membership-worker";
-import { LibraryEntityImportWorkflowOperationsLive } from "#modules/library-membership/operations-workflow";
-import { LibraryImportService } from "#modules/library-membership/service";
 import { NotificationDeliveryService } from "#modules/notifications/delivery";
 import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
 import { NotificationsRepository } from "#modules/notifications/repository";
@@ -272,7 +269,7 @@ const SandboxServicesLive = Layer.mergeAll(
 
 const ContentServicesLive = Layer.mergeAll(
 	AuthDependentServicesLive,
-	LibraryImportService.Default,
+	EntityImportService.Default,
 	EventsServiceLive,
 	SavedViewsServiceLive,
 	DefinitionsServiceLive,
@@ -350,10 +347,8 @@ const RuntimeLive = Layer.mergeAll(
 	ProviderEntityPopulationWorkflowDefinitionsLive,
 	EntityImportWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsLive,
-	LibraryEntityImportWorkflowDefinitionsLive,
 	NotificationDeliveryWorkflowDefinitionsLive,
 	IntegrationReconciliationWorkflowDefinitionsLive,
-	EnsureLibraryMembershipWorkerLive,
 	ImportWorkflowDefinitionsLive,
 	ProcessGenericImportChunksWorkflowDefinitionsLive,
 	Layer.provide(IntegrationWorkflowDefinitionsLive, IntegrationProviderCatalogLive),
@@ -398,7 +393,6 @@ const RuntimeDependenciesLive = Layer.provideMerge(
 		),
 		EntityImportWorkflowOperationsLive,
 		SubscriptionExecutionWorkflowOperationsLive,
-		LibraryEntityImportWorkflowOperationsLive,
 		TranslateEntityWorkflowOperationsLive,
 	),
 	ApplicationInfrastructureLive,

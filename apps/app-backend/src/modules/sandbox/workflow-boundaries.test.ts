@@ -45,7 +45,6 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			eventCreateCore,
 			eventCreateWorkflow,
 			entityImportWorkflow,
-			libraryWorkflow,
 			integrationWorkflow,
 			sandboxScriptWorkflow,
 			subscriptionWorkflow,
@@ -56,7 +55,6 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			readModule("../events/event-creation.ts"),
 			readModule("../events/event-create-workflow-live.ts"),
 			readModules(entityImportWorkflowModules),
-			readModule("../library-membership/library-entity-import-workflow.ts"),
 			readModules(integrationWorkflowModules),
 			readModule("./sandbox-script-workflow.ts"),
 			readModule("../automations/subscription-execution-workflow-live.ts"),
@@ -75,9 +73,6 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		expect(sandboxWorkflow).toContain('Effect.retry(Schedule.spaced("1 second"))');
 		expect(sandboxWorkflow).toContain("...(payload.grants ? { grants: payload.grants } : {})");
 
-		expect(libraryWorkflow).not.toContain("execute(RunSandboxWorkflow");
-		expect(libraryWorkflow).toContain("execute(ProviderEntityPopulationWorkflow");
-
 		for (const source of [entityImportWorkflow, integrationWorkflow]) {
 			expect(source).not.toContain("execute(RunSandboxWorkflow");
 		}
@@ -87,18 +82,14 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 
 it.effect("keeps parent workflows as orchestrations instead of queue pass-through wrappers", () =>
 	Effect.gen(function* () {
-		const [entityImportWorkflow, libraryWorkflow, integrationWorkflow] = yield* Effect.all([
+		const [entityImportWorkflow, integrationWorkflow] = yield* Effect.all([
 			readModules(entityImportWorkflowModules),
-			readModule("../library-membership/library-entity-import-workflow.ts"),
 			readModules(integrationWorkflowModules),
 		]);
 
 		expect(entityImportWorkflow).toContain("validate-entity-details");
 		expect(entityImportWorkflow).toContain("upsert-root-entity");
 		expect(entityImportWorkflow).toContain("stamp-root-populated-at");
-		expect(libraryWorkflow).toContain("ensureLibraryMembership");
-		expect(libraryWorkflow).not.toContain("ensureEntityInLibrary");
-
 		expect(integrationWorkflow).toContain("mark-integration-run-started");
 		expect(integrationWorkflow).toContain("finalize-integration-run");
 		expect(integrationWorkflow).toContain("runIntegrationImport");
@@ -128,10 +119,8 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 	Effect.gen(function* () {
 		const paths = yield* Path.Path;
 		const fs = yield* FileSystem.FileSystem;
-		const [populationWorkflow, libraryWorkflow, membershipWorker, trigger] = yield* Effect.all([
+		const [populationWorkflow, trigger] = yield* Effect.all([
 			readModule("../entity-import/provider-entity-population-workflow.ts"),
-			readModule("../library-membership/library-entity-import-workflow.ts"),
-			readModule("../library-membership/membership-worker.ts"),
 			readModule("../entity-import/population-trigger-live.ts"),
 		]);
 
@@ -142,11 +131,7 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		expect(populationWorkflow).toContain("stamp-root-populated-at");
 		expect(populationWorkflow).toContain("publish-primary-entity");
 
-		for (const source of [trigger, libraryWorkflow]) {
-			expect(source).toContain("ProviderEntityPopulationWorkflow");
-		}
-
-		expect(membershipWorker).toContain("ensureEntityInLibrary");
+		expect(trigger).toContain("ProviderEntityPopulationWorkflow");
 
 		// `runProviderEntityPopulationWorkflow` is exported only for unit tests. No production
 		// module may import it — callers must dispatch ProviderEntityPopulationWorkflow through

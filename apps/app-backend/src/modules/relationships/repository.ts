@@ -227,6 +227,24 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				return row ? toRelationship(row) : null;
 			});
 
+			const deleteUserRelationshipById = Effect.fn(
+				"RelationshipsRepository.deleteUserRelationshipById",
+			)(function* (userId: UserId, relationshipId: RelationshipId) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.delete(schema.relationship)
+						.where(
+							and(
+								eq(schema.relationship.id, relationshipId),
+								eq(schema.relationship.userId, userId),
+							),
+						)
+						.returning({ id: schema.relationship.id }),
+				);
+				return row !== undefined;
+			});
+
 			const listUserRelationshipsForEntity = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForEntity",
 			)(function* (input: { userId: UserId; entityId: EntityId }) {
@@ -306,6 +324,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				updateRelationship,
 				deleteRelationship,
 				listGlobalRelationships,
+				deleteUserRelationshipById,
 				findRelationshipProperties,
 				listEnabledOwnersForSubject,
 				listUserRelationshipsForEntity,

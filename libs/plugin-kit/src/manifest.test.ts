@@ -252,6 +252,34 @@ describe("definePlugin", () => {
 		expect(decoded.entitySchemas[0]?.mergeIdentityProperties).toEqual(["kind"]);
 	});
 
+	it("decodes optional entity user-state restrictions with permissive absence", () => {
+		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+			...manifest,
+			entitySchemas: [
+				{
+					icon: "box",
+					eventSchemas: [],
+					accentColor: "blue",
+					name: "Protected Entity",
+					slug: "protected-entity",
+					propertiesSchema: { fields: {} },
+					userState: { deniedOperations: ["clear", "merge"] },
+				},
+				{
+					icon: "box",
+					name: "Entity",
+					slug: "entity",
+					eventSchemas: [],
+					accentColor: "blue",
+					propertiesSchema: { fields: {} },
+				},
+			],
+		});
+
+		expect(decoded.entitySchemas[0]?.userState?.deniedOperations).toEqual(["clear", "merge"]);
+		expect(decoded.entitySchemas[1]?.userState).toBeUndefined();
+	});
+
 	it("requires signal notification formatter references", () => {
 		const signalSchema = manifest.signalSchemas[0];
 		expect(() =>

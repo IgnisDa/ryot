@@ -1,6 +1,7 @@
 import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import type { AppSchema, PropertyValidationError } from "@ryot/contract/schema/property-schema";
+import type { PluginEntitySchema } from "@ryot/plugin-kit/manifest";
 import { Data, Effect } from "effect";
 
 import {
@@ -21,11 +22,12 @@ export type EntitySchemaDefinition = {
 	readonly icon: string;
 	readonly name: string;
 	readonly slug: string;
-	readonly pluginSlug: string | null;
 	readonly accentColor: string;
+	readonly pluginSlug: string | null;
 	readonly propertiesSchema: AppSchema;
-	readonly eventSchemas: ReadonlyArray<EventSchemaDefinition>;
+	readonly userState?: PluginEntitySchema["userState"];
 	readonly mergeIdentityProperties: ReadonlyArray<string>;
+	readonly eventSchemas: ReadonlyArray<EventSchemaDefinition>;
 };
 
 type EntitySchemaSourceDefinition = Omit<EntitySchemaDefinition, "mergeIdentityProperties"> & {

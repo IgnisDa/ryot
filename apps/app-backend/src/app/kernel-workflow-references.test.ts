@@ -153,7 +153,7 @@ it.effect("binds kernel workflow user ids to the trusted execution authority", (
 	);
 });
 
-it.effect("resolves plugin provider slugs before dispatching library imports", () => {
+it.effect("resolves plugin provider slugs before dispatching entity imports", () => {
 	const payloads: unknown[] = [];
 	const engine = makeWorkflowEngine({
 		execute: (_workflow, options) =>
