@@ -28,7 +28,7 @@ const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: st
 		`${root}/${slug}.zip`,
 		writePluginArchive({
 			manifest,
-			files: { "backend/source.ts": "export const source = true;\n" },
+			files: { "backend/source.ts": new TextEncoder().encode("export const source = true;\n") },
 		}),
 	);
 });

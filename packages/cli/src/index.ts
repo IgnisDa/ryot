@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { pluginClientFileExtension } from "@ryot/contract/modules/plugins/client";
 import { PluginManifest as PluginManifestSchema } from "@ryot/contract/modules/plugins/manifest";
 import { writePluginArchive } from "@ryot/plugin-archive";
 import { Data, Effect, FileSystem, Option, Path, Schema, Stream } from "effect";
@@ -26,7 +27,7 @@ type BuildOptions = {
 
 type PluginManifest = Schema.Schema.Type<typeof PluginManifestSchema>;
 
-type SourceFile = { readonly path: string; readonly contents: string };
+type SourceFile = { readonly path: string; readonly contents: Uint8Array };
 
 const isWithin = (path: Path.Path, root: string, candidate: string) => {
 	const relative = path.relative(root, candidate);
@@ -82,9 +83,10 @@ const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
 		Stream.runCollect,
 	);
 	const clientPaths = yield* Stream.fromAsyncIterable(
-		new Bun.Glob("client/**/*.{ts,tsx,css,svg}").scan({ cwd, onlyFiles: true }),
+		new Bun.Glob("client/**/*").scan({ cwd, onlyFiles: true }),
 		(error) => new BuildError({ message: `Unable to discover client sources: ${String(error)}` }),
 	).pipe(
+		Stream.filter((sourcePath) => pluginClientFileExtension(sourcePath) !== undefined),
 		Stream.filter((sourcePath) => !path.basename(sourcePath).includes(".test.")),
 		Stream.map((sourcePath) => path.normalize(sourcePath)),
 		Stream.runCollect,
@@ -93,7 +95,7 @@ const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
 
 	const sources = yield* Effect.forEach(paths, (sourcePath) =>
 		fs
-			.readFileString(path.join(cwd, sourcePath))
+			.readFile(path.join(cwd, sourcePath))
 			.pipe(Effect.map((contents) => ({ contents, path: sourcePath }))),
 	);
 	return sources.sort((left, right) => left.path.localeCompare(right.path));
@@ -195,21 +197,27 @@ const collectAuthoringInputs = Effect.fn("collectAuthoringInputs")(function* ({
 	cwd,
 	output,
 }: BuildOptions) {
-	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
+	const fs = yield* FileSystem.FileSystem;
 	const sourcePaths = yield* Stream.fromAsyncIterable(
-		new Bun.Glob("**/*.ts").scan({ cwd, onlyFiles: true }),
+		new Bun.Glob("**/*").scan({ cwd, onlyFiles: true }),
 		(error) =>
 			new BuildError({ message: `Unable to discover authoring sources: ${String(error)}` }),
 	).pipe(
 		Stream.map((filePath) => path.normalize(filePath)),
 		Stream.filter((filePath) => isRelevantAuthoringPath(path, cwd, output, filePath)),
+		Stream.filter(
+			(filePath) =>
+				filePath.endsWith(".ts") ||
+				(filePath.startsWith(`client${path.sep}`) &&
+					pluginClientFileExtension(filePath) !== undefined),
+		),
 		Stream.runCollect,
 	);
 	const files = [...new Set([...sourcePaths, "package.json"])].sort();
 	return yield* Effect.forEach(files, (filePath) =>
 		fs
-			.readFileString(path.join(cwd, filePath))
+			.readFile(path.join(cwd, filePath))
 			.pipe(Effect.map((contents) => ({ contents, path: filePath }))),
 	);
 });

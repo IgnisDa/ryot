@@ -14,7 +14,7 @@ import { PluginCatalogHub } from "./catalog-events";
 import { PluginLoader, type PluginRegistryEntry } from "./loader";
 import {
 	compilePluginPackage,
-	pluginSourceHash,
+	normalizePluginSource,
 	structurePluginFailure,
 	validationDiagnostics,
 } from "./pipeline";
@@ -24,7 +24,6 @@ import { ScriptGarbageCollector } from "./script-garbage-collector";
 import { SystemPlugins } from "./system";
 import type { NormalizedPlugin, PluginSource } from "./types";
 import {
-	decodePluginManifest,
 	PluginValidationError,
 	validateIntegrationProviderSettingsSchemas,
 	validateImportSourceInputSchemas,
@@ -144,11 +143,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const ingestSystemPluginUnlocked = Effect.fn(
 				"PluginIngestionService.ingestSystemPluginUnlocked",
 			)(function* (source: PluginSource) {
-				const manifest = yield* decodePluginManifest(source.manifest);
+				const { files, manifest, sourceHash } = yield* normalizePluginSource(source);
 				yield* validatePluginManifestPolicy(manifest, { scope: "system" });
-				const files = source.files;
 				yield* validatePluginSourcePaths(files, manifest.scripts);
-				const sourceHash = pluginSourceHash(manifest, files);
 				const slug = manifest.metadata.slug;
 				const existing = loader.getSnapshot().plugins[slug];
 				const candidate = {
@@ -157,7 +154,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					sourceHash,
 					scripts: [],
 					ownerId: null,
-					sourceFiles: files,
 					scope: "system" as const,
 					clientArtifactHash: null,
 					id: existing?.id ?? `pending:${slug}`,
@@ -225,7 +221,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 									ownerId: null,
 									scope: "system",
 								});
-								const { clientArtifact, ...revision } = normalized;
+								const { clientArtifact, files: _files, ...revision } = normalized;
 								const entry = {
 									...revision,
 									slug,

@@ -49,7 +49,7 @@ export const decodePluginManifest = (input: unknown) =>
 	);
 
 export const validatePluginSourcePaths = (
-	files: Readonly<Record<string, string>>,
+	files: Readonly<Record<string, Uint8Array>>,
 	scripts: PluginManifestValue["scripts"],
 ) =>
 	Effect.gen(function* () {
@@ -92,7 +92,7 @@ export class PluginSlugReservedError extends Data.TaggedError("PluginSlugReserve
 }> {}
 
 export const validatePluginPackageLimits = (
-	files: Readonly<Record<string, string>>,
+	files: Readonly<Record<string, Uint8Array>>,
 	manifest: PluginManifestValue,
 ) =>
 	Effect.gen(function* () {
@@ -104,7 +104,7 @@ export const validatePluginPackageLimits = (
 			return yield* new PluginPackageLimitError({ limit: "script-count" });
 		}
 		const totalBytes = entries.reduce(
-			(total, [path, contents]) => total + utf8ByteLength(path) + utf8ByteLength(contents),
+			(total, [path, contents]) => total + utf8ByteLength(path) + contents.byteLength,
 			0,
 		);
 		if (totalBytes > PLUGIN_PACKAGE_LIMITS.totalBytes) {

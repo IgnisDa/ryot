@@ -1,4 +1,4 @@
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { Effect } from "effect";
 
 import {
@@ -10,8 +10,6 @@ import {
 } from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-type PluginManifest = PluginPackage["manifest"];
 
 const settingsSchema = {
 	unknownKeys: "strict",

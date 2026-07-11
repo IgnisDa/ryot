@@ -3,6 +3,10 @@ import type {
 	PluginClientArtifact,
 	PluginClientArtifactFile,
 } from "@ryot/contract/modules/plugins/client";
+import {
+	isPluginClientTextSource,
+	pluginClientAssetMimeType,
+} from "@ryot/contract/modules/plugins/client";
 import { sortBy } from "@ryot/ts-utils/lodash";
 import { Effect } from "effect";
 
@@ -11,14 +15,15 @@ import {
 	CLIENT_ARTIFACT_SCRIPT_NAME,
 	CLIENT_ARTIFACT_STYLE_NAME,
 	clientArtifactDocument,
-	clientArtifactFile,
 	clientArtifactMetadata,
+	clientAssetArtifactFile,
 	clientAssetName,
+	clientGeneratedArtifactFile,
 } from "./artifact";
 import { bundleClientPlugin } from "./bundle";
 import { resolveClientPluginCompilerDependencies } from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
-import { CLIENT_PLUGIN_COMPILER_LIMITS, utf8ByteLength } from "./limits";
+import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 import { compileClientStyles } from "./styles";
 
 const CLIENT_SOURCE_ROOT = "client/";
@@ -27,7 +32,7 @@ const SCANNED_EXTENSIONS = new Set(["ts", "tsx"]);
 export type ClientPluginCompilerInput = {
 	readonly entry: string;
 	readonly apiVersion: typeof CLIENT_API_VERSION;
-	readonly files: Readonly<Record<string, string>>;
+	readonly files: Readonly<Record<string, Uint8Array>>;
 };
 
 const extensionOf = (path: string) => path.slice(path.lastIndexOf(".") + 1);
@@ -46,9 +51,16 @@ const duplicateFileName = (files: readonly PluginClientArtifactFile[]) => {
 	})?.name;
 };
 
+const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
+	left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
+
 export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput) =>
 	Effect.gen(function* () {
-		if (!entry.startsWith(CLIENT_SOURCE_ROOT) || !Object.hasOwn(files, entry)) {
+		if (
+			(!entry.endsWith(".ts") && !entry.endsWith(".tsx")) ||
+			!entry.startsWith(CLIENT_SOURCE_ROOT) ||
+			!Object.hasOwn(files, entry)
+		) {
 			return yield* failure(
 				entry,
 				"RYOT_CLIENT_ENTRY",
@@ -60,30 +72,44 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 			Object.entries(files).filter(([path]) => path.startsWith(CLIENT_SOURCE_ROOT)),
 			([path]) => path,
 		);
-		const sourceBytes = clientFiles.reduce(
-			(total, [, contents]) => total + utf8ByteLength(contents),
-			0,
-		);
+		const sourceBytes = clientFiles.reduce((total, [, contents]) => total + contents.byteLength, 0);
 		if (sourceBytes > CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes) {
 			return yield* failure(
 				entry,
 				"RYOT_CLIENT_SOURCE_SIZE",
-				`Client plugin source exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes} UTF-8 bytes`,
+				`Client plugin source exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes} bytes`,
 			);
 		}
 
 		const assetSources = clientFiles.filter(
-			([path]) => !SCANNED_EXTENSIONS.has(extensionOf(path)) && !path.endsWith(".css"),
+			([path]) => pluginClientAssetMimeType(path) !== undefined,
 		);
 		const oversizedAsset = assetSources.find(
-			([, contents]) => utf8ByteLength(contents) > CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes,
+			([, contents]) => contents.byteLength > CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes,
 		);
 		if (oversizedAsset) {
 			return yield* failure(
 				oversizedAsset[0],
 				"RYOT_CLIENT_ASSET_SIZE",
-				`Client plugin asset exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes} UTF-8 bytes`,
+				`Client plugin asset exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes} bytes`,
 			);
+		}
+
+		const sourceFiles: Record<string, string> = {};
+		const decoder = new TextDecoder("utf-8", { fatal: true });
+		for (const [path, contents] of clientFiles) {
+			if (!isPluginClientTextSource(path)) {
+				continue;
+			}
+			try {
+				sourceFiles[path] = decoder.decode(contents);
+			} catch {
+				return yield* failure(
+					path,
+					"RYOT_CLIENT_UTF8",
+					`Client text source "${path}" is not valid UTF-8`,
+				);
+			}
 		}
 
 		const assetNames = Object.fromEntries(
@@ -91,7 +117,7 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 		);
 		const dependencies = yield* resolveClientPluginCompilerDependencies;
 		const bundled = yield* bundleClientPlugin(
-			{ entry, files, assetNames },
+			{ entry, assetNames, files: sourceFiles },
 			dependencies.compilerRoot,
 		);
 		if ("diagnostics" in bundled) {
@@ -106,30 +132,47 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 		}
 
 		const stylesheet = bundled.stylesheets[0];
-		const css = yield* compileClientStyles({
+		const styles = yield* compileClientStyles({
 			entry,
+			files,
+			assetNames,
+			sourceFiles,
 			themeStylesheet: dependencies.themeStylesheet,
-			files: Object.fromEntries(clientFiles),
 			tailwindStylesheet: dependencies.tailwindStylesheet,
 			stylesheet:
 				stylesheet === undefined
 					? undefined
-					: { path: stylesheet, content: files[stylesheet] ?? "" },
+					: { path: stylesheet, content: sourceFiles[stylesheet] ?? "" },
 			scanSources: [
 				...clientFiles
 					.filter(([path]) => SCANNED_EXTENSIONS.has(extensionOf(path)))
-					.map(([path, contents]) => ({ content: contents, extension: extensionOf(path) })),
+					.map(([path]) => ({
+						content: sourceFiles[path] ?? "",
+						extension: extensionOf(path),
+					})),
 				...dependencies.uiSdkScanSources,
 			],
 		});
 
 		const assetsByName = new Map<string, PluginClientArtifactFile>();
-		for (const path of bundled.assets) {
-			const file = clientArtifactFile(assetNames[path] ?? path, files[path] ?? "");
+		for (const path of new Set([...bundled.assets, ...styles.assets])) {
+			const contents = files[path];
+			const name = assetNames[path];
+			if (contents === undefined || name === undefined) {
+				return yield* failure(
+					path,
+					"RYOT_CLIENT_ARTIFACT_FILE",
+					`Client plugin asset "${path}" could not be emitted`,
+				);
+			}
+			const file = clientAssetArtifactFile(path, name, contents);
 			const existing = assetsByName.get(file.name);
 			if (existing === undefined) {
 				assetsByName.set(file.name, file);
-			} else if (existing.contents !== file.contents || existing.contentType !== file.contentType) {
+			} else if (
+				!bytesEqual(existing.contents, file.contents) ||
+				existing.contentType !== file.contentType
+			) {
 				return yield* failure(
 					path,
 					"RYOT_CLIENT_ARTIFACT_FILE",
@@ -140,8 +183,8 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 
 		const hashedFiles = sortBy(
 			[
-				clientArtifactFile(CLIENT_ARTIFACT_SCRIPT_NAME, bundled.javascript),
-				clientArtifactFile(CLIENT_ARTIFACT_STYLE_NAME, css),
+				clientGeneratedArtifactFile(CLIENT_ARTIFACT_SCRIPT_NAME, bundled.javascript),
+				clientGeneratedArtifactFile(CLIENT_ARTIFACT_STYLE_NAME, styles.css),
 				...assetsByName.values(),
 			],
 			(file) => file.name,
@@ -151,7 +194,10 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 			...metadata,
 			files: [
 				...hashedFiles,
-				clientArtifactFile(CLIENT_ARTIFACT_DOCUMENT_NAME, clientArtifactDocument(metadata)),
+				clientGeneratedArtifactFile(
+					CLIENT_ARTIFACT_DOCUMENT_NAME,
+					clientArtifactDocument(metadata),
+				),
 			],
 		};
 		const duplicateName = duplicateFileName(artifact.files);
@@ -164,14 +210,14 @@ export const compileClientPlugin = ({ entry, files }: ClientPluginCompilerInput)
 		}
 
 		const artifactBytes = artifact.files.reduce(
-			(total, file) => total + utf8ByteLength(file.contents),
+			(total, file) => total + file.contents.byteLength,
 			0,
 		);
 		if (artifactBytes > CLIENT_PLUGIN_COMPILER_LIMITS.artifactBytes) {
 			return yield* failure(
 				entry,
 				"RYOT_CLIENT_ARTIFACT_SIZE",
-				`Compiled client artifact exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.artifactBytes} UTF-8 bytes`,
+				`Compiled client artifact exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.artifactBytes} bytes`,
 			);
 		}
 

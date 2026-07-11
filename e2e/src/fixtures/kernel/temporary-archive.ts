@@ -1,5 +1,4 @@
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
-import { writePluginArchive } from "@ryot/plugin-archive";
+import { writePluginArchive, type PluginArchivePackage } from "@ryot/plugin-archive";
 import { Effect } from "effect";
 
 import { getApiUrl } from "~/support/api";
@@ -39,7 +38,7 @@ export const uploadTemporaryArchive = (
 
 export const uploadPrivatePluginPackage = (
 	client: Client,
-	pluginPackage: PluginPackage,
+	pluginPackage: PluginArchivePackage,
 	baseUrl?: string,
 ) =>
 	uploadTemporaryArchive(client, writePluginArchive(pluginPackage), {

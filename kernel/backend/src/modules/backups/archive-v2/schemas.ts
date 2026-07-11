@@ -2,6 +2,7 @@ import { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { jsonValueSchema, type JsonValue } from "@ryot/contract/modules/sandbox/wire";
 import { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
+import { CanonicalBase64 } from "@ryot/contract/schema/base64";
 import { strictStruct } from "@ryot/contract/schema/utils";
 import { Result, Schema } from "effect";
 
@@ -20,7 +21,6 @@ const isoTimestamp = Schema.String.pipe(
 	),
 );
 const jsonObject = Schema.Record(Schema.String, jsonValueSchema);
-
 export const decodeV2JsonObject = Schema.decodeUnknownSync(jsonObject);
 
 export const isV2JsonObject = (value: unknown): value is Record<string, JsonValue> =>
@@ -91,7 +91,7 @@ export const V2PrivatePlugin = strictStruct({
 	slug: Schema.String,
 	version: Schema.String,
 	manifest: PluginManifest,
-	files: Schema.Record(Schema.String, Schema.String),
+	files: Schema.Record(Schema.String, CanonicalBase64),
 });
 export type V2PrivatePlugin = typeof V2PrivatePlugin.Type;
 
