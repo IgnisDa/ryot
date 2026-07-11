@@ -414,7 +414,7 @@ The image build invokes `dist/smoke-compiler-workers.js` with the absolute path 
 
 ## 7. Client artifact
 
-The client artifact is an independently loadable web application.
+The client artifact is a complete web application loaded through a private artifact session.
 
 The artifact is a flat set of files with unique single-segment names: `index.html`, `plugin.js`, `plugin.css`, and content-hashed assets named `asset-<sha256>.<ext>`. Identical assets with the same extension share one emitted file. Every artifact contains its own Outfit and Lora `.woff2` files; there is no shared kernel font fallback or public font-asset dependency. `index.html` references the other files with relative URLs (`./plugin.js`, `./plugin.css`, `./asset-<hash>.<ext>`).
 
@@ -422,13 +422,14 @@ The important invariants are:
 
 - the artifact is immutable
 - the artifact is content-addressed
+- artifact storage is multi-file, binary-safe, and append-only
 - the kernel can verify its identity
 - a client-output change produces a new artifact
 - a live plugin document is not mutated underneath a running React tree
 
 The package source revision and client artifact are both fixed for the lifetime of a bridge session. When either identity changes, the kernel force-reloads any mounted iframe for that installation. An old client document must not continue calling a newer backend plugin revision, including when a backend-only update leaves the compiled client artifact unchanged. For every operation, the kernel attaches the session's expected package source hash to the authenticated backend request. The backend compares it with the active revision while holding the plugin-ingestion lock and refuses a mismatch before selecting a script for execution. The stale-revision conflict remains internal to the kernel: it closes the bridge, refreshes the catalog, and replaces the iframe without delivering an ordinary operation outcome to the plugin.
 
-Artifact persistence is append-only. `plugin_client_artifact` stores metadata keyed by artifact hash, and `plugin_client_artifact_file` stores files keyed by `(artifact_hash, name)`. The plugin row stores only the nullable hash of its active client artifact. Installing or updating inserts an artifact before activating its hash and never updates an existing artifact record. Old artifacts remain addressable and are retained indefinitely; garbage collection requires a separate retention policy and is not implemented.
+Artifact persistence is append-only. `plugin_client_artifact` stores metadata keyed by artifact hash, and `plugin_client_artifact_file` stores files keyed by `(artifact_hash, name)`. The plugin row stores only the nullable hash of its active client artifact. Installing or updating inserts an artifact before activating its hash and never updates an existing artifact record. Historical artifacts remain immutable storage records, but hashes alone cannot retrieve them; file access requires a valid current session for the exact installation, source revision, and artifact. Storage retention is separate from retrieval authorization.
 
 `plugin_source_file.contents` and `plugin_client_artifact_file.contents` are PostgreSQL `bytea` values containing the original or emitted raw bytes. JSON worker, backup, and test-support boundaries use strict canonical padded Base64 only as transport encoding; neither database persistence nor the archive has a parallel string representation. Source identity is SHA-256-based over the manifest and per-file content hashes. Artifact identity is SHA-256-based over its metadata and each emitted file's name, content type, and content hash.
 
@@ -437,6 +438,18 @@ Artifact persistence is append-only. `plugin_client_artifact` stores metadata ke
 The artifact hash covers the compiled bundle, stylesheet, and assets, so it cannot exist inside them. The compiler emits `index.html` last, embedding the artifact hash and the exact client markers, including bridge protocol version 1, as JSON in a `<script type="application/json" id="ryot-client-artifact">` element.
 
 `bootstrapClientPlugin` reads that element and refuses to accept a bridge port when it is absent or malformed. Plugin source therefore never declares, derives, or passes its own artifact identity, and the kernel, the compiler, and the running plugin compare the same embedded values.
+
+### Private plugin artifact sessions
+
+Artifact bytes are available only through an authenticated private session. The kernel creates one with `POST /plugins/:pluginSlug/installations/:installationId/client-artifact-sessions`, supplying the expected source and artifact hashes. The server checks the caller's ownership of that exact installation, the plugin slug and installation ID, and the active current source revision, artifact, installation state, and client versions before issuing the session.
+
+The response contains an opaque session ID and a 32-byte random bearer token. Only the token's SHA-256 hash is stored in Redis, with a 15-minute TTL. Authenticated renewal refreshes that lease only while the exact current revision remains valid; authenticated revocation deletes it. A source or artifact revision change therefore invalidates the old session, and the old or historical artifact cannot be fetched with its hash or with a session for another revision.
+
+The token file route is `GET /plugin-artifact-sessions/:token/:fileName`. It hashes the bearer token, loads the Redis session, and performs the exact current installation/source/artifact check again before returning the selected raw bytes. Possession of the token authorizes only that exact artifact and file, not another artifact or any bridge capability. The response uses the file MIME type, `x-content-type-options: nosniff`, `cache-control: no-store`, `referrer-policy: no-referrer`, and wildcard non-credentialed CORS; the wildcard policy is required because the sandboxed iframe has the opaque `null` origin. HTML also carries `content-security-policy: sandbox allow-scripts`.
+
+The token must not be logged, placed in a referrer, or sent across the bridge. Reverse proxies must redact the token-bearing path segment from access logs and tracing and must not cache these responses. This protects artifact delivery, not code confidentiality: an authorized user can inspect the compiled code, and compiled artifacts must not contain secrets.
+
+`PluginHost` creates the session before assigning the token URL to the iframe, renews it before expiry, and revokes it on unmount, crash, reload, or replacement. Route changes reuse the session. A change to the installation, source revision, or artifact closes the bridge, revokes the old session, and creates a new exact session before mounting the replacement. End-to-end, authenticated session creation, exact current-record lookup, hash-only Redis authorization, and exact file lookup are all required before bytes are returned.
 
 ---
 
@@ -804,9 +817,9 @@ The target model is an isolated iframe/document with:
 
 The kernel renders the plugin document in `<iframe sandbox="allow-scripts" referrerPolicy="no-referrer">`. This gives the plugin document an opaque origin: no kernel DOM access, no same-origin storage, and no readable Ryot credentials.
 
-The kernel serves artifact files from a public, unauthenticated, content-addressed route: `GET /api/plugins/artifacts/:artifactHash/:fileName`. The unguessable sha256 path means the sandboxed document never needs credentials to load. An unknown hash or file name returns 404. Every response carries its correct content type, `x-content-type-options: nosniff`, and `cache-control: public, max-age=31536000, immutable`; artifact routes do not emit an ETag. Artifact responses, including compiler-owned font files, use wildcard, non-credentialed CORS because sandboxed documents have the opaque `null` origin, and the server's credentialed API CORS middleware does not overwrite that route policy. `index.html` additionally carries `content-security-policy: sandbox allow-scripts` as defence in depth.
+The kernel does not expose artifact files by hash alone. After authenticated private session creation, the iframe loads `GET /plugin-artifact-sessions/:token/:fileName`; the token identifies the Redis-backed session, and the server checks the exact current installation, source revision, and artifact before serving the file. The token is in the iframe URL only: it is not part of bootstrap metadata or the bridge protocol.
 
-Artifact files are returned as raw byte HTTP responses. The server derives the MIME type for client assets from their canonical lowercase extensions; generated HTML, JavaScript, and CSS use their generated content types. The response policy applies to binary and text files alike: MIME, wildcard non-credentialed CORS, `nosniff`, immutable public caching, and the `index.html` sandbox CSP are server-owned.
+Artifact files are returned as raw byte HTTP responses. The server derives the MIME type for client assets from their canonical lowercase extensions; generated HTML, JavaScript, and CSS use their generated content types. Responses use wildcard non-credentialed CORS for the opaque `null` iframe origin, `cache-control: no-store`, `referrer-policy: no-referrer`, and `x-content-type-options: nosniff`; `index.html` additionally carries `content-security-policy: sandbox allow-scripts`. Reverse proxies must redact the token path segment in logs and traces and must not cache the response.
 
 The invariant is more important than the mechanism:
 

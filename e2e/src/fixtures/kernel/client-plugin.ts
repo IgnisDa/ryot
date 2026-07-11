@@ -1,3 +1,4 @@
+import type { ContractPathParams, ContractPayload } from "@ryot/contract/client";
 import { PluginSlug } from "@ryot/contract/schema/brands";
 import { readPluginArchive } from "@ryot/plugin-archive";
 import { Effect } from "effect";
@@ -21,6 +22,22 @@ const clientEntry = "client/index.tsx";
 const decoder = new TextDecoder("utf-8", { fatal: true });
 
 type FixtureClientPluginRevision = keyof typeof FIXTURE_CLIENT_REVISION_MARKERS;
+type CreateArtifactSessionPayload = ContractPayload<"plugins", "createArtifactSession">;
+type RenewArtifactSessionParams = ContractPathParams<"plugins", "renewArtifactSession">;
+type CreateArtifactSessionParams = ContractPathParams<"plugins", "createArtifactSession">;
+type RevokeArtifactSessionParams = ContractPathParams<"plugins", "revokeArtifactSession">;
+
+export const createClientArtifactSession = (
+	client: Client,
+	params: CreateArtifactSessionParams,
+	payload: CreateArtifactSessionPayload,
+) => client.call((contract) => contract.plugins.createArtifactSession({ params, payload }));
+
+export const renewClientArtifactSession = (client: Client, params: RenewArtifactSessionParams) =>
+	client.call((contract) => contract.plugins.renewArtifactSession({ params }));
+
+export const revokeClientArtifactSession = (client: Client, params: RevokeArtifactSessionParams) =>
+	client.call((contract) => contract.plugins.revokeArtifactSession({ params }));
 
 export const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision, variant = "") =>
 	Effect.gen(function* () {

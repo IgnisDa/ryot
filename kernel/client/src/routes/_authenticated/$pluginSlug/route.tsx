@@ -1,6 +1,8 @@
 import { createFileRoute, useLocation, useNavigate } from "@tanstack/react-router";
 import { Effect } from "effect";
+import { useCallback } from "react";
 
+import { ArtifactSessions, ArtifactSessionStaleError } from "#/modules/plugins/artifact-sessions";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginHost } from "#/modules/plugins/plugin-host";
@@ -15,23 +17,83 @@ export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 });
 
 function PluginDestination() {
-	const navigate = useNavigate();
 	const { pluginSlug } = Route.useParams();
-	const { pathname, searchStr } = useLocation();
-	const { runtime, scope, server, theme } = Route.useRouteContext();
 	const { catalog, refetch } = usePluginCatalog();
 	const target = resolveRouteTarget(catalog, pluginSlug);
 	if (target.owner === "kernel") {
 		return <PluginNotFound />;
 	}
-	const installation = target.installation;
+	return <PluginInstallation installation={target.installation} refetch={refetch} />;
+}
+
+function PluginInstallation(props: {
+	readonly refetch: () => void;
+	readonly installation: Parameters<typeof PluginHost>[0]["installation"];
+}) {
+	const navigate = useNavigate();
+	const { pluginSlug } = Route.useParams();
+	const { pathname, searchStr } = useLocation();
+	const { runtime, scope, theme } = Route.useRouteContext();
+	const { installation, refetch } = props;
+	const { serverUrl, userId } = scope;
+	const onCreateArtifactSession = useCallback(
+		(
+			request: {
+				readonly sourceHash: string;
+				readonly artifactHash: string;
+				readonly installationId: string;
+			},
+			signal: AbortSignal,
+		) =>
+			runtime.runPromise(
+				Effect.flatMap(ArtifactSessions, (service) =>
+					service
+						.create({
+							scope: { serverUrl, userId },
+							pluginSlug: installation.slug,
+							sourceHash: request.sourceHash,
+							installationId: request.installationId,
+							clientArtifactHash: request.artifactHash,
+						})
+						.pipe(
+							Effect.tapError((error) =>
+								error instanceof ArtifactSessionStaleError ? Effect.sync(refetch) : Effect.void,
+							),
+						),
+				),
+				{ signal },
+			),
+		[installation.slug, refetch, runtime, serverUrl, userId],
+	);
+	const onRenewArtifactSession = useCallback(
+		(sessionId: string, signal: AbortSignal) =>
+			runtime.runPromise(
+				Effect.flatMap(ArtifactSessions, (service) =>
+					service.renew({ scope: { serverUrl, userId }, sessionId }),
+				),
+				{ signal },
+			),
+		[runtime, serverUrl, userId],
+	);
+	const onRevokeArtifactSession = useCallback(
+		(sessionId: string) =>
+			runtime.runPromise(
+				Effect.flatMap(ArtifactSessions, (service) =>
+					service.revoke({ scope: { serverUrl, userId }, sessionId }),
+				),
+			),
+		[runtime, serverUrl, userId],
+	);
 
 	return (
 		<PluginHost
 			theme={theme}
-			server={server}
 			onStaleSession={refetch}
 			installation={installation}
+			onRenewArtifactSession={onRenewArtifactSession}
+			onCreateArtifactSession={onCreateArtifactSession}
+			onRevokeArtifactSession={onRevokeArtifactSession}
+			artifactSessionScopeKey={`${serverUrl}\0${userId}`}
 			location={toPluginLocation(pluginSlug, pathname, searchStr)}
 			onNavigate={(request) => {
 				void navigate({ href: request.href, replace: request.replace });

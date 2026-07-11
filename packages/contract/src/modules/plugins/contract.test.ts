@@ -1,4 +1,4 @@
-import { Result } from "effect";
+import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { UserId } from "../../schema/brands";
@@ -8,17 +8,27 @@ import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 	PluginCatalogEventStream,
-	PluginArtifactsGroup,
+	PluginArtifactSessionsGroup,
 	PluginsGroup,
 } from "./contract";
+import {
+	CreatePluginClientArtifactSessionBody,
+	CreatePluginClientArtifactSessionResponse,
+	RenewPluginClientArtifactSessionResponse,
+} from "./schemas";
 
-describe("PluginArtifactsGroup", () => {
-	it("defines the public artifact endpoint", () => {
-		const endpoint = PluginArtifactsGroup.endpoints.artifact;
+describe("PluginArtifactSessionsGroup", () => {
+	it("defines the unauthenticated raw artifact endpoint", () => {
+		const endpoint = PluginArtifactSessionsGroup.endpoints.file;
 
 		expect(endpoint.method).toBe("GET");
-		expect(endpoint.path).toBe("/plugins/artifacts/:artifactHash/:fileName");
+		expect(endpoint.path).toBe("/plugin-artifact-sessions/:token/:fileName");
 		expect(endpoint.middlewares.size).toBe(0);
+		expect(endpoint.success.size).toBe(1);
+	});
+
+	it("does not expose the old public artifact path", () => {
+		expect(PluginArtifactSessionsGroup.endpoints.file.path).not.toContain("/plugins/artifacts/");
 	});
 });
 
@@ -52,6 +62,42 @@ describe("PluginsGroup", () => {
 			'{"userId":"user-1","event":"catalog-invalidated"}',
 		]) {
 			expect(Result.isFailure(decodePluginCatalogInvalidatedMessage(message))).toBe(true);
+		}
+	});
+
+	it("defines authenticated artifact session management endpoints", () => {
+		const renew = PluginsGroup.endpoints.renewArtifactSession;
+		const create = PluginsGroup.endpoints.createArtifactSession;
+		const remove = PluginsGroup.endpoints.revokeArtifactSession;
+
+		expect(create.method).toBe("POST");
+		expect(create.path).toBe(
+			"/plugins/:pluginSlug/installations/:installationId/client-artifact-sessions",
+		);
+		expect(renew.method).toBe("POST");
+		expect(renew.path).toBe("/plugins/client-artifact-sessions/:sessionId/renew");
+		expect(remove.method).toBe("DELETE");
+		expect(remove.path).toBe("/plugins/client-artifact-sessions/:sessionId");
+		for (const endpoint of [create, renew, remove]) {
+			expect(endpoint.middlewares.size).toBeGreaterThan(0);
+		}
+	});
+
+	it("uses strict artifact session request and response schemas", () => {
+		const strictFixtures = [
+			[
+				CreatePluginClientArtifactSessionBody,
+				{ sourceHash: "source", artifactHash: "artifact", extra: true },
+			],
+			[
+				CreatePluginClientArtifactSessionResponse,
+				{ sessionId: "session", token: "token", expiresAt: "expires", extra: true },
+			],
+			[RenewPluginClientArtifactSessionResponse, { expiresAt: "expires", extra: true }],
+		] as const;
+
+		for (const [schema, fixture] of strictFixtures) {
+			expect(() => Schema.decodeUnknownSync(schema)(fixture)).toThrow();
 		}
 	});
 });

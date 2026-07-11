@@ -9,6 +9,9 @@ import getPort from "get-port";
 import {
 	adminHeaders,
 	createAuthenticatedClient,
+	createClientArtifactSession,
+	encodePluginSourceFiles,
+	encodeTestSupportPluginFiles,
 	executeRyotQLRecipe,
 	fixtureClientPluginPackage,
 	FIXTURE_CLIENT_PLUGIN_SLUG,
@@ -52,14 +55,27 @@ const fixtureCatalogEntry = (client: Parameters<typeof executeRyotQLRecipe>[0]) 
 		);
 	});
 
-const fetchArtifactBytes = (artifactHash: string) =>
+const fetchArtifactBytes = (token: string) =>
 	Effect.gen(function* () {
 		const response = yield* Effect.promise(() =>
-			fetch(`${apiUrl()}/plugins/artifacts/${artifactHash}/plugin.js`),
+			fetch(`${apiUrl()}/plugin-artifact-sessions/${encodeURIComponent(token)}/plugin.js`),
 		);
 		expect(response.status).toBe(200);
 		return new Uint8Array(yield* Effect.promise(() => response.arrayBuffer()));
 	});
+
+const createSession = (
+	client: Parameters<typeof executeRyotQLRecipe>[0],
+	entry: Effect.Success<ReturnType<typeof fixtureCatalogEntry>>,
+) =>
+	createClientArtifactSession(
+		client,
+		{ pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG, installationId: entry.installationId },
+		{
+			sourceHash: entry.sourceHash,
+			artifactHash: requirePresent(entry.clientArtifactHash, "Client plugin has no artifact"),
+		},
+	);
 
 beforeAll(async () => {
 	try {
@@ -132,7 +148,8 @@ describe("plugin catalog events", () => {
 				before.clientArtifactHash,
 				"Fixture client plugin revision A has no artifact",
 			);
-			const bytesA = yield* fetchArtifactBytes(artifactA);
+			const sessionA = yield* createSession(owner.client, before);
+			const bytesA = yield* fetchArtifactBytes(sessionA.token);
 			expect(new TextDecoder().decode(bytesA)).toContain(FIXTURE_CLIENT_REVISION_MARKERS.A);
 
 			const revisionB = yield* updateFixtureClientPlugin(owner.client, "B", variant, apiUrl());
@@ -146,10 +163,16 @@ describe("plugin catalog events", () => {
 			expect(after.sourceHash).toBe(revisionB.sourceHash);
 			expect(after.sourceHash).not.toBe(before.sourceHash);
 			expect(artifactB).not.toBe(artifactA);
-			expect(new TextDecoder().decode(yield* fetchArtifactBytes(artifactB))).toContain(
+			const sessionB = yield* createSession(owner.client, after);
+			expect(new TextDecoder().decode(yield* fetchArtifactBytes(sessionB.token))).toContain(
 				FIXTURE_CLIENT_REVISION_MARKERS.B,
 			);
-			expect(yield* fetchArtifactBytes(artifactA)).toEqual(bytesA);
+			const staleA = yield* Effect.promise(() =>
+				fetch(
+					`${apiUrl()}/plugin-artifact-sessions/${encodeURIComponent(sessionA.token)}/plugin.js`,
+				),
+			);
+			expect(staleA.status).toBe(404);
 
 			yield* ownerEvents.drainQueuedEvents();
 			const failure = yield* Effect.flip(
@@ -159,6 +182,9 @@ describe("plugin catalog events", () => {
 			expect(failure.reason.code).toBe("compilation-failed");
 			yield* ownerEvents.assertNoInvalidation();
 			expect(yield* fixtureCatalogEntry(owner.client)).toEqual(after);
+			expect(new TextDecoder().decode(yield* fetchArtifactBytes(sessionB.token))).toContain(
+				FIXTURE_CLIENT_REVISION_MARKERS.B,
+			);
 
 			yield* ownerEvents.close();
 			const missed = yield* updateFixtureClientPlugin(
@@ -191,7 +217,13 @@ describe("plugin catalog events", () => {
 			});
 			const files = { [entry]: literalSandboxSource({ name, slug: scriptSlug, value: true }) };
 			yield* adminSession().call(
-				(client) => client.testSupport.installSystemPlugin({ payload: { files, manifest } }),
+				(client) =>
+					client.testSupport.installSystemPlugin({
+						payload: {
+							manifest,
+							files: encodeTestSupportPluginFiles(encodePluginSourceFiles(files)),
+						},
+					}),
 				adminHeaders,
 			);
 			yield* reconnected.drainQueuedEvents();

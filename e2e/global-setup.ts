@@ -19,6 +19,7 @@ import {
 declare module "vitest" {
 	export interface ProvidedContext {
 		apiUrl: string;
+		apiLogFile: string;
 		frontendUrl: string;
 	}
 }
@@ -58,29 +59,27 @@ export default async function ({ provide }: TestProject) {
 	let apiProcess: ChildProcess | undefined;
 	let frontendProcess: ChildProcess | undefined;
 	try {
-		apiProcess = spawnApiProcess(
-			buildApiEnv({
-				frontendUrl,
-				label: "API",
-				port: apiPort,
-				s3BucketName: S3_BUCKET_NAME,
-				dbUrl: coreInfrastructure.dbUrl,
-				redisUrl: coreInfrastructure.redisUrl,
-				s3Endpoint: coreInfrastructure.s3Endpoint,
-				extraEnv: {
-					SERVER_SMTP_USER: "",
-					SERVER_SMTP_SERVER: "",
-					SERVER_SMTP_PASSWORD: "",
-					SERVER_OIDC_CLIENT_ID: "",
-					SERVER_OIDC_ISSUER_URL: "",
-					SERVER_OIDC_CLIENT_SECRET: "",
-					SERVER_CORS_ORIGINS: frontendUrl,
-					SERVER_DISABLE_NOTIFICATIONS: "false",
-					SERVER_SMTP_MAILBOX: "Ryot <no-reply@ryot.io>",
-				},
-			}),
-			serverCwd,
-		);
+		const apiEnv = buildApiEnv({
+			frontendUrl,
+			label: "API",
+			port: apiPort,
+			s3BucketName: S3_BUCKET_NAME,
+			dbUrl: coreInfrastructure.dbUrl,
+			redisUrl: coreInfrastructure.redisUrl,
+			s3Endpoint: coreInfrastructure.s3Endpoint,
+			extraEnv: {
+				SERVER_SMTP_USER: "",
+				SERVER_SMTP_SERVER: "",
+				SERVER_SMTP_PASSWORD: "",
+				SERVER_OIDC_CLIENT_ID: "",
+				SERVER_OIDC_ISSUER_URL: "",
+				SERVER_OIDC_CLIENT_SECRET: "",
+				SERVER_CORS_ORIGINS: frontendUrl,
+				SERVER_DISABLE_NOTIFICATIONS: "false",
+				SERVER_SMTP_MAILBOX: "Ryot <no-reply@ryot.io>",
+			},
+		});
+		apiProcess = spawnApiProcess(apiEnv, serverCwd);
 
 		const healthCheckUrl = `http://127.0.0.1:${apiPort}/api/system/health`;
 		await waitForHealthCheck(healthCheckUrl, "E2E Setup");
@@ -89,6 +88,7 @@ export default async function ({ provide }: TestProject) {
 		await waitForHealthCheck(frontendUrl, "E2E Frontend");
 
 		provide("apiUrl", `http://127.0.0.1:${apiPort}/api`);
+		provide("apiLogFile", String(apiEnv.SERVER_LOG_FILE));
 		provide("frontendUrl", frontendUrl);
 	} catch (error) {
 		await stopFrontendProcess(frontendProcess);
