@@ -49,12 +49,11 @@ const makeRelationshipsRepository = (
 ) =>
 	mockRelationshipsRepository({
 		...overrides,
-		_tag: "RelationshipsRepository",
 	});
 
 const makeServiceLayer = (
 	overrides: Parameters<typeof makeRelationshipsRepository>[0] = {},
-	runInTransaction: TransactionRunner["Type"] = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	runInTransaction: TransactionRunner["Service"] = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		Effect.provideService(effect, CurrentDb, Object.create(null)),
 	getEntityScopeForUser: GetEntityScopeForUser = ({ entityId }) =>
 		Effect.succeed({
@@ -66,17 +65,15 @@ const makeServiceLayer = (
 		}),
 ) =>
 	Layer.provideMerge(
-		RelationshipsService.Default,
+		RelationshipsService.layer,
 		Layer.mergeAll(
 			dbRunnerLayer,
 			makeRelationshipsRepository(overrides),
 			Layer.mock(EntitiesRepository)({
-				_tag: "EntitiesRepository",
 				getEntityScopeForUser,
 			}),
 			Layer.succeed(TransactionRunner, runInTransaction),
 			Layer.succeed(DefinitionRegistry, {
-				_tag: "DefinitionRegistry",
 				...makeDefinitionRegistry(),
 				getRelationshipSchema: () => ({
 					name: "Relationship",
@@ -139,7 +136,7 @@ it.effect("returns bad request when create properties violate the relationship s
 		);
 		expect(Exit.isFailure(exit)).toBe(true);
 		if (Exit.isFailure(exit)) {
-			const failure = Cause.failureOption(exit.cause);
+			const failure = Cause.findErrorOption(exit.cause);
 			expect(failure._tag).toBe("Some");
 			if (failure._tag === "Some") {
 				expect(failure.value).toBeInstanceOf(BadRequest);
