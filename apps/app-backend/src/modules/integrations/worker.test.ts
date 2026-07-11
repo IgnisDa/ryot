@@ -20,7 +20,6 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 		getRunById: () => Effect.succeed(null),
 		listRecentStatusesByIntegrationId: () => Effect.succeed([]),
 		...overrides,
-		_tag: "ImportsRepository",
 	});
 
 const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegrationsService> = {}) =>
@@ -28,7 +27,6 @@ const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegration
 		update: () => Effect.succeed(makeIntegration()),
 		disableIfEnabled: () => Effect.succeed(false),
 		...overrides,
-		_tag: "IntegrationsService",
 	});
 
 const makeWorkerLayer = (input: {
