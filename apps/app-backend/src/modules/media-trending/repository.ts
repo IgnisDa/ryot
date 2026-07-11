@@ -4,7 +4,7 @@ import { Effect } from "effect";
 
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
-import type { TrendingProviderTarget } from "./schemas";
+import { TRENDING_DRIVER_NAME, type TrendingProviderTarget } from "./schemas";
 
 export class MediaTrendingRepository extends Effect.Service<MediaTrendingRepository>()(
 	"MediaTrendingRepository",
@@ -15,13 +15,15 @@ export class MediaTrendingRepository extends Effect.Service<MediaTrendingReposit
 				function* () {
 					const rows = yield* pluginRuntime.listSchemaScripts(builtinMediaEntitySchemaSlugs);
 
-					return rows.map(
-						({ entitySchemaSlug, script }): TrendingProviderTarget => ({
-							scriptSlug: script.slug,
-							scriptId: SandboxScriptId.make(script.id),
-							entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
-						}),
-					);
+					return rows
+						.filter(({ script }) => script.metadata.driverNames?.includes(TRENDING_DRIVER_NAME))
+						.map(
+							({ entitySchemaSlug, script }): TrendingProviderTarget => ({
+								scriptSlug: script.slug,
+								scriptId: SandboxScriptId.make(script.id),
+								entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
+							}),
+						);
 				},
 			);
 

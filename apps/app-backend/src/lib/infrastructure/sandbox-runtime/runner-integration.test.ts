@@ -485,7 +485,9 @@ export default defineScript({ manifest, drivers: { main } });
 
 const encodeRunnerRequest = Schema.encodeSync(Schema.parseJson(Schema.Unknown));
 const decodeRunnerResponse = Schema.decodeUnknownSync(Schema.parseJson(Schema.Unknown));
-type RunnerCompiledModule = Omit<CompiledSandboxModule, "format"> & { readonly format: number };
+type RunnerCompiledModule = Omit<CompiledSandboxModule, "format" | "driverNames"> & {
+	readonly format: number;
+};
 
 type RunnerOptions = {
 	readonly apiBase?: string;
