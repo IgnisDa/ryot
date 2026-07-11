@@ -2,6 +2,7 @@ import { assert, expect, it } from "@effect/vitest";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
 	EntityId,
+	EntitySchemaSlug,
 	RelationshipSchemaSlug,
 	SignalId,
 	SignalSchemaSlug,
@@ -72,7 +73,7 @@ const subjectScope = {
 	entityUserId: null,
 	entityName: "The Matrix",
 	entityId: subjectEntityId,
-	entitySchemaSlug: "movie",
+	entitySchemaSlug: EntitySchemaSlug.make("movie"),
 	propertiesSchema: { fields: {} },
 };
 

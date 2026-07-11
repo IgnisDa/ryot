@@ -148,7 +148,7 @@ const run = (input: {
 								isBuiltin: false,
 								entityUserId: userId,
 								entityId: requestedId,
-								entitySchemaSlug: "book",
+								entitySchemaSlug: EntitySchemaSlug.make("book"),
 								propertiesSchema: { fields: {} },
 								entityName: requestedId === entityId ? "Dune" : "Reading session",
 							},

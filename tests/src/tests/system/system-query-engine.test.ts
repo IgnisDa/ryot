@@ -1,4 +1,4 @@
-import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -36,7 +36,7 @@ import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test
 const suffix = crypto.randomUUID();
 const pluginSlug = `e2e-system-query-${suffix}`;
 const rootSlug = `e2e-system-query-root-${suffix}`;
-const linkSlug = `e2e-system-query-link-${suffix}`;
+const linkSlug = RelationshipSchemaSlug.make(`e2e-system-query-link-${suffix}`);
 const targetSlug = `e2e-system-query-target-${suffix}`;
 const markerSlug = `e2e-system-query-marker-${suffix}`;
 const ownEventSlug = `e2e-system-query-event-${suffix}`;
