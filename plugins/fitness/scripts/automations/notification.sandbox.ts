@@ -1,12 +1,12 @@
-import { defineAutomation, type AutomationSignalSnapshot } from "@ryot/sandbox-sdk/automation";
+import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 import { defineManifest, type JsonValue } from "@ryot/sandbox-sdk/core";
 
 export const manifest = defineManifest({
 	kind: "automation",
 	requiredAppConfigKeys: [],
-	name: "Signal Notification",
-	slug: "automation.notification",
 	capabilities: ["sendNotification"],
+	name: "Fitness Signal Notification",
+	slug: "automation.fitness-notification",
 });
 
 const stringProperty = (properties: Readonly<Record<string, JsonValue>>, key: string) => {
@@ -17,19 +17,18 @@ const stringProperty = (properties: Readonly<Record<string, JsonValue>>, key: st
 	return value;
 };
 
-const formatMessage = (signal: AutomationSignalSnapshot) => {
-	if (signal.signalSchemaSlug === "integration.disabled") {
-		return `Integration ${stringProperty(signal.properties, "providerName")} has been disabled due to too many errors`;
-	}
-	throw new Error(`Unsupported signal schema: ${signal.signalSchemaSlug}`);
-};
-
 export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
 		if (automation.source.kind !== "signal") {
 			throw new Error("Signal notification requires a signal source");
 		}
-		return host.sendNotification(formatMessage(automation.source.signal));
+		const signal = automation.source.signal;
+		if (signal.signalSchemaSlug !== "workout.created") {
+			throw new Error(`Unsupported signal schema: ${signal.signalSchemaSlug}`);
+		}
+		return host.sendNotification(
+			`Workout ${stringProperty(signal.properties, "workoutName")} was created`,
+		);
 	},
 });

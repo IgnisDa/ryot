@@ -6,6 +6,7 @@ import { Effect, Runtime } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { kernelScripts } from "#modules/definition-registry/kernel-source";
 
 import { bootConfiguredPluginSlugs } from "./boot-sources";
 import { PluginLoader } from "./loader";
@@ -18,6 +19,7 @@ import {
 	PluginValidationError,
 	validatePluginManifestReferences,
 	validatePluginSourcePaths,
+	validateSignalSchemaFormatterReferences,
 } from "./validation";
 
 const digest = (value: string) => new Bun.CryptoHasher("sha256").update(value).digest("hex");
@@ -47,11 +49,31 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 			const repository = yield* PluginRepository;
 			const runTransaction = yield* TransactionRunner;
 			const mutationLock = yield* Effect.makeSemaphore(1);
+			const validateSnapshot = Effect.fn("PluginIngestionService.validateSnapshot")(function* (
+				snapshot: ReturnType<PluginLoader["getSnapshot"]>,
+			) {
+				const plugins = Object.values(snapshot.plugins);
+				yield* validateSignalSchemaFormatterReferences(
+					snapshot.definitions,
+					plugins.flatMap(({ manifest }) => manifest.scripts),
+					kernelScripts,
+				);
+				yield* Effect.forEach(
+					plugins,
+					({ manifest }) => validatePluginManifestReferences(manifest, snapshot.definitions),
+					{ discard: true },
+				);
+			});
 
 			const rebuildUnlocked = Effect.fn("PluginIngestionService.rebuildUnlocked")(function* () {
 				const plugins = yield* runWithDb(repository.list());
-				loader.rebuild(plugins);
-				return loader.getSnapshot();
+				const snapshot = yield* Effect.try({
+					try: () => loader.previewAll(plugins),
+					catch: (error) => new PluginValidationError({ issues: [String(error)] }),
+				});
+				yield* validateSnapshot(snapshot);
+				loader.replace(snapshot);
+				return snapshot;
 			});
 			const rebuild = Effect.fn("PluginIngestionService.rebuild")(() =>
 				mutationLock.withPermits(1)(Effect.uninterruptible(rebuildUnlocked())),
@@ -68,7 +90,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 						try: () => loader.preview(candidate),
 						catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 					});
-					yield* validatePluginManifestReferences(manifest, prospectiveSnapshot.definitions);
+					yield* validateSnapshot(prospectiveSnapshot);
 
 					const cached = yield* runWithDb(
 						repository.findBySourceHash({ slug: manifest.metadata.slug, sourceHash }),
@@ -134,7 +156,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 									try: () => loader.previewAll(nextInstalled),
 									catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 								});
-								yield* validatePluginManifestReferences(manifest, snapshot.definitions);
+								yield* validateSnapshot(snapshot);
 								yield* repository.persist(normalized);
 								return snapshot;
 							}),
@@ -204,13 +226,10 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 										`Plugin '${slug}' cannot be uninstalled while active plugin schemas reference its definitions: ${String(error)}`,
 									),
 							});
-							const validationResults = yield* Effect.forEach(remaining, (candidate) =>
-								validatePluginManifestReferences(candidate.manifest, snapshot.definitions).pipe(
-									Effect.as(null),
-									Effect.catchTag("PluginValidationError", (error) => Effect.succeed(error)),
-								),
+							const dangling = yield* validateSnapshot(snapshot).pipe(
+								Effect.as(null),
+								Effect.catchTag("PluginValidationError", (error) => Effect.succeed(error)),
 							);
-							const dangling = validationResults.find((validation) => validation !== null);
 							if (dangling) {
 								return yield* conflict(
 									`Plugin '${slug}' cannot be uninstalled while active plugin bindings reference its definitions: ${validationMessage(dangling)}`,

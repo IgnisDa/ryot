@@ -38,7 +38,6 @@ export type StoredNotificationSubscription = {
 	createdAt: string;
 	updatedAt: string;
 	isActive: boolean;
-	scriptSlug: string;
 	id: AutomationRuleId;
 	signalSchemaSlug: SignalSchemaSlug;
 	metadata: AutomationRuleMetadataValue | null;
@@ -46,7 +45,7 @@ export type StoredNotificationSubscription = {
 
 export type InsertNotificationSubscriptionInput = Pick<
 	StoredNotificationSubscription,
-	"isActive" | "metadata" | "scriptSlug" | "signalSchemaSlug" | "userId"
+	"isActive" | "metadata" | "signalSchemaSlug" | "userId"
 >;
 
 export type InsertSubscriptionRunInput = {
@@ -86,7 +85,6 @@ const toStoredNotificationSubscription = Effect.fn(function* (
 	return {
 		metadata,
 		isActive: row.isActive,
-		scriptSlug: row.scriptSlug,
 		userId: UserId.make(row.userId),
 		id: AutomationRuleId.make(row.id),
 		createdAt: row.createdAt.toISOString(),

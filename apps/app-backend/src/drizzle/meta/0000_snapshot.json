@@ -1,5 +1,5 @@
 {
-	"id": "7b8a7960-3607-4092-b55e-b43ceaeae18f",
+	"id": "949c7efb-2f92-40c9-882a-e059ce28e29d",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1514,17 +1514,17 @@
 			"name": "notification_subscription_state",
 			"schema": "",
 			"columns": {
-				"script_slug": {
-					"name": "script_slug",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"signal_schema_slug": {
 					"name": "signal_schema_slug",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
+				},
+				"metadata": {
+					"name": "metadata",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": false
 				},
 				"is_active": {
 					"name": "is_active",
@@ -1532,12 +1532,6 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": true
-				},
-				"metadata": {
-					"name": "metadata",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": false
 				},
 				"created_at": {
 					"name": "created_at",
@@ -1582,8 +1576,8 @@
 					"method": "btree",
 					"with": {}
 				},
-				"notification_subscription_state_user_signal_script_unique": {
-					"name": "notification_subscription_state_user_signal_script_unique",
+				"notification_subscription_state_user_signal_unique": {
+					"name": "notification_subscription_state_user_signal_unique",
 					"columns": [
 						{
 							"expression": "user_id",
@@ -1593,12 +1587,6 @@
 						},
 						{
 							"expression": "signal_schema_slug",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						},
-						{
-							"expression": "script_slug",
 							"isExpression": false,
 							"asc": true,
 							"nulls": "last"
@@ -2468,6 +2456,12 @@
 					"primaryKey": true,
 					"notNull": true
 				},
+				"signal_schema_slug": {
+					"name": "signal_schema_slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"origin": {
 					"name": "origin",
 					"type": "jsonb",
@@ -2498,12 +2492,6 @@
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
-				},
-				"signal_schema_slug": {
-					"name": "signal_schema_slug",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
 				},
 				"subject_entity_id": {
 					"name": "subject_entity_id",

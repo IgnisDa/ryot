@@ -7,7 +7,16 @@ import { definePlugin, PluginManifest } from "./manifest";
 const manifest = definePlugin({
 	savedViews: [],
 	entitySchemas: [],
-	signalSchemas: [],
+	signalSchemas: [
+		{
+			name: "Test signal",
+			slug: "test.signal",
+			catalogState: "active",
+			propertiesSchema: { fields: {} },
+			audiencePolicy: { kind: "actor" },
+			notificationScriptSlug: "automation.test",
+		},
+	],
 	relationshipSchemas: [],
 	metadata: {
 		icon: "box",
@@ -63,6 +72,16 @@ describe("definePlugin", () => {
 
 	it("decodes the manifest with the canonical Effect schema", () => {
 		expect(Schema.decodeUnknownSync(PluginManifest)(manifest)).toEqual(manifest);
+	});
+
+	it("requires signal notification formatter references", () => {
+		const signalSchema = manifest.signalSchemas[0];
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				signalSchemas: [{ ...signalSchema, notificationScriptSlug: undefined }],
+			}),
+		).toThrow();
 	});
 
 	it("rejects sections and script kinds outside the v1 contract", () => {

@@ -1,14 +1,10 @@
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
-import type { JsonValue } from "@ryot/sandbox-sdk/core";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import definition, { manifest } from "./notification.sandbox";
 
-const input = (
-	signalSchemaSlug: string,
-	properties: Record<string, JsonValue>,
-): AutomationInput => ({
+const input: AutomationInput = {
 	automation: {
 		ruleId: "rule-1",
 		operation: "signal",
@@ -18,27 +14,21 @@ const input = (
 		source: {
 			kind: "signal",
 			signal: {
-				properties,
 				id: "signal-1",
-				signalSchemaSlug,
 				origin: { kind: "api" },
+				signalSchemaSlug: "workout.created",
 				occurredAt: "2026-07-20T10:00:00.000Z",
+				properties: { workoutName: "Morning Run" },
 			},
 		},
 	},
-});
+};
 
-it.each([
-	[
-		"integration.disabled",
-		{ providerName: "komga" },
-		"Integration komga has been disabled due to too many errors",
-	],
-] as const)("formats %s exclusively from the signal snapshot", (slug, properties, expected) => {
+it("formats workout.created exclusively from the signal snapshot", () => {
 	const messages: string[] = [];
 	return runSandboxTestDriver(
 		definition.drivers.automation,
-		input(slug, properties),
+		input,
 		defineSandboxTestHost(manifest, {
 			sendNotification: (message) => {
 				messages.push(message);
@@ -48,7 +38,7 @@ it.each([
 		{ metadata: {}, sandboxScriptId: "script-1" },
 	).then((result) => {
 		expect(result).toEqual({ data: null, success: true });
-		expect(messages).toEqual([expected]);
+		expect(messages).toEqual(["Workout Morning Run was created"]);
 		return undefined;
 	});
 });

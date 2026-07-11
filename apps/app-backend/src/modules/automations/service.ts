@@ -115,11 +115,13 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 		)(function* (state: StoredNotificationSubscription) {
 			const definition = definitions.getSignalSchema(state.signalSchemaSlug);
 			if (!definition) {
-				return yield* new DbError({ message: "Notification subscription signal schema not found" });
+				return null;
 			}
-			const script = yield* pluginRuntime.findKernelScript(state.scriptSlug);
+			const activeScript = yield* pluginRuntime.findActiveScript(definition.notificationScriptSlug);
+			const script =
+				activeScript ?? (yield* pluginRuntime.findKernelScript(definition.notificationScriptSlug));
 			if (!script) {
-				return yield* new DbError({ message: "Notification subscription script not found" });
+				return null;
 			}
 			return {
 				id: state.id,
@@ -155,7 +157,9 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 								})
 							: [];
 					const rules = yield* Effect.all(states.map(resolveNotificationSubscription));
-					return [...bindings, ...rules].filter((rule) => matchesRowOwner(rule, input.rowUserId));
+					return [...bindings, ...rules.filter((rule) => rule !== null)].filter((rule) =>
+						matchesRowOwner(rule, input.rowUserId),
+					);
 				}),
 			);
 		});

@@ -4,6 +4,8 @@
 
 Owns the media plugin's schemas, relationships, saved views, providers, automations, and bindings.
 The lifecycle semantics below are authoritative for this package.
+Media signal definitions select the package's `automation.media-notification` formatter; notification
+message vocabulary must remain with the signal owner rather than the kernel.
 
 ---
 

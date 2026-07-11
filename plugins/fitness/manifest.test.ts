@@ -12,6 +12,6 @@ it("declares the complete fitness-owned source", () => {
 		"workout-template",
 		"measurement",
 	]);
-	expect(fitnessPlugin.scripts).toHaveLength(2);
+	expect(fitnessPlugin.scripts).toHaveLength(3);
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
 });
