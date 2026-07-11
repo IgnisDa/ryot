@@ -58,6 +58,24 @@ or other script before enqueueing execution.
   provider must be renamed rather than retained as aliases.
 - Plugin schema bindings link entity schemas to providers.
 - Plugin provider declarations explicitly map supported standard operations to script slugs.
+- Provider declarations use a nested operation map with this shape:
+
+  ```ts
+  {
+    slug,
+    name,
+    information,
+    operations: {
+      details,
+      search?,
+      resolve?,
+      translate?,
+    },
+  }
+  ```
+
+- Provider-associated scripts declare `providerSlug`; standard provider entrypoints also declare
+  `providerOperation`.
 - A provider details script is required. Search, resolve, and translate are optional because the
   current catalog contains providers that do not support all operations.
 - Provider identity remains stable when plugin source is reingested and executable content hashes
@@ -80,6 +98,20 @@ or other script before enqueueing execution.
 - Sandbox authorization is independent of executable naming.
 - Replace the current name-based cron/boot authorization check with a server-created execution
   authority discriminated as user, system, or subscription execution.
+- Execution authority uses this strict discriminated union:
+
+  ```ts
+  | { type: "user"; userId: UserId }
+  | { type: "system" }
+  | {
+      type: "subscription";
+      userId: UserId;
+      subscriptionRun: SubscriptionRunContext;
+    }
+  ```
+
+- Durable execution payloads store this authority union rather than separate authority-related
+  optional fields.
 - Public enqueueing derives user authority from authentication and cannot select another authority.
 - Scheduler boot and cron paths create system authority.
 - Automation workflows create subscription authority.
