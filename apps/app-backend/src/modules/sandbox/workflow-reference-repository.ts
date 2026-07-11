@@ -4,7 +4,7 @@ import { Effect, Schema } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 type WorkflowReferenceRow = typeof schema.sandboxWorkflowReference.$inferSelect;
 
@@ -94,15 +94,6 @@ export class SandboxWorkflowReferenceRepository extends Effect.Service<SandboxWo
 				});
 			});
 
-			const register = Effect.fn("SandboxWorkflowReferenceRepository.register")(function* (
-				input: Parameters<typeof registerInTransaction>[0],
-			) {
-				const runInTransaction = yield* TransactionRunner;
-				return yield* runInTransaction(
-					lockIngestionShared().pipe(Effect.zipRight(registerInTransaction(input))),
-				);
-			});
-
 			const release = Effect.fn("SandboxWorkflowReferenceRepository.release")(function* (
 				executionId: string,
 			) {
@@ -143,7 +134,6 @@ export class SandboxWorkflowReferenceRepository extends Effect.Service<SandboxWo
 
 			return {
 				release,
-				register,
 				hasReferences,
 				listReferences,
 				lockIngestionShared,
