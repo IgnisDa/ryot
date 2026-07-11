@@ -296,9 +296,6 @@ export const createTransformExpression = (
 	expression: QueryExpression,
 ) => ({ type: "transform", name, expression }) as const;
 
-export const createComputedFieldExpression = (key: string) =>
-	({ type: "reference", reference: { key, type: "computed-field" } }) as const;
-
 export const createConcatExpression = (values: ReadonlyArray<QueryExpression>) =>
 	({ values, type: "concat" }) as const;
 

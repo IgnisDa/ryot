@@ -72,7 +72,9 @@ it.effect(
 			Effect.gen(function* () {
 				const exit = yield* Effect.exit(decodePluginManifest(candidate));
 				expect(Exit.isFailure(exit)).toBe(true);
-				expect(String(exit)).toContain("Expected valid plugin provider and script references");
+				expect(String(exit)).toContain(
+					"Expected valid plugin config, provider, and script references",
+				);
 			}),
 		);
 	},

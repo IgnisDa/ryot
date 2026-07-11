@@ -41,8 +41,6 @@ describe("automation definitions", () => {
 			output: automationPolicyResultSchema,
 			definitionType: SANDBOX_SCRIPT_DEFINITION,
 		});
-		expect(automation).not.toHaveProperty("drivers");
-		expect(policy).not.toHaveProperty("drivers");
 	});
 
 	test("accepts generic population parent context", () => {

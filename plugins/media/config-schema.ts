@@ -3,7 +3,7 @@ import type { AppNumberPropertyValidation } from "@ryot/contract/schema/property
 
 const nonNegativeValidation: AppNumberPropertyValidation = { minimum: 0 };
 
-export const mediaConfigDefinition = definePluginConfig("media", {
+const mediaConfigDefinition = definePluginConfig("media", {
 	tvdbApiKey: stringField({
 		secret: true,
 		label: "TVDB API key",

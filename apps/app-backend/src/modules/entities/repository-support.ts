@@ -33,10 +33,6 @@ export type EntityScope = {
 	readonly entityUserId: UserId | null;
 };
 
-export type EntityMergeScope = EntityScope & {
-	readonly properties: Record<string, unknown>;
-};
-
 export type EntitySchemaProviderDetailsScope = {
 	readonly providerId: SandboxProviderId;
 	readonly detailsScriptId: SandboxScriptId;
