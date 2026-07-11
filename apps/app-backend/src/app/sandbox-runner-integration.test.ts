@@ -4,7 +4,7 @@ import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugin
 import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
 import { Effect, Layer, Schema, Stream, FileSystem, Path } from "effect";
 import { HttpEffect, HttpServer } from "effect/unstable/http";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess } from "effect/unstable/process";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import { materializeSandboxCompiledModule } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
@@ -14,7 +14,6 @@ import {
 	type SandboxRuntimePaths,
 } from "#lib/infrastructure/sandbox-runtime/dependencies";
 import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
-import { makeSandboxCommandExecutor } from "#lib/infrastructure/sandbox-runtime/restricted-command-executor";
 import { sandboxRunnerSource } from "#lib/infrastructure/sandbox-runtime/runner.generated";
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
 import { bootPluginSources } from "#modules/plugins/boot-sources";
@@ -570,11 +569,6 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 						})}\n`,
 				)
 				.join("");
-			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-			const sandboxExecutor = makeSandboxCommandExecutor(spawner, {
-				DENO_DIR: runtime.cacheDirectory,
-				PATH: Bun.env["PATH"] ?? "/usr/bin:/bin",
-			});
 			const command = ChildProcess.make(
 				"deno",
 				[
@@ -607,13 +601,16 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 					stdin: Stream.succeed(new TextEncoder().encode(request)),
 					stdout: "pipe",
 					stderr: "pipe",
+					extendEnv: false,
+					env: {
+						DENO_DIR: runtime.cacheDirectory,
+						PATH: Bun.env["PATH"] ?? "/usr/bin:/bin",
+					},
 				},
 			);
-			const denoProcess = yield* sandboxExecutor
-				.spawn(command)
-				.pipe(
-					Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
-				);
+			const denoProcess = yield* command.pipe(
+				Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+			);
 			yield* Effect.addFinalizer(() =>
 				denoProcess.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore),
 			);
