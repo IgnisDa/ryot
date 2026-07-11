@@ -11,6 +11,7 @@ export const fitnessPlugin = definePlugin({
 	crons: [],
 	operations: [],
 	userBootstrap: [],
+	httpRateLimits: [],
 	scripts: fitnessScripts,
 	configSchema: fitnessConfigSchema,
 	integrationProviders: [],

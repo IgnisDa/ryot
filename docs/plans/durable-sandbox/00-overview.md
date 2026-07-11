@@ -1,8 +1,8 @@
 # Durable Sandbox Execution - Overview
 
-Status: in-progress. Design decisions were confirmed with the project owner on 2026-08-05. Nothing is
-deployed and the project has no real users, so this is a greenfield breaking rewrite: do not add
-compatibility paths for the current standard sandbox execution model.
+Status: Phase 1 and Phase 2 complete. Design decisions were confirmed with the project owner
+on 2026-08-05. Nothing is deployed and the project has no real users, so this is a greenfield breaking
+rewrite: do not add compatibility paths for the removed standard sandbox execution model.
 
 Read this file completely before opening a phase file. The phase files are:
 
@@ -178,28 +178,22 @@ All items in this section are **[DECIDED]**.
 
 ## Current Baseline
 
+- Every provider, automation, operation, generic script, and named workflow executes through
+  `SandboxScriptWorkflow` with one universal 30-second local replay profile.
+- Mutable host calls are typed durable requests. Workflow persistence is authoritative, while Redis
+  holds reconstructible replay projection and Phase 2 admission coordination state.
 - Sandbox Deno processes can reach only the loopback bridge. Sandbox-originated external HTTP is
-  centralized in `httpCall`; backend-owned notification delivery is outside this plan's limiter.
-- Standard definitions have a 10-second execution profile and direct business host capabilities.
-  Workflow definitions have a 30-second profile, cannot call `httpCall`, and receive only
-  `durableCalls`.
-- Standard executions reach the sandbox through several paths: some use `SandboxSubmissionWorkflow`,
-  feature workflows use `processSandboxExecution`, and some plugin/bootstrap paths call the sandbox
-  execution service directly. The script interior and individual host calls are not durable in any
-  of those paths.
-- `SandboxScriptWorkflow` replays explicit `activity`, `sleep`, and `child` requests, projects
-  completed values to Redis, validates request order/arguments, and limits a workflow to 1,000
-  durable steps.
-- `httpCall` performs one immediate request with an eight-second timeout, a one-MiB request limit,
-  a ten-MiB response limit, and no retry or rate admission.
-- The runner already installs workflow determinism guards around module import and execution.
-  Authored workflow code cannot use ambient time/randomness, but approved dependencies such as
-  Youtubei expose hidden uses that Phase 1 must support deterministically.
-- Root workflow scripts are content-hash pinned. Activity and child targets resolve when first
-  observed and their exact script IDs are memoized by durable workflow activities.
-- Artifact reads and scratch writes currently bypass the bridge through scoped Deno permissions.
-  Scratch output is harvested into workflow-scoped handles with fixed TTLs that are not sufficient
-  as correctness lifetimes for arbitrary suspension.
+  centralized in durable `httpCall`; backend-owned notification delivery remains outside this plan's
+  limiter.
+- Root scripts are content-hash pinned, nested targets resolve live on first observation, and no
+  sandbox process or bridge session remains alive across durable work or sleep.
+- Authored code is guarded against ambient nondeterminism. Approved dependencies receive replay-stable
+  time/randomness, including the SDK-owned Youtubei transport through durable `httpCall`.
+- Immutable input artifacts and generated workflow-scoped handles remain retained for the active
+  workflow lifetime rather than relying on a fixed TTL for correctness.
+- Phase 2 wraps the sole durable HTTP path with authoritative PostgreSQL origin classification and
+  Redis global admission. Unmatched calls retain one-attempt behavior; generic automatic recovery is
+  limited to policy-matched HTTP `429`.
 
 ## Target Data Flow
 

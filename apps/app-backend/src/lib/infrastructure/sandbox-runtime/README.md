@@ -49,14 +49,64 @@ while a request is dispatched.
 - The durable host dispatcher preserves backend ownership: idempotent services run as activities,
   workflow-owning services compose as deterministic children, and artifact publication returns opaque
   workflow-scoped handles.
-- `httpCall` executes immediately as a bounded durable activity in Phase 1. External mutations are
-  explicitly at-least-once across the crash window before result persistence and receive no automatic
-  business retry.
+- `httpCall` uses the global provider admission flow below and executes each bounded network attempt
+  as a durable activity. External mutations are explicitly at-least-once across the crash window
+  before result persistence.
 - Logs, spans, and console diagnostics are replay-tagged operational data, not journal entries.
 - Immutable input artifacts are pinned for the active workflow lifetime. Generated chunk handles remain
   resolvable until terminal completion or cancellation cleanup; TTLs are leak cleanup only.
 
 Compilation is implemented by the `@ryot/sandbox-compiler` workspace. Compiler concurrency, time, process-tree memory, and source-size limits apply during ingestion.
+
+## Global HTTP Admission
+
+Installed plugin `httpRateLimits` declarations apply across every user, workflow, script, and backend
+instance in one deployment. Requests match only by normalized HTTP(S) origin. Identical canonical
+declarations from multiple plugins coexist; any different declaration sharing a key or origin rejects
+the prospective plugin state atomically. Policies are live rather than workflow-pinned, so a committed
+install, update, or uninstall affects the next reservation in an already-running workflow.
+
+PostgreSQL active plugin manifests are the authority for policy classification and canonical hashes.
+Redis stores only operational admission state for each policy key: declaration hash (`h`), next
+eligible time (`n`), and blocked-until time (`b`). A Redis Lua `EVAL` obtains Redis server time with
+`TIME` and atomically reserves, confirms, or advances a block. Idle state expires after
+`max(10 * intervalMs, 60 seconds)`, extended beyond an active blocked-until time. Redis loss can forget
+schedule state, but it does not change PostgreSQL policy authority; matched calls fail closed and
+durably retry unavailable coordination, while proven-unmatched calls continue.
+
+The exact durable sequence for each `httpCall` is:
+
+1. Resolve the request URL against authoritative active manifests in a short PostgreSQL activity.
+2. If the origin is unmatched, run one bounded durable network activity without Redis admission.
+3. If matched, atomically reserve the next Redis GCRA slot using the declaration key and hash.
+4. If the slot is future-dated, durably sleep without retaining a sandbox process, bridge session,
+   activity worker, network attempt, or database transaction.
+5. After waking, re-resolve PostgreSQL policy. Discard the old reservation if the declaration changed
+   or became unmatched; otherwise atomically confirm it against the hash and current blocked time.
+   A later block causes another durable sleep and confirmation without consuming another slot.
+6. Run one bounded network attempt activity with a deterministic parent-call/attempt identity.
+7. Return success or any non-`429` failure as the durable call result. Unmatched failures receive no
+   automatic retry.
+8. For a policy-matched HTTP `429`, parse generic `Retry-After` as delta seconds or an HTTP date. Use
+   the full policy interval when it is missing or invalid, atomically advance the global Redis block,
+   durably sleep, re-resolve policy, and retry with a new deterministic attempt identity until success
+   or cancellation.
+
+Coordination failures use deterministic one-second exponential durable backoff capped at 30 seconds
+and a new activity identity per attempt. Admission is evenly spaced and conservative: abandoned slots
+are not reclaimed, configurable bursts are unsupported, and there is no tenant fairness, priority, or
+reserved-capacity guarantee. Provider-specific quota headers are not interpreted.
+
+First-party declarations are exactly AniList at 90 requests per minute for
+`https://graphql.anilist.co` and MusicBrainz at one request per second for
+`https://musicbrainz.org`. Cover Art Archive and every other origin are unmatched. MusicBrainz may
+return HTTP `503`; it is a normal non-`429` failure and receives no automatic retry. Generic automatic
+recovery applies only to policy-matched HTTP `429` responses.
+
+HTTP observability logs contain only the sandbox workflow execution ID, policy key, normalized
+origin, stage, attempt, duration/wait, and status. They separately report authoritative policy
+resolution, Redis reservation, and durable network-attempt duration for benchmark correlation; URLs,
+query strings, headers, bodies, credentials, and user IDs are excluded.
 
 Scripts declare an exact manifest `capabilities` tuple. The SDK exposes only those methods on the definition's `host` parameter. Completed results include `timing` as `{ totalMs, executionMs }`.
 
