@@ -95,10 +95,15 @@ These were settled in design discussion with the project owner. All are **[DECID
     dependencies, not as host functions. This extends the existing pattern
     (`--allow-net=127.0.0.1:<bridgePort>` in
     `apps/app-backend/src/lib/infrastructure/sandbox-runtime/runtime.ts`).
-11. **Effect is available inside the sandbox** as a runtime-provided (vendored) approved
-    dependency with a single pinned version matching the host — never bundled per script.
-    Workflow scripts get a restricted SDK entry point that does not expose nondeterminism
-    footguns (ambient Clock/Random).
+11. **The sandbox authoring and typed bridge APIs are Effect-only.** Effect is available inside
+    the sandbox as a runtime-provided (vendored) approved dependency with a single pinned version
+    matching the host — never bundled per script. Script drivers return `Effect` values, every
+    script-facing host function returns an `Effect` with a typed error, and backend host-function
+    implementations plus typed bridge dispatch use Effect directly. There is no parallel raw
+    Promise authoring or host-function API. Promise-based platform operations such as `fetch`
+    remain private implementation details wrapped at the transport boundary. Workflow scripts
+    get a restricted SDK entry point that does not expose nondeterminism footguns (ambient
+    Clock/Random).
 12. **Source-canonical ingestion.** Plugins ship as source. The server compiles at ingestion
     using the existing compiler (`libs/sandbox-compiler`, `Bun.build`-based, already used at
     runtime by `apps/app-backend/src/modules/sandbox/compiler.ts`), stores content-addressed

@@ -10,7 +10,7 @@
 
 Before starting, read `docs/plans/plugin-system/00-overview.md` in full and then
 `docs/plans/plugin-system/03-phase-3-capability-migrations.md` in full. Do not begin until Step
-3b (task 05) is done. This slice implements plan §4 end-to-end: kernel capability first, then the
+3b (task 06) is done. This slice implements plan §4 end-to-end: kernel capability first, then the
 adapter scripts that consume it, then delete the native provider-specific code and re-point the
 suites.
 
@@ -27,7 +27,7 @@ Kernel capability (lands before consumers):
   existing flag assembly in `runtime.ts` (`makeSpawnDenoProcess`). Since pooled processes are
   pre-warmed before the execution is known, grant-carrying executions run on a dedicated
   (non-pooled) process (`[RECOMMENDED]` — measure before optimizing).
-- Add `fflate` as an approved sandbox dependency (via the Step 0 vendoring mechanism) so zip
+- Add `fflate` as an approved sandbox dependency (via the Step 0a vendoring mechanism) so zip
   parsing happens inside the sandbox, not as a host function.
 
 Migration: move `integrations/sinks/*` normalization + yank connectors + import-source adapters
