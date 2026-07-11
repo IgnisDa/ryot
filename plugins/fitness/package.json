@@ -6,6 +6,10 @@
 			"types": "./manifest.ts",
 			"default": "./manifest.ts"
 		},
+		"./import-sources": {
+			"types": "./import-sources.ts",
+			"default": "./import-sources.ts"
+		},
 		"./schemas/property-schemas": {
 			"types": "./schemas/property-schemas.ts",
 			"default": "./schemas/property-schemas.ts"
