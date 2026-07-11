@@ -12,8 +12,11 @@ import {
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
+import {
+	SandboxPluginScriptResolver,
+	type SandboxPluginScriptResolverValue,
+} from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 import { SandboxScriptWorkflow } from "./sandbox-script-workflow";
 import { SandboxExecutionService } from "./service";
@@ -33,12 +36,12 @@ const mockRepository = Layer.mock(SandboxRepository);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ _tag: "SandboxRepository", ...overrides });
 const makePluginRuntime = (
-	findActiveScriptById: PluginRuntimeResolver["findActiveScriptById"] = () => Effect.succeed(null),
-	findActiveWorkflowScript: PluginRuntimeResolver["findActiveWorkflowScript"] = () =>
+	findActiveScriptById: SandboxPluginScriptResolverValue["findActiveScriptById"] = () =>
+		Effect.succeed(null),
+	findActiveWorkflowScript: SandboxPluginScriptResolverValue["findActiveWorkflowScript"] = () =>
 		Effect.succeed(null),
 ) =>
-	Layer.mock(PluginRuntimeResolver)({
-		_tag: "PluginRuntimeResolver",
+	Layer.mock(SandboxPluginScriptResolver)({
 		findActiveScriptById,
 		findActiveWorkflowScript,
 	});

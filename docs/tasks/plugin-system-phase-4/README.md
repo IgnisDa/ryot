@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 16 of 18 tasks completed
+**Overall Progress:** 17 of 18 tasks completed
 
-**Current Task:** [Task 17](./17-final-docs-phase-gate.md) (todo)
+**Current Task:** [Task 18](./18-codebase-cleanup.md) (todo)
 
 ### Task List
 
@@ -26,7 +26,7 @@
 | 14  | [Superseded Script and Module GC](./14-superseded-script-module-gc.md)                        | done   |
 | 15  | [Complete Third-Party Plugin Lifecycle E2E](./15-third-party-plugin-lifecycle-e2e.md)         | done   |
 | 16  | [Ownership-Based E2E Test Tree](./16-ownership-based-e2e-test-tree.md)                        | done   |
-| 17  | [Final Architecture Documentation and Phase Gate](./17-final-docs-phase-gate.md)              | todo   |
+| 17  | [Final Architecture Documentation and Phase Gate](./17-final-docs-phase-gate.md)              | done   |
 | 18  | [Codebase Cleanup](./18-codebase-cleanup.md)                                                  | todo   |
 
 ## Problem Statement
@@ -154,11 +154,11 @@ temporary scaffolding and directly affected migration residue without broad unre
 - Build banned vocabulary from media and fitness manifests: plugin metadata, entity/relationship/event/signal/saved-view slugs, providers and provider sources, scripts, bindings, operations, workflows, crons, boot entries, import sources, and integration providers.
 - Supplement manifest values with explicit conceptual terms that expose policy hidden behind generic names, including media library terminology and removed native module names.
 - Scan authored production source in the backend, contract, and query-engine core. Exclude test files and generated sandbox output by rule rather than allowlist entries.
-- Keep the V1 legacy-bootstrap quarantine and first-party boot package wiring as narrow justified exceptions. The retained backup client's required contract media types are a temporary documented exception.
+- Keep the V1 legacy-bootstrap quarantine and first-party boot package wiring as narrow justified exceptions. Task 17 moved the retained backup client's required media types into that app and removed its contract exception.
 - Every reported violation includes the matching term, file, line, and source text. Every allowlist entry includes a reason and the narrowest practical path/term match.
 - Temporary entries used to keep the branch shippable while known leaks move must identify their removal task. Final acceptance permits only enduring justified exceptions.
-- Task 17 refactors the runtime-cycle analysis out of the module-DAG renderer and runs it through `purity:check`; the HTML renderer remains an optional consumer of the same analysis.
-- The current 13-cycle runtime baseline is not allowlisted. Tasks 02-16 may remove cycles incrementally, and Task 17 must reach and enforce zero runtime cycles.
+- Task 17 runs shared non-rendering runtime-cycle analysis through `purity:check`; by explicit owner direction, the HTML renderer was removed because no rendering consumer remained.
+- The 13-cycle runtime baseline was never allowlisted. Task 17 removed every cycle and now enforces zero runtime cycles.
 
 ### Media library ownership
 
@@ -221,8 +221,8 @@ temporary scaffolding and directly affected migration residue without broad unre
 
 ### Pool and budget retuning
 
-- Measure standard e2e wall-clock, standalone operational-gate wall-clock, sandbox overlap, database pool pressure, workflow pool waits, advisory waits, deadlocks, and Redis projection pressure.
-- The standard suite and unchanged two-concurrent-1,001-item operational file are separate required gates. Running the expensive file alongside every standard suite is diagnostic only, not a permanent acceptance command.
+- Measure standard e2e wall-clock and, when required by the owner, standalone operational-gate wall-clock, sandbox overlap, database pool pressure, workflow pool waits, advisory waits, deadlocks, and Redis projection pressure.
+- The standard suite and unchanged two-concurrent-1,001-item operational file remain separate. The owner explicitly waived a fresh Task 17 operational run; no pass is claimed. Running the expensive file alongside every standard suite is diagnostic only, not a permanent acceptance command.
 - Retune sandbox worker concurrency, application/workflow database pools, Postgres connection ceiling, and per-script-kind execution/host-call budgets as one documented arithmetic model.
 - Do not weaken workloads, assertions, or timeout semantics to obtain a green measurement.
 
@@ -253,7 +253,7 @@ temporary scaffolding and directly affected migration residue without broad unre
 - Add e2e coverage for media-only library eligibility, trusted media user bootstrap, generic import-source dispatch, workflow-pin uninstall refusal, and successful uninstall after references clear.
 - Keep the full-size operational gate opt-in and standalone.
 - Update test conventions, plugin authoring reference, sandbox runtime reference, module ownership documents, and the plugin-system plan records under the single-owner documentation rule.
-- Retain the backup client. Add the owner-requested deletion TODO to every affected backup/dependent file during the cleanup task and document its purity exception.
+- Retain the backup client. Task 17 added the owner-requested deletion TODO to all four affected local files and removed the contract purity exception by moving required media types into the backup app.
 
 ### Final cleanup
 
@@ -266,7 +266,7 @@ temporary scaffolding and directly affected migration residue without broad unre
 - Tests prove Ryot-owned behavior and branching, not Effect, Deno, PostgreSQL, or schema-library behavior in isolation.
 - Existing e2e assertions are preserved. A behavior change requires explicit owner approval; file moves and fixture plumbing are not permission to weaken assertions.
 - The purity gate is tested with representative forbidden hits, allowlisted hits, generated/test exclusions, manifest-derived vocabulary changes, and exact file/line diagnostics.
-- Module-DAG tests cover import-edge extraction and deterministic cycle diagnostics; final acceptance runs the non-rendering cycle check through `purity:check` and requires zero runtime cycles.
+- Runtime-module analysis tests cover import-edge extraction and deterministic cycle diagnostics; final acceptance runs the non-rendering cycle check through `purity:check` and requires zero runtime cycles.
 - Library tests cover new-user bootstrap, retry/idempotency, media-only eligibility, awaited event/collection membership, manifest import-source relationship mutations, ownership-source merging, user-state clear/merge policy, and exclusion of fitness/unrelated schemas. Direct generic `/entity-import` tests assert population without `in-library`.
 - Import tests install a fixture declaring a source absent from the central contract, invoke it through the generic envelope, validate payload/artifact rejection, and observe terminal workflow results.
 - Runtime tests cover atomic module materialization, cache reuse, concurrent builders, path grants, source mapping, sanitized errors, and file cleanup liveness.
@@ -276,7 +276,7 @@ temporary scaffolding and directly affected migration residue without broad unre
 - The third-party-style e2e fixture proves install, reingest where still supported, search, import, event, automation, uninstall refusal, cleanup, uninstall, and rejection of execution after uninstall without restart.
 - Test-tree reorganization is verified by the unchanged full suite and by searches ensuring no suites remain in obsolete ownership directories.
 - Performance tests record measurements but avoid fixed machine-dependent speed assertions. Correctness limits and terminal completion remain asserted.
-- Run backend checks through Turbo, backend unit tests from the backend package, affected plugin package tests, the full standard e2e suite, and the standalone operational gate before Phase 4 acceptance.
+- Run backend checks through Turbo, backend unit tests from the backend package, affected plugin package tests, and the full standard e2e suite before Phase 4 acceptance. Task 17's standalone operational gate was explicitly waived by the owner and was not run; the live gate remains excluded.
 
 ## Out of Scope
 

@@ -21,13 +21,13 @@ import {
 	makeWorkflowEngine,
 	transactionLayer,
 } from "#lib/test-utils/effect";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { executeSandboxExecution } from "./durable-queues";
 import {
 	KernelWorkflowReferences,
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
 } from "./kernel-workflow-references";
+import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 import {
 	performSandboxWorkflowChild,
@@ -60,8 +60,7 @@ const makeProjectionRedis = () =>
 const controlledWorkflowDependencies = Layer.mergeAll(
 	transactionLayer,
 	Layer.succeed(RedisService, makeProjectionRedis()),
-	Layer.mock(PluginRuntimeResolver)({
-		_tag: "PluginRuntimeResolver",
+	Layer.mock(SandboxPluginScriptResolver)({
 		findActiveScriptById: () => Effect.die("unused"),
 	}),
 	Layer.mock(KernelWorkflowReferences)({
@@ -237,8 +236,7 @@ fi
 				Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
 			resolveWorkflowCallScript: () => Effect.succeed(null),
 		}),
-		Layer.mock(PluginRuntimeResolver)({
-			_tag: "PluginRuntimeResolver",
+		Layer.mock(SandboxPluginScriptResolver)({
 			findActiveScriptById: () =>
 				Effect.sync(() => {
 					pinEvents.push("resolve-active");

@@ -1,27 +1,41 @@
 import type { Headers as PlatformHeaders } from "@effect/platform";
-import { badRequest, notFound, SandboxRunError } from "@ryot/contract/errors";
-import { IntegrationId, type SandboxScriptId, type UserId } from "@ryot/contract/schema/brands";
+import type { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
+import { notFound, SandboxRunError } from "@ryot/contract/errors";
+import type { IntegrationId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import type { PluginOperationAuth } from "@ryot/plugin-kit/manifest";
 import { generateId } from "better-auth";
-import { Effect, Schema } from "effect";
+import { Context, Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { AuthService } from "#modules/auth/service";
-import { IntegrationsRepository } from "#modules/integrations/repository";
 import { executeSandboxExecution } from "#modules/sandbox/durable-queues";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { PluginRuntimeResolver } from "./runtime-resolver";
 
-const IntegrationPayload = Schema.Struct({ integrationId: Schema.String });
+type IntegrationOperationScope = {
+	readonly userId: UserId;
+	readonly integrationId: IntegrationId;
+};
+
+export class IntegrationOperationScopeResolver extends Context.Tag(
+	"IntegrationOperationScopeResolver",
+)<
+	IntegrationOperationScopeResolver,
+	{
+		resolve: (
+			payload: unknown,
+		) => Effect.Effect<IntegrationOperationScope, BadRequest | DbError | NotFound>;
+	}
+>() {}
 
 type DispatchInput = {
 	readonly userId: UserId;
 	readonly payload: unknown;
-	readonly scriptId: SandboxScriptId;
 	readonly pluginSlug: string;
 	readonly operationSlug: string;
+	readonly scriptId: SandboxScriptId;
 	readonly integrationId?: IntegrationId;
 };
 
@@ -32,7 +46,7 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* RuntimeSandboxService;
 		const sandboxRepository = yield* SandboxRepository;
-		const integrationsRepository = yield* IntegrationsRepository;
+		const integrationScopeResolver = yield* IntegrationOperationScopeResolver;
 
 		const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: DispatchInput) {
 			const executionId = `plugin-operation-${input.pluginSlug}-${input.operationSlug}-${generateId()}`;
@@ -57,22 +71,6 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 			return result.value;
 		});
 
-		const resolveIntegrationScope = (payload: unknown) =>
-			Effect.gen(function* () {
-				const decodePayload = Schema.decodeUnknown(IntegrationPayload)(payload).pipe(
-					Effect.mapError(() => badRequest("integrationId is required")),
-				);
-				const decoded = yield* decodePayload;
-				const integrationId = IntegrationId.make(decoded.integrationId);
-				const integration = yield* runWithDb(
-					integrationsRepository.getByIdAnyUser({ integrationId }),
-				);
-				if (!integration || integration.isDisabled) {
-					return yield* notFound("Integration not found");
-				}
-				return { integrationId, userId: integration.userId };
-			});
-
 		const resolveScope = (
 			operationAuth: PluginOperationAuth,
 			payload: unknown,
@@ -84,7 +82,7 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 					.pipe(Effect.map((user) => ({ userId: user.id })));
 				return getCurrentUser;
 			}
-			return resolveIntegrationScope(payload);
+			return integrationScopeResolver.resolve(payload);
 		};
 
 		const invoke = Effect.fn("OperationsService.invoke")(function* (input: {

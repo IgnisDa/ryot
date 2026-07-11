@@ -1,7 +1,8 @@
+// TODO: Delete this file when the retained app-client-backup is removed.
 import { describe, expect, it } from "bun:test";
 
 import { EntityId, EntitySchemaId } from "@ryot/contract/schema/brands";
-import type { BookProperties } from "@ryot/contract/schema/media-types";
+import type { BookProperties } from "./media-types";
 
 import { isEntitySchemaSlug, toEntityDetail } from "./model";
 
