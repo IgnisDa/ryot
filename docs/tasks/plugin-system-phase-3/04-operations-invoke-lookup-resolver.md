@@ -16,7 +16,7 @@ plugin operations that consume it, then delete the native modules and re-point t
 Kernel capability (lands before consumers):
 
 - Add the `operations: [{ slug, driverRef, inputSchema, outputSchema, auth }]` manifest section
-  (`auth` = authenticated-user vs admin; schemas in the SDK's existing zod contract style).
+  (`auth` = authenticated-user vs admin; schemas use the SDK's Effect Schema contract style).
 - Add exactly one new contract endpoint, `plugins.invoke(pluginSlug, operationSlug, payload)`,
   that validates the payload against the declared schemas, dispatches to the driver, and returns
   the result — batch-first payloads. The static typed contract (`libs/contract`) grows no
