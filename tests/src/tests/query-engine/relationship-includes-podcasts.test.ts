@@ -2,7 +2,7 @@ import {
 	buildCompletedPodcastsQueryDocument,
 	buildInProgressPodcastsQueryDocument,
 	buildPodcastDetailQueryDocument,
-} from "@ryot/query-engine/recipes/media";
+} from "@ryot/plugin-media/query-recipes";
 import { Effect } from "effect";
 
 import {

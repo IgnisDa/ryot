@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -18,15 +18,15 @@ Do not keep forwarding re-exports, aliases, or deprecated paths from the query p
 
 ## Acceptance criteria
 
-- [ ] Every media-only recipe is owned and exported by the media package
-- [ ] Every fitness-only recipe is owned and exported by the fitness package
-- [ ] The generic saved-view builder has no `requireInLibrary`, `library`, or `in-library` vocabulary
-- [ ] Media saved views preserve their canonical library filter through a media-owned wrapper or predicate
-- [ ] Generic collection, entity, event, and interest recipes remain available without plugin imports in the kernel
-- [ ] All production and test imports use the new canonical owners with no compatibility re-export
-- [ ] Query document outputs remain structurally identical where behavior is unchanged
-- [ ] Query-engine, media, fitness, backend, and affected e2e tests pass
-- [ ] Domain recipe purity exceptions are removed
+- [x] Every media-only recipe is owned and exported by the media package
+- [x] Every fitness-only recipe is owned and exported by the fitness package
+- [x] The generic saved-view builder has no `requireInLibrary`, `library`, or `in-library` vocabulary
+- [x] Media saved views preserve their canonical library filter through a media-owned wrapper or predicate
+- [x] Generic collection, entity, event, and interest recipes remain available without plugin imports in the kernel
+- [x] All production and test imports use the new canonical owners with no compatibility re-export
+- [x] Query document outputs remain structurally identical where behavior is unchanged
+- [x] Query-engine, media, fitness, backend, and affected e2e tests pass
+- [x] Domain recipe purity exceptions are removed
 
 ## User stories addressed
 

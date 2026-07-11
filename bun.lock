@@ -527,6 +527,7 @@
         "@faker-js/faker": "10.4.0",
         "@ryot/app-backend": "workspace:*",
         "@ryot/contract": "workspace:*",
+        "@ryot/plugin-fitness": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
         "@ryot/plugin-media": "workspace:*",
         "@ryot/query-engine": "workspace:*",

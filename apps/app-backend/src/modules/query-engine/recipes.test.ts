@@ -1,29 +1,30 @@
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import {
-	buildDefaultSavedViewQueryDocument,
-	buildEntityDetailQueryDocument,
-	buildEntityInterestQueryDocument,
-	buildEventHistoryQueryDocument,
-} from "@ryot/query-engine/recipes/app";
-import {
 	buildExerciseListQueryDocument,
 	buildMeasurementListQueryDocument,
 	buildWorkoutDetailQueryDocument,
 	buildWorkoutListQueryDocument,
 	buildWorkoutTemplateDetailQueryDocument,
 	buildWorkoutTemplateListQueryDocument,
-} from "@ryot/query-engine/recipes/fitness";
+} from "@ryot/plugin-fitness/query-recipes";
 import {
 	buildCollectionMediaSuggestionsQueryDocument,
 	buildCompletedPodcastsQueryDocument,
 	buildCompletedShowsQueryDocument,
+	buildDefaultMediaSavedViewQueryDocument,
 	buildInProgressPodcastsQueryDocument,
 	buildInProgressShowsQueryDocument,
 	buildPersonalMediaSuggestionsQueryDocument,
 	buildPodcastDetailQueryDocument,
 	buildShowDetailQueryDocument,
 	buildTrendingMediaQueryDocument,
-} from "@ryot/query-engine/recipes/media";
+} from "@ryot/plugin-media/query-recipes";
+import {
+	buildDefaultSavedViewQueryDocument,
+	buildEntityDetailQueryDocument,
+	buildEntityInterestQueryDocument,
+	buildEventHistoryQueryDocument,
+} from "@ryot/query-engine/recipes/app";
 import { describe, expect, it } from "vitest";
 
 import { validateQueryDocument } from "./validator/document";
@@ -32,16 +33,14 @@ describe("shared query-engine recipes", () => {
 	it("produces documents accepted by the query language validator", () => {
 		const documents = [
 			buildEntityDetailQueryDocument({ entityId: "entity", entitySchemaSlug: "book" }),
-			buildEntityInterestQueryDocument({
-				entityIds: ["entity"],
-				entitySchemaSlugs: ["book"],
-			}),
+			buildEntityInterestQueryDocument({ entityIds: ["entity"], entitySchemaSlugs: ["book"] }),
 			buildEventHistoryQueryDocument({
 				page: 1,
 				eventSchemaSlugs: ["complete"],
 				entitySchemaSlugs: ["book"],
 			}),
-			buildDefaultSavedViewQueryDocument({ schemas: ["book"], requireInLibrary: true }),
+			buildDefaultSavedViewQueryDocument({ schemas: ["book"] }),
+			buildDefaultMediaSavedViewQueryDocument({ schemas: ["book"] }),
 			buildShowDetailQueryDocument({ entityId: "show", seasonLimit: 10, episodeLimit: 10 }),
 			buildInProgressShowsQueryDocument({}),
 			buildCompletedShowsQueryDocument({}),
@@ -50,12 +49,12 @@ describe("shared query-engine recipes", () => {
 			buildCompletedPodcastsQueryDocument({}),
 			buildPersonalMediaSuggestionsQueryDocument({ entitySchemaSlug: "book" }),
 			buildCollectionMediaSuggestionsQueryDocument({
-				collectionId: "collection",
 				entitySchemaSlug: "book",
+				collectionId: "collection",
 			}),
 			buildTrendingMediaQueryDocument({
-				fetchedAt: "2026-01-01T00:00:00.000Z",
 				entitySchemaSlug: "book",
+				fetchedAt: "2026-01-01T00:00:00.000Z",
 			}),
 			buildExerciseListQueryDocument({}),
 			buildWorkoutListQueryDocument({}),

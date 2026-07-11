@@ -15,29 +15,6 @@ const temporary = (
 		kind: "temporary" as const,
 	}));
 
-const queryRecipes = temporary(6, "Task 06 moves domain query recipes into their plugin packages", [
-	["libs/query-engine/src/recipes/app.ts", "in-library"],
-	["libs/query-engine/src/recipes/app.ts", "library"],
-	["libs/query-engine/src/recipes/fitness.ts", "exercise"],
-	["libs/query-engine/src/recipes/fitness.ts", "measurement"],
-	["libs/query-engine/src/recipes/fitness.ts", "workout"],
-	["libs/query-engine/src/recipes/fitness.ts", "workout-template"],
-	["libs/query-engine/src/recipes/fitness.ts", "workout-to-workout-template"],
-	["libs/query-engine/src/recipes/media.ts", "in-library"],
-	["libs/query-engine/src/recipes/media.ts", "library"],
-	["libs/query-engine/src/recipes/media.ts", "media"],
-	["libs/query-engine/src/recipes/media.ts", "media-suggestion"],
-	["libs/query-engine/src/recipes/media.ts", "media-trending"],
-	["libs/query-engine/src/recipes/media.ts", "podcast"],
-	["libs/query-engine/src/recipes/media.ts", "podcast-episode"],
-	["libs/query-engine/src/recipes/media.ts", "podcast-to-podcast-episode"],
-	["libs/query-engine/src/recipes/media.ts", "show"],
-	["libs/query-engine/src/recipes/media.ts", "show-episode"],
-	["libs/query-engine/src/recipes/media.ts", "show-season"],
-	["libs/query-engine/src/recipes/media.ts", "show-season-to-show-episode"],
-	["libs/query-engine/src/recipes/media.ts", "show-to-show-season"],
-]);
-
 const operationalGate = temporary(
 	7,
 	"Task 07 makes production operational test support domain-neutral",
@@ -82,6 +59,5 @@ const permanent = [
 
 export const kernelPurityAllowlist = [
 	...permanent,
-	...queryRecipes,
 	...operationalGate,
 ] satisfies ReadonlyArray<PurityAllowlistEntry>;
