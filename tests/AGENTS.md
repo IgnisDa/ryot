@@ -6,7 +6,7 @@ This package contains end-to-end and integration-style tests for Ryot.
 
 - Keep end-to-end suites in `tests/src/tests/<domain>/` folders that mirror backend modules; prefer descriptive filenames over `index.test.ts`.
 - Prefer shared helpers in `tests/src/fixtures` for repeated auth setup, API setup, and test data builders.
-- Favor fixture files with clear ownership (`auth`, `entity-schemas`, `events`, `media`, `query-engine`, `sandbox-provider`, `trackers`, `translations`) over generic catch-all helpers.
+- Favor fixture files with clear ownership (`auth`, `entity-schemas`, `events`, `media`, `query-engine`, `sandbox-provider`, `translations`) over generic catch-all helpers.
 - Keep `tests/src/support` for cross-cutting test infrastructure (assertions, backend/container provisioning), not domain fixtures.
 - Fake external HTTP endpoints with `startFakeHttpServer` (`support/fake-http-server.ts`): it serves on a random local port, records `{ path, body }` per request (body parsed as JSON, `null` when unparsable — the recorder consumes the body, so `respond` must not read it again), and answers with the `respond` callback (default `{ ok: true }`).
 - Notification delivery assertions use the `startFakeAppriseServer` wrapper (`fixtures/notifications.ts`), which responds 500 to paths ending in `/fail` so delivery-failure behavior stays testable; Apprise POSTs land on `/notify/<key>`, so the platform `key` disambiguates platforms in the request log.

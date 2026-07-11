@@ -48,5 +48,3 @@ export const createPluginSchemaAndEntity = (client: Client) =>
 		});
 		return { slug, entityId: entity.id };
 	});
-
-export const createTrackerWithSchemaAndEntity = createPluginSchemaAndEntity;

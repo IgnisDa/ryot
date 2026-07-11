@@ -5,7 +5,7 @@ import {
 	createEventSchema,
 	createQueryEngineEntity,
 	createQueryEngineEvent,
-	createQueryEngineTrackerAndSchema,
+	createQueryEnginePluginSchema,
 	executeQueryEngineError,
 	executeTimeSeriesQueryEngine,
 	propertyRef,
@@ -57,7 +57,7 @@ describe("event time series", () => {
 	it.live("buckets events by occurredAt rather than createdAt", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "OccurredAtSeriesItem",
 			});
 			const reviewSlug = `time-series-occurred-${crypto.randomUUID()}`;
@@ -106,7 +106,7 @@ describe("event time series", () => {
 	it.live("filters events before bucketing with an event property filter", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "TimeSeriesFilterItem",
 			});
 			const reviewSlug = `time-series-filter-${crypto.randomUUID()}`;
@@ -161,7 +161,7 @@ describe("event time series", () => {
 	it.live("returns zero for a partial range that excludes all events", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "TimeSeriesZeroFillItem",
 			});
 			const reviewSlug = `time-series-zero-${crypto.randomUUID()}`;
@@ -204,7 +204,7 @@ describe("event time series", () => {
 	it.live("zero-fills interior buckets across a multi-day range", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "TimeSeriesGapItem",
 			});
 			const reviewSlug = `time-series-gap-${crypto.randomUUID()}`;
@@ -260,7 +260,7 @@ describe("event time series", () => {
 	it.live("aligns week buckets to the ISO Monday start in SQL", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "TimeSeriesWeekItem",
 			});
 			const reviewSlug = `time-series-week-${crypto.randomUUID()}`;
@@ -305,7 +305,7 @@ describe("event time series", () => {
 	it.live("rejects time ranges where startAt is not before endAt", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
 				schemaName: "TimeSeriesRangeItem",
 			});
 			const reviewSlug = `time-series-range-${crypto.randomUUID()}`;

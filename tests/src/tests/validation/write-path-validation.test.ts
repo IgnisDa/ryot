@@ -5,8 +5,8 @@ import {
 	createCollection,
 	createEntity,
 	createEventTestFixture,
-	createTrackerWithSchema,
-	createTrackerWithSchemaAndEntity,
+	createPluginSchema,
+	createPluginSchemaAndEntity,
 	waitForEventCount,
 } from "~/fixtures";
 import { assertTaggedError } from "~/support/assertions";
@@ -17,7 +17,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 	it.live("rejects entity creation when a required field is missing", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createTrackerWithSchema(client, {
+			const { schemaId } = yield* createPluginSchema(client, {
 				name: "Required Field Schema",
 				propertiesSchema: {
 					fields: {
@@ -47,7 +47,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 	it.live("rejects entity creation when a field has the wrong type", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createTrackerWithSchema(client, {
+			const { schemaId } = yield* createPluginSchema(client, {
 				name: "Type Check Schema",
 				propertiesSchema: {
 					fields: {
@@ -82,7 +82,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schemaId } = yield* createTrackerWithSchema(client, {
+				const { schemaId } = yield* createPluginSchema(client, {
 					name: "Strict Schema",
 					propertiesSchema: {
 						fields: { title: { label: "Title", description: "Title", type: "string" as const } },
@@ -102,7 +102,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 	it.live("accepts entity creation when properties match the schema exactly", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createTrackerWithSchema(client, {
+			const { schemaId } = yield* createPluginSchema(client, {
 				name: "Valid Schema",
 				propertiesSchema: {
 					fields: {
@@ -270,7 +270,7 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 					},
 				},
 			});
-			const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 			const data = yield* client.call((c) =>
 				c.collections.createMembership({
@@ -300,7 +300,7 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 						},
 					},
 				});
-				const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+				const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 				const error = yield* Effect.flip(
 					client.call((c) =>
@@ -321,7 +321,7 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const collection = yield* createCollection(client, { name: "Open Collection" });
-				const { entityId } = yield* createTrackerWithSchemaAndEntity(client);
+				const { entityId } = yield* createPluginSchemaAndEntity(client);
 
 				const data = yield* client.call((c) =>
 					c.collections.createMembership({

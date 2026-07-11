@@ -70,7 +70,6 @@ const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxReposi
 			const slug = isShow ? "show.tmdb" : "movie.tmdb";
 			return Effect.succeed({
 				id: scriptId,
-				isBuiltin: true,
 				compiledFormat: 1,
 				compiledCode: "// compiled tmdb",
 				metadata: {
@@ -99,6 +98,7 @@ const searchItem = (input: { externalId: string; title: string; publishYear?: nu
 const makeSandbox = (overrides: MockOverrides<typeof mockSandbox> = {}) =>
 	mockSandbox({
 		run: (input) => {
+			expect(input.scriptIsBuiltin).toBe(true);
 			expect(input.allowedHostFunctions).toEqual([
 				"httpCall",
 				"getAppConfigValue",
