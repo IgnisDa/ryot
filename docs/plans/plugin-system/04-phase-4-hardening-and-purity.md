@@ -33,8 +33,11 @@ reason). The gate failing must name the offending file/line.
   `max_connections` arithmetic documented in `tests/AGENTS.md` (Timeouts & Pool Sizing), and
   the per-driver-kind budget profiles introduced in Phase 3 step 3. Re-baseline the e2e
   suite wall-clock and record it here.
-- **Superseded script-row GC**: delete plugin script rows no longer referenced by any
-  registry snapshot or in-flight workflow execution (pinning makes "referenced" precise).
+- **Superseded script-row GC**: delete script rows — plugin-owned and kernel source-zero
+  alike — no longer referenced by any registry snapshot or in-flight workflow execution
+  (pinning makes "referenced" precise). Source-zero rows resolve outside the loader snapshot,
+  so their liveness rule is the running kernel's declared script set: only rows whose content
+  hash the kernel no longer declares are candidates.
 
 ## 3. Test tree and docs reorganization
 
