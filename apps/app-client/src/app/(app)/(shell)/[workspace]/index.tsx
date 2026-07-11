@@ -5,13 +5,19 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { router } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
-import { createSavedViewAtom, notificationChannelsAtom, savedViewsAtom } from "@/api/atoms";
+import {
+	createSavedViewAtom,
+	navigationAtom,
+	notificationChannelsAtom,
+	savedViewsAtom,
+} from "@/api/atoms";
 import { useAuthClient } from "@/modules/auth/client";
 
 export default function AppHome() {
 	const client = useAuthClient();
 	const { data: session } = client.useSession();
 	const savedViews = useAtomValue(savedViewsAtom);
+	const refreshNavigation = useAtomRefresh(navigationAtom);
 	const refreshSavedViews = useAtomRefresh(savedViewsAtom);
 	const createSavedViewResult = useAtomValue(createSavedViewAtom);
 	const notificationChannels = useAtomValue(notificationChannelsAtom);
@@ -41,6 +47,7 @@ export default function AppHome() {
 		});
 
 		if (Exit.isSuccess(result)) {
+			refreshNavigation();
 			refreshSavedViews();
 		}
 	}
