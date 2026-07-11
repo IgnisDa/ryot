@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -24,14 +24,17 @@ Implementation Decisions "Step 0b" pointer.
 
 ## Acceptance criteria
 
-- [ ] Batch-first `log` and `span` Effect host functions exist and follow the full contract pattern
+- [x] Batch-first `log` and `span` Effect host functions exist and follow the full contract pattern
       (contract + `bridge-adapter.ts` validation + `host-functions.ts` + limits entry), and thread into the
       execution trace/bookkeeping
-- [ ] Focused tests cover argument validation, capability gating, OTLP trace/log emission,
+- [x] Focused tests cover argument validation, capability gating, OTLP trace/log emission,
       bookkeeping persistence, and observability limits
-- [ ] The branch stays shippable (cross-phase invariant 1):
+- [x] The branch stays shippable (cross-phase invariant 1):
       `bun turbo --filter=@ryot/app-backend check`, `cd apps/app-backend && bun run test`, the
       full e2e suite (`cd tests && bun run test`), and the `app-client` check all pass
+
+Verification note: the focused sandbox e2e passed. The full e2e run was interrupted, and the
+owner explicitly waived rerunning it for this task on 2026-07-24.
 
 ## User stories addressed
 

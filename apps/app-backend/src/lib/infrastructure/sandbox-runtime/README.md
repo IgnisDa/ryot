@@ -25,7 +25,7 @@ The sandbox runs untrusted script code in single-use Deno subprocesses, exposes 
 
 1. Plugin or kernel ingestion validates and compiles source, then persists source and immutable format-1 JavaScript separately.
 2. A trusted caller starts execution with a persisted `scriptId`, driver name, optional context, and explicit executing-user identity when user context is required. The workflow loads compiled code and capabilities from validated manifest metadata.
-3. The service registers a bridge session keyed by `executionId`. Redis stores `{ token, expiresAt }` with a TTL, and memory stores the allowed host-function handlers for that run.
+3. The service registers a bridge session keyed by `executionId`. Redis stores `{ token, expiresAt }` with a TTL, and memory stores the allowed host-function handlers and live execution parent span for that run.
 4. A pre-warmed Deno process is checked out, or a fresh one is spawned if the pool is empty. Each process handles exactly one execution.
 5. The service writes one JSON payload to stdin containing compiled code, compiled format, driver name, context, bridge URL, token, function names, execution id, script id, and execution metadata.
 6. The runner captures console calls into `logs`, imports the compiled in-memory ES module, validates the definition, driver, input, and output, and writes the final JSON result to stdout.
@@ -71,7 +71,7 @@ Host functions are bridge handlers exposed only when listed in the compiled modu
 
 | Scope                   | Functions                                                                                                                                                          |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Runtime                 | `httpCall`                                                                                                                                                         |
+| Runtime                 | `httpCall`, `log`, `span`                                                                                                                                          |
 | Script                  | `getAppConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                        |
 | User                    | `createEvents`, `executeQueryEngine`, `getEntity`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
 | Automation subscription | `emitSignal`, `sendNotification`                                                                                                                                   |
@@ -118,6 +118,7 @@ The SDK run function receives `(input, host, execution)`. `execution` contains `
 - Bridge validation returns 400 for bad body, 401 for invalid token, 404 for unknown function, and 410 for expired session.
 - Timeout and process termination remain workflow-level job failures; module import failures are completed results in the `load` phase.
 - Console calls are captured in the completed result's `logs` field. Oversized logs append one `[sandbox logs truncated]` marker and do not fail execution.
+- Accepted `log` and `span` entries are deterministically serialized into the same completed-result `logs` field after console logs. Their shared observability budget rejects an entire host-call batch before emitting or recording any item.
 - An oversized final value is rejected as an `output`-phase error and is never returned partially.
 
 ## Resource Limits
@@ -133,6 +134,7 @@ The SDK run function receives `(input, host, execution)`. `execution` contains `
 | Host calls / `httpCall` calls per execution           | 200 / 50                      |
 | HTTP request / streamed response body                 | 1 MiB / 10 MiB                |
 | Log entry / count / total                             | 8 KiB / 500 / 256 KiB         |
+| Observability entry / count / total                   | 8 KiB / 500 / 256 KiB         |
 | Cache key / value / TTL                               | 256 bytes / 256 KiB / 30 days |
 
 The compiler supervisor samples proportional set size for the Bun worker and its TypeScript descendants in the Linux production image. This avoids double-counting shared pages but is a sampled process supervisor, not a cgroup hard ceiling. Non-Linux development retains the process, timeout, and concurrency boundaries without claiming a portable memory ceiling; Bun's `--smol` flag reduces baseline memory but is not treated as enforcement.

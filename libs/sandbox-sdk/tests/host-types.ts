@@ -3,7 +3,9 @@ import {
 	defineManifest,
 	jsonValueSchema,
 	type JsonValue,
+	type LogEntry,
 	type SandboxHostError,
+	type SpanEntry,
 } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
@@ -16,6 +18,8 @@ const allCapabilitiesManifest = defineManifest({
 	slug: "all-core-capabilities",
 	requiredAppConfigKeys: ["timezone"],
 	capabilities: [
+		"log",
+		"span",
 		"httpCall",
 		"getCachedValue",
 		"setCachedValue",
@@ -30,6 +34,15 @@ defineDriver(allCapabilitiesManifest, {
 	output: Schema.Boolean,
 	run: (_input, host) =>
 		Effect.gen(function* () {
+			const logs: ReadonlyArray<LogEntry> = [
+				{ level: "info", message: "Started", attributes: { attempt: 1 } },
+			];
+			const spans: ReadonlyArray<SpanEntry> = [{ name: "provider.run" }];
+			const logged: null = yield* host.log(logs);
+			const spanned: null = yield* host.span(spans);
+			void logged;
+			void spanned;
+
 			const http = yield* host.httpCall("POST", "https://example.com", {
 				body: "payload",
 				headers: { Accept: "application/json" },
@@ -61,6 +74,10 @@ defineDriver(allCapabilitiesManifest, {
 
 			// @ts-expect-error httpCall options require a string body.
 			yield* host.httpCall("POST", "https://example.com", { body: 42 });
+			// @ts-expect-error log takes exactly one batch argument.
+			yield* host.log(logs, logs);
+			// @ts-expect-error span entries reject excess fields.
+			yield* host.span([{ name: "provider.run", extra: true }]);
 			return true;
 		}),
 });
@@ -122,8 +139,8 @@ defineDriver(allDomainManifest, {
 			const created = yield* host.createEvents([
 				{
 					entityId: "entity-1",
-					eventSchemaSlug: "event-schema-1",
 					properties: { watched: true },
+					eventSchemaSlug: "event-schema-1",
 				},
 			]);
 			const total: number = created.count;
@@ -147,10 +164,10 @@ defineDriver(allDomainManifest, {
 
 const promiseDriverManifest = defineManifest({
 	kind: "script",
+	capabilities: [],
+	requiredAppConfigKeys: [],
 	name: "Promise driver rejection",
 	slug: "promise-driver-rejection",
-	requiredAppConfigKeys: [],
-	capabilities: [],
 });
 defineDriver(promiseDriverManifest, {
 	input: Schema.Struct({}),

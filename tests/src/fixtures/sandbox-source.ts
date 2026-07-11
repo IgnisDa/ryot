@@ -57,6 +57,42 @@ export function literalSandboxSource(
 	});
 }
 
+export function observabilitySandboxSource(input: SandboxSourceIdentity) {
+	return scriptModuleSource({
+		...input,
+		capabilities: ["log", "span"],
+		inputSchema: "Schema.Struct({})",
+		outputSchema: "Schema.Literal(true)",
+		run: `(_input, host) => Effect.gen(function* () {
+    console.log("console before batch");
+    console.warn("console warning");
+    yield* host.log([
+      {
+        level: "info",
+        message: "batch started",
+        attributes: { scriptId: "attempted-override", nested: { z: 1, a: "value" } },
+      },
+      {
+        level: "warning",
+        message: "batch continuing",
+        attributes: { items: [{ b: 2, a: true }, "done"] },
+      },
+    ]);
+    yield* host.span([
+      {
+        name: "provider.batch",
+        attributes: {
+          executionId: "attempted-override",
+          nested: { z: false, a: { d: 4, c: 3 } },
+        },
+      },
+      { name: "provider.complete" },
+    ]);
+    return true as const;
+  })`,
+	});
+}
+
 export function httpCallSandboxSource(
 	input: SandboxSourceIdentity & { readonly method?: string; readonly url: string },
 ) {

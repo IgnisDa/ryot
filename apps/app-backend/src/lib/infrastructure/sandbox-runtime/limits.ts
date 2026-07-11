@@ -15,6 +15,7 @@ export const SANDBOX_LIMITS = {
 	http: { requestBytes: MiB, responseBytes: 10 * MiB },
 	bridge: { requestBytes: MiB, responseBytes: 10 * MiB },
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
+	observability: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
 	cache: { keyBytes: 256, valueBytes: 256 * KiB, ttlSeconds: 30 * 24 * 60 * 60 },
 	execution: { denoHeapMiB: 256, resultBytes: MiB, requestBytes: 2 * MiB, contextBytes: 256 * KiB },
 } as const;

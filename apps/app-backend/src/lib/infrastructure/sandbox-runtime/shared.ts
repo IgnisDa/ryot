@@ -32,7 +32,13 @@ export type SandboxHostImplementationMap = SdkSandboxHostImplementationMap<Sandb
 
 export type AdditionalSandboxHostImplementationMap = Omit<
 	SandboxHostImplementationMap,
-	"emitSignal" | "getCachedValue" | "httpCall" | "sendNotification" | "setCachedValue"
+	| "log"
+	| "span"
+	| "httpCall"
+	| "emitSignal"
+	| "setCachedValue"
+	| "getCachedValue"
+	| "sendNotification"
 >;
 
 export const apiSuccess = <T>(data: T) => ({ data, success: true as const });
