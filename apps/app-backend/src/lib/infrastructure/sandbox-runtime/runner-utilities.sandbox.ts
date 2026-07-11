@@ -15,8 +15,8 @@ export interface SandboxRunnerPayload {
 	readonly apiBase: string;
 	readonly scriptId: string;
 	readonly context?: unknown;
+	readonly moduleUrl: string;
 	readonly executionId: string;
-	readonly compiledCode: string;
 	readonly apiFunctions?: unknown;
 	readonly compiledFormat: number;
 	readonly limits: SandboxRunnerLimits;
@@ -56,6 +56,7 @@ const arrayIsArray = Array.isArray;
 const nativeError = globalThis.Error;
 const nativeNumber = globalThis.Number;
 const nativeString = globalThis.String;
+const decodeComponent = globalThis.decodeURIComponent;
 const failurePhases = new WeakMap<object, string>();
 const jsonStringify = JSON.stringify.bind(JSON);
 const encodeText = encoder.encode.bind(encoder);
@@ -90,6 +91,18 @@ const stringSplit = ownMethod<(this: string, separator: string | RegExp) => stri
 	String.prototype,
 	"split",
 );
+const stringSlice = ownMethod<(this: string, start?: number, end?: number) => string>(
+	String.prototype,
+	"slice",
+);
+const stringStartsWith = ownMethod<(this: string, search: string) => boolean>(
+	String.prototype,
+	"startsWith",
+);
+const stringLastIndexOf = ownMethod<(this: string, search: string) => number>(
+	String.prototype,
+	"lastIndexOf",
+);
 const typedArraySet = ownMethod<
 	(this: Uint8Array, array: ArrayLike<number>, offset?: number) => void
 >(typedArrayPrototype, "set");
@@ -107,6 +120,12 @@ const replace = (value: string, pattern: string | RegExp, replacement: string): 
 	reflectApply(stringReplace, value, [pattern, replacement]);
 const split = (value: string, separator: string | RegExp): string[] =>
 	reflectApply(stringSplit, value, [separator]);
+const slice = (value: string, start?: number, end?: number): string =>
+	reflectApply(stringSlice, value, [start, end]);
+const startsWith = (value: string, search: string): boolean =>
+	reflectApply(stringStartsWith, value, [search]);
+const lastIndexOf = (value: string, search: string): number =>
+	reflectApply(stringLastIndexOf, value, [search]);
 const trim = (value: string): string => reflectApply(stringTrim, value, []);
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -270,7 +289,27 @@ const sanitizeMessage = (
 	hasMappedFrames: boolean,
 ): string => {
 	let sanitized = message;
-	const secrets = [payload?.token, payload?.apiBase, payload?.executionId];
+	sanitized = replace(sanitized, /file:\/\/\/[^\s)]*/g, "[internal]");
+	const moduleUrl = payload?.moduleUrl;
+	const moduleUrlDirectory = moduleUrl
+		? slice(moduleUrl, 0, lastIndexOf(moduleUrl, "/") + 1)
+		: undefined;
+	const modulePath =
+		moduleUrl && startsWith(moduleUrl, "file://")
+			? decodeComponent(slice(moduleUrl, "file://".length))
+			: undefined;
+	const moduleDirectory = modulePath
+		? slice(modulePath, 0, lastIndexOf(modulePath, "/") + 1)
+		: undefined;
+	const secrets = [
+		moduleUrl,
+		moduleUrlDirectory,
+		modulePath,
+		moduleDirectory,
+		payload?.token,
+		payload?.apiBase,
+		payload?.executionId,
+	];
 	for (let index = 0; index < secrets.length; index += 1) {
 		const secret = secrets[index];
 		if (typeof secret === "string" && secret) {
@@ -279,7 +318,6 @@ const sanitizeMessage = (
 	}
 	sanitized = replace(sanitized, /data:text\/javascript[^\s)]*/g, "script.ts");
 	sanitized = replace(sanitized, /https?:\/\/127\.0\.0\.1:\d+\/rpc\/[^\s)]*/g, "[bridge]");
-	sanitized = replace(sanitized, /file:\/\/\/[^\s)]*/g, "[internal]");
 	if (phase === "load" && !hasMappedFrames) {
 		const lines = split(sanitized, "\n");
 		for (let index = 0; index < lines.length; index += 1) {

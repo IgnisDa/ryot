@@ -159,6 +159,7 @@ const makeLayer = (input: {
 							providerId: null,
 							compiledFormat: 1,
 							compiledCode: "compiled",
+							contentHash: "compiled-hash",
 							metadata: { capabilities: [] },
 						}),
 				}),

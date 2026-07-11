@@ -15,6 +15,7 @@ import { redisKeys, RedisService } from "../redis";
 import { ServerRun } from "../server-run";
 import { makeAutomationSandboxApiFunctions } from "./automation-host-functions";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
+import { materializeSandboxCompiledModule } from "./compiled-modules";
 import {
 	acquireSandboxScratchDirectory,
 	declaresSandboxFilesystemGrant,
@@ -159,8 +160,8 @@ const SandboxRunnerRequest = Schema.Struct({
 	context: Schema.Unknown,
 	scriptId: Schema.String,
 	metadata: Schema.Unknown,
+	moduleUrl: Schema.String,
 	executionId: Schema.String,
-	compiledCode: Schema.String,
 	compiledFormat: Schema.Number,
 	apiFunctions: Schema.Array(Schema.String),
 	limits: Schema.Record({ key: Schema.String, value: Schema.Union(Schema.Number, Schema.String) }),
@@ -273,13 +274,19 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						: undefined;
 
 					const token = generateId();
+					const modulePath = yield* materializeSandboxCompiledModule(
+						processes.runtimePaths,
+						input.contentHash,
+						input.compiledCode,
+					);
+					const moduleUrl = (yield* path.toFileUrl(modulePath)).href;
 					const requestLine = `${encodeSandboxRunnerRequest({
 						token,
 						context,
+						moduleUrl,
 						scriptId: input.scriptId,
 						metadata: input.metadata ?? {},
 						executionId: input.executionId,
-						compiledCode: input.compiledCode,
 						compiledFormat: input.compiledFormat,
 						apiBase: `http://127.0.0.1:${bridge.port}`,
 						limits: sandboxRunnerLimits(input.metadata),

@@ -12,6 +12,7 @@ import {
 
 const workflowInput: SandboxRunInput = {
 	context: {},
+	contentHash: "",
 	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
