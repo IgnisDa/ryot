@@ -10,6 +10,7 @@ import {
 import { Cause, Effect, Exit, Layer } from "effect";
 
 import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -193,7 +194,7 @@ it.effect("returns not found when updating a missing relationship", () => {
 	return Effect.gen(function* () {
 		const service = yield* RelationshipsService;
 		const exit = yield* Effect.exit(service.update({ ...baseInput }));
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Relationship not found" })));
+		assertExitFails(exit, new NotFound({ message: "Relationship not found" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -360,7 +361,7 @@ it.effect("rejects relationships to entities outside the user's visibility scope
 			]),
 		);
 
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity not found" })));
+		assertExitFails(exit, new NotFound({ message: "Entity not found" }));
 		expect(writes).toBe(0);
 	}).pipe(Effect.provide(layer));
 });

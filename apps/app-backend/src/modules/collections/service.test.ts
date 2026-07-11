@@ -13,6 +13,7 @@ import {
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import {
 	type MockOverrides,
 	dbRunnerLayer,
@@ -247,7 +248,7 @@ it.effect("rejects creating a collection with an empty name", () => {
 		const service = yield* CollectionsService;
 		const exit = yield* Effect.exit(service.create(user, { name: "  " }));
 
-		expect(exit).toEqual(Exit.fail(new BadRequest({ message: "Collection name is required" })));
+		assertExitFails(exit, new BadRequest({ message: "Collection name is required" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -327,9 +328,7 @@ it.effect("rejects adding a collection to itself", () => {
 			}),
 		);
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Cannot add a collection to itself" })),
-		);
+		assertExitFails(exit, new BadRequest({ message: "Cannot add a collection to itself" }));
 	});
 });
 
@@ -349,7 +348,7 @@ it.effect("returns not found when collection does not exist for user", () => {
 			}),
 		);
 
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Collection not found" })));
+		assertExitFails(exit, new NotFound({ message: "Collection not found" }));
 	});
 });
 
@@ -380,7 +379,7 @@ it.effect("returns not found when entity does not exist", () => {
 			}),
 		);
 
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity not found" })));
+		assertExitFails(exit, new NotFound({ message: "Entity not found" }));
 	});
 });
 
@@ -521,7 +520,7 @@ it.effect("returns not found when removing entity not in collection", () => {
 			}),
 		);
 
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity is not in collection" })));
+		assertExitFails(exit, new NotFound({ message: "Entity is not in collection" }));
 	}).pipe(Effect.provide(layer));
 });
 
