@@ -45,6 +45,7 @@ import {
 	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
 } from "./generated-sandbox/registry";
 import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "./limits";
+import { makeSandboxCommandExecutor } from "./restricted-command-executor";
 import { sandboxRunnerSource } from "./runner.generated";
 
 let dependencyRuntimeRoot: string | undefined;
@@ -368,6 +369,111 @@ export default defineScript({
 });
 `;
 
+const workflowHostSource = `
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+
+const manifest = {
+  kind: "workflow",
+  capabilities: [],
+  name: "Workflow host",
+  slug: "workflow-host",
+  requiredAppConfigKeys: [],
+};
+
+export default {
+  manifest,
+  input: Schema.Struct({}),
+  definitionType: "ryot:sandbox-script",
+  output: Schema.Struct({
+    keys: Schema.Array(Schema.String),
+    journal: Schema.Array(Schema.Unknown),
+  }),
+  run: (_input, host) => Effect.gen(function* () {
+    const journal = yield* host.durableCalls();
+    return { journal, keys: Object.keys(host).sort() };
+  }),
+};
+`;
+
+const workflowNondeterminismSource = `
+import { Effect as RuntimeEffect, Schema } from "@ryot/sandbox-sdk/effect";
+
+const Effect = {
+  as: RuntimeEffect.as,
+  gen: RuntimeEffect.gen,
+  succeed: RuntimeEffect.succeed,
+};
+
+const manifest = {
+  kind: "workflow",
+  name: "Workflow nondeterminism",
+  slug: "workflow-nondeterminism",
+  capabilities: [],
+  requiredAppConfigKeys: [],
+};
+const date = Date;
+const dateNow = Date.now;
+const { random } = Math;
+const { randomUUID, getRandomValues } = crypto;
+const performanceNow = performance.now;
+const temporalInstant = Temporal.Now.instant;
+
+export default {
+  manifest,
+  definitionType: "ryot:sandbox-script",
+  input: Schema.Struct({ operation: Schema.String, timestamp: Schema.String }),
+  output: Schema.Unknown,
+  run: (input) => Effect.gen(function* () {
+      yield* Effect.succeed(null);
+      if (input.operation === "date-call") return date.call(undefined);
+      if (input.operation === "date-new") return new date();
+      if (input.operation === "date-now") return dateNow.call(Date);
+      if (input.operation === "math-random") return random.apply(Math);
+      if (input.operation === "crypto-random-uuid") return randomUUID.call(crypto);
+      if (input.operation === "crypto-random-values") {
+        return getRandomValues.call(crypto, new Uint8Array(1));
+      }
+      if (input.operation === "performance-now") return performanceNow.apply(performance);
+      if (input.operation === "temporal-now") return temporalInstant.call(Temporal.Now);
+      if (input.operation === "date-now-callback") return dateNow();
+      if (input.operation === "effect-services") {
+        return {
+          clockWith: typeof Reflect.get(Effect, "clockWith"),
+          randomWith: typeof Reflect.get(Effect, "randomWith"),
+        };
+      }
+      const parsedDate = new date(input.timestamp);
+      return {
+        iso: parsedDate.toISOString(),
+        parsed: date.parse(input.timestamp),
+        utc: date.UTC(2024, 0, 1),
+        instanceConstructor: parsedDate.constructor === date,
+        prototypeConstructor: date.prototype.constructor === date,
+      };
+    }),
+};
+`;
+
+const ambientScriptSource = `
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+
+const manifest = {
+  kind: "script",
+  name: "Ambient script",
+  slug: "ambient-script",
+  capabilities: [],
+  requiredAppConfigKeys: [],
+};
+
+export default {
+  manifest,
+  definitionType: "ryot:sandbox-script",
+  input: Schema.Struct({}),
+  output: Schema.Boolean,
+  run: () => Effect.sync(() => Date.now() > 0 && Math.random() >= 0 && performance.now() >= 0),
+};
+`;
+
 const generatedNpmImportSource = `
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
@@ -407,25 +513,40 @@ type RunnerOptions = {
 	readonly apiFunctions?: readonly string[];
 };
 
-const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: RunnerOptions = {}) =>
+type RunnerRequest = {
+	readonly context: unknown;
+	readonly options?: RunnerOptions;
+	readonly compiled: RunnerCompiledModule;
+};
+
+const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 	Effect.scoped(
 		Effect.gen(function* () {
 			assert(dependencyRuntime);
 			assert(runnerPath);
-			const apiBase = options.apiBase ?? "http://127.0.0.1:1";
-			const request = `${encodeRunnerRequest({
-				context,
-				apiBase,
-				limits: SANDBOX_RUNNER_LIMITS,
-				token: "unused",
-				metadata: compiled.manifest,
-				compiledFormat: compiled.format,
-				compiledCode: compiled.javascript,
-				scriptId: options.scriptId ?? "script-1",
-				apiFunctions: options.apiFunctions ?? [],
-				executionId: options.executionId ?? "execution-1",
-			})}\n`;
+			const apiBase = requests[0]?.options?.apiBase ?? "http://127.0.0.1:1";
+			const request = requests
+				.map(
+					({ compiled, context, options = {} }) =>
+						`${encodeRunnerRequest({
+							context,
+							apiBase: options.apiBase ?? apiBase,
+							limits: SANDBOX_RUNNER_LIMITS,
+							token: "unused",
+							metadata: compiled.manifest,
+							compiledFormat: compiled.format,
+							compiledCode: compiled.javascript,
+							scriptId: options.scriptId ?? "script-1",
+							apiFunctions: options.apiFunctions ?? [],
+							executionId: options.executionId ?? "execution-1",
+						})}\n`,
+				)
+				.join("");
 			const executor = yield* CommandExecutor.CommandExecutor;
+			const sandboxExecutor = makeSandboxCommandExecutor(executor, {
+				PATH: Bun.env["PATH"] ?? "/usr/bin:/bin",
+				DENO_DIR: dependencyRuntime.cacheDirectory,
+			});
 			const command = Command.make(
 				"deno",
 				"run",
@@ -444,13 +565,8 @@ const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: Ru
 				`--allow-net=${new URL(apiBase).host}`,
 				`--allow-read=${runnerPath},${dependencyRuntime.directory}`,
 				runnerPath,
-			).pipe(
-				Command.feed(request),
-				Command.stdout("pipe"),
-				Command.stderr("pipe"),
-				Command.env({ DENO_DIR: dependencyRuntime.cacheDirectory }),
-			);
-			const denoProcess = yield* executor
+			).pipe(Command.feed(request), Command.stdout("pipe"), Command.stderr("pipe"));
+			const denoProcess = yield* sandboxExecutor
 				.start(command)
 				.pipe(
 					Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
@@ -474,17 +590,30 @@ const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: Ru
 			expect(exitCode, stderr).toBe(0);
 
 			return yield* Effect.try({
-				try: () => decodeRunnerResponse(stdout.trim()),
+				try: () =>
+					stdout
+						.trim()
+						.split("\n")
+						.map((line) => decodeRunnerResponse(line)),
 				catch: (error) => new SandboxRunError({ message: unknownToMessage(error) }),
 			});
 		}),
 	).pipe(Effect.provide(BunContext.layer));
 
+const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: RunnerOptions = {}) =>
+	runInDenoRequests([{ compiled, context, options }]).pipe(
+		Effect.map(([result]) => {
+			assert(result !== undefined);
+			return result;
+		}),
+	);
+
 const startCoreHostBridge = (
 	options: {
 		readonly appConfigValue?: unknown;
-		readonly httpResponse?: (url: string) => unknown;
+		readonly durableCallsResult?: unknown;
 		readonly getCachedValueResult?: unknown;
+		readonly httpResponse?: (url: string) => unknown;
 	} = {},
 ) =>
 	Effect.gen(function* () {
@@ -549,6 +678,8 @@ const startCoreHostBridge = (
 							result = { data: options.appConfigValue ?? "Etc/GMT", success: true };
 						} else if (fnName === "getUserPreferences") {
 							result = { success: true, data: { isNsfw: false, disableIntegrations: true } };
+						} else if (fnName === "durableCalls") {
+							result = { success: true, data: options.durableCallsResult ?? [] };
 						} else {
 							result = { error: "Unknown function", success: false };
 						}
@@ -853,6 +984,160 @@ it(
 		),
 	120_000,
 );
+
+it("exposes only kernel-selected workflow host functions despite an empty manifest", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({
+					durableCallsResult: [{ recorded: true }],
+				});
+				const manifest = {
+					name: "Workflow host",
+					slug: "workflow-host",
+					kind: "workflow" as const,
+					capabilities: [] as const,
+					requiredAppConfigKeys: [] as const,
+				};
+				const result = yield* runInDeno(
+					{ manifest, format: 1, javascript: workflowHostSource },
+					{},
+					{ apiFunctions: ["durableCalls"], apiBase: `http://127.0.0.1:${bridge.port}` },
+				);
+
+				expect(result).toMatchObject({
+					success: true,
+					value: { keys: ["durableCalls"], journal: [{ recorded: true }] },
+				});
+				expect(bridge.calls).toEqual([
+					expect.objectContaining({ fnName: "durableCalls", args: [] }),
+				]);
+			}),
+		),
+	));
+
+it("blocks ambient workflow nondeterminism through aliases and call helpers at runtime", () =>
+	Effect.runPromise(
+		Effect.forEach(
+			[
+				["date-call", "Date()"],
+				["date-new", "new Date()"],
+				["math-random", "Math.random"],
+				["temporal-now", "Temporal.Now"],
+				["performance-now", "performance.now"],
+				["crypto-random-uuid", "crypto.randomUUID"],
+				["crypto-random-values", "crypto.getRandomValues"],
+			] as const,
+			([operation, expected]) =>
+				Effect.gen(function* () {
+					const manifest = {
+						kind: "workflow" as const,
+						capabilities: [] as const,
+						name: "Workflow nondeterminism",
+						slug: "workflow-nondeterminism",
+						requiredAppConfigKeys: [] as const,
+					};
+					const result = yield* runInDeno(
+						{ manifest, format: 1, javascript: workflowNondeterminismSource },
+						{ operation, timestamp: "2024-01-01T00:00:00.000Z" },
+					);
+					assert(result !== null && typeof result === "object");
+					expect(Reflect.get(result, "error")).toMatchObject({
+						phase: "execute",
+						message: expect.stringContaining(expected),
+					});
+				}),
+			{ concurrency: 4 },
+		),
+	));
+
+it("keeps the deterministic workflow clock active through Effect callbacks", () =>
+	Effect.runPromise(
+		Effect.forEach(["date-now", "date-now-callback"], (operation) =>
+			Effect.gen(function* () {
+				const manifest = {
+					kind: "workflow" as const,
+					capabilities: [] as const,
+					name: "Workflow nondeterminism",
+					slug: "workflow-nondeterminism",
+					requiredAppConfigKeys: [] as const,
+				};
+				const result = yield* runInDeno(
+					{ manifest, format: 1, javascript: workflowNondeterminismSource },
+					{ operation, timestamp: "2024-01-01T00:00:00.000Z" },
+				);
+
+				expect(result).toMatchObject({ success: true, value: 0 });
+			}),
+		),
+	));
+
+it("allows deterministic workflow dates without changing ambient APIs for scripts", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const workflowManifest = {
+				kind: "workflow" as const,
+				capabilities: [] as const,
+				name: "Workflow nondeterminism",
+				slug: "workflow-nondeterminism",
+				requiredAppConfigKeys: [] as const,
+			};
+			const scriptManifest = {
+				name: "Ambient script",
+				slug: "ambient-script",
+				kind: "script" as const,
+				capabilities: [] as const,
+				requiredAppConfigKeys: [] as const,
+			};
+			const [workflowResult, scriptResult] = yield* runInDenoRequests([
+				{
+					context: { operation: "parse", timestamp: "2024-01-01T00:00:00.000Z" },
+					compiled: {
+						format: 1,
+						manifest: workflowManifest,
+						javascript: workflowNondeterminismSource,
+					},
+				},
+				{
+					context: {},
+					compiled: { format: 1, manifest: scriptManifest, javascript: ambientScriptSource },
+				},
+			]);
+			expect(workflowResult).toMatchObject({
+				success: true,
+				value: {
+					utc: 1_704_067_200_000,
+					parsed: 1_704_067_200_000,
+					instanceConstructor: true,
+					prototypeConstructor: true,
+					iso: "2024-01-01T00:00:00.000Z",
+				},
+			});
+			expect(scriptResult).toMatchObject({ success: true, value: true });
+		}),
+	));
+
+it("does not expose Effect Clock or Random services to workflows at runtime", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const manifest = {
+				kind: "workflow" as const,
+				capabilities: [] as const,
+				name: "Workflow nondeterminism",
+				slug: "workflow-nondeterminism",
+				requiredAppConfigKeys: [] as const,
+			};
+			const result = yield* runInDeno(
+				{ manifest, format: 1, javascript: workflowNondeterminismSource },
+				{ operation: "effect-services", timestamp: "2024-01-01T00:00:00.000Z" },
+			);
+
+			expect(result).toMatchObject({
+				success: true,
+				value: { clockWith: "undefined", randomWith: "undefined" },
+			});
+		}),
+	));
 
 it("loads and executes the generated TMDB Show module in Deno", () =>
 	Effect.runPromise(

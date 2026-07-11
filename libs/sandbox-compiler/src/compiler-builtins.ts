@@ -1,5 +1,7 @@
+import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
 import type { ProviderOperation } from "@ryot/sandbox-sdk/provider";
 import { Effect } from "effect";
+import * as ts from "typescript/unstable/ast";
 import { DiagnosticCategory } from "typescript/unstable/async";
 
 import { bundleBuiltInScript } from "./compiler-bundle";
@@ -18,6 +20,8 @@ import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-
 import {
 	inspectSandboxModuleImports,
 	inspectSandboxSource,
+	inspectWorkflowDeterminism,
+	inspectWorkflowImports,
 	sandboxDefinitionMismatch,
 } from "./compiler-source";
 import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
@@ -32,13 +36,62 @@ export type CompiledBuiltInSandboxEntry = {
 
 export type SandboxEntryDeclaration =
 	| {
-			readonly kind: "automation" | "operation" | "script";
+			readonly kind: Exclude<SandboxManifest["kind"], "provider">;
 			readonly providerOperation?: never;
 	  }
 	| {
 			readonly kind: "provider";
 			readonly providerOperation: ProviderOperation;
 	  };
+
+const relativeModulePath = (sourceFile: ts.SourceFile, specifier: string) => {
+	const segments = sourceFile.fileName.split("/").slice(0, -1);
+	for (const segment of specifier.split("/")) {
+		if (segment === "..") {
+			segments.pop();
+		} else if (segment !== ".") {
+			segments.push(segment);
+		}
+	}
+	return segments.join("/");
+};
+
+const workflowSourceFiles = (entry: ts.SourceFile, sourceFiles: ReadonlyArray<ts.SourceFile>) => {
+	const byName = new Map(sourceFiles.map((file) => [file.fileName, file]));
+	const visited = new Set<string>();
+	const reachable: ts.SourceFile[] = [];
+	const visit = (file: ts.SourceFile) => {
+		if (visited.has(file.fileName)) {
+			return;
+		}
+		visited.add(file.fileName);
+		reachable.push(file);
+		for (const statement of file.statements) {
+			if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) {
+				continue;
+			}
+			const moduleSpecifier = statement.moduleSpecifier;
+			if (!moduleSpecifier || !ts.isStringLiteralLikeNode(moduleSpecifier)) {
+				continue;
+			}
+			const specifier = moduleSpecifier.text;
+			if (!specifier.startsWith(".")) {
+				continue;
+			}
+			const path = relativeModulePath(file, specifier);
+			const dependency =
+				byName.get(path) ??
+				byName.get(`${path}.ts`) ??
+				byName.get(path.replace(/\.js$/, ".ts")) ??
+				byName.get(`${path}/index.ts`);
+			if (dependency) {
+				visit(dependency);
+			}
+		}
+	};
+	visit(entry);
+	return reachable;
+};
 
 export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
 	sources.files[sources.entry] === undefined
@@ -161,6 +214,14 @@ export const compileSandboxPackageEntries = (
 				return sandboxCompilationFailure([
 					sandboxCompilerDiagnostic("RYOT_DEFINITION", definitionMismatch),
 				]);
+			}
+			if (extracted.manifest.kind === "workflow") {
+				const diagnostics = workflowSourceFiles(sourceFile, project.sourceFiles).flatMap((file) =>
+					inspectWorkflowImports(file).concat(inspectWorkflowDeterminism(file)),
+				);
+				if (diagnostics.length > 0) {
+					return sandboxCompilationFailure(diagnostics);
+				}
 			}
 			const declaration = declarations.get(entry);
 			if (declaration && inspection.definitionKind !== declaration.kind) {

@@ -19,8 +19,7 @@ const mediaImportWorkflowModules = [
 	"../imports/media/load-workflow.ts",
 	"../imports/media/normalized-import-workflow.ts",
 	"../imports/media/normalized-import-workflow-live.ts",
-	"../imports/media/resolution-workflow.ts",
-	"../imports/media/population-workflow.ts",
+	"../imports/media/plugin-workflows.ts",
 	"../imports/media/writing-workflow.ts",
 	"../imports/media/writing-failures-workflow.ts",
 ] as const;
@@ -140,6 +139,7 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 			libraryWorkflow,
 			monitoringWorkflow,
 			mediaOperations,
+			mediaPluginWorkflows,
 			membershipWorker,
 			trigger,
 		] = yield* Effect.all([
@@ -147,6 +147,7 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 			readModule("../library-membership/library-entity-import-workflow.ts"),
 			readModule("../media-monitoring/refresh-workflow.ts"),
 			readModule("../imports/media/operations-workflow.ts"),
+			readModule("../imports/media/plugin-workflows.ts"),
 			readModule("../library-membership/membership-worker.ts"),
 			readModule("../entity-import/population-trigger-live.ts"),
 		]);
@@ -162,8 +163,10 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 			expect(source).toContain("ProviderEntityPopulationWorkflow");
 		}
 
-		expect(mediaOperations).toContain("LibraryEntityImportWorkflow");
+		expect(mediaOperations).not.toContain("LibraryEntityImportWorkflow");
 		expect(mediaOperations).not.toContain("ProviderEntityPopulationWorkflow");
+		expect(mediaPluginWorkflows).toContain('workflowSlug: "media-import-population"');
+		expect(mediaPluginWorkflows).not.toContain("LibraryEntityImportWorkflow");
 
 		expect(membershipWorker).toContain("ensureEntityInLibrary");
 

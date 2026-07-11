@@ -1,13 +1,17 @@
+import { Command } from "@effect/platform";
+import { BunContext } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import {
 	executeSandboxExecution,
 	makeSandboxExecutionResolutionActivity,
+	resolveSandboxExecutionPayload,
 	SandboxExecutionQueue,
 } from "./durable-queues";
 import { SandboxRepository } from "./repository";
@@ -24,6 +28,105 @@ it("journals plugin resolution without changing the durable queue identity", () 
 		"resolve-sandbox-execution-execution-id",
 	);
 	expect(SandboxExecutionQueue.idempotencyKey(payload)).toBe("execution-id");
+});
+
+it.effect("executes pinned content across a shell pending replay after an active hot swap", () => {
+	const historicalScriptId = SandboxScriptId.make("historical-script-id");
+	const activeScriptId = SandboxScriptId.make("active-script-id");
+	const historicalContent = `
+case "$EXECUTION_ID" in
+  *-replay-0) printf 'pending:pinned-v1' ;;
+  *) printf 'completed:pinned-v1' ;;
+esac
+`;
+	const replacementContent = "printf 'completed:active-v2'";
+	let activeId = historicalScriptId;
+	const executedContent: string[] = [];
+	const payload = {
+		context: {},
+		executionId: "execution-id",
+		scriptId: historicalScriptId,
+		authority: { type: "system" as const },
+	};
+	const script = (id: typeof historicalScriptId, compiledCode: string) => ({
+		id,
+		compiledCode,
+		slug: "workflow",
+		name: "Workflow",
+		providerId: null,
+		compiledFormat: 1,
+		pluginSlug: "plugin",
+		source: compiledCode,
+		createdAt: new Date(0),
+		updatedAt: new Date(0),
+		contentHash: id === historicalScriptId ? "historical-hash" : "active-hash",
+		metadata: {
+			capabilities: [],
+			name: "Workflow",
+			slug: "workflow",
+			kind: "workflow" as const,
+			requiredAppConfigKeys: [],
+		},
+	});
+	const historical = script(historicalScriptId, historicalContent);
+	const replacement = script(activeScriptId, replacementContent);
+	const layer = Layer.mergeAll(
+		dbRunnerLayer,
+		Layer.mock(SandboxRepository)({
+			_tag: "SandboxRepository",
+			isPluginScript: () => Effect.succeed(true),
+			getScript: (scriptId) =>
+				Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
+		}),
+		Layer.mock(PluginRuntimeResolver)({
+			_tag: "PluginRuntimeResolver",
+			findActiveScriptById: () =>
+				Effect.succeed(
+					script(
+						activeId,
+						activeId === historicalScriptId ? historicalContent : replacementContent,
+					),
+				),
+		}),
+		Layer.mock(RuntimeSandboxService)({
+			_tag: "SandboxService",
+			run: (input) => {
+				executedContent.push(input.compiledCode);
+				return Command.make("/bin/sh", "-c", input.compiledCode).pipe(
+					Command.env({ EXECUTION_ID: input.executionId }),
+					Command.string,
+					Effect.provide(BunContext.layer),
+					Effect.orDie,
+					Effect.map((output) => ({
+						logs: [],
+						error: null,
+						success: true,
+						value: output,
+						executionId: input.executionId,
+						timing: { totalMs: 1, executionMs: 1 },
+					})),
+				);
+			},
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const pinned = yield* resolveSandboxExecutionPayload(payload, "active");
+		const pending = yield* executeSandboxExecution({
+			...pinned,
+			executionId: "execution-id-replay-0",
+		});
+		expect(pending.value).toBe("pending:pinned-v1");
+
+		activeId = activeScriptId;
+		const replayed = yield* executeSandboxExecution({
+			...pinned,
+			executionId: "execution-id-replay-1",
+		});
+		expect(replayed.value).toBe("completed:pinned-v1");
+		expect(executedContent).toEqual([historicalContent, historicalContent]);
+		expect(executedContent).not.toContain(replacementContent);
+	}).pipe(Effect.provide(layer));
 });
 
 it.effect("executes the exact queued row and distinguishes plugin from kernel scripts", () => {

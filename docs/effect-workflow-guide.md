@@ -230,30 +230,25 @@ this codebase correctly use `generateId()` for exactly that reason (e.g.
 `sandbox/service.ts`'s `SandboxExecutionService.enqueue`).
 The rule only bites when the dispatching code itself can run more than once.
 
-**The actual, correctly-executed example of this pattern in this codebase** lives in
-`apps/app-backend/src/modules/imports/media/population-workflow.ts:73-81` and
-`resolution-workflow.ts:89-96`, both consuming the `MediaImportWorkflowOperations` interface
-(`types-workflow.ts:22-60`):
+**The current, correctly-executed media import example** is split between the app's plugin workflow
+shell (`apps/app-backend/src/modules/imports/media/plugin-workflows.ts`) and the media plugin body
+scripts (`plugins/media/scripts/workflows/media-import-population.sandbox.ts` and
+`media-import-resolution.sandbox.ts`):
 
 ```ts
-// resolution-workflow.ts:89-96
-const result = yield* operations
-  .resolveExternalId({
-    value: ref.identifierValue,
-    userId: input.payload.userId,
-    identifierType: ref.identifierType,
-    scriptId: candidate.sandboxScriptId,
-    executionId: `${input.executionId}-resolve-${i}-${candidateIndex}`,
-  })
-  .pipe(Effect.either);
+// plugin-workflows.ts: the normalized import owns one deterministic plugin execution per phase.
+executionId: `${input.executionId}-population`
+
+// media-import-population.sandbox.ts: stable item indexes key the owned child calls.
+yield* replay.child(`import-${item.index}`, libraryEntityImport, payload);
+
+// media-import-resolution.sandbox.ts: stable item and candidate indexes key activities.
+yield* replay.activity(`resolve-${item.index}-${candidateIndex}`, activity, payload);
 ```
 
-Parent `executionId` plus two stable loop indices — exactly the shape to copy.
-`apps/app-backend/AGENTS.md`'s queue rule cites this pattern by file —
-`population-workflow.ts`'s `populateMediaEntityGroups` and `resolution-workflow.ts`'s
-`resolveMediaEntityGroups` — and explicitly notes that `library-membership/service.ts` has an
-unrelated, same-named `importEntity` that is a legitimate top-level dispatch (see the
-[audit](#library-membership) below), not an example of parent-derived keying.
+The normalized import owns phase orchestration, each plugin workflow body owns its durable calls,
+and every key is derived from the parent execution or stable submitted indexes. The
+[audit](#library-membership) below distinguishes the unrelated top-level library dispatch.
 
 ---
 
@@ -683,13 +678,11 @@ above:
 
 #### Library-membership
 
-`library-membership/service.ts`'s `importEntity` (line 33, exported as `LibraryImportService.import`)
-is a **top-level, HTTP-route-triggered** dispatch of `LibraryEntityImportWorkflow` — one user click,
-one job, correctly using `generateId()` since there's no parent workflow and no loop. It shares a
-name with, but is functionally unrelated to, the `MediaImportWorkflowOperations.importEntity` call
-used by `imports/media`'s `population-workflow.ts` referenced in
-[Determinism](#determinism-and-child-workflows) above. Both are correct for what they each actually
-do; they just aren't the same pattern despite the shared name.
+`library-membership/service.ts`'s `importEntity` (exported as `LibraryImportService.import`) is a
+**top-level, HTTP-route-triggered** dispatch of `LibraryEntityImportWorkflow` — one user click, one
+job, correctly using `generateId()` since there's no parent workflow and no loop. The media import
+instead reaches the same single owner through the population plugin body's deterministic
+`replay.child` call described in [Determinism](#determinism-and-child-workflows) above.
 
 ---
 
