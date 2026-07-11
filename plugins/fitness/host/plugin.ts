@@ -41,6 +41,23 @@ export const fitnessPlugin = definePlugin({
 			description: "Preload the built-in exercise catalog",
 		},
 	],
+	client: {
+		apiVersion: 1,
+		entry: "client/index.ts",
+		entities: { workout: { listPresentation: "workout-row", gridPresentation: "workout-card" } },
+		exports: {
+			"workout-card": {
+				kind: "presentation",
+				entry: "client/workout-card.ts",
+				automaticEntityPresentations: false,
+			},
+			"workout-row": {
+				kind: "presentation",
+				entry: "client/workout-row.ts",
+				automaticEntityPresentations: false,
+			},
+		},
+	},
 	providers: [
 		{
 			name: "Free Exercise DB",

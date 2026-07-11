@@ -14,8 +14,15 @@ import {
 	type Recipe,
 } from "@ryot-app/client-sdk/ryotql";
 
+import {
+	PokemonArtworkListSchema,
+	PokemonNumberSchema,
+	PokemonStringsSchema,
+} from "./pokemon-schema";
+
 export const pokemonPresentationRecipe = defineRecipe((entityIds: readonly string[]) => {
 	const pokemon = table("entity", "pokemonPresentation");
+	const property = (key: string) => jsonPath(column(pokemon, "properties"), key);
 	return {
 		queries: {
 			pokemon: selectedRows(pokemon, {
@@ -29,12 +36,13 @@ export const pokemonPresentationRecipe = defineRecipe((entityIds: readonly strin
 					),
 				),
 				selection: {
+					types: selectedField(property("types"), PokemonStringsSchema),
+					height: selectedField(property("height"), PokemonNumberSchema),
+					weight: selectedField(property("weight"), PokemonNumberSchema),
 					id: selectedField(column(pokemon, "id"), Schema.String),
+					artwork: selectedField(property("images"), PokemonArtworkListSchema),
+					abilities: selectedField(property("abilities"), PokemonStringsSchema),
 					name: selectedField(column(pokemon, "name"), Schema.String),
-					types: selectedField(
-						jsonPath(column(pokemon, "properties"), "types"),
-						Schema.NullOr(Schema.Array(Schema.String)),
-					),
 				},
 			}),
 		},

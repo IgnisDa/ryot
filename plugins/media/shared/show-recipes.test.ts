@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
 	showActivityRecipe,
 	showOverviewRecipe,
+	showPresentationRecipe,
 	showSeasonEpisodesRecipe,
 	showSeasonsRecipe,
 	showSummaryRecipe,
@@ -175,6 +176,74 @@ const SHOW_SUMMARY_ROW = {
 	],
 };
 describe("media show query recipes", () => {
+	it("builds one presentation query for all requested show IDs", () => {
+		const recipe = showPresentationRecipe(["show-2", "show-1", "show-2"]);
+		const shows = recipe.document.queries["shows"];
+		if (shows?.output.type !== "rows" || shows.where?.type !== "and") {
+			throw new Error("Expected filtered presentation rows query");
+		}
+
+		expect(Object.keys(recipe.document.queries)).toEqual(["shows"]);
+		expect(shows.output.pagination).toMatchObject({ limit: 100 });
+		expect(shows.where.predicates[1]).toMatchObject({
+			type: "in",
+			values: [{ value: "show-2" }, { value: "show-1" }, { value: "show-2" }],
+		});
+		expect(shows.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+			"id",
+			"name",
+			"schemaSlug",
+			"populationStatus",
+			"translationStatus",
+			"state",
+			"images",
+			"publishDate",
+			"publishYear",
+			"productionStatus",
+			"storedSeasons",
+			"storedEpisodes",
+			"watchedEpisodes",
+			"inProgressEpisodes",
+		]);
+	});
+
+	it("decodes stored show presentation progress and rejects malformed artwork", () => {
+		const recipe = showPresentationRecipe(["show-1"]);
+		const row = {
+			id: "show-1",
+			storedSeasons: 2,
+			name: "Severance",
+			publishYear: 2022,
+			publishDate: null,
+			schemaSlug: "show",
+			storedEpisodes: 19,
+			watchedEpisodes: 11,
+			state: "in_progress",
+			inProgressEpisodes: 1,
+			populationStatus: "ready",
+			translationStatus: "none",
+			productionStatus: "Returning Series",
+			images: [{ type: "s3", key: "severance-cover", purpose: "cover" }],
+		};
+
+		expect(recipe.decode({ data: { shows: showRows([row]) } })).toMatchObject({
+			success: [
+				{
+					id: "show-1",
+					storedSeasons: 2,
+					storedEpisodes: 19,
+					watchedEpisodes: 11,
+					inProgressEpisodes: 1,
+				},
+			],
+		});
+		expect(
+			recipe.decode({
+				data: { shows: showRows([{ ...row, images: [{ type: "ftp", url: 12 }] }]) },
+			})._tag,
+		).toBe("Failure");
+	});
+
 	it("builds show seasons without nested episodes", () => {
 		const recipe = showSeasonsRecipe({ seasonLimit: 4, entityId: "show-id" });
 		const show = recipe.document.queries["show"];

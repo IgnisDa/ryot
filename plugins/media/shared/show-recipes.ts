@@ -287,6 +287,108 @@ export const showSummaryRecipe = defineRecipe(
 	},
 );
 
+const showPresentationSeasonCount = (show: Table) => {
+	const season = table("entity", "presentationSeason");
+	const relationship = table("relationship", "presentationShowSeason");
+	return count(season, {
+		joins: [
+			join("inner", relationship, eq(column(relationship, "targetEntityId"), column(season, "id"))),
+		],
+		where: and(
+			entitySchema(season, "show-season"),
+			eq(column(relationship, "sourceEntityId"), column(show, "id")),
+			eq(column(relationship, "relationshipSchemaSlug"), literal("show-to-show-season")),
+		),
+	});
+};
+
+const showPresentationEpisodeCount = (
+	show: Table,
+	alias: string,
+	state?: "complete" | "in_progress",
+) => {
+	const episode = table("entity", `${alias}Episode`);
+	const season = table("entity", `${alias}Season`);
+	const showSeason = table("relationship", `${alias}ShowSeason`);
+	const seasonEpisode = table("relationship", `${alias}SeasonEpisode`);
+	return count(episode, {
+		joins: [
+			join(
+				"inner",
+				seasonEpisode,
+				eq(column(seasonEpisode, "targetEntityId"), column(episode, "id")),
+			),
+			join("inner", season, eq(column(seasonEpisode, "sourceEntityId"), column(season, "id"))),
+			join("inner", showSeason, eq(column(showSeason, "targetEntityId"), column(season, "id"))),
+		],
+		where: and(
+			entitySchema(episode, "show-episode"),
+			entitySchema(season, "show-season"),
+			eq(column(showSeason, "sourceEntityId"), column(show, "id")),
+			eq(column(showSeason, "relationshipSchemaSlug"), literal("show-to-show-season")),
+			eq(column(seasonEpisode, "relationshipSchemaSlug"), literal("show-season-to-show-episode")),
+			...(state === undefined
+				? []
+				: [eq(episodeLifecycleStateExpression(episode, `${alias}Lifecycle`), literal(state))]),
+		),
+	});
+};
+
+export const showPresentationRecipe = defineRecipe((entityIds: readonly string[]) => {
+	const show = table("entity", "presentationShow");
+	const lifecycle = episodicLifecycleExpressions(
+		showEpisodicKindConfig,
+		show,
+		"showPresentationLifecycle",
+	);
+	return {
+		queries: {
+			shows: selectedRows(show, {
+				limit: 100,
+				orderBy: [ascending(column(show, "id"))],
+				where: and(
+					entitySchema(show, "show"),
+					inArray(
+						column(show, "id"),
+						entityIds.map((requestedId) => literal(requestedId)),
+					),
+				),
+				selection: {
+					...entityIdentitySelection(show),
+					state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
+					images: selectedField(propertyJson(show, "images"), MediaImageListSchema),
+					publishDate: selectedField(
+						propertyText(show, "publishDate"),
+						Schema.NullOr(Schema.String),
+					),
+					publishYear: selectedField(
+						propertyNumber(show, "publishYear"),
+						Schema.NullOr(Schema.Number),
+					),
+					productionStatus: selectedField(
+						propertyText(show, "productionStatus"),
+						Schema.NullOr(Schema.String),
+					),
+					storedSeasons: selectedField(showPresentationSeasonCount(show), Schema.Number),
+					storedEpisodes: selectedField(
+						showPresentationEpisodeCount(show, "presentationStored"),
+						Schema.Number,
+					),
+					watchedEpisodes: selectedField(
+						showPresentationEpisodeCount(show, "presentationWatched", "complete"),
+						Schema.Number,
+					),
+					inProgressEpisodes: selectedField(
+						showPresentationEpisodeCount(show, "presentationProgress", "in_progress"),
+						Schema.Number,
+					),
+				},
+			}),
+		},
+		map: ({ shows }) => Result.succeed(shows.items),
+	};
+});
+
 const creditSelection = (credit: Table, relationship: Table) => ({
 	id: selectedField(column(credit, "id"), EntityId),
 	name: selectedField(column(credit, "name"), Schema.String),
@@ -824,4 +926,5 @@ export type ShowSummaryResult = Recipe.Success<typeof showSummaryRecipe>;
 export type ShowActivityResult = Recipe.Success<typeof showActivityRecipe>;
 export type ShowOverviewResult = Recipe.Success<typeof showOverviewRecipe>;
 export type ShowSeasonEpisodesResult = Recipe.Success<typeof showSeasonEpisodesRecipe>;
+export type ShowPresentationData = Recipe.Success<typeof showPresentationRecipe>[number];
 export type ShowActivityEpisode = Extract<ShowActivityEvent, { kind: "episode" }>["episode"];

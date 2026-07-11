@@ -27,8 +27,8 @@ export const fixturePlugin = definePlugin({
 		entities: {
 			pokemon: {
 				detailPage: "pokemon-detail",
-				gridPresentation: "pokemon-grid",
-				listPresentation: "pokemon-list",
+				gridPresentation: "pokemon-card",
+				listPresentation: "pokemon-row",
 			},
 		},
 		routes: {
@@ -72,15 +72,15 @@ export const fixturePlugin = definePlugin({
 				entry: "client/pokemon-types.tsx",
 				automaticEntityPresentations: false,
 			},
-			"pokemon-grid": {
+			"pokemon-card": {
 				kind: "presentation",
+				entry: "client/pokemon-card.ts",
 				automaticEntityPresentations: false,
-				entry: "client/pokemon-grid-presentation.ts",
 			},
-			"pokemon-list": {
+			"pokemon-row": {
 				kind: "presentation",
+				entry: "client/pokemon-row.ts",
 				automaticEntityPresentations: false,
-				entry: "client/pokemon-list-presentation.ts",
 			},
 		},
 	},

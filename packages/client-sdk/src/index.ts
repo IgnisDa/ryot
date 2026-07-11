@@ -10,6 +10,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import {
+	AssetLocator,
 	ManagedAssetResolutionBatch,
 	type ManagedAssetLocator as ManagedAssetLocatorValue,
 	TemporaryUploadToken,
@@ -43,6 +44,7 @@ export type {
 	ManagedAssetLocator,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
+export { AssetLocator };
 
 export type RyotThemeSnapshot = PluginThemeSnapshotValue;
 export type ManagedAssetResolution = PluginManagedAssetResolutionValue;
