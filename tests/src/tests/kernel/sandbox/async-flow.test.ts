@@ -5,6 +5,7 @@ import {
 	createEntity,
 	createEntitySchema,
 	createPluginScope,
+	deepThrowingSandboxSource,
 	enqueueSandboxScript,
 	httpCallSandboxSource,
 	installSandboxScriptScoped,
@@ -389,6 +390,34 @@ describe("sandbox async flow", () => {
 			});
 			expect(result.error?.line).toBeGreaterThan(0);
 			expect(result.error?.column).toBeGreaterThan(0);
+			expect(result.error?.stack).not.toContain("data:application/javascript");
+			expect(result.error?.stack).not.toContain("runner.mjs");
+		}),
+	);
+
+	it.live("preserves the complete mapped stack for deep script errors", () =>
+		Effect.gen(function* () {
+			const { userId } = yield* createAuthenticatedClient();
+			const slug = `deep-throws-error-${crypto.randomUUID()}`;
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				name: "deep-throws-error",
+				source: deepThrowingSandboxSource({
+					slug,
+					name: "deep-throws-error",
+					message: "deep intentional",
+				}),
+			});
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+
+			const result = yield* pollSandboxResult(userId, jobId);
+
+			assertCompleted(result, "deep sandbox job");
+			expect(result.error).toMatchObject({
+				phase: "execute",
+				message: expect.stringContaining("deep intentional"),
+			});
+			expect(result.error?.stack?.split("\n").length).toBeGreaterThan(10);
 			expect(result.error?.stack).not.toContain("data:application/javascript");
 			expect(result.error?.stack).not.toContain("runner.mjs");
 		}),
