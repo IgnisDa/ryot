@@ -9,7 +9,6 @@
 		}
 	},
 	"scripts": {
-		"build": "tsc",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
