@@ -1,10 +1,12 @@
 # Durable Sandbox - Phase 1: Universal Workflow Runtime
 
+Pre-requisite: Please read [Durable Sandbox - Overview](../../plans/durable-sandbox/00-overview.md) and [Durable Sandbox - Phase 1 Plan](../../plans/durable-sandbox/01-phase-1-universal-workflow-runtime.md) to understand why this work is being done.
+
 ## Tasks
 
-**Overall Progress:** 6 of 16 tasks completed
+**Overall Progress:** 7 of 16 tasks completed
 
-**Current Task:** [Task 07](./07-migrate-media-integrations.md) (todo)
+**Current Task:** [Task 08](./08-migrate-media-automations-and-operations.md) (todo)
 
 ### Task List
 
@@ -16,7 +18,7 @@
 | 04  | [Make Sandbox Artifacts Replay-Safe](./04-make-artifacts-replay-safe.md)                     | done   |
 | 05  | [Complete Durable Host Dispatch and Write Safety](./05-complete-durable-host-dispatch.md)    | done   |
 | 06  | [Migrate Media Imports and Named Workflows](./06-migrate-media-imports-and-workflows.md)     | done   |
-| 07  | [Migrate Media Integration Scripts](./07-migrate-media-integrations.md)                      | todo   |
+| 07  | [Migrate Media Integration Scripts](./07-migrate-media-integrations.md)                      | done   |
 | 08  | [Migrate Media Automations and Operations](./08-migrate-media-automations-and-operations.md) | todo   |
 | 09  | [Migrate the Fitness Plugin](./09-migrate-fitness-plugin.md)                                 | todo   |
 | 10  | [Migrate Books and Serial Media Providers](./10-migrate-books-and-serial-media-providers.md) | todo   |
