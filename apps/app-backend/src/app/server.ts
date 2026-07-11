@@ -139,7 +139,7 @@ export const ServerLive = Layer.effectDiscard(
 			return new Response(bytes, { headers: { "Content-Type": mimeType(target) } });
 		});
 
-		const server = yield* BunHttpServer.make({ port: config.port });
+		const server = yield* BunHttpServer.make({ idleTimeout: 0, port: config.port });
 		yield* HttpServer.serveEffect(
 			Effect.gen(function* () {
 				const serverRequest = yield* HttpServerRequest.HttpServerRequest;
