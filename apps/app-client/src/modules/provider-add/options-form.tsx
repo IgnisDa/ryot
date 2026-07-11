@@ -3,10 +3,11 @@ import { useForm } from "@tanstack/react-form";
 import clsx from "clsx";
 import { Match } from "effect";
 import { useDeferredValue, useState } from "react";
-import { FlatList, Keyboard, Modal, Pressable, Text, TextInput, View } from "react-native";
+import { FlatList, Keyboard, Pressable, Text, TextInput, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 import { FormMessage, FormTextInput } from "@/modules/ui/form";
+import { AppModal } from "@/modules/ui/modal";
 import { AppSwitch } from "@/modules/ui/switch";
 
 import {
@@ -169,95 +170,86 @@ function SearchableMultiSelect(props: {
 				)}
 			</View>
 
-			<Modal
-				transparent
+			<AppModal
 				visible={open}
-				animationType="fade"
-				onRequestClose={close}
-				accessibilityViewIsModal
+				onClose={close}
+				closeLabel="Close options"
+				className="items-center justify-center p-4"
 			>
-				<View className="flex-1 items-center justify-center p-4">
-					<Pressable
-						onPress={close}
-						accessibilityRole="button"
-						accessibilityLabel="Close options"
-						className="absolute inset-0 bg-overlay"
-					/>
-					<View className="h-[80%] max-h-[80%] w-full max-w-xl rounded-xl border border-border bg-surface p-4 shadow-card md:h-auto">
-						<View className="mb-3 flex-row items-center justify-between">
-							<Text className="font-ui-semibold text-base text-text">{props.label}</Text>
-							<Pressable
-								onPress={close}
-								className="rounded-md p-1"
-								accessibilityRole="button"
-								accessibilityLabel="Close options"
-							>
-								<AppIcon name="x" size={17} className="text-text-muted" />
-							</Pressable>
-						</View>
-						<View className="mb-3 h-10 flex-row items-center gap-2 rounded-lg border border-border bg-raised px-3">
-							<AppIcon name="search" size={15} className="text-text-subtle" />
-							<TextInput
-								value={query}
-								returnKeyType="go"
-								autoCorrect={false}
-								onChangeText={setQuery}
-								placeholder="Search options"
-								onSubmitEditing={() => Keyboard.dismiss()}
-								accessibilityLabel={`Search ${props.label}`}
-								className="min-w-0 flex-1 font-ui text-sm text-text"
-							/>
-						</View>
-						{selectedLabels.length === 0 ? null : (
-							<Pressable
-								accessibilityRole="button"
-								onPress={() => props.onChange([])}
-								accessibilityLabel={`Clear ${props.label}`}
-								className="mb-2 self-start rounded-md px-1.5 py-1"
-							>
-								<Text className="font-ui-medium text-xs text-text-muted">Clear selections</Text>
-							</Pressable>
-						)}
-						<View className="min-h-0 flex-1">
-							<FlatList
-								data={visibleChoices}
-								keyboardShouldPersistTaps="handled"
-								keyExtractor={(choice) => choice.value}
-								renderItem={({ item }) => {
-									const checked = selected.has(item.value);
-									return (
-										<Pressable
-											accessibilityRole="checkbox"
-											accessibilityState={{ checked }}
-											onPress={() => toggle(item.value)}
-											accessibilityLabel={choiceLabel(item)}
-											className="min-h-10 flex-row items-center gap-3 rounded-lg px-2 py-2"
-										>
-											<View
-												className={clsx(
-													"h-5 w-5 items-center justify-center rounded border",
-													checked && "border-accent bg-accent",
-													!checked && "border-border-strong bg-raised",
-												)}
-											>
-												{checked ? <AppIcon name="check" size={13} className="text-white" /> : null}
-											</View>
-											<Text className="min-w-0 flex-1 font-ui text-sm text-text">
-												{choiceLabel(item)}
-											</Text>
-										</Pressable>
-									);
-								}}
-							/>
-						</View>
-						{visibleChoices.length === 0 ? (
-							<Text className="py-4 text-center font-ui text-sm text-text-muted">
-								No matching options.
-							</Text>
-						) : null}
+				<View className="h-[80%] max-h-[80%] w-full max-w-xl rounded-xl border border-border bg-surface p-4 shadow-card md:h-auto">
+					<View className="mb-3 flex-row items-center justify-between">
+						<Text className="font-ui-semibold text-base text-text">{props.label}</Text>
+						<Pressable
+							onPress={close}
+							className="rounded-md p-1"
+							accessibilityRole="button"
+							accessibilityLabel="Close options"
+						>
+							<AppIcon name="x" size={17} className="text-text-muted" />
+						</Pressable>
 					</View>
+					<View className="mb-3 h-10 flex-row items-center gap-2 rounded-lg border border-border bg-raised px-3">
+						<AppIcon name="search" size={15} className="text-text-subtle" />
+						<TextInput
+							value={query}
+							returnKeyType="go"
+							autoCorrect={false}
+							onChangeText={setQuery}
+							placeholder="Search options"
+							onSubmitEditing={() => Keyboard.dismiss()}
+							accessibilityLabel={`Search ${props.label}`}
+							className="min-w-0 flex-1 font-ui text-sm text-text"
+						/>
+					</View>
+					{selectedLabels.length === 0 ? null : (
+						<Pressable
+							accessibilityRole="button"
+							onPress={() => props.onChange([])}
+							accessibilityLabel={`Clear ${props.label}`}
+							className="mb-2 self-start rounded-md px-1.5 py-1"
+						>
+							<Text className="font-ui-medium text-xs text-text-muted">Clear selections</Text>
+						</Pressable>
+					)}
+					<View className="min-h-0 flex-1">
+						<FlatList
+							data={visibleChoices}
+							keyboardShouldPersistTaps="handled"
+							keyExtractor={(choice) => choice.value}
+							renderItem={({ item }) => {
+								const checked = selected.has(item.value);
+								return (
+									<Pressable
+										accessibilityRole="checkbox"
+										accessibilityState={{ checked }}
+										onPress={() => toggle(item.value)}
+										accessibilityLabel={choiceLabel(item)}
+										className="min-h-10 flex-row items-center gap-3 rounded-lg px-2 py-2"
+									>
+										<View
+											className={clsx(
+												"h-5 w-5 items-center justify-center rounded border",
+												checked && "border-accent bg-accent",
+												!checked && "border-border-strong bg-raised",
+											)}
+										>
+											{checked ? <AppIcon name="check" size={13} className="text-white" /> : null}
+										</View>
+										<Text className="min-w-0 flex-1 font-ui text-sm text-text">
+											{choiceLabel(item)}
+										</Text>
+									</Pressable>
+								);
+							}}
+						/>
+					</View>
+					{visibleChoices.length === 0 ? (
+						<Text className="py-4 text-center font-ui text-sm text-text-muted">
+							No matching options.
+						</Text>
+					) : null}
 				</View>
-			</Modal>
+			</AppModal>
 		</>
 	);
 }

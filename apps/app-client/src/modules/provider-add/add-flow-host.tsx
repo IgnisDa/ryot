@@ -1,8 +1,9 @@
 import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect } from "react";
-import { BackHandler, Platform, Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { AppModal } from "@/modules/ui/modal";
 
 import { ProviderSearchPanel } from "./provider-search-panel";
 
@@ -29,29 +30,17 @@ export function ProviderAddHost(props: {
 	const params = useLocalSearchParams<ProviderAddParams>();
 	const isOpen = isAddOpen(params[PROVIDER_ADD_SEARCH_PARAM]);
 
-	useEffect(() => {
-		const subscription =
-			isOpen && Platform.OS !== "web"
-				? BackHandler.addEventListener("hardwareBackPress", () => {
-						setAddParam(undefined);
-						return true;
-					})
-				: undefined;
-		return () => subscription?.remove();
-	}, [isOpen]);
-
 	if (!isOpen) {
 		return null;
 	}
 
 	return (
-		<View className="absolute inset-0 z-50 md:items-center md:justify-center md:p-6">
-			<Pressable
-				accessibilityRole="button"
-				accessibilityLabel="Close"
-				className="absolute inset-0 bg-overlay"
-				onPress={() => setAddParam(undefined)}
-			/>
+		<AppModal
+			visible={isOpen}
+			closeLabel="Close"
+			onClose={() => setAddParam(undefined)}
+			className="md:items-center md:justify-center md:p-6"
+		>
 			<View
 				style={{ paddingTop: insets.top }}
 				className="w-full flex-1 bg-bg md:max-h-[80%] md:max-w-2xl md:flex-initial md:rounded-xl md:border md:border-border md:bg-surface md:shadow-card"
@@ -67,6 +56,6 @@ export function ProviderAddHost(props: {
 					</View>
 				</ScrollView>
 			</View>
-		</View>
+		</AppModal>
 	);
 }

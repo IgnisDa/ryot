@@ -6,10 +6,11 @@ import { useForm } from "@tanstack/react-form";
 import clsx from "clsx";
 import { Exit } from "effect";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 import { FormMessage, FormSubmitButton, FormTextInput } from "@/modules/ui/form";
+import { AppModal } from "@/modules/ui/modal";
 import { AppSwitch } from "@/modules/ui/switch";
 
 import { makePreferenceDraft, preferencePayload } from "./preference-draft";
@@ -108,57 +109,53 @@ function LanguagePicker(props: {
 				/>
 			) : null}
 
-			<Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
-				<View accessibilityViewIsModal className="flex-1 items-center justify-center px-5">
-					<Pressable
-						onPress={() => setOpen(false)}
-						accessibilityLabel="Close language picker"
-						className="absolute inset-0 bg-black/45"
-					/>
-					<View className="max-h-[80%] w-full max-w-sm overflow-hidden rounded-xl border border-border bg-raised shadow-card">
-						<View className="border-b border-border px-4 py-3">
-							<Text className="font-ui-semibold text-base text-text">Metadata language</Text>
-						</View>
-						<ScrollView contentContainerClassName="py-1">
-							{LANGUAGE_OPTIONS.map((option) => {
-								const selected = !custom && matched?.code === option.code;
-								return (
-									<Pressable
-										accessibilityRole="radio"
-										key={option.code ?? "default"}
-										onPress={() => select(option.code)}
-										accessibilityState={{ checked: selected }}
-										className={clsx(
-											"h-11 flex-row items-center gap-3 px-4",
-											selected && "bg-accent-soft",
-										)}
-									>
-										<Text className="flex-1 font-ui text-sm text-text">{option.label}</Text>
-										{option.code === null ? null : (
-											<Text className="font-ui text-xs text-text-subtle">{option.code}</Text>
-										)}
-										{selected ? (
-											<AppIcon name="check" size={16} className="text-accent-text" />
-										) : null}
-									</Pressable>
-								);
-							})}
-							<Pressable
-								onPress={selectCustom}
-								accessibilityRole="radio"
-								accessibilityState={{ checked: custom }}
-								className={clsx(
-									"h-11 flex-row items-center gap-3 px-4",
-									custom && "bg-accent-soft",
-								)}
-							>
-								<Text className="flex-1 font-ui text-sm text-text">Other language...</Text>
-								{custom ? <AppIcon name="check" size={16} className="text-accent-text" /> : null}
-							</Pressable>
-						</ScrollView>
+			<AppModal
+				visible={open}
+				backdropClassName="bg-black/45"
+				closeLabel="Close language picker"
+				onClose={() => setOpen(false)}
+				className="items-center justify-center px-5"
+			>
+				<View className="max-h-[80%] w-full max-w-sm overflow-hidden rounded-xl border border-border bg-raised shadow-card">
+					<View className="border-b border-border px-4 py-3">
+						<Text className="font-ui-semibold text-base text-text">Metadata language</Text>
 					</View>
+					<ScrollView contentContainerClassName="py-1">
+						{LANGUAGE_OPTIONS.map((option) => {
+							const selected = !custom && matched?.code === option.code;
+							return (
+								<Pressable
+									accessibilityRole="radio"
+									key={option.code ?? "default"}
+									onPress={() => select(option.code)}
+									accessibilityState={{ checked: selected }}
+									className={clsx(
+										"h-11 flex-row items-center gap-3 px-4",
+										selected && "bg-accent-soft",
+									)}
+								>
+									<Text className="flex-1 font-ui text-sm text-text">{option.label}</Text>
+									{option.code === null ? null : (
+										<Text className="font-ui text-xs text-text-subtle">{option.code}</Text>
+									)}
+									{selected ? (
+										<AppIcon name="check" size={16} className="text-accent-text" />
+									) : null}
+								</Pressable>
+							);
+						})}
+						<Pressable
+							onPress={selectCustom}
+							accessibilityRole="radio"
+							accessibilityState={{ checked: custom }}
+							className={clsx("h-11 flex-row items-center gap-3 px-4", custom && "bg-accent-soft")}
+						>
+							<Text className="flex-1 font-ui text-sm text-text">Other language...</Text>
+							{custom ? <AppIcon name="check" size={16} className="text-accent-text" /> : null}
+						</Pressable>
+					</ScrollView>
 				</View>
-			</Modal>
+			</AppModal>
 		</>
 	);
 }
