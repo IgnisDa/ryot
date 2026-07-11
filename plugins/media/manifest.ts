@@ -22,7 +22,7 @@ const creditRelationshipSlugs = relationshipSchemas
 		const isCreditTarget =
 			targetEntitySchemaSlug !== null &&
 			(targetEntitySchemaSlug.endsWith("-group") ||
-				builtinMediaEntitySchemaSlugs.includes(targetEntitySchemaSlug));
+				builtinMediaEntitySchemaSlugs.some((slug) => slug === targetEntitySchemaSlug));
 		return isCreditSource && isCreditTarget;
 	})
 	.map(({ slug }) => slug);
@@ -554,11 +554,20 @@ export const mediaPlugin = definePlugin({
 	providers: mediaProviders,
 	workflows: [
 		{ slug: "import", scriptSlug: "workflow.media-import" },
+		{ slug: "media-monitoring-sweep", scriptSlug: "workflow.media-monitoring-sweep" },
 		{ slug: "media-import-population", scriptSlug: "workflow.media-import-population" },
 		{ slug: "media-import-resolution", scriptSlug: "workflow.media-import-resolution" },
 	],
 	crons: [
 		{
+			lot: "workflow",
+			slug: "media-monitoring",
+			schedule: "0 0 * * *",
+			workflowSlug: "media-monitoring-sweep",
+			description: "Refresh monitored provider-backed media",
+		},
+		{
+			lot: "script",
 			slug: "media-trending",
 			schedule: "0 0 * * *",
 			scriptSlug: "media-trending",
@@ -566,6 +575,24 @@ export const mediaPlugin = definePlugin({
 		},
 	],
 	operations: [
+		{
+			auth: "user",
+			slug: "media-monitoring-status",
+			scriptSlug: "operation.media-monitoring-status",
+			description: "Read media monitoring status",
+		},
+		{
+			auth: "user",
+			slug: "media-monitoring-enable",
+			scriptSlug: "operation.media-monitoring-enable",
+			description: "Enable media monitoring",
+		},
+		{
+			auth: "user",
+			slug: "media-monitoring-disable",
+			scriptSlug: "operation.media-monitoring-disable",
+			description: "Disable media monitoring",
+		},
 		{
 			auth: "integration",
 			slug: "metadata-lookup",

@@ -64,6 +64,7 @@ const buildSeason = (
 	return {
 		childEntities,
 		entitySchemaSlug: "show-season",
+		expectedChildEntitySchemaSlug: "show-episode",
 		externalId: String(Math.trunc(idValue)),
 		name: stringValue(seasonData["name"]) ?? `Season ${seasonNumber}`,
 		properties: {
@@ -106,6 +107,7 @@ const buildDetailsResult = (
 	return {
 		name: title,
 		childEntities,
+		expectedChildEntitySchemaSlug: "show-season",
 		relatedEntityGroups: [
 			{
 				entities: people,

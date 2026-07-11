@@ -29,6 +29,7 @@ describe("sandbox limits", () => {
 			logs: { entryBytes: 8_192, entryCount: 500, totalBytes: 262_144 },
 			cache: { keyBytes: 256, ttlSeconds: 2_592_000, valueBytes: 262_144 },
 			observability: { entryBytes: 8_192, entryCount: 500, totalBytes: 262_144 },
+			userRelationshipWrites: { batches: 50, changesTotal: 500, changesPerBatch: 100 },
 			execution: {
 				denoHeapMiB: 256,
 				contextBytes: 262_144,

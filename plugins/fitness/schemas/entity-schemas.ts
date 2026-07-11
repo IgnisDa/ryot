@@ -34,6 +34,7 @@ export const fitnessEntitySchemas = () =>
 			slug: "exercise",
 			name: "Exercise",
 			accentColor: "#14B8A6",
+			mergeIdentityProperties: ["kind"],
 			propertiesSchema: exercisePropertiesSchema,
 			eventSchemas: [
 				{

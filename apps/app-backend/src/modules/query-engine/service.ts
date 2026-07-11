@@ -10,6 +10,7 @@ import {
 } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 
+import type { PluginQuerySchemaOwnership, QueryExecutionScope } from "./execution-scope";
 import { executeAggregateQuery } from "./executor/aggregate";
 import { executeRowsQuery } from "./executor/rows";
 import { executeTimeSeriesQuery } from "./executor/time-series";
@@ -69,12 +70,15 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 			user: Pick<CurrentUserValue, "id">,
 			doc: QueryDocument,
 		) {
+			const executionScope = { type: "user", userId: user.id } as const;
 			const validationError = validateQueryDocument(doc);
 			if (validationError) {
 				return yield* new BadRequest({ message: validationError });
 			}
 
-			yield* runWithDb(withDefinitions(validateQueryDocumentReferencesAndTypes(user.id, doc))).pipe(
+			yield* runWithDb(
+				withDefinitions(validateQueryDocumentReferencesAndTypes(executionScope, doc)),
+			).pipe(
 				Effect.catchIf(
 					(error): error is NotFound => error instanceof NotFound,
 					(error) => Effect.fail(new BadRequest({ message: error.message })),
@@ -83,8 +87,9 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 			return undefined;
 		});
 
-		const execute = Effect.fn("QueryEngineService.execute")(function* (
-			user: CurrentUserValue,
+		const executeDocument = Effect.fn("QueryEngineService.executeDocument")(function* (
+			executionScope: QueryExecutionScope,
+			language: string | null,
 			doc: QueryDocument,
 		) {
 			const { error, scope } = validateQueryDocumentWithScope(doc);
@@ -93,26 +98,49 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 			}
 
 			yield* runWithDb(
-				withDefinitions(validateQueryDocumentTypeCompatibility(user.id, doc, scope)),
+				withDefinitions(validateQueryDocumentTypeCompatibility(executionScope, doc, scope)),
 			);
 
-			const language = user.preferences.language;
-
 			if (isRowsQueryDocument(doc)) {
-				return yield* runBounded(executeRowsQuery(user.id, language, doc));
+				return yield* runBounded(executeRowsQuery(executionScope, language, doc));
 			}
 
 			if (isAggregateQueryDocument(doc)) {
-				return yield* runBounded(executeAggregateQuery(user.id, language, doc));
+				return yield* runBounded(executeAggregateQuery(executionScope, language, doc));
 			}
 
 			if (isTimeSeriesQueryDocument(doc)) {
-				return yield* runBounded(executeTimeSeriesQuery(user.id, language, doc));
+				return yield* runBounded(executeTimeSeriesQuery(executionScope, language, doc));
 			}
 
 			return yield* new BadRequest({ message: "Unsupported query output type" });
 		}, dieOnDbError);
 
-		return { execute, validate };
+		const executeForUser = (userId: string, language: string | null, doc: QueryDocument) =>
+			executeDocument({ type: "user", userId }, language, doc);
+		const execute = (user: CurrentUserValue, doc: QueryDocument) =>
+			executeForUser(user.id, user.preferences.language, doc);
+
+		const executeSystem = Effect.fn("QueryEngineService.executeSystem")(function* (
+			input: { readonly pluginSlug: string } & PluginQuerySchemaOwnership,
+			doc: QueryDocument,
+		) {
+			const executionScope = { type: "system" as const, ...input };
+			const validationError = validateQueryDocument(doc);
+			if (validationError) {
+				return yield* new BadRequest({ message: validationError });
+			}
+			yield* runWithDb(
+				withDefinitions(validateQueryDocumentReferencesAndTypes(executionScope, doc)),
+			).pipe(
+				Effect.catchIf(
+					(error): error is NotFound => error instanceof NotFound,
+					(error) => Effect.fail(new BadRequest({ message: error.message })),
+				),
+			);
+			return yield* executeDocument(executionScope, null, doc);
+		}, dieOnDbError);
+
+		return { execute, validate, executeForUser, executeSystem };
 	}),
 }) {}

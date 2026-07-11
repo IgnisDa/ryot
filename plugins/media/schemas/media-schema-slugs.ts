@@ -1,10 +1,15 @@
-import { builtinEntitySchemas } from "./entity-schemas";
-
-export const builtinMediaEntitySchemaSlugs = builtinEntitySchemas()
-	.filter(
-		({ eventSchemas, pluginSlug }) =>
-			pluginSlug === "media" && eventSchemas.some(({ slug }) => slug === "complete"),
-	)
-	.map(({ slug }) => slug);
+export const builtinMediaEntitySchemaSlugs = [
+	"book",
+	"comic-book",
+	"anime",
+	"movie",
+	"show",
+	"manga",
+	"audiobook",
+	"podcast",
+	"video-game",
+	"music",
+	"visual-novel",
+] as const;
 
 export type BuiltinMediaEntitySchemaSlug = (typeof builtinMediaEntitySchemaSlugs)[number];

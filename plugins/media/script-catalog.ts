@@ -40,6 +40,9 @@ import { manifest as manifest149 } from "./scripts/integrations/yanks/audiobooks
 import { manifest as manifest150 } from "./scripts/integrations/yanks/komga.sandbox";
 import { manifest as manifest151 } from "./scripts/integrations/yanks/plex.sandbox";
 import { manifest as manifest152 } from "./scripts/integrations/yanks/youtube-music.sandbox";
+import { manifest as manifest172 } from "./scripts/operations/media-monitoring-disable.sandbox";
+import { manifest as manifest173 } from "./scripts/operations/media-monitoring-enable.sandbox";
+import { manifest as manifest174 } from "./scripts/operations/media-monitoring-status.sandbox";
 import { manifest as manifest11 } from "./scripts/operations/metadata-lookup.sandbox";
 import { manifest as manifest12 } from "./scripts/operations/resolve-episodes.sandbox";
 import { manifest as manifest13 } from "./scripts/providers/company/anilist-details.sandbox";
@@ -167,6 +170,8 @@ import { manifest as manifest132 } from "./scripts/providers/person/youtube-musi
 import { manifest as manifest133 } from "./scripts/providers/person/youtube-music.translate.sandbox";
 import { manifest as manifest136 } from "./scripts/workflows/media-import-population.sandbox";
 import { manifest as manifest137 } from "./scripts/workflows/media-import-resolution.sandbox";
+import { manifest as manifest175 } from "./scripts/workflows/media-monitoring-sweep.sandbox";
+import { manifest as manifest176 } from "./scripts/workflows/media-monitoring-targets.sandbox";
 import { manifest as manifest138 } from "./scripts/workflows/resolve-book-google-books.sandbox";
 import { manifest as manifest139 } from "./scripts/workflows/resolve-book-hardcover.sandbox";
 import { manifest as manifest140 } from "./scripts/workflows/resolve-book-openlibrary.sandbox";
@@ -226,6 +231,9 @@ export const mediaScripts = [
 	directScript(manifest171, "scripts/imports/trakt.sandbox.ts"),
 	directScript(manifest11, "scripts/operations/metadata-lookup.sandbox.ts"),
 	directScript(manifest12, "scripts/operations/resolve-episodes.sandbox.ts"),
+	directScript(manifest172, "scripts/operations/media-monitoring-disable.sandbox.ts"),
+	directScript(manifest173, "scripts/operations/media-monitoring-enable.sandbox.ts"),
+	directScript(manifest174, "scripts/operations/media-monitoring-status.sandbox.ts"),
 	directScript(manifest143, "scripts/integrations/sinks/browser-extension.sandbox.ts"),
 	directScript(manifest144, "scripts/integrations/sinks/emby.sandbox.ts"),
 	directScript(manifest145, "scripts/integrations/sinks/generic-json.sandbox.ts"),
@@ -970,6 +978,8 @@ export const mediaScripts = [
 	),
 	directScript(manifest136, "scripts/workflows/media-import-population.sandbox.ts"),
 	directScript(manifest137, "scripts/workflows/media-import-resolution.sandbox.ts"),
+	directScript(manifest175, "scripts/workflows/media-monitoring-sweep.sandbox.ts"),
+	directScript(manifest176, "scripts/workflows/media-monitoring-targets.sandbox.ts"),
 	providerActivity(
 		manifest138,
 		"scripts/workflows/resolve-book-google-books.sandbox.ts",

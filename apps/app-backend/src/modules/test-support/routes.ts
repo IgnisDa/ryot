@@ -3,6 +3,7 @@ import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
 
+import { OperationalGateService } from "./operational-gate-service";
 import { TestSupportService } from "./service";
 
 export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupport", (handlers) =>
@@ -29,6 +30,24 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.getSandboxResult(urlParams.executingUserId, path.jobId);
+			}).pipe(dieOnDbError),
+		)
+		.handle("startMediaPopulationGate", ({ payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* OperationalGateService;
+				return yield* svc.startMediaPopulation(payload);
+			}).pipe(dieOnDbError),
+		)
+		.handle("getMediaPopulationGateResult", ({ payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* OperationalGateService;
+				return yield* svc.getMediaPopulationResult(payload);
+			}).pipe(dieOnDbError),
+		)
+		.handle("sampleOperationalPressure", ({ payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* OperationalGateService;
+				return yield* svc.samplePressure(payload.executionIds);
 			}).pipe(dieOnDbError),
 		)
 		.handle("createGlobalEntity", ({ payload }) =>
@@ -96,6 +115,12 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				const svc = yield* TestSupportService;
 				return yield* svc.triggerInfrequentCron();
 			}),
+		)
+		.handle("triggerPluginCron", ({ payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc.triggerPluginCron(payload);
+			}).pipe(dieOnDbError),
 		)
 		.handle("triggerPluginBoot", () =>
 			Effect.gen(function* () {

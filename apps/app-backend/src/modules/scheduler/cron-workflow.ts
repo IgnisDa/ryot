@@ -32,11 +32,3 @@ export const FrequentCronWorkflow = Workflow.make({
 	name: "FrequentCronWorkflow",
 	idempotencyKey: ({ executionId }) => executionId,
 });
-
-export const InfrequentCronWorkflow = Workflow.make({
-	error: Schema.Never,
-	success: Schema.Void,
-	payload: CronRunPayload,
-	name: "InfrequentCronWorkflow",
-	idempotencyKey: ({ executionId }) => executionId,
-});

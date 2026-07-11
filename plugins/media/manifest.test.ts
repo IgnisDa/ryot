@@ -20,7 +20,7 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
 	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-library");
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.scripts).toHaveLength(172);
+	expect(mediaPlugin.scripts).toHaveLength(177);
 	expect(mediaPlugin.integrationProviders).toHaveLength(13);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
 	expect(
@@ -49,6 +49,24 @@ it("declares the complete media-owned source", () => {
 			.every(({ operations }) => !("trending" in operations)),
 	).toBe(true);
 	expect(mediaPlugin.operations).toEqual([
+		{
+			auth: "user",
+			slug: "media-monitoring-status",
+			scriptSlug: "operation.media-monitoring-status",
+			description: "Read media monitoring status",
+		},
+		{
+			auth: "user",
+			slug: "media-monitoring-enable",
+			scriptSlug: "operation.media-monitoring-enable",
+			description: "Enable media monitoring",
+		},
+		{
+			auth: "user",
+			slug: "media-monitoring-disable",
+			scriptSlug: "operation.media-monitoring-disable",
+			description: "Disable media monitoring",
+		},
 		{
 			auth: "integration",
 			slug: "metadata-lookup",
@@ -83,11 +101,30 @@ it("declares the complete media-owned source", () => {
 	]);
 	expect(mediaPlugin.crons).toEqual([
 		{
+			lot: "workflow",
+			slug: "media-monitoring",
+			schedule: "0 0 * * *",
+			workflowSlug: "media-monitoring-sweep",
+			description: "Refresh monitored provider-backed media",
+		},
+		{
+			lot: "script",
 			schedule: "0 0 * * *",
 			slug: "media-trending",
 			scriptSlug: "media-trending",
 			description: "Refresh global media trending rankings daily",
 		},
 	]);
+	expect(mediaPlugin.workflows).toContainEqual({
+		slug: "media-monitoring-sweep",
+		scriptSlug: "workflow.media-monitoring-sweep",
+	});
+	expect(mediaPlugin.scripts).toContainEqual(
+		expect.objectContaining({
+			kind: "activity",
+			slug: "activity.media-monitoring-targets",
+			capabilities: ["executeQueryEngine"],
+		}),
+	);
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);
 });

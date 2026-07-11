@@ -45,6 +45,7 @@ describe("show.tvdb sandbox script", () => {
 							{ id: 101, number: 1 },
 							{ id: 999, number: 1 },
 							{ id: 102, number: 2 },
+							{ id: 103, number: 3 },
 							{ id: 100, number: 0 },
 						],
 					},
@@ -86,6 +87,16 @@ describe("show.tvdb sandbox script", () => {
 					},
 				});
 			}
+			if (pathname.endsWith("/seasons/103/extended")) {
+				return httpSuccess({
+					data: {
+						id: 103,
+						number: 3,
+						type: { type: "official" },
+						episodes: [],
+					},
+				});
+			}
 			if (pathname.endsWith("/seasons/100/extended")) {
 				return httpSuccess({ data: { id: 100, number: 0, type: { type: "alternate" } } });
 			}
@@ -98,6 +109,7 @@ describe("show.tvdb sandbox script", () => {
 						expect.arrayContaining([
 							"/v4/seasons/101/extended",
 							"/v4/seasons/102/extended",
+							"/v4/seasons/103/extended",
 							"/v4/seasons/100/extended",
 						]),
 					);
@@ -136,6 +148,7 @@ describe("show.tvdb sandbox script", () => {
 							externalId: "101",
 							name: "Season 1",
 							entitySchemaSlug: "show-season",
+							expectedChildEntitySchemaSlug: "show-episode",
 							properties: {
 								seasonNumber: 1,
 								releaseDate: "2020-01-01",
@@ -162,8 +175,21 @@ describe("show.tvdb sandbox script", () => {
 							externalId: "102",
 							name: "Season 2",
 							entitySchemaSlug: "show-season",
+							expectedChildEntitySchemaSlug: "show-episode",
 							properties: {
 								seasonNumber: 2,
+								releaseDate: null,
+								parentShowExternalId: "1",
+							},
+						},
+						{
+							childEntities: [],
+							externalId: "103",
+							name: "Season 3",
+							entitySchemaSlug: "show-season",
+							expectedChildEntitySchemaSlug: "show-episode",
+							properties: {
+								seasonNumber: 3,
 								releaseDate: null,
 								parentShowExternalId: "1",
 							},
@@ -174,7 +200,7 @@ describe("show.tvdb sandbox script", () => {
 						images: [],
 						publishYear: null,
 						description: null,
-						totalSeasons: 2,
+						totalSeasons: 3,
 						totalEpisodes: 3,
 						unlinkedCreators: [],
 						sourceUrl: "https://thetvdb.com/series/my-show",
@@ -212,6 +238,8 @@ describe("show.tvdb sandbox script", () => {
 			runSandboxTestScript(details, { externalId: "123" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("Localized Name");
+					expect(result.childEntities).toEqual([]);
+					expect(result.expectedChildEntitySchemaSlug).toBe("show-season");
 					expect(result.properties).toEqual({
 						genres: [],
 						images: [],

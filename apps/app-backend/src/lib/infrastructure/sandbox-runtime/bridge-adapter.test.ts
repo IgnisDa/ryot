@@ -41,6 +41,7 @@ const makeImplementations = (
 	getAppConfigValue: () => Effect.fail({ message: "unused" }),
 	executeQueryEngine: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
+	changeUserRelationships: () => Effect.fail({ message: "unused" }),
 	upsertGlobalEntities: () => Effect.fail({ message: "unused" }),
 	upsertGlobalRelationships: () => Effect.fail({ message: "unused" }),
 	...overrides,
@@ -248,6 +249,42 @@ describe("bindSandboxHostFunctions", () => {
 				},
 				{ fnName: "listIntegrations", value: { provider: "plugin_defined_provider" } },
 			]);
+		}),
+	);
+
+	it.effect("validates user relationship batches without accepting a user id", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const implementations = makeImplementations({
+				changeUserRelationships: (runInput, batches) => {
+					calls.push({ runInput, batches });
+					return Effect.succeed([{ created: 2, deleted: 0 }]);
+				},
+			});
+			const bound = bindSandboxHostFunctions(implementations, input);
+			const batch = {
+				deletes: [],
+				creates: [
+					{
+						properties: {},
+						sourceEntityId: "media-1",
+						targetEntityId: "library-1",
+						relationshipSchemaSlug: "in-library",
+					},
+				],
+			};
+
+			expect(yield* bound.changeUserRelationships([[batch]])).toEqual({
+				data: [{ created: 2, deleted: 0 }],
+				success: true,
+			});
+			expect(calls).toEqual([{ runInput: input, batches: [batch] }]);
+			expect(
+				yield* bound.changeUserRelationships([[{ ...batch, userId: "caller-selected" }]]),
+			).toEqual({
+				success: false,
+				error: "changeUserRelationships expects an array of valid change batches",
+			});
 		}),
 	);
 

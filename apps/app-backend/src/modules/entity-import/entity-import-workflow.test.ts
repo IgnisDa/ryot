@@ -638,6 +638,14 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 							: relationship.targetEntityId === input.anchorEntityId;
 					});
 				}),
+			deleteRelationship: (input) =>
+				Effect.sync(() => {
+					const identity = `${input.relationshipSchemaSlug}:${input.sourceEntityId}->${input.targetEntityId}`;
+					relationshipOperations.push(`delete:${identity}`);
+					const relationship = storedRelationships.get(identity) ?? savedRelationship;
+					storedRelationships.delete(identity);
+					return relationship;
+				}),
 		}),
 	} satisfies TestLayerOptions;
 
@@ -752,6 +760,83 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 			"list:rel-season-episode:schema-season-season-1",
 			"create:rel-season-episode:schema-season-season-1->schema-episode-episode-2",
 		]);
+
+		entityWrites.length = 0;
+		const mismatch = yield* Effect.flip(
+			withTestLayer(
+				options,
+				"exec-mismatched-children",
+				writeChildEntitySet({
+					syncExisting: true,
+					providerId: SandboxProviderId.make("provider-1"),
+					parentEntityId: baseEntity.id,
+					parentEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
+					childEntities: [
+						{
+							name: "Container",
+							externalId: "container-mismatch",
+							properties: {},
+							entitySchemaSlug: "show-season",
+						},
+						{
+							name: "Episode",
+							externalId: "episode-mismatch",
+							properties: {},
+							entitySchemaSlug: "show-episode",
+						},
+					],
+				}),
+			),
+		);
+		expect(mismatch).toBeInstanceOf(SandboxRunError);
+		expect(mismatch.message).toBe("Child entities must use one entity schema");
+		expect(entityWrites).toEqual([]);
+		const declaredMismatch = yield* Effect.flip(
+			withTestLayer(
+				options,
+				"exec-declared-child-mismatch",
+				writeChildEntitySet({
+					syncExisting: true,
+					providerId: SandboxProviderId.make("provider-1"),
+					parentEntityId: baseEntity.id,
+					expectedChildEntitySchemaSlug: "show-episode",
+					parentEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
+					childEntities: [
+						{
+							name: "Container",
+							externalId: "declared-mismatch",
+							properties: {},
+							entitySchemaSlug: "show-season",
+						},
+					],
+				}),
+			),
+		);
+		expect(declaredMismatch).toBeInstanceOf(SandboxRunError);
+		expect(declaredMismatch.message).toBe(
+			"Child entity schema does not match declared schema: show-season !== show-episode",
+		);
+		expect(entityWrites).toEqual([]);
+
+		relationshipOperations.length = 0;
+		yield* withTestLayer(
+			options,
+			"exec-empty-authoritative-children",
+			writeChildEntitySet({
+				syncExisting: true,
+				childEntities: [],
+				expectedChildEntitySchemaSlug: "show-episode",
+				providerId: SandboxProviderId.make("provider-1"),
+				parentEntitySchemaSlug: EntitySchemaSlug.make("schema-season"),
+				parentEntityId: EntityId.make("schema-season-season-1"),
+			}),
+		);
+		expect(relationshipOperations).toEqual([
+			"list:rel-season-episode:schema-season-season-1",
+			"delete:rel-season-episode:schema-season-season-1->schema-episode-episode-1",
+			"delete:rel-season-episode:schema-season-season-1->schema-episode-episode-2",
+		]);
+		expect(storedRelationships.size).toBe(1);
 	});
 });
 
@@ -2345,12 +2430,14 @@ it.effect("dispatches only material nested entity updates with the root populati
 				value: {
 					name: "Severance",
 					properties: {},
+					expectedChildEntitySchemaSlug: "show-season",
 					childEntities: [
 						{
 							name: "Season 1",
 							externalId: "season-1",
 							properties: { seasonNumber: 1 },
 							entitySchemaSlug: "show-season",
+							expectedChildEntitySchemaSlug: "show-episode",
 							childEntities: [
 								{
 									name: "Premiere",
@@ -2366,6 +2453,7 @@ it.effect("dispatches only material nested entity updates with the root populati
 							externalId: "season-2",
 							properties: { seasonNumber: 2 },
 							entitySchemaSlug: "show-season",
+							expectedChildEntitySchemaSlug: "show-episode",
 						},
 					],
 				},
@@ -2438,7 +2526,11 @@ it.effect("dispatches only material nested entity updates with the root populati
 				},
 				population: {
 					rootPreviouslyPopulated: true,
-					owningSeason: { name: "Season 1", number: 1 },
+					parentEntity: {
+						name: "Season 1",
+						properties: { seasonNumber: 1 },
+						entitySchemaSlug: "show-season",
+					},
 					scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
 				},
 			});

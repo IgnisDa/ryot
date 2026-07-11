@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
 	EntityId,
+	EntitySchemaSlug,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
@@ -12,6 +13,7 @@ import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { EntitiesRepository } from "#modules/entities/repository";
 
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
@@ -20,6 +22,7 @@ const userId = UserId.make("user-id");
 const sourceEntityId = EntityId.make("source-entity-id");
 const targetEntityId = EntityId.make("target-entity-id");
 const relationshipSchemaSlug = RelationshipSchemaSlug.make("rel-schema-id");
+const monitoringRelationshipSchemaSlug = RelationshipSchemaSlug.make("monitoring-rel-schema-id");
 
 const relationship = {
 	properties: {},
@@ -32,6 +35,13 @@ const relationship = {
 };
 
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
+type GetEntityScopeForUser = (input: { userId: UserId; entityId: EntityId }) => Effect.Effect<{
+	entityId: EntityId;
+	isBuiltin: boolean;
+	entityName: string;
+	entityUserId: UserId | null;
+	entitySchemaSlug: EntitySchemaSlug;
+} | null>;
 
 const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
@@ -41,15 +51,29 @@ const makeRelationshipsRepository = (
 		_tag: "RelationshipsRepository",
 	});
 
-const makeServiceLayer = (overrides: Parameters<typeof makeRelationshipsRepository>[0] = {}) =>
+const makeServiceLayer = (
+	overrides: Parameters<typeof makeRelationshipsRepository>[0] = {},
+	runInTransaction: TransactionRunner["Type"] = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+		Effect.provideService(effect, CurrentDb, Object.create(null)),
+	getEntityScopeForUser: GetEntityScopeForUser = ({ entityId }) =>
+		Effect.succeed({
+			entityId,
+			isBuiltin: true,
+			entityUserId: null,
+			entityName: "Entity",
+			entitySchemaSlug: EntitySchemaSlug.make("entity"),
+		}),
+) =>
 	Layer.provideMerge(
 		RelationshipsService.Default,
 		Layer.mergeAll(
 			dbRunnerLayer,
 			makeRelationshipsRepository(overrides),
-			Layer.succeed(TransactionRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-				Effect.provideService(effect, CurrentDb, Object.create(null)),
-			),
+			Layer.mock(EntitiesRepository)({
+				_tag: "EntitiesRepository",
+				getEntityScopeForUser,
+			}),
+			Layer.succeed(TransactionRunner, runInTransaction),
 			Layer.succeed(DefinitionRegistry, {
 				_tag: "DefinitionRegistry",
 				...makeDefinitionRegistry(),
@@ -200,6 +224,144 @@ it.effect("deletes one relationship through the repository", () => {
 			targetEntityId,
 			relationshipSchemaSlug,
 		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("atomically ensures and deletes generic user relationship batches", () => {
+	const created: unknown[] = [];
+	const deleted: unknown[] = [];
+	const transactionDatabases: unknown[] = [];
+	const monitoringEntityId = EntityId.make("monitoring-entity-id");
+	const libraryEntityId = EntityId.make("library-entity-id");
+	const layer = makeServiceLayer(
+		{
+			createRelationship: (input) =>
+				Effect.gen(function* () {
+					transactionDatabases.push(yield* CurrentDb);
+					created.push(input);
+					return { ...relationship, ...input };
+				}),
+			deleteRelationship: (input) =>
+				Effect.gen(function* () {
+					transactionDatabases.push(yield* CurrentDb);
+					deleted.push(input);
+					return { ...relationship, ...input };
+				}),
+		},
+		(effect) => Effect.provideService(effect, CurrentDb, Object.create(null)),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		const result = yield* service.changeUser(userId, [
+			{
+				deletes: [],
+				creates: [
+					{
+						properties: {},
+						sourceEntityId,
+						targetEntityId: libraryEntityId,
+						relationshipSchemaSlug,
+					},
+					{
+						properties: {},
+						sourceEntityId,
+						targetEntityId: monitoringEntityId,
+						relationshipSchemaSlug: monitoringRelationshipSchemaSlug,
+					},
+				],
+			},
+			{
+				creates: [],
+				deletes: [
+					{
+						sourceEntityId,
+						targetEntityId: monitoringEntityId,
+						relationshipSchemaSlug: monitoringRelationshipSchemaSlug,
+					},
+				],
+			},
+		]);
+
+		expect(result).toEqual([
+			{ created: 2, deleted: 0 },
+			{ created: 0, deleted: 1 },
+		]);
+		expect(created).toHaveLength(2);
+		expect(deleted).toEqual([
+			{
+				userId,
+				scope: "user",
+				sourceEntityId,
+				targetEntityId: monitoringEntityId,
+				relationshipSchemaSlug: monitoringRelationshipSchemaSlug,
+			},
+		]);
+		expect(transactionDatabases).toHaveLength(3);
+		expect(transactionDatabases[0]).toBe(transactionDatabases[1]);
+		expect(transactionDatabases[1]).not.toBe(transactionDatabases[2]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("treats existing creates and missing deletes as successful no-ops", () => {
+	const transactionDatabases: unknown[] = [];
+	const layer = makeServiceLayer(
+		{
+			createRelationship: () =>
+				Effect.gen(function* () {
+					transactionDatabases.push(yield* CurrentDb);
+					return { ...relationship, wasInserted: false };
+				}),
+			deleteRelationship: () =>
+				Effect.gen(function* () {
+					transactionDatabases.push(yield* CurrentDb);
+					return null;
+				}),
+		},
+		(effect) => Effect.provideService(effect, CurrentDb, Object.create(null)),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		const [result] = yield* service.changeUser(userId, [
+			{
+				creates: [{ properties: {}, sourceEntityId, targetEntityId, relationshipSchemaSlug }],
+				deletes: [{ sourceEntityId, targetEntityId, relationshipSchemaSlug }],
+			},
+		]);
+
+		expect(result).toEqual({ created: 0, deleted: 0 });
+		expect(transactionDatabases).toHaveLength(2);
+		expect(transactionDatabases[0]).toBe(transactionDatabases[1]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects relationships to entities outside the user's visibility scope", () => {
+	let writes = 0;
+	const layer = makeServiceLayer(
+		{
+			createRelationship: () => {
+				writes += 1;
+				return Effect.succeed(relationship);
+			},
+		},
+		undefined,
+		() => Effect.succeed(null),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		const exit = yield* Effect.exit(
+			service.changeUser(userId, [
+				{
+					deletes: [],
+					creates: [{ properties: {}, sourceEntityId, targetEntityId, relationshipSchemaSlug }],
+				},
+			]),
+		);
+
+		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity not found" })));
+		expect(writes).toBe(0);
 	}).pipe(Effect.provide(layer));
 });
 

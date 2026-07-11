@@ -89,6 +89,8 @@ describe("show.tmdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 				Effect.map((result) => {
+					expect(result.childEntities).toEqual([]);
+					expect(result.expectedChildEntitySchemaSlug).toBe("show-season");
 					expect(result.relatedEntityGroups).toEqual([
 						{
 							entities: [],

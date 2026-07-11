@@ -230,14 +230,13 @@ this codebase correctly use `generateId()` for exactly that reason (e.g.
 `sandbox/service.ts`'s `SandboxExecutionService.enqueue`).
 The rule only bites when the dispatching code itself can run more than once.
 
-**The current, correctly-executed media import example** is split between the app's plugin workflow
-shell (`apps/app-backend/src/modules/imports/media/plugin-workflows.ts`) and the media plugin body
-scripts (`plugins/media/scripts/workflows/media-import-population.sandbox.ts` and
-`media-import-resolution.sandbox.ts`):
+**The current, correctly-executed media import example** lives in the media plugin's import workflow
+(`plugins/media/scripts/imports/import.sandbox.ts`) and its population and resolution child
+workflows:
 
 ```ts
-// plugin-workflows.ts: the normalized import owns one deterministic plugin execution per phase.
-executionId: `${input.executionId}-population`
+// import.sandbox.ts: stable batch indexes key each child workflow.
+yield* replay.child(`populate-${batchIndex}`, population, payload);
 
 // media-import-population.sandbox.ts: stable item indexes key the owned child calls.
 yield* replay.child(`import-${item.index}`, libraryEntityImport, payload);
@@ -246,9 +245,9 @@ yield* replay.child(`import-${item.index}`, libraryEntityImport, payload);
 yield* replay.activity(`resolve-${item.index}-${candidateIndex}`, activity, payload);
 ```
 
-The normalized import owns phase orchestration, each plugin workflow body owns its durable calls,
-and every key is derived from the parent execution or stable submitted indexes. The
-[audit](#library-membership) below distinguishes the unrelated top-level library dispatch.
+The import workflow owns phase orchestration, each plugin workflow body owns its durable calls, and
+every key is derived from stable submitted indexes. The [audit](#library-membership) below
+distinguishes the unrelated top-level library dispatch.
 
 ---
 
@@ -491,9 +490,6 @@ inside an `Activity.make` body has been refactored so the dispatch now happens f
 - Integration reconciliation runs dispatch `ProcessIntegrationRunWorkflow` from
   `IntegrationReconciliationWorkflow`'s body, replacing the reconciliation activity that dispatched
   them transitively (`integrations/reconciliation-workflow.ts:37-46`).
-- `MediaMonitoringRefreshWorkflow` dispatches `ProviderEntityPopulationWorkflow` from its body;
-  population then dispatches lifecycle automation subscriptions after each committed mutation
-  (`media-monitoring/refresh-workflow.ts`).
 
 `sandbox/workflow-boundaries.test.ts` pins these as source-text assertions (e.g. exactly one
 `.execute(EventCreateWorkflow, …)` and it lives in the add-to-collection workflow body, zero
@@ -595,10 +591,10 @@ definitions, and runtime engine wiring are all visible.
 This section is the result of reading every file in `apps/app-backend` that references
 `@effect/workflow` against the ground truth above. The codebase is in good shape, and is organized
 around one principle: **one durable owner per business operation**. Each user-visible operation —
-create an event, add an entity to a collection, import a library entity, run a normalized media
-import, refresh trending, reconcile integrations — has a single workflow (or a single durable
-queue) that owns its writes and its child dispatches, so those steps journal under one execution id
-regardless of which caller triggered them. There are **no remaining instances** of a child workflow
+create an event, add an entity to a collection, import a library entity, run a plugin import, or
+reconcile integrations — has a single workflow (or a single durable queue) that owns its writes and
+its child dispatches, so those steps journal under one execution id regardless of which caller
+triggered them. There are **no remaining instances** of a child workflow
 dispatched transitively from inside an `Activity.make` body (see the [#6014
 discussion](#reported-weaker-evidence-activitymake-concurrencynesting-hazards-6014) above); every
 child dispatch happens from a workflow body.
@@ -628,23 +624,22 @@ above:
   then the body dispatches the collection-added `EventCreateWorkflow` child with the deterministic
   `collection-membership-added-<id>` execution id. HTTP `addToCollection` and media-import writing
   both route through it.
-- **`ProcessNormalizedMediaImportWorkflow`** (`imports/media/normalized-import-workflow.ts`
-  definition, `normalized-import-workflow-live.ts` body) — single-owns the post-adapter media
-  pipeline (record failures, resolve, populate, write, finalize). Both parents (one-time import,
-  integration run) persist the adapter result to a Redis artifact and await the child with a
-  deterministic `${parentExecutionId}-normalized` id.
-- **Cron owners** — `PluginCronService` (`scheduler/plugin-cron.ts`) dispatches plugin manifest crons
-  as sandbox executions; this owns media trending. `PluginBootService` (`scheduler/plugin-boot.ts`)
-  dispatches plugin manifest `boot` entries once per server start, non-blocking; this owns exercise
-  preloading (one-time catalog seeding, not periodic work). The native
+- **`ProcessImportRunWorkflow`** (`imports/import-run-workflow.ts` definition,
+  `import-run-workflow-live.ts` body) — resolves the registry-owned source and awaits its plugin
+  import workflow. `ProcessIntegrationRunWorkflow` similarly resolves an integration provider and
+  awaits that plugin's import workflow; plugin workflows own source-specific resolution,
+  population, and generic kernel-write composition.
+- **Cron owners** — `PluginCronService` (`scheduler/plugin-cron.ts`) awaits either the direct script
+  or durable workflow declared by each plugin manifest cron. `PluginBootService`
+  (`scheduler/plugin-boot.ts`) dispatches each manifest `boot` entry once per server start and
+  awaits terminal completion. The native
   `IntegrationReconciliationWorkflow` (`integrations/reconciliation-workflow.ts`) remains a fan-out
   shell whose activity prepares eligible runs and whose body dispatches one
   `ProcessIntegrationRunWorkflow` child per run id.
 - **Pre-existing owners** unchanged by this structure: `ProviderEntityPopulationWorkflow`,
   `TranslateEntityWorkflow`, `NotificationDeliveryWorkflow`, `RunSandboxWorkflow` +
   `SandboxExecutionQueue`, `CreateDefaultSavedViewWorkflow`, `ProcessImportRunWorkflow`,
-  `ProcessIntegrationRunWorkflow`, and `MediaMonitoringRefreshWorkflow` (which composes
-  `ProviderEntityPopulationWorkflow` for scheduled monitored-entity refreshes).
+  `ProcessIntegrationRunWorkflow`.
 
 ### Notes worth knowing
 
@@ -670,8 +665,8 @@ above:
   conformance test that pins the single-owner invariants: which files may execute
   `RunSandboxWorkflow` (and how many times), that the collections service no longer references
   `EventCreateWorkflow` while the add-to-collection workflow body is its one sanctioned dispatcher,
-  that the media/integration parents dispatch exactly one `ProcessNormalizedMediaImportWorkflow`
-  each, and that only the queue worker owns `ensureEntityInLibrary`. It's a strong guard, but it
+  that import paths do not bypass their plugin workflow owners, and that only the queue worker owns
+  `ensureEntityInLibrary`. It's a strong guard, but it
   matches call sites by source text — it checks *which module* dispatches *which* child and how
   often, not *what `executionId` argument* is passed, so an argument-correctness regression still
   needs a targeted unit test.

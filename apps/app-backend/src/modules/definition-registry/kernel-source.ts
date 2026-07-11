@@ -12,7 +12,7 @@ const reviewPropertiesSchema = {
 		text: {
 			label: "Review",
 			type: "string" as const,
-			description: "Your written thoughts or notes about this media",
+			description: "Your written thoughts or notes about this entity",
 		},
 		isSpoiler: {
 			label: "Is Spoiler?",

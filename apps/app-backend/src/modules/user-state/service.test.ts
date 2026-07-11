@@ -13,6 +13,7 @@ import { Effect, Exit, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
+import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
@@ -81,8 +82,33 @@ const makeRelationshipSchemasRepository = (
 		_tag: "RelationshipSchemasRepository",
 	});
 
+const makeDefinitionRegistryLayer = (mergeIdentityProperties: ReadonlyArray<string> = []) =>
+	Layer.succeed(DefinitionRegistry, {
+		_tag: "DefinitionRegistry",
+		...makeDefinitionRegistry({
+			savedViews: [],
+			signalSchemas: [],
+			relationshipSchemas: [],
+			entitySchemas: [
+				{
+					icon: "book",
+					name: "Book",
+					slug: "book",
+					pluginSlug: "test",
+					eventSchemas: [],
+					accentColor: "blue",
+					mergeIdentityProperties,
+					propertiesSchema: {
+						fields: { kind: { type: "string", label: "Kind", description: "Book kind" } },
+					},
+				},
+			],
+		}),
+	});
+
 const makeServiceLayer = (
 	options: {
+		definitionRegistry?: ReturnType<typeof makeDefinitionRegistryLayer>;
 		eventsRepository?: ReturnType<typeof makeEventsRepository>;
 		eventsService?: ReturnType<typeof makeEventsService>;
 		entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
@@ -96,6 +122,7 @@ const makeServiceLayer = (
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
+				options.definitionRegistry ?? makeDefinitionRegistryLayer(),
 				options.entitiesRepository ?? makeEntitiesRepository(),
 				options.eventsRepository ?? makeEventsRepository(),
 				options.eventsService ?? makeEventsService(),
@@ -256,15 +283,46 @@ it.effect("rejects merging entities from different schemas", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("rejects merging exercises with different kinds", () => {
+it.effect("allows merging entities with matching declared identity properties", () => {
 	const layer = makeServiceLayer({
+		definitionRegistry: makeDefinitionRegistryLayer(["kind"]),
+		entitiesRepository: makeEntitiesRepository({
+			getEntityMergeScopeForUser: ({ entityId }) =>
+				Effect.succeed(makeMergeScope({ entityId, properties: { kind: "novel" } })),
+		}),
+		eventsRepository: makeEventsRepository({
+			listUserEventIdsForEntity: () => Effect.succeed([]),
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			listUserRelationshipsForEntity: () => Effect.succeed([]),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* UserStateService;
+		const result = yield* service.mergeUserState(user, {
+			mergeFrom: EntityId.make("from"),
+			mergeInto: EntityId.make("into"),
+		});
+
+		expect(result).toEqual({
+			mergeFrom: "from",
+			mergeInto: "into",
+			movedEventsCount: 0,
+			movedRelationshipsCount: 0,
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects merging entities with mismatched declared identity properties", () => {
+	const layer = makeServiceLayer({
+		definitionRegistry: makeDefinitionRegistryLayer(["kind"]),
 		entitiesRepository: makeEntitiesRepository({
 			getEntityMergeScopeForUser: ({ entityId }) =>
 				Effect.succeed(
 					makeMergeScope({
 						entityId,
-						entitySchemaSlug: "exercise",
-						properties: { kind: entityId === "from" ? "reps" : "duration" },
+						properties: { kind: entityId === "from" ? "novel" : "anthology" },
 					}),
 				),
 		}),
@@ -280,12 +338,12 @@ it.effect("rejects merging exercises with different kinds", () => {
 		);
 
 		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Exercises must have the same kind" })),
+			Exit.fail(new BadRequest({ message: "Entities must have the same 'kind' property" })),
 		);
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("moves events and relationships for valid merges", () => {
+it.effect("moves events and relationships when the schema has no merge identity metadata", () => {
 	const calls: string[] = [];
 	const layer = makeServiceLayer({
 		entitiesRepository: makeEntitiesRepository({

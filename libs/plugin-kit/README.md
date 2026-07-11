@@ -2,6 +2,13 @@
 
 `@ryot/plugin-kit/manifest` provides the schemas and types used to declare plugins.
 
+## Entity Merge Identity
+
+An entity schema may declare `mergeIdentityProperties`, listing top-level property names that must
+have equal persisted JSON values before user state can be merged between two entities. Each name
+must be non-empty, unique, and present in the entity's `propertiesSchema.fields`. Schemas that omit
+the declaration have no property-based merge restriction.
+
 ## Crons
 
 The `crons` manifest section declares scheduled sandbox drivers:
@@ -9,18 +16,20 @@ The `crons` manifest section declares scheduled sandbox drivers:
 ```ts
 crons: [
 	{
+		lot: "script",
 		slug: "refresh-trending",
 		schedule: "0 * * * *",
-		driverRef: "refresh-trending",
+		scriptSlug: "refresh-trending",
 		description: "Refresh trending data",
 	},
 ];
 ```
 
-`slug` and `driverRef` use sandbox manifest slug syntax. `schedule` and `description` must be
-non-empty strings without surrounding whitespace. `driverRef` is the slug of a script declared in
-the manifest's `scripts` section; the plugin loader verifies that its compiled definition exposes
-a `cron` driver.
+`slug` and the target slug use sandbox manifest slug syntax. `schedule` and `description` must be
+non-empty strings without surrounding whitespace. A `lot: "script"` cron targets exactly one
+`scriptSlug` declared in `scripts`. A `lot: "workflow"` cron instead targets exactly one
+`workflowSlug` declared in `workflows`; the scheduler runs it with system authority and awaits its
+terminal durable result.
 
 ## Boot
 

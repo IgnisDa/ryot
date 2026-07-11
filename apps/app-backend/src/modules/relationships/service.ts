@@ -1,11 +1,12 @@
 import { badRequest, notFound } from "@ryot/contract/errors";
-import type { EntityId, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
+import type { EntityId, RelationshipSchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { EntitiesRepository } from "#modules/entities/repository";
 
 import {
 	RelationshipsRepository,
@@ -23,6 +24,17 @@ type UpdateRelationshipInput = RelationshipIdentityInput & {
 	propertiesSchema: AppSchema;
 };
 
+type UserRelationshipIdentity = {
+	sourceEntityId: EntityId;
+	targetEntityId: EntityId;
+	relationshipSchemaSlug: RelationshipSchemaSlug;
+};
+
+export type ChangeUserRelationshipBatch = {
+	creates: ReadonlyArray<UserRelationshipIdentity & { properties: unknown }>;
+	deletes: ReadonlyArray<UserRelationshipIdentity>;
+};
+
 export type ReconcileGlobalRelationshipGroup = {
 	relationshipSchemaSlug: RelationshipSchemaSlug;
 	selector:
@@ -37,6 +49,83 @@ export type ReconcileGlobalRelationshipGroup = {
 
 const relationshipKey = (input: { sourceEntityId: EntityId; targetEntityId: EntityId }) =>
 	`${input.sourceEntityId}\u0000${input.targetEntityId}`;
+
+export const changeUserRelationships = Effect.fn("RelationshipsService.changeUser")(function* (
+	userId: UserId,
+	batches: ReadonlyArray<ChangeUserRelationshipBatch>,
+) {
+	const entities = yield* EntitiesRepository;
+	const definitions = yield* DefinitionRegistry;
+	const repository = yield* RelationshipsRepository;
+	const runInTransaction = yield* TransactionRunner;
+
+	const validate = Effect.fn("RelationshipsService.validateUserChange")(function* (
+		change: UserRelationshipIdentity,
+	) {
+		const definition = definitions.getRelationshipSchema(change.relationshipSchemaSlug);
+		if (!definition) {
+			return yield* notFound("Relationship schema not found");
+		}
+		const [source, target] = yield* Effect.all([
+			entities.getEntityScopeForUser({ userId, entityId: change.sourceEntityId }),
+			entities.getEntityScopeForUser({ userId, entityId: change.targetEntityId }),
+		]);
+		if (!source || !target) {
+			return yield* notFound("Entity not found");
+		}
+		if (
+			definition.sourceEntitySchemaSlug &&
+			definition.sourceEntitySchemaSlug !== source.entitySchemaSlug
+		) {
+			return yield* badRequest("Relationship source entity schema does not match");
+		}
+		if (
+			definition.targetEntitySchemaSlug &&
+			definition.targetEntitySchemaSlug !== target.entitySchemaSlug
+		) {
+			return yield* badRequest("Relationship target entity schema does not match");
+		}
+		return definition;
+	});
+
+	return yield* Effect.forEach(batches, (batch) =>
+		runInTransaction(
+			Effect.gen(function* () {
+				let created = 0;
+				let deleted = 0;
+				for (const create of batch.creates) {
+					const definition = yield* validate(create);
+					const properties = yield* parseAppSchemaProperties({
+						kind: "Relationship",
+						properties: create.properties,
+						propertiesSchema: definition.propertiesSchema,
+					}).pipe(Effect.mapError((error) => badRequest(error.message)));
+					const saved = yield* repository.createRelationship({
+						...create,
+						properties,
+						userId,
+						scope: "user",
+					});
+					if (saved.wasInserted) {
+						created += 1;
+					}
+				}
+				for (const remove of batch.deletes) {
+					yield* validate(remove);
+					const removed = yield* repository.deleteRelationship({
+						...remove,
+						userId,
+						scope: "user",
+					});
+					if (removed) {
+						deleted += 1;
+					}
+				}
+				return { created, deleted };
+			}),
+		),
+	);
+});
 
 export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reconcileGlobal")(
 	function* (groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>) {
@@ -187,6 +276,10 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 				update,
 				listGlobal,
 				delete: deleteRelationship,
+				changeUser: (userId: UserId, batches: ReadonlyArray<ChangeUserRelationshipBatch>) =>
+					changeUserRelationships(userId, batches).pipe(
+						Effect.provideService(RelationshipsRepository, repository),
+					),
 				reconcileGlobal: (groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>) =>
 					reconcileGlobalRelationships(groups).pipe(
 						Effect.provideService(RelationshipsRepository, repository),
