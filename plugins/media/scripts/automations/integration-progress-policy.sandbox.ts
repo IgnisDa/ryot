@@ -1,11 +1,8 @@
 import { defineAutomationPolicy, type AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
-import {
-	defineManifest,
-	type EventRecord,
-	type JsonValue,
-	type SandboxHost,
-} from "@ryot/sandbox-sdk/core";
+import type { EventRecord, SandboxHost } from "@ryot/sandbox-sdk/core";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 const SUBITEM_KEYS = ["animeEpisode", "mangaVolume", "mangaChapter"] as const;
 const DEFAULT_THRESHOLD_SECONDS = 7200;

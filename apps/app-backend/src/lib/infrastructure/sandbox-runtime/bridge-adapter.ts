@@ -2,8 +2,8 @@ import {
 	automationSandboxHostContracts,
 	coreSandboxHostContracts,
 	domainSandboxHostContracts,
-	type SandboxHostError,
 } from "@ryot/sandbox-sdk/core";
+import type { SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import { Effect, ParseResult, Schema } from "effect";
 
 import {

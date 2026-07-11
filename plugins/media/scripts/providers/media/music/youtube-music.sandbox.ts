@@ -1,4 +1,4 @@
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
