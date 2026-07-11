@@ -23,6 +23,11 @@ import {
 	SANDBOX_LIMITS,
 	SANDBOX_RUNNER_LIMITS,
 } from "./limits";
+import {
+	makeObservabilitySandboxApiFunctions,
+	makeSandboxObservabilityCollector,
+	mergeSandboxExecutionLogs,
+} from "./observability-host-functions";
 import { BridgeService, invalidateProcess, ProcessPool } from "./runtime";
 import {
 	type BoundHostFunction,
@@ -117,7 +122,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		// (an automation can create events, which evaluates further policies and subscriptions).
 		// The late `let` binding ties this mutual reference; `runSandbox` is only ever invoked after
 		// `apiFunctions` is assigned below.
-		let apiFunctions: SandboxHostImplementationMap;
+		let apiFunctions: Omit<SandboxHostImplementationMap, "log" | "span">;
 
 		const runSandbox = (input: SandboxRunInput) =>
 			Effect.scoped(
@@ -128,8 +133,13 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						return yield* new SandboxRunError({ message: contextError });
 					}
 
+					const collector = makeSandboxObservabilityCollector();
+					const executionApiFunctions = {
+						...apiFunctions,
+						...makeObservabilitySandboxApiFunctions(collector),
+					};
 					const boundApiFunctions: Readonly<Record<string, BoundHostFunction>> =
-						bindSandboxHostFunctions(apiFunctions, input);
+						bindSandboxHostFunctions(executionApiFunctions, input);
 					const selectedApiFunctions = selectSandboxHostFunctions(boundApiFunctions, input);
 
 					const token = generateId();
@@ -156,8 +166,10 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					yield* worker.responseQueue.takeAll.pipe(Effect.asVoid);
 
 					const now = yield* Clock.currentTimeMillis;
+					const parentSpan = yield* Effect.currentSpan;
 					yield* bridge.addSession(input.executionId, {
 						token,
+						parentSpan,
 						apiFunctions: selectedApiFunctions,
 						expiresAt: now + config.sandbox.timeoutMs + sessionTtlBufferMs,
 					});
@@ -191,7 +203,8 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						? null
 						: (raw.error ?? { phase: "load", message: "Sandbox runner failed without an error" });
 					const totalMs = Math.max(1, Math.round(finishedAt - now));
-					const logs = "logs" in raw && Array.isArray(raw.logs) ? raw.logs : [];
+					const consoleLogs = "logs" in raw && Array.isArray(raw.logs) ? raw.logs : [];
+					const logs = mergeSandboxExecutionLogs(consoleLogs, collector);
 
 					return {
 						logs,
@@ -203,6 +216,13 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					};
 				}),
 			).pipe(
+				Effect.withSpan("sandbox.execution", {
+					attributes: {
+						scriptId: input.scriptId,
+						driverName: input.driverName,
+						executionId: input.executionId,
+					},
+				}),
 				Effect.mapError((error) =>
 					error instanceof TimeoutError || error instanceof SandboxRunError
 						? error
