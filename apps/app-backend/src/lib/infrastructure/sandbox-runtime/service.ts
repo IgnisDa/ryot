@@ -15,7 +15,7 @@ import { redisKeys, RedisService } from "../redis";
 import { ServerRun } from "../server-run";
 import { makeAutomationSandboxApiFunctions } from "./automation-host-functions";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
-import { materializeSandboxCompiledModule } from "./compiled-modules";
+import { acquireSandboxCompiledModule } from "./compiled-modules";
 import {
 	acquireSandboxScratchDirectory,
 	declaresSandboxFilesystemGrant,
@@ -274,7 +274,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						: undefined;
 
 					const token = generateId();
-					const modulePath = yield* materializeSandboxCompiledModule(
+					const modulePath = yield* acquireSandboxCompiledModule(
 						processes.runtimePaths,
 						input.contentHash,
 						input.compiledCode,

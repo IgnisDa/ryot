@@ -7,6 +7,7 @@ import { kernelScripts } from "#modules/definition-registry/kernel-source";
 
 import { bootPluginSources } from "./boot-sources";
 import { PluginRepository } from "./repository";
+import { ScriptGarbageCollector } from "./script-garbage-collector";
 import { PluginIngestionService } from "./service";
 import { loadPluginSource } from "./source";
 
@@ -19,6 +20,7 @@ export class FirstPartyPluginBootstrap extends Effect.Service<FirstPartyPluginBo
 			const runWithDb = yield* DbRunner;
 			const repository = yield* PluginRepository;
 			const ingestion = yield* PluginIngestionService;
+			const scriptGarbageCollector = yield* ScriptGarbageCollector;
 
 			const ingestKernelScripts = Effect.fn("FirstPartyPluginBootstrap.ingestKernelScripts")(
 				function* () {
@@ -30,30 +32,37 @@ export class FirstPartyPluginBootstrap extends Effect.Service<FirstPartyPluginBo
 						),
 					);
 					const outputs = yield* compilePluginSandboxSourceEntries(files, kernelScripts);
-					for (const script of kernelScripts) {
-						const output = outputs.find(({ entry }) => entry === script.entry);
-						if (!output) {
-							return yield* Effect.dieMessage(`Compiler returned no output for ${script.entry}`);
-						}
-						const { entry: _entry, ...declaredMetadata } = script;
-						if (stableStringify(declaredMetadata) !== stableStringify(output.compiled.manifest)) {
-							return yield* Effect.dieMessage(
-								`Declared kernel script metadata does not match ${script.entry}`,
-							);
-						}
-						yield* runWithDb(
-							repository.persistKernelScript({
+					const compiledScripts = yield* Effect.forEach(kernelScripts, (script) =>
+						Effect.gen(function* () {
+							const output = outputs.find(({ entry }) => entry === script.entry);
+							if (!output) {
+								return yield* Effect.dieMessage(`Compiler returned no output for ${script.entry}`);
+							}
+							const { entry: _entry, ...declaredMetadata } = script;
+							if (stableStringify(declaredMetadata) !== stableStringify(output.compiled.manifest)) {
+								return yield* Effect.dieMessage(
+									`Declared kernel script metadata does not match ${script.entry}`,
+								);
+							}
+							return {
 								slug: script.slug,
 								name: script.name,
 								source: output.source,
+								metadata: declaredMetadata,
 								compiledFormat: output.compiled.format,
 								compiledCode: output.compiled.javascript,
 								contentHash: digest(output.compiled.javascript),
-								metadata: declaredMetadata,
-							}),
-						);
-					}
-					return yield* Effect.void;
+							};
+						}),
+					);
+					yield* scriptGarbageCollector.recordKernelContentHashes(
+						new Set(compiledScripts.map(({ contentHash }) => contentHash)),
+					);
+					yield* Effect.forEach(
+						compiledScripts,
+						(script) => runWithDb(repository.persistKernelScript(script)),
+						{ discard: true },
+					);
 				},
 			);
 
@@ -66,6 +75,7 @@ export class FirstPartyPluginBootstrap extends Effect.Service<FirstPartyPluginBo
 					);
 					yield* sourceEffect;
 				}
+				yield* scriptGarbageCollector.collect();
 			});
 
 			yield* ingest();
