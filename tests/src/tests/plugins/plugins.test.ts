@@ -1,4 +1,4 @@
-import { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -198,7 +198,9 @@ describe("plugins", () => {
 				),
 				Effect.flip(
 					client.call((c) =>
-						c.plugins.uninstall({ path: { pluginSlug: `unauthorized-${crypto.randomUUID()}` } }),
+						c.plugins.uninstall({
+							path: { pluginSlug: PluginSlug.make(`unauthorized-${crypto.randomUUID()}`) },
+						}),
 					),
 				),
 			]);

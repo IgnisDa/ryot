@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { ImportRunId } from "../../schema/brands";
+import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "../../schema/brands";
 import { HttpUrl } from "../../schema/utils";
 import { importRunFailureStages, importRunStatuses } from "./types";
 
@@ -38,9 +38,9 @@ const ListedImportRunFailure = Schema.Struct({
 	stage: ImportRunFailureStage,
 	context: Schema.NullOr(InputSummary),
 	sourceLabel: Schema.NullOr(Schema.String),
-	eventSchemaSlug: Schema.NullOr(Schema.String),
 	sourceIdentifier: Schema.NullOr(Schema.String),
-	entitySchemaSlug: Schema.NullOr(Schema.String),
+	eventSchemaSlug: Schema.NullOr(EventSchemaSlug),
+	entitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
 });
 
 export type ListedImportRunFailure = typeof ListedImportRunFailure.Type;

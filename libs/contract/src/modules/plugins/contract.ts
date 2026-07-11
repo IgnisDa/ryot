@@ -10,6 +10,7 @@ import {
 	SandboxRunError,
 	Unauthorized,
 } from "../../errors";
+import { PluginSlug } from "../../schema/brands";
 import {
 	InstallPluginBody,
 	PluginInvokeBody,
@@ -18,7 +19,7 @@ import {
 	PluginListItem,
 } from "./schemas";
 
-const pluginSlugParam = HttpApiSchema.param("pluginSlug", Schema.String);
+const pluginSlugParam = HttpApiSchema.param("pluginSlug", PluginSlug);
 const operationSlugParam = HttpApiSchema.param("operationSlug", Schema.String);
 
 export const PluginsGroup = HttpApiGroup.make("plugins")

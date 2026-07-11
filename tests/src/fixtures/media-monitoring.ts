@@ -1,4 +1,4 @@
-import { EntityId, UserId } from "@ryot/contract/schema/brands";
+import { EntityId, PluginSlug, UserId } from "@ryot/contract/schema/brands";
 import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
 import {
 	mediaMonitoringDisableRecipe,
@@ -47,7 +47,10 @@ export const triggerCronAndWaitForEntity = (
 			const cron = yield* getBackendClient().call(
 				(c) =>
 					c.testSupport.triggerPluginCron({
-						payload: { pluginSlug: "media", cronSlug: "media-monitoring" },
+						payload: {
+							cronSlug: "media-monitoring",
+							pluginSlug: PluginSlug.make("media"),
+						},
 					}),
 				adminHeaders,
 			);
@@ -84,8 +87,8 @@ const operationTransport =
 				contract.plugins.invoke({
 					payload: { payload: request.payload },
 					path: {
-						pluginSlug: request.pluginSlug,
 						operationSlug: request.operationSlug,
+						pluginSlug: PluginSlug.make(request.pluginSlug),
 					},
 				}),
 			)

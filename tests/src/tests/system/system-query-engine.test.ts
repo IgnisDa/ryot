@@ -1,4 +1,4 @@
-import { EntitySchemaSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, PluginSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -885,7 +885,10 @@ describe("system-authority query engine", () => {
 
 				for (const cronSlug of [workflowCronSlug, collectorCronSlug]) {
 					yield* backend.call(
-						(c) => c.testSupport.triggerPluginCron({ payload: { cronSlug, pluginSlug } }),
+						(c) =>
+							c.testSupport.triggerPluginCron({
+								payload: { cronSlug, pluginSlug: PluginSlug.make(pluginSlug) },
+							}),
 						adminHeaders,
 					);
 				}
