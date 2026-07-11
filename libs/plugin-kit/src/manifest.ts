@@ -203,9 +203,39 @@ export const PluginWorkflow = strictStruct({
 
 export type PluginWorkflow = Schema.Schema.Type<typeof PluginWorkflow>;
 
+const PluginIntegrationProviderFields = {
+	slug: sandboxManifestSlug,
+	settingsSchema: AppSchema,
+	name: sandboxManifestString,
+	description: sandboxManifestString,
+};
+
+export const PluginIntegrationProvider = Schema.Union(
+	strictStruct({
+		...PluginIntegrationProviderFields,
+		scriptSlug: sandboxManifestSlug,
+		lot: Schema.Literal("yank", "sink"),
+	}),
+	strictStruct({ ...PluginIntegrationProviderFields, lot: Schema.Literal("push") }),
+);
+
+export type PluginIntegrationProvider = Schema.Schema.Type<typeof PluginIntegrationProvider>;
+
+export const PluginImportSource = strictStruct({
+	slug: sandboxManifestSlug,
+	name: sandboxManifestString,
+	workflowSlug: sandboxManifestSlug,
+	description: sandboxManifestString,
+	input: Schema.Literal("file", "payload"),
+	allowedFileExtensions: Schema.Array(sandboxManifestString),
+	requiredAppConfigKeys: Schema.Array(sandboxManifestString),
+});
+
+export type PluginImportSource = Schema.Schema.Type<typeof PluginImportSource>;
+
 export const PluginSchemaProviderLink = strictStruct({
-	providerSlug: sandboxManifestSlug,
 	entitySchemaSlug: Schema.String,
+	providerSlug: sandboxManifestSlug,
 });
 
 export type PluginSchemaProviderLink = Schema.Schema.Type<typeof PluginSchemaProviderLink>;
@@ -271,7 +301,9 @@ const PluginManifestFields = strictStruct({
 	operations: Schema.Array(PluginOperation),
 	entitySchemas: Schema.Array(PluginEntitySchema),
 	signalSchemas: Schema.Array(PluginSignalSchema),
+	importSources: Schema.Array(PluginImportSource),
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
+	integrationProviders: Schema.Array(PluginIntegrationProvider),
 });
 
 export const PluginManifest = PluginManifestFields.pipe(
@@ -287,6 +319,21 @@ export const PluginManifest = PluginManifestFields.pipe(
 				return false;
 			}
 			if (workflowSlugs.size !== manifest.workflows.length) {
+				return false;
+			}
+			if (
+				new Set(manifest.importSources.map(({ slug }) => slug)).size !==
+				manifest.importSources.length
+			) {
+				return false;
+			}
+			if (
+				new Set(manifest.integrationProviders.map(({ slug }) => slug)).size !==
+				manifest.integrationProviders.length
+			) {
+				return false;
+			}
+			if (manifest.importSources.some(({ workflowSlug }) => !workflowSlugs.has(workflowSlug))) {
 				return false;
 			}
 			if (
@@ -360,6 +407,9 @@ export const PluginManifest = PluginManifestFields.pipe(
 				...manifest.bindings.entityAutomations.map(({ scriptSlug }) => scriptSlug),
 				...manifest.bindings.signalAutomations.map(({ scriptSlug }) => scriptSlug),
 				...manifest.bindings.relationshipAutomations.map(({ scriptSlug }) => scriptSlug),
+				...manifest.integrationProviders.flatMap((provider) =>
+					provider.lot === "push" ? [] : [provider.scriptSlug],
+				),
 			];
 
 			return (

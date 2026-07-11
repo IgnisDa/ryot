@@ -8,8 +8,10 @@ import { fitnessScripts } from "./script-catalog";
 
 export const fitnessPlugin = definePlugin({
 	crons: [],
-	operations: [],
 	workflows: [],
+	operations: [],
+	importSources: [],
+	integrationProviders: [],
 	scripts: fitnessScripts,
 	providers: [
 		{

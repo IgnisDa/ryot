@@ -41,7 +41,7 @@ Scripts declare an exact manifest `capabilities` tuple. The SDK exposes only tho
 - Script code runs in a separate Deno process per execution.
 - Deno denies subprocess, env, FFI, write, prompt, npm, and remote module access and ignores ambient config and lock files.
 - Format-1 execution hides the `Deno` global and disables string code-generation constructors, `eval`, and workers before importing script code.
-- Deno can only read the generated runner file, the read-only dependency runtime, and call the localhost bridge port.
+- Deno can only read the generated runner file, the read-only dependency runtime, any per-execution filesystem grant, and call the localhost bridge port.
 - Sandbox script network access must go through explicit host functions such as `httpCall`.
 - App-side source connectors are outside the sandbox runtime and use app runtime HTTP helpers.
 - Bridge calls require the per-execution bearer token and expire through Redis TTL.
@@ -55,9 +55,24 @@ Scripts declare an exact manifest `capabilities` tuple. The SDK exposes only tho
 
 The pool preserves process isolation because every subprocess is still single-use. Reusing a process across executions would allow global state pollution and weaken per-process memory limits.
 
+## Filesystem Grants
+
+Filesystem access is deny-by-default and granted per execution. A script requests grants through its manifest `capabilities`:
+
+- `artifact-read`: the kernel materializes an artifact and appends its path to `--allow-read`. The capability is the gate and the dispatched `grants.artifactPath` is only its parameter, so a script that did not declare the capability receives no grant even when a path is supplied, and a script that declared it receives none when no path is dispatched.
+- `scratch`: the kernel creates a per-execution scratch directory and replaces the blanket `--deny-write` with `--allow-write=<scratchDir>` for that execution alone, plus read access on the same directory.
+
+Both capabilities are permission grants, never bridge-callable host functions: `selectSandboxHostFunctions` skips them and they are excluded from the `SandboxHost` type a script sees. Grant paths must be absolute, normalized, and inside `config.tmpDir` before they can reach a Deno flag.
+
+Because `ProcessPool` pre-warms processes before an execution's grants are known, a grant-carrying execution runs on a dedicated non-pooled process spawned for it alone and killed by the same scope finalizer.
+
+The scratch quota is 5 MiB (`SANDBOX_LIMITS.scratch.totalBytes`), enforced after the run because Deno offers no preventive filesystem quota; exceeding it fails the execution before anything is harvested.
+
+An execution whose output exceeds `execution.resultBytes` writes chunk files into its scratch directory and returns a manifest naming them. The kernel — never a second sandbox execution — copies exactly the named files into run-scoped kernel-owned storage under `config.tmpDir`, ignoring anything else left in the directory, and fails the execution when a named chunk is missing or escapes the scratch directory. Scratch cleanup is unconditional and kernel-owned: the removal finalizer is registered before the process and bridge-session finalizers, so LIFO teardown deletes the directory last, after the script's process is dead, on success, quota failure, script error, timeout, and process kill alike.
+
 ## Approved Dependencies
 
-Format-1 modules can import the SDK root plus the explicit `/driver`, `/wire`, `/operation`, `/effect`, `/cheerio`, and `/youtubei` entry points. The compiler bundles the small SDK definition runtime into each script and leaves approved dependency imports external.
+Format-1 modules can import the SDK root plus the explicit `/driver`, `/wire`, `/operation`, `/effect`, `/cheerio`, `/youtubei`, `/fflate`, `/papaparse`, and `/fast-xml-parser` entry points. The compiler bundles the small SDK definition runtime into each script and leaves approved dependency imports external.
 
 `PackageCacheManager` builds the exact pinned package versions into self-contained ESM files under an immutable, content-addressed, read-only directory in `SANDBOX_DENO_DIR`. Its Deno import map resolves approved SDK imports to those local files. A separate content-addressed Deno cache starts without registry packages. Concurrent builders publish atomically and reuse the same verified module set.
 

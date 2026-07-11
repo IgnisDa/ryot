@@ -9,7 +9,10 @@ import {
 const approvedDependencyImports = [
 	"@ryot/sandbox-sdk/effect",
 	"@ryot/sandbox-sdk/cheerio",
+	"@ryot/sandbox-sdk/fflate",
 	"@ryot/sandbox-sdk/youtubei",
+	"@ryot/sandbox-sdk/papaparse",
+	"@ryot/sandbox-sdk/fast-xml-parser",
 ] as const;
 
 const automationSource = `
@@ -73,7 +76,7 @@ it.effect("externalizes every approved SDK runtime dependency", () =>
 			expect(emittedModule).toContain(`"${specifier}"`);
 		}
 		expect(emittedModule).not.toMatch(
-			/\b(?:from|import)\s*["'](?:cheerio|youtubei\.js|zod)(?:[/'"])/,
+			/\b(?:from|import)\s*["'](?:cheerio|fast-xml-parser|fflate|papaparse|youtubei\.js|zod)(?:[/'"])/,
 		);
 		expect(new TextEncoder().encode(emittedModule).byteLength).toBeLessThan(128 * 1024);
 	}),
