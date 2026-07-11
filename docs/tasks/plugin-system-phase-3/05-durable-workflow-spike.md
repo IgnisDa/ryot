@@ -4,7 +4,7 @@
 
 **Type:** HITL
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -37,13 +37,31 @@ Implementation Decisions "Step 3" pointer.
 
 Derived from the plan §3 spike requirement:
 
-- [ ] A throwaway replay-deterministic script driven by a prototype `activity()` exists and is
+- [x] A throwaway replay-deterministic script driven by a prototype `activity()` exists and is
       exercised through suspend/resume and a process restart
-- [ ] Serialization, timeout, and replay-ordering findings are recorded in the Phase 3 plan file
-- [ ] The findings feed a concrete recommendation for the task-06 design (primitives, pinning,
+- [x] Serialization, timeout, and replay-ordering findings are recorded in the Phase 3 plan file
+- [x] The findings feed a concrete recommendation for the task-06 design (primitives, pinning,
       determinism guard rails)
-- [ ] The owner has reviewed the findings and signed off on the design before task 06 begins
+- [x] The owner has reviewed the findings and signed off on the design before task 06 begins
       (HITL gate)
+
+## Outcome
+
+The spike ran twice. The first pass ("A") shipped the accumulated journal into the script as
+input context; it worked but hit the 256 KiB `sandboxContextError` cap on the accumulated
+journal and validated replay ordering inside untrusted sandbox code. The owner reviewed those
+findings and selected an amended design ("A-prime") in which the journal is read through a
+non-suspending batch host call with kernel-side ordering validation, which was then spiked and
+measured as well. Both passes exercised suspend/resume, a SIGINT process restart, an induced
+timeout, a hot swap, serialization edge cases, nondeterminism detection, and a concurrency
+smoke test.
+
+The throwaway code is kept out of the branch as the task requires, parked in a git stash
+(`phase-3 durable workflow spike (throwaway A-prime code)`) rather than deleted, in case task 06
+wants to re-run an experiment. The recorded design, measurements, limit
+profile, and the open risks task 06 must close live in the spike-findings subsection of
+`docs/plans/plugin-system/03-phase-3-capability-migrations.md` §3, with a mechanism pointer added
+to Decision 7 in `00-overview.md`.
 
 ## User stories addressed
 
