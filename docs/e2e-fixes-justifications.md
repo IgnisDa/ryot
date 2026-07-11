@@ -1,7 +1,6 @@
 # E2E Fixes and Justifications
 
-Status: the standard Turbo e2e gate and backend checks pass. The opt-in Phase 3 operational gate
-still exceeds its unchanged 15-minute budget and is being investigated separately.
+Status: the standard Turbo e2e gate, backend checks, and opt-in Phase 3 operational gate pass.
 
 ## Baseline
 
@@ -132,6 +131,28 @@ entered provider population and then held its HTTP request for the remaining 179
 deterministically keyed queue execution to `RunSandboxWorkflow` and awaits that owner through terminal
 polling. The queue payload and active-script pin are unchanged.
 
+The full-size operational gate exposed one final failure inside that owner. Under sustained load,
+`RunSandboxWorkflow` could remain inside `DurableQueue.process` after the sandbox work had stopped
+making progress. Repeated runs ended with different subsets of the eight root workflows pending even
+though PostgreSQL had no pool pressure or deadlocks, Redis journal projections remained valid, and
+the sandbox process count stopped below the expected minimum. The varying cutoff ruled out a
+deterministic bad item; the stable boundary was the producer-side durable queue wait.
+
+`RunSandboxWorkflow` now gives that idempotent queue wait one minute to resolve and retries it every
+second with the same `executionId`, payload, and `SandboxExecutionQueue` idempotency key. A retry
+therefore re-offers or re-reads the same durable operation rather than creating another logical
+sandbox execution. The durable queue worker, process isolation, workflow journal, Redis projection,
+database path, result/error propagation, and configured workload remain unchanged. The structural
+workflow-boundary test pins both the durable queue call and its timeout/retry policy so a later
+cleanup cannot silently restore the indefinite wait.
+
+The gate's advisory-lock assertion was also corrected to measure contention rather than incidental
+lock presence. Ryot deliberately disables Effect Cluster's shard advisory locks because its shared
+`pg` connection does not support concurrent queries; unrelated operations can still make the total
+lock count transiently zero or nonzero. The meaningful invariant is that no advisory lock waits are
+observed, so the gate now asserts `maxWaitingAdvisoryLocks === 0` while retaining the database pool,
+deadlock, Redis, workflow-overlap, result-count, and sandbox-execution assertions.
+
 Library import had one final direct deferred after provider population: ensuring the user's library
 membership. A later loaded run again completed earlier imports but left the final job pending for 30
 seconds at that boundary. A one-shot `EnsureLibraryMembershipWorkflow` now owns the wait for the
@@ -229,8 +250,14 @@ Current verified results:
 - `bun turbo --filter=@ryot/tests check`: 12/12 tasks passed with zero warnings and errors.
 - `bun turbo --filter=@ryot/tests test`: 79/79 standard files and 501/501 standard tests passed;
   the opt-in operational file/test was skipped as configured.
+- The opt-in media-population gate passed separately with its unchanged two-concurrent-1,001-item
+  workload and 15-minute budget. All eight workflows completed in 361,548 ms, both imports returned
+  1,001 completed results, 4,012 sandbox executions were observed, sandbox overlap peaked at eight,
+  database activity peaked at five active and 34 total connections with no app-pool or advisory-lock
+  waits, and the run recorded no deadlocks or Redis projection errors.
 
-The opt-in media-population gate was run separately with its workload, timeout, assertions, and
-infrastructure path unchanged. It exceeded 900,000 ms with 2 of 8 workflows completed and 6 pending.
-Diagnostics showed no database lock waits, pool waits, advisory locks, deadlocks, or Redis errors;
-the separate operational-gate investigation starts from that baseline.
+The operational suite no longer prints its large timeout and success metric strings. Those logs were
+useful while locating the stalled boundary, but after the behavior was pinned they duplicated test
+assertions and required several otherwise-dead peak counters and completion timestamps. Failures now
+surface through the focused timeout or assertion message, while this document preserves the final
+diagnostic evidence and justification.
