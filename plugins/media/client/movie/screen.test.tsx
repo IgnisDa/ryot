@@ -64,6 +64,7 @@ const renderContent = (
 		<MovieScreenBody
 			compact
 			state={state}
+			safeAreaTop={0}
 			settled={undefined}
 			activity={activityTab}
 			refreshOverview={() => undefined}

@@ -39,6 +39,7 @@ const resolvingAdapter: Partial<RyotClientAdapter> = {
 const overviewScreen = (overview: ReturnType<typeof decodeMovieOverview>) => (
 	<MediaOverview
 		compact
+		safeAreaTop={0}
 		media={decodeMovieSummary()}
 		isEmpty={movieOverviewIsEmpty}
 		refreshOverview={() => undefined}

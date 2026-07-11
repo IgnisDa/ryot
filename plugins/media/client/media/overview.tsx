@@ -55,6 +55,7 @@ export function MediaRail(props: { readonly compact: boolean; readonly children:
 export function MediaImageGallerySection(props: {
 	readonly name: string;
 	readonly compact: boolean;
+	readonly safeAreaTop: number;
 	readonly divided: boolean;
 	readonly assets: readonly MediaImageAsset[];
 	readonly images: readonly MediaGalleryImage[];
@@ -94,6 +95,7 @@ export function MediaImageGallerySection(props: {
 					images={props.images}
 					triggerRef={triggerRef}
 					compact={props.compact}
+					safeAreaTop={props.safeAreaTop}
 					onClose={() => setGalleryOpen(false)}
 				/>
 			)}
@@ -411,6 +413,7 @@ function MediaOverviewBody<Overview>(props: {
 
 export function MediaOverview<Overview>(props: {
 	readonly compact: boolean;
+	readonly safeAreaTop: number;
 	readonly loadingDetail: string;
 	readonly refreshStatus?: ReactNode;
 	readonly refreshOverview: () => void;
@@ -430,6 +433,7 @@ export function MediaOverview<Overview>(props: {
 				assets={gallery}
 				name={props.media.name}
 				compact={props.compact}
+				safeAreaTop={props.safeAreaTop}
 				images={galleryImages(props.media.images)}
 			/>
 			<MediaOverviewBody
