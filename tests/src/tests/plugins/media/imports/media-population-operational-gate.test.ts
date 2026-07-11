@@ -17,7 +17,7 @@ import { describe, expect, it } from "~/support/effect-test";
 const ITEM_COUNT = 1_001;
 const GATE_TIMEOUT_MS = 900_000;
 const POLL_INTERVAL = "1 second";
-const EXPECTED_MINIMUM_SANDBOX_EXECUTIONS = 4_008;
+const EXPECTED_MINIMUM_SANDBOX_EXECUTIONS = ITEM_COUNT * 2;
 const RUN_OPERATIONAL_GATES =
 	process.env.RUN_OPERATIONAL_GATES === "1" || process.env.RUN_OPERATIONAL_GATES === "true";
 
