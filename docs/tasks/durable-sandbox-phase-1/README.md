@@ -4,9 +4,9 @@ Pre-requisite: Please read [Durable Sandbox - Overview](../../plans/durable-sand
 
 ## Tasks
 
-**Overall Progress:** 15 of 16 tasks completed
+**Overall Progress:** 16 of 16 tasks completed
 
-**Current Task:** [Task 16](./16-codebase-cleanup.md) (todo)
+**Current Task:** [Task 16](./16-codebase-cleanup.md) (done)
 
 ### Task List
 
@@ -27,7 +27,7 @@ Pre-requisite: Please read [Durable Sandbox - Overview](../../plans/durable-sand
 | 13  | [Migrate Media-Group Providers](./13-migrate-media-group-providers.md)                       | done   |
 | 14  | [Cut Over the Universal Sandbox Runtime](./14-cut-over-universal-runtime.md)                 | done   |
 | 15  | [Close the Phase 1 Verification Gate](./15-close-phase-1-verification.md)                    | done   |
-| 16  | [Codebase Cleanup](./16-codebase-cleanup.md)                                                 | todo   |
+| 16  | [Codebase Cleanup](./16-codebase-cleanup.md)                                                 | done   |
 
 ## Authoritative Plans
 
