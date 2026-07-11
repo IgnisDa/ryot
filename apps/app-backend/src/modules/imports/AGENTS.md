@@ -23,11 +23,17 @@ Media imports run in four phases, split across a parent workflow and one canonic
 3. `populating-entities`: populate or reuse global entities and ensure library membership by awaiting `LibraryEntityImportWorkflow` per item (it composes provider population then the durable membership queue). Its `LibraryEntityImportError` stage maps to the `provider_details` (population) and `database_commit` (membership) failure stages.
 4. `writing-events`: write collection memberships and events for resolved entity ids.
 
-Resolution and population inputs are packed into ordered workflow chunks before sandbox dispatch.
+Resolution and population inputs are encoded first, then packed into ordered workflow chunks before
+sandbox dispatch, so packing measures the same bytes the workflow-context ceiling is enforced against.
 Every chunk must fit both the 64 KiB workflow-context ceiling and the 1,000-call durable-step ceiling
 (resolution budgets the worst-case candidate count; population budgets one child per item). A phase
 resolves its workflow script once, then executes exact-script chunks with deterministic chunk ids and
-bounded concurrency. An item that cannot fit an empty chunk is recorded as an item-level failure;
+bounded concurrency. That concurrency bound is deliberately the sandbox worker bound: chunk children
+are a different resource, but each chunk occupies one worker for its whole run, and sandbox limits
+stay fixed in this phase rather than gaining a separate setting. Suspension is per workflow instance,
+so the first chunk to suspend interrupts its siblings and ends the body pass; already-dispatched
+chunk children keep running durably and each completion resumes the parent. An item whose encoded
+form cannot be produced, or that cannot fit an empty chunk, is recorded as an item-level failure;
 expected library-import child failures remain item-level results, while sandbox shell, engine, and
 other infrastructure failures remain fatal to the run.
 
