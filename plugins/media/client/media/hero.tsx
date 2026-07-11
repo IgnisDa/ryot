@@ -1,11 +1,12 @@
 import { ImageTintOverlay, useImageTint } from "@ryot-app/client-ui-sdk/tint";
 
-import { useManagedAssetUrl } from "../managed-assets";
-import { showBackdropAsset, showPosterAsset, type ShowSummary } from "./summary-state";
+import type { MediaImages } from "./image";
+import { useManagedAssetUrl } from "./managed-assets";
+import { mediaBackdropAsset, mediaPosterAsset } from "./summary-state";
 
-export const SHOW_ART_HEIGHT = 280;
+export const MEDIA_ART_HEIGHT = 280;
 
-export const SHOW_BACKDROP_HEIGHT = 416;
+export const MEDIA_BACKDROP_HEIGHT = 416;
 
 const SCRIM_FADE_HEIGHT = 76;
 
@@ -30,9 +31,12 @@ const wideScrim = `linear-gradient(to bottom, ${scrimColor(SCRIM_WIDE_ALPHA)} 0%
 	SCRIM_WIDE_ALPHA,
 )} ${SCRIM_HOLD_STOP * 100}%, var(--color-bg) 100%)`;
 
-export function ShowHero(props: { readonly compact: boolean; readonly show: ShowSummary }) {
-	const url = useManagedAssetUrl(showBackdropAsset(props.show));
-	const { gradientStops } = useImageTint(useManagedAssetUrl(showPosterAsset(props.show)));
+export function MediaHero(props: {
+	readonly compact: boolean;
+	readonly media: { readonly images: MediaImages };
+}) {
+	const url = useManagedAssetUrl(mediaBackdropAsset(props.media));
+	const { gradientStops } = useImageTint(useManagedAssetUrl(mediaPosterAsset(props.media)));
 	return (
 		<div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
 			<ImageTintOverlay direction="vertical" gradientStops={gradientStops} />

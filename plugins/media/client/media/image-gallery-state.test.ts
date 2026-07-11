@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { MediaImage } from "../shared/media-image";
+import type { MediaImage } from "../../shared/media-image";
 import {
 	galleryFilterImages,
 	galleryFilters,

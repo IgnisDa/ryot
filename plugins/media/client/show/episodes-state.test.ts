@@ -1,17 +1,17 @@
 import { assert, describe, expect, it } from "vitest";
 
 import {
+	malformedQueryResult,
+	pendingQueryResult,
+	readyQueryResult,
+	transportErrorQueryResult,
+} from "../../tests/client/query-result-fixture";
+import {
 	decodeShowEpisodesResult,
 	decodeShowSeasonEpisodesResult,
 	showEpisodeRow,
 	showSeasonRow,
 } from "../../tests/client/show/episodes-fixture";
-import {
-	malformedQueryResult,
-	pendingQueryResult,
-	readyQueryResult,
-	transportErrorQueryResult,
-} from "../../tests/client/show/query-result-fixture";
 import {
 	mapShowEpisodes,
 	mapShowSeasonEpisodes,

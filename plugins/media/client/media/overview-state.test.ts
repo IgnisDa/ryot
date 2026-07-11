@@ -1,6 +1,12 @@
 import { assert, describe, expect, it } from "vitest";
 
 import {
+	malformedQueryResult,
+	pendingQueryResult,
+	readyQueryResult,
+	transportErrorQueryResult,
+} from "../../tests/client/query-result-fixture";
+import {
 	decodeShowOverview,
 	emptyShowOverview,
 	showCompanyRow,
@@ -8,36 +14,30 @@ import {
 	showRecommendationRow,
 } from "../../tests/client/show/overview-fixture";
 import {
-	malformedQueryResult,
-	pendingQueryResult,
-	readyQueryResult,
-	transportErrorQueryResult,
-} from "../../tests/client/show/query-result-fixture";
-import {
-	mapShowOverview,
-	showCharacterLabel,
-	showCompanyAsset,
-	showOverviewError,
-	showOverviewIsEmpty,
-	showOverviewManagedAssets,
-	showPersonAsset,
-	showRecommendationAsset,
-	showRolesLabel,
+	mapMediaOverview,
+	mediaCharacterLabel,
+	mediaCompanyAsset,
+	mediaOverviewError,
+	mediaOverviewManagedAssets,
+	mediaPersonAsset,
+	mediaRecommendationAsset,
+	mediaRelationsAreEmpty,
+	mediaRolesLabel,
 } from "./overview-state";
 
-describe("show overview state", () => {
+describe("media overview state", () => {
 	it("maps a pending query to the loading state", () => {
-		expect(mapShowOverview(pendingQueryResult())).toEqual({ status: "loading" });
+		expect(mapMediaOverview(pendingQueryResult())).toEqual({ status: "loading" });
 	});
 
 	it("maps a malformed decode failure apart from a transport failure", () => {
-		expect(mapShowOverview(malformedQueryResult()).status).toBe("malformed");
-		expect(mapShowOverview(transportErrorQueryResult()).status).toBe("transport-error");
+		expect(mapMediaOverview(malformedQueryResult()).status).toBe("malformed");
+		expect(mapMediaOverview(transportErrorQueryResult()).status).toBe("transport-error");
 	});
 
 	it("keeps error copy free of decoder and transport internals", () => {
-		expect(showOverviewError({ status: "malformed" }).detail).not.toContain("RyotQL");
-		expect(showOverviewError({ status: "transport-error" })).toEqual({
+		expect(mediaOverviewError({ status: "malformed" }).detail).not.toContain("RyotQL");
+		expect(mediaOverviewError({ status: "transport-error" })).toEqual({
 			title: "Unable to load these details",
 			detail:
 				"The cast, companies and recommendations could not be loaded. Check your connection and try again.",
@@ -45,7 +45,7 @@ describe("show overview state", () => {
 	});
 
 	it("maps decoded relational rows to the ready state", () => {
-		const state = mapShowOverview(readyQueryResult(decodeShowOverview()));
+		const state = mapMediaOverview(readyQueryResult(decodeShowOverview()));
 
 		expect(state).toMatchObject({
 			status: "ready",
@@ -57,10 +57,10 @@ describe("show overview state", () => {
 		});
 	});
 
-	it("reports a show with no credits, companies or suggestions as empty", () => {
-		expect(showOverviewIsEmpty(emptyShowOverview())).toBe(true);
-		expect(showOverviewIsEmpty(decodeShowOverview())).toBe(false);
-		expect(showOverviewIsEmpty(decodeShowOverview({ people: [], companies: [] }))).toBe(false);
+	it("reports an entity with no credits, companies or suggestions as empty", () => {
+		expect(mediaRelationsAreEmpty(emptyShowOverview())).toBe(true);
+		expect(mediaRelationsAreEmpty(decodeShowOverview())).toBe(false);
+		expect(mediaRelationsAreEmpty(decodeShowOverview({ people: [], companies: [] }))).toBe(false);
 	});
 
 	it("prefers the purpose that suits each relationship and falls back to provider order", () => {
@@ -73,9 +73,9 @@ describe("show overview state", () => {
 		const [recommendation] = overview.recommendations.items;
 		assert(person !== undefined && company !== undefined && recommendation !== undefined);
 
-		expect(showPersonAsset(person)).toEqual({ type: "s3", key: "still" });
-		expect(showCompanyAsset(company)).toEqual({ key: "logo", type: "local" });
-		expect(showRecommendationAsset(recommendation)).toEqual({
+		expect(mediaPersonAsset(person)).toEqual({ type: "s3", key: "still" });
+		expect(mediaCompanyAsset(company)).toEqual({ key: "logo", type: "local" });
+		expect(mediaRecommendationAsset(recommendation)).toEqual({
 			type: "remote",
 			url: "https://images.test/bad-girls.jpg",
 		});
@@ -92,10 +92,10 @@ describe("show overview state", () => {
 		const [recommendation] = overview.recommendations.items;
 		assert(person !== undefined && company !== undefined && recommendation !== undefined);
 
-		expect(showPersonAsset(person)).toBeUndefined();
-		expect(showCompanyAsset(company)).toBeUndefined();
-		expect(showRecommendationAsset(recommendation)).toBeUndefined();
-		expect(showOverviewManagedAssets(overview)).toEqual([]);
+		expect(mediaPersonAsset(person)).toBeUndefined();
+		expect(mediaCompanyAsset(company)).toBeUndefined();
+		expect(mediaRecommendationAsset(recommendation)).toBeUndefined();
+		expect(mediaOverviewManagedAssets(overview)).toEqual([]);
 	});
 
 	it("collects only the managed locators the overview renders", () => {
@@ -115,7 +115,7 @@ describe("show overview state", () => {
 			],
 		});
 
-		expect(showOverviewManagedAssets(overview)).toEqual([
+		expect(mediaOverviewManagedAssets(overview)).toEqual([
 			{ type: "local", key: "company-logo" },
 			{ type: "s3", key: "person-profile" },
 			{ type: "s3", key: "suggested-cover" },
@@ -123,11 +123,11 @@ describe("show overview state", () => {
 	});
 
 	it("labels recorded roles and characters and omits the ones providers left out", () => {
-		expect(showRolesLabel(["Actor", "Guest Star"])).toBe("Actor, Guest Star");
-		expect(showRolesLabel([])).toBeUndefined();
-		expect(showRolesLabel(null)).toBeUndefined();
-		expect(showCharacterLabel("Jamie")).toBe("as Jamie");
-		expect(showCharacterLabel("")).toBeUndefined();
-		expect(showCharacterLabel(null)).toBeUndefined();
+		expect(mediaRolesLabel(["Actor", "Guest Star"])).toBe("Actor, Guest Star");
+		expect(mediaRolesLabel([])).toBeUndefined();
+		expect(mediaRolesLabel(null)).toBeUndefined();
+		expect(mediaCharacterLabel("Jamie")).toBe("as Jamie");
+		expect(mediaCharacterLabel("")).toBeUndefined();
+		expect(mediaCharacterLabel(null)).toBeUndefined();
 	});
 });

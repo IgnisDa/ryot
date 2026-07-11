@@ -2,18 +2,18 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+	malformedQueryResult,
+	pendingQueryResult,
+	readyQueryResult,
+	transportErrorQueryResult,
+} from "../../tests/client/query-result-fixture";
+import {
 	decodeShowActivity,
 	emptyShowActivity,
 	firstWatchDayRow,
 	rewatchedShowActivity,
 	sameDayWatchRow,
 } from "../../tests/client/show/activity-fixture";
-import {
-	malformedQueryResult,
-	pendingQueryResult,
-	readyQueryResult,
-	transportErrorQueryResult,
-} from "../../tests/client/show/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { ShowActivity } from "./activity";
 import { mapShowActivity, type ShowActivityState } from "./activity-state";

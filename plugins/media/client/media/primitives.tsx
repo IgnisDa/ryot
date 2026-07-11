@@ -4,21 +4,21 @@ import { SyncCountLine } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 import type { ReactNode, Ref } from "react";
 
-import type { ShowSyncCounts } from "./sync-counts";
+import type { MediaSyncCounts } from "./sync-counts";
 
-export function ShowRefreshStatus(props: { readonly result: RyotQueryResult<unknown> }) {
+export function MediaRefreshStatus(props: { readonly result: RyotQueryResult<unknown> }) {
 	if (props.result.status !== "error" || props.result.data === undefined) {
 		return null;
 	}
 	return (
 		<div role="status" className="flex items-center gap-3 py-2 font-ui text-[12px] text-text-muted">
 			<span>Refresh failed. Showing last loaded content.</span>
-			<ShowLinkButton label="Try again" onClick={props.result.refetch} />
+			<MediaLinkButton label="Try again" onClick={props.result.refetch} />
 		</div>
 	);
 }
 
-export function ShowChip(props: { readonly label: string }) {
+export function MediaChip(props: { readonly label: string }) {
 	return (
 		<span className="rounded-pill border border-border bg-surface-2 px-2.5 py-1 font-ui text-[12px] text-text-muted">
 			{props.label}
@@ -26,7 +26,7 @@ export function ShowChip(props: { readonly label: string }) {
 	);
 }
 
-export function ShowFact(props: {
+export function MediaFact(props: {
 	readonly label: string;
 	readonly value: string;
 	readonly suffix?: string | undefined;
@@ -44,11 +44,11 @@ export function ShowFact(props: {
 	);
 }
 
-export function ShowFactDivider() {
+export function MediaFactDivider() {
 	return <div className="h-9 w-px bg-border" />;
 }
 
-export function ShowProgressBar(props: { readonly percent: number }) {
+export function MediaProgressBar(props: { readonly percent: number }) {
 	return (
 		<div className="h-1 max-w-md overflow-hidden rounded-pill bg-surface-2">
 			<div style={{ width: `${props.percent}%` }} className="h-full rounded-pill bg-success" />
@@ -56,7 +56,7 @@ export function ShowProgressBar(props: { readonly percent: number }) {
 	);
 }
 
-export function ShowRailRow(props: {
+export function MediaRailRow(props: {
 	readonly icon: string;
 	readonly title: string;
 	readonly compact: boolean;
@@ -85,14 +85,14 @@ export function ShowRailRow(props: {
 	);
 }
 
-export function ShowOverviewSection(props: {
+export function MediaOverviewSection(props: {
 	readonly title: string;
 	readonly compact: boolean;
 	readonly divided?: boolean;
 	readonly action?: ReactNode;
 	readonly children: ReactNode;
 	readonly className?: string | undefined;
-	readonly sync?: ShowSyncCounts | undefined;
+	readonly sync?: MediaSyncCounts | undefined;
 }) {
 	return (
 		<section
@@ -124,7 +124,7 @@ export function ShowOverviewSection(props: {
 	);
 }
 
-export function ShowLinkButton(props: {
+export function MediaLinkButton(props: {
 	readonly label: string;
 	readonly onClick: () => void;
 	readonly tone?: "accent" | "plain";
@@ -145,7 +145,7 @@ export function ShowLinkButton(props: {
 	);
 }
 
-export function ShowExternalLink(props: { readonly href: string; readonly label: string }) {
+export function MediaExternalLink(props: { readonly href: string; readonly label: string }) {
 	return (
 		<a
 			target="_blank"
@@ -158,7 +158,7 @@ export function ShowExternalLink(props: { readonly href: string; readonly label:
 	);
 }
 
-export function ShowActionButton(props: {
+export function MediaActionButton(props: {
 	readonly label: string;
 	readonly compact: boolean;
 	readonly onClick: () => void;
@@ -187,7 +187,7 @@ export function ShowActionButton(props: {
 	);
 }
 
-export function ShowStatusMessage(props: {
+export function MediaStatusMessage(props: {
 	readonly title: string;
 	readonly detail: string;
 	readonly onRetry?: () => void;
@@ -197,7 +197,7 @@ export function ShowStatusMessage(props: {
 			<p className="text-center font-ui font-medium text-base text-text">{props.title}</p>
 			<p className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</p>
 			{props.onRetry === undefined ? null : (
-				<ShowLinkButton label="Try again" onClick={props.onRetry} />
+				<MediaLinkButton label="Try again" onClick={props.onRetry} />
 			)}
 		</div>
 	);

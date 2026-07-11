@@ -4,7 +4,8 @@ import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 
-import { ManagedAssetImage } from "../managed-assets";
+import { ManagedAssetImage } from "../media/managed-assets";
+import { MediaProgressBar, MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
 import {
 	isSpecialsSeason,
 	mapShowEpisodes,
@@ -34,7 +35,6 @@ import {
 	type ShowSeasonEpisodesState,
 	type ShowSeasonList,
 } from "./episodes-state";
-import { ShowProgressBar, ShowRefreshStatus, ShowStatusMessage } from "./primitives";
 import { showEpisodesQuery, showSeasonEpisodesQuery } from "./queries";
 
 const metaLabel = (parts: readonly (string | undefined)[]) =>
@@ -109,7 +109,7 @@ function ShowSeasonHeader(props: {
 					{meta === "" ? null : <p className="font-ui text-[12px] text-text-subtle">{meta}</p>}
 				</div>
 			</div>
-			{percent === undefined ? null : <ShowProgressBar percent={percent} />}
+			{percent === undefined ? null : <MediaProgressBar percent={percent} />}
 			{description === undefined ? null : (
 				<p className="line-clamp-2 font-ui text-[13px] leading-5 text-text">{description}</p>
 			)}
@@ -202,15 +202,15 @@ function ShowSeasonEpisodesList(props: {
 }) {
 	if (props.state.status === "loading") {
 		return (
-			<ShowStatusMessage title="Loading season..." detail="Fetching this season's episodes." />
+			<MediaStatusMessage title="Loading season..." detail="Fetching this season's episodes." />
 		);
 	}
 	if (props.state.status === "transport-error" || props.state.status === "malformed") {
-		return <ShowStatusMessage {...showSeasonEpisodesError(props.state)} onRetry={props.refresh} />;
+		return <MediaStatusMessage {...showSeasonEpisodesError(props.state)} onRetry={props.refresh} />;
 	}
 	if (props.state.status === "empty") {
 		return (
-			<ShowStatusMessage title="Season unavailable" detail="This season could not be found." />
+			<MediaStatusMessage title="Season unavailable" detail="This season could not be found." />
 		);
 	}
 	const episodes = props.state.season.episodes.items;
@@ -282,15 +282,18 @@ export function ShowEpisodes(props: {
 	const { state } = props;
 	if (state.status === "loading") {
 		return (
-			<ShowStatusMessage title="Loading episodes..." detail="Fetching the seasons for this show." />
+			<MediaStatusMessage
+				title="Loading episodes..."
+				detail="Fetching the seasons for this show."
+			/>
 		);
 	}
 	if (state.status === "transport-error" || state.status === "malformed") {
-		return <ShowStatusMessage {...showEpisodesError(state)} onRetry={props.refresh} />;
+		return <MediaStatusMessage {...showEpisodesError(state)} onRetry={props.refresh} />;
 	}
 	if (state.status === "empty") {
 		return (
-			<ShowStatusMessage
+			<MediaStatusMessage
 				title="No episodes yet"
 				detail="This show has no seasons or episodes recorded yet."
 			/>
@@ -319,7 +322,7 @@ function ShowSeasonEpisodesLoader(props: {
 	});
 	return (
 		<>
-			<ShowRefreshStatus result={result} />
+			<MediaRefreshStatus result={result} />
 			{props.children(mapShowSeasonEpisodes(result), result.refetch)}
 		</>
 	);
@@ -338,7 +341,7 @@ export function ShowEpisodesTab(props: { readonly compact: boolean; readonly ent
 				state.status === "ready" ? showEpisodesManagedAssets(state.seasons, seasonEpisodes) : []
 			}
 		>
-			<ShowRefreshStatus result={result} />
+			<MediaRefreshStatus result={result} />
 			<ShowEpisodes
 				state={state}
 				compact={props.compact}
