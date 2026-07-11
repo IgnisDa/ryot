@@ -4,6 +4,7 @@ import { badRequest, notFound, SandboxRunError } from "@ryot/contract/errors";
 import type {
 	EnqueueSandboxBody,
 	ExecutionAuthority,
+	SandboxExecutionGrants,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId, type UserId } from "@ryot/contract/schema/brands";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
@@ -143,6 +144,7 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 					executionId: string;
 					scriptId: SandboxScriptId;
 					authority: ExecutionAuthority;
+					grants?: SandboxExecutionGrants;
 				}) {
 					const contextError = sandboxContextError(input.input, { kind: "workflow" });
 					if (contextError) {
@@ -156,6 +158,7 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 							scriptId: input.scriptId,
 							authority: input.authority,
 							executionId: input.executionId,
+							...(input.grants ? { grants: input.grants } : {}),
 						},
 					});
 				},

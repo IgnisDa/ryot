@@ -23,6 +23,7 @@ import {
 	isSandboxFilesystemGrantCapability,
 	measureSandboxScratchBytes,
 	SANDBOX_HARVEST_DIRECTORY_PREFIX,
+	sanitizeSandboxExecutionSegment,
 	sandboxArtifactGrantPath,
 	sandboxGrantPathError,
 	type SandboxProcessGrants,
@@ -132,6 +133,12 @@ const SandboxRunnerRequest = Schema.Struct({
 	compiledFormat: Schema.Number,
 	apiFunctions: Schema.Array(Schema.String),
 	limits: Schema.Record({ key: Schema.String, value: Schema.Union(Schema.Number, Schema.String) }),
+	filesystem: Schema.optional(
+		Schema.Struct({
+			artifactPath: Schema.optional(Schema.String),
+			scratchDirectory: Schema.optional(Schema.String),
+		}),
+	),
 });
 
 const SandboxRunnerResponse = Schema.Struct({
@@ -148,9 +155,6 @@ const decodeSandboxRunnerResponse = Schema.decodeUnknownSync(
 );
 
 const makeInvalidResponse = () => new SandboxRunError({ message: invalidResponseMessage });
-
-const sanitizeExecutionSegment = (executionId: string) =>
-	executionId.replace(/[^a-zA-Z0-9._-]/g, "-");
 
 export class SandboxService extends Effect.Service<SandboxService>()("SandboxService", {
 	dependencies: [FetchHttpClient.layer, ProcessPool.Default, BridgeService.Default],
@@ -194,25 +198,6 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						durableCalls: makeWorkflowDurableCallsHostFunction(input.workflowExecutionId, redis),
 					};
 					const selectedApiFunctions = selectSandboxHostFunctions(boundApiFunctions, input);
-
-					const token = generateId();
-					const requestLine = `${encodeSandboxRunnerRequest({
-						token,
-						context,
-						scriptId: input.scriptId,
-						metadata: input.metadata ?? {},
-						executionId: input.executionId,
-						compiledCode: input.compiledCode,
-						compiledFormat: input.compiledFormat,
-						apiBase: `http://127.0.0.1:${bridge.port}`,
-						limits: sandboxRunnerLimits(input.metadata),
-						apiFunctions: Object.keys(selectedApiFunctions),
-					})}\n`;
-					const requestError = sandboxRunnerRequestError(requestLine);
-					if (requestError) {
-						return yield* new SandboxRunError({ message: requestError });
-					}
-
 					const artifactPath = sandboxArtifactGrantPath(
 						input.allowedHostFunctions,
 						input.grants?.artifactPath,
@@ -230,13 +215,34 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					}
 
 					// Acquired before the process and bridge finalizers so LIFO teardown removes the scratch
-					// directory last — after the script's process is dead.
+					// directory last, after the script's process is dead.
 					const scratchDirectory = declaresSandboxFilesystemGrant(
 						input.allowedHostFunctions,
 						"scratch",
 					)
 						? yield* acquireSandboxScratchDirectory(config.tmpDir)
 						: undefined;
+
+					const token = generateId();
+					const requestLine = `${encodeSandboxRunnerRequest({
+						token,
+						context,
+						scriptId: input.scriptId,
+						metadata: input.metadata ?? {},
+						executionId: input.executionId,
+						compiledCode: input.compiledCode,
+						compiledFormat: input.compiledFormat,
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						limits: sandboxRunnerLimits(input.metadata),
+						apiFunctions: Object.keys(selectedApiFunctions),
+						...(artifactPath !== undefined || scratchDirectory !== undefined
+							? { filesystem: { artifactPath, scratchDirectory } }
+							: {}),
+					})}\n`;
+					const requestError = sandboxRunnerRequestError(requestLine);
+					if (requestError) {
+						return yield* new SandboxRunError({ message: requestError });
+					}
 
 					const grants: SandboxProcessGrants = {
 						...(artifactPath !== undefined ? { artifactPath } : {}),
@@ -311,16 +317,19 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 							: Option.none();
 					const harvest = Option.isSome(manifest)
 						? {
-								directory: path.join(harvestRoot, sanitizeExecutionSegment(input.executionId)),
 								chunkFiles: manifest.value.chunkFiles,
+								directory: path.join(
+									harvestRoot,
+									sanitizeSandboxExecutionSegment(input.executionId),
+								),
 							}
 						: null;
 					const chunkPaths =
 						harvest && scratchDirectory !== undefined
 							? yield* harvestSandboxScratchChunks({
 									scratchDirectory,
-									destination: harvest.directory,
 									chunkFiles: harvest.chunkFiles,
+									destination: harvest.directory,
 								}).pipe(
 									Effect.mapError(
 										(error) => new SandboxRunError({ message: unknownToMessage(error) }),
