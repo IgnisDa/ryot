@@ -28,7 +28,11 @@ import { requirePresent } from "~/support/assertions";
 import { adminAccessTokenHeaders } from "../fixtures/kernel/admin";
 import { cookieHeaderFromSetCookies } from "../fixtures/kernel/auth";
 import { enableTwoFactorForSession } from "../fixtures/kernel/auth-2fa";
-import { testPluginManifest } from "../fixtures/kernel/test-plugin";
+import {
+	encodePluginSourceFiles,
+	encodeTestSupportPluginFiles,
+	testPluginManifest,
+} from "../fixtures/kernel/test-plugin";
 
 type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
 
@@ -202,7 +206,12 @@ export default defineScript({
 		],
 	});
 	await apiClient.runAdmin((c) =>
-		c.testSupport.installSystemPlugin({ payload: { files: { [entry]: source }, manifest } }),
+		c.testSupport.installSystemPlugin({
+			payload: {
+				manifest,
+				files: encodeTestSupportPluginFiles(encodePluginSourceFiles({ [entry]: source })),
+			},
+		}),
 	);
 	const scripts = await apiClient.runAdmin((c) => c.testSupport.listSandboxScripts({ query: {} }));
 	const script = requirePresent(

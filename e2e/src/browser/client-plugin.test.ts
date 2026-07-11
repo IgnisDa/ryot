@@ -245,7 +245,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 
 				await step("enter Fixture through the workspace switcher", async () => {
 					await page.getByRole("button", { name: /workspace,/ }).click();
-					await page.getByRole("button", { name: "Switch to Fixture workspace" }).click();
+					await page.getByRole("menuitemradio", { name: "Switch to Fixture workspace" }).click();
 					await page.waitForURL(`${frontendUrl}/fixture`);
 					await frame.waitFor({ state: "visible" });
 				});
