@@ -1,7 +1,6 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { dayjs } from "@ryot/sandbox-sdk/dayjs";
 import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
@@ -528,7 +527,7 @@ export const cron = defineDriver(manifest, {
 			}
 			const preloadLimit = Math.min(MAX_PRELOAD_EXERCISE_LIMIT, Math.max(0, configuredLimit));
 			const exercises = (yield* loadExercises(host)).slice(0, preloadLimit);
-			const populatedAt = dayjs().toISOString();
+			const populatedAt = DateTime.formatIso(DateTime.unsafeNow());
 			let inserted = 0;
 
 			for (let offset = 0; offset < exercises.length; offset += PRELOAD_BATCH_SIZE) {

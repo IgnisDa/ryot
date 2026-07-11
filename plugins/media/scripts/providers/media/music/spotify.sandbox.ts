@@ -1,6 +1,5 @@
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../script-helpers/records";
@@ -21,8 +20,12 @@ const getPublishYear = (releaseDate: unknown) => {
 	if (!value) {
 		return null;
 	}
-	const parsed = dayjs(value);
-	return parsed.isValid() && parsed.year() > 0 ? parsed.year() : null;
+	const parsed = DateTime.make(value);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	const year = DateTime.toDateUtc(parsed.value).getFullYear();
+	return year > 0 ? year : null;
 };
 
 const getPublishDate = (releaseDate: unknown) => {

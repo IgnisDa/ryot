@@ -1,6 +1,5 @@
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../script-helpers/records";
@@ -20,8 +19,11 @@ const parseYear = (value: unknown) => {
 	if (!date) {
 		return null;
 	}
-	const parsed = dayjs(date);
-	return parsed.isValid() ? parsed.year() : null;
+	const parsed = DateTime.make(date);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.toDateUtc(parsed.value).getFullYear();
 };
 
 export const search = defineProviderDriver(manifest, "search", (input, host) => {

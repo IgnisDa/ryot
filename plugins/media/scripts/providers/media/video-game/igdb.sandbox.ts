@@ -1,6 +1,5 @@
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../../script-helpers/records";
@@ -28,15 +27,21 @@ const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big";
 const getImageUrl = (imageId: string) => buildIgdbImageUrl(IMAGE_BASE_URL, imageId);
 const extractYear = (unixTimestamp: unknown) => {
 	const value = numberValue(unixTimestamp);
-	return value === null ? null : dayjs.unix(value).year();
+	if (value === null) {
+		return null;
+	}
+	return DateTime.toDateUtc(DateTime.unsafeMake(value * 1000)).getFullYear();
 };
 const unixToIsoDate = (unixTimestamp: unknown) => {
 	const value = numberValue(unixTimestamp);
 	if (value === null) {
 		return null;
 	}
-	const parsed = dayjs.unix(value);
-	return parsed.isValid() ? (parsed.toISOString().split("T")[0] ?? null) : null;
+	const parsed = DateTime.make(value * 1000);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.formatIsoDateUtc(parsed.value);
 };
 const secondsToMinutes = (seconds: unknown) => {
 	const value = numberValue(seconds);

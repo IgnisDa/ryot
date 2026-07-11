@@ -1,6 +1,5 @@
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../../script-helpers/records";
@@ -35,8 +34,11 @@ const parseAiringSchedule = (startDate: unknown) => {
 	if (!publishDate) {
 		return null;
 	}
-	const parsed = dayjs(`${publishDate}T00:00:00Z`);
-	return parsed.isValid() ? [{ episode: 1, airingAt: parsed.toISOString() }] : null;
+	const parsed = DateTime.make(`${publishDate}T00:00:00Z`);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return [{ episode: 1, airingAt: DateTime.formatIso(parsed.value) }];
 };
 
 export const details = defineProviderDriver(manifest, "details", (input, host) =>

@@ -7,7 +7,6 @@ import {
 	type SandboxScriptId,
 	type UserId,
 } from "@ryot/contract/schema/brands";
-import { dayjs } from "@ryot/ts-utils/dayjs";
 import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
 
@@ -34,9 +33,9 @@ type CreateGlobalEntityInput = {
 };
 
 const parseDate = (value: string) => {
-	const parsed = dayjs(value);
-	return parsed.isValid()
-		? Effect.succeed(parsed.toDate())
+	const parsed = new Date(value);
+	return !Number.isNaN(parsed.getTime())
+		? Effect.succeed(parsed)
 		: Effect.fail(badRequest("populatedAt must be a valid ISO 8601 date"));
 };
 

@@ -11,7 +11,6 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { dayjs } from "@ryot/ts-utils/dayjs";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { eq } from "drizzle-orm";
@@ -238,12 +237,9 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 						}
 
 						const parsed = yield* Effect.forEach(items, (item) => {
-							const populatedAt = item.populatedAt === null ? null : dayjs(item.populatedAt);
-							return populatedAt === null || populatedAt.isValid()
-								? Effect.succeed({
-										...item,
-										populatedAt: populatedAt?.toDate() ?? null,
-									})
+							const populatedAt = item.populatedAt === null ? null : new Date(item.populatedAt);
+							return populatedAt === null || !Number.isNaN(populatedAt.getTime())
+								? Effect.succeed({ ...item, populatedAt })
 								: Effect.fail("upsertGlobalEntities populatedAt must be a valid date string");
 						});
 
