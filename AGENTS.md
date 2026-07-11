@@ -7,6 +7,7 @@
 - **Dependencies**: `cd <app> && bun add` (bun pins exact versions by default).
 - **Bash paths**: Always quote with single quotes (e.g., `git add 'path/file.ts'`).
 - **Linting and Formatting**: `bun turbo --filter=@ryot/app-backend check`.
+- **Testing**: `bun turbo --filter=@ryot/app-backend test`.
 
 ## YAGNI
 
@@ -25,7 +26,6 @@ Do not add functionality, abstractions, or generalization the user has not expli
 
 - Test app-owned behavior and branching, not library behavior.
 - Keep assertions inline; extract duplicated setup, not test intent.
-- Always run tests from the individual app directory (e.g., `cd apps/app-backend && bun run test`).
 - Use assertion functions for test-only type narrowing instead of `if (...) { throw ... }` guard blocks. In Vitest suites, import `assert` from `vitest`; in `tests/`, use the local helpers from `tests/src/support/assertions.ts`.
 - Avoid tests that only prove libraries or TypeScript work: Zod smoke parses, assigning then asserting the same value, status/data smoke checks, and `typeof`/`Array.isArray` passthroughs.
 
