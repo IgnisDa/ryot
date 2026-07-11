@@ -25,6 +25,45 @@ export const decodePluginManifest = (input: unknown) =>
 		Effect.mapError((error) => new PluginValidationError({ issues: [String(error)] })),
 	);
 
+const canonicalRelativePosixPathIssue = (path: string) => {
+	if (path.length === 0) {
+		return "must not be empty";
+	}
+	if (path.startsWith("/")) {
+		return "must be relative";
+	}
+	if (path.includes("\\")) {
+		return "must use POSIX separators";
+	}
+	if (path.split("/").some((segment) => segment === "" || segment === "." || segment === "..")) {
+		return "must not contain empty, '.', or '..' segments";
+	}
+	return null;
+};
+
+export const validatePluginSourcePaths = (
+	files: Readonly<Record<string, string>>,
+	scripts: PluginManifestValue["scripts"],
+) =>
+	Effect.gen(function* () {
+		for (const path of Object.keys(files)) {
+			const issue = canonicalRelativePosixPathIssue(path);
+			if (issue) {
+				return yield* fail(`Plugin file path '${path}' ${issue}`);
+			}
+		}
+		for (const script of scripts) {
+			const issue = canonicalRelativePosixPathIssue(script.entry);
+			if (issue) {
+				return yield* fail(`Plugin script entry '${script.entry}' ${issue}`);
+			}
+			if (!Object.hasOwn(files, script.entry)) {
+				return yield* fail(`Plugin script entry is missing from files: ${script.entry}`);
+			}
+		}
+		return yield* Effect.void;
+	});
+
 export const validatePluginManifestReferences = (
 	manifest: PluginManifestValue,
 	snapshot: DefinitionSnapshot,

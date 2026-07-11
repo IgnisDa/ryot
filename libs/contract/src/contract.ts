@@ -14,6 +14,7 @@ import { EntityImportGroup } from "./modules/library-membership/contract";
 import { MediaMonitoringGroup } from "./modules/media-monitoring/contract";
 import { MetadataLookupGroup } from "./modules/metadata-lookup/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
+import { PluginsGroup } from "./modules/plugins/contract";
 import { QueryEngineGroup } from "./modules/query-engine/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
 import { SandboxGroup } from "./modules/sandbox/contract";
@@ -48,5 +49,6 @@ export const AppContract = HttpApi.make("ryot")
 	.add(InterestGroup)
 	.add(MediaMonitoringGroup)
 	.add(NotificationsGroup)
+	.add(PluginsGroup)
 	.annotate(OpenApi.Title, "Ryot API")
 	.annotate(OpenApi.Description, "API documentation for the Ryot backend");

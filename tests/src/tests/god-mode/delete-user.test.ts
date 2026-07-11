@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import {
 	ADMIN_TOKEN,
 	adminAccessTokenHeaders,
-	cleanupBuiltinProviderScript,
+	uninstallTestProvider,
 	createAuthenticatedClient,
 	createApiKey,
 	createEntity,
@@ -23,7 +23,7 @@ import {
 	pollSignal,
 	pollSignalWithRecipientCount,
 	pollTerminalSubscriptionRuns,
-	seedBuiltinProviderScript,
+	installTestProvider,
 	seedMediaEntity,
 	startFakeAppriseServerScoped,
 	updatePluginWorkspaceState,
@@ -179,16 +179,16 @@ describe("Delete user automation data cleanup", () => {
 				const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
 				const movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
 				const personProvider = yield* Effect.acquireRelease(
-					seedBuiltinProviderScript({
+					installTestProvider({
 						client: compilerClient,
 						linkToEntitySchemaSlug: personSchemaId,
 						slug: `person.delete-user-e2e-${crypto.randomUUID()}`,
 						drivers: { details: fakeProviderDetailsResult({ name: personName }) },
 					}),
-					(provider) => cleanupBuiltinProviderScript(provider),
+					(provider) => uninstallTestProvider(provider),
 				);
 				const movieProvider = yield* Effect.acquireRelease(
-					seedBuiltinProviderScript({
+					installTestProvider({
 						client: compilerClient,
 						slug: `movie.delete-user-e2e-${crypto.randomUUID()}`,
 						drivers: {
@@ -212,7 +212,7 @@ describe("Delete user automation data cleanup", () => {
 							}),
 						},
 					}),
-					(provider) => cleanupBuiltinProviderScript(provider),
+					(provider) => uninstallTestProvider(provider),
 				);
 
 				const person = yield* seedMediaEntity({

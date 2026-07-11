@@ -2,7 +2,7 @@ import { EntityId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
-	cleanupBuiltinProviderScript,
+	uninstallTestProvider,
 	adminHeaders,
 	countMediaMonitoringRelationships,
 	createAuthenticatedClient,
@@ -16,7 +16,7 @@ import {
 	providerSandboxSource,
 	queryInLibraryRelationship,
 	replaceSandboxScriptCompiledRepresentation,
-	seedBuiltinProviderScript,
+	installTestProvider,
 	seedMediaEntity,
 	startFakeAppriseServer,
 	triggerCronAndWaitForEntity,
@@ -68,8 +68,8 @@ let discoveryEntityId: string;
 let fakeApprise: FakeHttpServer;
 let providerCompilerClient: Client;
 const extraEntityIds: string[] = [];
-let provider: Effect.Effect.Success<ReturnType<typeof seedBuiltinProviderScript>>;
-let discoveryProvider: Effect.Effect.Success<ReturnType<typeof seedBuiltinProviderScript>>;
+let provider: Effect.Effect.Success<ReturnType<typeof installTestProvider>>;
+let discoveryProvider: Effect.Effect.Success<ReturnType<typeof installTestProvider>>;
 
 beforeAll(async () => {
 	await Effect.runPromise(
@@ -77,13 +77,13 @@ beforeAll(async () => {
 			const { client } = yield* createAuthenticatedClient();
 			providerCompilerClient = client;
 			movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
-			provider = yield* seedBuiltinProviderScript({
+			provider = yield* installTestProvider({
 				client,
 				name: providerName,
 				slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
 				drivers: { details: providerDetails("Continuing") },
 			});
-			discoveryProvider = yield* seedBuiltinProviderScript({
+			discoveryProvider = yield* installTestProvider({
 				client,
 				name: `${providerName} Discovery`,
 				drivers: { details: discoveryProviderDetails(0) },
@@ -147,8 +147,8 @@ afterAll(async () => {
 					adminHeaders,
 				);
 			}
-			yield* cleanupBuiltinProviderScript(discoveryProvider);
-			yield* cleanupBuiltinProviderScript(provider);
+			yield* uninstallTestProvider(discoveryProvider);
+			yield* uninstallTestProvider(provider);
 		}),
 	);
 });

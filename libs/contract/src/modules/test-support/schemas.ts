@@ -11,15 +11,7 @@ import {
 	UserId,
 } from "../../schema/brands";
 import { SubscriptionRunStatus } from "../automations/schemas";
-import { EntityDefinition, RelationshipDefinition } from "../definitions/schemas";
 import { SandboxScriptMetadata } from "../sandbox/schemas";
-
-export const TestSupportInstallDefinitions = Schema.Struct({
-	entitySchemas: Schema.optional(Schema.Array(EntityDefinition)),
-	relationshipSchemas: Schema.optional(Schema.Array(RelationshipDefinition)),
-});
-
-export type TestSupportInstallDefinitions = typeof TestSupportInstallDefinitions.Type;
 
 export const TestSupportStoredSandboxScript = Schema.Struct({
 	id: SandboxScriptId,

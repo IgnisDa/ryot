@@ -84,6 +84,23 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 			);
 		});
 
+		const hasEntityReferences = Effect.fn("PluginRepository.hasEntityReferences")(function* (
+			entitySchemaSlugs: ReadonlyArray<string>,
+		) {
+			if (entitySchemaSlugs.length === 0) {
+				return false;
+			}
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({ id: schema.entity.id })
+					.from(schema.entity)
+					.where(inArray(schema.entity.entitySchemaSlug, [...entitySchemaSlugs]))
+					.limit(1),
+			);
+			return row !== undefined;
+		});
+
 		const findBySourceHash = Effect.fn("PluginRepository.findBySourceHash")(function* (input: {
 			slug: string;
 			sourceHash: string;
@@ -94,7 +111,11 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 					.select()
 					.from(schema.plugin)
 					.where(
-						and(eq(schema.plugin.slug, input.slug), eq(schema.plugin.sourceHash, input.sourceHash)),
+						and(
+							eq(schema.plugin.slug, input.slug),
+							eq(schema.plugin.status, "active"),
+							eq(schema.plugin.sourceHash, input.sourceHash),
+						),
 					)
 					.limit(1),
 			);
@@ -201,6 +222,21 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 			}
 		});
 
-		return { list, persist, lockIngestion, findBySourceHash, persistKernelScript };
+		const deactivate = Effect.fn("PluginRepository.deactivate")(function* (slug: string) {
+			const db = yield* CurrentDb;
+			yield* dbEffect(() =>
+				db.update(schema.plugin).set({ status: "inactive" }).where(eq(schema.plugin.slug, slug)),
+			);
+		});
+
+		return {
+			list,
+			persist,
+			deactivate,
+			lockIngestion,
+			findBySourceHash,
+			hasEntityReferences,
+			persistKernelScript,
+		};
 	},
 }) {}

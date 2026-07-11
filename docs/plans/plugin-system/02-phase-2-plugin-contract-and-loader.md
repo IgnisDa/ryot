@@ -40,8 +40,19 @@ definePlugin({
 
 Phase 3 adds `crons`, `operations`, `workflows`, and `capabilities` sections — do not add
 them now (invariant 3). Version is a display/change-detection string; there is no
-inter-plugin dependency mechanism (non-goal; the only cross-plugin references are to
-kernel-owned definitions like `collection`, which the loader validates).
+inter-plugin dependency mechanism (non-goal). Cross-plugin references are limited to manifest
+references whose target definitions the loader validates.
+
+**Implementation choice (2026-07-24, owner-confirmed):** manifest references may target
+definitions contributed by any currently installed plugin. This includes bindings and structural
+references such as a relationship schema's source/target entity schemas. It is reference
+validation, not a plugin dependency mechanism: manifests still declare no dependencies or
+version constraints, and the loader performs no dependency resolution. Ingestion validates
+references against the complete prospective registry snapshot, and uninstall refuses to remove
+a plugin when doing so would leave any active plugin manifest reference dangling. This is
+required for real-loader e2e plugins to attach fake providers and test relationships to
+first-party schemas without retaining test-only mutation seams or weakening existing behavioral
+assertions.
 
 Placement rationale: `libs/plugin-kit` is imported by plugin packages and by app-backend;
 keep it dependency-light (Effect schemas + derived types + `AppSchema` re-exports + builder), like
@@ -181,6 +192,12 @@ materialization at all.
   `uninstall`, `list`. Uninstall policy v1: refuse while any entity rows reference the
   plugin's schemas **[RECOMMENDED]** (revisit for user plugins later); first-party plugins
   are not uninstallable while referenced by boot config.
+
+**Implementation choice (2026-07-24, owner-confirmed):** the install endpoint accepts a JSON
+request body containing the manifest and a relative-path-to-source-text file map. This directly
+matches the plugin compiler's existing `Record<string, string>` input, lets tests assemble
+plugins in memory, and avoids adding archive extraction machinery and its path-safety surface.
+
 - E2e fixture: replace `seedBuiltinProviderScript`/`promoteSandboxScript`/
   `cleanupBuiltinProviderScript` (`tests/src/fixtures/sandbox-provider.ts`) with
   `installTestPlugin` — assemble a tiny in-memory plugin source (manifest + one provider

@@ -4,9 +4,8 @@ import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
-import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
-import { getBackendClient } from "./contract-client";
+import { installTestDefinitions } from "./test-plugin";
 
 export interface CreateEventSchemaOptions {
 	name: string;
@@ -37,23 +36,26 @@ export const createEventSchema = (client: Client, body: CreateEventSchemaOptions
 				fields: { note: { label: "Note", description: "Note", type: "string" as const } },
 			},
 		};
-		yield* getBackendClient().call(
-			(c) =>
-				c.testSupport.installDefinitions({
-					payload: {
-						entitySchemas: [
-							{
-								...entitySchema,
-								eventSchemas: [
-									...entitySchema.eventSchemas.filter((schema) => schema.slug !== body.slug),
-									eventSchema,
-								],
-							},
-						],
-					},
-				}),
-			adminHeaders,
+		const pluginSlug = requirePresent(
+			entitySchema.pluginSlug,
+			`Entity schema '${body.entitySchemaSlug}' is not owned by an installed plugin`,
 		);
+		yield* installTestDefinitions({
+			pluginSlug,
+			entitySchemas: [
+				{
+					icon: entitySchema.icon,
+					name: entitySchema.name,
+					slug: entitySchema.slug,
+					accentColor: entitySchema.accentColor,
+					propertiesSchema: entitySchema.propertiesSchema,
+					eventSchemas: [
+						...entitySchema.eventSchemas.filter((schema) => schema.slug !== body.slug),
+						eventSchema,
+					],
+				},
+			],
+		});
 		return {
 			...eventSchema,
 			id: EventSchemaSlug.make(body.slug),

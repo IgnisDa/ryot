@@ -1,4 +1,3 @@
-import { DurableQueue } from "@effect/workflow";
 import type { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
@@ -12,7 +11,7 @@ import {
 	syncAudiobookshelfOwnedItems,
 } from "#modules/imports/sources/audiobookshelf/adapter";
 import { adaptPlexData, syncPlexYankOwnedItems } from "#modules/imports/sources/plex/adapter";
-import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
+import { processSandboxExecution } from "#modules/sandbox/durable-queues";
 
 import type { IntegrationRecord } from "./repository";
 import { IntegrationsService } from "./service";
@@ -115,7 +114,7 @@ export const runYoutubeMusicHistorySandbox = (input: {
 	executionId: string;
 	context: { authCookie: string; timezone: string };
 }) =>
-	DurableQueue.process(SandboxExecutionQueue, {
+	processSandboxExecution({
 		driverName: "history",
 		userId: input.userId,
 		context: input.context,

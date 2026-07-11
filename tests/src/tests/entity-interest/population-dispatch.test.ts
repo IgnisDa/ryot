@@ -1,18 +1,18 @@
 import { Duration, Effect } from "effect";
 
 import {
-	cleanupBuiltinProviderScript,
+	uninstallTestProvider,
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
 	getEntity,
 	getGlobalEntityByProvenance,
 	openInterestStreamScoped,
-	seedBuiltinProviderScript,
+	installTestProvider,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	waitForEntityPopulated,
-	type SeededProviderScript,
+	type InstalledProviderScript,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
@@ -20,14 +20,14 @@ import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test
 const GRACE_WINDOW_MS = 3000;
 const POPULATED_NAME = "E2E Populated Studio";
 
-let providerScript: SeededProviderScript;
+let providerScript: InstalledProviderScript;
 
 describe("entity population via client-declared interest", () => {
 	beforeAll(async () => {
 		providerScript = await Effect.runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				return yield* seedBuiltinProviderScript({
+				return yield* installTestProvider({
 					client,
 					providerInformation: { source: "e2e", canonicalLanguage: "en" },
 					drivers: {
@@ -42,7 +42,7 @@ describe("entity population via client-declared interest", () => {
 	});
 
 	afterAll(async () => {
-		await Effect.runPromise(cleanupBuiltinProviderScript(providerScript));
+		await Effect.runPromise(uninstallTestProvider(providerScript));
 	});
 
 	it.scopedLive(

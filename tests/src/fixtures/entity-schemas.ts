@@ -10,6 +10,7 @@ import type { Client } from "./auth";
 import { type ContractPayload, getBackendClient } from "./contract-client";
 import { createPluginScope, listPluginWorkspaces } from "./plugin-workspaces";
 import { type PollOptions, pollUntil } from "./polling";
+import { installTestDefinitions } from "./test-plugin";
 
 type EnqueueEntitySearchBody = Omit<ContractPayload<"sandbox", "enqueue">, "driverName">;
 
@@ -26,7 +27,7 @@ export interface CreateEntitySchemaOptions {
 	propertiesSchema?: AppSchema;
 }
 
-export const createEntitySchema = (client: Client, options: CreateEntitySchemaOptions) =>
+export const createEntitySchema = (_client: Client, options: CreateEntitySchemaOptions) =>
 	Effect.gen(function* () {
 		const {
 			pluginSlug,
@@ -42,20 +43,11 @@ export const createEntitySchema = (client: Client, options: CreateEntitySchemaOp
 			icon,
 			name,
 			slug,
-			pluginSlug,
 			accentColor,
 			propertiesSchema,
 			eventSchemas: [],
 		};
-		yield* getBackendClient().call(
-			(c) =>
-				c.testSupport.installDefinitions({
-					payload: {
-						entitySchemas: [schema],
-					},
-				}),
-			adminHeaders,
-		);
+		yield* installTestDefinitions({ pluginSlug, entitySchemas: [schema] });
 		const schemaSlug = makeEntitySchemaSlug(slug);
 		return {
 			slug: schemaSlug,

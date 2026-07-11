@@ -1,7 +1,7 @@
 import { Duration, Effect } from "effect";
 
 import {
-	cleanupBuiltinProviderScript,
+	uninstallTestProvider,
 	countEntityTranslations,
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
@@ -11,13 +11,13 @@ import {
 	getEntityTranslationRow,
 	openInterestStreamScoped,
 	pollEntityUntilTranslationStatus,
-	seedBuiltinProviderScript,
+	installTestProvider,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	setUserLanguage,
 	waitForEntityPopulated,
 	type Client,
-	type SeededProviderScript,
+	type InstalledProviderScript,
 } from "~/fixtures";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
@@ -27,7 +27,7 @@ const TRANSLATED_ES_NAME = "Título Traducido E2E";
 const TRANSLATED_ES_DESCRIPTION = "Descripción traducida E2E.";
 const POPULATED_NAME = "E2E Populated Movie";
 
-let providerScript: SeededProviderScript;
+let providerScript: InstalledProviderScript;
 
 const seedPopulatedMovie = (client: Client, name: string) =>
 	Effect.gen(function* () {
@@ -53,7 +53,7 @@ describe("entity translation via client-declared interest", () => {
 		providerScript = await Effect.runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				return yield* seedBuiltinProviderScript({
+				return yield* installTestProvider({
 					client,
 					providerInformation: { source: "e2e", canonicalLanguage: CANONICAL_LANGUAGE },
 					drivers: {
@@ -74,7 +74,7 @@ describe("entity translation via client-declared interest", () => {
 	});
 
 	afterAll(async () => {
-		await Effect.runPromise(cleanupBuiltinProviderScript(providerScript));
+		await Effect.runPromise(uninstallTestProvider(providerScript));
 	});
 
 	it.scopedLive(
