@@ -14,11 +14,13 @@ import type {
 	AppSchemaRuleCondition,
 	AppStringProperty,
 } from "@ryot/contract/schema/property-schema";
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
 	formatPropertyIssues,
 	getAppPropertyDefinitionAtPath,
+	parseAppSchemaProperties,
 	parseAppSchemaPropertiesSafe,
 	validateAppSchemaDefinition,
 } from "./property-schema-runtime";
@@ -172,9 +174,19 @@ describe("parseAppSchemaPropertiesSafe - string property", () => {
 		expect(result.success).toBe(false);
 	});
 
-	it("fails when a required string is missing from properties", () => {
-		const result = parse({ name: str({ validation: { required: true } }) }, {});
-		expect(result.success).toBe(false);
+	it("uses stable missing-key messages for structured and aggregate errors", () => {
+		const error = Effect.runSync(
+			Effect.flip(
+				parseAppSchemaProperties({
+					kind: "Entity",
+					properties: {},
+					propertiesSchema: schema({ name: str({ validation: { required: true } }) }),
+				}),
+			),
+		);
+
+		expect(error.issues).toEqual([{ path: ["name"], message: "is missing" }]);
+		expect(error.message).toBe("name: is missing");
 	});
 
 	it("enforces minLength", () => {
