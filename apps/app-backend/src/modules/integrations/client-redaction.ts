@@ -10,8 +10,8 @@ export type RegisteredProviderLookup = (
 
 /**
  * Client-facing boundary. `repository.normalizeIntegration` deliberately returns credentials
- * verbatim because the webhook path, the yank adapters, and the `getIntegration` host function
- * all need them; those consumers call the service's internal readers. Only the service methods
+ * verbatim because integration scripts read them through the `getIntegration` host function.
+ * Only the service methods
  * backing the `list` / `get` / `update` contract endpoints route through here.
  */
 export const redactIntegrationForClient = (
@@ -19,7 +19,12 @@ export const redactIntegrationForClient = (
 	integration: IntegrationRecord,
 ): IntegrationRecord => {
 	const registered = findProvider(integration.provider);
-	const secretKeys = registered ? collectSecretProperties(registered.settingsSchema) : [];
+	if (!registered) {
+		const kind = integration.providerSpecifics["kind"];
+		const providerSpecifics = typeof kind === "string" ? { kind } : {};
+		return { ...integration, providerSpecifics };
+	}
+	const secretKeys = collectSecretProperties(registered.settingsSchema);
 	if (secretKeys.length === 0) {
 		return integration;
 	}
