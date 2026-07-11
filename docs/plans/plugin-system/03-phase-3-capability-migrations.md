@@ -447,13 +447,14 @@ date parsing.
 
 Activity script kinds keep the current profile.
 
-**Open risks task 06 must close (not covered by the spike):** `child` was never prototyped in
-either spike — its mechanics mirror `activity` (dispatch from the workflow body with a
-deterministic `${executionId}-child-${step}` id) but are unmeasured; divergence rejection was
-only exercised at `journal[0]`; the bulk journal read is recommended but unmeasured; the
-workflow-script-fails-mid-replay path (as distinct from an activity failing) was never reached;
-and concurrency was a smoke test only, so nothing is known about pool or lock pressure at
-realistic import volumes.
+**Task 06 closure:** the implementation covers deterministic `child` dispatch, divergence beyond
+`journal[0]`, the bulk journal read, fail-mid-replay validation, and exact workflow pinning. Media
+imports split resolution and population into deterministic children bounded by both the 64 KiB
+context ceiling and the 1,000-step ceiling, with bounded chunk fan-out. Unit coverage proves the
+packing and orchestration behavior at 400 three-candidate resolution items and 1,001 population
+items. Production pool and lock pressure under several simultaneous full-size imports remains an
+operational load-test risk and must be measured before the Phase 3 gate; the in-process plugin tests
+are alignment tests and do not claim that coverage.
 
 **`EventCreateWorkflow` composition [IMPLEMENTER-DECIDES] → resolved: `child`.** It is a
 kernel-owned `Workflow`, not a sandbox script, so exposing it as an activity host op would mean
@@ -466,8 +467,7 @@ media-specific) become media-plugin workflows + activities. The kernel `imports`
 (run tracking, file handling) and `entity-import`'s generic surface stay. Preserve the
 documented keying/idempotency semantics (ensure-mode, preserve-existing upserts, `EventCreateWorkflow` composition
 — which remains a kernel-owned workflow callable as an activity host op or composed via
-`child` against kernel workflows **[IMPLEMENTER-DECIDES]** which, keeping single durable
-ownership intact).
+`child` against kernel workflows, keeping single durable ownership intact).
 
 Delete: the media-specific workflow definitions from `imports/`. E2e:
 `entity-import`/`imports` suites re-pointed; add kernel tests for replay determinism

@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { NotFound } from "@ryot/contract/errors";
+import { NotFound, SandboxRunError } from "@ryot/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
@@ -180,12 +180,16 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 
 	return Effect.gen(function* () {
 		const service = yield* SandboxExecutionService;
-		const result = yield* service.executeWorkflow({
+		const resolvedScriptId = yield* service.resolveWorkflowScript({
 			executionId,
 			pluginSlug: "media",
 			workflowSlug: "media-import-resolution",
-			authority: { type: "user", userId: executingUserId },
+		});
+		const result = yield* service.executeWorkflow({
+			executionId,
+			scriptId: resolvedScriptId,
 			input: { items: [], scriptId: "attempted-override" },
+			authority: { type: "user", userId: executingUserId },
 		});
 
 		expect(result).toEqual({ results: [] });
@@ -204,4 +208,43 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provide(layer),
 	);
+});
+
+it.effect("rejects workflow input above the workflow limit before dispatch", () => {
+	let executionCount = 0;
+	const layer = makeServiceLayer(
+		makeRepository(),
+		makePluginRuntime(),
+		Layer.succeed(
+			WorkflowEngine,
+			makeWorkflowEngine({
+				execute: () =>
+					Effect.sync(() => {
+						executionCount += 1;
+						return null;
+					}),
+			}),
+		),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SandboxExecutionService;
+		const exit = yield* Effect.exit(
+			service.executeWorkflow({
+				scriptId,
+				executionId: "oversized-workflow",
+				input: "a".repeat(80 * 1024),
+				authority: { type: "user", userId: executingUserId },
+			}),
+		);
+
+		expect(exit).toEqual(
+			Exit.fail(
+				new SandboxRunError({
+					message: "Sandbox definition context must be JSON and no larger than 65536 UTF-8 bytes",
+				}),
+			),
+		);
+		expect(executionCount).toBe(0);
+	}).pipe(Effect.provide(layer));
 });

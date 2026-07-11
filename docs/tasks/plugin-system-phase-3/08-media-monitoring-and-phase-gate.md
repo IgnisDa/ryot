@@ -23,6 +23,10 @@ Migration:
   do not add an admin operation mode.
 - Migrate and delete any leftover media references in `signals`, `events`, and `entity-interest`
   (the interest/translation machinery itself is kernel — only media-specific branches move).
+- Move the media resolution provider-to-activity-script map into manifest/registry metadata and
+  remove the kernel import of `@ryot/plugin-media/workflows/schemas`.
+- Before closing the phase gate, run concurrent full-size media imports through the real workflow
+  pool, Redis projection, and sandbox process; record pool/lock pressure and completion results.
 
 Phase gate (this task closes it): after the migration, grep the kernel for media/fitness
 vocabulary (an informal preview of Phase 4's enforced check) and triage every hit — each is
