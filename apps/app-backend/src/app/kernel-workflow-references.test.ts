@@ -1,4 +1,3 @@
-import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot/contract/errors";
 import {
@@ -12,9 +11,7 @@ import {
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { SandboxHarvestHandleStore } from "#lib/infrastructure/sandbox-runtime/harvest-handles";
-import { ServerRun } from "#lib/infrastructure/server-run";
-import { dbRunnerLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -30,8 +27,6 @@ import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
-const testTempRoot = process.platform === "darwin" ? "/private/tmp" : "/tmp";
-
 const unownedRepositories = Layer.mergeAll(
 	mockImportsRepository({ getRunById: () => Effect.succeed(null) }),
 	mockIntegrationsRepository({
@@ -42,23 +37,7 @@ const unownedRepositories = Layer.mergeAll(
 const referencesLayer = (repositories: Layer.Layer<ImportsRepository | IntegrationsRepository>) =>
 	Layer.provide(
 		KernelWorkflowReferencesLive,
-		Layer.mergeAll(
-			dbRunnerLayer,
-			repositories,
-			BunServices.layer,
-			makeAppConfigLayer(),
-			Layer.succeed(ServerRun, { id: "test-server-run" }),
-			Layer.mock(SandboxHarvestHandleStore)({
-				resolve: (_executionId, handles) =>
-					Effect.succeed(
-						handles.map(
-							(_, index) =>
-								`${testTempRoot}/ryot-sandbox-harvest-test-server-run/parent-execution-activity-0/chunk-${index}.json`,
-						),
-					),
-			}),
-			Layer.mock(PluginRuntimeResolver)({}),
-		),
+		Layer.mergeAll(dbRunnerLayer, repositories, Layer.mock(PluginRuntimeResolver)({})),
 	);
 
 const populationReferencesLayer = (
@@ -69,12 +48,6 @@ const populationReferencesLayer = (
 		Layer.mergeAll(
 			dbRunnerLayer,
 			unownedRepositories,
-			BunServices.layer,
-			makeAppConfigLayer(),
-			Layer.succeed(ServerRun, { id: "test-server-run" }),
-			Layer.mock(SandboxHarvestHandleStore)({
-				resolve: () => Effect.succeed([]),
-			}),
 			Layer.mock(PluginRuntimeResolver)({
 				findActiveScriptById: () =>
 					Effect.succeed({
@@ -179,12 +152,6 @@ it.effect("resolves plugin provider slugs before dispatching entity imports", ()
 		Layer.mergeAll(
 			dbRunnerLayer,
 			unownedRepositories,
-			BunServices.layer,
-			makeAppConfigLayer(),
-			Layer.succeed(ServerRun, { id: "test-server-run" }),
-			Layer.mock(SandboxHarvestHandleStore)({
-				resolve: () => Effect.succeed([]),
-			}),
 			Layer.mock(PluginRuntimeResolver)({
 				findSchemaProviderBySlug: () =>
 					Effect.succeed({
@@ -229,7 +196,7 @@ it.effect("resolves plugin provider slugs before dispatching entity imports", ()
 	}).pipe(Effect.provide(layer), Effect.provideService(WorkflowEngine, engine));
 });
 
-it.effect("binds import harvest provenance to the trusted parent workflow execution", () => {
+it.effect("keeps import handles opaque across the kernel child boundary", () => {
 	const payloads: unknown[] = [];
 	const engine = makeWorkflowEngine({
 		execute: (_workflow, options) =>
@@ -282,10 +249,9 @@ it.effect("binds import harvest provenance to the trusted parent workflow execut
 			expect.objectContaining({
 				userId: "trusted-user",
 				executionId: "child-execution",
-				expectedHarvestDirectoryPrefix: `${testTempRoot}/ryot-sandbox-harvest-test-server-run/parent-execution-activity-`,
-				chunkFiles: [
-					`${testTempRoot}/ryot-sandbox-harvest-test-server-run/parent-execution-activity-0/chunk-0.json`,
-				],
+				artifactOwnerExecutionId: "parent/execution",
+				artifactReferenceExecutionId: "child-execution",
+				chunkHandles: ["harvest-handle-0"],
 			}),
 		]);
 	}).pipe(
