@@ -1,7 +1,18 @@
-import { importRunRecipe, manualImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
+import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
+import type { ContractRequest } from "@ryot-app/contract/client";
+import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
+import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import {
+	importRunRecipe,
+	manualImportRunsRecipe,
+	type ImportRunDetail,
+	type ImportRunList,
+} from "@ryot-app/ryotql-recipes/import-runs";
 import { Context, Data, Effect, Layer } from "effect";
 
+import { ImportsApi } from "#/api/imports";
 import type { KernelRyotClient } from "#/api/ryot-client";
+import type { KernelHostServices } from "#/host-services";
 
 export const IMPORT_RUNS_PAGE_SIZE = 20;
 export const IMPORT_FAILURES_PAGE_SIZE = 25;
@@ -44,3 +55,64 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 }) {
 	static readonly layer = Layer.effect(this, this.make);
 }
+
+export const importRunsQuery = createRyotQuery<
+	{ readonly limit: number },
+	ImportRunList,
+	KernelHostServices
+>(({ client, hostServices, input, signal }) =>
+	hostServices.runtime.runPromise(
+		Effect.flatMap(ImportsService, (service) => service.loadRuns(client, input)),
+		{ signal },
+	),
+);
+
+export const importRunQuery = createRyotQuery<
+	{ readonly runId: string; readonly failureLimit: number },
+	ImportRunDetail,
+	KernelHostServices
+>(({ client, hostServices, input, signal }) =>
+	hostServices.runtime.runPromise(
+		Effect.flatMap(ImportsService, (service) => service.loadRun(client, input)),
+		{ signal },
+	),
+);
+
+export const importSourcesQuery = createRyotQuery<
+	void,
+	readonly ListedImportSource[],
+	KernelHostServices
+>(({ hostServices, signal }) =>
+	hostServices.runtime.runPromise(
+		Effect.flatMap(ImportsApi, (api) => api.listSources(hostServices.scope)),
+		{ signal },
+	),
+);
+
+type CreateRunPayload = ContractRequest<"imports", "createRun">["payload"];
+
+export const createImportRunMutation = createRyotMutation<
+	CreateRunPayload,
+	unknown,
+	KernelHostServices
+>(async ({ client, hostServices, input, signal }) => {
+	const created = await hostServices.runtime.runPromise(
+		Effect.flatMap(ImportsApi, (api) => api.createRun(hostServices.scope, { payload: input })),
+		{ signal },
+	);
+	client.mutationCompleted.hint();
+	return created;
+});
+
+export const deleteImportRunMutation = createRyotMutation<string, unknown, KernelHostServices>(
+	async ({ client, hostServices, input, signal }) => {
+		const deleted = await hostServices.runtime.runPromise(
+			Effect.flatMap(ImportsApi, (api) =>
+				api.deleteRun(hostServices.scope, { params: { runId: ImportRunId.make(input) } }),
+			),
+			{ signal },
+		);
+		client.mutationCompleted.hint();
+		return deleted;
+	},
+);

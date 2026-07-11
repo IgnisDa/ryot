@@ -31,6 +31,7 @@ type SourceNames = ReadonlyMap<string, string>;
 export type ImportRunListState =
 	| { readonly status: "empty" }
 	| { readonly status: "failed" }
+	| { readonly status: "loading" }
 	| {
 			readonly status: "ready";
 			readonly hasMore: boolean;
@@ -167,6 +168,9 @@ export function ImportDataView(props: ImportDataViewProps) {
 				detail={IMPORT_LOAD_ERROR.detail}
 			/>
 		);
+	}
+	if (props.state.status === "loading") {
+		return <StatusState className="py-16" detail="Loading your imports..." />;
 	}
 	const ready = props.state.status === "ready" ? props.state : undefined;
 	const runs = ready?.runs ?? [];
