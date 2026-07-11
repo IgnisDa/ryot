@@ -110,7 +110,32 @@ it("selects optional MyAnimeList artifacts from source payload path identities",
 	});
 });
 
-it("deterministically composes Watcharr parsing, population, episode resolution, and kernel writes", async () => {
+const showEntityRef = {
+	kind: "resolved",
+	externalId: "20",
+	sourceLabel: "Lost",
+	providerSlug: "show.tmdb",
+	entitySchemaSlug: "show",
+};
+
+const progressEvent = (occurredAt: string, unresolvedEpisode?: JsonValue) => ({
+	occurredAt,
+	eventSchemaSlug: "progress",
+	properties: { progressPercent: 100 },
+	...(unresolvedEpisode === undefined ? {} : { unresolvedEpisode }),
+});
+
+const showEpisode = (seasonNumber: number, episodeNumber: number) => ({
+	type: "show",
+	seasonNumber,
+	episodeNumber,
+});
+
+const driveWatcharrImport = (input: {
+	episodeResults: JsonValue;
+	entityGroups: ReadonlyArray<JsonValue>;
+	populationResults: ReadonlyArray<JsonValue>;
+}) => {
 	const journal: JsonValue[] = [];
 	const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
 	const replay = (): Promise<JsonValue> =>
@@ -134,42 +159,18 @@ it("deterministically composes Watcharr parsing, population, episode resolution,
 				journal.push({
 					failures: [],
 					totalItems: 1,
-					entityGroups: [
-						{
-							itemIndex: 0,
-							collectionMemberships: [],
-							entityRef: {
-								kind: "resolved",
-								externalId: "20",
-								sourceLabel: "Lost",
-								providerSlug: "show.tmdb",
-								entitySchemaSlug: "show",
-							},
-							events: [
-								{
-									occurredAt: "2026-01-01T00:00:00.000Z",
-									eventSchemaSlug: "progress",
-									properties: { progressPercent: 100 },
-									episodeLocator: {
-										type: "show",
-										seasonNumber: 1,
-										episodeNumber: 99,
-									},
-								},
-							],
-						},
-					],
+					entityGroups: [...input.entityGroups],
 				});
 			} else if (
 				request.kind === "child" &&
 				request.args.workflowSlug === "media-import-population"
 			) {
-				journal.push({ results: [{ index: 0, status: "completed", entityId: "show-1" }] });
+				journal.push({ results: [...input.populationResults] });
 			} else if (
 				request.kind === "activity" &&
 				request.args.scriptSlug === "activity.import.resolve-episodes"
 			) {
-				journal.push({ results: [{ entityId: null }] });
+				journal.push(input.episodeResults);
 			} else if (
 				request.kind === "activity" &&
 				request.args.scriptSlug === "activity.import.write-chunks"
@@ -177,17 +178,33 @@ it("deterministically composes Watcharr parsing, population, episode resolution,
 				journal.push({
 					totalItems: 1,
 					failureCount: 1,
-					writeItemCount: 0,
+					writeItemCount: 1,
 					chunkFiles: ["/tmp/ryot-sandbox-harvest-run/chunk-0.json"],
 				});
 			} else {
-				journal.push({ failedItems: 1, importedItems: 0, processedItems: 1 });
+				journal.push({ failedItems: 1, importedItems: 1, processedItems: 2 });
 			}
 			return replay();
 		});
 
+	return { requests, replay };
+};
+
+const singleShowGroup = (events: ReadonlyArray<JsonValue>) => [
+	{ itemIndex: 0, collectionMemberships: [], entityRef: showEntityRef, events: [...events] },
+];
+
+const completedShowPopulation = [{ index: 0, status: "completed", entityId: "show-1" }];
+
+it("deterministically composes Watcharr parsing, population, episode resolution, and kernel writes", async () => {
+	const { requests, replay } = driveWatcharrImport({
+		populationResults: completedShowPopulation,
+		episodeResults: { results: [{ index: 0, entityId: null }] },
+		entityGroups: singleShowGroup([progressEvent("2026-01-01T00:00:00.000Z", showEpisode(1, 99))]),
+	});
+
 	const result = await replay();
-	expect(result).toEqual({ failedItems: 1, importedItems: 0, processedItems: 1 });
+	expect(result).toEqual({ failedItems: 1, importedItems: 1, processedItems: 2 });
 	expect(requests.map(({ kind }) => kind)).toEqual([
 		"activity",
 		"child",
@@ -215,6 +232,7 @@ it("deterministically composes Watcharr parsing, population, episode resolution,
 			input: {
 				refs: [
 					{
+						index: 0,
 						kind: "show",
 						showEntityId: "show-1",
 						seasonNumber: 1,
@@ -224,4 +242,140 @@ it("deterministically composes Watcharr parsing, population, episode resolution,
 			},
 		},
 	});
+});
+
+it("subjects resolved episodes, omits unresolved ones as failures, and keeps sibling events", async () => {
+	const { requests, replay } = driveWatcharrImport({
+		populationResults: completedShowPopulation,
+		entityGroups: singleShowGroup([
+			progressEvent("2026-01-01T00:00:00.000Z", showEpisode(1, 1)),
+			progressEvent("2026-01-02T00:00:00.000Z", showEpisode(1, 99)),
+			{ properties: {}, eventSchemaSlug: "backlog", occurredAt: "2026-01-03T00:00:00.000Z" },
+			progressEvent("2026-01-04T00:00:00.000Z", showEpisode(2, 5)),
+		]),
+		episodeResults: {
+			results: [
+				{ index: 2, entityId: "episode-5" },
+				{ index: 0, entityId: "episode-1" },
+				{ index: 1, entityId: null },
+			],
+		},
+	});
+
+	await replay();
+	expect(requests[2]).toMatchObject({
+		args: {
+			input: {
+				refs: [
+					{ index: 0, kind: "show", showEntityId: "show-1", seasonNumber: 1, episodeNumber: 1 },
+					{ index: 1, kind: "show", showEntityId: "show-1", seasonNumber: 1, episodeNumber: 99 },
+					{ index: 2, kind: "show", showEntityId: "show-1", seasonNumber: 2, episodeNumber: 5 },
+				],
+			},
+		},
+	});
+
+	const writeRequest = requests[3];
+	assert(writeRequest?.kind === "activity");
+	expect(writeRequest.args.scriptSlug).toBe("activity.import.write-chunks");
+	expect(writeRequest.args.input).toMatchObject({
+		failures: [
+			{
+				itemIndex: 0,
+				sourceLabel: "Lost",
+				sourceIdentifier: "20",
+				entitySchemaSlug: "show",
+				stage: "provider_resolution",
+				message: "Could not resolve show episode S1E99",
+			},
+		],
+		entityGroups: [
+			{
+				events: [
+					{ eventSchemaSlug: "progress", subjectEntityId: "episode-1" },
+					{ eventSchemaSlug: "backlog" },
+					{ eventSchemaSlug: "progress", subjectEntityId: "episode-5" },
+				],
+			},
+		],
+	});
+	const writeInput = JSON.stringify(writeRequest.args.input);
+	expect(writeInput).not.toContain("unresolvedEpisode");
+	expect(writeInput).not.toContain('"subjectEntityId":"show-1"');
+});
+
+it("reports the podcast episode that could not be resolved", async () => {
+	const { requests, replay } = driveWatcharrImport({
+		populationResults: [{ index: 0, status: "completed", entityId: "podcast-1" }],
+		episodeResults: { results: [{ index: 0, entityId: null }] },
+		entityGroups: [
+			{
+				itemIndex: 0,
+				collectionMemberships: [],
+				entityRef: {
+					kind: "resolved",
+					sourceLabel: "Serial",
+					externalId: "917918570",
+					providerSlug: "podcast.itunes",
+					entitySchemaSlug: "podcast",
+				},
+				events: [progressEvent("2026-01-01T00:00:00.000Z", { type: "podcast", episodeNumber: 7 })],
+			},
+		],
+	});
+
+	await replay();
+	expect(requests[2]).toMatchObject({
+		args: { input: { refs: [{ index: 0, kind: "podcast", podcastEntityId: "podcast-1" }] } },
+	});
+	expect(requests[3]).toMatchObject({
+		args: {
+			input: {
+				entityGroups: [{ events: [] }],
+				failures: [
+					{
+						sourceIdentifier: "917918570",
+						entitySchemaSlug: "podcast",
+						stage: "provider_resolution",
+						message: "Could not resolve podcast episode 7",
+					},
+				],
+			},
+		},
+	});
+});
+
+it.each([
+	{
+		label: "unexpected",
+		error: "Episode resolution returned an unexpected index 5",
+		results: [
+			{ index: 0, entityId: "episode-1" },
+			{ index: 5, entityId: "episode-9" },
+		],
+	},
+	{
+		label: "duplicate",
+		error: "Episode resolution returned a duplicate index 0",
+		results: [
+			{ index: 0, entityId: "episode-1" },
+			{ index: 0, entityId: "episode-9" },
+		],
+	},
+	{
+		label: "missing",
+		error: "Episode resolution omitted indices 1",
+		results: [{ index: 0, entityId: "episode-1" }],
+	},
+])("rejects $label episode result indices", async ({ error, results }) => {
+	const { replay } = driveWatcharrImport({
+		episodeResults: { results },
+		populationResults: completedShowPopulation,
+		entityGroups: singleShowGroup([
+			progressEvent("2026-01-01T00:00:00.000Z", showEpisode(1, 1)),
+			progressEvent("2026-01-02T00:00:00.000Z", showEpisode(1, 2)),
+		]),
+	});
+
+	await expect(replay()).rejects.toThrow(error);
 });

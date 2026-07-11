@@ -239,7 +239,7 @@ export const adaptAudiobookshelfData = (
 								occurredAt: importedAt,
 								eventSchemaSlug: "progress",
 								properties: { progressPercent: 100 },
-								episodeLocator: { type: "podcast", episodeNumber: number },
+								unresolvedEpisode: { type: "podcast", episodeNumber: number },
 							});
 						}
 					}
