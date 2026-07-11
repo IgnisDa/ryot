@@ -1,3 +1,4 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
@@ -20,7 +21,6 @@ import { Effect } from "effect";
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
-import type { ContractPayload } from "./contract-client";
 import {
 	entityField,
 	entityImageField,
@@ -43,8 +43,8 @@ export type CardDisplayConfigurationInput = {
 export type DisplayConfigurationInput = {
 	grid: CardDisplayConfigurationInput;
 	list: CardDisplayConfigurationInput;
-	table: { columns: ReadonlyArray<DisplayColumnInput> };
 	entityIdProperty?: ExpressionInput | null;
+	table: { columns: ReadonlyArray<DisplayColumnInput> };
 };
 
 type CreateSavedViewBody = ContractPayload<"savedViews", "create">;

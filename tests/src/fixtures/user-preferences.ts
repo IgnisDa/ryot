@@ -1,5 +1,6 @@
+import type { ContractPayload } from "@ryot/contract/client";
+
 import type { Client } from "./auth";
-import type { ContractPayload } from "./contract-client";
 
 type UpdateUserPreferencesBody = ContractPayload<"userPreferences", "update">;
 

@@ -8,13 +8,6 @@ import { Effect } from "effect";
 
 import { getBackendUrl } from "~/support/backend";
 
-export type {
-	ContractPayload,
-	ContractPathParams,
-	ContractSuccess,
-	ContractUrlParams,
-} from "@ryot/contract/client";
-
 export type ContractSession = {
 	call: <A, E>(program: ContractProgram<A, E>, headers?: RequestHeaders) => Effect.Effect<A, E>;
 };
