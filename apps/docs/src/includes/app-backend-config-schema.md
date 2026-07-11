@@ -25,9 +25,9 @@
 |---|---|---|---|---|---|
 | `server.logLevel` | `SERVER_LOG_LEVEL` | Minimum application log level | No | No | `info` |
 | `server.logFile` | `SERVER_LOG_FILE` | File path for appended structured logs | No | No | — |
-| `server.traktClientId` | `SERVER_IMPORTER_TRAKT_CLIENT_ID` | Trakt client ID for the Trakt importer | No | No | — |
 | `server.corsOrigins` | `SERVER_CORS_ORIGINS` | Comma-separated list of allowed CORS origins | No | No | — |
 | `server.otlpEndpoint` | `SERVER_OTLP_ENDPOINT` | Base URL for OTLP trace export | No | No | — |
+| `server.traktClientId` | `SERVER_IMPORTER_TRAKT_CLIENT_ID` | Trakt client ID for the Trakt importer | No | No | — |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
 | `server.progressUpdateThresholdHours` | `SERVER_PROGRESS_UPDATE_THRESHOLD` | Minimum hours between automatic progress updates for an entity | No | No | `2` |
@@ -95,8 +95,8 @@
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
-| `moviesAndShows.tmdbAccessToken` | `MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN` | TMDB access token for movie and show lookups | No | Yes | — |
 | `moviesAndShows.tvdbApiKey` | `MOVIES_AND_SHOWS_TVDB_API_KEY` | TVDB API key | No | Yes | — |
+| `moviesAndShows.tmdbAccessToken` | `MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN` | TMDB access token for movie and show lookups | No | Yes | — |
 
 ### Anime and Manga configuration
 
@@ -135,6 +135,6 @@
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
-| `videoGames.giantBombApiKey` | `VIDEO_GAMES_GIANT_BOMB_API_KEY` | Giant Bomb API key for the Grouvee importer | No | Yes | — |
 | `videoGames.twitchClientId` | `VIDEO_GAMES_TWITCH_CLIENT_ID` | Twitch client ID for IGDB video game lookups | No | No | — |
+| `videoGames.giantBombApiKey` | `VIDEO_GAMES_GIANT_BOMB_API_KEY` | Giant Bomb API key for the Grouvee importer | No | Yes | — |
 | `videoGames.twitchClientSecret` | `VIDEO_GAMES_TWITCH_CLIENT_SECRET` | Twitch client secret for IGDB video game lookups | No | Yes | — |
