@@ -56,7 +56,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 				scriptId: provider.searchScriptId,
 				context: { query: "The Hobbit", page: 1, pageSize: 5 },
 			});
-			const search = yield* pollEntitySearchResult(userId, jobId, { timeoutMs: 60_000 });
+			const search = yield* pollEntitySearchResult(userId, jobId);
 			assertCompleted(search, "OpenLibrary search");
 
 			const value = requireObjectRecord(search.value, "Expected search result to be an object");
@@ -76,7 +76,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 				providerId: provider.providerId,
 				entitySchemaSlug: schema.id,
 			});
-			const imported = yield* pollEntityImportResult(client, importJobId, { timeoutMs: 60_000 });
+			const imported = yield* pollEntityImportResult(client, importJobId);
 			assertCompleted(imported, "OpenLibrary import");
 			expect(imported.data.name.length).toBeGreaterThan(0);
 			expect(imported.data.entitySchemaSlug).toBe(schema.id);
@@ -115,9 +115,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 				);
 				expect(event.reason).toBe("translated");
 
-				const localized = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready", {
-					timeoutMs: 90_000,
-				});
+				const localized = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready");
 				expect(localized.name).not.toBe("Canonical Fight Club");
 				expect(localized.name.length).toBeGreaterThan(0);
 				expect(yield* countEntityTranslations(movie.id)).toBe(1);

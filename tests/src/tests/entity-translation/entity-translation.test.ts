@@ -117,9 +117,7 @@ describe("entity translation via client-declared interest", () => {
 				);
 				expect(event.reason).toBe("translated");
 
-				const localizedRead = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready", {
-					timeoutMs: 30_000,
-				});
+				const localizedRead = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready");
 				expect(localizedRead.name).toBe(TRANSLATED_ES_NAME);
 
 				const { client: clientB } = yield* createAuthenticatedClient();
@@ -147,9 +145,7 @@ describe("entity translation via client-declared interest", () => {
 				stream.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 }),
 			);
 
-			const settledRead = yield* pollEntityUntilTranslationStatus(client, movie.id, "none", {
-				timeoutMs: 30_000,
-			});
+			const settledRead = yield* pollEntityUntilTranslationStatus(client, movie.id, "none");
 			expect(settledRead.name).toBe("Canonical The Godfather");
 
 			const overlay = yield* getEntityTranslationRow({ entityId: movie.id, language: "xx" });

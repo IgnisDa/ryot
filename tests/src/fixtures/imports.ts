@@ -57,7 +57,6 @@ export const pollImportRunUntilTerminal = (client: Client, runId: string) =>
 			}
 			return null;
 		}),
-		{ timeoutMs: 60_000, intervalMs: 500 },
 	);
 
 export const runOpenScaleImportFixture = (client: Client, cookies: string) =>

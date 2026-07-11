@@ -7,7 +7,7 @@ import type { Client } from "./auth";
 import { createEntity } from "./entities";
 import { findBuiltinSchemaBySlug } from "./entity-schemas";
 import { listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
-import { type PollOptions, pollUntil } from "./polling";
+import { pollUntil } from "./polling";
 import {
 	buildEntityRowsQueryDocument,
 	executeQueryEngine,
@@ -44,7 +44,6 @@ export const waitForSessionEventCount = (
 	client: Client,
 	sessionEntityId: string,
 	expectedCount: number,
-	options: PollOptions = {},
 ) =>
 	pollUntil(
 		`${expectedCount} events on session ${sessionEntityId}`,
@@ -54,7 +53,6 @@ export const waitForSessionEventCount = (
 			);
 			return events.length >= expectedCount ? events : null;
 		}),
-		{ timeoutMs: 5000, intervalMs: 200, ...options },
 	);
 
 const pollSeededExerciseIds = (client: Client, count: number) =>
@@ -84,7 +82,6 @@ const pollSeededExerciseIds = (client: Client, count: number) =>
 
 			return ids.length >= count ? ids.slice(0, count) : null;
 		}),
-		{ intervalMs: 1000, timeoutMs: 60000 },
 	);
 
 export const waitForSeededExerciseId = (client: Client) =>

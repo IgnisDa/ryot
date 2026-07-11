@@ -128,7 +128,7 @@ describe("provider entity search enqueue", () => {
 
 			expect(typeof jobId).toBe("string");
 			expect(jobId.length).toBeGreaterThan(0);
-			yield* pollEntitySearchResult(userId, jobId, { timeoutMs: 30_000 });
+			yield* pollEntitySearchResult(userId, jobId);
 		}),
 	);
 });
@@ -143,7 +143,7 @@ describe("provider entity search result", () => {
 				context: { page: 1, pageSize: 5, query: "test" },
 			});
 
-			const result = yield* pollEntitySearchResult(userId, jobId, { timeoutMs: 30_000 });
+			const result = yield* pollEntitySearchResult(userId, jobId);
 			assertCompleted(result, "search job");
 			const value = requireObjectRecord(result.value, "Expected search result to be an object");
 			const items = requireArray(value.items, "Expected search result items to be an array");
@@ -185,7 +185,7 @@ describe("POST /library/import", () => {
 
 			expect(typeof jobId).toBe("string");
 			expect(jobId.length).toBeGreaterThan(0);
-			yield* pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
+			yield* pollEntityImportResult(client, jobId);
 		}),
 	);
 });
@@ -252,7 +252,7 @@ describe("GET /library/import/{jobId}", () => {
 				entitySchemaSlug: schema.id,
 			});
 
-			const result = yield* pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
+			const result = yield* pollEntityImportResult(client, jobId);
 
 			assertCompleted(result, "import job");
 			expect(result.data.name).toBe(BOOK_IMPORT_NAME);
@@ -273,7 +273,7 @@ describe("GET /library/import/{jobId}", () => {
 					entitySchemaSlug: schema.id,
 				});
 
-				const result = yield* pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
+				const result = yield* pollEntityImportResult(client, jobId);
 
 				assertCompleted(result, "import job");
 
@@ -314,7 +314,7 @@ describe("GET /library/import/{jobId}", () => {
 				externalId: "e2e-book-populatedat",
 			});
 
-			const result = yield* pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
+			const result = yield* pollEntityImportResult(client, jobId);
 
 			assertCompleted(result, "import job");
 

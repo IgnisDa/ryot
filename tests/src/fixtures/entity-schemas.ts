@@ -14,7 +14,7 @@ import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { createPluginScope, listPluginWorkspaces } from "./plugin-workspaces";
-import { type PollOptions, pollUntil } from "./polling";
+import { pollUntil } from "./polling";
 import { installTestDefinitions } from "./test-plugin";
 
 type EnqueueEntitySearchBody = Omit<
@@ -207,11 +207,7 @@ export const enqueueEntitySearch = (executingUserId: string, body: EnqueueEntity
 		};
 	});
 
-export const pollEntitySearchResult = (
-	executingUserId: string,
-	jobId: string,
-	options: PollOptions = {},
-) =>
+export const pollEntitySearchResult = (executingUserId: string, jobId: string) =>
 	pollUntil(
 		`entity search job '${jobId}'`,
 		Effect.gen(function* () {
@@ -225,7 +221,6 @@ export const pollEntitySearchResult = (
 			);
 			return result.status !== "pending" ? result : null;
 		}),
-		options,
 	);
 
 export const enqueueEntityImport = (client: Client, body: EnqueueEntityImportBody) =>
@@ -237,14 +232,13 @@ export const enqueueEntityImport = (client: Client, body: EnqueueEntityImportBod
 		};
 	});
 
-export const pollEntityImportResult = (client: Client, jobId: string, options: PollOptions = {}) =>
+export const pollEntityImportResult = (client: Client, jobId: string) =>
 	pollUntil(
 		`entity import job '${jobId}'`,
 		Effect.gen(function* () {
 			const result = yield* client.call((c) => c.entityImport.getImportResult({ path: { jobId } }));
 			return result.status !== "pending" ? result : null;
 		}),
-		options,
 	);
 
 export function getFirstProviderSearchScriptId(schema: {
