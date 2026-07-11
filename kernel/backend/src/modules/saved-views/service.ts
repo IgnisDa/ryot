@@ -24,7 +24,10 @@ import { PluginDefinitionMaterializer } from "#modules/plugins/definition-materi
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
-import { validateSavedViewDefinition } from "./definition-validation";
+import {
+	validateEntityBrowserSavedViewDefinition,
+	validateSavedViewDefinition,
+} from "./definition-validation";
 import { SavedViewsRepository } from "./repository";
 
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
@@ -89,7 +92,12 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			userId: CurrentUserValue["id"],
 			renderer: Extract<CreateSavedViewBody, { renderer: unknown }>["renderer"],
 			settings: Readonly<Record<string, unknown>>,
+			dataSources: Extract<CreateSavedViewBody, { renderer: unknown }>["dataSources"],
 		) {
+			if (renderer.kind === "kernel" && renderer.name === "entity-browser") {
+				yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources });
+				return null;
+			}
 			if (renderer.kind !== "custom") {
 				return yield* new SavedViewBadRequest({ reason: { code: "renderer-kind-unavailable" } });
 			}
@@ -147,6 +155,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 								user.id,
 								payload.renderer,
 								payload.settings,
+								payload.dataSources,
 							);
 							const created = yield* repository.create(user.id, {
 								slug,
@@ -211,7 +220,12 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				return yield* mapDatabaseErrors(
 					database.transaction((transaction) =>
 						Effect.gen(function* () {
-							const rendererId = yield* validateRendererSettings(user.id, renderer, settings);
+							const rendererId = yield* validateRendererSettings(
+								user.id,
+								renderer,
+								settings,
+								dataSources,
+							);
 							const updated = yield* repository.updateBySlug(
 								user.id,
 								viewSlug,

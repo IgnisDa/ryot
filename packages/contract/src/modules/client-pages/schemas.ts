@@ -150,6 +150,11 @@ export class ClientPagePreparationError extends Schema.TaggedError<ClientPagePre
 
 export const ClientPageCodeContributor = Schema.Union([
 	strictStruct({
+		name: Schema.String,
+		sourceHash: Schema.String,
+		kind: Schema.Literal("kernel-renderer"),
+	}),
+	strictStruct({
 		sourceHash: Schema.String,
 		rendererId: ClientRendererId,
 		kind: Schema.Literal("renderer"),
@@ -209,6 +214,15 @@ export const ClientPageGraphIdentity = strictStruct({
 				entry: Schema.String,
 				namespace: Schema.String,
 				sourceHash: Schema.String,
+				automaticEntityPresentations: Schema.Boolean,
+				kind: Schema.Literal("kernel-renderer"),
+				pluginDependencies: Schema.Array(PluginSlug),
+			}),
+			strictStruct({
+				name: Schema.String,
+				entry: Schema.String,
+				namespace: Schema.String,
+				sourceHash: Schema.String,
 				rendererId: ClientRendererId,
 				kind: Schema.Literal("renderer"),
 				automaticEntityPresentations: Schema.Boolean,
@@ -242,6 +256,15 @@ export const PreparedClientPageIdentity = Schema.Union([
 		...PreparedClientPageIdentityBase,
 		savedViewId: SavedViewId,
 		viewRevision: Schema.Int,
+		sourceHash: Schema.String,
+		rendererName: Schema.String,
+		target: SavedViewClientPageTarget,
+		kind: Schema.Literal("kernel-saved-view"),
+	}),
+	strictStruct({
+		...PreparedClientPageIdentityBase,
+		savedViewId: SavedViewId,
+		viewRevision: Schema.Int,
 		rendererId: ClientRendererId,
 		publishedHash: Schema.String,
 		publishedRevision: Schema.Int,
@@ -265,6 +288,7 @@ export const PreparedClientPageContext = strictStruct({
 	settings: Schema.Record(Schema.String, JsonValue),
 	route: strictStruct({ params: Schema.Record(Schema.String, Schema.String) }),
 	renderer: Schema.Union([
+		strictStruct({ kind: Schema.Literal("kernel"), name: Schema.String }),
 		strictStruct({ kind: Schema.Literal("custom"), id: ClientRendererId }),
 		strictStruct({
 			pluginId: Schema.String,

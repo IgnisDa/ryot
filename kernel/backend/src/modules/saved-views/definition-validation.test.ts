@@ -1,15 +1,18 @@
 import { it } from "@effect/vitest";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
+	type EntityBrowserSavedViewSettings,
 	SavedViewBadRequest,
 	type SavedViewLayouts,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
+	aggregate,
 	ascending,
 	castJson,
 	column,
 	document,
 	field,
+	join,
 	jsonPath,
 	literal,
 	rows,
@@ -19,7 +22,10 @@ import { Effect } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 
-import { validateSavedViewDefinition } from "./definition-validation";
+import {
+	validateEntityBrowserSavedViewDefinition,
+	validateSavedViewDefinition,
+} from "./definition-validation";
 
 const record = table("entity", "record");
 const queryDocument = document({
@@ -231,6 +237,179 @@ it.effect("reports semantic query errors as an unstructured query diagnostic", (
 				new SavedViewBadRequest({
 					reason: { layout: "list", issue: "query-invalid", code: "invalid-definition" },
 				}),
+			),
+		),
+	);
+});
+
+const browserSettings = {
+	pageSize: 24,
+	defaultLayout: "grid",
+	sourceName: "entities",
+	layouts: ["grid", "list"],
+	entityIdField: "selectedId",
+	ownerPluginIdField: "selectedOwner",
+	entitySchemaSlugField: "selectedSchema",
+} satisfies EntityBrowserSavedViewSettings;
+
+const browserSource = (entity = table("entity", "selected")) =>
+	document({
+		extraCount: aggregate(entity, {
+			measures: [{ key: "total", aggregation: { function: "count" } }],
+		}),
+		entities: rows(entity, {
+			fields: [
+				field("selectedId", column(entity, "id")),
+				field("selectedOwner", column(entity, "entitySchemaPluginId")),
+				field("selectedSchema", column(entity, "entitySchemaSlug")),
+			],
+		}),
+	});
+
+const browserFailure = (message: string) =>
+	new SavedViewBadRequest({ reason: { code: "settings-incompatible", message } });
+
+it.effect("accepts entity-browser settings selecting one rows source among named queries", () =>
+	validateEntityBrowserSavedViewDefinition({
+		settings: browserSettings,
+		dataSources: browserSource(),
+	}),
+);
+
+it.effect("rejects missing and non-row entity-browser sources", () =>
+	Effect.gen(function* () {
+		const source = browserSource();
+		const missing = yield* Effect.exit(
+			validateEntityBrowserSavedViewDefinition({
+				dataSources: source,
+				settings: { ...browserSettings, sourceName: "missing" },
+			}),
+		);
+		const nonRows = yield* Effect.exit(
+			validateEntityBrowserSavedViewDefinition({
+				dataSources: source,
+				settings: { ...browserSettings, sourceName: "extraCount" },
+			}),
+		);
+
+		assertExitFails(missing, browserFailure("Entity-browser source 'missing' does not exist"));
+		assertExitFails(
+			nonRows,
+			browserFailure("Entity-browser source 'extraCount' must produce rows"),
+		);
+	}),
+);
+
+it.effect("rejects cursors stored in any rows data source", () => {
+	const source = browserSource();
+	const dataSources = {
+		...source,
+		queries: {
+			...source.queries,
+			laterPage: {
+				...source.queries.entities,
+				output: {
+					...source.queries.entities.output,
+					pagination: { limit: 10, after: "stored-cursor" },
+				},
+			},
+		},
+	};
+	return Effect.exit(
+		validateEntityBrowserSavedViewDefinition({ settings: browserSettings, dataSources }),
+	).pipe(
+		Effect.map((exit) =>
+			assertExitFails(
+				exit,
+				browserFailure("Stored data source 'laterPage' must not contain a cursor"),
+			),
+		),
+	);
+});
+
+it.effect("rejects aliases that spoof entity provenance", () => {
+	const selected = table("entity", "selected");
+	const dataSources = document({
+		entities: rows(selected, {
+			fields: [
+				field("selectedId", literal("entity-id")),
+				field("selectedOwner", literal("plugin-id")),
+				field("selectedSchema", literal("book")),
+			],
+		}),
+	});
+	return Effect.exit(
+		validateEntityBrowserSavedViewDefinition({ settings: browserSettings, dataSources }),
+	).pipe(
+		Effect.map((exit) =>
+			assertExitFails(
+				exit,
+				browserFailure("Entity-browser field 'selectedId' must project entity.id"),
+			),
+		),
+	);
+});
+
+it.effect("rejects identity projected from a non-entity table", () => {
+	const selected = table("event", "selected");
+	const dataSources = document({
+		entities: rows(selected, {
+			fields: [
+				field("selectedId", column(selected, "id")),
+				field("selectedOwner", literal(null)),
+				field("selectedSchema", column(selected, "eventSchemaSlug")),
+			],
+		}),
+	});
+	return Effect.exit(
+		validateEntityBrowserSavedViewDefinition({ settings: browserSettings, dataSources }),
+	).pipe(
+		Effect.map((exit) =>
+			assertExitFails(
+				exit,
+				browserFailure("Entity-browser field 'selectedId' must project entity.id"),
+			),
+		),
+	);
+});
+
+it.effect("requires all canonical provenance fields to use the same entity alias", () => {
+	const selected = table("entity", "selected");
+	const other = table("entity", "other");
+	const source = browserSource(selected);
+	const entities = source.queries.entities;
+	const dataSources = {
+		queries: {
+			entities: {
+				...entities,
+				joins: [
+					join("inner", other, {
+						operator: "eq",
+						type: "comparison",
+						right: column(other, "id"),
+						left: column(selected, "id"),
+					}),
+				] as const,
+				output: {
+					...entities.output,
+					fields: [
+						field("selectedId", column(selected, "id")),
+						field("selectedOwner", column(other, "entitySchemaPluginId")),
+						field("selectedSchema", column(selected, "entitySchemaSlug")),
+					],
+				},
+			},
+		},
+	};
+	return Effect.exit(
+		validateEntityBrowserSavedViewDefinition({ settings: browserSettings, dataSources }),
+	).pipe(
+		Effect.map((exit) =>
+			assertExitFails(
+				exit,
+				browserFailure(
+					"Entity-browser provenance fields must come from the same entity table alias",
+				),
 			),
 		),
 	);

@@ -4,7 +4,7 @@
 
 **System Design:** [Composable Views](./README.md)
 
-**Status:** todo
+**Status:** done
 
 **Depends On:** [03 - Unify Plugin And Entity Pages](./03-unify-plugin-and-entity-pages.md)
 
@@ -20,18 +20,18 @@ Resolve presentation identity by owner plugin ID plus schema slug and layout. Gr
 
 ## Acceptance Criteria
 
-- [ ] A new-format saved view loads mixed entities through the standard browser and `EntityResults`, not a hardcoded dashboard list.
-- [ ] The server validates the actual source of projected entity identity/provenance fields.
-- [ ] Query order and entity keys stay stable when presentation batches complete in another order.
-- [ ] The browser uses one selection source across grid and list rather than separate layout queries.
-- [ ] Load more follows returned cursors, handles overlap by stable keys, and rejects invalid duplicate entity rows within one page.
-- [ ] Count-on-demand counts distinct selected entities and has explicit loading/failure state.
-- [ ] A plugin type first appearing on page two renders without compilation, iframe replacement, or loss of existing row state.
-- [ ] Automatic discovery follows the specified ready/enabled rules; unavailable automatic presentation uses the supported fallback.
-- [ ] Missing explicit exports remain build errors, not fallback cases.
-- [ ] The typed batch-loader contract, chunking, cancellation, deduplication, and bounded scheduling are available to domain presentations.
-- [ ] Missing requested data, batch errors, and item render errors have local retry/basic entity-link states.
-- [ ] Browser/recipe/runtime tests prove the complete selection-to-render path with deterministic mixed data.
+- [x] A new-format saved view loads mixed entities through the standard browser and `EntityResults`, not a hardcoded dashboard list.
+- [x] The server validates the actual source of projected entity identity/provenance fields.
+- [x] Query order and entity keys stay stable when presentation batches complete in another order.
+- [x] The browser uses one selection source across grid and list rather than separate layout queries.
+- [x] Load more follows returned cursors, handles overlap by stable keys, and rejects invalid duplicate entity rows within one page.
+- [x] Count-on-demand counts distinct selected entities and has explicit loading/failure state.
+- [x] A plugin type first appearing on page two renders without compilation, iframe replacement, or loss of existing row state.
+- [x] Automatic discovery follows the specified ready/enabled rules; unavailable automatic presentation uses the supported fallback.
+- [x] Missing explicit exports remain build errors, not fallback cases.
+- [x] The typed batch-loader contract, chunking, cancellation, deduplication, and bounded scheduling are available to domain presentations.
+- [x] Missing requested data, batch errors, and item render errors have local retry/basic entity-link states.
+- [x] Browser/recipe/runtime tests prove the complete selection-to-render path with deterministic mixed data.
 
 ## Verification
 
@@ -46,3 +46,11 @@ Extend existing saved-view query/controller behaviour tests rather than preservi
 ## Implementor Notes
 
 Record the final browser source/settings schemas, automatic registry key, and generic fallback ownership for Tasks 05 and 06.
+
+- The kernel owns the embedded `entity-browser` source and compiles it as a `kernel-saved-view` target through the standard client-page artifact flow.
+- Browser settings select one query from the shared saved-view `dataSources` document through `sourceName`; grid and list reuse that source, including its ordering and filters.
+- Automatic presentations are keyed by owner plugin ID, entity schema slug, and layout. The client SDK owns the generic entity identity/name/schema/sync fallback.
+- Presentation loaders receive sorted batches of at most 100 entities. The application-scoped scheduler admits at most four batches, while shared query identity deduplicates equal requests and cancellation releases obsolete work.
+- Kernel renderer builds reuse graph-bound `client_page_build` records keyed by user, renderer name, source hash, and graph hash. Sessions recheck the exact build, artifact, graph, view revision, and contributor set.
+- Generated `kernel/backend/src/drizzle/20260907101511_peaceful_tombstone` with `bun run db:generate` from `kernel/backend` so kernel renderer builds can use the shared build table.
+- Verified the focused entity-browser API and composed-view browser E2E suites, affected package tests, all non-E2E package tests, and the complete repository check.

@@ -1181,7 +1181,7 @@ it.effect("keeps cyclic contributor graphs stable and validates automatic regist
 				fixture: {
 					files: {
 						"client/presentation.tsx": bytes(
-							'import "@ryot-app/plugins/media/card"; export default function Presentation() { return null; }',
+							'import "@ryot-app/plugins/media/card"; import { defineEntityPresentation } from "@ryot-app/client-sdk/plugin"; export default defineEntityPresentation({ loader: async ({ references }) => Object.fromEntries(references.map(({ entityId }) => [entityId, { label: entityId }])), component: ({ data }) => <p>{data.label}</p> });',
 						),
 					},
 				},
@@ -1200,6 +1200,12 @@ it.effect("keeps cyclic contributor graphs stable and validates automatic regist
 			},
 			automaticRegistry: [
 				{
+					layout: "list" as const,
+					ownerPluginId: "a-owner",
+					entitySchemaSlug: "album",
+					exportSpecifier: "@ryot-app/plugins/fixture/presentation",
+				},
+				{
 					layout: "grid" as const,
 					ownerPluginId: "fixture-id",
 					entitySchemaSlug: "pokemon",
@@ -1214,6 +1220,13 @@ it.effect("keeps cyclic contributor graphs stable and validates automatic regist
 			publicExports: Object.fromEntries(Object.entries(input.publicExports).toReversed()),
 		});
 		expect(second.artifact).toEqual(first.artifact);
+		const javascript = text(
+			first.artifact.files.find(({ name }) => name === "plugin.js")?.contents,
+		);
+		expect(javascript).toContain("entityPresentations");
+		expect(javascript).toContain("fixture-id");
+		expect(javascript).toContain("pokemon");
+		expect(javascript.indexOf("a-owner")).toBeLessThan(javascript.indexOf("fixture-id"));
 	}),
 );
 
