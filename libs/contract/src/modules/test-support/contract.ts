@@ -41,6 +41,7 @@ const CreateGlobalEntityBody = Schema.Struct({
 });
 
 const TriggerInfrequentCronResponse = Schema.Struct({ executionId: Schema.String });
+const TriggerPluginBootResponse = Schema.Struct({ executionId: Schema.String });
 
 const GlobalRelationshipListBody = Schema.Union(
 	Schema.Struct({ type: Schema.Literal("self"), relationshipSchemaSlug: RelationshipSchemaSlug }),
@@ -176,6 +177,11 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		HttpApiEndpoint.post("triggerInfrequentCron", "/test-support/cron/infrequent")
 			.addSuccess(TriggerInfrequentCronResponse)
 			.annotate(OpenApi.Description, "Triggers the infrequent cron job"),
+	)
+	.add(
+		HttpApiEndpoint.post("triggerPluginBoot", "/test-support/plugin-boot")
+			.addSuccess(TriggerPluginBootResponse)
+			.annotate(OpenApi.Description, "Triggers all installed plugin boot drivers"),
 	)
 	.add(
 		HttpApiEndpoint.post("setEntityInterest", "/test-support/entity-interest")
