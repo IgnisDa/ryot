@@ -1,6 +1,6 @@
 import type { Headers as PlatformHeaders } from "@effect/platform";
 import { badRequest, notFound, SandboxRunError } from "@ryot/contract/errors";
-import { IntegrationId, type UserId } from "@ryot/contract/schema/brands";
+import { IntegrationId, type SandboxScriptId, type UserId } from "@ryot/contract/schema/brands";
 import type { PluginOperationAuth } from "@ryot/plugin-kit/manifest";
 import { generateId } from "better-auth";
 import { Effect, Schema } from "effect";
@@ -12,7 +12,6 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { executeSandboxExecution } from "#modules/sandbox/durable-queues";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
-import { PluginLoader } from "./loader";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 
 const IntegrationPayload = Schema.Struct({ integrationId: Schema.String });
@@ -20,6 +19,7 @@ const IntegrationPayload = Schema.Struct({ integrationId: Schema.String });
 type DispatchInput = {
 	readonly userId: UserId;
 	readonly payload: unknown;
+	readonly scriptId: SandboxScriptId;
 	readonly pluginSlug: string;
 	readonly operationSlug: string;
 	readonly integrationId?: IntegrationId;
@@ -29,35 +29,17 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 	effect: Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const runWithDb = yield* DbRunner;
-		const loader = yield* PluginLoader;
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* RuntimeSandboxService;
 		const sandboxRepository = yield* SandboxRepository;
 		const integrationsRepository = yield* IntegrationsRepository;
 
-		const resolveOperation = (pluginSlug: string, operationSlug: string) =>
-			Effect.gen(function* () {
-				const plugin = loader.getSnapshot().plugins[pluginSlug];
-				const operation = plugin?.manifest.operations.find(({ slug }) => slug === operationSlug);
-				if (!operation) {
-					return yield* notFound(`Operation '${pluginSlug}/${operationSlug}' was not found`);
-				}
-				return operation;
-			});
-
 		const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: DispatchInput) {
-			const operation = yield* resolveOperation(input.pluginSlug, input.operationSlug);
-			const script = yield* runWithDb(runtime.findActiveScript(operation.scriptSlug));
-			if (!script) {
-				return yield* new SandboxRunError({
-					message: `Operation '${input.pluginSlug}/${input.operationSlug}' script is unavailable`,
-				});
-			}
 			const executionId = `plugin-operation-${input.pluginSlug}-${input.operationSlug}-${generateId()}`;
 			const result = yield* executeSandboxExecution({
 				executionId,
-				scriptId: script.id,
 				context: input.payload,
+				scriptId: input.scriptId,
 				authority: {
 					type: "user",
 					userId: input.userId,
@@ -111,10 +93,25 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 			readonly operationSlug: string;
 			readonly headers: PlatformHeaders.Headers;
 		}) {
-			const operation = yield* resolveOperation(input.pluginSlug, input.operationSlug);
-			const scope = yield* resolveScope(operation.auth, input.payload, input.headers);
+			const resolved = yield* runtime.findActiveOperation({
+				pluginSlug: input.pluginSlug,
+				operationSlug: input.operationSlug,
+			});
+			if (!resolved) {
+				return yield* notFound(
+					`Operation '${input.pluginSlug}/${input.operationSlug}' was not found`,
+				);
+			}
+			const scope = yield* resolveScope(resolved.operation.auth, input.payload, input.headers);
+			const script = yield* runWithDb(resolved.script);
+			if (!script) {
+				return yield* new SandboxRunError({
+					message: `Operation '${input.pluginSlug}/${input.operationSlug}' script is unavailable`,
+				});
+			}
 			return yield* dispatch({
 				...scope,
+				scriptId: script.id,
 				payload: input.payload,
 				pluginSlug: input.pluginSlug,
 				operationSlug: input.operationSlug,

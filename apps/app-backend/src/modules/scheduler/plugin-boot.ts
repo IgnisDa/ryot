@@ -13,6 +13,11 @@ type ActivePluginBoot = {
 	readonly pluginSlug: string;
 };
 
+type PluginBootIdentity = {
+	readonly bootSlug: string;
+	readonly pluginSlug: string;
+};
+
 export const pluginBootExecutionId = (
 	pluginSlug: string,
 	bootSlug: string,
@@ -38,17 +43,16 @@ export class PluginBootService extends Effect.Service<PluginBootService>()("Plug
 				);
 
 		const dispatch = Effect.fn("PluginBootService.dispatch")(function* (
-			entry: ActivePluginBoot,
+			entry: PluginBootIdentity,
 			executionId: string,
 		) {
-			const script = yield* runWithDb(runtime.findActiveScript(entry.boot.scriptSlug));
-			if (!script) {
+			const resolved = yield* runWithDb(runtime.resolveActivePluginBoot(entry));
+			if (!resolved) {
 				return yield* Effect.logError("plugin boot script unavailable").pipe(
 					Effect.annotateLogs({
 						executionId,
-						bootSlug: entry.boot.slug,
+						bootSlug: entry.bootSlug,
 						pluginSlug: entry.pluginSlug,
-						scriptSlug: entry.boot.scriptSlug,
 					}),
 				);
 			}
@@ -56,16 +60,16 @@ export class PluginBootService extends Effect.Service<PluginBootService>()("Plug
 				.execute(RunSandboxWorkflow, {
 					executionId,
 					payload: {
-						authority: { type: "system" },
 						context: {},
 						executionId,
-						scriptId: script.id,
+						scriptId: resolved.script.id,
+						authority: { type: "system" },
 					},
 				})
 				.pipe(Effect.asVoid);
 		});
 
-		const dispatchEntries = (entries: ReadonlyArray<[ActivePluginBoot, string]>) =>
+		const dispatchEntries = (entries: ReadonlyArray<[PluginBootIdentity, string]>) =>
 			Effect.forEach(
 				entries,
 				([entry, executionId]) =>
@@ -74,7 +78,7 @@ export class PluginBootService extends Effect.Service<PluginBootService>()("Plug
 							Effect.logError("plugin boot dispatch failed", cause).pipe(
 								Effect.annotateLogs({
 									executionId,
-									bootSlug: entry.boot.slug,
+									bootSlug: entry.bootSlug,
 									pluginSlug: entry.pluginSlug,
 								}),
 							),
@@ -86,7 +90,7 @@ export class PluginBootService extends Effect.Service<PluginBootService>()("Plug
 		const dispatchAll = (bootMs: number) =>
 			dispatchEntries(
 				list().map((entry) => [
-					entry,
+					{ bootSlug: entry.boot.slug, pluginSlug: entry.pluginSlug },
 					pluginBootExecutionId(entry.pluginSlug, entry.boot.slug, bootMs),
 				]),
 			);
@@ -94,7 +98,7 @@ export class PluginBootService extends Effect.Service<PluginBootService>()("Plug
 		const triggerAll = (parentExecutionId: string) =>
 			dispatchEntries(
 				list().map((entry) => [
-					entry,
+					{ bootSlug: entry.boot.slug, pluginSlug: entry.pluginSlug },
 					pluginBootExecutionId(entry.pluginSlug, entry.boot.slug, parentExecutionId),
 				]),
 			);

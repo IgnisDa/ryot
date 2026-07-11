@@ -1,7 +1,10 @@
 import { expect, it } from "@effect/vitest";
+import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
-import { Effect, Layer } from "effect";
+import { Deferred, Effect, Fiber, Layer } from "effect";
+import { assert } from "vitest";
 
+import { CurrentDb } from "#lib/infrastructure/db/service";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { ImportSourceCatalog } from "./import-source-catalog";
@@ -9,26 +12,43 @@ import { makePluginLoader, PluginLoader } from "./loader";
 import { fixtureManifest } from "./test-support";
 import type { NormalizedPlugin } from "./types";
 
+const epoch = new Date(0);
+const fixtureScript = fixtureManifest().scripts[0];
+assert(fixtureScript);
+
 const pluginWithImportSources = (
 	slug: string,
 	importSources: PluginManifest["importSources"],
 ): NormalizedPlugin => ({
-	scripts: [],
 	sourceHash: `source-${slug}`,
+	scripts: [
+		{
+			source: "source",
+			compiledFormat: 1,
+			compiledCode: "compiled",
+			name: "Fixture Automation",
+			slug: `${slug}.automation`,
+			contentHash: `script-${slug}`,
+			entry: "scripts/fixture.sandbox.ts",
+			metadata: { ...fixtureScript, slug: `${slug}.automation` },
+		},
+	],
 	manifest: {
 		...fixtureManifest(),
 		importSources,
 		entitySchemas: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
+		metadata: { ...fixtureManifest().metadata, slug },
+		bindings: { ...fixtureManifest().bindings, entityAutomations: [] },
+		workflows: importSources.map(({ workflowSlug }) => ({
+			slug: workflowSlug,
+			scriptSlug: `${slug}.automation`,
+		})),
 		configSchema: {
 			unknownKeys: "strict",
 			fields: {
-				traktClientId: {
-					type: "string",
-					label: "Trakt client ID",
-					description: "Trakt client ID",
-				},
+				traktClientId: { type: "string", label: "Trakt client ID", description: "Trakt client ID" },
 				tmdbAccessToken: {
 					type: "string",
 					label: "TMDB access token",
@@ -36,8 +56,6 @@ const pluginWithImportSources = (
 				},
 			},
 		},
-		metadata: { ...fixtureManifest().metadata, slug },
-		bindings: { ...fixtureManifest().bindings, entityAutomations: [] },
 	},
 });
 
@@ -109,4 +127,69 @@ it.effect("resolves the owning plugin, workflow and input metadata by source slu
 		expect(catalog.find("trakt")).toMatchObject({ input: "payload", pluginSlug: "apple" });
 		expect(catalog.find("goodreads")).toBeNull();
 	}).pipe(Effect.provide(catalogLayer())),
+);
+
+it.effect(
+	"keeps import source and active workflow resolution on one snapshot during replacement",
+	() =>
+		Effect.gen(function* () {
+			const selected = yield* Deferred.make<void>();
+			const release = yield* Deferred.make<void>();
+			const loader = makePluginLoader(makeDefinitionRegistry());
+			loader.load(
+				pluginWithImportSources("apple", [
+					{
+						slug: "trakt",
+						name: "Trakt",
+						input: "payload",
+						description: "Old source",
+						workflowSlug: "trakt-import",
+						requiredPluginConfigKeys: [],
+					},
+				]),
+			);
+			const row = {
+				source: "source",
+				createdAt: epoch,
+				updatedAt: epoch,
+				providerId: null,
+				compiledFormat: 1,
+				pluginSlug: "apple",
+				compiledCode: "compiled",
+				name: "Fixture Automation",
+				slug: "apple.automation",
+				contentHash: "script-apple",
+				id: SandboxScriptId.make("old-workflow-script"),
+				metadata: { ...fixtureScript, slug: "apple.automation" },
+			};
+			const db = {
+				select: () => ({
+					from: () => ({ where: () => ({ limit: () => Promise.resolve([row]) }) }),
+				}),
+			};
+			const layer = Layer.merge(
+				ImportSourceCatalog.Default.pipe(
+					Layer.provide(Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader })),
+				),
+				Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
+			);
+			const fiber = yield* Effect.fork(
+				Effect.gen(function* () {
+					const resolution = (yield* ImportSourceCatalog).resolve("trakt");
+					yield* Deferred.succeed(selected, undefined);
+					yield* Deferred.await(release);
+					return resolution
+						? { source: resolution.source, script: yield* resolution.script }
+						: null;
+				}).pipe(Effect.provide(layer)),
+			);
+			yield* Deferred.await(selected);
+			loader.load(pluginWithImportSources("apple", []));
+			yield* Deferred.succeed(release, undefined);
+
+			expect(yield* Fiber.join(fiber)).toMatchObject({
+				source: { description: "Old source", slug: "trakt" },
+				script: { id: "old-workflow-script", contentHash: "script-apple" },
+			});
+		}),
 );

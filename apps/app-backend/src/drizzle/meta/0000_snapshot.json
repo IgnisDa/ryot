@@ -345,6 +345,12 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"entity_schema_slug": {
+					"name": "entity_schema_slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"populated_at": {
 					"name": "populated_at",
 					"type": "timestamp with time zone",
@@ -370,12 +376,6 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": "'{}'::jsonb"
-				},
-				"entity_schema_slug": {
-					"name": "entity_schema_slug",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
 				},
 				"provider_id": {
 					"name": "provider_id",
@@ -1773,6 +1773,12 @@
 			"name": "relationship",
 			"schema": "",
 			"columns": {
+				"relationship_schema_slug": {
+					"name": "relationship_schema_slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"created_at": {
 					"name": "created_at",
 					"type": "timestamp with time zone",
@@ -1801,12 +1807,6 @@
 				},
 				"target_entity_id": {
 					"name": "target_entity_id",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"relationship_schema_slug": {
-					"name": "relationship_schema_slug",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
@@ -1965,6 +1965,12 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"information": {
+					"name": "information",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
 				"created_at": {
 					"name": "created_at",
 					"type": "timestamp with time zone",
@@ -1972,22 +1978,10 @@
 					"notNull": true,
 					"default": "now()"
 				},
-				"information": {
-					"name": "information",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
-				},
 				"plugin_slug": {
 					"name": "plugin_slug",
 					"type": "text",
 					"primaryKey": false,
-					"notNull": true
-				},
-				"id": {
-					"name": "id",
-					"type": "text",
-					"primaryKey": true,
 					"notNull": true
 				},
 				"updated_at": {
@@ -1996,6 +1990,12 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
 				}
 			},
 			"indexes": {
@@ -2092,14 +2092,14 @@
 					"notNull": true,
 					"default": "now()"
 				},
-				"provider_id": {
-					"name": "provider_id",
+				"plugin_slug": {
+					"name": "plugin_slug",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
 				},
-				"plugin_slug": {
-					"name": "plugin_slug",
+				"provider_id": {
+					"name": "provider_id",
 					"type": "text",
 					"primaryKey": false,
 					"notNull": false
@@ -2173,15 +2173,6 @@
 				}
 			},
 			"foreignKeys": {
-				"sandbox_script_provider_id_sandbox_provider_id_fk": {
-					"name": "sandbox_script_provider_id_sandbox_provider_id_fk",
-					"tableFrom": "sandbox_script",
-					"tableTo": "sandbox_provider",
-					"columnsFrom": ["provider_id"],
-					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "no action"
-				},
 				"sandbox_script_plugin_slug_plugin_slug_fk": {
 					"name": "sandbox_script_plugin_slug_plugin_slug_fk",
 					"tableFrom": "sandbox_script",
@@ -2189,6 +2180,15 @@
 					"columnsFrom": ["plugin_slug"],
 					"columnsTo": ["slug"],
 					"onDelete": "restrict",
+					"onUpdate": "no action"
+				},
+				"sandbox_script_provider_id_sandbox_provider_id_fk": {
+					"name": "sandbox_script_provider_id_sandbox_provider_id_fk",
+					"tableFrom": "sandbox_script",
+					"tableTo": "sandbox_provider",
+					"columnsFrom": ["provider_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
 					"onUpdate": "no action"
 				}
 			},
@@ -2200,6 +2200,93 @@
 					"columns": ["plugin_slug", "slug", "content_hash"]
 				}
 			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.sandbox_workflow_reference": {
+			"name": "sandbox_workflow_reference",
+			"schema": "",
+			"columns": {
+				"execution_id": {
+					"name": "execution_id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"content_hash": {
+					"name": "content_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"plugin_slug": {
+					"name": "plugin_slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"script_id": {
+					"name": "script_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"sandbox_workflow_reference_plugin_slug_idx": {
+					"name": "sandbox_workflow_reference_plugin_slug_idx",
+					"columns": [
+						{
+							"expression": "plugin_slug",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"sandbox_workflow_reference_script_id_idx": {
+					"name": "sandbox_workflow_reference_script_id_idx",
+					"columns": [
+						{
+							"expression": "script_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"sandbox_workflow_reference_plugin_slug_plugin_slug_fk": {
+					"name": "sandbox_workflow_reference_plugin_slug_plugin_slug_fk",
+					"tableFrom": "sandbox_workflow_reference",
+					"tableTo": "plugin",
+					"columnsFrom": ["plugin_slug"],
+					"columnsTo": ["slug"],
+					"onDelete": "restrict",
+					"onUpdate": "no action"
+				},
+				"sandbox_workflow_reference_script_id_sandbox_script_id_fk": {
+					"name": "sandbox_workflow_reference_script_id_sandbox_script_id_fk",
+					"tableFrom": "sandbox_workflow_reference",
+					"tableTo": "sandbox_script",
+					"columnsFrom": ["script_id"],
+					"columnsTo": ["id"],
+					"onDelete": "restrict",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
 			"policies": {},
 			"checkConstraints": {},
 			"isRLSEnabled": false

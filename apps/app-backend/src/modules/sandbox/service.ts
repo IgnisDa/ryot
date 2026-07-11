@@ -132,17 +132,20 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 			});
 
 			const resolveWorkflowScript = Effect.fn("SandboxExecutionService.resolveWorkflowScript")(
-				function* (input: { pluginSlug: string; workflowSlug: string; executionId: string }) {
+				function* (
+					input: { pluginSlug: string; workflowSlug: string; executionId: string },
+					resolution: ReturnType<
+						PluginRuntimeResolver["findActiveWorkflowScript"]
+					> = pluginRuntime.findActiveWorkflowScript({
+						pluginSlug: input.pluginSlug,
+						workflowSlug: input.workflowSlug,
+					}),
+				) {
 					return yield* Activity.make({
 						error: SandboxRunError,
 						success: SandboxScriptId,
 						name: `resolve-plugin-workflow-${input.executionId}`,
-						execute: runWithDb(
-							pluginRuntime.findActiveWorkflowScript({
-								pluginSlug: input.pluginSlug,
-								workflowSlug: input.workflowSlug,
-							}),
-						).pipe(
+						execute: runWithDb(resolution).pipe(
 							Effect.flatMap((script) =>
 								script
 									? Effect.succeed(script.id)

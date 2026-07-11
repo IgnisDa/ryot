@@ -213,6 +213,13 @@ CREATE TABLE "sandbox_script" (
 	CONSTRAINT "sandbox_script_plugin_slug_content_hash_unique" UNIQUE("plugin_slug","slug","content_hash")
 );
 --> statement-breakpoint
+CREATE TABLE "sandbox_workflow_reference" (
+	"execution_id" text PRIMARY KEY NOT NULL,
+	"content_hash" text NOT NULL,
+	"plugin_slug" text NOT NULL,
+	"script_id" text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "saved_view" (
 	"plugin_slug" text,
 	"slug" text NOT NULL,
@@ -351,6 +358,8 @@ ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_
 ALTER TABLE "sandbox_provider" ADD CONSTRAINT "sandbox_provider_plugin_slug_plugin_slug_fk" FOREIGN KEY ("plugin_slug") REFERENCES "public"."plugin"("slug") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_provider_id_sandbox_provider_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."sandbox_provider"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_plugin_slug_plugin_slug_fk" FOREIGN KEY ("plugin_slug") REFERENCES "public"."plugin"("slug") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_plugin_slug_plugin_slug_fk" FOREIGN KEY ("plugin_slug") REFERENCES "public"."plugin"("slug") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fk" FOREIGN KEY ("script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view_state" ADD CONSTRAINT "saved_view_state_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -401,6 +410,8 @@ CREATE INDEX "sandbox_provider_plugin_slug_idx" ON "sandbox_provider" USING btre
 CREATE INDEX "sandbox_script_provider_id_idx" ON "sandbox_script" USING btree ("provider_id");--> statement-breakpoint
 CREATE INDEX "sandbox_script_plugin_slug_idx" ON "sandbox_script" USING btree ("plugin_slug");--> statement-breakpoint
 CREATE UNIQUE INDEX "sandbox_script_kernel_slug_content_hash_unique" ON "sandbox_script" USING btree ("slug","content_hash") WHERE "sandbox_script"."plugin_slug" is null;--> statement-breakpoint
+CREATE INDEX "sandbox_workflow_reference_plugin_slug_idx" ON "sandbox_workflow_reference" USING btree ("plugin_slug");--> statement-breakpoint
+CREATE INDEX "sandbox_workflow_reference_script_id_idx" ON "sandbox_workflow_reference" USING btree ("script_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_plugin_slug_idx" ON "saved_view" USING btree ("plugin_slug");--> statement-breakpoint
 CREATE INDEX "saved_view_state_user_id_idx" ON "saved_view_state" USING btree ("user_id");--> statement-breakpoint

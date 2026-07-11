@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { PluginSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { PluginCron, PluginManifest } from "@ryot/plugin-kit/manifest";
-import { Effect, Layer } from "effect";
+import { Deferred, Effect, Fiber, Layer } from "effect";
 import { assert } from "vitest";
 
 import { dbRunnerLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
@@ -15,6 +15,8 @@ import type { NormalizedPlugin } from "#modules/plugins/types";
 import { pluginCronExecutionId, PluginCronService } from "./plugin-cron";
 
 type CapturedRun = Parameters<WorkflowEngine["Type"]["execute"]>[1];
+
+const testDate = new Date(0);
 
 const normalizedPlugin = (
 	pluginSlug: string,
@@ -102,6 +104,7 @@ const makeLayer = (
 	captured: Array<CapturedRun>,
 	failingExecutionId?: string,
 	infrequentCronJobsSchedule = "0 0 * * *",
+	resolveActivePluginCron?: PluginRuntimeResolver["resolveActivePluginCron"],
 ) =>
 	PluginCronService.Default.pipe(
 		Layer.provide(
@@ -111,49 +114,39 @@ const makeLayer = (
 				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader }),
 				Layer.mock(PluginRuntimeResolver)({
 					_tag: "PluginRuntimeResolver",
-					findActiveScript: (slug) =>
-						Effect.succeed({
-							slug,
-							name: slug,
-							source: "source",
-							providerId: null,
-							compiledFormat: 1,
-							pluginSlug: "fixture",
-							compiledCode: "compiled",
-							contentHash: `${slug}-hash`,
-							createdAt: new Date(0),
-							updatedAt: new Date(0),
-							id: SandboxScriptId.make(`${slug}-id`),
-							metadata: {
-								slug,
-								name: slug,
-								capabilities: [],
-								kind: "automation",
-								requiredPluginConfigKeys: [],
-								requiredSystemConfigKeys: [],
-							},
-						}),
-					findActiveWorkflowScript: ({ workflowSlug }) =>
-						Effect.succeed({
-							source: "source",
-							providerId: null,
-							compiledFormat: 1,
-							slug: workflowSlug,
-							name: workflowSlug,
-							pluginSlug: "fixture",
-							compiledCode: "compiled",
-							createdAt: new Date(0),
-							updatedAt: new Date(0),
-							contentHash: `${workflowSlug}-hash`,
-							id: SandboxScriptId.make(`${workflowSlug}-id`),
-							metadata: {
-								capabilities: [],
-								kind: "workflow",
-								slug: workflowSlug,
-								name: workflowSlug,
-								requiredPluginConfigKeys: [],
-								requiredSystemConfigKeys: [],
-							},
+					resolveActivePluginCron:
+						resolveActivePluginCron ??
+						(({ cronSlug, pluginSlug }) => {
+							const plugin = loader.getSnapshot().plugins[pluginSlug];
+							const cron = plugin?.manifest.crons.find(({ slug }) => slug === cronSlug);
+							if (!cron) {
+								return Effect.succeed(null);
+							}
+							const slug = cron.lot === "script" ? cron.scriptSlug : cron.workflowSlug;
+							return Effect.succeed({
+								cron,
+								script: {
+									slug,
+									name: slug,
+									pluginSlug,
+									source: "source",
+									providerId: null,
+									compiledFormat: 1,
+									compiledCode: "compiled",
+									contentHash: `${slug}-hash`,
+									createdAt: new Date(0),
+									updatedAt: new Date(0),
+									id: SandboxScriptId.make(`${slug}-id`),
+									metadata: {
+										slug,
+										name: slug,
+										capabilities: [],
+										requiredPluginConfigKeys: [],
+										requiredSystemConfigKeys: [],
+										kind: cron.lot === "script" ? "automation" : "workflow",
+									},
+								},
+							});
 						}),
 				}),
 				Layer.succeed(
@@ -184,8 +177,8 @@ it.effect("dispatches due plugin crons as deterministic system sandbox runs", ()
 			{
 				executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
 				payload: {
-					authority: { type: "system" },
 					context: {},
+					authority: { type: "system" },
 					scriptId: SandboxScriptId.make("fixture-script-id"),
 					executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
 				},
@@ -296,6 +289,65 @@ it.effect("observes hot-loaded snapshots without scheduler registration", () => 
 		]);
 	}).pipe(Effect.provide(makeLayer(loader, captured)));
 });
+
+it.effect(
+	"dispatches a manifest entry and script selected from one snapshot during replacement",
+	() => {
+		const captured: Array<CapturedRun> = [];
+		const loader = makePluginLoader(makeDefinitionRegistry());
+		loader.load(normalizedPlugin("fixture"));
+		const replacement = normalizedPlugin("fixture");
+		const replacementScript = replacement.scripts[0];
+		assert(replacementScript);
+
+		return Effect.gen(function* () {
+			const selected = yield* Deferred.make<void>();
+			const release = yield* Deferred.make<void>();
+			const resolveActivePluginCron: PluginRuntimeResolver["resolveActivePluginCron"] = (
+				identity,
+			) =>
+				Effect.gen(function* () {
+					const plugin = loader.getSnapshot().plugins[identity.pluginSlug];
+					const cron = plugin?.manifest.crons.find(({ slug }) => slug === identity.cronSlug);
+					assert(plugin);
+					assert(cron);
+					assert(cron.lot === "script");
+					const script = plugin.scripts.find(({ slug }) => slug === cron.scriptSlug);
+					assert(script);
+					yield* Deferred.succeed(selected, undefined);
+					yield* Deferred.await(release);
+					return {
+						cron,
+						script: {
+							...script,
+							providerId: null,
+							createdAt: testDate,
+							updatedAt: testDate,
+							pluginSlug: identity.pluginSlug,
+							id: SandboxScriptId.make(`${script.contentHash}-id`),
+						},
+					};
+				});
+			const layer = makeLayer(loader, captured, undefined, "0 0 * * *", resolveActivePluginCron);
+			const fiber = yield* Effect.fork(
+				Effect.gen(function* () {
+					const service = yield* PluginCronService;
+					yield* service.dispatchDue(60_000);
+				}).pipe(Effect.provide(layer)),
+			);
+			yield* Deferred.await(selected);
+			loader.load({
+				...replacement,
+				scripts: [{ ...replacementScript, contentHash: "new-compiled" }],
+			});
+			yield* Deferred.succeed(release, undefined);
+			yield* Fiber.join(fiber);
+			expect(captured[0]?.payload).toMatchObject({
+				scriptId: SandboxScriptId.make("fixture-compiled-id"),
+			});
+		});
+	},
+);
 
 it.effect("isolates unavailable and failed cron dispatches", () => {
 	const captured: Array<CapturedRun> = [];

@@ -189,6 +189,23 @@ correction changes no schema or behavior and is the only domain move included in
   references so uninstall cannot race with a newly starting execution. Uninstall returns conflict
   while any affected workflow is running or suspended. This liveness model is also the source of
   truth for script-row GC.
+
+  Task 13 implementation record (2026-07-31): runtime resolution now captures one immutable loader
+  snapshot per logical operation, including provider operations, automations, public plugin
+  operations, boot/user-bootstrap/cron entries, integration adapters, and import-source workflows.
+  New dispatch therefore observes one complete old or new package while durable replay continues to
+  use its exact recorded script ID.
+
+  Active plugin sandbox workflows are represented by app-owned `sandbox_workflow_reference` rows
+  containing execution, plugin, script, and content-hash identity. The durable pin activity inserts
+  the row idempotently under a shared transaction-scoped plugin-ingestion advisory lock after
+  confirming the plugin is still active; terminal success or failure removes it through a durable,
+  idempotent release activity, while suspension retains it. Uninstall takes the matching exclusive
+  advisory lock before reference inspection, so an older dispatch registers first and blocks
+  uninstall, or deactivation wins and the queued registration fails. Refusal rolls back without
+  changing database activation or the loader snapshot; successful invalidation remains after durable
+  deactivation. Task 14 consumes the repository's reference listing as its workflow-pin liveness
+  source instead of depending on private workflow-engine storage.
 - Complete the third-party-style e2e fixture. One hot-installed plugin must exercise search, import,
   event creation, automation, uninstall refusal while referenced, cleanup, and successful uninstall
   without a server restart.
