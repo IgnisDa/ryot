@@ -161,8 +161,54 @@ describe("workflow definitions", () => {
 	});
 
 	test("exports only deterministic workflow Effect combinators", () => {
-		expect(Object.keys(Effect).sort()).toEqual(["as", "gen", "succeed"]);
+		expect(Object.keys(Effect).sort()).toEqual(["as", "fail", "gen", "succeed"]);
 		expect(Reflect.get(Effect, "clockWith")).toBeUndefined();
 		expect(Reflect.get(Effect, "randomWith")).toBeUndefined();
+	});
+
+	test("turns a workflow body failure into a failed envelope keeping its durable requests", async () => {
+		const manifest = defineManifest({
+			kind: "workflow",
+			capabilities: [],
+			name: "Failing",
+			slug: "failing",
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
+		});
+		const workflow = defineWorkflow({
+			manifest,
+			output: Schema.String,
+			input: Schema.Struct({}),
+			run: (_input, replay) =>
+				Effect.gen(function* () {
+					yield* replay.activity(
+						"step",
+						{ input: Schema.Struct({}), output: Schema.String, scriptSlug: "activity.step" },
+						{},
+					);
+					return yield* Effect.fail(new Error("invariant violated"));
+				}),
+		});
+
+		const envelope = await RuntimeEffect.runPromise(
+			workflow.run(
+				{},
+				{ durableCalls: () => RuntimeEffect.succeed(["recorded"]) },
+				{ metadata: {}, sandboxScriptId: "failing" },
+			),
+		);
+
+		expect(envelope).toEqual({
+			state: "failed",
+			error: "Error: invariant violated",
+			requests: [
+				{
+					index: 0,
+					name: "step",
+					kind: "activity",
+					args: { input: {}, scriptSlug: "activity.step" },
+				},
+			],
+		});
 	});
 });
