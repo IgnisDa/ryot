@@ -5,9 +5,9 @@ import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 export const manifest = defineManifest({
 	kind: "automation",
+	name: "Signal Notification",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	name: "Signal Notification",
 	slug: "automation.notification",
 	capabilities: ["sendNotification"],
 });
