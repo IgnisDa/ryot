@@ -19,18 +19,21 @@ import { getCatalogTable } from "./catalog";
 import { validateRyotQLDocument } from "./validator";
 
 it("exposes only approved entity fields", () => {
-	expect(Object.keys(getCatalogTable("entity")?.fields ?? {})).toEqual([
-		"id",
-		"name",
-		"userId",
-		"createdAt",
-		"updatedAt",
-		"properties",
-		"externalId",
-		"providerId",
-		"populatedAt",
-		"entitySchemaSlug",
-	]);
+	expect(new Set(Object.keys(getCatalogTable("entity")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"name",
+			"userId",
+			"createdAt",
+			"updatedAt",
+			"properties",
+			"externalId",
+			"providerId",
+			"populatedAt",
+			"translationStatus",
+			"entitySchemaSlug",
+		]),
+	);
 });
 
 it("rejects unknown fields and tables", () => {
