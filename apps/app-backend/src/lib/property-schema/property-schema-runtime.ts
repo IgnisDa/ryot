@@ -231,23 +231,17 @@ const collectPayloadRuleIssues = (
 const dateValueSchema = Schema.String.pipe(
 	Schema.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/)),
 	Schema.check(
-		Schema.makeFilter((schemaFilterInput) => {
-			const schemaFilterOutput = ((value) => Result.isSuccess(dateDecoder(value)))(
-				schemaFilterInput,
-			);
-			return schemaFilterOutput || "Expected an ISO 8601 date";
-		}),
+		Schema.makeFilter(
+			(value) => Result.isSuccess(dateDecoder(value)) || "Expected an ISO 8601 date",
+		),
 	),
 );
 
 const datetimeValueSchema = Schema.String.pipe(
 	Schema.check(
-		Schema.makeFilter((schemaFilterInput2) => {
-			const schemaFilterOutput2 = ((value) => Result.isSuccess(dateTimeDecoder(value)))(
-				schemaFilterInput2,
-			);
-			return schemaFilterOutput2 || "Expected an ISO 8601 datetime";
-		}),
+		Schema.makeFilter(
+			(value) => Result.isSuccess(dateTimeDecoder(value)) || "Expected an ISO 8601 datetime",
+		),
 	),
 );
 
@@ -383,12 +377,9 @@ const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyVal
 	if (property.type === "enum") {
 		const value = Schema.String.pipe(
 			Schema.check(
-				Schema.makeFilter((schemaFilterInput3) => {
-					const schemaFilterOutput3 = ((item) => property.options.includes(item))(
-						schemaFilterInput3,
-					);
-					return schemaFilterOutput3 || "Expected one of the enum options";
-				}),
+				Schema.makeFilter(
+					(item) => property.options.includes(item) || "Expected one of the enum options",
+				),
 			),
 		);
 		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
@@ -396,12 +387,9 @@ const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyVal
 	if (property.type === "enum-array") {
 		const item = Schema.String.pipe(
 			Schema.check(
-				Schema.makeFilter((schemaFilterInput4) => {
-					const schemaFilterOutput4 = ((value) => property.options.includes(value))(
-						schemaFilterInput4,
-					);
-					return schemaFilterOutput4 || "Expected one of the enum options";
-				}),
+				Schema.makeFilter(
+					(value) => property.options.includes(value) || "Expected one of the enum options",
+				),
 			),
 		);
 		const value = applyArrayValidation(Schema.Array(item), property.validation);
