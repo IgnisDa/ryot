@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { SandboxScriptManifest } from "@ryot/contract/modules/sandbox/schemas";
 import { sandboxManifestSchema, type SandboxManifest } from "@ryot/sandbox-sdk/core";
+import { Schema as SandboxSchema } from "@ryot/sandbox-sdk/effect";
 import { Effect, Schema } from "effect";
 
 const manifests = [
@@ -29,11 +30,12 @@ const manifests = [
 ] satisfies SandboxManifest[];
 
 const decodeManifest = Schema.decodeUnknown(SandboxScriptManifest);
+const decodeSdkManifest = SandboxSchema.decodeUnknown(sandboxManifestSchema);
 
 it.effect("keeps Effect manifest decoding in parity with representative SDK manifests", () =>
 	Effect.gen(function* () {
 		for (const manifest of manifests) {
-			const sdkManifest = sandboxManifestSchema.parse(manifest);
+			const sdkManifest = yield* decodeSdkManifest(manifest);
 
 			expect(yield* decodeManifest(manifest)).toEqual(sdkManifest);
 		}

@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import {
 	asRecord,
@@ -14,42 +15,42 @@ export const BASE_URL = "https://www.giantbomb.com/api";
 export const GUID_PATTERN = /^\d+-\d+$/;
 
 export const getApiKey = (host: GiantBombHost) =>
-	host.getAppConfigValue("videoGames.giantBombApiKey").then((response) => {
-		if (!response.success) {
-			throw new Error(response.error || "Failed to retrieve GiantBomb API key");
-		}
-		const apiKey = stringValue(response.data);
-		if (!apiKey) {
-			throw new Error(
-				"GiantBomb API key is not configured. Set VIDEO_GAMES_GIANT_BOMB_API_KEY in your environment.",
-			);
-		}
-		return apiKey;
-	});
+	host.getAppConfigValue("videoGames.giantBombApiKey").pipe(
+		Effect.mapError((error) => new Error(error.message || "Failed to retrieve GiantBomb API key")),
+		Effect.map((value) => {
+			const apiKey = stringValue(value);
+			if (!apiKey) {
+				throw new Error(
+					"GiantBomb API key is not configured. Set VIDEO_GAMES_GIANT_BOMB_API_KEY in your environment.",
+				);
+			}
+			return apiKey;
+		}),
+	);
 
 export const giantBombRequest = (
 	host: GiantBombHost,
 	path: string,
 	params: Readonly<Record<string, string>>,
 	failureMessage: string,
-): Promise<UnknownRecord | null> =>
-	getApiKey(host).then((apiKey) => {
-		const search = new URLSearchParams({ api_key: apiKey, format: "json", ...params });
-		const url = `${BASE_URL}/${path}?${search.toString()}`;
-		return host
-			.httpCall("GET", url, { headers: { Accept: "application/json" } })
-			.then((response) => {
-				if (!response.success) {
-					throw new Error(response.error || failureMessage);
-				}
-				const payload = asRecord(parseJsonResponse(response.data.body, "GiantBomb"));
-				const errorValue = payload?.["error"];
-				if (typeof errorValue === "string" && errorValue && errorValue !== "OK") {
-					throw new Error(`GiantBomb API error: ${errorValue}`);
-				}
-				return payload;
-			});
-	});
+): Effect.Effect<UnknownRecord | null, unknown> =>
+	getApiKey(host).pipe(
+		Effect.flatMap((apiKey) => {
+			const search = new URLSearchParams({ api_key: apiKey, format: "json", ...params });
+			const url = `${BASE_URL}/${path}?${search.toString()}`;
+			return host.httpCall("GET", url, { headers: { Accept: "application/json" } }).pipe(
+				Effect.mapError((error) => new Error(error.message || failureMessage)),
+				Effect.map((response) => {
+					const payload = asRecord(parseJsonResponse(response.body, "GiantBomb"));
+					const errorValue = payload?.["error"];
+					if (typeof errorValue === "string" && errorValue && errorValue !== "OK") {
+						throw new Error(`GiantBomb API error: ${errorValue}`);
+					}
+					return payload;
+				}),
+			);
+		}),
+	);
 
 export const getPrioritizedImage = (image: unknown) => {
 	const record = asRecord(image);

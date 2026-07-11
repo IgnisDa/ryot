@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,12 +8,9 @@ import { details, manifest, search } from "./music-brainz.sandbox";
 type MusicBrainzGroupHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
-const httpFailure = () => Promise.resolve({ success: false as const, error: "not found" });
+const httpFailure = () => Effect.fail({ message: "not found" });
 
 const makeHost = (route: (url: string) => unknown) =>
 	defineSandboxTestHost(manifest, {
@@ -31,25 +29,23 @@ describe("music-group.music-brainz sandbox script", () => {
 			"release-groups": [{ id: "g1", title: "Album One" }, { title: "No Id" }],
 		}));
 
-		return runSandboxTestDriver(
-			search,
-			{ query: "album", page: 1, pageSize: 20 },
-			host,
-			execution,
-		).then((result) => {
-			expect(result.items).toEqual([
-				{
-					externalId: "g1",
-					calloutProperty: { kind: "null", value: null },
-					imageProperty: { kind: "null", value: null },
-					titleProperty: { kind: "text", value: "Album One" },
-					primarySubtitleProperty: { kind: "null", value: null },
-					secondarySubtitleProperty: { kind: "null", value: null },
-				},
-			]);
-			expect(result.details).toEqual({ totalItems: 1, nextPage: null });
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(search, { query: "album", page: 1, pageSize: 20 }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.items).toEqual([
+						{
+							externalId: "g1",
+							calloutProperty: { kind: "null", value: null },
+							imageProperty: { kind: "null", value: null },
+							titleProperty: { kind: "text", value: "Album One" },
+							primarySubtitleProperty: { kind: "null", value: null },
+							secondarySubtitleProperty: { kind: "null", value: null },
+						},
+					]);
+					expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				}),
+			),
+		);
 	});
 
 	it("emits ordered track members from the chosen release's recordings", () => {
@@ -86,36 +82,39 @@ describe("music-group.music-brainz sandbox script", () => {
 			};
 		});
 
-		return runSandboxTestDriver(details, { externalId: "g1" }, host, execution).then((result) => {
-			expect(result.name).toBe("Album One");
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "music-group-to-music",
-					entities: [
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "g1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("Album One");
+					expect(result.relatedEntityGroups).toEqual([
 						{
-							name: "Track One",
-							externalId: "r1",
-							scriptSlug: "music.music-brainz",
-							relationshipProperties: { order: 1 },
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "music-group-to-music",
+							entities: [
+								{
+									name: "Track One",
+									externalId: "r1",
+									scriptSlug: "music.music-brainz",
+									relationshipProperties: { order: 1 },
+								},
+								{
+									name: "Track Three",
+									externalId: "r3",
+									scriptSlug: "music.music-brainz",
+									relationshipProperties: { order: 3 },
+								},
+							],
 						},
-						{
-							name: "Track Three",
-							externalId: "r3",
-							scriptSlug: "music.music-brainz",
-							relationshipProperties: { order: 3 },
-						},
-					],
-				},
-			]);
-			expect(result.properties).toEqual({
-				parts: 3,
-				images: [],
-				description: "Album - Live - deluxe",
-				sourceUrl: "https://musicbrainz.org/release-group/g1",
-			});
-			return undefined;
-		});
+					]);
+					expect(result.properties).toEqual({
+						parts: 3,
+						images: [],
+						description: "Album - Live - deluxe",
+						sourceUrl: "https://musicbrainz.org/release-group/g1",
+					});
+				}),
+			),
+		);
 	});
 });

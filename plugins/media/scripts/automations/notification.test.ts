@@ -1,6 +1,7 @@
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import type { JsonValue } from "@ryot/sandbox-sdk/core";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { Effect } from "@ryot/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import definition, { manifest } from "./notification.sandbox";
@@ -94,19 +95,24 @@ it.each([
 	],
 ] as const)("formats %s exclusively from the signal snapshot", (slug, properties, expected) => {
 	const messages: string[] = [];
-	return runSandboxTestDriver(
-		definition.drivers.automation,
-		input(slug, properties),
-		defineSandboxTestHost(manifest, {
-			sendNotification: (message) => {
-				messages.push(message);
-				return Promise.resolve({ data: null, success: true });
-			},
-		}),
-		{ metadata: {}, sandboxScriptId: "script-1" },
-	).then((result) => {
-		expect(result).toEqual({ data: null, success: true });
-		expect(messages).toEqual([expected]);
-		return undefined;
-	});
+	return Effect.runPromise(
+		definition.drivers.automation
+			.run(
+				input(slug, properties),
+				defineSandboxTestHost(manifest, {
+					sendNotification: (message) => {
+						messages.push(message);
+						return Effect.succeed(null);
+					},
+				}),
+				{ metadata: {}, sandboxScriptId: "script-1" },
+			)
+			.pipe(
+				Effect.map((result) => {
+					expect(result).toBeNull();
+					expect(messages).toEqual([expected]);
+					return undefined;
+				}),
+			),
+	);
 });

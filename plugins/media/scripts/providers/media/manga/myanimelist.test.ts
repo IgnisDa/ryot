@@ -1,30 +1,20 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest } from "./myanimelist.sandbox";
 
 type MyAnimeListMangaHost = SandboxHost<typeof manifest.capabilities>;
-
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
-
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 const makeHost = (httpCall: MyAnimeListMangaHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Promise.resolve({ success: true as const, data: "client-id" }),
-		getUserPreferences: () =>
-			Promise.resolve({
-				success: true as const,
-				data: { isNsfw: false, disableIntegrations: false },
-			}),
+		getAppConfigValue: () => Effect.succeed("client-id"),
+		getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
 	});
-
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
-
 describe("manga.myanimelist sandbox script", () => {
 	it("keeps MAL recommendations as related entities", () => {
 		const host = makeHost(() =>
@@ -45,28 +35,31 @@ describe("manga.myanimelist sandbox script", () => {
 				related_manga: [{ node: { id: 4, title: "Related Manga" } }],
 			}),
 		);
-
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "media-suggestion",
-					entities: [
-						{ name: "Related Anime", externalId: "3", scriptSlug: "anime.myanimelist" },
-						{ name: "Related Manga", externalId: "4", scriptSlug: "manga.myanimelist" },
-						{ name: "Manga Pick", externalId: "2", scriptSlug: "manga.myanimelist" },
-					],
-				},
-			]);
-			expect(result.properties).toMatchObject({
-				volumes: 10,
-				chapters: 90,
-				isNsfw: false,
-				productionStatus: "Finished",
-				sourceUrl: "https://myanimelist.net/manga/1/Source",
-			});
-			return undefined;
-		});
+		return Effect.runPromise(
+			runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.relatedEntityGroups).toEqual([
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "media-suggestion",
+							entities: [
+								{ name: "Related Anime", externalId: "3", scriptSlug: "anime.myanimelist" },
+								{ name: "Related Manga", externalId: "4", scriptSlug: "manga.myanimelist" },
+								{ name: "Manga Pick", externalId: "2", scriptSlug: "manga.myanimelist" },
+							],
+						},
+					]);
+					expect(result.properties).toMatchObject({
+						volumes: 10,
+						chapters: 90,
+						isNsfw: false,
+						productionStatus: "Finished",
+						sourceUrl: "https://myanimelist.net/manga/1/Source",
+					});
+					return undefined;
+				}),
+			),
+		);
 	});
 });

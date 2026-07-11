@@ -3,12 +3,7 @@ import { Effect } from "effect";
 import { describe } from "vitest";
 
 import { bindSandboxHostFunctions } from "./bridge-adapter";
-import {
-	apiFailure,
-	apiSuccess,
-	type SandboxHostImplementationMap,
-	type SandboxRunInput,
-} from "./shared";
+import type { SandboxHostImplementationMap, SandboxRunInput } from "./shared";
 
 const input: SandboxRunInput = {
 	context: {},
@@ -26,39 +21,51 @@ const input: SandboxRunInput = {
 const makeImplementations = (
 	overrides: Partial<SandboxHostImplementationMap> = {},
 ): SandboxHostImplementationMap => ({
-	httpCall: () => Promise.resolve(apiFailure("unused")),
-	getEntity: () => Promise.resolve(apiFailure("unused")),
-	emitSignal: () => Promise.resolve(apiFailure("unused")),
-	listEvents: () => Promise.resolve(apiFailure("unused")),
-	createEvents: () => Promise.resolve(apiFailure("unused")),
-	getIntegration: () => Promise.resolve(apiFailure("unused")),
-	getCachedValue: () => Promise.resolve(apiFailure("unused")),
-	setCachedValue: () => Promise.resolve(apiFailure("unused")),
-	getEntitySchema: () => Promise.resolve(apiFailure("unused")),
-	listEventSchemas: () => Promise.resolve(apiFailure("unused")),
-	listIntegrations: () => Promise.resolve(apiFailure("unused")),
-	sendNotification: () => Promise.resolve(apiFailure("unused")),
-	claimCachedValue: () => Promise.resolve(apiFailure("unused")),
-	getAppConfigValue: () => Promise.resolve(apiFailure("unused")),
-	executeQueryEngine: () => Promise.resolve(apiFailure("unused")),
-	getUserPreferences: () => Promise.resolve(apiFailure("unused")),
+	httpCall: () => Effect.fail({ message: "unused" }),
+	getEntity: () => Effect.fail({ message: "unused" }),
+	emitSignal: () => Effect.fail({ message: "unused" }),
+	listEvents: () => Effect.fail({ message: "unused" }),
+	createEvents: () => Effect.fail({ message: "unused" }),
+	getIntegration: () => Effect.fail({ message: "unused" }),
+	getCachedValue: () => Effect.fail({ message: "unused" }),
+	setCachedValue: () => Effect.fail({ message: "unused" }),
+	getEntitySchema: () => Effect.fail({ message: "unused" }),
+	listEventSchemas: () => Effect.fail({ message: "unused" }),
+	listIntegrations: () => Effect.fail({ message: "unused" }),
+	sendNotification: () => Effect.fail({ message: "unused" }),
+	claimCachedValue: () => Effect.fail({ message: "unused" }),
+	getAppConfigValue: () => Effect.fail({ message: "unused" }),
+	executeQueryEngine: () => Effect.fail({ message: "unused" }),
+	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	...overrides,
 });
 
+const promiseImplementation: SandboxHostImplementationMap["getCachedValue"] = () =>
+	// @ts-expect-error implementation methods return Effects, not Promises.
+	Promise.resolve(null);
+void promiseImplementation;
+
 describe("bindSandboxHostFunctions", () => {
+	it.effect("keeps the bound bridge in Effect", () =>
+		Effect.gen(function* () {
+			const result = bindSandboxHostFunctions(makeImplementations(), input).getCachedValue(["key"]);
+			expect(Effect.isEffect(result)).toBe(true);
+			expect(result).not.toBeInstanceOf(Promise);
+			expect(yield* result).toEqual({ error: "unused", success: false });
+		}),
+	);
+
 	it.effect("decodes RPC arguments before calling a typed core implementation", () =>
 		Effect.gen(function* () {
 			const calls: unknown[] = [];
 			const implementations = makeImplementations({
 				setCachedValue: (runInput, key, value, expiry) => {
 					calls.push({ runInput, key, value, expiry });
-					return Promise.resolve(apiSuccess(null));
+					return Effect.succeed(null);
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
-			const result = yield* Effect.promise(() =>
-				bound.setCachedValue(["answer", { value: 42 }, 60]),
-			);
+			const result = yield* bound.setCachedValue(["answer", { value: 42 }, 60]);
 
 			expect(result).toEqual({ data: null, success: true });
 			expect(calls).toEqual([{ runInput: input, key: "answer", value: { value: 42 }, expiry: 60 }]);
@@ -71,19 +78,17 @@ describe("bindSandboxHostFunctions", () => {
 			const implementations = makeImplementations({
 				httpCall: () => {
 					calls += 1;
-					return Promise.resolve(apiFailure("unexpected"));
+					return Effect.fail({ message: "unexpected" });
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
-			const result = yield* Effect.promise(() =>
-				bound.httpCall(["POST", "https://example.com", { body: 42 }]),
-			);
+			const result = yield* bound.httpCall(["POST", "https://example.com", { body: 42 }]);
 
 			expect(result).toEqual({
 				success: false,
 				error: "httpCall options.body must be a string",
 			});
-			expect(yield* Effect.promise(() => bound.getUserPreferences(["unexpected"]))).toEqual({
+			expect(yield* bound.getUserPreferences(["unexpected"])).toEqual({
 				success: false,
 				error: "getUserPreferences received an invalid number of arguments",
 			});
@@ -94,11 +99,10 @@ describe("bindSandboxHostFunctions", () => {
 	it.effect("preserves HTTP status details from a typed implementation", () =>
 		Effect.gen(function* () {
 			const implementations = makeImplementations({
-				httpCall: () =>
-					Promise.resolve({ success: false, error: "HTTP 429", data: { status: 429 } }),
+				httpCall: () => Effect.fail({ message: "HTTP 429", data: { status: 429 } }),
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
-			const result = yield* Effect.promise(() => bound.httpCall(["GET", "https://example.com"]));
+			const result = yield* bound.httpCall(["GET", "https://example.com"]);
 
 			expect(result).toEqual({ success: false, error: "HTTP 429", data: { status: 429 } });
 		}),
@@ -110,48 +114,48 @@ describe("bindSandboxHostFunctions", () => {
 			const implementations = makeImplementations({
 				getEntity: (_runInput, entityId) => {
 					calls.push({ fnName: "getEntity", value: entityId });
-					return Promise.resolve(apiFailure("reached"));
+					return Effect.fail({ message: "reached" });
 				},
 				createEvents: (_runInput, items) => {
 					calls.push({ fnName: "createEvents", value: items });
-					return Promise.resolve(apiFailure("reached"));
+					return Effect.fail({ message: "reached" });
 				},
 				listIntegrations: (_runInput, options) => {
 					calls.push({ fnName: "listIntegrations", value: options });
-					return Promise.resolve(apiFailure("reached"));
+					return Effect.fail({ message: "reached" });
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
 
-			expect(yield* Effect.promise(() => bound.getEntity(["entity-1"]))).toEqual({
+			expect(yield* bound.getEntity(["entity-1"])).toEqual({
 				success: false,
 				error: "reached",
 			});
-			expect(yield* Effect.promise(() => bound.getEntity([42]))).toEqual({
+			expect(yield* bound.getEntity([42])).toEqual({
 				success: false,
 				error: "getEntity expects a non-empty entityId string",
 			});
 
 			expect(
-				yield* Effect.promise(() =>
-					bound.createEvents([
-						[{ entityId: "e-1", eventSchemaSlug: "es-1", properties: { watched: true } }],
-					]),
-				),
+				yield* bound.createEvents([
+					[{ entityId: "e-1", eventSchemaSlug: "es-1", properties: { watched: true } }],
+				]),
 			).toEqual({ error: "reached", success: false });
-			expect(yield* Effect.promise(() => bound.createEvents(["nope"]))).toEqual({
+			expect(yield* bound.createEvents(["nope"])).toEqual({
 				success: false,
 				error: "createEvents expects an array of event items",
 			});
 
-			expect(
-				yield* Effect.promise(() => bound.listIntegrations([{ provider: "plex_yank" }])),
-			).toEqual({ error: "reached", success: false });
-			expect(
-				yield* Effect.promise(() => bound.listIntegrations([{ provider: "not-real" }])),
-			).toEqual({ success: false, error: "listIntegrations received invalid options" });
+			expect(yield* bound.listIntegrations([{ provider: "plex_yank" }])).toEqual({
+				error: "reached",
+				success: false,
+			});
+			expect(yield* bound.listIntegrations([{ provider: "not-real" }])).toEqual({
+				success: false,
+				error: "listIntegrations received invalid options",
+			});
 
-			expect(yield* Effect.promise(() => bound.executeQueryEngine([() => undefined]))).toEqual({
+			expect(yield* bound.executeQueryEngine([() => undefined])).toEqual({
 				success: false,
 				error: "executeQueryEngine expects a JSON query document",
 			});
@@ -177,15 +181,17 @@ describe("bindSandboxHostFunctions", () => {
 					getIntegration: (runInput) => {
 						calls += 1;
 						receivedUserId = runInput.userId;
-						return Promise.resolve(apiFailure("reached"));
+						return Effect.fail({ message: "reached" });
 					},
 				});
 				const bound = bindSandboxHostFunctions(implementations, input);
 
-				yield* Effect.promise(() => bound.getIntegration(["integration-1"]));
-				const surplus = yield* Effect.promise(() =>
-					bound.getIntegration(["integration-1", "user-2", { userId: "user-2" }]),
-				);
+				yield* bound.getIntegration(["integration-1"]);
+				const surplus = yield* bound.getIntegration([
+					"integration-1",
+					"user-2",
+					{ userId: "user-2" },
+				]);
 
 				expect(surplus).toEqual({
 					success: false,
@@ -202,28 +208,26 @@ describe("bindSandboxHostFunctions", () => {
 			const implementations = makeImplementations({
 				emitSignal: () => {
 					calls += 1;
-					return Promise.resolve(apiFailure("unexpected"));
+					return Effect.fail({ message: "unexpected" });
 				},
 				sendNotification: () => {
 					calls += 1;
-					return Promise.resolve(apiFailure("unexpected"));
+					return Effect.fail({ message: "unexpected" });
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
 
 			expect(
-				yield* Effect.promise(() =>
-					bound.emitSignal([
-						{
-							discriminator: "review-1",
-							schemaSlug: "review.created",
-							recipientUserIds: ["user-2"],
-							properties: { message: "trace" },
-						},
-					]),
-				),
+				yield* bound.emitSignal([
+					{
+						discriminator: "review-1",
+						schemaSlug: "review.created",
+						recipientUserIds: ["user-2"],
+						properties: { message: "trace" },
+					},
+				]),
 			).toEqual({ success: false, error: "emitSignal expects a valid signal request" });
-			expect(yield* Effect.promise(() => bound.sendNotification(["   "]))).toEqual({
+			expect(yield* bound.sendNotification(["   "])).toEqual({
 				success: false,
 				error: "sendNotification expects a non-empty message string",
 			});
@@ -237,31 +241,32 @@ describe("bindSandboxHostFunctions", () => {
 			const implementations = makeImplementations({
 				httpCall: (_runInput, _method, _url, options) => {
 					calls.push({ fnName: "httpCall", value: options });
-					return Promise.resolve(apiFailure("reached"));
+					return Effect.fail({ message: "reached" });
 				},
 				listEvents: (_runInput, options) => {
 					calls.push({ fnName: "listEvents", value: options });
-					return Promise.resolve(apiFailure("reached"));
+					return Effect.fail({ message: "reached" });
 				},
 				listIntegrations: (_runInput, options) => {
 					calls.push({ fnName: "listIntegrations", value: options });
-					return Promise.resolve(apiFailure("reached"));
+					return Effect.fail({ message: "reached" });
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
 
-			expect(
-				yield* Effect.promise(() => bound.httpCall(["GET", "https://example.com", null])),
-			).toEqual({ error: "reached", success: false });
-			expect(yield* Effect.promise(() => bound.listEvents([null]))).toEqual({
+			expect(yield* bound.httpCall(["GET", "https://example.com", null])).toEqual({
+				error: "reached",
+				success: false,
+			});
+			expect(yield* bound.listEvents([null])).toEqual({
 				success: false,
 				error: "reached",
 			});
-			expect(yield* Effect.promise(() => bound.listIntegrations([null]))).toEqual({
+			expect(yield* bound.listIntegrations([null])).toEqual({
 				success: false,
 				error: "reached",
 			});
-			expect(yield* Effect.promise(() => bound.getAppConfigValue([null]))).toEqual({
+			expect(yield* bound.getAppConfigValue([null])).toEqual({
 				success: false,
 				error: "getAppConfigValue expects a non-empty key string",
 			});
@@ -279,34 +284,31 @@ describe("bindSandboxHostFunctions", () => {
 			const implementations = makeImplementations({
 				claimCachedValue: (_runInput, key, value, ttlSeconds) => {
 					calls.push({ fnName: "claimCachedValue", value: { key, ttlSeconds, value } });
-					return Promise.resolve(apiSuccess({ claimed: true }));
+					return Effect.succeed({ claimed: true as const });
 				},
 				getAppConfigValue: (_runInput, key) => {
 					calls.push({ fnName: "getAppConfigValue", value: key });
-					return Promise.resolve(apiSuccess("UTC"));
+					return Effect.succeed("UTC");
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
 
-			expect(
-				yield* Effect.promise(() => bound.claimCachedValue(["lock", { owner: "user-1" }, 60])),
-			).toEqual({ data: { claimed: true }, success: true });
-			expect(yield* Effect.promise(() => bound.getAppConfigValue(["timezone"]))).toEqual({
+			expect(yield* bound.claimCachedValue(["lock", { owner: "user-1" }, 60])).toEqual({
+				data: { claimed: true },
+				success: true,
+			});
+			expect(yield* bound.getAppConfigValue(["timezone"])).toEqual({
 				data: "UTC",
 				success: true,
 			});
-			expect(
-				yield* Effect.promise(() => bound.claimCachedValue(["lock", { owner: "user-1" }, 1.5])),
-			).toEqual({
+			expect(yield* bound.claimCachedValue(["lock", { owner: "user-1" }, 1.5])).toEqual({
 				success: false,
 				error: "claimCachedValue expects a positive integer ttlSeconds",
 			});
-			expect(yield* Effect.promise(() => bound.getAppConfigValue(["timezone", "surplus"]))).toEqual(
-				{
-					success: false,
-					error: "getAppConfigValue received an invalid number of arguments",
-				},
-			);
+			expect(yield* bound.getAppConfigValue(["timezone", "surplus"])).toEqual({
+				success: false,
+				error: "getAppConfigValue received an invalid number of arguments",
+			});
 			expect(calls).toEqual([
 				{
 					fnName: "claimCachedValue",

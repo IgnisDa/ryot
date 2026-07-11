@@ -1,5 +1,6 @@
 import { defineManifest } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../../script-helpers/records";
@@ -98,16 +99,12 @@ const buildPeople = (credits: unknown): RoleRelatedEntity[] => {
 	return [...relatedEntityByKey.values()];
 };
 
-const collectSuggestions = (
-	host: MetronHost,
-	sourceExternalId: string,
-	arcs: unknown,
-): Promise<SuggestionEntity[]> => {
+const collectSuggestions = (host: MetronHost, sourceExternalId: string, arcs: unknown) => {
 	const arcIds = (Array.isArray(arcs) ? arcs.slice(0, 3) : []).flatMap((arc) => {
 		const arcId = getIdentifier(asRecord(arc)?.["id"]);
 		return arcId ? [arcId] : [];
 	});
-	return Promise.all(
+	return Effect.all(
 		arcIds.map((arcId) =>
 			loadMetronJson(
 				host,
@@ -115,25 +112,27 @@ const collectSuggestions = (
 				"Metron arc issue list request failed",
 			),
 		),
-	).then((payloads) => {
-		const suggestionByKey = new Map<string, SuggestionEntity>();
-		for (const payload of payloads) {
-			const results = asRecord(payload)?.["results"];
-			for (const issue of Array.isArray(results) ? results : []) {
-				const record = asRecord(issue);
-				const externalId = getIdentifier(record?.["id"]);
-				if (!externalId || externalId === sourceExternalId) {
-					continue;
+	).pipe(
+		Effect.map((payloads) => {
+			const suggestionByKey = new Map<string, SuggestionEntity>();
+			for (const payload of payloads) {
+				const results = asRecord(payload)?.["results"];
+				for (const issue of Array.isArray(results) ? results : []) {
+					const record = asRecord(issue);
+					const externalId = getIdentifier(record?.["id"]);
+					if (!externalId || externalId === sourceExternalId) {
+						continue;
+					}
+					suggestionByKey.set(`comic-book.metron:${externalId}`, {
+						externalId,
+						scriptSlug: "comic-book.metron",
+						name: formatIssueTitle(asRecord(record?.["series"])?.["name"], record?.["number"]),
+					});
 				}
-				suggestionByKey.set(`comic-book.metron:${externalId}`, {
-					externalId,
-					scriptSlug: "comic-book.metron",
-					name: formatIssueTitle(asRecord(record?.["series"])?.["name"], record?.["number"]),
-				});
 			}
-		}
-		return [...suggestionByKey.values()];
-	});
+			return [...suggestionByKey.values()];
+		}),
+	);
 };
 
 export const search = defineProviderDriver(manifest, "search", (input, host) => {
@@ -146,55 +145,61 @@ export const search = defineProviderDriver(manifest, "search", (input, host) => 
 		host,
 		`https://metron.cloud/api/issue/?${params.toString()}`,
 		"Metron issue search request failed",
-	).then((payloadValue) => {
-		const payload = asRecord(payloadValue);
-		const count = numberValue(payload?.["count"]);
-		const totalItems = count === null ? 0 : Math.max(0, Math.trunc(count));
-		const results = payload?.["results"];
-		const items = (Array.isArray(results) ? results : [])
-			.flatMap((issue) => {
-				const record = asRecord(issue);
-				const externalId = getIdentifier(record?.["id"]);
-				if (!externalId) {
-					return [];
-				}
-				const image = stringValue(record?.["image"]);
-				const title = formatIssueTitle(asRecord(record?.["series"])?.["name"], record?.["number"]);
-				const publishYear = parsePublishYear(record?.["cover_date"]);
-				return [
-					{
-						externalId,
-						calloutProperty: { kind: "null" as const, value: null },
-						titleProperty: { kind: "text" as const, value: title },
-						secondarySubtitleProperty: { kind: "null" as const, value: null },
-						primarySubtitleProperty:
-							publishYear === null
-								? { kind: "null" as const, value: null }
-								: { kind: "number" as const, value: publishYear },
-						imageProperty:
-							image === null
-								? { kind: "null" as const, value: null }
-								: { kind: "image" as const, value: { type: "remote" as const, url: image } },
-					},
-				];
-			})
-			.slice(0, input.pageSize);
-		return {
-			items,
-			details: {
-				totalItems,
-				nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
-			},
-		};
-	});
+	).pipe(
+		Effect.map((payloadValue) => {
+			const payload = asRecord(payloadValue);
+			const count = numberValue(payload?.["count"]);
+			const totalItems = count === null ? 0 : Math.max(0, Math.trunc(count));
+			const results = payload?.["results"];
+			const items = (Array.isArray(results) ? results : [])
+				.flatMap((issue) => {
+					const record = asRecord(issue);
+					const externalId = getIdentifier(record?.["id"]);
+					if (!externalId) {
+						return [];
+					}
+					const image = stringValue(record?.["image"]);
+					const title = formatIssueTitle(
+						asRecord(record?.["series"])?.["name"],
+						record?.["number"],
+					);
+					const publishYear = parsePublishYear(record?.["cover_date"]);
+					return [
+						{
+							externalId,
+							calloutProperty: { kind: "null" as const, value: null },
+							titleProperty: { kind: "text" as const, value: title },
+							secondarySubtitleProperty: { kind: "null" as const, value: null },
+							primarySubtitleProperty:
+								publishYear === null
+									? { kind: "null" as const, value: null }
+									: { kind: "number" as const, value: publishYear },
+							imageProperty:
+								image === null
+									? { kind: "null" as const, value: null }
+									: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+						},
+					];
+				})
+				.slice(0, input.pageSize);
+			return {
+				items,
+				details: {
+					totalItems,
+					nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
+				},
+			};
+		}),
+	);
 });
 
 export const details = defineProviderDriver(manifest, "details", (input, host) =>
-	loadMetronJson(
-		host,
-		`https://metron.cloud/api/issue/${encodeURIComponent(input.externalId)}/`,
-		"Metron issue details request failed",
-	).then((payloadValue) => {
+	Effect.gen(function* () {
+		const payloadValue = yield* loadMetronJson(
+			host,
+			`https://metron.cloud/api/issue/${encodeURIComponent(input.externalId)}/`,
+			"Metron issue details request failed",
+		);
 		const payload = asRecord(payloadValue) ?? {};
 		const seriesRecord = asRecord(payload["series"]);
 		const title = formatIssueTitle(seriesRecord?.["name"], payload["number"]);
@@ -215,7 +220,8 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 			}
 		}
 
-		return collectSuggestions(host, input.externalId, payload["arcs"]).then((suggestions) => ({
+		const suggestions = yield* collectSuggestions(host, input.externalId, payload["arcs"]);
+		return {
 			name: title,
 			relatedEntityGroups: [
 				{
@@ -246,7 +252,7 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 				sourceUrl: `https://metron.cloud/issue/${input.externalId}`,
 				images: image ? [{ type: "remote" as const, url: image }] : [],
 			},
-		}));
+		};
 	}),
 );
 

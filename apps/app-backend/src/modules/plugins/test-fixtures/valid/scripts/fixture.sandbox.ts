@@ -1,5 +1,6 @@
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	capabilities: [],
@@ -9,4 +10,4 @@ export const manifest = defineManifest({
 	slug: "fixture.automation",
 });
 
-export default defineAutomation({ manifest, run: () => Promise.resolve(null) });
+export default defineAutomation({ manifest, run: () => Effect.succeed(null) });

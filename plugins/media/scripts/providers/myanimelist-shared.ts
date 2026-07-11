@@ -1,5 +1,6 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,
@@ -16,16 +17,16 @@ export type MyAnimeListHost = SandboxHost<
 const MAL_API_BASE_URL = "https://api.myanimelist.net/v2";
 
 export const getMalClientId = (host: MyAnimeListHost) =>
-	host.getAppConfigValue("animeAndManga.malClientId").then((response) => {
-		if (!response.success) {
-			throw new Error(response.error || "Could not load MyAnimeList client ID");
-		}
-		const clientId = typeof response.data === "string" ? response.data.trim() : "";
-		if (!clientId) {
-			throw new Error("ANIME_AND_MANGA_MAL_CLIENT_ID is not configured");
-		}
-		return clientId;
-	});
+	host.getAppConfigValue("animeAndManga.malClientId").pipe(
+		Effect.mapError((error) => new Error(error.message || "Could not load MyAnimeList client ID")),
+		Effect.map((value) => {
+			const clientId = typeof value === "string" ? value.trim() : "";
+			if (!clientId) {
+				throw new Error("ANIME_AND_MANGA_MAL_CLIENT_ID is not configured");
+			}
+			return clientId;
+		}),
+	);
 
 export const malGet = (
 	host: MyAnimeListHost,
@@ -38,12 +39,10 @@ export const malGet = (
 		.httpCall("GET", `${MAL_API_BASE_URL}${path}?${params.toString()}`, {
 			headers: { "X-MAL-CLIENT-ID": clientId },
 		})
-		.then((response) => {
-			if (!response.success) {
-				throw new Error(response.error || `MyAnimeList ${label} request failed`);
-			}
-			return parseJsonResponse(response.data.body, "MyAnimeList");
-		});
+		.pipe(
+			Effect.mapError((error) => new Error(error.message || `MyAnimeList ${label} request failed`)),
+			Effect.map((response) => parseJsonResponse(response.body, "MyAnimeList")),
+		);
 
 export const parsePublishYear = (startDate: unknown) => {
 	const value = stringValue(startDate);
@@ -129,63 +128,65 @@ export const searchMal = (
 	host: MyAnimeListHost,
 	input: ProviderSearchInput,
 	options: { readonly path: "anime" | "manga" },
-): Promise<ProviderSearchResult> =>
-	Promise.all([getMalClientId(host), getUserIsNsfw(host)]).then(([clientId, showNsfw]) => {
-		const params = new URLSearchParams({
-			q: input.query,
-			fields: "start_date,main_picture",
-			offset: String((input.page - 1) * input.pageSize),
-			limit: String(input.pageSize),
-		});
-		if (showNsfw) {
-			params.set("nsfw", "true");
-		}
-		return malGet(host, clientId, `/${options.path}`, params, `${options.path} search`).then(
-			(payloadValue) => {
-				const payload = asRecord(payloadValue);
-				const hasNextPage = stringValue(asRecord(payload?.["paging"])?.["next"]) !== null;
-				const data = payload?.["data"];
-				const items = (Array.isArray(data) ? data : []).flatMap((entry) => {
-					const node = asRecord(asRecord(entry)?.["node"]);
-					if (!node) {
-						return [];
-					}
-					const idValue = numberValue(node["id"]);
-					const nodeId = idValue === null ? null : Math.trunc(idValue);
-					if (nodeId === null || nodeId <= 0) {
-						return [];
-					}
-					const title = stringValue(node["title"]);
-					if (!title) {
-						return [];
-					}
-					const image = pickImage(node["main_picture"]);
-					const publishYear = parsePublishYear(node["start_date"]);
-					return [
-						{
-							externalId: String(nodeId),
-							titleProperty: { kind: "text" as const, value: title },
-							calloutProperty: { kind: "null" as const, value: null },
-							secondarySubtitleProperty: { kind: "null" as const, value: null },
-							primarySubtitleProperty:
-								publishYear === null
-									? { kind: "null" as const, value: null }
-									: { kind: "number" as const, value: publishYear },
-							imageProperty:
-								image === null
-									? { kind: "null" as const, value: null }
-									: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+): Effect.Effect<ProviderSearchResult, unknown> =>
+	Effect.all([getMalClientId(host), getUserIsNsfw(host)], { concurrency: "unbounded" }).pipe(
+		Effect.flatMap(([clientId, showNsfw]) => {
+			const params = new URLSearchParams({
+				q: input.query,
+				fields: "start_date,main_picture",
+				offset: String((input.page - 1) * input.pageSize),
+				limit: String(input.pageSize),
+			});
+			if (showNsfw) {
+				params.set("nsfw", "true");
+			}
+			return malGet(host, clientId, `/${options.path}`, params, `${options.path} search`).pipe(
+				Effect.map((payloadValue) => {
+					const payload = asRecord(payloadValue);
+					const hasNextPage = stringValue(asRecord(payload?.["paging"])?.["next"]) !== null;
+					const data = payload?.["data"];
+					const items = (Array.isArray(data) ? data : []).flatMap((entry) => {
+						const node = asRecord(asRecord(entry)?.["node"]);
+						if (!node) {
+							return [];
+						}
+						const idValue = numberValue(node["id"]);
+						const nodeId = idValue === null ? null : Math.trunc(idValue);
+						if (nodeId === null || nodeId <= 0) {
+							return [];
+						}
+						const title = stringValue(node["title"]);
+						if (!title) {
+							return [];
+						}
+						const image = pickImage(node["main_picture"]);
+						const publishYear = parsePublishYear(node["start_date"]);
+						return [
+							{
+								externalId: String(nodeId),
+								titleProperty: { kind: "text" as const, value: title },
+								calloutProperty: { kind: "null" as const, value: null },
+								secondarySubtitleProperty: { kind: "null" as const, value: null },
+								primarySubtitleProperty:
+									publishYear === null
+										? { kind: "null" as const, value: null }
+										: { kind: "number" as const, value: publishYear },
+								imageProperty:
+									image === null
+										? { kind: "null" as const, value: null }
+										: { kind: "image" as const, value: { type: "remote" as const, url: image } },
+							},
+						];
+					});
+					const minimumTotalItems = (input.page - 1) * input.pageSize + items.length;
+					return {
+						items,
+						details: {
+							nextPage: hasNextPage ? input.page + 1 : null,
+							totalItems: hasNextPage ? minimumTotalItems + 1 : minimumTotalItems,
 						},
-					];
-				});
-				const minimumTotalItems = (input.page - 1) * input.pageSize + items.length;
-				return {
-					items,
-					details: {
-						nextPage: hasNextPage ? input.page + 1 : null,
-						totalItems: hasNextPage ? minimumTotalItems + 1 : minimumTotalItems,
-					},
-				};
-			},
-		);
-	});
+					};
+				}),
+			);
+		}),
+	);

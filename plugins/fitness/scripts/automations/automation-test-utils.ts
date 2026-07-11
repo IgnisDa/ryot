@@ -10,6 +10,7 @@ import type {
 	IntegrationRecord,
 	JsonValue,
 } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
@@ -127,10 +128,9 @@ export const integrationRecord = (
 	...overrides,
 });
 
-export const hostSuccess = <Data>(data: Data) => Promise.resolve({ success: true as const, data });
+export const hostSuccess = <Data>(data: Data) => Effect.succeed(data);
 
-export const hostFailure = (message = "not found") =>
-	Promise.resolve({ error: message, success: false as const });
+export const hostFailure = (message = "not found") => Effect.fail({ message });
 
 export const httpSuccess = (body: JsonValue) =>
 	hostSuccess({
@@ -139,8 +139,7 @@ export const httpSuccess = (body: JsonValue) =>
 		body: typeof body === "string" ? body : JSON.stringify(body),
 	});
 
-export const httpFailure = (message = "request failed", status = 500) =>
-	Promise.resolve({ error: message, success: false as const, data: { status } });
+export const httpFailure = (message = "request failed", _status = 500) => Effect.fail({ message });
 
 export const toRecord = (value: unknown): Record<string, unknown> =>
 	isObjectRecord(value) ? value : Object.create(null);
