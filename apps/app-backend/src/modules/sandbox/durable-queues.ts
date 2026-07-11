@@ -2,7 +2,7 @@ import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Clock, DateTime, Effect, Schedule } from "effect";
-import { Activity, DurableQueue } from "effect/unstable/workflow";
+import { DurableQueue } from "effect/unstable/workflow";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
@@ -53,22 +53,6 @@ export const resolveSandboxExecutionPayload = Effect.fn("resolveSandboxExecution
 		return { ...payload, scriptId: activeScript.id };
 	},
 );
-
-export const makeSandboxExecutionResolutionActivity = (payload: SandboxExecutionPayload) =>
-	Activity.make({
-		error: SandboxRunError,
-		success: SandboxExecutionPayload,
-		name: `resolve-sandbox-execution-${payload.executionId}`,
-		execute: resolveSandboxExecutionPayload(payload, "active").pipe(
-			Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
-		),
-	});
-
-export const processSandboxExecution = (payload: SandboxExecutionPayload) =>
-	makeSandboxExecutionResolutionActivity(payload).pipe(
-		Effect.flatMap(processSandboxExecutionQueue),
-		Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
-	);
 
 export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(function* (
 	payload: SandboxExecutionPayload,

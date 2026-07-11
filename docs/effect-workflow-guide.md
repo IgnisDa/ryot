@@ -254,7 +254,7 @@ plugin-owned relationship mutations.
 |---|---|---|
 | `DurableClock.sleep({ name, duration, inMemoryThreshold? })` | Durable delays. | Sleeps `&le; inMemoryThreshold` (**default 60s**) run as a plain in-process `Activity.make` — they don't touch durable clock storage at all (`DurableClock.ts:91-96,108`). Tests force the durable path with `inMemoryThreshold: Duration.zero`. |
 | `DurableDeferred.make(name, { success?, error? })` + `.await`/`.token`/`.succeed`/`.fail` | Human-in-the-loop / wait-for-webhook. A workflow can hand out an opaque `Token` and suspend; an external, non-workflow caller (e.g. an HTTP handler) resolves it later. | `token`/`await` need `WorkflowInstance` (called from inside the workflow); `tokenFromExecutionId`/`tokenFromPayload` work from outside; `succeed`/`fail`/`done` only need `WorkflowEngine`, so they're callable from a plain route handler. |
-| `DurableQueue.make({ name, payload, idempotencyKey, success?, error? })` + `.process`/`.worker` | Fan work out to an out-of-band worker pool and suspend until it's done. | Built on Effect's unstable persistence queue layer plus a per-item `DurableDeferred`. **Calling `DurableQueue.process(...)` bare, directly in a workflow body, is the correct, intended usage** — it's a first-class durable primitive in its own right, not a bare side effect. This is the idiom used everywhere in this codebase for sandbox script dispatch (`SandboxExecutionQueue`), and it's correct every time it appears. |
+| `DurableQueue.make({ name, payload, idempotencyKey, success?, error? })` + `.process`/`.worker` | Fan work out to an out-of-band worker pool and suspend until it's done. | Built on Effect's unstable persistence queue layer plus a per-item `DurableDeferred`. **Calling `DurableQueue.process(...)` bare, directly in a workflow body, is the correct, intended usage** — it's a first-class durable primitive in its own right, not a bare side effect. `SandboxScriptWorkflow` uses this boundary for local replay execution; feature workflows compose the sandbox workflow rather than the queue. |
 | `DurableRateLimiter.rateLimit({ name, algorithm?, window, limit, key })` | Durably sleep out an imposed rate-limit delay instead of busy-waiting. | Returns an `Activity`; built on `@effect/experimental`'s `RateLimiter` + `DurableClock.sleep` internally. |
 | `WorkflowProxy` / `WorkflowProxyServer` | Expose workflows as RPC or `HttpApi` endpoints automatically. | Generates three endpoints per workflow: base (blocking execute), `${name}Discard`, `${name}Resume`. |
 
@@ -459,9 +459,8 @@ describe either as a "confirmed bug" the way #6294 is. `apps/app-backend` curren
 instances of either pattern**. Every child-workflow dispatch that used to run transitively from
 inside an `Activity.make` body has been refactored so the dispatch now happens from a workflow body:
 
-- The `EventCreateWorkflow` body evaluates event-create policies through
-  `DurableQueue.process(SandboxExecutionQueue)` and dispatches committed lifecycle occurrences to
-  automation subscriptions, all outside its write activities
+- The `EventCreateWorkflow` body evaluates event-create policies through `SandboxScriptWorkflow` and
+  dispatches committed lifecycle occurrences to automation subscriptions, all outside its write activities
   (`events/event-create-workflow-live.ts`).
 - The collection-added event is dispatched from `AddEntityToCollectionWorkflow`'s body, not from an
   `Activity.make` wrapper around `addToCollection` (`collections/add-entity-to-collection-workflow-live.ts:44`).
@@ -469,10 +468,10 @@ inside an `Activity.make` body has been refactored so the dispatch now happens f
   `IntegrationReconciliationWorkflow`'s body, replacing the reconciliation activity that dispatched
   them transitively (`integrations/reconciliation-workflow.ts:37-46`).
 
-`sandbox/workflow-boundaries.test.ts` pins these as source-text assertions (e.g. exactly one
-`.execute(EventCreateWorkflow, …)` and it lives in the add-to-collection workflow body, zero
-`.execute(SandboxSubmissionWorkflow, …)` in `event-creation.ts`), so a regression can't reintroduce a
-transitive dispatch silently.
+`sandbox/workflow-boundaries.test.ts` pins these as source-text assertions (for example, exactly one
+`.execute(EventCreateWorkflow, …)` in the add-to-collection workflow body and universal sandbox
+dispatch through `SandboxScriptWorkflow`), so a regression can't reintroduce a transitive dispatch
+silently.
 
 ### No versioning primitive of any kind
 
@@ -584,7 +583,7 @@ above:
 
 - **`EventCreateWorkflow`** (`events/event-create-workflow-live.ts`) — orchestrates event creation
   from its body: a `prepare-item` activity resolves scopes and ordered policies, policies run via
-  `DurableQueue.process(SandboxExecutionQueue)`, a `write-event` activity persists the row, the
+  `SandboxScriptWorkflow`, a `write-event` activity persists the row, the
   committed lifecycle occurrence dispatches matching `SubscriptionExecutionWorkflow` children,
   and media membership for referenced global entities is handled by an awaited media event policy.
 - **`EntityImportWorkflow`** (`entity-import/entity-import-workflow.ts`) — owns provider population
@@ -600,15 +599,15 @@ above:
   import workflow. `ProcessIntegrationRunWorkflow` similarly resolves an integration provider and
   awaits that plugin's import workflow; plugin workflows own source-specific resolution,
   population, and generic kernel-write composition.
-- **Cron owners** — `PluginCronService` (`scheduler/plugin-cron.ts`) awaits either the direct script
-  or durable workflow declared by each plugin manifest cron. `PluginBootService`
+- **Cron owners** — `PluginCronService` (`scheduler/plugin-cron.ts`) awaits the universal sandbox
+  workflow for each plugin manifest cron target. `PluginBootService`
   (`scheduler/plugin-boot.ts`) dispatches each manifest `boot` entry once per server start and
   awaits terminal completion. The native
   `IntegrationReconciliationWorkflow` (`integrations/reconciliation-workflow.ts`) remains a fan-out
   shell whose activity prepares eligible runs and whose body dispatches one
   `ProcessIntegrationRunWorkflow` child per run id.
 - **Pre-existing owners** unchanged by this structure: `ProviderEntityPopulationWorkflow`,
-  `TranslateEntityWorkflow`, `NotificationDeliveryWorkflow`, `SandboxSubmissionWorkflow` +
+  `TranslateEntityWorkflow`, `NotificationDeliveryWorkflow`, `SandboxScriptWorkflow` +
   `SandboxExecutionQueue`, `CreateDefaultSavedViewWorkflow`, `ProcessImportRunWorkflow`,
   `ProcessIntegrationRunWorkflow`.
 
@@ -640,9 +639,9 @@ above:
   than treating any list here as a current inventory. Compensation for durable business effects still
   belongs in an activity, never a finalizer.
 - **`workflow-boundaries.test.ts`** (`sandbox/workflow-boundaries.test.ts`) is a source-text
-  conformance test that pins the single-owner invariants: which files may execute
-  `SandboxSubmissionWorkflow` (and how many times), that workflow-owned sandbox callers use
-  `SandboxExecutionQueue` directly, that the collections service no longer references
+  conformance test that pins the single-owner invariants: sandbox dispatch uses
+  `SandboxScriptWorkflow`, only that workflow uses `SandboxExecutionQueue` for local replay,
+  the collections service no longer references
   `EventCreateWorkflow` while the add-to-collection workflow body is its one sanctioned dispatcher,
   and that import paths do not bypass their plugin workflow owners. It's a strong guard, but it
   matches call sites by source text — it checks *which module* dispatches *which* child and how

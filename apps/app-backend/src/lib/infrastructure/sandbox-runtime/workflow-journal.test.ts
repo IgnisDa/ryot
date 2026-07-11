@@ -6,7 +6,7 @@ import { Effect, Schema } from "effect";
 import { selectSandboxHostFunctions } from "./service";
 import type { SandboxRunInput } from "./shared";
 import {
-	makeWorkflowDurableCallsHostFunction,
+	makeWorkflowReplayJournalHostFunction,
 	projectWorkflowJournalWithRedis,
 } from "./workflow-journal";
 
@@ -46,7 +46,7 @@ const makeRedis = (entries: ReadonlyArray<string | null>) => {
 				hmget: (_key, ..._fields) => Promise.resolve([...entries]),
 				hget: (_key, _field) => Promise.resolve(String(entries.length)),
 			},
-		} satisfies Parameters<typeof makeWorkflowDurableCallsHostFunction>[1],
+		} satisfies Parameters<typeof makeWorkflowReplayJournalHostFunction>[1],
 	};
 };
 
@@ -57,13 +57,13 @@ it.effect("returns the full projected journal from one argument-free bootstrap c
 		journalEntry(first, { result: 1 }),
 		journalEntry(second, { result: 2 }),
 	]);
-	const durableCalls = makeWorkflowDurableCallsHostFunction(
+	const replayJournal = makeWorkflowReplayJournalHostFunction(
 		workflowInput.workflowExecutionId,
 		redis.service,
 	);
 
 	return Effect.gen(function* () {
-		expect(yield* durableCalls([])).toEqual({
+		expect(yield* replayJournal([])).toEqual({
 			success: true,
 			data: [
 				{ request: first, value: { result: 1 } },
@@ -75,15 +75,15 @@ it.effect("returns the full projected journal from one argument-free bootstrap c
 
 it.effect("rejects request-bearing calls instead of retaining the growing-prefix protocol", () => {
 	const redis = makeRedis([]);
-	const durableCalls = makeWorkflowDurableCallsHostFunction(
+	const replayJournal = makeWorkflowReplayJournalHostFunction(
 		workflowInput.workflowExecutionId,
 		redis.service,
 	);
 
 	return Effect.gen(function* () {
-		expect(yield* durableCalls([[request(0, "old-protocol")]])).toEqual({
+		expect(yield* replayJournal([[request(0, "old-protocol")]])).toEqual({
 			success: false,
-			error: "durableCalls does not accept arguments",
+			error: "replayJournal does not accept arguments",
 		});
 	});
 });
@@ -94,18 +94,18 @@ it.effect("rejects a projection high-water mark above the workflow call limit", 
 		hget: (_key: string, field: string) =>
 			Promise.resolve(field === "high-water" ? "1001" : "unused"),
 	};
-	const durableCalls = makeWorkflowDurableCallsHostFunction("bounded", { client });
+	const replayJournal = makeWorkflowReplayJournalHostFunction("bounded", { client });
 
 	return Effect.gen(function* () {
-		expect(yield* durableCalls([])).toEqual({
+		expect(yield* replayJournal([])).toEqual({
 			success: false,
 			error: "Sandbox workflow journal high-water mark is corrupt",
 		});
 	});
 });
 
-it("isolates workflow host calls while activities retain normal capabilities", () => {
-	const bound = { httpCall: unusedHostFunction, durableCalls: unusedHostFunction };
+it("isolates workflow replay bootstrap from script capabilities", () => {
+	const bound = { httpCall: unusedHostFunction, replayJournal: unusedHostFunction };
 	expect(
 		Object.keys(
 			selectSandboxHostFunctions(bound, {
@@ -114,22 +114,22 @@ it("isolates workflow host calls while activities retain normal capabilities", (
 				allowedHostFunctions: ["httpCall"],
 			}),
 		),
-	).toEqual(["durableCalls"]);
+	).toEqual(["replayJournal"]);
 	expect(
 		Object.keys(
 			selectSandboxHostFunctions(bound, {
 				metadata: { kind: "script" },
 				authority: { type: "system" },
-				allowedHostFunctions: ["durableCalls"],
+				allowedHostFunctions: ["replayJournal"],
 			}),
 		),
 	).toEqual([]);
 	expect(
 		Object.keys(
 			selectSandboxHostFunctions(bound, {
+				metadata: { kind: "script" },
 				authority: { type: "system" },
-				metadata: { kind: "activity" },
-				allowedHostFunctions: ["httpCall", "durableCalls"],
+				allowedHostFunctions: ["httpCall", "replayJournal"],
 			}),
 		),
 	).toEqual(["httpCall"]);
@@ -146,16 +146,16 @@ it.effect("rebuilds a deleted Redis projection from the durable journal", () => 
 			const writes: Array<() => void> = [];
 			return {
 				expire: () => undefined,
+				exec: () => {
+					writes.forEach((write) => write());
+					return Promise.resolve([]);
+				},
 				hset: (key: string, field: string, value: string) =>
 					writes.push(() => {
 						const fields = hashes.get(key) ?? new Map<string, string>();
 						fields.set(field, value);
 						hashes.set(key, fields);
 					}),
-				exec: () => {
-					writes.forEach((write) => write());
-					return Promise.resolve([]);
-				},
 			};
 		},
 	};
@@ -277,7 +277,7 @@ it.effect("hides an ahead projection until durable memos rebuild the journal aft
 			};
 		},
 	};
-	const durableCalls = makeWorkflowDurableCallsHostFunction("reconstructed", { client });
+	const replayJournal = makeWorkflowReplayJournalHostFunction("reconstructed", { client });
 	const rebuiltJournal = [
 		{ request: first, value: { result: 1 } },
 		{ request: second, value: { result: 2 } },
@@ -286,18 +286,18 @@ it.effect("hides an ahead projection until durable memos rebuild the journal aft
 	return Effect.gen(function* () {
 		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", []);
 		expect(fields.get("high-water")).toBe("0");
-		expect(yield* durableCalls([])).toEqual({ success: true, data: [] });
+		expect(yield* replayJournal([])).toEqual({ success: true, data: [] });
 		expect(hmgetCalls).toBe(0);
 
 		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", rebuiltJournal.slice(0, 1));
-		expect(yield* durableCalls([])).toEqual({
+		expect(yield* replayJournal([])).toEqual({
 			success: true,
 			data: [{ request: first, value: { result: 1 } }],
 		});
 		expect(hmgetCalls).toBe(2);
 
 		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", rebuiltJournal);
-		expect(yield* durableCalls([])).toEqual({
+		expect(yield* replayJournal([])).toEqual({
 			success: true,
 			data: [
 				{ request: first, value: { result: 1 } },

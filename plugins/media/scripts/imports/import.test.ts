@@ -1,5 +1,5 @@
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
-import type { WorkflowReplayEnvelope, WorkflowSandboxHost } from "@ryot/sandbox-sdk/workflow";
+import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot/sandbox-sdk/workflow";
 import { Effect } from "effect";
 import { assert, expect, it } from "vitest";
 
@@ -32,7 +32,7 @@ it("passes Netflix profile selection from source payload to its parser activity"
 	const envelope = await Effect.runPromise(
 		workflow.run(
 			{ runId: "run-netflix", source: "netflix", sourcePayload: { profileName: "Kids" } },
-			{ durableCalls: () => Effect.succeed([]) } satisfies WorkflowSandboxHost,
+			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
 	);
@@ -62,7 +62,7 @@ it("passes credentialed source payload fields to its parser activity", async () 
 					allowInsecureConnections: true,
 				},
 			},
-			{ durableCalls: () => Effect.succeed([]) } satisfies WorkflowSandboxHost,
+			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
 	);
@@ -93,7 +93,7 @@ it("selects optional MyAnimeList artifacts from source payload path identities",
 				source: "myanimelist",
 				sourcePayload: { mangaFilePath: "/tmp/manga.xml" },
 			},
-			{ durableCalls: () => Effect.succeed([]) } satisfies WorkflowSandboxHost,
+			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
 	);
@@ -125,7 +125,7 @@ it("marks adapter-only integration failures as failed kernel runs", async () => 
 		Effect.runPromise(
 			workflow.run(
 				input,
-				{ durableCalls: () => Effect.succeed(journal) } satisfies WorkflowSandboxHost,
+				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
 				{ metadata: {}, sandboxScriptId: "media-import" },
 			),
 		);
@@ -192,7 +192,7 @@ const driveWatcharrImport = (input: {
 		Effect.runPromise(
 			workflow.run(
 				{ runId: "run-1", source: "watcharr" },
-				{ durableCalls: () => Effect.succeed(journal) } satisfies WorkflowSandboxHost,
+				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
 				{ metadata: {}, sandboxScriptId: "media-import" },
 			),
 		).then((envelope) => {
@@ -238,7 +238,7 @@ it("fails the workflow rather than dying when a source payload is incomplete", a
 	const envelope = await Effect.runPromise(
 		workflow.run(
 			{ runId: "run-igdb", source: "igdb", sourcePayload: { collection: "  " } },
-			{ durableCalls: () => Effect.succeed([]) } satisfies WorkflowSandboxHost,
+			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 			{ metadata: {}, sandboxScriptId: "media-import" },
 		),
 	);
