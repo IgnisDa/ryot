@@ -157,10 +157,9 @@ reuse one worker session, not spawn per script.
 
 Boot flow: kernel definitions + `plugins/media` + `plugins/fitness` ingested before the
 server accepts traffic (replacing `SeedService` in `app/layers.ts`'s
-after-migrations slot). Build-time precompilation (the existing `generated-sandbox` registry
-mechanism) survives only as a cache feeding step 5's short-circuit — **[IMPLEMENTER-DECIDES]**
-whether to keep it or accept compile-on-first-boot; measure boot time before choosing the
-extra machinery.
+after-migrations slot). Phase 2 considered retaining build-time precompilation as a cache feeding
+step 5's short-circuit or accepting compile-on-first-boot, with boot-time measurement deciding
+whether the extra machinery was justified.
 
 **Implementation choice (2026-07-23):** compile on first boot, then use the persisted
 `sourceHash` short-circuit on subsequent boots. The later single-entrypoint split increased the
