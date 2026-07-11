@@ -56,38 +56,46 @@ export class ImportRunArtifacts extends Effect.Service<ImportRunArtifacts>()("Im
 export const createImportRunLifecycle = (
 	payload: Pick<ImportRunJobData, "runId" | "sourcePayloadKey">,
 ) => {
-	const cleanupArtifacts = (name: string, paths: ReadonlyArray<string>) =>
-		Activity.make({
+	const cleanupArtifacts = (name: string, paths: ReadonlyArray<string>) => {
+		const cleanupEffect = Effect.gen(function* () {
+			const artifacts = yield* ImportRunArtifacts;
+			yield* artifacts.cleanupArtifacts({
+				cleanupPaths: paths,
+				runId: payload.runId,
+				sourcePayloadKey: payload.sourcePayloadKey,
+			});
+		}).pipe(Effect.mapError(toWorkflowError));
+		return Activity.make({
 			name,
 			error: ImportRunError,
-			execute: Effect.gen(function* () {
-				const artifacts = yield* ImportRunArtifacts;
-				yield* artifacts.cleanupArtifacts({
-					cleanupPaths: paths,
-					runId: payload.runId,
-					sourcePayloadKey: payload.sourcePayloadKey,
-				});
-			}).pipe(Effect.mapError(toWorkflowError)),
+			execute: cleanupEffect,
 		});
-	const cleanupArtifactsBestEffort = (name: string, paths: ReadonlyArray<string>) =>
-		Activity.make({
+	};
+	const cleanupArtifactsBestEffort = (name: string, paths: ReadonlyArray<string>) => {
+		const cleanupBestEffortEffect = Effect.gen(function* () {
+			const artifacts = yield* ImportRunArtifacts;
+			yield* artifacts.cleanupArtifacts({
+				cleanupPaths: paths,
+				runId: payload.runId,
+				sourcePayloadKey: payload.sourcePayloadKey,
+			});
+		}).pipe(Effect.catchAll(() => Effect.void));
+		return Activity.make({
 			name,
-			execute: Effect.gen(function* () {
-				const artifacts = yield* ImportRunArtifacts;
-				yield* artifacts.cleanupArtifacts({
-					cleanupPaths: paths,
-					runId: payload.runId,
-					sourcePayloadKey: payload.sourcePayloadKey,
-				});
-			}).pipe(Effect.catchAll(() => Effect.void)),
+			execute: cleanupBestEffortEffect,
 		});
+	};
 
-	const markRunFailed = (name: string, message: string) =>
-		Activity.make({
+	const markRunFailed = (name: string, message: string) => {
+		const markFailedEffect = failImportRun(payload.runId, message).pipe(
+			Effect.mapError(toWorkflowError),
+		);
+		return Activity.make({
 			name,
 			error: ImportRunError,
-			execute: failImportRun(payload.runId, message).pipe(Effect.mapError(toWorkflowError)),
+			execute: markFailedEffect,
 		});
+	};
 
 	const failRunAndCleanup = Effect.fn(function* (input: {
 		message: string;

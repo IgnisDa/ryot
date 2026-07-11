@@ -1,4 +1,4 @@
-import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
+import { SandboxRunError, dieOnDbError, mapDbErrorToSandbox } from "@ryot/contract/errors";
 import type { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import type {
 	ProviderDetailsRelatedEntity,
@@ -26,7 +26,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 
 	const relationshipSchema = yield* runWithDb(
 		relationshipSchemasRepository.findBuiltinBySlug(input.group.relationshipSchemaSlug),
-	).pipe(dieOnDbError);
+	).pipe(mapDbErrorToSandbox);
 	if (!relationshipSchema) {
 		return yield* new SandboxRunError({
 			message: `Relationship schema not found: ${input.group.relationshipSchemaSlug}`,
@@ -45,7 +45,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	for (const relatedEntity of uniqueRelatedEntities.values()) {
 		const schemaProvider = yield* runWithDb(
 			repository.findEntitySchemaProviderBySlug(relatedEntity.providerSlug),
-		).pipe(dieOnDbError);
+		).pipe(mapDbErrorToSandbox);
 		if (!schemaProvider) {
 			continue;
 		}
@@ -59,10 +59,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 				providerId: schemaProvider.providerId,
 				entitySchemaSlug: schemaProvider.entitySchemaSlug,
 			})
-			.pipe(
-				dieOnDbError,
-				Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-			);
+			.pipe(mapDbErrorToSandbox);
 
 		const sourceSchemaId =
 			input.group.direction === "outgoing"

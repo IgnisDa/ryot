@@ -49,36 +49,37 @@ const loadNormalizedAdapterResult = (runId: string) =>
 const recordMediaAdapterFailures = (
 	payload: Pick<ImportRunJobData, "runId">,
 	failures: MediaImportAdapterResult["failures"],
-) =>
-	Effect.forEach(
-		failures,
-		(failure, index) =>
-			Activity.make({
-				error: ImportRunError,
-				name: `record-adapter-failure-${index}`,
-				execute: recordImportRunFailure({
-					runId: payload.runId,
-					message: failure.message,
-					itemIndex: failure.itemIndex,
-					context: failure.context ?? null,
-					sourceLabel: failure.sourceLabel,
-					sourceIdentifier: failure.sourceIdentifier,
-					stage: failure.stage ?? "input_transformation",
-				}).pipe(Effect.mapError(toWorkflowError)),
-			}),
-		{ discard: true },
-	);
+) => {
+	const recordFailure = (failure: MediaImportAdapterResult["failures"][0], index: number) => {
+		const recordFailureEffect = recordImportRunFailure({
+			runId: payload.runId,
+			message: failure.message,
+			itemIndex: failure.itemIndex,
+			context: failure.context ?? null,
+			sourceLabel: failure.sourceLabel,
+			sourceIdentifier: failure.sourceIdentifier,
+			stage: failure.stage ?? "input_transformation",
+		}).pipe(Effect.mapError(toWorkflowError));
+		return Activity.make({
+			error: ImportRunError,
+			name: `record-adapter-failure-${index}`,
+			execute: recordFailureEffect,
+		});
+	};
+	return Effect.forEach(failures, recordFailure, { discard: true });
+};
 
 const recordMediaTotalItems = (payload: Pick<ImportRunJobData, "runId">, totalItems: number) =>
 	Effect.gen(function* () {
 		const imports = yield* ImportsService;
+		const updateTotalItems = imports
+			.update({ runId: payload.runId, totalItems })
+			.pipe(Effect.mapError(toWorkflowError));
 
 		yield* Activity.make({
 			error: ImportRunError,
 			name: "record-total-items",
-			execute: imports
-				.update({ runId: payload.runId, totalItems })
-				.pipe(Effect.mapError(toWorkflowError)),
+			execute: updateTotalItems,
 		});
 	});
 
@@ -118,21 +119,22 @@ const finalizeMediaImportRun = (input: {
 	Effect.gen(function* () {
 		const imports = yield* ImportsService;
 		const finishedAt = yield* DateTime.nowAsDate;
+		const updateRun = imports
+			.update({
+				finishedAt,
+				progress: 100,
+				status: "completed",
+				runId: input.payload.runId,
+				failedItems: input.failedItems,
+				importedItems: input.importedItems,
+				processedItems: input.processedItems,
+			})
+			.pipe(Effect.mapError(toWorkflowError));
 
 		yield* Activity.make({
 			error: ImportRunError,
 			name: "finalize-import-run",
-			execute: imports
-				.update({
-					finishedAt,
-					progress: 100,
-					status: "completed",
-					runId: input.payload.runId,
-					failedItems: input.failedItems,
-					importedItems: input.importedItems,
-					processedItems: input.processedItems,
-				})
-				.pipe(Effect.mapError(toWorkflowError)),
+			execute: updateRun,
 		});
 	});
 

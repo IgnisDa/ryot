@@ -1,4 +1,4 @@
-import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
+import { SandboxRunError, mapDbErrorToSandbox } from "@ryot/contract/errors";
 import type {
 	EntityId,
 	RelationshipId,
@@ -49,7 +49,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 				anchorEntityId: input.anchorEntityId,
 				relationshipSchemaSlug: input.relationshipSchemaSlug,
 			}),
-		).pipe(dieOnDbError);
+		).pipe(mapDbErrorToSandbox);
 		const sortedExisting = [...existing].sort(
 			(left, right) =>
 				left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
@@ -71,7 +71,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 		}
 		const endpoints = yield* runWithDb(
 			entitiesRepository.listEntityReferencesByIds([...endpointIds]),
-		).pipe(dieOnDbError);
+		).pipe(mapDbErrorToSandbox);
 		const endpointsById = new Map(endpoints.map((endpoint) => [endpoint.id, endpoint]));
 
 		const toSnapshot = Effect.fn("toRelationshipMutationSnapshot")(function* (
@@ -117,16 +117,18 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 					continue;
 				}
 
-				const updated = yield* relationships
+				const updateRelationship = relationships
 					.update(relationshipInput)
 					.pipe(Effect.mapError(toSandboxRunError));
+				const updated = yield* updateRelationship;
 				outcomes.push({ before, after: yield* toSnapshot(updated), operation: "update" });
 				continue;
 			}
 
-			const created = yield* relationships
+			const createRelationship = relationships
 				.create(relationshipInput)
 				.pipe(Effect.mapError(toSandboxRunError));
+			const created = yield* createRelationship;
 			const createdSnapshot = yield* toSnapshot(created);
 			if (created.wasInserted) {
 				outcomes.push({ before: null, after: createdSnapshot, operation: "create" });
@@ -140,9 +142,10 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 				continue;
 			}
 
-			const updated = yield* relationships
+			const updateCreatedRelationship = relationships
 				.update(relationshipInput)
 				.pipe(Effect.mapError(toSandboxRunError));
+			const updated = yield* updateCreatedRelationship;
 			outcomes.push({
 				operation: "update",
 				before: createdSnapshot,
@@ -160,7 +163,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 					continue;
 				}
 
-				const deleted = yield* relationships
+				const deleteRelationship = relationships
 					.delete({
 						scope: "global",
 						sourceEntityId: relationship.sourceEntityId,
@@ -168,6 +171,7 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
 					})
 					.pipe(Effect.mapError(toSandboxRunError));
+				const deleted = yield* deleteRelationship;
 				if (!deleted) {
 					return yield* new SandboxRunError({
 						message: `Relationship disappeared during synchronization: ${relationship.id}`,

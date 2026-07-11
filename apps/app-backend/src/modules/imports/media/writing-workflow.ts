@@ -49,14 +49,15 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 	const collectionIdsByName = new Map<string, EntityId>();
 	const eventSchemaSlugsByKey = new Map<string, EventSchemaSlug>();
 	const entitySchemaSlugsBySlug = new Map<string, EntitySchemaSlug>();
+	const captureOwnershipSyncedAt = DateTime.nowAsDate.pipe(
+		Effect.map((date) => date.toISOString()),
+		Effect.mapError(toWorkflowError),
+	);
 	const ownershipSyncedAt = yield* Activity.make({
 		error: ImportRunError,
 		success: Schema.String,
 		name: "capture-ownership-synced-at",
-		execute: DateTime.nowAsDate.pipe(
-			Effect.map((date) => date.toISOString()),
-			Effect.mapError(toWorkflowError),
-		),
+		execute: captureOwnershipSyncedAt,
 	});
 
 	const getEntitySchemaSlug = (schemaSlug: string) =>
@@ -66,14 +67,15 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 				return cached;
 			}
 
+			const loadEntitySchema = runWithDb(entitySchemas.getBuiltinBySlug(schemaSlug)).pipe(
+				Effect.map((found) => found?.id ?? null),
+				Effect.mapError(toWorkflowError),
+			);
 			const loadedSlug = yield* Activity.make({
 				error: ImportRunError,
 				success: Schema.NullOr(EntitySchemaSlug),
 				name: `load-entity-schema-${activityKey(schemaSlug)}`,
-				execute: runWithDb(entitySchemas.getBuiltinBySlug(schemaSlug)).pipe(
-					Effect.map((found) => found?.id ?? null),
-					Effect.mapError(toWorkflowError),
-				),
+				execute: loadEntitySchema,
 			});
 			if (loadedSlug) {
 				entitySchemaSlugsBySlug.set(schemaSlug, loadedSlug);
@@ -89,14 +91,17 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 				return cached;
 			}
 
+			const getOrCreateColl = collections
+				.getOrCreateCollection(input.payload.userId, collectionName)
+				.pipe(
+					Effect.map((collection) => collection.id),
+					Effect.mapError(toWorkflowError),
+				);
 			const collectionId = yield* Activity.make({
 				success: EntityId,
 				error: ImportRunError,
 				name: `get-or-create-collection-${activityKey(collectionName)}`,
-				execute: collections.getOrCreateCollection(input.payload.userId, collectionName).pipe(
-					Effect.map((collection) => collection.id),
-					Effect.mapError(toWorkflowError),
-				),
+				execute: getOrCreateColl,
 			});
 			collectionIdsByName.set(collectionName, collectionId);
 			return collectionId;
@@ -110,16 +115,17 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 				return cached;
 			}
 
+			const loadEventSchema = runWithDb(
+				eventSchemas.getBuiltinBySlug({ entitySchemaSlug, slug: eventSlug }),
+			).pipe(
+				Effect.map((found) => found?.id ?? null),
+				Effect.mapError(toWorkflowError),
+			);
 			const loadedSlug = yield* Activity.make({
 				error: ImportRunError,
 				success: Schema.NullOr(EventSchemaSlug),
 				name: `load-event-schema-${activityKey(schemaKey)}`,
-				execute: runWithDb(
-					eventSchemas.getBuiltinBySlug({ entitySchemaSlug, slug: eventSlug }),
-				).pipe(
-					Effect.map((found) => found?.id ?? null),
-					Effect.mapError(toWorkflowError),
-				),
+				execute: loadEventSchema,
 			});
 			if (loadedSlug) {
 				eventSchemaSlugsByKey.set(schemaKey, loadedSlug);
@@ -310,20 +316,21 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 				return false;
 			}
 
+			const markLibraryOwnership = collections
+				.markEntityOwnedInLibrary({
+					syncedAt: ownershipSyncedAt,
+					entityId: writeInput.entityId,
+					userId: input.payload.userId,
+					provider: writeInput.group.ownershipProvider,
+				})
+				.pipe(
+					Effect.as({ message: null }),
+					Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
+				);
 			const ownershipResult = yield* Activity.make({
 				name: `mark-library-ownership-${writeInput.groupIndex}`,
 				success: WriteOutcome,
-				execute: collections
-					.markEntityOwnedInLibrary({
-						syncedAt: ownershipSyncedAt,
-						entityId: writeInput.entityId,
-						userId: input.payload.userId,
-						provider: writeInput.group.ownershipProvider,
-					})
-					.pipe(
-						Effect.as({ message: null }),
-						Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
-					),
+				execute: markLibraryOwnership,
 			});
 			if (!ownershipResult.message) {
 				return false;

@@ -197,27 +197,29 @@ export const resolveMediaEntityGroupsWithPlugin = Effect.fn("resolveMediaEntityG
 			(typeof MediaImportResolutionWorkflowOutput.Type)["results"][number]
 		>();
 		if (chunks.length > 0) {
-			const scriptId = yield* sandbox
+			const resolveResolutionScript = sandbox
 				.resolveWorkflowScript({
 					pluginSlug: "media",
 					workflowSlug: "media-import-resolution",
 					executionId: `${input.executionId}-resolution`,
 				})
 				.pipe(Effect.mapError(toWorkflowError));
+			const scriptId = yield* resolveResolutionScript;
+			const executeResolutionChunk = (chunk: (typeof chunks)[0], chunkIndex: number) =>
+				sandbox
+					.executeWorkflow({
+						scriptId,
+						authority: { type: "user", userId: input.payload.userId },
+						input: { items: chunk.items.map(({ json }) => json) },
+						executionId: `${input.executionId}-resolution-chunk-${chunkIndex}`,
+					})
+					.pipe(
+						Effect.flatMap(Schema.decodeUnknown(MediaImportResolutionWorkflowOutput)),
+						Effect.mapError(toWorkflowError),
+					);
 			const outputs = yield* Effect.forEach(
 				chunks,
-				(chunk, chunkIndex) =>
-					sandbox
-						.executeWorkflow({
-							scriptId,
-							authority: { type: "user", userId: input.payload.userId },
-							input: { items: chunk.items.map(({ json }) => json) },
-							executionId: `${input.executionId}-resolution-chunk-${chunkIndex}`,
-						})
-						.pipe(
-							Effect.flatMap(Schema.decodeUnknown(MediaImportResolutionWorkflowOutput)),
-							Effect.mapError(toWorkflowError),
-						),
+				(chunk, chunkIndex) => executeResolutionChunk(chunk, chunkIndex),
 				{ concurrency: config.sandbox.workerConcurrency },
 			);
 			for (const [chunkIndex, chunk] of chunks.entries()) {
@@ -382,27 +384,29 @@ export const populateMediaEntityGroupsWithPlugin = Effect.fn("populateMediaEntit
 			(typeof MediaImportPopulationWorkflowOutput.Type)["results"][number]
 		>();
 		if (chunks.length > 0) {
-			const scriptId = yield* sandbox
+			const resolvePopulationScript = sandbox
 				.resolveWorkflowScript({
 					pluginSlug: "media",
 					workflowSlug: "media-import-population",
 					executionId: `${input.executionId}-population`,
 				})
 				.pipe(Effect.mapError(toWorkflowError));
+			const scriptId = yield* resolvePopulationScript;
+			const executePopulationChunk = (chunk: (typeof chunks)[0], chunkIndex: number) =>
+				sandbox
+					.executeWorkflow({
+						scriptId,
+						authority: { type: "user", userId: input.payload.userId },
+						input: { items: chunk.items.map(({ json }) => json) },
+						executionId: `${input.executionId}-population-chunk-${chunkIndex}`,
+					})
+					.pipe(
+						Effect.flatMap(Schema.decodeUnknown(MediaImportPopulationWorkflowOutput)),
+						Effect.mapError(toWorkflowError),
+					);
 			const outputs = yield* Effect.forEach(
 				chunks,
-				(chunk, chunkIndex) =>
-					sandbox
-						.executeWorkflow({
-							scriptId,
-							authority: { type: "user", userId: input.payload.userId },
-							input: { items: chunk.items.map(({ json }) => json) },
-							executionId: `${input.executionId}-population-chunk-${chunkIndex}`,
-						})
-						.pipe(
-							Effect.flatMap(Schema.decodeUnknown(MediaImportPopulationWorkflowOutput)),
-							Effect.mapError(toWorkflowError),
-						),
+				(chunk, chunkIndex) => executePopulationChunk(chunk, chunkIndex),
 				{ concurrency: config.sandbox.workerConcurrency },
 			);
 			for (const [chunkIndex, chunk] of chunks.entries()) {
