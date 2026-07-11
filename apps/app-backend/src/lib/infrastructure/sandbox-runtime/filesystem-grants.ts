@@ -21,6 +21,7 @@ export const isSandboxFilesystemGrantCapability = (capability: string) =>
 export type SandboxProcessGrants = {
 	readonly artifactPath?: string;
 	readonly scratchDirectory?: string;
+	readonly namedArtifactPaths?: Readonly<Record<string, string>>;
 };
 
 export const declaresSandboxFilesystemGrant = (
@@ -35,6 +36,12 @@ export const sandboxArtifactGrantPath = (
 	suppliedPath: string | undefined,
 ) =>
 	declaresSandboxFilesystemGrant(allowedHostFunctions, "artifact-read") ? suppliedPath : undefined;
+
+export const sandboxNamedArtifactGrantPaths = (
+	allowedHostFunctions: readonly string[],
+	suppliedPaths: Readonly<Record<string, string>> | undefined,
+) =>
+	declaresSandboxFilesystemGrant(allowedHostFunctions, "artifact-read") ? suppliedPaths : undefined;
 
 export const sandboxGrantPathError = (
 	path: Path.Path,
@@ -137,5 +144,21 @@ export const harvestSandboxScratchChunks = Effect.fn("sandbox.harvestScratchChun
 		}
 
 		return chunkPaths;
+	},
+);
+
+export const removeSandboxHarvestDirectories = Effect.fn("sandbox.removeHarvestDirectories")(
+	function* (input: { readonly harvestRoot: string; readonly executionPrefix: string }) {
+		const path = yield* Path.Path;
+		const fs = yield* FileSystem.FileSystem;
+		if (!(yield* fs.exists(input.harvestRoot))) {
+			return;
+		}
+		const prefix = sanitizeSandboxExecutionSegment(input.executionPrefix);
+		for (const entry of yield* fs.readDirectory(input.harvestRoot)) {
+			if (entry.startsWith(prefix)) {
+				yield* fs.remove(path.join(input.harvestRoot, entry), { force: true, recursive: true });
+			}
+		}
 	},
 );

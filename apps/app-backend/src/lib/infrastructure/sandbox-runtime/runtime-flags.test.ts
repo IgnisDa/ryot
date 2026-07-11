@@ -43,6 +43,22 @@ describe("sandbox deno flag assembly", () => {
 		expect(flags.filter((flag) => flag.startsWith("--allow-write"))).toEqual([]);
 	});
 
+	it("extends the read list with every named artifact path", () => {
+		const flags = sandboxDenoRunFlags({
+			...base,
+			grants: {
+				namedArtifactPaths: {
+					historyFilePath: "/tmp/history.csv",
+					ratingsFilePath: "/tmp/ratings.csv",
+				},
+			},
+		});
+
+		expect(flags).toContain(
+			"--allow-read=/tmp/ryot-runner/runner.mjs,/tmp/ryot-runtime,/tmp/history.csv,/tmp/ratings.csv",
+		);
+	});
+
 	it("replaces the blanket write denial with a scratch-scoped write and read grant", () => {
 		const flags = sandboxDenoRunFlags({ ...base, grants: { scratchDirectory } });
 

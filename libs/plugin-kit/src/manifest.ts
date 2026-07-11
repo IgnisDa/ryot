@@ -221,15 +221,44 @@ export const PluginIntegrationProvider = Schema.Union(
 
 export type PluginIntegrationProvider = Schema.Schema.Type<typeof PluginIntegrationProvider>;
 
-export const PluginImportSource = strictStruct({
+const PluginImportSourceFields = {
 	slug: sandboxManifestSlug,
 	name: sandboxManifestString,
 	workflowSlug: sandboxManifestSlug,
 	description: sandboxManifestString,
-	input: Schema.Literal("file", "payload"),
-	allowedFileExtensions: Schema.Array(sandboxManifestString),
 	requiredAppConfigKeys: Schema.Array(sandboxManifestString),
+};
+
+const PluginNamedImportArtifact = strictStruct({
+	key: sandboxManifestString,
+	required: Schema.Boolean,
+	uploadTokenField: sandboxManifestString,
+	allowedFileExtensions: Schema.Array(sandboxManifestString),
 });
+
+export const PluginImportSource = Schema.Union(
+	strictStruct({ ...PluginImportSourceFields, input: Schema.Literal("payload") }),
+	strictStruct({
+		...PluginImportSourceFields,
+		lot: Schema.Literal("single"),
+		input: Schema.Literal("file"),
+		allowedFileExtensions: Schema.Array(sandboxManifestString),
+	}),
+	strictStruct({
+		...PluginImportSourceFields,
+		lot: Schema.Literal("named"),
+		input: Schema.Literal("file"),
+		artifacts: Schema.Array(PluginNamedImportArtifact),
+	}).pipe(
+		Schema.filter(
+			({ artifacts }) =>
+				artifacts.length > 0 &&
+				new Set(artifacts.map(({ key }) => key)).size === artifacts.length &&
+				new Set(artifacts.map(({ uploadTokenField }) => uploadTokenField)).size ===
+					artifacts.length,
+		),
+	),
+);
 
 export type PluginImportSource = Schema.Schema.Type<typeof PluginImportSource>;
 

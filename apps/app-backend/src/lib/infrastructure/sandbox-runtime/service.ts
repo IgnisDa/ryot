@@ -25,6 +25,7 @@ import {
 	SANDBOX_HARVEST_DIRECTORY_PREFIX,
 	sanitizeSandboxExecutionSegment,
 	sandboxArtifactGrantPath,
+	sandboxNamedArtifactGrantPaths,
 	sandboxGrantPathError,
 	type SandboxProcessGrants,
 } from "./filesystem-grants";
@@ -64,6 +65,8 @@ const sessionTtlBufferMs = 2_000;
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const invalidResponseMessage = "Invalid JSON response from Deno process";
+type BunRequestInit = RequestInit & { tls: { rejectUnauthorized: boolean } };
+const insecureRequestInit: BunRequestInit = { tls: { rejectUnauthorized: false } };
 const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
 const automationHostFunctions = new Set<string>(AUTOMATION_SANDBOX_HOST_CAPABILITIES);
 const systemCronHostFunctions = new Set<string>(SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES);
@@ -122,6 +125,14 @@ export const readSandboxHttpResponseText = (response: HttpClientResponse.HttpCli
 		}),
 	);
 
+export const applySandboxHttpRequestInit = <A, E, R>(
+	effect: Effect.Effect<A, E, R>,
+	allowInsecureConnections: boolean | undefined,
+) =>
+	allowInsecureConnections
+		? effect.pipe(Effect.provideService(FetchHttpClient.RequestInit, insecureRequestInit))
+		: effect;
+
 const SandboxRunnerRequest = Schema.Struct({
 	token: Schema.String,
 	apiBase: Schema.String,
@@ -137,6 +148,9 @@ const SandboxRunnerRequest = Schema.Struct({
 		Schema.Struct({
 			artifactPath: Schema.optional(Schema.String),
 			scratchDirectory: Schema.optional(Schema.String),
+			namedArtifactPaths: Schema.optional(
+				Schema.Record({ key: Schema.String, value: Schema.String }),
+			),
 		}),
 	),
 });
@@ -202,11 +216,26 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						input.allowedHostFunctions,
 						input.grants?.artifactPath,
 					);
+					const namedArtifactPaths = sandboxNamedArtifactGrantPaths(
+						input.allowedHostFunctions,
+						input.grants?.namedArtifactPaths,
+					);
 					if (artifactPath !== undefined) {
 						const pathError = sandboxGrantPathError(
 							path,
 							"Sandbox artifact grant path",
 							artifactPath,
+							config.tmpDir,
+						);
+						if (pathError) {
+							return yield* new SandboxRunError({ message: pathError });
+						}
+					}
+					for (const [key, artifact] of Object.entries(namedArtifactPaths ?? {})) {
+						const pathError = sandboxGrantPathError(
+							path,
+							`Sandbox named artifact grant path "${key}"`,
+							artifact,
 							config.tmpDir,
 						);
 						if (pathError) {
@@ -235,8 +264,10 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						apiBase: `http://127.0.0.1:${bridge.port}`,
 						limits: sandboxRunnerLimits(input.metadata),
 						apiFunctions: Object.keys(selectedApiFunctions),
-						...(artifactPath !== undefined || scratchDirectory !== undefined
-							? { filesystem: { artifactPath, scratchDirectory } }
+						...(artifactPath !== undefined ||
+						namedArtifactPaths !== undefined ||
+						scratchDirectory !== undefined
+							? { filesystem: { artifactPath, namedArtifactPaths, scratchDirectory } }
 							: {}),
 					})}\n`;
 					const requestError = sandboxRunnerRequestError(requestLine);
@@ -247,10 +278,14 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					const grants: SandboxProcessGrants = {
 						...(artifactPath !== undefined ? { artifactPath } : {}),
 						...(scratchDirectory !== undefined ? { scratchDirectory } : {}),
+						...(namedArtifactPaths !== undefined ? { namedArtifactPaths } : {}),
 					};
 					// `ProcessPool` pre-warms processes before the execution's grants are known, so a
 					// grant-carrying execution gets a process spawned for it alone.
-					const dedicated = artifactPath !== undefined || scratchDirectory !== undefined;
+					const dedicated =
+						artifactPath !== undefined ||
+						namedArtifactPaths !== undefined ||
+						scratchDirectory !== undefined;
 					const worker = dedicated
 						? yield* processes.spawnDedicated(grants)
 						: yield* processes.pool.get;
@@ -441,6 +476,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						);
 
 						const [response, body] = yield* httpClient.execute(request).pipe(
+							(effect) => applySandboxHttpRequestInit(effect, options?.allowInsecureConnections),
 							Effect.flatMap((res) =>
 								res.status < 200 || res.status >= 300
 									? Effect.succeed([res, ""] as const)

@@ -105,8 +105,11 @@ const user: CurrentUserValue = {
 	preferences: { isNsfw: false, language: null, disableIntegrations: false },
 };
 
-const goodreadsSource = (overrides: Partial<RegisteredImportSource> = {}) =>
+type SingleImportSource = Extract<RegisteredImportSource, { readonly lot: "single" }>;
+
+const goodreadsSource = (overrides: Partial<SingleImportSource> = {}) =>
 	({
+		lot: "single",
 		input: "file",
 		slug: "goodreads",
 		name: "Goodreads",
@@ -179,7 +182,92 @@ it.effect("validates uploaded extensions against the registry when it declares t
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("falls back to the hardcoded extension table for undeclared sources", () => {
+it.effect("claims and queues registry-declared named artifacts under stable keys", () => {
+	const executed: unknown[] = [];
+	const claimedTokens: string[] = [];
+	const source = {
+		lot: "named",
+		input: "file",
+		name: "Movary",
+		slug: "movary",
+		pluginSlug: "media",
+		requiredAppConfigKeys: [],
+		description: "Movary export",
+		workflowSlug: "movary-import",
+		artifacts: [
+			{
+				required: true,
+				key: "historyFilePath",
+				allowedFileExtensions: ["csv"],
+				uploadTokenField: "historyUploadToken",
+			},
+			{
+				required: true,
+				key: "ratingsFilePath",
+				allowedFileExtensions: ["csv"],
+				uploadTokenField: "ratingsUploadToken",
+			},
+			{
+				required: true,
+				key: "watchlistFilePath",
+				allowedFileExtensions: ["csv"],
+				uploadTokenField: "watchlistUploadToken",
+			},
+		],
+	} satisfies RegisteredImportSource;
+	const layer = makeServiceLayer(
+		makeImportsRepository(),
+		Layer.mergeAll(
+			makeImportSourceCatalog(source),
+			mockUploadsService({
+				_tag: "UploadsService",
+				claimUploadToken: (token) =>
+					Effect.sync(() => {
+						claimedTokens.push(token);
+						return { resolvedPath: `/tmp/${token}.csv` };
+					}),
+			}),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({
+					execute: (_workflow, options) =>
+						Effect.sync(() => {
+							executed.push(options);
+						}),
+				}),
+			),
+		),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* ImportsService;
+		yield* service.startImportRun(user, {
+			source: "movary",
+			historyUploadToken: "history",
+			ratingsUploadToken: "ratings",
+			watchlistUploadToken: "watchlist",
+		});
+
+		expect(claimedTokens).toEqual(["history", "ratings", "watchlist"]);
+		expect(executed[0]).toMatchObject({
+			payload: {
+				filePath: "/tmp/history.csv",
+				namedArtifactPaths: {
+					historyFilePath: "/tmp/history.csv",
+					ratingsFilePath: "/tmp/ratings.csv",
+					watchlistFilePath: "/tmp/watchlist.csv",
+				},
+				sourcePayload: {
+					historyFilePath: "/tmp/history.csv",
+					ratingsFilePath: "/tmp/ratings.csv",
+					watchlistFilePath: "/tmp/watchlist.csv",
+				},
+			},
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects an undeclared file source", () => {
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
@@ -196,7 +284,7 @@ it.effect("falls back to the hardcoded extension table for undeclared sources", 
 			service.startImportRun(user, { source: "goodreads", uploadToken: "tok_goodreads" }),
 		);
 
-		expect(error.message).toBe("Import file must have one of the following extensions: csv");
+		expect(error.message).toBe("Import source is not available");
 	}).pipe(Effect.provide(layer));
 });
 
@@ -223,7 +311,7 @@ it.effect("rejects a registry source whose declared app config keys are unset", 
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("falls back to the hardcoded start validator for undeclared sources", () => {
+it.effect("rejects an undeclared source before validating its configuration", () => {
 	const layer = makeServiceLayer();
 
 	return Effect.gen(function* () {
@@ -233,9 +321,7 @@ it.effect("falls back to the hardcoded start validator for undeclared sources", 
 			service.startImportRun(user, { source: "grouvee", uploadToken: "tok_grouvee" }),
 		);
 
-		expect(error.message).toBe(
-			"Grouvee importer is not configured. Set VIDEO_GAMES_GIANT_BOMB_API_KEY.",
-		);
+		expect(error.message).toBe("Import source is not available");
 	}).pipe(Effect.provide(layer));
 });
 
@@ -244,7 +330,15 @@ it.effect("queues a payload run when the registry declares the source as payload
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
-			makeImportSourceCatalog(goodreadsSource({ input: "payload" })),
+			makeImportSourceCatalog({
+				input: "payload",
+				slug: "goodreads",
+				name: "Goodreads",
+				pluginSlug: "media",
+				requiredAppConfigKeys: [],
+				description: "Goodreads account",
+				workflowSlug: "goodreads-import",
+			}),
 			makeUploadsService("/tmp/goodreads-export.csv"),
 			Layer.succeed(
 				WorkflowEngine,

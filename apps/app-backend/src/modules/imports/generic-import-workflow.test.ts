@@ -19,6 +19,7 @@ import {
 	makeAppConfigLayer,
 	makeWorkflowActivityEngine,
 } from "#lib/test-utils/effect";
+import { CollectionsService } from "#modules/collections/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -31,13 +32,17 @@ import {
 } from "./generic-import-workflow";
 import { ImportsService } from "./service";
 
+const collectionsLayer = Layer.mock(CollectionsService)({ _tag: "CollectionsService" });
+
 it.effect("processes generic writes while preserving failures, progress, and chunk cleanup", () => {
 	const executionId = "generic-import";
 	const updates: Array<Record<string, unknown>> = [];
 	const failures: Array<Record<string, unknown>> = [];
 	const entities: Array<Record<string, unknown>> = [];
+	const ownerships: Array<Record<string, unknown>> = [];
 	const relationships: Array<Record<string, unknown>> = [];
 	const eventExecutions: Array<Record<string, unknown>> = [];
+	const collectionExecutions: Array<Record<string, unknown>> = [];
 	const directory = "/tmp/ryot-sandbox-harvest-test/generic-import-activity-0";
 	const path = `${directory}/chunk-0.json`;
 	const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
@@ -52,6 +57,7 @@ it.effect("processes generic writes while preserving failures, progress, and chu
 					{
 						itemIndex: 0,
 						sourceLabel: "Row 1",
+						stage: "source_fetch",
 						sourceIdentifier: "1",
 						message: "Could not parse date/time value",
 					},
@@ -61,6 +67,26 @@ it.effect("processes generic writes while preserving failures, progress, and chu
 						itemIndex: 1,
 						sourceIdentifier: "collection-1",
 						sourceLabel: "Imported collection",
+						ownerships: [{ entityAlias: "direct", provider: "watcharr" }],
+						collectionMemberships: [{ entityAlias: "direct", collectionName: "Favorites" }],
+						relationships: [
+							{
+								sourceAlias: "session",
+								targetAlias: "existing",
+								properties: { rank: 7 },
+								relationshipSchemaSlug: "member-of",
+							},
+						],
+						events: [
+							{
+								entityAlias: "existing",
+								eventSchemaSlug: "review",
+								sessionEntityAlias: "session",
+								occurredAt: "2026-01-02T03:04:05.000Z",
+								subjectEntityId: "existing-collection",
+								properties: { rating: 90, text: "Imported body", isSpoiler: false },
+							},
+						],
 						entities: [
 							{
 								alias: "existing",
@@ -79,22 +105,12 @@ it.effect("processes generic writes while preserving failures, progress, and chu
 								entitySchemaSlug: "collection",
 								properties: { kind: "session" },
 							},
-						],
-						events: [
 							{
-								entityAlias: "existing",
-								eventSchemaSlug: "review",
-								sessionEntityAlias: "session",
-								occurredAt: "2026-01-02T03:04:05.000Z",
-								properties: { rating: 90, text: "Imported body", isSpoiler: false },
-							},
-						],
-						relationships: [
-							{
-								sourceAlias: "session",
-								targetAlias: "existing",
-								properties: { rank: 7 },
-								relationshipSchemaSlug: "member-of",
+								properties: {},
+								alias: "direct",
+								entityId: "direct-media",
+								name: "Existing media",
+								entitySchemaSlug: "collection",
 							},
 						],
 					},
@@ -120,7 +136,7 @@ it.effect("processes generic writes while preserving failures, progress, and chu
 		expect(failures).toEqual([
 			expect.objectContaining({
 				itemIndex: 0,
-				stage: "input_transformation",
+				stage: "source_fetch",
 				message: "Could not parse date/time value",
 			}),
 		]);
@@ -161,6 +177,22 @@ it.effect("processes generic writes while preserving failures, progress, and chu
 				},
 			},
 		]);
+		expect(collectionExecutions).toEqual([
+			expect.objectContaining({
+				executionId: "generic-import-item-1-collection-0",
+				payload: expect.objectContaining({
+					entityId: "direct-media",
+					collectionId: "favorites-collection",
+				}),
+			}),
+		]);
+		expect(ownerships).toEqual([
+			expect.objectContaining({
+				userId: "user-1",
+				provider: "watcharr",
+				entityId: "direct-media",
+			}),
+		]);
 		expect(updates).toContainEqual(
 			expect.objectContaining({
 				progress: 100,
@@ -174,9 +206,13 @@ it.effect("processes generic writes while preserving failures, progress, and chu
 		Effect.provideService(
 			WorkflowEngine,
 			makeWorkflowActivityEngine(instance, {
-				execute: (_workflow, options) =>
+				execute: (workflow, options) =>
 					Effect.sync(() => {
-						eventExecutions.push(options);
+						if (workflow.name === "AddEntityToCollectionWorkflow") {
+							collectionExecutions.push(options);
+						} else {
+							eventExecutions.push(options);
+						}
 						return [];
 					}),
 			}),
@@ -188,6 +224,23 @@ it.effect("processes generic writes while preserving failures, progress, and chu
 				BunContext.layer,
 				makeAppConfigLayer(),
 				DefinitionRegistry.Default,
+				Layer.mock(CollectionsService)({
+					_tag: "CollectionsService",
+					markEntityOwnedInLibrary: (input) =>
+						Effect.sync(() => ownerships.push(input)).pipe(Effect.asVoid),
+					getOrCreateCollection: () =>
+						Effect.succeed({
+							properties: {},
+							providerId: null,
+							externalId: null,
+							populatedAt: null,
+							name: "Favorites",
+							createdAt: "2026-01-01T00:00:00.000Z",
+							updatedAt: "2026-01-01T00:00:00.000Z",
+							id: EntityId.make("favorites-collection"),
+							entitySchemaSlug: EntitySchemaSlug.make("collection"),
+						}),
+				}),
 				Layer.mock(RelationshipsService)({
 					_tag: "RelationshipsService",
 					create: (input) =>
@@ -207,6 +260,18 @@ it.effect("processes generic writes while preserving failures, progress, and chu
 				}),
 				Layer.mock(EntitiesRepository)({
 					_tag: "EntitiesRepository",
+					getByIdForUser: ({ entityId }) =>
+						Effect.succeed({
+							id: entityId,
+							providerId: null,
+							externalId: null,
+							populatedAt: null,
+							name: "My Existing",
+							properties: { kind: "tracked" },
+							createdAt: "2026-01-01T00:00:00.000Z",
+							updatedAt: "2026-01-01T00:00:00.000Z",
+							entitySchemaSlug: EntitySchemaSlug.make("collection"),
+						}),
 					listMatchCandidatesBySchema: () =>
 						Effect.succeed([
 							{
@@ -291,6 +356,7 @@ it.effect("cleans trusted activity directories when the initial run update fails
 				dbRunnerLayer,
 				BunContext.layer,
 				DefinitionRegistry.Default,
+				collectionsLayer,
 				Layer.mock(RelationshipsService)({ _tag: "RelationshipsService" }),
 				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
 				Layer.mock(EntitiesService)({ _tag: "EntitiesService" }),
@@ -351,6 +417,7 @@ it.effect("rejects another parent execution's chunks without cleaning untrusted 
 				dbRunnerLayer,
 				BunContext.layer,
 				DefinitionRegistry.Default,
+				collectionsLayer,
 				Layer.mock(RelationshipsService)({ _tag: "RelationshipsService" }),
 				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
 				Layer.mock(EntitiesService)({ _tag: "EntitiesService" }),

@@ -72,6 +72,7 @@ let buffer = "";
 const installFilesystem = (payload: SandboxRunnerPayload) => {
 	const artifactPath = payload.filesystem?.artifactPath;
 	const scratchDirectory = payload.filesystem?.scratchDirectory;
+	const namedArtifactPaths = payload.filesystem?.namedArtifactPaths;
 	defineProperty(globalThis, filesystemKey, {
 		enumerable: false,
 		configurable: true,
@@ -81,6 +82,15 @@ const installFilesystem = (payload: SandboxRunnerPayload) => {
 					return Promise.reject(new nativeError("Sandbox artifact grant is unavailable"));
 				}
 				return readFile(artifactPath);
+			},
+			readNamedArtifact: (key: string) => {
+				const namedArtifactPath = namedArtifactPaths?.[key];
+				if (!namedArtifactPath) {
+					return Promise.reject(
+						new nativeError(`Sandbox named artifact grant "${key}" is unavailable`),
+					);
+				}
+				return readFile(namedArtifactPath);
 			},
 			writeScratchChunks: async (chunks: unknown) => {
 				if (!scratchDirectory) {

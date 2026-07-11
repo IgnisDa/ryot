@@ -1,13 +1,13 @@
+import { Activity } from "@effect/workflow";
 import { Effect, Layer } from "effect";
 
 import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
 
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import type { ImportRunJobData } from "./jobs";
-import { runOneTimeMediaImportWorkflow } from "./media-workflow";
-import { MediaImportWorkflowOperationsLive } from "./media/operations-workflow";
-import { isOneTimeMediaImportSource } from "./media/source-loaders";
 import { runPluginImportWorkflow } from "./plugin-import-workflow";
+import { failImportRun } from "./runtime/import-run-status";
+import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 
 export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")(
@@ -18,17 +18,17 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 			userId: payload.userId,
 		});
 		const registered = (yield* ImportSourceCatalog).find(payload.source);
-		if (registered) {
-			yield* runPluginImportWorkflow(payload, executionId, registered);
+		if (!registered) {
+			yield* Activity.make({
+				error: ImportRunError,
+				name: "fail-import-run",
+				execute: failImportRun(payload.runId, "Import source is not registered").pipe(
+					Effect.mapError(toWorkflowError),
+				),
+			});
 			return;
 		}
-
-		// TODO(plugin-system): Transitional: sources no plugin manifest declares still run the native media-versus-non-media
-		// orchestration. Tasks 09 and 10 move all nineteen sources onto the dispatch path above and
-		// delete this branch along with `isOneTimeMediaImportSource`.
-		if (isOneTimeMediaImportSource(payload.source)) {
-			yield* runOneTimeMediaImportWorkflow(payload, executionId);
-		}
+		yield* runPluginImportWorkflow(payload, executionId, registered);
 	},
 	(effect, _payload, executionId) =>
 		Effect.annotateLogs(effect, { executionId, workflow: "ProcessImportRunWorkflow" }),
@@ -37,5 +37,5 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 const ProcessImportRunWorkflowLive = ProcessImportRunWorkflow.toLayer(runProcessImportRunWorkflow);
 
 export const ImportWorkflowDefinitionsLive = ProcessImportRunWorkflowLive.pipe(
-	Layer.provide(Layer.mergeAll(ImportRunArtifacts.Default, MediaImportWorkflowOperationsLive)),
+	Layer.provide(ImportRunArtifacts.Default),
 );
