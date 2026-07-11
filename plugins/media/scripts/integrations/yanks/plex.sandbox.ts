@@ -1,15 +1,10 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 
-import type { EntityRef } from "../shared";
-import {
-	AdapterResult,
-	baseUrl,
-	movieOrShowRef,
-	requestJson,
-	sourceFailure,
-	specifics,
-} from "../shared";
+import type { ImportEntityRef } from "../../../imports/schemas";
+import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
+import { movieOrShowImportRef, sourceFetchFailure } from "../../../imports/source-helpers";
+import { baseUrl, requestJson, specifics } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -41,9 +36,9 @@ const LibrariesResponse = Schema.Struct({
 	),
 });
 const ItemsResponse = Schema.Struct({ MediaContainer: Schema.optional(MediaContainer) });
-const refFor = (item: typeof Item.Type, lot: "movie" | "show"): EntityRef | null => {
+const refFor = (item: typeof Item.Type, lot: "movie" | "show"): ImportEntityRef | null => {
 	const ids = Object.fromEntries((item.Guid ?? []).map(({ id }) => id.split("://")));
-	return movieOrShowRef({
+	return movieOrShowImportRef({
 		sourceLabel: item.title,
 		entitySchemaSlug: lot,
 		providerIds: { imdb: ids["imdb"], tmdb: ids["tmdb"], tvdb: ids["tvdb"] },
@@ -52,7 +47,7 @@ const refFor = (item: typeof Item.Type, lot: "movie" | "show"): EntityRef | null
 export default defineScript({
 	manifest,
 	input: Input,
-	output: AdapterResult,
+	output: MediaIntegrationAdapterResult,
 	run: (_input, host) =>
 		Effect.gen(function* () {
 			const integration = yield* host.getIntegration();
@@ -63,8 +58,8 @@ export default defineScript({
 			const libraries = yield* requestJson(host, "GET", `${url}/library/sections`, {
 				headers,
 			}).pipe(Effect.flatMap(Schema.decodeUnknown(LibrariesResponse)));
-			const failures: Array<AdapterResult["failures"][number]> = [];
-			const entityGroups: Array<AdapterResult["entityGroups"][number]> = [];
+			const failures: Array<MediaIntegrationAdapterResult["failures"][number]> = [];
+			const entityGroups: Array<MediaIntegrationAdapterResult["entityGroups"][number]> = [];
 			let itemIndex = 0;
 			for (const directory of libraries.MediaContainer?.Directory ?? []) {
 				if (directory.type !== "movie" && directory.type !== "show") {
@@ -78,7 +73,7 @@ export default defineScript({
 				).pipe(Effect.flatMap(Schema.decodeUnknown(ItemsResponse)), Effect.option);
 				if (Option.isNone(listingResult)) {
 					failures.push(
-						sourceFailure({
+						sourceFetchFailure({
 							itemIndex,
 							sourceLabel: String(directory.key),
 							sourceIdentifier: String(directory.key),
@@ -103,7 +98,9 @@ export default defineScript({
 					if (!ref) {
 						continue;
 					}
-					const events: Array<AdapterResult["entityGroups"][number]["events"][number]> = [];
+					const events: Array<
+						MediaIntegrationAdapterResult["entityGroups"][number]["events"][number]
+					> = [];
 					if (directory.type === "movie" && item.lastViewedAt) {
 						const timestamp = Number(item.lastViewedAt);
 						if (Number.isFinite(timestamp)) {
@@ -133,7 +130,7 @@ export default defineScript({
 						).pipe(Effect.flatMap(Schema.decodeUnknown(ItemsResponse)), Effect.option);
 						if (Option.isNone(leavesResult)) {
 							failures.push(
-								sourceFailure({
+								sourceFetchFailure({
 									itemIndex: currentIndex,
 									sourceLabel: item.title,
 									sourceIdentifier: item.key,
@@ -151,7 +148,7 @@ export default defineScript({
 										occurredAt: new Date(timestamp * 1_000).toISOString(),
 										eventSchemaSlug: "progress",
 										properties: { progressPercent: 100 },
-										episodeLocator: {
+										unresolvedEpisode: {
 											type: "show",
 											seasonNumber: leaf.parentIndex,
 											episodeNumber: leaf.index,

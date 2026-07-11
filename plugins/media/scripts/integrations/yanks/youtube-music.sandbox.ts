@@ -1,9 +1,10 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 
+import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
 import { buildHistory } from "../../providers/media/music/youtube-music";
 import { createYoutubeHistoryClient } from "../../providers/youtube-music-shared";
-import { AdapterResult, specifics } from "../shared";
+import { specifics } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -31,7 +32,7 @@ export const deduplicateWindow = (timezone: string) =>
 export default defineScript({
 	manifest,
 	input: Input,
-	output: AdapterResult,
+	output: MediaIntegrationAdapterResult,
 	run: (_input, host) =>
 		Effect.gen(function* () {
 			const integration = yield* host.getIntegration();

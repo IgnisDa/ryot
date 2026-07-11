@@ -1,15 +1,15 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
+import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
+import { resolvedMediaRef } from "../../../imports/source-helpers";
 import {
-	AdapterResult,
 	emptyResult,
 	failureResult,
 	jsonRecord,
 	progressPercent,
 	progressResult,
-	resolvedRef,
-	showLocator,
+	showEpisodeRef,
 	SinkInput,
 	specifics,
 } from "../shared";
@@ -54,7 +54,7 @@ const stringValue = (value: unknown) => {
 export default defineScript({
 	manifest,
 	input: SinkInput,
-	output: AdapterResult,
+	output: MediaIntegrationAdapterResult,
 	run: (input, host) =>
 		host.getIntegration().pipe(
 			Effect.flatMap((integration) =>
@@ -108,16 +108,16 @@ export default defineScript({
 						id;
 					const locator =
 						lot === "show"
-							? showLocator(Number(metadata["parentIndex"]), Number(metadata["index"]))
+							? showEpisodeRef(Number(metadata["parentIndex"]), Number(metadata["index"]))
 							: undefined;
 					if (lot === "show" && !locator) {
 						return failureResult("Plex webhook payload is missing show episode coordinates");
 					}
 					return progressResult({
-						entityRef: resolvedRef(lot, "tmdb", id, label),
+						entityRef: resolvedMediaRef(lot, "tmdb", id, label),
 						consumedOn: "plex_sink",
 						progressPercent: percent,
-						...(locator ? { episodeLocator: locator } : {}),
+						...(locator ? { unresolvedEpisode: locator } : {}),
 					});
 				}).pipe(Effect.orElseSucceed(() => failureResult("Could not parse Plex webhook payload"))),
 			),

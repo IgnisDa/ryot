@@ -4,17 +4,15 @@ import type {
 	GenericImportWriteItem,
 } from "@ryot/sandbox-sdk/imports";
 
-import type { MediaImportPopulationWorkflowOutput } from "../workflows/schemas";
+import { importEntityRefIdentifier } from "./groups";
 import type {
 	ImportMediaEntityGroup,
 	MediaImportAdapterFailure,
-	MediaImportEpisodeResolution,
+	MediaImportWriteChunkInput,
 } from "./schemas";
 
-type PopulationResult = (typeof MediaImportPopulationWorkflowOutput.Type)["results"][number];
-
 const failureSource = (
-	group: ImportMediaEntityGroup,
+	group: Pick<ImportMediaEntityGroup, "entityRef" | "itemIndex">,
 	message: string,
 	stage: GenericImportFailure["stage"],
 ): GenericImportFailure => ({
@@ -23,10 +21,7 @@ const failureSource = (
 	itemIndex: group.itemIndex,
 	sourceLabel: group.entityRef.sourceLabel,
 	entitySchemaSlug: group.entityRef.entitySchemaSlug,
-	sourceIdentifier:
-		group.entityRef.kind === "resolved"
-			? group.entityRef.externalId
-			: group.entityRef.identifierValue,
+	sourceIdentifier: importEntityRefIdentifier(group.entityRef),
 });
 
 const adapterFailure = (failure: MediaImportAdapterFailure): GenericImportFailure => ({
@@ -35,24 +30,14 @@ const adapterFailure = (failure: MediaImportAdapterFailure): GenericImportFailur
 	stage: failure.stage ?? "input_transformation",
 	sourceLabel: failure.sourceLabel ?? `Item ${failure.itemIndex + 1}`,
 	sourceIdentifier: failure.sourceIdentifier ?? String(failure.itemIndex),
+	...(failure.entitySchemaSlug === undefined ? {} : { entitySchemaSlug: failure.entitySchemaSlug }),
 });
 
-export const createMediaImportChunk = (input: {
-	readonly failures: ReadonlyArray<MediaImportAdapterFailure>;
-	readonly entityGroups: ReadonlyArray<ImportMediaEntityGroup>;
-	readonly populationResults: ReadonlyArray<PopulationResult>;
-	readonly episodeResolutions: ReadonlyArray<MediaImportEpisodeResolution>;
-}): GenericImportChunk => {
+export const createMediaImportChunk = (input: MediaImportWriteChunkInput): GenericImportChunk => {
 	const failures = input.failures.map(adapterFailure);
 	const items: GenericImportWriteItem[] = [];
 	const populationByIndex = new Map(
 		input.populationResults.map((result) => [result.index, result]),
-	);
-	const episodeByIndex = new Map(
-		input.episodeResolutions.map((result) => [
-			`${result.groupIndex}:${result.eventIndex}`,
-			result.entityId,
-		]),
 	);
 
 	for (const [groupIndex, group] of input.entityGroups.entries()) {
@@ -74,54 +59,24 @@ export const createMediaImportChunk = (input: {
 			continue;
 		}
 
-		const events: GenericImportWriteItem["events"][number][] = [];
-		for (const [eventIndex, event] of group.events.entries()) {
-			if (!event.episodeLocator) {
-				events.push({
-					entityAlias: "media",
-					occurredAt: event.occurredAt,
-					properties: event.properties,
-					eventSchemaSlug: event.eventSchemaSlug,
-				});
-				continue;
-			}
-			const subjectEntityId = episodeByIndex.get(`${groupIndex}:${eventIndex}`);
-			if (!subjectEntityId) {
-				failures.push(
-					failureSource(
-						group,
-						event.episodeLocator.type === "show"
-							? `Could not resolve show episode S${event.episodeLocator.seasonNumber}E${event.episodeLocator.episodeNumber}`
-							: `Could not resolve podcast episode ${event.episodeLocator.episodeNumber}`,
-						"provider_resolution",
-					),
-				);
-				continue;
-			}
-			events.push({
+		items.push({
+			relationships: [],
+			itemIndex: group.itemIndex,
+			sourceLabel: group.entityRef.sourceLabel,
+			sourceIdentifier: importEntityRefIdentifier(group.entityRef),
+			events: group.events.map((event) => ({
 				entityAlias: "media",
 				occurredAt: event.occurredAt,
 				properties: event.properties,
-				subjectEntityId,
 				eventSchemaSlug: event.eventSchemaSlug,
-			});
-		}
-
-		items.push({
-			events,
-			itemIndex: group.itemIndex,
-			relationships: [],
-			sourceLabel: group.entityRef.sourceLabel,
-			sourceIdentifier:
-				group.entityRef.kind === "resolved"
-					? group.entityRef.externalId
-					: group.entityRef.identifierValue,
+				...(event.subjectEntityId === undefined ? {} : { subjectEntityId: event.subjectEntityId }),
+			})),
 			entities: [
 				{
 					alias: "media",
+					properties: {},
 					name: group.entityRef.sourceLabel,
 					entityId: population.entityId,
-					properties: {},
 					entitySchemaSlug: group.entityRef.entitySchemaSlug,
 				},
 			],
