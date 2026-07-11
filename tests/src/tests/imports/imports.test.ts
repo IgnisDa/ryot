@@ -143,15 +143,33 @@ describe("OpenScale Import E2E", () => {
 			expect(completedRun.status).toBe("completed");
 			expect(completedRun.failedItems).toBeGreaterThan(0);
 			expect(completedRun.importedItems).toBeGreaterThan(0);
+			expect(completedRun.totalItems).toBe(3);
+			expect(completedRun.processedItems).toBe(3);
+			expect(completedRun.importedItems).toBe(1);
+			expect(completedRun.failedItems).toBe(2);
 
 			const runData = yield* client.call((c) =>
 				c.imports.getRun({
-					path: { runId: ImportRunId.make(runId) },
 					urlParams: { page: 1, limit: 20 },
+					path: { runId: ImportRunId.make(runId) },
 				}),
 			);
 
 			expect(runData.failures.items.length).toBeGreaterThan(0);
+			expect(runData.failures.items).toMatchObject([
+				{
+					itemIndex: 1,
+					sourceLabel: "Row 2",
+					sourceIdentifier: "2",
+					message: "Row is missing a date/time value",
+				},
+				{
+					itemIndex: 2,
+					sourceLabel: "2026-01-03 08:00",
+					sourceIdentifier: "2026-01-03T08:00:00.000Z",
+					message: 'Could not parse numeric value for column "weight"',
+				},
+			]);
 		}),
 	);
 });

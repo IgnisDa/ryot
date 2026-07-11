@@ -14,7 +14,6 @@ type ImportSourceFileDefinition = {
 const sourceFileDefinitions: Partial<
 	Record<CreateImportRunBody["source"], ImportSourceFileDefinition[]>
 > = {
-	hevy: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
 	igdb: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
 	imdb: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
 	netflix: [{ bodyField: "uploadToken", allowedExtensions: ["zip"] }],
@@ -23,9 +22,7 @@ const sourceFileDefinitions: Partial<
 	watcharr: [{ bodyField: "uploadToken", allowedExtensions: ["json"] }],
 	hardcover: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
 	goodreads: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
-	open_scale: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
 	storygraph: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
-	strong_app: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
 	movary: [
 		{ allowedExtensions: ["csv"], payloadKey: "historyFilePath", bodyField: "historyUploadToken" },
 		{ allowedExtensions: ["csv"], payloadKey: "ratingsFilePath", bodyField: "ratingsUploadToken" },

@@ -104,6 +104,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		error: result.error,
 		value: result.value,
 		timing: result.timing,
+		harvest: result.harvest,
 		status: "completed" as const,
 	};
 });

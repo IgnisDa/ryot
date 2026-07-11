@@ -54,6 +54,7 @@ import { EventsService } from "#modules/events/service";
 import { GodModeRepository } from "#modules/god-mode/repository";
 import { GodModeService } from "#modules/god-mode/service";
 import { ImportRunFailuresService } from "#modules/imports/failure-service";
+import { ProcessGenericImportChunksWorkflowDefinitionsLive } from "#modules/imports/generic-import-workflow";
 import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workflow-live";
 import { ProcessNormalizedMediaImportWorkflowDefinitionsLive } from "#modules/imports/media/normalized-import-workflow-live";
 import { ImportsRepository } from "#modules/imports/repository";
@@ -368,6 +369,7 @@ const RuntimeLive = Layer.mergeAll(
 	IntegrationReconciliationWorkflowDefinitionsLive,
 	EnsureLibraryMembershipWorkerLive,
 	ImportWorkflowDefinitionsLive,
+	ProcessGenericImportChunksWorkflowDefinitionsLive,
 	ProcessNormalizedMediaImportWorkflowDefinitionsLive,
 	Layer.provide(IntegrationWorkflowDefinitionsLive, IntegrationProviderCatalogLive),
 	Layer.provide(SandboxWorkflowDefinitionsLive, KernelWorkflowReferencesLive),

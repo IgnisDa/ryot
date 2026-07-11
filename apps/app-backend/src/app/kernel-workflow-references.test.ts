@@ -1,14 +1,17 @@
+import { BunContext } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { ServerRun } from "#lib/infrastructure/server-run";
+import { dbRunnerLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import {
 	KERNEL_EVENT_CREATE_WORKFLOW,
 	KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
+	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KernelWorkflowReferences,
 } from "#modules/sandbox/kernel-workflow-references";
 
@@ -26,7 +29,16 @@ const unownedRepositories = Layer.mergeAll(
 );
 
 const referencesLayer = (repositories: Layer.Layer<ImportsRepository | IntegrationsRepository>) =>
-	Layer.provide(KernelWorkflowReferencesLive, Layer.mergeAll(dbRunnerLayer, repositories));
+	Layer.provide(
+		KernelWorkflowReferencesLive,
+		Layer.mergeAll(
+			dbRunnerLayer,
+			repositories,
+			BunContext.layer,
+			makeAppConfigLayer(),
+			Layer.succeed(ServerRun, { _tag: "ServerRun", id: "test-server-run" }),
+		),
+	);
 
 it.effect("binds kernel workflow user ids to the trusted execution authority", () => {
 	const payloads: unknown[] = [];
@@ -52,12 +64,14 @@ it.effect("binds kernel workflow user ids to the trusted execution authority", (
 			},
 			authority,
 			"entity-import-execution",
+			"parent-execution",
 		);
 		yield* references.execute(
 			KERNEL_EVENT_CREATE_WORKFLOW,
 			{ payload: [], origin: "import", userId: "attacker-selected-user" },
 			authority,
 			"event-create-execution",
+			"parent-execution",
 		);
 
 		expect(payloads).toMatchObject([
@@ -66,6 +80,70 @@ it.effect("binds kernel workflow user ids to the trusted execution authority", (
 		]);
 	}).pipe(
 		Effect.provide(referencesLayer(unownedRepositories)),
+		Effect.provideService(WorkflowEngine, engine),
+	);
+});
+
+it.effect("binds import harvest provenance to the trusted parent workflow execution", () => {
+	const payloads: unknown[] = [];
+	const engine = makeWorkflowEngine({
+		execute: (_workflow, options) =>
+			Effect.sync(() => {
+				payloads.push(options.payload);
+				return { failedItems: 0, importedItems: 0, processedItems: 0 };
+			}),
+	});
+	const ownedRepositories = Layer.mergeAll(
+		mockImportsRepository({
+			_tag: "ImportsRepository",
+			getRunById: () =>
+				Effect.succeed({
+					progress: 0,
+					failedItems: 0,
+					startedAt: null,
+					finishedAt: null,
+					inputSummary: {},
+					importedItems: 0,
+					totalItems: null,
+					processedItems: 0,
+					errorSummary: null,
+					status: "pending" as const,
+					source: "open_scale" as const,
+					id: ImportRunId.make("run-1"),
+					createdAt: "2026-01-01T00:00:00.000Z",
+					updatedAt: "2026-01-01T00:00:00.000Z",
+				}),
+		}),
+		mockIntegrationsRepository({ _tag: "IntegrationsRepository" }),
+	);
+
+	return Effect.gen(function* () {
+		const references = yield* KernelWorkflowReferences;
+		yield* references.execute(
+			KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+			{
+				totalItems: 0,
+				runId: "run-1",
+				chunkFiles: [],
+				failureCount: 0,
+				writeItemCount: 0,
+				expectedHarvestDirectoryPrefix: "/tmp/attacker-selected",
+			},
+			{ type: "user", userId: UserId.make("trusted-user") },
+			"child-execution",
+			"parent/execution",
+		);
+
+		expect(payloads).toEqual([
+			expect.objectContaining({
+				userId: "trusted-user",
+				executionId: "child-execution",
+				expectedHarvestDirectoryPrefix:
+					"/tmp/ryot-sandbox-harvest-test-server-run/parent-execution-activity-",
+			}),
+		]);
+	}).pipe(
+		Effect.provide(referencesLayer(ownedRepositories)),
 		Effect.provideService(WorkflowEngine, engine),
 	);
 });
@@ -85,6 +163,7 @@ it.effect("rejects user-scoped kernel workflows for system executions", () =>
 				},
 				{ type: "system" },
 				"entity-import-execution",
+				"parent-execution",
 			),
 		);
 
@@ -109,6 +188,7 @@ it.effect("rejects a script-supplied import run owned by another user", () =>
 				},
 				{ type: "user", userId: UserId.make("trusted-user") },
 				"entity-import-execution",
+				"parent-execution",
 			),
 		);
 
@@ -134,6 +214,7 @@ it.effect("rejects a script-supplied integration owned by another user", () =>
 				},
 				{ type: "user", userId: UserId.make("trusted-user") },
 				"event-create-execution",
+				"parent-execution",
 			),
 		);
 

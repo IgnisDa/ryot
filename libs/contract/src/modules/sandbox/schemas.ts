@@ -143,6 +143,14 @@ export const SandboxCompletedResult = Schema.Struct({
 	logs: Schema.Array(Schema.String),
 	timing: Schema.optional(SandboxTiming),
 	error: Schema.NullOr(SandboxExecutionError),
+	harvest: Schema.optional(
+		Schema.NullOr(
+			Schema.Struct({
+				directory: Schema.String,
+				chunkPaths: Schema.Array(Schema.String),
+			}),
+		),
+	),
 });
 
 export type SandboxCompletedResult = Schema.Schema.Type<typeof SandboxCompletedResult>;

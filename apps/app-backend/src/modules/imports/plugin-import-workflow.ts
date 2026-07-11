@@ -22,6 +22,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	const cleanupPaths = payload.filePath
 		? yield* resolveImportPath(payload.filePath, config.tmpDir)
 		: [];
+	const artifactPath = cleanupPaths[0];
 	const { failRunAndCleanup, cleanupArtifactsBestEffort } = createImportRunLifecycle(payload);
 
 	const processWorkflow = Effect.gen(function* () {
@@ -44,12 +45,8 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 				scriptId,
 				executionId: `${executionId}-import`,
 				authority: { type: "user", userId: payload.userId },
-				input: {
-					runId: payload.runId,
-					userId: payload.userId,
-					...(payload.filePath ? { artifactPath: payload.filePath } : {}),
-					...(payload.sourcePayloadKey ? { sourcePayloadRef: payload.sourcePayloadKey } : {}),
-				},
+				input: { runId: payload.runId, source: payload.source },
+				...(artifactPath ? { grants: { artifactPath } } : {}),
 			})
 			.pipe(Effect.mapError(toWorkflowError));
 

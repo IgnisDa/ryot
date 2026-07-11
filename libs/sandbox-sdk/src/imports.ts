@@ -1,8 +1,14 @@
+import { Schema } from "@ryot/sandbox-sdk/effect";
+
+import { jsonValueSchema } from "./wire";
+
 export const SANDBOX_SDK_ROOT_IMPORT = "@ryot/sandbox-sdk/core";
 export const SANDBOX_SDK_ACTIVITY_IMPORT = "@ryot/sandbox-sdk/activity";
 export const SANDBOX_SDK_AUTOMATION_IMPORT = "@ryot/sandbox-sdk/automation";
 export const SANDBOX_SDK_PROVIDER_IMPORT = "@ryot/sandbox-sdk/provider";
 export const SANDBOX_SDK_WORKFLOW_IMPORT = "@ryot/sandbox-sdk/workflow";
+export const SANDBOX_SDK_FILESYSTEM_IMPORT = "@ryot/sandbox-sdk/filesystem";
+export const SANDBOX_SDK_IMPORT_WIRE_IMPORT = "@ryot/sandbox-sdk/imports";
 
 export const SANDBOX_RUNTIME_SDK_IMPORTS = [
 	"@ryot/sandbox-sdk/effect",
@@ -19,8 +25,98 @@ export const SANDBOX_SDK_IMPORTS = [
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_PROVIDER_IMPORT,
 	SANDBOX_SDK_WORKFLOW_IMPORT,
+	SANDBOX_SDK_FILESYSTEM_IMPORT,
+	SANDBOX_SDK_IMPORT_WIRE_IMPORT,
 	"@ryot/sandbox-sdk/driver",
 	"@ryot/sandbox-sdk/operation",
 	"@ryot/sandbox-sdk/wire",
 	...SANDBOX_RUNTIME_SDK_IMPORTS,
 ] as const;
+
+const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
+	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
+
+const importRecordSchema = Schema.Record({ key: Schema.String, value: jsonValueSchema });
+
+export const genericImportFailureSchema = strictStruct({
+	message: Schema.String,
+	itemIndex: Schema.Number,
+	sourceLabel: Schema.String,
+	sourceIdentifier: Schema.String,
+});
+
+export const genericImportEntityIntentSchema = strictStruct({
+	alias: Schema.String,
+	name: Schema.String,
+	properties: importRecordSchema,
+	entitySchemaSlug: Schema.String,
+	match: Schema.optional(
+		strictStruct({
+			name: Schema.String,
+			properties: importRecordSchema,
+			nameNormalization: Schema.optional(Schema.Literal("exact", "slug")),
+		}),
+	),
+});
+
+export const genericImportEventIntentSchema = strictStruct({
+	occurredAt: Schema.String,
+	entityAlias: Schema.String,
+	properties: importRecordSchema,
+	eventSchemaSlug: Schema.String,
+	sessionEntityAlias: Schema.optional(Schema.String),
+});
+
+export const genericImportRelationshipIntentSchema = strictStruct({
+	sourceAlias: Schema.String,
+	targetAlias: Schema.String,
+	properties: importRecordSchema,
+	relationshipSchemaSlug: Schema.String,
+});
+
+export const genericImportWriteItemSchema = strictStruct({
+	itemIndex: Schema.Number,
+	sourceLabel: Schema.String,
+	sourceIdentifier: Schema.String,
+	events: Schema.Array(genericImportEventIntentSchema),
+	entities: Schema.Array(genericImportEntityIntentSchema),
+	relationships: Schema.Array(genericImportRelationshipIntentSchema),
+});
+
+export const genericImportChunkSchema = strictStruct({
+	failures: Schema.Array(genericImportFailureSchema),
+	items: Schema.Array(genericImportWriteItemSchema),
+});
+
+export const genericImportAdapterManifestSchema = strictStruct({
+	chunkFiles: Schema.Array(Schema.String),
+	totalItems: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	failureCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	writeItemCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+});
+
+export const genericImportWorkflowInputSchema = strictStruct({
+	runId: Schema.String,
+	source: Schema.String,
+});
+
+export const genericImportWorkflowResultSchema = strictStruct({
+	failedItems: Schema.Number,
+	importedItems: Schema.Number,
+	processedItems: Schema.Number,
+});
+
+export const genericImportKernelInputSchema = strictStruct({
+	runId: Schema.String,
+	chunkFiles: Schema.Array(Schema.String),
+	totalItems: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	failureCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	writeItemCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+});
+
+export type GenericImportFailure = Schema.Schema.Type<typeof genericImportFailureSchema>;
+export type GenericImportWriteItem = Schema.Schema.Type<typeof genericImportWriteItemSchema>;
+export type GenericImportChunk = Schema.Schema.Type<typeof genericImportChunkSchema>;
+export type GenericImportAdapterManifest = Schema.Schema.Type<
+	typeof genericImportAdapterManifestSchema
+>;

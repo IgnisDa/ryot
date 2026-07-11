@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { adaptStrongAppCsv } from "./adapter";
+import { adaptStrongAppCsv } from "./strong-app";
 
 describe("adaptStrongAppCsv", () => {
 	it("groups semicolon StrongApp rows into normalized workouts and exercises", () => {
@@ -20,8 +20,8 @@ describe("adaptStrongAppCsv", () => {
 		expect(result.items[0]).toMatchObject({
 			name: "Push Day",
 			comment: "Good session",
-			sourceIdentifier: "2026-01-01 10:00:00:Push Day",
 			endedAt: "2026-01-01T11:02:03.000Z",
+			sourceIdentifier: "2026-01-01 10:00:00:Push Day",
 		});
 		expect(result.items[0]?.exercises).toEqual([
 			{

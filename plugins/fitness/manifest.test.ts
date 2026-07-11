@@ -34,7 +34,28 @@ it("declares the complete fitness-owned source", () => {
 	expect(fitnessPlugin.bindings.schemaProviderLinks).toEqual([
 		{ entitySchemaSlug: "exercise", providerSlug: "exercise.free-exercise-db" },
 	]);
-	expect(fitnessPlugin.scripts).toHaveLength(5);
+	expect(fitnessPlugin.scripts).toHaveLength(9);
+	expect(fitnessPlugin.workflows).toEqual([{ slug: "import", scriptSlug: "workflow.import" }]);
+	expect(fitnessPlugin.importSources).toEqual([
+		expect.objectContaining({ slug: "hevy", workflowSlug: "import" }),
+		expect.objectContaining({ slug: "strong_app", workflowSlug: "import" }),
+		expect.objectContaining({ slug: "open_scale", workflowSlug: "import" }),
+	]);
+	expect(
+		fitnessPlugin.scripts
+			.filter(({ slug }) => slug.startsWith("activity.import."))
+			.map(({ capabilities, slug }) => ({ capabilities, slug })),
+	).toEqual([
+		{
+			slug: "activity.import.hevy",
+			capabilities: ["artifact-read", "scratch", "getAppConfigValue"],
+		},
+		{ slug: "activity.import.open-scale", capabilities: ["artifact-read", "scratch"] },
+		{
+			slug: "activity.import.strong-app",
+			capabilities: ["artifact-read", "scratch", "getAppConfigValue"],
+		},
+	]);
 	expect(
 		fitnessPlugin.scripts.find(({ slug }) => slug === "exercise.free-exercise-db.preload"),
 	).toEqual(

@@ -13,11 +13,6 @@ import {
 	makeRedisService,
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { EventsService } from "#modules/events/service";
 import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
@@ -29,8 +24,6 @@ import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { runProcessImportRunWorkflow } from "./import-run-workflow-live";
 import type { ImportRunJobData } from "./jobs";
 import { MediaImportWorkflowOperations } from "./media/types-workflow";
-import { NonMediaImportWorkflowOperations } from "./non-media-workflow";
-import { ImportRunError } from "./runtime/workflow-errors";
 import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { ImportsService } from "./service";
 
@@ -95,21 +88,9 @@ const makeHarness = (registered: RegisteredImportSource | null) => {
 						return null;
 					}),
 			}),
-			Layer.mock(NonMediaImportWorkflowOperations)({
-				getOperations: () =>
-					Effect.suspend(() => {
-						sandboxCalls.push({ input: null, method: "nonMediaGetOperations" });
-						return Effect.fail(new ImportRunError({ message: "not wired in this test" }));
-					}),
-			}),
 			dbRunnerLayer,
 			BunFileSystem.layer,
 			Layer.succeed(RedisService, makeRedisService()),
-			Layer.mock(EntitiesService)({ _tag: "EntitiesService" }),
-			Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
-			Layer.mock(EntitySchemasRepository)({ _tag: "EntitySchemasRepository" }),
-			Layer.mock(EventSchemasRepository)({ _tag: "EventSchemasRepository" }),
-			Layer.mock(EventsService)({ _tag: "EventsService" }),
 			Layer.mock(ImportsService)({ _tag: "ImportsService" }),
 			Layer.mock(ImportRunFailuresService)({ _tag: "ImportRunFailuresService" }),
 			Layer.mock(MediaImportWorkflowOperations)({}),
@@ -133,14 +114,10 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 			method: "executeWorkflow",
 			input: {
 				executionId: `${executionId}-import`,
+				input: { runId: "run-1", source: "netflix" },
+				grants: { artifactPath: "/tmp/netflix.zip" },
 				authority: { type: "user", userId: "user-1" },
 				scriptId: SandboxScriptId.make("workflow.netflix-import"),
-				input: {
-					runId: "run-1",
-					userId: "user-1",
-					sourcePayloadRef: "run-1",
-					artifactPath: "/tmp/netflix.zip",
-				},
 			},
 		});
 		expect(harness.activityNames).toEqual([
@@ -159,15 +136,5 @@ it.effect("keeps an undeclared media source on the native media orchestration", 
 		expect(harness.sandboxCalls).toEqual([]);
 		expect(harness.activityNames).toContain("mark-import-run-started");
 		expect(harness.activityNames).toContain("load-media-import-adapter-result");
-	}).pipe(Effect.provide(harness.layer));
-});
-
-it.effect("keeps an undeclared non-media source on the native non-media orchestration", () => {
-	const harness = makeHarness(null);
-
-	return Effect.gen(function* () {
-		yield* runProcessImportRunWorkflow({ ...payload, source: "hevy" }, executionId);
-
-		expect(harness.sandboxCalls.map(({ method }) => method)).toEqual(["nonMediaGetOperations"]);
 	}).pipe(Effect.provide(harness.layer));
 });

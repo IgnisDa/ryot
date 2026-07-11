@@ -23,11 +23,14 @@ const arrayIsArray = Array.isArray;
 const nativeError = globalThis.Error;
 const createDictionary = Object.create;
 const nativeString = globalThis.String;
+const readFile = Deno.readFile.bind(Deno);
 const nativeFunction = globalThis.Function;
 const reflectConstruct = Reflect.construct;
+const writeFile = Deno.writeFile.bind(Deno);
 const defineProperty = Object.defineProperty;
 const setPrototypeOf = Object.setPrototypeOf;
 const deleteProperty = Reflect.deleteProperty;
+const nativeUint8Array = globalThis.Uint8Array;
 const jsonParse = JSON.parse.bind(JSON);
 const readStdin = Deno.stdin.read.bind(Deno.stdin);
 const encodeComponent = globalThis.encodeURIComponent;
@@ -39,8 +42,10 @@ const bridgeFetch = globalThis.fetch.bind(globalThis);
 const exitDeno: (code?: number) => never = Deno.exit.bind(Deno);
 const getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
 const performanceNow = performance.now.bind(performance);
+const filesystemKey = Symbol.for("@ryot/sandbox-sdk/filesystem");
 const generatorFunction = Object.getPrototypeOf(function* () {}).constructor as Function;
 const asyncFunction = Object.getPrototypeOf(async function () {}).constructor as Function;
+const stringIncludes = String.prototype.includes.call.bind(String.prototype.includes);
 const asyncGeneratorFunction = Object.getPrototypeOf(async function* () {}).constructor as Function;
 
 const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
@@ -63,6 +68,54 @@ const hostResultSchema = Schema.Union(
 const decodeHostResult = Schema.decodeUnknown(hostResultSchema);
 
 let buffer = "";
+
+const installFilesystem = (payload: SandboxRunnerPayload) => {
+	const artifactPath = payload.filesystem?.artifactPath;
+	const scratchDirectory = payload.filesystem?.scratchDirectory;
+	defineProperty(globalThis, filesystemKey, {
+		enumerable: false,
+		configurable: true,
+		value: {
+			readArtifact: () => {
+				if (!artifactPath) {
+					return Promise.reject(new nativeError("Sandbox artifact grant is unavailable"));
+				}
+				return readFile(artifactPath);
+			},
+			writeScratchChunks: async (chunks: unknown) => {
+				if (!scratchDirectory) {
+					throw new nativeError("Sandbox scratch grant is unavailable");
+				}
+				if (!arrayIsArray(chunks)) {
+					throw new nativeError("Sandbox scratch chunks must be an array");
+				}
+				const names: string[] = [];
+				for (const chunk of chunks) {
+					if (
+						!isRecord(chunk) ||
+						typeof chunk.name !== "string" ||
+						chunk.name.length === 0 ||
+						chunk.name === "." ||
+						chunk.name === ".." ||
+						stringIncludes(chunk.name, "/") ||
+						stringIncludes(chunk.name, "\\") ||
+						stringIncludes(chunk.name, "\0") ||
+						!(chunk.contents instanceof nativeUint8Array)
+					) {
+						throw new nativeError("Sandbox scratch chunk names must be plain file names");
+					}
+					for (const name of names) {
+						if (name === chunk.name) {
+							throw new nativeError(`Duplicate sandbox scratch chunk name "${chunk.name}"`);
+						}
+					}
+					names.push(chunk.name);
+					await writeFile(`${scratchDirectory}/${chunk.name}`, chunk.contents);
+				}
+			},
+		},
+	});
+};
 
 const disableCodeGeneration = () => {
 	for (const name of ["Deno", "eval", "Function", "Worker", "SharedWorker"]) {
@@ -463,6 +516,7 @@ void (async () => {
 			console.warn = logCollector.console.warn;
 			console.debug = logCollector.console.debug;
 			console.error = logCollector.console.error;
+			installFilesystem(payload);
 			disableCodeGeneration();
 
 			phase = "load";
