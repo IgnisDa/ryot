@@ -1,6 +1,7 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 
 import type { ShowActivityEvent, ShowActivityResult } from "../../shared/show-recipes";
+import type { MediaActivityState } from "../media/activity-tab";
 import {
 	activitySpan,
 	anchorOf,
@@ -22,7 +23,7 @@ import {
 	type NonEmpty,
 } from "../media/activity-timeline";
 import { formatLocalDateKey } from "../media/date";
-import { classifyRyotQueryResult, type MappedRyotQueryState } from "../media/query-state";
+import { classifyRyotQueryResult } from "../media/query-state";
 import {
 	isSpecialsSeason,
 	seasonOrder,
@@ -111,9 +112,7 @@ export type ShowActivityView = {
 	readonly timeline: ShowActivityTimeline;
 };
 
-export type ShowActivityState = MappedRyotQueryState<
-	{ readonly status: "empty" } | { readonly status: "ready"; readonly view: ShowActivityView }
->;
+export type ShowActivityState = MediaActivityState<ShowActivityView>;
 
 const watchedEpisode = (event: EpisodeEvent): ShowActivityWatchedEpisode => ({
 	id: event.episode.id,

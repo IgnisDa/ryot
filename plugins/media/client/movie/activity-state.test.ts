@@ -98,7 +98,7 @@ describe("movie activity state", () => {
 			movieEvents: [movieBacklogEventRow],
 		});
 
-		expect(view.summary.watches).toBe(4);
+		expect(view.summary.completions).toBe(4);
 		expect(view.summary.minutes).toEqual({ total: 676, missing: 0 });
 		expect(mediaActivityTimeLabel(view.summary.minutes)).toBe("11h 16m");
 	});

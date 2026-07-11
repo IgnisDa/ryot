@@ -95,6 +95,11 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/movie-row-presentation.ts",
 			},
+			"music-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/music-row-presentation.ts",
+			},
 			"media-card": {
 				kind: "presentation",
 				automaticEntityPresentations: false,
@@ -104,6 +109,11 @@ it("declares the complete media-owned source", () => {
 				kind: "presentation",
 				automaticEntityPresentations: false,
 				entry: "client/movie-card-presentation.ts",
+			},
+			"music-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/music-card-presentation.ts",
 			},
 			"media-home": {
 				kind: "page",
@@ -123,6 +133,12 @@ it("declares the complete media-owned source", () => {
 				entry: "client/movie/screen.tsx",
 				automaticEntityPresentations: false,
 			},
+			"music-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/music/screen.tsx",
+				automaticEntityPresentations: false,
+			},
 		},
 	});
 	const registrations = mediaPlugin.client.entities;
@@ -137,6 +153,11 @@ it("declares the complete media-owned source", () => {
 			detailPage: "movie-detail",
 			listPresentation: "movie-row",
 			gridPresentation: "movie-card",
+		},
+		music: {
+			detailPage: "music-detail",
+			listPresentation: "music-row",
+			gridPresentation: "music-card",
 		},
 	};
 	for (const [slug, registration] of Object.entries(registrations)) {

@@ -29,6 +29,7 @@ import {
 	watchProviderAsset,
 	watchProviderGroups,
 	watchProviderLink,
+	type MediaWatchProviders,
 	type WatchProviderGroup,
 } from "./watch-providers";
 
@@ -36,7 +37,7 @@ const CREDIT_COLUMN_CLASS = "min-w-0 flex-1 border-t-0 pt-0";
 
 const COMPANY_COLUMN_CLASS = "w-72 shrink-0 border-t-0 pt-0";
 
-export type MediaOverviewSubject = Pick<MediaSummaryFields, "name" | "images" | "watchProviders">;
+export type MediaOverviewSubject = Pick<MediaSummaryFields, "name" | "images">;
 
 export type MediaOverviewRelationsRender<Overview> = (input: {
 	readonly compact: boolean;
@@ -418,6 +419,7 @@ export function MediaOverview<Overview>(props: {
 	readonly refreshStatus?: ReactNode;
 	readonly refreshOverview: () => void;
 	readonly media: MediaOverviewSubject;
+	readonly watchProviders?: MediaWatchProviders | undefined;
 	readonly isEmpty: (overview: Overview) => boolean;
 	readonly overview: MediaOverviewState<Overview>;
 	readonly relations: MediaOverviewRelationsRender<Overview>;
@@ -444,13 +446,13 @@ export function MediaOverview<Overview>(props: {
 				refresh={props.refreshOverview}
 				loadingDetail={props.loadingDetail}
 			/>
-			{region === undefined ? null : (
+			{props.watchProviders === undefined || region === undefined ? null : (
 				<MediaWatchProvidersSection
 					region={region}
 					compact={props.compact}
 					divided={gallery.length > 0 || relations}
-					link={watchProviderLink(props.media, region)}
-					groups={watchProviderGroups(props.media, region)}
+					link={watchProviderLink(props.watchProviders, region)}
+					groups={watchProviderGroups(props.watchProviders, region)}
 				/>
 			)}
 		</div>

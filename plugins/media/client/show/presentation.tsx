@@ -1,35 +1,19 @@
-import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
-import {
-	defineEntityPresentation,
-	PluginLink,
-	useRyotViewport,
-	type EntityPresentationComponentProps,
-	type EntityPresentationLoader,
-} from "@ryot-app/client-sdk/plugin";
-import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
-import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 
 import { showPresentationRecipe, type ShowPresentationData } from "../../shared/show-recipes";
-import { collectManagedAssetLocators } from "../media/image";
-import { ManagedAssetImage } from "../media/managed-assets";
-import { mediaCountLabel, mediaPosterAsset, mediaReleaseLabel } from "../media/summary-state";
+import {
+	createMediaPresentationLoader,
+	defineMediaPresentationPair,
+	MediaCardContent,
+	MediaRowContent,
+	type MediaPresentationViewData,
+} from "../media/entity-presentation";
+import { mediaCountLabel, mediaReleaseLabel } from "../media/summary-state";
 import { showLifecycleLabel } from "./summary-state";
 
-export type ShowPresentationViewData = ShowPresentationData & {
-	readonly batchAssets: readonly ManagedAssetLocator[];
-};
+export type ShowPresentationViewData = MediaPresentationViewData<ShowPresentationData>;
 
-export const loadShowPresentations: EntityPresentationLoader<ShowPresentationViewData> = async ({
-	client,
-	signal,
-	references,
-}) => {
-	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
-	const shows = await client.data.query(showPresentationRecipe(entityIds), { signal });
-	const batchAssets = collectManagedAssetLocators(shows.map(mediaPosterAsset));
-	return Object.fromEntries(shows.map((show) => [show.id, { ...show, batchAssets }]));
-};
+export const loadShowPresentations = createMediaPresentationLoader(showPresentationRecipe);
 
 const episodeProgressLabel = (show: ShowPresentationData) => {
 	if (show.storedEpisodes === 0) {
@@ -41,48 +25,25 @@ const episodeProgressLabel = (show: ShowPresentationData) => {
 	return `${show.watchedEpisodes} of ${show.storedEpisodes} episodes watched`;
 };
 
-const artworkSize = (layout: "grid" | "list", compact: boolean) => {
-	if (layout === "grid") {
-		return "aspect-2/3 w-full";
-	}
-	return compact ? "h-20 w-14" : "h-24 w-16";
-};
-
-function ShowArtwork(props: {
-	readonly compact: boolean;
-	readonly show: ShowPresentationViewData;
-	readonly layout: "grid" | "list";
-}) {
-	const poster = mediaPosterAsset(props.show);
-	return (
-		<ManagedAssetImage
-			asset={poster}
-			monogram={props.show.name}
-			state={fieldSyncState(poster, props.show)}
-			className={clsx("shrink-0", artworkSize(props.layout, props.compact))}
-		/>
-	);
-}
-
-function ShowFacts(props: { readonly show: ShowPresentationData; readonly compact: boolean }) {
-	const release = mediaReleaseLabel(props.show);
-	const progress = episodeProgressLabel(props.show);
+function ShowFacts(props: { readonly data: ShowPresentationData; readonly compact: boolean }) {
+	const release = mediaReleaseLabel(props.data);
+	const progress = episodeProgressLabel(props.data);
 	return (
 		<div className={clsx("flex min-w-0 flex-col", props.compact ? "gap-1" : "gap-1.5")}>
 			<div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-ui text-[12px] text-text-muted">
 				{release === undefined ? null : <span>{release}</span>}
-				{props.show.productionStatus === null ? null : <span>{props.show.productionStatus}</span>}
-				<span className="font-medium text-accent-text">{showLifecycleLabel(props.show.state)}</span>
+				{props.data.productionStatus === null ? null : <span>{props.data.productionStatus}</span>}
+				<span className="font-medium text-accent-text">{showLifecycleLabel(props.data.state)}</span>
 			</div>
-			{props.show.storedSeasons === 0 && progress === undefined ? null : (
+			{props.data.storedSeasons === 0 && progress === undefined ? null : (
 				<p className="font-ui text-[12px] leading-5 text-text-subtle">
-					{props.show.storedSeasons === 0
+					{props.data.storedSeasons === 0
 						? null
-						: mediaCountLabel(props.show.storedSeasons, "stored season")}
-					{props.show.storedSeasons > 0 && progress !== undefined ? " · " : null}
+						: mediaCountLabel(props.data.storedSeasons, "stored season")}
+					{props.data.storedSeasons > 0 && progress !== undefined ? " · " : null}
 					{progress}
-					{props.show.inProgressEpisodes > 0
-						? ` · ${mediaCountLabel(props.show.inProgressEpisodes, "episode")} in progress`
+					{props.data.inProgressEpisodes > 0
+						? ` · ${mediaCountLabel(props.data.inProgressEpisodes, "episode")} in progress`
 						: null}
 				</p>
 			)}
@@ -96,28 +57,13 @@ export function ShowCardContent(props: {
 	readonly data: ShowPresentationViewData;
 }) {
 	return (
-		<ManagedAssetProvider assets={props.data.batchAssets}>
-			<article
-				data-layout="grid"
-				data-entity-id={props.entityId}
-				className={clsx("flex h-full min-w-0 flex-col", props.compact ? "gap-2.5" : "gap-3")}
-			>
-				<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
-					<ShowArtwork layout="grid" show={props.data} compact={props.compact} />
-				</PluginLink>
-				<div className="flex min-w-0 flex-col gap-1.5">
-					<span className="flex min-w-0 items-baseline gap-1.5">
-						<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
-							<span className="line-clamp-2 font-display font-semibold leading-5 text-text">
-								{props.data.name}
-							</span>
-						</PluginLink>
-						{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
-					</span>
-					<ShowFacts show={props.data} compact={props.compact} />
-				</div>
-			</article>
-		</ManagedAssetProvider>
+		<MediaCardContent
+			aspect="poster"
+			data={props.data}
+			compact={props.compact}
+			entityId={props.entityId}
+			facts={<ShowFacts data={props.data} compact={props.compact} />}
+		/>
 	);
 }
 
@@ -127,50 +73,22 @@ export function ShowRowContent(props: {
 	readonly data: ShowPresentationViewData;
 }) {
 	return (
-		<ManagedAssetProvider assets={props.data.batchAssets}>
-			<article
-				data-layout="list"
-				data-entity-id={props.entityId}
-				className={clsx(
-					"grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center border-b border-border",
-					props.compact ? "gap-3 py-2.5" : "gap-4 py-3",
-				)}
-			>
-				<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
-					<ShowArtwork layout="list" show={props.data} compact={props.compact} />
-				</PluginLink>
-				<div className="flex min-w-0 flex-col gap-1.5">
-					<span className="flex min-w-0 items-baseline gap-1.5">
-						<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
-							<span className="line-clamp-2 font-display font-semibold text-text">
-								{props.data.name}
-							</span>
-						</PluginLink>
-						{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
-					</span>
-					<ShowFacts show={props.data} compact={props.compact} />
-				</div>
-			</article>
-		</ManagedAssetProvider>
+		<MediaRowContent
+			aspect="poster"
+			data={props.data}
+			compact={props.compact}
+			entityId={props.entityId}
+			facts={<ShowFacts data={props.data} compact={props.compact} />}
+		/>
 	);
 }
 
-function ShowCard({ data, reference }: EntityPresentationComponentProps<ShowPresentationViewData>) {
-	const { compact } = useRyotViewport();
-	return <ShowCardContent data={data} compact={compact} entityId={reference.entityId} />;
-}
-
-function ShowRow({ data, reference }: EntityPresentationComponentProps<ShowPresentationViewData>) {
-	const { compact } = useRyotViewport();
-	return <ShowRowContent data={data} compact={compact} entityId={reference.entityId} />;
-}
-
-export const showCardPresentation = defineEntityPresentation({
-	component: ShowCard,
+const showPresentations = defineMediaPresentationPair({
+	aspect: "poster",
+	Facts: ShowFacts,
 	loader: loadShowPresentations,
 });
 
-export const showRowPresentation = defineEntityPresentation({
-	component: ShowRow,
-	loader: loadShowPresentations,
-});
+export const showCardPresentation = showPresentations.cardPresentation;
+
+export const showRowPresentation = showPresentations.rowPresentation;
