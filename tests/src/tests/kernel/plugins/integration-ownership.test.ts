@@ -17,7 +17,7 @@ const settingsSchema = {
 } satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
 
 describe("plugin integration ownership", () => {
-	it.scopedLive("blocks uninstall until its integration is deleted", () =>
+	it.live("blocks uninstall until its integration is deleted", () =>
 		Effect.gen(function* () {
 			const { plugin, providerSlug } = yield* Effect.acquireRelease(
 				installTestIntegrationProvider(settingsSchema),

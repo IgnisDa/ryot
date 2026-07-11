@@ -40,7 +40,7 @@ const installEchoOperationPlugin = () => {
 };
 
 describe("plugin operations", () => {
-	it.scopedLive("dispatches an operation and returns its decoded result", () =>
+	it.live("dispatches an operation and returns its decoded result", () =>
 		Effect.gen(function* () {
 			const plugin = yield* installEchoOperationPlugin();
 			const { client } = yield* createAuthenticatedClient();
@@ -48,7 +48,7 @@ describe("plugin operations", () => {
 			const { result } = yield* client.call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { titles: ["dune", "arcane"] } },
-					path: { pluginSlug: plugin.pluginSlug, operationSlug: "echo" },
+					params: { pluginSlug: plugin.pluginSlug, operationSlug: "echo" },
 				}),
 			);
 
@@ -56,7 +56,7 @@ describe("plugin operations", () => {
 		}),
 	);
 
-	it.scopedLive("rejects unknown plugin and operation slugs", () =>
+	it.live("rejects unknown plugin and operation slugs", () =>
 		Effect.gen(function* () {
 			const plugin = yield* installEchoOperationPlugin();
 			const { client } = yield* createAuthenticatedClient();
@@ -65,7 +65,7 @@ describe("plugin operations", () => {
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { titles: [] } },
-						path: {
+						params: {
 							operationSlug: "echo",
 							pluginSlug: PluginSlug.make(`missing-${crypto.randomUUID()}`),
 						},
@@ -78,7 +78,7 @@ describe("plugin operations", () => {
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { titles: [] } },
-						path: { pluginSlug: plugin.pluginSlug, operationSlug: "not-an-operation" },
+						params: { pluginSlug: plugin.pluginSlug, operationSlug: "not-an-operation" },
 					}),
 				),
 			);
@@ -86,7 +86,7 @@ describe("plugin operations", () => {
 		}),
 	);
 
-	it.scopedLive("surfaces a payload that violates the script input schema", () =>
+	it.live("surfaces a payload that violates the script input schema", () =>
 		Effect.gen(function* () {
 			const plugin = yield* installEchoOperationPlugin();
 			const { client } = yield* createAuthenticatedClient();
@@ -95,7 +95,7 @@ describe("plugin operations", () => {
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { titles: "dune" } },
-						path: { pluginSlug: plugin.pluginSlug, operationSlug: "echo" },
+						params: { pluginSlug: plugin.pluginSlug, operationSlug: "echo" },
 					}),
 				),
 			);
@@ -104,7 +104,7 @@ describe("plugin operations", () => {
 		}),
 	);
 
-	it.scopedLive("enforces the operation's declared user authentication", () =>
+	it.live("enforces the operation's declared user authentication", () =>
 		Effect.gen(function* () {
 			const plugin = yield* installEchoOperationPlugin();
 
@@ -112,7 +112,7 @@ describe("plugin operations", () => {
 				getBackendClient().call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { titles: ["dune"] } },
-						path: { pluginSlug: plugin.pluginSlug, operationSlug: "echo" },
+						params: { pluginSlug: plugin.pluginSlug, operationSlug: "echo" },
 					}),
 				),
 			);
