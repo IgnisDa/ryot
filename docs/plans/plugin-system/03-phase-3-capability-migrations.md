@@ -870,6 +870,12 @@ sandbox processes, and record pool and lock pressure alongside completion result
 
 ### Task 11 kernel-purity triage (2026-07-29)
 
+Retrospective Phase 4 note: this was the bounded Phase 3 gate audit, not the final purity result.
+Phase 4's manifest-derived scan found media library policy in cross-cutting modules whose names did
+not contain media vocabulary, plus domain contract, query-recipe, and operational-test-support
+surfaces. The Phase 4 plan owns their removal. The classifications below remain the historical record
+of what Task 11 checked and changed.
+
 The audit covered `apps/app-backend/src/modules`, `apps/app-backend/src/app`, and operation dispatch
 support with media/fitness names and representative schema vocabulary. Results are classified as
 follows; an entry is not justified merely because deleting it would be inconvenient.
@@ -923,7 +929,7 @@ follows; an entry is not justified merely because deleting it would be inconveni
 - The owner-approved monitoring behavior change remains aligned per item: invisible or unsupported
   entities return `{ status: "notFound" }`, preserving successful siblings in mixed batches.
 
-### Task 11 operational gate record (2026-07-29, timed out; incomplete)
+### Task 11 operational gate record (initial timeout, subsequently closed)
 
 The preserved full-size measurement ran two concurrent 1,001-item imports through the real
 infrastructure and packed them into eight workflows. It timed out after 901,013 ms with all eight

@@ -45,12 +45,12 @@ The inventory is the **commit-log union** of every path named by every commit in
 (first source commit `530b693b3`), including deleted, renamed, and later-reverted paths: **1,007
 paths**. Each landed on exactly one outcome:
 
-| Outcome                                     | Paths |
-| ------------------------------------------- | ----- |
-| reviewed / no cleanup                       | 770   |
-| deleted-or-renamed, checked for residue     | 181   |
-| changed                                     | 53    |
-| excluded (generated / legacy V1 surface)    | 3     |
+| Outcome                                  | Paths |
+| ---------------------------------------- | ----- |
+| reviewed / no cleanup                    | 770   |
+| deleted-or-renamed, checked for residue  | 181   |
+| changed                                  | 53    |
+| excluded (generated / legacy V1 surface) | 3     |
 
 The 181 deleted/renamed paths are dominated by `apps/app-backend/src` (116 — the five native domain
 modules, the sink/yank adapters, and the import-orchestration split) and `plugins/media/scripts`
@@ -59,7 +59,8 @@ counterparts). Exclusions: `bun.lock` (generated lockfile) and
 `apps/docs/src/includes/backend-config-schema.yaml` (documents the legacy V1 Rust config surface).
 Standing exclusions applied throughout: generated/ignored output (`dist/`, `*.generated.ts`,
 `generated-sandbox/`, `runner.generated.ts`), `node_modules/`, backup apps
-(`apps/app-client-backup`), legacy V1 Rust crates under `crates/`, and stale agent worktrees.
+(`apps/app-client-backup`, retained as a reference with deletion deferred), legacy V1 Rust crates
+under `crates/`, and stale agent worktrees.
 
 A further **12 paths outside the union** were changed because this task's scope explicitly extends
 to them: the `legacy-bootstrap` module's migration targets and its generated-SQL test. Historical
@@ -71,7 +72,7 @@ describing history.
 - **`span` host function** — named as a candidate by the inventory (registered end-to-end, no plugin
   caller today), but it is a deliberately-offered observability capability with real coverage in
   `bridge-adapter.test.ts`, `observability-host-functions.test.ts`, and SDK `core.test.ts`, and is
-  documented as `log`'s pair. Kept. None of the four *actually* withdrawn host functions
+  documented as `log`'s pair. Kept. None of the four _actually_ withdrawn host functions
   (`putRunBlobs`, `getRunBlobs`, `recordImportFailures`, `reportImportProgress`) exists anywhere.
 - **`libs/sandbox-compiler/src/compiler-source.ts` driver-map diagnostics** — the
   `defineDriver`/`defineProviderDriver`/`drivers`-literal checks reject the withdrawn API rather
