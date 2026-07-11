@@ -844,7 +844,7 @@ it.effect("propagates images through properties for the primary entity", () => {
 	const savedProperties: unknown[] = [];
 
 	const payload = { ...importPayload, executionId: "exec-images-properties" };
-	const images = [{ type: "s3" as const, key: "entities/test-book.jpg" }];
+	const images = [{ type: "local" as const, key: "permanent/test-book.jpg" }];
 	const options = {
 		processSandbox: () =>
 			Effect.succeed({

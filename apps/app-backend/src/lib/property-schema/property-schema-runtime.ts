@@ -36,7 +36,6 @@ type PropertyValueSchema = Schema.ConstraintCodec<unknown, unknown>;
 export type PropertyValueField = PropertyValueSchema;
 type StringValueSchema = Schema.Codec<string>;
 type PropertyValues = Record<string, unknown>;
-type ObjectValueSchema = Schema.ConstraintCodec<PropertyValues, unknown>;
 
 type ValidationResult =
 	| { readonly success: true; readonly data: PropertyValues }
@@ -332,7 +331,7 @@ const toStructField = (property: AppPropertyDefinition): PropertyValueField => {
 const createObjectValueSchema = (
 	fields: AppSchemaFields,
 	unknownKeys?: AppSchemaUnknownKeysPolicy,
-): ObjectValueSchema => {
+) => {
 	const shape: Record<string, PropertyValueField> = {};
 	for (const [key, value] of Object.entries(fields)) {
 		shape[key] = toStructField(value);
@@ -340,6 +339,25 @@ const createObjectValueSchema = (
 	return Schema.Struct(shape).annotate({
 		parseOptions: { onExcessProperty: unknownKeysPolicyToParseOption(unknownKeys) },
 	});
+};
+
+const isManagedAsset = (value: unknown) => {
+	if (!isStringRecord(value)) {
+		return false;
+	}
+	if (value["type"] === "remote") {
+		return (
+			typeof value["url"] === "string" &&
+			value["url"].trim().length > 0 &&
+			value["key"] === undefined
+		);
+	}
+	return (
+		(value["type"] === "local" || value["type"] === "s3") &&
+		typeof value["key"] === "string" &&
+		value["key"].trim().length > 0 &&
+		value["url"] === undefined
+	);
 };
 
 const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyValueSchema => {
@@ -400,11 +418,14 @@ const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyVal
 		);
 		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
 	}
-	const value = createObjectValueSchema(property.properties, property.unknownKeys);
+	const objectSchema = createObjectValueSchema(property.properties, property.unknownKeys);
+	const value = property.validation?.asset
+		? objectSchema.pipe(Schema.check(Schema.makeFilter(isManagedAsset)))
+		: objectSchema;
 	return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
 };
 
-const createPropertiesValueSchema = (schema: AppSchema): ObjectValueSchema =>
+const createPropertiesValueSchema = (schema: AppSchema) =>
 	createObjectValueSchema(schema.fields, schema.unknownKeys);
 
 const decodeAppSchemaEither = (input: unknown, emptyFieldsMessage?: string) => {
