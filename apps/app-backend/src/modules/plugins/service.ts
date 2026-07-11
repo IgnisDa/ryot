@@ -245,7 +245,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						}
 						return script;
 					});
-					const compiled = yield* compilePluginSandboxSourceEntries(files, compilerScripts);
+					const compiled = yield* compilePluginSandboxSourceEntries(files, compilerScripts).pipe(
+						Effect.tapError((error) => Effect.logError("plugin compile error", error)),
+					);
 					const compiledByEntry = new Map(compiled.map((script) => [script.entry, script]));
 					const scripts = yield* Effect.forEach(manifest.scripts, (script) => {
 						const output = compiledByEntry.get(script.entry);
