@@ -1,16 +1,12 @@
 import clsx from "clsx";
 import { Pressable, Text, View } from "react-native";
 
-export type ShowTabKey = "overview" | "episodes";
+export type ShowTabKey = "overview" | "episodes" | "activity";
 
-type ShowTab =
-	| { readonly label: string; readonly key: ShowTabKey }
-	| { readonly key: string; readonly label: string; readonly todo: string };
-
-const SHOW_TABS: readonly ShowTab[] = [
+const SHOW_TABS: readonly { readonly key: ShowTabKey; readonly label: string }[] = [
 	{ key: "overview", label: "Overview" },
 	{ key: "episodes", label: "Episodes" },
-	{ key: "activity", label: "Activity", todo: "TODO: open activity tab" },
+	{ key: "activity", label: "Activity" },
 ];
 
 export function ShowTabBar(props: {
@@ -29,7 +25,7 @@ export function ShowTabBar(props: {
 						key={tab.key}
 						accessibilityRole="tab"
 						accessibilityState={{ selected: isActive }}
-						onPress={() => ("todo" in tab ? console.log(tab.todo) : props.onSelect(tab.key))}
+						onPress={() => props.onSelect(tab.key)}
 						className={clsx(
 							"flex-1 items-center border-b-2 px-3 pb-2.5 pt-3 md:flex-none",
 							isActive ? "border-accent" : "border-transparent",

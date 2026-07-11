@@ -112,7 +112,7 @@ export const showNextUpEpisode = (seasons: ShowSeasonList) => {
 		: episodes.slice(lastCompleted + 1).find((episode) => episode.state === "untracked");
 };
 
-const optionalText = (value: string | null) =>
+export const optionalText = (value: string | null) =>
 	value === null || value.trim() === "" ? undefined : value;
 
 const mediaDateLabel = (value: string | null) => {
@@ -138,8 +138,13 @@ export const showEpisodeRuntimeLabel = (episode: ShowEpisode) =>
 
 export const showEpisodeNumberLabel = (episode: ShowEpisode) => `E${episode.episodeNumber}`;
 
-export const showEpisodeOriginLabel = (episode: ShowEpisode) =>
-	`S${episode.seasonNumber} • E${episode.episodeNumber}`;
+export const showEpisodeOriginLabel = (episode: {
+	readonly seasonNumber: number;
+	readonly episodeNumber: number;
+}) =>
+	episode.seasonNumber === SPECIALS_SEASON_NUMBER
+		? `${SPECIALS_LABEL} • E${episode.episodeNumber}`
+		: `S${episode.seasonNumber} • E${episode.episodeNumber}`;
 
 export const showEpisodeStateLabel = (state: ShowEpisode["state"]) =>
 	Match.value(state).pipe(
