@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { Effect, Runtime } from "effect";
+import { Effect } from "effect";
 import type { PoolClient } from "pg";
 
 import { dbEffect, DbService } from "#lib/infrastructure/db/service";
@@ -49,11 +49,11 @@ export const withRawPgClient = Effect.fn("withRawPgClient")(function* <A>(
 	callback: (client: PoolClient) => Promise<A>,
 ) {
 	const { pool } = yield* DbService;
-	const runtime = yield* Effect.runtime();
+	const runtime = yield* Effect.context();
 	const client = yield* Effect.promise(() => pool.connect());
 	const logLegacyBootstrapNotice = (msg: { message?: string | undefined }) => {
 		if (msg.message) {
-			Runtime.runFork(runtime)(
+			Effect.runForkWith(runtime)(
 				Effect.logInfo("legacy bootstrap notice").pipe(
 					Effect.annotateLogs({ notice: msg.message }),
 				),
