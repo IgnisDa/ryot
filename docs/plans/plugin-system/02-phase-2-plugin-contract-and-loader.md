@@ -10,7 +10,7 @@ contain everything that is already declarative or sandboxed (schemas, providers,
 bindings, saved views); the five native domain modules stay in the kernel reading from the
 registry — they migrate in Phase 3.
 
-## 1. `libs/plugin-kit` — the manifest contract
+## 1. `packages/plugin-kit` — the manifest contract
 
 New workspace lib exporting Effect Schema manifest contracts, their derived types, and a
 `definePlugin` builder (typed literal, `as const`-friendly). The schemas are the runtime source
@@ -58,7 +58,7 @@ required for real-loader e2e plugins to attach fake providers and test relations
 first-party schemas without retaining test-only mutation seams or weakening existing behavioral
 assertions.
 
-Placement rationale: `libs/plugin-kit` is imported by plugin packages and by app-backend;
+Placement rationale: `packages/plugin-kit` is imported by plugin packages and by app-backend;
 keep it dependency-light (Effect schemas + derived types + `AppSchema` re-exports + builder), like
 `@ryot/query-engine`'s dependency-free discipline.
 
@@ -119,7 +119,7 @@ Multi-file authoring: scripts may import from the package's `shared/` — the co
 each script entry point into one compiled module. Single-file `.sandbox.ts` isolation is no
 longer a constraint inside a plugin package.
 
-## 3. Compiler extension (`libs/sandbox-compiler`)
+## 3. Compiler extension (`packages/sandbox-compiler`)
 
 Extend for plugin bundles: given a package root and the manifest's script entries, compile
 each script entry point via the existing `Bun.build` bundling path (`compiler-bundle.ts`)
@@ -315,7 +315,7 @@ continuation of isolation that depended on script ownership.
 Execute this at the **start** of the §2/§4 boot-cutover slice, before the package manifests
 are authored — writing `trackers` sections only to delete them is wasted motion.
 
-- **Manifest** (`libs/plugin-kit`): no `trackers` section; `metadata` carries the workspace
+- **Manifest** (`packages/plugin-kit`): no `trackers` section; `metadata` carries the workspace
   display fields (`icon`, `accentColor`, `description`). Rework the implemented contract
   accordingly.
 - **Registry/loader**: no tracker definitions; the workspace list is the installed plugins'
