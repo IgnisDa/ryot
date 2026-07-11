@@ -1,5 +1,4 @@
-import { FileSystem, Path } from "@effect/platform";
-import { Data, Effect } from "effect";
+import { Data, Effect, FileSystem, Path } from "effect";
 import { unzipRaw } from "unzipit";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -207,7 +206,13 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 
 		return { directoryPath, entries };
 	}).pipe(
-		Effect.tapError(() => fs.remove(directoryPath, { recursive: true }).pipe(Effect.ignoreLogged)),
+		Effect.tapError(() =>
+			fs.remove(directoryPath, { recursive: true }).pipe(
+				Effect.ignore({
+					log: true,
+				}),
+			),
+		),
 	);
 
 	return yield* extractEntries;
@@ -226,5 +231,9 @@ export const cleanupImportFile = Effect.fn("imports.cleanupImportFile")(function
 		return;
 	}
 	const fs = yield* FileSystem.FileSystem;
-	yield* fs.remove(safePath, { recursive: true }).pipe(Effect.ignoreLogged);
+	yield* fs.remove(safePath, { recursive: true }).pipe(
+		Effect.ignore({
+			log: true,
+		}),
+	);
 });

@@ -1,9 +1,9 @@
-import { Activity } from "@effect/workflow";
 import { unknownToMessage } from "@ryot/contract/errors";
 import type { SandboxExecutionGrants } from "@ryot/contract/modules/sandbox/schemas";
 import { genericImportWorkflowInputSchema } from "@ryot/sandbox-sdk/imports";
 import { jsonValueSchema, type JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Cause, Effect, Schema } from "effect";
+import { Activity } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
@@ -60,19 +60,19 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			? yield* Activity.make({
 					error: ImportRunError,
 					name: "load-import-source-payload",
-					success: Schema.NullOr(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
+					success: Schema.NullOr(Schema.Record(Schema.String, jsonValueSchema)),
 					execute: loadImportSourcePayload(payload.sourcePayloadKey).pipe(
 						Effect.mapError(toWorkflowError),
 					),
 				})
 			: null;
 		const sourcePayload = payload.sourcePayload ?? storedSourcePayload ?? undefined;
-		const workflowInput = yield* Schema.encode(genericImportWorkflowInputSchema)({
+		const workflowInput = yield* Schema.encodeUnknownEffect(genericImportWorkflowInputSchema)({
 			runId: payload.runId,
 			source: payload.source,
 			...(sourcePayload ? { sourcePayload } : {}),
 		}).pipe(
-			Effect.flatMap(Schema.decodeUnknown(jsonValueSchema)),
+			Effect.flatMap(Schema.decodeUnknownEffect(jsonValueSchema)),
 			Effect.mapError(toWorkflowError),
 		) satisfies Effect.Effect<JsonValue, ImportRunError>;
 
@@ -90,17 +90,17 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	});
 
 	yield* processWorkflow.pipe(
-		Effect.catchAllCause((cause) =>
-			Cause.isInterruptedOnly(cause)
+		Effect.catchCause((cause) =>
+			Cause.hasInterruptsOnly(cause)
 				? Effect.failCause(cause)
 				: releaseImportWorkflowPin.pipe(
-						Effect.zipRight(
+						Effect.andThen(
 							cleanupHarvestedDirectoriesBestEffort(
 								"cleanup-import-harvest-on-failure",
 								`${executionId}-import-activity-`,
 							),
 						),
-						Effect.zipRight(
+						Effect.andThen(
 							failRunAndCleanup({
 								cleanupPaths,
 								failureName: "fail-import-run-unexpected",

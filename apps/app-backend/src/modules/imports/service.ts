@@ -1,5 +1,3 @@
-import { FileSystem } from "@effect/platform";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
@@ -10,7 +8,8 @@ import type {
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { DateTime, Effect, Either } from "effect";
+import { Context, DateTime, Effect, Result, FileSystem, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -71,8 +70,8 @@ export type DeleteImportRunInput = {
 const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed";
 
-export class ImportsService extends Effect.Service<ImportsService>()("ImportsService", {
-	effect: Effect.gen(function* () {
+export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {
+	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
@@ -135,22 +134,22 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 
 				const claim = yield* uploads
 					.claimUploadToken(sourceFileInput.uploadToken, user.id)
-					.pipe(Effect.either);
-				if (Either.isLeft(claim)) {
+					.pipe(Effect.result);
+				if (Result.isFailure(claim)) {
 					yield* cleanupFiles(claimedFilePaths);
-					return yield* claim.left;
+					return yield* claim.failure;
 				}
-				claimedFilePaths.push(claim.right.resolvedPath);
+				claimedFilePaths.push(claim.success.resolvedPath);
 
-				const safePath = yield* resolveSafeImportFilePath(claim.right.resolvedPath, tempDir).pipe(
-					Effect.catchAll((message) =>
+				const safePath = yield* resolveSafeImportFilePath(claim.success.resolvedPath, tempDir).pipe(
+					Effect.catch((message) =>
 						cleanupFiles(claimedFilePaths).pipe(Effect.flatMap(() => badRequest(message))),
 					),
 				);
 				claimedFilePaths[claimedFilePaths.length - 1] = safePath;
 
 				yield* validateFileExtension(safePath, sourceFileInput.allowedExtensions).pipe(
-					Effect.catchAll((message) =>
+					Effect.catch((message) =>
 						cleanupFiles(claimedFilePaths).pipe(Effect.flatMap(() => badRequest(message))),
 					),
 				);
@@ -178,8 +177,8 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 					executionId: sandboxExecutionId,
 					pluginSlug: registered.pluginSlug,
 				})
-				.pipe(Effect.either);
-			if (Either.isLeft(pin)) {
+				.pipe(Effect.result);
+			if (Result.isFailure(pin)) {
 				yield* failRun(run.id, "Failed to pin import workflow");
 				yield* cleanupFiles(claimedFilePaths);
 				return yield* badRequest("Could not queue the import job; please try again");
@@ -200,9 +199,9 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 						...(Object.keys(sourcePayload).length > 0 ? { sourcePayload } : {}),
 					},
 				})
-				.pipe(Effect.either);
-			if (Either.isLeft(started)) {
-				if (pin.right.registrationStatus === "registered") {
+				.pipe(Effect.result);
+			if (Result.isFailure(started)) {
+				if (pin.success.registrationStatus === "registered") {
 					yield* workflowPinning.release(sandboxExecutionId);
 				}
 				yield* failRun(run.id, "Failed to enqueue import job");
@@ -228,9 +227,9 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				if (sourcePayload) {
 					const stored = yield* storeImportSourcePayload({ runId: run.id, sourcePayload }).pipe(
 						Effect.provideService(RedisService, redis),
-						Effect.either,
+						Effect.result,
 					);
-					if (Either.isLeft(stored)) {
+					if (Result.isFailure(stored)) {
 						yield* failRun(run.id, "Failed to queue import credentials");
 						return yield* badRequest("Could not queue the import job; please try again");
 					}
@@ -243,8 +242,8 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 						executionId: sandboxExecutionId,
 						pluginSlug: registered.pluginSlug,
 					})
-					.pipe(Effect.either);
-				if (Either.isLeft(pin)) {
+					.pipe(Effect.result);
+				if (Result.isFailure(pin)) {
 					if (sourcePayload) {
 						yield* deleteImportSourcePayload(run.id).pipe(
 							Effect.provideService(RedisService, redis),
@@ -267,9 +266,9 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 							...(sourcePayload ? { sourcePayloadKey: run.id } : {}),
 						},
 					})
-					.pipe(Effect.either);
-				if (Either.isLeft(started)) {
-					if (pin.right.registrationStatus === "registered") {
+					.pipe(Effect.result);
+				if (Result.isFailure(started)) {
+					if (pin.success.registrationStatus === "registered") {
 						yield* workflowPinning.release(sandboxExecutionId);
 					}
 					if (sourcePayload) {
@@ -417,4 +416,6 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			hasActiveRunForIntegration,
 		};
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
