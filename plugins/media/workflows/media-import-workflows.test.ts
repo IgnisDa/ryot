@@ -43,7 +43,7 @@ const completeReplay = async <Input extends JsonValue>(
 	return replay();
 };
 
-it("completes a 205-step resolution workflow with aligned results", async () => {
+it("keeps 205 resolution results aligned during in-process replay", async () => {
 	const items = Array.from({ length: 205 }, (_, index) => ({
 		index,
 		value: `value-${index}`,
@@ -70,7 +70,7 @@ it("completes a 205-step resolution workflow with aligned results", async () => 
 	});
 });
 
-it("completes ten concurrent population workflows", async () => {
+it("keeps ten concurrent in-process population replays isolated", async () => {
 	const outputs = await Promise.all(
 		Array.from({ length: 10 }, (_unused, workflowIndex) => {
 			const items = Array.from({ length: 10 }, (_ignored, index) => ({

@@ -80,6 +80,7 @@ export const projectWorkflowJournalWithRedis = (
 				}),
 			);
 		});
+		// Each body pass rebuilds the visible prefix from zero; entries remain immutable via HSETNX.
 		pipeline.hset(key, highWaterField, String(journal.length));
 		pipeline.expire(key, projectionTtlSeconds);
 		yield* Effect.tryPromise(() => pipeline.exec());

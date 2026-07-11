@@ -8,6 +8,7 @@ import { Schema } from "effect";
 
 const RunSandboxWorkflowPayload = Schema.Struct({
 	...SandboxExecutionPayload.fields,
+	// Effect injects this into child payloads before strict excess-property decoding.
 	"~@effect/workflow/parent": Schema.optional(Schema.Unknown),
 }).annotations({ parseOptions: { onExcessProperty: "error" as const } });
 

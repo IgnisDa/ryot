@@ -17,7 +17,7 @@ import {
 } from "#modules/sandbox/kernel-workflow-references";
 
 export const KernelWorkflowReferencesLive = Layer.succeed(KernelWorkflowReferences, {
-	execute: (workflowSlug, input, executionId) =>
+	execute: (workflowSlug, input, authority, executionId) =>
 		Effect.gen(function* () {
 			if (
 				workflowSlug !== KERNEL_EVENT_CREATE_WORKFLOW &&
@@ -27,11 +27,17 @@ export const KernelWorkflowReferencesLive = Layer.succeed(KernelWorkflowReferenc
 					message: `Unknown kernel workflow reference '${workflowSlug}'`,
 				});
 			}
+			if (!("userId" in authority)) {
+				return yield* new SandboxRunError({
+					message: `Kernel workflow '${workflowSlug}' is not available for system executions`,
+				});
+			}
 			const engine = yield* WorkflowEngine;
 			if (workflowSlug === KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW) {
 				const payload = yield* Schema.decodeUnknown(EntityImportPayload)({
 					...(isObjectRecord(input) ? input : {}),
 					executionId,
+					userId: authority.userId,
 				}).pipe(
 					Effect.mapError(
 						(error) =>
@@ -59,6 +65,7 @@ export const KernelWorkflowReferencesLive = Layer.succeed(KernelWorkflowReferenc
 			const payload = yield* Schema.decodeUnknown(EventCreateWorkflowPayload)({
 				...(isObjectRecord(input) ? input : {}),
 				executionId,
+				userId: authority.userId,
 			}).pipe(
 				Effect.mapError(
 					(error) =>
