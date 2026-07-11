@@ -6,7 +6,7 @@ import { Effect, Runtime } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { kernelScripts } from "#modules/definition-registry/kernel-source";
+import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 
 import { bootConfiguredPluginSlugs } from "./boot-sources";
 import { PluginLoader } from "./loader";
@@ -49,6 +49,9 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 			const repository = yield* PluginRepository;
 			const runTransaction = yield* TransactionRunner;
 			const mutationLock = yield* Effect.makeSemaphore(1);
+			const kernelSignalSlugs = new Set(
+				kernelDefinitionSource().signalSchemas.map(({ slug }) => slug),
+			);
 			const validateSnapshot = Effect.fn("PluginIngestionService.validateSnapshot")(function* (
 				snapshot: ReturnType<PluginLoader["getSnapshot"]>,
 			) {
@@ -57,6 +60,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 					snapshot.definitions,
 					plugins.flatMap(({ manifest }) => manifest.scripts),
 					kernelScripts,
+					kernelSignalSlugs,
 				);
 				yield* Effect.forEach(
 					plugins,

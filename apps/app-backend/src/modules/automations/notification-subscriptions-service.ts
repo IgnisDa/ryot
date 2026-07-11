@@ -12,7 +12,6 @@ import {
 	DefinitionRegistry,
 	type SignalSchemaDefinition,
 } from "#modules/definition-registry/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { AutomationsRepository, type StoredNotificationSubscription } from "./repository";
 
@@ -43,23 +42,9 @@ export class NotificationSubscriptionsService extends Effect.Service<Notificatio
 			const definitions = yield* DefinitionRegistry;
 			const repository = yield* AutomationsRepository;
 			const runInTransaction = yield* TransactionRunner;
-			const pluginRuntime = yield* PluginRuntimeResolver;
 
-			const resolveStateSignalSchema = Effect.fn(
-				"NotificationSubscriptionsService.resolveStateSignalSchema",
-			)(function* (state: StoredNotificationSubscription) {
-				const signalSchema = definitions.getSignalSchema(state.signalSchemaSlug);
-				if (!signalSchema) {
-					return null;
-				}
-				const activeScript = yield* pluginRuntime.findActiveScript(
-					signalSchema.notificationScriptSlug,
-				);
-				const script =
-					activeScript ??
-					(yield* pluginRuntime.findKernelScript(signalSchema.notificationScriptSlug));
-				return script ? signalSchema : null;
-			});
+			const resolveStateSignalSchema = (state: StoredNotificationSubscription) =>
+				definitions.getSignalSchema(state.signalSchemaSlug);
 
 			const listCatalog = Effect.fn("NotificationSubscriptionsService.listCatalog")(() =>
 				Effect.succeed(
@@ -85,9 +70,8 @@ export class NotificationSubscriptionsService extends Effect.Service<Notificatio
 				return yield* runWithDb(
 					Effect.gen(function* () {
 						const states = yield* repository.listNotificationSubscriptions(userId);
-						const resolved = yield* Effect.all(states.map(resolveStateSignalSchema));
-						const rules = states.flatMap((state, index) => {
-							const signalSchema = resolved[index];
+						const rules = states.flatMap((state) => {
+							const signalSchema = resolveStateSignalSchema(state);
 							return signalSchema ? [toInstalledNotificationRule(state, signalSchema)] : [];
 						});
 						return rules.sort(
@@ -106,7 +90,7 @@ export class NotificationSubscriptionsService extends Effect.Service<Notificatio
 				if (!state) {
 					return yield* notFound("Automation rule not found");
 				}
-				const signalSchema = yield* resolveStateSignalSchema(state);
+				const signalSchema = resolveStateSignalSchema(state);
 				if (!signalSchema) {
 					return yield* notFound("Automation rule not found");
 				}
@@ -167,15 +151,12 @@ export class NotificationSubscriptionsService extends Effect.Service<Notificatio
 				function* (input: { userId: UserId; isActive: boolean; ruleId: AutomationRuleId }) {
 					return yield* runInTransaction(
 						Effect.gen(function* () {
-							yield* loadRule(input);
+							const loaded = yield* loadRule(input);
 							const state = yield* repository.setNotificationSubscriptionActive(input);
 							if (!state) {
 								return yield* notFound("Automation rule not found");
 							}
-							const signalSchema = yield* resolveStateSignalSchema(state);
-							return signalSchema
-								? toInstalledNotificationRule(state, signalSchema)
-								: yield* notFound("Automation rule not found");
+							return toInstalledNotificationRule(state, loaded.signalSchema);
 						}),
 					);
 				},
