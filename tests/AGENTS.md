@@ -63,7 +63,7 @@ Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary 
 
 ## Operational Gates
 
-`tests/src/tests/imports/media-population-operational-gate.test.ts` preserves the full-size Phase 3 load measurement against the real workflow pool, Redis projection, sandbox processes, and database. It is discoverable but skipped by default because the known failing measurement consumes its full 15-minute budget. Run it explicitly from this package with `RUN_OPERATIONAL_GATES=1 bun run test -- src/tests/imports/media-population-operational-gate.test.ts`; `true` is also accepted. Do not reduce its workload, timeout, assertions, or infrastructure path to make the gate pass.
+`tests/src/tests/imports/media-population-operational-gate.test.ts` preserves the full-size Phase 3 load measurement against the real workflow pool, Redis projection, sandbox processes, and database. It is discoverable but skipped by default because the successful measurement can consume up to its full 15-minute budget. Run it explicitly from this package with `RUN_OPERATIONAL_GATES=1 bun run test -- src/tests/imports/media-population-operational-gate.test.ts`; `true` is also accepted. Do not reduce its workload, timeout, assertions, or infrastructure path.
 
 ## Query-Engine Parity
 
