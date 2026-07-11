@@ -3,16 +3,21 @@ import { ManagedAssets } from "@/modules/ui/managed-asset-host";
 
 import { ShowBackdrop } from "./show-backdrop";
 import { SHOW_ART_HEIGHT, ShowHero } from "./show-hero";
+import { showOverviewManagedAssets } from "./show-overview-state";
 import { ShowScreenContent } from "./show-screen-content";
 import { ShowScreenFrame } from "./show-screen-frame";
 import { showBackdropAsset, showManagedAssets } from "./show-summary-state";
 import { ShowTint } from "./show-tint";
+import { useShowOverview } from "./use-show-overview";
 import { useShowSummary } from "./use-show-summary";
 
 export function ShowScreen(props: { readonly entityId: string }) {
 	const goBack = useGoBack();
 	const { state, refresh } = useShowSummary(props.entityId);
+	const overview = useShowOverview(props.entityId);
 	const assets = state.status === "ready" ? showManagedAssets(state.show) : [];
+	const overviewAssets =
+		overview.state.status === "ready" ? showOverviewManagedAssets(overview.state.overview) : [];
 	const title = state.status === "ready" ? state.show.name : "";
 	const hasArt = state.status === "ready" && showBackdropAsset(state.show) !== undefined;
 	return (
@@ -36,7 +41,18 @@ export function ShowScreen(props: { readonly entityId: string }) {
 						) : null
 					}
 				>
-					<ShowScreenContent state={state} refresh={refresh} managedUrls={resolution.urls} />
+					<ManagedAssets label="show overview" assets={overviewAssets}>
+						{(overviewResolution) => (
+							<ShowScreenContent
+								state={state}
+								refresh={refresh}
+								overview={overview.state}
+								managedUrls={resolution.urls}
+								refreshOverview={overview.refresh}
+								overviewManagedUrls={overviewResolution.urls}
+							/>
+						)}
+					</ManagedAssets>
 				</ShowScreenFrame>
 			)}
 		</ManagedAssets>
