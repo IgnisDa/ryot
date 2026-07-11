@@ -1,6 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import dayjs from "@ryot/sandbox-sdk/dayjs";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,
@@ -49,8 +48,11 @@ export const parsePublishYear = (startDate: unknown) => {
 	if (!value) {
 		return null;
 	}
-	const parsed = dayjs(value);
-	return parsed.isValid() ? parsed.year() : null;
+	const parsed = DateTime.make(value);
+	if (Option.isNone(parsed)) {
+		return null;
+	}
+	return DateTime.toDateUtc(parsed.value).getFullYear();
 };
 
 export const parsePublishDate = (startDate: unknown) => {
