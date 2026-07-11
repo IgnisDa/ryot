@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { SandboxCompiler } from "./compiler";
 
 export const validSandboxSource = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
