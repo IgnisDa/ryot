@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import type { PluginManifest } from "@ryot/plugin-kit/manifest";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { Cause, Effect, Exit, Option } from "effect";
 import { assert } from "vitest";
 

@@ -1,4 +1,4 @@
-import type { PluginHttpRateLimit, PluginManifest } from "@ryot/plugin-kit/manifest";
+import type { PluginHttpRateLimit, PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 
