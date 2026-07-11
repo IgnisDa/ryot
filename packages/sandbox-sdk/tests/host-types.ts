@@ -101,7 +101,8 @@ defineScript({
 	input: Schema.Struct({}),
 	output: Schema.NullOr(jsonValueSchema),
 	run: (_input, host) => {
-		const capabilities: Expect<Equal<keyof typeof host, "getCachedValue">> = true;
+		const capabilities: Expect<Equal<keyof typeof host, "executeWorkflow" | "getCachedValue">> =
+			true;
 		void capabilities;
 		return host.getCachedValue("key");
 	},

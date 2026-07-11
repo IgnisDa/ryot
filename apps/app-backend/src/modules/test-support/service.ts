@@ -15,6 +15,7 @@ import {
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer } from "effect";
 
+import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
 import { AutomationsService } from "#modules/automations/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
@@ -58,6 +59,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthService;
+			const redis = yield* RedisService;
 			const signals = yield* SignalsService;
 			const entities = yield* EntitiesService;
 			const interest = yield* InterestService;
@@ -187,25 +189,31 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 
 			return {
 				linkAuthAccount,
+				getSandboxScript,
 				triggerPluginBoot,
 				triggerPluginCron,
+				listSandboxScripts,
 				createGlobalEntity,
 				countAutomationRules,
 				setEntityPopulatedAt,
 				upsertEntityTranslation,
 				upsertGlobalRelationship,
 				listSignals: signals.list,
-				getSandboxScript,
 				getSandboxResult: sandbox.getResult,
 				setEntityInterest: interest.setInterest,
 				deleteGlobalEntities: entities.deleteByIds,
-				listSandboxScripts,
 				listEntityTranslations: translations.listByEntity,
 				listGlobalRelationships: relationships.listGlobal,
 				listSubscriptionRuns: automations.listRunsByExecutionUserId,
+				deleteSandboxReplayProjection: (executionId: string) =>
+					redis
+						.del(redisKeys.sandboxWorkflowJournal(executionId))
+						.pipe(Effect.map((deleted) => ({ deleted: deleted > 0 }))),
 				enqueueSandbox: (input: TestSupportEnqueueSandboxBody) => {
-					const { executingUserId, ...payload } = input;
-					return sandbox.enqueue(executingUserId, payload);
+					const { durable, executingUserId, ...payload } = input;
+					return durable
+						? sandbox.enqueueDurable(executingUserId, payload)
+						: sandbox.enqueue(executingUserId, payload);
 				},
 				getBuiltinEntitySchema: (slug: string) =>
 					Effect.succeed(definitions.getEntitySchema(slug)).pipe(
