@@ -194,10 +194,12 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"getEntity",
 	"listEvents",
 	"createEvents",
+	"upsertGlobalEntities",
 	"getIntegration",
 	"getEntitySchema",
 	"listEventSchemas",
 	"listIntegrations",
+	"upsertGlobalRelationships",
 	"executeQueryEngine",
 ] as const;
 export const domainSandboxHostCapabilitySchema = Schema.Literal(
@@ -208,6 +210,16 @@ export type DomainSandboxHostCapability = Schema.Schema.Type<
 >;
 
 const sandboxIdSchema = nonEmptyString;
+export const GLOBAL_WRITE_SANDBOX_LIMITS = {
+	entityItems: 500,
+	relationshipGroups: 50,
+	relationshipsTotal: 1_000,
+	relationshipsPerGroup: 500,
+} as const;
+export const SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES = [
+	"upsertGlobalEntities",
+	"upsertGlobalRelationships",
+] as const;
 export const integrationLotSchema = Schema.Literal("push", "sink", "yank");
 export const integrationProviderSchema = Schema.Literal(
 	"emby",
@@ -303,6 +315,66 @@ export const createEventItemSchema = strictStruct({
 	sessionEntityId: Schema.optional(sandboxIdSchema),
 });
 export type CreateEventItem = Schema.Schema.Type<typeof createEventItemSchema>;
+const globalPropertiesSchema = Schema.Record({ key: Schema.String, value: jsonValueSchema });
+export const upsertGlobalEntityItemSchema = strictStruct({
+	name: nonEmptyString,
+	externalId: nonEmptyString,
+	entitySchemaSlug: nonEmptyString,
+	properties: globalPropertiesSchema,
+	populatedAt: Schema.NullOr(Schema.String),
+});
+export type UpsertGlobalEntityItem = Schema.Schema.Type<typeof upsertGlobalEntityItemSchema>;
+export const upsertGlobalEntitiesOptionsSchema = strictStruct({
+	maximumTotal: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
+});
+export type UpsertGlobalEntitiesOptions = Schema.Schema.Type<
+	typeof upsertGlobalEntitiesOptionsSchema
+>;
+export const upsertGlobalEntityResultSchema = Schema.Union(
+	strictStruct({ status: Schema.Literal("skipped") }),
+	strictStruct({
+		entityId: sandboxIdSchema,
+		wasInserted: Schema.Boolean,
+		status: Schema.Literal("upserted"),
+	}),
+);
+export type UpsertGlobalEntityResult = Schema.Schema.Type<typeof upsertGlobalEntityResultSchema>;
+export const globalRelationshipSelectorSchema = Schema.Union(
+	strictStruct({ type: Schema.Literal("self") }),
+	strictStruct({
+		anchorEntityId: sandboxIdSchema,
+		type: Schema.Literal("anchored"),
+		direction: Schema.Literal("incoming", "outgoing"),
+	}),
+);
+export type GlobalRelationshipSelector = Schema.Schema.Type<
+	typeof globalRelationshipSelectorSchema
+>;
+export const upsertGlobalRelationshipItemSchema = strictStruct({
+	sourceEntityId: sandboxIdSchema,
+	targetEntityId: sandboxIdSchema,
+	properties: globalPropertiesSchema,
+});
+export type UpsertGlobalRelationshipItem = Schema.Schema.Type<
+	typeof upsertGlobalRelationshipItemSchema
+>;
+export const upsertGlobalRelationshipGroupSchema = strictStruct({
+	selector: globalRelationshipSelectorSchema,
+	relationships: Schema.Array(upsertGlobalRelationshipItemSchema).pipe(
+		Schema.maxItems(GLOBAL_WRITE_SANDBOX_LIMITS.relationshipsPerGroup),
+	),
+	relationshipSchemaSlug: nonEmptyString,
+});
+export type UpsertGlobalRelationshipGroup = Schema.Schema.Type<
+	typeof upsertGlobalRelationshipGroupSchema
+>;
+export const upsertGlobalRelationshipResultSchema = strictStruct({
+	deleted: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	upserted: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+});
+export type UpsertGlobalRelationshipResult = Schema.Schema.Type<
+	typeof upsertGlobalRelationshipResultSchema
+>;
 export const createEventsResultDataSchema = strictStruct({
 	count: Schema.Number.pipe(Schema.int()),
 });
@@ -339,6 +411,25 @@ export const listIntegrationsDataSchema = Schema.Array(integrationRecordSchema);
 export const listIntegrationsResultSchema = hostResultSchema(listIntegrationsDataSchema);
 export const createEventsArgsSchema = Schema.Tuple(Schema.Array(createEventItemSchema));
 export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
+export const upsertGlobalEntitiesArgsSchema = Schema.Tuple(
+	Schema.Array(upsertGlobalEntityItemSchema).pipe(
+		Schema.maxItems(GLOBAL_WRITE_SANDBOX_LIMITS.entityItems),
+	),
+	Schema.optionalElement(upsertGlobalEntitiesOptionsSchema),
+);
+export const upsertGlobalEntitiesDataSchema = Schema.Array(upsertGlobalEntityResultSchema);
+export const upsertGlobalEntitiesResultSchema = hostResultSchema(upsertGlobalEntitiesDataSchema);
+export const upsertGlobalRelationshipsArgsSchema = Schema.Tuple(
+	Schema.Array(upsertGlobalRelationshipGroupSchema).pipe(
+		Schema.maxItems(GLOBAL_WRITE_SANDBOX_LIMITS.relationshipGroups),
+	),
+);
+export const upsertGlobalRelationshipsDataSchema = Schema.Array(
+	upsertGlobalRelationshipResultSchema,
+);
+export const upsertGlobalRelationshipsResultSchema = hostResultSchema(
+	upsertGlobalRelationshipsDataSchema,
+);
 export const executeQueryEngineArgsSchema = Schema.Tuple(queryDocumentSchema);
 export const executeQueryEngineDataSchema = Schema.Unknown;
 export const executeQueryEngineResultSchema = hostResultSchema(executeQueryEngineDataSchema);
@@ -359,6 +450,11 @@ export const domainSandboxHostContracts = {
 		result: createEventsResultSchema,
 		success: createEventsResultDataSchema,
 	},
+	upsertGlobalEntities: {
+		args: upsertGlobalEntitiesArgsSchema,
+		success: upsertGlobalEntitiesDataSchema,
+		result: upsertGlobalEntitiesResultSchema,
+	},
 	getIntegration: {
 		args: getIntegrationArgsSchema,
 		success: integrationRecordSchema,
@@ -378,6 +474,11 @@ export const domainSandboxHostContracts = {
 		args: listIntegrationsArgsSchema,
 		success: listIntegrationsDataSchema,
 		result: listIntegrationsResultSchema,
+	},
+	upsertGlobalRelationships: {
+		args: upsertGlobalRelationshipsArgsSchema,
+		success: upsertGlobalRelationshipsDataSchema,
+		result: upsertGlobalRelationshipsResultSchema,
 	},
 	executeQueryEngine: {
 		args: executeQueryEngineArgsSchema,

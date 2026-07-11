@@ -5,6 +5,8 @@ export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
 
 export const fixtureManifest = () =>
 	({
+		savedViews: [],
+		crons: [] as PluginManifest["crons"],
 		metadata: {
 			icon: "box",
 			name: "Fixture",
@@ -13,7 +15,6 @@ export const fixtureManifest = () =>
 			accentColor: "blue",
 			description: "Fixture plugin",
 		},
-		savedViews: [],
 		entitySchemas: [
 			{
 				icon: "box",

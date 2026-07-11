@@ -3,6 +3,7 @@ import {
 	SANDBOX_COMPILER_LIMITS,
 	utf8ByteLength,
 } from "@ryot/sandbox-compiler/limits";
+import { GLOBAL_WRITE_SANDBOX_LIMITS } from "@ryot/sandbox-sdk/core";
 
 export { jsonByteLength, utf8ByteLength };
 
@@ -12,6 +13,7 @@ const MiB = 1024 * KiB;
 export const SANDBOX_LIMITS = {
 	compiler: SANDBOX_COMPILER_LIMITS,
 	hostCalls: { http: 50, total: 200 },
+	globalWrites: GLOBAL_WRITE_SANDBOX_LIMITS,
 	http: { requestBytes: MiB, responseBytes: 10 * MiB },
 	bridge: { requestBytes: MiB, responseBytes: 10 * MiB },
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },

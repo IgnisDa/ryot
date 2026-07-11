@@ -53,7 +53,6 @@ import {
 } from "#modules/events/event-create-workflow-live";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
-import { BuiltinEntityPreloaderLive } from "#modules/exercises/preload";
 import { GodModeRepository } from "#modules/god-mode/repository";
 import { GodModeService } from "#modules/god-mode/service";
 import { ImportRunFailuresService } from "#modules/imports/failure-service";
@@ -72,9 +71,6 @@ import { LibraryImportService } from "#modules/library-membership/service";
 import { MediaMonitoringRefreshWorkflowDefinitionsLive } from "#modules/media-monitoring/refresh-workflow";
 import { MediaMonitoringRepository } from "#modules/media-monitoring/repository";
 import { MediaMonitoringService } from "#modules/media-monitoring/service";
-import { MediaTrendingWorkflowOperationsLive } from "#modules/media-trending/operations-workflow";
-import { MediaTrendingRefreshWorkflowDefinitionsLive } from "#modules/media-trending/refresh-workflow";
-import { MediaTrendingRepository } from "#modules/media-trending/repository";
 import { MetadataLookupService } from "#modules/metadata-lookup/service";
 import { NotificationDeliveryService } from "#modules/notifications/delivery";
 import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
@@ -96,6 +92,7 @@ import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { InfrequentCronSchedulerLive } from "#modules/scheduler/infrequent-cron";
+import { PluginCronSchedulerLive, PluginCronService } from "#modules/scheduler/plugin-cron";
 import { SignalsRepository } from "#modules/signals/repository";
 import {
 	SignalEmissionService,
@@ -129,7 +126,6 @@ const BaseInfrastructureLive = Layer.provide(BaseInfrastructureServicesLive, Con
 const ContentRepositoriesLive = Layer.mergeAll(
 	CollectionsRepository.Default,
 	EntitiesRepository.Default,
-	MediaTrendingRepository.Default,
 	MediaMonitoringRepository.Default,
 	EntitySchemasRepository.Default,
 	EpisodeResolverRepository.Default,
@@ -345,34 +341,33 @@ const ServicesLive = Layer.mergeAll(
 	MediaMonitoringServiceLive,
 	InterestServicesLive,
 	LifecycleDispatchLayerLive,
+	PluginCronService.Default,
 );
 
 const ServicesWithTestSupportLive = Layer.provideMerge(TestSupportService.Default, ServicesLive);
 
-const RuntimeLive = (builtinExercisePreloadLimit: number) =>
-	Layer.mergeAll(
-		AddEntityToCollectionWorkflowDefinitionsLive,
-		SubscriptionExecutionWorkflowDefinitionsLive,
-		ProviderEntityPopulationWorkflowDefinitionsLive,
-		EventCreateWorkflowDefinitionsLive,
-		LibraryEntityImportWorkflowDefinitionsLive,
-		NotificationDeliveryWorkflowDefinitionsLive,
-		MediaMonitoringRefreshWorkflowDefinitionsLive,
-		MediaTrendingRefreshWorkflowDefinitionsLive,
-		IntegrationReconciliationWorkflowDefinitionsLive,
-		EnsureLibraryMembershipWorkerLive,
-		BuiltinEntityPreloaderLive(builtinExercisePreloadLimit),
-		ImportWorkflowDefinitionsLive,
-		ProcessNormalizedMediaImportWorkflowDefinitionsLive,
-		IntegrationWorkflowDefinitionsLive,
-		SandboxWorkflowDefinitionsLive,
-		TranslateEntityWorkflowDefinitionsLive,
-		ServerLive,
-		FrequentCronWorkflowDefinitionsLive,
-		InfrequentCronWorkflowDefinitionsLive,
-		FrequentCronSchedulerLive,
-		InfrequentCronSchedulerLive,
-	);
+const RuntimeLive = Layer.mergeAll(
+	AddEntityToCollectionWorkflowDefinitionsLive,
+	SubscriptionExecutionWorkflowDefinitionsLive,
+	ProviderEntityPopulationWorkflowDefinitionsLive,
+	EventCreateWorkflowDefinitionsLive,
+	LibraryEntityImportWorkflowDefinitionsLive,
+	NotificationDeliveryWorkflowDefinitionsLive,
+	MediaMonitoringRefreshWorkflowDefinitionsLive,
+	IntegrationReconciliationWorkflowDefinitionsLive,
+	EnsureLibraryMembershipWorkerLive,
+	ImportWorkflowDefinitionsLive,
+	ProcessNormalizedMediaImportWorkflowDefinitionsLive,
+	IntegrationWorkflowDefinitionsLive,
+	SandboxWorkflowDefinitionsLive,
+	TranslateEntityWorkflowDefinitionsLive,
+	ServerLive,
+	FrequentCronWorkflowDefinitionsLive,
+	InfrequentCronWorkflowDefinitionsLive,
+	FrequentCronSchedulerLive,
+	InfrequentCronSchedulerLive,
+	PluginCronSchedulerLive,
+);
 
 const FirstPartyPluginBootstrapLive = Layer.provide(
 	FirstPartyPluginBootstrap.Default,
@@ -408,37 +403,35 @@ const RuntimeDependenciesLive = Layer.provideMerge(
 		SubscriptionExecutionWorkflowOperationsLive,
 		LibraryEntityImportWorkflowOperationsLive,
 		TranslateEntityWorkflowOperationsLive,
-		MediaTrendingWorkflowOperationsLive,
 	),
 	ApplicationInfrastructureLive,
 );
 
-const RuntimeAfterMigrationsLive = (builtinExercisePreloadLimit: number) =>
-	MigrationsComplete.Default.pipe(
-		Layer.flatMap(() =>
-			FirstPartyPluginBootstrapLive.pipe(
-				Layer.flatMap(() =>
-					LegacyBootstrapMigrateDrop.Default.pipe(
-						Layer.flatMap(() =>
-							Layer.provide(
-								Layer.provideMerge(
-									RuntimeLive(builtinExercisePreloadLimit),
-									Layer.provide(PluginInvalidationSubscriber.Default, PluginIngestionServiceLive),
-								),
-								RuntimeDependenciesLive,
+const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
+	Layer.flatMap(() =>
+		FirstPartyPluginBootstrapLive.pipe(
+			Layer.flatMap(() =>
+				LegacyBootstrapMigrateDrop.Default.pipe(
+					Layer.flatMap(() =>
+						Layer.provide(
+							Layer.provideMerge(
+								RuntimeLive,
+								Layer.provide(PluginInvalidationSubscriber.Default, PluginIngestionServiceLive),
 							),
+							RuntimeDependenciesLive,
 						),
 					),
 				),
 			),
 		),
-		Layer.provide(MigrationBootstrapServicesLive),
-		Layer.provide(DbRunnerLive),
-		Layer.provide(TransactionRunnerLive),
-		Layer.provide(DbService.Default),
-		Layer.provide(RedisService.Default),
-		Layer.provide(ConfigLive),
-	);
+	),
+	Layer.provide(MigrationBootstrapServicesLive),
+	Layer.provide(DbRunnerLive),
+	Layer.provide(TransactionRunnerLive),
+	Layer.provide(DbService.Default),
+	Layer.provide(RedisService.Default),
+	Layer.provide(ConfigLive),
+);
 
 const MigrationOnlyCoreLive = MigrationsComplete.Default.pipe(
 	Layer.flatMap(() =>
@@ -456,10 +449,8 @@ export const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(
 	Layer.provide(BunContext.layer),
 );
 
-const AppCoreLive = (builtinExercisePreloadLimit: number) =>
-	RuntimeAfterMigrationsLive(builtinExercisePreloadLimit);
+const AppCoreLive = RuntimeAfterMigrationsLive;
 const ObservabilityProvided = Layer.provide(ObservabilityLive, ConfigLive);
 
-export const AppLive = (builtinExercisePreloadLimit: number) =>
-	Layer.provide(AppCoreLive(builtinExercisePreloadLimit), ObservabilityProvided);
+export const AppLive = Layer.provide(AppCoreLive, ObservabilityProvided);
 export const MigrationOnlyLive = Layer.provide(MigrationOnlyCoreLive, ObservabilityProvided);
