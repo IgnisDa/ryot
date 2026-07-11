@@ -1,4 +1,4 @@
-import type { MetadataLookupResult } from "@ryot/plugin-media/operations/schemas";
+import type { MetadataLookupResult } from "@ryot/media-fitness/operations/schemas";
 import { debounce, throttle } from "@ryot/ts-utils/lodash";
 
 import { storage } from "#imports";

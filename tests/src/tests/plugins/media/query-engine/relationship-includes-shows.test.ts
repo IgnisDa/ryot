@@ -2,7 +2,7 @@ import {
 	buildCompletedShowsQueryDocument,
 	buildInProgressShowsQueryDocument,
 	buildShowDetailQueryDocument,
-} from "@ryot/plugin-media/query-recipes";
+} from "@ryot/media-fitness/query-recipes";
 import { Effect } from "effect";
 
 import {
