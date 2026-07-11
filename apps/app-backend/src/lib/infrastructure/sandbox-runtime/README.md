@@ -140,6 +140,13 @@ runtime. `Date.now()` remains a deterministic zero-valued shim because Effect it
 executing the restricted workflow subset; authored workflow modules cannot call it because compiler
 validation rejects the reference.
 
+Kernel workflow references bind `userId` from the execution's trusted authority, overriding any
+script-supplied value, and reject system executions outright. The remaining attribution ids
+(`importRunId`, `integrationId`, and the ids reachable through an `AutomationOrigin`) cannot be
+injected the same way: neither the execution authority nor the workflow payload carries them, and a
+script legitimately relays an app-supplied origin. They are therefore validated against the
+authority user through the owner-scoped import-run and integration lookups before dispatch.
+
 Each workflow child accepts at most 64 KiB of UTF-8 JSON context and at most 1,000 durable calls.
 Callers with bulk input must split work before dispatch. Media imports pack ordered chunks against
 both limits and fan out those independent child executions under the global sandbox worker bound.
