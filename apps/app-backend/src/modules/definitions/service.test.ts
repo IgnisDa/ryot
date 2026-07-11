@@ -24,7 +24,7 @@ const user = {
 const mockRepository = Layer.mock(DefinitionsRepository);
 
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
-	mockRepository({ _tag: "DefinitionsRepository", ...overrides });
+	mockRepository({ ...overrides });
 
 const makeLoader = () => {
 	const loader = makePluginLoader(
@@ -54,13 +54,9 @@ const makeLoader = () => {
 };
 
 const makeServiceLayer = (repository: ReturnType<typeof makeRepository>) =>
-	DefinitionsService.Default.pipe(
+	DefinitionsService.layer.pipe(
 		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				repository,
-				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...makeLoader() }),
-			),
+			Layer.mergeAll(dbRunnerLayer, repository, Layer.succeed(PluginLoader, { ...makeLoader() })),
 		),
 	);
 
