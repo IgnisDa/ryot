@@ -87,14 +87,15 @@ export const loadMediaAdapterResult = Effect.fn("loadMediaAdapterResult")(functi
 		});
 	}
 
-	const searchResponses = yield* Effect.forEach(loadOutcome.searchJobs, (searchJob) =>
-		Activity.make({
+	const executeSearchJob = (searchJob: (typeof loadOutcome.searchJobs)[0]) => {
+		const resolveSearchProvider = operations
+			.resolveProvider(searchJob.providerSlug)
+			.pipe(Effect.mapError(toWorkflowError));
+		return Activity.make({
 			error: ImportRunError,
 			success: Schema.NullOr(PopulationProvider),
 			name: `resolve-search-provider-${activityKey(searchJob.jobKey)}`,
-			execute: operations
-				.resolveProvider(searchJob.providerSlug)
-				.pipe(Effect.mapError(toWorkflowError)),
+			execute: resolveSearchProvider,
 		}).pipe(
 			Effect.flatMap((provider) =>
 				provider
@@ -114,29 +115,31 @@ export const loadMediaAdapterResult = Effect.fn("loadMediaAdapterResult")(functi
 					items: [] as ReadonlyArray<ProviderSearchItem>,
 				}),
 			}),
+		);
+	};
+	const searchResponses = yield* Effect.forEach(loadOutcome.searchJobs, executeSearchJob);
+
+	const buildAndStoreNetflixResult = buildNetflixAdapterResult({
+		searchResponses,
+		importedAt: loadOutcome.importedAt,
+		myListPath: loadOutcome.myListPath,
+		profileName: loadOutcome.profileName,
+		ratingsPath: loadOutcome.ratingsPath,
+		viewingActivityPath: loadOutcome.viewingActivityPath,
+	}).pipe(
+		Effect.mapError(toWorkflowError),
+		Effect.flatMap((adapterResult) =>
+			storeImportAdapterResult({
+				runId: input.payload.runId,
+				adapterResult,
+			}).pipe(Effect.as(toMediaImportAdapterSummary(adapterResult))),
 		),
 	);
-
 	const summary = yield* Activity.make({
 		error: ImportRunError,
 		name: "build-netflix-adapter-result",
 		success: MediaImportAdapterSummarySchema,
-		execute: buildNetflixAdapterResult({
-			searchResponses,
-			importedAt: loadOutcome.importedAt,
-			myListPath: loadOutcome.myListPath,
-			profileName: loadOutcome.profileName,
-			ratingsPath: loadOutcome.ratingsPath,
-			viewingActivityPath: loadOutcome.viewingActivityPath,
-		}).pipe(
-			Effect.mapError(toWorkflowError),
-			Effect.flatMap((adapterResult) =>
-				storeImportAdapterResult({
-					runId: input.payload.runId,
-					adapterResult,
-				}).pipe(Effect.as(toMediaImportAdapterSummary(adapterResult))),
-			),
-		),
+		execute: buildAndStoreNetflixResult,
 	});
 
 	return { summary, _tag: "loaded" as const, cleanupPaths: [...loadOutcome.cleanupPaths] };

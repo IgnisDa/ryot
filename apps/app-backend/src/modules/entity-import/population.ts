@@ -1,4 +1,4 @@
-import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
+import { SandboxRunError, mapDbErrorToSandbox } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import type { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
 import {
@@ -71,7 +71,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 			if (targetSchemaSlug) {
 				const targetSchema = yield* runWithDb(
 					entitySchemasRepository.getBuiltinBySlug(targetSchemaSlug),
-				).pipe(dieOnDbError);
+				).pipe(mapDbErrorToSandbox);
 				targetSchemaId = targetSchema?.id;
 			}
 		}
@@ -83,7 +83,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 				sourceEntitySchemaSlug,
 				targetEntitySchemaSlug: targetSchemaId,
 			}),
-		).pipe(dieOnDbError);
+		).pipe(mapDbErrorToSandbox);
 		if (!relationshipSchema && targetEntitySchemaSlug) {
 			return yield* new SandboxRunError({
 				message: `Child relationship schema not found: ${sourceEntitySchemaSlug} -> ${targetEntitySchemaSlug}`,
@@ -96,7 +96,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 	for (const childEntity of input.childEntities) {
 		const entitySchema = yield* runWithDb(
 			entitySchemasRepository.getBuiltinBySlug(childEntity.entitySchemaSlug),
-		).pipe(dieOnDbError);
+		).pipe(mapDbErrorToSandbox);
 		if (!entitySchema) {
 			return yield* new SandboxRunError({
 				message: `Child entity schema not found: ${childEntity.entitySchemaSlug}`,
@@ -114,10 +114,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 				properties: childEntity.properties,
 				updateExisting: input.syncExisting ?? false,
 			})
-			.pipe(
-				dieOnDbError,
-				Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-			);
+			.pipe(mapDbErrorToSandbox);
 		processedChildren.push({
 			entity: saved.entity,
 			entityOutcome: saved.outcome,

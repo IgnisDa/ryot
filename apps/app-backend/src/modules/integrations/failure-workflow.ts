@@ -15,12 +15,16 @@ import { IntegrationRunError } from "./jobs";
 export const toIntegrationWorkflowError = (cause: unknown) =>
 	new IntegrationRunError({ message: unknownToMessage(cause) });
 
-export const failRun = (name: string, runId: ImportRunId, message: string) =>
-	Activity.make({
+export const failRun = (name: string, runId: ImportRunId, message: string) => {
+	const failEffect = failImportRun(runId, message).pipe(
+		Effect.mapError(toIntegrationWorkflowError),
+	);
+	return Activity.make({
 		name,
 		error: IntegrationRunError,
-		execute: failImportRun(runId, message).pipe(Effect.mapError(toIntegrationWorkflowError)),
+		execute: failEffect,
 	});
+};
 
 const toImportFailure = (failure: MediaImportAdapterFailure): ImportRunFailureDetails => ({
 	message: failure.message,
@@ -36,16 +40,18 @@ export const failRunWithFailures = (input: {
 	runId: ImportRunId;
 	errorSummary?: string;
 	failures: ReadonlyArray<ImportRunFailureDetails>;
-}) =>
-	Activity.make({
+}) => {
+	const failWithFailuresEffect = failImportRunWithFailures({
+		runId: input.runId,
+		failures: input.failures,
+		...(input.errorSummary !== undefined ? { errorSummary: input.errorSummary } : {}),
+	}).pipe(Effect.mapError(toIntegrationWorkflowError));
+	return Activity.make({
 		name: input.name,
 		error: IntegrationRunError,
-		execute: failImportRunWithFailures({
-			runId: input.runId,
-			failures: input.failures,
-			...(input.errorSummary !== undefined ? { errorSummary: input.errorSummary } : {}),
-		}).pipe(Effect.mapError(toIntegrationWorkflowError)),
+		execute: failWithFailuresEffect,
 	});
+};
 
 export const failRunWithAdapterFailures = (
 	name: string,
