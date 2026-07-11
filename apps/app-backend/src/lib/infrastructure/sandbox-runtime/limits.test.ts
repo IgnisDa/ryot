@@ -15,6 +15,7 @@ import {
 	sandboxRunnerRequestError,
 	SANDBOX_LIMITS,
 	sandboxRunnerLimits,
+	sandboxWorkflowJournalByteError,
 	utf8ByteLength,
 	WORKFLOW_SANDBOX_LIMITS,
 } from "./limits";
@@ -136,6 +137,21 @@ describe("sandbox limits", () => {
 		expect(sandboxRunnerLimits({ kind: "activity" })).toEqual(sandboxRunnerLimits({}));
 		expect(sandboxContextError("a".repeat(65_535), { kind: "workflow" })).toContain(
 			"65536 UTF-8 bytes",
+		);
+	});
+
+	it("enforces the cumulative journal boundary including array separators", () => {
+		expect(
+			sandboxWorkflowJournalByteError(2, WORKFLOW_SANDBOX_LIMITS.journalBytes - 2, 0),
+		).toBeNull();
+		expect(
+			sandboxWorkflowJournalByteError(2, WORKFLOW_SANDBOX_LIMITS.journalBytes - 1, 0),
+		).toContain("104857600 UTF-8 bytes");
+		expect(
+			sandboxWorkflowJournalByteError(WORKFLOW_SANDBOX_LIMITS.journalBytes - 1, 0, 1),
+		).toBeNull();
+		expect(sandboxWorkflowJournalByteError(WORKFLOW_SANDBOX_LIMITS.journalBytes, 0, 1)).toContain(
+			"104857600 UTF-8 bytes",
 		);
 	});
 

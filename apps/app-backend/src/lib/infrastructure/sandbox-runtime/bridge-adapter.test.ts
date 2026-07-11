@@ -143,7 +143,10 @@ describe("bindSandboxHostFunctions", () => {
 		Effect.gen(function* () {
 			const implementations = makeImplementations({
 				httpCall: () =>
-					Effect.fail({ message: "HTTP 429", data: { body: "rate limited", status: 429 } }),
+					Effect.fail({
+						message: "HTTP 429",
+						data: { body: "rate limited", status: 429, headers: { "retry-after": "10" } },
+					}),
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
 			const result = yield* bound.httpCall(["GET", "https://example.com"]);
@@ -151,7 +154,7 @@ describe("bindSandboxHostFunctions", () => {
 			expect(result).toEqual({
 				success: false,
 				error: "HTTP 429",
-				data: { body: "rate limited", status: 429 },
+				data: { body: "rate limited", status: 429, headers: { "retry-after": "10" } },
 			});
 		}),
 	);

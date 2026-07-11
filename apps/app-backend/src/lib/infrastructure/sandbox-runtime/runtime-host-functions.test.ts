@@ -62,14 +62,42 @@ describe("runtime sandbox host functions", () => {
 	it.effect("claims persistent values only once", () =>
 		Effect.gen(function* () {
 			const host = yield* makeRuntimeSandboxApiFunctions.pipe(Effect.provide(makeLayer(new Map())));
+			const value = { __ryotDurableClaim: "public", value: { nested: true } };
 
-			expect(yield* host.claimPersistentValue(input, "answer", { value: 42 }, 60)).toEqual({
+			expect(yield* host.claimPersistentValue(input, "answer", value, 60)).toEqual({
 				claimed: true,
 			});
 			expect(yield* host.claimPersistentValue(input, "answer", { value: 43 }, 60)).toEqual({
+				value,
 				claimed: false,
-				value: { value: 42 },
 			});
+		}),
+	);
+
+	it.effect("replays a durable persistent claim as the original successful claim", () =>
+		Effect.gen(function* () {
+			const values = new Map<string, string>();
+			const host = yield* makeRuntimeSandboxApiFunctions.pipe(Effect.provide(makeLayer(values)));
+			const durableInput = {
+				...input,
+				executionId: "workflow-1-host-0",
+				workflowExecutionId: "workflow-1",
+			};
+
+			expect(yield* host.claimPersistentValue(durableInput, "answer", { value: 42 }, 60)).toEqual({
+				claimed: true,
+			});
+			expect(yield* host.claimPersistentValue(durableInput, "answer", { value: 42 }, 60)).toEqual({
+				claimed: true,
+			});
+			expect(
+				yield* host.claimPersistentValue(
+					{ ...durableInput, executionId: "workflow-2-host-0", workflowExecutionId: "workflow-2" },
+					"answer",
+					{ value: 43 },
+					60,
+				),
+			).toEqual({ claimed: false, value: { value: 42 } });
 		}),
 	);
 

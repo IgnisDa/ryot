@@ -224,9 +224,16 @@ describe("universal durable sandbox tracer", () => {
 			expect(value.parallel).toEqual([null, null]);
 			expect(value.preferences).toEqual({ disableIntegrations: false, isNsfw: false });
 			expect(value.http).toMatchObject({ status: 200 });
-			expect(value.failure).toEqual({
+			expect(value.failure).toMatchObject({
 				message: "HTTP 503",
-				data: { body: "try later", status: 503 },
+				data: {
+					body: "try later",
+					status: 503,
+					headers: {
+						"content-length": "9",
+						"content-type": "application/octet-stream",
+					},
+				},
 			});
 			expect(value.startedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 			expect(http.requests.map(({ path }) => path)).toEqual(["/success", "/failure"]);
