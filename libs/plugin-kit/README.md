@@ -20,52 +20,63 @@ the declaration have no property-based merge restriction.
 
 ## Crons
 
-The `crons` manifest section declares scheduled sandbox drivers:
+The `crons` manifest section declares scheduled sandbox scripts:
 
 ```ts
 crons: [
 	{
 		lot: "script",
 		slug: "refresh-trending",
-		schedule: "0 * * * *",
+		schedule: { cron: "0 * * * *" },
 		scriptSlug: "refresh-trending",
 		description: "Refresh trending data",
+	},
+	{
+		lot: "workflow",
+		slug: "sweep-monitoring",
+		schedule: { tier: "infrequent" },
+		workflowSlug: "media-monitoring-sweep",
+		description: "Sweep monitored media",
 	},
 ];
 ```
 
-`slug` and the target slug use sandbox manifest slug syntax. `schedule` and `description` must be
-non-empty strings without surrounding whitespace. A `lot: "script"` cron targets exactly one
-`scriptSlug` declared in `scripts`. A `lot: "workflow"` cron instead targets exactly one
-`workflowSlug` declared in `workflows`; the scheduler runs it with system authority and awaits its
-terminal durable result.
+`slug` and the target slug use sandbox manifest slug syntax. `description` must be a non-empty
+string without surrounding whitespace. `schedule` is an object: either `{ cron }` with an explicit
+non-empty crontab expression, or `{ tier: "infrequent" }` to defer the interval to the host's
+configured infrequent schedule. A `lot: "script"` cron targets exactly one `scriptSlug` declared in
+`scripts`. A `lot: "workflow"` cron instead targets exactly one `workflowSlug` declared in
+`workflows`; the scheduler runs it with system authority and awaits its terminal durable result.
 
 ## Boot
 
-The `boot` manifest section declares sandbox drivers the kernel dispatches once per server start —
+The `boot` manifest section declares sandbox scripts the kernel dispatches once per server start —
 one-time catalog seeding rather than periodic work:
 
 ```ts
 boot: [
 	{
 		slug: "preload-catalog",
-		driverRef: "preload-catalog",
+		scriptSlug: "preload-catalog",
 		description: "Seed the built-in catalog",
 	},
 ];
 ```
 
-`slug` and `driverRef` use sandbox manifest slug syntax; `description` must be a non-empty string
-without surrounding whitespace. A boot entry has no `schedule`. `driverRef` is the slug of a
-script declared in the manifest's `scripts` section; the plugin loader verifies that its compiled
-definition exposes a `boot` driver. Dispatch happens once per server start, non-blocking,
-immediately after plugin ingestion, and is skipped when background jobs are disabled (the same
-flag the scheduler honors). Idempotency (preserve-existing writes, a bound such as
-`maximumTotal`) stays with the script, since a restart re-runs every boot entry.
+`slug` and `scriptSlug` use sandbox manifest slug syntax; `description` must be a non-empty string
+without surrounding whitespace. A boot entry has no `schedule`. `scriptSlug` is the slug of a script
+declared in the manifest's `scripts` section. Dispatch happens once per server start, after plugin
+ingestion, with system authority. The dispatcher layer awaits every entry's durable execution while
+it builds, but it is merged alongside the HTTP server layer rather than sequenced ahead of it, so the
+server can begin serving while boot work is still in flight. A failing entry is logged without
+failing the others. Dispatch is skipped entirely when `scheduler.disableDispatchers` is set (the same
+flag the scheduler honors).
+Idempotency (preserve-existing writes, a bound such as `maximumTotal`) stays with the script, since
+a restart re-runs every boot entry.
 
 ## Operations
 
-The `operations` manifest section declares invocable sandbox drivers exposed through
+The `operations` manifest section declares invocable sandbox scripts exposed through
 `plugins.invoke`:
 
 ```ts
@@ -73,17 +84,17 @@ operations: [
 	{
 		auth: "user",
 		slug: "resolve-episodes",
-		driverRef: "resolve-episodes",
+		scriptSlug: "operation.resolve-episodes",
 		description: "Resolve show and podcast episode references to entity ids",
 	},
 ];
 ```
 
-`slug` and `driverRef` use sandbox manifest slug syntax. `auth` is one of `"user"`, `"admin"`, or
-`"integration"` and declares who may invoke the operation. `driverRef` is the slug of an
-`operation`-kind script declared in the manifest's `scripts` section; the operation exposes a
-single driver under the conventional name `operation`. Author the driver module with the
-`defineOperation` helper from `@ryot/sandbox-sdk/operation` wrapping generic `defineDriver` drivers.
+`slug` and `scriptSlug` use sandbox manifest slug syntax. `auth` is either `"user"` or
+`"integration"` and declares who may invoke the operation. `scriptSlug` is the slug of an
+`operation`-kind script declared in the manifest's `scripts` section. Author that script as one
+direct definition — `{ manifest, input, output, run }` — with the `defineOperation` helper from
+`@ryot/sandbox-sdk/operation`; there is no driver map and no conventional driver name.
 
 ## Import Sources
 
