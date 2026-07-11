@@ -2,7 +2,6 @@ import type {
 	AppBooleanProperty,
 	AppEnumProperty,
 	AppIntegerProperty,
-	AppNumberProperty,
 	AppObjectProperty,
 	AppPropertyDefinition,
 	AppSchema,
@@ -114,15 +113,6 @@ export const stringField = <const O extends FieldOptions<string>>(
 	kind: "field",
 	hidden: options.hidden ?? false,
 	schema: { type: "string", ...fieldSchemaOptions(options) },
-});
-
-export const numberField = <const O extends FieldOptions<number>>(
-	options: O,
-): ConfigFieldDefinition<FieldValue<number, O>, AppNumberProperty> => ({
-	envKey: options.envKey,
-	kind: "field",
-	hidden: options.hidden ?? false,
-	schema: { type: "number", ...fieldSchemaOptions(options) },
 });
 
 export const integerField = <const O extends FieldOptions<number>>(
