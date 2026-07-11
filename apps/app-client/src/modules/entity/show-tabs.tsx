@@ -1,16 +1,23 @@
 import clsx from "clsx";
 import { Pressable, Text, View } from "react-native";
 
-const SHOW_TABS = [
-	{ key: "overview", label: "Overview", onSelect: () => undefined },
-	{ key: "episodes", label: "Episodes", onSelect: () => console.log("TODO: open episodes tab") },
-	{ key: "activity", label: "Activity", onSelect: () => console.log("TODO: open activity tab") },
-	{ key: "related", label: "Related", onSelect: () => console.log("TODO: open related tab") },
-] as const;
+export type ShowTabKey = "overview" | "episodes";
 
-export type ShowTabKey = (typeof SHOW_TABS)[number]["key"];
+type ShowTab =
+	| { readonly label: string; readonly key: ShowTabKey }
+	| { readonly key: string; readonly label: string; readonly todo: string };
 
-export function ShowTabBar(props: { readonly activeTab: ShowTabKey }) {
+const SHOW_TABS: readonly ShowTab[] = [
+	{ key: "overview", label: "Overview" },
+	{ key: "episodes", label: "Episodes" },
+	{ key: "activity", label: "Activity", todo: "TODO: open activity tab" },
+	{ key: "related", label: "Related", todo: "TODO: open related tab" },
+];
+
+export function ShowTabBar(props: {
+	readonly activeTab: ShowTabKey;
+	readonly onSelect: (tab: ShowTabKey) => void;
+}) {
 	return (
 		<View
 			accessibilityRole="tablist"
@@ -21,9 +28,9 @@ export function ShowTabBar(props: { readonly activeTab: ShowTabKey }) {
 				return (
 					<Pressable
 						key={tab.key}
-						onPress={tab.onSelect}
 						accessibilityRole="tab"
 						accessibilityState={{ selected: isActive }}
+						onPress={() => ("todo" in tab ? console.log(tab.todo) : props.onSelect(tab.key))}
 						className={clsx(
 							"flex-1 items-center border-b-2 px-3 pb-2.5 pt-3 md:flex-none",
 							isActive ? "border-accent" : "border-transparent",

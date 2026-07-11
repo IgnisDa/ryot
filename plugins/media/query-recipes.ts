@@ -91,6 +91,9 @@ const showSeasonInclude = (input: {
 		selection: {
 			...entityIdentitySelection(season),
 			seasonNumber: selectedField(seasonNumber, Schema.Number),
+			images: selectedField(propertyJson(season, "images"), MediaImageListSchema),
+			releaseDate: selectedField(propertyText(season, "releaseDate"), Schema.NullOr(Schema.String)),
+			description: selectedField(propertyText(season, "description"), Schema.NullOr(Schema.String)),
 		},
 		where: and(
 			entitySchema(season, "show-season"),
@@ -120,11 +123,22 @@ const showSeasonInclude = (input: {
 				),
 				selection: {
 					...entityIdentitySelection(episode),
+					episodeNumber: selectedField(episodeNumber, Schema.Number),
+					images: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
+					seasonNumber: selectedField(propertyNumber(episode, "seasonNumber"), Schema.Number),
+					runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Number)),
 					state: selectedField(
 						episodeLifecycleStateExpression(episode, "showEpisodeDetailLifecycle"),
 						EpisodeLifecycleStateSchema,
 					),
-					episodeNumber: selectedField(episodeNumber, Schema.Number),
+					publishDate: selectedField(
+						propertyText(episode, "publishDate"),
+						Schema.NullOr(Schema.String),
+					),
+					description: selectedField(
+						propertyText(episode, "description"),
+						Schema.NullOr(Schema.String),
+					),
 				},
 			}),
 		},
