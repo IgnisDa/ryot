@@ -1,9 +1,9 @@
-import { Headers } from "@effect/platform";
 import { expect, it } from "@effect/vitest";
 import { BadRequest, NotFound, Unauthorized, unauthorized } from "@ryot/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import type { PluginManifest, PluginOperationAuth } from "@ryot/plugin-kit/manifest";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
+import { Headers } from "effect/unstable/http";
 import { assert } from "vitest";
 
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
@@ -105,21 +105,19 @@ const makeLayer = (input: {
 	operationScript?: () => ReturnType<typeof makeActiveScript>;
 }) => {
 	const integrationsRepository = Layer.mock(IntegrationsRepository)({
-		_tag: "IntegrationsRepository",
 		getByIdAnyUser: () => Effect.succeed(input.integration ?? null),
 	});
 	const integrationScopeResolver = IntegrationOperationScopeResolverLive.pipe(
 		Layer.provide(Layer.mergeAll(dbRunnerLayer, integrationsRepository)),
 	);
-	return OperationsService.Default.pipe(
+	return OperationsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				integrationScopeResolver,
 				Layer.mock(AuthService)({
-					_tag: "AuthService",
 					// oxlint-disable-next-line no-unsafe-type-assertion -- the better-auth client is never touched by these tests
-					auth: {} as AuthService["auth"],
+					auth: {} as AuthService["Service"]["auth"],
 					currentUser: () =>
 						input.currentUserId
 							? (input.currentUserGate ?? Effect.void).pipe(
@@ -133,7 +131,6 @@ const makeLayer = (input: {
 							: Effect.fail(unauthorized()),
 				}),
 				Layer.mock(PluginRuntimeResolver)({
-					_tag: "PluginRuntimeResolver",
 					findActiveOperation: ({ operationSlug, pluginSlug }) => {
 						const operation =
 							pluginSlug === "fixture" && input.registerPlugin !== false
@@ -154,7 +151,6 @@ const makeLayer = (input: {
 					},
 				}),
 				Layer.mock(SandboxService)({
-					_tag: "SandboxService",
 					run: (runInput) =>
 						Effect.sync(() => {
 							input.captured?.push(runInput);
@@ -170,7 +166,6 @@ const makeLayer = (input: {
 						}),
 				}),
 				Layer.mock(SandboxRepository)({
-					_tag: "SandboxRepository",
 					isPluginScript: () => Effect.succeed(true),
 					getScript: (scriptId) =>
 						Effect.succeed({
@@ -192,7 +187,7 @@ const expectError = (
 	ErrorClass: new (...args: never[]) => unknown,
 ) => {
 	assert(Exit.isFailure(exit));
-	const error = Option.getOrThrow(Cause.failureOption(exit.cause));
+	const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
 	expect(error).toBeInstanceOf(ErrorClass);
 };
 
@@ -312,10 +307,10 @@ it.effect("keeps operation script resolution stable while authentication is pend
 			currentUserId: UserId.make("user-1"),
 			operationScript: () => makeActiveScript(DRIVER_REF, scriptId),
 			currentUserGate: Deferred.succeed(authenticating, undefined).pipe(
-				Effect.zipRight(Deferred.await(release)),
+				Effect.andThen(Deferred.await(release)),
 			),
 		});
-		const fiber = yield* Effect.fork(
+		const fiber = yield* Effect.forkChild(
 			Effect.gen(function* () {
 				const service = yield* OperationsService;
 				return yield* service.invoke({
