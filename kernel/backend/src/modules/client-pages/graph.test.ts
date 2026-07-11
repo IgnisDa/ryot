@@ -248,6 +248,31 @@ it.effect("uses one compiler graph for every route in a plugin revision", () => 
 	});
 });
 
+it.effect("separates page and plugin route compiler graphs", () => {
+	const fixture = plugin({
+		slug: "fixture",
+		client: {
+			apiVersion: 1,
+			homeView: null,
+			routes: { "/": "details" },
+			exports: { details: { ...definition(""), kind: "page", entry: "client/details.tsx" } },
+		},
+	});
+	const input = {
+		plugin: fixture,
+		plugins: [fixture],
+		exportName: "details",
+		userId: UserId.make("user-1"),
+		loadPluginFiles: () =>
+			Effect.succeed({ "client/details.tsx": bytes("export default function Details() {}") }),
+	} as const;
+	return Effect.gen(function* () {
+		const page = yield* resolveClientPageGraph({ ...input, application: "page" });
+		const route = yield* resolveClientPageGraph({ ...input, application: "plugin-route" });
+		expect(route.graphHash).not.toBe(page.graphHash);
+	});
+});
+
 it.effect("adds enabled automatic providers and fingerprints provider metadata", () => {
 	const presentation = (sourceHash: string, isDisabled = false) =>
 		plugin({

@@ -9,7 +9,7 @@ Architecture and rationale live in `README.md`.
 - Keep native name, identifier, and icon in platform build configurations. `capacitor.config.ts` always uses production identity and has no environment branch.
 - Generate icons through `bun run generate-assets`; edit source art or `scripts/generate-assets.ts`, never generated native asset files.
 - Route native URLs and hardware Back through the router. Treat `/oauth/login`, its signed `oauth_query`, and its independence from `ServerService` as a server contract.
-- Keep `ClientPageHost` keyed by prepared build, graph, artifact, saved-view, and view-revision identity. Reuse it only while that composed document identity is unchanged.
+- Retain at most three client-page frames, keyed by prepared build, graph, artifact, saved-view, view-revision, and non-location context identity. Reuse a frame only while that identity is unchanged.
 - Register document-declared page shortcuts in the kernel realm alongside the iframe's own registrations, and clear them when the bridge closes.
 - Keep `leading` intent separate from `edgeBack`. The kernel grants edge ownership only after readiness matches the active document and history `index` and `key`; never send per-frame gesture data over the bridge.
 - Derive client-page entry `index` and stable `key` only through `historyEntry`. Page-state replacements retain the key; screen navigation creates a new one.
@@ -17,7 +17,7 @@ Architecture and rationale live in `README.md`.
 - Take `compact` and safe-area insets from the shell and bridge them to plugins. Plugin layout must not infer the outer viewport from iframe media queries or `env()`.
 - Render kernel routes through `AppScreen`. It owns `<main>`, scrolling, `<h1>`, title, gutters, and frame rhythm; use `width="readable"` rather than layout classes.
 - Use `ScreenFrame` as the only mobile header. Accept plugin title publication only from the active installation and current history entry.
-- Keep the skip link and route announcer in `__root.tsx`. Every branch renders exactly one `<main>` with `mainContentProps` and one `usePageTitle` owner.
+- Keep the skip link and route announcer in `__root.tsx`. Every branch renders exactly one element carrying `mainContentProps` and one `usePageTitle` owner.
 - Use UI SDK overlay, focus, Escape, shortcut, and scroll-lock primitives. Make background content inert. Back interception remains kernel-owned and is injected into the SDK.
 - Model React-state overlays with `BackInterceptor`; model URL-state overlays as pushed history entries and close them by pop, with replace only for direct entry.
 - Render icons through `@ryot-app/client-ui-sdk/icon`, never direct `lucide-react` imports or inline SVG.
