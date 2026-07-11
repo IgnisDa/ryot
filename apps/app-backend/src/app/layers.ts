@@ -90,6 +90,7 @@ import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { InfrequentCronSchedulerLive } from "#modules/scheduler/infrequent-cron";
+import { PluginBootDispatcherLive, PluginBootService } from "#modules/scheduler/plugin-boot";
 import { PluginCronSchedulerLive, PluginCronService } from "#modules/scheduler/plugin-cron";
 import { SignalsRepository } from "#modules/signals/repository";
 import {
@@ -339,6 +340,7 @@ const ServicesLive = Layer.mergeAll(
 	MediaMonitoringServiceLive,
 	InterestServicesLive,
 	LifecycleDispatchLayerLive,
+	PluginBootService.Default,
 	PluginCronService.Default,
 );
 
@@ -364,6 +366,7 @@ const RuntimeLive = Layer.mergeAll(
 	InfrequentCronWorkflowDefinitionsLive,
 	FrequentCronSchedulerLive,
 	InfrequentCronSchedulerLive,
+	PluginBootDispatcherLive,
 	PluginCronSchedulerLive,
 );
 

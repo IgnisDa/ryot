@@ -64,7 +64,9 @@ export const selectSandboxHostFunctions = (
 			fn &&
 			(!automationHostFunctions.has(key) || input.subscriptionRun) &&
 			(!systemCronHostFunctions.has(key) ||
-				(input.userId === null && input.driverName === "cron" && !input.subscriptionRun))
+				(input.userId === null &&
+					(input.driverName === "cron" || input.driverName === "boot") &&
+					!input.subscriptionRun))
 		) {
 			selectedApiFunctions[key] = fn;
 		}

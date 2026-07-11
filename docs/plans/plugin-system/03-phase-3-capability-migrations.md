@@ -96,18 +96,37 @@ exercise preload cap when an upstream catalog reorder leaves previously imported
 the current prefix, without adding a list/count syscall or moving persistence knowledge into the
 plugin.
 
+**Implementation choice amendment (2026-07-26, owner-approved):** exercise preload is
+one-time catalog seeding, not periodic refresh work, and the `crons` scheduler only fires on
+its wall-clock schedule — a server that restarts before the next tick (or a fresh install)
+never seeds any exercises, regressing the native preloader's per-boot behavior. A sibling
+manifest section `boot: [{ slug, driverRef, description }]` (no `schedule`) declares scripts
+the kernel dispatches exactly once per server start, non-blocking (forked so server readiness
+is never gated on it), immediately after plugin ingestion; dispatch is skipped when
+`server.disableBackgroundJobs` is set, matching the other schedulers. Boot scripts expose a
+dedicated `boot` driver (the same one-section-one-driver convention as `cron`/`operation`),
+and the `upsertGlobalEntities`/`upsertGlobalRelationships` system-execution gate widens from
+`driverName: "cron"` to `driverName: "cron" | "boot"` (still `userId: null`, no
+`subscriptionRun`) so boot scripts can use the same global writes. The fitness
+`preload-exercises` entry moves from `crons` to `boot`; `media-trending` stays a `crons` entry
+because it is genuinely periodic. Boot dispatch uses a per-boot execution id, so the already
+idempotent preload script (preserve-existing upserts + `maximumTotal`) absorbs re-runs exactly
+as it did as a cron.
+
 Migrate: `modules/media-trending` (poll providers → write trending global entities +
-refresh workflow + infrequent task) and `modules/exercises` (free-exercise-db preload)
-become cron-driven plugin scripts. The trending _read_ path (whatever serves trending to
-clients) should already be query-engine-based; if any native read code remains, it moves to
-a saved view / recipe or waits for step 2's operations.
+refresh workflow + infrequent task) becomes a cron-driven plugin script, and
+`modules/exercises` (free-exercise-db preload) becomes a boot-driven plugin script. The
+trending _read_ path (whatever serves trending to clients) should already be
+query-engine-based; if any native read code remains, it moves to a saved view / recipe or
+waits for step 2's operations.
 
 Delete: `modules/media-trending`, `modules/exercises` (and their contract surface if any —
-check `libs/contract`). E2e: `tests/src/tests/exercises/` + trending coverage re-pointed
-(cron trigger fixtures already exist: `triggerInfrequentCron`).
+check `libs/contract`). E2e: `tests/src/tests/exercises/` re-pointed to rely on boot dispatch
+(no manual trigger needed) + trending coverage re-pointed (cron trigger fixture already
+exists: `triggerInfrequentCron`).
 
-Done: both modules deleted; exercises + trending e2e green; cron manifest section documented
-in `libs/plugin-kit`.
+Done: both modules deleted; exercises + trending e2e green; `crons` and `boot` manifest
+sections documented in `libs/plugin-kit`.
 
 ## Step 2 — Operations (invoke): `metadata-lookup` + `episode-resolver`
 

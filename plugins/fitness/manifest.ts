@@ -7,15 +7,15 @@ import { fitnessSignalSchemas } from "./schemas/signal-schemas";
 import { fitnessScripts } from "./script-catalog";
 
 export const fitnessPlugin = definePlugin({
+	crons: [],
 	operations: [],
 	scripts: fitnessScripts,
 	savedViews: fitnessSavedViews(),
 	entitySchemas: fitnessEntitySchemas(),
 	signalSchemas: fitnessSignalSchemas(),
 	relationshipSchemas: fitnessRelationshipSchemas(),
-	crons: [
+	boot: [
 		{
-			schedule: "0 0 * * *",
 			slug: "preload-exercises",
 			driverRef: "exercise.free-exercise-db",
 			description: "Preload the built-in exercise catalog",

@@ -13,12 +13,10 @@ import {
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
 	executeQueryEngine,
-	adminHeaders,
 	findBuiltinWorkspaceBySlug,
 	findBuiltinSchemaBySlug,
 	findWorkoutSetEventSchema,
 	getQueryEngineFieldOrThrow,
-	getBackendClient,
 	listEntitySchemas,
 	listEventsForEntity,
 	listSavedViews,
@@ -163,7 +161,6 @@ describe("Exercises E2E", () => {
 	it.live("lists seeded built-in exercises through the query engine", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			yield* getBackendClient().call((c) => c.testSupport.triggerInfrequentCron(), adminHeaders);
 			const exercise = yield* waitForSeededExercise(client);
 
 			expect(getQueryEngineFieldOrThrow(exercise, "name")).toEqual({

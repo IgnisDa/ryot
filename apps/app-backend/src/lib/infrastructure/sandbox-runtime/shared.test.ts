@@ -1,11 +1,7 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
-import {
-	isJsonValue,
-	requireSystemCronSandboxRunInput,
-	requireUserSandboxRunInput,
-} from "./shared";
+import { isJsonValue, requireSystemSandboxRunInput, requireUserSandboxRunInput } from "./shared";
 
 const makeRunInput = (userId: string | null, driverName = "search") => ({
 	userId,
@@ -33,20 +29,22 @@ describe("requireUserSandboxRunInput", () => {
 	});
 });
 
-describe("requireSystemCronSandboxRunInput", () => {
-	it("accepts only system executions without a subscription marker", () => {
-		const input = makeRunInput(null, "cron");
-		expect(Effect.runSync(requireSystemCronSandboxRunInput(input, "upsertGlobalEntities"))).toBe(
-			input,
+describe("requireSystemSandboxRunInput", () => {
+	it("accepts only system cron or boot executions without a subscription marker", () => {
+		const cronInput = makeRunInput(null, "cron");
+		expect(Effect.runSync(requireSystemSandboxRunInput(cronInput, "upsertGlobalEntities"))).toBe(
+			cronInput,
+		);
+		const bootInput = makeRunInput(null, "boot");
+		expect(Effect.runSync(requireSystemSandboxRunInput(bootInput, "upsertGlobalEntities"))).toBe(
+			bootInput,
 		);
 		expect(() =>
-			Effect.runSync(
-				requireSystemCronSandboxRunInput(makeRunInput("user_1"), "upsertGlobalEntities"),
-			),
-		).toThrow("upsertGlobalEntities is available only to system cron executions");
+			Effect.runSync(requireSystemSandboxRunInput(makeRunInput("user_1"), "upsertGlobalEntities")),
+		).toThrow("upsertGlobalEntities is available only to system executions");
 		expect(() =>
-			Effect.runSync(requireSystemCronSandboxRunInput(makeRunInput(null), "upsertGlobalEntities")),
-		).toThrow("upsertGlobalEntities is available only to system cron executions");
+			Effect.runSync(requireSystemSandboxRunInput(makeRunInput(null), "upsertGlobalEntities")),
+		).toThrow("upsertGlobalEntities is available only to system executions");
 	});
 });
 
