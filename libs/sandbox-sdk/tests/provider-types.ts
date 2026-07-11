@@ -1,4 +1,4 @@
-import { defineManifest, type ScriptManifest } from "@ryot/sandbox-sdk/core";
+import type { ScriptManifest } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import {
 	defineProvider,
@@ -6,6 +6,7 @@ import {
 	type ProviderResolveResult,
 } from "@ryot/sandbox-sdk/provider";
 
+import { defineManifest } from "../src/driver.js";
 import type { Equal, Expect } from "./type-assertions.js";
 
 const manifest = defineManifest({

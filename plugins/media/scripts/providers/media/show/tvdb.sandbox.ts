@@ -1,4 +1,4 @@
-import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 import type { ProviderTranslateInput } from "@ryot/sandbox-sdk/provider";

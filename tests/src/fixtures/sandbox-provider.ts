@@ -165,7 +165,7 @@ const translate = defineProviderDriver(manifest, "translate", ({ language }) =>
 	}
 
 	const source = `
-import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { ${providerImports.join(", ")} } from "@ryot/sandbox-sdk/provider";
 

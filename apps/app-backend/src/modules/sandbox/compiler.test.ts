@@ -15,7 +15,7 @@ const approvedDependencyImports = [
 ] as const;
 
 const automationSource = `
-import { defineManifest } from "@ryot/sandbox-sdk/core";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 
@@ -111,7 +111,7 @@ it.effect("rejects generic schemas for a standard provider driver", () =>
 			validSource
 				.replace(
 					'import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";',
-					'import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/core";\nimport { defineProvider } from "@ryot/sandbox-sdk/provider";',
+					'import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";\nimport { defineProvider } from "@ryot/sandbox-sdk/provider";',
 				)
 				.replace('kind: "script",', 'kind: "provider",\n  providerInformation: { source: "test" },')
 				.replaceAll("main", "search")
