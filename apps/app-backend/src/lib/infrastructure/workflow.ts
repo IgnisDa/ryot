@@ -44,7 +44,7 @@ const ClusterWorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 // await the detached execution or observe its durable terminal state and
 // propagate failure; cancellation and timeout behavior must remain explicit.
 // Prefer structured children again once the upstream resume defect is fixed.
-const omitWorkflowParent = <R>(context: Context.Context<R>): Context.Context<R> =>
+const omitWorkflowParent = <R>(context: Context.Context<R>) =>
 	Context.makeUnsafe<R>(Context.omit(WorkflowInstance)(context).mapUnsafe);
 
 export const withoutWorkflowParent = <A, E, R>(

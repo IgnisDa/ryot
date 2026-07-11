@@ -97,12 +97,8 @@ export const projectWorkflowJournal = (
 
 export const makeWorkflowDurableCallsHostFunction =
 	(workflowExecutionId: string | undefined, redis: WorkflowJournalBridgeRedis) =>
-	(
-		args: Parameters<BoundHostFunction>[0],
-	): Effect.Effect<ReturnType<typeof apiFailure> | ReturnType<typeof apiSuccess<JsonValue[]>>> =>
-		Effect.gen(function* (): Effect.fn.Return<
-			ReturnType<typeof apiFailure> | ReturnType<typeof apiSuccess<JsonValue[]>>
-		> {
+	(args: Parameters<BoundHostFunction>[0]) =>
+		Effect.gen(function* () {
 			const decoded = decodeBootstrapArgs(args);
 			if (decoded._tag === "Failure") {
 				return apiFailure("durableCalls does not accept arguments");
