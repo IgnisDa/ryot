@@ -1,7 +1,7 @@
 import { relations } from "drizzle-orm";
 
 import { user } from "./auth";
-import { signal, signalRecipient } from "./automations";
+import { notificationSubscriptionState, signal, signalRecipient } from "./automations";
 import { pluginState, sandboxScript } from "./core";
 import { entity, relationship } from "./entities";
 import { event } from "./events";
@@ -83,6 +83,16 @@ export const importRunFailureRelations = relations(importRunFailure, ({ one }) =
 export const notificationChannelRelations = relations(notificationChannel, ({ one }) => ({
 	user: one(user, { references: [user.id], fields: [notificationChannel.userId] }),
 }));
+
+export const notificationSubscriptionStateRelations = relations(
+	notificationSubscriptionState,
+	({ one }) => ({
+		user: one(user, {
+			references: [user.id],
+			fields: [notificationSubscriptionState.userId],
+		}),
+	}),
+);
 
 export const signalRelations = relations(signal, ({ one, many }) => ({
 	recipients: many(signalRecipient),

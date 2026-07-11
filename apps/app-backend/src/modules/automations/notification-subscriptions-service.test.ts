@@ -11,10 +11,8 @@ import { Effect, Exit, Layer, Schema } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
-import {
-	SignalSchemasRepository,
-	type SignalSchemaScope,
-} from "#modules/signals/signal-schemas-repository";
+import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import {
 	NotificationSubscriptionsService,
@@ -22,109 +20,108 @@ import {
 } from "./notification-subscriptions-service";
 import {
 	AutomationsRepository,
-	type InsertAutomationRuleInput,
-	type StoredAutomationRule,
+	type InsertNotificationSubscriptionInput,
+	type StoredNotificationSubscription,
 } from "./repository";
-import { AutomationsService } from "./service";
 
 const userId = UserId.make("user-1");
 const ruleId = AutomationRuleId.make("rule-1");
 const scriptId = SandboxScriptId.make("script-1");
-const signalSchemaSlug = SignalSchemaSlug.make("signal-schema-1");
+const signalSchemaSlug = SignalSchemaSlug.make("review.created");
+const kernelScript = {
+	id: scriptId,
+	userId: null,
+	pluginSlug: null,
+	compiledFormat: 1,
+	contentHash: "hash-1",
+	source: "export {};",
+	compiledCode: "export {};",
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	name: "Notification delivery",
+	slug: NOTIFICATION_SCRIPT_SLUG,
+	metadata: { kind: "automation" as const },
+};
 
 const signalSchema = {
-	userId: null,
-	isBuiltin: true,
-	id: signalSchemaSlug,
+	slug: signalSchemaSlug,
 	catalogState: "active",
-	slug: "review.created",
 	name: "Review Created",
 	audiencePolicy: { kind: "actor" },
 	propertiesSchema: { unknownKeys: "strict", fields: {} },
-} as const satisfies SignalSchemaScope;
+} as const;
 
-const rule = {
+const state = {
 	userId,
 	id: ruleId,
-	position: null,
 	metadata: null,
 	isActive: true,
-	isBuiltin: false,
-	operation: "signal",
-	kind: "subscription",
-	name: signalSchema.name,
-	sandboxScriptId: scriptId,
+	signalSchemaSlug,
+	scriptSlug: NOTIFICATION_SCRIPT_SLUG,
 	createdAt: "2026-07-21T10:00:00.000Z",
 	updatedAt: "2026-07-21T10:00:00.000Z",
-	target: { id: signalSchemaSlug, kind: "signal_schema" },
-} as const satisfies StoredAutomationRule;
+} as const satisfies StoredNotificationSubscription;
 
-const mockAutomationsService = Layer.mock(AutomationsService);
-const mockAutomationsRepository = Layer.mock(AutomationsRepository);
-const mockSignalSchemasRepository = Layer.mock(SignalSchemasRepository);
+const mockRepository = Layer.mock(AutomationsRepository);
+const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
+const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
+	mockRepository({ _tag: "AutomationsRepository", ...overrides });
+const makePluginRuntime = () =>
+	mockPluginRuntime({
+		_tag: "PluginRuntimeResolver",
+		findKernelScript: (slug) => {
+			expect(slug).toBe(NOTIFICATION_SCRIPT_SLUG);
+			return Effect.succeed(kernelScript);
+		},
+	});
 
-const makeAutomationsRepository = (
-	overrides: MockOverrides<typeof mockAutomationsRepository> = {},
-) => mockAutomationsRepository({ _tag: "AutomationsRepository", ...overrides });
+const makeDefinitions = (catalogState: "active" | "hidden" = "active") => {
+	const registry = makeDefinitionRegistry({
+		savedViews: [],
+		entitySchemas: [],
+		relationshipSchemas: [],
+		signalSchemas: [{ ...signalSchema, catalogState }],
+	});
+	return Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...registry });
+};
 
-const makeSignalSchemasRepository = (
-	overrides: MockOverrides<typeof mockSignalSchemasRepository> = {},
-) => mockSignalSchemasRepository({ _tag: "SignalSchemasRepository", ...overrides });
-
-const makeAutomationsService = (overrides: MockOverrides<typeof mockAutomationsService> = {}) =>
-	mockAutomationsService({ _tag: "AutomationsService", ...overrides });
-
-const makeLayer = (input?: {
-	automations?: MockOverrides<typeof mockAutomationsService>;
-	repository?: MockOverrides<typeof mockAutomationsRepository>;
-	signalSchemas?: MockOverrides<typeof mockSignalSchemasRepository>;
-}) =>
+const makeLayer = (
+	repository: MockOverrides<typeof mockRepository> = {},
+	catalogState: "active" | "hidden" = "active",
+) =>
 	NotificationSubscriptionsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
-				makeAutomationsService(input?.automations),
-				makeAutomationsRepository(input?.repository),
-				makeSignalSchemasRepository(input?.signalSchemas),
+				makeDefinitions(catalogState),
+				makeRepository(repository),
+				makePluginRuntime(),
 			),
 		),
 	);
 
-it.effect(
-	"lists only the active built-in signal schemas supplied by the catalog repository",
-	() => {
-		const layer = makeLayer({
-			signalSchemas: { listActiveBuiltins: () => Effect.succeed([signalSchema]) },
-		});
-		return Effect.gen(function* () {
-			const service = yield* NotificationSubscriptionsService;
-			expect(yield* service.listCatalog()).toEqual([
-				{
-					id: signalSchema.id,
-					name: signalSchema.name,
-					slug: signalSchema.slug,
-					propertiesSchema: signalSchema.propertiesSchema,
-				},
-			]);
-		}).pipe(Effect.provide(layer));
-	},
-);
+it.effect("lists only active signal schemas supplied by the definition registry", () => {
+	return Effect.gen(function* () {
+		const service = yield* NotificationSubscriptionsService;
+		expect(yield* service.listCatalog()).toEqual([
+			{
+				id: signalSchemaSlug,
+				name: signalSchema.name,
+				slug: signalSchema.slug,
+				propertiesSchema: signalSchema.propertiesSchema,
+			},
+		]);
+	}).pipe(Effect.provide(makeLayer()));
+});
 
-it.effect("installs an active catalog schema with only server-selected rule fields", () => {
-	let inserted: InsertAutomationRuleInput | undefined;
+it.effect("installs an active catalog schema with only server-selected state fields", () => {
+	let inserted: InsertNotificationSubscriptionInput | undefined;
 	const layer = makeLayer({
-		repository: {
-			findBuiltinScriptBySlug: (slug) => {
-				expect(slug).toBe(NOTIFICATION_SCRIPT_SLUG);
-				return Effect.succeed({ id: scriptId });
-			},
-			insertRule: (input) => {
-				inserted = input;
-				return Effect.succeed(rule);
-			},
+		insertNotificationSubscription: (input) => {
+			inserted = input;
+			return Effect.succeed(state);
 		},
-		signalSchemas: { findActiveBuiltinById: () => Effect.succeed(signalSchema) },
 	});
 	return Effect.gen(function* () {
 		const service = yield* NotificationSubscriptionsService;
@@ -132,29 +129,18 @@ it.effect("installs an active catalog schema with only server-selected rule fiel
 		expect(installed.id).toBe(ruleId);
 		expect(inserted).toEqual({
 			userId,
-			position: null,
 			metadata: null,
 			isActive: true,
-			isBuiltin: false,
-			operation: "signal",
-			kind: "subscription",
-			name: signalSchema.name,
-			sandboxScriptId: scriptId,
-			target: { id: signalSchemaSlug, kind: "signal_schema" },
+			signalSchemaSlug,
+			scriptSlug: NOTIFICATION_SCRIPT_SLUG,
 		});
 	}).pipe(Effect.provide(layer));
 });
 
 it.effect("rejects hidden catalog schemas and duplicate installs", () => {
-	const hiddenLayer = makeLayer({
-		signalSchemas: { findActiveBuiltinById: () => Effect.succeed(null) },
-	});
+	const hiddenLayer = makeLayer({}, "hidden");
 	const duplicateLayer = makeLayer({
-		repository: {
-			insertRule: () => Effect.succeed(null),
-			findBuiltinScriptBySlug: () => Effect.succeed({ id: scriptId }),
-		},
-		signalSchemas: { findActiveBuiltinById: () => Effect.succeed(signalSchema) },
+		insertNotificationSubscription: () => Effect.succeed(null),
 	});
 	return Effect.gen(function* () {
 		const hidden = yield* Effect.exit(
@@ -182,12 +168,7 @@ it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 });
 
 it.effect("returns the same not-found result for inaccessible and nonexistent rules", () => {
-	const layer = makeLayer({
-		repository: {
-			findBuiltinScriptBySlug: () => Effect.succeed({ id: scriptId }),
-			findUserNotificationRule: () => Effect.succeed(null),
-		},
-	});
+	const layer = makeLayer({ findNotificationSubscription: () => Effect.succeed(null) });
 	return Effect.gen(function* () {
 		const service = yield* NotificationSubscriptionsService;
 		for (const inaccessibleRuleId of [ruleId, AutomationRuleId.make("missing")]) {
@@ -198,17 +179,32 @@ it.effect("returns the same not-found result for inaccessible and nonexistent ru
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("installs active defaults idempotently through conflict-do-nothing inserts", () => {
-	const inserted: InsertAutomationRuleInput[] = [];
+it.effect("does not reveal inaccessible notification state through mutations", () => {
 	const layer = makeLayer({
-		repository: {
-			findBuiltinScriptBySlug: () => Effect.succeed({ id: scriptId }),
-			insertRule: (input) => {
-				inserted.push(input);
-				return Effect.succeed(inserted.length === 1 ? rule : null);
-			},
+		deleteNotificationSubscription: () => Effect.succeed(null),
+		setNotificationSubscriptionActive: () => Effect.succeed(null),
+	});
+	return Effect.gen(function* () {
+		const service = yield* NotificationSubscriptionsService;
+		for (const mutation of [
+			service.setRuleActive({ userId, ruleId, isActive: false }),
+			service.setRuleActive({ userId, ruleId, isActive: true }),
+			service.deleteRule({ userId, ruleId }),
+		]) {
+			expect(yield* Effect.exit(mutation)).toEqual(
+				Exit.fail(new NotFound({ message: "Automation rule not found" })),
+			);
+		}
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("installs active defaults idempotently through conflict-do-nothing inserts", () => {
+	const inserted: InsertNotificationSubscriptionInput[] = [];
+	const layer = makeLayer({
+		insertNotificationSubscription: (input) => {
+			inserted.push(input);
+			return Effect.succeed(inserted.length === 1 ? state : null);
 		},
-		signalSchemas: { listActiveBuiltins: () => Effect.succeed([signalSchema]) },
 	});
 	return Effect.gen(function* () {
 		const service = yield* NotificationSubscriptionsService;
@@ -221,34 +217,25 @@ it.effect("installs active defaults idempotently through conflict-do-nothing ins
 
 it.effect("deactivates, deletes, and reinstalls the same notification rule shape", () => {
 	let nextId = 1;
-	let currentRule: StoredAutomationRule | null = null;
+	let currentState: StoredNotificationSubscription | null = null;
 	const layer = makeLayer({
-		automations: {
-			deleteUserRule: () => {
-				const deleted = currentRule;
-				currentRule = null;
-				return deleted ? Effect.succeed({ id: deleted.id }) : Effect.die("missing rule");
-			},
-			setUserRuleActive: (input) => {
-				currentRule = currentRule ? { ...currentRule, isActive: input.isActive } : null;
-				return currentRule ? Effect.succeed(currentRule) : Effect.die("missing rule");
-			},
+		findNotificationSubscription: () => Effect.succeed(currentState),
+		setNotificationSubscriptionActive: (input) => {
+			currentState = currentState ? { ...currentState, isActive: input.isActive } : null;
+			return Effect.succeed(currentState);
 		},
-		repository: {
-			findBuiltinScriptBySlug: () => Effect.succeed({ id: scriptId }),
-			findUserNotificationRule: () => Effect.succeed(currentRule),
-			insertRule: (input) => {
-				currentRule = {
-					...rule,
-					...input,
-					id: AutomationRuleId.make(`rule-${nextId++}`),
-				};
-				return Effect.succeed(currentRule);
-			},
+		deleteNotificationSubscription: () => {
+			const deleted = currentState;
+			currentState = null;
+			return Effect.succeed(deleted ? { id: deleted.id } : null);
 		},
-		signalSchemas: {
-			findBuiltinById: () => Effect.succeed(signalSchema),
-			findActiveBuiltinById: () => Effect.succeed(signalSchema),
+		insertNotificationSubscription: (input) => {
+			currentState = {
+				...state,
+				...input,
+				id: AutomationRuleId.make(`rule-${nextId++}`),
+			};
+			return Effect.succeed(currentState);
 		},
 	});
 	return Effect.gen(function* () {

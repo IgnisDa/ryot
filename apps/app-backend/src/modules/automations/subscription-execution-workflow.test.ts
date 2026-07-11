@@ -12,8 +12,9 @@ import {
 import { Effect, Exit, Layer } from "effect";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import type { ResolvedAutomationRule } from "#modules/plugins/runtime-resolver";
 
-import type { StoredAutomationRule, StoredSubscriptionRun } from "./repository";
+import type { StoredSubscriptionRun } from "./repository";
 import { AutomationsService } from "./service";
 import {
 	SubscriptionExecutionWorkflow,
@@ -41,10 +42,8 @@ const rule = {
 	sandboxScriptId: scriptId,
 	metadata: { mode: "trace" },
 	name: "Tracer subscription",
-	createdAt: "2026-07-20T10:00:00.000Z",
-	updatedAt: "2026-07-20T10:00:00.000Z",
 	target: { kind: "signal_schema", id: SignalSchemaSlug.make("signal-schema-1") },
-} satisfies StoredAutomationRule;
+} satisfies ResolvedAutomationRule;
 
 const queuedRun = {
 	ruleId,
@@ -64,7 +63,6 @@ const queuedRun = {
 	sourceKind: "signal",
 	scriptUpdatedAt: null,
 	occurrenceId: signalId,
-	originalRuleId: ruleId,
 	executionUserId: userId,
 	sandboxScriptId: scriptId,
 	ruleMetadata: rule.metadata,
