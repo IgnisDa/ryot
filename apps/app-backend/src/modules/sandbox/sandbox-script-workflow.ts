@@ -381,22 +381,21 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 						.pipe(withoutWorkflowParent),
 				)
 			: Effect.flatMap(WorkflowEngine, (engine) =>
-					engine
-						.execute(SandboxScriptWorkflow, {
-							executionId: childExecutionId,
-							payload: {
-								resolutionMode: "exact",
-								scriptId: targetScriptId as SandboxScriptId,
-								input: request.args.input,
-								authority: payload.authority,
-								executionId: childExecutionId,
-								grants: {
-									...payload.grants,
-									artifactOwnerExecutionId,
-								},
-							},
-						})
-						.pipe(withoutWorkflowParent),
+					targetScriptId === undefined
+						? Effect.fail(sandboxFailure("Child workflow script was not resolved"))
+						: engine
+								.execute(SandboxScriptWorkflow, {
+									executionId: childExecutionId,
+									payload: {
+										resolutionMode: "exact",
+										input: request.args.input,
+										authority: payload.authority,
+										executionId: childExecutionId,
+										scriptId: SandboxScriptId.make(targetScriptId),
+										grants: { ...payload.grants, artifactOwnerExecutionId },
+									},
+								})
+								.pipe(withoutWorkflowParent),
 				),
 	);
 	if (usesArtifacts) {

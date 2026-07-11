@@ -1,4 +1,4 @@
-import { badRequest } from "@ryot/contract/errors";
+import { type BadRequest, badRequest } from "@ryot/contract/errors";
 import { S3Client } from "bun";
 import { Context, Effect, Layer, Option, Redacted } from "effect";
 
@@ -55,9 +55,9 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 			: null;
 
 		const isConfigured = client !== null;
-		const requireConfigured = Effect.suspend(() =>
+		const requireConfigured: Effect.Effect<S3Client, BadRequest> = Effect.suspend(() =>
 			client
-				? Effect.void
+				? Effect.succeed(client)
 				: Effect.fail(
 						badRequest("S3 file storage is not configured. Set the FILE_STORAGE_S3_* settings."),
 					),
@@ -68,9 +68,9 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 			contentType: string,
 			expiresInSeconds: number,
 		) {
-			yield* requireConfigured;
+			const configuredClient = yield* requireConfigured;
 			return yield* Effect.sync(() =>
-				(client as S3Client)
+				configuredClient
 					.file(key)
 					.presign({ type: contentType, method: "PUT" as const, expiresIn: expiresInSeconds }),
 			).pipe(Effect.orDie);
@@ -80,22 +80,22 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 			key: string,
 			expiresInSeconds: number,
 		) {
-			yield* requireConfigured;
+			const configuredClient = yield* requireConfigured;
 			return yield* Effect.sync(() =>
-				(client as S3Client).file(key).presign({ expiresIn: expiresInSeconds }),
+				configuredClient.file(key).presign({ expiresIn: expiresInSeconds }),
 			).pipe(Effect.orDie);
 		});
 
 		const statObject = Effect.fn("S3Service.statObject")(function* (key: string) {
-			yield* requireConfigured;
-			return yield* Effect.tryPromise(() => (client as S3Client).file(key).stat()).pipe(
+			const configuredClient = yield* requireConfigured;
+			return yield* Effect.tryPromise(() => configuredClient.file(key).stat()).pipe(
 				Effect.mapError(() => badRequest("S3 upload object is missing or invalid")),
 			);
 		});
 
 		const deleteObject = Effect.fn("S3Service.deleteObject")(function* (key: string) {
-			yield* requireConfigured;
-			yield* Effect.tryPromise(() => (client as S3Client).file(key).delete()).pipe(
+			const configuredClient = yield* requireConfigured;
+			yield* Effect.tryPromise(() => configuredClient.file(key).delete()).pipe(
 				Effect.catch((error) =>
 					isMissingObjectError(error)
 						? Effect.void
