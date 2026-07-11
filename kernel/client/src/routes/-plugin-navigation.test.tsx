@@ -419,7 +419,7 @@ describe("desktop navigation", () => {
 		const trigger = screen.getByRole("button", { name: "Fixture workspace, fixture" });
 		const home = screen.getByRole("link", { name: "Home" });
 
-		expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+		expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
 		expect(trigger.getAttribute("aria-expanded")).toBe("false");
 		expect(trigger.getAttribute("aria-controls")).toBeTruthy();
 		expect(trigger.querySelector('[data-app-icon="puzzle"]')).not.toBeNull();
