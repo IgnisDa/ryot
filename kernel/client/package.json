@@ -9,11 +9,16 @@
 		"build": "vite build",
 		"dev": "vite dev --port 3005",
 		"generate-routes": "tsr generate",
+		"ios": "bun run sync && cap run ios",
 		"test": "bun --bun run vitest run",
+		"sync": "bun run build && cap sync",
+		"android": "bun run sync && cap run android",
+		"generate-assets": "bun scripts/generate-assets.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@capacitor/android": "^8.5.0",
+		"@capacitor/app": "^8.1.1",
 		"@capacitor/core": "^8.5.0",
 		"@capacitor/ios": "^8.5.0",
 		"@fontsource-variable/lora": "5.3.0",
@@ -34,6 +39,7 @@
 		"tailwindcss": "^4.1.18"
 	},
 	"devDependencies": {
+		"@capacitor/assets": "^3.0.5",
 		"@capacitor/cli": "^8.5.0",
 		"@effect/vitest": "4.0.0-beta.107",
 		"@ryot/testing": "workspace:*",
@@ -48,6 +54,7 @@
 		"@types/react-dom": "^19.2.0",
 		"@vitejs/plugin-react": "^6.0.1",
 		"jsdom": "^30.0.1",
+		"sharp": "^0.35.4",
 		"typescript": "^6.0.2",
 		"vite": "^8.0.0",
 		"vitest": "4.1.9"
