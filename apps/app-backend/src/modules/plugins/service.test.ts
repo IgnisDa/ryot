@@ -33,7 +33,12 @@ const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredP
 		status: "active",
 		scripts: manifest.scripts.map((script) => {
 			const { entry, ...metadata } = script;
-			const isCronScript = manifest.crons.some(({ driverRef }) => driverRef === script.slug);
+			const driverNames = [
+				...(manifest.crons.some(({ driverRef }) => driverRef === script.slug) ? ["cron"] : []),
+				...(manifest.operations.some(({ driverRef }) => driverRef === script.slug)
+					? ["operation"]
+					: []),
+			];
 			return {
 				entry,
 				slug: script.slug,
@@ -42,7 +47,7 @@ const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredP
 				source: "cached source",
 				compiledCode: "cached compiled",
 				contentHash: `cached-hash-${script.slug}`,
-				metadata: { ...metadata, ...(isCronScript ? { driverNames: ["cron"] } : {}) },
+				metadata: { ...metadata, ...(driverNames.length > 0 ? { driverNames } : {}) },
 			};
 		}),
 	};

@@ -60,9 +60,10 @@ const inspectsGeneratedModule = (node: ts.CallExpression | ts.NewExpression) => 
 
 const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	const scriptHelpers = new Set<string>();
-	const automationHelpers = new Set<string>();
 	const providerHelpers = new Set<string>();
 	const manifestHelpers = new Set<string>();
+	const operationHelpers = new Set<string>();
+	const automationHelpers = new Set<string>();
 	const diagnostics: SandboxCompilerDiagnostic[] = [];
 	const driverHelpers = new Map<string, "generic" | "provider">();
 
@@ -122,6 +123,9 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 						if (importedName === "defineProvider") {
 							providerHelpers.add(element.name.text);
 						}
+						if (importedName === "defineOperation") {
+							operationHelpers.add(element.name.text);
+						}
 					}
 				}
 			}
@@ -167,9 +171,10 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 		diagnostics,
 		driverHelpers,
 		scriptHelpers,
-		automationHelpers,
 		manifestHelpers,
 		providerHelpers,
+		operationHelpers,
+		automationHelpers,
 	};
 };
 
@@ -317,6 +322,7 @@ const inspectScriptDefinition = (
 	scriptHelpers: ReadonlySet<string>,
 	automationHelpers: ReadonlySet<string>,
 	providerHelpers: ReadonlySet<string>,
+	operationHelpers: ReadonlySet<string>,
 	driverDefinitions: ReadonlyMap<string, DriverDefinition>,
 ) => {
 	const defaults = file.statements.filter(
@@ -339,7 +345,7 @@ const inspectScriptDefinition = (
 
 	const assignment = defaults[0];
 	const call = assignment?.expression;
-	let definitionKind: "automation" | "provider" | "script" | null = null;
+	let definitionKind: "automation" | "operation" | "provider" | "script" | null = null;
 	if (call && ts.isCallExpression(call) && ts.isIdentifier(call.expression)) {
 		if (scriptHelpers.has(call.expression.text)) {
 			definitionKind = "script";
@@ -347,6 +353,8 @@ const inspectScriptDefinition = (
 			definitionKind = "automation";
 		} else if (providerHelpers.has(call.expression.text)) {
 			definitionKind = "provider";
+		} else if (operationHelpers.has(call.expression.text)) {
+			definitionKind = "operation";
 		}
 	}
 	if (
@@ -364,7 +372,7 @@ const inspectScriptDefinition = (
 				diagnosticAt(
 					assignment ?? file,
 					"RYOT_DEFINITION",
-					"The default export must be a direct automation, script, or provider definition call",
+					"The default export must be a direct automation, operation, script, or provider definition call",
 				),
 			],
 		};
@@ -484,9 +492,16 @@ const inspectScriptDefinition = (
 			continue;
 		}
 		driverNames.push(exposedName);
-		if (definitionKind === "script" && driverDefinition.kind !== "generic") {
+		if (
+			(definitionKind === "script" || definitionKind === "operation") &&
+			driverDefinition.kind !== "generic"
+		) {
 			diagnostics.push(
-				diagnosticAt(property, "RYOT_DEFINITION", "Generic scripts must use defineDriver"),
+				diagnosticAt(
+					property,
+					"RYOT_DEFINITION",
+					"Generic scripts and operations must use defineDriver",
+				),
 			);
 			continue;
 		}
@@ -523,7 +538,7 @@ export const inspectSandboxModuleImports = (file: ts.SourceFile) =>
 
 export const sandboxDefinitionMismatch = (
 	inspection: {
-		readonly definitionKind: "automation" | "provider" | "script" | null;
+		readonly definitionKind: "automation" | "operation" | "provider" | "script" | null;
 	},
 	manifest: SandboxManifest,
 ) => {
@@ -532,6 +547,8 @@ export const sandboxDefinitionMismatch = (
 		helper = "defineProvider";
 	} else if (manifest.kind === "automation") {
 		helper = "defineAutomation";
+	} else if (manifest.kind === "operation") {
+		helper = "defineOperation";
 	}
 	if (inspection.definitionKind !== manifest.kind) {
 		return `Manifest kind "${manifest.kind}" must use ${helper}`;
@@ -568,6 +585,7 @@ export const inspectSandboxSource = (
 		imports.scriptHelpers,
 		imports.automationHelpers,
 		imports.providerHelpers,
+		imports.operationHelpers,
 		drivers.driverDefinitions,
 	);
 	return { ...definition, manifestHelpers: imports.manifestHelpers };

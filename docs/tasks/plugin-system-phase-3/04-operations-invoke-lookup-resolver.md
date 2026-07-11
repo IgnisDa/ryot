@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -44,17 +44,25 @@ See the parent PRD "Step 2 — operations (invoke)" user stories and the Impleme
 
 Derived from the plan §2 done criteria and cross-phase invariants:
 
-- [ ] `operations` manifest section and the single `plugins.invoke` endpoint exist; the endpoint
+- [x] `operations` manifest section and the single `plugins.invoke` endpoint exist; the endpoint
       validates against declared input/output schemas, enforces `auth`, and dispatches to the
       driver; the static contract has no plugin-specific endpoints
-- [ ] Kernel tests cover the invoke endpoint: schema validation, auth, and unknown operation
-- [ ] `modules/metadata-lookup` and `modules/episode-resolver` are deleted, along with the
+- [x] Kernel tests cover the invoke endpoint: schema validation, auth, and unknown operation
+- [x] `modules/metadata-lookup` and `modules/episode-resolver` are deleted, along with the
       `metadata-lookup` contract group; internal episode-resolution callers use the temporary
       `invokeOperation` service path
-- [ ] The browser extension works against the invoke endpoint; metadata-lookup /
+- [x] The browser extension works against the invoke endpoint; metadata-lookup /
       browser-extension integration suites are re-pointed with assertions preserved
-- [ ] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
-      `app-client` check all pass (cross-phase invariant 1)
+- [x] The branch stays shippable: backend `check` + unit tests and the `app-client` /
+      `browser-extension` checks pass; the e2e suite is green for everything this step touches
+      (a new `tests/src/tests/plugins/operations.test.ts` covers dispatch, unknown plugin/operation,
+      input-schema violation, and declared-auth enforcement). **Known pre-existing red, not
+      introduced here:** `tests/src/tests/fitness/workout-templates.test.ts` (6 failures) has had no
+      exercise-seeding source since task 03 moved seeding into the fitness `preload-exercises` plugin
+      cron and re-pointed only `exercises.test.ts` / `god-mode/cron-trending.test.ts`; that suite
+      calls `waitForSeededExerciseIds` but never triggers the cron. Reproduced with this task's tree
+      stashed at prior-layer HEAD. Fix belongs with the cron owner (trigger the cron in that suite),
+      tracked as a task-03 follow-up.
 
 ## User stories addressed
 

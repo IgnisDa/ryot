@@ -19,6 +19,7 @@ import {
 	PluginValidationError,
 	validatePluginCronDrivers,
 	validatePluginManifestReferences,
+	validatePluginOperationDrivers,
 	validatePluginSourcePaths,
 	validateSignalSchemaFormatterReferences,
 } from "./validation";
@@ -70,6 +71,9 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 						validatePluginManifestReferences(plugin.manifest, snapshot.definitions).pipe(
 							Effect.andThen(
 								validateCompiledDrivers ? validatePluginCronDrivers(plugin) : Effect.void,
+							),
+							Effect.andThen(
+								validateCompiledDrivers ? validatePluginOperationDrivers(plugin) : Effect.void,
 							),
 						),
 					{ discard: true },

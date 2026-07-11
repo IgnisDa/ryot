@@ -44,8 +44,6 @@ import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entity-translat
 import { TranslateEntityWorkflowOperationsLive } from "#modules/entity-translation/operations-workflow";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { TranslationsService } from "#modules/entity-translation/service";
-import { EpisodeResolverRepository } from "#modules/episode-resolver/repository";
-import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import {
 	EventCreateWorkflowDefinitionsLive,
@@ -71,13 +69,13 @@ import { LibraryImportService } from "#modules/library-membership/service";
 import { MediaMonitoringRefreshWorkflowDefinitionsLive } from "#modules/media-monitoring/refresh-workflow";
 import { MediaMonitoringRepository } from "#modules/media-monitoring/repository";
 import { MediaMonitoringService } from "#modules/media-monitoring/service";
-import { MetadataLookupService } from "#modules/metadata-lookup/service";
 import { NotificationDeliveryService } from "#modules/notifications/delivery";
 import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { FirstPartyPluginBootstrap } from "#modules/plugins/boot";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
+import { OperationsService } from "#modules/plugins/operations-service";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { PluginIngestionService, PluginInvalidationSubscriber } from "#modules/plugins/service";
@@ -128,7 +126,6 @@ const ContentRepositoriesLive = Layer.mergeAll(
 	EntitiesRepository.Default,
 	MediaMonitoringRepository.Default,
 	EntitySchemasRepository.Default,
-	EpisodeResolverRepository.Default,
 	EventSchemasRepository.Default,
 	EventsRepository.Default,
 	RelationshipSchemasRepository.Default,
@@ -260,7 +257,6 @@ const SandboxServicesLive = Layer.mergeAll(SandboxExecutionServiceLive, RuntimeS
 const ContentServicesLive = Layer.mergeAll(
 	AuthDependentServicesLive,
 	LibraryImportService.Default,
-	EpisodeResolverService.Default,
 	EventsServiceLive,
 	SavedViewsServiceLive,
 	DefinitionsServiceLive,
@@ -329,15 +325,17 @@ const MediaMonitoringServiceLive = Layer.provide(
 	MediaMonitoringServiceDependenciesLive,
 );
 
-const MetadataLookupServiceLive = Layer.provide(
-	MetadataLookupService.Default,
-	RuntimeSandboxServiceLive,
+const ContentAndSandboxServicesLive = Layer.provideMerge(ServicesBaseLive, SandboxServicesLive);
+
+const OperationsServiceLive = Layer.provide(
+	OperationsService.Default,
+	ContentAndSandboxServicesLive,
 );
 
 const ServicesLive = Layer.mergeAll(
-	Layer.provideMerge(ServicesBaseLive, SandboxServicesLive),
+	ContentAndSandboxServicesLive,
 	PluginIngestionServiceLive,
-	MetadataLookupServiceLive,
+	OperationsServiceLive,
 	MediaMonitoringServiceLive,
 	InterestServicesLive,
 	LifecycleDispatchLayerLive,
