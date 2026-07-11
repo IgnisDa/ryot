@@ -1,7 +1,7 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { notFound } from "@ryot/contract/errors";
 import type { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 
@@ -17,10 +17,10 @@ export type RequestFillInput = {
 	providerId: SandboxProviderId;
 };
 
-export class TranslationsService extends Effect.Service<TranslationsService>()(
+export class TranslationsService extends Context.Service<TranslationsService>()(
 	"TranslationsService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* TranslationsRepository;
@@ -50,7 +50,7 @@ export class TranslationsService extends Effect.Service<TranslationsService>()(
 					})
 					.pipe(
 						Effect.asVoid,
-						Effect.catchAllCause((cause) =>
+						Effect.catchCause((cause) =>
 							Effect.logWarning("translation fill enqueue failed", cause),
 						),
 					);
@@ -90,4 +90,6 @@ export class TranslationsService extends Effect.Service<TranslationsService>()(
 			return { requestFill, create, update, upsert, listByEntity };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
