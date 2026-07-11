@@ -6,19 +6,24 @@ import { Effect, FileSystem, Schema, Stream } from "effect";
 import { unzipSync, Zip, zipSync, ZipPassThrough } from "fflate";
 
 import {
-	createV2ArchiveStream,
-	validateV2Archive,
+	createArchiveStream,
+	validateArchive,
 	zipChunks,
-	type CreateV2ArchiveInput,
+	type CreateArchiveInput,
 } from "./archive";
 import { BackupArchiveError } from "./error";
-import { V2Event, V2Manifest, V2_SECTION_PATHS, type V2ArchiveRecords } from "./schemas";
+import {
+	ArchiveEvent,
+	ArchiveManifest,
+	ARCHIVE_SECTION_PATHS,
+	type ArchiveRecords,
+} from "./schemas";
 import { encodeNdjson, IncrementalSha256 } from "./streaming";
 
 const timestamp = "2026-08-23T12:00:00.000Z";
 const encoder = new TextEncoder();
 const fixtureRoot = new URL(
-	"../../../../../../packages/contract/src/modules/backups/fixtures/v2/",
+	"../../../../../../packages/contract/src/modules/backups/fixtures/v1/",
 	import.meta.url,
 );
 const savedViewEntity = table("entity", "fixture");
@@ -31,17 +36,7 @@ const savedViewQuery = document({
 		],
 	}),
 });
-const savedViewCard = {
-	callout: null,
-	overline: null,
-	imageField: null,
-	titleField: "name",
-	entityIdField: "id",
-	queryDocument: savedViewQuery,
-	primaryMetadata: null,
-	secondaryMetadata: null,
-} as const;
-const records: V2ArchiveRecords = {
+const records: ArchiveRecords = {
 	entities: [],
 	savedViews: [
 		{
@@ -56,39 +51,69 @@ const records: V2ArchiveRecords = {
 			kind: "custom",
 			createdAt: timestamp,
 			updatedAt: timestamp,
-			entitySchemaSlug: null,
-			entitySchemaPluginKey: null,
-			layouts: {
-				grid: savedViewCard,
-				list: savedViewCard,
-				table: {
-					queryDocument: savedViewQuery,
-					imageField: null,
-					entityIdField: "id",
-					columns: [{ label: "Name", field: "name", displayKind: "text" }],
-				},
-			},
+			renderer: { kind: "custom", rendererId: "renderer-1" },
+			settings: { heading: "Fixture" },
+			dataSources: savedViewQuery,
 		},
 	],
 	integrations: [],
-	installations: [],
+	installations: [
+		{
+			id: "installation-1",
+			config: {},
+			sortOrder: 0,
+			disabledIntent: false,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+			homeSavedViewId: "view-1",
+			configuredSecretPaths: [],
+			lifecycleIntent: "ready",
+			packageKey: `system:fixture:${"a".repeat(64)}`,
+		},
+	],
 	relationships: [],
 	privatePlugins: [],
+	clientRenderers: [
+		{
+			id: "renderer-1",
+			slug: "fixture-renderer",
+			name: "Fixture renderer",
+			createdAt: timestamp,
+			updatedAt: timestamp,
+			draftRevision: 2,
+			publishedRevision: 1,
+			publishedHash: "published-source-hash",
+			draftDefinition: {
+				entry: "client/page.tsx",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				files: [{ path: "client/page.tsx", content: "ZXhwb3J0IGRlZmF1bHQgMQo=" }],
+				pluginDependencies: [],
+			},
+			publishedDefinition: {
+				entry: "client/page.tsx",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				files: [{ path: "client/page.tsx", content: "ZXhwb3J0IGRlZmF1bHQgMQo=" }],
+				pluginDependencies: [],
+			},
+		},
+	],
 	entityDependencies: [],
 	notificationSubscriptions: [],
 	profile: { image: null, name: "Test User", preferences: {} },
 };
 
-const input = (overrides: Partial<CreateV2ArchiveInput> = {}): CreateV2ArchiveInput => {
+const input = (overrides: Partial<CreateArchiveInput> = {}): CreateArchiveInput => {
 	const events = new IncrementalSha256().digest();
 	return {
 		records,
 		assets: [],
 		redactions: [],
-		requiredPlugins: [],
+		requiredPlugins: [{ slug: "fixture", version: "1.0.0", sourceHash: "a".repeat(64) }],
 		createdAt: timestamp,
 		archiveId: "archive-1",
-		appVersion: "backend-v2",
+		appVersion: "backend-v1",
 		events: { ...events, count: 0, chunks: [] },
 		...overrides,
 	};
@@ -106,22 +131,22 @@ const bytes = (chunks: Iterable<Uint8Array>) => {
 };
 
 const archiveBytes = Effect.fn(function* (
-	archiveInput: CreateV2ArchiveInput = input(),
-	overrides: Parameters<typeof createV2ArchiveStream>[1] = {},
+	archiveInput: CreateArchiveInput = input(),
+	overrides: Parameters<typeof createArchiveStream>[1] = {},
 ) {
-	return bytes(yield* Stream.runCollect(createV2ArchiveStream(archiveInput, overrides)));
+	return bytes(yield* Stream.runCollect(createArchiveStream(archiveInput, overrides)));
 });
 
 const asChunks = (value: Uint8Array) => Stream.toAsyncIterable(Stream.make(value));
 
 const decodeManifest = (value: Uint8Array) =>
-	Schema.decodeUnknownSync(Schema.fromJsonString(V2Manifest))(new TextDecoder().decode(value));
+	Schema.decodeUnknownSync(Schema.fromJsonString(ArchiveManifest))(new TextDecoder().decode(value));
 
-const encodeManifest = (manifest: V2Manifest) =>
-	encoder.encode(`${stableStringify(Schema.encodeUnknownSync(V2Manifest)(manifest))}\n`);
+const encodeManifest = (manifest: ArchiveManifest) =>
+	encoder.encode(`${stableStringify(Schema.encodeUnknownSync(ArchiveManifest)(manifest))}\n`);
 
 const mutateArchive = Effect.fn(function* (
-	archiveInput: CreateV2ArchiveInput,
+	archiveInput: CreateArchiveInput,
 	mutate: (files: Record<string, Uint8Array>) => void,
 ) {
 	const files = unzipSync(yield* archiveBytes(archiveInput)) as Record<string, Uint8Array>;
@@ -147,16 +172,16 @@ const replaceSection = (files: Record<string, Uint8Array>, path: string, payload
 
 const validationError = Effect.fn(function* (
 	value: Uint8Array,
-	options: Parameters<typeof validateV2Archive>[1] = {},
+	options: Parameters<typeof validateArchive>[1] = {},
 ) {
-	return yield* validateV2Archive(asChunks(value), options).pipe(
+	return yield* validateArchive(asChunks(value), options).pipe(
 		Effect.scoped,
 		Effect.provide(BunFileSystem.layer),
 		Effect.flip,
 	);
 });
 
-const event = (id = "event-1"): V2Event => ({
+const event = (id = "event-1"): ArchiveEvent => ({
 	id,
 	properties: {},
 	entityId: "entity-1",
@@ -168,8 +193,8 @@ const event = (id = "event-1"): V2Event => ({
 	eventSchemaPluginKey: null,
 });
 
-const eventsInput = (events: ReadonlyArray<V2Event>) => {
-	const chunks = [...encodeNdjson(events, V2Event)];
+const eventsInput = (events: ReadonlyArray<ArchiveEvent>) => {
+	const chunks = [...encodeNdjson(events, ArchiveEvent)];
 	const hash = new IncrementalSha256();
 	for (const chunk of chunks) {
 		hash.update(chunk);
@@ -177,7 +202,7 @@ const eventsInput = (events: ReadonlyArray<V2Event>) => {
 	return { chunks, count: events.length, ...hash.digest() };
 };
 
-const entity = (): V2ArchiveRecords["entities"][number] => ({
+const entity = (): ArchiveRecords["entities"][number] => ({
 	origin: null,
 	id: "entity-1",
 	name: "Entity",
@@ -227,13 +252,13 @@ const rawZip = (paths: ReadonlyArray<string>) => {
 	return bytes(chunks);
 };
 
-it.effect("creates deterministic V2 archives and validates the round trip", () =>
+it.effect("creates deterministic V1 archives and validates the round trip", () =>
 	Effect.gen(function* () {
 		const first = yield* archiveBytes();
 		const second = yield* archiveBytes();
 		expect(first).toEqual(second);
-		const validated = yield* validateV2Archive(asChunks(first));
-		expect(validated.manifest.version).toBe(2);
+		const validated = yield* validateArchive(asChunks(first));
+		expect(validated.manifest.version).toBe(1);
 		expect(validated.records).toEqual(records);
 	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
 );
@@ -245,16 +270,19 @@ it.effect("encodes and retains entity creation origin", () =>
 			...input(),
 			records: { ...records, entities: [{ ...entity(), origin }] },
 		});
-		const validated = yield* validateV2Archive(asChunks(archive));
+		const validated = yield* validateArchive(asChunks(archive));
 		expect(validated.records.entities[0]?.origin).toEqual(origin);
+		expect(validated.records.clientRenderers).toEqual(records.clientRenderers);
+		expect(validated.records.savedViews).toEqual(records.savedViews);
+		expect(validated.records.installations[0]?.homeSavedViewId).toBe("view-1");
 	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
 );
 
-it.effect("validates the V2 golden fixture", () =>
+it.effect("validates the V1 golden fixture", () =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
-		const paths = ["manifest.json", ...V2_SECTION_PATHS];
-		const validated = yield* validateV2Archive(
+		const paths = ["manifest.json", ...ARCHIVE_SECTION_PATHS];
+		const validated = yield* validateArchive(
 			zipChunks(
 				paths.map((path) => ({
 					path,
@@ -263,21 +291,18 @@ it.effect("validates the V2 golden fixture", () =>
 				})),
 			),
 		);
-		expect(validated.manifest.archiveId).toBe("fixture-v2");
+		expect(validated.manifest.archiveId).toBe("fixture-v1");
 	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
 );
 
-it.effect("rejects every manifest version other than V2", () =>
+it.effect("rejects a non-V1 manifest", () =>
 	Effect.gen(function* () {
 		const files = unzipSync(yield* archiveBytes());
-		const manifest = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(V2Manifest))(
+		const manifest = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ArchiveManifest))(
 			new TextDecoder().decode(files["manifest.json"]),
 		);
-		files["manifest.json"] = new TextEncoder().encode(stableStringify({ ...manifest, version: 1 }));
-		const error = yield* validateV2Archive(asChunks(zipSync(files))).pipe(
-			Effect.scoped,
-			Effect.flip,
-		);
+		files["manifest.json"] = new TextEncoder().encode(stableStringify({ ...manifest, version: 2 }));
+		const error = yield* validateArchive(asChunks(zipSync(files))).pipe(Effect.scoped, Effect.flip);
 		expect(error).toBeInstanceOf(BackupArchiveError);
 		expect(error.reason).toBe("unsupported_format");
 	}).pipe(Effect.provide(BunFileSystem.layer)),
@@ -285,7 +310,7 @@ it.effect("rejects every manifest version other than V2", () =>
 
 it.effect("rejects unsafe ZIP paths", () =>
 	Effect.gen(function* () {
-		const error = yield* validateV2Archive(
+		const error = yield* validateArchive(
 			asChunks(zipSync({ "../manifest.json": new Uint8Array() })),
 		).pipe(Effect.scoped, Effect.flip);
 		expect(error).toBeInstanceOf(BackupArchiveError);
@@ -354,7 +379,7 @@ it.effect("rejects section digest and count mismatches including streamed events
 			});
 		});
 		yield* Effect.gen(function* () {
-			const validated = yield* validateV2Archive(asChunks(eventCount));
+			const validated = yield* validateArchive(asChunks(eventCount));
 			const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
 			expect(error).toMatchObject({ reason: "count_mismatch", path: "events.ndjson" });
 		}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer));
@@ -400,7 +425,7 @@ it.effect("rejects malformed and truncated bounded and streamed NDJSON", () =>
 				replaceSection(files, "events.ndjson", encoder.encode(payload));
 			});
 			yield* Effect.gen(function* () {
-				const validated = yield* validateV2Archive(asChunks(streamed));
+				const validated = yield* validateArchive(asChunks(streamed));
 				const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
 				expect(error).toMatchObject({ reason, path: "events.ndjson" });
 			}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer));
@@ -448,7 +473,7 @@ it.effect("releases the spool directory on success, failure, and interruption", 
 		const spoolEntries = () => fs.readDirectory(root).pipe(Effect.map((paths) => paths.length));
 
 		const held = yield* Effect.gen(function* () {
-			const validated = yield* validateV2Archive(asChunks(spooled), { directory: root });
+			const validated = yield* validateArchive(asChunks(spooled), { directory: root });
 			expect(yield* spoolEntries()).toBe(1);
 			return validated.assets.length;
 		}).pipe(Effect.scoped);
@@ -459,7 +484,7 @@ it.effect("releases the spool directory on success, failure, and interruption", 
 			replaceSection(files, "events.ndjson", encoder.encode('{"id":'));
 		});
 		yield* Effect.gen(function* () {
-			const validated = yield* validateV2Archive(asChunks(truncated), { directory: root });
+			const validated = yield* validateArchive(asChunks(truncated), { directory: root });
 			return yield* Stream.runDrain(validated.events.read());
 		}).pipe(Effect.scoped, Effect.flip);
 		expect(yield* spoolEntries()).toBe(0);
@@ -472,7 +497,7 @@ it.effect("releases the spool directory on success, failure, and interruption", 
 
 		const exit = yield* Effect.exit(
 			Effect.gen(function* () {
-				yield* validateV2Archive(asChunks(spooled), { directory: root });
+				yield* validateArchive(asChunks(spooled), { directory: root });
 				return yield* Effect.interrupt;
 			}).pipe(Effect.scoped),
 		);

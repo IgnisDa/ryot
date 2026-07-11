@@ -4,6 +4,16 @@
 
 The iframe bridge, client artifact format, client source policy, and shared client-plugin capabilities belong to `@ryot-app/client-plugin-contract`.
 
+## Client Pages And Manifests
+
+The plugin manifest client API is version 1. Its declarative client surface names public exports,
+routes, entity detail/presentation exports, and the plugin-owned home view. Public source exports
+components or presentation definitions; generated compiler code owns application bootstrap.
+
+Saved views store a renderer reference, settings, and optional named RyotQL data sources. Client-page
+HTTP routes author renderers, prepare composed page graphs, and create, renew, or revoke authenticated
+graph-aware artifact sessions. Plugin catalog entries do not select or serve client artifacts.
+
 ## Failure Contract
 
 | Layer              | Owner           | Contract                                                     |

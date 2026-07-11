@@ -1,7 +1,9 @@
 import { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
+import { ClientRendererDefinition } from "@ryot-app/contract/modules/client-pages/schemas";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { jsonValueSchema, type JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
-import { SavedViewLayouts } from "@ryot-app/contract/modules/saved-views/schemas";
+import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import { CanonicalBase64 } from "@ryot-app/contract/schema/base64";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { Result, Schema } from "effect";
@@ -21,14 +23,15 @@ const isoTimestamp = Schema.String.pipe(
 	),
 );
 const jsonObject = Schema.Record(Schema.String, jsonValueSchema);
-export const decodeV2JsonObject = Schema.decodeUnknownSync(jsonObject);
+export const decodeArchiveJsonObject = Schema.decodeUnknownSync(jsonObject);
 
-export const isV2JsonObject = (value: unknown): value is Record<string, JsonValue> =>
+export const isArchiveJsonObject = (value: unknown): value is Record<string, JsonValue> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-export const V2_SECTION_PATHS = [
+export const ARCHIVE_SECTION_PATHS = [
 	"profile.json",
 	"private-plugins.ndjson",
+	"client-renderers.ndjson",
 	"installations.ndjson",
 	"entities.ndjson",
 	"entity-dependencies.ndjson",
@@ -39,16 +42,16 @@ export const V2_SECTION_PATHS = [
 	"notification-subscriptions.ndjson",
 ] as const;
 
-export type V2SectionPath = (typeof V2_SECTION_PATHS)[number];
+export type ArchiveSectionPath = (typeof ARCHIVE_SECTION_PATHS)[number];
 
-export const V2SectionManifest = strictStruct({
-	path: Schema.Literals(V2_SECTION_PATHS),
+export const ArchiveSectionManifest = strictStruct({
+	path: Schema.Literals(ARCHIVE_SECTION_PATHS),
 	count: nonNegativeInteger,
 	sha256,
 });
-export type V2SectionManifest = typeof V2SectionManifest.Type;
+export type ArchiveSectionManifest = typeof ArchiveSectionManifest.Type;
 
-export const V2AssetManifest = strictStruct({
+export const ArchiveAssetManifest = strictStruct({
 	sha256,
 	size: nonNegativeInteger,
 	contentType: Schema.String,
@@ -56,36 +59,36 @@ export const V2AssetManifest = strictStruct({
 		Schema.check(Schema.makeFilter((value) => /^assets\/[a-f0-9]{64}$/.test(value))),
 	),
 });
-export type V2AssetManifest = typeof V2AssetManifest.Type;
+export type ArchiveAssetManifest = typeof ArchiveAssetManifest.Type;
 
-export const V2RequiredPlugin = strictStruct({
+export const ArchiveRequiredPlugin = strictStruct({
 	sourceHash: sha256,
 	slug: Schema.String,
 	version: Schema.String,
 });
-export type V2RequiredPlugin = typeof V2RequiredPlugin.Type;
+export type ArchiveRequiredPlugin = typeof ArchiveRequiredPlugin.Type;
 
-export const V2Manifest = strictStruct({
+export const ArchiveManifest = strictStruct({
 	createdAt: isoTimestamp,
 	archiveId: Schema.String,
 	appVersion: Schema.String,
-	version: Schema.Literal(2),
-	assets: Schema.Array(V2AssetManifest),
+	version: Schema.Literal(1),
+	assets: Schema.Array(ArchiveAssetManifest),
 	redactions: Schema.Array(Schema.String),
 	format: Schema.Literal("ryot-backup"),
-	sections: Schema.Array(V2SectionManifest),
-	requiredPlugins: Schema.Array(V2RequiredPlugin),
+	sections: Schema.Array(ArchiveSectionManifest),
+	requiredPlugins: Schema.Array(ArchiveRequiredPlugin),
 });
-export type V2Manifest = typeof V2Manifest.Type;
+export type ArchiveManifest = typeof ArchiveManifest.Type;
 
-export const V2Profile = strictStruct({
+export const ArchiveProfile = strictStruct({
 	name: Schema.String,
 	preferences: jsonObject,
 	image: Schema.NullOr(Schema.String),
 });
-export type V2Profile = typeof V2Profile.Type;
+export type ArchiveProfile = typeof ArchiveProfile.Type;
 
-export const V2PrivatePlugin = strictStruct({
+export const ArchivePrivatePlugin = strictStruct({
 	key: Schema.String,
 	sourceHash: sha256,
 	slug: Schema.String,
@@ -93,26 +96,41 @@ export const V2PrivatePlugin = strictStruct({
 	manifest: PluginManifest,
 	files: Schema.Record(Schema.String, CanonicalBase64),
 });
-export type V2PrivatePlugin = typeof V2PrivatePlugin.Type;
+export type ArchivePrivatePlugin = typeof ArchivePrivatePlugin.Type;
 
-export const V2Installation = strictStruct({
+export const ArchiveInstallation = strictStruct({
 	id: Schema.String,
 	config: jsonObject,
 	createdAt: isoTimestamp,
 	updatedAt: isoTimestamp,
 	sortOrder: Schema.Finite,
 	packageKey: Schema.String,
+	homeSavedViewId: Schema.NullOr(Schema.String),
 	disabledIntent: Schema.Boolean,
 	configuredSecretPaths: Schema.Array(Schema.String),
 	lifecycleIntent: Schema.Literals(["ready", "needs-configuration", "disabled"]),
 });
-export type V2Installation = typeof V2Installation.Type;
+export type ArchiveInstallation = typeof ArchiveInstallation.Type;
+
+export const ArchiveClientRenderer = strictStruct({
+	id: Schema.String,
+	slug: Schema.String,
+	name: Schema.String,
+	createdAt: isoTimestamp,
+	updatedAt: isoTimestamp,
+	draftRevision: Schema.Int,
+	draftDefinition: ClientRendererDefinition,
+	publishedHash: Schema.NullOr(Schema.String),
+	publishedRevision: Schema.NullOr(Schema.Int),
+	publishedDefinition: Schema.NullOr(ClientRendererDefinition),
+});
+export type ArchiveClientRenderer = typeof ArchiveClientRenderer.Type;
 
 const providerProvenance = Schema.NullOr(
 	strictStruct({ pluginKey: Schema.String, providerSlug: Schema.String }),
 );
 
-export const V2UserEntity = strictStruct({
+export const ArchiveUserEntity = strictStruct({
 	id: Schema.String,
 	name: Schema.String,
 	properties: jsonObject,
@@ -125,9 +143,9 @@ export const V2UserEntity = strictStruct({
 	populatedAt: Schema.NullOr(isoTimestamp),
 	entitySchemaPluginKey: Schema.NullOr(Schema.String),
 });
-export type V2UserEntity = typeof V2UserEntity.Type;
+export type ArchiveUserEntity = typeof ArchiveUserEntity.Type;
 
-const V2EntityTranslation = strictStruct({
+const ArchiveEntityTranslation = strictStruct({
 	id: Schema.String,
 	language: Schema.String,
 	createdAt: isoTimestamp,
@@ -136,7 +154,7 @@ const V2EntityTranslation = strictStruct({
 	properties: Schema.NullOr(jsonObject),
 	populatedAt: Schema.NullOr(isoTimestamp),
 });
-type V2EntityTranslation = typeof V2EntityTranslation.Type;
+type ArchiveEntityTranslation = typeof ArchiveEntityTranslation.Type;
 
 const dependencyIdentity = Schema.Union([
 	strictStruct({ kind: Schema.Literal("unmanaged") }),
@@ -153,7 +171,7 @@ const dependencyIdentity = Schema.Union([
 	}),
 ]);
 
-export const V2EntityDependency = strictStruct({
+export const ArchiveEntityDependency = strictStruct({
 	id: Schema.String,
 	name: Schema.String,
 	properties: jsonObject,
@@ -164,12 +182,12 @@ export const V2EntityDependency = strictStruct({
 	entitySchemaSlug: Schema.String,
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(isoTimestamp),
-	translations: Schema.Array(V2EntityTranslation),
+	translations: Schema.Array(ArchiveEntityTranslation),
 	entitySchemaPluginKey: Schema.NullOr(Schema.String),
 });
-export type V2EntityDependency = typeof V2EntityDependency.Type;
+export type ArchiveEntityDependency = typeof ArchiveEntityDependency.Type;
 
-export const V2Relationship = strictStruct({
+export const ArchiveRelationship = strictStruct({
 	id: Schema.String,
 	properties: jsonObject,
 	createdAt: isoTimestamp,
@@ -179,9 +197,9 @@ export const V2Relationship = strictStruct({
 	scope: Schema.Literals(["global", "user"]),
 	relationshipSchemaPluginKey: Schema.NullOr(Schema.String),
 });
-export type V2Relationship = typeof V2Relationship.Type;
+export type ArchiveRelationship = typeof ArchiveRelationship.Type;
 
-export const V2Event = strictStruct({
+export const ArchiveEvent = strictStruct({
 	id: Schema.String,
 	properties: jsonObject,
 	createdAt: isoTimestamp,
@@ -192,7 +210,7 @@ export const V2Event = strictStruct({
 	sessionEntityId: Schema.NullOr(Schema.String),
 	eventSchemaPluginKey: Schema.NullOr(Schema.String),
 });
-export type V2Event = typeof V2Event.Type;
+export type ArchiveEvent = typeof ArchiveEvent.Type;
 
 const savedViewFields = {
 	id: Schema.String,
@@ -202,14 +220,22 @@ const savedViewFields = {
 	createdAt: isoTimestamp,
 	updatedAt: isoTimestamp,
 	sortOrder: Schema.Finite,
-	layouts: SavedViewLayouts,
 	isDisabled: Schema.Boolean,
 	pluginKey: Schema.NullOr(Schema.String),
-	entitySchemaSlug: Schema.NullOr(Schema.String),
-	entitySchemaPluginKey: Schema.NullOr(Schema.String),
+	dataSources: Schema.NullOr(RyotQLDocument),
+	settings: Schema.Record(Schema.String, jsonValueSchema),
+	renderer: Schema.Union([
+		strictStruct({ kind: Schema.Literal("custom"), rendererId: Schema.String }),
+		strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
+		strictStruct({
+			exportName: Schema.String,
+			pluginKey: Schema.String,
+			kind: Schema.Literal("plugin"),
+		}),
+	]),
 };
 
-export const V2SavedView = Schema.Union([
+export const ArchiveSavedView = Schema.Union([
 	strictStruct({
 		...savedViewFields,
 		kind: Schema.Literal("custom"),
@@ -221,9 +247,9 @@ export const V2SavedView = Schema.Union([
 		kind: Schema.Literal("builtin-override"),
 	}),
 ]);
-export type V2SavedView = typeof V2SavedView.Type;
+export type ArchiveSavedView = typeof ArchiveSavedView.Type;
 
-export const V2Integration = strictStruct({
+export const ArchiveIntegration = strictStruct({
 	id: Schema.String,
 	provider: Schema.String,
 	createdAt: isoTimestamp,
@@ -240,37 +266,39 @@ export const V2Integration = strictStruct({
 	configuredSecretPaths: Schema.Array(Schema.String),
 	extraSettings: strictStruct({ disableOnContinuousErrors: Schema.Boolean }),
 });
-export type V2Integration = typeof V2Integration.Type;
+export type ArchiveIntegration = typeof ArchiveIntegration.Type;
 
-export const V2NotificationSubscription = strictStruct({
+export const ArchiveNotificationSubscription = strictStruct({
 	isActive: Schema.Boolean,
 	signalSchemaSlug: Schema.String,
 	metadata: Schema.NullOr(jsonValueSchema),
 	signalSchemaPluginKey: Schema.NullOr(Schema.String),
 });
-export type V2NotificationSubscription = typeof V2NotificationSubscription.Type;
+export type ArchiveNotificationSubscription = typeof ArchiveNotificationSubscription.Type;
 
-export const V2_CODECS = {
-	"events.ndjson": V2Event,
-	"profile.json": V2Profile,
-	"entities.ndjson": V2UserEntity,
-	"saved-views.ndjson": V2SavedView,
-	"integrations.ndjson": V2Integration,
-	"installations.ndjson": V2Installation,
-	"relationships.ndjson": V2Relationship,
-	"private-plugins.ndjson": V2PrivatePlugin,
-	"entity-dependencies.ndjson": V2EntityDependency,
-	"notification-subscriptions.ndjson": V2NotificationSubscription,
+export const ARCHIVE_CODECS = {
+	"events.ndjson": ArchiveEvent,
+	"profile.json": ArchiveProfile,
+	"entities.ndjson": ArchiveUserEntity,
+	"saved-views.ndjson": ArchiveSavedView,
+	"integrations.ndjson": ArchiveIntegration,
+	"installations.ndjson": ArchiveInstallation,
+	"relationships.ndjson": ArchiveRelationship,
+	"private-plugins.ndjson": ArchivePrivatePlugin,
+	"client-renderers.ndjson": ArchiveClientRenderer,
+	"entity-dependencies.ndjson": ArchiveEntityDependency,
+	"notification-subscriptions.ndjson": ArchiveNotificationSubscription,
 } as const;
 
-export type V2ArchiveRecords = {
-	readonly profile: V2Profile;
-	readonly entities: ReadonlyArray<V2UserEntity>;
-	readonly savedViews: ReadonlyArray<V2SavedView>;
-	readonly integrations: ReadonlyArray<V2Integration>;
-	readonly installations: ReadonlyArray<V2Installation>;
-	readonly relationships: ReadonlyArray<V2Relationship>;
-	readonly privatePlugins: ReadonlyArray<V2PrivatePlugin>;
-	readonly entityDependencies: ReadonlyArray<V2EntityDependency>;
-	readonly notificationSubscriptions: ReadonlyArray<V2NotificationSubscription>;
+export type ArchiveRecords = {
+	readonly profile: ArchiveProfile;
+	readonly entities: ReadonlyArray<ArchiveUserEntity>;
+	readonly savedViews: ReadonlyArray<ArchiveSavedView>;
+	readonly integrations: ReadonlyArray<ArchiveIntegration>;
+	readonly installations: ReadonlyArray<ArchiveInstallation>;
+	readonly relationships: ReadonlyArray<ArchiveRelationship>;
+	readonly privatePlugins: ReadonlyArray<ArchivePrivatePlugin>;
+	readonly clientRenderers: ReadonlyArray<ArchiveClientRenderer>;
+	readonly entityDependencies: ReadonlyArray<ArchiveEntityDependency>;
+	readonly notificationSubscriptions: ReadonlyArray<ArchiveNotificationSubscription>;
 };

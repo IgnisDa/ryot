@@ -41,7 +41,7 @@ const updatePayload = (item: CustomizeDraftViewItem): UpdateSavedViewBody => ({
 	icon: item.icon,
 	name: item.name,
 	isDisabled: item.isDisabled,
-	...(item.pluginSlug === null ? {} : { pluginSlug: PluginSlug.make(item.pluginSlug) }),
+	...(item.pluginSlug === null ? {} : { workspacePluginSlug: PluginSlug.make(item.pluginSlug) }),
 });
 
 export function buildCustomizePlan(props: {

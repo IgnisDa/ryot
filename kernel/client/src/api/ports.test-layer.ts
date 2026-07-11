@@ -60,9 +60,6 @@ export const makeUploadsApi = (overrides: Partial<UploadsApi["Service"]> = {}) =
 export const makePluginsApi = (overrides: Partial<PluginsApi["Service"]> = {}) =>
 	Layer.succeed(PluginsApi, {
 		invoke: unused,
-		renewArtifactSession: unused,
-		revokeArtifactSession: unused,
-		createArtifactSession: unused,
 		...overrides,
 	});
 

@@ -29,11 +29,10 @@ canvas, or CORS access fails.
 
 ## Sync Marks
 
-`fieldSyncState` returns `ready`, `pending`, or `absent` from the mapped value and entity sync state.
-Present values are always ready; status matters only when a mapped value is missing. An unmapped slot
-is absent.
+`fieldSyncState` returns `ready`, `pending`, or `absent` from a selected value and entity sync state.
+Present values are always ready; status matters only when a selected value is missing.
 
-`EntityArtWell` is the product's image slot and missing-image placeholder. `SyncPip`,
+`EntityArtWell` is the product's artwork surface and missing-image placeholder. `SyncPip`,
 `SettleHighlight`, `TranslationChip`, and `SyncCountLine` provide the matching status vocabulary.
 Each animated element contains its own `motion-reduce:` guard because plugin documents do not receive
 kernel-only reduced-motion CSS.

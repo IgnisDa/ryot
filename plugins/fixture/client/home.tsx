@@ -14,6 +14,8 @@ import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
 
+// oxlint-disable-next-line import/no-unassigned-import
+import "./styles.css";
 import importedLogo from "./imported-logo.png";
 import logo from "./logo.svg";
 import { fixtureClientPluginCatalogRecipe } from "./query-recipes";

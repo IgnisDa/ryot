@@ -9,7 +9,6 @@ import type { ServerOrigin } from "#/api/origin";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { HostedAuthError, type HostedAuthService } from "#/modules/auth/hosted-service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -78,11 +77,6 @@ const makeView = (
 			Layer.succeed(ServerService, {
 				connect: () => Effect.void,
 				selected: Effect.succeed(selected),
-			}),
-			Layer.succeed(ArtifactSessions, {
-				renew: () => Effect.die("not used"),
-				revoke: () => Effect.die("not used"),
-				create: () => Effect.die("not used"),
 			}),
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
 			NavigationRouteStubs,

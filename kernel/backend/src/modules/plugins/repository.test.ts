@@ -160,59 +160,6 @@ it.effect("resolves a provider by portable plugin and provider slugs", () => {
 	);
 });
 
-it.effect("revalidates the exact private installation revision when reading artifact bytes", () => {
-	const dialect = new PgDialect();
-	const statements: Array<{ sql: string; params: Array<unknown> }> = [];
-	const chain = {
-		innerJoin: () => chain,
-		where: (condition: SQLWrapper) => {
-			statements.push(dialect.sqlToQuery(condition.getSQL()));
-			return chain;
-		},
-		limit: () =>
-			Effect.succeed([
-				{
-					name: "plugin.js",
-					contentType: "application/javascript",
-					contents: Buffer.from([0, 255]),
-				},
-			]),
-	};
-	const db = { select: () => ({ from: () => chain }) };
-	return Effect.gen(function* () {
-		const repository = yield* PluginRepository;
-		const file = yield* repository.findPrivateClientArtifactFile({
-			userId: "user-id",
-			pluginId: "plugin-id",
-			fileName: "plugin.js",
-			pluginSlug: "fixture",
-			sourceHash: "source-hash",
-			artifactHash: "artifact-hash",
-			installationId: "installation-id",
-		});
-
-		expect(file?.contents).toEqual(new Uint8Array([0, 255]));
-		expect(statements[0]?.params).toEqual(
-			expect.arrayContaining([
-				"ready",
-				"needs-configuration",
-				"user-id",
-				"plugin-id",
-				"fixture",
-				"source-hash",
-				"artifact-hash",
-				"installation-id",
-			]),
-		);
-	}).pipe(
-		Effect.provide(
-			PluginRepository.layer.pipe(
-				Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
-			),
-		),
-	);
-});
-
 it.effect("detects entity references to plugin schema slugs", () =>
 	Effect.gen(function* () {
 		const repository = yield* PluginRepository;
@@ -289,16 +236,13 @@ it.effect("loads active manifests without selecting plugin scripts", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("requires current client artifact metadata for source-hash cache hits", () => {
+it.effect("finds source-hash cache entries without an artifact pointer", () => {
 	const dialect = new PgDialect();
 	let statement: { sql: string; params: unknown[] } | undefined;
 	const db = {
 		select: () => ({
-			from: (table: unknown) => ({
+			from: () => ({
 				where: (condition: SQLWrapper) => {
-					if (table === schema.pluginClientArtifact) {
-						return sql`select 1 from ${schema.pluginClientArtifact} where ${condition}`;
-					}
 					statement = dialect.sqlToQuery(condition.getSQL());
 					return { limit: () => Effect.succeed([]) };
 				},
@@ -314,27 +258,8 @@ it.effect("requires current client artifact metadata for source-hash cache hits"
 		expect(
 			yield* repository.findBySourceHash({ ...systemIdentity, sourceHash: "source-hash" }),
 		).toBeNull();
-		expect(statement?.sql).toContain('"plugin"."client_artifact_hash" is null');
-		expect(statement?.sql).toContain(`not ("plugin"."manifest" ? 'client')`);
-		expect(statement?.sql).toContain("exists");
-		expect(statement?.sql).toContain('from "plugin_client_artifact"');
-		expect(statement?.sql).toContain(
-			'"plugin_client_artifact"."hash" = "plugin"."client_artifact_hash"',
-		);
-		expect(statement?.sql).toContain('"plugin_client_artifact"."format" =');
-		expect(statement?.sql).toContain('"plugin_client_artifact"."api_version" =');
-		expect(statement?.sql).toContain('"plugin_client_artifact"."bridge_version" =');
-		expect(statement?.sql).toContain('"plugin_client_artifact"."compiler_version" =');
-		expect(statement?.params).toEqual([
-			"fixture",
-			"system",
-			"active",
-			"source-hash",
-			CLIENT_ARTIFACT_FORMAT,
-			CLIENT_API_VERSION,
-			CLIENT_BRIDGE_PROTOCOL_VERSION,
-			CLIENT_COMPILER_VERSION,
-		]);
+		expect(statement?.sql).not.toContain("plugin_client_artifact");
+		expect(statement?.params).toEqual(["fixture", "system", "active", "source-hash"]);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -405,7 +330,6 @@ it.effect(
 		};
 		const plugin: NormalizedPlugin = {
 			files: {},
-			clientArtifact: null,
 			sourceHash: "source-hash",
 			manifest: {
 				...manifest,
@@ -546,7 +470,6 @@ it.effect("persists provider operation bindings and search options separately", 
 	};
 	const normalized: NormalizedPlugin = {
 		files: {},
-		clientArtifact: null,
 		sourceHash: "source-hash",
 		manifest: {
 			...manifest,
@@ -766,7 +689,6 @@ it.effect("persists and explicitly reloads exact plugin source bytes", () => {
 	const plugin: NormalizedPlugin = {
 		manifest,
 		scripts: [],
-		clientArtifact: null,
 		sourceHash: "source-hash",
 		files: { "client/pixel.png": new Uint8Array([0, 255, 1]) },
 	};

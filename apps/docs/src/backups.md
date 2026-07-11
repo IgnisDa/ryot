@@ -5,7 +5,7 @@
 - Profile preferences.
 - Media, fitness, measurement, and collection data.
 - History, reviews, workouts, and other activity.
-- Custom views and notification preferences.
+- Custom renderer source, saved views, workspace home selections, and notification preferences.
 - Integrations and their non-secret settings.
 - Uploaded images, videos, and other files managed by Ryot.
 
@@ -58,8 +58,10 @@ Do not upload a backup through **Settings > Import data**.
 
 ## Archive compatibility
 
-The current format is `ryot-backup` version 2. Ryot validates the manifest, paths, record counts,
+The current format is `ryot-backup` version 1. Ryot validates the manifest, paths, record counts,
 and section and asset checksums. It rejects other ZIP files and unsupported formats or versions.
+Compiled client-page artifacts are derived from renderer and plugin source and are rebuilt after
+restore; they are not stored in the backup.
 
 After a successful restore, reset the account before you restore any archive again.
 

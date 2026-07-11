@@ -2,14 +2,9 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware, AuthRateLimited, AuthUnauthorized } from "../../auth-middleware";
-import { LogRouteTemplate } from "../../http-annotations";
 import { PluginSlug, UserId } from "../../schema/brands";
 import {
-	CreatePluginClientArtifactSessionBody,
-	CreatePluginClientArtifactSessionResponse,
 	InstallPluginBody,
-	PluginArtifactSessionNotFoundError,
-	PluginArtifactSessionUnavailableError,
 	PluginConflictError,
 	PluginHomeViewSelection,
 	PluginInstallationItem,
@@ -19,7 +14,6 @@ import {
 	PluginInvokeResult,
 	PluginNotFoundError,
 	PluginRequestError,
-	RenewPluginClientArtifactSessionResponse,
 	UpdatePrivatePluginBody,
 } from "./schemas";
 
@@ -42,23 +36,6 @@ export const encodePluginCatalogInvalidatedMessage = Schema.encodeSync(
 	Schema.fromJsonString(PluginCatalogInvalidatedMessage),
 	{ onExcessProperty: "error" },
 );
-
-const pluginArtifactSessionErrors = [
-	PluginArtifactSessionNotFoundError.pipe(HttpApiSchema.status(404)),
-	PluginArtifactSessionUnavailableError.pipe(HttpApiSchema.status(503)),
-] as const;
-
-export const PluginArtifactSessionsGroup = HttpApiGroup.make("pluginArtifactSessions")
-	.annotate(OpenApi.Description, "Serves files from private plugin artifact sessions.")
-	.add(
-		HttpApiEndpoint.get("file", "/plugin-artifact-sessions/:token/:fileName", {
-			error: pluginArtifactSessionErrors,
-			success: HttpApiSchema.StreamUint8Array(),
-			params: { token: Schema.String, fileName: Schema.String },
-		})
-			.annotate(LogRouteTemplate, true)
-			.annotate(OpenApi.Description, "Serves a file from a private plugin artifact session."),
-	);
 
 export const PluginsGroup = HttpApiGroup.make("plugins")
 	.annotate(OpenApi.Description, "Manages installed plugins for this instance.")
@@ -123,44 +100,6 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 			],
 		}).annotate(OpenApi.Description, "Sets or clears the caller's plugin home saved view."),
-	)
-	.add(
-		HttpApiEndpoint.post(
-			"createArtifactSession",
-			"/plugins/:pluginSlug/installations/:installationId/client-artifact-sessions",
-			{
-				payload: CreatePluginClientArtifactSessionBody,
-				success: CreatePluginClientArtifactSessionResponse.pipe(HttpApiSchema.status(201)),
-				params: { pluginSlug: PluginSlug, installationId: Schema.String },
-				error: [
-					...pluginArtifactSessionErrors,
-					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
-					PluginConflictError.pipe(HttpApiSchema.status(409)),
-				],
-			},
-		).annotate(OpenApi.Description, "Creates a short-lived private client artifact session."),
-	)
-	.add(
-		HttpApiEndpoint.post(
-			"renewArtifactSession",
-			"/plugins/client-artifact-sessions/:sessionId/renew",
-			{
-				error: pluginArtifactSessionErrors,
-				params: { sessionId: Schema.String },
-				success: RenewPluginClientArtifactSessionResponse,
-			},
-		).annotate(OpenApi.Description, "Renews a private client artifact session."),
-	)
-	.add(
-		HttpApiEndpoint.delete(
-			"revokeArtifactSession",
-			"/plugins/client-artifact-sessions/:sessionId",
-			{
-				params: { sessionId: Schema.String },
-				success: Schema.Void.pipe(HttpApiSchema.status(204)),
-				error: PluginArtifactSessionUnavailableError.pipe(HttpApiSchema.status(503)),
-			},
-		).annotate(OpenApi.Description, "Deletes a private client artifact session."),
 	)
 	.middleware(AuthMiddleware)
 	.add(

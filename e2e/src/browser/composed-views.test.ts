@@ -582,6 +582,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}?keep=1&layout=table`);
 		const runtime = page.locator("iframe").contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: "Entity browser" }).waitFor();
+		yield* runtime.getByText(alpha.name, { exact: true }).waitFor({ state: "visible" });
 		expect(yield* runtime.getByRole("button", { name: "Add", exact: true }).count).toBe(0);
 		expect(yield* runtime.getByRole("columnheader").allInnerTexts()).toEqual(["Schema", "Name"]);
 		expect(yield* runtime.locator("tbody tr").allInnerTexts()).toEqual([

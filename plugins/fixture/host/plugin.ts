@@ -22,7 +22,7 @@ export const fixturePlugin = definePlugin({
 	configSchema: { fields: {}, unknownKeys: "strict" },
 	client: {
 		apiVersion: 1,
-		entry: "client/index.tsx",
+		homeView: null,
 		notFoundPage: "fixture-not-found",
 		entities: {
 			pokemon: {

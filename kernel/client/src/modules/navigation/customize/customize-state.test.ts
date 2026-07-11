@@ -40,7 +40,6 @@ const workspace = (
 	pluginId: `plugin-${slug}`,
 	sourceHash: `source-${slug}`,
 	installationId: `installation-${slug}`,
-	clientArtifactHash: `artifact-${slug}`,
 });
 
 const catalog: PluginClientCatalog = [

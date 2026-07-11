@@ -10,7 +10,6 @@ import { PublicApi, PublicApiError } from "#/api/public";
 import type { UserSettingsApi } from "#/api/user-settings";
 import type { AuthService } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -89,16 +88,6 @@ const mountView = (
 			}),
 			userSettingsLayer,
 			events.layer,
-			Layer.succeed(ArtifactSessions, {
-				renew: () => Effect.die("not used"),
-				revoke: () => Effect.die("not used"),
-				create: ({ clientArtifactHash }) =>
-					Effect.succeed({
-						sessionId: "session-1",
-						expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
-						src: `https://ryot.example/session/${clientArtifactHash}/index.html`,
-					}),
-			}),
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(entries) }),
 			NavigationRouteStubs,
 			CustomizeRouteStubs,

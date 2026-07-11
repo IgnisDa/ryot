@@ -5,9 +5,10 @@ same build in Capacitor WebViews.
 
 ## Ownership And Isolation
 
-The kernel owns authentication, server selection, the single global URL and history, plugin
-lifecycle, artifact sessions, bridge dispatch, and all native and platform authority. Plugins own
-domain UI and behavior. Each plugin client is an independently compiled React DOM application in a
+The kernel owns authentication, server selection, the single global URL and history, client-page
+sessions, bridge dispatch, and all native and platform authority. Plugins own domain UI and behavior.
+The kernel renders plugin routes, entity pages, saved views, and workspace homes through one
+`ClientPageHost`; each prepared page is an independently compiled React DOM application in a
 sandboxed, opaque-origin iframe.
 
 The iframe receives no bearer credentials and has no direct Capacitor access. Its only privileged
@@ -16,18 +17,19 @@ artifact identity. Plugin requests cross that port as narrow, schema-checked cap
 applies authentication, installation scope, and platform policy. A plugin upload sends only bytes with
 a proposed file name and content type; the kernel keeps intent creation, transfer, and completion.
 
-Client artifacts are immutable and content-addressed. An installation catalog entry couples a source
-revision to one artifact hash, and artifact-session creation submits the installation ID, source hash,
-and artifact hash together. A stale source revision is rejected instead of serving an artifact for a
-different source. The active iframe is reused across locations only while all three values are
-unchanged; installation, source, or artifact changes replace it.
+Client artifacts are immutable, content-addressed outputs of a complete contributor graph. The
+backend `ClientPages` module prepares the target, renderer, settings, optional named data sources,
+contributors, operation targets, graph hash, build, and artifact as one identity. It also owns the
+authenticated artifact session used to serve that graph. Session creation and renewal revalidate the
+whole identity; stale preparation is rejected instead of serving mismatched code. There is no
+plugin-owned artifact selection or session route.
 
-The kernel resolves every committed URL explicitly. Kernel routes render kernel surfaces,
-`/:pluginSlug/*` resolves the slug against the installation catalog, while `/v/:viewSlug` resolves
-saved views, and `/e/:entityId` resolves
-persisted entity provenance against the live catalog. Plugin route and entity locations for the same
-active document reuse one `PluginHost`; a kernel route unmounts it. Disabled installations stay out
-of workspace discovery but remain reachable through direct plugin and delegated entity URLs.
+The kernel resolves every committed URL explicitly. Kernel routes render kernel surfaces;
+`/:pluginSlug/*`, `/v/:viewSlug`, and `/e/:entityId` resolve to client-page targets for plugin routes,
+saved views, and persisted entity provenance. A workspace home resolves to its selected saved-view
+target while retaining the workspace URL. The active iframe is reused only while its prepared build,
+graph, artifact, and document identity stay unchanged. Disabled installations stay out of workspace
+discovery but remain reachable through direct plugin and delegated entity URLs.
 
 There is one global history. Plugins request tagged route or entity navigation, and the kernel writes
 the canonical URL. The kernel sends each accepted location with its history `index` and `key`; plugin
@@ -44,6 +46,12 @@ interaction rules live in
 `AuthenticatedApi` and `AdminApi` are the only services that run contract programs, and `ClientLive`
 does not export them. Other modules depend on narrow group ports such as `RyotQLApi` or
 `SavedViewsApi`; adding an endpoint widens its owning port rather than exposing the full client.
+
+Authenticated kernel settings and account screens load and change data through the same shared query
+and mutation layer as client pages. Route loaders retain access decisions, redirects, and not-found
+checks. Permanent direct-service exceptions are pre-authentication routes, which have no authenticated
+API scope; God Mode, whose administration calls are scoped by its token; and the catalog-dependent
+workspace redirect, which must resolve before rendering.
 
 Every `ClientLive` layer must be synchronously constructible because `main.tsx` creates the runtime
 with `runSync`. Asynchronous setup belongs inside service operations.

@@ -7,16 +7,21 @@ letters and numbers separated by `.`, `_`, or `-`; `/` is reserved for path mapp
 
 ## Package Layout
 
-| Root       | Archived | Owner and allowed dependencies                                                     |
-| ---------- | -------- | ---------------------------------------------------------------------------------- |
-| `host/`    | No       | Manifest and code imported directly by the server or kernel client                 |
-| `backend/` | Yes      | Sandbox entrypoints and libraries; may import siblings and `shared/`               |
-| `client/`  | Yes      | Optional client plugin; may import siblings and `shared/`                          |
-| `shared/`  | Yes      | Environment-neutral `.ts`; may import shared siblings and plugin-kit neutral shims |
+| Root       | Archived | Owner and allowed dependencies                                                       |
+| ---------- | -------- | ------------------------------------------------------------------------------------ |
+| `host/`    | No       | Manifest and code imported directly by the server or kernel client                   |
+| `backend/` | Yes      | Sandbox entrypoints and libraries; may import siblings and `shared/`                 |
+| `client/`  | Yes      | Optional client source; uses client SDK/UI SDK and may import siblings and `shared/` |
+| `shared/`  | Yes      | Environment-neutral `.ts`; may import shared siblings and plugin-kit neutral shims   |
 
 Archived roots never import `host/`. Production host code reaches archived backend code only through
 `backend/contracts/**`, which holds sandbox-owned schemas, recipes, and helpers needed by host callers.
 Nothing host-only belongs under an archived root.
+
+Client entries default-export components or presentation definitions. They do not mount or bootstrap
+an application. The compiler generates one application bootstrap and React root for plugin routes,
+entity pages, saved-view renderers, and workspace homes. Public cross-plugin imports use
+`@ryot-app/plugins/<plugin-slug>/<export-name>` and must name a declared client dependency.
 
 Backend areas group entrypoints under `automations/`, `bootstrap/`, `imports/`, `integrations/`,
 `operations/`, `workflows/`, and `providers/`; cross-area code belongs in `backend/lib/`.
@@ -73,28 +78,34 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 
 ## Manifest Sections
 
-| Section                | Purpose                                                     |
-| ---------------------- | ----------------------------------------------------------- |
-| `metadata`             | Package slug, name, description, version, and icon          |
-| `configSchema`         | Plugin-owned environment configuration                      |
-| `scripts`              | Build-derived sandbox entries and requirements              |
-| `providers`            | Logical providers mapped to provider-operation scripts      |
-| `workflows`            | Public workflow slugs                                       |
-| `operations`           | Public user- or integration-authenticated operations        |
-| `boot`                 | Restart-time system-subject dispatches                      |
-| `userBootstrap`        | Per-user bootstrap dispatches for system plugins            |
-| `crons`                | Scheduled system-subject dispatches                         |
-| `importSources`        | Payload, single-file, or named-file workflow inputs         |
-| `httpRateLimits`       | Deployment-global limits by normalized HTTP(S) origin       |
-| `integrationProviders` | Push, sink, or yank integrations                            |
-| `entitySchemas`        | Entities, events, user-state policy, and merge identity     |
-| `relationshipSchemas`  | Typed relationship endpoints                                |
-| `signalSchemas`        | Signal audience, catalog, and formatter definitions         |
-| `savedViews`           | Plugin-owned query documents and display configuration      |
-| `bindings`             | Entity, event, relationship, and signal automation bindings |
+| Section                | Purpose                                                                 |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `metadata`             | Package slug, name, description, version, and icon                      |
+| `configSchema`         | Plugin-owned environment configuration                                  |
+| `scripts`              | Build-derived sandbox entries and requirements                          |
+| `providers`            | Logical providers mapped to provider-operation scripts                  |
+| `workflows`            | Public workflow slugs                                                   |
+| `operations`           | Public user- or integration-authenticated operations                    |
+| `boot`                 | Restart-time system-subject dispatches                                  |
+| `userBootstrap`        | Per-user bootstrap dispatches for system plugins                        |
+| `crons`                | Scheduled system-subject dispatches                                     |
+| `importSources`        | Payload, single-file, or named-file workflow inputs                     |
+| `httpRateLimits`       | Deployment-global limits by normalized HTTP(S) origin                   |
+| `integrationProviders` | Push, sink, or yank integrations                                        |
+| `entitySchemas`        | Entities, events, user-state policy, and merge identity                 |
+| `relationshipSchemas`  | Typed relationship endpoints                                            |
+| `signalSchemas`        | Signal audience, catalog, and formatter definitions                     |
+| `client`               | Version 1 public exports, routes, entities, dependencies, and home view |
+| `savedViews`           | Renderer, settings, and optional named RyotQL data sources              |
+| `bindings`             | Entity, event, relationship, and signal automation bindings             |
 
 All referenced scripts, workflows, providers, and config keys must exist. Active plugins share the
 global namespaces enforced by `PluginManifest`. Entity and relationship schema evolution is additive.
+
+Client exports are stable names with kind `page`, `component`, or `presentation`. Routes map URL
+patterns to page exports; entity declarations map owned schema slugs to detail and grid/list
+presentation exports; `homeView` names a plugin-owned saved view or is null. Saved views do not carry
+legacy display mappings or sandbox scripts.
 
 ## Subject And Capabilities
 

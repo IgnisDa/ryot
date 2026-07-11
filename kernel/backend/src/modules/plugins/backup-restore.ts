@@ -3,7 +3,7 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import type { V2PrivatePlugin } from "#modules/backups/archive-v2/schemas";
+import type { ArchivePrivatePlugin } from "#modules/backups/archive/schemas";
 import {
 	buildDefinitionSnapshot,
 	DefinitionRegistry,
@@ -26,7 +26,7 @@ import {
 	validatePluginSourcePaths,
 } from "./validation";
 
-export type PreparedBackupPrivatePlugin = Omit<V2PrivatePlugin, "files"> & {
+export type PreparedBackupPrivatePlugin = Omit<ArchivePrivatePlugin, "files"> & {
 	readonly normalized: NormalizedPlugin;
 	readonly files: Readonly<Record<string, Uint8Array>>;
 };
@@ -44,7 +44,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 			const clientCompiler = yield* ClientPluginCompiler;
 
 			const prepare = Effect.fn("PluginBackupRestore.prepare")(function* (
-				packages: ReadonlyArray<V2PrivatePlugin>,
+				packages: ReadonlyArray<ArchivePrivatePlugin>,
 			) {
 				const keys = new Set<string>();
 				const slugs = new Set<string>();

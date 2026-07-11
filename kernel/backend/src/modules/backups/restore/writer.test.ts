@@ -1,7 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
-import type { SavedViewLayouts } from "@ryot-app/contract/modules/saved-views/schemas";
-import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { ClientRendererId, EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
 import { Effect, Layer, Stream } from "effect";
@@ -10,6 +9,7 @@ import { Database } from "#lib/infrastructure/db/service";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
+import { ClientPagesRepository } from "#modules/client-pages/repository";
 import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
@@ -18,23 +18,24 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
-import type { V2ArchiveRecords, V2Event } from "../archive-v2/schemas";
+import type { ArchiveEvent, ArchiveRecords } from "../archive/schemas";
 import {
-	assertV2DependencySchemaOwnership,
+	assertDependencySchemaOwnership,
 	BackupRestoreWriter,
-	preflightV2Provenance,
-	resolveV2BootstrapEntityMappings,
-	resolveV2RestoredIntegrationDisabled,
-	resolveV2RestoredInstallationLifecycle,
-	resolveV2RequiredPluginIds,
-	selectV2TranslationsForRestore,
+	preflightProvenance,
+	resolveBootstrapEntityMappings,
+	resolveRestoredIntegrationDisabled,
+	resolveRestoredInstallationLifecycle,
+	resolveRequiredPluginIds,
+	selectTranslationsForRestore,
 } from "./writer";
 
 it("keeps restored installations inactive when required secrets were redacted", () => {
 	expect(
-		resolveV2RestoredInstallationLifecycle(
+		resolveRestoredInstallationLifecycle(
 			{ disabledIntent: false, lifecycleIntent: "ready", configuredSecretPaths: ["/token"] },
 			{
 				unknownKeys: "strict",
@@ -54,7 +55,7 @@ it("keeps restored installations inactive when required secrets were redacted", 
 
 it("preserves needs-configuration health when the secret was already absent", () => {
 	expect(
-		resolveV2RestoredInstallationLifecycle(
+		resolveRestoredInstallationLifecycle(
 			{
 				disabledIntent: true,
 				configuredSecretPaths: [],
@@ -71,7 +72,7 @@ it.effect("requires an exact system plugin version and source hash", () =>
 		const installed = [
 			{ id: "plugin-id", slug: "system", version: "1.0.0", sourceHash: "b".repeat(64) },
 		];
-		const error = yield* resolveV2RequiredPluginIds(required, installed).pipe(Effect.flip);
+		const error = yield* resolveRequiredPluginIds(required, installed).pipe(Effect.flip);
 		expect(error).toMatchObject({ pluginSlug: "system", requiredVersion: "1.0.0" });
 	}),
 );
@@ -108,7 +109,7 @@ it("detects nested required installation secrets in objects and arrays", () => {
 							description: "Token",
 							secret: true as const,
 							type: "string" as const,
-							validation: { required: true },
+							validation: { required: true as const },
 						},
 					},
 				},
@@ -117,13 +118,13 @@ it("detects nested required installation secrets in objects and arrays", () => {
 	} satisfies AppSchema;
 	for (const path of ["/credentials/token", "/accounts/0/token"]) {
 		expect(
-			resolveV2RestoredInstallationLifecycle(
+			resolveRestoredInstallationLifecycle(
 				{ disabledIntent: false, lifecycleIntent: "ready", configuredSecretPaths: [path] },
 				schema,
 			),
 		).toEqual({ health: "needs-configuration", isDisabled: true });
 		expect(
-			resolveV2RestoredIntegrationDisabled(
+			resolveRestoredIntegrationDisabled(
 				{ isDisabled: false, configuredSecretPaths: [path] },
 				schema,
 			),
@@ -135,7 +136,7 @@ const bootstrapEntity = (
 	id: string,
 	overrides: Partial<
 		Pick<
-			V2ArchiveRecords["entities"][number],
+			ArchiveRecords["entities"][number],
 			| "origin"
 			| "entitySchemaPluginKey"
 			| "entitySchemaSlug"
@@ -160,7 +161,7 @@ const bootstrapEntity = (
 it.effect("maps bootstrap entities by schema and plugin ownership", () =>
 	Effect.gen(function* () {
 		expect(
-			yield* resolveV2BootstrapEntityMappings(
+			yield* resolveBootstrapEntityMappings(
 				[
 					bootstrapEntity("archived-bootstrap"),
 					bootstrapEntity("unrelated-bootstrap", {
@@ -181,7 +182,7 @@ it.effect("maps bootstrap entities by schema and plugin ownership", () =>
 it.effect("does not map non-bootstrap entities or structurally similar rows", () =>
 	Effect.gen(function* () {
 		expect(
-			yield* resolveV2BootstrapEntityMappings(
+			yield* resolveBootstrapEntityMappings(
 				[
 					bootstrapEntity("archived-bootstrap"),
 					bootstrapEntity("archived-other-plugin", { entitySchemaPluginKey: "other-key" }),
@@ -205,7 +206,7 @@ it.effect("does not map non-bootstrap entities or structurally similar rows", ()
 );
 
 it.effect("restores unmatched archived bootstrap entities", () =>
-	resolveV2BootstrapEntityMappings(
+	resolveBootstrapEntityMappings(
 		[bootstrapEntity("archived")],
 		[],
 		new Map([["plugin-key", "plugin-id"]]),
@@ -213,7 +214,7 @@ it.effect("restores unmatched archived bootstrap entities", () =>
 );
 
 it.effect("rejects ambiguous target bootstrap identities", () =>
-	resolveV2BootstrapEntityMappings(
+	resolveBootstrapEntityMappings(
 		[bootstrapEntity("archived")],
 		[
 			{ ...bootstrapEntity("first"), entitySchemaPluginId: "plugin-id" },
@@ -227,7 +228,7 @@ it.effect("rejects ambiguous target bootstrap identities", () =>
 );
 
 it.effect("rejects ambiguous archived or target bootstrap identities", () =>
-	resolveV2BootstrapEntityMappings(
+	resolveBootstrapEntityMappings(
 		[bootstrapEntity("first"), bootstrapEntity("second")],
 		[{ ...bootstrapEntity("target"), entitySchemaPluginId: "target-plugin-id" }],
 		new Map([["plugin-key", "target-plugin-id"]]),
@@ -238,7 +239,7 @@ it.effect("rejects ambiguous archived or target bootstrap identities", () =>
 );
 
 it.effect("rejects a crafted provider dependency whose schema belongs to another plugin", () =>
-	assertV2DependencySchemaOwnership(
+	assertDependencySchemaOwnership(
 		{
 			properties: {},
 			id: "global-id",
@@ -270,27 +271,6 @@ const provenanceQuery = document({
 		],
 	}),
 });
-const provenanceCard = {
-	callout: null,
-	overline: null,
-	imageField: null,
-	titleField: "name",
-	entityIdField: "id",
-	queryDocument: provenanceQuery,
-	primaryMetadata: null,
-	secondaryMetadata: null,
-} as const;
-const provenanceLayouts = {
-	grid: provenanceCard,
-	list: provenanceCard,
-	table: {
-		imageField: null,
-		entityIdField: "id",
-		queryDocument: provenanceQuery,
-		columns: [{ label: "Name", field: "name", displayKind: "text" }],
-	},
-} satisfies SavedViewLayouts;
-
 const provenanceRecords = (
 	input: {
 		readonly builtinView?: boolean;
@@ -300,10 +280,12 @@ const provenanceRecords = (
 		readonly relationshipKey?: string | null;
 		readonly subscriptionKey?: string | null;
 	} = {},
-): V2ArchiveRecords => ({
+): ArchiveRecords => ({
 	savedViews: [
 		{
-			layouts: provenanceLayouts,
+			renderer: { kind: "kernel", name: "entity-browser" },
+			settings: {},
+			dataSources: provenanceQuery,
 			icon: "list",
 			...(input.builtinView
 				? { kind: "builtin-override" as const, isBuiltin: true as const }
@@ -313,8 +295,6 @@ const provenanceRecords = (
 			id: "saved-view-id",
 			slug: "owner-view",
 			name: "Owner view",
-			entitySchemaSlug: "owner-entity",
-			entitySchemaPluginKey: input.viewKey === undefined ? "owner-key" : input.viewKey,
 			sortOrder: 0,
 			createdAt: "2026-08-23T12:00:00.000Z",
 			updatedAt: "2026-08-23T12:00:00.000Z",
@@ -323,6 +303,7 @@ const provenanceRecords = (
 	integrations: [],
 	installations: [],
 	privatePlugins: [],
+	clientRenderers: [],
 	notificationSubscriptions: [
 		{
 			metadata: null,
@@ -407,8 +388,9 @@ const provenanceDefinitions: DefinitionSnapshot = {
 			name: "Owner view",
 			pluginSlug: "owner",
 			pluginId: "owner-id",
-			layouts: provenanceLayouts,
-			entitySchemaSlug: "owner-entity",
+			renderer: { kind: "kernel", name: "entity-browser" },
+			settings: {},
+			dataSources: provenanceQuery,
 		},
 	},
 	signalSchemas: {
@@ -434,7 +416,7 @@ const provenanceDefinitions: DefinitionSnapshot = {
 	},
 };
 
-const provenanceEvent = (eventSchemaPluginKey: string | null = "owner-key"): V2Event => ({
+const provenanceEvent = (eventSchemaPluginKey: string | null = "owner-key"): ArchiveEvent => ({
 	properties: {},
 	id: "event-id",
 	eventSchemaPluginKey,
@@ -503,11 +485,6 @@ it.effect("preflights all qualified schema provenance including streamed events"
 				records: provenanceRecords({ relationshipKey: "foreign-key" }),
 			},
 			{
-				name: "saved view",
-				event: provenanceEvent(),
-				records: provenanceRecords({ viewKey: "foreign-key" }),
-			},
-			{
 				name: "subscription",
 				event: provenanceEvent(),
 				records: provenanceRecords({ subscriptionKey: "foreign-key" }),
@@ -524,7 +501,7 @@ it.effect("preflights all qualified schema provenance including streamed events"
 			},
 		] as const;
 		for (const testCase of cases) {
-			const error = yield* preflightV2Provenance(
+			const error = yield* preflightProvenance(
 				testCase.records,
 				{ count: 1, sha256: "", read: () => Stream.make(testCase.event) },
 				pluginIds,
@@ -547,9 +524,65 @@ it("does not apply archived translations to an existing global entity", () => {
 			updatedAt: "2026-08-23T12:00:00.000Z",
 		},
 	];
-	expect(selectV2TranslationsForRestore(false, translations)).toEqual([]);
-	expect(selectV2TranslationsForRestore(true, translations)).toBe(translations);
+	expect(selectTranslationsForRestore(false, translations)).toEqual([]);
+	expect(selectTranslationsForRestore(true, translations)).toBe(translations);
 });
+
+it.effect(
+	"rejects structurally valid restored custom views with incompatible settings or data sources",
+	() =>
+		Effect.gen(function* () {
+			const renderer = {
+				kind: "custom" as const,
+				rendererId: ClientRendererId.make("mapped-renderer"),
+			};
+			const published = {
+				id: "mapped-renderer",
+				publishedRevision: 1,
+				publishedDefinition: {
+					settingsSchema: {
+						unknownKeys: "strict" as const,
+						fields: {
+							label: {
+								type: "string" as const,
+								label: "Label",
+								description: "Label",
+								validation: { required: true },
+							},
+						},
+					} satisfies AppSchema,
+				},
+			};
+			const settingsError = yield* validateSavedViewDefinition(
+				renderer,
+				{ label: 42 },
+				provenanceQuery,
+				published,
+			).pipe(Effect.flip);
+			expect(settingsError.reason.code).toBe("settings-incompatible");
+
+			const invalidTable = table("missing-table", "missing");
+			const sourceError = yield* validateSavedViewDefinition(
+				renderer,
+				{ label: "valid" },
+				document({ invalid: rows(invalidTable, { fields: [] }) }),
+				published,
+			).pipe(Effect.flip);
+			expect(sourceError.reason).toMatchObject({ code: "settings-incompatible" });
+		}),
+);
+
+it.effect("rejects unavailable plugin renderers through the canonical rule", () =>
+	validateSavedViewDefinition(
+		{ kind: "plugin", pluginId: "plugin-id", exportName: "page" },
+		{},
+		provenanceQuery,
+		null,
+	).pipe(
+		Effect.flip,
+		Effect.tap((error) => Effect.sync(() => expect(error.reason.code).toBe("renderer-not-found"))),
+	),
+);
 
 const mockEvents = Layer.mock(EventsRepository);
 type RestoreEventsMock = NonNullable<MockOverrides<typeof mockEvents>["restoreEvents"]>;
@@ -567,7 +600,7 @@ const bootstrapEntitySchema = {
 	eventSchemas: { review: eventSchema },
 };
 
-const archivedEvent = (id: string): V2Event => ({
+const archivedEvent = (id: string): ArchiveEvent => ({
 	id,
 	properties: {},
 	sessionEntityId: null,
@@ -594,7 +627,7 @@ const targetBootstrapEntity = {
 };
 
 const restoreArchivedEvents = (
-	events: ReadonlyArray<V2Event>,
+	events: ReadonlyArray<ArchiveEvent>,
 	restoreEvents: RestoreEventsMock,
 	targetEntities: ReadonlyArray<typeof targetBootstrapEntity> = [targetBootstrapEntity],
 	restoreEntity: RestoreEntityMock = (input) =>
@@ -610,6 +643,7 @@ const restoreArchivedEvents = (
 				installations: [],
 				relationships: [],
 				privatePlugins: [],
+				clientRenderers: [],
 				entityDependencies: [],
 				notificationSubscriptions: [],
 				profile: { name: "User", image: null, preferences: {} },
@@ -649,6 +683,7 @@ const restoreArchivedEvents = (
 							listPortablePluginMetadata: () => Effect.succeed([]),
 						}),
 						Layer.mock(AuthRepository, { restorePortableProfile: () => Effect.succeed(true) }),
+						Layer.mock(ClientPagesRepository, {}),
 						Layer.mock(EventsRepository, { restoreEvents }),
 						Layer.mock(EntitiesRepository, {
 							listUserEntitiesForBackup: () => Effect.succeed([...targetEntities]),

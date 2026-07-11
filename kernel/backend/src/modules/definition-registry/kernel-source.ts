@@ -1,4 +1,4 @@
-import { column, literal, table } from "@ryot-app/ryotql";
+import { column, field, literal, table } from "@ryot-app/ryotql";
 import {
 	buildSavedViewLayoutProjections,
 	savedViewRecipe,
@@ -127,41 +127,18 @@ const collectionProjections = buildSavedViewLayoutProjections({
 	},
 });
 
-const collectionLayouts = {
-	grid: {
-		...collectionProjections.grid.mappings,
-		queryDocument: savedViewRecipe({
-			layout: { type: "card", mapping: collectionProjections.grid.mappings },
-			source: {
-				type: "generated",
-				entitySchemaSlugs: ["collection"],
-				fields: collectionProjections.grid.fields,
-			},
-		}).document,
+const collectionDataSources = savedViewRecipe({
+	layout: { type: "table", mapping: collectionProjections.table.mappings },
+	source: {
+		type: "generated",
+		entitySchemaSlugs: ["collection"],
+		fields: [
+			...collectionProjections.table.fields,
+			field("ownerPluginId", column(collection, "entitySchemaPluginId")),
+			field("entitySchemaSlug", column(collection, "entitySchemaSlug")),
+		],
 	},
-	list: {
-		...collectionProjections.list.mappings,
-		queryDocument: savedViewRecipe({
-			layout: { type: "card", mapping: collectionProjections.list.mappings },
-			source: {
-				type: "generated",
-				entitySchemaSlugs: ["collection"],
-				fields: collectionProjections.list.fields,
-			},
-		}).document,
-	},
-	table: {
-		...collectionProjections.table.mappings,
-		queryDocument: savedViewRecipe({
-			layout: { type: "table", mapping: collectionProjections.table.mappings },
-			source: {
-				type: "generated",
-				entitySchemaSlugs: ["collection"],
-				fields: collectionProjections.table.fields,
-			},
-		}).document,
-	},
-};
+}).document;
 
 export const kernelDefinitionSource = (): DefinitionSource => ({
 	entitySchemas: [collectionSchema],
@@ -215,10 +192,23 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			sortOrder: 0,
 			pluginSlug: null,
 			slug: "collections",
-			entitySchemaSlug: null,
 			name: "All Collections",
-			layouts: collectionLayouts,
 			icon: collectionSchema.icon,
+			renderer: { kind: "kernel", name: "entity-browser" },
+			dataSources: collectionDataSources,
+			settings: {
+				pageSize: 20,
+				addAction: null,
+				sourceName: "savedView",
+				defaultLayout: "grid",
+				layouts: ["grid", "list", "table"],
+				entityIdField: "entityId",
+				ownerPluginIdField: "ownerPluginId",
+				entitySchemaSlugField: "entitySchemaSlug",
+				searchFields: ["column0"],
+				sortChoices: [],
+				tableColumns: collectionProjections.table.mappings.columns,
+			},
 		},
 	],
 });
