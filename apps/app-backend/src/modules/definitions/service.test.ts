@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { NotFound } from "@ryot/contract/errors";
-import { UserId } from "@ryot/contract/schema/brands";
+import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -130,7 +130,9 @@ it.effect("updates state while preserving omitted overlay values", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* DefinitionsService;
-		const workspace = yield* service.updateWorkspaceState(user, "fixture", { isDisabled: true });
+		const workspace = yield* service.updateWorkspaceState(user, PluginSlug.make("fixture"), {
+			isDisabled: true,
+		});
 
 		expect(persisted).toEqual({
 			sortOrder: 4,
@@ -155,7 +157,7 @@ it.effect("returns not found when updating an unknown plugin", () => {
 	return Effect.gen(function* () {
 		const service = yield* DefinitionsService;
 		const exit = yield* Effect.exit(
-			service.updateWorkspaceState(user, "unknown", { isDisabled: true }),
+			service.updateWorkspaceState(user, PluginSlug.make("unknown"), { isDisabled: true }),
 		);
 
 		assertExitFails(exit, new NotFound({ message: "Plugin not found" }));

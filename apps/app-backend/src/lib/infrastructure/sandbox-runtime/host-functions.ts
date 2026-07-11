@@ -4,7 +4,9 @@ import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	IntegrationId,
+	PluginSlug,
 	RelationshipSchemaSlug,
 	SandboxScriptId,
 	UserId,
@@ -374,7 +376,23 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 								);
 							}
 							const doc = yield* decodeQueryDocument(query);
-							return yield* queryEngineService.executeSystem(caller, doc);
+							return yield* queryEngineService.executeSystem(
+								{
+									...caller,
+									pluginSlug: PluginSlug.make(caller.pluginSlug),
+									entitySchemaSlugs: caller.entitySchemaSlugs.map((slug) =>
+										EntitySchemaSlug.make(slug),
+									),
+									relationshipSchemaSlugs: caller.relationshipSchemaSlugs.map((slug) =>
+										RelationshipSchemaSlug.make(slug),
+									),
+									eventSchemas: caller.eventSchemas.map((eventSchema) => ({
+										entitySchemaSlug: EntitySchemaSlug.make(eventSchema.entitySchemaSlug),
+										eventSchemaSlug: EventSchemaSlug.make(eventSchema.eventSchemaSlug),
+									})),
+								},
+								doc,
+							);
 						}),
 					);
 				}
