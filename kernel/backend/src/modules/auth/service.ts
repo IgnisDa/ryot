@@ -15,27 +15,26 @@ import { badRequest, internalError, unknownToDbError } from "@ryot/contract/erro
 import { UserId } from "@ryot/contract/schema/brands";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
-import { genericOAuth, twoFactor } from "better-auth/plugins";
+import { bearer, genericOAuth, oneTimeToken, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect";
 import { HttpMiddleware, HttpServerError, HttpServerRequest } from "effect/unstable/http";
 import type Redis from "ioredis";
 
-import {
-	AppConfig,
-	type AppConfigValue,
-	isOidcEnabled,
-	parseCorsOrigins,
-} from "#lib/infrastructure/config/service";
+import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
 import * as authSchema from "#lib/infrastructure/db/schema/tables/auth";
 import { Database } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
 import { isUserLifecycleActive, LifecycleWriteGuard } from "./lifecycle-write-guard";
+import { oidcTokenRedirect } from "./oidc-redirect";
 import { gateSessionCreation } from "./session-gate";
+import { twoFactorBearerBridge } from "./two-factor-bridge";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
+
+const DEEP_LINK_ORIGINS = ["ryot://", "io.ryot.app://", "io.ryot.app.dev://"] as const;
 
 const lifecycleProtectedAuthPaths = new Set([
 	"/api-key/create",
@@ -95,7 +94,6 @@ const makeAuthInstance = (args: {
 	readonly runtime: Context.Context<Database | RedisService>;
 	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, unknown>;
 }) => {
-	const corsOrigins = parseCorsOrigins(args.config.server.corsOrigins);
 	const oidcEnabled = isOidcEnabled(args.config);
 
 	const database = effectPostgresAuthAdapter({ db: args.db, context: args.runtime });
@@ -104,14 +102,14 @@ const makeAuthInstance = (args: {
 		appName: "Ryot",
 		basePath: "/api/auth",
 		baseURL: args.config.frontendUrl,
+		advanced: { disableCSRFCheck: true },
 		account: { accountLinking: { enabled: false } },
 		secondaryStorage: redisStorage({ client: args.redis }),
 		secret: Redacted.value(args.config.server.adminAccessToken),
 		disabledPaths: args.config.users.disableLocalAuth ? ["/sign-in/email"] : [],
 		trustedOrigins: [
-			"ryot://",
+			...DEEP_LINK_ORIGINS,
 			args.config.frontendUrl,
-			...corsOrigins,
 			...(args.config.nodeEnv === "development" ? ["exp://"] : []),
 		],
 		user: {
@@ -213,12 +211,24 @@ const makeAuthInstance = (args: {
 			},
 		},
 		plugins: [
+			// requireSignature closes the self-signing path; see ./README.md.
+			bearer({ requireSignature: true }),
 			twoFactor({ allowPasswordless: true }),
+			// Ordering: must stay after twoFactor - see ./README.md.
+			twoFactorBearerBridge(),
+			oneTimeToken({
+				expiresIn: 1,
+				storeToken: "hashed",
+				// disableClientRequest closes an unused token-minting endpoint; see ./README.md.
+				disableClientRequest: true,
+				setOttHeaderOnNewSession: true,
+			}),
+			// Web and native OIDC. Ordering: must stay after oneTimeToken - see ./README.md.
+			oidcTokenRedirect(),
 			apiKey({
 				fallbackToDatabase: true,
 				storage: "secondary-storage",
 				enableSessionForAPIKeys: true,
-				// All keys will have a rate limit of 60 RPS in production
 				rateLimit: {
 					maxRequests: 60,
 					timeWindow: 60 * 1000,

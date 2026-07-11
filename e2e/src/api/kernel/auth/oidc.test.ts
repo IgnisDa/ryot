@@ -50,11 +50,11 @@ const findUserIdByEmail = (apiUrl: string, email: string) =>
 		return data.users[0]?.id ?? null;
 	});
 
-const listPluginCount = (apiUrl: string, cookie: string) =>
+const listPluginCount = (apiUrl: string, token: string) =>
 	Effect.gen(function* () {
 		const plugins = yield* makeSession(apiUrl).call(
 			(c) => c.definitions.listPlugins({ query: pluginListQuery }),
-			{ Cookie: cookie },
+			{ Authorization: `Bearer ${token}` },
 		);
 		return plugins.length;
 	});
@@ -203,12 +203,12 @@ describe("OIDC sign-in happy path (API A)", () => {
 	it.live("first-time OIDC sign-in produces a valid session", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
-			const sessionCookie = yield* Effect.promise(() =>
+			const sessionToken = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
 			);
 			const client = makeSession(getApiUrlA());
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Cookie: sessionCookie,
+				Authorization: `Bearer ${sessionToken}`,
 			});
 		}),
 	);
@@ -224,21 +224,21 @@ describe("OIDC sign-in happy path (API A)", () => {
 	it.live("first-time OIDC sign-in bootstraps the user with plugin state", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
-			const sessionCookie = yield* Effect.promise(() =>
+			const sessionToken = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
 			);
-			expect(yield* listPluginCount(getApiUrlA(), sessionCookie)).toBeGreaterThan(0);
+			expect(yield* listPluginCount(getApiUrlA(), sessionToken)).toBeGreaterThan(0);
 		}),
 	);
 
 	it.live("first-time OIDC sign-in bootstraps the user with the default notification rules", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
-			const sessionCookie = yield* Effect.promise(() =>
+			const sessionToken = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
 			);
 
-			const headers = { Cookie: sessionCookie };
+			const headers = { Authorization: `Bearer ${sessionToken}` };
 			const client = makeSession(getApiUrlA(), headers);
 			const [catalog, rules] = yield* Effect.all([
 				client.call((c) => c.automations.listCatalog()),
@@ -258,10 +258,10 @@ describe("OIDC idempotency (API A)", () => {
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 
-			const cookie1 = yield* Effect.promise(() =>
+			const token1 = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
 			);
-			const cookie2 = yield* Effect.promise(() =>
+			const token2 = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
 			);
 
@@ -270,10 +270,10 @@ describe("OIDC idempotency (API A)", () => {
 			const client = makeSession(getApiUrlA());
 			yield* Effect.all([
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Cookie: cookie1,
+					Authorization: `Bearer ${token1}`,
 				}),
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Cookie: cookie2,
+					Authorization: `Bearer ${token2}`,
 				}),
 			]);
 		}),
@@ -283,16 +283,16 @@ describe("OIDC idempotency (API A)", () => {
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 
-			const cookie1 = yield* Effect.promise(() =>
+			const token1 = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
 			);
-			const firstCount = yield* listPluginCount(getApiUrlA(), cookie1);
+			const firstCount = yield* listPluginCount(getApiUrlA(), token1);
 			expect(firstCount).toBeGreaterThan(0);
 
-			const cookie2 = yield* Effect.promise(() =>
+			const token2 = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getApiUrlA()),
 			);
-			const secondCount = yield* listPluginCount(getApiUrlA(), cookie2);
+			const secondCount = yield* listPluginCount(getApiUrlA(), token2);
 			expect(secondCount).toBe(firstCount);
 		}),
 	);
@@ -311,11 +311,11 @@ describe("Registration gating for OIDC (API C)", () => {
 			expect(step3Response.status).toBe(302);
 			expect(step3Location).toMatch(/signup_disabled/i);
 
-			const sessionCookie = step3Response.headers.get("set-cookie");
-			const hasSessionCookie = sessionCookie?.includes("session_token") ?? false;
-			expect(hasSessionCookie, "API C must not issue a session when registration is disabled").toBe(
-				false,
-			);
+			const sessionToken = step3Response.headers.get("set-auth-token");
+			expect(
+				sessionToken,
+				"API C must not issue a session when registration is disabled",
+			).toBeNull();
 
 			expect(
 				yield* countUsersByEmail(getApiUrlC(), `${username}@example.com`),
@@ -333,12 +333,12 @@ describe("Registration gating for OIDC (API C)", () => {
 			const beforeId = yield* findUserIdByEmail(getApiUrlA(), email);
 			expect(beforeId).not.toBeNull();
 
-			const sessionCookie = yield* Effect.promise(() =>
+			const sessionToken = yield* Effect.promise(() =>
 				oidcSignIn(requireMockOidcServer(), username, getApiUrlC()),
 			);
 			const client = makeSession(getApiUrlC());
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Cookie: sessionCookie,
+				Authorization: `Bearer ${sessionToken}`,
 			});
 
 			const afterId = yield* findUserIdByEmail(getApiUrlC(), email);

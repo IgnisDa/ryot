@@ -12,10 +12,8 @@ import { PluginQueriesService } from "#/modules/plugins/queries";
 import { ServerService } from "#/modules/server/service";
 import { ClientStorage } from "#/persistence/storage";
 
-const InfrastructureLive = Layer.mergeAll(
-	ClientStorage.layer,
-	PublicApi.layer,
-	AuthenticatedApi.layer,
+const InfrastructureLive = Layer.mergeAll(PublicApi.layer, AuthenticatedApi.layer).pipe(
+	Layer.provideMerge(ClientStorage.layer),
 );
 
 const AuthClientLive = AuthClient.layer.pipe(Layer.provideMerge(InfrastructureLive));

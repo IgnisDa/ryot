@@ -85,7 +85,7 @@ describe("Delete user", () => {
 			const client = getApiClient();
 			const {
 				email,
-				cookies,
+				token,
 				userId: rawUserId,
 				client: userClient,
 			} = yield* createAuthenticatedClient();
@@ -97,10 +97,10 @@ describe("Delete user", () => {
 				isDisabled: true,
 			});
 			expect(configuredPlugin).toMatchObject({ isDisabled: true, sortOrder: 41 });
-			const apiKey = yield* createApiKey(cookies);
+			const apiKey = yield* createApiKey(token);
 
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Cookie: cookies,
+				Authorization: `Bearer ${token}`,
 			});
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				"X-Api-Key": apiKey,
@@ -120,7 +120,7 @@ describe("Delete user", () => {
 
 			const revokedSession = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Cookie: cookies,
+					Authorization: `Bearer ${token}`,
 				}),
 			);
 			assertTaggedError(revokedSession, "AuthUnauthorized");

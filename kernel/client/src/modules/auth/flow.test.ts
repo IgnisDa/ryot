@@ -4,6 +4,7 @@ import {
 	authDestination,
 	availableTwoFactorMethods,
 	isTwoFactorRedirect,
+	oidcCallbackURL,
 } from "#/modules/auth/flow";
 
 describe("authentication flow", () => {
@@ -12,6 +13,11 @@ describe("authentication flow", () => {
 		expect(authDestination("https://evil.test/path")).toBe("/");
 		expect(authDestination("//evil.test/path")).toBe("/");
 		expect(authDestination("/auth?redirect=/library")).toBe("/");
+	});
+
+	it("builds a relative web callback and a deep-link native callback", () => {
+		expect(oidcCallbackURL("/library", false)).toBe("/auth/callback?redirect=%2Flibrary");
+		expect(oidcCallbackURL("/library", true)).toBe("ryot://auth/callback?redirect=%2Flibrary");
 	});
 
 	it("detects two-factor redirects and chooses configured methods", () => {
