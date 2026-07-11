@@ -175,6 +175,7 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"listEventSchemas",
 	"listIntegrations",
 	"executeQueryEngine",
+	"ensureUserEntities",
 	"changeUserRelationships",
 	"upsertGlobalEntities",
 	"upsertGlobalRelationships",
@@ -197,6 +198,9 @@ export const USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS = {
 	batches: 50,
 	changesTotal: 500,
 	changesPerBatch: 100,
+} as const;
+export const USER_ENTITY_WRITE_SANDBOX_LIMITS = {
+	items: GLOBAL_WRITE_SANDBOX_LIMITS.entityItems,
 } as const;
 export const SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES = [
 	"upsertGlobalEntities",
@@ -288,6 +292,17 @@ export const createEventItemSchema = strictStruct({
 });
 export type CreateEventItem = Schema.Schema.Type<typeof createEventItemSchema>;
 const globalPropertiesSchema = Schema.Record({ key: Schema.String, value: jsonValueSchema });
+export const ensureUserEntityItemSchema = strictStruct({
+	name: nonEmptyString,
+	entitySchemaSlug: nonEmptyString,
+	properties: globalPropertiesSchema,
+});
+export type EnsureUserEntityItem = Schema.Schema.Type<typeof ensureUserEntityItemSchema>;
+export const ensureUserEntityResultSchema = strictStruct({
+	entityId: sandboxIdSchema,
+	wasInserted: Schema.Boolean,
+});
+export type EnsureUserEntityResult = Schema.Schema.Type<typeof ensureUserEntityResultSchema>;
 export const upsertGlobalEntityItemSchema = strictStruct({
 	name: nonEmptyString,
 	externalId: nonEmptyString,
@@ -434,6 +449,13 @@ export const changeUserRelationshipsDataSchema = Schema.Array(changeUserRelation
 export const changeUserRelationshipsResultSchema = hostResultSchema(
 	changeUserRelationshipsDataSchema,
 );
+export const ensureUserEntitiesArgsSchema = Schema.Tuple(
+	Schema.Array(ensureUserEntityItemSchema).pipe(
+		Schema.maxItems(USER_ENTITY_WRITE_SANDBOX_LIMITS.items),
+	),
+);
+export const ensureUserEntitiesDataSchema = Schema.Array(ensureUserEntityResultSchema);
+export const ensureUserEntitiesResultSchema = hostResultSchema(ensureUserEntitiesDataSchema);
 export const upsertGlobalEntitiesArgsSchema = Schema.Tuple(
 	Schema.Array(upsertGlobalEntityItemSchema).pipe(
 		Schema.maxItems(GLOBAL_WRITE_SANDBOX_LIMITS.entityItems),
@@ -456,6 +478,11 @@ export const domainSandboxHostContracts = {
 		args: changeUserRelationshipsArgsSchema,
 		success: changeUserRelationshipsDataSchema,
 		result: changeUserRelationshipsResultSchema,
+	},
+	ensureUserEntities: {
+		args: ensureUserEntitiesArgsSchema,
+		success: ensureUserEntitiesDataSchema,
+		result: ensureUserEntitiesResultSchema,
 	},
 	createEvents: {
 		args: createEventsArgsSchema,

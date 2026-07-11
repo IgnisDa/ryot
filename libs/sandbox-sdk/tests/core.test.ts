@@ -1,6 +1,7 @@
 import {
 	claimCachedValueResultSchema,
 	changeUserRelationshipsArgsSchema,
+	ensureUserEntitiesArgsSchema,
 	httpCallArgsSchema,
 	httpCallResultSchema,
 	logArgsSchema,
@@ -178,6 +179,20 @@ describe("shared value contracts", () => {
 					},
 				],
 			]),
+		).toThrow();
+	});
+
+	test("validates user entity ensure batches without accepting caller-owned authority", () => {
+		const item = { properties: {}, name: "Library", entitySchemaSlug: "library" };
+		expect(decode(ensureUserEntitiesArgsSchema)([[item]])).toEqual([[item]]);
+		expect(() =>
+			decode(ensureUserEntitiesArgsSchema)([[{ ...item, userId: "caller-selected" }]]),
+		).toThrow();
+		expect(() =>
+			decode(ensureUserEntitiesArgsSchema)([[{ ...item, pluginSlug: "caller-selected" }]]),
+		).toThrow();
+		expect(() =>
+			decode(ensureUserEntitiesArgsSchema)([Array.from({ length: 501 }, () => item)]),
 		).toThrow();
 	});
 });

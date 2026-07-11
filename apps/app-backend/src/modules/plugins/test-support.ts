@@ -6,12 +6,13 @@ export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
 export const fixtureManifest = () =>
 	({
 		savedViews: [],
-		configSchema: { fields: {}, unknownKeys: "strict" },
 		boot: [] as PluginManifest["boot"],
 		crons: [] as PluginManifest["crons"],
 		workflows: [] as PluginManifest["workflows"],
 		providers: [] as PluginManifest["providers"],
 		operations: [] as PluginManifest["operations"],
+		configSchema: { fields: {}, unknownKeys: "strict" },
+		userBootstrap: [] as PluginManifest["userBootstrap"],
 		importSources: [] as PluginManifest["importSources"],
 		integrationProviders: [] as PluginManifest["integrationProviders"],
 		metadata: {
@@ -73,10 +74,10 @@ export const fixtureManifest = () =>
 			{
 				capabilities: [],
 				kind: "automation",
-				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
 				name: "Fixture Automation",
 				slug: "fixture.automation",
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
 				entry: "scripts/fixture.sandbox.ts",
 			},
 		],

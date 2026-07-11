@@ -100,6 +100,7 @@ import { SignalSchemasRepository } from "#modules/signals/signal-schemas-reposit
 import { OperationalGateService } from "#modules/test-support/operational-gate-service";
 import { TestSupportService } from "#modules/test-support/service";
 import { UploadsService } from "#modules/uploads/service";
+import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
 import { UserPreferencesService } from "#modules/user-preferences/service";
 import { UserStateService } from "#modules/user-state/service";
 
@@ -254,7 +255,19 @@ const SandboxExecutionServiceLive = Layer.provide(
 	SandboxExecutionService.Default,
 	PluginRuntimeResolverLive,
 );
-const SandboxServicesLive = Layer.mergeAll(SandboxExecutionServiceLive, RuntimeSandboxServiceLive);
+const PluginUserBootstrapDispatcherDependenciesLive = Layer.provideMerge(
+	Layer.mergeAll(RuntimeSandboxServiceLive, SandboxRepository.Default),
+	PluginRuntimeResolverLive,
+);
+const PluginUserBootstrapDispatcherLive = Layer.provide(
+	PluginUserBootstrapDispatcher.Default,
+	PluginUserBootstrapDispatcherDependenciesLive,
+);
+const SandboxServicesLive = Layer.mergeAll(
+	SandboxExecutionServiceLive,
+	RuntimeSandboxServiceLive,
+	PluginUserBootstrapDispatcherLive,
+);
 
 const ContentServicesLive = Layer.mergeAll(
 	AuthDependentServicesLive,

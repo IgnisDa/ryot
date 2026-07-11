@@ -75,9 +75,9 @@ export type GeneratedSandboxScript = {
 \tname: string;
 \tslug: string;
 \tsource: string;
-\tmanifest: SandboxManifest;
 \tcompiledFormat: 1;
 \tcompiledCode: string;
+\tmanifest: SandboxManifest;
 };
 
 ${declarations.join("\n\n")}

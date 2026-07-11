@@ -372,6 +372,13 @@ export const mediaPlugin = definePlugin({
 	savedViews: mediaSavedViews(),
 	configSchema: mediaConfigSchema,
 	signalSchemas: mediaSignalSchemas("media-monitoring"),
+	userBootstrap: [
+		{
+			slug: "initialize-workspace",
+			scriptSlug: "bootstrap.media-workspace",
+			description: "Initialize the user's media workspace",
+		},
+	],
 	importSources: [
 		{
 			lot: "single",

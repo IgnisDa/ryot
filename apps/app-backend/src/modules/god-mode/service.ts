@@ -1,6 +1,6 @@
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import type { BadRequest, DbError } from "@ryot/contract/errors";
-import { badRequest, internalError, notFound } from "@ryot/contract/errors";
+import { badRequest, internalError, notFound, unknownToMessage } from "@ryot/contract/errors";
 import type { ProvisionUserBody } from "@ryot/contract/modules/god-mode/contract";
 import { UserId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Either } from "effect";
@@ -11,9 +11,8 @@ import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
-import { EntitiesService } from "#modules/entities/service";
 import { acquireBootstrapLock, performBootstrap } from "#modules/user-bootstrap/bootstrap";
+import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
 
 import { GodModeRepository } from "./repository";
 
@@ -69,10 +68,9 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
-		const entities = yield* EntitiesService;
-		const definitions = yield* DefinitionRegistry;
 		const repository = yield* GodModeRepository;
 		const runInTransaction = yield* TransactionRunner;
+		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
 		const {
 			auth,
@@ -354,18 +352,20 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 						accountId: oidcAccountId,
 					});
 				}
-				yield* performBootstrap(userId).pipe(
-					Effect.provideService(EntitiesService, entities),
-					Effect.provideService(DefinitionRegistry, definitions),
-					Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
-				);
-
 				return { snapshot: resetSnapshot, usesLocalAuth: resetUsesLocalAuth };
 			});
 			const resetResult = yield* runInTransaction(resetTransaction);
 			const snapshot = resetResult.snapshot;
 			const usesLocalAuth = resetResult.usesLocalAuth;
 
+			yield* performBootstrap(userId).pipe(
+				Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
+				Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
+				Effect.provideService(TransactionRunner, runInTransaction),
+				Effect.catchAll((error) =>
+					internalError(`User bootstrap failed after reset: ${unknownToMessage(error)}`),
+				),
+			);
 			yield* deleteUserSessions(userId);
 			yield* purgeApiKeyCaches(userId, snapshot.apiKeys);
 

@@ -43,6 +43,7 @@ const makeImplementations = (
 	executeQueryEngine: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	changeUserRelationships: () => Effect.fail({ message: "unused" }),
+	ensureUserEntities: () => Effect.fail({ message: "unused" }),
 	upsertGlobalEntities: () => Effect.fail({ message: "unused" }),
 	upsertGlobalRelationships: () => Effect.fail({ message: "unused" }),
 	...overrides,
@@ -286,6 +287,37 @@ describe("bindSandboxHostFunctions", () => {
 				success: false,
 				error: "changeUserRelationships expects an array of valid change batches",
 			});
+		}),
+	);
+
+	it.effect("validates user entity ensure batches without accepting caller-owned authority", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const implementations = makeImplementations({
+				ensureUserEntities: (runInput, items) => {
+					calls.push({ runInput, items });
+					return Effect.succeed([{ entityId: "entity-1", wasInserted: true }]);
+				},
+			});
+			const bound = bindSandboxHostFunctions(implementations, input);
+			const item = { properties: {}, name: "Library", entitySchemaSlug: "library" };
+
+			expect(yield* bound.ensureUserEntities([[item]])).toEqual({
+				success: true,
+				data: [{ entityId: "entity-1", wasInserted: true }],
+			});
+			expect(calls).toEqual([{ runInput: input, items: [item] }]);
+			expect(yield* bound.ensureUserEntities([[{ ...item, userId: "caller-selected" }]])).toEqual({
+				success: false,
+				error: "ensureUserEntities expects an array of valid entity items",
+			});
+			expect(
+				yield* bound.ensureUserEntities([[{ ...item, pluginSlug: "caller-selected" }]]),
+			).toEqual({
+				success: false,
+				error: "ensureUserEntities expects an array of valid entity items",
+			});
+			expect(calls).toHaveLength(1);
 		}),
 	);
 
