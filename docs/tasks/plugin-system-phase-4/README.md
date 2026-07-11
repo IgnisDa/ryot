@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 7 of 18 tasks completed
+**Overall Progress:** 8 of 18 tasks completed
 
-**Current Task:** [Task 08](./08-registry-trust-provenance.md) (todo)
+**Current Task:** [Task 09](./09-effect-only-authoring-boundary.md) (todo)
 
 ### Task List
 
@@ -17,7 +17,7 @@
 | 05  | [Open Plugin Import Envelope](./05-open-plugin-import-envelope.md)                            | done   |
 | 06  | [Plugin-Owned Query Recipes](./06-plugin-owned-query-recipes.md)                              | done   |
 | 07  | [Domain-Neutral Operational Gate](./07-domain-neutral-operational-gate.md)                    | done   |
-| 08  | [Registry Trust and Provenance Simplification](./08-registry-trust-provenance.md)             | todo   |
+| 08  | [Registry Trust and Provenance Simplification](./08-registry-trust-provenance.md)             | done   |
 | 09  | [Effect-Only Authoring Boundary](./09-effect-only-authoring-boundary.md)                      | todo   |
 | 10  | [Content-Addressed Disk Modules](./10-content-addressed-disk-modules.md)                      | todo   |
 | 11  | [Per-Execution Host-Call Concurrency](./11-per-execution-host-call-concurrency.md)            | todo   |

@@ -70,7 +70,7 @@ export class SignalSchemasService extends Effect.Service<SignalSchemasService>()
 				slug: string,
 			) {
 				const signalSchema = yield* runWithDb(repository.findGlobalBySlug(slug));
-				if (!signalSchema?.isBuiltin) {
+				if (!signalSchema) {
 					return yield* notFound("Signal schema not found");
 				}
 				return signalSchema;
@@ -92,7 +92,7 @@ export class SignalSchemasService extends Effect.Service<SignalSchemasService>()
 							null,
 						),
 					);
-					if (!relationshipSchema?.isBuiltin) {
+					if (!relationshipSchema) {
 						return yield* new SignalSchemaContractDrift({
 							message: `Built-in signal schema ${input.slug} references an invalid relationship schema`,
 						});
@@ -114,11 +114,7 @@ export class SignalSchemasService extends Effect.Service<SignalSchemasService>()
 					});
 				}
 
-				if (
-					existing.name !== input.name ||
-					!existing.isBuiltin ||
-					existing.catalogState !== input.catalogState
-				) {
+				if (existing.name !== input.name || existing.catalogState !== input.catalogState) {
 					return yield* runWithDb(
 						repository.updateBuiltinDisplay({
 							id: existing.id,
@@ -215,12 +211,7 @@ export class SignalEmissionService extends Effect.Service<SignalEmissionService>
 							userId: principalUserId,
 							slug: input.schemaSlug,
 						});
-						if (
-							!signalSchema ||
-							(input.principal.kind === "system" && !signalSchema.isBuiltin) ||
-							(signalSchema.userId === null && !signalSchema.isBuiltin) ||
-							(signalSchema.audiencePolicy.kind === "related_users" && !signalSchema.isBuiltin)
-						) {
+						if (!signalSchema) {
 							return yield* notFound("Signal schema not found");
 						}
 
@@ -286,10 +277,7 @@ export class SignalEmissionService extends Effect.Service<SignalEmissionService>
 								policy.relationshipSchemaSlug,
 								principalUserId,
 							);
-							if (
-								!relationshipSchema ||
-								(input.principal.kind === "system" && !relationshipSchema.isBuiltin)
-							) {
+							if (!relationshipSchema) {
 								return yield* new DbError({
 									message: `Invalid audience policy for signal schema ${signalSchema.id}`,
 								});

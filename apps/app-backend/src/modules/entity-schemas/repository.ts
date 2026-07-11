@@ -3,11 +3,8 @@ import { Effect } from "effect";
 
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 
-const listed = (
-	definition: NonNullable<ReturnType<DefinitionRegistry["getEntitySchema"]>>,
-	isBuiltin: boolean,
-) => ({
-	isBuiltin,
+const listed = (definition: NonNullable<ReturnType<DefinitionRegistry["getEntitySchema"]>>) => ({
+	isBuiltin: true,
 	name: definition.name,
 	icon: definition.icon,
 	slug: definition.slug,
@@ -36,14 +33,12 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 				Effect.succeed(
 					slugs.flatMap((slug) => {
 						const definition = definitions.getEntitySchema(slug);
-						return definition ? [listed(definition, definitions.isEntitySchemaBuiltin(slug))] : [];
+						return definition ? [listed(definition)] : [];
 					}),
 				);
 			const getBuiltinDetailsBySlug = (slug: string) =>
 				Effect.succeed(definitions.getEntitySchema(slug)).pipe(
-					Effect.map((definition) =>
-						definition ? listed(definition, definitions.isEntitySchemaBuiltin(slug)) : null,
-					),
+					Effect.map((definition) => (definition ? listed(definition) : null)),
 				);
 
 			return { getBuiltinBySlug, listVisibleBySlugs, getBuiltinDetailsBySlug };

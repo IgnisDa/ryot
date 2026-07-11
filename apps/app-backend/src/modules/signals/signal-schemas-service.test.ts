@@ -35,7 +35,6 @@ const definition = {
 const scope = {
 	...definition,
 	userId: null,
-	isBuiltin: true,
 	id: SignalSchemaSlug.make("signal-schema-1"),
 } satisfies SignalSchemaScope;
 
