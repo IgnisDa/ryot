@@ -5,7 +5,7 @@ import { generateId } from "better-auth";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
-import { withoutSchemaServices } from "#lib/shared/schema";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 export const NotificationDeliveryRequest = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("test") }),
@@ -37,10 +37,10 @@ type NotificationDeliveryWorkflowInput = Omit<
 > & { executionId?: string | undefined };
 
 export const NotificationDeliveryWorkflow = Workflow.make("NotificationDeliveryWorkflow", {
-	error: withoutSchemaServices(DbError),
-	payload: withoutSchemaServices(NotificationDeliveryWorkflowPayload),
+	error: DbError satisfies DurableSchema,
+	payload: NotificationDeliveryWorkflowPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
-	success: withoutSchemaServices(Schema.Array(NotificationDeliveryResult)),
+	success: Schema.Array(NotificationDeliveryResult) satisfies DurableSchema,
 });
 
 const withExecutionId = (input: NotificationDeliveryWorkflowInput) => ({
