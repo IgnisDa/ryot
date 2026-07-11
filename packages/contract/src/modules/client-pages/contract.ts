@@ -97,7 +97,10 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 		HttpApiEndpoint.post("renewSession", "/client-pages/sessions/:sessionId/renew", {
 			params: { sessionId: Schema.String },
 			success: RenewClientPageSessionResponse,
-			error: [ClientPageSessionNotFound.pipe(HttpApiSchema.status(404))],
+			error: [
+				ClientPageStalePreparation.pipe(HttpApiSchema.status(409)),
+				ClientPageSessionNotFound.pipe(HttpApiSchema.status(404)),
+			],
 		}).annotate(OpenApi.Description, "Renews a client page session"),
 	)
 	.add(

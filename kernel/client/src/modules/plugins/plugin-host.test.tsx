@@ -10,7 +10,8 @@ import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { PluginFrame } from "#/modules/plugins/plugin-host";
+import type { PluginOperationDispatchOutcome } from "#/modules/plugins/operations";
+import { PluginFrame, type RenewPluginArtifactSession } from "#/modules/plugins/plugin-host";
 import type { ThemeStore } from "#/modules/theme/store";
 
 const theme: ThemeStore = {
@@ -27,7 +28,17 @@ const session = {
 	src: "https://artifacts.example/session-1/index.html",
 };
 
-function mount(subscribeResume?: (resumed: () => void) => () => void) {
+function mount(
+	options: {
+		readonly onReloadCurrent?: () => void;
+		readonly onRenewArtifactSession?: RenewPluginArtifactSession;
+		readonly subscribeResume?: (resumed: () => void) => () => void;
+		readonly onCreateArtifactSession?: () => Promise<typeof session>;
+		readonly onInvokeOperation?: (
+			request: PluginOperationRequest,
+		) => Promise<PluginOperationDispatchOutcome>;
+	} = {},
+) {
 	const backInterceptors = createBackInterceptors();
 	const states: unknown[] = [];
 	const searches: unknown[] = [];
@@ -48,43 +59,48 @@ function mount(subscribeResume?: (resumed: () => void) => () => void) {
 			};
 		},
 	};
-	const props = (location: PluginLogicalLocation, index: number) => ({
+	const props = (location: PluginLogicalLocation, index: number, freshnessCheckRevision = 0) => ({
 		theme,
 		location,
 		title: "Fixture",
 		backInterceptors,
 		mutationCompleted,
-		subscribeResume,
 		chromeLeading: null,
+		freshnessCheckRevision,
 		sourceHash: "graph-hash",
 		installationId: "build-1",
 		onHeader: () => undefined,
 		artifactHash: "artifact-hash",
 		onOpenDrawer: () => undefined,
 		onNavigateBack: () => undefined,
-		onStaleSession: () => undefined,
 		onOverlayState: () => undefined,
 		onKernelShortcut: () => undefined,
 		chromeTriggerRef: { current: null },
 		artifactSessionScopeKey: "server:user",
+		subscribeResume: options.subscribeResume,
 		viewport: { safeAreaTop: 7, safeAreaBottom: 11 },
 		onRevokeArtifactSession: () => Promise.resolve(),
-		onCreateArtifactSession: () => Promise.resolve(session),
+		onReloadCurrent: options.onReloadCurrent ?? (() => undefined),
 		onScreenState: (state: unknown) => states.push(state),
 		onPageSearch: (request: unknown) => searches.push(request),
 		onNavigate: (request: unknown) => navigations.push(request),
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		onProviderSearch: (request: unknown) => providerSearches.push(request),
+		onCreateArtifactSession: options.onCreateArtifactSession ?? (() => Promise.resolve(session)),
 		onQuery: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onAssets: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onUpload: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onCollection: () =>
 			Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
-		onRenewArtifactSession: () =>
-			Promise.resolve({ outcome: "renewed" as const, expiresAt: session.expiresAt }),
+		onRenewArtifactSession:
+			options.onRenewArtifactSession ??
+			(() => Promise.resolve({ outcome: "renewed" as const, expiresAt: session.expiresAt })),
 		onInvokeOperation: (request: PluginOperationRequest) => {
 			operations.push(request);
-			return Promise.resolve({ outcome: "success" as const, value: null });
+			return (
+				options.onInvokeOperation?.(request) ??
+				Promise.resolve({ outcome: "success" as const, value: null })
+			);
 		},
 		navigation: {
 			index,
@@ -105,8 +121,8 @@ function mount(subscribeResume?: (resumed: () => void) => () => void) {
 		providerSearches,
 		backInterceptors,
 		refresh: mutationCompleted.hint,
-		move: (location: PluginLogicalLocation, index: number) =>
-			view.rerender(<PluginFrame {...props(location, index)} />),
+		move: (location: PluginLogicalLocation, index: number, freshnessCheckRevision = 0) =>
+			view.rerender(<PluginFrame {...props(location, index, freshnessCheckRevision)} />),
 	};
 }
 
@@ -281,11 +297,13 @@ describe("PluginFrame", () => {
 	it("sends the same page refresh on native resume and releases the listener", async () => {
 		let resume: (() => void) | undefined;
 		let released = false;
-		const host = mount((resumed) => {
-			resume = resumed;
-			return () => {
-				released = true;
-			};
+		const host = mount({
+			subscribeResume: (resumed) => {
+				resume = resumed;
+				return () => {
+					released = true;
+				};
+			},
 		});
 		await flush();
 		const bridge = connect(screen.getByTitle("Fixture plugin"));
@@ -325,5 +343,165 @@ describe("PluginFrame", () => {
 			type: "dismiss-overlay-result",
 		});
 		await waitFor(() => expect(host.backInterceptors.run()).toBe(false));
+	});
+
+	it("keeps the current frame mounted when freshness renewal reports an update", async () => {
+		let reloads = 0;
+		let renewals = 0;
+		const host = mount({
+			onReloadCurrent: () => {
+				reloads += 1;
+			},
+			onRenewArtifactSession: () => {
+				renewals += 1;
+				return Promise.resolve({ outcome: "replace", reason: "stale" });
+			},
+		});
+		await flush();
+		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+		const bridge = connect(frame);
+		bridge.port.postMessage(bridge.ready);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+
+		host.move(home, 0, 1);
+
+		await screen.findByText("An update is available. Reloading will discard unsaved local state.");
+		expect(renewals).toBe(1);
+		expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+		expect(reloads).toBe(0);
+		fireEvent.click(screen.getByRole("button", { name: "Reload updated page" }));
+		expect(reloads).toBe(1);
+	});
+
+	it("renews once when freshness changes during session creation", async () => {
+		let resolveCreation: ((created: typeof session) => void) | undefined;
+		let renewals = 0;
+		const host = mount({
+			onCreateArtifactSession: () =>
+				new Promise((resolve) => {
+					resolveCreation = resolve;
+				}),
+			onRenewArtifactSession: () => {
+				renewals += 1;
+				return Promise.resolve({ outcome: "renewed", expiresAt: session.expiresAt });
+			},
+		});
+
+		host.move(home, 0, 1);
+		expect(renewals).toBe(0);
+		act(() => resolveCreation?.(session));
+		await waitFor(() => expect(renewals).toBe(1));
+	});
+
+	it("coalesces freshness changes during renewal into one subsequent renewal", async () => {
+		let resolveFirst: ((result: { outcome: "renewed"; expiresAt: string }) => void) | undefined;
+		let renewals = 0;
+		const host = mount({
+			onRenewArtifactSession: () => {
+				renewals += 1;
+				if (renewals === 1) {
+					return new Promise((resolve) => {
+						resolveFirst = resolve;
+					});
+				}
+				return Promise.resolve({ outcome: "renewed", expiresAt: session.expiresAt });
+			},
+		});
+		await flush();
+
+		host.move(home, 0, 1);
+		await waitFor(() => expect(renewals).toBe(1));
+		host.move(home, 0, 2);
+		host.move(home, 0, 3);
+		expect(renewals).toBe(1);
+		act(() => resolveFirst?.({ outcome: "renewed", expiresAt: session.expiresAt }));
+		await waitFor(() => expect(renewals).toBe(2));
+	});
+
+	it("replaces the current frame when freshness renewal reports a missing session", async () => {
+		let renewals = 0;
+		const host = mount({
+			onRenewArtifactSession: () => {
+				renewals += 1;
+				return Promise.resolve({ outcome: "replace", reason: "not-found" });
+			},
+		});
+		await flush();
+		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+		const bridge = connect(frame);
+		bridge.port.postMessage(bridge.ready);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+
+		host.move(home, 0, 1);
+
+		const nextFrame = await waitFor(() => {
+			expect(renewals).toBe(1);
+			const currentFrame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			expect(currentFrame).not.toBe(frame);
+			return currentFrame;
+		});
+		expect(nextFrame).not.toBe(frame);
+		expect(
+			screen.queryByText("An update is available. Reloading will discard unsaved local state."),
+		).toBeNull();
+	});
+
+	it("keeps the bridge mounted and reports a clear failure when an operation is stale", async () => {
+		let reloads = 0;
+		mount({
+			onReloadCurrent: () => {
+				reloads += 1;
+			},
+			onInvokeOperation: () => Promise.resolve({ outcome: "stale-session" }),
+		});
+		await flush();
+		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+		const bridge = connect(frame);
+		bridge.port.postMessage(bridge.ready);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+
+		bridge.port.postMessage({
+			input: null,
+			pluginSlug: "fixture",
+			operationSlug: "mutate",
+			type: "operation-request",
+			requestId: "stale-operation",
+		});
+
+		await screen.findByText("An update is available. Reloading will discard unsaved local state.");
+		expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+		expect(reloads).toBe(0);
+		await waitFor(() =>
+			expect(bridge.messages).toContainEqual({
+				outcome: "failure",
+				type: "operation-result",
+				reason: "operation-failed",
+				requestId: "stale-operation",
+			}),
+		);
+	});
+
+	it("disposes a genuinely failed bridge and locally reloads it", async () => {
+		let parentReloads = 0;
+		const host = mount({
+			onReloadCurrent: () => {
+				parentReloads += 1;
+			},
+		});
+		await flush();
+		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+		const bridge = connect(frame);
+		bridge.port.postMessage(bridge.ready);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+
+		bridge.port.postMessage({ reason: "failed", type: "lifecycle-close" });
+
+		await screen.findByText("This plugin stopped working.");
+		expect(screen.queryByTitle("Fixture plugin")).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
+		const nextFrame = await screen.findByTitle<HTMLIFrameElement>("Fixture plugin");
+		expect(nextFrame).not.toBe(frame);
+		expect(parentReloads).toBe(0);
+		host.unmount();
 	});
 });

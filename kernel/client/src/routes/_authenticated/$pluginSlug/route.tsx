@@ -1,6 +1,5 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect } from "react";
 
 import { ClientPageHost } from "#/modules/client-pages/page-host";
 import { prepareClientPage } from "#/modules/client-pages/preparation";
@@ -8,7 +7,6 @@ import { AppScreen } from "#/modules/navigation/app-screen";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
-import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { toPluginLocation } from "#/modules/plugins/plugin-location";
 
 export const Route = createFileRoute("/_authenticated/$pluginSlug")({
@@ -44,22 +42,7 @@ export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 });
 
 function PluginRoute() {
-	const router = useRouter();
 	const loaded = Route.useLoaderData();
-	const { catalog } = usePluginCatalog();
-	const sourceHash =
-		loaded.kind === "resolved"
-			? catalog.find(({ pluginId }) => pluginId === loaded.installation.pluginId)?.sourceHash
-			: undefined;
-	useEffect(() => {
-		if (
-			loaded.kind === "resolved" &&
-			sourceHash !== undefined &&
-			sourceHash !== loaded.installation.sourceHash
-		) {
-			void router.invalidate();
-		}
-	}, [loaded, router, sourceHash]);
 	if (loaded.kind === "missing") {
 		return <PluginNotFound />;
 	}

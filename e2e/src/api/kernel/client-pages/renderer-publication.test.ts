@@ -329,6 +329,8 @@ describe("client renderer publication E2E", () => {
 				created.id,
 				initialDraftRevision,
 			);
+			const view = yield* createRendererSavedView(client, created.id, { label: "Published" });
+			const initialPrepared = yield* prepareClientPage(client, view.id);
 			const failedDefinition = definitionWithSource("export default <;");
 
 			yield* replaceClientRendererDraft(client, created.id, {
@@ -347,6 +349,9 @@ describe("client renderer publication E2E", () => {
 			expect(fetched.publishedRevision).toBe(initialDraftRevision);
 			expect(fetched.publishedDefinition).toEqual(initialDefinition);
 			expect(fetched.publishedHash).toBe(initialPublication.publishedHash);
+			expect((yield* prepareClientPage(client, view.id)).identity).toEqual(
+				initialPrepared.identity,
+			);
 		}),
 	);
 
