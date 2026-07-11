@@ -137,7 +137,7 @@ describe("POST /uploads/temporary", () => {
 		}),
 	);
 
-	it.live("returns 400 when body is not multipart form data", () =>
+	it.live("returns 415 when body is not multipart form data", () =>
 		Effect.gen(function* () {
 			const { cookies } = yield* createAuthenticatedClient();
 			const response = yield* Effect.promise(() =>
@@ -148,7 +148,7 @@ describe("POST /uploads/temporary", () => {
 				}),
 			);
 
-			expect(response.status).toBe(400);
+			expect(response.status).toBe(415);
 		}),
 	);
 
