@@ -448,7 +448,7 @@ const integrationProviders = [
 	},
 ] as const;
 
-const flatSchemaClient = (slug: string) => ({
+const schemaClient = (slug: string) => ({
 	slug,
 	entity: {
 		detailPage: `${slug}-detail`,
@@ -475,7 +475,7 @@ const flatSchemaClient = (slug: string) => ({
 	},
 });
 
-const flatSchemaClients = ["movie", "music", "book"].map(flatSchemaClient);
+const schemaClients = ["show", "movie", "music", "book", "podcast"].map(schemaClient);
 
 export const mediaPlugin = definePlugin({
 	boot: [],
@@ -567,16 +567,6 @@ export const mediaPlugin = definePlugin({
 				entry: "client/show/progress.tsx",
 				automaticEntityPresentations: false,
 			},
-			"show-row": {
-				kind: "presentation",
-				automaticEntityPresentations: false,
-				entry: "client/show-row-presentation.ts",
-			},
-			"show-card": {
-				kind: "presentation",
-				automaticEntityPresentations: false,
-				entry: "client/show-card-presentation.ts",
-			},
 			"media-row": {
 				kind: "presentation",
 				automaticEntityPresentations: false,
@@ -593,20 +583,13 @@ export const mediaPlugin = definePlugin({
 				settingsSchema: { fields: {} },
 				automaticEntityPresentations: false,
 			},
-			"show-detail": {
-				kind: "page",
-				settingsSchema: { fields: {} },
-				entry: "client/show/screen.tsx",
-				automaticEntityPresentations: false,
-			},
-			...Object.fromEntries(flatSchemaClients.flatMap((client) => Object.entries(client.exports))),
+			...Object.fromEntries(schemaClients.flatMap((client) => Object.entries(client.exports))),
 		},
 		entities: {
 			anime: { listPresentation: "media-row", gridPresentation: "media-card" },
 			manga: { listPresentation: "media-row", gridPresentation: "media-card" },
 			person: { listPresentation: "media-row", gridPresentation: "media-card" },
 			company: { listPresentation: "media-row", gridPresentation: "media-card" },
-			podcast: { listPresentation: "media-row", gridPresentation: "media-card" },
 			audiobook: { listPresentation: "media-row", gridPresentation: "media-card" },
 			"book-group": { listPresentation: "media-row", gridPresentation: "media-card" },
 			"video-game": { listPresentation: "media-row", gridPresentation: "media-card" },
@@ -617,12 +600,7 @@ export const mediaPlugin = definePlugin({
 			"audiobook-group": { listPresentation: "media-row", gridPresentation: "media-card" },
 			"comic-book-group": { listPresentation: "media-row", gridPresentation: "media-card" },
 			"video-game-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			show: {
-				detailPage: "show-detail",
-				listPresentation: "show-row",
-				gridPresentation: "show-card",
-			},
-			...Object.fromEntries(flatSchemaClients.map(({ slug, entity }) => [slug, entity])),
+			...Object.fromEntries(schemaClients.map(({ slug, entity }) => [slug, entity])),
 		},
 	},
 	bindings: {

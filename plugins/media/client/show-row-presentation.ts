@@ -1,1 +1,3 @@
-export { showRowPresentation as default } from "./show/presentation";
+import { showSchema } from "./show/schema";
+
+export default showSchema.rowPresentation;

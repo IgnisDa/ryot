@@ -3,11 +3,11 @@ import { Result } from "@ryot-app/client-sdk/effect";
 import { showSeasonEpisodesRecipe, showSeasonsRecipe } from "../../../shared/show-recipes";
 import { rowsResult } from "../query-result-fixture";
 
-const showEpisodesFixtureRecipe = showSeasonsRecipe({ seasonLimit: 40, entityId: "show-1" });
+const showSeasonsFixtureRecipe = showSeasonsRecipe({ seasonLimit: 40, entityId: "show-1" });
 
 const showSeasonEpisodesFixtureRecipe = showSeasonEpisodesRecipe({
-	episodeLimit: 60,
-	seasonId: "season-1",
+	limit: 60,
+	containerId: "season-1",
 });
 
 export const showEpisodeRow = {
@@ -27,8 +27,12 @@ export const showEpisodeRow = {
 
 export const showSeasonRow = {
 	id: "season-1",
+	episodeTotal: 1,
+	watchedTotal: 1,
 	seasonNumber: 1,
 	name: "Season 1",
+	watchedMinutes: 66,
+	watchedUnknownRuntime: 0,
 	schemaSlug: "show-season",
 	releaseDate: "2025-03-13",
 	populationStatus: "ready",
@@ -37,44 +41,11 @@ export const showSeasonRow = {
 	images: [{ type: "remote", purpose: "cover", url: "https://images.test/season-1.jpg" }],
 };
 
-type SeasonInput = Record<string, unknown>;
-
-type SeasonEpisodesInput = Record<string, unknown> & {
-	readonly hasMore?: boolean;
-	readonly episodes?: readonly Record<string, unknown>[];
-};
-
-type SeasonEpisodeRows = {
-	readonly hasMore?: boolean;
-	readonly season?: SeasonEpisodesInput | null;
-	readonly episodes?: readonly Record<string, unknown>[];
-};
-
-const defaultSeason: SeasonInput = { ...showSeasonRow };
-
-const defaultSeasonEpisodes: SeasonEpisodesInput = { ...showSeasonRow, episodes: [showEpisodeRow] };
-
-const nestedRows = (items: readonly unknown[], hasMore: boolean, limit: number) => ({
-	items,
-	pageInfo: { limit, hasMore },
-});
-
-const seasonRows = (input: SeasonEpisodeRows) => {
-	const season = input.season === null ? null : (input.season ?? defaultSeasonEpisodes);
-	if (season === null) {
-		return [];
-	}
-	const { episodes = [], hasMore = false, ...row } = season;
-	return [
-		{ ...row, episodes: nestedRows(input.episodes ?? episodes, input.hasMore ?? hasMore, 60) },
-	];
-};
-
-export const decodeShowEpisodesResult = (input: {
-	readonly seasons?: readonly SeasonInput[];
+export const decodeShowSeasonsResult = (input: {
 	readonly show?: Record<string, unknown> | null;
+	readonly seasons?: readonly Record<string, unknown>[];
 }) => {
-	const seasons = input.seasons ?? [defaultSeason];
+	const seasons = input.seasons ?? [showSeasonRow];
 	const show =
 		input.show === null
 			? []
@@ -90,18 +61,26 @@ export const decodeShowEpisodesResult = (input: {
 					},
 				];
 	return Result.getOrThrow(
-		showEpisodesFixtureRecipe.decode({
+		showSeasonsFixtureRecipe.decode({
 			data: { show: rowsResult(show, { limit: 1, hasMore: false, nextCursor: null }) },
 		}),
 	);
 };
 
-export const decodeShowSeasonEpisodesResult = (input: SeasonEpisodeRows) => {
-	return Result.getOrThrow(
+export const decodeShowSeasonEpisodesResult = (
+	input: {
+		readonly nextCursor?: string | null;
+		readonly episodes?: readonly Record<string, unknown>[];
+	} = {},
+) =>
+	Result.getOrThrow(
 		showSeasonEpisodesFixtureRecipe.decode({
 			data: {
-				season: rowsResult(seasonRows(input), { limit: 1, hasMore: false, nextCursor: null }),
+				episodes: rowsResult(input.episodes ?? [showEpisodeRow], {
+					limit: 60,
+					nextCursor: input.nextCursor ?? null,
+					hasMore: (input.nextCursor ?? null) !== null,
+				}),
 			},
 		}),
 	);
-};

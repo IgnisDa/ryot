@@ -14,6 +14,14 @@
 			"types": "./shared/show-recipes.ts",
 			"default": "./shared/show-recipes.ts"
 		},
+		"./shared/podcast-recipes": {
+			"types": "./shared/podcast-recipes.ts",
+			"default": "./shared/podcast-recipes.ts"
+		},
+		"./shared/episodic-recipes": {
+			"types": "./shared/episodic-recipes.ts",
+			"default": "./shared/episodic-recipes.ts"
+		},
 		"./shared/movie-recipes": {
 			"types": "./shared/movie-recipes.ts",
 			"default": "./shared/movie-recipes.ts"
