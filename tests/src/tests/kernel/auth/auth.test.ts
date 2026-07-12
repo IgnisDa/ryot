@@ -10,6 +10,7 @@ import {
 	requireRyotQLFieldValue,
 	requireRyotQLTextField,
 	requireRows,
+	listNotificationSubscriptionStates,
 	signInWithPassword,
 } from "~/fixtures";
 import { assert, describe, expect, it } from "~/support/effect-test";
@@ -40,12 +41,13 @@ describe("Email sign-up", () => {
 				);
 				expect(plugins.length).toBeGreaterThan(0);
 
+				const client = makeSession(undefined, headers);
 				const [catalog, rules] = yield* Effect.all([
-					getBackendClient().call((c) => c.automations.listCatalog(), headers),
-					getBackendClient().call((c) => c.automations.listRules(), headers),
+					client.call((c) => c.automations.listCatalog()),
+					listNotificationSubscriptionStates(client, { limit: 100, page: 1 }),
 				]);
 				expect(rules).toHaveLength(catalog.length);
-				expect(rules.map((rule) => rule.signalSchema.id).sort()).toEqual(
+				expect(rules.map((rule) => rule.signalSchemaSlug).sort()).toEqual(
 					catalog.map((schema) => schema.id).sort(),
 				);
 				expect(rules.every((rule) => rule.isActive)).toBe(true);
