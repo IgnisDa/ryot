@@ -99,6 +99,42 @@ describe("OAuth storage", () => {
 		}).pipe(Effect.provide(oauthStorageLayer(storage)));
 	});
 
+	it.effect("prunes abandoned pending authorizations before creating another", () => {
+		const { storage, values } = makeStorage();
+		const fresh = {
+			nonce: "nonce",
+			state: "fresh",
+			destination: "/",
+			createdAt: Date.now(),
+			codeVerifier: "verifier",
+			clientId: OAUTH_WEB_CLIENT_ID,
+			serverOrigin: "https://ryot.example",
+			redirectUri: "https://ryot.example/auth/callback",
+		} as const;
+		const otherOrigin = { ...fresh, state: "other", serverOrigin: "https://other.example" };
+		values.set(oauthPendingKey(origin, fresh.state), JSON.stringify(fresh));
+		values.set(
+			oauthPendingKey(origin, "expired"),
+			JSON.stringify({ ...fresh, state: "expired", createdAt: 0 }),
+		);
+		values.set(oauthPendingKey(origin, "malformed"), "not-json");
+		values.set(
+			oauthPendingKey(otherOrigin.serverOrigin, otherOrigin.state),
+			JSON.stringify(otherOrigin),
+		);
+
+		return Effect.gen(function* () {
+			const service = yield* OAuthStorage;
+			yield* service.setPending({ ...fresh, state: "new" });
+
+			expect([...values.keys()]).toEqual([
+				oauthPendingKey(origin, "fresh"),
+				oauthPendingKey(otherOrigin.serverOrigin, "other"),
+				oauthPendingKey(origin, "new"),
+			]);
+		}).pipe(Effect.provide(oauthStorageLayer(storage)));
+	});
+
 	it.effect("keeps records that cannot be read", () => {
 		const { storage, values } = makeStorage({
 			getItem: () => Effect.fail(new OAuthStorageError({ reason: "read-failed" })),
