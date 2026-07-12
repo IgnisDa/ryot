@@ -17,6 +17,8 @@ and `build` tasks; server development runs the same script in watch mode. The ge
 
 Before execution, the backend verifies compiled bytes against SHA-256, atomically materializes a read-only `<hash>.mjs`, and hard-links it into an execution directory. A single-use Deno process imports it through a local approved-dependency map. The runner validates definition input and output and returns a completed, failed, or pending envelope. The Deno launcher, permissions, and execution grants remain unchanged.
 
+`SANDBOX_WORKER_CONCURRENCY` bounds how many queued executions run at once and defaults to 2, sized for the canonical 2 vCPU / 4 GB self-hosted baseline where each live execution holds one Deno process and one shared application/workflow-pool connection. Excess work stays durably queued rather than rejected, so raising it trades queue latency for CPU contention and resident memory. Boot fails when the value exceeds `DATABASE_POOL_MAX - 1` and warns when it leaves the two always-on durable queue workers no connection headroom.
+
 Automation contexts are compact execution references. The sandbox receives occurrence, rule, and optional run IDs plus the source reference, origin, operation, and occurrence time. It reads immutable occurrence data and pinned run metadata through execution-scoped RyotQL. This keeps workflow payloads bounded without weakening replay consistency.
 
 An unrecorded mutable `host.*` call ends that replay. The workflow dispatches it through its owning activity, child workflow, artifact operation, or diagnostic path, journals the typed success or failure, then replays. Recorded calls return their journaled results and never repeat the backend dispatch.
@@ -43,7 +45,7 @@ Workflow code cannot use ambient time or randomness. Expected workflow failure u
 - Processes receive only `PATH` and `DENO_DIR`; script code cannot read either because environment access is denied.
 - Each Deno process has a 256 MiB V8 old-space limit.
 
-`SANDBOX_PROCESS_MODE=on-demand` is the default. `warm` retains `workerConcurrency + 2` prepared processes, but each is still checked out once and invalidated. Grant-carrying executions always spawn dedicated processes because permissions are execution-specific.
+`SANDBOX_PROCESS_MODE=on-demand` is the default. `warm` retains `SANDBOX_WORKER_CONCURRENCY + 2` prepared processes, but each is still checked out once and invalidated. Grant-carrying executions always spawn dedicated processes because permissions are execution-specific.
 
 ## Filesystem And Dependencies
 
@@ -119,7 +121,6 @@ Limits are fixed in `limits.ts` and compiler-owned limits, not environment setti
 
 | Boundary                                                           |                                  Limit |
 | ------------------------------------------------------------------ | -------------------------------------: |
-| Sandbox worker concurrency                                         |                                      5 |
 | Source / manifest / compiled JavaScript                            |               256 KiB / 16 KiB / 1 MiB |
 | Compiler concurrency / timeout / sampled Linux process-tree memory |                2 / 5 seconds / 256 MiB |
 | Compiler diagnostics                                               |                  100 entries / 256 KiB |

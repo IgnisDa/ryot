@@ -20,7 +20,11 @@ const validate = (overrides?: Overrides) =>
 	);
 
 const loadSystemConfig = (
-	options: { readonly logLevel?: string; readonly processMode?: string } = {},
+	options: {
+		readonly logLevel?: string;
+		readonly processMode?: string;
+		readonly workerConcurrency?: string;
+	} = {},
 ) =>
 	Effect.runSyncExit(
 		AppConfig.pipe(
@@ -35,6 +39,9 @@ const loadSystemConfig = (
 							...(options.processMode === undefined
 								? {}
 								: { SANDBOX_PROCESS_MODE: options.processMode }),
+							...(options.workerConcurrency === undefined
+								? {}
+								: { SANDBOX_WORKER_CONCURRENCY: options.workerConcurrency }),
 						}),
 					),
 				),
@@ -59,6 +66,18 @@ describe("system log level config", () => {
 		const result = loadSystemConfig();
 		assert(Exit.isSuccess(result));
 		expect(result.value.sandbox.processMode).toBe("on-demand");
+	});
+
+	it("defaults sandbox worker concurrency to the two-vCPU baseline", () => {
+		const result = loadSystemConfig();
+		assert(Exit.isSuccess(result));
+		expect(result.value.sandbox.workerConcurrency).toBe(2);
+	});
+
+	it("reads sandbox worker concurrency from the environment", () => {
+		const result = loadSystemConfig({ workerConcurrency: "5" });
+		assert(Exit.isSuccess(result));
+		expect(result.value.sandbox.workerConcurrency).toBe(5);
 	});
 
 	it("defaults filesystem paths relative to the working directory", () => {
@@ -95,19 +114,32 @@ describe("validateSystemConfig shared application/workflow pool capacity", () =>
 		expect(Exit.isSuccess(validate())).toBe(true);
 	});
 
-	it("fails when shared application/workflow pool cannot support fixed sandbox worker capacity", () => {
-		const result = validate({ database: { poolMax: 5 } });
+	it("fails when shared application/workflow pool cannot support the configured sandbox workers", () => {
+		const result = validate({ database: { poolMax: 5 }, sandbox: { workerConcurrency: 5 } });
 		expect(Exit.isFailure(result)).toBe(true);
 		if (Exit.isFailure(result)) {
 			const message = JSON.stringify(result.cause);
-			expect(message).toContain("SANDBOX_LIMITS.workerConcurrency");
+			expect(message).toContain("SANDBOX_WORKER_CONCURRENCY");
 			expect(message).toContain("DATABASE_POOL_MAX");
 		}
 	});
 
-	it("passes when shared application/workflow pool matches fixed sandbox worker capacity", () => {
-		const result = validate({ database: { poolMax: 6 } });
+	it("passes when shared application/workflow pool matches the configured sandbox workers", () => {
+		const result = validate({ database: { poolMax: 6 }, sandbox: { workerConcurrency: 5 } });
 		expect(Exit.isSuccess(result)).toBe(true);
+	});
+
+	it("keeps a lowered sandbox worker concurrency within a small pool", () => {
+		const result = validate({ database: { poolMax: 5 }, sandbox: { workerConcurrency: 2 } });
+		expect(Exit.isSuccess(result)).toBe(true);
+	});
+
+	it.each([0, -1, 1.5])("rejects sandbox worker concurrency %s", (workerConcurrency) => {
+		const result = validate({ sandbox: { workerConcurrency } });
+		expect(Exit.isFailure(result)).toBe(true);
+		if (Exit.isFailure(result)) {
+			expect(JSON.stringify(result.cause)).toContain("SANDBOX_WORKER_CONCURRENCY");
+		}
 	});
 });
 
