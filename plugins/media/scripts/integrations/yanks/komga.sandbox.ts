@@ -1,8 +1,9 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
-import type { EntityRef } from "../shared";
-import { AdapterResult, baseUrl, requestJson, specifics } from "../shared";
+import type { ImportEntityRef } from "../../../imports/schemas";
+import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
+import { baseUrl, requestJson, specifics } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -39,7 +40,7 @@ const BooksResponse = Schema.Struct({
 const mangaRef = (
 	links: ReadonlyArray<{ label: string; url: string }>,
 	title: string,
-): EntityRef | null => {
+): ImportEntityRef | null => {
 	for (const { label, url } of links) {
 		const normalized = label.toLowerCase();
 		let match: RegExpMatchArray | null = null;
@@ -71,7 +72,7 @@ export { mangaRef as extractMangaRef };
 export default defineScript({
 	manifest,
 	input: Input,
-	output: AdapterResult,
+	output: MediaIntegrationAdapterResult,
 	run: (_input, host) =>
 		Effect.gen(function* () {
 			const integration = yield* host.getIntegration();
@@ -79,8 +80,8 @@ export default defineScript({
 			const apiKey = typeof settings?.["apiKey"] === "string" ? settings["apiKey"] : "";
 			const url = baseUrl(settings?.["baseUrl"]);
 			const headers = { Accept: "application/json", Authorization: `Basic ${btoa(`${apiKey}:`)}` };
-			const failures: Array<AdapterResult["failures"][number]> = [];
-			const entityGroups: Array<AdapterResult["entityGroups"][number]> = [];
+			const failures: Array<MediaIntegrationAdapterResult["failures"][number]> = [];
+			const entityGroups: Array<MediaIntegrationAdapterResult["entityGroups"][number]> = [];
 			let page = 0;
 			let pages = 1;
 			let itemIndex = 0;

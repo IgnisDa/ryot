@@ -1,15 +1,9 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
-import {
-	AdapterResult,
-	failureResult,
-	jsonRecord,
-	progressResult,
-	resolvedRef,
-	showLocator,
-	SinkInput,
-} from "../shared";
+import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
+import { resolvedMediaRef } from "../../../imports/source-helpers";
+import { failureResult, jsonRecord, progressResult, showEpisodeRef, SinkInput } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -44,7 +38,7 @@ export const parseKodi = (rawBody: string) =>
 		}
 		const locator =
 			lot === "show"
-				? showLocator(
+				? showEpisodeRef(
 						typeof payload["show_season_number"] === "number"
 							? payload["show_season_number"]
 							: undefined,
@@ -57,15 +51,15 @@ export const parseKodi = (rawBody: string) =>
 			return failureResult("Kodi webhook payload is missing show episode coordinates");
 		}
 		return progressResult({
-			entityRef: resolvedRef(lot, "tmdb", id, id),
+			entityRef: resolvedMediaRef(lot, "tmdb", id, id),
 			consumedOn: "kodi",
 			progressPercent: progress,
-			...(locator ? { episodeLocator: locator } : {}),
+			...(locator ? { unresolvedEpisode: locator } : {}),
 		});
 	}).pipe(Effect.orElseSucceed(() => failureResult("Could not parse Kodi webhook payload")));
 export default defineScript({
 	manifest,
 	input: SinkInput,
-	output: AdapterResult,
+	output: MediaIntegrationAdapterResult,
 	run: (input, host) => host.getIntegration().pipe(Effect.flatMap(() => parseKodi(input.rawBody))),
 });

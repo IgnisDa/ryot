@@ -43,12 +43,18 @@ const createHost = (responses: string[][]) => {
 };
 
 const showRef = {
+	index: 0,
 	kind: "show",
 	seasonNumber: 2,
 	episodeNumber: 3,
 	showEntityId: "show-1",
 } as const;
-const podcastRef = { kind: "podcast", podcastEntityId: "podcast-1", episodeNumber: 7 } as const;
+const podcastRef = {
+	index: 0,
+	kind: "podcast",
+	podcastEntityId: "podcast-1",
+	episodeNumber: 7,
+} as const;
 
 describe("resolve episodes operation", () => {
 	it("pushes the show season and episode filters into one query document", async () => {
@@ -56,7 +62,7 @@ describe("resolve episodes operation", () => {
 
 		await expect(
 			Effect.runPromise(runSandboxTestScript(definition, { refs: [showRef] }, host, execution)),
-		).resolves.toEqual({ results: [{ entityId: "episode-1" }] });
+		).resolves.toEqual({ results: [{ index: 0, entityId: "episode-1" }] });
 		expect(documents[0]).toEqual({
 			output: rowsOutput,
 			source: {
@@ -140,7 +146,7 @@ describe("resolve episodes operation", () => {
 
 		await expect(
 			Effect.runPromise(runSandboxTestScript(definition, { refs: [podcastRef] }, host, execution)),
-		).resolves.toEqual({ results: [{ entityId: "episode-9" }] });
+		).resolves.toEqual({ results: [{ index: 0, entityId: "episode-9" }] });
 		expect(documents[0]).toEqual({
 			output: rowsOutput,
 			source: {
@@ -194,14 +200,19 @@ describe("resolve episodes operation", () => {
 		const { documents, host } = createHost([[], []]);
 
 		await Effect.runPromise(
-			runSandboxTestScript(definition, { refs: [showRef, podcastRef] }, host, execution),
+			runSandboxTestScript(
+				definition,
+				{ refs: [showRef, { ...podcastRef, index: 1 }] },
+				host,
+				execution,
+			),
 		);
 		for (const document of documents) {
 			expect(() => Schema.decodeUnknownSync(QueryDocument)(document)).not.toThrow();
 		}
 	});
 
-	it("resolves only unique matches and keeps results aligned with mixed refs", async () => {
+	it("resolves only unique matches and echoes each caller index with its own result", async () => {
 		const { documents, host } = createHost([
 			["episode-1"],
 			[],
@@ -215,10 +226,10 @@ describe("resolve episodes operation", () => {
 					definition,
 					{
 						refs: [
-							showRef,
-							{ ...showRef, episodeNumber: 99 },
-							{ ...podcastRef, episodeNumber: 1 },
-							podcastRef,
+							{ ...showRef, index: 7 },
+							{ ...showRef, index: 4, episodeNumber: 99 },
+							{ ...podcastRef, index: 2, episodeNumber: 1 },
+							{ ...podcastRef, index: 9 },
 						],
 					},
 					host,
@@ -227,10 +238,10 @@ describe("resolve episodes operation", () => {
 			),
 		).resolves.toEqual({
 			results: [
-				{ entityId: "episode-1" },
-				{ entityId: null },
-				{ entityId: null },
-				{ entityId: "episode-4" },
+				{ index: 7, entityId: "episode-1" },
+				{ index: 4, entityId: null },
+				{ index: 2, entityId: null },
+				{ index: 9, entityId: "episode-4" },
 			],
 		});
 		expect(documents).toHaveLength(4);

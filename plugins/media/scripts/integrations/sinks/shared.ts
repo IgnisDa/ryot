@@ -1,13 +1,13 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
+import { resolvedMediaRef } from "../../../imports/source-helpers";
 import {
 	failureResult,
 	nestedNumber,
 	nestedString,
 	progressPercent,
 	progressResult,
-	resolvedRef,
-	showLocator,
+	showEpisodeRef,
 	specifics,
 } from "../shared";
 
@@ -72,7 +72,7 @@ export const parseMediaServer = (
 			) ?? id;
 		const locator =
 			entitySchemaSlug === "show"
-				? showLocator(
+				? showEpisodeRef(
 						nestedNumber(payload, ["ParentIndexNumber", "SeasonNumber"]),
 						nestedNumber(payload, ["IndexNumber", "EpisodeNumber"]),
 					)
@@ -81,9 +81,9 @@ export const parseMediaServer = (
 			return failureResult(`${provider} webhook payload is missing show episode coordinates`);
 		}
 		return progressResult({
-			entityRef: resolvedRef(entitySchemaSlug, metadataProvider, id, label),
+			entityRef: resolvedMediaRef(entitySchemaSlug, metadataProvider, id, label),
 			progressPercent: percent,
 			consumedOn: provider === "Jellyfin" ? "jellyfin_sink" : "emby",
-			...(locator ? { episodeLocator: locator } : {}),
+			...(locator ? { unresolvedEpisode: locator } : {}),
 		});
 	}).pipe(Effect.orElseSucceed(() => failureResult(`Could not parse ${provider} webhook payload`)));

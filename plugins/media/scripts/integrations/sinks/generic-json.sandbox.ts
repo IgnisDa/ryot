@@ -1,7 +1,8 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
-import { AdapterResult, failureResult, SinkInput } from "../shared";
+import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
+import { failureResult, SinkInput } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -14,7 +15,7 @@ export const manifest = defineManifest({
 export default defineScript({
 	manifest,
 	input: SinkInput,
-	output: AdapterResult,
+	output: MediaIntegrationAdapterResult,
 	run: (_input, host) =>
 		host
 			.getIntegration()

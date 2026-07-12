@@ -1,28 +1,30 @@
+import { genericImportFailureSchema } from "@ryot/sandbox-sdk/imports";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Schema } from "@ryot/sandbox-sdk/workflow";
 
 import { MediaImportPopulationWorkflowOutput } from "../workflows/schemas";
 
-const ImportEntityRef = Schema.Union(
-	Schema.Struct({
-		sourceLabel: Schema.String,
-		kind: Schema.Literal("resolved"),
-		providerSlug: Schema.String,
-		externalId: Schema.String,
-		entitySchemaSlug: Schema.String,
-	}),
-	Schema.Struct({
-		sourceLabel: Schema.String,
-		kind: Schema.Literal("unresolved"),
-		identifierType: Schema.String,
-		identifierValue: Schema.String,
-		entitySchemaSlug: Schema.String,
-	}),
-);
+const ResolvedEntityRef = Schema.Struct({
+	externalId: Schema.String,
+	sourceLabel: Schema.String,
+	providerSlug: Schema.String,
+	kind: Schema.Literal("resolved"),
+	entitySchemaSlug: Schema.String,
+});
+
+const UnresolvedEntityRef = Schema.Struct({
+	sourceLabel: Schema.String,
+	identifierType: Schema.String,
+	identifierValue: Schema.String,
+	kind: Schema.Literal("unresolved"),
+	entitySchemaSlug: Schema.String,
+});
+
+export const ImportEntityRef = Schema.Union(ResolvedEntityRef, UnresolvedEntityRef);
 
 export type ImportEntityRef = typeof ImportEntityRef.Type;
 
-export const EpisodeLocator = Schema.Union(
+export const UnresolvedEpisodeRef = Schema.Union(
 	Schema.Struct({
 		type: Schema.Literal("show"),
 		seasonNumber: Schema.Int,
@@ -34,23 +36,31 @@ export const EpisodeLocator = Schema.Union(
 	}),
 );
 
-export type EpisodeLocator = typeof EpisodeLocator.Type;
+export type UnresolvedEpisodeRef = typeof UnresolvedEpisodeRef.Type;
 
-const ImportMediaEvent = Schema.Struct({
+const mediaEventFields = {
 	occurredAt: Schema.String,
 	eventSchemaSlug: Schema.String,
 	properties: Schema.Record({ key: Schema.String, value: jsonValueSchema }),
-	episodeLocator: Schema.optional(EpisodeLocator),
+};
+
+const ImportMediaEvent = Schema.Struct({
+	...mediaEventFields,
+	unresolvedEpisode: Schema.optional(UnresolvedEpisodeRef),
 });
 
 export type ImportMediaEvent = typeof ImportMediaEvent.Type;
 
-export const ImportMediaEntityGroup = Schema.Struct({
-	entityRef: ImportEntityRef,
+const mediaEntityGroupFields = {
 	itemIndex: Schema.Number,
-	events: Schema.Array(ImportMediaEvent),
+	entityRef: ImportEntityRef,
 	ownershipProvider: Schema.optional(Schema.String),
 	collectionMemberships: Schema.Array(Schema.Struct({ collectionName: Schema.String })),
+};
+
+export const ImportMediaEntityGroup = Schema.Struct({
+	...mediaEntityGroupFields,
+	events: Schema.Array(ImportMediaEvent),
 });
 
 export type ImportMediaEntityGroup = typeof ImportMediaEntityGroup.Type;
@@ -58,27 +68,25 @@ export type ImportMediaEntityGroup = typeof ImportMediaEntityGroup.Type;
 export const MediaImportAdapterFailure = Schema.Struct({
 	message: Schema.String,
 	itemIndex: Schema.Number,
-	stage: Schema.optional(
-		Schema.Literal(
-			"input_transformation",
-			"provider_resolution",
-			"provider_details",
-			"event_policy",
-			"database_commit",
-			"source_fetch",
-		),
-	),
+	stage: genericImportFailureSchema.fields.stage,
 	sourceLabel: Schema.optional(Schema.String),
 	sourceIdentifier: Schema.optional(Schema.String),
+	entitySchemaSlug: genericImportFailureSchema.fields.entitySchemaSlug,
 	context: Schema.optional(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
 });
 
 export type MediaImportAdapterFailure = typeof MediaImportAdapterFailure.Type;
 
-export const MediaImportAdapterBatch = Schema.Struct({
-	totalItems: Schema.Number,
+export const MediaIntegrationAdapterResult = Schema.Struct({
 	failures: Schema.Array(MediaImportAdapterFailure),
 	entityGroups: Schema.Array(ImportMediaEntityGroup),
+});
+
+export type MediaIntegrationAdapterResult = typeof MediaIntegrationAdapterResult.Type;
+
+export const MediaImportAdapterBatch = Schema.Struct({
+	...MediaIntegrationAdapterResult.fields,
+	totalItems: Schema.Number,
 });
 
 export const MediaImportParserInput = Schema.Struct({
@@ -135,38 +143,20 @@ export const IgdbImportParserInput = Schema.Struct({
 	collection: Schema.String,
 });
 
-export const MediaImportEpisodeResolution = Schema.Struct({
-	groupIndex: Schema.Number,
-	eventIndex: Schema.Number,
-	entityId: Schema.NullOr(Schema.String),
+const MediaImportFinalizedEvent = Schema.Struct({
+	...mediaEventFields,
+	subjectEntityId: Schema.optional(Schema.NonEmptyString),
 });
 
-export type MediaImportEpisodeResolution = typeof MediaImportEpisodeResolution.Type;
+const MediaImportFinalizedEntityGroup = Schema.Struct({
+	...mediaEntityGroupFields,
+	events: Schema.Array(MediaImportFinalizedEvent),
+});
 
 export const MediaImportWriteChunkInput = Schema.Struct({
 	failures: Schema.Array(MediaImportAdapterFailure),
-	entityGroups: Schema.Array(ImportMediaEntityGroup),
-	episodeResolutions: Schema.Array(MediaImportEpisodeResolution),
+	entityGroups: Schema.Array(MediaImportFinalizedEntityGroup),
 	populationResults: MediaImportPopulationWorkflowOutput.fields.results,
 });
 
-const MediaImportShowEpisodeRef = Schema.Struct({
-	seasonNumber: Schema.Int,
-	episodeNumber: Schema.Int,
-	showEntityId: Schema.String,
-	kind: Schema.Literal("show"),
-});
-
-const MediaImportPodcastEpisodeRef = Schema.Struct({
-	episodeNumber: Schema.Int,
-	podcastEntityId: Schema.String,
-	kind: Schema.Literal("podcast"),
-});
-
-export const MediaImportResolveEpisodesInput = Schema.Struct({
-	refs: Schema.Array(Schema.Union(MediaImportShowEpisodeRef, MediaImportPodcastEpisodeRef)),
-});
-
-export const MediaImportResolveEpisodesOutput = Schema.Struct({
-	results: Schema.Array(Schema.Struct({ entityId: Schema.NullOr(Schema.String) })),
-});
+export type MediaImportWriteChunkInput = typeof MediaImportWriteChunkInput.Type;

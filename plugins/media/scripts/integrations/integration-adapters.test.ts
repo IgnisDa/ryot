@@ -46,7 +46,7 @@ describe("Kodi sink", () => {
 				{
 					eventSchemaSlug: "progress",
 					properties: { consumedOn: "kodi", progressPercent: 45 },
-					episodeLocator: { type: "show", seasonNumber: 2, episodeNumber: 7 },
+					unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 7 },
 				},
 			],
 		});
@@ -145,7 +145,7 @@ describe("media server sinks", () => {
 			events: [
 				{
 					properties: { consumedOn: "emby", progressPercent: 50 },
-					episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 3 },
+					unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
 				},
 			],
 		});
@@ -177,7 +177,7 @@ describe("media server sinks", () => {
 			events: [
 				{
 					properties: { consumedOn: "jellyfin_sink", progressPercent: 25 },
-					episodeLocator: { type: "show", seasonNumber: 2, episodeNumber: 4 },
+					unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 4 },
 				},
 			],
 		});
@@ -258,7 +258,7 @@ describe("Plex sink", () => {
 			events: [
 				{
 					properties: { consumedOn: "plex_sink", progressPercent: 80 },
-					episodeLocator: { type: "show", seasonNumber: 3, episodeNumber: 5 },
+					unresolvedEpisode: { type: "show", seasonNumber: 3, episodeNumber: 5 },
 				},
 			],
 		});
@@ -331,7 +331,7 @@ describe("browser extension sink", () => {
 			events: [
 				{
 					properties: { consumedOn: "max", progressPercent: 80 },
-					episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 6 },
+					unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 6 },
 				},
 			],
 		});
