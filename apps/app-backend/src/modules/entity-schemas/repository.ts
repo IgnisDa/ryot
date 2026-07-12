@@ -1,9 +1,11 @@
 import { EntitySchemaSlug, type UserId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 
-const listed = (definition: NonNullable<ReturnType<DefinitionRegistry["getEntitySchema"]>>) => ({
+const listed = (
+	definition: NonNullable<ReturnType<DefinitionRegistry["Service"]["getEntitySchema"]>>,
+) => ({
 	isBuiltin: true,
 	name: definition.name,
 	icon: definition.icon,
@@ -13,10 +15,10 @@ const listed = (definition: NonNullable<ReturnType<DefinitionRegistry["getEntity
 	propertiesSchema: definition.propertiesSchema,
 });
 
-export class EntitySchemasRepository extends Effect.Service<EntitySchemasRepository>()(
+export class EntitySchemasRepository extends Context.Service<EntitySchemasRepository>()(
 	"EntitySchemasRepository",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRegistry;
 			const getBuiltinBySlug = (slug: string) =>
 				Effect.succeed(definitions.getEntitySchema(slug)).pipe(
@@ -44,4 +46,6 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 			return { getBuiltinBySlug, listVisibleBySlugs, getBuiltinDetailsBySlug };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

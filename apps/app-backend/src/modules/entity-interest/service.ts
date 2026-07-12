@@ -13,7 +13,7 @@ import {
 	type UserId,
 } from "@ryot/contract/schema/brands";
 import { buildEntityInterestQueryDocument } from "@ryot/query-engine/recipes/app";
-import { Effect, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
@@ -54,7 +54,7 @@ type InterestRow = {
 
 const toInterestRow = Effect.fn("toInterestRow")(function* (row: RowItem) {
 	const providerId = yield* getOptionalStringField(row, "providerId");
-	const translationStatus = yield* Schema.decodeUnknown(TranslationStatus)(
+	const translationStatus = yield* Schema.decodeUnknownEffect(TranslationStatus)(
 		yield* requireStringField(row, "translationStatus"),
 	).pipe(Effect.orDie);
 	return {
@@ -69,99 +69,104 @@ const toInterestRow = Effect.fn("toInterestRow")(function* (row: RowItem) {
 	} satisfies InterestRow;
 });
 
-export class InterestReconciler extends Effect.Service<InterestReconciler>()("InterestReconciler", {
-	effect: Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const queryEngine = yield* QueryEngineService;
-		const translations = yield* TranslationsService;
-		const populationTrigger = yield* EntityPopulationTrigger;
+export class InterestReconciler extends Context.Service<InterestReconciler>()(
+	"InterestReconciler",
+	{
+		make: Effect.gen(function* () {
+			const runWithDb = yield* DbRunner;
+			const queryEngine = yield* QueryEngineService;
+			const translations = yield* TranslationsService;
+			const populationTrigger = yield* EntityPopulationTrigger;
 
-		const handleRow = (
-			user: CurrentUserValue,
-			row: InterestRow,
-		): Effect.Effect<TerminalUpdate | null> =>
-			Effect.gen(function* () {
-				if (row.populatedAt === null) {
-					if (row.externalId !== null && row.providerId !== null) {
-						yield* populationTrigger.request({
-							userId: user.id,
-							entityId: row.id,
-							origin: { kind: "api" },
-							externalId: row.externalId,
-							entitySchemaSlug: row.entitySchemaSlug,
-							providerId: row.providerId,
-						});
+			const handleRow = (
+				user: CurrentUserValue,
+				row: InterestRow,
+			): Effect.Effect<TerminalUpdate | null> =>
+				Effect.gen(function* () {
+					if (row.populatedAt === null) {
+						if (row.externalId !== null && row.providerId !== null) {
+							yield* populationTrigger.request({
+								userId: user.id,
+								entityId: row.id,
+								origin: { kind: "api" },
+								externalId: row.externalId,
+								entitySchemaSlug: row.entitySchemaSlug,
+								providerId: row.providerId,
+							});
+							return null;
+						}
+						return { entityId: row.id, reason: "populated" };
+					}
+
+					if (row.translationStatus === "pending") {
+						if (
+							user.preferences.language !== null &&
+							row.externalId !== null &&
+							row.providerId !== null
+						) {
+							yield* translations.requestFill({
+								entityId: row.id,
+								externalId: row.externalId,
+								properties: row.properties,
+								providerId: row.providerId,
+								entitySchemaSlug: row.schemaSlug,
+								language: user.preferences.language,
+							});
+						}
 						return null;
 					}
-					return { entityId: row.id, reason: "populated" };
-				}
 
-				if (row.translationStatus === "pending") {
-					if (
-						user.preferences.language !== null &&
-						row.externalId !== null &&
-						row.providerId !== null
-					) {
-						yield* translations.requestFill({
-							entityId: row.id,
-							externalId: row.externalId,
-							properties: row.properties,
-							providerId: row.providerId,
-							entitySchemaSlug: row.schemaSlug,
-							language: user.preferences.language,
-						});
+					return {
+						entityId: row.id,
+						reason: row.translationStatus === "ready" ? "translated" : "populated",
+					};
+				});
+
+			const reconcile = Effect.fn("InterestReconciler.reconcile")(function* (
+				user: CurrentUserValue,
+				entityIds: readonly string[],
+			) {
+				if (entityIds.length === 0) {
+					return [] as TerminalUpdate[];
+				}
+				const slugs = yield* runWithDb(loadVisibleEntitySchemaSlugs(user.id));
+				const [firstSlug, ...restSlugs] = slugs;
+				if (firstSlug === undefined) {
+					return [] as TerminalUpdate[];
+				}
+				const schemas: [string, ...string[]] = [firstSlug, ...restSlugs];
+
+				const terminal: TerminalUpdate[] = [];
+				for (const ids of chunk(entityIds, MAX_ROOT_PAGE_SIZE)) {
+					const [firstId, ...restIds] = ids;
+					if (firstId === undefined) {
+						continue;
 					}
-					return null;
+					const doc = buildEntityInterestQueryDocument({
+						entityIds: [firstId, ...restIds],
+						entitySchemaSlugs: schemas,
+					});
+					const response = yield* queryEngine.execute(user, doc);
+					const rows = yield* requireRowsResponse(response);
+					for (const item of rows.data.items) {
+						const result = yield* handleRow(user, yield* toInterestRow(item));
+						if (result) {
+							terminal.push(result);
+						}
+					}
 				}
-
-				return {
-					entityId: row.id,
-					reason: row.translationStatus === "ready" ? "translated" : "populated",
-				};
+				return terminal;
 			});
 
-		const reconcile = Effect.fn("InterestReconciler.reconcile")(function* (
-			user: CurrentUserValue,
-			entityIds: readonly string[],
-		) {
-			if (entityIds.length === 0) {
-				return [] as TerminalUpdate[];
-			}
-			const slugs = yield* runWithDb(loadVisibleEntitySchemaSlugs(user.id));
-			const [firstSlug, ...restSlugs] = slugs;
-			if (firstSlug === undefined) {
-				return [] as TerminalUpdate[];
-			}
-			const schemas: [string, ...string[]] = [firstSlug, ...restSlugs];
+			return { reconcile };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
-			const terminal: TerminalUpdate[] = [];
-			for (const ids of chunk(entityIds, MAX_ROOT_PAGE_SIZE)) {
-				const [firstId, ...restIds] = ids;
-				if (firstId === undefined) {
-					continue;
-				}
-				const doc = buildEntityInterestQueryDocument({
-					entityIds: [firstId, ...restIds],
-					entitySchemaSlugs: schemas,
-				});
-				const response = yield* queryEngine.execute(user, doc);
-				const rows = yield* requireRowsResponse(response);
-				for (const item of rows.data.items) {
-					const result = yield* handleRow(user, yield* toInterestRow(item));
-					if (result) {
-						terminal.push(result);
-					}
-				}
-			}
-			return terminal;
-		});
-
-		return { reconcile };
-	}),
-}) {}
-
-export class InterestService extends Effect.Service<InterestService>()("InterestService", {
-	effect: Effect.gen(function* () {
+export class InterestService extends Context.Service<InterestService>()("InterestService", {
+	make: Effect.gen(function* () {
 		const registry = yield* StreamRegistry;
 		const reconciler = yield* InterestReconciler;
 
@@ -196,7 +201,7 @@ export class InterestService extends Effect.Service<InterestService>()("Interest
 			const terminal = yield* reconciler
 				.reconcile(user, entityIds)
 				.pipe(
-					Effect.catchAll((error) =>
+					Effect.catch((error) =>
 						Effect.logWarning("interest reconcile failed", error).pipe(Effect.as([])),
 					),
 				);
@@ -209,4 +214,6 @@ export class InterestService extends Effect.Service<InterestService>()("Interest
 
 		return { setInterest, declareInterest };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

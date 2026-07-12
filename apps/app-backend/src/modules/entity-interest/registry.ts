@@ -4,7 +4,7 @@ import {
 	type EntityUpdatedFrame,
 } from "@ryot/contract/modules/entity-interest/messages";
 import type { UserId } from "@ryot/contract/schema/brands";
-import { Effect, Either } from "effect";
+import { Context, Effect, Result, Layer } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
@@ -16,8 +16,8 @@ type StreamEntry = {
 	interest: Set<string>;
 };
 
-export class StreamRegistry extends Effect.Service<StreamRegistry>()("StreamRegistry", {
-	scoped: Effect.gen(function* () {
+export class StreamRegistry extends Context.Service<StreamRegistry>()("StreamRegistry", {
+	make: Effect.gen(function* () {
 		const redis = yield* RedisService;
 		const channel = redisKeys.entityUpdatedChannel;
 
@@ -74,10 +74,10 @@ export class StreamRegistry extends Effect.Service<StreamRegistry>()("StreamRegi
 
 		const fanOut = (raw: string): void => {
 			const decoded = decodeEntityUpdatedMessage(raw);
-			if (Either.isLeft(decoded)) {
+			if (Result.isFailure(decoded)) {
 				return;
 			}
-			const { entityId, reason } = decoded.right;
+			const { entityId, reason } = decoded.success;
 			const streamIds = byEntity.get(entityId);
 			if (!streamIds) {
 				return;
@@ -104,11 +104,11 @@ export class StreamRegistry extends Effect.Service<StreamRegistry>()("StreamRegi
 			byEntity.clear();
 		});
 		yield* Effect.addFinalizer(() =>
-			teardown.pipe(
-				Effect.zipRight(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore)),
-			),
+			teardown.pipe(Effect.andThen(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore))),
 		);
 
 		return { add, remove, setInterestIfOwner, hasInterest };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

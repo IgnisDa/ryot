@@ -1,11 +1,12 @@
-import { Activity } from "@effect/workflow";
 import { SandboxRunError, dieOnDbError, toSandboxRunError } from "@ryot/contract/errors";
 import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
 import type { ProviderTranslateResult } from "@ryot/sandbox-sdk/provider";
 import { DateTime, Effect, Schema } from "effect";
+import { Activity } from "effect/unstable/workflow";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { withoutSchemaServices } from "#lib/shared/schema";
 import { decodeProviderTranslateResult } from "#modules/sandbox/provider-contracts";
 
 import {
@@ -26,8 +27,8 @@ const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 	const repository = yield* TranslationsRepository;
 
 	return yield* Activity.make({
-		success: Schema.Void,
-		error: SandboxRunError,
+		success: withoutSchemaServices(Schema.Void),
+		error: withoutSchemaServices(SandboxRunError),
 		name: "write-translation-overlay",
 		execute: Effect.gen(function* () {
 			const populatedAt = yield* DateTime.nowAsDate;
