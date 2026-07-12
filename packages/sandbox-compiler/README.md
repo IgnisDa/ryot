@@ -23,13 +23,19 @@ The compiler creates a TypeScript 7 no-emit project and reports bounded semantic
 inspects each entry, validates declarations, workflows, and literal manifests, and compiles validated
 entries with bounded concurrency. A semantic or policy failure never reaches the build stage.
 
-Each `buildDenoEsm` call acquires a scoped workspace through `@ryot-app/vite-compiler` and stages the
-package under `source/`. A workspace may use the supervisor's `parentPath` and `jobId`, and its scope
-removes the workspace.
+A build acquires a scoped workspace through `@ryot-app/vite-compiler` and stages the package under
+`source/`. A workspace may use the supervisor's `parentPath` and `jobId`, and its scope removes the
+workspace. A standalone user script builds its single entry with `buildDenoEsm`; built-ins and plugin
+manifests build every validated entry of one package with `buildDenoEsmPackage`, which stages the
+package once and reuses that workspace for each entry.
 
 The shared Deno profile emits exactly one `sandbox.mjs` module as unminified ES2022 ESM with an inline
 source map and no CSS, module preload, or code splitting. Runner and trusted runtime generation use
 the same `buildDenoEsm` API with their own output filenames.
+
+Because source-map paths stay relative to the staged package, a mapped runtime stack frame names the
+authored source (`script.ts` for a user script, `backend/...` for a plugin entry) and the sandbox
+runner reports frames under the compiled module's own directory.
 
 Only the following runtime-registry specifiers remain external in a sandbox module:
 
