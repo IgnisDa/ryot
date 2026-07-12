@@ -8,7 +8,6 @@
 		"sandbox:compile": "bun run scripts/compile-sandbox-artifacts.ts",
 		"run-migration": "bun run sandbox:compile && RUN_MIGRATION_ONLY=true bun run src/main.ts",
 		"build": "bun run sandbox:compile && bun build src/main.ts --outdir dist --target bun --sourcemap",
-		"populate-sandbox-cache": "bun run sandbox:compile && POPULATE_SANDBOX_CACHE_ONLY=true bun run src/main.ts",
 		"check": "bun run sandbox:compile && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix && bun run sandbox:compile && tsc",
 		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts"
 	},
@@ -38,7 +37,6 @@
 		"drizzle-orm": "0.45.2",
 		"effect": "3.21.4",
 		"fast-xml-parser": "5.8.0",
-		"fast-xml-validator": "1.1.0",
 		"ioredis": "5.11.1",
 		"nodemailer": "8.0.10",
 		"papaparse": "5.5.3",
