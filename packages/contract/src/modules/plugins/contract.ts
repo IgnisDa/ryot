@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware, AuthRateLimited, AuthUnauthorized } from "../../auth-middleware";
+import { LogRouteTemplate } from "../../http-annotations";
 import { PluginSlug, UserId } from "../../schema/brands";
 import {
 	CreatePluginClientArtifactSessionBody,
@@ -53,7 +54,9 @@ export const PluginArtifactSessionsGroup = HttpApiGroup.make("pluginArtifactSess
 			error: pluginArtifactSessionErrors,
 			success: HttpApiSchema.StreamUint8Array(),
 			params: { token: Schema.String, fileName: Schema.String },
-		}).annotate(OpenApi.Description, "Serves a file from a private plugin artifact session."),
+		})
+			.annotate(LogRouteTemplate, true)
+			.annotate(OpenApi.Description, "Serves a file from a private plugin artifact session."),
 	);
 
 export const PluginsGroup = HttpApiGroup.make("plugins")
