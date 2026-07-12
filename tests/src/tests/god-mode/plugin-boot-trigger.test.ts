@@ -20,7 +20,6 @@ import {
 	getBackendClient,
 	installTestPluginBundle,
 	type InstalledTestPlugin,
-	pollUntil,
 	providerSandboxSource,
 	uninstallTestPlugin,
 } from "~/fixtures";
@@ -164,14 +163,8 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 				expect(typeof executionId).toBe("string");
 				expect(executionId.length).toBeGreaterThan(0);
 
-				const row = yield* pollUntil(
-					"boot-seeded entity for the installed custom plugin",
-					Effect.gen(function* () {
-						const { data } = yield* executeQueryEngine(queryClient, buildBootEntityQueryDocument());
-						return data.items[0] ?? null;
-					}),
-					{ timeoutMs: 30_000, intervalMs: 1_000 },
-				);
+				const { data } = yield* executeQueryEngine(queryClient, buildBootEntityQueryDocument());
+				const row = data.items[0];
 
 				expect(row).toMatchObject({
 					schemaSlug: { kind: "text", value: "movie" },

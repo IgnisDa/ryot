@@ -128,6 +128,7 @@ describe("provider entity search enqueue", () => {
 
 			expect(typeof jobId).toBe("string");
 			expect(jobId.length).toBeGreaterThan(0);
+			yield* pollEntitySearchResult(userId, jobId, { timeoutMs: 30_000 });
 		}),
 	);
 });
@@ -184,6 +185,7 @@ describe("POST /library/import", () => {
 
 			expect(typeof jobId).toBe("string");
 			expect(jobId.length).toBeGreaterThan(0);
+			yield* pollEntityImportResult(client, jobId, { timeoutMs: 30_000 });
 		}),
 	);
 });

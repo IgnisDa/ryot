@@ -57,14 +57,8 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 			}
 			return yield* engine
 				.execute(RunSandboxWorkflow, {
-					discard: true,
 					executionId,
-					payload: {
-						authority: { type: "system" },
-						context: {},
-						executionId,
-						scriptId: script.id,
-					},
+					payload: { context: {}, executionId, scriptId: script.id, authority: { type: "system" } },
 				})
 				.pipe(Effect.asVoid);
 		});

@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
+import { pollImportRunUntilTerminal } from "./imports";
 
 type WebhookPayload = ContractPayload<"integrations", "webhook">;
 type CreateIntegrationBody = ContractPayload<"integrations", "create">;
@@ -23,14 +24,18 @@ export const createKodiIntegration = (client: Client) =>
 	});
 
 export const createAudiobookshelfIntegration = (client: Client) =>
-	createIntegration(client, {
-		isDisabled: true,
-		provider: "audiobookshelf",
-		providerSpecifics: {
-			token: "test-token",
-			kind: "audiobookshelf",
-			baseUrl: "https://abs.example.com",
-		},
+	Effect.gen(function* () {
+		const { id } = yield* createIntegration(client, {
+			name: "ABS",
+			isDisabled: true,
+			provider: "audiobookshelf",
+			providerSpecifics: {
+				token: "test-token",
+				kind: "audiobookshelf",
+				baseUrl: "https://abs.example.com",
+			},
+		});
+		return yield* getIntegration(client, id);
 	});
 
 export const listIntegrations = (
@@ -55,3 +60,15 @@ export const postIntegrationWebhook = (
 			path: { integrationId: IntegrationId.make(integrationId) },
 		}),
 	);
+
+export const postIntegrationWebhookAndWait = (
+	client: Client,
+	integrationId: string,
+	body: WebhookPayload,
+) =>
+	Effect.gen(function* () {
+		const data = yield* postIntegrationWebhook(client, integrationId, body);
+		const runId = requirePresent(data.runId, "Expected runId from webhook");
+		const run = yield* pollImportRunUntilTerminal(client, runId);
+		return { run, data, runId };
+	});

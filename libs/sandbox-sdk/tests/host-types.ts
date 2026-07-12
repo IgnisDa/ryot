@@ -129,10 +129,12 @@ defineScript({
 			const externalId: string | null = entity.externalId;
 			const entitySchema = yield* host.getEntitySchema("schema-1");
 			const lot: "push" | "sink" | "yank" = integration.lot;
+			const provider: string = integration.provider;
+			const setting: JsonValue | undefined = integration.providerSpecifics["customSetting"];
 			const events = yield* host.listEvents({ entityId: "entity-1" });
 			const occurredAt: string = events[0]?.occurredAt ?? "";
 			yield* host.listEventSchemas("schema-1");
-			yield* host.listIntegrations({ provider: "plex_yank" });
+			yield* host.listIntegrations({ provider: "plugin_defined_provider" });
 			const providers: ReadonlyArray<{ readonly name: string; readonly providerId: string }> =
 				entitySchema.providers;
 			const created = yield* host.createEvents([
@@ -143,6 +145,8 @@ defineScript({
 				},
 			]);
 			const total: number = created.count;
+			void provider;
+			void setting;
 			const [savedEntity] = yield* host.upsertGlobalEntities(
 				[
 					{
@@ -174,9 +178,6 @@ defineScript({
 			void externalId;
 			void occurredAt;
 			void queryResult;
-
-			// @ts-expect-error listIntegrations only accepts supported providers.
-			yield* host.listIntegrations({ provider: "not-a-provider" });
 			return true;
 		}),
 });

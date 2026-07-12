@@ -14,15 +14,7 @@ import type { NormalizedPlugin } from "#modules/plugins/types";
 
 import { pluginCronExecutionId, PluginCronService } from "./plugin-cron";
 
-type CapturedRun = {
-	readonly executionId: string;
-	readonly payload: {
-		readonly authority: { readonly type: "system" };
-		readonly context: unknown;
-		readonly executionId: string;
-		readonly scriptId: SandboxScriptId;
-	};
-};
+type CapturedRun = Parameters<WorkflowEngine["Type"]["execute"]>[1];
 
 const normalizedPlugin = (pluginSlug: string, schedule = "* * * * *"): NormalizedPlugin => {
 	const manifest = fixtureManifest();
@@ -61,13 +53,13 @@ const normalizedPlugin = (pluginSlug: string, schedule = "* * * * *"): Normalize
 		scripts: [
 			{
 				entry,
+				metadata,
 				source: "source",
 				slug: scriptSlug,
-				name: declared.name,
 				compiledFormat: 1,
+				name: declared.name,
 				compiledCode: "compiled",
 				contentHash: `${pluginSlug}-compiled`,
-				metadata,
 			},
 		],
 	};
@@ -91,9 +83,9 @@ const makeLayer = (
 							slug,
 							name: slug,
 							source: "source",
+							providerId: null,
 							compiledFormat: 1,
 							pluginSlug: "fixture",
-							providerId: null,
 							compiledCode: "compiled",
 							contentHash: `${slug}-hash`,
 							createdAt: new Date(0),
@@ -115,7 +107,7 @@ const makeLayer = (
 							options.executionId === failingExecutionId
 								? Effect.fail("dispatch failed")
 								: Effect.sync(() => {
-										captured.push(options as CapturedRun);
+										captured.push(options);
 										return options.executionId;
 									}),
 					}),
@@ -134,13 +126,34 @@ it.effect("dispatches due plugin crons as deterministic system sandbox runs", ()
 		yield* service.dispatchDue(60_000);
 		expect(captured).toEqual([
 			{
-				discard: true,
 				executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
 				payload: {
 					authority: { type: "system" },
 					context: {},
 					scriptId: SandboxScriptId.make("fixture-script-id"),
 					executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
+				},
+			},
+		]);
+	}).pipe(Effect.provide(makeLayer(loader, captured)));
+});
+
+it.effect("awaits terminal plugin cron runs when manually triggered", () => {
+	const captured: Array<CapturedRun> = [];
+	const loader = makePluginLoader(makeDefinitionRegistry());
+	loader.load(normalizedPlugin("fixture"));
+
+	return Effect.gen(function* () {
+		const service = yield* PluginCronService;
+		yield* service.triggerAll("parent-id");
+		expect(captured).toEqual([
+			{
+				executionId: "plugin-cron-7-fixture-12-fixture-cron-parent-id",
+				payload: {
+					context: {},
+					authority: { type: "system" },
+					scriptId: SandboxScriptId.make("fixture-script-id"),
+					executionId: "plugin-cron-7-fixture-12-fixture-cron-parent-id",
 				},
 			},
 		]);

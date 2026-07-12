@@ -15,16 +15,15 @@ plugin scripts that consume it, then delete the native modules and re-point the 
 
 Kernel capability (lands before consumers):
 
-- Add the `crons: [{ slug, schedule, driverRef, description }]` manifest section; the schedule
+- Add the `crons: [{ slug, schedule, scriptSlug, description }]` manifest section; the schedule
   format is whatever the existing scheduler consumes and the kernel owns the tick.
-- Add the `boot: [{ slug, driverRef, description }]` manifest section (no `schedule`) for
-  one-time-per-server-start work: the kernel dispatches every boot entry once, non-blocking,
+- Add the `boot: [{ slug, scriptSlug, description }]` manifest section (no `schedule`) for
+  one-time-per-server-start work: the kernel dispatches and awaits every boot entry once,
   immediately after plugin ingestion, and skips dispatch entirely when
   `scheduler.disableDispatchers` is set — the same flag the other schedulers honor.
 - The scheduler dispatches each due cron, and the boot dispatcher dispatches each boot entry, as
-  a sandbox execution of its referenced driver, fire-and-forget through the durable queue
-  machinery per `apps/app-backend/AGENTS.md` durable-ownership rules; idempotency stays with the
-  script.
+  a sandbox execution of its referenced script and awaits its terminal workflow result;
+  idempotency stays with the script.
 - Add batch, coarse-atomic global-write host functions `upsertGlobalEntities(items[])` and
   `upsertGlobalRelationships(items[])` (shapes `[IMPLEMENTER-DECIDES]` — record in the plan;
   semantics fixed: coarse-atomic per item, preserve-existing matching today's trending refresh

@@ -5,15 +5,11 @@ import type {
 	CreateIntegrationBody,
 	IntegrationExtraSettings,
 	IntegrationProvider,
-	IntegrationProviderSpecifics,
+	IntegrationProviderSettings,
 	IntegrationWebhookPayload,
 	UpdateIntegrationBody,
 } from "@ryot/contract/modules/integrations/schemas";
-import {
-	IntegrationProviderSpecifics as IntegrationProviderSpecificsSchema,
-	IntegrationWebhookPayload as IntegrationWebhookPayloadSchema,
-} from "@ryot/contract/modules/integrations/schemas";
-import { providerLotByProvider } from "@ryot/contract/modules/integrations/types";
+import { IntegrationWebhookPayload as IntegrationWebhookPayloadSchema } from "@ryot/contract/modules/integrations/schemas";
 import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Either, Schema } from "effect";
 
@@ -34,7 +30,6 @@ const defaultExtraSettings = {
 	disableOnContinuousErrors: false,
 } satisfies IntegrationExtraSettings;
 
-const decodeIntegrationProviderSpecifics = Schema.decodeUnknown(IntegrationProviderSpecificsSchema);
 const encodeIntegrationWebhookPayload = Schema.encode(
 	Schema.parseJson(IntegrationWebhookPayloadSchema),
 );
@@ -55,7 +50,7 @@ const buildIntegrationInputSummary = (
 export const resolveIntegrationLot = (
 	findProvider: RegisteredProviderLookup,
 	provider: IntegrationProvider,
-) => findProvider(provider)?.lot ?? providerLotByProvider[provider];
+) => findProvider(provider)?.lot ?? null;
 
 export const validateProgressThresholds = (
 	minimumProgress: number,
@@ -100,7 +95,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 							),
 							Effect.asVoid,
 						)
-					: Effect.void;
+					: badRequest(`Integration provider '${provider}' is not registered`);
 			};
 
 			const requireIntegration = Effect.fn("IntegrationsService.requireIntegration")(function* (
@@ -118,11 +113,11 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				user: CurrentUserValue,
 				body: CreateIntegrationBody,
 			) {
-				if (body.providerSpecifics.kind !== body.provider) {
-					return yield* badRequest("providerSpecifics.kind must match provider");
-				}
-
 				yield* validateRegisteredSettings(body.provider, body.providerSpecifics);
+				const lot = resolveIntegrationLot(providerCatalog.find, body.provider);
+				if (!lot || lot === "push") {
+					return yield* badRequest(`Integration provider '${body.provider}' cannot be created`);
+				}
 
 				const minimumProgress = body.minimumProgress ?? 2;
 				const maximumProgress = body.maximumProgress ?? 95;
@@ -142,7 +137,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 						minimumProgress: String(minimumProgress),
 						maximumProgress: String(maximumProgress),
 						extraSettings: body.extraSettings ?? defaultExtraSettings,
-						lot: resolveIntegrationLot(providerCatalog.find, body.provider),
+						lot,
 					}),
 				);
 
@@ -167,19 +162,12 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 			) {
 				const existing = yield* requireIntegration(userId, integrationId);
 
-				let providerSpecifics: IntegrationProviderSpecifics | undefined;
+				let providerSpecifics: IntegrationProviderSettings | undefined;
 				if (body.providerSpecifics !== undefined) {
-					const merged = yield* decodeIntegrationProviderSpecifics({
+					const merged = {
 						...existing.providerSpecifics,
 						...body.providerSpecifics,
-					}).pipe(
-						Effect.mapError((error) =>
-							badRequest(`Invalid providerSpecifics after merge: ${error.message}`),
-						),
-					);
-					if (merged.kind !== existing.provider) {
-						return yield* badRequest("providerSpecifics.kind must match provider");
-					}
+					};
 					yield* validateRegisteredSettings(existing.provider, merged);
 					providerSpecifics = merged;
 				}
@@ -266,7 +254,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				if (!integration) {
 					return yield* notFound("Integration not found");
 				}
-				if (resolveIntegrationLot(providerCatalog.find, integration.provider) !== "sink") {
+				if (providerCatalog.find(integration.provider)?.lot !== "sink") {
 					return yield* badRequest("Integration is not a sink integration");
 				}
 
