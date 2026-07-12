@@ -32,10 +32,10 @@ import {
 	decodeProviderDetailsResult,
 } from "#modules/sandbox/provider-contracts";
 
-import { EntityImportPayload } from "./entity-import-workflow";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ChildEntitySetWriteResult, writeChildEntitySet } from "./population";
 import { syncRelatedEntityGroup } from "./relationship-population";
+import { EntityImportPayload } from "./schemas";
 
 const REDIS_RETRY_SCHEDULE = Schedule.spaced("30 seconds");
 

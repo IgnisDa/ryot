@@ -99,6 +99,23 @@ const baseInput = {
 	propertiesSchema: { fields: {} } as const,
 };
 
+const ownershipPropertiesSchema = {
+	fields: {
+		owned: { type: "boolean", label: "Owned", description: "Owned" },
+		ownershipSyncedAt: {
+			type: "datetime",
+			label: "Synced at",
+			description: "Synced at",
+		},
+		ownershipSources: {
+			type: "array",
+			label: "Sources",
+			description: "Sources",
+			items: { type: "string", label: "Source", description: "Source" },
+		},
+	},
+} as const;
+
 it.effect("returns bad request when create properties violate the relationship schema", () => {
 	const layer = makeServiceLayer();
 
@@ -334,6 +351,95 @@ it.effect("treats existing creates and missing deletes as successful no-ops", ()
 		expect(result).toEqual({ created: 0, deleted: 0 });
 		expect(transactionDatabases).toHaveLength(2);
 		expect(transactionDatabases[0]).toBe(transactionDatabases[1]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("merges unique array values while replacing scalar user relationship properties", () => {
+	const updates: Array<Record<string, unknown>> = [];
+	const layer = makeServiceLayer({
+		findRelationshipProperties: () =>
+			Effect.succeed({
+				owned: false,
+				ownershipSources: ["plex", "shared"],
+				ownershipSyncedAt: "2026-01-01T00:00:00.000Z",
+			}),
+		updateRelationship: (input) =>
+			Effect.sync(() => {
+				updates.push(input);
+				return { ...relationship, ...input };
+			}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		yield* service.mergeUserProperties({
+			...baseInput,
+			propertiesSchema: ownershipPropertiesSchema,
+			properties: {
+				owned: true,
+				ownershipSources: ["shared", "watcharr"],
+				ownershipSyncedAt: "2026-01-02T00:00:00.000Z",
+			},
+		});
+
+		expect(updates).toEqual([
+			expect.objectContaining({
+				properties: {
+					owned: true,
+					ownershipSyncedAt: "2026-01-02T00:00:00.000Z",
+					ownershipSources: ["plex", "shared", "watcharr"],
+				},
+			}),
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("re-reads and merges a concurrent winner after the initial create conflicts", () => {
+	let reads = 0;
+	const updates: Array<Record<string, unknown>> = [];
+	const layer = makeServiceLayer({
+		findRelationshipProperties: () =>
+			Effect.sync(() => {
+				reads += 1;
+				return reads === 1
+					? null
+					: {
+							owned: true,
+							ownershipSources: ["plex"],
+							ownershipSyncedAt: "2026-01-01T00:00:00.000Z",
+						};
+			}),
+		createRelationship: (input) =>
+			Effect.succeed({ ...relationship, ...input, wasInserted: false }),
+		updateRelationship: (input) =>
+			Effect.sync(() => {
+				updates.push(input);
+				return { ...relationship, ...input };
+			}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		yield* service.mergeUserProperties({
+			...baseInput,
+			propertiesSchema: ownershipPropertiesSchema,
+			properties: {
+				owned: true,
+				ownershipSources: ["watcharr"],
+				ownershipSyncedAt: "2026-01-02T00:00:00.000Z",
+			},
+		});
+
+		expect(reads).toBe(2);
+		expect(updates).toEqual([
+			expect.objectContaining({
+				properties: {
+					owned: true,
+					ownershipSources: ["plex", "watcharr"],
+					ownershipSyncedAt: "2026-01-02T00:00:00.000Z",
+				},
+			}),
+		]);
 	}).pipe(Effect.provide(layer));
 });
 
