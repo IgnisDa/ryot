@@ -1,4 +1,4 @@
-import type { OrderBy } from "@ryot/contract/modules/ryotql/language";
+import type { FieldSelection, OrderBy } from "@ryot/contract/modules/ryotql/language";
 import {
 	aggregate,
 	and,
@@ -587,6 +587,7 @@ export const buildDefaultMediaSavedViewQueryDocument = (input: {
 	readonly limit?: number | undefined;
 	readonly schemas: readonly [string, ...string[]];
 	readonly orderBy?: readonly OrderBy[] | undefined;
+	readonly fields: readonly FieldSelection[];
 }) => {
 	const entity = table("entity", "entity");
 	const library = table("entity", "library");
@@ -597,6 +598,7 @@ export const buildDefaultMediaSavedViewQueryDocument = (input: {
 		limit: input.limit,
 		orderBy: input.orderBy,
 		entitySchemaSlugs: input.schemas,
+		fields: input.fields,
 		where: exists(membership, {
 			where: and(
 				eq(column(membership, "sourceEntityId"), column(entity, "id")),

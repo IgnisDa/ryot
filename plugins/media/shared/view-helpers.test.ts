@@ -1,30 +1,62 @@
-import { createEntityColumnExpression } from "@ryot/contract/display-configuration";
 import { describe, expect, it } from "vitest";
 
-import { buildDefaultDisplayConfig, buildDisplayConfig } from "./view-helpers";
+import { buildViewExpressions } from "./view-helpers";
 
-describe("buildDisplayConfig", () => {
-	it("always sets entityIdProperty to the id column for the slug", () => {
-		const config = buildDisplayConfig("movie");
-		expect(config.entityIdProperty).toEqual(createEntityColumnExpression("movie", "id"));
+describe("buildViewExpressions", () => {
+	it("uses the entity alias and a schema-name literal", () => {
+		const config = buildViewExpressions("movie", "Movie");
+
+		expect(config.grid.title).toEqual({
+			field: "name",
+			type: "column",
+			tableAlias: "entity",
+		});
+		expect(config.grid.eyebrow).toEqual({ type: "literal", value: "Movie" });
+		expect(config.grid.image).toEqual({
+			type: "jsonPath",
+			path: ["images", 0],
+			expr: { type: "column", field: "properties", tableAlias: "entity" },
+		});
 	});
 
-	it("grid and list have the same title and image properties", () => {
-		const config = buildDisplayConfig("movie");
-		expect(config.grid.titleProperty).toEqual(config.list.titleProperty);
-		expect(config.grid.imageProperty).toEqual(config.list.imageProperty);
+	it("uses conditional unit subtitles", () => {
+		const expression = buildViewExpressions("movie", "Movie").grid.secondarySubtitle;
+
+		expect(expression).toMatchObject({
+			type: "conditional",
+			whenTrue: { type: "concat" },
+			condition: { type: "isNotNull" },
+			whenFalse: { type: "literal", value: null },
+		});
 	});
 
-	it("uses the expected media callouts", () => {
-		expect(buildDisplayConfig("movie").grid.calloutProperty).not.toBeNull();
-		expect(buildDisplayConfig("person").grid.calloutProperty).toBeNull();
-	});
+	it("uses review events for media callouts", () => {
+		const expression = buildViewExpressions("movie", "Movie").grid.callout;
 
-	it("uses schema-specific secondary subtitles", () => {
-		expect(buildDisplayConfig("book").grid.secondarySubtitleProperty).not.toBeNull();
-		expect(buildDisplayConfig("movie").grid.secondarySubtitleProperty).not.toBeNull();
-		expect(buildDisplayConfig("anime").grid.secondarySubtitleProperty).not.toBeNull();
-		expect(buildDisplayConfig("custom-schema").grid.secondarySubtitleProperty).toBeNull();
+		expect(expression).toMatchObject({
+			type: "aggregate",
+			aggregation: {
+				function: "average",
+				expr: {
+					type: "cast",
+					target: "number",
+					expr: {
+						path: ["rating"],
+						type: "jsonPath",
+						expr: { field: "properties", tableAlias: "review" },
+					},
+				},
+			},
+			query: {
+				from: { table: "event", alias: "review" },
+				where: {
+					type: "and",
+					predicates: expect.arrayContaining([
+						expect.objectContaining({ right: { type: "literal", value: "review" } }),
+					]),
+				},
+			},
+		});
 	});
 
 	it.each([
@@ -35,18 +67,6 @@ describe("buildDisplayConfig", () => {
 		["custom-schema", ["Name", "Year"]],
 		["anime", ["Name", "Year", "Episodes"]],
 	] as const)("builds the expected %s table columns", (slug, labels) => {
-		expect(buildDisplayConfig(slug).table.columns.map(({ label }) => label)).toEqual(labels);
-	});
-});
-
-describe("buildDefaultDisplayConfig", () => {
-	it("uses only built-in entity columns for custom schemas", () => {
-		const config = buildDefaultDisplayConfig("custom-schema");
-		expect(config.entityIdProperty).toEqual(createEntityColumnExpression("custom-schema", "id"));
-		expect(config.table.columns).toEqual([
-			{ label: "Name", expression: createEntityColumnExpression("custom-schema", "name") },
-		]);
-		expect(config.grid.imageProperty).toBeNull();
-		expect(config.grid.primarySubtitleProperty).toBeNull();
+		expect(buildViewExpressions(slug, "Schema").table.map(({ label }) => label)).toEqual(labels);
 	});
 });

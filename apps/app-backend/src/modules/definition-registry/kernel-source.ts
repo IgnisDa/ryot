@@ -1,8 +1,6 @@
-import {
-	createEntityColumnExpression,
-	createEntitySchemaExpression,
-} from "@ryot/contract/display-configuration";
+import { column, literal, table } from "@ryot/ryotql";
 import { buildAllCollectionsDocument } from "@ryot/ryotql-recipes/collections";
+import { buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
 
 import { manifest as notificationManifest } from "./kernel-scripts/notification.sandbox";
 import type { DefinitionSource } from "./service";
@@ -94,27 +92,27 @@ const collectionSchema = {
 	},
 };
 
-const entityName = createEntityColumnExpression("collection", "name");
-const collectionDisplayConfiguration = {
-	table: { columns: [{ label: "Name", expression: entityName }] },
-	entityIdProperty: createEntityColumnExpression("collection", "id"),
+const collection = table("entity", "collection");
+const collectionProjection = buildSavedViewProjection({
+	entityId: column(collection, "id"),
+	table: [{ label: "Name", expression: column(collection, "name") }],
 	grid: {
-		imageProperty: null,
-		calloutProperty: null,
-		titleProperty: entityName,
-		primarySubtitleProperty: null,
-		secondarySubtitleProperty: null,
-		eyebrowProperty: createEntitySchemaExpression("name"),
+		image: null,
+		callout: null,
+		primarySubtitle: null,
+		secondarySubtitle: null,
+		eyebrow: literal(collectionSchema.name),
+		title: column(collection, "name"),
 	},
 	list: {
-		imageProperty: null,
-		calloutProperty: null,
-		titleProperty: entityName,
-		primarySubtitleProperty: null,
-		secondarySubtitleProperty: null,
-		eyebrowProperty: createEntitySchemaExpression("name"),
+		image: null,
+		callout: null,
+		primarySubtitle: null,
+		secondarySubtitle: null,
+		eyebrow: literal(collectionSchema.name),
+		title: column(collection, "name"),
 	},
-};
+});
 
 export const kernelDefinitionSource = (): DefinitionSource => ({
 	entitySchemas: [collectionSchema],
@@ -170,8 +168,8 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			slug: "collections",
 			name: "All Collections",
 			icon: collectionSchema.icon,
-			queryDocument: buildAllCollectionsDocument(),
-			displayConfiguration: collectionDisplayConfiguration,
+			displayConfiguration: collectionProjection.displayConfiguration,
+			queryDocument: buildAllCollectionsDocument({ fields: collectionProjection.fields }),
 		},
 	],
 });

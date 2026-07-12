@@ -7,14 +7,12 @@ import type {
 	ListedSavedView,
 } from "@ryot/contract/modules/saved-views/schemas";
 import { SavedViewId, UserId } from "@ryot/contract/schema/brands";
-import { ascending, column, document, eq, literal, rows, table } from "@ryot/ryotql";
+import { ascending, column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
-import { RyotQLService } from "#modules/ryotql/service";
 
 import { SavedViewsRepository } from "./repository";
 import { SavedViewsService } from "./service";
@@ -28,7 +26,10 @@ const user = {
 
 const book = table("entity", "book");
 const sampleQueryDocument = document({
-	savedView: rows(book, { fields: [], orderBy: [ascending(column(book, "name"))] }),
+	savedView: rows(book, {
+		fields: [field("id", column(book, "id")), field("name", column(book, "name"))],
+		orderBy: [ascending(column(book, "name"))],
+	}),
 }) satisfies RyotQLDocument;
 
 const baseListedSavedView: ListedSavedView = {
@@ -44,23 +45,23 @@ const baseListedSavedView: ListedSavedView = {
 	updatedAt: new Date().toISOString(),
 	id: SavedViewId.make("sv-id"),
 	displayConfiguration: {
-		entityIdProperty: { type: "literal", value: "id" },
-		table: { columns: [{ label: "Name", expression: { type: "literal", value: "name" } }] },
+		entityIdField: "id",
+		table: { columns: [{ label: "Name", field: "name" }] },
 		grid: {
-			imageProperty: null,
-			eyebrowProperty: null,
-			calloutProperty: null,
-			primarySubtitleProperty: null,
-			secondarySubtitleProperty: null,
-			titleProperty: { type: "literal", value: "name" },
+			imageField: null,
+			eyebrowField: null,
+			calloutField: null,
+			titleField: "name",
+			primarySubtitleField: null,
+			secondarySubtitleField: null,
 		},
 		list: {
-			imageProperty: null,
-			eyebrowProperty: null,
-			calloutProperty: null,
-			primarySubtitleProperty: null,
-			secondarySubtitleProperty: null,
-			titleProperty: { type: "literal", value: "name" },
+			imageField: null,
+			eyebrowField: null,
+			calloutField: null,
+			titleField: "name",
+			primarySubtitleField: null,
+			secondarySubtitleField: null,
 		},
 	},
 };
@@ -69,24 +70,6 @@ const mockRepository = Layer.mock(SavedViewsRepository);
 
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ ...overrides });
-
-const mockRyotQL = Layer.mock(RyotQLService);
-
-const makeRyotQL = (overrides: MockOverrides<typeof mockRyotQL> = {}) =>
-	mockRyotQL({
-		validate: () => Effect.void,
-		...overrides,
-	});
-
-const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
-
-const makeEntitySchemasRepository = (
-	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
-) =>
-	mockEntitySchemasRepository({
-		listVisibleBySlugs: () => Effect.succeed([]),
-		...overrides,
-	});
 
 const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) =>
 	Layer.succeed(DefinitionRegistry, {
@@ -108,21 +91,10 @@ const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) =
 
 const makeServiceLayer = (
 	repository = makeRepository(),
-	ryotql = makeRyotQL(),
-	entitySchemasRepository = makeEntitySchemasRepository(),
 	definitionRegistry = makeDefinitionRegistryLayer(),
 ) =>
 	SavedViewsService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
-				definitionRegistry,
-				entitySchemasRepository,
-				ryotql,
-				repository,
-			),
-		),
+		Layer.provide(Layer.mergeAll(dbRunnerLayer, transactionLayer, definitionRegistry, repository)),
 	);
 
 const createBody = {
@@ -190,8 +162,6 @@ it.effect("returns bad request when deleting a built-in view", () => {
 	const builtinView = { ...baseListedSavedView, slug: "builtin-view", isBuiltin: true };
 	const layer = makeServiceLayer(
 		makeRepository({ findBySlug: () => Effect.succeed(builtinView) }),
-		makeRyotQL(),
-		makeEntitySchemasRepository(),
 		makeDefinitionRegistryLayer(builtinView),
 	);
 
@@ -211,8 +181,6 @@ it.effect("rejects built-in definition changes while still allowing disable togg
 			updateBuiltinStateBySlug: (_userId, _viewSlug, isDisabled, sortOrder) =>
 				Effect.succeed({ ...builtinView, isDisabled, sortOrder }),
 		}),
-		makeRyotQL(),
-		makeEntitySchemasRepository(),
 		makeDefinitionRegistryLayer(builtinView),
 	);
 
@@ -228,55 +196,12 @@ it.effect("rejects built-in definition changes while still allowing disable togg
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("allows built-in disable toggles with independently decoded nested literals", () => {
-	const queryDocument: CreateSavedViewBody["queryDocument"] = document({
-		savedView: rows(book, {
-			fields: [],
-			where: eq(column(book, "name"), literal({ nested: [1, { value: "same" }] })),
-		}),
-	});
-	const displayConfiguration = {
-		...baseListedSavedView.displayConfiguration,
-		entityIdProperty: { type: "literal", value: { nested: [1, { value: "same" }] } },
-	} satisfies CreateSavedViewBody["displayConfiguration"];
-	const currentView = {
-		...baseListedSavedView,
-		queryDocument,
-		isBuiltin: true,
-		displayConfiguration,
-	};
-	const layer = makeServiceLayer(
-		makeRepository({
-			findBySlug: () => Effect.succeed(currentView),
-			updateBuiltinStateBySlug: (_userId, _viewSlug, isDisabled, sortOrder) =>
-				Effect.succeed({ ...currentView, isDisabled, sortOrder }),
-		}),
-		makeRyotQL(),
-		makeEntitySchemasRepository(),
-		makeDefinitionRegistryLayer({ ...currentView, slug: "builtin-view" }),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* SavedViewsService;
-		const view = yield* service.update(user, "builtin-view", {
-			...createBody,
-			isDisabled: true,
-			queryDocument: structuredClone(queryDocument),
-			displayConfiguration: structuredClone(displayConfiguration),
-		});
-
-		expect(view.isDisabled).toBe(true);
-	}).pipe(Effect.provide(layer));
-});
-
 it.effect("rejects updating a built-in view name", () => {
 	const builtinView = { ...baseListedSavedView, name: "Books", slug: "books", isBuiltin: true };
 	const layer = makeServiceLayer(
 		makeRepository({
 			findBySlug: () => Effect.succeed(builtinView),
 		}),
-		makeRyotQL(),
-		makeEntitySchemasRepository(),
 		makeDefinitionRegistryLayer(builtinView),
 	);
 
@@ -298,8 +223,6 @@ it.effect("rejects updating a built-in view's queryDocument", () => {
 	const builtinView = { ...baseListedSavedView, slug: "builtin-view", isBuiltin: true };
 	const layer = makeServiceLayer(
 		makeRepository({ findBySlug: () => Effect.succeed(builtinView) }),
-		makeRyotQL(),
-		makeEntitySchemasRepository(),
 		makeDefinitionRegistryLayer(builtinView),
 	);
 
@@ -334,7 +257,6 @@ it.effect("rejects updating a built-in view's queryDocument", () => {
 it.effect("clones a saved view with (Copy) suffix", () => {
 	let findCalls = 0;
 	let clonedName = "";
-	let validated = false;
 
 	const layer = makeServiceLayer(
 		makeRepository({
@@ -355,12 +277,6 @@ it.effect("clones a saved view with (Copy) suffix", () => {
 					};
 				}),
 		}),
-		makeRyotQL({
-			validate: () =>
-				Effect.sync(() => {
-					validated = true;
-				}).pipe(Effect.as(undefined)),
-		}),
 	);
 
 	return Effect.gen(function* () {
@@ -370,7 +286,6 @@ it.effect("clones a saved view with (Copy) suffix", () => {
 		expect(clonedName).toBe("Reading (Copy)");
 		expect(view.name).toBe("Reading (Copy)");
 		expect(view.pluginSlug).toBeNull();
-		expect(validated).toBe(true);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -427,8 +342,7 @@ it.effect("rejects reorder requests containing unknown slugs", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("creates a saved view after validating the query document", () => {
-	let validatedDocument: unknown;
+it.effect("creates a valid saved view definition", () => {
 	let createdInput: { queryDocument: unknown } | undefined;
 
 	const layer = makeServiceLayer(
@@ -440,12 +354,6 @@ it.effect("creates a saved view after validating the query document", () => {
 					return baseListedSavedView;
 				}),
 		}),
-		makeRyotQL({
-			validate: (doc) =>
-				Effect.sync(() => {
-					validatedDocument = doc;
-				}).pipe(Effect.as(undefined)),
-		}),
 	);
 
 	return Effect.gen(function* () {
@@ -453,24 +361,154 @@ it.effect("creates a saved view after validating the query document", () => {
 		const view = yield* service.create(user, createBody);
 
 		expect(view.queryDocument).toEqual(sampleQueryDocument);
-		expect(validatedDocument).toEqual(sampleQueryDocument);
 		expect(createdInput?.queryDocument).toEqual(sampleQueryDocument);
 	}).pipe(Effect.provide(layer));
 });
 
+const expectInvalidCreate = (
+	name: string,
+	queryDocument: CreateSavedViewBody["queryDocument"],
+	expectedMessage: string,
+	displayConfiguration: CreateSavedViewBody["displayConfiguration"] = createBody.displayConfiguration,
+) =>
+	it.effect(name, () => {
+		const layer = makeServiceLayer(makeRepository({ findBySlug: () => Effect.succeed(null) }));
+
+		return Effect.gen(function* () {
+			const service = yield* SavedViewsService;
+			const exit = yield* Effect.exit(
+				service.create(user, { ...createBody, queryDocument, displayConfiguration }),
+			);
+
+			assertExitFails(exit, new BadRequest({ message: expectedMessage }));
+		}).pipe(Effect.provide(layer));
+	});
+
+expectInvalidCreate(
+	"rejects saved views with multiple named queries",
+	{
+		...sampleQueryDocument,
+		queries: { ...sampleQueryDocument.queries, second: sampleQueryDocument.queries.savedView },
+	},
+	"A saved view must contain exactly one named query",
+	createBody.displayConfiguration,
+);
+
+expectInvalidCreate(
+	"rejects saved views without rows output",
+	{
+		...sampleQueryDocument,
+		queries: {
+			savedView: {
+				...sampleQueryDocument.queries.savedView,
+				output: {
+					type: "aggregate",
+					measures: [{ key: "count", aggregation: { function: "count" } }],
+				},
+			},
+		},
+	} as CreateSavedViewBody["queryDocument"],
+	"Saved view query must have rows output",
+	createBody.displayConfiguration,
+);
+
+expectInvalidCreate(
+	"rejects saved views with wildcard selections",
+	{
+		...sampleQueryDocument,
+		queries: {
+			savedView: {
+				...sampleQueryDocument.queries.savedView,
+				output: {
+					...sampleQueryDocument.queries.savedView.output,
+					fields: [{ tableAlias: "book", type: "wildcard" }],
+				},
+			},
+		},
+	} as CreateSavedViewBody["queryDocument"],
+	"Saved view query must use explicit field selections",
+	createBody.displayConfiguration,
+);
+
+expectInvalidCreate(
+	"rejects saved views with includes",
+	{
+		...sampleQueryDocument,
+		queries: {
+			savedView: {
+				...sampleQueryDocument.queries.savedView,
+				output: {
+					...sampleQueryDocument.queries.savedView.output,
+					include: [
+						{
+							limit: 1,
+							from: book,
+							fields: [],
+							key: "children",
+							orderBy: [ascending(column(book, "id"))],
+						},
+					],
+				},
+			},
+		},
+	} as CreateSavedViewBody["queryDocument"],
+	"Saved view query must not include nested results",
+	createBody.displayConfiguration,
+);
+
+expectInvalidCreate(
+	"rejects saved views whose definition starts on another page",
+	{
+		...sampleQueryDocument,
+		queries: {
+			savedView: {
+				...sampleQueryDocument.queries.savedView,
+				output: {
+					...sampleQueryDocument.queries.savedView.output,
+					pagination: { page: 2, limit: 20 },
+				},
+			},
+		},
+	} as CreateSavedViewBody["queryDocument"],
+	"Saved view query pagination page must be 1",
+	createBody.displayConfiguration,
+);
+
+expectInvalidCreate(
+	"rejects saved views with a display field outside the root projection",
+	sampleQueryDocument,
+	"Saved view display field 'missing' is not in the root projection",
+	{ ...createBody.displayConfiguration, entityIdField: "missing" },
+);
+
+expectInvalidCreate(
+	"rejects saved views with a non-text entity ID field",
+	{
+		...sampleQueryDocument,
+		queries: {
+			savedView: {
+				...sampleQueryDocument.queries.savedView,
+				output: {
+					...sampleQueryDocument.queries.savedView.output,
+					fields: [
+						...sampleQueryDocument.queries.savedView.output.fields,
+						field("count", literal(1)),
+					],
+				},
+			},
+		},
+	} as CreateSavedViewBody["queryDocument"],
+	"Saved view entityIdField must resolve to text",
+	{ ...createBody.displayConfiguration, entityIdField: "count" },
+);
+
 it.effect("rejects creating a saved view with a semantically invalid RyotQL document", () => {
-	const layer = makeServiceLayer(
-		makeRepository({ findBySlug: () => Effect.succeed(null) }),
-		makeRyotQL({
-			validate: () =>
-				Effect.fail(new BadRequest({ message: "Unknown table alias 'unknownAlias'" })),
-		}),
-	);
+	const layer = makeServiceLayer(makeRepository({ findBySlug: () => Effect.succeed(null) }));
 	const unknown = table("entity", "unknownAlias");
 	const invalidQueryDocument: CreateSavedViewBody["queryDocument"] = document({
 		savedView: rows(book, {
-			fields: [],
 			where: eq(column(unknown, "name"), literal("x")),
+			fields: [field("id", column(book, "id")), field("name", column(book, "name"))],
 		}),
 	});
 
@@ -480,66 +518,12 @@ it.effect("rejects creating a saved view with a semantically invalid RyotQL docu
 			service.create(user, { ...createBody, queryDocument: invalidQueryDocument }),
 		);
 
-		assertExitFails(exit, new BadRequest({ message: "Unknown table alias 'unknownAlias'" }));
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Query 'savedView': Unknown table alias 'unknownAlias'" }),
+		);
 	}).pipe(Effect.provide(layer));
 });
-
-it.effect(
-	"rejects creating a saved view whose display config references an unknown entity schema",
-	() => {
-		const layer = makeServiceLayer(makeRepository({ findBySlug: () => Effect.succeed(null) }));
-
-		const badDisplayConfig: CreateSavedViewBody["displayConfiguration"] = {
-			...createBody.displayConfiguration,
-			entityIdProperty: {
-				type: "reference",
-				reference: { type: "entity", slug: "wrong-schema", path: ["properties", "missing"] },
-			},
-		};
-
-		return Effect.gen(function* () {
-			const service = yield* SavedViewsService;
-			const exit = yield* Effect.exit(
-				service.create(user, { ...createBody, displayConfiguration: badDisplayConfig }),
-			);
-
-			assertExitFails(exit, new BadRequest({ message: "Entity schema 'wrong-schema' not found" }));
-		}).pipe(Effect.provide(layer));
-	},
-);
-
-it.effect(
-	"rejects updating a saved view whose display config references an unknown entity schema",
-	() => {
-		const layer = makeServiceLayer(
-			makeRepository({ findBySlug: () => Effect.succeed(baseListedSavedView) }),
-		);
-
-		const badDisplayConfig: CreateSavedViewBody["displayConfiguration"] = {
-			...createBody.displayConfiguration,
-			grid: {
-				...createBody.displayConfiguration.grid,
-				titleProperty: {
-					type: "reference",
-					reference: { type: "entity", slug: "nonexistent", path: ["properties", "missing"] },
-				},
-			},
-		};
-
-		return Effect.gen(function* () {
-			const service = yield* SavedViewsService;
-			const exit = yield* Effect.exit(
-				service.update(user, "my-view", {
-					...createBody,
-					isDisabled: false,
-					displayConfiguration: badDisplayConfig,
-				}),
-			);
-
-			assertExitFails(exit, new BadRequest({ message: "Entity schema 'nonexistent' not found" }));
-		}).pipe(Effect.provide(layer));
-	},
-);
 
 it.effect("updates a saved view's queryDocument", () => {
 	let updatedQueryDocument: unknown;
@@ -550,10 +534,7 @@ it.effect("updates a saved view's queryDocument", () => {
 			...sampleQueryDocument.queries,
 			savedView: {
 				...sampleQueryDocument.queries.savedView,
-				output: {
-					...sampleQueryDocument.queries.savedView.output,
-					pagination: { page: 2, limit: 20 },
-				},
+				output: { ...sampleQueryDocument.queries.savedView.output, orderBy: [] },
 			},
 		},
 	};
