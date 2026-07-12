@@ -1487,7 +1487,7 @@
               "name": "Navigation / Tab Item",
               "reusable": true,
               "height": 42,
-              "fill": "$--primary",
+              "fill": "$--nav-indicator",
               "cornerRadius": 999,
               "gap": 6,
               "padding": [
@@ -1504,17 +1504,17 @@
                   "height": 18,
                   "icon": "house",
                   "library": "lucide",
-                  "fill": "$--primary-foreground"
+                  "fill": "$--accent-text"
                 },
                 {
                   "type": "text",
                   "id": "xaEEl",
                   "name": "Tab Label",
-                  "fill": "$--primary-foreground",
+                  "fill": "$--accent-text",
                   "content": "Home",
                   "fontFamily": "$--font-primary",
-                  "fontSize": 13.5,
-                  "fontWeight": "600"
+                  "fontSize": 12,
+                  "fontWeight": "500"
                 }
               ]
             },
@@ -1556,18 +1556,25 @@
               "strokeAlignment": "inner",
               "effect": [
                 {
-                  "type": "background_blur",
-                  "radius": 18
+                  "type": "shadow",
+                  "shadowType": "outer",
+                  "color": "#281E0F0D",
+                  "offset": {
+                    "x": 0,
+                    "y": 1
+                  },
+                  "blur": 2
                 },
                 {
                   "type": "shadow",
                   "shadowType": "outer",
-                  "color": "#00000066",
+                  "color": "#281E0F1A",
                   "offset": {
                     "x": 0,
-                    "y": 8
+                    "y": 10
                   },
-                  "blur": 24
+                  "blur": 24,
+                  "spread": -12
                 }
               ],
               "layout": "vertical",
@@ -1645,7 +1652,7 @@
       "y": 0,
       "name": "Mobile Navigation",
       "theme": {
-        "Mode": "Dark"
+        "Mode": "Light"
       },
       "width": 2960,
       "height": 1000,
@@ -2125,13 +2132,6 @@
                   "y": 0,
                   "name": "Topbar",
                   "width": 393,
-                  "height": 100,
-                  "fill": "$--background",
-                  "stroke": "$--border",
-                  "strokeWidth": {
-                    "bottom": 1
-                  },
-                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "padding": [
                     44,
@@ -2145,8 +2145,26 @@
                       "id": "CRtHR",
                       "name": "Topbar Row",
                       "width": "fill_container",
-                      "height": 56,
-                      "gap": "$--space-3",
+                      "fill": "$--nav-surface",
+                      "cornerRadius": "$--radius-xl",
+                      "stroke": "$--border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "effect": {
+                        "type": "shadow",
+                        "shadowType": "outer",
+                        "color": "#281E0F0D",
+                        "offset": {
+                          "x": 0,
+                          "y": 1
+                        },
+                        "blur": 2
+                      },
+                      "gap": 12,
+                      "padding": [
+                        8,
+                        12
+                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
@@ -2272,18 +2290,25 @@
                   "strokeAlignment": "inner",
                   "effect": [
                     {
-                      "type": "background_blur",
-                      "radius": 18
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#281E0F0D",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      },
+                      "blur": 2
                     },
                     {
                       "type": "shadow",
                       "shadowType": "outer",
-                      "color": "#00000066",
+                      "color": "#281E0F1A",
                       "offset": {
                         "x": 0,
-                        "y": 8
+                        "y": 10
                       },
-                      "blur": 24
+                      "blur": 24,
+                      "spread": -12
                     }
                   ],
                   "gap": 2,
@@ -2298,7 +2323,7 @@
                       "id": "U2L3Iv",
                       "name": "Tab Home Active",
                       "height": 42,
-                      "fill": "$--primary",
+                      "fill": "$--nav-indicator",
                       "cornerRadius": 999,
                       "gap": 6,
                       "padding": [
@@ -2315,17 +2340,17 @@
                           "height": 18,
                           "icon": "house",
                           "library": "lucide",
-                          "fill": "$--primary-foreground"
+                          "fill": "$--accent-text"
                         },
                         {
                           "type": "text",
                           "id": "UA9kh",
                           "name": "Tab Label",
-                          "fill": "$--primary-foreground",
+                          "fill": "$--accent-text",
                           "content": "Home",
                           "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                          "fontSize": 12,
+                          "fontWeight": "500"
                         }
                       ]
                     },
@@ -3586,13 +3611,6 @@
                   "y": 0,
                   "name": "Topbar",
                   "width": 393,
-                  "height": 100,
-                  "fill": "$--background",
-                  "stroke": "$--border",
-                  "strokeWidth": {
-                    "bottom": 1
-                  },
-                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "padding": [
                     44,
@@ -3606,8 +3624,26 @@
                       "id": "jazpZ",
                       "name": "Topbar Row",
                       "width": "fill_container",
-                      "height": 56,
-                      "gap": "$--space-3",
+                      "fill": "$--nav-surface",
+                      "cornerRadius": "$--radius-xl",
+                      "stroke": "$--border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "effect": {
+                        "type": "shadow",
+                        "shadowType": "outer",
+                        "color": "#281E0F0D",
+                        "offset": {
+                          "x": 0,
+                          "y": 1
+                        },
+                        "blur": 2
+                      },
+                      "gap": 12,
+                      "padding": [
+                        8,
+                        12
+                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
@@ -3733,18 +3769,25 @@
                   "strokeAlignment": "inner",
                   "effect": [
                     {
-                      "type": "background_blur",
-                      "radius": 18
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#281E0F0D",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      },
+                      "blur": 2
                     },
                     {
                       "type": "shadow",
                       "shadowType": "outer",
-                      "color": "#00000066",
+                      "color": "#281E0F1A",
                       "offset": {
                         "x": 0,
-                        "y": 8
+                        "y": 10
                       },
-                      "blur": 24
+                      "blur": 24,
+                      "spread": -12
                     }
                   ],
                   "gap": 2,
@@ -3759,7 +3802,7 @@
                       "id": "sHzSg",
                       "name": "Tab Home Active",
                       "height": 42,
-                      "fill": "$--primary",
+                      "fill": "$--nav-indicator",
                       "cornerRadius": 999,
                       "gap": 6,
                       "padding": [
@@ -3776,17 +3819,17 @@
                           "height": 18,
                           "icon": "house",
                           "library": "lucide",
-                          "fill": "$--primary-foreground"
+                          "fill": "$--accent-text"
                         },
                         {
                           "type": "text",
                           "id": "C54kZ6",
                           "name": "Tab Label",
-                          "fill": "$--primary-foreground",
+                          "fill": "$--accent-text",
                           "content": "Home",
                           "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                          "fontSize": 12,
+                          "fontWeight": "500"
                         }
                       ]
                     },
@@ -4410,18 +4453,25 @@
                   "strokeAlignment": "inner",
                   "effect": [
                     {
-                      "type": "background_blur",
-                      "radius": 18
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#281E0F0D",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      },
+                      "blur": 2
                     },
                     {
                       "type": "shadow",
                       "shadowType": "outer",
-                      "color": "#00000066",
+                      "color": "#281E0F1A",
                       "offset": {
                         "x": 0,
-                        "y": 8
+                        "y": 10
                       },
-                      "blur": 24
+                      "blur": 24,
+                      "spread": -12
                     }
                   ],
                   "gap": 2,
@@ -4436,7 +4486,7 @@
                       "id": "Ywghr",
                       "name": "Tab Home Active",
                       "height": 42,
-                      "fill": "$--primary",
+                      "fill": "$--nav-indicator",
                       "cornerRadius": 999,
                       "gap": 6,
                       "padding": [
@@ -4453,17 +4503,17 @@
                           "height": 18,
                           "icon": "house",
                           "library": "lucide",
-                          "fill": "$--primary-foreground"
+                          "fill": "$--accent-text"
                         },
                         {
                           "type": "text",
                           "id": "O5vfLO",
                           "name": "Tab Label",
-                          "fill": "$--primary-foreground",
+                          "fill": "$--accent-text",
                           "content": "Home",
                           "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                          "fontSize": 12,
+                          "fontWeight": "500"
                         }
                       ]
                     },
@@ -5045,13 +5095,6 @@
                   "y": 0,
                   "name": "Topbar",
                   "width": 393,
-                  "height": 100,
-                  "fill": "$--background",
-                  "stroke": "$--border",
-                  "strokeWidth": {
-                    "bottom": 1
-                  },
-                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "padding": [
                     44,
@@ -5065,8 +5108,26 @@
                       "id": "K2nk3",
                       "name": "Topbar Row",
                       "width": "fill_container",
-                      "height": 56,
-                      "gap": "$--space-3",
+                      "fill": "$--nav-surface",
+                      "cornerRadius": "$--radius-xl",
+                      "stroke": "$--border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "effect": {
+                        "type": "shadow",
+                        "shadowType": "outer",
+                        "color": "#281E0F0D",
+                        "offset": {
+                          "x": 0,
+                          "y": 1
+                        },
+                        "blur": 2
+                      },
+                      "gap": 12,
+                      "padding": [
+                        8,
+                        12
+                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
@@ -5192,18 +5253,25 @@
                   "strokeAlignment": "inner",
                   "effect": [
                     {
-                      "type": "background_blur",
-                      "radius": 18
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#281E0F0D",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      },
+                      "blur": 2
                     },
                     {
                       "type": "shadow",
                       "shadowType": "outer",
-                      "color": "#00000066",
+                      "color": "#281E0F1A",
                       "offset": {
                         "x": 0,
-                        "y": 8
+                        "y": 10
                       },
-                      "blur": 24
+                      "blur": 24,
+                      "spread": -12
                     }
                   ],
                   "gap": 2,
@@ -5218,7 +5286,7 @@
                       "id": "a8ibW6",
                       "name": "Tab Home Active",
                       "height": 42,
-                      "fill": "$--primary",
+                      "fill": "$--nav-indicator",
                       "cornerRadius": 999,
                       "gap": 6,
                       "padding": [
@@ -5235,17 +5303,17 @@
                           "height": 18,
                           "icon": "house",
                           "library": "lucide",
-                          "fill": "$--primary-foreground"
+                          "fill": "$--accent-text"
                         },
                         {
                           "type": "text",
                           "id": "yUqKg",
                           "name": "Tab Label",
-                          "fill": "$--primary-foreground",
+                          "fill": "$--accent-text",
                           "content": "Home",
                           "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                          "fontSize": 12,
+                          "fontWeight": "500"
                         }
                       ]
                     },
@@ -6059,18 +6127,25 @@
                   "strokeAlignment": "inner",
                   "effect": [
                     {
-                      "type": "background_blur",
-                      "radius": 18
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#281E0F0D",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      },
+                      "blur": 2
                     },
                     {
                       "type": "shadow",
                       "shadowType": "outer",
-                      "color": "#00000066",
+                      "color": "#281E0F1A",
                       "offset": {
                         "x": 0,
-                        "y": 8
+                        "y": 10
                       },
-                      "blur": 24
+                      "blur": 24,
+                      "spread": -12
                     }
                   ],
                   "gap": 2,
@@ -6085,7 +6160,7 @@
                       "id": "Pjnlx",
                       "name": "Tab Home Active",
                       "height": 42,
-                      "fill": "$--primary",
+                      "fill": "$--nav-indicator",
                       "cornerRadius": 999,
                       "gap": 6,
                       "padding": [
@@ -6102,17 +6177,17 @@
                           "height": 18,
                           "icon": "house",
                           "library": "lucide",
-                          "fill": "$--primary-foreground"
+                          "fill": "$--accent-text"
                         },
                         {
                           "type": "text",
                           "id": "JeIsm",
                           "name": "Tab Label",
-                          "fill": "$--primary-foreground",
+                          "fill": "$--accent-text",
                           "content": "Home",
                           "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                          "fontSize": 12,
+                          "fontWeight": "500"
                         }
                       ]
                     },
@@ -6694,13 +6769,6 @@
                   "y": 0,
                   "name": "Topbar",
                   "width": 393,
-                  "height": 100,
-                  "fill": "$--background",
-                  "stroke": "$--border",
-                  "strokeWidth": {
-                    "bottom": 1
-                  },
-                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "padding": [
                     44,
@@ -6714,8 +6782,26 @@
                       "id": "p1EgA",
                       "name": "Topbar Row",
                       "width": "fill_container",
-                      "height": 56,
-                      "gap": "$--space-3",
+                      "fill": "$--nav-surface",
+                      "cornerRadius": "$--radius-xl",
+                      "stroke": "$--border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "effect": {
+                        "type": "shadow",
+                        "shadowType": "outer",
+                        "color": "#281E0F0D",
+                        "offset": {
+                          "x": 0,
+                          "y": 1
+                        },
+                        "blur": 2
+                      },
+                      "gap": 12,
+                      "padding": [
+                        8,
+                        12
+                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
@@ -6841,18 +6927,25 @@
                   "strokeAlignment": "inner",
                   "effect": [
                     {
-                      "type": "background_blur",
-                      "radius": 18
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#281E0F0D",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      },
+                      "blur": 2
                     },
                     {
                       "type": "shadow",
                       "shadowType": "outer",
-                      "color": "#00000066",
+                      "color": "#281E0F1A",
                       "offset": {
                         "x": 0,
-                        "y": 8
+                        "y": 10
                       },
-                      "blur": 24
+                      "blur": 24,
+                      "spread": -12
                     }
                   ],
                   "gap": 2,
@@ -6867,7 +6960,7 @@
                       "id": "VPkMG",
                       "name": "Tab Home Active",
                       "height": 42,
-                      "fill": "$--primary",
+                      "fill": "$--nav-indicator",
                       "cornerRadius": 999,
                       "gap": 6,
                       "padding": [
@@ -6884,17 +6977,17 @@
                           "height": 18,
                           "icon": "house",
                           "library": "lucide",
-                          "fill": "$--primary-foreground"
+                          "fill": "$--accent-text"
                         },
                         {
                           "type": "text",
                           "id": "d8gGiU",
                           "name": "Tab Label",
-                          "fill": "$--primary-foreground",
+                          "fill": "$--accent-text",
                           "content": "Home",
                           "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                          "fontSize": 12,
+                          "fontWeight": "500"
                         }
                       ]
                     },
@@ -7489,18 +7582,25 @@
                   "strokeAlignment": "inner",
                   "effect": [
                     {
-                      "type": "background_blur",
-                      "radius": 18
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#281E0F0D",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      },
+                      "blur": 2
                     },
                     {
                       "type": "shadow",
                       "shadowType": "outer",
-                      "color": "#00000066",
+                      "color": "#281E0F1A",
                       "offset": {
                         "x": 0,
-                        "y": 8
+                        "y": 10
                       },
-                      "blur": 24
+                      "blur": 24,
+                      "spread": -12
                     }
                   ],
                   "gap": 2,
@@ -7515,7 +7615,7 @@
                       "id": "Gszcw",
                       "name": "Tab Home Active",
                       "height": 42,
-                      "fill": "$--primary",
+                      "fill": "$--nav-indicator",
                       "cornerRadius": 999,
                       "gap": 6,
                       "padding": [
@@ -7532,17 +7632,17 @@
                           "height": 18,
                           "icon": "house",
                           "library": "lucide",
-                          "fill": "$--primary-foreground"
+                          "fill": "$--accent-text"
                         },
                         {
                           "type": "text",
                           "id": "pvfRo",
                           "name": "Tab Label",
-                          "fill": "$--primary-foreground",
+                          "fill": "$--accent-text",
                           "content": "Home",
                           "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                          "fontSize": 12,
+                          "fontWeight": "500"
                         }
                       ]
                     },
@@ -8124,13 +8224,6 @@
                   "y": 0,
                   "name": "Topbar",
                   "width": 393,
-                  "height": 100,
-                  "fill": "$--background",
-                  "stroke": "$--border",
-                  "strokeWidth": {
-                    "bottom": 1
-                  },
-                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "padding": [
                     44,
@@ -8144,8 +8237,26 @@
                       "id": "k9Fcpx",
                       "name": "Topbar Row",
                       "width": "fill_container",
-                      "height": 56,
-                      "gap": "$--space-3",
+                      "fill": "$--nav-surface",
+                      "cornerRadius": "$--radius-xl",
+                      "stroke": "$--border",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "effect": {
+                        "type": "shadow",
+                        "shadowType": "outer",
+                        "color": "#281E0F0D",
+                        "offset": {
+                          "x": 0,
+                          "y": 1
+                        },
+                        "blur": 2
+                      },
+                      "gap": 12,
+                      "padding": [
+                        8,
+                        12
+                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
@@ -8271,18 +8382,25 @@
                   "strokeAlignment": "inner",
                   "effect": [
                     {
-                      "type": "background_blur",
-                      "radius": 18
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#281E0F0D",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      },
+                      "blur": 2
                     },
                     {
                       "type": "shadow",
                       "shadowType": "outer",
-                      "color": "#00000066",
+                      "color": "#281E0F1A",
                       "offset": {
                         "x": 0,
-                        "y": 8
+                        "y": 10
                       },
-                      "blur": 24
+                      "blur": 24,
+                      "spread": -12
                     }
                   ],
                   "gap": 2,
@@ -8297,7 +8415,7 @@
                       "id": "VODJO",
                       "name": "Tab Home Active",
                       "height": 42,
-                      "fill": "$--primary",
+                      "fill": "$--nav-indicator",
                       "cornerRadius": 999,
                       "gap": 6,
                       "padding": [
@@ -8314,17 +8432,17 @@
                           "height": 18,
                           "icon": "house",
                           "library": "lucide",
-                          "fill": "$--primary-foreground"
+                          "fill": "$--accent-text"
                         },
                         {
                           "type": "text",
                           "id": "rzvaW",
                           "name": "Tab Label",
-                          "fill": "$--primary-foreground",
+                          "fill": "$--accent-text",
                           "content": "Home",
                           "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                          "fontSize": 12,
+                          "fontWeight": "500"
                         }
                       ]
                     },
@@ -8753,18 +8871,25 @@
                   "strokeAlignment": "inner",
                   "effect": [
                     {
-                      "type": "background_blur",
-                      "radius": 18
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#281E0F0D",
+                      "offset": {
+                        "x": 0,
+                        "y": 1
+                      },
+                      "blur": 2
                     },
                     {
                       "type": "shadow",
                       "shadowType": "outer",
-                      "color": "#00000066",
+                      "color": "#281E0F1A",
                       "offset": {
                         "x": 0,
-                        "y": 8
+                        "y": 10
                       },
-                      "blur": 24
+                      "blur": 24,
+                      "spread": -12
                     }
                   ],
                   "gap": 2,
@@ -8779,7 +8904,7 @@
                       "id": "A71YPl",
                       "name": "Tab Home Active",
                       "height": 42,
-                      "fill": "$--primary",
+                      "fill": "$--nav-indicator",
                       "cornerRadius": 999,
                       "gap": 6,
                       "padding": [
@@ -8796,17 +8921,17 @@
                           "height": 18,
                           "icon": "house",
                           "library": "lucide",
-                          "fill": "$--primary-foreground"
+                          "fill": "$--accent-text"
                         },
                         {
                           "type": "text",
                           "id": "pmt3Z",
                           "name": "Tab Label",
-                          "fill": "$--primary-foreground",
+                          "fill": "$--accent-text",
                           "content": "Home",
                           "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                          "fontSize": 12,
+                          "fontWeight": "500"
                         }
                       ]
                     },
@@ -15744,6 +15869,10 @@
           }
         }
       ]
+    },
+    "--radius-xl": {
+      "type": "number",
+      "value": 16
     }
   },
   "fileToken": "a9769fe4-5e4f-485a-9e0a-bc2a845e7a87"
