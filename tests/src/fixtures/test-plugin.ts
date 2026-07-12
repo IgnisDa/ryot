@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { PluginSlug, type SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type {
+	PluginManifest,
 	PluginCron,
 	PluginConfigSchema,
 	PluginEventAutomation,
@@ -83,6 +84,7 @@ export const testPluginManifest = (input: {
 	operations?: ReadonlyArray<TestPluginOperation>;
 	importSources?: ReadonlyArray<PluginImportSource>;
 	eventAutomations?: ReadonlyArray<PluginEventAutomation>;
+	integrationProviders?: PluginManifest["integrationProviders"];
 	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
 	workflows?: ReadonlyArray<{ slug: string; scriptSlug: string }>;
 	boot?: ReadonlyArray<{ slug: string; scriptSlug: string; description: string }>;
@@ -106,7 +108,6 @@ export const testPluginManifest = (input: {
 	userBootstrap: [],
 	signalSchemas: [],
 	boot: input.boot ?? [],
-	integrationProviders: [],
 	crons: input.crons ?? [],
 	scripts: input.scripts ?? [],
 	workflows: input.workflows ?? [],
@@ -115,6 +116,7 @@ export const testPluginManifest = (input: {
 	importSources: input.importSources ?? [],
 	entitySchemas: input.entitySchemas ?? [],
 	relationshipSchemas: input.relationshipSchemas ?? [],
+	integrationProviders: input.integrationProviders ?? [],
 	configSchema: input.configSchema ?? { fields: {}, unknownKeys: "strict" as const },
 	metadata: {
 		version: "1.0.0",
@@ -219,6 +221,7 @@ export const installTestPluginBundle = (input: {
 	entitySchemas?: Parameters<typeof testPluginManifest>[0]["entitySchemas"];
 	eventAutomations?: Parameters<typeof testPluginManifest>[0]["eventAutomations"];
 	relationshipSchemas?: Parameters<typeof testPluginManifest>[0]["relationshipSchemas"];
+	integrationProviders?: Parameters<typeof testPluginManifest>[0]["integrationProviders"];
 }) =>
 	Effect.gen(function* () {
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
@@ -234,6 +237,7 @@ export const installTestPluginBundle = (input: {
 			entitySchemas: input.entitySchemas,
 			eventAutomations: input.eventAutomations,
 			relationshipSchemas: input.relationshipSchemas,
+			integrationProviders: input.integrationProviders,
 			...(input.linkToEntitySchemaSlug
 				? {
 						linkToProviderSlug: input.providers?.[0]?.slug,

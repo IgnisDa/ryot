@@ -6,20 +6,19 @@ import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
 import { Effect, Layer, Runtime, Schema, Stream } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
-import { kernelScripts } from "#modules/definition-registry/kernel-source";
-import { bootPluginSources } from "#modules/plugins/boot-sources";
-import { loadPluginSource } from "#modules/plugins/source";
-import { SandboxCompiler } from "#modules/sandbox/compiler";
-
-import { materializeSandboxCompiledModule } from "./compiled-modules";
+import { materializeSandboxCompiledModule } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
 import {
 	ensureSandboxRuntimeDependencies,
 	SANDBOX_APPROVED_DEPENDENCIES,
 	type SandboxRuntimePaths,
-} from "./dependencies";
-import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "./limits";
-import { makeSandboxCommandExecutor } from "./restricted-command-executor";
-import { sandboxRunnerSource } from "./runner.generated";
+} from "#lib/infrastructure/sandbox-runtime/dependencies";
+import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
+import { makeSandboxCommandExecutor } from "#lib/infrastructure/sandbox-runtime/restricted-command-executor";
+import { sandboxRunnerSource } from "#lib/infrastructure/sandbox-runtime/runner.generated";
+import { kernelScripts } from "#modules/definition-registry/kernel-source";
+import { bootPluginSources } from "#modules/plugins/boot-sources";
+import { loadPluginSource } from "#modules/plugins/source";
+import { SandboxCompiler } from "#modules/sandbox/compiler";
 
 let dependencyRuntimeRoot: string | undefined;
 let dependencyRuntime: SandboxRuntimePaths | undefined;
@@ -64,18 +63,18 @@ import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
+  capabilities: [],
   name: "Runner validation",
   slug: "runner-validation",
-  capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
 	manifest,
-  input: Schema.Struct({ value: Schema.Number }),
   output: Schema.Number,
   run: (input) => Effect.succeed(input.value),
+  input: Schema.Struct({ value: Schema.Number }),
 });
 
 `;
@@ -86,17 +85,17 @@ import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
+  capabilities: [],
   name: "Runner failure",
   slug: "runner-failure",
-  capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
   manifest,
-  input: Schema.Struct({}),
   output: Schema.Null,
+  input: Schema.Struct({}),
   run: () => Effect.sync(() => {
     throw new Error("mapped execution failure execution-1");
   }),
@@ -109,17 +108,17 @@ import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
+  capabilities: [],
   name: "Runner limits",
   slug: "runner-limits",
-  capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
   manifest,
-  input: Schema.Struct({ mode: Schema.Literal("output", "logs") }),
   output: Schema.Unknown,
+  input: Schema.Struct({ mode: Schema.Literal("output", "logs") }),
   run: (input) => Effect.sync(() => {
     if (input.mode === "output") {
       return "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1});
@@ -142,15 +141,15 @@ export const manifest = defineManifest({
   kind: "activity",
   name: "Filesystem",
   slug: "filesystem",
-  capabilities: ["artifact-read", "scratch"],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineActivity({
   manifest,
-  input: Schema.Struct({ chunkName: Schema.String, artifactKey: Schema.optional(Schema.String) }),
   output: sandboxScratchManifestSchema,
+  input: Schema.Struct({ chunkName: Schema.String, artifactKey: Schema.optional(Schema.String) }),
   run: (input) => Effect.gen(function* () {
     const artifact = yield* input.artifactKey ? readNamedArtifact(input.artifactKey) : readArtifact();
     return yield* writeScratchChunks([{ name: input.chunkName, contents: artifact }]);
@@ -172,6 +171,8 @@ export const manifest = defineManifest({
   kind: "script",
   name: "Core host execution",
   slug: "core-host-execution",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: ["timezone"],
   capabilities: [
     "httpCall",
     "getCachedValue",
@@ -180,20 +181,18 @@ export const manifest = defineManifest({
     "getSystemConfigValue",
     "getUserPreferences",
   ],
-  requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: ["timezone"],
 });
 
 export default defineScript({
 	manifest,
   input: Schema.Struct({ write: Schema.Boolean }),
   output: Schema.Struct({
-    after: Schema.NullOr(jsonValueSchema),
-    before: Schema.NullOr(jsonValueSchema),
     claim: cacheClaimSchema,
     config: jsonValueSchema,
     http: httpCallResponseSchema,
     preferences: userPreferencesSchema,
+    after: Schema.NullOr(jsonValueSchema),
+    before: Schema.NullOr(jsonValueSchema),
   }),
   run: (input, host, execution) => Effect.gen(function* () {
     const before = yield* host.getCachedValue("shared");
@@ -224,9 +223,9 @@ export const manifest = defineManifest({
   kind: "script",
   name: "Filtered host",
   slug: "filtered-host",
-  capabilities: ["getCachedValue"],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  capabilities: ["getCachedValue"],
 });
 
 Object.defineProperty(manifest.capabilities, Symbol.iterator, {
@@ -245,10 +244,7 @@ export default defineScript({
   output: Schema.Struct({ keys: Schema.Array(Schema.String), value: Schema.NullOr(jsonValueSchema) }),
   run: (_input, host) => Effect.gen(function* () {
     const value = yield* host.getCachedValue("redirect-check");
-    return {
-      keys: Object.keys(host).sort(),
-      value,
-    };
+    return { keys: Object.keys(host).sort(), value };
   }),
 });
 `;
@@ -261,15 +257,15 @@ export const manifest = defineManifest({
   kind: "script",
   name: "Host budgets",
   slug: "host-budgets",
-  capabilities: ["getCachedValue", "httpCall"],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  capabilities: ["getCachedValue", "httpCall"],
 });
 
 export default defineScript({
 	manifest,
-	input: Schema.Struct({ kind: Schema.Literal("host", "http") }),
 	output: Schema.Unknown,
+	input: Schema.Struct({ kind: Schema.Literal("host", "http") }),
 	run: (input, host) => Effect.gen(function* () {
 		let result: unknown = null;
 		if (input.kind === "host") {
@@ -300,10 +296,10 @@ import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  name: "Domain host execution",
-  slug: "domain-host-execution",
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  name: "Domain host execution",
+  slug: "domain-host-execution",
   capabilities: [
     "getEntity",
     "listEvents",
@@ -321,11 +317,11 @@ export default defineScript({
   output: Schema.Struct({
     queryRows: Schema.Number,
     missing: Schema.String,
-    created: createEventsResultDataSchema,
     entity: entityRecordSchema,
     integration: integrationRecordSchema,
-    events: Schema.Array(eventRecordSchema),
+    created: createEventsResultDataSchema,
     entitySchema: entitySchemaRecordSchema,
+    events: Schema.Array(eventRecordSchema),
     eventSchemas: Schema.Array(eventSchemaRecordSchema),
   }),
   run: (_input, host) => Effect.gen(function* () {
@@ -361,17 +357,17 @@ import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
-  name: "${name} dependency load",
-  slug: "${name}-dependency-load",
   capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  name: "${name} dependency load",
+  slug: "${name}-dependency-load",
 });
 
 export default defineScript({
 	manifest,
-  input: Schema.Struct({}),
   output: Schema.Null,
+  input: Schema.Struct({}),
   run: () => Effect.succeed(null),
 });
 `;
@@ -414,11 +410,11 @@ const Effect = {
 
 const manifest = {
   kind: "workflow",
-  name: "Workflow nondeterminism",
-  slug: "workflow-nondeterminism",
   capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  name: "Workflow nondeterminism",
+  slug: "workflow-nondeterminism",
 };
 const date = Date;
 const dateNow = Date.now;
@@ -468,18 +464,18 @@ import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 const manifest = {
   kind: "script",
+  capabilities: [],
   name: "Ambient script",
   slug: "ambient-script",
-  capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
 };
 
 export default {
   manifest,
-  definitionType: "ryot:sandbox-script",
-  input: Schema.Struct({}),
   output: Schema.Boolean,
+  input: Schema.Struct({}),
+  definitionType: "ryot:sandbox-script",
   run: () => Effect.sync(() => Date.now() > 0 && Math.random() >= 0 && performance.now() >= 0),
 };
 `;
@@ -490,17 +486,17 @@ import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
+  capabilities: [],
   name: "Generated npm import",
   slug: "generated-npm-import",
-  capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
 	manifest,
-  input: Schema.Struct({}),
   output: Schema.Null,
+  input: Schema.Struct({}),
   run: () => Effect.promise(async () => {
     const load = Function('return im' + 'port("npm:zod")');
     await load();
@@ -575,8 +571,8 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 				.join("");
 			const executor = yield* CommandExecutor.CommandExecutor;
 			const sandboxExecutor = makeSandboxCommandExecutor(executor, {
-				PATH: Bun.env["PATH"] ?? "/usr/bin:/bin",
 				DENO_DIR: runtime.cacheDirectory,
+				PATH: Bun.env["PATH"] ?? "/usr/bin:/bin",
 			});
 			const command = Command.make(
 				"deno",
@@ -677,10 +673,7 @@ const startCoreHostBridge = (
 		const persistentCache = new Map<string, unknown>();
 		const runtime = yield* Effect.runtime();
 
-		const server = yield* BunHttpServer.make({
-			port: 0,
-			hostname: "127.0.0.1",
-		});
+		const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
 		yield* HttpServer.serveEffect(
 			HttpApp.fromWebHandler((request) =>
 				Runtime.runPromise(runtime)(
@@ -708,8 +701,8 @@ const startCoreHostBridge = (
 						} else if (fnName === "claimCachedValue") {
 							if (persistentCache.has(key)) {
 								result = {
-									data: { claimed: false, value: persistentCache.get(key) ?? null },
 									success: true,
+									data: { claimed: false, value: persistentCache.get(key) ?? null },
 								};
 							} else {
 								persistentCache.set(key, args[1]);
@@ -776,11 +769,11 @@ it("loads compiled ESM in Deno and validates definition input and output", () =>
 
 			const promiseManifest = {
 				kind: "script",
-				name: "Promise definition rejection",
-				slug: "promise-definition-rejection",
 				capabilities: [],
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
+				name: "Promise definition rejection",
+				slug: "promise-definition-rejection",
 			} as const;
 			const promiseManifestSource = yield* Schema.encode(Schema.parseJson(Schema.Unknown))(
 				promiseManifest,
@@ -791,11 +784,11 @@ it("loads compiled ESM in Deno and validates definition input and output", () =>
 					manifest: promiseManifest,
 					javascript: `import { Schema } from "@ryot/sandbox-sdk/effect";
 export default {
-  definitionType: "ryot:sandbox-script",
-  manifest: ${promiseManifestSource},
-	input: Schema.Struct({}),
 	output: Schema.Boolean,
+	input: Schema.Struct({}),
 	run: () => Promise.resolve(true),
+  manifest: ${promiseManifestSource},
+  definitionType: "ryot:sandbox-script",
 };`,
 				},
 				{},
@@ -806,12 +799,7 @@ export default {
 				message: "Sandbox definition must return an Effect",
 			});
 
-			const unsupported = yield* runInDeno(
-				{ ...compiled, format: 2 },
-				{
-					value: 42,
-				},
-			);
+			const unsupported = yield* runInDeno({ ...compiled, format: 2 }, { value: 42 });
 			assert(unsupported !== null && typeof unsupported === "object");
 			expect(Reflect.get(unsupported, "error")).toEqual({
 				phase: "load",
@@ -857,9 +845,7 @@ it("returns source-mapped, sanitized execution and load errors", () =>
 			const missingResult = yield* runInDeno(
 				compiled,
 				{},
-				{
-					moduleUrl: (yield* path.toFileUrl(missingModulePath)).href,
-				},
+				{ moduleUrl: (yield* path.toFileUrl(missingModulePath)).href },
 			);
 			assert(missingResult !== null && typeof missingResult === "object");
 			const missingError = Reflect.get(missingResult, "error");
@@ -1023,9 +1009,9 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				assert(first !== null && typeof first === "object");
 				expect(Reflect.get(first, "value")).toMatchObject({
 					before: null,
+					config: "Etc/GMT",
 					after: { value: 42 },
 					claim: { claimed: true },
-					config: "Etc/GMT",
 					preferences: { isNsfw: false, disableIntegrations: true },
 				});
 
@@ -1033,12 +1019,7 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				const isolated = yield* runInDeno(
 					compiled,
 					{ write: false },
-					{
-						apiBase,
-						apiFunctions,
-						scriptId: "script-b",
-						executionId: "execution-b-1",
-					},
+					{ apiBase, apiFunctions, scriptId: "script-b", executionId: "execution-b-1" },
 				);
 				assert(isolated !== null && typeof isolated === "object");
 				expect(Reflect.get(isolated, "value")).toMatchObject({
@@ -1051,12 +1032,7 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				const persistent = yield* runInDeno(
 					compiled,
 					{ write: false },
-					{
-						apiBase,
-						apiFunctions,
-						scriptId: "script-a",
-						executionId: "execution-a-2",
-					},
+					{ apiBase, apiFunctions, scriptId: "script-a", executionId: "execution-a-2" },
 				);
 				assert(persistent !== null && typeof persistent === "object");
 				expect(Reflect.get(persistent, "value")).toMatchObject({
@@ -1069,10 +1045,7 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				const filteredResult = yield* runInDeno(
 					filtered,
 					{},
-					{
-						apiBase,
-						apiFunctions: ["getCachedValue", "setCachedValue", "getSystemConfigValue"],
-					},
+					{ apiBase, apiFunctions: ["getCachedValue", "setCachedValue", "getSystemConfigValue"] },
 				);
 				assert(filteredResult !== null && typeof filteredResult === "object");
 				expect(Reflect.get(filteredResult, "value")).toEqual({
@@ -1128,7 +1101,7 @@ it(
 				const kernelFiles = Object.fromEntries(
 					yield* Effect.forEach(kernelScripts, (script) =>
 						Effect.tryPromise(() =>
-							Bun.file(new URL(`../../../../${script.entry}`, import.meta.url)).text(),
+							Bun.file(new URL(`../../${script.entry}`, import.meta.url)).text(),
 						).pipe(Effect.map((scriptSource) => [script.entry, scriptSource] as const)),
 					),
 				);
@@ -1170,8 +1143,8 @@ it(
 								data: {
 									Media: {
 										id: 7,
-										type: "ANIME",
 										episodes: 12,
+										type: "ANIME",
 										isAdult: false,
 										averageScore: 83,
 										bannerImage: null,
@@ -1538,10 +1511,7 @@ const startDomainHostBridge = () =>
 	Effect.gen(function* () {
 		const createdEvents: unknown[][] = [];
 		const runtime = yield* Effect.runtime();
-		const server = yield* BunHttpServer.make({
-			port: 0,
-			hostname: "127.0.0.1",
-		});
+		const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
 		yield* HttpServer.serveEffect(
 			HttpApp.fromWebHandler((request) =>
 				Runtime.runPromise(runtime)(
@@ -1585,10 +1555,7 @@ const startDomainHostBridge = () =>
 		const address = server.address;
 		assert(address._tag === "TcpAddress");
 
-		return {
-			createdEvents,
-			port: address.port,
-		};
+		return { createdEvents, port: address.port };
 	});
 
 it("executes typed domain host methods through Deno", () =>

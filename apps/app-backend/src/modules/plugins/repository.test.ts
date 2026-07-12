@@ -14,10 +14,15 @@ import type { NormalizedPlugin } from "./types";
 const makeLayer = (input: {
 	statuses?: Array<string>;
 	entityRows?: ReadonlyArray<{ id: string }>;
+	integrationRows?: ReadonlyArray<{ id: string }>;
 }) => {
 	const db = {
 		select: () => ({
-			from: () => ({
+			from: (table: unknown) => ({
+				where: () => ({
+					limit: () =>
+						Promise.resolve(table === schema.integration ? (input.integrationRows ?? []) : []),
+				}),
 				leftJoin: () => ({
 					where: () => ({ limit: () => Promise.resolve(input.entityRows ?? []) }),
 				}),
@@ -90,6 +95,13 @@ it.effect("detects entities referencing a plugin provider", () =>
 	}).pipe(Effect.provide(makeLayer({ entityRows: [{ id: "entity-id" }] }))),
 );
 
+it.effect("detects integrations owned by a plugin", () =>
+	Effect.gen(function* () {
+		const repository = yield* PluginRepository;
+		expect(yield* repository.hasIntegrationReferences("fixture")).toBe(true);
+	}).pipe(Effect.provide(makeLayer({ integrationRows: [{ id: "integration-id" }] }))),
+);
+
 it.effect(
 	"preserves provider IDs and persists provider script membership across reingestion",
 	() => {
@@ -117,9 +129,9 @@ it.effect(
 		assert(automation);
 		const providerScript = {
 			...automation,
-			kind: "provider" as const,
 			name: "Fixture details",
 			slug: "fixture.details",
+			kind: "provider" as const,
 			providerSlug: "fixture-provider",
 			providerOperation: "details" as const,
 		};
@@ -149,10 +161,10 @@ it.effect(
 				return {
 					entry,
 					metadata,
-					slug: script.slug,
-					name: script.name,
 					source: "source",
 					compiledFormat: 1,
+					slug: script.slug,
+					name: script.name,
 					compiledCode: "compiled",
 					contentHash: `${script.slug}-hash`,
 				};
@@ -216,4 +228,35 @@ it.effect("safely deletes unreferenced scripts when the live hash set is empty",
 		expect(statements[0]?.sql).toContain("not exists");
 		expect(statements[0]?.params).toEqual([]);
 	}).pipe(Effect.provide(makeScriptCleanupLayer({ removed, statements, tables })));
+});
+
+it.effect("lists persisted source-zero and pinned-plugin script hashes as live", () => {
+	const statements: Array<{ sql: string; params: unknown[] }> = [];
+	const dialect = new PgDialect();
+	const db = {
+		select: () => ({
+			from: () => ({
+				where: (condition: SQLWrapper) => {
+					statements.push(dialect.sqlToQuery(condition.getSQL()));
+					return Promise.resolve([
+						{ contentHash: "kernel-history" },
+						{ contentHash: "plugin-history" },
+					]);
+				},
+			}),
+		}),
+	};
+	const layer = PluginRepository.Default.pipe(
+		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
+	);
+
+	return Effect.gen(function* () {
+		const repository = yield* PluginRepository;
+		expect(
+			yield* repository.listPersistedLivenessContentHashes(new Set(["pinned-plugin"])),
+		).toEqual(["kernel-history", "plugin-history"]);
+		expect(statements[0]?.sql).toContain('"sandbox_script"."pluginSlug" is null');
+		expect(statements[0]?.sql).toContain('"sandbox_script"."pluginSlug" in');
+		expect(statements[0]?.params).toEqual(["pinned-plugin"]);
+	}).pipe(Effect.provide(layer));
 });

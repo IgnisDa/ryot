@@ -35,7 +35,10 @@ const runIntegrationAdapter = (input: RunAdapterInput) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const catalog = yield* IntegrationProviderCatalog;
-		const resolution = catalog.resolve(input.integration.provider);
+		const resolution = catalog.resolveOwned(
+			input.integration.provider,
+			input.integration.pluginSlug,
+		);
 		if (!resolution?.provider.scriptSlug) {
 			return yield* new SandboxRunError({
 				message: `Integration provider '${input.integration.provider}' is unavailable`,

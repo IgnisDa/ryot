@@ -13,7 +13,6 @@ import { Clock, Duration, Effect, Match, Option, Schema, Stream } from "effect";
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
 import { ServerRun } from "../server-run";
-import { makeAutomationSandboxApiFunctions } from "./automation-host-functions";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { acquireSandboxCompiledModule } from "./compiled-modules";
 import {
@@ -30,7 +29,7 @@ import {
 	sandboxGrantPathError,
 	type SandboxProcessGrants,
 } from "./filesystem-grants";
-import { makeAdditionalSandboxApiFunctions } from "./host-functions";
+import { SandboxHostImplementations } from "./host-implementations";
 import {
 	sandboxCacheKeyError,
 	sandboxCacheTtlError,
@@ -201,6 +200,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		const bridge = yield* BridgeService;
 		const processes = yield* ProcessPool;
 		const fs = yield* FileSystem.FileSystem;
+		const hostImplementations = yield* SandboxHostImplementations;
 
 		const httpClient = yield* HttpClient.HttpClient;
 		const harvestRoot = path.join(
@@ -433,10 +433,67 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 				Effect.provideService(FileSystem.FileSystem, fs),
 			);
 
-		const additionalApiFunctions = yield* makeAdditionalSandboxApiFunctions();
-		const automationApiFunctions = yield* makeAutomationSandboxApiFunctions();
-
 		apiFunctions = {
+			claimCachedValue: (input, key, value, ttlSeconds) => {
+				const keyError = sandboxCacheKeyError("claimCachedValue", key);
+				if (keyError) {
+					return sandboxHostFailure(keyError);
+				}
+				const ttlError = sandboxCacheTtlError("claimCachedValue", ttlSeconds, "TTL");
+				if (ttlError) {
+					return sandboxHostFailure(ttlError);
+				}
+
+				const redisKey = redisKeys.sandboxCache(
+					sandboxRunUserId(input),
+					input.cacheNamespace,
+					key.trim(),
+				);
+
+				return sandboxHostEffect(
+					Effect.gen(function* () {
+						const serialized = yield* Schema.encode(Schema.parseJson(Schema.Unknown))(value).pipe(
+							Effect.mapError(() => "claimCachedValue value must be JSON-serializable"),
+						);
+						const valueError = sandboxCacheValueError("claimCachedValue", serialized);
+						if (valueError) {
+							return yield* Effect.fail(valueError);
+						}
+
+						const setResult = yield* Effect.tryPromise({
+							try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
+							catch: unknownToMessage,
+						});
+						if (setResult !== null) {
+							return { claimed: true as const };
+						}
+
+						const existing = yield* Effect.tryPromise({
+							try: () => redis.client.get(redisKey),
+							catch: unknownToMessage,
+						});
+						if (existing === null) {
+							return { claimed: false, value: null };
+						}
+						const existingValueError = sandboxCacheValueError(
+							"claimCachedValue",
+							existing,
+							"stored value",
+						);
+						if (existingValueError) {
+							return yield* Effect.fail(existingValueError);
+						}
+
+						return yield* Schema.decode(Schema.parseJson(Schema.Unknown))(existing).pipe(
+							Effect.map((decoded) => ({
+								claimed: false as const,
+								value: isJsonValue(decoded) ? decoded : null,
+							})),
+							Effect.orElseSucceed(() => ({ claimed: false as const, value: null })),
+						);
+					}),
+				);
+			},
 			getCachedValue: (input, key) => {
 				const keyError = sandboxCacheKeyError("getCachedValue", key);
 				if (keyError) {
@@ -559,8 +616,8 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					),
 				);
 			},
-			...additionalApiFunctions,
-			...automationApiFunctions,
+			...hostImplementations.additional,
+			...hostImplementations.automation,
 		};
 
 		return { run: runSandbox };

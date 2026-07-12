@@ -8,23 +8,23 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
+import { selectSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/service";
+import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
 import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { SignalEmissionService, type EmitSignalInput } from "#modules/signals/service";
 
-import { makeAutomationSandboxApiFunctions } from "./automation-host-functions";
-import { selectSandboxHostFunctions } from "./service";
-import type { SandboxRunInput } from "./shared";
+import { makeAutomationSandboxApiFunctions } from "./automation-sandbox-host-functions";
 
 const userId = UserId.make("user-1");
 const occurredAt = "2026-07-20T10:00:00.000Z";
+const upsertGlobalEntities = () => Effect.void;
 const runId = SubscriptionRunId.make("run-1");
 const getEntity = () => Effect.succeed(null);
 const emitSignal = () => Effect.succeed(null);
 const sendNotification = () => Effect.succeed(null);
 const changeUserRelationships = () => Effect.succeed([]);
-const upsertGlobalEntities = () => Effect.void;
 
 const runInput = {
 	context: {},
@@ -78,10 +78,7 @@ it.effect("derives signal authority and identity from the subscription run", () 
 			properties: { message: "trace" },
 		});
 
-		expect(result).toEqual({
-			signalId: "signal-1",
-			wasCreated: true,
-		});
+		expect(result).toEqual({ wasCreated: true, signalId: "signal-1" });
 		expect(captured).toMatchObject({
 			executionId: runId,
 			origin: { kind: "api" },
@@ -164,8 +161,8 @@ it("exposes notification delivery only to subscriptions and signal emission to t
 	});
 	const subscription = selectSandboxHostFunctions(bound, runInput);
 	const system = selectSandboxHostFunctions(bound, {
-		metadata: { kind: "automation" },
 		authority: { type: "system" },
+		metadata: { kind: "automation" },
 		allowedHostFunctions: ["emitSignal", "getEntity", "sendNotification"],
 	});
 
@@ -182,8 +179,8 @@ it("exposes global writes only to system runs with explicit capabilities", () =>
 		allowedHostFunctions: ["getEntity", "upsertGlobalEntities"],
 	});
 	const subscription = selectSandboxHostFunctions(bound, {
-		metadata: { kind: "automation" },
 		authority: runInput.authority,
+		metadata: { kind: "automation" },
 		allowedHostFunctions: ["upsertGlobalEntities"],
 	});
 	const system = selectSandboxHostFunctions(bound, {
@@ -192,8 +189,8 @@ it("exposes global writes only to system runs with explicit capabilities", () =>
 		allowedHostFunctions: ["upsertGlobalEntities"],
 	});
 	const providerSystem = selectSandboxHostFunctions(bound, {
-		metadata: { kind: "provider" },
 		authority: { type: "system" },
+		metadata: { kind: "provider" },
 		allowedHostFunctions: ["upsertGlobalEntities"],
 	});
 

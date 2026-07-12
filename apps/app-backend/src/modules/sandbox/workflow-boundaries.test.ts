@@ -101,7 +101,7 @@ it.effect("keeps event workflow and repository primitives behind EventsService",
 		const [collectionsService, collectionsAddWorkflow, sandboxHostFunctions] = yield* Effect.all([
 			readModule("../collections/service.ts"),
 			readModule("../collections/add-entity-to-collection-workflow-live.ts"),
-			readModule("../../lib/infrastructure/sandbox-runtime/host-functions.ts"),
+			readModule("../../app/sandbox-host-functions.ts"),
 		]);
 
 		for (const source of [collectionsService, sandboxHostFunctions]) {
