@@ -1,8 +1,8 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { and, coalesce, divide, isNull, literal, selectedField } from "@ryot-app/plugin-kit/ryotql";
+import { divide, literal, selectedField } from "@ryot-app/plugin-kit/ryotql";
 
 import { propertyBoolean, propertyNumber } from "./entity-selections";
-import { mediaFlatRecipes } from "./media-recipes";
+import { mediaFlatRecipes, mediaTimeSpentMeasure } from "./media-recipes";
 
 const SECONDS_PER_MINUTE = 60;
 
@@ -10,6 +10,9 @@ export const musicRecipes = mediaFlatRecipes({
 	slug: "music",
 	alias: "music",
 	groupSlug: "music-group",
+	measure: mediaTimeSpentMeasure((entity) =>
+		divide(propertyNumber(entity, "duration"), literal(SECONDS_PER_MINUTE)),
+	),
 	presentationFields: (entity) => ({
 		duration: selectedField(propertyNumber(entity, "duration"), Schema.NullOr(Schema.Number)),
 	}),
@@ -18,16 +21,6 @@ export const musicRecipes = mediaFlatRecipes({
 		byVariousArtists: selectedField(
 			propertyBoolean(entity, "byVariousArtists"),
 			Schema.NullOr(Schema.Boolean),
-		),
-	}),
-	measure: (event, entity) => ({
-		isUnknown: and(
-			isNull(propertyNumber(event, "timeSpent")),
-			isNull(propertyNumber(entity, "duration")),
-		),
-		amount: coalesce(
-			propertyNumber(event, "timeSpent"),
-			divide(propertyNumber(entity, "duration"), literal(SECONDS_PER_MINUTE)),
 		),
 	}),
 });
