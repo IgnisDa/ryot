@@ -1,3 +1,4 @@
+import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type {
 	ProviderDetailsChildEntity,
 	ProviderDetailsRelatedEntity,
@@ -8,7 +9,6 @@ import type {
 	ProviderSearchResult,
 	ProviderTranslateResult,
 } from "@ryot/sandbox-sdk/provider";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Schema } from "effect";
 
 export const SandboxJsonValueSchema: Schema.Codec<JsonValue> = Schema.suspend(() =>
