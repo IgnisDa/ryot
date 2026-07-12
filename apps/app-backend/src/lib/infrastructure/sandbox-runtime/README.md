@@ -152,6 +152,13 @@ can therefore use activity versions from different active plugin installations w
 first reached at different times; each individual step still executes exactly once against its
 resolved version.
 
+A workflow body signals an expected failure with `Effect.fail` from `@ryot/sandbox-sdk/workflow`,
+which the definition wrapper turns into a `state: "failed"` envelope carrying the durable-call
+requests accumulated for that attempt. That deterministic-only surface exposes `as`, `gen`, `fail`,
+and `succeed`; a bare `throw` is a defect instead, so it bypasses the envelope and surfaces as an
+`execute`-phase runner error with a mapped `script.ts` location — the right outcome for a genuine bug,
+the wrong one for a validation guard.
+
 Workflow-authored ambient time and randomness are compiler errors. The runner also guards aliases at
 runtime. `Date.now()` remains a deterministic zero-valued shim because Effect itself reads it while
 executing the restricted workflow subset; authored workflow modules cannot call it because compiler

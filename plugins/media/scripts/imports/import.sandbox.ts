@@ -126,7 +126,7 @@ export default defineWorkflow({
 			if (input.source === "igdb") {
 				const collection = input.sourcePayload?.["collection"];
 				if (typeof collection !== "string" || !collection.trim()) {
-					throw new Error("Import job is missing IGDB collection");
+					return yield* Effect.fail(new Error("Import job is missing IGDB collection"));
 				}
 				parserInput = { ...parserInput, collection: collection.trim() };
 			}
@@ -140,14 +140,14 @@ export default defineWorkflow({
 				const hasAnimeFile = typeof input.sourcePayload?.["animeFilePath"] === "string";
 				const hasMangaFile = typeof input.sourcePayload?.["mangaFilePath"] === "string";
 				if (!hasAnimeFile && !hasMangaFile) {
-					throw new Error("Import job is missing MyAnimeList export files");
+					return yield* Effect.fail(new Error("Import job is missing MyAnimeList export files"));
 				}
 				parserInput = { ...parserInput, hasAnimeFile, hasMangaFile };
 			}
 			if (input.source === "trakt") {
 				const username = input.sourcePayload?.["username"];
 				if (typeof username !== "string" || !username.trim()) {
-					throw new Error("Import job is missing Trakt username");
+					return yield* Effect.fail(new Error("Import job is missing Trakt username"));
 				}
 				parserInput = { ...parserInput, username: username.trim() };
 			}
@@ -155,7 +155,7 @@ export default defineWorkflow({
 				const apiKey = input.sourcePayload?.["apiKey"];
 				const apiUrl = input.sourcePayload?.["apiUrl"];
 				if (typeof apiKey !== "string" || !apiKey || typeof apiUrl !== "string" || !apiUrl) {
-					throw new Error(`Import job is missing ${input.source} credentials`);
+					return yield* Effect.fail(new Error(`Import job is missing ${input.source} credentials`));
 				}
 				parserInput = {
 					...parserInput,
@@ -170,7 +170,7 @@ export default defineWorkflow({
 				const apiUrl = input.sourcePayload?.["apiUrl"];
 				const username = input.sourcePayload?.["username"];
 				if (typeof apiUrl !== "string" || !apiUrl || typeof username !== "string" || !username) {
-					throw new Error("Import job is missing Jellyfin connection details");
+					return yield* Effect.fail(new Error("Import job is missing Jellyfin connection details"));
 				}
 				parserInput = {
 					...parserInput,
@@ -315,10 +315,14 @@ export default defineWorkflow({
 				for (const result of episodeOutput.results) {
 					const request = episodeRequests[result.index];
 					if (!request) {
-						throw new Error(`Episode resolution returned an unexpected index ${result.index}`);
+						return yield* Effect.fail(
+							new Error(`Episode resolution returned an unexpected index ${result.index}`),
+						);
 					}
 					if (answeredRequests.has(result.index)) {
-						throw new Error(`Episode resolution returned a duplicate index ${result.index}`);
+						return yield* Effect.fail(
+							new Error(`Episode resolution returned a duplicate index ${result.index}`),
+						);
 					}
 					answeredRequests.add(result.index);
 					episodeEntityIdByEvent.set(
@@ -330,7 +334,9 @@ export default defineWorkflow({
 					answeredRequests.has(index) ? [] : [index],
 				);
 				if (unansweredRequests.length > 0) {
-					throw new Error(`Episode resolution omitted indices ${unansweredRequests.join(", ")}`);
+					return yield* Effect.fail(
+						new Error(`Episode resolution omitted indices ${unansweredRequests.join(", ")}`),
+					);
 				}
 				const episodeFailures: MediaImportAdapterFailure[] = [];
 				const finalizedGroups: FinalizedEntityGroup[] = [];
