@@ -32,7 +32,7 @@ export default defineAutomation({
 	run: ({ automation }, host) => {
 		return Effect.gen(function* () {
 			if (automation.source.kind !== "signal") {
-				return yield* Effect.dieMessage("Signal notification requires a signal source");
+				return yield* Effect.die(new Error("Signal notification requires a signal source"));
 			}
 			yield* host.sendNotification(formatMessage(automation.source.signal));
 			return null;
