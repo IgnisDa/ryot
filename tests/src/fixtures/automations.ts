@@ -10,7 +10,7 @@ import { Effect } from "effect";
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
-import { pollUntil, type PollOptions } from "./polling";
+import { pollUntil } from "./polling";
 
 export const listAutomationCatalog = (client: Client) =>
 	client.call((c) => c.automations.listCatalog());
@@ -70,28 +70,22 @@ export const listSignals = (filter: SignalFilter) =>
 		adminHeaders,
 	);
 
-export const pollSignal = (filter: SignalFilter, options: PollOptions = {}) =>
+export const pollSignal = (filter: SignalFilter) =>
 	pollUntil(
 		`signal for '${filter.schemaSlug}'`,
 		Effect.gen(function* () {
 			const [signal] = yield* listSignals(filter);
 			return signal ?? null;
 		}),
-		options,
 	);
 
-export const pollSignalWithRecipientCount = (
-	filter: SignalFilter,
-	count: number,
-	options: PollOptions = {},
-) =>
+export const pollSignalWithRecipientCount = (filter: SignalFilter, count: number) =>
 	pollUntil(
 		`${count} recipient(s) for signal '${filter.schemaSlug}'`,
 		Effect.gen(function* () {
 			const [signal] = yield* listSignals(filter);
 			return signal?.recipientUserIds.length === count ? signal : null;
 		}),
-		options,
 	);
 
 export const listSubscriptionRuns = (input: { executionUserId: string; signalId?: string }) =>
@@ -108,10 +102,10 @@ export const listSubscriptionRuns = (input: { executionUserId: string; signalId?
 
 const terminalRunStatuses = new Set(["succeeded", "failed", "skipped"]);
 
-export const pollTerminalSubscriptionRuns = (
-	input: { executionUserId: string; signalId?: string },
-	options: PollOptions = {},
-) =>
+export const pollTerminalSubscriptionRuns = (input: {
+	executionUserId: string;
+	signalId?: string;
+}) =>
 	pollUntil(
 		`terminal subscription run(s) for user '${input.executionUserId}'`,
 		Effect.gen(function* () {
@@ -120,7 +114,6 @@ export const pollTerminalSubscriptionRuns = (
 				? runs
 				: null;
 		}),
-		options,
 	);
 
 export const getAutomationRuleCount = (userId: string) =>

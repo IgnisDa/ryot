@@ -108,7 +108,7 @@ it.live("notifies only a credited person's monitor once per role on first media 
 			entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 			providerId: SandboxProviderId.make(movieProvider.providerId),
 		});
-		const result = yield* pollEntityImportResult(importer.client, jobId, { timeoutMs: 30_000 });
+		const result = yield* pollEntityImportResult(importer.client, jobId);
 		assertCompleted(result, "association media import");
 
 		const delivered = yield* pollUntil(
@@ -243,9 +243,7 @@ describe("dual-writer canonical identity", () => {
 					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 					providerId: SandboxProviderId.make(dwMovieProvider.providerId),
 				});
-				const imported = yield* pollEntityImportResult(importer.client, jobId, {
-					timeoutMs: 30_000,
-				});
+				const imported = yield* pollEntityImportResult(importer.client, jobId);
 				assertCompleted(imported, "dual-writer media-rooted import");
 				const created = yield* pollAssociationNotification("dual-writer-monitor");
 				expect(created).toHaveLength(1);

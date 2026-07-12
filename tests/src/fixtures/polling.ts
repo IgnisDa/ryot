@@ -1,22 +1,14 @@
 import { Data, Duration, Effect, Schedule } from "effect";
 
-export interface PollOptions {
-	timeoutMs?: number;
-	intervalMs?: number;
-}
-
 class PollIncomplete {
 	readonly _tag = "PollIncomplete";
 }
 
 export class PollTimeout extends Data.TaggedError("PollTimeout")<{ readonly message: string }> {}
 
-export const pollUntil = <A, E, R>(
-	label: string,
-	check: Effect.Effect<A | null, E, R>,
-	options: PollOptions = {},
-) => {
-	const { intervalMs = 500, timeoutMs = 60_000 } = options;
+export const pollUntil = <A, E, R>(label: string, check: Effect.Effect<A | null, E, R>) => {
+	const intervalMs = 500;
+	const timeoutMs = 180_000;
 	return check.pipe(
 		Effect.flatMap((result) =>
 			result === null ? Effect.fail(new PollIncomplete()) : Effect.succeed(result),
