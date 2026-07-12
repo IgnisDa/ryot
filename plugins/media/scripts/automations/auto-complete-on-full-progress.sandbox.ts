@@ -142,11 +142,9 @@ const getCompleteSchema = (host: AutomationHost, entitySchemaSlug: string) =>
 			),
 		);
 
-const fetchEntity = (host: AutomationHost, entityId: string, entitySchemaSlug: string) =>
+const fetchEntity = (host: AutomationHost, entityId: string) =>
 	host
-		.executeRyotql(
-			buildEntityReadDocument({ entityIds: [entityId], entitySchemaSlugs: [entitySchemaSlug] }),
-		)
+		.executeRyotql(buildEntityReadDocument({ entityIds: [entityId] }))
 		.pipe(Effect.map(decodeEntityReadResponse));
 
 const getProgressEventPage = (
@@ -229,7 +227,7 @@ export default defineAutomation({
 		const entityId = event.subject.id;
 		const entitySchemaSlug = event.subject.entitySchemaSlug;
 		return Effect.gen(function* () {
-			const entity = yield* fetchEntity(host, entityId, entitySchemaSlug);
+			const entity = yield* fetchEntity(host, entityId);
 			const isEpisodic = entitySchemaSlug === "anime" || entitySchemaSlug === "manga";
 			if (!isEpisodic) {
 				const completeSchema = yield* getCompleteSchema(host, entity.entitySchemaSlug);

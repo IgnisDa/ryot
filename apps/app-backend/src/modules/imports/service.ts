@@ -327,9 +327,6 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					);
 		});
 
-		const listImportRuns = (user: CurrentUserValue) =>
-			runWithDb(repository.listRuns({ type: "manual", userId: user.id }));
-
 		const requireImportRun = Effect.fn("ImportsService.requireImportRun")(function* (
 			user: CurrentUserValue,
 			runId: ImportRunId,
@@ -340,18 +337,6 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			}
 
 			return run;
-		});
-
-		const getImportRun = Effect.fn("ImportsService.getImportRun")(function* (
-			user: CurrentUserValue,
-			runId: ImportRunId,
-			query: { page: number; limit: number },
-		) {
-			const run = yield* requireImportRun(user, runId);
-			const failures = yield* runWithDb(
-				repository.listFailuresByRunId({ runId, page: query.page, limit: query.limit }),
-			);
-			return { ...run, failures: { ...failures, page: query.page, limit: query.limit } };
 		});
 
 		const removeImportRun = Effect.fn("ImportsService.removeImportRun")(function* (
@@ -365,9 +350,6 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			yield* deleteRun({ runId, userId: user.id });
 			return { id: runId };
 		});
-
-		const listRunsByIntegrationId = (input: { userId: UserId; integrationId: IntegrationId }) =>
-			runWithDb(repository.listRuns({ ...input, type: "integration" }));
 
 		const hasActiveRunForIntegration = (input: { integrationId: IntegrationId }) =>
 			runWithDb(repository.hasActiveRunForIntegration(input));
@@ -406,12 +388,9 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			create,
 			update,
 			delete: deleteRun,
-			getImportRun,
-			listImportRuns,
 			startImportRun,
 			removeImportRun,
 			failRunForIntegration,
-			listRunsByIntegrationId,
 			createRunForIntegration,
 			hasActiveRunForIntegration,
 		};

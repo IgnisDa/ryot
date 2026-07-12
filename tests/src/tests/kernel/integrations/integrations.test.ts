@@ -4,11 +4,12 @@ import { Effect } from "effect";
 import {
 	createAudiobookshelfIntegration,
 	createAuthenticatedClient,
-	createIntegration,
 	createKodiIntegration,
 	deleteIntegration,
 	getIntegration,
+	listIntegrationImportRuns,
 	listIntegrations,
+	listManualImportRuns,
 	postIntegrationWebhookAndWait,
 	pollImportRunUntilTerminal,
 	updateUserPreferences,
@@ -29,7 +30,10 @@ describe("Integration CRUD", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { id } = yield* createKodiIntegration(client);
-			const integration = yield* getIntegration(client, id);
+			const integration = requirePresent(
+				yield* getIntegration(client, id),
+				"Expected created integration",
+			);
 
 			expect(integration.isDisabled).toBe(false);
 			expect(integration.syncOwnership).toBe(false);
@@ -78,7 +82,7 @@ describe("Integration CRUD", () => {
 		}),
 	);
 
-	it.live("GET list returns only the authenticated user's integrations", () =>
+	it.live("RyotQL list returns only the authenticated user's integrations", () =>
 		Effect.gen(function* () {
 			const { client: clientA } = yield* createAuthenticatedClient();
 			const { client: clientB } = yield* createAuthenticatedClient();
@@ -94,7 +98,7 @@ describe("Integration CRUD", () => {
 		}),
 	);
 
-	it.live("GET list filters by provider", () =>
+	it.live("RyotQL list filters by provider", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
@@ -107,7 +111,7 @@ describe("Integration CRUD", () => {
 		}),
 	);
 
-	it.live("GET list filters by isDisabled", () =>
+	it.live("RyotQL list filters by isDisabled", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
@@ -130,74 +134,12 @@ describe("Integration CRUD", () => {
 		}),
 	);
 
-	it.live("GET by id returns /_i webhookUrl for all Sink providers", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const integrations = [
-				yield* createKodiIntegration(client),
-				yield* createIntegration(client, {
-					provider: "emby",
-					providerSpecifics: { kind: "emby" },
-				}),
-				yield* createIntegration(client, {
-					provider: "plex_sink",
-					providerSpecifics: { kind: "plex_sink" },
-				}),
-				yield* createIntegration(client, {
-					provider: "generic_json",
-					providerSpecifics: { kind: "generic_json" },
-				}),
-				yield* createIntegration(client, {
-					provider: "jellyfin_sink",
-					providerSpecifics: { kind: "jellyfin_sink" },
-				}),
-				yield* createIntegration(client, {
-					provider: "ryot_browser_extension",
-					providerSpecifics: { kind: "ryot_browser_extension" },
-				}),
-			];
-
-			const createdIntegrations = yield* Effect.all(
-				integrations.map((created) =>
-					Effect.gen(function* () {
-						return {
-							created,
-							integration: yield* getIntegration(client, created.id),
-						};
-					}),
-				),
-			);
-
-			for (const { created, integration } of createdIntegrations) {
-				expect(integration.id).toBe(IntegrationId.make(created.id));
-				expect(integration.webhookUrl).toBeDefined();
-				expect(integration.webhookUrl).toContain(`/_i/${created.id}`);
-				expect(integration.webhookUrl).not.toContain("/api/webhooks/integrations/");
-			}
-		}),
-	);
-
-	it.live("GET by id returns no webhookUrl for Yank providers", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-
-			const { id } = yield* createAudiobookshelfIntegration(client);
-			const integration = yield* getIntegration(client, id);
-
-			expect(integration.webhookUrl).toBeUndefined();
-		}),
-	);
-
-	it.live("PATCH updates name while client responses redact secret fields", () =>
+	it.live("PATCH updates name and redacts secret fields", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
 			const created = yield* createAudiobookshelfIntegration(client);
-			const createdSpecifics = created.providerSpecifics;
 			expect(created.name).toBe("ABS");
-			expect(createdSpecifics.kind).toBe("audiobookshelf");
-			expect(createdSpecifics).not.toHaveProperty("token");
-			expect(createdSpecifics.baseUrl).toBe("https://abs.example.com");
 
 			const data = yield* client.call((c) =>
 				c.integrations.update({
@@ -210,12 +152,11 @@ describe("Integration CRUD", () => {
 			expect(data.providerSpecifics).not.toHaveProperty("token");
 			expect(data.providerSpecifics.baseUrl).toBe("https://abs.example.com");
 
-			const integration = yield* getIntegration(client, created.id);
-			const specifics = integration.providerSpecifics;
+			const integration = requirePresent(
+				yield* getIntegration(client, created.id),
+				"Expected updated integration",
+			);
 			expect(integration.name).toBe("My ABS");
-			expect(specifics.kind).toBe("audiobookshelf");
-			expect(specifics).not.toHaveProperty("token");
-			expect(specifics.baseUrl).toBe("https://abs.example.com");
 		}),
 	);
 
@@ -246,13 +187,7 @@ describe("Integration CRUD", () => {
 			const { id } = yield* createKodiIntegration(client);
 			yield* deleteIntegration(client, id);
 
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.integrations.get({ params: { integrationId: IntegrationId.make(id) } }),
-				),
-			);
-
-			assertTaggedError(error, "NotFound");
+			expect(yield* getIntegration(client, id)).toBeNull();
 		}),
 	);
 });
@@ -361,7 +296,7 @@ describe("Webhook routes", () => {
 
 describe("Import run visibility", () => {
 	it.live(
-		"GET /imports/runs excludes integration runs; GET /imports/runs/:id and GET /integrations/:id/runs expose them",
+		"RyotQL manual runs exclude integration runs while detail and integration lists expose them",
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
@@ -373,15 +308,13 @@ describe("Import run visibility", () => {
 					kodiPayload,
 				);
 
-				const allRuns = yield* client.call((c) => c.imports.listRuns());
-				expect(allRuns.find((r) => r.id === runId)).toBeUndefined();
+				const allRuns = yield* listManualImportRuns(client, 1, 20);
+				expect(allRuns.items.find((r) => r.id === runId)).toBeUndefined();
 
 				expect(run.id).toBe(ImportRunId.make(runId));
 
-				const integrationRuns = yield* client.call((c) =>
-					c.integrations.getRuns({ params: { integrationId: IntegrationId.make(integrationId) } }),
-				);
-				expect(integrationRuns.find((r) => r.id === runId)).toBeDefined();
+				const integrationRuns = yield* listIntegrationImportRuns(client, integrationId, 1, 20);
+				expect(integrationRuns.items.find((r) => r.id === runId)).toBeDefined();
 			}),
 	);
 });

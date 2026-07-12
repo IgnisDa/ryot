@@ -168,7 +168,7 @@ export default defineAutomation({
 			if (disabled || integrations.length === 0) {
 				return null;
 			}
-			const entity = yield* fetchEntity(host, event.subject.id, entitySchemaSlug);
+			const entity = yield* fetchEntity(host, event.subject.id);
 			const providerName = yield* resolveEntityProviderName(host, entity);
 			const tmdbId = providerName === "TMDB" ? entity.externalId : null;
 			const title = entity.name || null;
