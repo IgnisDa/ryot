@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { DbError } from "@ryot/contract/errors";
 import {
 	AutomationRuleId,
@@ -10,7 +9,8 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { Effect, Either, Layer, Schema } from "effect";
+import { Effect, Result, Layer, Schema } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import {
@@ -61,7 +61,7 @@ const entityInput: LifecycleDispatchInput = {
 };
 
 const executionEngine = (
-	instance: WorkflowInstance["Type"],
+	instance: WorkflowInstance["Service"],
 	capture: (payload: unknown) => Effect.Effect<void, DbError>,
 ) =>
 	makeWorkflowActivityEngine(instance, {
@@ -89,7 +89,6 @@ it.effect("resolves create rules for the source target and enqueues one executio
 		return Effect.void;
 	});
 	const automations = Layer.mock(AutomationsService, {
-		_tag: "AutomationsService",
 		resolveActive: ({ target, operation }) => {
 			resolved.push({ target, operation });
 			return Effect.succeed([globalRule, userRule]);
@@ -130,7 +129,6 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 	const instance = WorkflowInstance.initial(SubscriptionExecutionWorkflow, "target-test");
 	const engine = executionEngine(instance, () => Effect.void);
 	const automations = Layer.mock(AutomationsService, {
-		_tag: "AutomationsService",
 		resolveActive: ({ target }) => {
 			resolvedTargets.push(target);
 			return Effect.succeed([]);
@@ -178,7 +176,6 @@ it.effect("forwards update snapshots and trusted population context", () => {
 		return Effect.void;
 	});
 	const automations = Layer.mock(AutomationsService, {
-		_tag: "AutomationsService",
 		resolveActive: ({ target, operation }) => {
 			resolved.push({ target, operation });
 			return Effect.succeed([updateRule]);
@@ -247,7 +244,6 @@ it.effect("attempts every sibling workflow and fails when one enqueue fails", ()
 			: Effect.void;
 	});
 	const automations = Layer.mock(AutomationsService, {
-		_tag: "AutomationsService",
 		resolveActive: () => Effect.succeed([firstRule, secondRule]),
 	});
 	const layer = Layer.provide(
@@ -257,9 +253,9 @@ it.effect("attempts every sibling workflow and fails when one enqueue fails", ()
 
 	return Effect.gen(function* () {
 		const dispatch = yield* LifecycleDispatch;
-		const result = yield* Effect.either(dispatch.dispatch(entityInput));
+		const result = yield* Effect.result(dispatch.dispatch(entityInput));
 		expect(attempted).toEqual([firstRule.id, secondRule.id]);
-		expect(Either.isLeft(result)).toBe(true);
+		expect(Result.isFailure(result)).toBe(true);
 	}).pipe(Effect.provide(layer));
 });
 

@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { DbError } from "@ryot/contract/errors";
 import {
 	AutomationRuleId,
@@ -8,7 +7,8 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { Effect, Either, Layer, Schema } from "effect";
+import { Effect, Result, Layer, Schema } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import type { ResolvedAutomationRule } from "#modules/plugins/runtime-resolver";
@@ -64,7 +64,6 @@ it.effect("matches shared signals once per global rule and recipient-owned rule"
 		},
 	});
 	const automations = Layer.mock(AutomationsService, {
-		_tag: "AutomationsService",
 		resolveActive: ({ rowUserId }) => {
 			resolvedScopes.push(rowUserId);
 			if (rowUserId === null) {
@@ -107,7 +106,6 @@ it.effect("attempts every sibling workflow when one enqueue fails", () => {
 		},
 	});
 	const automations = Layer.mock(AutomationsService, {
-		_tag: "AutomationsService",
 		resolveActive: () => Effect.succeed([firstRule, secondRule]),
 	});
 	const layer = Layer.provide(
@@ -117,10 +115,10 @@ it.effect("attempts every sibling workflow when one enqueue fails", () => {
 
 	return Effect.gen(function* () {
 		const dispatch = yield* SignalDispatch;
-		const result = yield* Effect.either(
+		const result = yield* Effect.result(
 			dispatch.dispatch({ ...signal, actorUserId: userId, recipientUserIds: [userId] }),
 		);
 		expect(attempted).toEqual([firstRule.id, secondRule.id]);
-		expect(Either.isLeft(result)).toBe(true);
+		expect(Result.isFailure(result)).toBe(true);
 	}).pipe(Effect.provide(layer));
 });

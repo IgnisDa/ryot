@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import {
 	AutomationRuleId,
 	EntityId,
@@ -10,6 +9,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import type { ResolvedAutomationRule } from "#modules/plugins/runtime-resolver";
@@ -117,7 +117,6 @@ it.effect("runs a signal subscription to completion with full automation context
 	let sandboxPayload: unknown;
 	const logs = ["console", '{"kind":"log","level":"info","message":"traced"}'];
 	const service = Layer.mock(AutomationsService, {
-		_tag: "AutomationsService",
 		prepareRun: () =>
 			Effect.succeed({
 				run: queuedRun,
@@ -177,7 +176,6 @@ it.effect("runs a signal subscription to completion with full automation context
 
 it.effect("does not execute the sandbox for an already terminal run", () => {
 	const service = Layer.mock(AutomationsService, {
-		_tag: "AutomationsService",
 		prepareRun: () =>
 			Effect.succeed({
 				run: queuedRun,
@@ -205,7 +203,6 @@ it.effect("does not execute the sandbox for an already terminal run", () => {
 
 it.effect("rejects contradictory source context before preparing a run", () => {
 	const service = Layer.mock(AutomationsService, {
-		_tag: "AutomationsService",
 		prepareRun: () => Effect.die("invalid context prepared a run"),
 	});
 	const operations = Layer.mock(SubscriptionExecutionWorkflowOperations, {

@@ -1,5 +1,3 @@
-import { Activity } from "@effect/workflow";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { SandboxRunError } from "@ryot/contract/errors";
 import { badRequest } from "@ryot/contract/errors";
 import { AutomationRuleMetadata } from "@ryot/contract/modules/automations/schemas";
@@ -15,6 +13,8 @@ import {
 } from "@ryot/contract/schema/brands";
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import { Context, Effect, Layer, Schema } from "effect";
+import { Activity } from "effect/unstable/workflow";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
@@ -36,10 +36,10 @@ const PreparedSubscriptionRun = Schema.Struct({
 
 type PreparedSubscriptionRun = typeof PreparedSubscriptionRun.Type;
 
-const BeginSubscriptionRunResult = Schema.Union(
+const BeginSubscriptionRunResult = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("ready") }),
 	Schema.Struct({ kind: Schema.Literal("terminal") }),
-);
+]);
 
 export type SubscriptionExecutionWorkflowOperationsValue = {
 	runSandbox: (
@@ -47,9 +47,10 @@ export type SubscriptionExecutionWorkflowOperationsValue = {
 	) => Effect.Effect<SandboxCompletedResult, SandboxRunError, WorkflowEngine>;
 };
 
-export class SubscriptionExecutionWorkflowOperations extends Context.Tag(
-	"SubscriptionExecutionWorkflowOperations",
-)<SubscriptionExecutionWorkflowOperations, SubscriptionExecutionWorkflowOperationsValue>() {}
+export class SubscriptionExecutionWorkflowOperations extends Context.Service<
+	SubscriptionExecutionWorkflowOperations,
+	SubscriptionExecutionWorkflowOperationsValue
+>()("SubscriptionExecutionWorkflowOperations") {}
 
 export const SubscriptionExecutionWorkflowOperationsLive = Layer.succeed(
 	SubscriptionExecutionWorkflowOperations,

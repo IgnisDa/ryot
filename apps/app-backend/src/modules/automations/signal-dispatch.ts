@@ -1,8 +1,8 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DbError, unknownToMessage } from "@ryot/contract/errors";
 import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
 import { SignalSchemaSlug } from "@ryot/contract/schema/brands";
-import { Effect, Either, Layer, Schema } from "effect";
+import { Effect, Result, Layer, Schema } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { SignalDispatch } from "#modules/signals/dispatch";
 import type { SignalDispatchInput } from "#modules/signals/dispatch";
@@ -19,7 +19,9 @@ export const SignalDispatchLive = Layer.effect(
 		return {
 			dispatch: (input: SignalDispatchInput) =>
 				Effect.gen(function* () {
-					const properties = yield* Schema.decodeUnknown(AutomationProperties)(input.properties);
+					const properties = yield* Schema.decodeUnknownEffect(AutomationProperties)(
+						input.properties,
+					);
 					const scopes = [input.actorUserId, ...input.recipientUserIds].filter(
 						(value, index, values) => values.indexOf(value) === index,
 					);
@@ -70,12 +72,12 @@ export const SignalDispatchLive = Layer.effect(
 										},
 									},
 								})
-								.pipe(Effect.either),
+								.pipe(Effect.result),
 						{ concurrency: "unbounded" },
 					);
-					const failed = starts.find(Either.isLeft);
+					const failed = starts.find(Result.isFailure);
 					if (failed) {
-						return yield* new DbError({ message: unknownToMessage(failed.left) });
+						return yield* new DbError({ message: unknownToMessage(failed.failure) });
 					}
 					return yield* Effect.void;
 				}).pipe(Effect.mapError((error) => new DbError({ message: unknownToMessage(error) }))),
