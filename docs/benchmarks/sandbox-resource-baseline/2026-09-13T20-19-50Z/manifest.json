@@ -1,0 +1,598 @@
+{
+  "host": {
+    "cpuCount": 2,
+    "kernel": "7.0.0-30-generic",
+    "cpuModel": "AMD EPYC-Rome Processor",
+    "ramBytes": 4000034816,
+    "swapBytes": 0,
+    "diskBytes": 39956590592,
+    "filesystem": "ext4",
+    "dockerVersion": "Docker version 29.8.0",
+    "cgroupVersion": "v2"
+  },
+  "image": {
+    "tag": "ghcr.io/ignisda/ryot:pr-1832",
+    "digest": "sha256:e8fc688842b6785252d7af000f3e55b0580fd377a4e4d31d5886f1292712df0d",
+    "ociRevision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676",
+    "architecture": "amd64"
+  },
+  "health": {
+    "otlpHealthy": false,
+    "watchdogHealthy": false,
+    "hostSamplerHealthy": false
+  },
+  "runtime": {
+    "bunVersion": "1.4.0",
+    "denoVersion": "2.8.1"
+  },
+  "deployment": {
+    "redactedComposeSha256": "f0f1dcced615898836f32fab299b70348bc9bc958e6ccff621f98759e570589b",
+    "resourceSettings": {
+      "SERVER_LOG_LEVEL": "info",
+      "SANDBOX_PROCESS_MODE": "on-demand",
+      "SCHEDULER_DISABLE_DISPATCHERS": "true",
+      "SERVER_OTLP_ENDPOINT": "http://otel-collector:4318",
+      "FRONTEND_URL": "https://ur-testing.ryot.io",
+      "sandboxWorkerConcurrency": "5",
+      "ryotContainerMemoryLimit": "none",
+      "otelCollectorMemoryLimit": "128m",
+      "hostSwap": "none"
+    }
+  },
+  "runId": "2026-09-13T20-19-50Z",
+  "startedAtUtc": "2026-09-14T08:21:35.467Z",
+  "sampleIntervalMs": 200,
+  "hostSampleIntervalMs": 1000,
+  "prNumber": 1832,
+  "branch": "ultra-rewrite",
+  "scenarios": [
+    {
+      "id": "00-idle",
+      "kind": "idle",
+      "group": "A",
+      "repetitions": 1,
+      "concurrency": 1,
+      "description": "Idle for ten minutes after startup",
+      "idleDurationMs": 600000,
+      "workload": {
+        "seed": 1,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 0,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "01-direct-no-host",
+      "kind": "direct",
+      "group": "A",
+      "repetitions": 5,
+      "concurrency": 1,
+      "description": "One direct execution, no host calls, 1 KiB output",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 11,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 0,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "02-direct-1-host-call",
+      "kind": "direct",
+      "group": "A",
+      "repetitions": 5,
+      "concurrency": 1,
+      "description": "One direct execution with 1 durable host call",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 12,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 1,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "03-direct-5-host-calls",
+      "kind": "direct",
+      "group": "A",
+      "repetitions": 5,
+      "concurrency": 1,
+      "description": "One direct execution with 5 durable host calls",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 13,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "04-direct-10-host-calls",
+      "kind": "direct",
+      "group": "A",
+      "repetitions": 5,
+      "concurrency": 1,
+      "description": "One direct execution with 10 durable host calls",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 14,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 10,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "05-direct-1mib-payload",
+      "kind": "direct",
+      "group": "A",
+      "repetitions": 5,
+      "concurrency": 1,
+      "description": "One direct execution returning 1 MiB",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 15,
+        "payloadBytes": 1048576,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 0,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "06-direct-large-payload",
+      "kind": "direct",
+      "group": "A",
+      "repetitions": 5,
+      "concurrency": 1,
+      "description": "One direct execution returning just under 4 MiB",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 16,
+        "payloadBytes": 3900000,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 0,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "07-concurrency-1",
+      "kind": "direct",
+      "group": "B",
+      "repetitions": 5,
+      "concurrency": 1,
+      "description": "1 identical five-host-call execution",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 21,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "08-concurrency-2",
+      "kind": "direct",
+      "group": "B",
+      "repetitions": 5,
+      "concurrency": 2,
+      "description": "2 concurrent five-host-call executions",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 22,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "09-concurrency-5",
+      "kind": "direct",
+      "group": "B",
+      "repetitions": 5,
+      "concurrency": 5,
+      "description": "5 concurrent five-host-call executions",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 23,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "10-concurrency-20",
+      "kind": "direct",
+      "group": "B",
+      "repetitions": 5,
+      "concurrency": 20,
+      "description": "20 concurrent five-host-call executions",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 24,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "11-import-no-related",
+      "kind": "import",
+      "group": "C",
+      "repetitions": 5,
+      "concurrency": 1,
+      "description": "One provider import with no related entities",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 31,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 25,
+        "suggestionCount": 0,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "12-import-10-related",
+      "kind": "import",
+      "group": "C",
+      "repetitions": 5,
+      "concurrency": 1,
+      "description": "One provider import with 10 related entities and 10 suggestions",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 3,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 25,
+        "suggestionCount": 10,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 10,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "13-import-100-related",
+      "kind": "import",
+      "group": "C",
+      "repetitions": 5,
+      "concurrency": 1,
+      "description": "One provider import with 100 related entities and 100 suggestions",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 33,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 25,
+        "suggestionCount": 100,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 100,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "14-import-concurrency-2",
+      "kind": "import",
+      "group": "C",
+      "repetitions": 5,
+      "concurrency": 2,
+      "description": "2 concurrent standard imports",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 3,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 25,
+        "suggestionCount": 10,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 10,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "15-import-concurrency-5",
+      "kind": "import",
+      "group": "C",
+      "repetitions": 5,
+      "concurrency": 5,
+      "description": "5 concurrent standard imports",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 3,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 25,
+        "suggestionCount": 10,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 10,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "16-import-concurrency-20",
+      "kind": "import",
+      "group": "C",
+      "repetitions": 5,
+      "concurrency": 20,
+      "description": "20 concurrent standard imports",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 3,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 25,
+        "suggestionCount": 10,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 10,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "17-typed-failures-5",
+      "kind": "import",
+      "group": "D",
+      "repetitions": 5,
+      "concurrency": 5,
+      "description": "5 concurrent typed provider failures",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 41,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "typed-failure"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "18-sandbox-timeouts-5",
+      "kind": "direct",
+      "group": "D",
+      "repetitions": 5,
+      "concurrency": 5,
+      "description": "5 concurrent sandbox timeouts",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 42,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 0,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "timeout"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "19-typed-failures-20",
+      "kind": "import",
+      "group": "D",
+      "repetitions": 5,
+      "concurrency": 20,
+      "description": "20 submitted typed provider failures",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 43,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "typed-failure"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "20-restart-recovery",
+      "kind": "restart-recovery",
+      "group": "E",
+      "repetitions": 1,
+      "concurrency": 20,
+      "description": "20 standard imports interrupted by a Ryot container restart",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 3,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 25,
+        "suggestionCount": 10,
+        "durableHostCalls": 5,
+        "relatedEntityCount": 10,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": null,
+      "requiresManualRestart": true,
+      "awaitActiveWorkers": 5,
+      "minimumMemAvailableBytes": 805306368
+    },
+    {
+      "id": "21-live-youtube-music-single",
+      "kind": "live-import",
+      "group": "live",
+      "repetitions": 1,
+      "concurrency": 1,
+      "description": "One live YouTube Music import after a fresh database",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 51,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 0,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": {
+        "query": "furious",
+        "pageSize": 20,
+        "providerSlug": "music.youtube-music",
+        "entitySchemaSlug": "music"
+      },
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": null
+    },
+    {
+      "id": "22-live-youtube-music-five",
+      "kind": "live-import",
+      "group": "live",
+      "repetitions": 1,
+      "concurrency": 5,
+      "description": "Five concurrent live YouTube Music imports after a fresh database",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 52,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 0,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": {
+        "query": "furious",
+        "pageSize": 20,
+        "providerSlug": "music.youtube-music",
+        "entitySchemaSlug": "music"
+      },
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": 1073741824
+    },
+    {
+      "id": "23-live-youtube-music-twenty",
+      "kind": "live-import",
+      "group": "live",
+      "repetitions": 1,
+      "concurrency": 20,
+      "description": "Twenty rapid live YouTube Music imports, run at most once",
+      "idleDurationMs": 0,
+      "workload": {
+        "seed": 53,
+        "payloadBytes": 1024,
+        "perCallDelayMs": 0,
+        "suggestionCount": 0,
+        "durableHostCalls": 0,
+        "relatedEntityCount": 0,
+        "terminalOutcome": "success"
+      },
+      "liveSearch": {
+        "query": "furious",
+        "pageSize": 20,
+        "providerSlug": "music.youtube-music",
+        "entitySchemaSlug": "music"
+      },
+      "requiresManualRestart": false,
+      "awaitActiveWorkers": null,
+      "minimumMemAvailableBytes": 1073741824
+    }
+  ],
+  "completedAtUtc": "2026-09-14T08:31:41.686Z",
+  "commits": {
+    "ciTrigger": "3ec544225b8bb29de3839f4a105d53c6ef23dc5c",
+    "implementation": "58d12dbbae"
+  }
+}
