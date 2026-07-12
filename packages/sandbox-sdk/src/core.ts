@@ -440,7 +440,11 @@ export const getEntitySchemasArgsSchema = Schema.Tuple([
 		Schema.check(Schema.isMaxLength(USER_ENTITY_READ_SANDBOX_LIMITS.ids)),
 	),
 ]);
-export const listEventSchemasArgsSchema = Schema.Tuple([sandboxIdSchema]);
+export const listEventSchemasArgsSchema = Schema.Tuple([
+	Schema.Array(sandboxIdSchema).pipe(
+		Schema.check(Schema.isMaxLength(USER_ENTITY_READ_SANDBOX_LIMITS.ids)),
+	),
+]);
 export const listEventsDataSchema = Schema.Array(eventRecordSchema);
 export const executeQueryEngineArgsSchema = Schema.Tuple([queryDocumentSchema]);
 export const getEntitiesDataSchema = Schema.Array(entityRecordSchema);
