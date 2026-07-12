@@ -26,7 +26,14 @@ describe("event recipes", () => {
 			},
 		]);
 		expect(query.output.pagination).toEqual({ page: 2, limit: 25 });
-		expect(query.output.fields.map((selection) => selection.key)).toEqual([
+		expect(
+			query.output.fields.map((selection) => {
+				if (!("key" in selection)) {
+					throw new Error("Expected an explicit field selection");
+				}
+				return selection.key;
+			}),
+		).toEqual([
 			"id",
 			"entityId",
 			"createdAt",
