@@ -6,6 +6,7 @@ export * from "./automations";
 export * from "./contract-client";
 export * from "./collections";
 export * from "./integrations";
+export * from "./integration-provider-plugin";
 export * from "./entities";
 export * from "./entity-schemas";
 export * from "./event-schemas";

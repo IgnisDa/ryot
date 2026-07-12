@@ -57,6 +57,7 @@ export type AdditionalSandboxHostImplementationMap = Omit<
 	| "emitSignal"
 	| "setCachedValue"
 	| "getCachedValue"
+	| "claimCachedValue"
 	| "sendNotification"
 >;
 

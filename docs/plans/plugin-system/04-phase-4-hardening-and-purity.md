@@ -177,17 +177,18 @@ correction changes no schema or behavior and is the only domain move included in
   backend check passed, all 137 backend test files and 952 tests passed, the representative imports
   e2e file passed 19 tests, and the provider search/import e2e file passed 11 tests.
 
-- **Superseded script-row GC**: delete script rows — plugin-owned and kernel source-zero
-  alike — no longer referenced by any registry snapshot or in-flight workflow execution
-  (pinning makes "referenced" precise). Source-zero rows resolve outside the loader snapshot,
-  so their liveness rule is the running kernel's declared script set: only rows whose content
-  hash the kernel no longer declares are candidates.
+- **Superseded script-row GC**: delete plugin-owned script rows no longer referenced by any registry
+  snapshot or in-flight workflow execution (pinning makes "referenced" precise). While a plugin has
+  any workflow pin, all its historical script rows remain live so replayed activity and child targets
+  cannot disappear. Persisted kernel source-zero rows remain live across rolling deployments even
+  when local kernel declaration sets differ.
 
   Task 14 implementation record (2026-07-31): garbage collection waits until the running kernel
   has compiled and recorded its complete source-zero content-hash set. One transaction takes the
   exclusive plugin-ingestion advisory lock and computes one immutable live set from the local loader
-  snapshot, the active plugins reloaded from the database, nonterminal workflow references, and the
-  kernel declaration set. The same set drives both disk-module removal and immutable script-row
+  snapshot, the active plugins reloaded from the database, nonterminal workflow references, every
+  historical row owned by their plugins, persisted source-zero rows, and the local kernel declaration
+  set. The same set drives both disk-module removal and immutable script-row
   deletion; the module sweep runs first so a filesystem failure prevents row deletion, while a later
   database failure remains recoverable from the retained compiled bytes. Collection runs after full
   first-party bootstrap and after registry invalidation rebuilds, is idempotent, ignores unrelated
@@ -216,15 +217,17 @@ correction changes no schema or behavior and is the only domain move included in
   use its exact recorded script ID.
 
   Active plugin sandbox workflows are represented by app-owned `sandbox_workflow_reference` rows
-  containing execution, plugin, script, and content-hash identity. The durable pin activity inserts
+  containing execution, plugin, script, and content-hash identity. Accepted fire-and-forget dispatch
+  and the durable pin activity insert
   the row idempotently under a shared transaction-scoped plugin-ingestion advisory lock after
   confirming the plugin is still active; terminal success or failure removes it through a durable,
   idempotent release activity, while suspension retains it. Uninstall takes the matching exclusive
-  advisory lock before reference inspection, so an older dispatch registers first and blocks
+  advisory lock before reference inspection, so an accepted dispatch registers first and blocks
   uninstall, or deactivation wins and the queued registration fails. Refusal rolls back without
   changing database activation or the loader snapshot; successful invalidation remains after durable
   deactivation. Task 14 consumes the repository's reference listing as its workflow-pin liveness
   source instead of depending on private workflow-engine storage.
+
 - Complete the third-party-style e2e fixture. One hot-installed plugin must exercise search, import,
   event creation, automation, uninstall refusal while referenced, cleanup, and successful uninstall
   without a server restart.
@@ -237,6 +240,7 @@ correction changes no schema or behavior and is the only domain move included in
   only while a draining workflow pin still reports conflict, and the test then verifies plugin and
   schema catalog removal plus rejection of the historical search script ID. The fixture is offline
   and successful completion leaves neither an active package nor referenced entity behind.
+
 - Effect-only means the public authoring boundary: sandbox definitions, SDK methods, backend host
   contracts, and typed bridge dispatch expose Effect. Private adapters may bridge Promise-returning
   Deno, filesystem, fetch, or third-party APIs behind that boundary.
@@ -354,6 +358,29 @@ standard evidence remains the Phase 4 baseline, and the live-network gate remain
    script/module GC complete without breaking pinned replay or source-zero scripts.
 10. The app-backend runtime module graph is acyclic, and `purity:check` mechanically rejects any new
     runtime cycle with its exact path.
+
+### Post-completion audit remediation
+
+A final review closed gaps that focused task tests had not covered. Plugin workflow dispatch and
+import acceptance now register liveness before returning, and GC retains every historical script for
+a plugin with a nonterminal workflow. Persisted source-zero scripts remain live rather than being
+deleted from a shared database based on one process's deployment version. Import jobs carry accepted
+plugin and exact script identity; integrations persist their owning plugin and block its uninstall
+until their rows are deleted. Replacement packages cannot claim queued import payloads or existing
+integration credentials.
+
+Integration response redaction now follows nested object and array schemas recursively. Generic
+import relationship writes validate declared source and target entity-schema constraints before any
+write. Redis remains the low-latency registry invalidation path, while each node also compares its
+loaded fingerprint with durable database state every 30 seconds; missed publications therefore
+converge, and publication failure after commit is logged rather than reported as a rollback.
+
+The runtime cycle analyzer now follows production imports through `src/app` and `src/lib`. Feature-
+aware sandbox host implementations moved to `src/app` behind a lib-owned injected contract, removing
+the indirect cycles exposed by that broader graph. Backend Vitest uses one explicit worker because
+Bun 1.3.14 could not deserialize the prior parallel worker result reliably. Fresh verification passed
+the 318-file purity/check gate, 140 backend test files with 994 tests, and focused e2e coverage for
+nested secret redaction, integration-owned uninstall refusal, and accepted import pinning.
 
 ### Task 17 final acceptance evidence
 

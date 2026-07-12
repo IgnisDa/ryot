@@ -5,10 +5,11 @@ import {
 	FIXTURE_CONFIG_IMPORT_SOURCE,
 	FIXTURE_IMPORT_SOURCE,
 	installTestImportPlugin,
+	installTestImportPinningPlugin,
 	pollImportRunUntilTerminal,
+	pollUntil,
 	postBackendJson,
 	type InstalledTestPlugin,
-	uninstallTestPlugin,
 	uninstallTestPluginStrict,
 	uploadTemporaryFile,
 } from "~/fixtures";
@@ -17,6 +18,15 @@ import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test
 
 let fixtureImportPlugin: InstalledTestPlugin | undefined;
 
+const uninstallWhenReleased = (installed: InstalledTestPlugin) =>
+	pollUntil(
+		`uninstall of '${installed.pluginSlug}' after import completion`,
+		uninstallTestPluginStrict(installed).pipe(
+			Effect.as(true),
+			Effect.catchTag("Conflict", () => Effect.succeed(null)),
+		),
+	);
+
 describe("Plugin Import Public Boundary", () => {
 	beforeAll(async () => {
 		fixtureImportPlugin = await Effect.runPromise(installTestImportPlugin());
@@ -24,7 +34,7 @@ describe("Plugin Import Public Boundary", () => {
 
 	afterAll(async () => {
 		if (fixtureImportPlugin) {
-			await Effect.runPromise(uninstallTestPlugin(fixtureImportPlugin));
+			await Effect.runPromise(uninstallWhenReleased(fixtureImportPlugin));
 		}
 	});
 
@@ -51,6 +61,35 @@ describe("Plugin Import Public Boundary", () => {
 				source: FIXTURE_IMPORT_SOURCE,
 			});
 			expect(completed.finishedAt).not.toBeNull();
+		}),
+	);
+
+	it.scopedLive("pins an accepted plugin import until terminal completion", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { plugin, source } = yield* Effect.acquireRelease(
+				installTestImportPinningPlugin(),
+				({ plugin: installedPlugin }) =>
+					uninstallWhenReleased(installedPlugin).pipe(Effect.asVoid, Effect.orDie),
+			);
+
+			const created = yield* client.call((c) => c.imports.createRun({ payload: { source } }));
+
+			const conflict = yield* Effect.flip(uninstallTestPluginStrict(plugin));
+			assertTaggedError(conflict, "Conflict");
+
+			const completed = yield* pollImportRunUntilTerminal(client, created.id);
+			expect(completed).toMatchObject({
+				source,
+				progress: 100,
+				failedItems: 0,
+				importedItems: 0,
+				processedItems: 0,
+				status: "completed",
+			});
+			expect(completed.finishedAt).not.toBeNull();
+
+			expect(yield* uninstallWhenReleased(plugin)).toBe(true);
 		}),
 	);
 
@@ -200,7 +239,7 @@ describe("Plugin Import Public Boundary", () => {
 	it.live("rejects an inactive source before claiming uploads or starting a workflow", () =>
 		Effect.gen(function* () {
 			assertPresent(fixtureImportPlugin, "Fixture import plugin is missing");
-			yield* uninstallTestPluginStrict(fixtureImportPlugin);
+			yield* uninstallWhenReleased(fixtureImportPlugin);
 
 			const { client, cookies } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadTemporaryFile(
