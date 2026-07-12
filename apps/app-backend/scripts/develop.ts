@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
-import { Command } from "@effect/platform";
-import { BunContext, BunRuntime } from "@effect/platform-bun";
+import { BunServices, BunRuntime } from "@effect/platform-bun";
 import { Effect } from "effect";
+import { ChildProcess } from "effect/unstable/process";
 
 type ProcessCommand = readonly [string, ...string[]];
 
@@ -17,11 +17,13 @@ export const developmentCommands: readonly [ProcessCommand, ProcessCommand] = [
 ];
 
 const runCommand = ([executable, ...args]: ProcessCommand) =>
-	Command.make(executable, ...args).pipe(
-		Command.stdin("inherit"),
-		Command.stdout("inherit"),
-		Command.stderr("inherit"),
-		Command.exitCode,
+	ChildProcess.make(executable, args, {
+		stdin: "inherit",
+		stdout: "inherit",
+		stderr: "inherit",
+	}).pipe(
+		Effect.flatMap((process) => process.exitCode),
+		Effect.scoped,
 	);
 
 const program = Effect.gen(function* () {
@@ -42,4 +44,4 @@ const program = Effect.gen(function* () {
 	});
 });
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunContext.layer)));
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));
