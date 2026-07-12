@@ -17,9 +17,9 @@ import { RelationshipsService } from "#modules/relationships/service";
 
 const entityNotFoundError = "Entity not found";
 const sameEntityMergeError = "Cannot merge an entity into itself";
-const libraryEntityMergeError = "Library entity user state cannot be merged";
+const entityMergeDeniedError = "Entity user state cannot be merged";
+const entityClearDeniedError = "Entity user state cannot be cleared";
 const differentEntitySchemaError = "Entities must belong to the same schema";
-const libraryEntityUserStateError = "Library entity user state cannot be cleared";
 
 export class UserStateService extends Effect.Service<UserStateService>()("UserStateService", {
 	effect: Effect.gen(function* () {
@@ -50,8 +50,9 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 				return yield* notFound(entityNotFoundError);
 			}
 
-			if (scope.entitySchemaSlug === "library") {
-				return yield* badRequest(libraryEntityUserStateError);
+			const entitySchema = definitions.getEntitySchema(scope.entitySchemaSlug);
+			if (entitySchema?.userState?.deniedOperations.includes("clear")) {
+				return yield* badRequest(entityClearDeniedError);
 			}
 
 			return yield* runInTransaction(
@@ -127,17 +128,21 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 			if (!fromScope || !intoScope) {
 				return yield* notFound(entityNotFoundError);
 			}
-			if (fromScope.entitySchemaSlug === "library" || intoScope.entitySchemaSlug === "library") {
-				return yield* badRequest(libraryEntityMergeError);
+			const fromEntitySchema = definitions.getEntitySchema(fromScope.entitySchemaSlug);
+			const intoEntitySchema = definitions.getEntitySchema(intoScope.entitySchemaSlug);
+			if (
+				fromEntitySchema?.userState?.deniedOperations.includes("merge") ||
+				intoEntitySchema?.userState?.deniedOperations.includes("merge")
+			) {
+				return yield* badRequest(entityMergeDeniedError);
 			}
 			if (fromScope.entitySchemaSlug !== intoScope.entitySchemaSlug) {
 				return yield* badRequest(differentEntitySchemaError);
 			}
-			const entitySchema = definitions.getEntitySchema(fromScope.entitySchemaSlug);
-			if (!entitySchema) {
+			if (!fromEntitySchema) {
 				return yield* Effect.die("Entity schema not found during entity merge");
 			}
-			for (const property of entitySchema.mergeIdentityProperties) {
+			for (const property of fromEntitySchema.mergeIdentityProperties) {
 				if (!Bun.deepEquals(fromScope.properties[property], intoScope.properties[property])) {
 					return yield* badRequest(`Entities must have the same '${property}' property`);
 				}
@@ -145,8 +150,8 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 			return yield* runInTransaction(
 				Effect.gen(function* () {
 					const eventIds = yield* eventsRepository.listUserEventIdsForEntity({
-						entityId: mergeFrom,
 						userId: user.id,
+						entityId: mergeFrom,
 					});
 					let movedEventsCount = 0;
 					for (const eventId of eventIds) {

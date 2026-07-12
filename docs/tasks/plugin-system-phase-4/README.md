@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 3 of 18 tasks completed
+**Overall Progress:** 4 of 18 tasks completed
 
-**Current Task:** [Task 04](./04-media-membership-collections-state.md) (todo)
+**Current Task:** [Task 05](./05-open-plugin-import-envelope.md) (todo)
 
 ### Task List
 
@@ -13,7 +13,7 @@
 | 01  | [Mechanical Kernel Purity Gate](./01-mechanical-kernel-purity-gate.md)                        | done   |
 | 02  | [Trusted Plugin User Bootstrap](./02-trusted-plugin-user-bootstrap.md)                        | done   |
 | 03  | [Media Membership for Imports and Events](./03-media-membership-imports-events.md)            | done   |
-| 04  | [Media Membership for Collections and User State](./04-media-membership-collections-state.md) | todo   |
+| 04  | [Media Membership for Collections and User State](./04-media-membership-collections-state.md) | done   |
 | 05  | [Open Plugin Import Envelope](./05-open-plugin-import-envelope.md)                            | todo   |
 | 06  | [Plugin-Owned Query Recipes](./06-plugin-owned-query-recipes.md)                              | todo   |
 | 07  | [Domain-Neutral Operational Gate](./07-domain-neutral-operational-gate.md)                    | todo   |
@@ -163,12 +163,12 @@ temporary scaffolding and directly affected migration residue without broad unre
 ### Media library ownership
 
 - `library` and `in-library` remain media-owned definitions. Kernel source zero remains limited to generic collections, membership, and integration-disabled definitions.
-- Remove the native library-membership feature boundary. Generic entity population/import remains kernel-owned; media-specific membership composes generic lifecycle, automation, query, and relationship capabilities from the media package.
-- Preserve API results, final relationship state, ownership-source merging, failure propagation, and awaited ordering for media entities. Shared transaction boundaries between generic and media writes are not an invariant.
+- Remove the native library-membership feature boundary. Generic `EntityImportWorkflow` remains kernel-owned and populates provider entities only; it does not add `in-library`.
+- Preserve final relationship state, ownership-source merging, failure propagation, and awaited ordering where media-owned workflows or policy guarantee membership. The direct generic `/entity-import` population-only behavior is an owner-approved change. Shared transaction boundaries between generic and media writes are not an invariant.
 - Only schemas owned by the media package receive automatic `in-library` membership. Fitness and unrelated package schemas do not.
-- Replace import chunks' media-specific ownership concept with generic user-relationship mutation intents, or an equivalently domain-neutral write shape. Media adapters emit `in-library` mutations and ownership properties through that generic shape.
+- Manifest import-source workflows may emit generic user-relationship mutation intents. Media adapters use that domain-neutral shape for `in-library` mutations and ownership properties; direct generic `/entity-import` does not.
 - Move the library-specific prohibition on clearing or merging user state into declarative entity-schema policy consumed generically by the user-state service. Do not retain a `library` string branch in the kernel.
-- Media lifecycle/relationship automation owns event- and collection-triggered membership. Generic workflows must await the owning plugin work where their successful result currently guarantees membership completion.
+- Events and collections own media-membership policy through awaited media lifecycle/relationship automation. Generic workflows await that plugin work where their successful result guarantees membership completion.
 
 ### Trusted plugin user bootstrap
 
@@ -267,7 +267,7 @@ temporary scaffolding and directly affected migration residue without broad unre
 - Existing e2e assertions are preserved. A behavior change requires explicit owner approval; file moves and fixture plumbing are not permission to weaken assertions.
 - The purity gate is tested with representative forbidden hits, allowlisted hits, generated/test exclusions, manifest-derived vocabulary changes, and exact file/line diagnostics.
 - Module-DAG tests cover import-edge extraction and deterministic cycle diagnostics; final acceptance runs the non-rendering cycle check through `purity:check` and requires zero runtime cycles.
-- Library tests cover new-user bootstrap, retry/idempotency, media-only eligibility, event/import/collection membership, ownership-source merging, user-state clear/merge policy, and exclusion of fitness/unrelated schemas.
+- Library tests cover new-user bootstrap, retry/idempotency, media-only eligibility, awaited event/collection membership, manifest import-source relationship mutations, ownership-source merging, user-state clear/merge policy, and exclusion of fitness/unrelated schemas. Direct generic `/entity-import` tests assert population without `in-library`.
 - Import tests install a fixture declaring a source absent from the central contract, invoke it through the generic envelope, validate payload/artifact rejection, and observe terminal workflow results.
 - Runtime tests cover atomic module materialization, cache reuse, concurrent builders, path grants, source mapping, sanitized errors, and file cleanup liveness.
 - Bridge tests measure real maximum in-flight calls with controlled deferred handlers and prove permit release and execution isolation.
