@@ -1,4 +1,5 @@
 import { FileSystem, Path } from "@effect/platform";
+import { isPlatformError } from "@effect/platform/Error";
 import { Data, Effect } from "effect";
 
 import type { SandboxRuntimePaths } from "./dependencies";
@@ -10,6 +11,11 @@ export class SandboxCompiledModuleMaterializationError extends Data.TaggedError(
 }> {}
 
 const hashBytes = (bytes: Uint8Array) => new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
+
+const compiledModuleName = /^([0-9a-f]{64})\.mjs$/;
+
+const hasSystemErrorReason = (error: unknown, reason: "AlreadyExists" | "NotFound") =>
+	isPlatformError(error) && error._tag === "SystemError" && error.reason === reason;
 
 const moduleMatches = (fs: FileSystem.FileSystem, modulePath: string, contentHash: string) =>
 	fs.readFile(modulePath).pipe(
@@ -58,19 +64,72 @@ export const materializeSandboxCompiledModule = (
 						});
 					}
 					yield* fs.chmod(temporaryPath, 0o444);
-					const published = yield* fs.link(temporaryPath, modulePath).pipe(
-						Effect.as(true),
-						Effect.orElseSucceed(() => false),
+					yield* fs.link(temporaryPath, modulePath).pipe(
+						Effect.catchIf(
+							(error) => hasSystemErrorReason(error, "AlreadyExists"),
+							() =>
+								moduleMatches(fs, modulePath, contentHash).pipe(
+									Effect.flatMap((matches) =>
+										matches
+											? Effect.void
+											: new SandboxCompiledModuleMaterializationError({
+													message: "Compiled module destination contains different bytes",
+												}),
+									),
+								),
+						),
 					);
-					if (!published && !(yield* moduleMatches(fs, modulePath, contentHash))) {
-						return yield* new SandboxCompiledModuleMaterializationError({
-							message: "Compiled module destination contains different bytes",
-						});
-					}
 					yield* fs.chmod(modulePath, 0o444);
 					return modulePath;
 				}),
 			(temporaryDirectory) =>
 				fs.remove(temporaryDirectory, { force: true, recursive: true }).pipe(Effect.ignore),
 		);
+	});
+
+export const acquireSandboxCompiledModule = (
+	runtime: Pick<SandboxRuntimePaths, "moduleDirectory">,
+	contentHash: string,
+	javascript: string,
+) =>
+	Effect.gen(function* () {
+		const path = yield* Path.Path;
+		const fs = yield* FileSystem.FileSystem;
+		const temporaryDirectory = yield* fs.makeTempDirectoryScoped({
+			directory: runtime.moduleDirectory,
+			prefix: ".ryot-compiled-module-execution-",
+		});
+		const executionPath = path.join(temporaryDirectory, `${contentHash}.mjs`);
+		const materializeAndLink = materializeSandboxCompiledModule(
+			runtime,
+			contentHash,
+			javascript,
+		).pipe(Effect.flatMap((modulePath) => fs.link(modulePath, executionPath)));
+
+		yield* materializeAndLink.pipe(
+			Effect.catchIf(
+				(error) => hasSystemErrorReason(error, "NotFound"),
+				() => materializeAndLink,
+			),
+		);
+		return executionPath;
+	});
+
+export const garbageCollectSandboxCompiledModules = (
+	runtime: Pick<SandboxRuntimePaths, "moduleDirectory">,
+	liveContentHashes: ReadonlySet<string>,
+) =>
+	Effect.gen(function* () {
+		const path = yield* Path.Path;
+		const fs = yield* FileSystem.FileSystem;
+		const entries = yield* fs.readDirectory(runtime.moduleDirectory);
+		const candidates = entries.flatMap((entry) => {
+			const match = compiledModuleName.exec(entry);
+			return match?.[1] && !liveContentHashes.has(match[1]) ? [entry] : [];
+		});
+
+		yield* Effect.forEach(candidates, (entry) =>
+			fs.remove(path.join(runtime.moduleDirectory, entry), { force: true }),
+		);
+		return { candidateCount: candidates.length, removedCount: candidates.length };
 	});

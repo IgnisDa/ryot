@@ -8,6 +8,7 @@ import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/infrastruct
 import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
+import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
@@ -74,6 +75,7 @@ import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
 import { OperationsService } from "#modules/plugins/operations-service";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 import { PluginIngestionService, PluginInvalidationSubscriber } from "#modules/plugins/service";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -158,11 +160,21 @@ const IntegrationProviderCatalogLive = Layer.provide(
 	IntegrationProviderCatalog.Default,
 	PluginLoaderLive,
 );
+const ScriptGarbageCollectorLive = Layer.provide(
+	ScriptGarbageCollector.Default,
+	Layer.mergeAll(
+		PluginLoaderLive,
+		PluginRepository.Default,
+		PackageCacheManager.Default,
+		SandboxWorkflowReferenceRepository.Default,
+	),
+);
 const PluginIngestionServiceLive = Layer.provide(
 	PluginIngestionService.Default,
 	Layer.mergeAll(
 		PluginLoaderLive,
 		PluginRepository.Default,
+		ScriptGarbageCollectorLive,
 		SandboxWorkflowReferenceRepository.Default,
 	),
 );
@@ -368,7 +380,7 @@ const RuntimeLive = Layer.mergeAll(
 
 const FirstPartyPluginBootstrapLive = Layer.provide(
 	FirstPartyPluginBootstrap.Default,
-	Layer.mergeAll(PluginIngestionServiceLive, PluginRepository.Default),
+	Layer.mergeAll(PluginIngestionServiceLive, PluginRepository.Default, ScriptGarbageCollectorLive),
 );
 
 const MigrationBootstrapDependenciesLive = Layer.provideMerge(
