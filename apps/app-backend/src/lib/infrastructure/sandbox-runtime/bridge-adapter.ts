@@ -136,7 +136,7 @@ export const bindSandboxHostFunctions = (
 	getIntegration: bindHostFunction(
 		domainSandboxHostContracts.getIntegration,
 		(...args) => implementations.getIntegration(input, ...args),
-		defaultFailure("getIntegration", "getIntegration expects a non-empty integrationId string"),
+		defaultFailure("getIntegration", "getIntegration received invalid arguments"),
 	),
 	listEventSchemas: bindHostFunction(
 		domainSandboxHostContracts.listEventSchemas,

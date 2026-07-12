@@ -18,17 +18,18 @@ import { PluginRuntimeResolver } from "./runtime-resolver";
 const IntegrationPayload = Schema.Struct({ integrationId: Schema.String });
 
 type DispatchInput = {
+	readonly userId: UserId;
 	readonly payload: unknown;
 	readonly pluginSlug: string;
 	readonly operationSlug: string;
-	readonly userId: UserId;
+	readonly integrationId?: IntegrationId;
 };
 
 export class OperationsService extends Effect.Service<OperationsService>()("OperationsService", {
 	effect: Effect.gen(function* () {
 		const auth = yield* AuthService;
-		const loader = yield* PluginLoader;
 		const runWithDb = yield* DbRunner;
+		const loader = yield* PluginLoader;
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* RuntimeSandboxService;
 		const sandboxRepository = yield* SandboxRepository;
@@ -57,7 +58,11 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 				executionId,
 				scriptId: script.id,
 				context: input.payload,
-				authority: { type: "user", userId: input.userId },
+				authority: {
+					type: "user",
+					userId: input.userId,
+					...(input.integrationId ? { integrationId: input.integrationId } : {}),
+				},
 			}).pipe(
 				Effect.provideService(DbRunner, runWithDb),
 				Effect.provideService(RuntimeSandboxService, sandbox),
@@ -70,24 +75,23 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 			return result.value;
 		});
 
-		const resolveIntegrationUserId = (payload: unknown) =>
+		const resolveIntegrationScope = (payload: unknown) =>
 			Effect.gen(function* () {
 				const decodePayload = Schema.decodeUnknown(IntegrationPayload)(payload).pipe(
 					Effect.mapError(() => badRequest("integrationId is required")),
 				);
 				const decoded = yield* decodePayload;
+				const integrationId = IntegrationId.make(decoded.integrationId);
 				const integration = yield* runWithDb(
-					integrationsRepository.getByIdAnyUser({
-						integrationId: IntegrationId.make(decoded.integrationId),
-					}),
+					integrationsRepository.getByIdAnyUser({ integrationId }),
 				);
 				if (!integration || integration.isDisabled) {
 					return yield* notFound("Integration not found");
 				}
-				return integration.userId;
+				return { integrationId, userId: integration.userId };
 			});
 
-		const resolveUserId = (
+		const resolveScope = (
 			operationAuth: PluginOperationAuth,
 			payload: unknown,
 			headers: PlatformHeaders.Headers,
@@ -95,10 +99,10 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 			if (operationAuth === "user") {
 				const getCurrentUser = auth
 					.currentUser(new Headers(headers))
-					.pipe(Effect.map((user) => user.id));
+					.pipe(Effect.map((user) => ({ userId: user.id })));
 				return getCurrentUser;
 			}
-			return resolveIntegrationUserId(payload);
+			return resolveIntegrationScope(payload);
 		};
 
 		const invoke = Effect.fn("OperationsService.invoke")(function* (input: {
@@ -108,9 +112,9 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 			readonly headers: PlatformHeaders.Headers;
 		}) {
 			const operation = yield* resolveOperation(input.pluginSlug, input.operationSlug);
-			const userId = yield* resolveUserId(operation.auth, input.payload, input.headers);
+			const scope = yield* resolveScope(operation.auth, input.payload, input.headers);
 			return yield* dispatch({
-				userId,
+				...scope,
 				payload: input.payload,
 				pluginSlug: input.pluginSlug,
 				operationSlug: input.operationSlug,
@@ -119,10 +123,10 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 
 		const invokeOperation = Effect.fn("OperationsService.invokeOperation")(
 			(input: {
+				readonly userId: UserId;
 				readonly payload: unknown;
 				readonly pluginSlug: string;
 				readonly operationSlug: string;
-				readonly userId: UserId;
 			}) => dispatch(input),
 		);
 

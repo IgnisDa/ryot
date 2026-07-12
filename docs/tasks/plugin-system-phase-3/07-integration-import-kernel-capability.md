@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -79,26 +79,36 @@ both new manifest sections, `secret` redaction, and credential scoping.
 
 ## Acceptance criteria
 
-- [ ] `integrationProviders` (lot-discriminated) and `importSources` manifest sections exist,
+- [x] `integrationProviders` (lot-discriminated) and `importSources` manifest sections exist,
       validate, and are served from the registry snapshot; the integrations framework lists
       providers generically
-- [ ] `settingsSchema` is a declarative `AppSchema` validated by the property-schema runtime
-- [ ] `secret?: true` exists on `AppPropertyBase`; marked fields are redacted when an integration is
+- [x] `settingsSchema` is a declarative `AppSchema` validated by the property-schema runtime
+- [x] `secret?: true` exists on `AppPropertyBase`; marked fields are redacted when an integration is
       read; the merge-preserve-on-update behavior is unchanged and still asserted
-- [ ] A registry-driven dispatch path resolves the run's source slug to its owning plugin's
+- [x] A registry-driven dispatch path resolves the run's source slug to its owning plugin's
       workflow and every source a manifest declares routes through it; the native media-vs-non-media
       orchestration survives only as the fallback for undeclared sources and is deleted in tasks
       09–10 (see the scope note above)
-- [ ] Deny-by-default grants work: artifact `--allow-read`, scratch `--allow-write`, requested via
+- [x] Deny-by-default grants work: artifact `--allow-read`, scratch `--allow-write`, requested via
       `capabilities: ["artifact-read", "scratch"]`, on a dedicated non-pooled process, with a 5 MiB
       post-execution quota and unconditional kernel cleanup
-- [ ] The kernel harvests scratch chunk files into run-scoped storage before cleanup
-- [ ] `fflate`, `papaparse`, and `fast-xml-parser` are approved sandbox dependencies, resolved
+- [x] The kernel harvests scratch chunk files into run-scoped storage before cleanup
+- [x] `fflate`, `papaparse`, and `fast-xml-parser` are approved sandbox dependencies, resolved
       through the import map and not bundled per script
-- [ ] `getIntegration` is scoped to the executing integration
-- [ ] None of the four withdrawn host functions is introduced
-- [ ] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
+- [x] `getIntegration` is scoped to the executing integration
+- [x] None of the four withdrawn host functions is introduced
+- [x] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
       `app-client` check all pass (cross-phase invariant 1)
+
+## Closing notes (2026-07-27)
+
+All acceptance criteria met; see the "Task 07 implementation record" appended to
+`docs/plans/plugin-system/03-phase-3-capability-migrations.md` §4 for the five findings that bind
+tasks 08–10 (union-deletion ordering, the inert filesystem grant, the multi-artifact-source gap
+for `movary`/`myanimelist`, the closed `CreateImportRunBody["source"]` union, and where the
+integration id lives in `ExecutionAuthority`). `tests/src/fixtures/test-plugin.ts`'s
+`testPluginManifest` fixture needed `importSources: []` and `integrationProviders: []` added
+alongside the other required sections — every e2e suite that installs a plugin depends on it.
 
 ## User stories addressed
 

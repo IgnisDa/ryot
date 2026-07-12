@@ -29,9 +29,9 @@ and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 6 of 12 tasks completed
+**Overall Progress:** 7 of 12 tasks completed
 
-**Current Task:** [Task 07](./07-integration-import-kernel-capability.md) (todo)
+**Current Task:** [Task 08](./08-integration-adapters-media.md) (todo)
 
 ### Task List
 
@@ -43,7 +43,7 @@ and you record the choice you make in the plan file.
 | 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md) | AFK  | done   |
 | 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                          | HITL | done   |
 | 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)   | AFK  | done   |
-| 07  | [Step 4a — Kernel Capability: Manifest Sections, FS Grants, Deps](./07-integration-import-kernel-capability.md) | AFK | todo |
+| 07  | [Step 4a — Kernel Capability: Manifest Sections, FS Grants, Deps](./07-integration-import-kernel-capability.md) | AFK | done |
 | 08  | [Step 4b — Integration Adapters: Sinks + Yanks into media](./08-integration-adapters-media.md)              | AFK  | todo   |
 | 09  | [Step 4c — Import Framework Collapse + Fitness Import Sources](./09-import-framework-fitness-sources.md)    | AFK  | todo   |
 | 10  | [Step 4d — Media Import Sources into media](./10-media-import-sources.md)                                   | AFK  | todo   |
