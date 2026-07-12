@@ -19,7 +19,7 @@
 		"@ryot/config": "workspace:*",
 		"@ryot/contract": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
-		"effect": "3.22.1"
+		"effect": "4.0.0-beta.102"
 	},
 	"devDependencies": {
 		"@ryot/testing": "workspace:*",
