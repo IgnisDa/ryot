@@ -8,8 +8,10 @@ import {
 	createTestAuthClient,
 	createTestUser,
 	getApiClient,
+	refreshOAuthTokens,
 	signInWithPassword,
 } from "~/fixtures/kernel";
+import { getApiUrl } from "~/support/api";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -376,10 +378,10 @@ describe("Reset link generation and completion for credential user", () => {
 		}),
 	);
 
-	it.live("revokes sessions after password reset", () =>
+	it.live("revokes existing credentials after password reset", () =>
 		Effect.gen(function* () {
 			const client = getApiClient();
-			const { token: authToken, email } = yield* createTestUser();
+			const { token: authToken, email, refreshToken } = yield* createTestUser();
 
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Authorization: `Bearer ${authToken}`,
@@ -401,12 +403,11 @@ describe("Reset link generation and completion for credential user", () => {
 			);
 			expect(resetError).toBeNull();
 
-			const oldSessionError = yield* Effect.flip(
-				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Authorization: `Bearer ${authToken}`,
-				}),
-			);
-			assertTaggedError(oldSessionError, "AuthUnauthorized");
+			const refreshed = yield* Effect.promise(() => refreshOAuthTokens(getApiUrl(), refreshToken));
+			expect(refreshed.status).toBe(400);
+			expect(yield* Effect.promise(() => refreshed.json())).toMatchObject({
+				error: "invalid_grant",
+			});
 
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
