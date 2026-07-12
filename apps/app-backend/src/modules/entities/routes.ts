@@ -7,31 +7,23 @@ import { HttpApiBuilder } from "effect/unstable/httpapi";
 import { EntitiesService } from "./service";
 
 export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", (handlers) =>
-	handlers
-		.handle("create", ({ payload }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* EntitiesService;
+	handlers.handle("create", ({ payload }) =>
+		Effect.gen(function* () {
+			const user = yield* CurrentUser;
+			const service = yield* EntitiesService;
 
-				return yield* service
-					.create({
-						scope: "user",
-						userId: user.id,
-						name: payload.name,
-						origin: { kind: "api" },
-						externalId: payload.externalId,
-						properties: payload.properties,
-						providerId: payload.providerId,
-						entitySchemaSlug: payload.entitySchemaSlug,
-					})
-					.pipe(dieOnDbError);
-			}),
-		)
-		.handle("get", ({ params }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* EntitiesService;
-				return yield* service.getById(user, params.entityId).pipe(dieOnDbError);
-			}),
-		),
+			return yield* service
+				.create({
+					scope: "user",
+					userId: user.id,
+					name: payload.name,
+					origin: { kind: "api" },
+					externalId: payload.externalId,
+					properties: payload.properties,
+					providerId: payload.providerId,
+					entitySchemaSlug: payload.entitySchemaSlug,
+				})
+				.pipe(dieOnDbError);
+		}),
+	),
 );
