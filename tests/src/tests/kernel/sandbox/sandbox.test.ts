@@ -11,7 +11,7 @@ import { assertCompleted, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("sandbox result observability", () => {
-	it.scopedLive("completed result includes host observability logs and timing", () =>
+	it.live("completed result includes host observability logs and timing", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const slug = `observability-check-${crypto.randomUUID()}`;

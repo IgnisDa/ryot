@@ -186,7 +186,7 @@ describe("DELETE /user-state/clear/:id", () => {
 			const libraryEntityId = yield* getLibraryEntityId(client);
 
 			const error = yield* Effect.flip(
-				client.call((c) => c.userState.clearUserState({ path: { entityId: libraryEntityId } })),
+				client.call((c) => c.userState.clearUserState({ params: { entityId: libraryEntityId } })),
 			);
 
 			assertTaggedError(error, "BadRequest");
@@ -200,7 +200,7 @@ describe("DELETE /user-state/clear/:id", () => {
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.userState.clearUserState({ path: { entityId: EntityId.make("entity_1") } }),
+					c.userState.clearUserState({ params: { entityId: EntityId.make("entity_1") } }),
 				),
 			);
 

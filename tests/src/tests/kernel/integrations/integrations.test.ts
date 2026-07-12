@@ -115,7 +115,7 @@ describe("Integration CRUD", () => {
 			yield* client.call((c) =>
 				c.integrations.update({
 					payload: { isDisabled: true },
-					path: { integrationId: IntegrationId.make(id) },
+					params: { integrationId: IntegrationId.make(id) },
 				}),
 			);
 
@@ -202,7 +202,7 @@ describe("Integration CRUD", () => {
 			const data = yield* client.call((c) =>
 				c.integrations.update({
 					payload: { name: "My ABS" },
-					path: { integrationId: IntegrationId.make(created.id) },
+					params: { integrationId: IntegrationId.make(created.id) },
 				}),
 			);
 
@@ -228,7 +228,7 @@ describe("Integration CRUD", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.integrations.update({
-						path: { integrationId: IntegrationId.make(id) },
+						params: { integrationId: IntegrationId.make(id) },
 						payload: { minimumProgress: 90, maximumProgress: 10 },
 					}),
 				),
@@ -247,7 +247,9 @@ describe("Integration CRUD", () => {
 			yield* deleteIntegration(client, id);
 
 			const error = yield* Effect.flip(
-				client.call((c) => c.integrations.get({ path: { integrationId: IntegrationId.make(id) } })),
+				client.call((c) =>
+					c.integrations.get({ params: { integrationId: IntegrationId.make(id) } }),
+				),
 			);
 
 			assertTaggedError(error, "NotFound");
@@ -264,7 +266,7 @@ describe("Webhook routes", () => {
 				client.call((c) =>
 					c.integrations.webhook({
 						payload: {},
-						path: { integrationId: IntegrationId.make("nonexistent-id-abc123") },
+						params: { integrationId: IntegrationId.make("nonexistent-id-abc123") },
 					}),
 				),
 			);
@@ -317,7 +319,7 @@ describe("Webhook routes", () => {
 			yield* client.call((c) =>
 				c.integrations.update({
 					payload: { isDisabled: true },
-					path: { integrationId: IntegrationId.make(id) },
+					params: { integrationId: IntegrationId.make(id) },
 				}),
 			);
 
@@ -347,7 +349,7 @@ describe("Webhook routes", () => {
 				client.call((c) =>
 					c.integrations.webhook({
 						payload: {},
-						path: { integrationId: IntegrationId.make(id) },
+						params: { integrationId: IntegrationId.make(id) },
 					}),
 				),
 			);
@@ -377,7 +379,7 @@ describe("Import run visibility", () => {
 				expect(run.id).toBe(ImportRunId.make(runId));
 
 				const integrationRuns = yield* client.call((c) =>
-					c.integrations.getRuns({ path: { integrationId: IntegrationId.make(integrationId) } }),
+					c.integrations.getRuns({ params: { integrationId: IntegrationId.make(integrationId) } }),
 				);
 				expect(integrationRuns.find((r) => r.id === runId)).toBeDefined();
 			}),

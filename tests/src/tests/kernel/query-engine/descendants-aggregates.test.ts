@@ -28,7 +28,7 @@ describe("Descendant source filters", () => {
 				completeSlug,
 				moduleLessonSlug,
 				courseModuleSlug,
-			} = yield* createCourseLessonFilterFixture();
+			} = yield* createCourseLessonFilterFixture;
 			const completedLessonModulesSource = (suffix: string) =>
 				({
 					type: "entities",
@@ -115,7 +115,7 @@ describe("Descendant source filters", () => {
 	it.live("filters courses by a descendant lesson duration threshold", () =>
 		Effect.gen(function* () {
 			const { client, courseSlug, moduleSlug, lessonSlug, moduleLessonSlug, courseModuleSlug } =
-				yield* createCourseLessonFilterFixture();
+				yield* createCourseLessonFilterFixture;
 			const doc = buildRowsDoc({
 				alias: "course",
 				schemas: [courseSlug],

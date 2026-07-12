@@ -76,7 +76,7 @@ describe("sandbox enqueue by script ID", () => {
 		}),
 	);
 
-	it.scopedLive("rejects a runtime manifest that differs from installed metadata", () =>
+	it.live("rejects a runtime manifest that differs from installed metadata", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const slug = `runtime-manifest-mismatch-${crypto.randomUUID()}`;

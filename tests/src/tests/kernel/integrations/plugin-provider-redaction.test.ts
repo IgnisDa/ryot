@@ -52,7 +52,7 @@ const settingsSchema = {
 } satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
 
 describe("third-party integration provider redaction", () => {
-	it.scopedLive("redacts nested secrets from every integration read response", () =>
+	it.live("redacts nested secrets from every integration read response", () =>
 		Effect.gen(function* () {
 			const { providerSlug } = yield* Effect.acquireRelease(
 				installTestIntegrationProvider(settingsSchema),
@@ -92,7 +92,7 @@ describe("third-party integration provider redaction", () => {
 
 			const updated = yield* client.call((c) =>
 				c.integrations.update({
-					path: { integrationId: IntegrationId.make(created.id) },
+					params: { integrationId: IntegrationId.make(created.id) },
 					payload: {
 						name: "Updated dynamic provider",
 						providerSpecifics: {

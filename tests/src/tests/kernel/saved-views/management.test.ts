@@ -60,9 +60,7 @@ const buildSchemaDisplayConfiguration = (slug: string) => ({
 	},
 });
 
-const buildBuiltinUpdatePayload = (
-	view: Effect.Effect.Success<ReturnType<typeof getSavedView>>,
-) => ({
+const buildBuiltinUpdatePayload = (view: Effect.Success<ReturnType<typeof getSavedView>>) => ({
 	icon: view.icon,
 	name: view.name,
 	isDisabled: view.isDisabled,
@@ -159,7 +157,7 @@ describe("saved views management", () => {
 			const builtinView = yield* findBuiltinSavedView(client);
 
 			const error = yield* Effect.flip(
-				client.call((c) => c.savedViews.delete({ path: { viewSlug: builtinView.slug } })),
+				client.call((c) => c.savedViews.delete({ params: { viewSlug: builtinView.slug } })),
 			);
 
 			expect(error).toMatchObject({ _tag: "BadRequest" });
@@ -175,7 +173,7 @@ describe("saved views management", () => {
 			const invalidUpdateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
-						path: { viewSlug: builtinView.slug },
+						params: { viewSlug: builtinView.slug },
 						payload: {
 							...buildBuiltinUpdatePayload(builtinView),
 							name: `${builtinView.name} Renamed`,
@@ -187,7 +185,7 @@ describe("saved views management", () => {
 
 			const disabledView = yield* client.call((c) =>
 				c.savedViews.update({
-					path: { viewSlug: builtinView.slug },
+					params: { viewSlug: builtinView.slug },
 					payload: { ...buildBuiltinUpdatePayload(builtinView), isDisabled: true },
 				}),
 			);
@@ -195,7 +193,7 @@ describe("saved views management", () => {
 
 			const reenabledView = yield* client.call((c) =>
 				c.savedViews.update({
-					path: { viewSlug: builtinView.slug },
+					params: { viewSlug: builtinView.slug },
 					payload: { ...buildBuiltinUpdatePayload(disabledView), isDisabled: false },
 				}),
 			);

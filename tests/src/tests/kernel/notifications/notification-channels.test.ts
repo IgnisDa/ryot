@@ -76,7 +76,7 @@ describe("notification channel CRUD", () => {
 				other.client.call((c) =>
 					c.notifications.updateChannel({
 						payload: { isDisabled: true },
-						path: { channelId: NotificationChannelId.make(id) },
+						params: { channelId: NotificationChannelId.make(id) },
 					}),
 				),
 			);
@@ -84,7 +84,7 @@ describe("notification channel CRUD", () => {
 
 			const deleteError = yield* Effect.flip(
 				other.client.call((c) =>
-					c.notifications.deleteChannel({ path: { channelId: NotificationChannelId.make(id) } }),
+					c.notifications.deleteChannel({ params: { channelId: NotificationChannelId.make(id) } }),
 				),
 			);
 			assertTaggedError(deleteError, "NotFound");

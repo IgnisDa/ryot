@@ -12,7 +12,7 @@ import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("interest authorization", () => {
-	it.scopedLive("ignores interest declared in another user's private entity", () =>
+	it.live("ignores interest declared in another user's private entity", () =>
 		Effect.gen(function* () {
 			const authA = yield* createAuthenticatedClient();
 			const authB = yield* createAuthenticatedClient();
@@ -40,7 +40,7 @@ describe("interest authorization", () => {
 			);
 
 			const entity = yield* authA.client.call((contract) =>
-				contract.entities.get({ path: { entityId: privateEntity.id } }),
+				contract.entities.get({ params: { entityId: privateEntity.id } }),
 			);
 			expect(entity.populatedAt).toBeNull();
 		}),
@@ -67,7 +67,7 @@ describe("interest authorization", () => {
 		}),
 	);
 
-	it.scopedLive("rejects declaring interest on another user's stream", () =>
+	it.live("rejects declaring interest on another user's stream", () =>
 		Effect.gen(function* () {
 			const authA = yield* createAuthenticatedClient();
 			const authB = yield* createAuthenticatedClient();
