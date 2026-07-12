@@ -29,7 +29,6 @@ import {
 	requireSystemSandboxRunInput,
 	sandboxRunIntegrationId,
 	sandboxHostEffect,
-	sandboxHostFailure,
 	toSandboxJsonValue,
 	type UserSandboxRunInput,
 } from "#lib/infrastructure/sandbox-runtime/shared";
@@ -82,6 +81,28 @@ const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<s
 
 	return Effect.succeed(value.trim());
 };
+
+const requireUniqueNonEmptyStrings = (values: ReadonlyArray<unknown>, message: string) =>
+	Effect.forEach(values, (value) => requireNonEmptyString(value, message)).pipe(
+		Effect.map((strings) => [...new Set(strings)]),
+	);
+
+const normalizeConfigKeys = (
+	fnName: string,
+	rawKeys: ReadonlyArray<string>,
+): Effect.Effect<ReadonlyArray<string>, string> => {
+	const keys = rawKeys.map((key) => key.trim());
+	return keys.some((key) => !key)
+		? Effect.fail(`${fnName} expects non-empty key strings`)
+		: Effect.succeed(keys);
+};
+
+const encodeConfigValues = (label: string, values: Readonly<Record<string, unknown>>) =>
+	Effect.forEach(Object.entries(values), ([key, value]) =>
+		isJsonValue(value)
+			? Effect.succeed([key, value] as const)
+			: Effect.fail(`${label} config key "${key}" is not JSON-compatible`),
+	).pipe(Effect.map(Object.fromEntries));
 
 export const normalizePreferences = (value: unknown) => {
 	const source = isObjectRecord(value) ? value : {};
@@ -352,64 +373,46 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				sandboxHostEffect,
 			);
 		},
-		getPluginConfig: (input, rawKeys) => {
-			const keys = rawKeys.map((key) => key.trim());
-			if (keys.some((key) => !key)) {
-				return sandboxHostFailure("getPluginConfig expects non-empty key strings");
-			}
-
-			return sandboxHostEffect(
-				runWithDb(
-					pluginRuntime.findActivePluginConfigByScriptId(SandboxScriptId.make(input.scriptId)),
-				).pipe(
-					Effect.flatMap((plugin) =>
-						plugin
-							? getPluginConfig({
-									keys,
-									metadata: input.metadata,
-									pluginSlug: plugin.pluginSlug,
-									configSchema: plugin.configSchema,
-								})
-							: Effect.fail("Plugin config is available only to active plugin scripts"),
-					),
-					Effect.flatMap((values) =>
-						Effect.forEach(Object.entries(values), ([key, value]) =>
-							isJsonValue(value)
-								? Effect.succeed([key, value] as const)
-								: Effect.fail(`Plugin config key "${key}" is not JSON-compatible`),
-						).pipe(Effect.map(Object.fromEntries)),
+		getPluginConfig: (input, rawKeys) =>
+			sandboxHostEffect(
+				normalizeConfigKeys("getPluginConfig", rawKeys).pipe(
+					Effect.flatMap((keys) =>
+						runWithDb(
+							pluginRuntime.findActivePluginConfigByScriptId(SandboxScriptId.make(input.scriptId)),
+						).pipe(
+							Effect.flatMap((plugin) =>
+								plugin
+									? getPluginConfig({
+											keys,
+											metadata: input.metadata,
+											pluginSlug: plugin.pluginSlug,
+											configSchema: plugin.configSchema,
+										})
+									: Effect.fail("Plugin config is available only to active plugin scripts"),
+							),
+							Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
+						),
 					),
 				),
-			);
-		},
-		getSystemConfig: (input, rawKeys) => {
-			const keys = rawKeys.map((key) => key.trim());
-			if (keys.some((key) => !key)) {
-				return sandboxHostFailure("getSystemConfig expects non-empty key strings");
-			}
-			return sandboxHostEffect(
-				getSystemConfig(keys, input.metadata).pipe(
-					Effect.flatMap((values) =>
-						Effect.forEach(Object.entries(values), ([key, value]) =>
-							isJsonValue(value)
-								? Effect.succeed([key, value] as const)
-								: Effect.fail(`System config key "${key}" is not JSON-compatible`),
-						).pipe(Effect.map(Object.fromEntries)),
+			),
+		getSystemConfig: (input, rawKeys) =>
+			sandboxHostEffect(
+				normalizeConfigKeys("getSystemConfig", rawKeys).pipe(
+					Effect.flatMap((keys) =>
+						getSystemConfig(keys, input.metadata).pipe(
+							Effect.flatMap((values) => encodeConfigValues("System", values)),
+						),
 					),
 				),
-			);
-		},
+			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>
 			requireUserSandboxRunInput(rawInput, "getEntitySchemas").pipe(
 				Effect.andThen(
-					Effect.forEach(entitySchemaSlugs, (entitySchemaSlug) =>
-						requireNonEmptyString(
-							entitySchemaSlug,
-							"getEntitySchemas expects non-empty entitySchemaSlugs",
-						),
+					requireUniqueNonEmptyStrings(
+						entitySchemaSlugs,
+						"getEntitySchemas expects non-empty entitySchemaSlugs",
 					).pipe(
-						Effect.flatMap((rawEntitySchemaSlugs) => {
-							const resolvedEntitySchemaSlugs = [...new Set(rawEntitySchemaSlugs)];
+						Effect.flatMap((resolvedEntitySchemaSlugs) => {
 							if (resolvedEntitySchemaSlugs.length === 0) {
 								return Effect.succeed([]);
 							}
@@ -498,14 +501,11 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 		listEventSchemas: (rawInput, entitySchemaSlugs) =>
 			requireUserSandboxRunInput(rawInput, "listEventSchemas").pipe(
 				Effect.andThen(
-					Effect.forEach(entitySchemaSlugs, (entitySchemaSlug) =>
-						requireNonEmptyString(
-							entitySchemaSlug,
-							"listEventSchemas expects non-empty entitySchemaSlugs",
-						),
+					requireUniqueNonEmptyStrings(
+						entitySchemaSlugs,
+						"listEventSchemas expects non-empty entitySchemaSlugs",
 					).pipe(
-						Effect.flatMap((rawEntitySchemaSlugs) => {
-							const resolvedEntitySchemaSlugs = [...new Set(rawEntitySchemaSlugs)];
+						Effect.flatMap((resolvedEntitySchemaSlugs) => {
 							if (resolvedEntitySchemaSlugs.length === 0) {
 								return Effect.succeed([]);
 							}

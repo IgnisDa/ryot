@@ -124,6 +124,19 @@ const bindHostFunction =
 const defaultFailure = (fnName: string, message: string) => (error: Schema.SchemaError) =>
 	invalidArguments(fnName, error, message);
 
+const cacheInvalidArguments =
+	(fnName: string, ttlMessage: string) => (error: Schema.SchemaError) => {
+		const segment = parseIssues(error)[0]?.path?.[0];
+		const position = segment === undefined ? undefined : pathKey(segment);
+		let message = `${fnName} ${ttlMessage}`;
+		if (position === 0) {
+			message = `${fnName} expects a non-empty key string`;
+		} else if (position === 1) {
+			message = `${fnName} value must be JSON-serializable`;
+		}
+		return invalidArguments(fnName, error, message);
+	};
+
 const preserveHttpFailureDetails = (error: SandboxHostError) =>
 	"data" in error ? { ...apiFailure(error.message), data: error.data } : apiFailure(error.message);
 
@@ -230,32 +243,12 @@ export const bindSandboxHostFunctions = (
 	setCachedValue: bindHostFunction(
 		coreSandboxHostContracts.setCachedValue,
 		(...args) => implementations.setCachedValue(input, ...args),
-		(error) => {
-			const segment = parseIssues(error)[0]?.path?.[0];
-			const position = segment === undefined ? undefined : pathKey(segment);
-			let message = "setCachedValue expects a positive integer expiry in seconds";
-			if (position === 0) {
-				message = "setCachedValue expects a non-empty key string";
-			} else if (position === 1) {
-				message = "setCachedValue value must be JSON-serializable";
-			}
-			return invalidArguments("setCachedValue", error, message);
-		},
+		cacheInvalidArguments("setCachedValue", "expects a positive integer expiry in seconds"),
 	),
 	claimPersistentValue: bindHostFunction(
 		coreSandboxHostContracts.claimPersistentValue,
 		(...args) => implementations.claimPersistentValue(input, ...args),
-		(error) => {
-			const segment = parseIssues(error)[0]?.path?.[0];
-			const position = segment === undefined ? undefined : pathKey(segment);
-			let message = "claimPersistentValue expects a positive integer ttlSeconds";
-			if (position === 0) {
-				message = "claimPersistentValue expects a non-empty key string";
-			} else if (position === 1) {
-				message = "claimPersistentValue value must be JSON-serializable";
-			}
-			return invalidArguments("claimPersistentValue", error, message);
-		},
+		cacheInvalidArguments("claimPersistentValue", "expects a positive integer ttlSeconds"),
 	),
 	getPluginConfig: bindHostFunction(
 		coreSandboxHostContracts.getPluginConfig,
