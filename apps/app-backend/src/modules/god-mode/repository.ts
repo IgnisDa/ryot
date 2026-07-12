@@ -1,6 +1,6 @@
 import type { UserId } from "@ryot/contract/schema/brands";
 import { asc, eq, ilike, inArray, sql } from "drizzle-orm";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -8,8 +8,8 @@ import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 const userSearchClause = (search?: string) =>
 	search ? ilike(schema.user.email, `%${search.trim()}%`) : undefined;
 
-export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodModeRepository", {
-	sync: () => {
+export class GodModeRepository extends Context.Service<GodModeRepository>()("GodModeRepository", {
+	make: Effect.sync(() => {
 		const countUsers = Effect.fn("GodModeRepository.countUsers")(function* (search?: string) {
 			const db = yield* CurrentDb;
 			const rows = yield* dbEffect(() =>
@@ -174,5 +174,7 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			listAccountsForUsers,
 			findUserDisabledState,
 		};
-	},
-}) {}
+	}),
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
