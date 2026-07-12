@@ -123,7 +123,7 @@ const allDomainManifest = defineManifest({
 		"getEntitySchemas",
 		"listEventSchemas",
 		"listIntegrations",
-		"executeQueryEngine",
+		"executeRyotql",
 		"ensureUserEntities",
 		"upsertGlobalEntities",
 		"getCurrentIntegration",
@@ -196,7 +196,7 @@ defineScript({
 				{ relationships: [], selector: { type: "self" }, relationshipSchemaSlug: "same-as" },
 			]);
 			const deleted: number | undefined = reconciled?.deleted;
-			const query = yield* host.executeQueryEngine({ source: { type: "entities" } });
+			const query = yield* host.executeRyotql({ queries: {} });
 			const queryResult: Expect<Equal<typeof query, unknown>> = true;
 			const entitySchemasArg: Expect<
 				Equal<Parameters<typeof host.getEntitySchemas>[0], ReadonlyArray<string>>

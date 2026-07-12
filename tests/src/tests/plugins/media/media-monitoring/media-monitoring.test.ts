@@ -204,7 +204,11 @@ describe("media monitoring endpoints", () => {
 				apiEntityId,
 				"movie",
 			);
-			expect(inLibraryRelationship.data.items).toHaveLength(1);
+			expect(
+				inLibraryRelationship.data.entity?.type === "rows"
+					? inLibraryRelationship.data.entity.items
+					: [],
+			).toHaveLength(1);
 		}),
 	);
 

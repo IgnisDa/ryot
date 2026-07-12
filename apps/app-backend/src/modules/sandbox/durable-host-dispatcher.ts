@@ -62,7 +62,6 @@ export const SANDBOX_DURABLE_HOST_DISPATCH = {
 	listIntegrations: "activity",
 	createEvents: "event-workflow",
 	emitSignal: "service-workflow",
-	executeQueryEngine: "activity",
 	getUserPreferences: "activity",
 	claimPersistentValue: "activity",
 	upsertGlobalEntities: "activity",
