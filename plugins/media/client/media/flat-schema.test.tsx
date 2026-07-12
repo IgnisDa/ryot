@@ -1,4 +1,5 @@
 import type { EntityInterest, RyotClientAdapter } from "@ryot-app/client-sdk";
+import { Result } from "@ryot-app/client-sdk/effect";
 import { ManagedAssetProvider, useRyotQuery, type RyotQuery } from "@ryot-app/client-sdk/react";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { act } from "react";
@@ -13,6 +14,7 @@ import {
 } from "../../tests/client/flat-media/activity-fixture";
 import {
 	decodeFlatOverview,
+	FLAT_OVERVIEW_INPUT,
 	fixtureOverviewRecipe,
 	flatCompanyRow,
 	flatGroupMemberRow,
@@ -21,11 +23,18 @@ import {
 	flatPersonRow,
 	flatRecommendationRow,
 } from "../../tests/client/flat-media/overview-fixture";
-import { flatFixtureRecipes } from "../../tests/client/flat-media/recipes";
-import { fixtureSchema } from "../../tests/client/flat-media/schema-fixture";
+import {
+	flatFixtureRecipes,
+	flatUngroupedFixtureRecipes,
+} from "../../tests/client/flat-media/recipes";
+import {
+	fixtureSchema,
+	ungroupedFixtureSchema,
+} from "../../tests/client/flat-media/schema-fixture";
 import {
 	decodeFlatSummaryResult,
 	fixtureSummaryRecipe,
+	FLAT_SUMMARY_INPUT,
 	flatSummaryRow,
 } from "../../tests/client/flat-media/summary-fixture";
 import {
@@ -67,6 +76,16 @@ const readyState = (overrides: Record<string, unknown> = {}) =>
 	);
 
 type SummaryState = ReturnType<typeof readyState>;
+
+const ungroupedReadyState = () =>
+	ungroupedFixtureSchema.mapSummary(
+		readyQueryResult(
+			decodeFlatSummaryResult(flatUngroupedFixtureRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
+				requested: [{ schemaSlug: "ungrouped" }],
+				summary: [{ ...flatSummaryRow, schemaSlug: "ungrouped" }],
+			}),
+		),
+	);
 
 const renderBody = (
 	state: SummaryState,
@@ -326,6 +345,33 @@ describe("flat media overview", () => {
 			),
 		).toBe(true);
 		expect(fixtureSchema.overviewIsEmpty(overviewOf())).toBe(false);
+	});
+
+	it("never builds a part-of section for a descriptor that declares no group", () => {
+		const overview = Result.getOrThrow(
+			flatUngroupedFixtureRecipes
+				.overviewRecipe(FLAT_OVERVIEW_INPUT)
+				.decode({ data: flatOverviewData() }),
+		);
+
+		expect(ungroupedFixtureSchema.overviewIsEmpty(overview)).toBe(false);
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			<ungroupedFixtureSchema.ScreenBody
+				compact
+				safeAreaTop={0}
+				activity={null}
+				settled={undefined}
+				refresh={() => undefined}
+				state={ungroupedReadyState()}
+				refreshOverview={() => undefined}
+				overview={mapMediaOverview(readyQueryResult(overview))}
+			/>,
+		);
+
+		expect(container.textContent).toContain("People");
+		expect(container.textContent).not.toContain("Part of");
+		unmount();
 	});
 
 	it("resolves the group members' covers alongside the credit and recommendation art", () => {

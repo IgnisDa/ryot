@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	mediaActivityCountFigure,
 	mediaActivityDurationLabel,
 	mediaActivityError,
 	mediaTrackLengthLabel,
@@ -20,6 +21,11 @@ describe("media activity timeline labels", () => {
 			"1:00:00",
 			"1:02:15",
 		]);
+	});
+
+	it("rounds a counted total and marks it as a floor when part of it is unknown", () => {
+		expect(mediaActivityCountFigure({ missing: 0, total: 640.4 })).toBe("640");
+		expect(mediaActivityCountFigure({ total: 640, missing: 1 })).toBe("640+");
 	});
 
 	it("separates transport failures from malformed activity", () => {
