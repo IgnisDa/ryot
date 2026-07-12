@@ -11,7 +11,9 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@ryot/ryotql": "workspace:*"
+		"@ryot/contract": "workspace:*",
+		"@ryot/ryotql": "workspace:*",
+		"effect": "4.0.0-beta.105"
 	},
 	"devDependencies": {
 		"@ryot/testing": "workspace:*",
