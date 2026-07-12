@@ -8,6 +8,7 @@ import {
 	installTestImportPlugin,
 	installTestImportPinningPlugin,
 	installTestHarvestHandleImportPlugin,
+	listManualImportRuns,
 	pollImportRunUntilTerminal,
 	pollUntil,
 	postBackendJson,
@@ -238,7 +239,7 @@ describe("Plugin Import Public Boundary", () => {
 				),
 			);
 			assertTaggedError(error, "BadRequest");
-			expect(yield* client.call((c) => c.imports.listRuns())).toEqual([]);
+			expect((yield* listManualImportRuns(client, 1, 20)).items).toEqual([]);
 
 			const created = yield* client.call((c) =>
 				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
@@ -278,7 +279,7 @@ describe("Plugin Import Public Boundary", () => {
 				),
 			);
 			assertTaggedError(error, "BadRequest");
-			expect(yield* client.call((c) => c.imports.listRuns())).toEqual([]);
+			expect((yield* listManualImportRuns(client, 1, 20)).items).toEqual([]);
 
 			fixtureImportPlugin = yield* installTestImportPlugin;
 			const created = yield* client.call((c) =>
