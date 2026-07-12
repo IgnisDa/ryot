@@ -16,7 +16,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot/contract/schema/core";
 import { and, asc, count, eq, isNull } from "drizzle-orm";
-import { DateTime, Effect } from "effect";
+import { Context, DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -102,10 +102,10 @@ const toStoredRun = (row: SubscriptionRunRow) => ({
 
 export type StoredSubscriptionRun = ReturnType<typeof toStoredRun>;
 
-export class AutomationsRepository extends Effect.Service<AutomationsRepository>()(
+export class AutomationsRepository extends Context.Service<AutomationsRepository>()(
 	"AutomationsRepository",
 	{
-		sync: () => {
+		make: Effect.sync(() => {
 			const listNotificationSubscriptions = Effect.fn(
 				"AutomationsRepository.listNotificationSubscriptions",
 			)(function* (userId: UserId) {
@@ -419,6 +419,8 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				lockActiveNotificationSubscription,
 				listActiveNotificationSubscriptions,
 			};
-		},
+		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
