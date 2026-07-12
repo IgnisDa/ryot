@@ -467,10 +467,7 @@ export class ProcessPool extends Context.Service<ProcessPool>()("ProcessPool", {
 				importMapPath: dependencies.importMapPath,
 				...(grants ? { grants } : {}),
 			}).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner));
-		const pool = yield* Pool.make({
-			acquire: spawn(),
-			size: config.sandbox.workerConcurrency + 2,
-		});
+		const pool = yield* Pool.make({ acquire: spawn(), size: config.sandbox.workerConcurrency + 2 });
 		return { pool, runtimePaths: dependencies, spawnDedicated: spawn };
 	}),
 }) {
