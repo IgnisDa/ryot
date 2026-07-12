@@ -1,13 +1,24 @@
 import {
+	type AppPropertyDefinition,
 	type AppSchema,
 	collectSecretProperties,
 	collectTranslatableProperties,
+	isAppPropertyRequired,
 } from "@ryot/contract/schema/property-schema";
 import {
 	moviePropertiesSchema,
 	personPropertiesSchema,
 } from "@ryot/media-plugin/schemas/property-schemas";
 import { describe, expect, it } from "vitest";
+
+const property = (validation?: {
+	readonly required?: true | undefined;
+}): AppPropertyDefinition => ({
+	validation,
+	type: "string",
+	label: "Property",
+	description: "A property",
+});
 
 describe("collectTranslatableProperties", () => {
 	it("marks description translatable while leaving genres and other properties canonical", () => {
@@ -46,5 +57,12 @@ describe("collectSecretProperties", () => {
 
 	it("returns nothing for a schema without secret properties", () => {
 		expect(collectSecretProperties(personPropertiesSchema)).toEqual([]);
+	});
+});
+
+describe("isAppPropertyRequired", () => {
+	it("returns true only when validation marks the property required", () => {
+		expect(isAppPropertyRequired(property())).toBe(false);
+		expect(isAppPropertyRequired(property({ required: true }))).toBe(true);
 	});
 });
