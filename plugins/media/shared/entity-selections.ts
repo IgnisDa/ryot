@@ -40,17 +40,20 @@ export const entityIdentitySelection = (entity: Table) => ({
 	...entitySyncSelection(entity),
 });
 
-export const propertyJson = (entity: Table, property: string) =>
-	castJson(jsonPath(column(entity, "properties"), property));
+type PropertyPath =
+	Parameters<typeof jsonPath> extends readonly [unknown, ...infer Path] ? Path : never;
 
-export const propertyText = (entity: Table, property: string) =>
-	castText(jsonPath(column(entity, "properties"), property));
+export const propertyJson = (entity: Table, ...path: PropertyPath) =>
+	castJson(jsonPath(column(entity, "properties"), ...path));
 
-export const propertyNumber = (entity: Table, property: string) =>
-	castNumber(jsonPath(column(entity, "properties"), property));
+export const propertyText = (entity: Table, ...path: PropertyPath) =>
+	castText(jsonPath(column(entity, "properties"), ...path));
 
-export const propertyBoolean = (entity: Table, property: string) =>
-	castBoolean(jsonPath(column(entity, "properties"), property));
+export const propertyNumber = (entity: Table, ...path: PropertyPath) =>
+	castNumber(jsonPath(column(entity, "properties"), ...path));
+
+export const propertyBoolean = (entity: Table, ...path: PropertyPath) =>
+	castBoolean(jsonPath(column(entity, "properties"), ...path));
 
 export const relationshipTo = (relationship: Table, parent: Table, child: Table, schema: string) =>
 	and(

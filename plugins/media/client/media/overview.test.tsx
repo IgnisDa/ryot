@@ -1,4 +1,5 @@
 import { fireEvent, waitFor } from "@testing-library/dom";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -11,6 +12,7 @@ import {
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import {
+	mediaWatchProvidersTrailing,
 	MediaOverview,
 	MediaOverviewRelations,
 	MediaWatchProvidersSection,
@@ -35,10 +37,15 @@ type Overview = ReturnType<typeof decodeShowOverview>;
 
 const readyOverview = decodeShowOverview();
 
+const watchProvidersTrailing = mediaWatchProvidersTrailing<ReturnType<typeof decodeShowSummary>>(
+	(summary) => summary,
+);
+
 const overviewScreen = (input: {
 	readonly media?: ReturnType<typeof decodeShowSummary>;
 	readonly overview: MediaOverviewState<Overview>;
 	readonly refreshOverview?: () => void;
+	readonly trailing?: (slot: { readonly compact: boolean; readonly divided: boolean }) => ReactNode;
 }) => {
 	const media = input.media ?? decodeShowSummary();
 	return (
@@ -47,12 +54,12 @@ const overviewScreen = (input: {
 			media={media}
 			safeAreaTop={0}
 			noticeTitle="Cast"
-			watchProviders={media}
 			overview={input.overview}
 			relations={relationsRender}
 			isEmpty={mediaRelationsAreEmpty}
 			refreshOverview={input.refreshOverview ?? (() => undefined)}
 			loadingDetail="Fetching the cast, companies and recommendations for this show."
+			trailing={input.trailing ?? ((slot) => watchProvidersTrailing({ ...slot, summary: media }))}
 		/>
 	);
 };
@@ -126,6 +133,23 @@ describe("MediaOverview", () => {
 
 		expect(container.textContent).not.toContain("Where to watch");
 		expect(container.textContent).not.toContain("JustWatch");
+		unmount();
+	});
+
+	it("renders the trailing slot last and divides it from the sections above", () => {
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			overviewScreen({
+				overview: { status: "ready", overview: readyOverview },
+				trailing: ({ divided }) => <section data-divided={divided}>Where to play</section>,
+			}),
+		);
+
+		expect(container.textContent).toContain("Where to play");
+		expect(container.firstElementChild?.lastElementChild?.textContent).toBe("Where to play");
+		expect(container.firstElementChild?.lastElementChild?.getAttribute("data-divided")).toBe(
+			"true",
+		);
 		unmount();
 	});
 

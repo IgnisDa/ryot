@@ -65,7 +65,6 @@ import {
 	type MediaSummaryState,
 } from "./summary-state";
 import type { MediaTab } from "./tabs";
-import type { MediaWatchProviders } from "./watch-providers";
 
 const PEOPLE_LIMIT = 12;
 const COMPANY_LIMIT = 6;
@@ -152,8 +151,12 @@ export type MediaEpisodicSchemaDescriptor<
 		readonly entityId: string;
 		readonly summary: Summary | undefined;
 	}) => ReactNode;
-	readonly watchProviders?: (summary: Summary) => MediaWatchProviders | undefined;
 	readonly unlinkedCreators?: (overview: Overview) => readonly MediaUnlinkedCreator[];
+	readonly overviewTrailing?: (input: {
+		readonly summary: Summary;
+		readonly compact: boolean;
+		readonly divided: boolean;
+	}) => ReactNode;
 };
 
 const MARKER_TONE: Record<MediaEpisodicRow["type"], string> = {
@@ -398,7 +401,7 @@ export const defineEpisodicMediaSchema = <
 				overviewRelations={overviewRelations}
 				refreshOverview={props.refreshOverview}
 				summaryError={summaryState.summaryError}
-				watchProviders={descriptor.watchProviders}
+				overviewTrailing={descriptor.overviewTrailing}
 				summaryRefreshStatus={props.summaryRefreshStatus}
 				overviewNoticeTitle={descriptor.creditCopy.notice}
 				overviewRefreshStatus={props.overviewRefreshStatus}

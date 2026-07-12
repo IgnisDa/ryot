@@ -65,6 +65,43 @@ describe("media summary state", () => {
 		});
 	});
 
+	it("takes the backdrop from the first declared purpose an image matches", () => {
+		const artwork = { type: "remote", purpose: "artwork", url: "https://images.test/artwork.jpg" };
+		const backdrop = {
+			type: "remote",
+			purpose: "backdrop",
+			url: "https://images.test/backdrop.jpg",
+		};
+		const media = decodeShowSummary({ images: [backdrop, artwork] });
+
+		expect(mediaBackdropAsset(media, ["artwork", "backdrop"])).toEqual({
+			type: "remote",
+			url: "https://images.test/artwork.jpg",
+		});
+		expect(
+			mediaBackdropAsset(decodeShowSummary({ images: [backdrop] }), ["artwork", "backdrop"]),
+		).toEqual({ type: "remote", url: "https://images.test/backdrop.jpg" });
+		expect(mediaBackdropAsset(media, ["artwork"])).toEqual({
+			type: "remote",
+			url: "https://images.test/artwork.jpg",
+		});
+		expect(mediaBackdropAsset(media, ["still"])).toBeUndefined();
+	});
+
+	it("resolves the declared backdrop purpose alongside the poster and gallery", () => {
+		const media = decodeShowSummary({
+			images: [
+				{ type: "s3", key: "cover-key", purpose: "cover" },
+				{ type: "s3", key: "artwork-key", purpose: "artwork" },
+			],
+		});
+
+		expect(mediaManagedAssets(media, ["artwork"])).toEqual([
+			{ type: "s3", key: "artwork-key" },
+			{ type: "s3", key: "cover-key" },
+		]);
+	});
+
 	it("collects the managed locators the poster, backdrop and gallery render", () => {
 		const media = decodeShowSummary({
 			images: [

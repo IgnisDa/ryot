@@ -13,6 +13,7 @@ import {
 } from "../media/episodic-activity-state";
 import { defineEpisodicMediaSchema } from "../media/episodic-schema";
 import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT } from "../media/hero";
+import { mediaWatchProvidersTrailing } from "../media/overview";
 import {
 	mediaCountFact,
 	mediaCountLabel,
@@ -114,11 +115,11 @@ export const showSchema = defineEpisodicMediaSchema({
 	facts: showSummaryFacts,
 	EpisodesTab: ShowEpisodesTab,
 	coverage: showActivityCoverage,
-	watchProviders: (show) => show,
 	episodeOrigin: showEpisodeOriginLabel,
 	presentationFacts: showPresentationFacts,
 	presentationDetail: showPresentationDetail,
 	nouns: { title: "Show", plural: "shows", singular: "show" },
+	overviewTrailing: mediaWatchProvidersTrailing((summary) => summary),
 	heroHeight: (compact) => (compact ? MEDIA_ART_HEIGHT : MEDIA_BACKDROP_HEIGHT),
 	overviewLoadingDetail: "Fetching the cast, companies and recommendations for this show.",
 	creditCopy: {
