@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,15 +16,27 @@ interrupt every waiter without affecting another execution id.
 
 ## Acceptance criteria
 
-- [ ] The chosen in-flight limit is based on recorded representative behavior
-- [ ] Every active execution owns an independent semaphore with that limit
-- [ ] Total host-call and HTTP-call count budgets remain independently enforced
-- [ ] Calls above the bound wait rather than bypassing the limit or failing arbitrarily
-- [ ] Success, typed failure, defect, timeout, cancellation, expiry, and session removal release permits safely
-- [ ] Removing a session does not leave blocked bridge requests or leak state
-- [ ] Controlled tests prove maximum overlap, queued progress, and isolation between execution ids
-- [ ] Batch-first media/fitness scripts and the standalone operational path remain green
-- [ ] The selected limit and rationale are recorded in the Phase 4 plan/runtime docs
+- [x] The chosen in-flight limit is based on recorded representative behavior
+- [x] Every active execution owns an independent semaphore with that limit
+- [x] Total host-call and HTTP-call count budgets remain independently enforced
+- [x] Calls above the bound wait rather than bypassing the limit or failing arbitrarily
+- [x] Success, typed failure, defect, timeout, cancellation, expiry, and session removal release permits safely
+- [x] Removing a session does not leave blocked bridge requests or leak state
+- [x] Controlled tests prove maximum overlap, queued progress, and isolation between execution ids
+- [x] Batch-first media/fitness scripts remain green; the owner waived the standalone operational rerun
+- [x] The selected limit and rationale are recorded in the Phase 4 plan/runtime docs
+
+## Implementation notes
+
+The per-execution limit is four. Current intentional fan-out peaks at two concurrent media metadata
+or Netflix searches, three Movary artifact reads, and four backend tasks; import and monitoring batch
+dispatch is otherwise sequential. Each active bridge session owns its own Effect semaphore and close
+signal. Removal completes that signal before deleting Redis state, interrupting active and queued
+calls without coupling separate execution ids. Existing cumulative host-call budgets are unchanged.
+
+Verification passed the backend check, all 137 backend test files and 952 tests, the 19-test imports
+e2e file covering media and fitness, and the 11-test provider search/import e2e file. The owner waived
+rerunning the standalone 1,001-item operational gate.
 
 ## User stories addressed
 
