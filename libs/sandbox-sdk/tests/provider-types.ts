@@ -28,7 +28,7 @@ const provider = defineProvider({
 const manifestType: Expect<Equal<typeof manifest extends ScriptManifest ? true : false, false>> =
 	true;
 const resolveType: Expect<
-	Equal<Effect.Effect.Success<ReturnType<typeof provider.run>>, ProviderResolveResult>
+	Equal<Effect.Success<ReturnType<typeof provider.run>>, ProviderResolveResult>
 > = true;
 const externalIdType: Expect<Equal<ProviderResolveResult["externalId"], string | null>> = true;
 void manifestType;
