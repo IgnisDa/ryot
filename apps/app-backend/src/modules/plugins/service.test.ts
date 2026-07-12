@@ -231,6 +231,88 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 	}).pipe(Effect.provide(makeLayer({ persisted, published })));
 });
 
+const userBootstrapManifest = () => {
+	const manifest = fixtureManifest();
+	return {
+		...manifest,
+		userBootstrap: [
+			{
+				slug: "fixture",
+				scriptSlug: "fixture.user-bootstrap",
+				description: "Bootstrap fixture user data",
+			},
+		],
+		scripts: [
+			...manifest.scripts,
+			{
+				kind: "script" as const,
+				capabilities: [] as const,
+				name: "Fixture User Bootstrap",
+				slug: "fixture.user-bootstrap",
+				requiredPluginConfigKeys: [] as const,
+				requiredSystemConfigKeys: [] as const,
+				entry: "scripts/user-bootstrap.sandbox.ts",
+			},
+		],
+	};
+};
+
+it.effect("rejects user bootstrap declarations through ordinary runtime ingestion", () => {
+	const persisted: Array<NormalizedPlugin> = [];
+	return Effect.gen(function* () {
+		const ingestion = yield* PluginIngestionService;
+		const manifest = userBootstrapManifest();
+		const source = yield* loadPluginSource(fixturePackageRoot(), {
+			...manifest,
+			metadata: { ...manifest.metadata, slug: "media" },
+		});
+		const exit = yield* Effect.exit(ingestion.installPlugin(source));
+
+		expect(Exit.isFailure(exit)).toBe(true);
+		expect(String(exit)).toContain(
+			"User bootstrap declarations are allowed only for boot-configured trusted plugins",
+		);
+		expect(persisted).toEqual([]);
+	}).pipe(Effect.provide(makeLayer({ persisted })));
+});
+
+it.effect("accepts user bootstrap declarations through trusted boot ingestion", () => {
+	const persisted: Array<NormalizedPlugin> = [];
+	return Effect.gen(function* () {
+		const ingestion = yield* PluginIngestionService;
+		const manifest = userBootstrapManifest();
+		const source = yield* loadPluginSource(fixturePackageRoot(), {
+			...manifest,
+			metadata: { ...manifest.metadata, slug: "media" },
+		});
+		const plugin = yield* ingestion.ingestTrustedPlugin(source);
+
+		expect(plugin.manifest.userBootstrap).toEqual([
+			{
+				slug: "fixture",
+				scriptSlug: "fixture.user-bootstrap",
+				description: "Bootstrap fixture user data",
+			},
+		]);
+		expect(persisted).toEqual([plugin]);
+	}).pipe(Effect.provide(makeLayer({ persisted })));
+});
+
+it.effect("rejects user bootstrap declarations for non-configured trusted plugin slugs", () => {
+	const persisted: Array<NormalizedPlugin> = [];
+	return Effect.gen(function* () {
+		const ingestion = yield* PluginIngestionService;
+		const source = yield* loadPluginSource(fixturePackageRoot(), userBootstrapManifest());
+		const exit = yield* Effect.exit(ingestion.ingestTrustedPlugin(source));
+
+		expect(Exit.isFailure(exit)).toBe(true);
+		expect(String(exit)).toContain(
+			"User bootstrap declarations are allowed only for boot-configured trusted plugins",
+		);
+		expect(persisted).toEqual([]);
+	}).pipe(Effect.provide(makeLayer({ persisted })));
+});
+
 it.effect("validates automation bindings against definitions from installed plugins", () => {
 	const installedMedia = makeStoredPlugin(definitionOwnerManifest(), "media-source-hash");
 	return Effect.gen(function* () {

@@ -79,6 +79,7 @@ export const validatePluginManifestReferences = (
 		const scriptSlugs = new Set<string>();
 		const workflowSlugs = new Set<string>();
 		const operationSlugs = new Set<string>();
+		const userBootstrapSlugs = new Set<string>();
 		yield* assertSlug("plugin", manifest.metadata.slug);
 		for (const definition of manifest.entitySchemas) {
 			yield* assertSlug("entity schema", definition.slug);
@@ -109,6 +110,19 @@ export const validatePluginManifestReferences = (
 			}
 			bootSlugs.add(boot.slug);
 			yield* assertReference("Boot", boot.scriptSlug, scriptSlugs);
+		}
+		for (const entry of manifest.userBootstrap) {
+			yield* assertSlug("user bootstrap", entry.slug);
+			if (userBootstrapSlugs.has(entry.slug)) {
+				return yield* fail(`Duplicate user bootstrap slug: ${entry.slug}`);
+			}
+			userBootstrapSlugs.add(entry.slug);
+			yield* assertReference("User bootstrap", entry.scriptSlug, scriptSlugs);
+			if (manifest.scripts.find(({ slug }) => slug === entry.scriptSlug)?.kind !== "script") {
+				return yield* fail(
+					`User bootstrap ${entry.slug} script ${entry.scriptSlug} must be a direct script`,
+				);
+			}
 		}
 		for (const cron of manifest.crons) {
 			yield* assertSlug("cron", cron.slug);
@@ -219,6 +233,19 @@ export const validatePluginExecutableScripts = (plugin: {
 	}>;
 }) =>
 	Effect.gen(function* () {
+		for (const entry of plugin.manifest.userBootstrap) {
+			const script = plugin.scripts.find(({ slug }) => slug === entry.scriptSlug);
+			if (!script) {
+				return yield* fail(
+					`User bootstrap ${entry.slug} references missing compiled script: ${entry.scriptSlug}`,
+				);
+			}
+			if (script.metadata.kind !== "script") {
+				return yield* fail(
+					`User bootstrap ${entry.slug} script ${entry.scriptSlug} must be a direct script`,
+				);
+			}
+		}
 		for (const operation of plugin.manifest.operations) {
 			const script = plugin.scripts.find(({ slug }) => slug === operation.scriptSlug);
 			if (!script) {

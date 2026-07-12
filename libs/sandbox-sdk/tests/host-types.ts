@@ -117,14 +117,15 @@ const allDomainManifest = defineManifest({
 		"getEntity",
 		"listEvents",
 		"createEvents",
-		"changeUserRelationships",
-		"upsertGlobalEntities",
 		"getIntegration",
 		"getEntitySchema",
 		"listEventSchemas",
 		"listIntegrations",
-		"upsertGlobalRelationships",
 		"executeQueryEngine",
+		"ensureUserEntities",
+		"upsertGlobalEntities",
+		"changeUserRelationships",
+		"upsertGlobalRelationships",
 	],
 });
 defineScript({
@@ -168,6 +169,11 @@ defineScript({
 				},
 			]);
 			const changedCount: number | undefined = changed?.created;
+			const [ensuredEntity] = yield* host.ensureUserEntities([
+				{ properties: {}, name: "Library", entitySchemaSlug: "library" },
+			]);
+			const ensuredEntityId: string | undefined = ensuredEntity?.entityId;
+			const ensuredWasInserted: boolean | undefined = ensuredEntity?.wasInserted;
 			const total: number = created.count;
 			void provider;
 			void setting;
@@ -195,6 +201,8 @@ defineScript({
 			void lot;
 			void total;
 			void changedCount;
+			void ensuredEntityId;
+			void ensuredWasInserted;
 			void deleted;
 			void inserted;
 			void providers;

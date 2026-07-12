@@ -223,6 +223,14 @@ export const PluginBoot = strictStruct({
 
 export type PluginBoot = Schema.Schema.Type<typeof PluginBoot>;
 
+export const PluginUserBootstrap = strictStruct({
+	slug: sandboxManifestSlug,
+	scriptSlug: sandboxManifestSlug,
+	description: sandboxManifestString,
+});
+
+export type PluginUserBootstrap = Schema.Schema.Type<typeof PluginUserBootstrap>;
+
 export const PluginOperationAuth = Schema.Literal("user", "integration");
 
 export type PluginOperationAuth = Schema.Schema.Type<typeof PluginOperationAuth>;
@@ -372,6 +380,7 @@ const PluginManifestFields = strictStruct({
 	entitySchemas: Schema.Array(PluginEntitySchema),
 	signalSchemas: Schema.Array(PluginSignalSchema),
 	importSources: Schema.Array(PluginImportSource),
+	userBootstrap: Schema.Array(PluginUserBootstrap),
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
 });
@@ -382,6 +391,7 @@ export const PluginManifest = PluginManifestFields.pipe(
 			const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
 			const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
 			const providerSlugs = new Set(manifest.providers.map(({ slug }) => slug));
+			const userBootstrapSlugs = new Set(manifest.userBootstrap.map(({ slug }) => slug));
 			const configKeys = new Set(Object.keys(manifest.configSchema.fields));
 			const configEnvironmentKeys = [...configKeys].map((key) =>
 				pluginConfigEnvironmentKey(manifest.metadata.slug, key),
@@ -407,6 +417,9 @@ export const PluginManifest = PluginManifestFields.pipe(
 			if (workflowSlugs.size !== manifest.workflows.length) {
 				return false;
 			}
+			if (userBootstrapSlugs.size !== manifest.userBootstrap.length) {
+				return false;
+			}
 			if (
 				new Set(manifest.importSources.map(({ slug }) => slug)).size !==
 				manifest.importSources.length
@@ -426,6 +439,14 @@ export const PluginManifest = PluginManifestFields.pipe(
 				manifest.workflows.some(
 					(workflow) =>
 						manifest.scripts.find(({ slug }) => slug === workflow.scriptSlug)?.kind !== "workflow",
+				)
+			) {
+				return false;
+			}
+			if (
+				manifest.userBootstrap.some(
+					(entry) =>
+						manifest.scripts.find(({ slug }) => slug === entry.scriptSlug)?.kind !== "script",
 				)
 			) {
 				return false;
@@ -486,6 +507,7 @@ export const PluginManifest = PluginManifestFields.pipe(
 
 			const referencedScriptSlugs = [
 				...manifest.boot.map(({ scriptSlug }) => scriptSlug),
+				...manifest.userBootstrap.map(({ scriptSlug }) => scriptSlug),
 				...manifest.crons.flatMap((cron) => (cron.lot === "script" ? [cron.scriptSlug] : [])),
 				...manifest.operations.map(({ scriptSlug }) => scriptSlug),
 				...manifest.workflows.map(({ scriptSlug }) => scriptSlug),

@@ -21,6 +21,7 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 import type { AutomationRuleTarget } from "#modules/automations/repository";
 
+import { bootConfiguredPluginSlugs } from "./boot-sources";
 import { PluginLoader, PluginLoaderLive } from "./loader";
 
 type BindingAutomation = {
@@ -173,6 +174,43 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 					return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
 				},
 			);
+			const resolveTrustedUserBootstrapCaller = Effect.fn(
+				"PluginRuntimeResolver.resolveTrustedUserBootstrapCaller",
+			)(function* (scriptId: SandboxScriptId) {
+				const db = yield* CurrentDb;
+				const [stored] = yield* dbEffect(() =>
+					db
+						.select({
+							slug: schema.sandboxScript.slug,
+							pluginSlug: schema.sandboxScript.pluginSlug,
+							contentHash: schema.sandboxScript.contentHash,
+						})
+						.from(schema.sandboxScript)
+						.where(eq(schema.sandboxScript.id, scriptId))
+						.limit(1),
+				);
+				if (!stored?.pluginSlug || !bootConfiguredPluginSlugs.has(stored.pluginSlug)) {
+					return null;
+				}
+				const plugin = loader.getSnapshot().plugins[stored.pluginSlug];
+				const active = plugin?.scripts.find(
+					(script) =>
+						script.slug === stored.slug &&
+						script.contentHash === stored.contentHash &&
+						script.metadata.kind === "script",
+				);
+				if (
+					!plugin ||
+					!active ||
+					!plugin.manifest.userBootstrap.some(({ scriptSlug }) => scriptSlug === stored.slug)
+				) {
+					return null;
+				}
+				return {
+					pluginSlug: stored.pluginSlug,
+					entitySchemaSlugs: plugin.manifest.entitySchemas.map(({ slug }) => slug),
+				};
+			});
 			const findActivePluginConfigByScriptId = Effect.fn(
 				"PluginRuntimeResolver.findActivePluginConfigByScriptId",
 			)(function* (scriptId: SandboxScriptId) {
@@ -534,6 +572,7 @@ export class PluginRuntimeResolver extends Effect.Service<PluginRuntimeResolver>
 				listSchemaProviders,
 				resolveSearchScript,
 				findActiveScriptById,
+				resolveTrustedUserBootstrapCaller,
 				resolveDetailsScript,
 				resolveResolveScript,
 				resolveTranslateScript,
