@@ -17,8 +17,8 @@ const uploadInputSchema = (label: string, description: string) => ({
 			position: 0,
 			description,
 			type: "string" as const,
-			validation: { required: true as const },
 			format: { kind: "upload" as const, allowedFileExtensions: ["csv"] },
+			validation: { minLength: 1 as const, required: true as const },
 		},
 	},
 });

@@ -217,7 +217,10 @@ describe("Plugin Import Public Boundary", () => {
 					c.imports.createRun({
 						payload: {
 							source: FIXTURE_IMPORT_SOURCE,
-							archiveUploadToken: archiveUploadToken.token,
+							archiveUploadToken: {
+								token: archiveUploadToken,
+								expiresAt: "2026-08-23T00:00:00.000Z",
+							},
 						},
 					}),
 				),
