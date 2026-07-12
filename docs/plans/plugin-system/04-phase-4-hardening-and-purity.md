@@ -47,6 +47,13 @@ permanently allowlist, the following production-domain ownership leaks:
 authored kernel source. Boot-source package wiring and the retained backup client may receive narrow,
 line- or file-specific allowlist entries with reasons; do not grant broad directory exemptions.
 
+Module dependency purity **[DECIDED]**: Task 17 promotes the runtime-cycle analysis currently embedded
+in `apps/app-backend/scripts/module-dag.ts` into the ordinary `purity:check` gate. Refactor the analysis
+so the check can fail with the exact cycle paths without generating HTML; retain HTML generation as an
+optional diagnostic view over the same analysis. The Task 01 baseline has 13 runtime cycles across 32
+modules. They may remain while Tasks 2-16 change module ownership, but Task 17 must resolve all of them
+and enable the gate with no cycle allowlist or grandfathered baseline.
+
 Registry-provided definitions remain trusted and immutable in Phase 4, whether they come from source
 zero or a trusted plugin. `pluginSlug` owns source attribution. Remove the never-populated non-builtin
 provenance scaffold rather than changing existing first-party definition behavior. Phase 5 will
@@ -152,3 +159,5 @@ correction changes no schema or behavior and is the only domain move included in
    `in-library` membership applies to media schemas only.
 9. Uninstall refuses while plugin workflows are nonterminal; after references clear, uninstall and
    script/module GC complete without breaking pinned replay or source-zero scripts.
+10. The app-backend runtime module graph is acyclic, and `purity:check` mechanically rejects any new
+    runtime cycle while the optional HTML DAG remains available for diagnosis.
