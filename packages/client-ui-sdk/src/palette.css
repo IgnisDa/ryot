@@ -10,6 +10,7 @@
 	--raised: #ffffff;
 	--success: #3d6d2f;
 	--surface: #fffdf9;
+	--warning: #8a6a12;
 	--surface-2: #efe9df;
 	--translate: #6d3f8c;
 	--text-muted: #6a6155;
@@ -48,6 +49,7 @@
 		--raised: #1b1d20;
 		--success: #8bc276;
 		--surface: #18191c;
+		--warning: #d9b64e;
 		--surface-2: #212327;
 		--translate: #b79ad8;
 		--text-muted: #a3a09a;
@@ -78,6 +80,7 @@
 	--raised: #1b1d20;
 	--success: #8bc276;
 	--surface: #18191c;
+	--warning: #d9b64e;
 	--surface-2: #212327;
 	--translate: #b79ad8;
 	--text-muted: #a3a09a;

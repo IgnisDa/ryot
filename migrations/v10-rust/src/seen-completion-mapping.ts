@@ -1,6 +1,6 @@
 // Backfills whole-entity `complete` events for episodic media. Show and podcast coverage replays
 // child progress/completion in lifecycle order; anime and manga retain their positional pass model.
-import { buildReportSql, quoteSqlString } from "./shared";
+import { buildAbortOnRowsSql, buildReportSql, quoteSqlString } from "./shared";
 
 export const buildSeenEpisodicCompletionMigrationSql = (mediaPluginId: string) => `
 DO $$
@@ -13,6 +13,8 @@ DECLARE
 	batch_count int;
 	show_podcast_complete_inserted int := 0;
 	flat_complete_inserted int := 0;
+	invalid_rows int := 0;
+	invalid_sample text;
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	CREATE TEMP TABLE _seen_required_coverage ON COMMIT DROP AS
@@ -355,26 +357,34 @@ BEGIN
 		END LOOP;
 	END LOOP;
 
-	IF EXISTS (
-		SELECT 1
-		FROM "event" ev
-		INNER JOIN "entity" parent ON parent.id = ev.entity_id
-		WHERE parent.entity_schema_slug IN ('show', 'podcast')
-		  AND ev.event_schema_slug IN ('backlog', 'complete', 'dropped', 'on_hold')
-		  AND ev.session_entity_id IS DISTINCT FROM ev.entity_id
-	) THEN
-		RAISE EXCEPTION 'Migrated show/podcast parent lifecycle event has invalid session_entity_id';
-	END IF;
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_rows",
+		sampleVariable: "invalid_sample",
+		message:
+			"seen -> event: % migrated show or podcast lifecycle event(s) belong to a watch session other than the title itself, which would file them under the wrong session: %. This is a defect in this migration's session assignment rather than in the legacy data. Keep the dump and report it; retrying will not change the result.",
+		source: `
+			SELECT ev.id || ' (' || parent.name || ', ' || ev.event_schema_slug || ')' AS label
+			FROM "event" ev
+			INNER JOIN "entity" parent ON parent.id = ev.entity_id
+			WHERE parent.entity_schema_slug IN ('show', 'podcast')
+			  AND ev.event_schema_slug IN ('backlog', 'complete', 'dropped', 'on_hold')
+			  AND ev.session_entity_id IS DISTINCT FROM ev.entity_id
+		`,
+	})}
 
-	IF EXISTS (
-		SELECT 1
-		FROM "event" ev
-		INNER JOIN "entity" parent ON parent.id = ev.entity_id
-		WHERE parent.entity_schema_slug IN ('show', 'podcast')
-		  AND ev.event_schema_slug = 'progress'
-	) THEN
-		RAISE EXCEPTION 'Migrated show/podcast parent must not have progress events';
-	END IF;
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_rows",
+		sampleVariable: "invalid_sample",
+		source: `
+			SELECT ev.id || ' (' || parent.name || ')' AS label
+			FROM "event" ev
+			INNER JOIN "entity" parent ON parent.id = ev.entity_id
+			WHERE parent.entity_schema_slug IN ('show', 'podcast')
+			  AND ev.event_schema_slug = 'progress'
+		`,
+		message:
+			"seen -> event: % migrated progress event(s) are attached to a show or podcast itself rather than to one of its episodes, and V2 records episodic progress only on episodes: %. This is a defect in this migration's progress step rather than in the legacy data. Keep the dump and report it; retrying will not change the result.",
+	})}
 
 	IF EXISTS (
 		SELECT 1
@@ -396,7 +406,7 @@ BEGIN
 				AND ev.session_entity_id IS NOT NULL)
 		  )
 	) THEN
-		RAISE EXCEPTION 'Migrated show episode lifecycle event has invalid session_entity_id';
+		RAISE EXCEPTION 'seen -> event: a migrated show episode event belongs to the wrong watch session. Episodes in a numbered season must sit in their show''s session and specials (season 0) must sit in none. This is a defect in this migration''s session assignment rather than in the legacy data. Keep the dump and report it; retrying will not change the result.';
 	END IF;
 
 	IF EXISTS (
@@ -410,7 +420,7 @@ BEGIN
 		WHERE ev.event_schema_slug IN ('progress', 'complete')
 		  AND ev.session_entity_id IS DISTINCT FROM podcast_episode_rel.source_entity_id
 	) THEN
-		RAISE EXCEPTION 'Migrated podcast episode lifecycle event has invalid session_entity_id';
+		RAISE EXCEPTION 'seen -> event: a migrated podcast episode event belongs to a watch session other than its own podcast. This is a defect in this migration''s session assignment rather than in the legacy data. Keep the dump and report it; retrying will not change the result.';
 	END IF;
 
 	${buildReportSql("seen -> event", [

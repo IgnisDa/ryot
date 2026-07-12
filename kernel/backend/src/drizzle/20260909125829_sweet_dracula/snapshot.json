@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "feb9d538-511d-472b-bf7f-0905b55a2d91",
+	"id": "095fb55a-c0e6-48ac-9c72-28a198ed2040",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -46,6 +46,12 @@
 		{
 			"isRlsEnabled": false,
 			"name": "migration_report",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "migration_report_detail",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -522,19 +528,6 @@
 			"table": "apikey"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "'default'",
-			"generated": null,
-			"identity": null,
-			"name": "config_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "apikey"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -543,6 +536,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "expires_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "apikey"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "'default'",
+			"generated": null,
+			"identity": null,
+			"name": "config_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "apikey"
@@ -639,32 +645,6 @@
 			"table": "backup_run"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "failure",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "backup_run"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "kind",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "backup_run"
-		},
-		{
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
@@ -673,6 +653,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "progress",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "failure",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "backup_run"
@@ -699,6 +692,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "started_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "kind",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "backup_run"
@@ -849,12 +855,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "renderer_id",
+			"name": "id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_page_build"
@@ -862,12 +868,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": true,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "id",
+			"name": "renderer_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_page_build"
@@ -977,19 +983,6 @@
 			"table": "client_renderer"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "draft_definition",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "client_renderer"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -1003,14 +996,14 @@
 			"table": "client_renderer"
 		},
 		{
-			"type": "text",
+			"type": "jsonb",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "published_artifact_hash",
+			"name": "draft_definition",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_renderer"
@@ -1037,6 +1030,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "published_artifact_hash",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_renderer"
@@ -1094,19 +1100,6 @@
 			"table": "entity"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "origin",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "entity"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -1120,14 +1113,14 @@
 			"table": "entity"
 		},
 		{
-			"type": "timestamp with time zone",
+			"type": "jsonb",
 			"typeSchema": null,
-			"notNull": true,
+			"notNull": false,
 			"dimensions": 0,
-			"default": "now()",
+			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "created_at",
+			"name": "origin",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "entity"
@@ -1141,6 +1134,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "entity"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "entity"
@@ -1237,19 +1243,6 @@
 			"table": "entity_translation"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "properties",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "entity_translation"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -1258,6 +1251,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "populated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "entity_translation"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "properties",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "entity_translation"
@@ -1458,19 +1464,6 @@
 			"table": "import_run"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "integration_lot",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_run"
-		},
-		{
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
@@ -1484,19 +1477,6 @@
 			"table": "import_run"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "source",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_run"
-		},
-		{
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
@@ -1505,6 +1485,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "failed_items",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_run"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "started_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run"
@@ -1530,20 +1523,20 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "started_at",
+			"name": "finished_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run"
 		},
 		{
-			"type": "timestamp with time zone",
+			"type": "text",
 			"typeSchema": null,
 			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "finished_at",
+			"name": "integration_lot",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run"
@@ -1557,6 +1550,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "processed_items",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "source",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run"
@@ -1629,19 +1635,6 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "plugin_installation_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_run"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
@@ -1661,6 +1654,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_installation_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run"
@@ -1861,19 +1867,6 @@
 			"table": "integration"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "provider",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "integration"
-		},
-		{
 			"type": "boolean",
 			"typeSchema": null,
 			"notNull": true,
@@ -1900,6 +1893,19 @@
 			"table": "integration"
 		},
 		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "last_finished_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "integration"
+		},
+		{
 			"type": "numeric",
 			"typeSchema": null,
 			"notNull": true,
@@ -1913,14 +1919,14 @@
 			"table": "integration"
 		},
 		{
-			"type": "timestamp with time zone",
+			"type": "text",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "last_finished_at",
+			"name": "provider",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "integration"
@@ -1939,19 +1945,6 @@
 			"table": "integration"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "provider_specifics",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "integration"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -1960,6 +1953,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "integration"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "provider_specifics",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "integration"
@@ -2225,19 +2231,6 @@
 			"table": "managed_asset"
 		},
 		{
-			"type": "serial",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "seq",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "migration_report"
-		},
-		{
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": false,
@@ -2271,7 +2264,46 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "level",
+			"name": "message",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report"
+		},
+		{
+			"type": "serial",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "seq",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report"
+		},
+		{
+			"type": "double precision",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "elapsed_seconds",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "code",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "migration_report"
@@ -2284,7 +2316,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "message",
+			"name": "level",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "migration_report"
@@ -2303,17 +2335,56 @@
 			"table": "migration_report"
 		},
 		{
-			"type": "double precision",
+			"type": "serial",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "elapsed_seconds",
+			"name": "seq",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "migration_report"
+			"table": "migration_report_detail"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "detail",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report_detail"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report_detail"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "report_seq",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "migration_report_detail"
 		},
 		{
 			"type": "text",
@@ -2342,19 +2413,6 @@
 			"table": "notification_channel"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "platform",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "notification_channel"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -2368,14 +2426,14 @@
 			"table": "notification_channel"
 		},
 		{
-			"type": "jsonb",
+			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "platform_specifics",
+			"name": "platform",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "notification_channel"
@@ -2407,6 +2465,19 @@
 			"table": "notification_channel"
 		},
 		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "platform_specifics",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "notification_channel"
+		},
+		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -2433,19 +2504,6 @@
 			"table": "notification_subscription_state"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "metadata",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "notification_subscription_state"
-		},
-		{
 			"type": "boolean",
 			"typeSchema": null,
 			"notNull": true,
@@ -2454,6 +2512,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "is_active",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "notification_subscription_state"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "metadata",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "notification_subscription_state"
@@ -2498,19 +2569,6 @@
 			"table": "notification_subscription_state"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "notification_subscription_state"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -2519,6 +2577,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "updated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "notification_subscription_state"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "notification_subscription_state"
@@ -2687,19 +2758,6 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "refresh_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_access_token"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
 			"name": "session_id",
 			"entityType": "columns",
 			"schema": "public",
@@ -2714,6 +2772,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "client_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_access_token"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "refresh_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_access_token"
@@ -3044,6 +3115,19 @@
 			"table": "oauth_client"
 		},
 		{
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"name": "disabled",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_client"
+		},
+		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -3087,36 +3171,10 @@
 			"typeSchema": null,
 			"notNull": false,
 			"dimensions": 0,
-			"default": "false",
-			"generated": null,
-			"identity": null,
-			"name": "disabled",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_client"
-		},
-		{
-			"type": "boolean",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
 			"name": "backchannel_logout_session_required",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_client"
-		},
-		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "metadata",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_client"
@@ -3156,6 +3214,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "dpop_bound_access_tokens",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_client"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "metadata",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_client"
@@ -3226,19 +3297,6 @@
 			"table": "oauth_client_resource"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "metadata",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_client_resource"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -3247,6 +3305,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_client_resource"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "metadata",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_client_resource"
@@ -3720,19 +3791,6 @@
 			"table": "oauth_resource"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "identifier",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "oauth_resource"
-		},
-		{
 			"type": "boolean",
 			"typeSchema": null,
 			"notNull": false,
@@ -3759,14 +3817,14 @@
 			"table": "oauth_resource"
 		},
 		{
-			"type": "jsonb",
+			"type": "text",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "metadata",
+			"name": "identifier",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_resource"
@@ -3793,6 +3851,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "updated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "oauth_resource"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "metadata",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "oauth_resource"
@@ -3915,19 +3986,6 @@
 			"table": "plugin"
 		},
 		{
-			"type": "timestamp with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"name": "ingested_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": false,
@@ -3936,6 +3994,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "owner_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "ingested_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin"
@@ -4179,10 +4250,10 @@
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
-			"default": "'ready'",
+			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "health",
+			"name": "id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_installation"
@@ -4205,10 +4276,10 @@
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
-			"default": null,
+			"default": "'ready'",
 			"generated": null,
 			"identity": null,
-			"name": "id",
+			"name": "health",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_installation"
@@ -4266,19 +4337,6 @@
 			"table": "relationship"
 		},
 		{
-			"type": "timestamp with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"name": "created_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "relationship"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": false,
@@ -4287,6 +4345,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "relationship"
@@ -4325,6 +4396,19 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
 			"name": "source_entity_id",
 			"entityType": "columns",
 			"schema": "public",
@@ -4339,19 +4423,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "target_entity_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "relationship"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "relationship"
@@ -4435,19 +4506,6 @@
 			"table": "sandbox_provider"
 		},
 		{
-			"type": "timestamp with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"name": "updated_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "sandbox_provider"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -4456,6 +4514,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "sandbox_provider"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "updated_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "sandbox_provider"
@@ -4507,6 +4578,19 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "sandbox_provider_operation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
 			"name": "script_id",
 			"entityType": "columns",
 			"schema": "public",
@@ -4521,19 +4605,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "provider_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "sandbox_provider_operation"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "sandbox_provider_operation"
@@ -4736,12 +4807,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "plugin_installation_id",
+			"name": "plugin_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "sandbox_workflow_reference"
@@ -4749,12 +4820,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": true,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "plugin_id",
+			"name": "plugin_installation_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "sandbox_workflow_reference"
@@ -4812,14 +4883,14 @@
 			"table": "saved_view"
 		},
 		{
-			"type": "jsonb",
+			"type": "text",
 			"typeSchema": null,
 			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "data_sources",
+			"name": "plugin_installation_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "saved_view"
@@ -4846,6 +4917,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "sort_order",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "data_sources",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "saved_view"
@@ -4890,19 +4974,6 @@
 			"table": "saved_view"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "settings",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -4916,27 +4987,14 @@
 			"table": "saved_view"
 		},
 		{
-			"type": "text",
+			"type": "jsonb",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "client_renderer_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "plugin_installation_id",
+			"name": "settings",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "saved_view"
@@ -4963,6 +5021,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "client_renderer_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "saved_view"
@@ -5059,19 +5130,6 @@
 			"table": "session"
 		},
 		{
-			"type": "timestamp with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "updated_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "session"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -5080,6 +5138,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "session"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "updated_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "session"
@@ -5124,19 +5195,6 @@
 			"table": "signal"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "properties",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "signal"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -5145,6 +5203,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "occurred_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "signal"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "properties",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "signal"
@@ -5306,6 +5377,19 @@
 			"table": "subscription_run"
 		},
 		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "started_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "subscription_run"
+		},
+		{
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
@@ -5314,6 +5398,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "logs",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "subscription_run"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "finished_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "subscription_run"
@@ -5339,20 +5436,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "started_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
-			"type": "timestamp with time zone",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "finished_at",
+			"name": "script_updated_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "subscription_run"
@@ -5423,19 +5507,6 @@
 			"table": "subscription_run"
 		},
 		{
-			"type": "timestamp with time zone",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "script_updated_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -5464,12 +5535,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": true,
+			"notNull": false,
 			"dimensions": 0,
-			"default": "'queued'",
+			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "status",
+			"name": "signal_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "subscription_run"
@@ -5477,12 +5548,12 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
-			"default": null,
+			"default": "'queued'",
 			"generated": null,
 			"identity": null,
-			"name": "signal_id",
+			"name": "status",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "subscription_run"
@@ -5774,19 +5845,6 @@
 			"table": "user_lifecycle_operation"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "reset_result",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "user_lifecycle_operation"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -5795,6 +5853,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "started_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "user_lifecycle_operation"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "reset_result",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "user_lifecycle_operation"
@@ -5826,19 +5897,6 @@
 			"table": "user_lifecycle_operation"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "failure",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "user_lifecycle_operation"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": false,
@@ -5847,6 +5905,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "access_revoked_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "user_lifecycle_operation"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "failure",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "user_lifecycle_operation"
@@ -7100,6 +7171,28 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "report_seq",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{ "value": "seq", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "migration_report_detail_report_seq_seq_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "migration_report_detail"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "user_id",
 					"isExpression": false,
 					"asc": true,
@@ -8345,19 +8438,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["published_artifact_hash"],
-			"schemaTo": "public",
-			"tableTo": "plugin_client_artifact",
-			"columnsTo": ["hash"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
-			"name": "client_renderer_2daUrxvoruES_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "client_renderer"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -8365,6 +8445,19 @@
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
 			"name": "client_renderer_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "client_renderer"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["published_artifact_hash"],
+			"schemaTo": "public",
+			"tableTo": "plugin_client_artifact",
+			"columnsTo": ["hash"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "client_renderer_2daUrxvoruES_fkey",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "client_renderer"
@@ -8488,19 +8581,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["plugin_installation_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin_installation",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "SET NULL",
-			"name": "import_run_plugin_installation_id_plugin_installation_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "import_run"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -8508,6 +8588,19 @@
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
 			"name": "import_run_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "import_run"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["plugin_installation_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin_installation",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "SET NULL",
+			"name": "import_run_plugin_installation_id_plugin_installation_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "import_run"
@@ -8579,6 +8672,19 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["report_seq"],
+			"schemaTo": "public",
+			"tableTo": "migration_report",
+			"columnsTo": ["seq"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "migration_report_detail_report_seq_migration_report_seq_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "migration_report_detail"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -8631,19 +8737,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["refresh_id"],
-			"schemaTo": "public",
-			"tableTo": "oauth_refresh_token",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"name": "oauth_access_token_refresh_id_oauth_refresh_token_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "oauth_access_token"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["session_id"],
 			"schemaTo": "public",
 			"tableTo": "session",
@@ -8664,6 +8757,19 @@
 			"onUpdate": "NO ACTION",
 			"onDelete": "NO ACTION",
 			"name": "oauth_access_token_client_id_oauth_client_client_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "oauth_access_token"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["refresh_id"],
+			"schemaTo": "public",
+			"tableTo": "oauth_refresh_token",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "oauth_access_token_refresh_id_oauth_refresh_token_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "oauth_access_token"
@@ -8956,19 +9062,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["plugin_installation_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin_installation",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
-			"name": "sandbox_workflow_reference_NZbiTLiwtL2v_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "sandbox_workflow_reference"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["plugin_id"],
 			"schemaTo": "public",
 			"tableTo": "plugin",
@@ -8976,6 +9069,19 @@
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
 			"name": "sandbox_workflow_reference_plugin_id_plugin_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "sandbox_workflow_reference"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["plugin_installation_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin_installation",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "sandbox_workflow_reference_NZbiTLiwtL2v_fkey",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "sandbox_workflow_reference"
@@ -8995,19 +9101,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["client_renderer_id"],
-			"schemaTo": "public",
-			"tableTo": "client_renderer",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
-			"name": "saved_view_client_renderer_id_client_renderer_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "saved_view"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -9015,6 +9108,19 @@
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
 			"name": "saved_view_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "saved_view"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["client_renderer_id"],
+			"schemaTo": "public",
+			"tableTo": "client_renderer",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "saved_view_client_renderer_id_client_renderer_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "saved_view"
@@ -9291,6 +9397,14 @@
 			"name": "migration_report_pkey",
 			"schema": "public",
 			"table": "migration_report",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["seq"],
+			"nameExplicit": false,
+			"name": "migration_report_detail_pkey",
+			"schema": "public",
+			"table": "migration_report_detail",
 			"entityType": "pks"
 		},
 		{
@@ -9673,6 +9787,13 @@
 		{
 			"value": "\"level\" in ('info', 'warning')",
 			"name": "migration_report_level_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "migration_report"
+		},
+		{
+			"value": "\"level\" <> 'warning' or \"code\" is not null",
+			"name": "migration_report_warning_code_check",
 			"entityType": "checks",
 			"schema": "public",
 			"table": "migration_report"
