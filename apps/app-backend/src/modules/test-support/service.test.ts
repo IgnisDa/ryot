@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import {
 	EntityId,
 	EntitySchemaSlug,
+	PluginSlug,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
@@ -244,7 +245,10 @@ it.effect("triggers exactly one requested plugin cron with a manual execution id
 
 	return Effect.gen(function* () {
 		const service = yield* TestSupportService;
-		const result = yield* service.triggerPluginCron({ pluginSlug: "media", cronSlug: "monitor" });
+		const result = yield* service.triggerPluginCron({
+			cronSlug: "monitor",
+			pluginSlug: PluginSlug.make("media"),
+		});
 		expect(result.status).toBe("executed");
 		expect(triggerInput?.slice(0, 2)).toEqual(["media", "monitor"]);
 		expect(triggerInput?.[2]).toMatch(/^plugin-cron-manual-/);

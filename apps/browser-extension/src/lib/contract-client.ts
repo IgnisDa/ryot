@@ -1,6 +1,6 @@
 import { runContract, type ContractProgram } from "@ryot/contract/client";
 import type { IntegrationWebhookPayload } from "@ryot/contract/modules/integrations/schemas";
-import { IntegrationId } from "@ryot/contract/schema/brands";
+import { IntegrationId, PluginSlug } from "@ryot/contract/schema/brands";
 import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
 import { metadataLookupRecipe } from "@ryot/plugin-media/operations/recipes";
 import { Effect } from "effect";
@@ -31,7 +31,10 @@ export const lookupMetadata = async (integrationUrl: string, title: string) => {
 			client.plugins
 				.invoke({
 					payload: { payload: request.payload },
-					path: { pluginSlug: request.pluginSlug, operationSlug: request.operationSlug },
+					path: {
+						operationSlug: request.operationSlug,
+						pluginSlug: PluginSlug.make(request.pluginSlug),
+					},
 				})
 				.pipe(Effect.map(({ result }) => result)),
 		),

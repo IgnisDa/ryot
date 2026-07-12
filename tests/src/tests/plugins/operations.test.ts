@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { PluginSlug } from "@ryot/contract/schema/brands";
 
 import {
 	createAuthenticatedClient,
@@ -64,7 +65,10 @@ describe("plugin operations", () => {
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { titles: [] } },
-						path: { operationSlug: "echo", pluginSlug: `missing-${crypto.randomUUID()}` },
+						path: {
+							operationSlug: "echo",
+							pluginSlug: PluginSlug.make(`missing-${crypto.randomUUID()}`),
+						},
 					}),
 				),
 			);

@@ -1,4 +1,4 @@
-import { RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
+import { PluginSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -156,7 +156,10 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 			const missing = yield* Effect.flip(
 				client.call((c) =>
 					c.testSupport.triggerPluginCron({
-						payload: { cronSlug: "e2e-test-trending", pluginSlug: trendingPluginSlug },
+						payload: {
+							cronSlug: "e2e-test-trending",
+							pluginSlug: PluginSlug.make(trendingPluginSlug),
+						},
 					}),
 				),
 			);
@@ -166,7 +169,10 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				client.call(
 					(c) =>
 						c.testSupport.triggerPluginCron({
-							payload: { cronSlug: "e2e-test-trending", pluginSlug: trendingPluginSlug },
+							payload: {
+								cronSlug: "e2e-test-trending",
+								pluginSlug: PluginSlug.make(trendingPluginSlug),
+							},
 						}),
 					adminAccessTokenHeaders("wrong-token"),
 				),
@@ -180,7 +186,10 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 			const result = yield* getBackendClient().call(
 				(c) =>
 					c.testSupport.triggerPluginCron({
-						payload: { cronSlug: "e2e-test-trending", pluginSlug: trendingPluginSlug },
+						payload: {
+							cronSlug: "e2e-test-trending",
+							pluginSlug: PluginSlug.make(trendingPluginSlug),
+						},
 					}),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
