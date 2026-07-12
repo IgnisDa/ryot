@@ -59,4 +59,11 @@ describe("plugin route resolver", () => {
 			surface: { kind: "not-found" },
 		});
 	});
+
+	it("never resolves the oauth slug to a plugin", () => {
+		expect(resolveRouteTarget([{ ...installation, slug: "oauth" }], "oauth")).toEqual({
+			owner: "kernel",
+			surface: { kind: "not-found" },
+		});
+	});
 });
