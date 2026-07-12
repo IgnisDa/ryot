@@ -14,11 +14,12 @@ export const resolveSandboxCompilerDependencies = Effect.try({
 		]),
 	try: () => {
 		const from = Bun.fileURLToPath(new URL(".", import.meta.url));
-		return {
-			tsserverPath: resolveTypeScriptCompilerPath(from),
-			sdkEntries: Object.fromEntries(
-				SANDBOX_SDK_IMPORTS.map((specifier) => [specifier, Bun.resolveSync(specifier, from)]),
-			),
-		};
+		const sdkEntries = Object.fromEntries(
+			SANDBOX_SDK_IMPORTS.map((specifier) => {
+				const entry = Bun.resolveSync(specifier, from);
+				return [specifier, entry.endsWith(".js") ? entry.replace(/\.js$/, ".d.ts") : entry];
+			}),
+		);
+		return { sdkEntries, tsserverPath: resolveTypeScriptCompilerPath(from) };
 	},
 });

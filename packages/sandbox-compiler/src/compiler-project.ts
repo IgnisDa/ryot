@@ -1,7 +1,29 @@
-import { createTypeScriptProject } from "@ryot-app/typescript-compiler";
+import {
+	createTypeScriptProject,
+	type TypeScriptProjectConfiguration,
+} from "@ryot-app/typescript-compiler";
 import { Data, Effect } from "effect";
 
 const virtualRoot = "/__ryot_sandbox__";
+
+export const sandboxTypeScriptProject = {
+	compilerOptions: {
+		types: [],
+		strict: true,
+		noEmit: true,
+		target: "ES2022",
+		module: "ESNext",
+		skipLibCheck: true,
+		isolatedModules: true,
+		lib: ["ES2022", "DOM"],
+		noImplicitReturns: true,
+		moduleDetection: "force",
+		moduleResolution: "bundler",
+		noUncheckedIndexedAccess: true,
+		exactOptionalPropertyTypes: true,
+		allowSyntheticDefaultImports: true,
+	},
+} satisfies TypeScriptProjectConfiguration;
 
 export const sandboxSourcePath = (fileName: string) =>
 	fileName.startsWith(`${virtualRoot}/`) ? fileName.slice(virtualRoot.length + 1) : fileName;
@@ -27,24 +49,14 @@ export const createTypeScriptSourcesProjectForEntries = (
 		tsserverPath,
 		files: sources.files,
 		projectKind: "sandbox",
-		compilerOptions: {
-			types: [],
-			strict: true,
-			noEmit: true,
-			target: "ES2022",
-			module: "ESNext",
-			skipLibCheck: true,
-			isolatedModules: true,
-			lib: ["ES2022", "DOM"],
-			noImplicitReturns: true,
-			moduleDetection: "force",
-			moduleResolution: "bundler",
-			noUncheckedIndexedAccess: true,
-			exactOptionalPropertyTypes: true,
-			allowSyntheticDefaultImports: true,
-			paths: Object.fromEntries(
-				Object.entries(sdkEntries).map(([specifier, entry]) => [specifier, [entry]]),
-			),
+		configuration: {
+			...sandboxTypeScriptProject,
+			compilerOptions: {
+				...sandboxTypeScriptProject.compilerOptions,
+				paths: Object.fromEntries(
+					Object.entries(sdkEntries).map(([specifier, entry]) => [specifier, [entry]]),
+				),
+			},
 		},
 	});
 
