@@ -9,7 +9,7 @@ export const manifest = defineManifest({
 	slug: "podcast.listennotes.details",
 	requiredPluginConfigKeys: ["listennotesApiKey"],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
+	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });

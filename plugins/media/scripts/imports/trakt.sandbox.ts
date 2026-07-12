@@ -10,7 +10,7 @@ export const manifest = defineManifest({
 	kind: "activity",
 	name: "Fetch Trakt import",
 	slug: "activity.import.trakt",
-	capabilities: ["httpCall", "getPluginConfigValue"],
+	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["traktClientId"],
 	requiredSystemConfigKeys: [],
 });
@@ -21,7 +21,7 @@ export default defineActivity({
 	output: MediaImportAdapterBatch,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const clientId = yield* host.getPluginConfigValue("traktClientId");
+			const { traktClientId: clientId } = yield* host.getPluginConfig(["traktClientId"]);
 			if (typeof clientId !== "string" || !clientId) {
 				throw new Error("Trakt importer is not configured. Set RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID.");
 			}

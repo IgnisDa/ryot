@@ -42,8 +42,8 @@ const makeImplementations = (
 	executeQueryEngine: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
-	getPluginConfigValue: () => Effect.fail({ message: "unused" }),
-	getSystemConfigValue: () => Effect.fail({ message: "unused" }),
+	getPluginConfig: () => Effect.fail({ message: "unused" }),
+	getSystemConfig: () => Effect.fail({ message: "unused" }),
 	upsertGlobalEntities: () => Effect.fail({ message: "unused" }),
 	changeUserRelationships: () => Effect.fail({ message: "unused" }),
 	upsertGlobalRelationships: () => Effect.fail({ message: "unused" }),
@@ -417,13 +417,13 @@ describe("bindSandboxHostFunctions", () => {
 				success: false,
 				error: "reached",
 			});
-			expect(yield* bound.getPluginConfigValue([null])).toEqual({
+			expect(yield* bound.getPluginConfig([[null]])).toEqual({
 				success: false,
-				error: "getPluginConfigValue expects a non-empty key string",
+				error: "getPluginConfig expects non-empty key strings",
 			});
-			expect(yield* bound.getSystemConfigValue([null])).toEqual({
+			expect(yield* bound.getSystemConfig([[null]])).toEqual({
 				success: false,
-				error: "getSystemConfigValue expects a non-empty key string",
+				error: "getSystemConfig expects non-empty key strings",
 			});
 			expect(calls).toEqual([
 				{ fnName: "httpCall", value: undefined },
@@ -459,13 +459,13 @@ describe("bindSandboxHostFunctions", () => {
 					calls.push({ fnName: "claimCachedValue", value: { key, ttlSeconds, value } });
 					return Effect.succeed({ claimed: true as const });
 				},
-				getPluginConfigValue: (_runInput, key) => {
-					calls.push({ fnName: "getPluginConfigValue", value: key });
-					return Effect.succeed("token");
+				getPluginConfig: (_runInput, keys) => {
+					calls.push({ fnName: "getPluginConfig", value: keys });
+					return Effect.succeed({ apiToken: "token" });
 				},
-				getSystemConfigValue: (_runInput, key) => {
-					calls.push({ fnName: "getSystemConfigValue", value: key });
-					return Effect.succeed("UTC");
+				getSystemConfig: (_runInput, keys) => {
+					calls.push({ fnName: "getSystemConfig", value: keys });
+					return Effect.succeed({ timezone: "UTC" });
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
@@ -474,33 +474,33 @@ describe("bindSandboxHostFunctions", () => {
 				data: { claimed: true },
 				success: true,
 			});
-			expect(yield* bound.getPluginConfigValue(["apiToken"])).toEqual({
-				data: "token",
+			expect(yield* bound.getPluginConfig([["apiToken"]])).toEqual({
+				data: { apiToken: "token" },
 				success: true,
 			});
-			expect(yield* bound.getSystemConfigValue(["timezone"])).toEqual({
-				data: "UTC",
+			expect(yield* bound.getSystemConfig([["timezone"]])).toEqual({
+				data: { timezone: "UTC" },
 				success: true,
 			});
 			expect(yield* bound.claimCachedValue(["lock", { owner: "user-1" }, 1.5])).toEqual({
 				success: false,
 				error: "claimCachedValue expects a positive integer ttlSeconds",
 			});
-			expect(yield* bound.getPluginConfigValue(["apiToken", "surplus"])).toEqual({
+			expect(yield* bound.getPluginConfig([["apiToken"], "surplus"])).toEqual({
 				success: false,
-				error: "getPluginConfigValue received an invalid number of arguments",
+				error: "getPluginConfig received an invalid number of arguments",
 			});
-			expect(yield* bound.getSystemConfigValue(["timezone", "surplus"])).toEqual({
+			expect(yield* bound.getSystemConfig([["timezone"], "surplus"])).toEqual({
 				success: false,
-				error: "getSystemConfigValue received an invalid number of arguments",
+				error: "getSystemConfig received an invalid number of arguments",
 			});
 			expect(calls).toEqual([
 				{
 					fnName: "claimCachedValue",
 					value: { key: "lock", ttlSeconds: 60, value: { owner: "user-1" } },
 				},
-				{ fnName: "getPluginConfigValue", value: "apiToken" },
-				{ fnName: "getSystemConfigValue", value: "timezone" },
+				{ fnName: "getPluginConfig", value: ["apiToken"] },
+				{ fnName: "getSystemConfig", value: ["timezone"] },
 			]);
 		}),
 	);

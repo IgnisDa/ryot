@@ -10,7 +10,7 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Metron",
 	slug: "comic-book.metron",
-	capabilities: ["httpCall", "getPluginConfigValue"],
+	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
 	requiredSystemConfigKeys: [],
 });

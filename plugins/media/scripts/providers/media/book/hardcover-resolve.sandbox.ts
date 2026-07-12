@@ -7,7 +7,7 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Hardcover Resolve",
 	slug: "book.hardcover.resolve",
-	capabilities: ["httpCall", "getPluginConfigValue"],
+	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["hardcoverApiKey"],
 	requiredSystemConfigKeys: [],
 });

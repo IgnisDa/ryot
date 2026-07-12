@@ -10,13 +10,14 @@ import { getUserIsNsfw } from "../script-helpers/host";
 import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
 
 export type MyAnimeListHost = SandboxHost<
-	readonly ["httpCall", "getPluginConfigValue", "getUserPreferences"]
+	readonly ["httpCall", "getPluginConfig", "getUserPreferences"]
 >;
 
 const MAL_API_BASE_URL = "https://api.myanimelist.net/v2";
 
 export const getMalClientId = (host: MyAnimeListHost) =>
-	host.getPluginConfigValue("malClientId").pipe(
+	host.getPluginConfig(["malClientId"]).pipe(
+		Effect.map(({ malClientId }) => malClientId),
 		Effect.mapError((error) => new Error(error.message || "Could not load MyAnimeList client ID")),
 		Effect.map((value) => {
 			const clientId = typeof value === "string" ? value.trim() : "";

@@ -7,7 +7,7 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Hardcover Search",
 	slug: "book.hardcover.search",
-	capabilities: ["httpCall", "getPluginConfigValue"],
+	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["hardcoverApiKey"],
 	requiredSystemConfigKeys: [],
 });
