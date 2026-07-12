@@ -38,6 +38,8 @@ Reconciliation runs separately from command processing in sequential chunks of `
 
 Population runs before translation. Localized reads remain side-effect-free; pending interest drives demand-driven population and translation workflows. Completion messages are emitted only for current memberships and use the same `entity-updated` message as Redis Pub/Sub completions. There is no separate terminal response.
 
+Translation demand is evaluated for each exact interested entity ID. Clients that display localized child entities must include those child IDs in their interest snapshot. A socket session keeps the preferred language captured by its authentication ticket; clients reconnect after changing that preference.
+
 ## Heartbeat, Delivery, And Cleanup
 
 Effect beta.107 does not expose generic WebSocket control-frame ping/pong support, so the protocol uses application messages. After authentication, the server sends `ping` with an unpredictable nonce every 25 seconds. The client must return the matching `pong` within 10 seconds. A heartbeat timeout closes the socket with application code `4000`.
