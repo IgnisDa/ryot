@@ -15,19 +15,14 @@ export type ImportSourceFileInput = {
 	uploadToken: string | undefined;
 };
 
-const normalizeSourceApiUrl = (value: string) => {
-	const parsed = new URL(value.trim());
-	if (!parsed.protocol || !["http:", "https:"].includes(parsed.protocol)) {
-		throw new Error("Import source URL must use http or https");
-	}
-	parsed.hash = "";
-	parsed.search = "";
-	parsed.password = "";
-	parsed.username = "";
-	return parsed.toString().replace(/\/+$/, "");
-};
+const isUploadTokenField = (field: string) =>
+	field === "uploadToken" || field.endsWith("UploadToken");
 
-const getSourceApiHost = (value: string) => new URL(normalizeSourceApiUrl(value)).host;
+const internalPayloadFields = new Set([
+	"integrationContext",
+	"integrationId",
+	"integrationScriptSlug",
+]);
 
 export const readTrimmedBodyField = (
 	body: CreateImportRunBody,
@@ -70,6 +65,38 @@ export const registryImportSourceFileInputs = (
 	}));
 };
 
+export const registryImportSourceInputError = (
+	source: RegisteredImportSource,
+	body: CreateImportRunBody,
+) => {
+	const fileInputs = registryImportSourceFileInputs(source, body);
+	const declaredTokenFields = new Set(fileInputs.map(({ bodyField }) => bodyField));
+	const undeclaredTokenField = Object.keys(body).find(
+		(field) => isUploadTokenField(field) && !declaredTokenFields.has(field),
+	);
+	if (undeclaredTokenField) {
+		return `Import source does not declare upload token field: ${undeclaredTokenField}`;
+	}
+	const artifactPayloadFields = new Set(
+		fileInputs.flatMap(({ artifactKey, payloadKey }) =>
+			[artifactKey, payloadKey].filter((field): field is string => field !== undefined),
+		),
+	);
+	const reservedPayloadField = Object.keys(body).find(
+		(field) => internalPayloadFields.has(field) || artifactPayloadFields.has(field),
+	);
+	if (reservedPayloadField) {
+		return `Import source payload field is reserved: ${reservedPayloadField}`;
+	}
+	if (fileInputs.some(({ required, uploadToken }) => required !== false && !uploadToken)) {
+		return "Import source requires an upload token";
+	}
+	if (fileInputs.length > 0 && fileInputs.every(({ uploadToken }) => !uploadToken)) {
+		return "Import source requires at least one upload token";
+	}
+	return undefined;
+};
+
 export const registryImportSourceStartError = Effect.fn("registryImportSourceStartError")(
 	function* (source: RegisteredImportSource) {
 		const missing = yield* Effect.filter(source.requiredPluginConfigKeys, (key) =>
@@ -85,33 +112,24 @@ export const registryImportSourceStartError = Effect.fn("registryImportSourceSta
 	},
 );
 
-const payloadEntries = (body: CreateImportRunBody) =>
-	Object.entries(body).filter(
-		([key, value]) =>
-			key !== "source" &&
-			key !== "uploadToken" &&
-			!key.endsWith("UploadToken") &&
-			value !== undefined &&
-			value !== false,
+const payloadEntries = (body: CreateImportRunBody, source: RegisteredImportSource) => {
+	const fileInputs = registryImportSourceFileInputs(source, body);
+	const excludedFields = new Set(
+		fileInputs.flatMap(({ artifactKey, bodyField, payloadKey }) =>
+			[artifactKey, bodyField, payloadKey].filter((field): field is string => field !== undefined),
+		),
 	);
+	return Object.entries(body).filter(
+		([key]) => key !== "source" && !internalPayloadFields.has(key) && !excludedFields.has(key),
+	);
+};
 
 export const buildImportSourcePayload = (
 	body: CreateImportRunBody,
+	source: RegisteredImportSource,
 ): Record<string, JsonValue> | undefined => {
 	const payload = Object.fromEntries(
-		payloadEntries(body).flatMap(([key, value]) => {
-			if (typeof value !== "string" && typeof value !== "boolean" && typeof value !== "number") {
-				return [];
-			}
-			if (key === "apiUrl" && typeof value === "string") {
-				return [[key, normalizeSourceApiUrl(value)]];
-			}
-			if (key === "profileName" && typeof value === "string") {
-				const trimmed = value.trim();
-				return trimmed ? [[key, trimmed]] : [];
-			}
-			return [[key, value]];
-		}),
+		payloadEntries(body, source).map(([key, value]) => [key, value]),
 	);
 	return Object.keys(payload).length > 0 ? payload : undefined;
 };
@@ -124,21 +142,8 @@ export const buildImportInputSummary = (
 	source: RegisteredImportSource,
 ): Record<string, unknown> => {
 	const summary: Record<string, unknown> = { source: body.source };
-	if ("apiUrl" in body) {
-		summary["host"] = getSourceApiHost(body.apiUrl);
-		if ("allowInsecureConnections" in body && body.allowInsecureConnections) {
-			summary["allowInsecureConnections"] = true;
-		}
-	}
-	if ("collection" in body) {
-		summary["collection"] = body.collection;
-	}
-	if ("profileName" in body) {
-		summary["hasExportFile"] = true;
-		summary["hasProfileName"] = Boolean(body.profileName?.trim());
-	}
-	if ("username" in body && !("apiUrl" in body)) {
-		summary["username"] = body.username;
+	if (source.input === "file" && source.lot === "single") {
+		summary["hasFile"] = true;
 	}
 	if (source.input === "file" && source.lot === "named") {
 		for (const artifact of source.artifacts) {
