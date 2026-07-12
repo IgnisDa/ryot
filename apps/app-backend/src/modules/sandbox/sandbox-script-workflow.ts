@@ -1,5 +1,5 @@
 import { Activity, DurableClock, Workflow } from "@effect/workflow";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import {
 	ExecutionAuthority,
@@ -15,7 +15,7 @@ import {
 	workflowReplayEnvelopeSchema,
 	type WorkflowDurableCallRequest,
 } from "@ryot/sandbox-sdk/workflow";
-import { Duration, Effect, Schema } from "effect";
+import { Cause, Duration, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import {
@@ -29,12 +29,14 @@ import { resolveSandboxExecutionPayload } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";
+import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
 export const SANDBOX_WORKFLOW_MAX_STEPS = 1_000;
 
 const SandboxWorkflowPin = Schema.Struct({
 	scriptId: SandboxScriptId,
 	contentHash: Schema.String,
+	pluginSlug: Schema.NullOr(Schema.String),
 });
 
 const ObservedWorkflowReplay = Schema.Union(
@@ -336,49 +338,85 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			);
 			const repository = yield* SandboxRepository;
 			const pinned = yield* runWithDb(repository.getScriptPin(resolved.scriptId));
-			return pinned ?? (yield* sandboxFailure("Sandbox workflow script not found"));
+			if (!pinned) {
+				return yield* sandboxFailure("Sandbox workflow script not found");
+			}
+			if (pinned.pluginSlug) {
+				const references = yield* SandboxWorkflowReferenceRepository;
+				yield* references.register({
+					executionId,
+					scriptId: pinned.scriptId,
+					pluginSlug: pinned.pluginSlug,
+					contentHash: pinned.contentHash,
+				});
+			}
+			return pinned;
 		}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
 	});
 
-	const journal: WorkflowJournalEntry[] = [];
-	for (let step = 0; step <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {
-		yield* projectWorkflowJournal(executionId, journal);
-		const replayExecutionId = `${executionId}-replay-${step}`;
-		const replay = yield* processReplay({
-			context: payload.input,
-			scriptId: pin.scriptId,
-			authority: payload.authority,
-			executionId: replayExecutionId,
-			...(payload.grants ? { grants: payload.grants } : {}),
-		});
-		if (replay.error) {
-			return yield* sandboxFailure(
-				`Workflow replay ${step} failed: ${replay.error.phase}: ${replay.error.message}`,
-			);
-		}
-		const observed = yield* observeWorkflowReplay(replay.value, journal, pin.scriptId, step);
-		if (observed.state === "failed") {
-			return yield* sandboxFailure(`Workflow replay ${step} failed: ${observed.error}`);
-		}
-		if (observed.state === "completed") {
-			return observed.output;
-		}
-		if (step === SANDBOX_WORKFLOW_MAX_STEPS) {
-			break;
-		}
-		const value = yield* performSandboxWorkflowRequest(
-			observed.request,
-			observed.targetScriptId,
-			{ ...payload, scriptId: pin.scriptId },
-			executionId,
-			step,
-			processReplay,
-		);
-		journal.push({ value, request: observed.request });
-	}
+	const releaseReference = pin.pluginSlug
+		? Activity.make({
+				error: SandboxRunError,
+				name: "release-sandbox-workflow-reference",
+				execute: Effect.gen(function* () {
+					const runWithDb = yield* DbRunner;
+					const references = yield* SandboxWorkflowReferenceRepository;
+					yield* runWithDb(references.release(executionId));
+				}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
+			})
+		: Effect.void;
 
-	return yield* sandboxFailure(
-		`Sandbox workflow exceeded the maximum of ${SANDBOX_WORKFLOW_MAX_STEPS} durable steps`,
+	return yield* Effect.gen(function* () {
+		const journal: WorkflowJournalEntry[] = [];
+		for (let step = 0; step <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {
+			yield* projectWorkflowJournal(executionId, journal);
+			const replayExecutionId = `${executionId}-replay-${step}`;
+			const replay = yield* processReplay({
+				context: payload.input,
+				scriptId: pin.scriptId,
+				authority: payload.authority,
+				executionId: replayExecutionId,
+				...(payload.grants ? { grants: payload.grants } : {}),
+			});
+			if (replay.error) {
+				return yield* sandboxFailure(
+					`Workflow replay ${step} failed: ${replay.error.phase}: ${replay.error.message}`,
+				);
+			}
+			const observed = yield* observeWorkflowReplay(replay.value, journal, pin.scriptId, step);
+			if (observed.state === "failed") {
+				return yield* sandboxFailure(`Workflow replay ${step} failed: ${observed.error}`);
+			}
+			if (observed.state === "completed") {
+				return observed.output;
+			}
+			if (step === SANDBOX_WORKFLOW_MAX_STEPS) {
+				break;
+			}
+			const value = yield* performSandboxWorkflowRequest(
+				observed.request,
+				observed.targetScriptId,
+				{ ...payload, scriptId: pin.scriptId },
+				executionId,
+				step,
+				processReplay,
+			);
+			journal.push({ value, request: observed.request });
+		}
+
+		return yield* sandboxFailure(
+			`Sandbox workflow exceeded the maximum of ${SANDBOX_WORKFLOW_MAX_STEPS} durable steps`,
+		);
+	}).pipe(
+		Effect.matchCauseEffect({
+			onFailure: (cause) =>
+				Effect.flatMap(WorkflowInstance, (instance) =>
+					instance.suspended && Cause.isInterruptedOnly(cause)
+						? Effect.failCause(cause)
+						: releaseReference.pipe(Effect.zipRight(Effect.failCause(cause))),
+				),
+			onSuccess: (output) => releaseReference.pipe(Effect.as(output)),
+		}),
 	);
 });
 
