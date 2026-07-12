@@ -67,6 +67,9 @@ describe("movie.tmdb sandbox script", () => {
 			if (url.includes("/movie/1/credits")) {
 				return httpSuccess({ cast: [], crew: [] });
 			}
+			if (url.includes("/movie/1/watch/providers")) {
+				return httpSuccess({ results: {} });
+			}
 			if (url.includes("/movie/1/images")) {
 				return httpSuccess({
 					posters: [{ file_path: "/poster-alt.jpg" }, { file_path: "/shared.jpg" }],
@@ -150,6 +153,54 @@ describe("movie.tmdb sandbox script", () => {
 							],
 						},
 					]);
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("merges TMDB watch providers by name and country", () => {
+		const host = makeHost((_method, url) => {
+			if (url.includes("/movie/1/watch/providers")) {
+				return httpSuccess({
+					results: {
+						US: { rent: [{ provider_name: "Netflix" }] },
+						AU: { flatrate: [{ logo_path: "/nameless.jpg" }] },
+						GB: { buy: [{ logo_path: "/apple.jpg", provider_name: "Apple TV" }] },
+						IN: { flatrate: [{ provider_name: "Netflix", logo_path: "/netflix.jpg" }] },
+					},
+				});
+			}
+			if (url.includes("/movie/1/credits")) {
+				return httpSuccess({ cast: [], crew: [] });
+			}
+			if (url.includes("/movie/1/images")) {
+				return httpSuccess({ posters: [], backdrops: [] });
+			}
+			if (url.includes("/movie/1/recommendations")) {
+				return httpSuccess({ results: [] });
+			}
+			return httpSuccess({ id: 1, title: "Source" });
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.properties).toMatchObject({
+						watchProviders: [
+							{
+								name: "Apple TV",
+								availability: [{ country: "GB", offers: ["buy"] }],
+								image: "https://image.tmdb.org/t/p/original/apple.jpg",
+							},
+							{
+								name: "Netflix",
+								image: "https://image.tmdb.org/t/p/original/netflix.jpg",
+								availability: [
+									{ country: "IN", offers: ["stream"] },
+									{ country: "US", offers: ["rent"] },
+								],
+							},
+						],
+					});
 					return undefined;
 				}),
 			),
