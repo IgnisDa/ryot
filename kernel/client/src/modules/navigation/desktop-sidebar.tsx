@@ -5,7 +5,7 @@ import type {
 import { Link } from "@tanstack/react-router";
 import clsx from "clsx";
 
-import type { AuthSessionStore } from "#/modules/auth/client";
+import type { AuthSessionStore } from "#/modules/auth/service";
 import { AccountSummary } from "#/modules/navigation/account-summary";
 import { AppIcon } from "#/modules/navigation/app-icon";
 import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";

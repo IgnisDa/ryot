@@ -7,7 +7,6 @@ import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "#/api/authenticated";
-import { AuthClient } from "#/modules/auth/client";
 import { ArtifactSessions, ArtifactSessionStaleError } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
@@ -54,16 +53,17 @@ const mountView = (
 		Layer.mergeAll(
 			AuthStub,
 			ServerStub,
-			OAuthRouteStubs,
 			makePublicApiStub(),
-			AuthClient.layer,
 			AuthenticatedApi.layer,
 			Layer.succeed(ArtifactSessions, artifactSessions),
 			events.layer,
 			Layer.succeed(PluginCatalogService, { load }),
 			Layer.succeed(PluginOperationsService, { invoke }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
-		).pipe(Layer.provideMerge(Layer.succeed(ClientStorage, storage))),
+		).pipe(
+			Layer.provideMerge(OAuthRouteStubs),
+			Layer.provideMerge(Layer.succeed(ClientStorage, storage)),
+		),
 	);
 	const initialEntries = typeof initialEntry === "string" ? [initialEntry] : initialEntry;
 	const router = getRouter({ runtime, theme }, createMemoryHistory({ initialEntries }));

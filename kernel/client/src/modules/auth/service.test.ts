@@ -1,132 +1,115 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 
-import { AuthClient, AuthClientError, type AuthSessionStore } from "#/modules/auth/client";
 import { AuthService } from "#/modules/auth/service";
+import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ClientStorage } from "#/persistence/storage";
 
-const session: AuthSessionStore = {
-	subscribe: () => () => undefined,
-	getSnapshot: () => ({ status: "missing" }),
-};
-
-const makeAuthClient = (overrides: Partial<AuthClient["Service"]> = {}): AuthClient["Service"] => ({
-	session: () => session,
+const makeTokens = (
+	overrides: Partial<OAuthTokenService["Service"]> = {},
+): OAuthTokenService["Service"] => ({
 	clear: () => Effect.void,
-	signUp: () => Effect.void,
-	signOut: () => Effect.void,
-	refreshSession: () => Effect.void,
-	signInWithOidc: () => Effect.void,
-	verifyTwoFactor: () => Effect.void,
-	verifyOneTimeToken: () => Effect.void,
-	signIn: () => Effect.succeed({}),
-	settledSession: () => Effect.succeed({ status: "missing" }),
+	userInfo: () => Effect.succeed(null),
+	accessToken: () => Effect.succeed(null),
+	rejectAuthorization: () => Effect.die("not used"),
+	completeAuthorization: () => Effect.die("not used"),
 	...overrides,
 });
 
-const makeStorage = (
-	clearServerSelection: Effect.Effect<void> = Effect.void,
-	clearSessionToken: (origin: string) => Effect.Effect<void> = () => Effect.void,
-) =>
+const makeStorage = (clearServerSelection: Effect.Effect<void> = Effect.void) =>
 	Layer.succeed(ClientStorage, {
-		clearSessionToken,
 		clearServerSelection,
 		remove: () => Effect.void,
-		setSessionToken: () => Effect.void,
 		setLastWorkspace: () => Effect.void,
 		setServerSelection: () => Effect.void,
 		setThemePreference: () => Effect.void,
 		getServerSelection: Effect.succeed(null),
-		getSessionToken: () => Effect.succeed(null),
 		getLastWorkspace: () => Effect.succeed(null),
 		getThemePreference: Effect.succeed("system" as const),
 	});
 
+const authLayer = (
+	tokens: OAuthTokenService["Service"],
+	storage: Layer.Layer<ClientStorage> = makeStorage(),
+) =>
+	AuthService.layer.pipe(
+		Layer.provide(Layer.succeed(OAuthTokenService, tokens)),
+		Layer.provide(storage),
+	);
+
 describe("authentication service", () => {
-	it.effect("uses the session established by password signup without signing in again", () => {
-		const calls: string[] = [];
-		const client = makeAuthClient({
-			refreshSession: () => Effect.sync(() => calls.push("refresh-session")),
-			signUp: (_origin, values) => Effect.sync(() => calls.push(`signup:${values.name}`)),
-			signIn: (_origin, values) => Effect.sync(() => calls.push(`signin:${values.email}`)),
-		});
-		const dependencies = Layer.mergeAll(Layer.succeed(AuthClient, client), makeStorage());
+	it.effect("restores an OAuth UserInfo response into the existing session snapshot", () =>
+		Effect.gen(function* () {
+			const auth = yield* AuthService;
+			const session = auth.session("https://example.com");
+			expect(session.getSnapshot()).toEqual({ status: "pending" });
 
-		return Effect.gen(function* () {
-			const service = yield* AuthService;
-			const result = yield* service.submitCredentials({
-				mode: "signup",
-				origin: "https://example.com",
-				values: { email: "user@example.com", password: "password" },
+			expect(yield* auth.settledSession("https://example.com/")).toEqual({
+				status: "authenticated",
+				user: {
+					id: "user-1",
+					name: "Test User",
+					email: "user@example.com",
+					image: "https://example.com/avatar.png",
+				},
 			});
-
-			expect(result).toEqual({ _tag: "Authenticated" });
-			expect(calls).toEqual(["signup:user", "refresh-session"]);
-		}).pipe(Effect.provide(AuthService.layer), Effect.provide(dependencies));
-	});
-
-	it.effect("refreshes the session after authentication completes", () => {
-		const calls: string[] = [];
-		const client = makeAuthClient({
-			signIn: () => Effect.sync(() => calls.push("sign-in")),
-			refreshSession: () => Effect.sync(() => calls.push("refresh-session")),
-		});
-		const dependencies = Layer.mergeAll(Layer.succeed(AuthClient, client), makeStorage());
-
-		return Effect.gen(function* () {
-			const service = yield* AuthService;
-			expect(
-				yield* service.submitCredentials({
-					mode: "login",
-					origin: "https://example.com",
-					values: { email: "user@example.com", password: "password" },
-				}),
-			).toEqual({ _tag: "Authenticated" });
-			expect(calls).toEqual(["sign-in", "refresh-session"]);
-		}).pipe(Effect.provide(AuthService.layer), Effect.provide(dependencies));
-	});
-
-	it.effect("refreshes the session after two-factor verification", () => {
-		const calls: string[] = [];
-		const client = makeAuthClient({
-			refreshSession: () => Effect.sync(() => calls.push("refresh-session")),
-			verifyTwoFactor: () => Effect.sync(() => calls.push("verify-two-factor")),
-		});
-		const dependencies = Layer.mergeAll(Layer.succeed(AuthClient, client), makeStorage());
-
-		return Effect.gen(function* () {
-			const service = yield* AuthService;
-			yield* service.verifyTwoFactor("https://example.com", "totp", "123456");
-			expect(calls).toEqual(["verify-two-factor", "refresh-session"]);
-		}).pipe(Effect.provide(AuthService.layer), Effect.provide(dependencies));
-	});
-
-	it.effect("clears local auth and server state when remote sign-out fails", () => {
-		const calls: string[] = [];
-		const client = makeAuthClient({
-			clear: () => Effect.sync(() => calls.push("clear-auth")),
-			signOut: () =>
-				Effect.sync(() => calls.push("sign-out")).pipe(
-					Effect.andThen(Effect.fail(new AuthClientError({ message: "offline" }))),
+			expect(session.getSnapshot().status).toBe("authenticated");
+		}).pipe(
+			Effect.provide(
+				authLayer(
+					makeTokens({
+						userInfo: () =>
+							Effect.succeed({
+								sub: "user-1",
+								name: "Test User",
+								email: "user@example.com",
+								picture: "https://example.com/avatar.png",
+							}),
+					}),
 				),
-		});
-		const dependencies = Layer.mergeAll(
-			Layer.succeed(AuthClient, client),
-			makeStorage(
-				Effect.sync(() => calls.push("clear-server")),
-				(origin) => Effect.sync(() => calls.push(`clear-token:${origin}`)),
+			),
+		),
+	);
+
+	it.effect("reports a missing session when no OAuth token set exists", () =>
+		Effect.gen(function* () {
+			const auth = yield* AuthService;
+			expect(yield* auth.settledSession("https://example.com")).toEqual({ status: "missing" });
+		}).pipe(Effect.provide(authLayer(makeTokens()))),
+	);
+
+	it.effect("clears local OAuth authentication and updates subscribers", () => {
+		const calls: string[] = [];
+		return Effect.gen(function* () {
+			const auth = yield* AuthService;
+			const session = auth.session("https://example.com");
+			yield* auth.signOut("https://example.com");
+			expect(calls).toEqual(["clear:https://example.com"]);
+			expect(session.getSnapshot()).toEqual({ status: "missing" });
+		}).pipe(
+			Effect.provide(
+				authLayer(
+					makeTokens({
+						clear: (origin) => Effect.sync(() => calls.push(`clear:${origin}`)),
+					}),
+				),
 			),
 		);
+	});
 
+	it.effect("clears native server selection after local authentication", () => {
+		const calls: string[] = [];
 		return Effect.gen(function* () {
-			const service = yield* AuthService;
-			yield* service.changeServer("https://example.com");
-			expect(calls).toEqual([
-				"sign-out",
-				"clear-auth",
-				"clear-token:https://example.com",
-				"clear-server",
-			]);
-		}).pipe(Effect.provide(AuthService.layer), Effect.provide(dependencies));
+			const auth = yield* AuthService;
+			yield* auth.changeServer("https://example.com");
+			expect(calls).toEqual(["clear-auth", "clear-server"]);
+		}).pipe(
+			Effect.provide(
+				authLayer(
+					makeTokens({ clear: () => Effect.sync(() => calls.push("clear-auth")) }),
+					makeStorage(Effect.sync(() => calls.push("clear-server"))),
+				),
+			),
+		);
 	});
 });

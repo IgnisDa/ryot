@@ -11,6 +11,7 @@ import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { AuthService } from "#/modules/auth/service";
+import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ServerService } from "#/modules/server/service";
 import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientStorage } from "#/persistence/storage";
@@ -59,11 +60,7 @@ export const makeAuthStub = (
 	Layer.succeed(AuthService, {
 		signOut: () => Effect.void,
 		changeServer: () => Effect.void,
-		signInWithOidc: () => Effect.void,
-		verifyTwoFactor: () => Effect.void,
-		verifyOneTimeToken: () => Effect.void,
 		settledSession: () => Effect.succeed(session),
-		submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
 		session: () => ({ subscribe: () => () => undefined, getSnapshot: () => session }),
 		...overrides,
 	});
@@ -73,40 +70,53 @@ export const ServerStub = Layer.succeed(ServerService, {
 	selected: Effect.succeed(server),
 });
 
-export const OAuthRouteStubs = Layer.mergeAll(
-	Layer.succeed(HostedAuthService, {
-		signInWithOidc: () => Effect.void,
-		verifyTwoFactor: () => Effect.void,
-		submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
-	}),
-	Layer.succeed(OAuthStorage, {
-		setPending: () => Effect.void,
-		setTokenSet: () => Effect.void,
-		getPending: () => Effect.succeed(null),
-		getTokenSet: () => Effect.succeed(null),
-	}),
-	Layer.succeed(OAuthLauncher, {
-		launch: () => Effect.void,
-		prepare: () =>
-			Effect.succeed({
-				_tag: "Ready",
-				plan: {
-					isNative: false,
-					authorizationUrl: `${server}/api/auth/oauth2/authorize`,
-					pending: {
-						createdAt: 1,
-						state: "state",
-						nonce: "nonce",
-						destination: "/",
-						clientId: "ryot-web",
-						serverOrigin: server,
-						codeVerifier: "verifier",
-						redirectUri: `${server}/auth/callback`,
+export const makeOAuthRouteStubs = (tokenOverrides: Partial<OAuthTokenService["Service"]> = {}) =>
+	Layer.mergeAll(
+		Layer.succeed(HostedAuthService, {
+			signInWithOidc: () => Effect.void,
+			verifyTwoFactor: () => Effect.void,
+			submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
+		}),
+		Layer.succeed(OAuthStorage, {
+			setPending: () => Effect.void,
+			setTokenSet: () => Effect.void,
+			removeTokenSet: () => Effect.void,
+			getPending: () => Effect.succeed(null),
+			takePending: () => Effect.succeed(null),
+			getTokenSet: () => Effect.succeed(null),
+		}),
+		Layer.succeed(OAuthTokenService, {
+			clear: () => Effect.void,
+			userInfo: () => Effect.succeed(null),
+			accessToken: () => Effect.succeed(null),
+			rejectAuthorization: () => Effect.die("not used"),
+			completeAuthorization: () => Effect.die("not used"),
+			...tokenOverrides,
+		}),
+		Layer.succeed(OAuthLauncher, {
+			launch: () => Effect.void,
+			prepare: () =>
+				Effect.succeed({
+					_tag: "Ready",
+					plan: {
+						isNative: false,
+						authorizationUrl: `${server}/api/auth/oauth2/authorize`,
+						pending: {
+							createdAt: 1,
+							state: "state",
+							nonce: "nonce",
+							destination: "/",
+							clientId: "ryot-web",
+							serverOrigin: server,
+							codeVerifier: "verifier",
+							redirectUri: `${server}/auth/callback`,
+						},
 					},
-				},
-			} as const),
-	}),
-);
+				} as const),
+		}),
+	);
+
+export const OAuthRouteStubs = makeOAuthRouteStubs();
 
 export type WorkspaceStorageRecorder = {
 	readonly getScopes: ApiScope[];
@@ -128,12 +138,9 @@ export const makeStorageStub = (
 	return {
 		remove: () => Effect.void,
 		clearServerSelection: Effect.void,
-		setSessionToken: () => Effect.void,
-		clearSessionToken: () => Effect.void,
 		setServerSelection: () => Effect.void,
 		setThemePreference: () => Effect.void,
 		getServerSelection: Effect.succeed(server),
-		getSessionToken: () => Effect.succeed(null),
 		getThemePreference: Effect.succeed("system" as const),
 		getLastWorkspace: (scope) =>
 			Effect.sync(() => {

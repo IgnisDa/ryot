@@ -6,7 +6,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { describe, expect, it } from "vitest";
 
-import type { AuthSessionStore } from "#/modules/auth/client";
+import type { AuthSessionStore } from "#/modules/auth/service";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
 
 const workspace = (
