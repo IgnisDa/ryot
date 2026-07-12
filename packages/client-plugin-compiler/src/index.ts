@@ -1,12 +1,12 @@
+export { compileClientPlugin } from "./compile";
 export {
-	compileClientPlugin,
-	type ClientPluginAutomaticRegistryEntry,
-	type ClientPluginCompilerContributor,
-	type ClientPluginCompilerGraphInput,
-	type ClientPluginCompilerInput,
-	type ClientPluginCompilerPackageExport,
-	type ClientPluginCompilerPackageInput,
-	type ClientPluginCompilerPublicExport,
-	type ClientPluginExportKind,
-} from "./compile";
+	ClientPluginAutomaticRegistryEntry,
+	ClientPluginCompilerContributor,
+	ClientPluginCompilerGraphInput,
+	ClientPluginCompilerInput,
+	ClientPluginCompilerPackageExport,
+	ClientPluginCompilerPackageInput,
+	ClientPluginCompilerPublicExport,
+	ClientPluginExportKind,
+} from "./input";
 export { ClientPluginCompilerDiagnostic, ClientPluginCompilerFailure } from "./diagnostics";

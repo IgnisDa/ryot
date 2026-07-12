@@ -17,6 +17,7 @@ import {
 	ManagedAssetLocator,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
+import { CanonicalBase64 } from "@ryot-app/contract/schema/base64";
 import {
 	ClientRendererId,
 	EntityId,
@@ -190,11 +191,11 @@ export const ClientPageContext = strictStruct({
 
 export type ClientPageContext = Schema.Schema.Type<typeof ClientPageContext>;
 
-export const PluginClientArtifactFile = strictStruct({
-	name: Schema.String,
-	contentType: Schema.String,
-	contents: Schema.Uint8Array,
-});
+const pluginClientArtifactFile = <Encoded, DecodingServices, EncodingServices>(
+	contents: Schema.Codec<Uint8Array, Encoded, DecodingServices, EncodingServices>,
+) => strictStruct({ contents, name: Schema.String, contentType: Schema.String });
+
+export const PluginClientArtifactFile = pluginClientArtifactFile(Schema.Uint8Array);
 
 export type PluginClientArtifactFile = Schema.Schema.Type<typeof PluginClientArtifactFile>;
 
@@ -208,22 +209,31 @@ export const PluginClientArtifactMetadata = strictStruct({
 
 export type PluginClientArtifactMetadata = Schema.Schema.Type<typeof PluginClientArtifactMetadata>;
 
-const PluginClientArtifactFiles = Schema.Array(PluginClientArtifactFile).pipe(
-	Schema.check(
-		Schema.makeFilter((files) =>
-			new Set(files.map(({ name }) => name)).size === files.length
-				? true
-				: "Expected unique client artifact file names",
+const pluginClientArtifact = <Encoded, DecodingServices, EncodingServices>(
+	contents: Schema.Codec<Uint8Array, Encoded, DecodingServices, EncodingServices>,
+) =>
+	strictStruct({
+		...PluginClientArtifactMetadata.fields,
+		files: Schema.Array(pluginClientArtifactFile(contents)).pipe(
+			Schema.check(
+				Schema.makeFilter((files) =>
+					new Set(files.map(({ name }) => name)).size === files.length
+						? true
+						: "Expected unique client artifact file names",
+				),
+			),
 		),
-	),
-);
+	});
 
-export const PluginClientArtifact = strictStruct({
-	...PluginClientArtifactMetadata.fields,
-	files: PluginClientArtifactFiles,
-});
+export const PluginClientArtifact = pluginClientArtifact(Schema.Uint8Array);
 
 export type PluginClientArtifact = Schema.Schema.Type<typeof PluginClientArtifact>;
+
+const CanonicalUint8ArrayFromBase64 = CanonicalBase64.pipe(
+	Schema.decodeTo(Schema.Uint8ArrayFromBase64),
+);
+
+export const PluginClientArtifactFromBase64 = pluginClientArtifact(CanonicalUint8ArrayFromBase64);
 
 const pluginBridgeIdentityFields = {
 	sessionId: Schema.String,

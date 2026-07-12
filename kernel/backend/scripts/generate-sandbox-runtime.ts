@@ -2,10 +2,11 @@
 
 import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
 import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
-import { ViteBuildService } from "@ryot-app/vite-compiler";
+import { buildDenoEsm, ViteBuildService } from "@ryot-app/vite-compiler";
 import { Data, Effect, Layer, Ref, Schema, FileSystem, Path } from "effect";
 
-import { buildDenoEsmModule, buildSandboxRuntimePayload } from "./sandbox-runtime-build";
+import { buildSandboxRuntimePayload } from "./sandbox-runtime-payload";
+import { preparationSources } from "./sandbox-runtime-preparation";
 
 class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
 	message: string;
@@ -14,10 +15,9 @@ class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
 const encodeGeneratedString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
-const walkSources = (
+const walkSandboxSources = (
 	directory: string,
 	root: string,
-	include: (entry: string) => boolean,
 ): Effect.Effect<Readonly<Record<string, string>>, unknown, FileSystem.FileSystem | Path.Path> =>
 	Effect.gen(function* () {
 		const path = yield* Path.Path;
@@ -27,43 +27,13 @@ const walkSources = (
 			const absolutePath = path.join(directory, entry);
 			const info = yield* fs.stat(absolutePath);
 			if (info.type === "Directory") {
-				Object.assign(files, yield* walkSources(absolutePath, root, include));
-			} else if (include(entry)) {
+				Object.assign(files, yield* walkSandboxSources(absolutePath, root));
+			} else if (entry.endsWith(".sandbox.ts")) {
 				const relativePath = path.relative(root, absolutePath).split(path.sep).join("/");
 				files[relativePath] = yield* fs.readFileString(absolutePath);
 			}
 		}
 		return files;
-	});
-
-const walkSandboxSources = (directory: string, root: string) =>
-	walkSources(directory, root, (entry) => entry.endsWith(".sandbox.ts"));
-
-const preparationSources = (kernelDirectory: string, sandboxRuntimeDirectory: string) =>
-	Effect.gen(function* () {
-		const path = yield* Path.Path;
-		const fs = yield* FileSystem.FileSystem;
-		const workspaceRoot = path.resolve(kernelDirectory, "../..");
-		const sdkDirectory = path.join(workspaceRoot, "packages/sandbox-sdk");
-		const viteCompilerDirectory = path.join(workspaceRoot, "packages/vite-compiler");
-		const sources = {
-			...(yield* walkSandboxSources(sandboxRuntimeDirectory, workspaceRoot)),
-			...(yield* walkSandboxSources(
-				path.join(kernelDirectory, "src/modules/definition-registry/kernel-scripts"),
-				workspaceRoot,
-			)),
-			...(yield* walkSources(path.join(sdkDirectory, "src"), workspaceRoot, (entry) =>
-				entry.endsWith(".ts"),
-			)),
-		};
-		for (const file of [
-			path.join(kernelDirectory, "scripts/sandbox-runtime-build.ts"),
-			path.join(sdkDirectory, "package.json"),
-			path.join(viteCompilerDirectory, "package.json"),
-		]) {
-			sources[path.relative(workspaceRoot, file)] = yield* fs.readFileString(file);
-		}
-		return sources;
 	});
 
 const embedKernelScripts = (kernelDirectory: string) =>
@@ -91,10 +61,11 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const sources = yield* walkSandboxSources(sandboxRuntimeDirectory, sandboxRuntimeDirectory);
-		const javascript = yield* buildDenoEsmModule({
+		const { javascript } = yield* buildDenoEsm({
 			outputFile: "runner.mjs",
-			entrypoint: "runner-source.sandbox.ts",
-			externalSpecifiers: new Set(["@ryot-app/sandbox-sdk/effect"]),
+			entry: "runner-source.sandbox.ts",
+			approvedDynamicImportExpressions: new Set(["payload.moduleUrl"]),
+			approvedExternalSpecifiers: new Set(["@ryot-app/sandbox-sdk/effect"]),
 			sources: Object.entries(sources).map(([path, contents]) => ({ path, contents })),
 		}).pipe(
 			Effect.mapError(
@@ -107,7 +78,6 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 			`export const sandboxRunnerSource = ${encodeGeneratedString(javascript)};\n`,
 		);
 		yield* Effect.logInfo("Compiled Deno sandbox runner");
-		return yield* Effect.void;
 	});
 
 const compileRuntimePayload = (kernelDirectory: string, sandboxRuntimeDirectory: string) =>
