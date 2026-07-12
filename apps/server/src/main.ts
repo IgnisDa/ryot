@@ -32,7 +32,7 @@ const AppLive = MigrationSequenceLive.pipe(
 );
 
 const runMigrationOnly = await Effect.runPromise(
-	Config.boolean("RUN_MIGRATION_ONLY").pipe(
+	Config.Boolean("RUN_MIGRATION_ONLY").pipe(
 		Config.withDefault(false),
 		Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 	),
