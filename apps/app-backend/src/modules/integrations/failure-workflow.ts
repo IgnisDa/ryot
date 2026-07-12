@@ -1,7 +1,7 @@
-import { Activity } from "@effect/workflow";
 import { unknownToMessage } from "@ryot/contract/errors";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
+import { Activity } from "effect/unstable/workflow";
 
 import type { ImportRunFailureDetails } from "#modules/imports/failure-service";
 import {

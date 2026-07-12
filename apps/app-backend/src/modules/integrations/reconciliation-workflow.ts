@@ -1,6 +1,8 @@
-import { Activity, Workflow } from "@effect/workflow";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer, Schema } from "effect";
+import { Activity, Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+
+import { withoutSchemaServices } from "#lib/shared/schema";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { IntegrationReconciliationRun } from "./jobs";
@@ -12,13 +14,15 @@ export const IntegrationReconciliationPayload = Schema.Struct({
 
 export type IntegrationReconciliationPayload = typeof IntegrationReconciliationPayload.Type;
 
-export const IntegrationReconciliationWorkflow = Workflow.make({
-	success: Schema.Void,
-	error: Schema.Never,
-	name: "IntegrationReconciliationWorkflow",
-	payload: IntegrationReconciliationPayload,
-	idempotencyKey: ({ executionId }) => executionId,
-});
+export const IntegrationReconciliationWorkflow = Workflow.make(
+	"IntegrationReconciliationWorkflow",
+	{
+		success: withoutSchemaServices(Schema.Void),
+		error: withoutSchemaServices(Schema.Never),
+		payload: withoutSchemaServices(IntegrationReconciliationPayload),
+		idempotencyKey: ({ executionId }) => executionId,
+	},
+);
 
 export const runIntegrationReconciliationWorkflow = Effect.fn("IntegrationReconciliationWorkflow")(
 	function* (_payload: IntegrationReconciliationPayload, executionId: string) {
@@ -45,7 +49,7 @@ export const runIntegrationReconciliationWorkflow = Effect.fn("IntegrationReconc
 					},
 				})
 				.pipe(
-					Effect.catchAllCause((cause) =>
+					Effect.catchCause((cause) =>
 						Effect.logError("integration reconciliation run dispatch failed", cause).pipe(
 							Effect.annotateLogs({ runId: run.runId }),
 						),
