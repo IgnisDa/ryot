@@ -1,4 +1,9 @@
 import { NotFound } from "@ryot/contract/errors";
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	RelationshipSchemaSlug,
+} from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
@@ -9,10 +14,11 @@ import type { QueryExecutionScope } from "../execution-scope";
 export type VisibleEntityPropertySchema = { slug: string; propertiesSchema: AppSchema };
 
 const ownsEntitySchema = (scope: QueryExecutionScope, slug: string) =>
-	scope.type === "user" || scope.entitySchemaSlugs.includes(slug);
+	scope.type === "user" || scope.entitySchemaSlugs.includes(EntitySchemaSlug.make(slug));
 
 const ownsRelationshipSchema = (scope: QueryExecutionScope, slug: string) =>
-	scope.type === "user" || scope.relationshipSchemaSlugs.includes(slug);
+	scope.type === "user" ||
+	scope.relationshipSchemaSlugs.includes(RelationshipSchemaSlug.make(slug));
 
 const ownsEventSchema = (
 	scope: QueryExecutionScope,
@@ -22,7 +28,8 @@ const ownsEventSchema = (
 	scope.type === "user" ||
 	scope.eventSchemas.some(
 		(owned) =>
-			owned.entitySchemaSlug === entitySchemaSlug && owned.eventSchemaSlug === eventSchemaSlug,
+			owned.entitySchemaSlug === EntitySchemaSlug.make(entitySchemaSlug) &&
+			owned.eventSchemaSlug === EventSchemaSlug.make(eventSchemaSlug),
 	);
 
 export const loadVisibleEntityPropertySchemas = Effect.fn("loadVisibleEntityPropertySchemas")(

@@ -1,5 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	PluginSlug,
+	RelationshipSchemaSlug,
+} from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -58,10 +64,15 @@ const definitions: DefinitionSource = {
 
 const scope: QueryExecutionScope = {
 	type: "system",
-	pluginSlug: "fixture",
-	relationshipSchemaSlugs: ["owned-link"],
-	entitySchemaSlugs: ["owned-a", "owned-b"],
-	eventSchemas: [{ entitySchemaSlug: "owned-a", eventSchemaSlug: "status" }],
+	pluginSlug: PluginSlug.make("fixture"),
+	relationshipSchemaSlugs: [RelationshipSchemaSlug.make("owned-link")],
+	entitySchemaSlugs: [EntitySchemaSlug.make("owned-a"), EntitySchemaSlug.make("owned-b")],
+	eventSchemas: [
+		{
+			entitySchemaSlug: EntitySchemaSlug.make("owned-a"),
+			eventSchemaSlug: EventSchemaSlug.make("status"),
+		},
+	],
 };
 
 const rows = (where: QueryDocument["source"]["where"]): QueryDocument => ({
