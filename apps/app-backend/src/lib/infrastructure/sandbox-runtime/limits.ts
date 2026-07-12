@@ -14,12 +14,12 @@ const KiB = 1024;
 const MiB = 1024 * KiB;
 
 export const SANDBOX_LIMITS = {
-	scratch: { totalBytes: 5 * MiB },
 	compiler: SANDBOX_COMPILER_LIMITS,
 	hostCalls: { http: 50, total: 200 },
 	globalWrites: GLOBAL_WRITE_SANDBOX_LIMITS,
 	http: { requestBytes: MiB, responseBytes: 10 * MiB },
 	userRelationshipWrites: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
+	scratch: { maxDepth: 32, maxEntries: 4_096, totalBytes: 5 * MiB },
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
 	bridge: { concurrentHostCalls: 4, requestBytes: MiB, responseBytes: 10 * MiB },
 	observability: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
