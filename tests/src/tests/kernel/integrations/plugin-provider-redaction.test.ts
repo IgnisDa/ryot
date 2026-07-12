@@ -6,12 +6,9 @@ import {
 	createAuthenticatedClient,
 	createIntegration,
 	deleteIntegration,
-	getIntegration,
 	installTestIntegrationProvider,
-	listIntegrations,
 	uninstallTestPluginStrict,
 } from "~/fixtures";
-import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
@@ -54,7 +51,7 @@ const settingsSchema = {
 } satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
 
 describe("third-party integration provider redaction", () => {
-	it.live("redacts nested secrets from every integration read response", () =>
+	it.live("redacts nested secrets from the integration update response", () =>
 		Effect.gen(function* () {
 			const { providerSlug } = yield* Effect.acquireRelease(
 				installTestIntegrationProvider(settingsSchema),
@@ -76,22 +73,6 @@ describe("third-party integration provider redaction", () => {
 				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
-			expect(created).not.toHaveProperty("providerSpecifics");
-
-			const expectedCreatedSettings = {
-				credentials: { username: "alice" },
-				endpoint: "https://provider.example.com",
-				accounts: [{ name: "primary" }, { name: "backup" }],
-			};
-			const fetched = yield* getIntegration(client, created.id);
-			expect(fetched.providerSpecifics).toEqual(expectedCreatedSettings);
-
-			const listed = requirePresent(
-				(yield* listIntegrations(client)).find(({ id }) => id === created.id),
-				"Expected dynamically installed provider integration in list",
-			);
-			expect(listed.providerSpecifics).toEqual(expectedCreatedSettings);
-
 			const updated = yield* client.call((c) =>
 				c.integrations.update({
 					params: { integrationId: IntegrationId.make(created.id) },

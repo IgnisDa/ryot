@@ -778,6 +778,9 @@ const compileTimeSeriesQuery = (query: TimeSeriesQuery, executionScope: RyotQLEx
 };
 
 const normalizeValue = (value: unknown, kind: FieldValue["kind"]) => {
+	if (kind === "number") {
+		return Number(value);
+	}
 	if (kind !== "date") {
 		return value;
 	}
