@@ -11,7 +11,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { processSandboxExecution } from "#modules/sandbox/durable-queues";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
-import type { EntityImportPayload } from "./entity-import-workflow";
+import type { EntityImportPayload } from "./schemas";
 
 const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
 	Effect.gen(function* () {

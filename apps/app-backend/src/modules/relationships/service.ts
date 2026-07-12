@@ -1,6 +1,7 @@
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { EntityId, RelationshipSchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
@@ -259,6 +260,57 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 				return updated;
 			});
 
+			const mergeUserProperties = Effect.fn("RelationshipsService.mergeUserProperties")(function* (
+				input: CreateRelationshipInput & { userId: UserId },
+			) {
+				const runInTransaction = yield* TransactionRunner;
+				return yield* runInTransaction(
+					Effect.gen(function* () {
+						const merge = (existing: unknown) => {
+							const current = isObjectRecord(existing) ? existing : {};
+							const incoming = isObjectRecord(input.properties) ? input.properties : {};
+							const merged = { ...current, ...incoming };
+							for (const [key, value] of Object.entries(incoming)) {
+								if (Array.isArray(value) && Array.isArray(current[key])) {
+									const seen = new Set<string>();
+									merged[key] = [...current[key], ...value].filter((item) => {
+										const encoded = JSON.stringify(item);
+										if (seen.has(encoded)) {
+											return false;
+										}
+										seen.add(encoded);
+										return true;
+									});
+								}
+							}
+							return parseProperties({
+								properties: merged,
+								propertiesSchema: input.propertiesSchema,
+							});
+						};
+						const { propertiesSchema: _propertiesSchema, ...saveInput } = input;
+						const existing = yield* repository.findRelationshipProperties(input);
+						const properties = yield* merge(existing);
+						if (existing) {
+							return yield* repository.updateRelationship({ ...saveInput, properties });
+						}
+						const created = yield* repository.createRelationship({ ...saveInput, properties });
+						if (created.wasInserted) {
+							return created;
+						}
+						const conflicted = yield* repository.findRelationshipProperties(input);
+						const updated = yield* repository.updateRelationship({
+							...saveInput,
+							properties: yield* merge(conflicted),
+						});
+						if (!updated) {
+							return yield* notFound("Relationship not found after create conflict");
+						}
+						return updated;
+					}),
+				);
+			});
+
 			const deleteRelationship = Effect.fn("RelationshipsService.delete")(function* (
 				input: RelationshipIdentityInput,
 			) {
@@ -275,6 +327,7 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 				create,
 				update,
 				listGlobal,
+				mergeUserProperties,
 				delete: deleteRelationship,
 				changeUser: (userId: UserId, batches: ReadonlyArray<ChangeUserRelationshipBatch>) =>
 					changeUserRelationships(userId, batches).pipe(

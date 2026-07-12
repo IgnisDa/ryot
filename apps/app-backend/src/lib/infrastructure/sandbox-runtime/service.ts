@@ -74,11 +74,9 @@ const invalidResponseMessage = "Invalid JSON response from Deno process";
 type BunRequestInit = RequestInit & { tls: { rejectUnauthorized: boolean } };
 const insecureRequestInit: BunRequestInit = { tls: { rejectUnauthorized: false } };
 const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
+const userAuthorityHostFunctions = new Set<string>(["ensureUserEntities"]);
 const systemActivityHostFunctions = new Set<string>(["executeQueryEngine"]);
-const userAuthorityHostFunctions = new Set<string>([
-	"ensureUserEntities",
-	"changeUserRelationships",
-]);
+const userBoundHostFunctions = new Set<string>(["changeUserRelationships"]);
 const automationHostFunctions = new Set<string>(AUTOMATION_SANDBOX_HOST_CAPABILITIES);
 const systemCronHostFunctions = new Set<string>(SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES);
 
@@ -119,7 +117,8 @@ export const selectSandboxHostFunctions = (
 			(input.authority.type !== "system" ||
 				!systemActivityHostFunctions.has(key) ||
 				isSystemActivity) &&
-			(!userAuthorityHostFunctions.has(key) || input.authority.type === "user")
+			(!userAuthorityHostFunctions.has(key) || input.authority.type === "user") &&
+			(!userBoundHostFunctions.has(key) || input.authority.type !== "system")
 		) {
 			selectedApiFunctions[key] = fn;
 		}

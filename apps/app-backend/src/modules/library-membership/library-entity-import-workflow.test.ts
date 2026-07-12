@@ -12,7 +12,7 @@ import {
 import { Effect, Layer } from "effect";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
-import { EntityImportPayload } from "#modules/entity-import/entity-import-workflow";
+import { EntityImportPayload } from "#modules/entity-import/schemas";
 
 import {
 	LibraryEntityImportError,

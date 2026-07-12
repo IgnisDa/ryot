@@ -19,7 +19,7 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import {
 	KERNEL_EVENT_CREATE_WORKFLOW,
-	KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
+	KERNEL_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 	KernelWorkflowReferences,
@@ -121,7 +121,7 @@ it.effect("binds kernel workflow user ids to the trusted execution authority", (
 		const references = yield* KernelWorkflowReferences;
 		const authority = { type: "user" as const, userId: UserId.make("trusted-user") };
 		yield* references.execute(
-			KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
+			KERNEL_ENTITY_IMPORT_WORKFLOW,
 			{
 				externalId: "book-1",
 				entitySchemaSlug: "book",
@@ -192,7 +192,7 @@ it.effect("resolves plugin provider slugs before dispatching library imports", (
 	return Effect.gen(function* () {
 		const references = yield* KernelWorkflowReferences;
 		yield* references.execute(
-			KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
+			KERNEL_ENTITY_IMPORT_WORKFLOW,
 			{
 				externalId: "show-1",
 				providerSlug: "show.tmdb",
@@ -285,7 +285,7 @@ it.effect("rejects user-scoped kernel workflows for system executions", () =>
 		const references = yield* KernelWorkflowReferences;
 		const exit = yield* Effect.exit(
 			references.execute(
-				KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
+				KERNEL_ENTITY_IMPORT_WORKFLOW,
 				{
 					externalId: "book-1",
 					entitySchemaSlug: "book",
@@ -312,7 +312,7 @@ it.effect("rejects a script-supplied import run owned by another user", () =>
 		const references = yield* KernelWorkflowReferences;
 		const exit = yield* Effect.exit(
 			references.execute(
-				KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
+				KERNEL_ENTITY_IMPORT_WORKFLOW,
 				{
 					externalId: "book-1",
 					entitySchemaSlug: "book",

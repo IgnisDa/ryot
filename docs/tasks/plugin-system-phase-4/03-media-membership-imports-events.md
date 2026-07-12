@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -21,16 +21,16 @@ or failure recording into the plugin.
 
 ## Acceptance criteria
 
-- [ ] Generic entity import contains no library naming or media schema branching
-- [ ] Media entity import still returns only after required library membership is observable
-- [ ] Event creation still ensures membership for referenced global media entities before its awaited workflow completes
-- [ ] Fitness and unrelated fixture schemas do not receive media membership through either path
-- [ ] Generic import chunks express ownership behavior as domain-neutral user-relationship mutations
-- [ ] Media adapters preserve owned flag, merged ownership sources, and synchronization timestamp behavior
-- [ ] Failure propagation and per-item import failure stages remain behaviorally compatible
-- [ ] No transaction is held across sandbox or durable workflow execution
-- [ ] Existing media import/event assertions remain unchanged and focused exclusion tests are added
-- [ ] Temporary purity entries for import/event membership are removed
+- [x] Generic entity import contains no library naming or media schema branching
+- [x] Media entity import still returns only after required library membership is observable
+- [x] Event creation still ensures membership for referenced global media entities before its awaited workflow completes
+- [x] Fitness and unrelated fixture schemas do not receive media membership through either path
+- [x] Generic import chunks express ownership behavior as domain-neutral user-relationship mutations
+- [x] Media adapters preserve owned flag, merged ownership sources, and synchronization timestamp behavior
+- [x] Failure propagation and per-item import failure stages remain behaviorally compatible
+- [x] No transaction is held across sandbox or durable workflow execution
+- [x] Existing media import/event assertions remain unchanged and focused exclusion tests are added
+- [x] Temporary purity entries for import/event membership are removed
 
 ## User stories addressed
 

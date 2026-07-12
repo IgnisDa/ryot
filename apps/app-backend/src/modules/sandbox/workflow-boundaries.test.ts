@@ -81,7 +81,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		for (const source of [entityImportWorkflow, integrationWorkflow]) {
 			expect(source).not.toContain("execute(RunSandboxWorkflow");
 		}
-		expect(entityImportWorkflow).not.toMatch(/^import\s+(?!type\b)[^\n;]*\bWorkflowEngine\b/m);
+		expect(entityImportWorkflow).toContain("execute(ProviderEntityPopulationWorkflow");
 	}).pipe(Effect.provide(BunContext.layer)),
 );
 

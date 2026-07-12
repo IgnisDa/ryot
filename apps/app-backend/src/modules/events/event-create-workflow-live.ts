@@ -1,7 +1,7 @@
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
-import { Activity, DurableQueue } from "@effect/workflow";
+import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import type { DbError, SandboxRunError } from "@ryot/contract/errors";
+import type { SandboxRunError } from "@ryot/contract/errors";
 import { badRequest } from "@ryot/contract/errors";
 import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
 import type {
@@ -27,7 +27,6 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { processSandboxExecution } from "#modules/sandbox/durable-queues";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
-import { EnsureLibraryMembershipQueue } from "./durable-queues";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowError,
@@ -49,7 +48,6 @@ const PreparedItem = Schema.Struct({
 	propertiesSchema: AppSchema,
 	eventSchemaSlug: EventSchemaSlug,
 	eventSchemaName: Schema.String,
-	isGlobalEntity: Schema.Boolean,
 	entitySchemaSlug: EntitySchemaSlug,
 	properties: AutomationProperties,
 	sessionEntityId: Schema.optional(EntityId),
@@ -66,23 +64,13 @@ const CreatedEvent = Schema.Struct({
 	subjectName: Schema.String,
 	eventSchemaSlug: EventSchemaSlug,
 	entitySchemaSlug: EntitySchemaSlug,
-	isGlobalReference: Schema.Boolean,
 	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
 
 type CreatedEvent = typeof CreatedEvent.Type;
 
-type EnsureLibraryMembershipInput = {
-	userId: EventCreateWorkflowPayload["userId"];
-	entityId: EntityId;
-	executionId: string;
-};
-
 export type EventCreateWorkflowOperationsValue = {
 	dispatchLifecycleOccurrence: LifecycleDispatchValue["dispatch"];
-	ensureLibraryMembership: (
-		input: EnsureLibraryMembershipInput,
-	) => Effect.Effect<void, DbError, WorkflowEngine | WorkflowInstance>;
 	processSandboxExecution: (
 		payload: SandboxExecutionPayload,
 	) => Effect.Effect<SandboxCompletedResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
@@ -108,11 +96,6 @@ export const EventCreateWorkflowOperationsLive = Layer.effect(
 		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
 		return {
 			dispatchLifecycleOccurrence: lifecycleDispatch.dispatch,
-			ensureLibraryMembership: (input) =>
-				DurableQueue.process(EnsureLibraryMembershipQueue, input).pipe(
-					Effect.asVoid,
-					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-				),
 			processSandboxExecution: (payload) =>
 				processSandboxExecution(payload).pipe(
 					Effect.provideService(DbRunner, runWithDb),
@@ -162,7 +145,6 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				eventSchemaSlug: eventSchemaScope.id,
 				eventSchemaName: eventSchemaScope.name,
 				entitySchemaSlug: entityScope.entitySchemaSlug,
-				isGlobalEntity: entityScope.entityUserId === null,
 				propertiesSchema: eventSchemaScope.propertiesSchema,
 				policies: policies.map((policy) => ({
 					id: policy.id,
@@ -209,7 +191,6 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 				subjectName: prepared.subjectName,
 				occurredAt: createdEvent.occurredAt,
 				properties: createdEvent.properties,
-				isGlobalReference: prepared.isGlobalEntity,
 				entitySchemaSlug: prepared.entitySchemaSlug,
 				eventSchemaSlug: createdEvent.eventSchemaSlug,
 			} satisfies CreatedEvent;
@@ -259,7 +240,6 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(
 		});
 		let createdCount = 0;
 		const outcomes: EventCreateItemOutcome[] = [];
-		const referencedGlobalEntityIds = new Set<EntityId>();
 		const operations = yield* EventCreateWorkflowOperations;
 		let failure: { index: number; reason: EventCreateFailureReason } | null = null;
 
@@ -306,9 +286,6 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(
 				attempt.prepared,
 				attempt.policyResult.draft,
 			);
-			if (createdEvent.isGlobalReference) {
-				referencedGlobalEntityIds.add(createdEvent.entityId);
-			}
 			outcomes.push({ index: itemIndex, eventId: createdEvent.id, status: "written" });
 			createdCount += 1;
 			yield* dispatchLifecycleOccurrence(
@@ -318,18 +295,6 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(
 				operations.dispatchLifecycleOccurrence,
 			);
 		}
-
-		yield* Effect.forEach(
-			referencedGlobalEntityIds,
-			(entityId) =>
-				operations.ensureLibraryMembership({
-					entityId,
-					userId: payload.userId,
-					executionId: `${payload.executionId}-libref-${entityId}`,
-				}),
-			{ discard: true },
-		);
-
 		return { failure, outcomes, count: createdCount };
 	},
 	(effect, _payload, executionId) =>

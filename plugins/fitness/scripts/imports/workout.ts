@@ -18,6 +18,7 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 	return {
 		relationships: [],
 		itemIndex: workout.itemIndex,
+		subjectEntityAlias: "workout",
 		sourceLabel: workout.sourceLabel,
 		sourceIdentifier: workout.sourceIdentifier,
 		entities: [

@@ -1,13 +1,19 @@
 import { ImportRunId } from "@ryot/contract/schema/brands";
+import { queryEngineField, queryEngineSystemRef } from "@ryot/query-engine/primitives";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
+	buildEntityRowsQueryDocument,
+	executeQueryEngine,
+	findBuiltinSchemaBySlug,
 	getImportRun,
 	listEventSlugs,
 	pollImportRunUntilTerminal,
 	runHevyImportFixture,
 	runOpenScaleImportFixture,
+	queryInLibraryRelationship,
+	requireQueryEngineTextField,
 	seedGlobalShowEpisodeTree,
 	startOpenScaleImport,
 	uploadTemporaryFile,
@@ -31,6 +37,26 @@ describe("OpenScale Import E2E", () => {
 			expect(completedRun.progress).toBe(100);
 			expect(completedRun.startedAt).not.toBeNull();
 			expect(completedRun.finishedAt).not.toBeNull();
+
+			const { schema } = yield* findBuiltinSchemaBySlug(client, "measurement");
+			const measurements = yield* executeQueryEngine(
+				client,
+				buildEntityRowsQueryDocument({
+					limit: 20,
+					alias: "measurement",
+					schemas: [schema.id],
+					fields: [queryEngineField("id", queryEngineSystemRef("measurement", "id"))],
+				}),
+			);
+			expect(measurements.data.items).toHaveLength(3);
+			const memberships = yield* Effect.forEach(measurements.data.items, (measurement) =>
+				queryInLibraryRelationship(
+					client,
+					requireQueryEngineTextField(measurement, "id"),
+					schema.slug,
+				),
+			);
+			expect(memberships.every((membership) => membership.data.items.length === 0)).toBe(true);
 		}),
 	);
 
@@ -238,6 +264,8 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 					c.imports.createRun({ payload: { source: "watcharr", uploadToken } }),
 				);
 				const completedRun = yield* pollImportRunUntilTerminal(client, created.id);
+				const membership = yield* queryInLibraryRelationship(client, showId, "show");
+				expect(membership.data.items).toHaveLength(1);
 
 				expect(completedRun).toMatchObject({ status: "completed", errorSummary: null });
 				expect(completedRun.progress).toBe(100);
