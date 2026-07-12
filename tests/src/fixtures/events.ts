@@ -145,7 +145,7 @@ export const listEventsForEntity = (
 ) =>
 	client.call((c) =>
 		c.events.list({
-			urlParams: {
+			query: {
 				entityId: EntityId.make(entityId),
 				...(options.eventSchemaSlug
 					? { eventSchemaSlug: EventSchemaSlug.make(options.eventSchemaSlug) }

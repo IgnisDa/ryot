@@ -32,7 +32,7 @@ export const createEntity = (client: Client, body: CreateEntityInput) =>
 export const getEntity = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
 		const entity = yield* client.call((c) =>
-			c.entities.get({ path: { entityId: EntityId.make(entityId) } }),
+			c.entities.get({ params: { entityId: EntityId.make(entityId) } }),
 		);
 
 		return withRecordProperties(entity);

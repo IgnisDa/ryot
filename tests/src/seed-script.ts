@@ -223,9 +223,7 @@ export default defineScript({
 	await apiClient.runAdmin((c) =>
 		c.plugins.install({ payload: { files: { [entry]: source }, manifest } }),
 	);
-	const scripts = await apiClient.runAdmin((c) =>
-		c.testSupport.listSandboxScripts({ urlParams: {} }),
-	);
+	const scripts = await apiClient.runAdmin((c) => c.testSupport.listSandboxScripts({ query: {} }));
 	const script = requirePresent(
 		scripts.find((candidate) => candidate.slug === value && candidate.source === source),
 		"Installed seed sandbox script was not found",
@@ -244,8 +242,8 @@ export default defineScript({
 		// oxlint-disable-next-line no-await-in-loop
 		const result = await apiClient.runAdmin((c) =>
 			c.testSupport.getSandboxResult({
-				path: { jobId: queued.jobId },
-				urlParams: { executingUserId: UserId.make(executingUserId) },
+				params: { jobId: queued.jobId },
+				query: { executingUserId: UserId.make(executingUserId) },
 			}),
 		);
 		if (result.status === "pending") {
@@ -1369,7 +1367,7 @@ async function seedMobilePhones(client: APIClient) {
 
 async function getBuiltinWorkspace(apiClient: APIClient) {
 	const workspaces = await apiClient.run((c) =>
-		c.definitions.listWorkspaces({ urlParams: { includeDisabled: true } }),
+		c.definitions.listWorkspaces({ query: { includeDisabled: true } }),
 	);
 
 	const builtinWorkspace = workspaces[0];
@@ -1383,7 +1381,7 @@ async function getBuiltinWorkspace(apiClient: APIClient) {
 async function listMediaEntitySchemas(apiClient: APIClient, pluginSlug: PluginSlug) {
 	const [schemas, scripts] = await Promise.all([
 		apiClient.run((c) => c.definitions.listEntities({})),
-		apiClient.runAdmin((c) => c.testSupport.listSandboxScripts({ urlParams: {} })),
+		apiClient.runAdmin((c) => c.testSupport.listSandboxScripts({ query: {} })),
 	]);
 	return schemas
 		.filter((schema) => schema.pluginSlug === pluginSlug)
@@ -1470,8 +1468,8 @@ async function pollSearchJob(
 		// oxlint-disable-next-line no-await-in-loop
 		const result = await apiClient.runAdmin((c) =>
 			c.testSupport.getSandboxResult({
-				path: { jobId },
-				urlParams: { executingUserId: UserId.make(executingUserId) },
+				params: { jobId },
+				query: { executingUserId: UserId.make(executingUserId) },
 			}),
 		);
 		if (result.status === "pending") {
@@ -1529,7 +1527,7 @@ async function importMediaEntity(
 		let result: ContractSuccess<"entityImport", "getImportResult">;
 		try {
 			// oxlint-disable-next-line no-await-in-loop
-			result = await apiClient.run((c) => c.entityImport.getImportResult({ path: { jobId } }));
+			result = await apiClient.run((c) => c.entityImport.getImportResult({ params: { jobId } }));
 		} catch {
 			return null;
 		}

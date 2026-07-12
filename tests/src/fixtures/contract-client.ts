@@ -1,10 +1,10 @@
-import { FetchHttpClient } from "@effect/platform";
 import {
 	makeContractClient,
 	type ContractProgram,
 	type RequestHeaders,
 } from "@ryot/contract/client";
 import { Effect } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
 
 import { getBackendUrl } from "~/support/backend";
 
