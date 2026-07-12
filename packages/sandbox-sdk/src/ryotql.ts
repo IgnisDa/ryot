@@ -3,6 +3,7 @@ import { Schema } from "@ryot/sandbox-sdk/effect";
 import { jsonValueSchema } from "./wire";
 
 export * from "@ryot/ryotql";
+export type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 export { buildEntityReadDocument, buildEventReadDocument } from "@ryot/ryotql-recipes/sandbox";
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
