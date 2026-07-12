@@ -1,11 +1,9 @@
 # Phase 3 — Capability migrations
 
-Status: in progress. Steps 0-4, the Step 5 migration and purity triage, and Task 12's final cleanup
-pass are complete (11 of 12 tasks); Task 11 and the Phase 3 gate remain open. Task 12 ran under an
-explicit owner waiver of its Task 11 prerequisite and does not close that gate. The Task 10 imports
-and integration follow-ups are repaired, and the standard full e2e gate passes all 79 files and 501
-tests. Resume with the timed-out opt-in operational gate, where 2 of 8 workflows completed and 6
-remained pending after 900 seconds, not with Step 5 implementation or cleanup.
+Status: complete. Steps 0-4, the Step 5 migration and purity triage, Task 12's final cleanup pass,
+and Task 11's deferred gate closure are complete. The Task 10 imports and integration follow-ups are
+repaired, the standard full e2e gate passes all 79 files and 501 tests, and the opt-in operational
+gate passes at its unchanged two-concurrent-1,001-item workload and 15-minute budget.
 
 The decision records below are historical: they describe the migration as designed and deliberately
 retain withdrawn names (`episodeLocator`, `providerLotByProvider`, `source-definitions.ts`, the four
@@ -934,8 +932,10 @@ active / 25 total connections, app-pool wait 0, lock wait 0, advisory locks samp
 0, deadlocks 0, Redis projections 8 / high-water 158 / errors 0, and sandbox executions 1,702 / max
 overlap 5. Teardown warned because the workflows remained pending.
 
-This failed measurement does not close the operational risk. Task 11 and the Phase 3 gate remain
-incomplete. The gate remains reproducible at its original workload, timeout, assertions, and real
-infrastructure path, but is opt-in through `RUN_OPERATIONAL_GATES=1` (or `true`) so the normal e2e
-suite does not repeatedly spend 15 minutes reproducing the known failure. The owner-skipped Task 10
-imports failure above remains a separate follow-up.
+This failed measurement did not close the operational risk. After the durable queue fixes, the gate
+passed at its original workload, timeout, assertions, and real infrastructure path: all eight
+workflows completed in 361,548 ms, both imports returned 1,001 completed results, and the run observed
+4,012 sandbox executions with no app-pool or advisory-lock waits, deadlocks, or Redis projection
+errors. It remains opt-in through `RUN_OPERATIONAL_GATES=1` (or `true`) so the normal e2e suite does
+not spend up to 15 minutes on the full-size measurement. The Task 10 imports failure was also
+repaired, closing Task 11 and the Phase 3 gate.
