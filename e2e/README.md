@@ -23,33 +23,6 @@ RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api
 RUN_LIVE_PROVIDER_TESTS=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/smoke/providers-live-smoke.test.ts'
 ```
 
-Run the StyleX tracer browser composition separately. This builds its dedicated archive, enables
-the backend tracer graph, and verifies Chromium and Playwright WebKit without changing ordinary
-E2E or shipped-plugin registration.
-
-```bash
-RUN_STYLEX_TRACER_E2E=1 bun turbo --env-mode=loose --filter=@ryot-app/e2e test --only -- 'src/browser/stylex-tracer.test.ts'
-```
-
-The tracer setup hashes `kernel/client/dist/index.html` and requires the backend response to have the
-same bytes before the browser assertions run. This distinguishes production output from Vite.
-
-The source-edit cycle is a separate disposable-root check. It requires free ports 3000 and 3005 and
-must not target a developer's active worktree:
-
-```bash
-RUN_STYLEX_TRACER_E2E=1 RUN_STYLEX_TRACER_HMR_E2E=1 \
-STYLEX_TRACER_HMR_ROOT=/absolute/disposable-root \
-STYLEX_TRACER_HMR_EVIDENCE="$PWD/benchmarks/stylex-tracer/workflows/hmr-evidence.json" \
-bun --bun run --cwd e2e vitest run 'src/browser/stylex-tracer-hmr.test.ts'
-```
-
-The safe-area browser check injects nonzero values at the shell's hidden platform detector because
-desktop Playwright browsers cannot expose native safe-area environment values. It verifies the
-production detector-to-shell-to-plugin bridge, not a native device. The shared routing wrapper also
-retains its inline `var(--bg)` and computes transparent in the Tailwind-free tracer document; the
-tracer document's own full-size StyleX background is the explicit paint and known experiment limit.
-
 The operational gate exercises production-size workflow, Redis, sandbox, and database paths with a 15-minute budget. Live smoke detects provider drift, may require credentials, and asserts stable properties rather than exact upstream text.
 
 Run sandbox benchmarks separately. `SANDBOX_PROCESS_MODE` defaults to `on-demand`; use `warm` to measure the warm pool.

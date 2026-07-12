@@ -25,18 +25,11 @@ import {
 	clientGeneratedArtifactFile,
 } from "./artifact";
 import { bundleClientPlugin } from "./bundle";
-import {
-	resolveClientPluginCompilerDependencies,
-	resolveStylexTracerCompilerDependencies,
-	resolveStylexTracerTypeScriptEntries,
-} from "./dependencies";
+import { resolveClientPluginCompilerDependencies } from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
-import { makeClientCompilerBenchmarkInstrumentation } from "./instrumentation";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 import { checkClientPluginTypes } from "./semantic-check";
-import { validateOriginalClientImports } from "./source-imports";
 import { compileClientStyles } from "./styles";
-import { compileStylexTracerStyles, validateStylexAuthoringConvention } from "./stylex-tracer";
 
 const CLIENT_SOURCE_ROOT = "client/";
 const SHARED_SOURCE_ROOT = "shared/";
@@ -55,8 +48,6 @@ const isCompiledTextSource = (path: string) =>
 type ClientPluginCompilerBaseInput = {
 	readonly name: string;
 	readonly apiVersion: typeof CLIENT_API_VERSION;
-	readonly stylexTracer?: { readonly fingerprint: string };
-	readonly benchmarkInstrumentation?: { readonly traceId: string };
 };
 
 export type ClientPluginCompilerPackageInput = ClientPluginCompilerBaseInput & {
@@ -255,21 +246,6 @@ const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
 
 export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 	Effect.gen(function* () {
-		const instrumentation = input.benchmarkInstrumentation
-			? makeClientCompilerBenchmarkInstrumentation(input.benchmarkInstrumentation.traceId)
-			: undefined;
-		const finishTotal = instrumentation?.start("compilation-total", true);
-		const finishValidation = instrumentation?.start("input-validation");
-		if (
-			input.stylexTracer !== undefined &&
-			(input.stylexTracer.fingerprint.length === 0 || input.stylexTracer.fingerprint.length > 256)
-		) {
-			return yield* failure(
-				"client",
-				"RYOT_CLIENT_STYLEX",
-				"StyleX tracer fingerprint must contain between 1 and 256 characters",
-			);
-		}
 		let entry: string;
 		const pluginName = input.name;
 		const graphInput = "contributors" in input;
@@ -448,28 +424,12 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			),
 			([path]) => path,
 		);
-		if (input.stylexTracer !== undefined) {
-			const compilerConfig = Object.keys(files).find((path) =>
-				/(?:^|\/)(?:babel\.config\.[^/]+|\.babelrc(?:\.[^/]+)?)$/.test(path),
-			);
-			if (compilerConfig !== undefined) {
-				return yield* failure(
-					compilerConfig,
-					"RYOT_CLIENT_STYLEX_CONFIG",
-					"Archived Babel configuration is not allowed in StyleX tracer inputs",
-				);
-			}
-		}
 		const clientFiles = compiledFiles.filter(([path]) => isClientSourcePath(path));
 		const packageSourceBytes = compiledFiles.reduce(
 			(total, [, contents]) => total + contents.byteLength,
 			0,
 		);
-		const enforceLimitsBeforeBundle = !graphInput || input.stylexTracer !== undefined;
-		if (
-			enforceLimitsBeforeBundle &&
-			packageSourceBytes > CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes
-		) {
+		if (!graphInput && packageSourceBytes > CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes) {
 			return yield* failure(
 				entry,
 				"RYOT_CLIENT_SOURCE_SIZE",
@@ -483,7 +443,7 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 		const oversizedAsset = assetSources.find(
 			([, contents]) => contents.byteLength > CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes,
 		);
-		if (enforceLimitsBeforeBundle && oversizedAsset) {
+		if (!graphInput && oversizedAsset) {
 			return yield* failure(
 				oversizedAsset[0],
 				"RYOT_CLIENT_ASSET_SIZE",
@@ -506,38 +466,6 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 					`Client text source "${path}" is not valid UTF-8`,
 				);
 			}
-		}
-		const assetNames = Object.fromEntries(
-			assetSources.map(([path, contents]) => [path, clientAssetName(path, contents)]),
-		);
-		instrumentation?.count("input-file-count", compiledFiles.length);
-		instrumentation?.count("input-source-bytes", packageSourceBytes);
-		instrumentation?.count("input-text-module-count", Object.keys(sourceFiles).length);
-		instrumentation?.count("input-asset-count", assetSources.length);
-		finishValidation?.();
-		if (input.stylexTracer !== undefined) {
-			const finishPreflight = instrumentation?.start("original-source-preflight");
-			const importDiagnostics = validateOriginalClientImports({
-				assetNames,
-				files: sourceFiles,
-				publicExports: publicExportPaths,
-				stylexTracer: input.stylexTracer,
-				...(!graphInput ? { unresolvedPluginDependencies: input.pluginDependencies ?? [] } : {}),
-			});
-			if (importDiagnostics.length > 0) {
-				return yield* clientPluginCompilationFailure(importDiagnostics);
-			}
-			const conventionDiagnostics = Object.entries(sourceFiles).flatMap(([path, source]) => {
-				if (!isClientSourcePath(path) || !/\.tsx?$/.test(path)) {
-					return [];
-				}
-				const diagnostic = validateStylexAuthoringConvention(path, source);
-				return diagnostic === undefined ? [] : [diagnostic];
-			});
-			if (conventionDiagnostics.length > 0) {
-				return yield* clientPluginCompilationFailure(conventionDiagnostics);
-			}
-			finishPreflight?.();
 		}
 		let buildEntry = GENERATED_PACKAGE_VALIDATION_ENTRY;
 		if (graphInput) {
@@ -571,30 +499,20 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			}
 		}
 
-		const finishDependencies = instrumentation?.start("dependency-reads");
-		const dependencies = yield* input.stylexTracer === undefined
-			? resolveClientPluginCompilerDependencies
-			: resolveStylexTracerCompilerDependencies;
-		finishDependencies?.();
-		instrumentation?.count("font-asset-count", dependencies.fontAssets.length);
-		instrumentation?.count(
-			"font-asset-bytes",
-			dependencies.fontAssets.reduce((total, file) => total + file.contents.byteLength, 0),
+		const assetNames = Object.fromEntries(
+			assetSources.map(([path, contents]) => [path, clientAssetName(path, contents)]),
 		);
-		const finishBundle = instrumentation?.start("bundle", true);
+		const dependencies = yield* resolveClientPluginCompilerDependencies;
 		const bundled = yield* bundleClientPlugin(
 			{
 				assetNames,
 				entry: buildEntry,
 				files: sourceFiles,
 				publicExports: publicExportPaths,
-				...(input.stylexTracer === undefined ? {} : { stylexTracer: input.stylexTracer }),
 				...(!graphInput ? { unresolvedPluginDependencies: input.pluginDependencies ?? [] } : {}),
 			},
 			dependencies.compilerRoot,
-			instrumentation,
 		);
-		finishBundle?.();
 		if ("diagnostics" in bundled) {
 			return yield* clientPluginCompilationFailure(bundled.diagnostics);
 		}
@@ -616,28 +534,12 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				publicExports,
 			);
 		}
-		const finishTypeScript = instrumentation?.start("typescript-check");
-		const typeDiagnostics = yield* checkClientPluginTypes(
-			checkedSourceFiles,
-			{
-				...dependencies,
-				typeScriptEntries: {
-					...dependencies.typeScriptEntries,
-					...(input.stylexTracer === undefined
-						? {}
-						: resolveStylexTracerTypeScriptEntries(dependencies.compilerRoot)),
-				},
-			},
-			{
-				...(graphInput ? { "@ryot-internal/application-entry": entry } : {}),
-				...Object.fromEntries(
-					reachablePublicExports.map((specifier) => [
-						specifier,
-						publicExportPaths[specifier] ?? "",
-					]),
-				),
-			},
-		).pipe(
+		const typeDiagnostics = yield* checkClientPluginTypes(checkedSourceFiles, dependencies, {
+			...(graphInput ? { "@ryot-internal/application-entry": entry } : {}),
+			...Object.fromEntries(
+				reachablePublicExports.map((specifier) => [specifier, publicExportPaths[specifier] ?? ""]),
+			),
+		}).pipe(
 			Effect.mapError((error) =>
 				clientPluginCompilationFailure([
 					clientPluginCompilerDiagnostic(
@@ -648,55 +550,30 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				]),
 			),
 		);
-		finishTypeScript?.();
-		instrumentation?.count("typescript-source-count", Object.keys(checkedSourceFiles).length);
 		if (typeDiagnostics.length > 0) {
 			return yield* clientPluginCompilationFailure(typeDiagnostics);
 		}
-		const finishCss = instrumentation?.start("css-emission");
-		const styles = input.stylexTracer
-			? {
-					assets: [],
-					sources: [],
-					css: compileStylexTracerStyles(
-						[...(bundled.stylexRules ?? [])],
-						dependencies.fontStylesheet,
-						input.stylexTracer.fingerprint,
-						instrumentation,
-					),
-				}
-			: yield* compileClientStyles(
-					{
-						entry,
-						files,
-						assetNames,
-						sourceFiles,
-						fontStylesheet: dependencies.fontStylesheet,
-						themeStylesheet: dependencies.themeStylesheet,
-						paletteStylesheet: dependencies.paletteStylesheet,
-						tailwindStylesheet: dependencies.tailwindStylesheet,
-						stylesheets: (graphInput
-							? orderContributorSources(bundled.stylesheets, input.contributorOrder)
-							: bundled.stylesheets
-						).map((path) => ({ path, content: sourceFiles[path] ?? "" })),
-						scanSources: [
-							...(graphInput
-								? bundled.sources.map((path) => [path, files[path]] as const)
-								: clientFiles
-							)
-								.filter(([path]) => SCANNED_EXTENSIONS.has(extensionOf(path)))
-								.map(([path]) => ({
-									extension: extensionOf(path),
-									content: sourceFiles[path] ?? "",
-								})),
-							...dependencies.uiSdkScanSources,
-							...dependencies.clientSdkScanSources,
-						],
-					},
-					instrumentation,
-				);
-		finishCss?.();
-		instrumentation?.count("css-output-bytes", new TextEncoder().encode(styles.css).byteLength);
+		const styles = yield* compileClientStyles({
+			entry,
+			files,
+			assetNames,
+			sourceFiles,
+			fontStylesheet: dependencies.fontStylesheet,
+			themeStylesheet: dependencies.themeStylesheet,
+			paletteStylesheet: dependencies.paletteStylesheet,
+			tailwindStylesheet: dependencies.tailwindStylesheet,
+			stylesheets: (graphInput
+				? orderContributorSources(bundled.stylesheets, input.contributorOrder)
+				: bundled.stylesheets
+			).map((path) => ({ path, content: sourceFiles[path] ?? "" })),
+			scanSources: [
+				...(graphInput ? bundled.sources.map((path) => [path, files[path]] as const) : clientFiles)
+					.filter(([path]) => SCANNED_EXTENSIONS.has(extensionOf(path)))
+					.map(([path]) => ({ extension: extensionOf(path), content: sourceFiles[path] ?? "" })),
+				...dependencies.uiSdkScanSources,
+				...dependencies.clientSdkScanSources,
+			],
+		});
 		const reachablePaths = new Set([
 			...bundled.sources,
 			...styles.sources,
@@ -707,11 +584,7 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			(total, path) => total + (files[path]?.byteLength ?? 0),
 			0,
 		);
-		if (
-			graphInput &&
-			input.stylexTracer === undefined &&
-			reachableSourceBytes > CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes
-		) {
+		if (graphInput && reachableSourceBytes > CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes) {
 			return yield* failure(
 				entry,
 				"RYOT_CLIENT_SOURCE_SIZE",
@@ -722,7 +595,7 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			([path, contents]) =>
 				reachablePaths.has(path) && contents.byteLength > CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes,
 		);
-		if (graphInput && input.stylexTracer === undefined && reachableOversizedAsset) {
+		if (graphInput && reachableOversizedAsset) {
 			return yield* failure(
 				reachableOversizedAsset[0],
 				"RYOT_CLIENT_ASSET_SIZE",
@@ -730,7 +603,6 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			);
 		}
 
-		const finishAssets = instrumentation?.start("assets");
 		const assetsByName = new Map<string, PluginClientArtifactFile>();
 		const emittedAssets: Array<readonly [string, PluginClientArtifactFile]> = [];
 		for (const path of new Set([...bundled.assets, ...styles.assets])) {
@@ -763,14 +635,7 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				);
 			}
 		}
-		finishAssets?.();
-		instrumentation?.count("emitted-asset-count", assetsByName.size);
-		instrumentation?.count(
-			"emitted-asset-bytes",
-			[...assetsByName.values()].reduce((total, file) => total + file.contents.byteLength, 0),
-		);
 
-		const finishHashingArtifact = instrumentation?.start("hashing-artifact");
 		const hashedFiles = sortBy(
 			[
 				clientGeneratedArtifactFile(CLIENT_ARTIFACT_SCRIPT_NAME, bundled.javascript),
@@ -810,15 +675,6 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				`Compiled client artifact exceeds ${CLIENT_PLUGIN_COMPILER_LIMITS.artifactBytes} bytes`,
 			);
 		}
-		instrumentation?.count("artifact-file-count", artifact.files.length);
-		instrumentation?.count("artifact-bytes", artifactBytes);
-		finishHashingArtifact?.();
-		finishTotal?.();
 
-		return {
-			artifact,
-			...(instrumentation === undefined
-				? {}
-				: { benchmarkInstrumentation: instrumentation.evidence() }),
-		};
+		return { artifact };
 	});

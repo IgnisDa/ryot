@@ -130,7 +130,6 @@ import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin-script-resolver-live";
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 import { PluginIngestionService, PluginInvalidationSubscriber } from "#modules/plugins/service";
-import { StyleXTracerActivationLive } from "#modules/plugins/stylex-tracer-activation";
 import { SystemPlugins } from "#modules/plugins/system";
 import { EntityImportWorkflowDefinitionsLive } from "#modules/provider-entities/entity-import-workflow";
 import { EntityImportWorkflowOperationsLive } from "#modules/provider-entities/operations-workflow";
@@ -355,7 +354,6 @@ const pluginInstallationServiceDependencies = Layer.mergeAll(
 	PluginRepository.layer,
 	PluginIngestionLockLive,
 	ClientPluginCompiler.layer,
-	StyleXTracerActivationLive,
 	PluginDefinitionMaterializerLive,
 	PluginInstallationRepository.layer,
 	SandboxWorkflowReferenceRepository.layer,
@@ -586,7 +584,6 @@ const ClientPagesServiceLive = ClientPagesService.layer.pipe(
 			ClientPagesRepository.layer,
 			EntitiesRepository.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
 			ClientPluginCompiler.layer,
-			StyleXTracerActivationLive,
 			PluginCatalogInvalidatorLive,
 			PluginRepository.layer,
 			PluginRuntimeResolverLive,
