@@ -14,7 +14,7 @@ import {
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
 	pollEntityImportResult,
-	pollEntitySearchResult,
+	pollSandboxResult,
 	queryInLibraryRelationship,
 	installTestProvider,
 	type InstalledTestProvider,
@@ -80,7 +80,7 @@ describe("provider entity search", () => {
 				scriptId: searchScriptId,
 			});
 
-			const result = yield* pollEntitySearchResult(userId, jobId);
+			const result = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(result, "search job");
 			const value = requireObjectRecord(result.value, "Expected search result to be an object");
 			const items = requireArray(value.items, "Expected search result items to be an array");
