@@ -60,9 +60,6 @@ export type AdditionalSandboxHostImplementationMap = Omit<
 	| "claimPersistentValue"
 >;
 
-export const apiSuccess = <T>(data: T) => ({ data, success: true as const });
-export const apiFailure = (error: string) => ({ error, success: false as const });
-
 export const toSandboxHostError = (error: unknown): SandboxHostError =>
 	isObjectRecord(error) && typeof error["message"] === "string"
 		? { ...error, message: error["message"] }
