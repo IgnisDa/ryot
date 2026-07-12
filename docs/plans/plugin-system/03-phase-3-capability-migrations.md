@@ -129,7 +129,7 @@ idempotent preload script (preserve-existing upserts + `maximumTotal`) absorbs r
 as it did as a cron.
 
 **Implementation choice amendment (2026-07-28, owner-approved):** cron and boot dispatch use one
-awaited path in every environment. Each `RunSandboxWorkflow` is awaited to a terminal result;
+awaited path in every environment. Each `SandboxSubmissionWorkflow` is awaited to a terminal result;
 production no longer passes `discard: true`, and boot dispatch is no longer forked from server
 startup. There are no dependent clients or rollout constraints requiring early readiness, and one
 path avoids leaving durable work behind after the caller has reported completion. Failures remain
@@ -424,14 +424,11 @@ version, which would silently switch a running execution's code. Task 06 gives t
 explicit mode: re-resolve for entry-point dispatch, pin inside durable replay loops. A hot swap
 performed while an execution was suspended was confirmed to resume on the original module.
 
-**Capability gating needs a kernel-side check, not just a manifest string.**
-`selectSandboxHostFunctions` (`sandbox-runtime/service.ts`) only restricts capabilities that
-appear in `automationHostFunctions` or `systemCronHostFunctions`; anything outside those sets is
-granted to any script that declares it in its manifest, since
-`allowedHostFunctions` is `script.metadata.capabilities` passed straight through
-(`modules/sandbox/durable-queues.ts`). The journal capability must therefore be gated
-kernel-side on the workflow script kind, following the `systemCronHostFunctions` precedent
-(which gates on trusted authority plus `metadata.kind`).
+**Capability gating uses one exhaustive declarative policy.**
+`SANDBOX_CAPABILITY_REQUIREMENTS` in `@ryot/sandbox-sdk/core` defines authority, system-kind, and
+bridge requirements for every capability. `selectSandboxHostFunctions` filters declared
+capabilities through that table, while host implementations use the same policy for runtime input
+narrowing. Workflow `durableCalls` and filesystem grants remain separate non-bridge surfaces.
 
 **A distinct `workflow` script kind is still required — justified by determinism, not by
 capabilities.** Since the script needs no IO capabilities, a capability-restricted kind buys

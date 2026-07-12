@@ -1,23 +1,19 @@
 import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
-import { SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
+import { SandboxProviderId, SubscriptionRunId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
-import {
-	isJsonValue,
-	requireSystemProviderSandboxRunInput,
-	requireSystemSandboxRunInput,
-	requireUserSandboxRunInput,
-} from "./shared";
+import { isJsonValue, requireSandboxCapabilityInput } from "./shared";
 
 const makeRunInput = (
 	authority: ExecutionAuthority,
 	providerId: SandboxProviderId | null = null,
+	metadata: unknown = {},
 ) => ({
 	authority,
 	providerId,
 	context: {},
-	metadata: {},
+	metadata,
 	contentHash: "",
 	compiledCode: "",
 	compiledFormat: 1,
@@ -28,63 +24,65 @@ const makeRunInput = (
 	cacheNamespace: "script_1",
 });
 
-describe("requireUserSandboxRunInput", () => {
-	it("returns the input when a user context is present", () => {
+describe("requireSandboxCapabilityInput", () => {
+	it("returns input when authority and metadata satisfy capability policy", () => {
 		const input = makeRunInput({ type: "user", userId: UserId.make("user_1") });
-		expect(Effect.runSync(requireUserSandboxRunInput(input, "getUserPreferences"))).toBe(input);
+		expect(Effect.runSync(requireSandboxCapabilityInput(input, "getUserPreferences"))).toBe(input);
 	});
 
-	it("rejects user-scoped host functions for system executions", () => {
+	it("rejects user-only capabilities for subscriptions", () => {
 		expect(() =>
 			Effect.runSync(
-				requireUserSandboxRunInput(makeRunInput({ type: "system" }), "getUserPreferences"),
+				requireSandboxCapabilityInput(
+					makeRunInput({
+						type: "subscription",
+						userId: UserId.make("user_1"),
+						subscriptionRun: {
+							id: SubscriptionRunId.make("run_1"),
+							occurredAt: "2026-01-01T00:00:00.000Z",
+							origin: { kind: "api" },
+						},
+					}),
+					"ensureUserEntities",
+				),
 			),
-		).toThrow("getUserPreferences is not available for system executions");
+		).toThrow("ensureUserEntities is available only to user executions");
 	});
-});
 
-describe("requireSystemSandboxRunInput", () => {
-	it("accepts only explicit system authority", () => {
-		const systemInput = makeRunInput({ type: "system" });
-		expect(Effect.runSync(requireSystemSandboxRunInput(systemInput, "upsertGlobalEntities"))).toBe(
-			systemInput,
+	it("accepts system script capabilities and requires provider scope when declared", () => {
+		const input = makeRunInput({ type: "system" }, SandboxProviderId.make("provider_1"), {
+			kind: "script",
+		});
+		expect(Effect.runSync(requireSandboxCapabilityInput(input, "upsertGlobalEntities"))).toBe(
+			input,
 		);
 		expect(() =>
 			Effect.runSync(
-				requireSystemSandboxRunInput(
-					makeRunInput({ type: "user", userId: UserId.make("user_1") }),
-					"upsertGlobalEntities",
-				),
-			),
-		).toThrow("upsertGlobalEntities is available only to system executions");
-	});
-});
-
-describe("requireSystemProviderSandboxRunInput", () => {
-	it("accepts only system authority executing a provider-associated script", () => {
-		const providerInput = makeRunInput({ type: "system" }, SandboxProviderId.make("provider_1"));
-		expect(
-			Effect.runSync(requireSystemProviderSandboxRunInput(providerInput, "upsertGlobalEntities")),
-		).toBe(providerInput);
-		expect(() =>
-			Effect.runSync(
-				requireSystemProviderSandboxRunInput(
-					makeRunInput({ type: "system" }),
+				requireSandboxCapabilityInput(
+					makeRunInput({ type: "system" }, null, { kind: "script" }),
 					"upsertGlobalEntities",
 				),
 			),
 		).toThrow("upsertGlobalEntities is available only to provider-associated scripts");
+	});
+
+	it("limits system query access to activity metadata", () => {
+		const input = makeRunInput({ type: "system" }, null, { kind: "activity" });
+		expect(Effect.runSync(requireSandboxCapabilityInput(input, "executeQueryEngine"))).toBe(input);
 		expect(() =>
 			Effect.runSync(
-				requireSystemProviderSandboxRunInput(
-					makeRunInput(
-						{ type: "user", userId: UserId.make("user_1") },
-						SandboxProviderId.make("provider_1"),
-					),
-					"upsertGlobalEntities",
+				requireSandboxCapabilityInput(
+					makeRunInput({ type: "system" }, null, { kind: "script" }),
+					"executeQueryEngine",
 				),
 			),
-		).toThrow("upsertGlobalEntities is available only to system executions");
+		).toThrow("executeQueryEngine is not available to this system execution");
+	});
+
+	it("restricts automation capabilities to subscriptions", () => {
+		expect(() =>
+			Effect.runSync(requireSandboxCapabilityInput(makeRunInput({ type: "system" }), "emitSignal")),
+		).toThrow("emitSignal is available only to subscription executions");
 	});
 });
 
