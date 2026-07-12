@@ -17,7 +17,7 @@ import {
 } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 
-import { LibraryImportService } from "./service";
+import { EntityImportService } from "./service";
 
 const user: CurrentUserValue = {
 	name: "Test User",
@@ -44,7 +44,7 @@ const fakeEntitySchemaScope = {
 };
 
 const makeServiceLayer = (entitiesRepo = makeEntitiesRepository(), engine = makeWorkflowEngine()) =>
-	LibraryImportService.Default.pipe(
+	EntityImportService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
@@ -65,7 +65,7 @@ const getFailureCause = <A, E>(result: Exit.Exit<A, E>) => {
 
 it.effect("returns BadRequest when providerId is blank", () =>
 	Effect.gen(function* () {
-		const service = yield* LibraryImportService;
+		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(
 			service.import(user, {
 				externalId,
@@ -81,7 +81,7 @@ it.effect("returns BadRequest when providerId is blank", () =>
 
 it.effect("returns BadRequest when externalId is blank", () =>
 	Effect.gen(function* () {
-		const service = yield* LibraryImportService;
+		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(
 			service.import(user, { providerId, externalId: "  ", entitySchemaSlug }),
 		);
@@ -93,7 +93,7 @@ it.effect("returns BadRequest when externalId is blank", () =>
 
 it.effect("returns BadRequest when entitySchemaSlug is blank", () =>
 	Effect.gen(function* () {
-		const service = yield* LibraryImportService;
+		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(
 			service.import(user, {
 				providerId,
@@ -109,7 +109,7 @@ it.effect("returns BadRequest when entitySchemaSlug is blank", () =>
 
 it.effect("returns NotFound when the entity schema is not found", () =>
 	Effect.gen(function* () {
-		const service = yield* LibraryImportService;
+		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(
 			service.import(user, { providerId, externalId, entitySchemaSlug }),
 		);
@@ -129,7 +129,7 @@ it.effect("returns a jobId string on a successful import dispatch", () => {
 	const executeCalls: unknown[] = [];
 
 	return Effect.gen(function* () {
-		const service = yield* LibraryImportService;
+		const service = yield* EntityImportService;
 		const result = yield* service.import(user, { providerId, externalId, entitySchemaSlug });
 		expect(typeof result.jobId).toBe("string");
 		expect(result.jobId.length).toBeGreaterThan(0);
@@ -153,7 +153,7 @@ it.effect("returns a jobId string on a successful import dispatch", () => {
 
 it.effect("returns NotFound for a blank getImportResult jobId", () =>
 	Effect.gen(function* () {
-		const service = yield* LibraryImportService;
+		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.getImportResult(user, "   "));
 		const cause = getFailureCause(result);
 		const failure = cause._tag === "Fail" ? cause.error : null;
@@ -163,7 +163,7 @@ it.effect("returns NotFound for a blank getImportResult jobId", () =>
 
 it.effect("returns NotFound for a jobId with an invalid signature", () =>
 	Effect.gen(function* () {
-		const service = yield* LibraryImportService;
+		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.getImportResult(user, "fake-execution-id.badsig"));
 		const cause = getFailureCause(result);
 		const failure = cause._tag === "Fail" ? cause.error : null;
@@ -173,9 +173,9 @@ it.effect("returns NotFound for a jobId with an invalid signature", () =>
 
 it.effect("returns pending status when the workflow has not completed", () =>
 	Effect.gen(function* () {
-		const service = yield* LibraryImportService;
 		const secret = "test-secret";
 		const executionId = "exec-abc";
+		const service = yield* EntityImportService;
 		const jobId = createWorkflowJobId(secret, executionId, user.id);
 
 		const result = yield* service.getImportResult(user, jobId);

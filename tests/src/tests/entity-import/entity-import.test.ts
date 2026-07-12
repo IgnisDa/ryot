@@ -104,7 +104,7 @@ describe("provider entity search", () => {
 	);
 });
 
-describe("POST /library/import — provider entity import", () => {
+describe("POST /entity-import — provider entity import", () => {
 	it.live("returns a failed import job when the provider does not exist", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
@@ -178,8 +178,8 @@ describe("POST /library/import — provider entity import", () => {
 	);
 });
 
-describe("GET /library/import/:jobId — provider entity import result", () => {
-	it.live("enqueues a provider import and adds entity to library when completed", () =>
+describe("GET /entity-import/:jobId — provider entity import result", () => {
+	it.live("populates an entity without adding it to the media library", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "audiobook");
@@ -198,7 +198,7 @@ describe("GET /library/import/:jobId — provider entity import result", () => {
 			expect(result.data.entitySchemaSlug).toBe(schema.id);
 
 			const inLibrary = yield* queryInLibraryRelationship(client, result.data.id, schema.slug);
-			expect(inLibrary.data.items.length).toBeGreaterThan(0);
+			expect(inLibrary.data.items).toHaveLength(0);
 		}),
 	);
 

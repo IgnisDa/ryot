@@ -190,7 +190,7 @@ describe("DELETE /user-state/clear/:id", () => {
 			);
 
 			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Library entity user state cannot be cleared");
+			expect(error.message).toBe("Entity user state cannot be cleared");
 		}),
 	);
 

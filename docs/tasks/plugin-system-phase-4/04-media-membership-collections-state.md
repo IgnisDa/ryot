@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -22,16 +22,22 @@ and generic collection behavior; do not introduce compatibility aliases for old 
 
 ## Acceptance criteria
 
-- [ ] Collection writes remain generic and own only collection plus `member-of` behavior
-- [ ] Adding an eligible global media entity to a collection yields the same awaited `in-library` outcome
-- [ ] Fitness and unrelated fixture entities are excluded from automatic media membership
-- [ ] Entity-schema policy generically enforces clear/merge restrictions declared for the media library
-- [ ] User-state production code contains no `library` string branch or media-specific error constant
-- [ ] The native library-specific module, routes, contract group, workflows, repositories, queues, and layer wiring are removed
-- [ ] The generic entity-import endpoint has domain-neutral naming and no deprecated alias
-- [ ] Existing collection and user-state behavior tests retain their assertions, with explicit non-media coverage added
-- [ ] No cross-sandbox transaction is introduced to preserve the old internal transaction boundary
-- [ ] All related temporary purity entries are removed
+- [x] Collection writes remain generic and own only collection plus `member-of` behavior
+- [x] Adding an eligible global media entity to a collection yields the same awaited `in-library` outcome
+- [x] Fitness and unrelated fixture entities are excluded from automatic media membership
+- [x] Entity-schema policy generically enforces clear/merge restrictions declared for the media library
+- [x] User-state production code contains no `library` string branch or media-specific error constant
+- [x] The native library-specific module, routes, contract group, workflows, repositories, queues, and layer wiring are removed
+- [x] The generic entity-import endpoint has domain-neutral naming and no deprecated alias
+- [x] Existing collection and user-state behavior tests retain their assertions, with explicit non-media coverage added
+- [x] No cross-sandbox transaction is introduced to preserve the old internal transaction boundary
+- [x] All related temporary purity entries are removed
+
+## Implementation note
+
+Per the owner-approved behavior, direct generic `/entity-import` populates only and does not add
+`in-library`. Manifest import-source workflows may emit generic user-relationship mutations; events
+and collections own media-membership policy.
 
 ## User stories addressed
 

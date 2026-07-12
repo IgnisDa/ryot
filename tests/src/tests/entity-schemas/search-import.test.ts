@@ -152,7 +152,7 @@ describe("provider entity search result", () => {
 	);
 });
 
-describe("POST /library/import", () => {
+describe("POST /entity-import", () => {
 	it.live("returns 401 when unauthenticated", () =>
 		Effect.gen(function* () {
 			const client = getBackendClient();
@@ -190,7 +190,7 @@ describe("POST /library/import", () => {
 	);
 });
 
-describe("GET /library/import/{jobId}", () => {
+describe("GET /entity-import/{jobId}", () => {
 	it.live("returns 401 when unauthenticated", () =>
 		Effect.gen(function* () {
 			const client = getBackendClient();

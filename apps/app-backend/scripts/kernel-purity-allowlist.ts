@@ -15,33 +15,6 @@ const temporary = (
 		kind: "temporary" as const,
 	}));
 
-const collectionUserStateMembership = temporary(
-	4,
-	"Task 04 removes native collection and user-state media library policy",
-	[
-		["apps/app-backend/src/app/layers.ts", "library"],
-		["apps/app-backend/src/app/layers.ts", "library-membership"],
-		["apps/app-backend/src/app/server.ts", "library"],
-		["apps/app-backend/src/app/server.ts", "library-membership"],
-		["apps/app-backend/src/modules/collections/repository.ts", "library"],
-		["apps/app-backend/src/modules/collections/service.ts", "in-library"],
-		["apps/app-backend/src/modules/collections/service.ts", "library"],
-		["apps/app-backend/src/modules/library-membership/durable-queues.ts", "library"],
-		[
-			"apps/app-backend/src/modules/library-membership/library-entity-import-workflow.ts",
-			"library",
-		],
-		["apps/app-backend/src/modules/library-membership/membership-worker.ts", "library"],
-		["apps/app-backend/src/modules/library-membership/operations-workflow.ts", "library"],
-		["apps/app-backend/src/modules/library-membership/routes.ts", "library"],
-		["apps/app-backend/src/modules/library-membership/service.ts", "library"],
-		["apps/app-backend/src/modules/user-state/service.ts", "library"],
-		["libs/contract/src/contract.ts", "library"],
-		["libs/contract/src/contract.ts", "library-membership"],
-		["libs/contract/src/modules/library-membership/contract.ts", "library"],
-	],
-);
-
 const importEnvelope = temporary(5, "Task 05 replaces the closed first-party import source union", [
 	["libs/contract/src/modules/imports/schemas.ts", "anilist"],
 	["libs/contract/src/modules/imports/schemas.ts", "anime"],
@@ -134,7 +107,6 @@ const permanent = [
 
 export const kernelPurityAllowlist = [
 	...permanent,
-	...collectionUserStateMembership,
 	...importEnvelope,
 	...queryRecipes,
 	...operationalGate,

@@ -1,9 +1,10 @@
-import { defineAutomationPolicy } from "@ryot/sandbox-sdk/automation";
+import { defineAutomationPolicy, type AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 import { buildUserLibraryQuery, queryFirstEntityId } from "../../media-monitoring";
+import { mediaLibraryEligibleEntitySchemaSlugs } from "../../schemas/media-schema-slugs";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -13,6 +14,8 @@ export const manifest = defineManifest({
 	slug: "policy.media-library-membership",
 	capabilities: ["executeQueryEngine", "changeUserRelationships"],
 });
+
+const eligibleEntitySchemaSlugs = new Set<string>(mediaLibraryEligibleEntitySchemaSlugs);
 
 const systemRef = (sourceAlias: string, name: string): JsonValue => ({
 	type: "ref",
@@ -44,13 +47,32 @@ const buildGlobalEntityQuery = (entityId: string, entitySchemaSlug: string) => {
 	} satisfies JsonValue;
 };
 
+const collectionMembershipTarget = (automation: AutomationPolicyInput["automation"]) => {
+	const draft = automation.source.draft;
+	if (
+		draft.entitySchemaSlug !== "collection" ||
+		draft.eventSchemaSlug !== "add-entity-to-collection"
+	) {
+		return { entityId: draft.entityId, entitySchemaSlug: draft.entitySchemaSlug };
+	}
+	const entityId = draft.properties["entityId"];
+	const entitySchemaSlug = draft.properties["entitySchemaSlug"];
+	if (typeof entityId !== "string" || typeof entitySchemaSlug !== "string") {
+		return null;
+	}
+	return eligibleEntitySchemaSlugs.has(entitySchemaSlug) ? { entityId, entitySchemaSlug } : null;
+};
+
 export default defineAutomationPolicy({
 	manifest,
 	run: ({ automation }, host) =>
 		Effect.gen(function* () {
-			const draft = automation.source.draft;
+			const target = collectionMembershipTarget(automation);
+			if (!target) {
+				return { action: "allow" } as const;
+			}
 			const entityResponse = yield* host.executeQueryEngine(
-				buildGlobalEntityQuery(draft.entityId, draft.entitySchemaSlug),
+				buildGlobalEntityQuery(target.entityId, target.entitySchemaSlug),
 			);
 			const entityId = queryFirstEntityId(entityResponse);
 			if (!entityId) {

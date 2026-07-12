@@ -1,5 +1,6 @@
 import { Activity } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { badRequest, notFound } from "@ryot/contract/errors";
 import { MembershipResponse } from "@ryot/contract/modules/collections/schemas";
 import { EntityId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -15,7 +16,6 @@ import { CollectionsService } from "./service";
 
 const WriteCollectionMembershipResult = Schema.Struct({
 	entityId: EntityId,
-	wasInserted: Schema.Boolean,
 	occurredAt: Schema.String,
 	entitySchemaSlug: Schema.String,
 	memberOf: MembershipResponse.fields.memberOf,
@@ -24,6 +24,7 @@ const WriteCollectionMembershipResult = Schema.Struct({
 
 type AddEntityToCollectionWorkflowOperationsValue = {
 	writeMembership: CollectionsService["writeMembership"];
+	compensateMembership: CollectionsService["compensateMembership"];
 };
 
 export class AddEntityToCollectionWorkflowOperations extends Context.Tag(
@@ -34,6 +35,7 @@ export const AddEntityToCollectionWorkflowOperationsLive = Layer.effect(
 	AddEntityToCollectionWorkflowOperations,
 	Effect.map(CollectionsService, (collections) => ({
 		writeMembership: collections.writeMembership,
+		compensateMembership: collections.compensateMembership,
 	})),
 );
 
@@ -60,12 +62,11 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 			}),
 		});
 
-		if (result.wasInserted && result.addEventSchemaSlug) {
+		if (result.addEventSchemaSlug) {
 			const eventExecutionId = `collection-membership-added-${result.memberOf.id}`;
-			yield* engine
+			const eventAttempt = yield* engine
 				.execute(EventCreateWorkflow, {
 					executionId: eventExecutionId,
-					discard: true,
 					payload: {
 						origin: "collection",
 						userId: payload.userId,
@@ -85,11 +86,28 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 						],
 					},
 				})
-				.pipe(
-					Effect.catchAllCause((cause) =>
-						Effect.logWarning("collection event enqueue failed", cause),
-					),
-				);
+				.pipe(Effect.either);
+			if (eventAttempt._tag === "Left") {
+				yield* Activity.make({
+					success: Schema.Boolean,
+					name: "compensate-collection-membership",
+					error: AddEntityToCollectionWorkflowError,
+					execute: operations.compensateMembership(payload.userId, result.memberOf.id),
+				});
+				return yield* eventAttempt.left;
+			}
+			if (eventAttempt.right.failure) {
+				yield* Activity.make({
+					success: Schema.Boolean,
+					name: "compensate-collection-membership",
+					error: AddEntityToCollectionWorkflowError,
+					execute: operations.compensateMembership(payload.userId, result.memberOf.id),
+				});
+				const { reason } = eventAttempt.right.failure;
+				return yield* reason.kind === "not_found"
+					? notFound(reason.message)
+					: badRequest(reason.message);
+			}
 		}
 
 		return { memberOf: result.memberOf };
