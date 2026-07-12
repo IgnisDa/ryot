@@ -1,7 +1,11 @@
 import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AppSchema, materializeAppSchemaChoices } from "./property-schema";
+import {
+	AppSchema,
+	getOrderedAppSchemaFieldEntries,
+	materializeAppSchemaChoices,
+} from "./property-schema";
 
 const decodeSchema = (value: unknown) => Schema.decodeUnknownSync(AppSchema)(value);
 
@@ -31,6 +35,111 @@ const numberField = (extra: Record<string, unknown>) => ({
 describe("AppSchema number normalization", () => {
 	it("requires a round definition", () => {
 		expect(() => decodeSchema({ fields: { progress: numberField({ normalize: {} }) } })).toThrow();
+	});
+});
+
+describe("AppSchema presentation metadata", () => {
+	it("accepts visibility rules", () => {
+		expect(
+			decodeSchema({
+				fields: {
+					secret: { type: "string", label: "Secret", description: "An advanced secret" },
+					advanced: { type: "boolean", label: "Advanced", description: "Show advanced fields" },
+				},
+				rules: [
+					{
+						path: ["secret"],
+						kind: "visibility",
+						visibility: { hidden: true },
+						when: { operator: "neq", path: ["advanced"], value: true },
+					},
+				],
+			}),
+		).toMatchObject({ rules: [{ kind: "visibility", visibility: { hidden: true } }] });
+	});
+
+	it("orders positioned fields stably and leaves position optional", () => {
+		const schema = decodeSchema({
+			fields: {
+				last: { type: "string", label: "Last", description: "Last" },
+				alsoLast: { type: "string", label: "Also last", description: "Also last" },
+				first: { type: "string", label: "First", position: 1, description: "First" },
+				second: { type: "string", label: "Second", position: 2, description: "Second" },
+				secondTie: { position: 2, type: "string", label: "Second tie", description: "Second tie" },
+			},
+		});
+
+		expect(getOrderedAppSchemaFieldEntries(schema.fields).map(([key]) => key)).toEqual([
+			"first",
+			"second",
+			"secondTie",
+			"last",
+			"alsoLast",
+		]);
+		expect(schema.fields.last?.position).toBeUndefined();
+	});
+
+	it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+		"rejects non-finite positions: %s",
+		(position) => {
+			expect(() =>
+				decodeSchema({
+					fields: { value: { type: "string", label: "Value", position, description: "Value" } },
+				}),
+			).toThrow();
+		},
+	);
+
+	it.each([
+		{ kind: "url" },
+		{ kind: "email" },
+		{ kind: "upload", allowedFileExtensions: ["csv", "json"] },
+	])("accepts the $kind string format", (format) => {
+		expect(
+			decodeSchema({
+				fields: {
+					value: { type: "string", label: "Value", format, description: "A value" },
+				},
+			}),
+		).toMatchObject({ fields: { value: { format } } });
+	});
+
+	it("rejects defaults for upload string formats", () => {
+		expect(() =>
+			decodeSchema({
+				fields: {
+					file: {
+						label: "File",
+						type: "string",
+						description: "A file",
+						defaultValue: "export.json",
+						format: { kind: "upload", allowedFileExtensions: ["json"] },
+					},
+				},
+			}),
+		).toThrow();
+	});
+
+	it.each([
+		{ allowedFileExtensions: [] },
+		{ allowedFileExtensions: [""] },
+		{ allowedFileExtensions: [" csv"] },
+		{ allowedFileExtensions: ["CSV"] },
+		{ allowedFileExtensions: [".csv"] },
+		{ allowedFileExtensions: ["csv", "csv"] },
+	])("rejects invalid upload extensions %#", ({ allowedFileExtensions }) => {
+		expect(() =>
+			decodeSchema({
+				fields: {
+					file: {
+						label: "File",
+						type: "string",
+						description: "A file",
+						format: { kind: "upload", allowedFileExtensions },
+					},
+				},
+			}),
+		).toThrow();
 	});
 });
 

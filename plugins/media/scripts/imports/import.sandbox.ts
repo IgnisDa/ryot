@@ -131,8 +131,8 @@ export default defineWorkflow({
 				}
 			}
 			if (input.source === "myanimelist") {
-				const hasAnimeFile = typeof input.sourcePayload?.["animeFilePath"] === "string";
-				const hasMangaFile = typeof input.sourcePayload?.["mangaFilePath"] === "string";
+				const hasAnimeFile = typeof input.sourcePayload?.["animeUploadToken"] === "string";
+				const hasMangaFile = typeof input.sourcePayload?.["mangaUploadToken"] === "string";
 				if (!hasAnimeFile && !hasMangaFile) {
 					return yield* Effect.fail(new Error("Import job is missing MyAnimeList export files"));
 				}

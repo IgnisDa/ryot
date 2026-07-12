@@ -29,7 +29,7 @@ const payload = {
 	source: "netflix",
 	pluginSlug: "media",
 	sourcePayloadKey: "run-1",
-	filePath: "/tmp/netflix.zip",
+	namedArtifactPaths: { uploadToken: "/tmp/netflix.zip" },
 	uploadIntentIds: ["intent-netflix"],
 	userId: UserId.make("user-1"),
 	runId: ImportRunId.make("run-1"),
@@ -78,7 +78,6 @@ const makeHarness = (
 				materializeInputs: (ownerExecutionId, _referenceExecutionId, grants) =>
 					Effect.succeed({
 						artifactOwnerExecutionId: ownerExecutionId,
-						...(grants.artifactPath ? { artifactPath: grants.artifactPath } : {}),
 						...(grants.namedArtifactPaths ? { namedArtifactPaths: grants.namedArtifactPaths } : {}),
 					}),
 			}),
@@ -119,8 +118,8 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 				authority: { type: "user", userId: "user-1" },
 				scriptId: SandboxScriptId.make("accepted.netflix-import"),
 				grants: {
-					artifactPath: "/tmp/netflix.zip",
 					artifactOwnerExecutionId: `${executionId}-import`,
+					namedArtifactPaths: { uploadToken: "/tmp/netflix.zip" },
 				},
 			},
 		});
@@ -138,7 +137,7 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 	}).pipe(Effect.provide(harness.layer));
 });
 
-it.effect("grants only registry-declared named artifacts to a plugin import workflow", () => {
+it.effect("grants every queued named artifact to a plugin import workflow", () => {
 	const harness = makeHarness();
 
 	return Effect.gen(function* () {
@@ -146,7 +145,6 @@ it.effect("grants only registry-declared named artifacts to a plugin import work
 			{
 				...payload,
 				source: "movary",
-				filePath: "/tmp/history.csv",
 				namedArtifactPaths: {
 					ignoredFilePath: "/tmp/ignored.csv",
 					historyFilePath: "/tmp/history.csv",
@@ -156,11 +154,15 @@ it.effect("grants only registry-declared named artifacts to a plugin import work
 		);
 
 		const executed = harness.sandboxCalls.find(({ method }) => method === "executeWorkflow");
+		assert(executed !== undefined);
 		expect(executed).toMatchObject({
 			input: {
 				grants: {
 					artifactOwnerExecutionId: `${executionId}-import`,
-					namedArtifactPaths: { historyFilePath: "/tmp/history.csv" },
+					namedArtifactPaths: {
+						ignoredFilePath: "/tmp/ignored.csv",
+						historyFilePath: "/tmp/history.csv",
+					},
 				},
 			},
 		});
@@ -172,12 +174,7 @@ it.effect("hands declared source payload to the plugin import workflow", () => {
 
 	return Effect.gen(function* () {
 		yield* runProcessImportRunWorkflow(
-			{
-				...payload,
-				source: "igdb",
-				filePath: "/tmp/games.csv",
-				sourcePayload: { collection: "Favorites" },
-			},
+			{ ...payload, source: "igdb", sourcePayload: { collection: "Favorites" } },
 			executionId,
 		);
 

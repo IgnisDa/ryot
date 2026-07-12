@@ -23,9 +23,9 @@ export default defineScript({
 	run: (input) =>
 		Effect.all(
 			{
-				historyCsv: readNamedImportArtifactText("historyFilePath"),
-				ratingsCsv: readNamedImportArtifactText("ratingsFilePath"),
-				watchlistCsv: readNamedImportArtifactText("watchlistFilePath"),
+				historyCsv: readNamedImportArtifactText("historyUploadToken"),
+				ratingsCsv: readNamedImportArtifactText("ratingsUploadToken"),
+				watchlistCsv: readNamedImportArtifactText("watchlistUploadToken"),
 			},
 			{ concurrency: 3 },
 		).pipe(

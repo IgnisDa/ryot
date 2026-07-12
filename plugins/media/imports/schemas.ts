@@ -120,7 +120,7 @@ const traktListTarget = strictStruct({
 
 const traktExportTarget = strictStruct({
 	mode: Schema.Literal("export"),
-	exportFilePath: Schema.Literal("exportFilePath"),
+	exportUploadToken: Schema.Literal("exportUploadToken"),
 });
 
 export const TraktImportTarget = Schema.Union([

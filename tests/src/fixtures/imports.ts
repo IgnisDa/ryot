@@ -1,16 +1,18 @@
 import { randomUUID } from "node:crypto";
 
+import { TemporaryUploadToken } from "@ryot/contract/modules/uploads/schemas";
 import {
 	importRunRecipe,
 	integrationImportRunsRecipe,
 	manualImportRunsRecipe,
 } from "@ryot/ryotql-recipes/import-runs";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
-import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
+import { requirePresent } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 
 import type { Client } from "./auth";
+import { getBackendClient } from "./contract-client";
 import { pollUntil } from "./polling";
 import { executeRyotQLRecipe } from "./ryotql";
 import { installTestPluginBundle } from "./test-plugin";
@@ -25,7 +27,7 @@ import {
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
 } from "@ryot/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow } from "@ryot/sandbox-sdk/workflow";
+import { Effect, Schema, defineManifest, defineWorkflow } from "@ryot/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -42,25 +44,63 @@ const kernelImport = {
   workflowSlug: "kernel:process-import-chunks",
 };
 
+const validateArchive = {
+  input: Schema.Struct({}),
+  output: Schema.Number,
+  scriptSlug: "import.e2e-validate-archive",
+};
+
 export default defineWorkflow({
   manifest,
   input: genericImportWorkflowInputSchema,
   output: genericImportWorkflowResultSchema,
   run: (input, replay) =>
-    replay.child("complete-import", kernelImport, {
-      totalItems: 0,
-      failureCount: 0,
-      chunkHandles: [],
-      writeItemCount: 0,
-      runId: input.runId,
+    Effect.gen(function* () {
+      const archiveByteLength = yield* replay.activity("validate-archive", validateArchive, {});
+      if (archiveByteLength === 0) {
+        throw new Error("E2E archive is empty");
+      }
+      return yield* replay.child("complete-import", kernelImport, {
+        totalItems: 0,
+        failureCount: 0,
+        chunkHandles: [],
+        writeItemCount: 0,
+        runId: input.runId,
+      });
     }),
+});
+`;
+
+const FIXTURE_IMPORT_VALIDATE_SOURCE = `
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { readNamedArtifact } from "@ryot/sandbox-sdk/filesystem";
+
+export const manifest = defineManifest({
+  kind: "script",
+  capabilities: ["artifact-read"],
+  name: "E2E validate archive",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  slug: "import.e2e-validate-archive",
+});
+
+export default defineScript({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Number,
+  run: () => readNamedArtifact("archiveUploadToken").pipe(Effect.map((archive) => archive.byteLength)),
 });
 `;
 
 export const installTestImportPlugin = Effect.suspend(() => {
 	const entry = "scripts/import.sandbox.ts";
+	const validateEntry = "scripts/validate-archive.sandbox.ts";
 	return installTestPluginBundle({
-		files: { [entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE },
+		files: {
+			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
+			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
+		},
 		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-archive-import" }],
 		configSchema: {
 			unknownKeys: "strict",
@@ -83,31 +123,42 @@ export const installTestImportPlugin = Effect.suspend(() => {
 				requiredSystemConfigKeys: [],
 				slug: "workflow.e2e-archive-import",
 			},
+			{
+				kind: "script",
+				entry: validateEntry,
+				name: "E2E validate archive",
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				capabilities: ["artifact-read"],
+				slug: "import.e2e-validate-archive",
+			},
 		],
 		importSources: [
 			{
-				lot: "named",
-				input: "file",
 				name: "E2E archive",
 				workflowSlug: "import",
 				slug: FIXTURE_IMPORT_SOURCE,
 				requiredPluginConfigKeys: [],
 				description: "Import an E2E archive",
-				artifacts: [
-					{
-						required: true,
-						key: "archiveFilePath",
-						allowedFileExtensions: ["csv"],
-						uploadTokenField: "archiveUploadToken",
+				inputSchema: {
+					unknownKeys: "strict",
+					fields: {
+						archiveUploadToken: {
+							type: "string",
+							label: "E2E archive",
+							validation: { required: true },
+							description: "E2E archive CSV",
+							format: { kind: "upload", allowedFileExtensions: ["csv"] },
+						},
 					},
-				],
+				},
 			},
 			{
-				input: "payload",
 				workflowSlug: "import",
 				name: "E2E configured archive",
 				slug: FIXTURE_CONFIG_IMPORT_SOURCE,
 				requiredPluginConfigKeys: ["fixtureToken"],
+				inputSchema: { fields: {}, unknownKeys: "strict" },
 				description: "Import an E2E archive with required configuration",
 			},
 		],
@@ -216,11 +267,11 @@ export const installTestHarvestHandleImportPlugin = Effect.suspend(() =>
 		},
 		importSources: [
 			{
-				input: "payload",
 				workflowSlug: "import",
 				requiredPluginConfigKeys: [],
 				name: "E2E harvest handle import",
 				slug: FIXTURE_HANDLE_IMPORT_SOURCE,
+				inputSchema: { fields: {}, unknownKeys: "strict" },
 				description: "Import fixture for opaque harvest handles",
 			},
 		],
@@ -313,8 +364,8 @@ export const installTestImportPinningPlugin = Effect.suspend(() => {
 			{
 				slug: source,
 				workflowSlug,
-				input: "payload",
 				name: "E2E import pinning",
+				inputSchema: { fields: {}, unknownKeys: "strict" },
 				requiredPluginConfigKeys: [],
 				description: "Hold an accepted import open for plugin pinning coverage",
 			},
@@ -335,58 +386,35 @@ export const uploadImportFile = (
 	mimeType: string,
 ) =>
 	Effect.gen(function* () {
-		const intentResponse = yield* Effect.promise(() =>
-			fetch(`${getBackendUrl()}/uploads/intents`, {
-				method: "POST",
-				headers: { Cookie: cookies, "content-type": "application/json" },
-				body: JSON.stringify({
-					fileName,
-					kind: "temporary",
-					provider: "local",
-					contentType: mimeType,
+		const headers = { Cookie: cookies };
+		const client = getBackendClient();
+		const intent = yield* client.call(
+			(c) =>
+				c.uploads.createIntent({
+					payload: { fileName, kind: "temporary", provider: "local", contentType: mimeType },
 				}),
-			}),
-		);
-		if (!intentResponse.ok) {
-			throw new Error(`Could not create upload intent (${intentResponse.status})`);
-		}
-		const intent = requireObjectRecord(
-			yield* Effect.promise(() => intentResponse.json()),
-			"Upload intent response is invalid",
-		);
-		const intentId = requireString(intent.intentId, "Upload intent id is missing");
-		const method = requireString(intent.method, "Upload intent method is missing");
-		const uploadUrl = requireString(intent.uploadUrl, "Upload intent URL is missing");
-		const headers = Object.fromEntries(
-			Object.entries(requireObjectRecord(intent.headers, "Upload intent headers are invalid")).map(
-				([key, value]) => [key, requireString(value, `Upload intent header '${key}' is invalid`)],
-			),
+			headers,
 		);
 
 		const uploadResponse = yield* Effect.promise(() =>
-			fetch(new URL(uploadUrl, `${getBackendUrl()}/`), { method, headers, body: content }),
+			fetch(new URL(intent.uploadUrl, `${getBackendUrl()}/`), {
+				body: content,
+				method: intent.method,
+				headers: intent.headers,
+			}),
 		);
 		if (!uploadResponse.ok) {
 			throw new Error(`Could not upload import file (${uploadResponse.status})`);
 		}
 
-		const completeResponse = yield* Effect.promise(() =>
-			fetch(`${getBackendUrl()}/uploads/intents/${intentId}/complete`, {
-				method: "POST",
-				headers: { Cookie: cookies },
-			}),
+		const completion = yield* client.call(
+			(c) => c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
+			headers,
 		);
-		if (!completeResponse.ok) {
-			throw new Error(`Could not complete upload intent (${completeResponse.status})`);
-		}
-		const completion = requireObjectRecord(
-			yield* Effect.promise(() => completeResponse.json()),
-			"Upload completion response is invalid",
-		);
-		return requireString(completion.token, "Upload token is missing");
+		return yield* Schema.decodeUnknownEffect(TemporaryUploadToken)(completion);
 	});
 
-export const startOpenScaleImport = (client: Client, uploadToken: string) =>
+export const startOpenScaleImport = (client: Client, uploadToken: TemporaryUploadToken) =>
 	Effect.gen(function* () {
 		const result = yield* client.call((c) =>
 			c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),
