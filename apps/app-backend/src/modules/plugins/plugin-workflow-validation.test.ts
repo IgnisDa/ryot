@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Exit } from "effect";
+import { Cause, Effect, Exit, Option } from "effect";
 import { assert } from "vitest";
 
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -60,7 +60,10 @@ it.effect("requires workflow declarations to reference compiled workflow scripts
 
 	return Effect.gen(function* () {
 		const exit = yield* Effect.exit(validatePluginExecutableScripts(normalized));
-		expect(Exit.isFailure(exit)).toBe(true);
-		expect(String(exit)).toContain("must be a workflow script");
+		assert(Exit.isFailure(exit));
+		const failure = Cause.findErrorOption(exit.cause);
+		assert(Option.isSome(failure));
+		expect(failure.value._tag).toBe("PluginValidationError");
+		expect(failure.value.issues.join("; ")).toContain("must be a workflow script");
 	});
 });

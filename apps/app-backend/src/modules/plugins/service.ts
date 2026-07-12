@@ -3,7 +3,7 @@ import type { PluginListItem } from "@ryot/contract/modules/plugins/schemas";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import { stableStringify } from "@ryot/ts-utils/json";
-import { Cause, Effect, FiberSet } from "effect";
+import { Cause, Context, Effect, FiberSet, Layer, Semaphore } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
@@ -113,23 +113,23 @@ const validationMessage = (error: PluginValidationError | SchemaEvolutionError) 
 		.map((issue) => (typeof issue === "string" ? issue : `${issue.code}: ${issue.path}`))
 		.join("; ");
 
-export class PluginIngestionService extends Effect.Service<PluginIngestionService>()(
+export class PluginIngestionService extends Context.Service<PluginIngestionService>()(
 	"PluginIngestionService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
 			const runWithDb = yield* DbRunner;
 			const loader = yield* PluginLoader;
 			const repository = yield* PluginRepository;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
 			const runTransaction = yield* TransactionRunner;
-			const mutationLock = yield* Effect.makeSemaphore(1);
+			const mutationLock = yield* Semaphore.make(1);
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 			const kernelSignalSlugs = new Set(
 				kernelDefinitionSource().signalSchemas.map(({ slug }) => slug),
 			);
 			const validateSnapshot = Effect.fn("PluginIngestionService.validateSnapshot")(function* (
-				snapshot: ReturnType<PluginLoader["getSnapshot"]>,
+				snapshot: ReturnType<PluginLoader["Service"]["getSnapshot"]>,
 				validateCompiledScripts = true,
 			) {
 				const plugins = Object.values(snapshot.plugins);
@@ -190,8 +190,8 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 					redis
 						.publish(redisKeys.pluginRegistryChannel, message)
 						.pipe(
-							Effect.catchAllCause((cause) =>
-								Cause.isInterrupted(cause)
+							Effect.catchCause((cause) =>
+								Cause.hasInterrupts(cause)
 									? Effect.failCause(cause)
 									: Effect.logError("plugin registry invalidation publish failed", cause),
 							),
@@ -427,11 +427,13 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 			};
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
 export const handlePluginRegistryInvalidation = (
 	incoming: string,
-	ingestion: Pick<PluginIngestionService, "rebuild">,
+	ingestion: Pick<PluginIngestionService["Service"], "rebuild">,
 ) =>
 	incoming === redisKeys.pluginRegistryChannel
 		? ingestion.rebuild().pipe(Effect.asVoid)
@@ -439,15 +441,15 @@ export const handlePluginRegistryInvalidation = (
 
 export const runPluginRegistryReconciliation = (
 	tick: Effect.Effect<void>,
-	ingestion: Pick<PluginIngestionService, "reconcile">,
+	ingestion: Pick<PluginIngestionService["Service"], "reconcile">,
 ) =>
 	tick.pipe(
-		Effect.zipRight(
+		Effect.andThen(
 			ingestion
 				.reconcile()
 				.pipe(
-					Effect.catchAllCause((cause) =>
-						Cause.isInterrupted(cause)
+					Effect.catchCause((cause) =>
+						Cause.hasInterrupts(cause)
 							? Effect.failCause(cause)
 							: Effect.logError("plugin registry reconciliation failed", cause),
 					),
@@ -456,21 +458,21 @@ export const runPluginRegistryReconciliation = (
 		Effect.forever,
 	);
 
-export class PluginInvalidationSubscriber extends Effect.Service<PluginInvalidationSubscriber>()(
+export class PluginInvalidationSubscriber extends Context.Service<PluginInvalidationSubscriber>()(
 	"PluginInvalidationSubscriber",
 	{
-		scoped: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
 			const runFork = yield* FiberSet.makeRuntime();
 			const subscriber = redis.client.duplicate();
 			const ingestion = yield* PluginIngestionService;
-			const rebuildLock = yield* Effect.makeSemaphore(1);
+			const rebuildLock = yield* Semaphore.make(1);
 			const channel = redisKeys.pluginRegistryChannel;
 			const onMessage = (incoming: string) => {
 				runFork(
 					rebuildLock
 						.withPermits(1)(handlePluginRegistryInvalidation(incoming, ingestion))
-						.pipe(Effect.catchAllCause((cause) => Effect.logError(cause))),
+						.pipe(Effect.catchCause((cause) => Effect.logError(cause))),
 				);
 			};
 			yield* runPluginRegistryReconciliation(
@@ -481,10 +483,12 @@ export class PluginInvalidationSubscriber extends Effect.Service<PluginInvalidat
 			yield* Effect.tryPromise(() => subscriber.subscribe(channel)).pipe(Effect.orDie);
 			yield* Effect.addFinalizer(() =>
 				Effect.sync(() => subscriber.removeAllListeners()).pipe(
-					Effect.zipRight(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore)),
+					Effect.andThen(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore)),
 				),
 			);
 			return { subscribed: true as const };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

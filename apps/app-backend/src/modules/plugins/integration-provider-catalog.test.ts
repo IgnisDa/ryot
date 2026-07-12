@@ -72,8 +72,8 @@ const catalogLayer = () => {
 			},
 		]),
 	]);
-	return IntegrationProviderCatalog.Default.pipe(
-		Layer.provide(Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader })),
+	return IntegrationProviderCatalog.layer.pipe(
+		Layer.provide(Layer.succeed(PluginLoader, { ...loader })),
 	);
 };
 
@@ -153,12 +153,12 @@ it.effect("keeps provider and active script resolution on one snapshot during re
 			}),
 		};
 		const layer = Layer.merge(
-			IntegrationProviderCatalog.Default.pipe(
-				Layer.provide(Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader })),
+			IntegrationProviderCatalog.layer.pipe(
+				Layer.provide(Layer.succeed(PluginLoader, { ...loader })),
 			),
 			Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
 		);
-		const fiber = yield* Effect.fork(
+		const fiber = yield* Effect.forkChild(
 			Effect.gen(function* () {
 				const resolution = (yield* IntegrationProviderCatalog).resolveOwned("komga", "apple");
 				yield* Deferred.succeed(selected, undefined);
