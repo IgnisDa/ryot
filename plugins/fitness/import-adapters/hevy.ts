@@ -1,4 +1,4 @@
-import { DateTime, Either, Option } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Result, Option } from "@ryot/sandbox-sdk/effect";
 
 import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
@@ -179,17 +179,18 @@ export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterR
 		if (!row) {
 			continue;
 		}
-		const parsed = Either.try(() => parseHevyRow(row, rowIdx));
-		if (Either.isLeft(parsed)) {
+		const parsed = Result.try(() => parseHevyRow(row, rowIdx));
+		if (Result.isFailure(parsed)) {
 			failures.push({
 				itemIndex: rowIdx,
 				sourceLabel: `Row ${rowIdx + 1}`,
 				sourceIdentifier: String(rowIdx + 1),
-				message: parsed.left instanceof Error ? parsed.left.message : "Could not parse Hevy row",
+				message:
+					parsed.failure instanceof Error ? parsed.failure.message : "Could not parse Hevy row",
 			});
 			continue;
 		}
-		parsedRows.push(parsed.right);
+		parsedRows.push(parsed.success);
 	}
 
 	const workoutsBySourceKey = new Map<string, HevyRow[]>();

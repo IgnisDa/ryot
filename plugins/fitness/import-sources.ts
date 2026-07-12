@@ -2,14 +2,14 @@ import { Schema } from "effect";
 
 const uploadTokenInput = <const Source extends string>(source: Source) =>
 	Schema.Struct({ source: Schema.Literal(source), uploadToken: Schema.NonEmptyString }).pipe(
-		Schema.annotations({ identifier: `FitnessImportInput_${source}` }),
+		Schema.annotate({ identifier: `FitnessImportInput_${source}` }),
 	);
 
-export const FitnessCreateImportRunBody = Schema.Union(
+export const FitnessCreateImportRunBody = Schema.Union([
 	uploadTokenInput("hevy"),
 	uploadTokenInput("open_scale"),
 	uploadTokenInput("strong_app"),
-);
+]);
 
 export type FitnessCreateImportRunBody = typeof FitnessCreateImportRunBody.Type;
 
