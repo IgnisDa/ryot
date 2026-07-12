@@ -1,10 +1,10 @@
 import { S3Client } from "bun";
-import { Effect, Option, Redacted } from "effect";
+import { Context, Effect, Layer, Option, Redacted } from "effect";
 
 import { AppConfig } from "./config/service";
 
-export class S3Service extends Effect.Service<S3Service>()("S3Service", {
-	effect: Effect.gen(function* () {
+export class S3Service extends Context.Service<S3Service>()("S3Service", {
+	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const { url, region, bucketName, accessKeyId, secretAccessKey } = config.fileStorage;
 
@@ -65,4 +65,6 @@ export class S3Service extends Effect.Service<S3Service>()("S3Service", {
 
 		return { isConfigured, presignUpload, presignDownload };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

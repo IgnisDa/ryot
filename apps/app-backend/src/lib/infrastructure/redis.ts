@@ -1,4 +1,4 @@
-import { Effect, Redacted } from "effect";
+import { Context, Effect, Layer, Redacted } from "effect";
 import Redis from "ioredis";
 
 import { AppConfig } from "./config/service";
@@ -21,8 +21,8 @@ export const redisKeys = {
 		`ryot:sandbox:cache:run:${serverRunId}:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
 };
 
-export class RedisService extends Effect.Service<RedisService>()("RedisService", {
-	scoped: Effect.gen(function* () {
+export class RedisService extends Context.Service<RedisService>()("RedisService", {
+	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const client = new Redis(Redacted.value(config.redisUrl), {
 			lazyConnect: true,
@@ -50,4 +50,6 @@ export class RedisService extends Effect.Service<RedisService>()("RedisService",
 				),
 		};
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
