@@ -1,6 +1,4 @@
 import { assert, expect, it } from "@effect/vitest";
-import { Workflow } from "@effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import {
@@ -12,7 +10,9 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Cause, Effect, Exit, Layer, Option } from "effect";
+import { Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
@@ -47,11 +47,10 @@ import {
 } from "./provider-entity-population-workflow";
 import { EntityImportPayload } from "./schemas";
 
-const TestEntityImportWorkflow = Workflow.make({
+const TestEntityImportWorkflow = Workflow.make("TestEntityImportWorkflow", {
 	success: ListedEntity,
 	error: SandboxRunError,
 	payload: EntityImportPayload,
-	name: "TestEntityImportWorkflow",
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
@@ -74,7 +73,11 @@ type ProviderEntity = Omit<ListedEntity, "properties"> & {
 };
 
 type ProviderEntitySaveResult =
-	ReturnType<EntitiesService["upsert"]> extends Effect.Effect<infer Success, unknown, unknown>
+	ReturnType<EntitiesService["Service"]["upsert"]> extends Effect.Effect<
+		infer Success,
+		unknown,
+		unknown
+	>
 		? Success
 		: never;
 
@@ -174,13 +177,14 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 		findGlobalEntityByExternalId: () => Effect.succeed(null),
 		findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
 		...overrides,
-		_tag: "EntitiesRepository",
 	});
 
 type EntitiesServiceOverrides = Omit<MockOverrides<typeof mockEntitiesService>, "upsert"> & {
-	upsert?: (input: Parameters<EntitiesService["upsert"]>[0]) => Effect.Effect<ProviderEntity>;
+	upsert?: (
+		input: Parameters<EntitiesService["Service"]["upsert"]>[0],
+	) => Effect.Effect<ProviderEntity>;
 	upsertResult?: (
-		input: Parameters<EntitiesService["upsert"]>[0],
+		input: Parameters<EntitiesService["Service"]["upsert"]>[0],
 	) => Effect.Effect<ProviderEntitySaveResult>;
 };
 
@@ -206,7 +210,6 @@ const makeEntitiesService = (overrides: EntitiesServiceOverrides = {}) => {
 						Effect.map(toProviderSaveResult),
 					),
 		...serviceOverrides,
-		_tag: "EntitiesService",
 	});
 };
 
@@ -219,7 +222,6 @@ const makeRelationshipsRepository = (
 		deleteRelationship: () => Effect.succeed(null),
 		listGlobalRelationships: () => Effect.succeed([]),
 		...overrides,
-		_tag: "RelationshipsRepository",
 	});
 
 const makeEntitySchemasRepository = (
@@ -228,7 +230,6 @@ const makeEntitySchemasRepository = (
 	mockEntitySchemasRepository({
 		getBuiltinBySlug: () => Effect.succeed(null),
 		...overrides,
-		_tag: "EntitySchemasRepository",
 	});
 
 const makeRelationshipSchemasRepository = (
@@ -239,7 +240,6 @@ const makeRelationshipSchemasRepository = (
 			Effect.succeed(slug === "media-suggestion" ? mediaSuggestionSchema : null),
 		findGlobalBySchemaIds: () => Effect.succeed(null),
 		...overrides,
-		_tag: "RelationshipSchemasRepository",
 	});
 
 type TestLayerOptions = {
@@ -256,7 +256,7 @@ type TestLayerOptions = {
 const makeTestLayer = (options: TestLayerOptions) => {
 	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
 
-	const relationshipsServiceLayer = RelationshipsService.Default.pipe(
+	const relationshipsServiceLayer = RelationshipsService.layer.pipe(
 		Layer.provide(Layer.mergeAll(dbRunnerLayer, relationshipsRepository)),
 	);
 
@@ -1261,14 +1261,11 @@ it.effect("fails workflow when sandbox returns an error", () => {
 				runProviderEntityPopulationWorkflow({ ...payload, mode: "ensure" }, payload.executionId),
 			);
 
-			expect(exit._tag).toBe("Failure");
-			if (exit._tag === "Failure") {
-				const cause = exit.cause;
-				expect(cause._tag).toBe("Fail");
-				if (cause._tag === "Fail") {
-					expect(cause.error.message).toBe("Sandbox script execution failed");
-				}
-			}
+			assert(Exit.isFailure(exit));
+			const failure = Cause.findErrorOption(exit.cause);
+			assert(Option.isSome(failure));
+			assert(failure.value instanceof Error);
+			expect(failure.value.message).toBe("Sandbox script execution failed");
 		}),
 	);
 });
@@ -1423,14 +1420,11 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 				populatedAt: now,
 				properties: { title: "Previous Book" },
 			});
-			expect(exit._tag).toBe("Failure");
-			if (exit._tag === "Failure") {
-				const cause = exit.cause;
-				expect(cause._tag).toBe("Fail");
-				if (cause._tag === "Fail") {
-					expect(cause.error.message).toBe("rating: is missing");
-				}
-			}
+			assert(Exit.isFailure(exit));
+			const failure = Cause.findErrorOption(exit.cause);
+			assert(Option.isSome(failure));
+			assert(failure.value instanceof Error);
+			expect(failure.value.message).toContain("rating");
 		}),
 	);
 });
@@ -1495,14 +1489,11 @@ it.effect("fails workflow when related relationship properties are not objects",
 			);
 
 			expect(relationshipWritten).toBe(false);
-			expect(exit._tag).toBe("Failure");
-			if (exit._tag === "Failure") {
-				const cause = exit.cause;
-				expect(cause._tag).toBe("Fail");
-				if (cause._tag === "Fail") {
-					expect(cause.error.message.length).toBeGreaterThan(0);
-				}
-			}
+			assert(Exit.isFailure(exit));
+			const failure = Cause.findErrorOption(exit.cause);
+			assert(Option.isSome(failure));
+			assert(failure.value instanceof Error);
+			expect(failure.value.message.length).toBeGreaterThan(0);
 		}),
 	);
 });
@@ -1661,7 +1652,7 @@ it.effect("commits earlier population scopes when a later scope fails", () => {
 		<A, E, R>(effect: Effect.Effect<A, E, R>) => {
 			const initialLength = writes.length;
 			return Effect.provideService(effect, CurrentDb, Object.create(null)).pipe(
-				Effect.tapErrorCause(() =>
+				Effect.tapCause(() =>
 					Effect.sync(() => {
 						writes.length = initialLength;
 					}),
@@ -1931,13 +1922,10 @@ it.effect("dies when a refresh payload omits entitySchemaSlug", () => {
 				runProviderEntityPopulationWorkflow(invalidPayload, payload.executionId),
 			);
 
-			expect(exit._tag).toBe("Failure");
-			if (exit._tag === "Failure") {
-				expect(exit.cause._tag).toBe("Die");
-				if (exit.cause._tag === "Die") {
-					expect(String(exit.cause.defect)).toContain("entitySchemaSlug is required");
-				}
-			}
+			assert(Exit.isFailure(exit));
+			const dieReason = exit.cause.reasons.find(Cause.isDieReason);
+			assert(dieReason);
+			expect(String(dieReason.defect)).toContain("entitySchemaSlug is required");
 			expect(sandboxCalled).toBe(false);
 		}),
 	);
@@ -2300,7 +2288,7 @@ it.effect("uses unique deterministic activity names per population scope", () =>
 
 	const runObserved = (activityNames: string[]) => {
 		const instance = WorkflowInstance.initial(TestEntityImportWorkflow, "exec-activity-names");
-		let engine: WorkflowEngine["Type"];
+		let engine: WorkflowEngine["Service"];
 		engine = makeWorkflowEngine({
 			activityExecute: (activity) =>
 				Effect.gen(function* () {
