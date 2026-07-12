@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
 	buildCollectionMediaSuggestionsQueryDocument,
-	buildDefaultMediaSavedViewQueryDocument,
 	buildShowDetailQueryDocument,
+	buildTrendingMediaQueryDocument,
 } from "./query-recipes";
 
 describe("media query recipes", () => {
@@ -13,10 +13,10 @@ describe("media query recipes", () => {
 			episodeLimit: 12,
 			entityId: "show-id",
 		});
-		const seasons = doc.output.include[0];
-		const episodes = seasons && "include" in seasons ? seasons.include[0] : undefined;
+		const seasons = doc.queries.show.output.include?.[0];
+		const episodes = seasons && "include" in seasons ? seasons.include?.[0] : undefined;
 
-		expect(doc.source.where).toMatchObject({ operator: "eq", type: "comparison" });
+		expect(doc.queries.show.where).toMatchObject({ type: "and" });
 		expect(seasons).toMatchObject({ key: "seasons", limit: 4 });
 		expect(episodes).toMatchObject({ key: "episodes", limit: 12 });
 	});
@@ -27,16 +27,34 @@ describe("media query recipes", () => {
 			collectionId: "collection-id",
 		});
 
-		expect(doc.output.groupBy?.map((field) => field.key)).toEqual(["id", "name", "schemaSlug"]);
-		expect(doc.output.measures[0]).toMatchObject({ key: "recommendingSourceCount" });
+		expect(doc.queries.recommendations.output.groupBy?.map((field) => field.key)).toEqual([
+			"id",
+			"name",
+			"schemaSlug",
+		]);
+		expect(doc.queries.recommendations.output.measures[0]).toMatchObject({
+			key: "recommendingSourceCount",
+		});
 	});
 
-	it("adds the in-library relationship to media saved views", () => {
-		const document = buildDefaultMediaSavedViewQueryDocument({ schemas: ["book"] });
+	it("keeps trending timestamps as dates in fields and predicates", () => {
+		const document = buildTrendingMediaQueryDocument({
+			entitySchemaSlug: "book",
+			fetchedAt: "2024-01-02T00:00:00.000Z",
+		});
+		const fetchedAt = document.queries.trending.output.fields.find(
+			(field) => field.key === "fetchedAt",
+		);
 
-		expect(document.source.where).toMatchObject({
-			type: "exists",
-			source: { via: { schema: "in-library" } },
+		expect(fetchedAt).toMatchObject({ expr: { target: "date", type: "cast" } });
+		const where = document.queries.trending.where;
+		if (where?.type !== "and") {
+			throw new Error("Expected trending predicates");
+		}
+		const fetchedAtPredicate = where.predicates.at(-1);
+		expect(fetchedAtPredicate).toMatchObject({
+			left: { target: "date", type: "cast" },
+			right: { target: "date", type: "cast" },
 		});
 	});
 });
