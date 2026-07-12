@@ -43,9 +43,9 @@ The config migration is not just stylistic. Batch reads resolve and parse the en
 
 - [x] Keep `executeQueryEngine` as the entity/event data read surface and retain schema functions only as _metadata_ introspection. Net: 23 → 21 functions with no capability loss.
 
-**Naming lies.** `getIntegration()` takes no arguments and returns the integration from the execution's authority (sandbox-host-functions.ts:495-521).
+**Naming lies.** `getCurrentIntegration()` takes no arguments and returns the integration from the execution's authority (sandbox-host-functions.ts:466-489).
 
-- [ ] Rename `getIntegration` to `getCurrentIntegration`.
+- [x] Use `getCurrentIntegration` for execution-scoped integration access.
 
 **Cache trio asymmetry.** `getCachedValue`/`setCachedValue` write `redisKeys.sandboxRunCache(serverRun.id, …)` — wiped on restart. `claimCachedValue` writes `redisKeys.sandboxCache(…)` — persistent. Three same-shaped functions, two different lifetimes, discoverable only from README:108.
 
@@ -53,7 +53,7 @@ The config migration is not just stylistic. Batch reads resolve and parse the en
 
 **Inconsistent validation.** Every host function decodes its args through an SDK contract in `bridge-adapter.ts` — except `listIntegrations`, which re-validates by hand inside the implementation (sandbox-host-functions.ts:583-598) _after_ already passing `domainSandboxHostContracts.listIntegrations`. Dead double-validation.
 
-- [ ] Remove duplicate `listIntegrations` validation.
+- [x] Remove duplicate `listIntegrations` validation.
 
 ---
 
@@ -85,7 +85,7 @@ automationHostFunctions      = AUTOMATION_…                  // :98
 systemCronHostFunctions      = SYSTEM_CRON_…                 // :99
 ```
 
-…and others (`createEvents`, `getUserPreferences`, `listIntegrations`, `getIntegration`, `listEventSchemas`, `getEntitySchemas`) are gated **only** at call time by `requireUserSandboxRunInput`. And `ensureUserEntities` is gated in _both_ places plus a third DB lookup (`resolveTrustedUserBootstrapCaller`, sandbox-host-functions.ts:211).
+…and others (`createEvents`, `getUserPreferences`, `listIntegrations`, `getCurrentIntegration`, `listEventSchemas`, `getEntitySchemas`) are gated **only** at call time by `requireUserSandboxRunInput`. And `ensureUserEntities` is gated in _both_ places plus a third DB lookup (`resolveTrustedUserBootstrapCaller`, sandbox-host-functions.ts:211).
 
 The selection predicate itself is a five-clause negated boolean (service.ts:129-140):
 
