@@ -18,7 +18,7 @@ export const mbGet = (
 	const url = `${MB_BASE}/${path}?${search.toString()}`;
 	return host.httpCall("GET", url, { headers: MB_HEADERS }).pipe(
 		Effect.map((response) => parseJsonResponse(response.body, "MusicBrainz")),
-		Effect.catchAll((error) =>
+		Effect.catch((error) =>
 			Effect.fail(new Error(error.message || `MusicBrainz request failed: ${path}`)),
 		),
 	);
@@ -57,7 +57,7 @@ export const fetchCoverArtUrl = (
 				stringValue(front["image"])
 			);
 		}),
-		Effect.catchAll(() => Effect.succeed(null)),
+		Effect.catch(() => Effect.succeed(null)),
 	);
 };
 
