@@ -1,3 +1,4 @@
+import { isLoopbackOrigin } from "@ryot/contract/oauth";
 import type { LogLevel } from "effect";
 import { Config, Context, Effect, Layer, Option, Redacted, Schema, SchemaIssue } from "effect";
 
@@ -94,6 +95,12 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 					"FRONTEND_URL must be an absolute HTTP or HTTPS origin without a path, query, or fragment.",
 				),
 			);
+		}
+
+		if (frontendUrl.protocol === "http:" && !isLoopbackOrigin(frontendUrl.origin)) {
+			yield* Effect.logWarning(
+				"FRONTEND_URL uses plain HTTP, so logins and API keys cross the network unencrypted and anyone on it can read them. Use HTTPS for anything reachable from the internet.",
+			).pipe(Effect.annotateLogs({ frontendUrl: frontendUrl.origin }));
 		}
 
 		const { clientId, clientSecret, issuerUrl } = config.server.oidc;

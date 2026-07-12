@@ -975,7 +975,7 @@ One external OIDC application
 One callback: <FRONTEND_URL>/api/auth/callback/oidc
 No mobile callback registered at Authentik/Google/Keycloak
 Internal Ryot clients are automatic
-FRONTEND_URL must be public HTTPS and must be the URL users actually browse to
+FRONTEND_URL must be the URL users actually browse to; HTTPS strongly recommended but HTTP is supported for self-hosters
 ```
 
 Document reverse-proxy requirements:
