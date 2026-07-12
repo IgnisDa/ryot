@@ -25,6 +25,7 @@ export function BottomSheet(props: {
 		<ExpoBottomSheet
 			index={0}
 			enablePanDownToClose
+			handleComponent={null}
 			onClose={props.onClose}
 			snapPoints={props.snapPoints}
 			backgroundStyle={{ padding: 0, backgroundColor: "transparent" }}
