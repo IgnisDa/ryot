@@ -1,18 +1,36 @@
-import * as PersistedQueue from "@effect/experimental/PersistedQueue";
-import { DurableQueue } from "@effect/workflow";
-import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import type { DbError } from "@ryot/contract/errors";
-import type { EntityId, UserId } from "@ryot/contract/schema/brands";
-import { Context, Effect, Layer } from "effect";
+import { DurableQueue, Workflow } from "@effect/workflow";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { DbError } from "@ryot/contract/errors";
+import { EntityId, UserId } from "@ryot/contract/schema/brands";
+import { Context, Effect, Layer, Schema } from "effect";
 
+import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { EnsureLibraryMembershipQueue } from "#modules/events/durable-queues";
+
+const EnsureLibraryMembershipWorkflowPayload = Schema.Struct({
+	userId: UserId,
+	entityId: EntityId,
+	executionId: Schema.String,
+});
+
+const EnsureLibraryMembershipWorkflow = Workflow.make({
+	success: Schema.Void,
+	error: DbError,
+	name: "EnsureLibraryMembershipWorkflow",
+	payload: EnsureLibraryMembershipWorkflowPayload,
+	idempotencyKey: ({ executionId }) => executionId,
+});
+
+const EnsureLibraryMembershipWorkflowLive = EnsureLibraryMembershipWorkflow.toLayer((payload) =>
+	DurableQueue.process(EnsureLibraryMembershipQueue, payload),
+);
 
 export type LibraryEntityImportWorkflowOperationsValue = {
 	ensureLibraryMembership: (input: {
 		userId: UserId;
 		entityId: EntityId;
 		executionId: string;
-	}) => Effect.Effect<void, DbError, WorkflowEngine | WorkflowInstance>;
+	}) => Effect.Effect<void, DbError>;
 };
 
 export class LibraryEntityImportWorkflowOperations extends Context.Tag(
@@ -22,14 +40,19 @@ export class LibraryEntityImportWorkflowOperations extends Context.Tag(
 export const LibraryEntityImportWorkflowOperationsLive = Layer.effect(
 	LibraryEntityImportWorkflowOperations,
 	Effect.map(
-		PersistedQueue.PersistedQueueFactory,
-		(queueFactory) =>
+		WorkflowEngine,
+		(engine) =>
 			({
 				ensureLibraryMembership: (input) =>
-					DurableQueue.process(EnsureLibraryMembershipQueue, input).pipe(
-						Effect.asVoid,
-						Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-					),
+					engine
+						.execute(EnsureLibraryMembershipWorkflow, {
+							payload: input,
+							executionId: input.executionId,
+						})
+						.pipe(withoutWorkflowParent),
 			}) satisfies LibraryEntityImportWorkflowOperationsValue,
 	),
 );
+
+export const LibraryEntityImportOperationWorkflowDefinitionsLive =
+	EnsureLibraryMembershipWorkflowLive;

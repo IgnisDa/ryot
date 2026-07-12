@@ -341,6 +341,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 	let processedItems = 0;
 	let observedFailureCount = 0;
 	let observedWriteItemCount = 0;
+	let errorSummary: string | undefined;
 	const runId = ImportRunId.make(payload.runId);
 
 	const process = Effect.gen(function* () {
@@ -353,6 +354,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 			const chunk = yield* readChunk(path, payload.expectedHarvestDirectoryPrefix, chunkIndex);
 			for (const failure of chunk.failures) {
 				observedFailureCount += 1;
+				errorSummary ??= failure.message;
 				yield* Activity.make({
 					error: ImportRunError,
 					name: `record-generic-import-failure-${processedItems}`,
@@ -412,6 +414,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 				}
 				if (message) {
 					failedItems += 1;
+					errorSummary ??= message;
 					yield* Activity.make({
 						error: ImportRunError,
 						name: `record-generic-write-failure-${processedItems}`,
@@ -467,7 +470,8 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 		importedItems,
 		progress: 100,
 		processedItems,
-		status: "completed",
+		status: payload.failRun ? "failed" : "completed",
+		...(payload.failRun && errorSummary ? { errorSummary } : {}),
 	});
 	return { failedItems, importedItems, processedItems };
 });

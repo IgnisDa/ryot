@@ -9,7 +9,7 @@ import { Effect, Schedule, Stream } from "effect";
 
 import type { StreamEnqueue, StreamRegistry } from "./registry";
 
-const HEARTBEAT_INTERVAL_MS = 25_000;
+const HEARTBEAT_INTERVAL_MS = 5_000;
 
 const encoder = new TextEncoder();
 

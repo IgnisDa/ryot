@@ -6,6 +6,7 @@ import { jsonValueSchema, type JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Cause, Effect, Schema } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -93,7 +94,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 				executionId: `${executionId}-import`,
 				authority: { type: "user", userId: payload.userId },
 			})
-			.pipe(Effect.mapError(toWorkflowError));
+			.pipe(withoutWorkflowParent, Effect.mapError(toWorkflowError));
 
 		yield* cleanupArtifactsBestEffort("cleanup-import-artifacts-on-success", cleanupPaths);
 	});

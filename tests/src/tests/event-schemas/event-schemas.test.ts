@@ -138,7 +138,7 @@ describe("GET /event-schemas", () => {
 					text: {
 						type: "string",
 						label: "Review",
-						description: "Your written thoughts or notes about this media",
+						description: "Your written thoughts or notes about this entity",
 					},
 					isSpoiler: {
 						type: "boolean",

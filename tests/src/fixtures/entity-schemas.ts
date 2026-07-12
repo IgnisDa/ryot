@@ -145,29 +145,21 @@ export const findBuiltinEntitySchema = (client: Client) =>
 
 export const findBuiltinSchemaBySlug = (client: Client, slug: string) =>
 	Effect.gen(function* () {
-		const [schema] = yield* listEntitySchemas(client, { slugs: [slug] });
-		if (schema && schema.pluginSlug == null) {
+		const schemas = yield* listEntitySchemas(client, { slugs: [slug] });
+		const schema = schemas.find((candidate) => candidate.pluginSlug == null);
+		if (schema) {
 			return { schema, builtinWorkspace: null };
 		}
 		const workspaces = yield* listPluginWorkspaces(client, {
 			includeDisabled: true,
 		});
-		const schemasByWorkspace = yield* Effect.all(
-			workspaces.map((builtinWorkspace) =>
-				Effect.gen(function* () {
-					const schemas = yield* listEntitySchemas(client, {
-						slugs: [slug],
-						pluginSlug: builtinWorkspace.slug,
-					});
 
-					return { builtinWorkspace, schema: schemas[0] };
-				}),
-			),
-		);
-
-		for (const result of schemasByWorkspace) {
-			if (result.schema) {
-				return { schema: result.schema, builtinWorkspace: result.builtinWorkspace };
+		for (const builtinWorkspace of workspaces) {
+			const workspaceSchema = schemas.find(
+				(candidate) => candidate.pluginSlug === builtinWorkspace.slug,
+			);
+			if (workspaceSchema) {
+				return { builtinWorkspace, schema: workspaceSchema };
 			}
 		}
 

@@ -78,7 +78,7 @@ Derived from the plan §5 done criteria, the phase gate, and cross-phase invaria
 - Task 10 imports e2e: owner-skipped. Its deferred failure remains
   open; no branch-wide or full e2e run is claimed green.
 
-## E2e gate repair record (2026-07-29, targeted repair complete)
+## E2e gate repair record (2026-07-30, standard gate complete)
 
 The detailed causes, code changes, and justifications are owned by
 [`docs/e2e-fixes-justifications.md`](../../e2e-fixes-justifications.md). This section records only
@@ -100,9 +100,11 @@ Current e2e verification after the fixes:
 - The formerly failing Watcharr, Kodi episode attachment, maximum-progress normalization, and
   minimum-progress filtering cases also pass independently.
 - `bun turbo --filter=@ryot/tests check`: 12/12 tasks passed with zero warnings and errors.
+- `bun turbo --filter=@ryot/tests test`: all 79 standard files and 501 standard tests passed.
 
-The file-by-file e2e sweep, the opt-in operational gate, and the final full Turbo gate have not yet
-completed. This record therefore does not claim the Phase 3 gate green.
+The opt-in operational gate remains open: with its workload and 900-second budget unchanged, 2 of 8
+workflows completed and 6 remained pending. The standard branch gate is green, but this record does
+not claim the full Phase 3 gate green until that load failure is resolved.
 
 ## User stories addressed
 

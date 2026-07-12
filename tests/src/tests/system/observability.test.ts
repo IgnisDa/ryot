@@ -126,7 +126,7 @@ beforeAll(async () => {
 	});
 	logFile = requireString(env.SERVER_LOG_FILE, "Observability backend log file is missing");
 	backendProcess = spawnBackendProcess(env);
-	await waitForHealthCheck(`${backendOrigin}/api/system/health`, "Observability Setup");
+	await waitForHealthCheck(`${backendOrigin}/api/system/health`, "Observability Setup", 90);
 }, 120_000);
 
 afterAll(async () => {

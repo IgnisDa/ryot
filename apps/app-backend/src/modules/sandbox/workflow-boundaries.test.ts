@@ -40,31 +40,38 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 	Effect.gen(function* () {
 		const [
 			sandboxService,
+			durableQueues,
 			sandboxWorkflow,
 			eventCreateCore,
 			eventCreateWorkflow,
 			entityImportWorkflow,
 			libraryWorkflow,
 			integrationWorkflow,
+			sandboxScriptWorkflow,
 			subscriptionWorkflow,
 		] = yield* Effect.all([
 			readModule("./service.ts"),
+			readModule("./durable-queues.ts"),
 			readModule("./sandbox-workflow-live.ts"),
 			readModule("../events/event-creation.ts"),
 			readModule("../events/event-create-workflow-live.ts"),
 			readModules(entityImportWorkflowModules),
 			readModule("../library-membership/library-entity-import-workflow.ts"),
 			readModules(integrationWorkflowModules),
+			readModule("./sandbox-script-workflow.ts"),
 			readModule("../automations/subscription-execution-workflow-live.ts"),
 		]);
 
 		expect(sandboxService.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
+		expect(durableQueues.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
 		expect(eventCreateCore.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(0);
 		expect(eventCreateWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(0);
 		expect(subscriptionWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
+		expect(sandboxScriptWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
 		expect(sandboxWorkflow).toContain(
 			"DurableQueue.process(SandboxExecutionQueue, executionPayload)",
 		);
+		expect(sandboxWorkflow).toContain("...(payload.grants ? { grants: payload.grants } : {})");
 
 		expect(libraryWorkflow).not.toContain("execute(RunSandboxWorkflow");
 		expect(libraryWorkflow).toContain("execute(ProviderEntityPopulationWorkflow");
