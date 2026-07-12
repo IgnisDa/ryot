@@ -1,4 +1,5 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineActivity } from "@ryot/sandbox-sdk/activity";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 import type { ImportEntityRef } from "../../../imports/schemas";
@@ -6,15 +7,18 @@ import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
 import { baseUrl, requestJson, specifics } from "../shared";
 
 export const manifest = defineManifest({
-	kind: "script",
+	kind: "activity",
 	name: "Komga yank",
 	slug: "integration.komga",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getIntegration"],
 });
+
 const Input = Schema.Struct({});
+
 const Link = Schema.Struct({ label: Schema.String, url: Schema.String });
+
 const Book = Schema.Struct({
 	id: Schema.optional(Schema.String),
 	media: Schema.optional(Schema.Struct({ pagesCount: Schema.optional(Schema.Number) })),
@@ -33,10 +37,12 @@ const Book = Schema.Struct({
 		),
 	),
 });
+
 const BooksResponse = Schema.Struct({
-	content: Schema.optional(Schema.Array(Book)),
 	totalPages: Schema.optional(Schema.Number),
+	content: Schema.optional(Schema.Array(Book)),
 });
+
 const mangaRef = (
 	links: ReadonlyArray<{ label: string; url: string }>,
 	title: string,
@@ -58,18 +64,20 @@ const mangaRef = (
 		}
 		if (match?.[1]) {
 			return {
+				providerSlug,
 				kind: "resolved",
 				sourceLabel: title,
 				externalId: match[1],
 				entitySchemaSlug: "manga",
-				providerSlug,
 			};
 		}
 	}
 	return null;
 };
+
 export { mangaRef as extractMangaRef };
-export default defineScript({
+
+export default defineActivity({
 	manifest,
 	input: Input,
 	output: MediaIntegrationAdapterResult,
@@ -147,8 +155,8 @@ export default defineScript({
 						const ref = mangaRef(book.metadata?.links ?? [], book.metadata?.title ?? "");
 						if (ref) {
 							entityGroups.push({
-								entityRef: ref,
 								events: [],
+								entityRef: ref,
 								collectionMemberships: [],
 								ownershipProvider: "komga",
 								itemIndex: entityGroups.length,

@@ -1,4 +1,5 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineActivity } from "@ryot/sandbox-sdk/activity";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 
 import type { ImportEntityRef } from "../../../imports/schemas";
@@ -7,42 +8,48 @@ import { sourceFetchFailure } from "../../../imports/source-helpers";
 import { baseUrl, requestJson, specifics } from "../shared";
 
 export const manifest = defineManifest({
-	kind: "script",
+	kind: "activity",
 	name: "Audiobookshelf yank",
-	slug: "integration.audiobookshelf",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	slug: "integration.audiobookshelf",
 	capabilities: ["httpCall", "getIntegration"],
 });
+
 const Input = Schema.Struct({});
+
 const Metadata = Schema.Struct({
 	title: Schema.String,
 	asin: Schema.optional(Schema.NullOr(Schema.String)),
 	isbn: Schema.optional(Schema.NullOr(Schema.String)),
 	itunesId: Schema.optional(Schema.NullOr(Schema.String)),
 });
+
 const Episode = Schema.Struct({
 	id: Schema.optional(Schema.String),
 	index: Schema.optional(Schema.Number),
 	number: Schema.optional(Schema.Number),
-	episode: Schema.optional(Schema.Union(Schema.Number, Schema.String)),
 	sequence: Schema.optional(Schema.Number),
 	episodeNumber: Schema.optional(Schema.Number),
+	episode: Schema.optional(Schema.Union(Schema.Number, Schema.String)),
 });
+
 const Progress = Schema.Struct({ isFinished: Schema.optional(Schema.Boolean) });
+
 const Item = Schema.Struct({
 	id: Schema.String,
 	name: Schema.optional(Schema.String),
+	userMediaProgress: Schema.optional(Progress),
 	mediaType: Schema.optional(Schema.Literal("book", "podcast")),
 	media: Schema.optional(
 		Schema.Struct({
 			metadata: Schema.optional(Metadata),
-			ebookFormat: Schema.optional(Schema.NullOr(Schema.String)),
 			episodes: Schema.optional(Schema.Array(Episode)),
+			ebookFormat: Schema.optional(Schema.NullOr(Schema.String)),
 		}),
 	),
-	userMediaProgress: Schema.optional(Progress),
 });
+
 const LibrariesResponse = Schema.Struct({
 	libraries: Schema.optional(
 		Schema.Array(
@@ -54,11 +61,15 @@ const LibrariesResponse = Schema.Struct({
 		),
 	),
 });
+
 const ListingResponse = Schema.Struct({ results: Schema.optional(Schema.Array(Item)) });
+
 const DetailsResponse = Schema.Struct({
 	media: Schema.optional(Schema.Struct({ episodes: Schema.optional(Schema.Array(Episode)) })),
 });
+
 const ProgressResponse = Schema.Struct({ userMediaProgress: Schema.optional(Progress) });
+
 const validIsbn = (value: string) => {
 	if (/^\d{13}$/.test(value)) {
 		const sum = value
@@ -76,6 +87,7 @@ const validIsbn = (value: string) => {
 	}
 	return false;
 };
+
 const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
 	const metadata = item.media?.metadata;
 	if (!metadata) {
@@ -86,10 +98,10 @@ const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
 		if (validIsbn(isbn)) {
 			return {
 				kind: "unresolved",
-				sourceLabel: metadata.title,
 				identifierValue: isbn,
 				identifierType: "isbn",
 				entitySchemaSlug: "book",
+				sourceLabel: metadata.title,
 			};
 		}
 	}
@@ -97,8 +109,8 @@ const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
 		return {
 			kind: "resolved",
 			sourceLabel: metadata.title,
-			externalId: metadata.asin.trim(),
 			entitySchemaSlug: "audiobook",
+			externalId: metadata.asin.trim(),
 			providerSlug: "audiobook.audible",
 		};
 	}
@@ -106,14 +118,15 @@ const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
 		return {
 			kind: "resolved",
 			sourceLabel: metadata.title,
-			externalId: metadata.itunesId.trim(),
 			entitySchemaSlug: "podcast",
 			providerSlug: "podcast.itunes",
+			externalId: metadata.itunesId.trim(),
 		};
 	}
 	return null;
 };
-export default defineScript({
+
+export default defineActivity({
 	manifest,
 	input: Input,
 	output: MediaIntegrationAdapterResult,
@@ -280,8 +293,8 @@ export default defineScript({
 							const ref = itemRef(item);
 							if (ref) {
 								entityGroups.push({
-									entityRef: ref,
 									events: [],
+									entityRef: ref,
 									itemIndex: itemIndex++,
 									collectionMemberships: [],
 									ownershipProvider: "audiobookshelf",

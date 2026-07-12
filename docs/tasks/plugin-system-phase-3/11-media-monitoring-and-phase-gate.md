@@ -78,6 +78,32 @@ Derived from the plan §5 done criteria, the phase gate, and cross-phase invaria
 - Task 10 imports e2e: owner-skipped. Its deferred failure remains
   open; no branch-wide or full e2e run is claimed green.
 
+## E2e gate repair record (2026-07-29, targeted repair complete)
+
+The detailed causes, code changes, and justifications are owned by
+[`docs/e2e-fixes-justifications.md`](../../e2e-fixes-justifications.md). This section records only
+Task 11 gate progress.
+
+The repair began from the documented Task 10/11 baseline and reproduced both failure classes in
+isolation before changing code:
+
+- Watcharr in `imports/imports.test.ts` stayed `running` until the 60-second poll expired.
+- The Kodi episode-progress integration reached terminal `failed` with
+  `Workflow activity reference could not be resolved`.
+- The below-minimum progress case subsequently exposed
+  `SandboxWorkflowNondeterminism: replay ended before recorded journal[3] activity:chunks-0`.
+
+Current e2e verification after the fixes:
+
+- `tests/src/tests/imports/imports.test.ts`: 1 file, 10 tests passed.
+- `tests/src/tests/integrations/integrations.test.ts`: 1 file, 21 tests passed.
+- The formerly failing Watcharr, Kodi episode attachment, maximum-progress normalization, and
+  minimum-progress filtering cases also pass independently.
+- `bun turbo --filter=@ryot/tests check`: 12/12 tasks passed with zero warnings and errors.
+
+The file-by-file e2e sweep, the opt-in operational gate, and the final full Turbo gate have not yet
+completed. This record therefore does not claim the Phase 3 gate green.
+
 ## User stories addressed
 
 - User story 33

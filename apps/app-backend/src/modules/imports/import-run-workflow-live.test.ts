@@ -52,7 +52,7 @@ const netflixSource = {
 
 type SandboxCall = { method: string; input: unknown };
 
-const makeHarness = (registered: RegisteredImportSource | null) => {
+const makeHarness = (registered: RegisteredImportSource | null, suspendWorkflow = false) => {
 	const activityNames: string[] = [];
 	const sandboxCalls: SandboxCall[] = [];
 	const instance = WorkflowInstance.initial(ProcessImportRunWorkflow, executionId);
@@ -87,8 +87,7 @@ const makeHarness = (registered: RegisteredImportSource | null) => {
 				executeWorkflow: (input) =>
 					Effect.sync(() => {
 						sandboxCalls.push({ input, method: "executeWorkflow" });
-						return null;
-					}),
+					}).pipe(Effect.zipRight(suspendWorkflow ? Effect.interrupt : Effect.succeed(null))),
 			}),
 			dbRunnerLayer,
 			BunFileSystem.layer,
@@ -209,5 +208,16 @@ it.effect("fails a run whose source is not registered", () => {
 
 		expect(harness.sandboxCalls).toEqual([]);
 		expect(harness.activityNames).toEqual(["fail-import-run"]);
+	}).pipe(Effect.provide(harness.layer));
+});
+
+it.effect("preserves workflow suspension while awaiting the plugin import child", () => {
+	const harness = makeHarness(netflixSource, true);
+
+	return Effect.gen(function* () {
+		const exit = yield* Effect.exit(runProcessImportRunWorkflow(payload, executionId));
+
+		expect(Exit.isInterrupted(exit)).toBe(true);
+		expect(harness.activityNames).not.toContain("fail-import-run-unexpected");
 	}).pipe(Effect.provide(harness.layer));
 });

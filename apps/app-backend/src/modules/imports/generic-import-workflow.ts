@@ -22,6 +22,7 @@ import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
+import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { slugify } from "#lib/shared/slug";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { CollectionsService } from "#modules/collections/service";
@@ -405,7 +406,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 										: { kind: "import", importRunId: runId },
 								},
 							})
-							.pipe(Effect.mapError(toWorkflowError));
+							.pipe(withoutWorkflowParent, Effect.mapError(toWorkflowError));
 						message ??= eventResult.failure?.reason.message ?? null;
 					}
 				}

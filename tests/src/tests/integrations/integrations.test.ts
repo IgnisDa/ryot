@@ -333,7 +333,7 @@ describe("Webhook routes", () => {
 					show_episode_number: 2,
 				});
 
-				expect(completedRun.status).toBe("completed");
+				expect(completedRun).toMatchObject({ status: "completed", errorSummary: null });
 				expect(completedRun.failedItems).toBe(0);
 
 				const episodeEvents = yield* waitForEventSlugs(client, episodeId, "progress");
@@ -458,7 +458,7 @@ describe("Progress normalization", () => {
 					show_season_number: 1,
 					show_episode_number: 2,
 				});
-				expect(firstRun.status).toBe("completed");
+				expect(firstRun).toMatchObject({ status: "completed", errorSummary: null });
 				expect(firstRun.failedItems).toBe(0);
 
 				const { run: secondRun } = yield* postIntegrationWebhookAndWait(client, id, {
@@ -468,7 +468,7 @@ describe("Progress normalization", () => {
 					show_season_number: 1,
 					show_episode_number: 2,
 				});
-				expect(secondRun.status).toBe("completed");
+				expect(secondRun).toMatchObject({ status: "completed", errorSummary: null });
 				expect(secondRun.failedItems).toBe(0);
 
 				yield* waitForEventSlugs(client, episodeId, "progress");
