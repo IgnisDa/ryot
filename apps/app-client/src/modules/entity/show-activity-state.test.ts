@@ -76,7 +76,6 @@ describe("show activity watch sessions", () => {
 		const [session] = watchRows(view);
 
 		expect(watchRows(view)).toHaveLength(1);
-		assert(session?.type === "watch");
 		expect(session.episodes.map((episode) => episode.origin)).toEqual(["S1 • E1", "S1 • E2"]);
 		expect(showActivityRowLabel(session)).toBe("Watched 2 episodes");
 	});
@@ -315,7 +314,7 @@ describe("show activity labels", () => {
 		});
 		const [review] = allRows(view);
 
-		assert(review?.type === "review");
+		assert(review.type === "review");
 		expect(review.body).toBeUndefined();
 		expect(review.rating).toBe(90);
 	});
