@@ -35,7 +35,7 @@ Complete the kernel-side collapse task 07 started:
   needs once parsing lives in the sandbox and the source table lives in manifests.
 
 Move the fitness adapter unit tests into `plugins/fitness` with assertions preserved. Re-point the
-OpenScale and Hevy e2e coverage in `tests/src/tests/imports/imports.test.ts` (8 of its 9 tests)
+OpenScale and Hevy e2e coverage in `tests/src/tests/plugins/fitness/imports/imports.test.ts` (8 of its 9 tests)
 with assertions preserved — including the partial-completion and per-row failure-message
 assertions, which are the behavioral spec for failure reporting through the new path.
 
