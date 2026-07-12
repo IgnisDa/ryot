@@ -19,12 +19,12 @@ export const SandboxCompilerDiagnostic = Schema.Struct({
 	column: Schema.Number,
 	message: Schema.String,
 	length: Schema.optional(Schema.Number),
-	severity: Schema.Literal("error", "warning", "info"),
+	severity: Schema.Literals(["error", "warning", "info"]),
 });
 
 export type SandboxCompilerDiagnostic = Schema.Schema.Type<typeof SandboxCompilerDiagnostic>;
 
-export class SandboxCompilerFailure extends Schema.TaggedError<SandboxCompilerFailure>()(
+export class SandboxCompilerFailure extends Schema.TaggedErrorClass<SandboxCompilerFailure>()(
 	"SandboxCompilerFailure",
 	{ message: Schema.String, diagnostics: Schema.Array(SandboxCompilerDiagnostic) },
 ) {}
