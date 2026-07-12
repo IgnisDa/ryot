@@ -124,6 +124,63 @@ const runGetIntegration = (
 		),
 	);
 
+describe("getEntities", () => {
+	it.effect("returns repository order from one visible batch read", () => {
+		const calls: Array<ReadonlyArray<EntityId>> = [];
+		const first = {
+			properties: {},
+			providerId: null,
+			externalId: null,
+			name: "Entity 1",
+			populatedAt: null,
+			id: EntityId.make("entity-1"),
+			updatedAt: "2026-01-01T00:00:00.000Z",
+			createdAt: "2026-01-01T00:00:00.000Z",
+			entitySchemaSlug: EntitySchemaSlug.make("entity"),
+		};
+		const second = { ...first, id: EntityId.make("entity-2"), name: "Entity 2" };
+
+		return Effect.gen(function* () {
+			const result = yield* makeAdditionalSandboxApiFunctions.pipe(
+				Effect.flatMap((functions) =>
+					Effect.result(
+						functions.getEntities(runInput({ type: "user", userId: UserId.make("user-1") }), [
+							"entity-2",
+							"entity-1",
+						]),
+					),
+				),
+				Effect.provide(
+					Layer.mergeAll(
+						dbRunnerLayer,
+						transactionLayer,
+						makeAppConfigLayer(),
+						Layer.succeed(RedisService, makeRedisService()),
+						Layer.mock(EventsService)({}),
+						Layer.mock(EntitiesService)({}),
+						Layer.mock(EntitiesRepository)({
+							getByIdsForUser: ({ entityIds }) => {
+								calls.push(entityIds);
+								return Effect.succeed([first, second]);
+							},
+						}),
+						Layer.mock(QueryEngineService)({}),
+						Layer.mock(PluginRuntimeResolver)({}),
+						Layer.mock(IntegrationsRepository)({}),
+						Layer.mock(RelationshipsRepository)({}),
+						Layer.succeed(DefinitionRegistry, {
+							...makeDefinitionRegistry(),
+						}),
+					),
+				),
+			);
+
+			expect(Result.getOrThrow(result).map(({ id }) => id)).toEqual(["entity-1", "entity-2"]);
+			expect(calls).toEqual([["entity-2", "entity-1"]]);
+		});
+	});
+});
+
 describe("getIntegration", () => {
 	it.effect("resolves the integration the operation execution was dispatched for", () =>
 		Effect.gen(function* () {
