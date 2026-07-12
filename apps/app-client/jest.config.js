@@ -1,6 +1,8 @@
+/** @type {import('jest').Config} */
 module.exports = {
 	watchman: false,
 	preset: "jest-expo",
+	reporters: ["jest-silent-reporter"],
 	transform: { "^.+\\.mjs$": "babel-jest" },
 	testMatch: ["<rootDir>/src/**/*.component.test.tsx"],
 	moduleNameMapper: { "^@/(.*)$": "<rootDir>/src/$1" },
