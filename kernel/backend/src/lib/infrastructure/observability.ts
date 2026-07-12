@@ -11,7 +11,7 @@ import {
 	References,
 } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
-import { OtlpSerialization, OtlpTracer } from "effect/unstable/observability";
+import { OtlpMetrics, OtlpSerialization, OtlpTracer } from "effect/unstable/observability";
 
 import { AppConfig, type AppConfigValue, parseOtlpHeaders } from "./config/service";
 
@@ -88,18 +88,26 @@ const otlpHeaders = (headers: Option.Option<Redacted.Redacted>) =>
 		onSome: (value) => Result.getOrUndefined(parseOtlpHeaders(Redacted.value(value))),
 	});
 
-const makeTracerLayer = (config: AppConfigValue) => {
+const makeTelemetryLayer = (config: AppConfigValue) => {
 	const inner = Option.match(config.server.otlpEndpoint, {
 		onNone: () => Layer.empty,
-		onSome: (baseUrl) =>
-			OtlpTracer.layer({
-				headers: otlpHeaders(config.server.otlpHeaders),
-				url: `${baseUrl.replace(/\/+$/, "")}/v1/traces`,
-				resource: {
-					serviceName: "ryot-backend",
-					attributes: { "deployment.environment": config.nodeEnv },
-				},
-			}).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, OtlpSerialization.layerJson))),
+		onSome: (endpoint) => {
+			const baseUrl = endpoint.replace(/\/+$/, "");
+			const headers = otlpHeaders(config.server.otlpHeaders);
+			const resource = {
+				serviceName: "ryot-backend",
+				attributes: { "deployment.environment": config.nodeEnv },
+			};
+			return Layer.mergeAll(
+				OtlpTracer.layer({ headers, resource, url: `${baseUrl}/v1/traces` }),
+				OtlpMetrics.layer({
+					headers,
+					resource,
+					temporality: "cumulative",
+					url: `${baseUrl}/v1/metrics`,
+				}),
+			).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, OtlpSerialization.layerJson)));
+		},
 	});
 	if (
 		Option.isNone(config.server.otlpEndpoint) ||
@@ -114,7 +122,7 @@ const makeTracerLayer = (config: AppConfigValue) => {
 			),
 		),
 	);
-	return Layer.provide(decorator, inner);
+	return Layer.provideMerge(decorator, inner);
 };
 
 export const ObservabilityLive = Layer.unwrap(
@@ -124,7 +132,7 @@ export const ObservabilityLive = Layer.unwrap(
 			Layer.succeed(References.MinimumLogLevel, config.server.logLevel),
 			logger,
 		);
-		const tracer = makeTracerLayer(config).pipe(Layer.provide(logging));
-		return Layer.mergeAll(logging, tracer);
+		const telemetry = makeTelemetryLayer(config).pipe(Layer.provide(logging));
+		return Layer.mergeAll(logging, telemetry);
 	}),
 );

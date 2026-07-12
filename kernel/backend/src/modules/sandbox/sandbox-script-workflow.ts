@@ -17,6 +17,12 @@ import { Activity, DurableClock, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import {
+	recordSandboxWorkflowReplayFinished,
+	recordSandboxWorkflowReplayStarted,
+	sandboxMetricKind,
+	type SandboxReplayOutcome,
+} from "#lib/infrastructure/runtime-metrics";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
@@ -454,13 +460,28 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
 	});
 
+	const replayKind = sandboxMetricKind(pin.principal.metadata);
+
 	return yield* Effect.gen(function* () {
 		const journal: WorkflowReplayJournalEntry[] = [];
 		let journalBytes = 2;
 		let projectionRetries = 0;
+		let replayStartedAt = 0;
+		const finishReplay = (outcome: SandboxReplayOutcome) =>
+			Effect.flatMap(Clock.currentTimeMillis, (finishedAt) =>
+				recordSandboxWorkflowReplayFinished({
+					outcome,
+					journalBytes,
+					kind: replayKind,
+					journalEntries: journal.length,
+					durationMs: Math.max(0, finishedAt - replayStartedAt),
+				}),
+			);
 		for (let step = 0; journal.length <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {
 			yield* projectWorkflowJournal(executionId, journal);
 			const replayExecutionId = `${executionId}-replay-${step}`;
+			replayStartedAt = yield* Clock.currentTimeMillis;
+			yield* recordSandboxWorkflowReplayStarted;
 			const replay = yield* processReplay({
 				context: payload.input,
 				startedAt: pin.startedAt,
@@ -478,6 +499,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				{ discard: true },
 			);
 			if (replay.error) {
+				yield* finishReplay("failed");
 				if (payload.resultMode === "execution") {
 					return toSandboxExecutionResult(replay, null, replay.error);
 				}
@@ -492,6 +514,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				step,
 			);
 			if (observed.state === "failed") {
+				yield* finishReplay("failed");
 				if (payload.resultMode === "execution") {
 					return toSandboxExecutionResult(replay, null, {
 						phase: "execute",
@@ -501,6 +524,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				return yield* sandboxFailure(`Workflow replay ${step} failed: ${observed.error}`);
 			}
 			if (observed.state === "completed") {
+				yield* finishReplay("completed");
 				const observedOutput =
 					replay.harvest && isObjectRecord(observed.output)
 						? (() => {
@@ -518,6 +542,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				return observed.output;
 			}
 			if (observed.state === "projection-stale") {
+				yield* finishReplay("stale");
 				projectionRetries += 1;
 				if (projectionRetries > SANDBOX_WORKFLOW_MAX_PROJECTION_RETRIES) {
 					return yield* sandboxFailure(
@@ -526,6 +551,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				}
 				continue;
 			}
+			yield* finishReplay("pending");
 			if (journal.length + observed.requests.length > SANDBOX_WORKFLOW_MAX_STEPS) {
 				break;
 			}
