@@ -3,8 +3,7 @@ import { Effect, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
-import { withoutSchemaServices } from "#lib/shared/schema";
+import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
 import { EntityImportPayload } from "./schemas";
@@ -18,9 +17,9 @@ export class EntityImportError extends Schema.TaggedErrorClass<EntityImportError
 ) {}
 
 export const EntityImportWorkflow = Workflow.make("EntityImportWorkflow", {
-	success: withoutSchemaServices(ListedEntity),
-	error: withoutSchemaServices(EntityImportError),
-	payload: withoutSchemaServices(EntityImportPayload),
+	success: ListedEntity satisfies DurableSchema,
+	error: EntityImportError satisfies DurableSchema,
+	payload: EntityImportPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
