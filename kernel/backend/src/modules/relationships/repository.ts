@@ -37,6 +37,17 @@ export type UpdateRelationshipInput = RelationshipIdentityInput & {
 	properties: Record<string, unknown>;
 };
 
+export const relationshipMutationLockKey = (input: RelationshipIdentityInput) =>
+	JSON.stringify([
+		"relationship",
+		input.scope,
+		input.scope === "user" ? input.userId : "global",
+		input.relationshipSchemaPluginId ?? "kernel",
+		input.relationshipSchemaSlug,
+		input.sourceEntityId,
+		input.targetEntityId,
+	]);
+
 type RestoreRelationshipInput = Pick<
 	typeof schema.relationship.$inferInsert,
 	| "id"
@@ -171,6 +182,17 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 	"RelationshipsRepository",
 	{
 		make: Effect.sync(() => {
+			const lockRelationshipMutations = Effect.fn(
+				"RelationshipsRepository.lockRelationshipMutations",
+			)(function* (inputs: ReadonlyArray<RelationshipIdentityInput>) {
+				const db = yield* Database;
+				const keys = [...new Set(inputs.map(relationshipMutationLockKey))].sort();
+				for (const key of keys) {
+					yield* mapDatabaseErrors(
+						db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`),
+					);
+				}
+			});
 			const listUserRelationshipsForBackup = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForBackup",
 			)(function* (userId: UserId) {
@@ -408,6 +430,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				deleteRelationship,
 				restoreRelationship,
 				listGlobalRelationships,
+				lockRelationshipMutations,
 				deleteUserRelationshipById,
 				findRelationshipProperties,
 				listEnabledOwnersForSubject,

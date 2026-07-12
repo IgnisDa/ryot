@@ -16,14 +16,20 @@ For final acceptance, run each standard file separately so failures remain isola
 bun turbo --filter=@ryot-app/e2e test --only -- '<file>'
 ```
 
-The large media gate and live-provider smoke are discovered but opt-in. Never combine either with standard files.
+The large media gates and live-provider smoke are discovered but opt-in. Never combine them with
+standard files.
 
 ```bash
 RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/imports/media-population-operational-gate.test.ts'
+RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/imports/media-population-overlap-gate.test.ts'
 RUN_LIVE_PROVIDER_TESTS=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/smoke/providers-live-smoke.test.ts'
 ```
 
-The operational gate exercises production-size workflow, Redis, sandbox, and database paths with a 15-minute budget. Live smoke detects provider drift, may require credentials, and asserts stable properties rather than exact upstream text.
+The capacity gate exercises production-size workflow, Redis, sandbox, and database paths with a
+15-minute budget. The overlap gate repeatedly submits 5 and 20 imports whose tracks share artists
+and an album; it requires every import to complete and the PostgreSQL deadlock counter to remain
+unchanged. Live smoke detects provider drift, may require credentials, and asserts stable properties
+rather than exact upstream text.
 
 Run sandbox benchmarks separately. `SANDBOX_PROCESS_MODE` defaults to `on-demand`; use `warm` to measure the warm pool.
 
@@ -34,6 +40,10 @@ RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full -
 ## Harness
 
 `global-setup.ts` builds required artifacts, provisions PostgreSQL, Redis, and object storage, then starts one shared backend serving the SPA and `/api` from one origin. It publishes that backend through `E2E_API_URL`, `E2E_FRONTEND_URL`, and `E2E_ADMIN_ACCESS_TOKEN`, which worker processes inherit.
+
+The PostgreSQL container enables lock-wait and failed-statement logging with PID and transaction ID
+prefixes. Setup prints the retained log path. A deadlock entry contains PostgreSQL's process graph and
+the conflicting statements; inspect that file before the test teardown process exits.
 
 Up to four files share the backend concurrently. Tests and hooks time out after 180 seconds. The hanging-process reporter identifies leaked handles. Each spawned API writes a unique `SERVER_LOG_FILE` under the OS temp directory and prints its path.
 
