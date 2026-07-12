@@ -4,10 +4,6 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect, FileSystem, Schema, Stream } from "effect";
 import { Zip, zipSync, unzipSync, ZipPassThrough } from "fflate";
 
-import { BackupArchiveError } from "#modules/backup-data/archive-error";
-import { redactV1SchemaSecrets } from "#modules/backup-data/v1-rewrites";
-
-import { IncrementalSha256 } from "./streaming";
 import {
 	createV1ArchiveStream,
 	sortV1ArchiveRecords,
@@ -15,14 +11,17 @@ import {
 	validateV1ArchiveStream,
 	zipChunks,
 	type CreateV1ArchiveInput,
-} from "./v1-archive";
+} from "./archive";
+import { BackupArchiveError } from "./error";
+import { redactV1SchemaSecrets } from "./references";
 import {
 	V1Manifest,
 	V1Profile,
 	V1EntityDependency,
 	V1_SECTION_PATHS,
 	type V1ArchiveRecords,
-} from "./v1-codec";
+} from "./schemas";
+import { IncrementalSha256 } from "./streaming";
 
 const timestamp = "2026-08-23T12:00:00.000Z";
 const encoder = new TextEncoder();

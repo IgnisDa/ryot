@@ -4,18 +4,22 @@ import { BadRequest, internalError } from "@ryot/contract/errors";
 import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import { CryptoHasher } from "bun";
 import { Effect, Layer, Stream } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { Database } from "#lib/infrastructure/db/service";
-import type { MockOverrides } from "#lib/test-utils/effect";
-import { BackupDataService } from "#modules/backup-data/data-service";
+import { makeWorkflowActivityEngine, type MockOverrides } from "#lib/test-utils/effect";
 import { UploadsService } from "#modules/uploads/service";
 
-import { BackupsRepository } from "./repository";
+import { createV1ArchiveStream } from "../archive-v1/archive";
+import { BackupsRepository } from "../runs/repository";
+import { BackupAccountCleanliness } from "./account-cleanliness";
 import {
+	RestoreBackupWorkflow,
 	RestoreBackupWorkflowOperations,
 	RestoreBackupWorkflowOperationsLive,
-} from "./restore-workflow";
-import { createV1ArchiveStream } from "./v1-archive";
+	runRestoreBackupWorkflow,
+} from "./workflow";
+import { BackupRestoreWriter } from "./writer";
 
 const userId = UserId.make("user-id");
 const runId = BackupRunId.make("run-id");
@@ -33,13 +37,15 @@ const runningRun = {
 	startedAt: "2026-08-23T12:01:00.000Z",
 };
 
-const mockData = Layer.mock(BackupDataService);
+const mockWriter = Layer.mock(BackupRestoreWriter);
+const mockCleanliness = Layer.mock(BackupAccountCleanliness);
 const mockUploads = Layer.mock(UploadsService);
 const mockRepository = Layer.mock(BackupsRepository);
 
 const makeLayer = (input: {
 	database?: object;
-	data?: MockOverrides<typeof mockData>;
+	writer?: MockOverrides<typeof mockWriter>;
+	cleanliness?: MockOverrides<typeof mockCleanliness>;
 	uploads?: MockOverrides<typeof mockUploads>;
 	repository: MockOverrides<typeof mockRepository>;
 }) =>
@@ -49,7 +55,8 @@ const makeLayer = (input: {
 				BunFileSystem.layer,
 				Layer.succeed(Database, Object.assign(Object.create(null), input.database ?? {})),
 				mockRepository(input.repository),
-				mockData(input.data ?? {}),
+				mockWriter(input.writer ?? {}),
+				mockCleanliness(input.cleanliness ?? {}),
 				mockUploads(input.uploads ?? {}),
 			),
 		),
@@ -68,7 +75,7 @@ it.effect("replays a running restore without changing its start state", () => {
 					getRunById: () => Effect.succeed(runningRun),
 					markRunRunning: () => Effect.die("running replay must not update the run"),
 				},
-				data: {
+				cleanliness: {
 					assertAccountIsClean: () =>
 						Effect.sync(() => {
 							cleanlinessChecks += 1;
@@ -117,7 +124,7 @@ it.effect("skips archive validation and mutation after the restore checkpoint", 
 		Effect.provide(
 			makeLayer({
 				repository: { getRunById: () => Effect.succeed({ ...runningRun, progress: 90 }) },
-				data: { restoreRecords: () => Effect.die("checkpoint replay must not restore rows") },
+				writer: { restoreRecords: () => Effect.die("checkpoint replay must not restore rows") },
 				uploads: { openObject: () => Effect.die("checkpoint replay must not read the archive") },
 			}),
 		),
@@ -266,8 +273,10 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 					getRunById: () => Effect.succeed(runningRun),
 					updateProgress: () => Effect.die("failed transaction must not checkpoint"),
 				},
-				data: {
+				cleanliness: {
 					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
+				},
+				writer: {
 					assertRequiredPlugins: () => Effect.void.pipe(Effect.as(undefined)),
 					restoreRecords: () =>
 						Effect.sync(() => domainRows.add("domain-row")).pipe(
@@ -314,4 +323,30 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 			}),
 		),
 	);
+});
+
+it.effect("runs restore claim, direct writes, and cleanup without application hooks", () => {
+	const calls: string[] = [];
+	const workflowPayload = { runId, userId, uploadToken: "token" };
+	const instance = WorkflowInstance.initial(RestoreBackupWorkflow, runId);
+	const engine = makeWorkflowActivityEngine(instance);
+	const layer = Layer.mergeAll(
+		Layer.succeed(WorkflowInstance, instance),
+		Layer.succeed(WorkflowEngine, engine),
+		Layer.mock(RestoreBackupWorkflowOperations, {
+			begin: () => Effect.sync(() => (calls.push("begin"), true)),
+			claim: () =>
+				Effect.sync(() => {
+					calls.push("claim");
+					return { intentId: "intent", provider: "local" as const, key: "temporary/input.zip" };
+				}),
+			restore: () => Effect.sync(() => void calls.push("restore")),
+			cleanup: () => Effect.sync(() => void calls.push("cleanup")),
+			fail: () => Effect.sync(() => void calls.push("fail")),
+		}),
+	);
+	return Effect.gen(function* () {
+		yield* runRestoreBackupWorkflow(workflowPayload, runId);
+		expect(calls).toEqual(["begin", "claim", "restore", "cleanup"]);
+	}).pipe(Effect.provide(layer));
 });
