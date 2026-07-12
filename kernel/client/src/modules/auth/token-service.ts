@@ -3,6 +3,8 @@ import {
 	OAuthUserInfoResponse,
 	getOAuthEndpoint,
 	getOAuthResource,
+	OAUTH_END_SESSION_PATH,
+	OAUTH_REVOKE_PATH,
 	OAUTH_TOKEN_PATH,
 	OAUTH_USERINFO_PATH,
 	type OAuthUserInfoResponse as OAuthUserInfo,
@@ -12,7 +14,12 @@ import {
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
-import { OAuthEndpointError, postOAuthForm, type OAuthFetch } from "#/modules/auth/oauth-endpoint";
+import {
+	OAuthEndpointError,
+	postOAuthForm,
+	postOAuthFormRequest,
+	type OAuthFetch,
+} from "#/modules/auth/oauth-endpoint";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 
 const REFRESH_WINDOW_MS = 60_000;
@@ -205,19 +212,69 @@ const makeTokenService = (
 			}
 			throw new OAuthTokenError({ reason: "authorization-rejected" });
 		});
+	const logout = (origin: ServerOrigin, clientId: string, postLogoutRedirectUri: string) =>
+		run(async () => {
+			const canonical = normalizeServerOrigin(origin);
+			const current = await Effect.runPromise(storage.getTokenSet(canonical));
+			try {
+				if (!current) {
+					return null;
+				}
+				await Promise.allSettled(
+					(
+						[
+							[current.refreshToken, "refresh_token"],
+							[current.accessToken, "access_token"],
+						] as const
+					).map(([token, tokenTypeHint]) =>
+						postOAuthFormRequest(
+							fetcher,
+							canonical,
+							OAUTH_REVOKE_PATH,
+							new URLSearchParams({
+								token,
+								client_id: clientId,
+								token_type_hint: tokenTypeHint,
+							}),
+						),
+					),
+				);
+				const url = new URL(getOAuthEndpoint(canonical, OAUTH_END_SESSION_PATH));
+				url.search = new URLSearchParams({
+					client_id: clientId,
+					id_token_hint: current.idToken,
+					post_logout_redirect_uri: postLogoutRedirectUri,
+				}).toString();
+				return url.toString();
+			} finally {
+				await Promise.all([
+					Effect.runPromise(storage.removeTokenSet(canonical)),
+					Effect.runPromise(storage.clearPending(canonical)),
+				]);
+			}
+		});
 
 	return {
+		logout,
 		userInfo,
 		accessToken,
 		rejectAuthorization,
 		completeAuthorization,
-		clear: storage.removeTokenSet,
+		clear: (origin) =>
+			Effect.all([storage.removeTokenSet(origin), storage.clearPending(origin)], {
+				discard: true,
+			}),
 	};
 };
 
 export class OAuthTokenService extends Context.Service<
 	OAuthTokenService,
 	{
+		readonly logout: (
+			origin: ServerOrigin,
+			clientId: string,
+			postLogoutRedirectUri: string,
+		) => Effect.Effect<string | null, OAuthTokenError>;
 		readonly clear: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly accessToken: (
 			origin: ServerOrigin,

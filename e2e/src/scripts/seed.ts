@@ -22,10 +22,12 @@ import { castJson, column, coalesce, jsonPath, literal, table } from "@ryot/ryot
 import { buildSavedViewLayoutProjections, savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
+import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
 import { adminAccessTokenHeaders } from "../fixtures/kernel/admin";
+import { signInWithPassword } from "../fixtures/kernel/auth";
 import { enableTwoFactorForSession } from "../fixtures/kernel/auth-2fa";
 import {
 	encodePluginSourceFiles,
@@ -52,7 +54,19 @@ async function createAndSignIn(): Promise<{
 }> {
 	const email = `seed-${dayjs().valueOf()}@example.com`;
 	const password = email;
-	const authClient = createAuthClient({ baseURL: new URL(API_BASE_URL).origin });
+	let sessionCookie = "";
+	const authClient = createAuthClient({
+		baseURL: new URL(API_BASE_URL).origin,
+		fetchOptions: {
+			onResponse: ({ response }) => {
+				sessionCookie = response.headers
+					.getSetCookie()
+					.map((cookie) => cookie.split(";", 1)[0])
+					.filter((cookie): cookie is string => cookie !== undefined)
+					.join("; ");
+			},
+		},
+	});
 
 	const { data: signUpData, error: signUpError } = await authClient.signUp.email({
 		email,
@@ -64,21 +78,13 @@ async function createAndSignIn(): Promise<{
 		throw new Error(`Sign up failed: ${signUpError.message}`);
 	}
 
-	const signInResponse = await fetch(`${API_BASE_URL}/auth/sign-in/email`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ email, password }),
-	});
-
-	if (!signInResponse.ok) {
-		const error = await signInResponse.text();
-		throw new Error(`Sign in failed: ${error}`);
-	}
-
-	const token = signInResponse.headers.get("set-auth-token");
-	if (!token) {
-		throw new Error("Sign in succeeded but no auth token was returned");
-	}
+	const signIn = await Effect.runPromise(signInWithPassword(email, password, API_BASE_URL));
+	if (signIn.error) throw new Error(`Sign in failed: ${signIn.error.message}`);
+	const token = requirePresent(signIn.token, "Sign in succeeded but no OAuth token was returned");
+	sessionCookie = requirePresent(
+		signIn.sessionCookie,
+		"Sign in returned no browser session cookie",
+	);
 
 	let finalToken = token;
 	let backupCodes: string[] | undefined;
@@ -88,6 +94,7 @@ async function createAndSignIn(): Promise<{
 		const twoFactor = await enableTwoFactorForSession({
 			token,
 			password,
+			sessionCookie,
 			origin: FRONTEND_URL,
 			baseUrl: API_BASE_URL,
 		});

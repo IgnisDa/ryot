@@ -12,7 +12,10 @@ const PENDING_AUTHORIZATION_TTL_MS = 10 * 60 * 1000;
 const OAUTH_PENDING_PREFIX = "ryot:oauth:pending:";
 const OAUTH_TOKEN_PREFIX = "ryot:oauth:tokens:";
 
-export type OAuthBrowserStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
+export type OAuthBrowserStorage = Pick<
+	Storage,
+	"getItem" | "key" | "length" | "removeItem" | "setItem"
+>;
 
 export const oauthPendingKey = (origin: ServerOrigin, state: string) =>
 	`${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:${state}`;
@@ -27,6 +30,14 @@ const decodeStored = <A>(schema: Schema.Codec<A, unknown>, value: string | null)
 };
 
 const makeStorage = (storage: OAuthBrowserStorage | undefined): OAuthStorage["Service"] => ({
+	clearPending: (origin) =>
+		Effect.sync(() => {
+			const prefix = `${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:`;
+			const keys = Array.from({ length: storage?.length ?? 0 }, (_, index) =>
+				storage?.key(index),
+			).filter((key): key is string => key?.startsWith(prefix) === true);
+			keys.forEach((key) => storage?.removeItem(key));
+		}),
 	setPending: (pending) =>
 		Effect.sync(() =>
 			storage?.setItem(
@@ -81,6 +92,7 @@ const makeStorage = (storage: OAuthBrowserStorage | undefined): OAuthStorage["Se
 export class OAuthStorage extends Context.Service<
 	OAuthStorage,
 	{
+		readonly clearPending: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly removeTokenSet: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly setPending: (pending: PendingAuthorizationValue) => Effect.Effect<void>;
 		readonly setTokenSet: (

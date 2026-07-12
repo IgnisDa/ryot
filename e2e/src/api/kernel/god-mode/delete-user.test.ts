@@ -86,6 +86,7 @@ describe("Delete user", () => {
 			const {
 				email,
 				token,
+				sessionCookie,
 				userId: rawUserId,
 				client: userClient,
 			} = yield* createAuthenticatedClient();
@@ -97,7 +98,7 @@ describe("Delete user", () => {
 				isDisabled: true,
 			});
 			expect(configuredPlugin).toMatchObject({ isDisabled: true, sortOrder: 41 });
-			const apiKey = yield* createApiKey(token);
+			const apiKey = yield* createApiKey(sessionCookie);
 
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Authorization: `Bearer ${token}`,

@@ -229,18 +229,15 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 				const fixture = page.frameLocator('iframe[title="fixture plugin"]');
 				const home = fixture.locator("main");
 
-				await step("onboard and sign in", async () => {
+				await step("sign in", async () => {
 					await page.goto(`${frontendUrl}/`);
-					await page.getByText("Self-hosted", { exact: true }).click();
-					await page.getByLabel("Server URL").fill(new URL(apiUrl).origin);
-					await page.getByRole("button", { name: "Continue" }).click();
-					await page.waitForURL((url) => url.pathname === "/auth");
+					await page.waitForURL((url) => url.pathname === "/oauth/login");
 					await page.getByLabel("Email address").fill(email);
 					await page.getByLabel("Password").fill(password);
 					const entriesBeforeBootstrap = await page.evaluate(() => history.length);
 					await page.getByRole("button", { name: "Sign in", exact: true }).last().click();
 					await page.waitForURL(`${frontendUrl}/fitness`);
-					expect(await page.evaluate(() => history.length)).toBe(entriesBeforeBootstrap);
+					expect(await page.evaluate(() => history.length)).toBe(entriesBeforeBootstrap + 1);
 				});
 
 				await step("enter Fixture through the workspace switcher", async () => {
