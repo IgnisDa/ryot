@@ -12,7 +12,8 @@ export const manifest = defineManifest({
 	kind: "activity",
 	name: "Resolve imported OpenLibrary book",
 	slug: "activity.media-import-resolve.book.openlibrary",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 });
 

@@ -397,7 +397,8 @@ const manifestsMatch = (left: unknown, right: unknown) =>
 	left.name === right.name &&
 	left.slug === right.slug &&
 	stringArraysMatch(left.capabilities, right.capabilities) &&
-	stringArraysMatch(left.requiredAppConfigKeys, right.requiredAppConfigKeys);
+	stringArraysMatch(left.requiredPluginConfigKeys, right.requiredPluginConfigKeys) &&
+	stringArraysMatch(left.requiredSystemConfigKeys, right.requiredSystemConfigKeys);
 
 const importCompiledModule = async (
 	payload: SandboxRunnerPayload,

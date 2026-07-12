@@ -21,6 +21,21 @@ const pluginWithImportSources = (
 		entitySchemas: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
+		configSchema: {
+			unknownKeys: "strict",
+			fields: {
+				traktClientId: {
+					type: "string",
+					label: "Trakt client ID",
+					description: "Trakt client ID",
+				},
+				tmdbAccessToken: {
+					type: "string",
+					label: "TMDB access token",
+					description: "TMDB access token",
+				},
+			},
+		},
 		metadata: { ...fixtureManifest().metadata, slug },
 		bindings: { ...fixtureManifest().bindings, entityAutomations: [] },
 	},
@@ -35,7 +50,7 @@ const catalogLayer = () => {
 				input: "file",
 				name: "OpenScale",
 				slug: "open-scale",
-				requiredAppConfigKeys: [],
+				requiredPluginConfigKeys: [],
 				allowedFileExtensions: ["csv"],
 				description: "OpenScale export",
 				workflowSlug: "open-scale-import",
@@ -50,7 +65,7 @@ const catalogLayer = () => {
 				description: "Netflix export",
 				workflowSlug: "netflix-import",
 				allowedFileExtensions: ["zip"],
-				requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+				requiredPluginConfigKeys: ["tmdbAccessToken"],
 			},
 			{
 				slug: "trakt",
@@ -58,7 +73,7 @@ const catalogLayer = () => {
 				input: "payload",
 				description: "Trakt account",
 				workflowSlug: "trakt-import",
-				requiredAppConfigKeys: ["server.traktClientId"],
+				requiredPluginConfigKeys: ["traktClientId"],
 			},
 		]),
 	]);
@@ -89,7 +104,7 @@ it.effect("resolves the owning plugin, workflow and input metadata by source slu
 			pluginSlug: "apple",
 			workflowSlug: "netflix-import",
 			allowedFileExtensions: ["zip"],
-			requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+			requiredPluginConfigKeys: ["tmdbAccessToken"],
 		});
 		expect(catalog.find("trakt")).toMatchObject({ input: "payload", pluginSlug: "apple" });
 		expect(catalog.find("goodreads")).toBeNull();

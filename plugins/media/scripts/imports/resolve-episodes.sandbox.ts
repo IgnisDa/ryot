@@ -11,7 +11,8 @@ import { resolveEpisodes } from "../../operations/resolve-episodes";
 export const manifest = defineManifest({
 	kind: "activity",
 	name: "Resolve imported episodes",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["executeQueryEngine"],
 	slug: "activity.import.resolve-episodes",
 });

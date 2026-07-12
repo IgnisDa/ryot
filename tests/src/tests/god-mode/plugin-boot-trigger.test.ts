@@ -67,6 +67,7 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 				const detailsEntry = "scripts/provider-details.sandbox.ts";
 				const bootEntry = "scripts/plugin-boot.sandbox.ts";
 				const installed = yield* installTestPluginBundle({
+					configSchema: { fields: {}, unknownKeys: "strict" },
 					files: {
 						[bootEntry]: BOOT_SOURCE,
 						[detailsEntry]: providerSandboxSource({
@@ -86,7 +87,8 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 							providerOperation: "details",
 							name: "E2E Test Boot Provider details",
 							capabilities: [],
-							requiredAppConfigKeys: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
 						},
 						{
 							kind: "script",
@@ -95,7 +97,8 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 							providerSlug: PROVIDER_SLUG,
 							name: "E2E Test Boot",
 							capabilities: ["upsertGlobalEntities"],
-							requiredAppConfigKeys: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
 						},
 					],
 					providers: [

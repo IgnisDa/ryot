@@ -18,7 +18,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Plex sink",
 	slug: "integration.plex-sink",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["getIntegration"],
 });
 const multipartPayload = (rawBody: string, contentType: string) => {

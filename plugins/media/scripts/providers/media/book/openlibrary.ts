@@ -21,7 +21,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "OpenLibrary",
 	slug: "book.openlibrary",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 });
 

@@ -1,18 +1,36 @@
-import type { Config } from "effect";
-import { ConfigError, Effect, Option, Redacted } from "effect";
+import { ConfigError, Effect, LogLevel, Option, Redacted } from "effect";
 
-import type { GroupMeta } from "./builder";
-import {
-	animeAndMangaConfigDefinition,
-	booksConfigDefinition,
-	comicBooksConfigDefinition,
-	moviesAndShowsConfigDefinition,
-	musicConfigDefinition,
-	podcastsConfigDefinition,
-	systemConfigDefinition,
-	videoGamesConfigDefinition,
-} from "./definition";
 import { SystemConfigSource, type SystemConfigValue } from "./system";
+
+const logLevels: Record<string, LogLevel.LogLevel> = {
+	all: LogLevel.All,
+	off: LogLevel.None,
+	info: LogLevel.Info,
+	none: LogLevel.None,
+	debug: LogLevel.Debug,
+	error: LogLevel.Error,
+	fatal: LogLevel.Fatal,
+	trace: LogLevel.Trace,
+	warn: LogLevel.Warning,
+	warning: LogLevel.Warning,
+};
+
+export type AppConfigValue = Omit<SystemConfigValue, "server"> & {
+	readonly server: Omit<SystemConfigValue["server"], "logLevel"> & {
+		readonly logLevel: LogLevel.LogLevel;
+	};
+};
+
+const mapLogLevel = (
+	config: SystemConfigValue,
+): Effect.Effect<AppConfigValue, ConfigError.ConfigError> => {
+	const level = logLevels[config.server.logLevel.toLowerCase()];
+	return level
+		? Effect.succeed({ ...config, server: { ...config.server, logLevel: level } })
+		: Effect.fail(
+				ConfigError.InvalidData([], `Unsupported SERVER_LOG_LEVEL '${config.server.logLevel}'`),
+			);
+};
 
 const isNonEmpty = (opt: Option.Option<string>): opt is Option.Some<string> =>
 	Option.isSome(opt) && opt.value.length > 0;
@@ -22,13 +40,13 @@ const isNonEmptyRedacted = (
 ): opt is Option.Some<Redacted.Redacted> =>
 	Option.isSome(opt) && Redacted.value(opt.value).length > 0;
 
-export const isOidcEnabled = (config: SystemConfigValue): boolean => {
+export const isOidcEnabled = (config: AppConfigValue): boolean => {
 	const { clientId, clientSecret, issuerUrl } = config.server.oidc;
 	return isNonEmpty(clientId) && isNonEmpty(issuerUrl) && isNonEmptyRedacted(clientSecret);
 };
 
 export const getSmtpCredentials = (
-	config: SystemConfigValue,
+	config: AppConfigValue,
 ): Option.Option<{ server: string; user: Redacted.Redacted; password: Redacted.Redacted }> => {
 	const { password, server, user } = config.server.smtp;
 	if (!isNonEmpty(server) || !isNonEmptyRedacted(user) || !isNonEmptyRedacted(password)) {
@@ -37,12 +55,12 @@ export const getSmtpCredentials = (
 	return Option.some({ server: server.value, user: user.value, password: password.value });
 };
 
-export const isSmtpEnabled = (config: SystemConfigValue): boolean =>
+export const isSmtpEnabled = (config: AppConfigValue): boolean =>
 	Option.isSome(getSmtpCredentials(config));
 
 export const validateSystemConfig = (
-	config: SystemConfigValue,
-): Effect.Effect<SystemConfigValue, ConfigError.ConfigError> =>
+	config: AppConfigValue,
+): Effect.Effect<AppConfigValue, ConfigError.ConfigError> =>
 	Effect.gen(function* () {
 		const { clientId, clientSecret, issuerUrl } = config.server.oidc;
 		const oidcSetCount = [
@@ -111,63 +129,9 @@ export const validateSystemConfig = (
 		return config;
 	});
 
-export type MoviesAndShowsConfigValue = Config.Config.Success<
-	typeof moviesAndShowsConfigDefinition.config
->;
-export type AnimeAndMangaConfigValue = Config.Config.Success<
-	typeof animeAndMangaConfigDefinition.config
->;
-export type ComicBooksConfigValue = Config.Config.Success<typeof comicBooksConfigDefinition.config>;
-export type BooksConfigValue = Config.Config.Success<typeof booksConfigDefinition.config>;
-export type MusicConfigValue = Config.Config.Success<typeof musicConfigDefinition.config>;
-export type PodcastsConfigValue = Config.Config.Success<typeof podcastsConfigDefinition.config>;
-export type VideoGamesConfigValue = Config.Config.Success<typeof videoGamesConfigDefinition.config>;
-
-export const appConfigMeta = {
-	kind: "group",
-	description: "Application configuration",
-	children: {
-		...systemConfigDefinition.meta.children,
-		moviesAndShows: moviesAndShowsConfigDefinition.meta,
-		animeAndManga: animeAndMangaConfigDefinition.meta,
-		comicBooks: comicBooksConfigDefinition.meta,
-		books: booksConfigDefinition.meta,
-		music: musicConfigDefinition.meta,
-		podcasts: podcastsConfigDefinition.meta,
-		videoGames: videoGamesConfigDefinition.meta,
-	},
-} satisfies GroupMeta;
-
 export class AppConfig extends Effect.Service<AppConfig>()("AppConfig", {
 	effect: Effect.gen(function* () {
 		const system = yield* SystemConfigSource;
-		const moviesAndShows = yield* moviesAndShowsConfigDefinition.config;
-		const animeAndManga = yield* animeAndMangaConfigDefinition.config;
-		const comicBooks = yield* comicBooksConfigDefinition.config;
-		const books = yield* booksConfigDefinition.config;
-		const music = yield* musicConfigDefinition.config;
-		const podcasts = yield* podcastsConfigDefinition.config;
-		const videoGames = yield* videoGamesConfigDefinition.config;
-		const validated = yield* validateSystemConfig(system);
-		return {
-			...validated,
-			moviesAndShows,
-			animeAndManga,
-			comicBooks,
-			books,
-			music,
-			podcasts,
-			videoGames,
-		};
+		return yield* validateSystemConfig(yield* mapLogLevel(system));
 	}),
 }) {}
-
-export type AppConfigValue = SystemConfigValue & {
-	moviesAndShows: MoviesAndShowsConfigValue;
-	animeAndManga: AnimeAndMangaConfigValue;
-	comicBooks: ComicBooksConfigValue;
-	books: BooksConfigValue;
-	music: MusicConfigValue;
-	podcasts: PodcastsConfigValue;
-	videoGames: VideoGamesConfigValue;
-};

@@ -8,7 +8,8 @@ export const manifest = defineManifest({
 	name: "VNDB Company Details",
 	slug: "company.vndb.details",
 	capabilities: ["httpCall"],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });

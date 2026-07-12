@@ -1,26 +1,30 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import type { SandboxHostError } from "@ryot/sandbox-sdk/wire";
+import type { JsonValue, SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import type { Effect } from "effect";
 
-type AppConfigHost = SandboxHost<readonly ["getAppConfigValue"]>;
+type ConfigHost = SandboxHost<readonly ["getPluginConfigValue", "getSystemConfigValue"]>;
 
-const verifyAppConfigHost = (host: AppConfigHost) => {
-	const numberResult: Effect.Effect<number, SandboxHostError> = host.getAppConfigValue(
-		"server.progressUpdateThresholdHours",
-	);
-	const preloadLimitResult: Effect.Effect<number, SandboxHostError> = host.getAppConfigValue(
-		"builtinExercisePreloadLimit",
-	);
-	const stringResult: Effect.Effect<string, SandboxHostError> =
-		host.getAppConfigValue("books.googleBooksApiKey");
+const verifyConfigHost = (host: ConfigHost) => {
+	const pluginDefault: Effect.Effect<JsonValue, SandboxHostError> =
+		host.getPluginConfigValue("apiToken");
+	const pluginString: Effect.Effect<string, SandboxHostError> =
+		host.getPluginConfigValue<string>("apiToken");
+	const systemDefault: Effect.Effect<JsonValue, SandboxHostError> =
+		host.getSystemConfigValue("timezone");
+	const systemString: Effect.Effect<string, SandboxHostError> =
+		host.getSystemConfigValue<string>("timezone");
 
-	// @ts-expect-error Only leaf config keys are exposed.
-	void host.getAppConfigValue("server");
-	// @ts-expect-error Unknown config keys are rejected.
-	void host.getAppConfigValue("server.unknownSetting");
-	void numberResult;
-	void preloadLimitResult;
-	void stringResult;
+	void pluginDefault;
+	void pluginString;
+	void systemDefault;
+	void systemString;
 };
 
-void verifyAppConfigHost;
+const verifyPluginOnlyHost = (host: SandboxHost<readonly ["getPluginConfigValue"]>) => {
+	void host.getPluginConfigValue("apiToken");
+	// @ts-expect-error Undeclared host capabilities are not exposed.
+	void host.getSystemConfigValue("timezone");
+};
+
+void verifyConfigHost;
+void verifyPluginOnlyHost;

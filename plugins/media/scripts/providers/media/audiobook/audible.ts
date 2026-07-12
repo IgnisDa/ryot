@@ -18,7 +18,8 @@ export const manifest = defineManifest({
 	name: "Audible",
 	slug: "audiobook.audible",
 	capabilities: ["httpCall"],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 const CATALOG_URL = "https://api.audible.com/1.0/catalog/products";

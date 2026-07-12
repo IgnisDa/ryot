@@ -13,8 +13,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: MetronComicBookHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: (key) =>
-			Effect.succeed(key === "comicBooks.metronUsername" ? "user" : "pass"),
+		getPluginConfigValue: (key) => Effect.succeed(key === "metronUsername" ? "user" : "pass"),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("comic-book.metron sandbox script", () => {

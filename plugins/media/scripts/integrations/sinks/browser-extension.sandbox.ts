@@ -17,7 +17,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Ryot browser extension sink",
 	slug: "integration.browser-extension",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["getIntegration"],
 });
 const hostname = (url?: string) => {

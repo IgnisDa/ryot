@@ -9,7 +9,8 @@ import { adaptWatcharrExportBatch } from "../../imports/watcharr";
 export const manifest = defineManifest({
 	kind: "activity",
 	name: "Parse Watcharr import",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	slug: "activity.import.watcharr",
 	capabilities: ["artifact-read"],
 });

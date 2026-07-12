@@ -17,7 +17,7 @@ const makeHost = (
 	overrides: Partial<SpotifyPersonHost> = {},
 ): SpotifyPersonHost =>
 	defineSandboxTestHost(manifest, {
-		getAppConfigValue: (key) => Effect.succeed(key.endsWith("Secret") ? "secret" : "id"),
+		getPluginConfigValue: (key) => Effect.succeed(key.endsWith("Secret") ? "secret" : "id"),
 		getCachedValue: () => Effect.succeed("cached-token"),
 		setCachedValue: () => Effect.succeed(null),
 		httpCall: (_method, url) => {

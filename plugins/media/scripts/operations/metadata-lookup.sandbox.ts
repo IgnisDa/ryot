@@ -28,8 +28,9 @@ export const manifest = defineManifest({
 	kind: "operation",
 	name: "Metadata Lookup",
 	slug: "operation.metadata-lookup",
-	requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
-	capabilities: ["httpCall", "getIntegration", "getAppConfigValue", "getUserPreferences"],
+	requiredPluginConfigKeys: ["tmdbAccessToken"],
+	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getIntegration", "getPluginConfigValue", "getUserPreferences"],
 });
 
 const searchProviders = [

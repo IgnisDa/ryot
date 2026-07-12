@@ -19,7 +19,8 @@ export const SandboxScriptMetadata = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	slug: Schema.optional(Schema.String),
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
-	requiredAppConfigKeys: Schema.optional(Schema.Array(Schema.String)),
+	requiredPluginConfigKeys: Schema.optional(Schema.Array(Schema.String)),
+	requiredSystemConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	kind: Schema.optional(
 		Schema.Literal("script", "activity", "operation", "workflow", "provider", "automation"),
 	),
@@ -30,8 +31,9 @@ export type SandboxScriptMetadata = Schema.Schema.Type<typeof SandboxScriptMetad
 const SandboxScriptManifestFields = {
 	name: Schema.String,
 	slug: Schema.String,
-	requiredAppConfigKeys: Schema.Array(Schema.String),
 	capabilities: Schema.Array(Schema.Literal(...SANDBOX_HOST_CAPABILITIES)),
+	requiredPluginConfigKeys: Schema.Array(Schema.String),
+	requiredSystemConfigKeys: Schema.Array(Schema.String),
 };
 
 export const SandboxScriptManifest = Schema.Union(

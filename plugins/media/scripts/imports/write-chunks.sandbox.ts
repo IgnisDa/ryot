@@ -11,7 +11,8 @@ export const manifest = defineManifest({
 	kind: "activity",
 	capabilities: ["scratch"],
 	name: "Write media import chunks",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	slug: "activity.import.write-chunks",
 });
 

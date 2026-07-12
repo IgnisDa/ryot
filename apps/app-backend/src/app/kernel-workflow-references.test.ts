@@ -81,7 +81,8 @@ const populationReferencesLayer = (
 							capabilities: [],
 							name: "Catalog refresh",
 							slug: "catalog.refresh",
-							requiredAppConfigKeys: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
 						},
 					}),
 				findAuthorizedSchemaProviderById: ({ providerId }) =>

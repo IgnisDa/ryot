@@ -11,9 +11,10 @@ import { value } from "./helper";
 export const manifest = defineManifest({
   kind: "provider",
   name: "Built-in provider",
-  slug: "builtin.provider",
+	slug: "builtin.provider",
 	capabilities: [],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({
@@ -39,7 +40,8 @@ it.effect("compiles a trusted provider with a relative helper into one ESM modul
 			capabilities: [],
 			slug: "builtin.provider",
 			name: "Built-in provider",
-			requiredAppConfigKeys: [],
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
 		});
 		expect(result.compiled.javascript).toContain("resolved-id");
 		expect(result.compiled.javascript).not.toContain('from "./helper"');

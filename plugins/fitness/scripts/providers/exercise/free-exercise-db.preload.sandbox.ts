@@ -7,12 +7,13 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Free Exercise DB Preload",
 	slug: "exercise.free-exercise-db.preload",
-	requiredAppConfigKeys: ["builtinExercisePreloadLimit"],
+	requiredPluginConfigKeys: ["exercisePreloadLimit"],
+	requiredSystemConfigKeys: [],
 	capabilities: [
 		"httpCall",
 		"getCachedValue",
 		"setCachedValue",
-		"getAppConfigValue",
+		"getPluginConfigValue",
 		"upsertGlobalEntities",
 	],
 });

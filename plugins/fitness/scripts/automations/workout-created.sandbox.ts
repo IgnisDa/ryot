@@ -4,7 +4,8 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "automation",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["emitSignal"],
 	name: "Workout Created Detector",
 	slug: "automation.workout-created",

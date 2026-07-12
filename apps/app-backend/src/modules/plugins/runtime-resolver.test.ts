@@ -154,10 +154,11 @@ const scriptRow = {
 	contentHash: "fixture.details-hash",
 	metadata: {
 		capabilities: [],
-		kind: "provider" as const,
 		name: "Fixture details",
 		slug: "fixture.details",
-		requiredAppConfigKeys: [],
+		kind: "provider" as const,
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
 	},
 };
 
@@ -172,7 +173,8 @@ const customScriptRow = {
 		kind: "script" as const,
 		name: "Fixture preload",
 		slug: "fixture.preload",
-		requiredAppConfigKeys: [],
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
 	},
 };
 
@@ -185,10 +187,11 @@ const workflowScriptRow = {
 	contentHash: "fixture.workflow-hash",
 	metadata: {
 		capabilities: [],
-		kind: "workflow" as const,
 		name: "Fixture workflow",
 		slug: "fixture.workflow",
-		requiredAppConfigKeys: [],
+		kind: "workflow" as const,
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
 	},
 };
 
@@ -203,7 +206,8 @@ const activityScriptRow = {
 		capabilities: [],
 		name: "Fixture activity",
 		slug: "fixture.activity",
-		requiredAppConfigKeys: [],
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
 		kind: "activity" as const,
 	},
 };

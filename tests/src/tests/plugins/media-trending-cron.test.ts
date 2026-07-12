@@ -64,6 +64,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				const detailsEntry = "scripts/provider-details.sandbox.ts";
 				const trendingEntry = "scripts/trending.sandbox.ts";
 				const installed = yield* installTestPluginBundle({
+					configSchema: { fields: {}, unknownKeys: "strict" },
 					files: {
 						[trendingEntry]: TRENDING_SOURCE,
 						[detailsEntry]: providerSandboxSource({
@@ -80,7 +81,8 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 							capabilities: [],
 							entry: detailsEntry,
 							slug: DETAILS_SCRIPT_SLUG,
-							requiredAppConfigKeys: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
 							providerSlug: PROVIDER_SLUG,
 							providerOperation: "details",
 							name: "E2E Test Trending Provider details",
@@ -89,7 +91,8 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 							kind: "script",
 							slug: SCRIPT_SLUG,
 							entry: trendingEntry,
-							requiredAppConfigKeys: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
 							name: "E2E Test Trending",
 							providerSlug: PROVIDER_SLUG,
 							capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],

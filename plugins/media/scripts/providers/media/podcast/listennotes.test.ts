@@ -16,7 +16,7 @@ const makeHost = (
 ) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Effect.succeed("listen-key"),
+		getPluginConfigValue: () => Effect.succeed("listen-key"),
 		getCachedValue: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
 		...overrides,

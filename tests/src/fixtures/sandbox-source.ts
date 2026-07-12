@@ -12,7 +12,8 @@ type ScriptModuleSourceInput = SandboxSourceIdentity & {
 	readonly outputSchema: string;
 	readonly declarations?: string;
 	readonly sdkImports?: readonly string[];
-	readonly requiredAppConfigKeys?: readonly string[];
+	readonly requiredPluginConfigKeys?: readonly string[];
+	readonly requiredSystemConfigKeys?: readonly string[];
 	readonly capabilities: readonly SandboxHostCapability[];
 };
 
@@ -37,7 +38,8 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: ${JSON.stringify(input.capabilities)},
-  requiredAppConfigKeys: ${JSON.stringify(input.requiredAppConfigKeys ?? [])},
+  requiredPluginConfigKeys: ${JSON.stringify(input.requiredPluginConfigKeys ?? [])},
+  requiredSystemConfigKeys: ${JSON.stringify(input.requiredSystemConfigKeys ?? [])},
 });
 
 ${input.declarations ?? ""}
@@ -133,20 +135,37 @@ const query = Schema.decodeUnknownSync(jsonValueSchema)(JSON.parse(${JSON.string
 	});
 }
 
-export function appConfigSandboxSource(
+export function pluginConfigSandboxSource(
 	input: SandboxSourceIdentity & {
 		readonly key: string;
-		readonly requiredAppConfigKeys?: readonly string[];
+		readonly requiredPluginConfigKeys?: readonly string[];
 	},
 ) {
 	return scriptModuleSource({
 		...input,
 		inputSchema: "Schema.Struct({})",
 		outputSchema: "jsonValueSchema",
-		capabilities: ["getAppConfigValue"],
+		capabilities: ["getPluginConfigValue"],
 		sdkImports: ["jsonValueSchema"],
-		requiredAppConfigKeys: input.requiredAppConfigKeys ?? [input.key],
-		run: `(_input, host) => host.getAppConfigValue(${JSON.stringify(input.key)})`,
+		requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? [input.key],
+		run: `(_input, host) => host.getPluginConfigValue(${JSON.stringify(input.key)})`,
+	});
+}
+
+export function systemConfigSandboxSource(
+	input: SandboxSourceIdentity & {
+		readonly key: string;
+		readonly requiredSystemConfigKeys?: readonly string[];
+	},
+) {
+	return scriptModuleSource({
+		...input,
+		inputSchema: "Schema.Struct({})",
+		outputSchema: "jsonValueSchema",
+		capabilities: ["getSystemConfigValue"],
+		sdkImports: ["jsonValueSchema"],
+		requiredSystemConfigKeys: input.requiredSystemConfigKeys ?? [input.key],
+		run: `(_input, host) => host.getSystemConfigValue(${JSON.stringify(input.key)})`,
 	});
 }
 
@@ -266,7 +285,8 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 const trendingResultSchema = Schema.Struct({
@@ -322,7 +342,8 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: ["upsertGlobalEntities"],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -354,7 +375,8 @@ import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 export const manifest = defineManifest({
   kind: "operation",
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });

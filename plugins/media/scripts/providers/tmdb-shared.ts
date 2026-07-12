@@ -12,22 +12,22 @@ import {
 } from "../script-helpers/records";
 import type { RoleRelatedEntity } from "../script-helpers/role-accumulator";
 
-export type TmdbHost = SandboxHost<readonly ["httpCall", "getAppConfigValue"]>;
+export type TmdbHost = SandboxHost<readonly ["httpCall", "getPluginConfigValue"]>;
 
 export type TmdbUserHost = SandboxHost<
-	readonly ["httpCall", "getAppConfigValue", "getUserPreferences"]
+	readonly ["httpCall", "getPluginConfigValue", "getUserPreferences"]
 >;
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 
 export const getTmdbAccessToken = (host: TmdbHost) =>
-	host.getAppConfigValue("moviesAndShows.tmdbAccessToken").pipe(
+	host.getPluginConfigValue("tmdbAccessToken").pipe(
 		Effect.map((value) => {
 			const token = stringValue(value);
 			if (!token) {
 				throw new Error(
-					"TMDB access token is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN in your environment.",
+					"TMDB access token is not configured. Set RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN in your environment.",
 				);
 			}
 			return token;

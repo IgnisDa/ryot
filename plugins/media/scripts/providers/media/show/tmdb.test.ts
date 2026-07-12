@@ -20,7 +20,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getAppConfigValue: () => Effect.succeed("token"),
+		getPluginConfigValue: () => Effect.succeed("token"),
 		getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -32,10 +32,10 @@ describe("show.tmdb sandbox script", () => {
 			[resolveManifest.slug, resolve.operation, resolveManifest.capabilities],
 			[translateManifest.slug, translate.operation, translateManifest.capabilities],
 		]).toEqual([
-			["show.tmdb.search", "search", ["httpCall", "getAppConfigValue", "getUserPreferences"]],
-			["show.tmdb.details", "details", ["httpCall", "getAppConfigValue"]],
-			["show.tmdb.resolve", "resolve", ["httpCall", "getAppConfigValue"]],
-			["show.tmdb.translate", "translate", ["httpCall", "getAppConfigValue"]],
+			["show.tmdb.search", "search", ["httpCall", "getPluginConfigValue", "getUserPreferences"]],
+			["show.tmdb.details", "details", ["httpCall", "getPluginConfigValue"]],
+			["show.tmdb.resolve", "resolve", ["httpCall", "getPluginConfigValue"]],
+			["show.tmdb.translate", "translate", ["httpCall", "getPluginConfigValue"]],
 		]);
 	});
 	it("declares trending as a generic provider-associated script", () => {
@@ -44,13 +44,13 @@ describe("show.tmdb sandbox script", () => {
 			slug: trendingManifest.slug,
 			operation: "operation" in trending ? trending.operation : null,
 			capabilities: trendingManifest.capabilities,
-			requiredAppConfigKeys: trendingManifest.requiredAppConfigKeys,
+			requiredPluginConfigKeys: trendingManifest.requiredPluginConfigKeys,
 		}).toEqual({
 			kind: "script",
 			slug: "show.tmdb.trending",
 			operation: null,
-			capabilities: ["httpCall", "getAppConfigValue"],
-			requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+			capabilities: ["httpCall", "getPluginConfigValue"],
+			requiredPluginConfigKeys: ["tmdbAccessToken"],
 		});
 	});
 	it("keeps TMDB recommendations as related entities", () => {

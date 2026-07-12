@@ -10,8 +10,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Metron",
 	slug: "comic-book.metron",
-	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["comicBooks.metronUsername", "comicBooks.metronPassword"],
+	capabilities: ["httpCall", "getPluginConfigValue"],
+	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
+	requiredSystemConfigKeys: [],
 });
 
 type SuggestionEntity = { name: string; externalId: string; providerSlug: string };

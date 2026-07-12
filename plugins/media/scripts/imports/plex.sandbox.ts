@@ -11,7 +11,8 @@ export const manifest = defineManifest({
 	name: "Fetch Plex import",
 	slug: "activity.import.plex",
 	capabilities: ["httpCall"],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineActivity({

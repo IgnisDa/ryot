@@ -3,7 +3,7 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
 
-export type MetronHost = SandboxHost<readonly ["httpCall", "getAppConfigValue"]>;
+export type MetronHost = SandboxHost<readonly ["httpCall", "getPluginConfigValue"]>;
 
 export const getIdentifier = (value: unknown) => {
 	const numeric = numberValue(value);
@@ -16,19 +16,21 @@ export const getIdentifier = (value: unknown) => {
 export const getMetronCredentials = (host: MetronHost) =>
 	Effect.gen(function* () {
 		const usernameValue = yield* host
-			.getAppConfigValue("comicBooks.metronUsername")
+			.getPluginConfigValue("metronUsername")
 			.pipe(
 				Effect.mapError((error) => new Error(error.message || "Could not load Metron username")),
 			);
 		const passwordValue = yield* host
-			.getAppConfigValue("comicBooks.metronPassword")
+			.getPluginConfigValue("metronPassword")
 			.pipe(
 				Effect.mapError((error) => new Error(error.message || "Could not load Metron password")),
 			);
 		const username = stringValue(usernameValue);
 		const password = stringValue(passwordValue);
 		if (!username || !password) {
-			throw new Error("Metron credentials are not configured");
+			throw new Error(
+				"Metron credentials are not configured. Set RYOT_PLUGIN_MEDIA_METRON_USERNAME and RYOT_PLUGIN_MEDIA_METRON_PASSWORD.",
+			);
 		}
 		return { username, password };
 	});

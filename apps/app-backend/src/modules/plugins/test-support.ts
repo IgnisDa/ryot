@@ -6,6 +6,7 @@ export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
 export const fixtureManifest = () =>
 	({
 		savedViews: [],
+		configSchema: { fields: {}, unknownKeys: "strict" },
 		boot: [] as PluginManifest["boot"],
 		crons: [] as PluginManifest["crons"],
 		workflows: [] as PluginManifest["workflows"],
@@ -72,7 +73,8 @@ export const fixtureManifest = () =>
 			{
 				capabilities: [],
 				kind: "automation",
-				requiredAppConfigKeys: [],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
 				name: "Fixture Automation",
 				slug: "fixture.automation",
 				entry: "scripts/fixture.sandbox.ts",

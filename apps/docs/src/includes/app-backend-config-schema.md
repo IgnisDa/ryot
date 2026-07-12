@@ -10,7 +10,6 @@
 | `timezone` | `TZ` | IANA timezone used for interpreting timezone-less datetimes during imports | No | No | `Etc/GMT` |
 | `redisUrl` | `REDIS_URL` | Redis connection string | Yes | Yes | — |
 | `frontendUrl` | `FRONTEND_URL` | Public URL of the frontend application | No | No | `http://localhost:3000` |
-| `builtinExercisePreloadLimit` | `BUILTIN_EXERCISE_PRELOAD_LIMIT` | Maximum number of built-in exercises to preload | No | No | `873` |
 
 ### User account settings
 
@@ -27,10 +26,8 @@
 | `server.logFile` | `SERVER_LOG_FILE` | File path for appended structured logs | No | No | — |
 | `server.corsOrigins` | `SERVER_CORS_ORIGINS` | Comma-separated list of allowed CORS origins | No | No | — |
 | `server.otlpEndpoint` | `SERVER_OTLP_ENDPOINT` | Base URL for OTLP trace export | No | No | — |
-| `server.traktClientId` | `SERVER_IMPORTER_TRAKT_CLIENT_ID` | Trakt client ID for the Trakt importer | No | No | — |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
-| `server.progressUpdateThresholdHours` | `SERVER_PROGRESS_UPDATE_THRESHOLD` | Minimum hours between automatic progress updates for an entity | No | No | `2` |
 
 #### OIDC provider
 
@@ -91,50 +88,28 @@
 | `fileStorage.accessKeyId` | `FILE_STORAGE_S3_ACCESS_KEY_ID` | S3 access key ID | No | Yes | — |
 | `fileStorage.secretAccessKey` | `FILE_STORAGE_S3_SECRET_ACCESS_KEY` | S3 secret access key | No | Yes | — |
 
-### Movies and Shows configuration
+## Media plugin configuration
 
-| App Config Key | Variable | Description | Required | Sensitive | Default |
-|---|---|---|---|---|---|
-| `moviesAndShows.tvdbApiKey` | `MOVIES_AND_SHOWS_TVDB_API_KEY` | TVDB API key | No | Yes | — |
-| `moviesAndShows.tmdbAccessToken` | `MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN` | TMDB access token for movie and show lookups | No | Yes | — |
+| Plugin Config Key | Variable | Label | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|---|
+| `media.tvdbApiKey` | `RYOT_PLUGIN_MEDIA_TVDB_API_KEY` | TVDB API key | API key used to access TVDB metadata | No | Yes | — |
+| `media.tmdbAccessToken` | `RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN` | TMDB access token | Access token used to access TMDB metadata | No | Yes | — |
+| `media.malClientId` | `RYOT_PLUGIN_MEDIA_MAL_CLIENT_ID` | MyAnimeList client ID | Client ID used to access MyAnimeList metadata | No | No | — |
+| `media.metronUsername` | `RYOT_PLUGIN_MEDIA_METRON_USERNAME` | Metron username | Username used to access Metron metadata | No | No | — |
+| `media.metronPassword` | `RYOT_PLUGIN_MEDIA_METRON_PASSWORD` | Metron password | Password used to access Metron metadata | No | Yes | — |
+| `media.hardcoverApiKey` | `RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY` | Hardcover API key | API key used to access Hardcover metadata | No | Yes | — |
+| `media.googleBooksApiKey` | `RYOT_PLUGIN_MEDIA_GOOGLE_BOOKS_API_KEY` | Google Books API key | API key used to access Google Books metadata | No | Yes | — |
+| `media.spotifyClientId` | `RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_ID` | Spotify client ID | Client ID used to access Spotify metadata | No | No | — |
+| `media.spotifyClientSecret` | `RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_SECRET` | Spotify client secret | Client secret used to access Spotify metadata | No | Yes | — |
+| `media.listennotesApiKey` | `RYOT_PLUGIN_MEDIA_LISTENNOTES_API_KEY` | Listen Notes API key | API key used to access Listen Notes metadata | No | Yes | — |
+| `media.twitchClientId` | `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_ID` | Twitch client ID | Client ID used to access IGDB metadata | No | No | — |
+| `media.twitchClientSecret` | `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_SECRET` | Twitch client secret | Client secret used to access IGDB metadata | No | Yes | — |
+| `media.giantBombApiKey` | `RYOT_PLUGIN_MEDIA_GIANT_BOMB_API_KEY` | Giant Bomb API key | API key used to access Giant Bomb metadata | No | Yes | — |
+| `media.traktClientId` | `RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID` | Trakt client ID | Client ID used to import data from Trakt | No | No | — |
+| `media.progressUpdateThresholdHours` | `RYOT_PLUGIN_MEDIA_PROGRESS_UPDATE_THRESHOLD_HOURS` | Progress update threshold | Hours used to debounce repeated completion updates | No | No | `2` |
 
-### Anime and Manga configuration
+## Fitness plugin configuration
 
-| App Config Key | Variable | Description | Required | Sensitive | Default |
-|---|---|---|---|---|---|
-| `animeAndManga.malClientId` | `ANIME_AND_MANGA_MAL_CLIENT_ID` | MyAnimeList client ID for anime and manga lookups | No | No | — |
-
-### Comic Books configuration
-
-| App Config Key | Variable | Description | Required | Sensitive | Default |
-|---|---|---|---|---|---|
-| `comicBooks.metronUsername` | `COMIC_BOOK_METRON_USERNAME` | Metron username | No | No | — |
-| `comicBooks.metronPassword` | `COMIC_BOOK_METRON_PASSWORD` | Metron password | No | Yes | — |
-
-### Books configuration
-
-| App Config Key | Variable | Description | Required | Sensitive | Default |
-|---|---|---|---|---|---|
-| `books.hardcoverApiKey` | `BOOKS_HARDCOVER_API_KEY` | Hardcover API key for the Hardcover book importer | No | Yes | — |
-| `books.googleBooksApiKey` | `BOOKS_GOOGLE_BOOKS_API_KEY` | Google Books API key for ISBN book lookups | No | Yes | — |
-
-### Music configuration
-
-| App Config Key | Variable | Description | Required | Sensitive | Default |
-|---|---|---|---|---|---|
-| `music.spotifyClientId` | `MUSIC_SPOTIFY_CLIENT_ID` | Spotify client ID | No | No | — |
-| `music.spotifyClientSecret` | `MUSIC_SPOTIFY_CLIENT_SECRET` | Spotify client secret | No | Yes | — |
-
-### Podcasts configuration
-
-| App Config Key | Variable | Description | Required | Sensitive | Default |
-|---|---|---|---|---|---|
-| `podcasts.listennotesApiKey` | `PODCASTS_LISTENNOTES_API_KEY` | ListenNotes API key | No | Yes | — |
-
-### Video Games configuration
-
-| App Config Key | Variable | Description | Required | Sensitive | Default |
-|---|---|---|---|---|---|
-| `videoGames.twitchClientId` | `VIDEO_GAMES_TWITCH_CLIENT_ID` | Twitch client ID for IGDB video game lookups | No | No | — |
-| `videoGames.giantBombApiKey` | `VIDEO_GAMES_GIANT_BOMB_API_KEY` | Giant Bomb API key for the Grouvee importer | No | Yes | — |
-| `videoGames.twitchClientSecret` | `VIDEO_GAMES_TWITCH_CLIENT_SECRET` | Twitch client secret for IGDB video game lookups | No | Yes | — |
+| Plugin Config Key | Variable | Label | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|---|
+| `fitness.exercisePreloadLimit` | `RYOT_PLUGIN_FITNESS_EXERCISE_PRELOAD_LIMIT` | Exercise preload limit | Maximum number of built-in exercises preloaded during startup | No | No | `873` |

@@ -10,7 +10,8 @@ import { readImportArtifactText } from "./shared";
 export const manifest = defineManifest({
 	kind: "activity",
 	name: "Parse Hardcover import",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	slug: "activity.import.hardcover",
 	capabilities: ["artifact-read"],
 });

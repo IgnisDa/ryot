@@ -42,8 +42,8 @@ it.effect("rejects a static manifest over its JSON byte boundary", () =>
 		);
 		const failure = yield* compile(
 			validSource.replace(
-				"requiredAppConfigKeys: []",
-				`requiredAppConfigKeys: [${requiredKeys.join(",")}]`,
+				"requiredPluginConfigKeys: []",
+				`requiredPluginConfigKeys: [${requiredKeys.join(",")}]`,
 			),
 		).pipe(Effect.flip);
 
@@ -78,7 +78,8 @@ export enum LargeCompiledValue { ${enumMembers} }
 export const manifest = defineManifest({
   kind: "script",
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
   name: "Large compiled value",
   slug: "large-compiled-value",
 	});

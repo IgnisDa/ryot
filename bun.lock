@@ -30,6 +30,7 @@
         "@effect/sql-pg": "0.52.1",
         "@effect/workflow": "0.18.2",
         "@opentelemetry/api": "1.9.1",
+        "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/plugin-fitness": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
@@ -362,6 +363,18 @@
         "vite": "8.0.14",
       },
     },
+    "libs/config": {
+      "name": "@ryot/config",
+      "dependencies": {
+        "@ryot/contract": "workspace:*",
+        "effect": "3.21.4",
+      },
+      "devDependencies": {
+        "@ryot/testing": "workspace:*",
+        "bun-types": "1.3.14",
+        "vitest": "4.1.9",
+      },
+    },
     "libs/contract": {
       "name": "@ryot/contract",
       "dependencies": {
@@ -381,6 +394,7 @@
     "libs/plugin-kit": {
       "name": "@ryot/plugin-kit",
       "dependencies": {
+        "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
         "effect": "3.21.4",
@@ -472,6 +486,7 @@
     "plugins/fitness": {
       "name": "@ryot/plugin-fitness",
       "dependencies": {
+        "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
         "@ryot/query-engine": "workspace:*",
@@ -488,6 +503,7 @@
     "plugins/media": {
       "name": "@ryot/plugin-media",
       "dependencies": {
+        "@ryot/config": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/plugin-kit": "workspace:*",
         "@ryot/query-engine": "workspace:*",
@@ -1713,6 +1729,8 @@
     "@ryot/app-client-backup": ["@ryot/app-client-backup@workspace:apps/app-client-backup"],
 
     "@ryot/browser-extension": ["@ryot/browser-extension@workspace:apps/browser-extension"],
+
+    "@ryot/config": ["@ryot/config@workspace:libs/config"],
 
     "@ryot/contract": ["@ryot/contract@workspace:libs/contract"],
 
