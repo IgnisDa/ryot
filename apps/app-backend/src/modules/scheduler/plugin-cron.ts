@@ -85,7 +85,7 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 			return { result, status: "executed" as const };
 		});
 
-		const dispatchAll = (entries: ReadonlyArray<[ActivePluginCron, string]>) =>
+		const dispatchAll = (entries: ReadonlyArray<readonly [ActivePluginCron, string]>) =>
 			Effect.forEach(
 				entries,
 				([entry, executionId]) =>
@@ -104,26 +104,37 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 			);
 
 		const dispatchDue = (scheduledAt: number) =>
-			dispatchAll(
-				list().flatMap((entry) => {
-					const parsed = Cron.parse(entry.cron.schedule, config.timezone);
-					if (Either.isLeft(parsed)) {
-						return [];
-					}
-					const dueAt = Cron.next(parsed.right, scheduledAt - MINUTE_MS).getTime();
-					return dueAt === scheduledAt
-						? [[entry, pluginCronExecutionId(entry.pluginSlug, entry.cron.slug, scheduledAt)]]
-						: [];
-				}),
-			);
-
-		const triggerAll = (parentExecutionId: string) =>
-			dispatchAll(
-				list().map((entry) => [
-					entry,
-					pluginCronExecutionId(entry.pluginSlug, entry.cron.slug, parentExecutionId),
-				]),
-			);
+			Effect.gen(function* () {
+				const due = yield* Effect.forEach(list(), (entry) =>
+					Effect.gen(function* () {
+						const schedule =
+							"cron" in entry.cron.schedule
+								? entry.cron.schedule.cron
+								: config.scheduler.infrequentCronJobsSchedule;
+						const parsed = Cron.parse(schedule, config.timezone);
+						if (Either.isLeft(parsed)) {
+							yield* Effect.logWarning("plugin cron schedule invalid").pipe(
+								Effect.annotateLogs({
+									schedule,
+									cronSlug: entry.cron.slug,
+									pluginSlug: entry.pluginSlug,
+								}),
+							);
+							return [];
+						}
+						const dueAt = Cron.next(parsed.right, scheduledAt - MINUTE_MS).getTime();
+						return dueAt === scheduledAt
+							? [
+									[
+										entry,
+										pluginCronExecutionId(entry.pluginSlug, entry.cron.slug, scheduledAt),
+									] as const,
+								]
+							: [];
+					}),
+				);
+				yield* dispatchAll(due.flat());
+			});
 
 		const trigger = Effect.fn("PluginCronService.trigger")(function* (
 			pluginSlug: string,
@@ -150,7 +161,7 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 					};
 		});
 
-		return { trigger, dispatchDue, triggerAll };
+		return { trigger, dispatchDue };
 	}),
 }) {}
 

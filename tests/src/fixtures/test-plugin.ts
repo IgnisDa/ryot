@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type {
+	PluginCron,
 	PluginOperationAuth,
 	PluginProviderInformation,
 	PluginProviderOperation,
@@ -77,22 +78,7 @@ export const testPluginManifest = (input: {
 	scripts?: ReadonlyArray<TestPluginScript & { entry: string }>;
 	boot?: ReadonlyArray<{ slug: string; scriptSlug: string; description: string }>;
 	workflows?: ReadonlyArray<{ slug: string; scriptSlug: string }>;
-	crons?: ReadonlyArray<
-		| {
-				slug: string;
-				lot: "script";
-				schedule: string;
-				scriptSlug: string;
-				description: string;
-		  }
-		| {
-				slug: string;
-				lot: "workflow";
-				schedule: string;
-				workflowSlug: string;
-				description: string;
-		  }
-	>;
+	crons?: ReadonlyArray<PluginCron>;
 	entitySchemas?: ReadonlyArray<{
 		icon: string;
 		name: string;

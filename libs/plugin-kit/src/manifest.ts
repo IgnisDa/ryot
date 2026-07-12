@@ -169,8 +169,11 @@ export type PluginScript = Schema.Schema.Type<typeof PluginScript>;
 
 const PluginCronFields = {
 	slug: sandboxManifestSlug,
-	schedule: sandboxManifestString,
 	description: sandboxManifestString,
+	schedule: Schema.Union(
+		strictStruct({ cron: sandboxManifestString }),
+		strictStruct({ tier: Schema.Literal("infrequent") }),
+	),
 };
 
 export const PluginCron = Schema.Union(

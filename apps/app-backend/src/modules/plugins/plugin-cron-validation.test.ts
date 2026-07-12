@@ -16,10 +16,10 @@ const cronManifest = () => {
 		crons: [
 			{
 				slug: "fixture-cron",
-				schedule: "* * * * *",
 				lot: "script" as const,
 				scriptSlug: script.slug,
 				description: "Fixture cron",
+				schedule: { cron: "* * * * *" },
 			},
 		],
 	};
@@ -40,7 +40,7 @@ it.effect("rejects duplicate cron slugs, unknown scripts, and invalid schedules"
 		(manifest: ReturnType<typeof cronManifest>) => {
 			const cron = manifest.crons[0];
 			assert(cron);
-			return { ...manifest, crons: [{ ...cron, schedule: "not a cron" }] };
+			return { ...manifest, crons: [{ ...cron, schedule: { cron: "not a cron" } }] };
 		},
 	];
 	const snapshot = makeDefinitionRegistry().getSnapshot();

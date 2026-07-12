@@ -93,8 +93,8 @@ const fields = {
 	),
 	infrequentCronJobsSchedule: strField(
 		"SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE",
-		"Cron expression (or the phrase 'every midnight') for the infrequent cron tier",
-		{ default: "every midnight" },
+		"Cron expression used by plugin crons assigned to the infrequent tier",
+		{ default: "0 0 * * *" },
 	),
 	disableDispatchers: boolField(
 		"SCHEDULER_DISABLE_DISPATCHERS",

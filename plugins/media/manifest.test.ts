@@ -103,16 +103,16 @@ it("declares the complete media-owned source", () => {
 		{
 			lot: "workflow",
 			slug: "media-monitoring",
-			schedule: "0 0 * * *",
+			schedule: { tier: "infrequent" },
 			workflowSlug: "media-monitoring-sweep",
 			description: "Refresh monitored provider-backed media",
 		},
 		{
 			lot: "script",
-			schedule: "0 0 * * *",
 			slug: "media-trending",
 			scriptSlug: "media-trending",
-			description: "Refresh global media trending rankings daily",
+			schedule: { tier: "infrequent" },
+			description: "Refresh global media trending rankings",
 		},
 	]);
 	expect(mediaPlugin.workflows).toContainEqual({
@@ -122,8 +122,8 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.scripts).toContainEqual(
 		expect.objectContaining({
 			kind: "activity",
-			slug: "activity.media-monitoring-targets",
 			capabilities: ["executeQueryEngine"],
+			slug: "activity.media-monitoring-targets",
 		}),
 	);
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);

@@ -20,7 +20,7 @@ import {
 	uninstallTestPlugin,
 } from "~/fixtures";
 import { assertPresent, assertTaggedError, requireObjectRecord } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, assert, beforeAll, describe, expect, it } from "~/support/effect-test";
 
 const SCRIPT_SLUG = "movie.e2e-test-trending";
 const PROVIDER_SLUG = "movie.e2e-test-trending-provider";
@@ -40,10 +40,11 @@ const TRENDING_SOURCE = trendingSandboxSource({
 let providerId: string;
 let queryClient: Client;
 let movieSchemaId: string;
+let trendingPluginSlug: string;
 let mediaTrendingSchemaId: string;
 let trendingPlugin: InstalledTestPlugin | undefined;
 
-describe("POST /test-support/cron/infrequent (media-trending durable workflow)", () => {
+describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 	beforeAll(async () => {
 		await Effect.runPromise(
 			Effect.gen(function* () {
@@ -76,29 +77,29 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 					scripts: [
 						{
 							kind: "provider",
+							capabilities: [],
 							entry: detailsEntry,
 							slug: DETAILS_SCRIPT_SLUG,
+							requiredAppConfigKeys: [],
 							providerSlug: PROVIDER_SLUG,
 							providerOperation: "details",
 							name: "E2E Test Trending Provider details",
-							capabilities: [],
-							requiredAppConfigKeys: [],
 						},
 						{
 							kind: "script",
-							entry: trendingEntry,
 							slug: SCRIPT_SLUG,
-							providerSlug: PROVIDER_SLUG,
-							name: "E2E Test Trending",
-							capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
+							entry: trendingEntry,
 							requiredAppConfigKeys: [],
+							name: "E2E Test Trending",
+							providerSlug: PROVIDER_SLUG,
+							capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
 						},
 					],
 					providers: [
 						{
 							slug: PROVIDER_SLUG,
-							name: "E2E Test Trending Provider",
 							information: { source: "e2e" },
+							name: "E2E Test Trending Provider",
 							operations: { details: DETAILS_SCRIPT_SLUG },
 						},
 					],
@@ -108,9 +109,9 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 					crons: [
 						{
 							lot: "script",
-							schedule: "0 0 * * *",
 							scriptSlug: SCRIPT_SLUG,
 							slug: "e2e-test-trending",
+							schedule: { cron: "0 0 * * *" },
 							description: "Refresh E2E trending fixtures",
 						},
 					],
@@ -133,6 +134,7 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 				);
 				assertPresent(directScript.providerId, "Trending script provider was not stored");
 				providerId = directScript.providerId;
+				trendingPluginSlug = installed.manifest.metadata.slug;
 				trendingPlugin = installed;
 			}),
 		);
@@ -148,12 +150,21 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 		Effect.gen(function* () {
 			const client = getBackendClient();
 
-			const missing = yield* Effect.flip(client.call((c) => c.testSupport.triggerInfrequentCron()));
+			const missing = yield* Effect.flip(
+				client.call((c) =>
+					c.testSupport.triggerPluginCron({
+						payload: { cronSlug: "e2e-test-trending", pluginSlug: trendingPluginSlug },
+					}),
+				),
+			);
 			assertTaggedError(missing, "Unauthorized");
 
 			const wrong = yield* Effect.flip(
 				client.call(
-					(c) => c.testSupport.triggerInfrequentCron(),
+					(c) =>
+						c.testSupport.triggerPluginCron({
+							payload: { cronSlug: "e2e-test-trending", pluginSlug: trendingPluginSlug },
+						}),
 					adminAccessTokenHeaders("wrong-token"),
 				),
 			);
@@ -163,10 +174,15 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 
 	it.live("runs a direct media-trending cron script end-to-end and writes ranked self-edges", () =>
 		Effect.gen(function* () {
-			const { executionId } = yield* getBackendClient().call(
-				(c) => c.testSupport.triggerInfrequentCron(),
+			const result = yield* getBackendClient().call(
+				(c) =>
+					c.testSupport.triggerPluginCron({
+						payload: { cronSlug: "e2e-test-trending", pluginSlug: trendingPluginSlug },
+					}),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
+			assert(result.status === "executed");
+			const { executionId } = result;
 			expect(typeof executionId).toBe("string");
 			expect(executionId.length).toBeGreaterThan(0);
 
@@ -191,9 +207,9 @@ describe("POST /test-support/cron/infrequent (media-trending durable workflow)",
 							);
 							return {
 								rank: properties["rank"],
+								providerId: entity.providerId,
 								external_id: entity.externalId,
 								fetched_at: properties["fetchedAt"],
-								providerId: entity.providerId,
 							};
 						}),
 					),
