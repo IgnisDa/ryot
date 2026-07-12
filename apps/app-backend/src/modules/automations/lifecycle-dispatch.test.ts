@@ -46,7 +46,7 @@ const rule = (id: string, owner: UserId | null): ResolvedAutomationRule => ({
 
 const entitySnapshot = {
 	name: "Dune",
-	entitySchemaSlug: "book",
+	entitySchemaSlug: EntitySchemaSlug.make("book"),
 	properties: { year: 1965 },
 	id: EntityId.make("entity-1"),
 };
@@ -154,7 +154,7 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 				kind: "event",
 				after: {
 					properties: {},
-					eventSchemaSlug: "finished",
+					eventSchemaSlug: EventSchemaSlug.make("finished"),
 					id: EventId.make("event-1"),
 					occurredAt: "2026-07-20T10:00:00.000Z",
 					subject: { id: EntityId.make("entity-1"), name: "Dune", entitySchemaSlug: "book" },
@@ -208,7 +208,7 @@ it.effect("forwards update snapshots and trusted population context", () => {
 				},
 				scopeEntity: {
 					name: "Severance",
-					entitySchemaSlug: "show",
+					entitySchemaSlug: EntitySchemaSlug.make("show"),
 					id: EntityId.make("show-1"),
 				},
 			},

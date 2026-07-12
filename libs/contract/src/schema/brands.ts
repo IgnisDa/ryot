@@ -14,13 +14,7 @@ export const EntityId = Schema.String.pipe(Schema.brand("EntityId"));
 
 export type EntityId = typeof EntityId.Type;
 
-// TODO(plugin-system): Return branded values from `.make` after plain-string schema slug fixtures and callers migrate.
-const makeSchemaSlug = () =>
-	Object.assign(Schema.String.pipe(Schema.filter(() => true)), {
-		make: (value: string) => value,
-	});
-
-export const PluginSlug = makeSchemaSlug();
+export const PluginSlug = Schema.String.pipe(Schema.brand("PluginSlug"));
 
 export type PluginSlug = typeof PluginSlug.Type;
 
@@ -44,11 +38,11 @@ export const NotificationChannelId = Schema.String.pipe(Schema.brand("Notificati
 
 export type NotificationChannelId = typeof NotificationChannelId.Type;
 
-export const EventSchemaSlug = makeSchemaSlug();
+export const EventSchemaSlug = Schema.String.pipe(Schema.brand("EventSchemaSlug"));
 
 export type EventSchemaSlug = typeof EventSchemaSlug.Type;
 
-export const EntitySchemaSlug = makeSchemaSlug();
+export const EntitySchemaSlug = Schema.String.pipe(Schema.brand("EntitySchemaSlug"));
 
 export type EntitySchemaSlug = typeof EntitySchemaSlug.Type;
 
@@ -60,7 +54,7 @@ export const SandboxProviderId = Schema.String.pipe(Schema.brand("SandboxProvide
 
 export type SandboxProviderId = typeof SandboxProviderId.Type;
 
-export const RelationshipSchemaSlug = makeSchemaSlug();
+export const RelationshipSchemaSlug = Schema.String.pipe(Schema.brand("RelationshipSchemaSlug"));
 
 export type RelationshipSchemaSlug = typeof RelationshipSchemaSlug.Type;
 
@@ -68,7 +62,7 @@ export const SignalId = Schema.String.pipe(Schema.brand("SignalId"));
 
 export type SignalId = typeof SignalId.Type;
 
-export const SignalSchemaSlug = makeSchemaSlug();
+export const SignalSchemaSlug = Schema.String.pipe(Schema.brand("SignalSchemaSlug"));
 
 export type SignalSchemaSlug = typeof SignalSchemaSlug.Type;
 

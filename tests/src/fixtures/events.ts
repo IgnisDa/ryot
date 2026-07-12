@@ -172,7 +172,7 @@ export const waitForEventSlugs = (client: Client, entityId: string, requiredSlug
 		`'${requiredSlug}' event on entity ${entityId}`,
 		Effect.gen(function* () {
 			const slugs = yield* listEventSlugs(client, entityId);
-			return slugs.includes(requiredSlug) ? slugs : null;
+			return slugs.some((slug) => slug === requiredSlug) ? slugs : null;
 		}),
 	);
 
