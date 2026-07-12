@@ -92,6 +92,10 @@ describe("bindSandboxHostFunctions", () => {
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
+			expect(yield* bound.getEntity([])).toEqual({
+				success: false,
+				error: "getEntity received an invalid number of arguments",
+			});
 			const result = yield* bound.httpCall(["POST", "https://example.com", { body: 42 }]);
 
 			expect(result).toEqual({

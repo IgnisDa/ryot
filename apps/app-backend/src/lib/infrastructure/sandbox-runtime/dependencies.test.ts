@@ -1,7 +1,6 @@
-import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { Effect, Schema } from "effect";
+import { Effect, Schema, FileSystem } from "effect";
 
 import {
 	ensureSandboxRuntimeDependencies,
@@ -9,7 +8,7 @@ import {
 	SANDBOX_RUNTIME_IMPORT_MAP_CONTENT,
 } from "./dependencies";
 
-it.scoped("builds exact-version dependency modules in a read-only runtime directory", () =>
+it.effect("builds exact-version dependency modules in a read-only runtime directory", () =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-dependencies-" });
@@ -33,7 +32,7 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 			expect((yield* ensureSandboxRuntimeDependencies(root)).directory).toBe(runtime.directory);
 			expect(yield* fs.exists(runtime.cacheDirectory)).toBe(true);
 			expect(SANDBOX_APPROVED_DEPENDENCIES).toMatchObject([
-				{ name: "effect", version: "3.21.4" },
+				{ name: "effect", version: "4.0.0-beta.102" },
 				{ name: "cheerio", version: "1.2.0" },
 				{ name: "youtubei", version: "17.2.0" },
 				{ name: "fflate", version: "0.8.3" },
@@ -45,7 +44,7 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 			expect(importMap).not.toContain('"npm:');
 			expect((yield* fs.readDirectory(runtime.directory)).sort()).toEqual([
 				"cheerio-1.2.0.mjs",
-				"effect-3.21.4.mjs",
+				"effect-4.0.0-beta.102.mjs",
 				"fast-xml-parser-5.8.0.mjs",
 				"fflate-0.8.3.mjs",
 				"import-map.json",
@@ -53,14 +52,18 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 				"papaparse-5.5.3.mjs",
 				"youtubei-17.2.0.mjs",
 			]);
-			const parsedImportMap = yield* Schema.decodeUnknown(
-				Schema.parseJson(
-					Schema.Struct({ imports: Schema.Record({ key: Schema.String, value: Schema.String }) }),
+			const parsedImportMap = yield* Schema.decodeUnknownEffect(
+				Schema.fromJsonString(
+					Schema.Struct({ imports: Schema.Record(Schema.String, Schema.String) }),
 				),
 			)(importMap);
-			expect(parsedImportMap.imports["@ryot/sandbox-sdk/effect"]).toBe("./effect-3.21.4.mjs");
+			expect(parsedImportMap.imports["@ryot/sandbox-sdk/effect"]).toBe(
+				"./effect-4.0.0-beta.102.mjs",
+			);
 			expect(
-				Object.values(parsedImportMap.imports).filter((file) => file === "./effect-3.21.4.mjs"),
+				Object.values(parsedImportMap.imports).filter(
+					(file) => file === "./effect-4.0.0-beta.102.mjs",
+				),
 			).toHaveLength(1);
 
 			const directory = yield* fs.stat(runtime.directory);
@@ -122,5 +125,5 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 				}).pipe(Effect.ignore),
 			),
 		);
-	}).pipe(Effect.provide(BunContext.layer)),
+	}).pipe(Effect.provide(BunServices.layer)),
 );
