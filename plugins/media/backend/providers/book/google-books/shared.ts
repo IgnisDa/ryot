@@ -2,7 +2,6 @@ import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
-import { strictStruct } from "@ryot-app/sandbox-sdk/wire";
 
 import { toTitleCase } from "../../../lib/title-case";
 
@@ -11,9 +10,9 @@ type GoogleBooksHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 type UnknownRecord = Record<string, unknown>;
 
 const GOOGLE_BOOKS_BASE_URL = "https://www.googleapis.com/books/v1";
-const googleBooksSearchOptionsSchema = strictStruct({
+const googleBooksSearchOptionsSchema = Schema.Struct({
 	passRawQuery: Schema.optional(Schema.Boolean),
-});
+}).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 const isRecord = (value: unknown): value is UnknownRecord =>
 	value !== null && typeof value === "object" && !Array.isArray(value);

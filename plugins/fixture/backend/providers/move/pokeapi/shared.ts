@@ -1,7 +1,6 @@
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
-import { strictStruct } from "@ryot-app/sandbox-sdk/wire";
 
 import {
 	API_BASE_URL,
@@ -27,11 +26,11 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 });
 
-const searchOptionsSchema = strictStruct({
+const searchOptionsSchema = Schema.Struct({
 	generation: Schema.optional(Schema.String),
 	damageClass: Schema.optional(Schema.String),
 	typeNames: Schema.optional(Schema.Array(Schema.String)),
-});
+}).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 const loadIndexEntries = (host: PokeApiHost) =>
 	loadJson(host, `${API_BASE_URL}/move?limit=${INDEX_LIMIT}&offset=0`).pipe(

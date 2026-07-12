@@ -68,24 +68,14 @@ const hasValueAtPath = (input: unknown, path: AppSchemaRulePath) => {
 	return true;
 };
 
-const applyUnknownKeysPolicy = <Fields extends Schema.Struct.Fields>(
-	struct: Schema.Struct<Fields>,
-	policy?: AppSchemaUnknownKeysPolicy,
-) => {
+const unknownKeysPolicyToParseOption = (policy?: AppSchemaUnknownKeysPolicy) => {
+	if (policy === "strict") {
+		return "error" as const;
+	}
 	if (policy === "passthrough") {
-		return Schema.StructWithRest(struct, [Schema.Record(Schema.String, Schema.Unknown)]);
+		return "preserve" as const;
 	}
-	if (policy !== "strict") {
-		return struct;
-	}
-	const declared = new Set(Object.keys(struct.fields));
-	const excessKey = Schema.String.check(
-		Schema.makeFilter((key: string) => (declared.has(key) ? "declared property" : undefined)),
-	);
-	const strict = Schema.StructWithRest(struct, [
-		Schema.Record(excessKey, Schema.Never.annotate({ identifier: "no excess property" })),
-	]);
-	return struct.rebuild(strict.ast);
+	return "ignore" as const;
 };
 
 const roundHalfUp = (value: number, scale: number) => {
@@ -490,7 +480,9 @@ const createObjectValueSchema = (
 	for (const [key, value] of Object.entries(fields)) {
 		shape[key] = toStructField(value);
 	}
-	return applyUnknownKeysPolicy(Schema.Struct(shape), unknownKeys);
+	return Schema.Struct(shape).annotate({
+		parseOptions: { onExcessProperty: unknownKeysPolicyToParseOption(unknownKeys) },
+	});
 };
 
 const isManagedAsset = (value: unknown) => {
