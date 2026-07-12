@@ -110,8 +110,14 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const queuedFilePaths: string[] = [];
 			const claimedUploadIntentIds: string[] = [];
 			const namedArtifactPaths: Record<string, string> = {};
-
 			const sourcePayload = buildImportSourcePayload(body, registered) ?? {};
+			const created = yield* create({ userId: user.id, source: body.source, inputSummary }).pipe(
+				Effect.result,
+			);
+			if (Result.isFailure(created)) {
+				return yield* created.failure;
+			}
+			const run = created.success;
 
 			for (const sourceFileInput of sourceFileInputs) {
 				if (!sourceFileInput.uploadToken) {
@@ -119,19 +125,22 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 						continue;
 					}
 					yield* cleanupUploads(claimedUploadIntentIds);
+					yield* deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore);
 					return yield* badRequest("Import source requires an upload token");
 				}
 
 				const claim = yield* uploads
-					.claimTemporaryUpload(sourceFileInput.uploadToken, user.id)
+					.claimTemporaryUpload(sourceFileInput.uploadToken, user.id, run.id)
 					.pipe(Effect.result);
 				if (Result.isFailure(claim)) {
 					yield* cleanupUploads(claimedUploadIntentIds);
+					yield* deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore);
 					return yield* claim.failure;
 				}
 				claimedUploadIntentIds.push(claim.success.intentId);
 				if (claim.success.locator.type !== "local" || !claim.success.resolvedPath) {
 					yield* cleanupUploads(claimedUploadIntentIds);
+					yield* deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore);
 					return yield* badRequest("Import uploads must use local storage");
 				}
 
@@ -139,7 +148,10 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 
 				yield* validateFileExtension(safePath, sourceFileInput.allowedExtensions).pipe(
 					Effect.catch((message) =>
-						cleanupUploads(claimedUploadIntentIds).pipe(Effect.flatMap(() => badRequest(message))),
+						cleanupUploads(claimedUploadIntentIds).pipe(
+							Effect.andThen(deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore)),
+							Effect.flatMap(() => badRequest(message)),
+						),
 					),
 				);
 
@@ -155,17 +167,9 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const filePath = queuedFilePaths[0];
 			if (!filePath) {
 				yield* cleanupUploads(claimedUploadIntentIds);
+				yield* deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore);
 				return yield* badRequest("Import source requires at least one upload token");
 			}
-
-			const created = yield* create({ userId: user.id, source: body.source, inputSummary }).pipe(
-				Effect.result,
-			);
-			if (Result.isFailure(created)) {
-				yield* cleanupUploads(claimedUploadIntentIds);
-				return yield* created.failure;
-			}
-			const run = created.success;
 			const sandboxExecutionId = `${run.id}-import`;
 			const pin = yield* workflowPinning
 				.preRegister({

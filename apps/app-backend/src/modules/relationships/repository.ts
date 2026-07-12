@@ -32,6 +32,17 @@ export type UpdateRelationshipInput = RelationshipIdentityInput & {
 	properties: Record<string, unknown>;
 };
 
+type RestoreRelationshipInput = Pick<
+	typeof schema.relationship.$inferInsert,
+	| "id"
+	| "userId"
+	| "createdAt"
+	| "properties"
+	| "sourceEntityId"
+	| "targetEntityId"
+	| "relationshipSchemaSlug"
+>;
+
 export type GlobalRelationshipListInput = {
 	relationshipSchemaSlug: RelationshipSchemaSlug;
 } & (
@@ -138,6 +149,31 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 	"RelationshipsRepository",
 	{
 		make: Effect.sync(() => {
+			const listUserRelationshipsForBackup = Effect.fn(
+				"RelationshipsRepository.listUserRelationshipsForBackup",
+			)(function* (userId: UserId) {
+				const db = yield* Database;
+				return yield* mapDatabaseErrors(
+					db
+						.select(relationshipSnapshotSelection)
+						.from(schema.relationship)
+						.where(eq(schema.relationship.userId, userId))
+						.orderBy(asc(schema.relationship.id)),
+				);
+			});
+
+			const restoreRelationship = Effect.fn("RelationshipsRepository.restoreRelationship")(
+				function* (input: RestoreRelationshipInput) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db.insert(schema.relationship).values(input).returning({ id: schema.relationship.id }),
+					);
+					return row
+						? RelationshipId.make(row.id)
+						: yield* new DbError({ message: "Relationship restore returned no row" });
+				},
+			);
+
 			const findRelationshipProperties = Effect.fn(
 				"RelationshipsRepository.findRelationshipProperties",
 			)(function* (input: {
@@ -323,11 +359,13 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				createRelationship,
 				updateRelationship,
 				deleteRelationship,
+				restoreRelationship,
 				listGlobalRelationships,
 				deleteUserRelationshipById,
 				findRelationshipProperties,
 				listEnabledOwnersForSubject,
 				listUserRelationshipsForEntity,
+				listUserRelationshipsForBackup,
 			};
 		}),
 	},
