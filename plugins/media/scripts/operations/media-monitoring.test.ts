@@ -55,7 +55,7 @@ describe("media monitoring operations", () => {
 			],
 		});
 		expect(documents).toHaveLength(1);
-		expect(() => Schema.decodeUnknownSync(QueryDocument)(documents[0])).not.toThrow();
+		expect(Schema.is(QueryDocument)(documents[0])).toBe(true);
 		expect(documents[0]).toMatchObject({
 			source: {
 				type: "entities",
@@ -139,7 +139,7 @@ describe("media monitoring operations", () => {
 		]);
 		expect(documents).toHaveLength(2);
 		for (const document of documents) {
-			expect(() => Schema.decodeUnknownSync(QueryDocument)(document)).not.toThrow();
+			expect(Schema.is(QueryDocument)(document)).toBe(true);
 		}
 		expect(JSON.stringify(changes)).not.toContain("userId");
 	});

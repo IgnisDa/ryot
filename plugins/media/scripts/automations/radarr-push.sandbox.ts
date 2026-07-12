@@ -57,7 +57,7 @@ const pushMovieToRadarr = (
 		})
 		.pipe(
 			Effect.asVoid,
-			Effect.catchAll((error) =>
+			Effect.catch((error) =>
 				Effect.sync(() => console.warn(`Radarr push failed: ${error.message}`)),
 			),
 		);

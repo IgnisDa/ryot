@@ -68,7 +68,7 @@ export const getCredentials = (host: SpotifyHost) =>
 
 export const getAccessToken = (host: SpotifyHost): Effect.Effect<string, unknown> =>
 	host.getCachedValue(TOKEN_CACHE_KEY).pipe(
-		Effect.catchAll(() => Effect.succeed(null)),
+		Effect.catch(() => Effect.succeed(null)),
 		Effect.flatMap((cached) => {
 			const cachedToken = stringValue(cached);
 			if (cachedToken) {
@@ -101,7 +101,7 @@ export const getAccessToken = (host: SpotifyHost): Effect.Effect<string, unknown
 								const expiryWithBuffer = Math.max(60, expiresIn - 300);
 								return host.setCachedValue(TOKEN_CACHE_KEY, accessToken, expiryWithBuffer).pipe(
 									Effect.as(accessToken),
-									Effect.catchAll((error) => {
+									Effect.catch((error) => {
 										console.warn(`Spotify token cache write failed: ${error.message}`);
 										return Effect.succeed(accessToken);
 									}),

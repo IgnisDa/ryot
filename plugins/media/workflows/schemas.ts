@@ -5,10 +5,10 @@ export const MediaImportResolutionActivityInput = Schema.Struct({
 	identifierType: Schema.String,
 });
 
-export const MediaImportResolutionActivityResult = Schema.Union(
+export const MediaImportResolutionActivityResult = Schema.Union([
 	Schema.Struct({ externalId: Schema.NullOr(Schema.String), status: Schema.Literal("completed") }),
 	Schema.Struct({ message: Schema.String, status: Schema.Literal("failed") }),
-);
+]);
 
 const MediaImportResolutionCandidate = Schema.Struct({
 	providerSlug: Schema.String,
@@ -28,7 +28,7 @@ export const MediaImportResolutionWorkflowInput = Schema.Struct({
 
 export const MediaImportResolutionWorkflowOutput = Schema.Struct({
 	results: Schema.Array(
-		Schema.Union(
+		Schema.Union([
 			Schema.Struct({
 				index: Schema.Number,
 				status: Schema.Literal("resolved"),
@@ -40,22 +40,22 @@ export const MediaImportResolutionWorkflowOutput = Schema.Struct({
 				status: Schema.Literal("unresolved"),
 				errors: Schema.Array(Schema.String),
 			}),
-		),
+		]),
 	),
 });
 
-const AutomationOrigin = Schema.Union(
+const AutomationOrigin = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("import"), importRunId: Schema.String }),
 	Schema.Struct({
 		kind: Schema.Literal("integration"),
 		importRunId: Schema.String,
 		integrationId: Schema.String,
 	}),
-);
+]);
 
 export const MediaImportPopulationWorkflowInput = Schema.Struct({
 	items: Schema.Array(
-		Schema.Union(
+		Schema.Union([
 			Schema.Struct({
 				index: Schema.Number,
 				origin: AutomationOrigin,
@@ -71,11 +71,11 @@ export const MediaImportPopulationWorkflowInput = Schema.Struct({
 				providerSlug: Schema.String,
 				entitySchemaSlug: Schema.String,
 			}),
-		),
+		]),
 	),
 });
 
-export const KernelEntityImportResult = Schema.Union(
+export const KernelEntityImportResult = Schema.Union([
 	Schema.Struct({
 		status: Schema.Literal("completed"),
 		entity: Schema.Struct({ id: Schema.String }),
@@ -85,11 +85,11 @@ export const KernelEntityImportResult = Schema.Union(
 		status: Schema.Literal("failed"),
 		stage: Schema.Literal("population"),
 	}),
-);
+]);
 
 export const MediaImportPopulationWorkflowOutput = Schema.Struct({
 	results: Schema.Array(
-		Schema.Union(
+		Schema.Union([
 			Schema.Struct({
 				index: Schema.Number,
 				entityId: Schema.String,
@@ -101,7 +101,7 @@ export const MediaImportPopulationWorkflowOutput = Schema.Struct({
 				status: Schema.Literal("failed"),
 				stage: Schema.Literal("population"),
 			}),
-		),
+		]),
 	),
 });
 
@@ -113,8 +113,12 @@ export const MediaMonitoringTarget = Schema.Struct({
 });
 
 export const MediaMonitoringTargetsActivityInput = Schema.Struct({
-	page: Schema.Number.pipe(Schema.int(), Schema.positive()),
-	limit: Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.lessThanOrEqualTo(100)),
+	page: Schema.Number.pipe(Schema.check(Schema.isInt()), Schema.check(Schema.isGreaterThan(0))),
+	limit: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThan(0)),
+		Schema.check(Schema.isLessThanOrEqualTo(100)),
+	),
 });
 
 export const MediaMonitoringTargetsActivityOutput = Schema.Struct({
@@ -125,6 +129,12 @@ export const MediaMonitoringTargetsActivityOutput = Schema.Struct({
 export const MediaMonitoringSweepWorkflowInput = Schema.Struct({});
 
 export const MediaMonitoringSweepWorkflowOutput = Schema.Struct({
-	batchCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-	targetCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	batchCount: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
+	targetCount: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
 });

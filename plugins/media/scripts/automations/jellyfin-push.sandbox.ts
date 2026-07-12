@@ -62,7 +62,7 @@ const authenticateJellyfin = (
 					? { userId, accessToken }
 					: null;
 			}),
-			Effect.catchAll(() => Effect.succeed(null)),
+			Effect.catch(() => Effect.succeed(null)),
 		);
 
 const findJellyfinItemId = (
@@ -111,7 +111,7 @@ const findJellyfinItemId = (
 				}
 				return null;
 			}),
-			Effect.catchAll(() => Effect.succeed(null)),
+			Effect.catch(() => Effect.succeed(null)),
 		);
 };
 
@@ -144,7 +144,7 @@ const markPlayedInJellyfin = (
 			)
 			.pipe(
 				Effect.asVoid,
-				Effect.catchAll((error) =>
+				Effect.catch((error) =>
 					Effect.sync(() => console.warn(`Jellyfin push failed: ${error.message}`)),
 				),
 			);

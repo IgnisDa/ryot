@@ -144,10 +144,10 @@ export const parseZonedDateTime = (value: string, formats: string[], timeZone: s
 				{
 					day: Number(captured.day),
 					year: Number(captured.year),
+					hour: Number(captured.hours),
 					month: Number(captured.month),
-					hours: Number(captured.hours),
-					minutes: Number(captured.minutes),
-					seconds: Number(captured.seconds),
+					minute: Number(captured.minutes),
+					second: Number(captured.seconds),
 				},
 				{ timeZone, adjustForTimeZone: true },
 			),
@@ -166,7 +166,7 @@ export const getOccurredAtValue = (value: string) =>
 		onSome: (instant) => DateTime.toEpochMillis(instant),
 	});
 
-export const nowIso = () => DateTime.formatIso(DateTime.unsafeNow());
+export const nowIso = () => DateTime.formatIso(DateTime.nowUnsafe());
 
 export const parseDateInput = (
 	value: number | string | null | undefined,

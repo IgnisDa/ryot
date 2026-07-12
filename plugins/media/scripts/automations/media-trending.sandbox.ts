@@ -57,7 +57,7 @@ export default defineScript({
 						),
 					),
 					Effect.map((items) => ({ success: true as const, items })),
-					Effect.catchAll((error) =>
+					Effect.catch((error) =>
 						host
 							.log([
 								{
@@ -67,7 +67,7 @@ export default defineScript({
 								},
 							])
 							.pipe(
-								Effect.catchAll(() => Effect.succeed(null)),
+								Effect.catch(() => Effect.succeed(null)),
 								Effect.map(() => ({ success: false as const })),
 							),
 					),
@@ -89,7 +89,7 @@ export default defineScript({
 				return { synced: false, itemCount: 0, providerCount };
 			}
 
-			const fetchedAt = DateTime.formatIso(DateTime.unsafeNow());
+			const fetchedAt = DateTime.formatIso(DateTime.nowUnsafe());
 			const rankedItemsByEntityId = new Map<string, (typeof savedItems)[number]>();
 			for (const item of savedItems) {
 				if (!rankedItemsByEntityId.has(item.entityId)) {

@@ -57,7 +57,7 @@ const pushShowToSonarr = (
 		})
 		.pipe(
 			Effect.asVoid,
-			Effect.catchAll((error) =>
+			Effect.catch((error) =>
 				Effect.sync(() => console.warn(`Sonarr push failed: ${error.message}`)),
 			),
 		);

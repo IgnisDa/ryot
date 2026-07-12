@@ -1,4 +1,4 @@
-import { Effect, Either, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Result, Schema } from "@ryot/sandbox-sdk/effect";
 
 import { getOccurredAtValue, nowIso, parseDateInput } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
@@ -23,13 +23,29 @@ import {
 } from "./source-api";
 import { sourceFetchFailure } from "./source-helpers";
 
-const MediaType = Schema.Literal("audiobook", "book", "movie", "tv", "video_game");
+const MediaType = Schema.Literals(["audiobook", "book", "movie", "tv", "video_game"]);
 type MediaType = typeof MediaType.Type;
 const Item = Schema.Struct({ id: Schema.Int, mediaType: Schema.optional(MediaType) });
 const List = Schema.Struct({
 	id: Schema.Int,
 	name: Schema.String,
 	description: Schema.optional(Schema.NullOr(Schema.String)),
+});
+const Episode = Schema.Struct({
+	id: Schema.Int,
+	seasonNumber: Schema.Int,
+	episodeNumber: Schema.Int,
+});
+const Season = Schema.Struct({
+	episodes: Schema.Array(Episode).pipe(
+		Schema.withDecodingDefault(Effect.succeed<ReadonlyArray<typeof Episode.Type>>([])),
+		Schema.withConstructorDefault(Effect.sync(() => [])),
+	),
+});
+const SeenHistory = Schema.Struct({
+	id: Schema.Int,
+	episodeId: Schema.optional(Schema.NullOr(Schema.Int)),
+	date: Schema.optional(Schema.NullOr(Schema.Union([Schema.Number, Schema.String]))),
 });
 const Details = Schema.Struct({
 	id: Schema.Int,
@@ -47,32 +63,17 @@ const Details = Schema.Struct({
 				id: Schema.Int,
 				rating: Schema.optional(Schema.NullOr(Schema.Number)),
 				review: Schema.optional(Schema.NullOr(Schema.String)),
-				date: Schema.optional(Schema.NullOr(Schema.Union(Schema.Number, Schema.String))),
+				date: Schema.optional(Schema.NullOr(Schema.Union([Schema.Number, Schema.String]))),
 			}),
 		),
 	),
-	seasons: Schema.optionalWith(
-		Schema.Array(
-			Schema.Struct({
-				episodes: Schema.optionalWith(
-					Schema.Array(
-						Schema.Struct({ id: Schema.Int, seasonNumber: Schema.Int, episodeNumber: Schema.Int }),
-					),
-					{ default: () => [] },
-				),
-			}),
-		),
-		{ default: () => [] },
+	seasons: Schema.Array(Season).pipe(
+		Schema.withDecodingDefault(Effect.succeed<ReadonlyArray<typeof Season.Type>>([])),
+		Schema.withConstructorDefault(Effect.sync(() => [])),
 	),
-	seenHistory: Schema.optionalWith(
-		Schema.Array(
-			Schema.Struct({
-				id: Schema.Int,
-				episodeId: Schema.optional(Schema.NullOr(Schema.Int)),
-				date: Schema.optional(Schema.NullOr(Schema.Union(Schema.Number, Schema.String))),
-			}),
-		),
-		{ default: () => [] },
+	seenHistory: Schema.Array(SeenHistory).pipe(
+		Schema.withDecodingDefault(Effect.succeed<ReadonlyArray<typeof SeenHistory.Type>>([])),
+		Schema.withConstructorDefault(Effect.sync(() => [])),
 	),
 });
 type Details = typeof Details.Type;
@@ -187,10 +188,10 @@ export const adaptMediaTrackerData = (
 				...(query === undefined ? {} : { query }),
 			});
 		const user = yield* fetch("user").pipe(
-			Effect.flatMap(Schema.decodeUnknown(Schema.Struct({ id: Schema.Int }))),
+			Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ id: Schema.Int }))),
 		);
 		const lists = yield* fetch("lists", { userId: user.id }).pipe(
-			Effect.flatMap(Schema.decodeUnknown(Schema.Array(List))),
+			Effect.flatMap(Schema.decodeUnknownEffect(Schema.Array(List))),
 		);
 		const failures: MediaImportAdapterFailure[] = [];
 		const groups = new Map<string, ImportMediaEntityGroupBuilder>();
@@ -202,7 +203,7 @@ export const adaptMediaTrackerData = (
 					return cached;
 				}
 				const value = yield* fetch(`details/${id}`).pipe(
-					Effect.flatMap(Schema.decodeUnknown(Details)),
+					Effect.flatMap(Schema.decodeUnknownEffect(Details)),
 				);
 				cache.set(id, value);
 				return value;
@@ -244,10 +245,12 @@ export const adaptMediaTrackerData = (
 		};
 		for (const list of lists) {
 			const listItems = yield* fetch("list/items", { listId: list.id }).pipe(
-				Effect.flatMap(Schema.decodeUnknown(Schema.Array(Schema.Struct({ mediaItem: Item })))),
-				Effect.either,
+				Effect.flatMap(
+					Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ mediaItem: Item }))),
+				),
+				Effect.result,
 			);
-			if (Either.isLeft(listItems)) {
+			if (Result.isFailure(listItems)) {
 				failures.push(
 					sourceFetchFailure({
 						itemIndex,
@@ -259,10 +262,10 @@ export const adaptMediaTrackerData = (
 				);
 				continue;
 			}
-			for (const { mediaItem } of listItems.right) {
+			for (const { mediaItem } of listItems.success) {
 				const currentIndex = itemIndex++;
-				const details = yield* getDetails(mediaItem.id).pipe(Effect.either);
-				if (Either.isLeft(details)) {
+				const details = yield* getDetails(mediaItem.id).pipe(Effect.result);
+				if (Result.isFailure(details)) {
 					failures.push(
 						sourceFetchFailure({
 							itemIndex: currentIndex,
@@ -274,14 +277,14 @@ export const adaptMediaTrackerData = (
 					);
 					continue;
 				}
-				const normalized = normalize(mediaItem, details.right, currentIndex);
+				const normalized = normalize(mediaItem, details.success, currentIndex);
 				if (!normalized) {
 					continue;
 				}
 				const group = getOrCreateMediaEntityGroup(groups, normalized.ref, currentIndex);
 				const lifecycle = normalizeLifecycleStatus(list.name);
 				if (lifecycle) {
-					const event = lifecycleEvent(lifecycle, fallbackDate(details.right, importedAt));
+					const event = lifecycleEvent(lifecycle, fallbackDate(details.success, importedAt));
 					if (event) {
 						group.events.push(event);
 					}
@@ -291,12 +294,12 @@ export const adaptMediaTrackerData = (
 			}
 		}
 		const seenItems = yield* fetch("items").pipe(
-			Effect.flatMap(Schema.decodeUnknown(Schema.Array(Item))),
+			Effect.flatMap(Schema.decodeUnknownEffect(Schema.Array(Item))),
 		);
 		for (const item of seenItems) {
 			const currentIndex = itemIndex++;
-			const details = yield* getDetails(item.id).pipe(Effect.either);
-			if (Either.isLeft(details)) {
+			const details = yield* getDetails(item.id).pipe(Effect.result);
+			if (Result.isFailure(details)) {
 				failures.push(
 					sourceFetchFailure({
 						itemIndex: currentIndex,
@@ -307,18 +310,18 @@ export const adaptMediaTrackerData = (
 				);
 				continue;
 			}
-			const normalized = normalize(item, details.right, currentIndex);
+			const normalized = normalize(item, details.success, currentIndex);
 			if (!normalized) {
 				continue;
 			}
 			const group = getOrCreateMediaEntityGroup(groups, normalized.ref, currentIndex);
 			if (normalized.mediaType === "tv") {
-				for (const seen of details.right.seenHistory) {
+				for (const seen of details.success.seenHistory) {
 					const occurredAt = parseDateInput(seen.date);
 					if (!occurredAt || !seen.episodeId) {
 						continue;
 					}
-					const episode = details.right.seasons
+					const episode = details.success.seasons
 						.flatMap(({ episodes }) => episodes)
 						.find(({ id }) => id === seen.episodeId);
 					if (!episode) {
@@ -343,7 +346,7 @@ export const adaptMediaTrackerData = (
 					});
 				}
 			} else {
-				for (const seen of details.right.seenHistory) {
+				for (const seen of details.success.seenHistory) {
 					const occurredAt = parseDateInput(seen.date);
 					if (occurredAt) {
 						group.events.push(createCompleteEvent({ occurredAt, completedOn: occurredAt }));
@@ -351,13 +354,14 @@ export const adaptMediaTrackerData = (
 				}
 			}
 			const review = createReviewEvent({
-				text: details.right.userRating?.review ?? null,
+				text: details.success.userRating?.review ?? null,
 				rating:
-					typeof details.right.userRating?.rating === "number"
-						? Math.round(Math.min(details.right.userRating.rating * 20, 100) * 100) / 100
+					typeof details.success.userRating?.rating === "number"
+						? Math.round(Math.min(details.success.userRating.rating * 20, 100) * 100) / 100
 						: null,
 				occurredAt:
-					parseDateInput(details.right.userRating?.date) ?? fallbackDate(details.right, importedAt),
+					parseDateInput(details.success.userRating?.date) ??
+					fallbackDate(details.success, importedAt),
 			});
 			if (review) {
 				group.events.push(review);

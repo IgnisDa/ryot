@@ -1,4 +1,4 @@
-import { Either } from "@ryot/sandbox-sdk/effect";
+import { Result } from "@ryot/sandbox-sdk/effect";
 import { XMLParser } from "@ryot/sandbox-sdk/fast-xml-parser";
 
 import { nowIso, parseDateWithFormat } from "./dates";
@@ -118,7 +118,7 @@ const adaptLot = (
 	let itemIndex = input.itemIndex;
 	for (const item of lotItems(input.xmlText, input.lot)) {
 		const index = itemIndex++;
-		const adapted = Either.try(() => {
+		const adapted = Result.try(() => {
 			const doneTag = input.lot === "anime" ? "my_watched_episodes" : "my_read_chapters";
 			const idTag = input.lot === "anime" ? "series_animedb_id" : "manga_mangadb_id";
 			const titleTag = input.lot === "anime" ? "series_title" : "manga_title";
@@ -170,11 +170,13 @@ const adaptLot = (
 				group.events.push(review);
 			}
 		});
-		if (Either.isLeft(adapted)) {
+		if (Result.isFailure(adapted)) {
 			failures.push({
 				itemIndex: index,
 				message:
-					adapted.left instanceof Error ? adapted.left.message : "MyAnimeList item is malformed",
+					adapted.failure instanceof Error
+						? adapted.failure.message
+						: "MyAnimeList item is malformed",
 			});
 		}
 	}

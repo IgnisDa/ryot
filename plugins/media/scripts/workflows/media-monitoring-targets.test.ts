@@ -51,7 +51,7 @@ describe("media monitoring target activity", () => {
 				},
 			],
 		});
-		expect(() => Schema.decodeUnknownSync(QueryDocument)(documents[0])).not.toThrow();
+		expect(Schema.is(QueryDocument)(documents[0])).toBe(true);
 		expect(documents[0]).toMatchObject({
 			source: {
 				type: "entities",
