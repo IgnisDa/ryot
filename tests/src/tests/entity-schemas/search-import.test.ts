@@ -14,7 +14,7 @@ import {
 	getGlobalEntityByProvenance,
 	getRelationshipBySchemaSlug,
 	pollEntityImportResult,
-	pollEntitySearchResult,
+	pollSandboxResult,
 	installTestProvider,
 	type InstalledTestProvider,
 } from "~/fixtures";
@@ -128,7 +128,7 @@ describe("provider entity search enqueue", () => {
 
 			expect(typeof jobId).toBe("string");
 			expect(jobId.length).toBeGreaterThan(0);
-			yield* pollEntitySearchResult(userId, jobId);
+			yield* pollSandboxResult(userId, jobId);
 		}),
 	);
 });
@@ -143,7 +143,7 @@ describe("provider entity search result", () => {
 				context: { page: 1, pageSize: 5, query: "test" },
 			});
 
-			const result = yield* pollEntitySearchResult(userId, jobId);
+			const result = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(result, "search job");
 			const value = requireObjectRecord(result.value, "Expected search result to be an object");
 			const items = requireArray(value.items, "Expected search result items to be an array");
