@@ -176,7 +176,7 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 
 const makeLayer = (db: object) =>
 	Layer.mergeAll(
-		RelationshipsRepository.Default,
+		RelationshipsRepository.layer,
 		Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
 	);
 
