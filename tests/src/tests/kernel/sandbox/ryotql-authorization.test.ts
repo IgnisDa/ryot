@@ -40,6 +40,7 @@ import {
 	pollUntil,
 	providerSandboxSource,
 	requireRyotQLFieldValue,
+	requireRows,
 	uninstallTestPlugin,
 } from "~/fixtures";
 import {
@@ -136,10 +137,7 @@ const responseRows = (response: unknown, queryName: string) => {
 };
 
 const markerPayload = (response: RyotQLResponse) => {
-	const markerResult = response.data.marker;
-	if (markerResult?.type !== "rows") {
-		throw new Error("Expected marker rows");
-	}
+	const markerResult = requireRows(response.data.marker, "marker");
 	const marker = requirePresent(markerResult.items[0], "Expected authorization probe marker");
 	const properties = requireRyotQLFieldValue(marker, "properties");
 	if (properties.kind !== "json") {
@@ -706,10 +704,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 							),
 						),
 					);
-					const markerResult = response.data.marker;
-					if (markerResult?.type !== "rows") {
-						throw new Error(`Probe '${probe.name}' marker is not a rows result`);
-					}
+					const markerResult = requireRows(response.data.marker, "marker");
 					const marker = requirePresent(markerResult.items[0], `Missing '${probe.name}' marker`);
 					const markerId = requireRyotQLFieldValue(marker, "id");
 					if (markerId.kind !== "text") {

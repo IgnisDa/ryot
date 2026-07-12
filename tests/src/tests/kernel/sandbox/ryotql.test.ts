@@ -21,6 +21,7 @@ import {
 	providerSandboxSource,
 	requireRyotQLFieldValue,
 	requireRyotQLTextField,
+	requireRows,
 	systemRyotqlProbeSandboxSource,
 	uninstallTestPlugin,
 } from "~/fixtures";
@@ -264,10 +265,7 @@ describe("sandbox RyotQL reads", () => {
 					}),
 				),
 			);
-			const entityRowsResult = response.data.entities;
-			if (entityRowsResult?.type !== "rows") {
-				throw new Error("Expected system RyotQL rows");
-			}
+			const entityRowsResult = requireRows(response.data.entities, "entities");
 			const marker = requirePresent(
 				entityRowsResult.items.find(
 					(row) => requireRyotQLTextField(row, "name") === "RyotQL system probe",

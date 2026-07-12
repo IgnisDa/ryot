@@ -15,6 +15,7 @@ import {
 	installTestPluginBundle,
 	type InstalledTestPlugin,
 	providerSandboxSource,
+	requireRows,
 	uninstallTestPlugin,
 } from "~/fixtures";
 import { assertTaggedError } from "~/support/assertions";
@@ -164,10 +165,7 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 				expect(executionId.length).toBeGreaterThan(0);
 
 				const { data } = yield* executeRyotQL(queryClient, buildBootEntityQueryDocument());
-				const result = data.entities;
-				if (result?.type !== "rows") {
-					throw new Error("Expected boot entity rows");
-				}
+				const result = requireRows(data.entities, "entities");
 				const row = result.items[0];
 
 				expect(row).toMatchObject({
