@@ -67,8 +67,8 @@ let discoveryEntityId: string;
 let fakeApprise: FakeHttpServer;
 let providerCompilerClient: Client;
 const extraEntityIds: string[] = [];
-let provider: Effect.Effect.Success<ReturnType<typeof installTestProvider>>;
-let discoveryProvider: Effect.Effect.Success<ReturnType<typeof installTestProvider>>;
+let provider: Effect.Success<ReturnType<typeof installTestProvider>>;
+let discoveryProvider: Effect.Success<ReturnType<typeof installTestProvider>>;
 
 beforeAll(async () => {
 	await Effect.runPromise(
@@ -118,7 +118,7 @@ beforeAll(async () => {
 			yield* getBackendClient().call(
 				(c) =>
 					c.testSupport.setEntityPopulatedAt({
-						path: { entityId: EntityId.make(apiEntityId) },
+						params: { entityId: EntityId.make(apiEntityId) },
 						payload: { populatedAt: new Date().toISOString() },
 					}),
 				adminHeaders,
@@ -312,7 +312,7 @@ describe("media monitoring infrequent refresh", () => {
 					"media monitoring baseline population",
 					Effect.gen(function* () {
 						const entity = yield* first.client.call((contract) =>
-							contract.entities.get({ path: { entityId: EntityId.make(cronEntityId) } }),
+							contract.entities.get({ params: { entityId: EntityId.make(cronEntityId) } }),
 						);
 						const properties = requireObjectRecord(entity.properties, "Missing entity properties");
 						return entity.populatedAt && properties.productionStatus === "Continuing"
@@ -337,7 +337,7 @@ describe("media monitoring infrequent refresh", () => {
 					"media monitoring changed provider refresh",
 					Effect.gen(function* () {
 						const entity = yield* first.client.call((contract) =>
-							contract.entities.get({ path: { entityId: EntityId.make(cronEntityId) } }),
+							contract.entities.get({ params: { entityId: EntityId.make(cronEntityId) } }),
 						);
 						const properties = requireObjectRecord(entity.properties, "Missing entity properties");
 						return properties.productionStatus === "Ended" ? true : null;

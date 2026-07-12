@@ -34,7 +34,7 @@ describe("Query engine media trending", () => {
 				}),
 			]);
 			const fetchedAt = DateTime.formatIso(
-				DateTime.unsafeMake(Date.UTC(2026, 6, 1) + Math.floor(Math.random() * 1000000)),
+				DateTime.makeUnsafe(Date.UTC(2026, 6, 1) + Math.floor(Math.random() * 1000000)),
 			);
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
 				slugs: ["media-trending"],

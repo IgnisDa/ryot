@@ -219,7 +219,7 @@ describe("dual-writer canonical identity", () => {
 				yield* getBackendClient().call(
 					(c) =>
 						c.testSupport.setEntityPopulatedAt({
-							path: { entityId: EntityId.make(person.id) },
+							params: { entityId: EntityId.make(person.id) },
 							payload: { populatedAt: new Date().toISOString() },
 						}),
 					adminHeaders,
@@ -350,7 +350,7 @@ describe("association lifecycle via cron refresh", () => {
 			yield* getBackendClient().call(
 				(c) =>
 					c.testSupport.setEntityPopulatedAt({
-						path: { entityId: EntityId.make(person.id) },
+						params: { entityId: EntityId.make(person.id) },
 						payload: { populatedAt: new Date().toISOString() },
 					}),
 				adminHeaders,

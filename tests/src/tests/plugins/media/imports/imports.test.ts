@@ -75,8 +75,8 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 				// The unresolvable locator is reported as a failure, not mis-attached.
 				const runWithFailures = yield* client.call((c) =>
 					c.imports.getRun({
-						urlParams: { page: 1, limit: 20 },
-						path: { runId: ImportRunId.make(created.id) },
+						query: { page: 1, limit: 20 },
+						params: { runId: ImportRunId.make(created.id) },
 					}),
 				);
 				const failureMessages = runWithFailures.failures.items.map((failure) => failure.message);
