@@ -5,10 +5,15 @@ import {
 	type DisplayConfiguration,
 } from "@ryot/contract/display-configuration";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import { PluginSlug } from "@ryot/contract/schema/brands";
 import { aggregate, column, document, eq, literal, measure, table, timeSeries } from "@ryot/ryotql";
+import {
+	buildSavedViewRecordDocument,
+	buildSavedViewRecordsDocument,
+	decodeSavedViewRecordResponse,
+	decodeSavedViewRecordsResponse,
+} from "@ryot/ryotql-recipes/saved-view-records";
 import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
-import { Effect } from "effect";
+import { Data, Effect, Result } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
@@ -48,6 +53,13 @@ export type SavedViewQueryDocument = RyotQLDocument;
 type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
 type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
+
+class SavedViewFixtureError extends Data.TaggedError("SavedViewFixtureError")<{
+	readonly message: string;
+}> {}
+
+const decodeResult = <A, E>(result: Result.Result<A, E>) =>
+	Result.isSuccess(result) ? Effect.succeed(result.success) : Effect.fail(result.failure);
 
 export const rowsDocument: SavedViewQueryDocument = buildSavedViewDocument({
 	entitySchemaSlugs: ["book"],
@@ -256,14 +268,21 @@ export const listSavedViews = (
 	client: Client,
 	options: { pluginSlug?: string; includeDisabled?: boolean } = {},
 ) =>
-	client.call((c) =>
-		c.savedViews.list({
-			query: {
-				includeDisabled: options.includeDisabled ?? false,
-				pluginSlug: options.pluginSlug ? PluginSlug.make(options.pluginSlug) : undefined,
-			},
-		}),
-	);
+	Effect.gen(function* () {
+		const response = yield* client.call((c) =>
+			c.ryotql.execute({
+				payload: buildSavedViewRecordsDocument({
+					page: 1,
+					limit: 100,
+					pluginSlug: options.pluginSlug,
+					includeDisabled: options.includeDisabled,
+				}),
+			}),
+		);
+		const decoded = yield* decodeResult(decodeSavedViewRecordsResponse(response));
+
+		return decoded.items;
+	});
 
 export const findBuiltinSavedView = (client: Client) =>
 	Effect.gen(function* () {
@@ -274,7 +293,19 @@ export const findBuiltinSavedView = (client: Client) =>
 	});
 
 export const getSavedView = (client: Client, viewSlug: string) =>
-	client.call((c) => c.savedViews.get({ params: { viewSlug } }));
+	Effect.gen(function* () {
+		const response = yield* client.call((c) =>
+			c.ryotql.execute({ payload: buildSavedViewRecordDocument({ slug: viewSlug }) }),
+		);
+		const decoded = yield* decodeResult(decodeSavedViewRecordResponse(response));
+		if (!decoded) {
+			return yield* Effect.fail(
+				new SavedViewFixtureError({ message: `Saved view '${viewSlug}' not found` }),
+			);
+		}
+
+		return decoded;
+	});
 
 export const updateSavedView = (
 	client: Client,
