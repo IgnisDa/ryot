@@ -1,7 +1,7 @@
-import { Atom } from "@effect-atom/atom-react";
-import { FetchHttpClient } from "@effect/platform";
 import { makeContractClient } from "@ryot/contract/client";
 import { Effect } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+import { Atom } from "effect/unstable/reactivity";
 
 import { serverUrlAtom } from "@/modules/server/state";
 import { CLOUD_URL } from "@/modules/server/url";
