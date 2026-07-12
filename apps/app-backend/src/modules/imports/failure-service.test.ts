@@ -12,13 +12,12 @@ const mockImportsRepository = Layer.mock(ImportsRepository);
 
 const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
 	mockImportsRepository({
-		_tag: "ImportsRepository",
 		createFailure: () => Effect.void,
 		...overrides,
 	});
 
 const makeServiceLayer = (repository = makeImportsRepository()) =>
-	ImportRunFailuresService.Default.pipe(Layer.provide(Layer.mergeAll(dbRunnerLayer, repository)));
+	ImportRunFailuresService.layer.pipe(Layer.provide(Layer.mergeAll(dbRunnerLayer, repository)));
 
 it.effect("routes failure creation through its owning service", () => {
 	let createdInput: unknown;
