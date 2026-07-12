@@ -64,6 +64,57 @@ Name of the chart-managed application Secret (admin token, pro key, inline DB ur
 {{- end }}
 
 {{/*
+Name of the bundled Redis resources. The base name is truncated to 54
+characters so the "-redis" suffix keeps the result within the 63-character
+Kubernetes name limit.
+*/}}
+{{- define "ryot.redis.fullname" -}}
+{{ include "ryot.fullname" . | trunc 54 | trimSuffix "-" }}-redis
+{{- end }}
+
+{{- define "ryot.redis.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "ryot.name" . }}-redis
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/component: cache
+{{- end }}
+
+{{/* Name of the secret holding the bundled Redis password. */}}
+{{- define "ryot.redis.secretName" -}}
+{{- if .Values.redis.auth.existingSecret -}}
+{{ .Values.redis.auth.existingSecret }}
+{{- else -}}
+{{ include "ryot.redis.fullname" . }}
+{{- end -}}
+{{- end }}
+
+{{/* Key inside the Redis password secret. */}}
+{{- define "ryot.redis.secretPasswordKey" -}}
+{{- if .Values.redis.auth.existingSecret -}}
+{{ .Values.redis.auth.existingSecretPasswordKey }}
+{{- else -}}
+redis-password
+{{- end -}}
+{{- end }}
+
+{{/* Name of the secret holding REDIS_URL for an external Redis instance. */}}
+{{- define "ryot.externalRedis.secretName" -}}
+{{- if .Values.externalRedis.existingSecret -}}
+{{ .Values.externalRedis.existingSecret }}
+{{- else -}}
+{{ include "ryot.secretName" . }}
+{{- end -}}
+{{- end }}
+
+{{/* Key inside the external-Redis secret that holds REDIS_URL. */}}
+{{- define "ryot.externalRedis.secretKey" -}}
+{{- if .Values.externalRedis.existingSecret -}}
+{{ .Values.externalRedis.existingSecretKey }}
+{{- else -}}
+redis-url
+{{- end -}}
+{{- end }}
+
+{{/*
 Name of the bundled Postgres resources. The base name is truncated to 54
 characters so the "-postgres" suffix keeps the result within the 63-character
 Kubernetes name limit.
@@ -240,6 +291,33 @@ never written into the manifest literal.
 {{- end }}
 
 {{/*
+Redis environment variables. A bundled instance may use an optional password;
+external instances always provide a complete connection string.
+*/}}
+{{- define "ryot.redisEnv" -}}
+{{- if .Values.redis.enabled }}
+{{- if or .Values.redis.auth.password .Values.redis.auth.existingSecret }}
+- name: REDIS_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "ryot.redis.secretName" . }}
+      key: {{ include "ryot.redis.secretPasswordKey" . }}
+- name: REDIS_URL
+  value: "redis://:$(REDIS_PASSWORD)@{{ include "ryot.redis.fullname" . }}:{{ .Values.redis.service.port }}"
+{{- else }}
+- name: REDIS_URL
+  value: "redis://{{ include "ryot.redis.fullname" . }}:{{ .Values.redis.service.port }}"
+{{- end }}
+{{- else }}
+- name: REDIS_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "ryot.externalRedis.secretName" . }}
+      key: {{ include "ryot.externalRedis.secretKey" . }}
+{{- end }}
+{{- end }}
+
+{{/*
 Validate a {value, existingSecret, existingSecretKey} block. Args (dict):
   "field" path for messages, "cfg" the block, "required" bool.
 Fails if required and neither value nor existingSecret is set, or if an
@@ -322,11 +400,41 @@ Validation: fail fast on missing or inconsistent required configuration.
 {{- include "ryot.assertSecretRef" (dict "field" "externalDatabase.password" "cfg" $db.password "required" true) -}}
 {{- end -}}
 {{- end -}}
+{{- /* Redis */ -}}
+{{- if .Values.redis.enabled -}}
+{{- if not .Values.redis.image.repository -}}
+{{- fail "redis.image.repository is required when redis.enabled is true" -}}
+{{- end -}}
+{{- if not .Values.redis.image.tag -}}
+{{- fail "redis.image.tag is required when redis.enabled is true" -}}
+{{- end -}}
+{{- if and .Values.redis.auth.existingSecret (not .Values.redis.auth.existingSecretPasswordKey) -}}
+{{- fail "redis.auth.existingSecretPasswordKey is required when redis.auth.existingSecret is set" -}}
+{{- end -}}
+{{- if not .Values.redis.service.port -}}
+{{- fail "redis.service.port is required when redis.enabled is true" -}}
+{{- end -}}
+{{- if .Values.redis.persistence.enabled -}}
+{{- if not .Values.redis.persistence.size -}}
+{{- fail "redis.persistence.size is required when redis.persistence.enabled is true" -}}
+{{- end -}}
+{{- if not .Values.redis.persistence.mountPath -}}
+{{- fail "redis.persistence.mountPath is required when redis.persistence.enabled is true" -}}
+{{- end -}}
+{{- end -}}
+{{- else -}}
+{{- if and .Values.externalRedis.existingSecret (not .Values.externalRedis.existingSecretKey) -}}
+{{- fail "externalRedis.existingSecretKey is required when externalRedis.existingSecret is set" -}}
+{{- end -}}
+{{- if not (or .Values.externalRedis.url .Values.externalRedis.existingSecret) -}}
+{{- fail "redis.enabled is false: set externalRedis.url or reference one via externalRedis.existingSecret" -}}
+{{- end -}}
+{{- end -}}
 {{- /* Dynamic secret env: reject chart-managed names. These are rendered
 after the chart's own env entries, and Kubernetes lets the last duplicate
 declaration win, so allowing them would silently override chart-managed
 values. */ -}}
-{{- $reserved := list "SERVER_ADMIN_ACCESS_TOKEN" "SERVER_PRO_KEY" "DATABASE_URL" "POSTGRES_USER" "POSTGRES_DB" "POSTGRES_PASSWORD" "RYOT_DB_HOST" "RYOT_DB_PORT" "RYOT_DB_NAME" "RYOT_DB_USER" "RYOT_DB_PASSWORD" -}}
+{{- $reserved := list "SERVER_ADMIN_ACCESS_TOKEN" "SERVER_PRO_KEY" "DATABASE_URL" "REDIS_URL" "REDIS_PASSWORD" "POSTGRES_USER" "POSTGRES_DB" "POSTGRES_PASSWORD" "RYOT_DB_HOST" "RYOT_DB_PORT" "RYOT_DB_NAME" "RYOT_DB_USER" "RYOT_DB_PASSWORD" -}}
 {{- range $key, $_ := .Values.secretEnv -}}
 {{- if has $key $reserved -}}
 {{- fail (printf "secretEnv.%s: this env var is chart-managed and cannot be set via secretEnv" $key) -}}

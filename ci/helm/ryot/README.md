@@ -1,8 +1,8 @@
 # Ryot Helm Chart
 
 Deploys [Ryot](https://github.com/IgnisDa/ryot) - "The only self-hosted tracker
-you will ever need" - on Kubernetes, with an optional bundled PostgreSQL
-database.
+you will ever need" - on Kubernetes, with bundled PostgreSQL and Redis by
+default.
 
 ## Install from GHCR (OCI)
 
@@ -36,12 +36,14 @@ Each published GitHub release packages the chart and pushes it to
 
 ## What gets deployed
 
-- A single `Deployment` running the Ryot container (frontend + backend + Caddy
-  proxy in one image, listening on port `8000`).
+- A single `Deployment` running the Ryot container (frontend + TypeScript
+  backend in one image, listening on port `8000`).
 - A `Service` (ClusterIP by default) exposing port `8000`.
 - An optional `Ingress`.
 - An optional bundled PostgreSQL `StatefulSet` + headless `Service` +
   `Secret`, using the official `postgres` image.
+- An optional bundled Redis `StatefulSet` + headless `Service` + `Secret`, using
+  the official `redis` image.
 - A `ConfigMap` for non-sensitive env and a `Secret` for sensitive env.
 
 No `ServiceAccount` is created.
@@ -113,8 +115,37 @@ order of precedence:
        existingSecretKey: password
    ```
 
-   Because the password is read via `secretKeyRef`, it never appears in the
-   composed `DATABASE_URL` literal in the manifest.
+    Because the password is read via `secretKeyRef`, it never appears in the
+    composed `DATABASE_URL` literal in the manifest.
+
+## Redis options
+
+### Bundled Redis (default)
+
+`redis.enabled=true` (default) deploys a single-node Redis StatefulSet and
+wires `REDIS_URL` automatically. Redis has no password by default because the
+bundled service is cluster-internal. To enable authentication, set
+`redis.auth.password` or reference a password using
+`redis.auth.existingSecret`.
+
+Redis persistence is disabled by default because Ryot uses Redis for sessions,
+workflow coordination, and caches. Enable `redis.persistence.enabled` if Redis
+data must survive pod replacement.
+
+### Bring your own Redis
+
+Set `redis.enabled=false` and provide either a full URL or a secret containing
+one:
+
+```yaml
+redis:
+  enabled: false
+externalRedis:
+  existingSecret: my-ryot-redis
+  existingSecretKey: redis-url
+```
+
+An inline `externalRedis.url` is stored in the chart-managed Secret.
 
 ## Sensitive values
 
@@ -126,6 +157,7 @@ from the ConfigMap:
 | `SERVER_ADMIN_ACCESS_TOKEN` | `secret.adminAccessToken.value` (required) | `secret.adminAccessToken.existingSecret` / `.existingSecretKey` |
 | `SERVER_PRO_KEY`            | `secret.proKey.value` (optional)         | `secret.proKey.existingSecret` / `.existingSecretKey`           |
 | `DATABASE_URL`              | bundled / `externalDatabase.url`       | `externalDatabase.existingSecret` / `.existingSecretKey`      |
+| `REDIS_URL`                 | bundled / `externalRedis.url`          | `externalRedis.existingSecret` / `.existingSecretKey`          |
 | provider tokens (any)       | `secretEnv` map                        | `secretEnvFrom` map                                           |
 
 ## Ingress
@@ -190,6 +222,8 @@ message when required configuration is missing or inconsistent, including:
 - `postgres.enabled=false` with no usable external database: no `url`, no
   `existingSecret`, and missing component(s) (`host`/`port`/`database`/
   `username`/`password`).
+- `redis.enabled=false` with neither `externalRedis.url` nor
+  `externalRedis.existingSecret`.
 - `ingress.enabled=true` with no hosts, a host missing `host`, or a host with
   no paths.
 
@@ -216,7 +250,7 @@ Post-install smoke tests live in [`templates/tests/`](./templates/tests) as
 helm test <release-name>
 ```
 
-- **test-http-connection** - GETs `/health` through the Service (with retries)
+- **test-http-connection** - GETs `/api/health` through the Service (with retries)
   to confirm Ryot is serving.
 - **test-database-url** - injects the *exact* same database env the app
   receives, then resolves the composed `DATABASE_URL`, checks it is a valid
@@ -226,7 +260,8 @@ helm test <release-name>
 
 ## Health
 
-Ryot exposes `/health` on the service port; liveness and readiness probes use it.
+Ryot exposes `/api/health` on the service port; liveness and readiness probes
+use it. The endpoint checks both PostgreSQL and Redis.
 
 ## Notable values
 
@@ -240,6 +275,8 @@ Ryot exposes `/health` on the service port; liveness and readiness probes use it
 | `postgres.enabled`           | `true`                   | Deploy bundled PostgreSQL            |
 | `postgres.auth.password`     | `""` (required)          | Bundled DB password (no default)     |
 | `postgres.persistence.size`  | `8Gi`                    | Data volume size                     |
+| `redis.enabled`              | `true`                   | Deploy bundled Redis                 |
+| `redis.persistence.enabled`  | `false`                  | Persist Redis data                   |
 | `service.port`               | `8000`                   | Service port                         |
 | `ingress.enabled`            | `false`                  | Enable ingress                       |
 
