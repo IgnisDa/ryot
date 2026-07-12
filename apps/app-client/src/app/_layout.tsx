@@ -3,14 +3,24 @@ import "@/global.css";
 import { RegistryProvider } from "@effect/atom-react";
 import { Lora_400Regular, Lora_500Medium, Lora_600SemiBold } from "@expo-google-fonts/lora";
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from "@expo-google-fonts/outfit";
+import * as DevClient from "expo-dev-client";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { clearAppStorage } from "@/modules/auth/client";
+
 void SplashScreen.preventAutoHideAsync();
+
+if (__DEV__ && Platform.OS !== "web") {
+	void DevClient.registerDevMenuItems([
+		{ name: "Clear app storage", callback: () => void clearAppStorage() },
+	]);
+}
 
 export default function RootLayout() {
 	const [fontsLoaded] = useFonts({

@@ -25,6 +25,7 @@
 		"clsx": "^2.1.1",
 		"effect": "4.0.0-beta.105",
 		"expo": "~56.0.4",
+		"expo-dev-client": "~56.0.24",
 		"expo-font": "~56.0.5",
 		"expo-image": "~56.0.11",
 		"expo-linking": "~56.0.15",
