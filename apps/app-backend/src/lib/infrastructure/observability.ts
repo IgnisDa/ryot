@@ -1,45 +1,46 @@
-import * as OtlpSerialization from "@effect/opentelemetry/OtlpSerialization";
-import * as OtlpTracer from "@effect/opentelemetry/OtlpTracer";
-import { FetchHttpClient, PlatformLogger } from "@effect/platform";
-import { Effect, Layer, Logger, LogLevel, Option, Runtime, Tracer } from "effect";
+import { Effect, Layer, Logger, LogLevel, Option, type Context, Tracer, References } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+import { OtlpSerialization, OtlpTracer } from "effect/unstable/observability";
 
 import { AppConfig } from "./config/service";
 
-const stdoutLogfmtLogger = Logger.logfmtLogger.pipe(
+const stdoutLogfmtLogger = Logger.formatLogFmt.pipe(
 	Logger.map((line) => globalThis.console.log(line)),
 );
 
 const makeLoggerLayer = (nodeEnv: string, logFile: Option.Option<string>) => {
-	const stdoutLogger = nodeEnv === "production" ? stdoutLogfmtLogger : Logger.prettyLogger();
+	const stdoutLogger = nodeEnv === "production" ? stdoutLogfmtLogger : Logger.consolePretty();
 	if (Option.isNone(logFile)) {
-		return Logger.replace(Logger.defaultLogger, stdoutLogger);
+		return Logger.layer([stdoutLogger, Logger.tracerLogger]);
 	}
-	return Logger.replaceScoped(
-		Logger.defaultLogger,
-		Logger.logfmtLogger.pipe(
-			PlatformLogger.toFile(logFile.value, { flag: "a" }),
-			Effect.map((fileLogger) => Logger.zip(stdoutLogger, fileLogger)),
+	return Logger.layer([
+		Logger.formatLogFmt.pipe(
+			Logger.toFile(logFile.value, { flag: "a" }),
+			Effect.map((fileLogger) =>
+				Logger.make((options) => [stdoutLogger.log(options), fileLogger.log(options)]),
+			),
 		),
-	);
+		Logger.tracerLogger,
+	]);
 };
 
-const decorateTracer = (tracer: Tracer.Tracer, runtime: Runtime.Runtime<never>) =>
+const decorateTracer = (tracer: Tracer.Tracer, runtime: Context.Context<never>) =>
 	Tracer.make({
-		context: (evaluate, fiber) => tracer.context(evaluate, fiber),
-		span: (name, parent, context, links, startTime, kind, options) => {
+		...(tracer.context === undefined ? {} : { context: tracer.context.bind(tracer) }),
+		span: (options) => {
 			let ended = false;
-			const span = tracer.span(name, parent, context, links, startTime, kind, options);
+			const span = tracer.span(options);
 			return {
 				_tag: "Span",
-				name: span.name,
 				kind: span.kind,
+				name: span.name,
 				parent: span.parent,
 				spanId: span.spanId,
 				traceId: span.traceId,
-				context: span.context,
 				sampled: span.sampled,
-				addLinks: (newLinks) => span.addLinks(newLinks),
+				annotations: span.annotations,
 				attribute: (key, value) => span.attribute(key, value),
+				addLinks: (newLinks) => span.addLinks(newLinks),
 				event: (eventName, eventTime, attributes) => span.event(eventName, eventTime, attributes),
 				get status() {
 					return span.status;
@@ -54,13 +55,13 @@ const decorateTracer = (tracer: Tracer.Tracer, runtime: Runtime.Runtime<never>) 
 					if (!ended) {
 						ended = true;
 						span.end(endTime, exit);
-						Runtime.runFork(runtime)(
+						Effect.runForkWith(runtime)(
 							Effect.logDebug("span completed").pipe(
 								Effect.annotateLogs({
-									spanName: name,
 									spanId: span.spanId,
 									traceId: span.traceId,
-									durationMs: Number(endTime - startTime) / 1_000_000,
+									spanName: options.name,
+									durationMs: Number(endTime - options.startTime) / 1_000_000,
 								}),
 							),
 						);
@@ -79,21 +80,26 @@ const makeTracerLayer = (endpoint: Option.Option<string>, logLevel: LogLevel.Log
 				resource: { serviceName: "ryot-backend" },
 			}).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, OtlpSerialization.layerJson))),
 	});
-	if (!LogLevel.lessThanEqual(logLevel, LogLevel.Debug)) {
+	if (!LogLevel.isLessThanOrEqualTo(logLevel, "Debug")) {
 		return inner;
 	}
-	const decorator = Layer.unwrapEffect(
-		Tracer.tracerWith((tracer) =>
-			Effect.map(Effect.runtime(), (runtime) => Layer.setTracer(decorateTracer(tracer, runtime))),
+	const decorator = Layer.unwrap(
+		Effect.flatMap(Effect.tracer, (tracer) =>
+			Effect.map(Effect.context(), (runtime) =>
+				Layer.succeed(Tracer.Tracer, decorateTracer(tracer, runtime)),
+			),
 		),
 	);
 	return Layer.provide(decorator, inner);
 };
 
-export const ObservabilityLive = Layer.unwrapEffect(
+export const ObservabilityLive = Layer.unwrap(
 	Effect.map(AppConfig, (config) => {
 		const logger = makeLoggerLayer(config.nodeEnv, config.server.logFile);
-		const logging = Layer.mergeAll(Logger.minimumLogLevel(config.server.logLevel), logger);
+		const logging = Layer.mergeAll(
+			Layer.succeed(References.MinimumLogLevel, config.server.logLevel),
+			logger,
+		);
 		const tracer = makeTracerLayer(config.server.otlpEndpoint, config.server.logLevel).pipe(
 			Layer.provide(logging),
 		);
