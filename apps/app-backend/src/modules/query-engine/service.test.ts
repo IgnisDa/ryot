@@ -97,11 +97,10 @@ const makeServiceLayer = (sqlStatements: string[]) => {
 		Layer.succeed(DbRunner, provideDb),
 		Layer.succeed(TransactionRunner, provideDb),
 		Layer.succeed(DefinitionRegistry, {
-			_tag: "DefinitionRegistry" as const,
 			...makeDefinitionRegistry(definitions),
 		}),
 	);
-	return QueryEngineService.Default.pipe(Layer.provide(dependencies));
+	return QueryEngineService.layer.pipe(Layer.provide(dependencies));
 };
 
 it.effect("executes an owned relationship traversal to a cross-user endpoint", () => {
