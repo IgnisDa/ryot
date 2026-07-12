@@ -53,17 +53,17 @@ const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasReposito
 
 const makeSignalSchemasRepository = (
 	overrides: MockOverrides<typeof mockSignalSchemasRepository> = {},
-) => mockSignalSchemasRepository({ _tag: "SignalSchemasRepository", ...overrides });
+) => mockSignalSchemasRepository({ ...overrides });
 
 const makeRelationshipSchemasRepository = (
 	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
-) => mockRelationshipSchemasRepository({ _tag: "RelationshipSchemasRepository", ...overrides });
+) => mockRelationshipSchemasRepository({ ...overrides });
 
 const makeLayer = (
 	signalSchemasRepository: ReturnType<typeof makeSignalSchemasRepository>,
 	relationshipSchemasRepository = makeRelationshipSchemasRepository(),
 ) =>
-	SignalSchemasService.Default.pipe(
+	SignalSchemasService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(dbRunnerLayer, signalSchemasRepository, relationshipSchemasRepository),
 		),

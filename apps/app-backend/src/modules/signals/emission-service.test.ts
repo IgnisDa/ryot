@@ -108,21 +108,20 @@ const signalDispatchLayer = Layer.mock(SignalDispatch, {
 
 const makeSignalsRepository = (overrides: MockOverrides<typeof mockSignalsRepository> = {}) =>
 	mockSignalsRepository({
-		_tag: "SignalsRepository",
 		findById: () => Effect.succeed(null),
 		...overrides,
 	});
 const makeSignalSchemasRepository = (
 	overrides: MockOverrides<typeof mockSignalSchemasRepository> = {},
-) => mockSignalSchemasRepository({ _tag: "SignalSchemasRepository", ...overrides });
+) => mockSignalSchemasRepository({ ...overrides });
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
-	mockEntitiesRepository({ _tag: "EntitiesRepository", ...overrides });
+	mockEntitiesRepository({ ...overrides });
 const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
-) => mockRelationshipsRepository({ _tag: "RelationshipsRepository", ...overrides });
+) => mockRelationshipsRepository({ ...overrides });
 const makeRelationshipSchemasRepository = (
 	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
-) => mockRelationshipSchemasRepository({ _tag: "RelationshipSchemasRepository", ...overrides });
+) => mockRelationshipSchemasRepository({ ...overrides });
 
 const makeLayer = (input: {
 	dispatch?: typeof signalDispatchLayer;
@@ -132,7 +131,7 @@ const makeLayer = (input: {
 	relationships?: ReturnType<typeof makeRelationshipsRepository>;
 	relationshipSchemas?: ReturnType<typeof makeRelationshipSchemasRepository>;
 }) =>
-	SignalEmissionService.Default.pipe(
+	SignalEmissionService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				input.signals,
@@ -205,7 +204,7 @@ it.effect("validates signal properties before insertion", () => {
 		const service = yield* SignalEmissionService;
 		const exit = yield* Effect.exit(service.emit({ ...baseInput, properties: {} }));
 		assert(Exit.isFailure(exit));
-		const failure = Cause.failureOption(exit.cause);
+		const failure = Cause.findErrorOption(exit.cause);
 		assert(Option.isSome(failure));
 		expect(failure.value).toBeInstanceOf(BadRequest);
 	}).pipe(Effect.provide(layer));

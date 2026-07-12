@@ -1,6 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { Workflow } from "@effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -9,6 +7,8 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import { Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { AutomationsService } from "#modules/automations/service";
@@ -61,19 +61,18 @@ const eventSchemaScope = {
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
-	mockEntitiesRepository({ _tag: "EntitiesRepository", ...overrides });
+	mockEntitiesRepository({ ...overrides });
 
 const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
 
 const makeEventSchemasRepository = (
 	overrides: MockOverrides<typeof mockEventSchemasRepository> = {},
-) => mockEventSchemasRepository({ _tag: "EventSchemasRepository", ...overrides });
+) => mockEventSchemasRepository({ ...overrides });
 
 const mockEventsRepository = Layer.mock(EventsRepository);
 
 const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsRepository> = {}) =>
 	mockEventsRepository({
-		_tag: "EventsRepository",
 		...overrides,
 	});
 
@@ -81,16 +80,15 @@ const mockAutomationsService = Layer.mock(AutomationsService);
 
 const makeAutomationsService = (overrides: MockOverrides<typeof mockAutomationsService> = {}) =>
 	mockAutomationsService({
-		_tag: "AutomationsService",
 		resolveActivePolicies: () => Effect.succeed([]),
 		...overrides,
 	});
 
 const makeCapturingWorkflowEngine = (
-	instance: WorkflowInstance["Type"],
+	instance: WorkflowInstance["Service"],
 	activityNames: string[],
 ) => {
-	let engine: WorkflowEngine["Type"];
+	let engine: WorkflowEngine["Service"];
 
 	engine = makeWorkflowEngine({
 		activityExecute: (activity) =>

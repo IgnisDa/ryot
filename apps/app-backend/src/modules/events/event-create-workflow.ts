@@ -1,4 +1,3 @@
-import { Workflow } from "@effect/workflow";
 import { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
 import { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import {
@@ -9,8 +8,11 @@ import {
 import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Schema } from "effect";
+import { Workflow } from "effect/unstable/workflow";
 
-export const EventCreateWorkflowError = Schema.Union(BadRequest, DbError, NotFound);
+import { withoutSchemaServices } from "#lib/shared/schema";
+
+export const EventCreateWorkflowError = Schema.Union([BadRequest, DbError, NotFound]);
 
 export const EventCreateWorkflowPayload = Schema.Struct({
 	userId: UserId,
@@ -28,11 +30,10 @@ type EventCreateWorkflowInput = Omit<EventCreateWorkflowPayload, "executionId"> 
 	executionId?: string | undefined;
 };
 
-export const EventCreateWorkflow = Workflow.make({
-	name: "EventCreateWorkflow",
-	success: CreateEventsResponse,
-	error: EventCreateWorkflowError,
-	payload: EventCreateWorkflowPayload,
+export const EventCreateWorkflow = Workflow.make("EventCreateWorkflow", {
+	success: withoutSchemaServices(CreateEventsResponse),
+	error: withoutSchemaServices(EventCreateWorkflowError),
+	payload: withoutSchemaServices(EventCreateWorkflowPayload),
 	idempotencyKey: ({ executionId }) => executionId,
 });
 

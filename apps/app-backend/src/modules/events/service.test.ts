@@ -1,5 +1,4 @@
-import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { assert, expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
@@ -11,6 +10,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
@@ -59,19 +59,18 @@ const eventSchemaScope = {
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
-	mockEntitiesRepository({ _tag: "EntitiesRepository", ...overrides });
+	mockEntitiesRepository({ ...overrides });
 
 const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
 
 const makeEventSchemasRepository = (
 	overrides: MockOverrides<typeof mockEventSchemasRepository> = {},
-) => mockEventSchemasRepository({ _tag: "EventSchemasRepository", ...overrides });
+) => mockEventSchemasRepository({ ...overrides });
 
 const mockEventsRepository = Layer.mock(EventsRepository);
 
 const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsRepository> = {}) =>
 	mockEventsRepository({
-		_tag: "EventsRepository",
 		...overrides,
 	});
 
@@ -79,7 +78,6 @@ const mockQueryEngine = Layer.mock(QueryEngineService);
 
 const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) =>
 	mockQueryEngine({
-		_tag: "QueryEngineService",
 		validate: () => Effect.void.pipe(Effect.as(undefined)),
 		...overrides,
 	});
@@ -87,7 +85,7 @@ const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) 
 const makeServiceLayer = (input: {
 	queryEngine?: ReturnType<typeof makeQueryEngine>;
 	eventsRepository?: ReturnType<typeof makeEventsRepository>;
-	workflowEngine?: WorkflowEngine["Type"];
+	workflowEngine?: WorkflowEngine["Service"];
 	entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
 	eventSchemasRepository?: ReturnType<typeof makeEventSchemasRepository>;
 }) =>
@@ -101,7 +99,7 @@ const makeServiceLayer = (input: {
 	);
 
 const makeEventsServiceLayer = (input: Parameters<typeof makeServiceLayer>[0]) =>
-	EventsService.Default.pipe(Layer.provide(makeServiceLayer(input)));
+	EventsService.layer.pipe(Layer.provide(makeServiceLayer(input)));
 
 it.effect("requires entityId or sessionEntityId when listing events", () => {
 	const layer = makeEventsServiceLayer({});
@@ -240,7 +238,7 @@ it.effect("routes per-event deletes and reference moves through the repository",
 });
 
 it.effect("awaits API event creation and returns the workflow outcomes", () => {
-	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 
 	const layer = makeEventsServiceLayer({
 		workflowEngine: makeWorkflowEngine({
@@ -289,12 +287,17 @@ it.effect("awaits API event creation and returns the workflow outcomes", () => {
 				],
 			},
 		});
-		expect(typeof capturedOptions?.payload.executionId).toBe("string");
+		assert(
+			typeof capturedOptions?.payload === "object" &&
+				capturedOptions.payload !== null &&
+				"executionId" in capturedOptions.payload,
+		);
+		expect(typeof capturedOptions.payload.executionId).toBe("string");
 	}).pipe(Effect.provide(layer));
 });
 
 it.effect("marks sandbox-created events with the creating automation execution", () => {
-	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 	const layer = makeEventsServiceLayer({
 		workflowEngine: makeWorkflowEngine({
 			execute: (_workflow, options) => {
@@ -329,7 +332,7 @@ it.effect("marks sandbox-created events with the creating automation execution",
 });
 
 it.effect("awaits the durable import event-create path with its deterministic execution id", () => {
-	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 
 	const layer = makeEventsServiceLayer({
 		workflowEngine: makeWorkflowEngine({

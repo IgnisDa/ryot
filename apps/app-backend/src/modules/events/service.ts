@@ -1,4 +1,3 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { type CurrentUserValue, defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
@@ -14,7 +13,8 @@ import {
 	type UserId,
 } from "@ryot/contract/schema/brands";
 import { buildEventHistoryQueryDocument } from "@ryot/query-engine/recipes/app";
-import { Effect, Match } from "effect";
+import { Context, Effect, Layer, Match } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -65,10 +65,20 @@ const toLifecycleOrigin = (input: EventCreateInput): AutomationOrigin | undefine
 	const importRunId = input.metadata?.importRunId;
 	const integrationId = input.metadata?.integrationId;
 	return Match.value(input.source).pipe(
-		Match.when("api", () => ({ kind: "api" }) as const),
+		Match.when(
+			"api",
+			() =>
+				({
+					kind: "api",
+				}) as const,
+		),
 		Match.when(
 			"import",
-			() => ({ kind: "import", ...(importRunId ? { importRunId } : {}) }) as const,
+			() =>
+				({
+					kind: "import",
+					...(importRunId ? { importRunId } : {}),
+				}) as const,
 		),
 		Match.when("integration", () =>
 			integrationId
@@ -113,8 +123,8 @@ const toListedEvent = Effect.fn("toListedEventFromQueryEngine")(function* (row: 
 	};
 });
 
-export class EventsService extends Effect.Service<EventsService>()("EventsService", {
-	effect: Effect.gen(function* () {
+export class EventsService extends Context.Service<EventsService>()("EventsService", {
+	make: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
 		const repository = yield* EventsRepository;
@@ -272,4 +282,6 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 
 		return { create, delete: deleteEvent, listForUser, update };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

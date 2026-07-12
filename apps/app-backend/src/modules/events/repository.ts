@@ -3,7 +3,7 @@ import type { ListedEvent } from "@ryot/contract/modules/events/schemas";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { EntityId, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -55,8 +55,8 @@ const toListedEvent = (row: EventRow): ListedEvent => ({
 	sessionEntityId: row.sessionEntityId ? EntityId.make(row.sessionEntityId) : undefined,
 });
 
-export class EventsRepository extends Effect.Service<EventsRepository>()("EventsRepository", {
-	sync: () => {
+export class EventsRepository extends Context.Service<EventsRepository>()("EventsRepository", {
+	make: Effect.sync(() => {
 		const listQueryScopesForUser = Effect.fn("EventsRepository.listQueryScopesForUser")(
 			function* (input: {
 				userId: UserId;
@@ -217,5 +217,7 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			listUserEventIdsForEntity,
 			updateEventEntityReferences,
 		};
-	},
-}) {}
+	}),
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
