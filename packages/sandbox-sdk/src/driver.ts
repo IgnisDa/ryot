@@ -1,12 +1,7 @@
+import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
 import type { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
-import type {
-	ExecutionMetadata,
-	SandboxHost,
-	SandboxHostCapability,
-	SandboxManifest,
-	ScriptManifest,
-} from "./core";
+import type { ExecutionMetadata, SandboxHost, SandboxManifest, ScriptManifest } from "./core";
 
 type ScriptExecution<
 	Input extends Schema.Codec<unknown, unknown>,

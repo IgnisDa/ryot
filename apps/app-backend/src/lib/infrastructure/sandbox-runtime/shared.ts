@@ -3,11 +3,11 @@ import type {
 	ExecutionAuthority,
 	SandboxExecutionGrants,
 } from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
 import type { SandboxProviderId } from "@ryot/contract/schema/brands";
 import {
 	SANDBOX_CAPABILITY_REQUIREMENTS,
 	type SandboxCapabilityRequirement,
-	type SandboxHostCapability,
 	type SandboxHostImplementationMap as SdkSandboxHostImplementationMap,
 } from "@ryot/sandbox-sdk/core";
 import type { JsonValue, SandboxHostError } from "@ryot/sandbox-sdk/wire";
