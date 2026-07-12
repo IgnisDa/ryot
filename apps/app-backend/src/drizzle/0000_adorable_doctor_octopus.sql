@@ -138,6 +138,7 @@ CREATE TABLE "notification_channel" (
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"platform" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"description" text NOT NULL,
 	"platform_specifics" jsonb NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
