@@ -9,10 +9,9 @@ export default mergeConfig(
 		resolve: { alias: [{ find: /^~\//, replacement: srcDir }] },
 		test: {
 			bail: 1,
-			isolate: true,
+			isolate: false,
 			testTimeout: 180_000,
 			hookTimeout: 180_000,
-			fileParallelism: true,
 			reporters: ["hanging-process"],
 			setupFiles: ["./test-setup.ts"],
 			globalSetup: ["./global-setup.ts"],
