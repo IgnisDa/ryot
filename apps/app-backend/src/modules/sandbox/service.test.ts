@@ -26,6 +26,7 @@ const storedScript = {
 	providerId: null,
 	compiledFormat: 1,
 	compiledCode: "compiled",
+	contentHash: "compiled-hash",
 };
 
 const mockRepository = Layer.mock(SandboxRepository);

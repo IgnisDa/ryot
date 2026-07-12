@@ -18,6 +18,7 @@ const makeRunInput = (
 	providerId,
 	context: {},
 	metadata: {},
+	contentHash: "",
 	compiledCode: "",
 	compiledFormat: 1,
 	scriptId: "script_1",
