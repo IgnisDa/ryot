@@ -27,6 +27,7 @@ const SHOW_RECOMMENDATION_LIMIT = 12;
 const SHOW_SUMMARY_COLLECTION_LIMIT = 6;
 const SHOW_ACTIVITY_PARENT_EVENT_LIMIT = 60;
 const SHOW_ACTIVITY_EPISODE_EVENT_LIMIT = 100;
+const SHOW_ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
 const SHOW_ACTIVITY_EPISODE_PROGRESS_LIMIT = 100;
 
 type ShowSeasonRequest = ShowEntityRequest & { readonly seasonId: string };
@@ -85,6 +86,7 @@ const showActivityFamily = Atom.family((request: ShowEntityRequest) =>
 				entityId: request.entityId,
 				parentEventLimit: SHOW_ACTIVITY_PARENT_EVENT_LIMIT,
 				episodeEventLimit: SHOW_ACTIVITY_EPISODE_EVENT_LIMIT,
+				collectionEventLimit: SHOW_ACTIVITY_COLLECTION_EVENT_LIMIT,
 				episodeProgressLimit: SHOW_ACTIVITY_EPISODE_PROGRESS_LIMIT,
 			}),
 			{ reactivityKeys: scopedReactivityKey("show-activity", request.scope) },

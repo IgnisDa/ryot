@@ -74,6 +74,13 @@ describe("show activity tab", () => {
 		expect(screen.getByText("Added to backlog")).toBeOnTheScreen();
 	});
 
+	it("reads collection membership changes as part of the same journal", async () => {
+		await renderActivity(readyState());
+
+		expect(screen.getByText("Added to Watchlist")).toBeOnTheScreen();
+		expect(screen.getByText("Removed from Watchlist")).toBeOnTheScreen();
+	});
+
 	it("introduces the journal with history facts the data can establish", async () => {
 		await renderActivity(readyState());
 
