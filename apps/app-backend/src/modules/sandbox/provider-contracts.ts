@@ -11,9 +11,7 @@ import type {
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Schema } from "effect";
 
-import { withoutSchemaServices } from "#lib/shared/schema";
-
-export const SandboxJsonValueSchema: Schema.Schema<JsonValue> = Schema.suspend(() =>
+export const SandboxJsonValueSchema: Schema.Codec<JsonValue> = Schema.suspend(() =>
 	Schema.Union([
 		Schema.Null,
 		Schema.String,
@@ -25,9 +23,9 @@ export const SandboxJsonValueSchema: Schema.Schema<JsonValue> = Schema.suspend((
 ).annotate({ identifier: "SandboxJsonValue" });
 
 const strict = { parseOptions: { onExcessProperty: "error" as const } };
-const NonEmptyTrimmedString: Schema.Schema<string> = Schema.Trim.pipe(
+const NonEmptyTrimmedString = Schema.Trim.pipe(
 	Schema.check(Schema.isNonEmpty()),
-);
+) satisfies Schema.Codec<string>;
 const NullProperty = Schema.Struct({
 	value: Schema.Null,
 	kind: Schema.Literal("null"),
@@ -41,16 +39,16 @@ const TextProperty = Schema.Struct({
 	value: NonEmptyTrimmedString,
 }).annotate(strict);
 
-const ProviderSearchItemSchema: Schema.Schema<ProviderSearchItem> = Schema.Struct({
+const ProviderSearchItemSchema = Schema.Struct({
 	titleProperty: TextProperty,
 	externalId: NonEmptyTrimmedString,
 	imageProperty: Schema.optional(SandboxJsonValueSchema),
 	calloutProperty: Schema.optional(SandboxJsonValueSchema),
 	secondarySubtitleProperty: Schema.optional(SandboxJsonValueSchema),
 	primarySubtitleProperty: Schema.optional(Schema.Union([NullProperty, NumberProperty])),
-}).annotate(strict);
+}).annotate(strict) satisfies Schema.Codec<ProviderSearchItem>;
 
-const ProviderSearchResultSchema: Schema.Schema<ProviderSearchResult> = Schema.Struct({
+const ProviderSearchResultSchema = Schema.Struct({
 	items: Schema.Array(ProviderSearchItemSchema),
 	details: Schema.optional(
 		Schema.Struct({
@@ -58,17 +56,16 @@ const ProviderSearchResultSchema: Schema.Schema<ProviderSearchResult> = Schema.S
 			nextPage: Schema.NullOr(Schema.Finite),
 		}).annotate(strict),
 	),
-}).annotate(strict);
+}).annotate(strict) satisfies Schema.Codec<ProviderSearchResult>;
 
-const ProviderDetailsRelatedEntitySchema: Schema.Schema<ProviderDetailsRelatedEntity> =
-	Schema.Struct({
-		name: Schema.String,
-		externalId: Schema.String,
-		providerSlug: Schema.String,
-		relationshipProperties: Schema.optional(SandboxJsonValueSchema),
-	}).annotate(strict);
+const ProviderDetailsRelatedEntitySchema = Schema.Struct({
+	name: Schema.String,
+	externalId: Schema.String,
+	providerSlug: Schema.String,
+	relationshipProperties: Schema.optional(SandboxJsonValueSchema),
+}).annotate(strict) satisfies Schema.Codec<ProviderDetailsRelatedEntity>;
 
-export const ProviderDetailsRelatedEntityGroupSchema: Schema.Schema<ProviderDetailsRelatedEntityGroup> =
+export const ProviderDetailsRelatedEntityGroupSchema: Schema.Codec<ProviderDetailsRelatedEntityGroup> =
 	Schema.Struct({
 		relationshipSchemaSlug: Schema.String,
 		direction: Schema.Literals(["outgoing", "incoming"]),
@@ -76,7 +73,7 @@ export const ProviderDetailsRelatedEntityGroupSchema: Schema.Schema<ProviderDeta
 		entities: Schema.Array(ProviderDetailsRelatedEntitySchema),
 	}).annotate(strict);
 
-export const ProviderDetailsChildEntitySchema: Schema.Schema<ProviderDetailsChildEntity> =
+export const ProviderDetailsChildEntitySchema: Schema.Codec<ProviderDetailsChildEntity> =
 	Schema.suspend(() =>
 		Schema.Struct({
 			name: Schema.String,
@@ -88,32 +85,26 @@ export const ProviderDetailsChildEntitySchema: Schema.Schema<ProviderDetailsChil
 		}).annotate(strict),
 	).annotate({ identifier: "ProviderDetailsChildEntity" });
 
-const ProviderDetailsResultSchema: Schema.Schema<ProviderDetailsResult> = Schema.Struct({
+const ProviderDetailsResultSchema = Schema.Struct({
 	name: Schema.String,
 	properties: SandboxJsonValueSchema,
 	expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
 	childEntities: Schema.optional(Schema.Array(ProviderDetailsChildEntitySchema)),
 	relatedEntityGroups: Schema.optional(Schema.Array(ProviderDetailsRelatedEntityGroupSchema)),
-}).annotate(strict);
+}).annotate(strict) satisfies Schema.Codec<ProviderDetailsResult>;
 
-const ProviderResolveResultSchema: Schema.Schema<ProviderResolveResult> = Schema.Struct({
+const ProviderResolveResultSchema = Schema.Struct({
 	externalId: Schema.NullOr(Schema.String),
-}).annotate(strict);
+}).annotate(strict) satisfies Schema.Codec<ProviderResolveResult>;
 
-const ProviderTranslateResultSchema: Schema.Schema<ProviderTranslateResult> = Schema.Struct({
+const ProviderTranslateResultSchema = Schema.Struct({
 	name: Schema.optional(Schema.NullOr(Schema.String)),
 	properties: Schema.optional(Schema.NullOr(Schema.Record(Schema.String, SandboxJsonValueSchema))),
-}).annotate(strict);
+}).annotate(strict) satisfies Schema.Codec<ProviderTranslateResult>;
 
-export const decodeProviderSearchResult = Schema.decodeUnknownEffect(
-	withoutSchemaServices(ProviderSearchResultSchema),
-);
-export const decodeProviderDetailsResult = Schema.decodeUnknownEffect(
-	withoutSchemaServices(ProviderDetailsResultSchema),
-);
-export const decodeProviderResolveResult = Schema.decodeUnknownEffect(
-	withoutSchemaServices(ProviderResolveResultSchema),
-);
+export const decodeProviderSearchResult = Schema.decodeUnknownEffect(ProviderSearchResultSchema);
+export const decodeProviderDetailsResult = Schema.decodeUnknownEffect(ProviderDetailsResultSchema);
+export const decodeProviderResolveResult = Schema.decodeUnknownEffect(ProviderResolveResultSchema);
 export const decodeProviderTranslateResult = Schema.decodeUnknownEffect(
-	withoutSchemaServices(ProviderTranslateResultSchema),
+	ProviderTranslateResultSchema,
 );
