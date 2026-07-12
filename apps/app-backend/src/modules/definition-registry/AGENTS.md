@@ -12,3 +12,15 @@ active plugin script; the `integration.disabled` source-zero signal selects the 
 kernel-owned content-addressed formatter. Source zero is not a synthetic plugin.
 The registry contains definitions and bindings only; user state and persisted domain data do not
 belong here.
+
+## Trust and ownership
+
+Phase 4 registry entries are trusted, immutable system definitions. `pluginSlug` records package
+ownership where a definition exposes source attribution; `null` identifies kernel source zero.
+This attribution is separate from trust: plugin-owned first-party definitions remain system-provided
+and are reported as builtin by existing schema and saved-view conversion layers.
+
+Do not add non-builtin provenance sets, replacement provenance arguments, or user-package trust state
+to this registry. Signal authorization accepts only definitions returned by the active registry, and
+related-user audience policies accept only registry-backed relationship definitions. User-package
+trust, installation state, and capability consent belong to Phase 5.

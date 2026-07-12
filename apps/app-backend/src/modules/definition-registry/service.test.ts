@@ -47,7 +47,9 @@ describe("definition registry", () => {
 		expect(registry.getSignalSchema("review.created")?.notificationScriptSlug).toBe(
 			"automation.media-notification",
 		);
+		expect(registry.getEntitySchema("collection")?.pluginSlug).toBeNull();
 		expect(registry.getEntitySchema("movie")?.pluginSlug).toBe("media");
+		expect(registry.getSavedView("collections")?.pluginSlug).toBeNull();
 		expect(registry.getSavedView("all-movies")?.pluginSlug).toBe("media");
 		expect(Object.isFrozen(snapshot)).toBe(true);
 		expect(Object.isFrozen(snapshot.entitySchemas["movie"]?.propertiesSchema)).toBe(true);
