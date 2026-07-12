@@ -52,6 +52,13 @@ zero or a trusted plugin. `pluginSlug` owns source attribution. Remove the never
 provenance scaffold rather than changing existing first-party definition behavior. Phase 5 will
 design user-package trust and visibility separately.
 
+Task 01 implementation record: the first gate run found `mediaBaseFields` and
+`mediaWithCreatorsBaseFields` authored in `libs/contract/src/schema/core.ts` and consumed by the media
+plugin. No later purity task owned that production-domain leak, and permanently excepting it would
+contradict kernel purity. With owner approval, Task 01 moved those field definitions verbatim into
+`plugins/media`; the contract retains only generic property-field constructors. This narrow ownership
+correction changes no schema or behavior and is the only domain move included in the gate task.
+
 ## 2. Performance
 
 - **Compiled modules on disk.** Execution currently imports compiled code via a `data:` URL
