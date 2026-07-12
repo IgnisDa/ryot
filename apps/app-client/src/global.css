@@ -50,7 +50,10 @@
 
 :root {
 	color-scheme: light dark;
+}
 
+:root,
+:root[data-theme="light"] {
 	--bg: #f5f2ec;
 	--gold: #c6871f;
 	--info: #3a6389;
@@ -93,7 +96,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-	:root:not([data-theme="light"]) {
+	:root {
 		--bg: #101113;
 		--gold: #e0a63f;
 		--info: #85b0d6;
