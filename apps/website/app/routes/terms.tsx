@@ -1,4 +1,4 @@
-import { FileText, Mail, MapPin, Scale } from "lucide-react";
+import { FileText, Mail, Scale } from "lucide-react";
 
 import { SectionHeader } from "~/lib/components/SectionHeader";
 import { TermsSection } from "~/lib/components/TermsSection";
@@ -38,19 +38,17 @@ export default function Index() {
 								</p>
 							</TermsSection>
 
-							<TermsSection number={2} title="Company Information">
+							<TermsSection number={2} title="Contact Information">
 								<div className="bg-muted/50 p-4 sm:p-6 rounded-lg space-y-3">
-									<div className="flex items-center">
-										<MapPin className="w-4 h-4 text-muted-foreground mr-3" />
-										<span className="text-foreground">
-											Ryot, Pocket A-3, Kalkaji Extension, New Delhi 110019, Delhi, India
-										</span>
-									</div>
-									<div className="flex items-center">
+									<div className="flex items-start">
 										<Mail className="w-4 h-4 text-muted-foreground mr-3" />
-										<a href={`mailto:${contactEmail}`} className="text-primary hover:underline">
-											{contactEmail}
-										</a>
+										<span className="text-foreground">
+											For support and legal notices, contact us at{" "}
+											<a href={`mailto:${contactEmail}`} className="text-primary hover:underline">
+												{contactEmail}
+											</a>
+											.
+										</span>
 									</div>
 								</div>
 							</TermsSection>
@@ -75,9 +73,13 @@ export default function Index() {
 
 							<TermsSection number={5} title="Subscription and Payments">
 								<p className="text-muted-foreground leading-relaxed">
-									The Service offers monthly and yearly subscription plans. Payments must be made on
-									time to maintain access to the Pro features. Failure to pay on time may result in
-									the revocation of your Pro Key and the deactivation of your server.
+									The Service offers monthly and yearly subscription plans, as well as one-time
+									lifetime licenses. Subscription payments recur on a monthly or yearly basis, while
+									lifetime licenses require a one-time payment and do not renew. Payments for
+									monthly and yearly subscription plans must be made on time to maintain access to
+									the Pro features. Failure to pay on time for either subscription plan may result
+									in the revocation of your Pro Key and the deactivation of your server. These
+									late-payment consequences do not apply to lifetime licenses.
 								</p>
 							</TermsSection>
 
@@ -223,7 +225,9 @@ export default function Index() {
 							<TermsSection number={12} title="Cancellation and Refund Policies">
 								<div className="space-y-4">
 									<p className="text-muted-foreground leading-relaxed">
-										Users may cancel their subscription at any time. To cancel, please contact us at{" "}
+										Users may cancel their subscription at any time, and lifetime-license refund
+										requests may be made in accordance with the eligibility periods below. To cancel
+										a subscription or request a refund for a lifetime license, please contact us at{" "}
 										<a href={`mailto:${contactEmail}`} className="text-primary hover:underline">
 											{contactEmail}
 										</a>
@@ -247,15 +251,21 @@ export default function Index() {
 											</li>
 											<li className="flex items-start">
 												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 shrink-0" />
+												<span>
+													Lifetime licenses: Full refund if requested within 30 days of the one-time
+													purchase, without discretionary approval
+												</span>
+											</li>
+											<li className="flex items-start">
+												<span className="w-2 h-2 bg-primary rounded-full mr-3 mt-2 shrink-0" />
 												<span>After these periods, refunds will not be provided</span>
 											</li>
 										</ul>
 									</div>
 
 									<p className="text-muted-foreground leading-relaxed">
-										Refund requests should be made by contacting our support team. We reserve the
-										right to review and approve or deny refund requests based on individual
-										circumstances and in compliance with applicable laws.
+										Refund requests should be made by contacting our support team. Refunds will be
+										processed in accordance with Indian laws and regulations.
 									</p>
 								</div>
 							</TermsSection>
