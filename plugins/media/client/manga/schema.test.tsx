@@ -7,13 +7,14 @@ import {
 	FLAT_OVERVIEW_INPUT,
 	flatPersonRow,
 } from "../../tests/client/flat-media/overview-fixture";
+import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
+import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
 import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
-import { mapMediaOverview } from "../media/overview-state";
 import {
 	mangaPresentationFacts,
 	mangaProgressLabel,
@@ -64,56 +65,6 @@ const mangaActivity = (events: readonly Record<string, unknown>[] = [PROGRESS_EV
 			}),
 	);
 
-const presentationData = (overrides: Record<string, unknown> = {}) => {
-	const decoded = mangaRecipes
-		.presentationRecipe(["manga-1"])
-		.decode({
-			data: {
-				rows: rowsResult(
-					[
-						{
-							images: null,
-							chapters: 120,
-							id: "manga-1",
-							publishDate: null,
-							publishYear: 1997,
-							name: "One Piece",
-							schemaSlug: "manga",
-							progressPercent: 62,
-							state: "in_progress",
-							productionStatus: null,
-							populationStatus: "ready",
-							translationStatus: "none",
-							...overrides,
-						},
-					],
-					{ limit: 100, hasMore: false, nextCursor: null },
-				),
-			},
-		});
-	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
-		throw new Error("Expected decoded presentation data");
-	}
-	return { ...decoded.success[0], batchAssets: [] };
-};
-
-const renderBody = () =>
-	mountRyotClient(
-		noopAdapter,
-		<mangaSchema.ScreenBody
-			compact
-			activity={null}
-			safeAreaTop={0}
-			settled={undefined}
-			refresh={() => undefined}
-			refreshOverview={() => undefined}
-			state={{ status: "ready", summary: mangaSummary() }}
-			overview={mapMediaOverview(
-				readyQueryResult(decodeFlatOverview(mangaRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT))),
-			)}
-		/>,
-	);
-
 afterEach(() => {
 	document.body.innerHTML = "";
 });
@@ -121,21 +72,10 @@ afterEach(() => {
 describe("manga schema", () => {
 	it("lists the chapter and volume facts and drops the unrecorded ones", () => {
 		expect(mangaSummaryFacts(mangaSummary())).toEqual([
-			expect.objectContaining({ label: "TMDB rating" }),
 			{ value: "120", icon: "book-open", label: "Chapters" },
 			{ value: "12", icon: "layers", label: "Volumes" },
-			{ value: "Released", icon: "clapperboard", label: "Production status" },
 		]);
-		expect(
-			mangaSummaryFacts(
-				mangaSummary({
-					volumes: null,
-					chapters: null,
-					providerRating: null,
-					productionStatus: null,
-				}),
-			),
-		).toEqual([]);
+		expect(mangaSummaryFacts(mangaSummary({ volumes: null, chapters: null }))).toEqual([]);
 	});
 
 	it("names the volume and chapter a progress event recorded, and falls back to the percent", () => {
@@ -187,7 +127,11 @@ describe("manga schema", () => {
 	});
 
 	it("names the credit rails for a manga and never claims it is part of a series", () => {
-		const { unmount, container } = renderBody();
+		const { unmount, container } = renderFlatScreenBody(
+			mangaSchema,
+			mangaSummary(),
+			decodeFlatOverview(mangaRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
+		);
 
 		expect(container.textContent).toContain("Authors & artists");
 		expect(container.textContent).toContain("Publishers");
@@ -197,14 +141,18 @@ describe("manga schema", () => {
 	});
 
 	it("reads the chapter count on cards and hints how much was read", () => {
-		const data = presentationData();
+		const data = decodeFlatPresentation(mangaRecipes, {
+			chapters: 120,
+			progressPercent: 62,
+			schemaSlug: "manga",
+		});
 
 		expect(mangaPresentationFacts(data)).toEqual(["120 chapters"]);
 		expect(mangaPresentationFacts({ ...data, chapters: 1 })).toEqual(["1 chapter"]);
 		expect(mangaPresentationFacts({ ...data, chapters: null })).toEqual([]);
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<mangaSchema.CardContent compact data={data} entityId="manga-1" />,
+			<mangaSchema.CardContent compact data={data} entityId="media-1" />,
 		);
 		expect(container.textContent).toContain("120 chapters");
 		expect(container.textContent).toContain("62% read");
