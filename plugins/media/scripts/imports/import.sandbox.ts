@@ -58,10 +58,14 @@ const integrationAdapter = (scriptSlug: string) => ({
 type FinalizedEntityGroup = (typeof MediaImportWriteChunkInput.Type)["entityGroups"][number];
 type FinalizedEvent = FinalizedEntityGroup["events"][number];
 
-const unresolvedEpisodeMessage = (episode: UnresolvedEpisodeRef) =>
-	episode.type === "show"
+const unresolvedEpisodeMessage = (episode: UnresolvedEpisodeRef) => {
+	if (episode.type === "show-season") {
+		return `Could not resolve show season ${episode.seasonNumber}`;
+	}
+	return episode.type === "show"
 		? `Could not resolve show episode S${episode.seasonNumber}E${episode.episodeNumber}`
 		: `Could not resolve podcast episode ${episode.episodeNumber}`;
+};
 
 const resolution = {
 	workflowSlug: "media-import-resolution",
@@ -162,6 +166,9 @@ export default defineWorkflow({
 						}
 						return yield* Effect.fail(new Error("Import job has invalid Trakt list fields"));
 					}
+					if (mode === "export") {
+						return yield* Effect.fail(new Error("Import job is missing Trakt export ZIP"));
+					}
 					return yield* Effect.fail(new Error("Import job is missing or invalid Trakt mode"));
 				}
 				if (target.mode === "user" && !target.username.trim()) {
@@ -170,13 +177,16 @@ export default defineWorkflow({
 				if (target.mode === "list" && !target.collection.trim()) {
 					return yield* Effect.fail(new Error("Import job is missing Trakt collection"));
 				}
-				parserInput = {
-					...parserInput,
-					...target,
-					...(target.mode === "user"
-						? { username: target.username.trim() }
-						: { collection: target.collection.trim(), url: target.url.trim() }),
-				};
+				parserInput =
+					target.mode === "export"
+						? { ...parserInput, mode: "export", hasExportFile: true }
+						: {
+								...parserInput,
+								...target,
+								...(target.mode === "user"
+									? { username: target.username.trim() }
+									: { collection: target.collection.trim(), url: target.url.trim() }),
+							};
 			}
 			if (["plex", "audiobookshelf", "media_tracker"].includes(input.source)) {
 				const apiKey = input.sourcePayload?.["apiKey"];
@@ -319,8 +329,16 @@ export default defineWorkflow({
 							: [],
 					);
 				});
-				const episodeRefs = episodeRequests.map(({ parentEntityId, unresolvedEpisode }, index) =>
-					unresolvedEpisode.type === "show"
+				const episodeRefs = episodeRequests.map(({ parentEntityId, unresolvedEpisode }, index) => {
+					if (unresolvedEpisode.type === "show-season") {
+						return {
+							index,
+							kind: "show-season" as const,
+							showEntityId: parentEntityId,
+							seasonNumber: unresolvedEpisode.seasonNumber,
+						};
+					}
+					return unresolvedEpisode.type === "show"
 						? {
 								index,
 								kind: "show" as const,
@@ -333,8 +351,8 @@ export default defineWorkflow({
 								kind: "podcast" as const,
 								podcastEntityId: parentEntityId,
 								episodeNumber: unresolvedEpisode.episodeNumber,
-							},
-				);
+							};
+				});
 				const episodeOutput =
 					episodeRefs.length > 0
 						? yield* replay.activity(`episodes-${batchIndex}`, episodes, { refs: episodeRefs })

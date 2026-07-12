@@ -40,6 +40,10 @@ export type ImportEntityRef = typeof ImportEntityRef.Type;
 
 export const UnresolvedEpisodeRef = Schema.Union([
 	Schema.Struct({
+		type: Schema.Literal("show-season"),
+		seasonNumber: Schema.Int,
+	}),
+	Schema.Struct({
 		type: Schema.Literal("show"),
 		seasonNumber: Schema.Int,
 		episodeNumber: Schema.Int,
@@ -114,7 +118,16 @@ const traktListTarget = strictStruct({
 	mode: Schema.Literal("list"),
 });
 
-export const TraktImportTarget = Schema.Union([traktUserTarget, traktListTarget]);
+const traktExportTarget = strictStruct({
+	mode: Schema.Literal("export"),
+	exportFilePath: Schema.Literal("exportFilePath"),
+});
+
+export const TraktImportTarget = Schema.Union([
+	traktUserTarget,
+	traktListTarget,
+	traktExportTarget,
+]);
 
 export type TraktImportTarget = typeof TraktImportTarget.Type;
 
@@ -134,13 +147,21 @@ export const MediaImportDispatchParserInput = Schema.Struct({
 	profileName: Schema.optional(Schema.String),
 	hasAnimeFile: Schema.optional(Schema.Boolean),
 	hasMangaFile: Schema.optional(Schema.Boolean),
+	hasExportFile: Schema.optional(Schema.Boolean),
 	allowInsecureConnections: Schema.optional(Schema.Boolean),
-	mode: Schema.optional(Schema.Union([Schema.Literal("user"), Schema.Literal("list")])),
+	mode: Schema.optional(
+		Schema.Union([Schema.Literal("user"), Schema.Literal("list"), Schema.Literal("export")]),
+	),
 });
 
 export const TraktImportParserInput = Schema.Union([
 	strictStruct({ ...MediaImportParserInput.fields, ...traktUserTarget.fields }),
 	strictStruct({ ...MediaImportParserInput.fields, ...traktListTarget.fields }),
+	strictStruct({
+		...MediaImportParserInput.fields,
+		mode: Schema.Literal("export"),
+		hasExportFile: Schema.Literal(true),
+	}),
 ]);
 
 export const UrlAndKeyImportParserInput = Schema.Struct({
