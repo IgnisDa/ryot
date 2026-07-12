@@ -9,6 +9,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { transactionLayer } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -216,9 +217,7 @@ it.effect("rejects a system principal for an actor audience", () => {
 	return Effect.gen(function* () {
 		const service = yield* SignalEmissionService;
 		const exit = yield* Effect.exit(service.emit({ ...baseInput, principal: { kind: "system" } }));
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Actor audience requires a user principal" })),
-		);
+		assertExitFails(exit, new BadRequest({ message: "Actor audience requires a user principal" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -235,7 +234,7 @@ it.effect("rejects a user-owned cross-user audience policy", () => {
 		const exit = yield* Effect.exit(
 			service.emit({ ...baseInput, subjectEntityId, schemaSlug: relatedSchema.slug }),
 		);
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Signal schema not found" })));
+		assertExitFails(exit, new NotFound({ message: "Signal schema not found" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -347,12 +346,13 @@ it.effect("rejects a missing or unreadable related-users subject", () => {
 
 	return Effect.gen(function* () {
 		const missing = yield* missingEffect;
-		expect(missing).toEqual(
-			Exit.fail(new BadRequest({ message: "Related-users audience requires a subject entity" })),
+		assertExitFails(
+			missing,
+			new BadRequest({ message: "Related-users audience requires a subject entity" }),
 		);
 
 		const unreadable = yield* unreadableEffect;
-		expect(unreadable).toEqual(Exit.fail(new NotFound({ message: "Entity not found" })));
+		assertExitFails(unreadable, new NotFound({ message: "Entity not found" }));
 	});
 });
 

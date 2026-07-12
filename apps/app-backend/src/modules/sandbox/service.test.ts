@@ -2,8 +2,9 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { NotFound, SandboxRunError } from "@ryot/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import {
 	dbRunnerLayer,
@@ -114,7 +115,7 @@ it.effect("rejects inactive plugin scripts before starting the workflow", () => 
 		const service = yield* SandboxExecutionService;
 		const exit = yield* Effect.exit(service.enqueue(executingUserId, { scriptId, context: {} }));
 
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Sandbox script not found" })));
+		assertExitFails(exit, new NotFound({ message: "Sandbox script not found" }));
 		expect(executionCount).toBe(0);
 	}).pipe(Effect.provide(layer));
 });
@@ -141,8 +142,9 @@ it.effect("polls a job only for its explicit executing user", () => {
 		const { jobId } = yield* service.enqueue(executingUserId, { scriptId });
 
 		expect(yield* service.getResult(executingUserId, jobId)).toEqual({ status: "pending" });
-		expect(yield* Effect.exit(service.getResult(otherUserId, jobId))).toEqual(
-			Exit.fail(new NotFound({ message: "Sandbox job not found" })),
+		assertExitFails(
+			yield* Effect.exit(service.getResult(otherUserId, jobId)),
+			new NotFound({ message: "Sandbox job not found" }),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -238,12 +240,11 @@ it.effect("rejects workflow input above the workflow limit before dispatch", () 
 			}),
 		);
 
-		expect(exit).toEqual(
-			Exit.fail(
-				new SandboxRunError({
-					message: "Sandbox definition context must be JSON and no larger than 65536 UTF-8 bytes",
-				}),
-			),
+		assertExitFails(
+			exit,
+			new SandboxRunError({
+				message: "Sandbox definition context must be JSON and no larger than 65536 UTF-8 bytes",
+			}),
 		);
 		expect(executionCount).toBe(0);
 	}).pipe(Effect.provide(layer));

@@ -10,8 +10,9 @@ import {
 	ImportRunId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Layer } from "effect";
 
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -109,8 +110,9 @@ it.effect("requires entityId or sessionEntityId when listing events", () => {
 		const service = yield* EventsService;
 		const exit = yield* Effect.exit(service.listForUser(user.id, {}));
 
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Either entityId or sessionEntityId is required" })),
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Either entityId or sessionEntityId is required" }),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -128,7 +130,7 @@ it.effect("returns not found when listing events for an inaccessible entity", ()
 			service.listForUser(user.id, { entityId: EntityId.make("entity-1") }),
 		);
 
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity not found" })));
+		assertExitFails(exit, new NotFound({ message: "Entity not found" }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -145,7 +147,7 @@ it.effect("returns not found when listing events for an inaccessible session ent
 			service.listForUser(user.id, { sessionEntityId: EntityId.make("session-entity-1") }),
 		);
 
-		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Session entity not found" })));
+		assertExitFails(exit, new NotFound({ message: "Session entity not found" }));
 	}).pipe(Effect.provide(layer));
 });
 
