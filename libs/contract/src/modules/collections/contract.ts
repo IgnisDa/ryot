@@ -1,7 +1,7 @@
-import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { NotFound, RateLimited, Unauthorized } from "../../errors";
+import { BadRequest, NotFound } from "../../errors";
 import {
 	CollectionResponse,
 	CreateCollectionBody,
@@ -12,26 +12,25 @@ import {
 
 export const CollectionsGroup = HttpApiGroup.make("collections")
 	.annotate(OpenApi.Description, "Manages collections and their memberships")
-	.addError(Unauthorized, { status: 401 })
-	.addError(RateLimited, { status: 429 })
-	.middleware(AuthMiddleware)
 	.add(
-		HttpApiEndpoint.post("create", "/collections")
-			.setPayload(CreateCollectionBody)
-			.addSuccess(CollectionResponse, { status: 201 })
-			.annotate(OpenApi.Description, "Creates a collection"),
+		HttpApiEndpoint.post("create", "/collections", {
+			payload: CreateCollectionBody,
+			success: CollectionResponse.pipe(HttpApiSchema.status(201)),
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+		}).annotate(OpenApi.Description, "Creates a collection"),
 	)
 	.add(
-		HttpApiEndpoint.post("createMembership", "/collections/memberships")
-			.setPayload(CreateMembershipBody)
-			.addSuccess(MembershipResponse, { status: 201 })
-			.addError(NotFound, { status: 404 })
-			.annotate(OpenApi.Description, "Adds an entity to a collection"),
+		HttpApiEndpoint.post("createMembership", "/collections/memberships", {
+			payload: CreateMembershipBody,
+			success: MembershipResponse.pipe(HttpApiSchema.status(201)),
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Adds an entity to a collection"),
 	)
 	.add(
-		HttpApiEndpoint.del("deleteMembership", "/collections/memberships")
-			.setPayload(DeleteMembershipBody)
-			.addSuccess(MembershipResponse)
-			.addError(NotFound, { status: 404 })
-			.annotate(OpenApi.Description, "Removes an entity from a collection"),
-	);
+		HttpApiEndpoint.delete("deleteMembership", "/collections/memberships", {
+			payload: DeleteMembershipBody,
+			success: MembershipResponse,
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Removes an entity from a collection"),
+	)
+	.middleware(AuthMiddleware);

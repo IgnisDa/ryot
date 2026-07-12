@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 
-export class DbError extends Schema.TaggedError<DbError>()("DbError", {
+export class DbError extends Schema.TaggedErrorClass<DbError>()("DbError", {
 	message: Schema.String,
 	code: Schema.optional(Schema.String),
 	table: Schema.optional(Schema.String),
@@ -37,31 +37,31 @@ export const unknownToDbError = (cause: unknown) =>
 			: {}),
 	});
 
-export class BadRequest extends Schema.TaggedError<BadRequest>()("BadRequest", {
+export class BadRequest extends Schema.TaggedErrorClass<BadRequest>()("BadRequest", {
 	message: Schema.String,
 }) {}
 
-export class Conflict extends Schema.TaggedError<Conflict>()("Conflict", {
+export class Conflict extends Schema.TaggedErrorClass<Conflict>()("Conflict", {
 	message: Schema.String,
 }) {}
 
-export class NotFound extends Schema.TaggedError<NotFound>()("NotFound", {
+export class NotFound extends Schema.TaggedErrorClass<NotFound>()("NotFound", {
 	message: Schema.String,
 }) {}
 
-export class Unauthorized extends Schema.TaggedError<Unauthorized>()("Unauthorized", {
+export class Unauthorized extends Schema.TaggedErrorClass<Unauthorized>()("Unauthorized", {
 	message: Schema.String,
 }) {}
 
-export class RateLimited extends Schema.TaggedError<RateLimited>()("RateLimited", {
+export class RateLimited extends Schema.TaggedErrorClass<RateLimited>()("RateLimited", {
 	message: Schema.String,
 }) {}
 
-export class InternalError extends Schema.TaggedError<InternalError>()("InternalError", {
+export class InternalError extends Schema.TaggedErrorClass<InternalError>()("InternalError", {
 	message: Schema.String,
 }) {}
 
-export class SandboxRunError extends Schema.TaggedError<SandboxRunError>()("SandboxRunError", {
+export class SandboxRunError extends Schema.TaggedErrorClass<SandboxRunError>()("SandboxRunError", {
 	message: Schema.String,
 }) {}
 
@@ -70,11 +70,11 @@ export const toSandboxRunError = (cause: unknown): SandboxRunError =>
 		? cause
 		: new SandboxRunError({ message: unknownToMessage(cause) });
 
-export class TimeoutError extends Schema.TaggedError<TimeoutError>()("TimeoutError", {
+export class TimeoutError extends Schema.TaggedErrorClass<TimeoutError>()("TimeoutError", {
 	message: Schema.String,
 }) {}
 
-export class HealthCheckFailedError extends Schema.TaggedError<HealthCheckFailedError>()(
+export class HealthCheckFailedError extends Schema.TaggedErrorClass<HealthCheckFailedError>()(
 	"HealthCheckFailedError",
 	{ message: Schema.String },
 ) {}

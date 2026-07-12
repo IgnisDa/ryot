@@ -51,7 +51,7 @@ export type ListedWorkspace = typeof ListedWorkspace.Type;
 export const UpdateWorkspaceStateBody = Schema.Struct({
 	sortOrder: Schema.optional(Schema.Number),
 	isDisabled: Schema.optional(Schema.Boolean),
-	config: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+	config: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 });
 
 export type UpdateWorkspaceStateBody = typeof UpdateWorkspaceStateBody.Type;

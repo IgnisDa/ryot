@@ -4,8 +4,8 @@ import {
 } from "@ryot/query-engine/primitives";
 import { Schema } from "effect";
 
-export const ArithmeticOperator = Schema.Literal(...queryEngineArithmeticOperators);
+export const ArithmeticOperator = Schema.Literals([...queryEngineArithmeticOperators]);
 export type ArithmeticOperator = typeof ArithmeticOperator.Type;
 
-export const ComparisonOperator = Schema.Literal(...queryEngineComparisonOperators);
+export const ComparisonOperator = Schema.Literals([...queryEngineComparisonOperators]);
 export type ComparisonOperator = typeof ComparisonOperator.Type;
