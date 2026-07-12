@@ -16,7 +16,7 @@ export type SandboxPluginScriptResolverValue = {
 	}) => Effect.Effect<ActiveSandboxScript | null, DbError, CurrentDb>;
 };
 
-export class SandboxPluginScriptResolver extends Context.Tag("SandboxPluginScriptResolver")<
+export class SandboxPluginScriptResolver extends Context.Service<
 	SandboxPluginScriptResolver,
 	SandboxPluginScriptResolverValue
->() {}
+>()("SandboxPluginScriptResolver") {}

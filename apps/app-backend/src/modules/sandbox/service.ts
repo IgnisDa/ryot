@@ -1,6 +1,3 @@
-import { Activity } from "@effect/workflow";
-import type { Result as WorkflowResult } from "@effect/workflow/Workflow";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { badRequest, notFound, SandboxRunError } from "@ryot/contract/errors";
 import type {
 	EnqueueSandboxBody,
@@ -10,7 +7,10 @@ import type {
 import { SandboxScriptId, type UserId } from "@ryot/contract/schema/brands";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { generateId } from "better-auth";
-import { Cause, Effect, Exit, Match, Option, Redacted } from "effect";
+import { Cause, Context, Effect, Exit, Layer, Match, Option, Redacted } from "effect";
+import { Activity } from "effect/unstable/workflow";
+import type { Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
@@ -32,7 +32,9 @@ import { SandboxWorkflowReferenceRepository } from "./workflow-reference-reposit
 const sandboxJobNotFoundError = "Sandbox job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
 
-const toPluginWorkflowResult = (result: WorkflowResult<JsonValue, SandboxRunError> | undefined) => {
+const toPluginWorkflowResult = (
+	result: Workflow.Result<JsonValue, SandboxRunError> | undefined,
+) => {
 	if (!result) {
 		return { status: "pending" as const };
 	}
@@ -43,7 +45,7 @@ const toPluginWorkflowResult = (result: WorkflowResult<JsonValue, SandboxRunErro
 				onSuccess: (output) => ({ output, status: "completed" as const }),
 				onFailure: (cause) => ({
 					status: "failed" as const,
-					error: Option.match(Cause.failureOption(cause), {
+					error: Option.match(Cause.findErrorOption(cause), {
 						onSome: (error) => String(error),
 						onNone: () => Cause.pretty(cause).slice(0, 500),
 					}),
@@ -53,10 +55,10 @@ const toPluginWorkflowResult = (result: WorkflowResult<JsonValue, SandboxRunErro
 	);
 };
 
-export class SandboxExecutionService extends Effect.Service<SandboxExecutionService>()(
+export class SandboxExecutionService extends Context.Service<SandboxExecutionService>()(
 	"SandboxExecutionService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
@@ -124,7 +126,9 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 					return yield* notFound(sandboxJobNotFoundError);
 				}
 
-				return toSandboxRunResult(yield* engine.poll(RunSandboxWorkflow, executionId));
+				return toSandboxRunResult(
+					Option.getOrUndefined(yield* engine.poll(RunSandboxWorkflow, executionId)),
+				);
 			});
 
 			const getStoredScript = Effect.fn("SandboxExecutionService.getStoredScript")(function* (
@@ -273,7 +277,7 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 						.pipe(
 							Effect.matchCauseEffect({
 								onFailure: (cause) =>
-									releaseRegistration.pipe(Effect.zipRight(Effect.failCause(cause))),
+									releaseRegistration.pipe(Effect.andThen(Effect.failCause(cause))),
 								onSuccess: Effect.succeed,
 							}),
 							Effect.orDie,
@@ -284,7 +288,9 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 
 			const getPluginWorkflowResult = Effect.fn("SandboxExecutionService.getPluginWorkflowResult")(
 				function* (executionId: string) {
-					return toPluginWorkflowResult(yield* engine.poll(SandboxScriptWorkflow, executionId));
+					return toPluginWorkflowResult(
+						Option.getOrUndefined(yield* engine.poll(SandboxScriptWorkflow, executionId)),
+					);
 				},
 			);
 
@@ -298,8 +304,10 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 				getPluginWorkflowResult,
 				preRegisterPluginWorkflow,
 				releaseWorkflowRegistration,
-				listStoredScripts: () => runWithDb(repository.listStoredScripts()),
+				listStoredScripts: runWithDb(repository.listStoredScripts()),
 			};
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
