@@ -1,8 +1,8 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
 import { dbRunnerLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
@@ -14,7 +14,7 @@ import type { NormalizedPlugin } from "#modules/plugins/types";
 
 import { pluginBootExecutionId, PluginBootService } from "./plugin-boot";
 
-type CapturedRun = Parameters<WorkflowEngine["Type"]["execute"]>[1];
+type CapturedRun = Parameters<WorkflowEngine["Service"]["execute"]>[1];
 
 const normalizedPlugin = (pluginSlug: string): NormalizedPlugin => {
 	const manifest = fixtureManifest();
@@ -63,14 +63,13 @@ const makeLayer = (
 	captured: Array<CapturedRun>,
 	failingExecutionId?: string,
 ) =>
-	PluginBootService.Default.pipe(
+	PluginBootService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				makeAppConfigLayer(),
 				dbRunnerLayer,
-				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader }),
+				Layer.succeed(PluginLoader, { ...loader }),
 				Layer.mock(PluginRuntimeResolver)({
-					_tag: "PluginRuntimeResolver",
 					resolveActivePluginBoot: ({ bootSlug, pluginSlug }) => {
 						const boot = loader
 							.getSnapshot()

@@ -6,7 +6,7 @@ import type {
 	UpdateSavedViewBody,
 } from "@ryot/contract/modules/saved-views/schemas";
 import { PluginSlug, SavedViewId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { slugify } from "#lib/shared/slug";
@@ -34,8 +34,8 @@ const toBuiltin = (
 	pluginSlug: definition.pluginSlug ? PluginSlug.make(definition.pluginSlug) : null,
 });
 
-export class SavedViewsService extends Effect.Service<SavedViewsService>()("SavedViewsService", {
-	effect: Effect.gen(function* () {
+export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
+	make: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const definitions = yield* DefinitionRegistry;
 		const queryEngine = yield* QueryEngineService;
@@ -231,4 +231,6 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 
 		return { get: requireSavedView, list, clone, create, update, reorder, delete: deleteView };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
