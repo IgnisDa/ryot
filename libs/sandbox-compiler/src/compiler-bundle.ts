@@ -1,6 +1,7 @@
 import {
 	SANDBOX_RUNTIME_SDK_IMPORTS,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
+	SANDBOX_SDK_FILESYSTEM_IMPORT,
 	SANDBOX_SDK_PROVIDER_IMPORT,
 	SANDBOX_SDK_ROOT_IMPORT,
 } from "@ryot/sandbox-sdk/imports";
@@ -25,6 +26,7 @@ const dependencyImportPattern = new RegExp(
 const bundledSdkImports = new Set([
 	SANDBOX_SDK_ROOT_IMPORT,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
+	SANDBOX_SDK_FILESYSTEM_IMPORT,
 	SANDBOX_SDK_PROVIDER_IMPORT,
 ]);
 
@@ -127,7 +129,10 @@ export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<str
 				contents: source,
 			}));
 			builder.onResolve(
-				{ namespace: "sandbox-user", filter: /^@ryot\/sandbox-sdk\/(?:automation|core|provider)$/ },
+				{
+					namespace: "sandbox-user",
+					filter: /^@ryot\/sandbox-sdk\/(?:automation|core|filesystem|provider)$/,
+				},
 				({ path }) => ({ path: sdkEntries[path] ?? path }),
 			);
 			builder.onResolve({ filter: dependencyImportPattern }, ({ path }) => ({

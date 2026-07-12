@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { adaptHevyCsv } from "./adapter";
+import { adaptHevyCsv } from "./hevy";
+import { buildWorkoutSetEventProperties } from "./workout-domain";
 
 const HEVY_HEADERS =
 	"title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_order,weight_kg,reps,set_type,distance_m,duration_seconds";
@@ -129,6 +130,18 @@ describe("adaptHevyCsv", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.items[0]?.exercises[0]?.sets[0]?.weight).toBeCloseTo(100, 5);
+	});
+
+	it("omits a negative one-rep max from workout set events", () => {
+		const properties = buildWorkoutSetEventProperties({
+			setOrder: 0,
+			exerciseOrder: 0,
+			exerciseKind: "reps_and_weight",
+			set: { setLot: "normal", reps: 5, weight: -100 },
+		});
+
+		expect(properties.weight).toBe(-100);
+		expect(properties).not.toHaveProperty("oneRm");
 	});
 
 	it("records item failures for exercises without meaningful set statistics", () => {

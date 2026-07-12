@@ -70,7 +70,7 @@ const runtimeModules = SANDBOX_APPROVED_DEPENDENCIES.map((dependency) =>
 				sourceImport: dependency.sdkImport,
 				runtimeSource:
 					dependency.name === "effect"
-						? 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; import * as DateTime from "effect/DateTime"; import * as Option from "effect/Option"; export { DateTime, Effect, Option, Schema };'
+						? 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; import * as DateTime from "effect/DateTime"; import * as Duration from "effect/Duration"; import * as Either from "effect/Either"; import * as Option from "effect/Option"; export { DateTime, Duration, Effect, Either, Option, Schema };'
 						: null,
 			},
 );

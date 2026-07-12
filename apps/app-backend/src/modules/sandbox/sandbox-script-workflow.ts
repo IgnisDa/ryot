@@ -4,6 +4,7 @@ import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import {
 	ExecutionAuthority,
 	type SandboxCompletedResult,
+	SandboxExecutionGrants,
 	type SandboxExecutionPayload,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
@@ -47,9 +48,10 @@ type ObservedWorkflowReplay = Schema.Schema.Type<typeof ObservedWorkflowReplay>;
 
 export const SandboxScriptWorkflowPayload = Schema.Struct({
 	input: jsonValueSchema,
-	executionId: Schema.String,
 	scriptId: SandboxScriptId,
+	executionId: Schema.String,
 	authority: ExecutionAuthority,
+	grants: Schema.optional(SandboxExecutionGrants),
 	resolutionMode: Schema.Literal("active", "exact"),
 	// Effect injects this into child payloads before strict excess-property decoding.
 	"~@effect/workflow/parent": Schema.optional(Schema.Unknown),
@@ -76,7 +78,11 @@ const processPinnedSandbox = (payload: SandboxExecutionPayload) =>
 const completedValue = (result: SandboxCompletedResult, label: string) =>
 	result.error
 		? Effect.fail(sandboxFailure(`${label} failed: ${result.error.phase}: ${result.error.message}`))
-		: Schema.decodeUnknown(jsonValueSchema)(result.value).pipe(
+		: Schema.decodeUnknown(jsonValueSchema)(
+				result.harvest && typeof result.value === "object" && result.value !== null
+					? { ...result.value, chunkFiles: result.harvest.chunkPaths }
+					: result.value,
+			).pipe(
 				Effect.mapError((error) =>
 					sandboxFailure(`${label} returned invalid JSON: ${unknownToMessage(error)}`),
 				),
@@ -224,6 +230,29 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 	}
 
 	if (request.kind === "activity") {
+		return yield* performSandboxWorkflowActivity(
+			request,
+			targetScriptId,
+			payload,
+			executionId,
+			step,
+			processSandbox,
+		);
+	}
+	return yield* performSandboxWorkflowChild(request, targetScriptId, payload, executionId, step);
+});
+
+export const performSandboxWorkflowActivity = Effect.fn("performSandboxWorkflowActivity")(
+	function* <R>(
+		request: Extract<WorkflowDurableCallRequest, { readonly kind: "activity" }>,
+		targetScriptId: SandboxScriptId | undefined,
+		payload: SandboxScriptWorkflowPayload,
+		executionId: string,
+		step: number,
+		processSandbox: (
+			payload: SandboxExecutionPayload,
+		) => Effect.Effect<SandboxCompletedResult, SandboxRunError, R>,
+	) {
 		if (!targetScriptId) {
 			return yield* sandboxFailure("Workflow activity script was not resolved");
 		}
@@ -232,11 +261,11 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 			context: request.args.input,
 			scriptId: targetScriptId,
 			executionId: `${executionId}-activity-${step}`,
+			...(payload.grants ? { grants: payload.grants } : {}),
 		});
 		return yield* completedValue(result, `Workflow activity '${request.name}'`);
-	}
-	return yield* performSandboxWorkflowChild(request, targetScriptId, payload, executionId, step);
-});
+	},
+);
 
 export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChild")(function* (
 	request: Extract<WorkflowDurableCallRequest, { readonly kind: "child" }>,
@@ -253,6 +282,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 			request.args.input,
 			payload.authority,
 			childExecutionId,
+			executionId,
 		);
 	}
 	if (!targetScriptId) {
@@ -267,6 +297,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 			input: request.args.input,
 			authority: payload.authority,
 			executionId: childExecutionId,
+			...(payload.grants ? { grants: payload.grants } : {}),
 		},
 	});
 });
@@ -290,6 +321,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 					scriptId: payload.scriptId,
 					authority: payload.authority,
 					executionId: payload.executionId,
+					...(payload.grants ? { grants: payload.grants } : {}),
 				},
 				payload.resolutionMode,
 			);
@@ -308,6 +340,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			scriptId: pin.scriptId,
 			authority: payload.authority,
 			executionId: replayExecutionId,
+			...(payload.grants ? { grants: payload.grants } : {}),
 		});
 		if (replay.error) {
 			return yield* sandboxFailure(

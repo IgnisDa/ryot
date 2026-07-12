@@ -8,22 +8,10 @@ import { fitnessScripts } from "./script-catalog";
 
 export const fitnessPlugin = definePlugin({
 	crons: [],
-	workflows: [],
 	operations: [],
-	importSources: [],
-	integrationProviders: [],
 	scripts: fitnessScripts,
-	providers: [
-		{
-			name: "Free Exercise DB",
-			slug: "exercise.free-exercise-db",
-			information: { source: "free-exercise-db" },
-			operations: {
-				search: "exercise.free-exercise-db.search",
-				details: "exercise.free-exercise-db.details",
-			},
-		},
-	],
+	integrationProviders: [],
+	workflows: [{ slug: "import", scriptSlug: "workflow.import" }],
 	savedViews: fitnessSavedViews(),
 	entitySchemas: fitnessEntitySchemas(),
 	signalSchemas: fitnessSignalSchemas(),
@@ -33,6 +21,17 @@ export const fitnessPlugin = definePlugin({
 			slug: "preload-exercises",
 			scriptSlug: "exercise.free-exercise-db.preload",
 			description: "Preload the built-in exercise catalog",
+		},
+	],
+	providers: [
+		{
+			name: "Free Exercise DB",
+			slug: "exercise.free-exercise-db",
+			information: { source: "free-exercise-db" },
+			operations: {
+				search: "exercise.free-exercise-db.search",
+				details: "exercise.free-exercise-db.details",
+			},
 		},
 	],
 	metadata: {
@@ -58,6 +57,35 @@ export const fitnessPlugin = definePlugin({
 			},
 		],
 	},
+	importSources: [
+		{
+			slug: "hevy",
+			name: "Hevy",
+			input: "file",
+			workflowSlug: "import",
+			requiredAppConfigKeys: [],
+			allowedFileExtensions: ["csv"],
+			description: "Import workouts from a Hevy CSV export",
+		},
+		{
+			input: "file",
+			slug: "strong_app",
+			name: "Strong App",
+			workflowSlug: "import",
+			requiredAppConfigKeys: [],
+			allowedFileExtensions: ["csv"],
+			description: "Import workouts from a Strong CSV export",
+		},
+		{
+			input: "file",
+			name: "OpenScale",
+			slug: "open_scale",
+			workflowSlug: "import",
+			requiredAppConfigKeys: [],
+			allowedFileExtensions: ["csv"],
+			description: "Import measurements from an OpenScale CSV export",
+		},
+	],
 });
 
 export default fitnessPlugin;
