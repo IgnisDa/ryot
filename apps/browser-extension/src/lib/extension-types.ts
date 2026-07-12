@@ -1,7 +1,5 @@
 import type { MetadataLookupResult } from "@ryot/plugin-media/operations/schemas";
 
-export type MetadataLookupData = MetadataLookupResult;
-
 export interface RawMediaData {
 	title: string;
 	progress: number;
@@ -9,7 +7,7 @@ export interface RawMediaData {
 
 export interface ProgressDataWithMetadata {
 	rawData: RawMediaData;
-	metadata: MetadataLookupData;
+	metadata: MetadataLookupResult;
 }
 
 export interface FormState {

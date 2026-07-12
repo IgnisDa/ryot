@@ -6,8 +6,6 @@ import { Effect } from "effect";
 import { isPluginConfigKeyConfigured } from "#lib/infrastructure/sandbox-runtime/app-config";
 import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
 
-import { getSourceApiHost, normalizeSourceApiUrl } from "./source-api";
-
 export type ImportSourceFileInput = {
 	bodyField: string;
 	allowedExtensions: string[];
@@ -16,6 +14,20 @@ export type ImportSourceFileInput = {
 	artifactKey: string | undefined;
 	uploadToken: string | undefined;
 };
+
+const normalizeSourceApiUrl = (value: string) => {
+	const parsed = new URL(value.trim());
+	if (!parsed.protocol || !["http:", "https:"].includes(parsed.protocol)) {
+		throw new Error("Import source URL must use http or https");
+	}
+	parsed.hash = "";
+	parsed.search = "";
+	parsed.password = "";
+	parsed.username = "";
+	return parsed.toString().replace(/\/+$/, "");
+};
+
+const getSourceApiHost = (value: string) => new URL(normalizeSourceApiUrl(value)).host;
 
 export const readTrimmedBodyField = (
 	body: CreateImportRunBody,

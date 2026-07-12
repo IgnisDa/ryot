@@ -19,17 +19,15 @@ export const jsonValueSchema: Schema.Schema<JsonValue, JsonValue> = Schema.suspe
 		Schema.Record({ key: Schema.String, value: jsonValueSchema }),
 	),
 );
-export const sandboxHostErrorSchema = strictStruct({
+const sandboxHostErrorSchema = strictStruct({
 	message: Schema.String,
 	data: Schema.optional(jsonValueSchema),
 });
 export type SandboxHostError = Schema.Schema.Type<typeof sandboxHostErrorSchema>;
 
-export const hostFailureSchema = strictStruct({
+const hostFailureSchema = strictStruct({
 	error: Schema.String,
 	success: Schema.Literal(false),
 });
 export const hostResultSchema = <Data extends Schema.Schema.AnyNoContext>(data: Data) =>
 	Schema.Union(hostFailureSchema, strictStruct({ data, success: Schema.Literal(true) }));
-export type HostFailure = Schema.Schema.Type<typeof hostFailureSchema>;
-export type HostResult<Data> = HostFailure | { readonly data: Data; readonly success: true };

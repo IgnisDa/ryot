@@ -5,7 +5,8 @@ import type {
 	SandboxProviderId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { Context, Effect, Layer } from "effect";
+import type { Effect } from "effect";
+import { Context } from "effect";
 
 export type PopulationRequest = {
 	entityId: EntityId;
@@ -20,7 +21,3 @@ export class EntityPopulationTrigger extends Context.Tag("EntityPopulationTrigge
 	EntityPopulationTrigger,
 	{ request: (input: PopulationRequest) => Effect.Effect<void> }
 >() {}
-
-export const EntityPopulationTriggerNoop = Layer.succeed(EntityPopulationTrigger, {
-	request: () => Effect.void,
-});
