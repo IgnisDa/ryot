@@ -2,7 +2,7 @@ import { EntityId, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import {
 	podcastDetailRecipe,
 	podcastsByLifecycleStateRecipe,
-	showDetailRecipe,
+	showSeasonEpisodesRecipe,
 	showsByLifecycleStateRecipe,
 } from "@ryot/media-plugin/query-recipes";
 import { column, descending, document, eq, field, literal, rows, table } from "@ryot/ryotql";
@@ -448,16 +448,15 @@ describe("Media episodic lifecycle query recipes", () => {
 				"2026-05-02T06:00:00.000Z",
 			);
 			yield* assertShowState(client, detailFixture.show.id, "in_progress");
+			const season = detailFixture.seasons[0];
+			assertPresent(season, "Expected show season");
 			const detail = yield* executeRyotQLRecipe(
 				client,
-				showDetailRecipe({ entityId: detailFixture.show.id, episodeLimit: 10, seasonLimit: 10 }),
+				showSeasonEpisodesRecipe({ seasonId: season.id, episodeLimit: 10 }),
 			);
-			assertPresent(detail, "Expected show detail");
-			const episode = detail.seasons.items[0]?.episodes.items[0];
+			assertPresent(detail, "Expected season episodes");
+			const episode = detail.episodes.items[0];
 			assertPresent(episode, "Expected episode detail");
-			expect(detail.state).toBe("in_progress");
-			expect(detail).not.toHaveProperty("hasProgress");
-			expect(detail).not.toHaveProperty("isComplete");
 			expect(episode.state).toBe("in_progress");
 			expect(episode).not.toHaveProperty("hasProgress");
 			expect(episode).not.toHaveProperty("isComplete");
@@ -540,12 +539,14 @@ describe("Media episodic lifecycle query recipes", () => {
 				"2026-05-04T01:00:00.000Z",
 			);
 			yield* assertShowState(client, specialsOnly.show.id, "untracked");
+			const specialSeason = specialsOnly.seasons[0];
+			assertPresent(specialSeason, "Expected specials season");
 			const specialDetail = yield* executeRyotQLRecipe(
 				client,
-				showDetailRecipe({ entityId: specialsOnly.show.id, episodeLimit: 10, seasonLimit: 10 }),
+				showSeasonEpisodesRecipe({ seasonId: specialSeason.id, episodeLimit: 10 }),
 			);
-			assertPresent(specialDetail, "Expected specials-only show detail");
-			const specialEpisode = specialDetail.seasons.items[0]?.episodes.items[0];
+			assertPresent(specialDetail, "Expected specials season episodes");
+			const specialEpisode = specialDetail.episodes.items[0];
 			assertPresent(specialEpisode, "Expected special episode detail");
 			expect(specialEpisode.state).toBe("complete");
 

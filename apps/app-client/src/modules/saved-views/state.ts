@@ -46,6 +46,11 @@ export type SavedViewRecordState =
 	| { readonly status: "transport-error"; readonly cause: unknown }
 	| { readonly status: "ready"; readonly record: SavedViewRecord };
 
+type SavedViewFailure = Pick<
+	Extract<SavedViewResultState, { status: "transport-error" | "malformed" }>,
+	"status"
+>;
+
 type SavedViewItem = SavedViewCardItem | SavedViewTableItem;
 type SavedViewPageInfo = SavedViewDisplayData<SavedViewCardItem>["pageInfo"];
 
@@ -149,9 +154,7 @@ export const materializeSavedViewData = <Item extends SavedViewItem>(
 	return { ...common, layout: "list" };
 };
 
-export const savedViewError = (state: {
-	readonly status: "transport-error" | "malformed";
-}): SavedViewError =>
+export const savedViewError = (state: SavedViewFailure): SavedViewError =>
 	state.status === "transport-error"
 		? {
 				title: "Unable to load saved view",
