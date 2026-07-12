@@ -4,7 +4,7 @@ import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
-import { withoutSchemaServices } from "#lib/shared/schema";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 export const AddEntityToCollectionWorkflowError = Schema.Union([BadRequest, DbError, NotFound]);
 
@@ -21,8 +21,8 @@ export const AddEntityToCollectionWorkflowPayload = Schema.Struct({
 export type AddEntityToCollectionWorkflowPayload = typeof AddEntityToCollectionWorkflowPayload.Type;
 
 export const AddEntityToCollectionWorkflow = Workflow.make("AddEntityToCollectionWorkflow", {
-	success: withoutSchemaServices(MembershipResponse),
-	error: withoutSchemaServices(AddEntityToCollectionWorkflowError),
-	payload: withoutSchemaServices(AddEntityToCollectionWorkflowPayload),
+	success: MembershipResponse satisfies DurableSchema,
+	error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
+	payload: AddEntityToCollectionWorkflowPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
 });
