@@ -1,4 +1,4 @@
-import { EntityId } from "@ryot/contract/schema/brands";
+import { EntityId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { assertPresent } from "~/support/assertions";
@@ -147,7 +147,9 @@ export const listEventsForEntity = (
 		c.events.list({
 			urlParams: {
 				entityId: EntityId.make(entityId),
-				...(options.eventSchemaSlug ? { eventSchemaSlug: options.eventSchemaSlug } : {}),
+				...(options.eventSchemaSlug
+					? { eventSchemaSlug: EventSchemaSlug.make(options.eventSchemaSlug) }
+					: {}),
 			},
 		}),
 	);

@@ -3,7 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { NotFound, RateLimited, Unauthorized } from "../../errors";
-import { EntityId } from "../../schema/brands";
+import { EntityId, EventSchemaSlug } from "../../schema/brands";
 import { CreateEventItem, CreateEventsResponse, ListedEvent } from "./schemas";
 
 export const EventsGroup = HttpApiGroup.make("events")
@@ -17,7 +17,7 @@ export const EventsGroup = HttpApiGroup.make("events")
 			.setUrlParams(
 				Schema.Struct({
 					entityId: Schema.optional(EntityId),
-					eventSchemaSlug: Schema.optional(Schema.String),
+					eventSchemaSlug: Schema.optional(EventSchemaSlug),
 					sessionEntityId: Schema.optional(EntityId),
 				}),
 			)

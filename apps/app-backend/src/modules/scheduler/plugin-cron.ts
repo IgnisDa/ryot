@@ -1,4 +1,5 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { PluginSlug } from "@ryot/contract/schema/brands";
 import type { PluginCron } from "@ryot/plugin-kit/manifest";
 import { Clock, Cron, Duration, Effect, Either, Layer } from "effect";
 
@@ -137,7 +138,7 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 			});
 
 		const trigger = Effect.fn("PluginCronService.trigger")(function* (
-			pluginSlug: string,
+			pluginSlug: PluginSlug,
 			cronSlug: string,
 			parentExecutionId: string,
 		) {

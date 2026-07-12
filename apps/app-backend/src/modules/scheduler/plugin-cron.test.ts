@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { PluginSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { PluginCron, PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Effect, Layer } from "effect";
 import { assert } from "vitest";
@@ -225,7 +225,9 @@ it.effect("targets exactly one script cron", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
-		expect(yield* service.trigger("second", "second-cron", "parent-id")).toEqual({
+		expect(
+			yield* service.trigger(PluginSlug.make("second"), "second-cron", "parent-id"),
+		).toEqual({
 			lot: "script",
 			status: "executed",
 			pluginSlug: "second",
@@ -248,7 +250,7 @@ it.effect("targets one workflow cron through the durable workflow shell", () => 
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
-		const result = yield* service.trigger("fixture", "fixture-cron", "parent-id");
+		const result = yield* service.trigger(PluginSlug.make("fixture"), "fixture-cron", "parent-id");
 		expect(result).toMatchObject({
 			lot: "workflow",
 			status: "executed",
@@ -273,7 +275,7 @@ it.effect("returns notFound without dispatching an unknown cron", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
-		expect(yield* service.trigger("fixture", "unknown", "parent-id")).toEqual({
+		expect(yield* service.trigger(PluginSlug.make("fixture"), "unknown", "parent-id")).toEqual({
 			status: "notFound",
 			cronSlug: "unknown",
 			pluginSlug: "fixture",
