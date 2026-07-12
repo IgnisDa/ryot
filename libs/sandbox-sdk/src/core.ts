@@ -1,12 +1,7 @@
 import type { Effect } from "@ryot/sandbox-sdk/effect";
 import { Schema } from "@ryot/sandbox-sdk/effect";
 
-import {
-	hostResultSchema,
-	jsonValueSchema,
-	type JsonValue,
-	type SandboxHostError,
-} from "./wire.js";
+import { hostResultSchema, jsonValueSchema, type JsonValue, type SandboxHostError } from "./wire";
 
 const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
 	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });

@@ -3,12 +3,12 @@
 	"compilerOptions": {
 		"strict": true,
 		"outDir": "dist",
-		"module": "nodenext",
+		"module": "esnext",
 		"types": ["bun-types"],
 		"lib": ["ESNext", "DOM"],
 		"preserveConstEnums": true,
+		"moduleResolution": "bundler",
 		"verbatimModuleSyntax": false,
-		"moduleResolution": "nodenext",
 		"noUncheckedIndexedAccess": true,
 		"allowSyntheticDefaultImports": true
 	}

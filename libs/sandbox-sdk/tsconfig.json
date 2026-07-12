@@ -5,10 +5,10 @@
 		"types": [],
 		"strict": true,
 		"outDir": "dist",
-		"module": "nodenext",
+		"module": "preserve",
 		"lib": ["ESNext", "DOM"],
 		"verbatimModuleSyntax": true,
-		"moduleResolution": "nodenext",
+		"moduleResolution": "bundler",
 		"noUncheckedIndexedAccess": true,
 		"exactOptionalPropertyTypes": true
 	}
