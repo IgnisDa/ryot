@@ -9,7 +9,7 @@ import { type ResolvedLotEntityMigrationTarget, buildLotEntityTargetValuesSql } 
 const metadataMigrationTargetValuesSql = sql.join(
 	metadataMigrationTargets.map(
 		(target) =>
-			sql`(${target.lot}, ${target.source}, ${target.entitySchemaSlug}, ${target.sandboxScriptSlug})`,
+			sql`(${target.lot}, ${target.source}, ${target.entitySchemaSlug}, ${target.providerSlug})`,
 	),
 	sql`, `,
 );
@@ -201,7 +201,7 @@ BEGIN
 	RAISE NOTICE 'metadata -> entity: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
-		WITH metadata_targets (lot, source, entity_schema_slug, sandbox_script_id) AS (
+		WITH metadata_targets (lot, source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		), batch AS (
 			SELECT metadata.id::text AS id
@@ -209,7 +209,7 @@ BEGIN
 			INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
 			WHERE metadata.id::text > cursor_id
 				AND (
-					metadata_targets.sandbox_script_id IS NULL
+					metadata_targets.provider_id IS NULL
 					OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = metadata.id::text)
 				)
 			ORDER BY metadata.id::text
@@ -219,7 +219,7 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		WITH metadata_targets (lot, source, entity_schema_slug, sandbox_script_id) AS (
+		WITH metadata_targets (lot, source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildLotEntityTargetValuesSql(targets)}
 		)
 		INSERT INTO entity (
@@ -231,7 +231,7 @@ BEGIN
 			"user_id",
 			"properties",
 			"entity_schema_slug",
-			"sandbox_script_id",
+			"provider_id",
 			"updated_at"
 		)
 		SELECT
@@ -242,17 +242,17 @@ BEGIN
 			NULL,
 			metadata.created_by_user_id,
 			CASE
-				WHEN metadata_targets.sandbox_script_id IS NULL THEN ${buildMetadataPropertiesSql()}
+				WHEN metadata_targets.provider_id IS NULL THEN ${buildMetadataPropertiesSql()}
 				ELSE '{}'::jsonb
 			END,
 			metadata_targets.entity_schema_slug,
-			metadata_targets.sandbox_script_id,
+			metadata_targets.provider_id,
 			metadata.last_updated_on
 		FROM metadata
 		INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
 		WHERE metadata.id::text > cursor_id AND metadata.id::text <= next_cursor_id
 			AND (
-				metadata_targets.sandbox_script_id IS NULL
+				metadata_targets.provider_id IS NULL
 				OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = metadata.id::text)
 			)
 		ON CONFLICT ("id") DO UPDATE
@@ -299,7 +299,7 @@ export const getUnsupportedMetadataSources = Effect.gen(function* () {
 	const { db } = yield* DbService;
 	const result = yield* dbEffect(() =>
 		db.execute<{ lot: string; source: string }>(sql`
-			WITH metadata_targets (lot, source, entity_schema_slug, sandbox_script_slug) AS (
+			WITH metadata_targets (lot, source, entity_schema_slug, provider_slug) AS (
 				VALUES ${metadataMigrationTargetValuesSql}
 			)
 			SELECT DISTINCT

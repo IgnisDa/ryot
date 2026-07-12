@@ -27,11 +27,11 @@ BEGIN
 	CREATE TEMP TABLE _legacy_show_seasons ON COMMIT DROP AS
 	SELECT
 		m.id AS parent_entity_id,
-		m.sandbox_script_id,
+		m.provider_id,
 		season.value,
 		season.value ->> 'id' AS external_id,
 		(season.value ->> 'season_number')::int AS season_number,
-		md5('legacy-show-season:' || COALESCE(m.sandbox_script_id, '') || ':' || (season.value ->> 'id')) AS entity_id,
+		md5('legacy-show-season:' || COALESCE(m.provider_id, '') || ':' || (season.value ->> 'id')) AS entity_id,
 		m.created_at,
 		m.updated_at
 	FROM "metadata" legacy_metadata
@@ -48,24 +48,24 @@ BEGIN
 	  AND (season.value ->> 'season_number') ~ '^[0-9]+$';
 
 	CREATE INDEX ON _legacy_show_seasons (parent_entity_id, entity_id);
-	CREATE INDEX ON _legacy_show_seasons (sandbox_script_id, external_id);
+	CREATE INDEX ON _legacy_show_seasons (provider_id, external_id);
 
 	CREATE TEMP TABLE _legacy_show_season_entities ON COMMIT DROP AS
-	SELECT DISTINCT ON (sandbox_script_id, external_id) *
+	SELECT DISTINCT ON (provider_id, external_id) *
 	FROM _legacy_show_seasons
-	ORDER BY sandbox_script_id, external_id, updated_at DESC, parent_entity_id;
+	ORDER BY provider_id, external_id, updated_at DESC, parent_entity_id;
 
 	CREATE UNIQUE INDEX ON _legacy_show_season_entities (entity_id);
 
 	CREATE TEMP TABLE _legacy_show_episodes ON COMMIT DROP AS
 	SELECT
 		show_season.parent_entity_id,
-		show_season.sandbox_script_id,
+		show_season.provider_id,
 		show_season.value AS season_value,
 		episode.value AS episode_value,
 		episode.value ->> 'id' AS external_id,
 		show_season.entity_id AS season_entity_id,
-		md5('legacy-show-episode:' || COALESCE(show_season.sandbox_script_id, '') || ':' || (episode.value ->> 'id')) AS entity_id,
+		md5('legacy-show-episode:' || COALESCE(show_season.provider_id, '') || ':' || (episode.value ->> 'id')) AS entity_id,
 		show_season.created_at,
 		show_season.updated_at
 	FROM _legacy_show_seasons show_season
@@ -80,22 +80,22 @@ BEGIN
 	  AND (episode.value ->> 'episode_number') ~ '^[0-9]+$';
 
 	CREATE INDEX ON _legacy_show_episodes (season_entity_id, entity_id);
-	CREATE INDEX ON _legacy_show_episodes (sandbox_script_id, external_id);
+	CREATE INDEX ON _legacy_show_episodes (provider_id, external_id);
 
 	CREATE TEMP TABLE _legacy_show_episode_entities ON COMMIT DROP AS
-	SELECT DISTINCT ON (sandbox_script_id, external_id) *
+	SELECT DISTINCT ON (provider_id, external_id) *
 	FROM _legacy_show_episodes
-	ORDER BY sandbox_script_id, external_id, updated_at DESC, parent_entity_id;
+	ORDER BY provider_id, external_id, updated_at DESC, parent_entity_id;
 
 	CREATE UNIQUE INDEX ON _legacy_show_episode_entities (entity_id);
 
 	CREATE TEMP TABLE _legacy_podcast_episodes ON COMMIT DROP AS
 	SELECT
 		m.id AS parent_entity_id,
-		m.sandbox_script_id,
+		m.provider_id,
 		episode.value,
 		episode.value ->> 'id' AS external_id,
-		md5('legacy-podcast-episode:' || COALESCE(m.sandbox_script_id, '') || ':' || (episode.value ->> 'id')) AS entity_id,
+		md5('legacy-podcast-episode:' || COALESCE(m.provider_id, '') || ':' || (episode.value ->> 'id')) AS entity_id,
 		m.created_at,
 		m.updated_at
 	FROM "metadata" legacy_metadata
@@ -112,12 +112,12 @@ BEGIN
 	  AND (episode.value ->> 'number') ~ '^[0-9]+$';
 
 	CREATE INDEX ON _legacy_podcast_episodes (parent_entity_id, entity_id);
-	CREATE INDEX ON _legacy_podcast_episodes (sandbox_script_id, external_id);
+	CREATE INDEX ON _legacy_podcast_episodes (provider_id, external_id);
 
 	CREATE TEMP TABLE _legacy_podcast_episode_entities ON COMMIT DROP AS
-	SELECT DISTINCT ON (sandbox_script_id, external_id) *
+	SELECT DISTINCT ON (provider_id, external_id) *
 	FROM _legacy_podcast_episodes
-	ORDER BY sandbox_script_id, external_id, updated_at DESC, parent_entity_id;
+	ORDER BY provider_id, external_id, updated_at DESC, parent_entity_id;
 
 	CREATE UNIQUE INDEX ON _legacy_podcast_episode_entities (entity_id);
 	ANALYZE _legacy_show_seasons;
@@ -199,7 +199,7 @@ BEGIN
 		"user_id",
 		"properties",
 		"entity_schema_slug",
-		"sandbox_script_id",
+		"provider_id",
 		"updated_at"
 	)
 	SELECT
@@ -218,7 +218,7 @@ BEGIN
 			'seasonNumber', (show_seasons.value ->> 'season_number')::int
 		)),
 		${quoteSqlString(input.showSeasonEntitySchemaSlug)},
-		show_seasons.sandbox_script_id,
+		show_seasons.provider_id,
 		show_seasons.updated_at
 	FROM _legacy_show_season_entities show_seasons
 	WHERE NOT EXISTS (
@@ -227,7 +227,7 @@ BEGIN
 		WHERE existing.user_id IS NULL
 		  AND existing.external_id = show_seasons.external_id
 		  AND existing.entity_schema_slug = ${quoteSqlString(input.showSeasonEntitySchemaSlug)}
-		  AND existing.sandbox_script_id IS NOT DISTINCT FROM show_seasons.sandbox_script_id
+		  AND existing.provider_id IS NOT DISTINCT FROM show_seasons.provider_id
 	)
 	ON CONFLICT ("id") DO UPDATE
 		SET
@@ -246,7 +246,7 @@ BEGIN
 		"user_id",
 		"properties",
 		"entity_schema_slug",
-		"sandbox_script_id",
+		"provider_id",
 		"updated_at"
 	)
 	SELECT
@@ -268,7 +268,7 @@ BEGIN
 			'episodeNumber', (show_episodes.episode_value ->> 'episode_number')::int
 		)),
 		${quoteSqlString(input.showEpisodeEntitySchemaSlug)},
-		show_episodes.sandbox_script_id,
+		show_episodes.provider_id,
 		show_episodes.updated_at
 	FROM _legacy_show_episode_entities show_episodes
 	WHERE NOT EXISTS (
@@ -277,7 +277,7 @@ BEGIN
 		WHERE existing.user_id IS NULL
 		  AND existing.external_id = show_episodes.external_id
 		  AND existing.entity_schema_slug = ${quoteSqlString(input.showEpisodeEntitySchemaSlug)}
-		  AND existing.sandbox_script_id IS NOT DISTINCT FROM show_episodes.sandbox_script_id
+		  AND existing.provider_id IS NOT DISTINCT FROM show_episodes.provider_id
 	)
 	ON CONFLICT ("id") DO UPDATE
 		SET
@@ -296,7 +296,7 @@ BEGIN
 		"user_id",
 		"properties",
 		"entity_schema_slug",
-		"sandbox_script_id",
+		"provider_id",
 		"updated_at"
 	)
 	SELECT
@@ -317,7 +317,7 @@ BEGIN
 			'episodeNumber', (podcast_episodes.value ->> 'number')::int
 		)),
 		${quoteSqlString(input.podcastEpisodeEntitySchemaSlug)},
-		podcast_episodes.sandbox_script_id,
+		podcast_episodes.provider_id,
 		podcast_episodes.updated_at
 	FROM _legacy_podcast_episode_entities podcast_episodes
 	WHERE NOT EXISTS (
@@ -326,7 +326,7 @@ BEGIN
 		WHERE existing.user_id IS NULL
 		  AND existing.external_id = podcast_episodes.external_id
 		  AND existing.entity_schema_slug = ${quoteSqlString(input.podcastEpisodeEntitySchemaSlug)}
-		  AND existing.sandbox_script_id IS NOT DISTINCT FROM podcast_episodes.sandbox_script_id
+		  AND existing.provider_id IS NOT DISTINCT FROM podcast_episodes.provider_id
 	)
 	ON CONFLICT ("id") DO UPDATE
 		SET

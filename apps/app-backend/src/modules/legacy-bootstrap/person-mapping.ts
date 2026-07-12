@@ -18,51 +18,49 @@ import type {
 } from "./shared";
 
 export const personEntityTargets = [
-	{ source: "anilist", entitySchemaSlug: "person", sandboxScriptSlug: "person.anilist" },
-	{ source: "audible", entitySchemaSlug: "person", sandboxScriptSlug: "person.audible" },
-	{ source: "custom", entitySchemaSlug: "person", sandboxScriptSlug: null },
-	{ source: "giant_bomb", entitySchemaSlug: "person", sandboxScriptSlug: "person.giant-bomb" },
-	{ source: "hardcover", entitySchemaSlug: "person", sandboxScriptSlug: "person.hardcover" },
+	{ source: "anilist", entitySchemaSlug: "person", providerSlug: "person.anilist" },
+	{ source: "audible", entitySchemaSlug: "person", providerSlug: "person.audible" },
+	{ source: "custom", entitySchemaSlug: "person", providerSlug: null },
+	{ source: "giant_bomb", entitySchemaSlug: "person", providerSlug: "person.giant-bomb" },
+	{ source: "hardcover", entitySchemaSlug: "person", providerSlug: "person.hardcover" },
 	{
 		source: "manga_updates",
 		entitySchemaSlug: "person",
-		sandboxScriptSlug: "person.manga-updates",
+		providerSlug: "person.manga-updates",
 	},
-	{ source: "metron", entitySchemaSlug: "person", sandboxScriptSlug: "person.metron" },
-	{ source: "music_brainz", entitySchemaSlug: "person", sandboxScriptSlug: "person.music-brainz" },
-	{ source: "openlibrary", entitySchemaSlug: "person", sandboxScriptSlug: "person.openlibrary" },
-	{ source: "spotify", entitySchemaSlug: "person", sandboxScriptSlug: "person.spotify" },
-	{ source: "tmdb", entitySchemaSlug: "person", sandboxScriptSlug: "person.tmdb" },
-	{ source: "tvdb", entitySchemaSlug: "person", sandboxScriptSlug: "person.tvdb" },
+	{ source: "metron", entitySchemaSlug: "person", providerSlug: "person.metron" },
+	{ source: "music_brainz", entitySchemaSlug: "person", providerSlug: "person.music-brainz" },
+	{ source: "openlibrary", entitySchemaSlug: "person", providerSlug: "person.openlibrary" },
+	{ source: "spotify", entitySchemaSlug: "person", providerSlug: "person.spotify" },
+	{ source: "tmdb", entitySchemaSlug: "person", providerSlug: "person.tmdb" },
+	{ source: "tvdb", entitySchemaSlug: "person", providerSlug: "person.tvdb" },
 	{
 		source: "youtube_music",
 		entitySchemaSlug: "person",
-		sandboxScriptSlug: "person.youtube-music",
+		providerSlug: "person.youtube-music",
 	},
 ] as const satisfies readonly EntityMigrationTarget[];
 
 export const companyEntityTargets = [
-	{ source: "anilist", entitySchemaSlug: "company", sandboxScriptSlug: "company.anilist" },
+	{ source: "anilist", entitySchemaSlug: "company", providerSlug: "company.anilist" },
 	{
 		source: "giant_bomb",
 		entitySchemaSlug: "company",
-		sandboxScriptSlug: "company.giant-bomb",
+		providerSlug: "company.giant-bomb",
 	},
-	{ source: "hardcover", entitySchemaSlug: "company", sandboxScriptSlug: "company.hardcover" },
-	{ source: "igdb", entitySchemaSlug: "company", sandboxScriptSlug: "company.igdb" },
-	{ source: "tmdb", entitySchemaSlug: "company", sandboxScriptSlug: "company.tmdb" },
-	{ source: "tvdb", entitySchemaSlug: "company", sandboxScriptSlug: "company.tvdb" },
+	{ source: "hardcover", entitySchemaSlug: "company", providerSlug: "company.hardcover" },
+	{ source: "igdb", entitySchemaSlug: "company", providerSlug: "company.igdb" },
+	{ source: "tmdb", entitySchemaSlug: "company", providerSlug: "company.tmdb" },
+	{ source: "tvdb", entitySchemaSlug: "company", providerSlug: "company.tvdb" },
 ] as const satisfies readonly EntityMigrationTarget[];
 
 const personEntityTargetValuesSql = sql.join(
-	personEntityTargets.map((t) => sql`(${t.source}, ${t.entitySchemaSlug}, ${t.sandboxScriptSlug})`),
+	personEntityTargets.map((t) => sql`(${t.source}, ${t.entitySchemaSlug}, ${t.providerSlug})`),
 	sql`, `,
 );
 
 const companyEntityTargetValuesSql = sql.join(
-	companyEntityTargets.map(
-		(t) => sql`(${t.source}, ${t.entitySchemaSlug}, ${t.sandboxScriptSlug})`,
-	),
+	companyEntityTargets.map((t) => sql`(${t.source}, ${t.entitySchemaSlug}, ${t.providerSlug})`),
 	sql`, `,
 );
 
@@ -85,10 +83,10 @@ export const getUnsupportedPersonSources = Effect.gen(function* () {
 	const { db } = yield* DbService;
 	const result = yield* dbEffect(() =>
 		db.execute<{ source: string; entity_kind: string }>(sql`
-			WITH person_targets (source, entity_schema_slug, sandbox_script_slug) AS (
+			WITH person_targets (source, entity_schema_slug, provider_slug) AS (
 				VALUES ${personEntityTargetValuesSql}
 			),
-			company_targets (source, entity_schema_slug, sandbox_script_slug) AS (
+			company_targets (source, entity_schema_slug, provider_slug) AS (
 				VALUES ${companyEntityTargetValuesSql}
 			),
 			supported_targets AS (
