@@ -13,7 +13,7 @@ import {
 } from "./observability-host-functions";
 import { runSandboxBridgeHostFunction } from "./runtime";
 import { selectSandboxHostFunctions } from "./service";
-import { type BoundHostFunction, type SandboxRunInput } from "./shared";
+import type { BoundHostFunction, SandboxRunInput } from "./shared";
 
 type CapturedLog = {
 	options: Parameters<LoggerType<unknown, unknown>["log"]>[0];
