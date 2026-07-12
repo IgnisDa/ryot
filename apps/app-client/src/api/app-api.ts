@@ -1,7 +1,7 @@
-import { AtomHttpApi } from "@effect-atom/atom-react";
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { AppContract } from "@ryot/contract/contract";
 import { Effect, Layer } from "effect";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { AtomHttpApi } from "effect/unstable/reactivity";
 
 import { getAuthCookie } from "@/modules/auth/client";
 import { serverStorageLayer, serverUrlReader } from "@/modules/server/state";
@@ -30,7 +30,7 @@ const httpClientLayer = Layer.effect(
 	}),
 ).pipe(Layer.provide(FetchHttpClient.layer), Layer.provide(serverStorageLayer));
 
-export class AppApi extends AtomHttpApi.Tag<AppApi>()("AppApi", {
+export const AppApi = AtomHttpApi.Service()("AppApi", {
 	api: AppContract,
 	httpClient: httpClientLayer,
-}) {}
+});
