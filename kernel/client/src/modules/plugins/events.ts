@@ -11,6 +11,7 @@ import { OAuthTokenService } from "#/modules/auth/token-service";
 
 type CatalogStreamResponse = {
 	readonly ok: boolean;
+	readonly status: number;
 	readonly body: ReadableStream<Uint8Array> | null;
 };
 
@@ -102,21 +103,22 @@ const readCatalogStream = async (
 const openCatalogStream = async (
 	open: CatalogStreamFactory,
 	url: string,
-	token: string | null,
+	token: string,
 	signal: AbortSignal,
 	onEvent: (type: string) => void,
 ) => {
 	const response = await open(url, {
 		signal,
-		headers: {
-			accept: "text/event-stream",
-			...(token === null ? {} : { authorization: `Bearer ${token}` }),
-		},
+		headers: { accept: "text/event-stream", authorization: `Bearer ${token}` },
 	});
+	if (response.status === 401) {
+		return true;
+	}
 	if (!response.ok || response.body === null) {
 		throw new Error("plugin catalog stream was rejected");
 	}
 	await readCatalogStream(response.body, onEvent);
+	return false;
 };
 
 const makePluginCatalogEventsService = (
@@ -137,12 +139,30 @@ const makePluginCatalogEventsService = (
 			Effect.orDie,
 			Effect.flatMap((client) =>
 				Effect.gen(function* () {
-					const token = yield* tokens.accessToken(scope.serverUrl, client.clientId);
-					yield* Effect.tryPromise({
-						try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
-						catch: (cause) => new CatalogStreamClosed({ cause }),
-					});
-					return yield* new CatalogStreamClosed({ cause: "stream ended" });
+					const connect = (forceRefresh: boolean) =>
+						Effect.gen(function* () {
+							const token = yield* tokens.accessToken(
+								scope.serverUrl,
+								client.clientId,
+								forceRefresh,
+							);
+							if (token === null) {
+								return yield* Effect.never;
+							}
+							const unauthorized = yield* Effect.tryPromise({
+								try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
+								catch: (cause) => new CatalogStreamClosed({ cause }),
+							});
+							if (!unauthorized) {
+								return yield* new CatalogStreamClosed({ cause: "stream ended" });
+							}
+							return unauthorized;
+						});
+
+					if (yield* connect(false)) {
+						yield* connect(true);
+					}
+					return yield* Effect.never;
 				}).pipe(Effect.retry(reconnect), Effect.orDie),
 			),
 		);

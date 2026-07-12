@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { RyotQLBadRequest } from "@ryot/contract/modules/ryotql/contract";
 import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
@@ -8,13 +7,7 @@ import { InterestReconciler } from "./reconciler";
 import { InterestService } from "./service";
 import { EntityInterestStore } from "./store";
 
-const user = {
-	image: null,
-	name: "Test User",
-	email: "user@example.com",
-	id: UserId.make("user-1"),
-	preferences: { allowNsfw: false, language: "es", disableIntegrations: false },
-} satisfies CurrentUserValue;
+const principal = { preferredLanguage: "es", userId: UserId.make("user-1") };
 
 it.effect("removes filtered memberships and carries tokens for terminal updates", () => {
 	const events: string[] = [];
@@ -35,7 +28,7 @@ it.effect("removes filtered memberships and carries tokens for terminal updates"
 			}),
 	});
 	const reconciler = Layer.mock(InterestReconciler)({
-		reconcile: (_user: CurrentUserValue, entityIds: readonly string[]) =>
+		reconcile: (_principal, entityIds: readonly string[]) =>
 			Effect.sync(() => {
 				events.push(`reconcile:${entityIds.length}`);
 				return {
@@ -55,7 +48,7 @@ it.effect("removes filtered memberships and carries tokens for terminal updates"
 
 	return Effect.gen(function* () {
 		const service = yield* InterestService;
-		const result = yield* service.reconcile({ user, pending, sessionId: "session-1" });
+		const result = yield* service.reconcile({ principal, pending, sessionId: "session-1" });
 
 		expect(events).toEqual([
 			"reconcile:100",
@@ -85,7 +78,7 @@ it.effect("does not catch reconciliation failures", () => {
 		expect(
 			yield* Effect.flip(
 				service.reconcile({
-					user,
+					principal,
 					sessionId: "session-1",
 					pending: [{ entityId: "entity-1", revision: 1 }],
 				}),
@@ -100,7 +93,7 @@ it.effect("sets test membership without reconciliation", () => {
 	const store = Layer.mock(EntityInterestStore)({
 		getSessionMetadata: () =>
 			Effect.succeed([
-				{ sessionId: "session-1", revision: 3, userId: user.id, preferredLanguage: "es" },
+				{ revision: 3, sessionId: "session-1", preferredLanguage: "es", userId: principal.userId },
 			]),
 		replaceInterest: (input) =>
 			Effect.sync(() => {
@@ -124,18 +117,11 @@ it.effect("sets test membership without reconciliation", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* InterestService;
-		yield* service.setEntityInterestMembership({
-			sessionId: "session-1",
-			entityIds: ["entity-1"],
-		});
+		yield* service.setEntityInterestMembership({ sessionId: "session-1", entityIds: ["entity-1"] });
 		expect(reconciled).toEqual({
 			sessionId: "session-1",
 			pending: [{ entityId: "entity-1", revision: 4 }],
 		});
-		expect(replacement).toEqual({
-			revision: 4,
-			sessionId: "session-1",
-			entityIds: ["entity-1"],
-		});
+		expect(replacement).toEqual({ revision: 4, sessionId: "session-1", entityIds: ["entity-1"] });
 	}).pipe(Effect.provide(layer));
 });

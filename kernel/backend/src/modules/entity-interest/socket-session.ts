@@ -1,4 +1,3 @@
-import { defaultUserPreferences, type CurrentUserValue } from "@ryot/contract/auth-middleware";
 import {
 	decodeEntityInterestClientMessage,
 	encodeEntityInterestServerMessage,
@@ -7,6 +6,7 @@ import {
 	type EntityInterestEntityUpdatedMessage,
 	type EntityInterestServerMessage,
 } from "@ryot/contract/modules/entity-interest/messages";
+import { OAUTH_ACCESS_TOKEN_TTL_SECONDS } from "@ryot/contract/oauth";
 import { Deferred, Duration, Effect, Fiber, Option, Queue, Result, Schedule } from "effect";
 import * as Socket from "effect/unstable/socket/Socket";
 
@@ -15,7 +15,7 @@ import { ENTITY_INTEREST_SESSION_RENEWAL_INTERVAL_SECONDS } from "#lib/infrastru
 import { LocalInterestSessions } from "./connections";
 import { InterestService, type ReconciledCompletion } from "./service";
 import { EntityInterestStore, type PendingInterest } from "./store";
-import { EntityInterestTicketService } from "./ticket-service";
+import { EntityInterestInvalidTicket, EntityInterestTicketService } from "./ticket-service";
 
 const ENTITY_INTEREST_HEARTBEAT_TIMEOUT = Duration.seconds(10);
 const ENTITY_INTEREST_HEARTBEAT_INTERVAL = Duration.seconds(25);
@@ -25,6 +25,7 @@ const INBOUND_QUEUE_CAPACITY = 16;
 const NORMAL_CLOSE = new Socket.CloseEvent(1000);
 const PROTOCOL_ERROR = new Socket.CloseEvent(1002, "Protocol error");
 const INTERNAL_ERROR = new Socket.CloseEvent(1011, "Internal error");
+const SESSION_EXPIRED = new Socket.CloseEvent(4001, "Session expired");
 const HEARTBEAT_ERROR = new Socket.CloseEvent(4000, "Heartbeat timeout");
 const AUTHENTICATION_ERROR = new Socket.CloseEvent(1008, "Authentication failed");
 
@@ -223,11 +224,11 @@ const processCommand = Effect.fn("EntityInterestSocketSession.processCommand")(f
 const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* (
 	socket: Socket.Socket,
 ) {
-	const store = yield* EntityInterestStore;
-	const service = yield* InterestService;
-	const tickets = yield* EntityInterestTicketService;
-	const sessions = yield* LocalInterestSessions;
 	const write = yield* socket.writer;
+	const service = yield* InterestService;
+	const store = yield* EntityInterestStore;
+	const sessions = yield* LocalInterestSessions;
+	const tickets = yield* EntityInterestTicketService;
 	const inbound = yield* Queue.dropping<string | Uint8Array>(INBOUND_QUEUE_CAPACITY);
 	const preAuthentication = { overflow: false };
 	let closeForOverflow = () => closeBeforeAuthentication(write, PROTOCOL_ERROR);
@@ -265,18 +266,15 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 	}
 	const ticket = yield* tickets.consume(decodedAuthentication.success.ticket).pipe(Effect.result);
 	if (Result.isFailure(ticket)) {
-		yield* closeBeforeAuthentication(write, AUTHENTICATION_ERROR);
+		yield* closeBeforeAuthentication(
+			write,
+			ticket.failure instanceof EntityInterestInvalidTicket ? AUTHENTICATION_ERROR : INTERNAL_ERROR,
+		);
 		return;
 	}
 
 	const sessionId = crypto.randomUUID();
-	const user = {
-		name: "",
-		email: "",
-		image: null,
-		id: ticket.success.userId,
-		preferences: { ...defaultUserPreferences, language: ticket.success.preferredLanguage },
-	} satisfies CurrentUserValue;
+	const principal = ticket.success;
 	const output = yield* makeOutbound(write, store, sessionId);
 	closeForOverflow = () => output.close(PROTOCOL_ERROR);
 	if (preAuthentication.overflow) {
@@ -284,8 +282,8 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 	}
 	yield* store.openSession({
 		sessionId,
-		userId: user.id,
-		preferredLanguage: user.preferences.language,
+		userId: principal.userId,
+		preferredLanguage: principal.preferredLanguage,
 	});
 	yield* sessions
 		.add(sessionId, output.enqueueCompletion)
@@ -330,7 +328,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 		Effect.gen(function* () {
 			const pending = yield* Queue.take(reconciliation);
 			const terminal = yield* service
-				.reconcile({ sessionId, user, pending })
+				.reconcile({ sessionId, principal, pending })
 				.pipe(Effect.retry(makeReconciliationSchedule()));
 			for (const item of pending) {
 				reconciliationKeys.delete(`${item.entityId}:${item.revision}`);
@@ -366,6 +364,9 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 			Effect.andThen(store.renewSession(sessionId)),
 			Effect.flatMap((renewed) => (renewed ? Effect.void : output.close(INTERNAL_ERROR))),
 		),
+	);
+	const leaseWorker = Effect.sleep(Duration.seconds(OAUTH_ACCESS_TOKEN_TTL_SECONDS)).pipe(
+		Effect.andThen(output.close(SESSION_EXPIRED)),
 	);
 	const hasSnapshot = { value: false };
 	const commandWorker = Effect.gen(function* () {
@@ -423,6 +424,7 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 	yield* commandWorker.pipe(Effect.raceFirst(output.awaitShutdown), Effect.forkScoped);
 	yield* reconciliationWorker.pipe(Effect.forkScoped);
 	yield* heartbeatWorker.pipe(Effect.forkScoped);
+	yield* leaseWorker.pipe(Effect.forkScoped);
 	yield* renewalWorker.pipe(
 		Effect.catchCause((cause) =>
 			Effect.logError("entity interest session renewal failed", cause).pipe(

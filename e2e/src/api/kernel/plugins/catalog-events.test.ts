@@ -9,6 +9,7 @@ import getPort from "get-port";
 import {
 	adminHeaders,
 	createAuthenticatedClient,
+	createApiKey,
 	createClientArtifactSession,
 	encodePluginSourceFiles,
 	encodeTestSupportPluginFiles,
@@ -243,6 +244,21 @@ describe("plugin catalog events", () => {
 				client.plugins.events({ responseMode: "response-only" }),
 			);
 			expect(response.status).toBe(401);
+		}),
+	);
+
+	it.live("authenticates the event stream with an API key", () =>
+		Effect.gen(function* () {
+			const auth = yield* createAuthenticatedClient(apiUrl());
+			const apiKey = yield* createApiKey(
+				auth.sessionCookie,
+				"E2E catalog events API key",
+				apiUrl(),
+			);
+			const events = yield* openPluginCatalogEventsScoped({
+				client: makeSession(apiUrl(), { "X-Api-Key": apiKey }),
+			});
+			yield* events.waitForConnected();
 		}),
 	);
 });

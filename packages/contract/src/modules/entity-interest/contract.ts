@@ -4,10 +4,9 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 import { AuthMiddleware } from "../../auth-middleware";
 import { EntityInterestSocketTicketResponse } from "./messages";
 
-export const EntityInterestTicketFailureReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("invalid-ticket") }),
-	Schema.Struct({ code: Schema.Literal("ticket-store-unavailable") }),
-]);
+export const EntityInterestTicketFailureReason = Schema.Struct({
+	code: Schema.Literal("ticket-store-unavailable"),
+});
 export type EntityInterestTicketFailureReason = typeof EntityInterestTicketFailureReason.Type;
 
 export class EntityInterestTicketFailure extends Schema.TaggedError<EntityInterestTicketFailure>()(
