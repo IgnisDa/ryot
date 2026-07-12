@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import { EntityId } from "../../schema/brands";
 
-export const EntityUpdatedReason = Schema.Literal("populated", "translated");
+export const EntityUpdatedReason = Schema.Literals(["populated", "translated"]);
 export type EntityUpdatedReason = typeof EntityUpdatedReason.Type;
 
 export const EntityUpdatedMessage = Schema.Struct({
@@ -17,8 +17,8 @@ export const encodeEntityUpdatedMessage = (
 ): string => JSON.stringify({ entityId, reason } satisfies EntityUpdatedMessage);
 
 // Sync decoder for the ioredis message callback (not an Effect context).
-export const decodeEntityUpdatedMessage = Schema.decodeUnknownEither(
-	Schema.parseJson(EntityUpdatedMessage),
+export const decodeEntityUpdatedMessage = Schema.decodeUnknownResult(
+	Schema.fromJsonString(EntityUpdatedMessage),
 );
 
 export const EntityUpdatedFrame = Schema.Struct({

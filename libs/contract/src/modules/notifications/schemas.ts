@@ -58,7 +58,7 @@ const TelegramSpecifics = Schema.Struct({
 	kind: Schema.Literal("telegram"),
 });
 
-export const NotificationChannelSpecifics = Schema.Union(
+export const NotificationChannelSpecifics = Schema.Union([
 	NtfySpecifics,
 	EmailSpecifics,
 	GotifySpecifics,
@@ -68,7 +68,7 @@ export const NotificationChannelSpecifics = Schema.Union(
 	TelegramSpecifics,
 	PushSaferSpecifics,
 	PushBulletSpecifics,
-);
+]);
 
 export type NotificationChannelSpecifics = typeof NotificationChannelSpecifics.Type;
 

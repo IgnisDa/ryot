@@ -9,23 +9,23 @@ export const ImportEntityBody = Schema.Struct({
 	entitySchemaSlug: EntitySchemaSlug,
 });
 
-export const ImportEntityRunResult = Schema.Union(
+export const ImportEntityRunResult = Schema.Union([
 	Schema.Struct({ status: Schema.Literal("pending") }).pipe(
-		Schema.annotations({
+		Schema.annotate({
 			title: "Pending Import Run Result",
 			identifier: "PendingImportEntityRunResult",
 		}),
 	),
 	Schema.Struct({ status: Schema.Literal("failed"), error: Schema.String }).pipe(
-		Schema.annotations({
+		Schema.annotate({
 			title: "Failed Import Run Result",
 			identifier: "FailedImportEntityRunResult",
 		}),
 	),
 	Schema.Struct({ status: Schema.Literal("completed"), data: ListedEntity }).pipe(
-		Schema.annotations({
+		Schema.annotate({
 			title: "Completed Import Run Result",
 			identifier: "CompletedImportEntityRunResult",
 		}),
 	),
-);
+]);

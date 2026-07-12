@@ -1,8 +1,8 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "@effect/platform";
-import { Schema } from "effect";
+import { Schema, Effect, SchemaGetter } from "effect";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { NotFound, RateLimited, Unauthorized } from "../../errors";
+import { BadRequest, NotFound } from "../../errors";
 import { PluginSlug } from "../../schema/brands";
 import {
 	CreateSavedViewBody,
@@ -12,60 +12,68 @@ import {
 	UpdateSavedViewBody,
 } from "./schemas";
 
-const viewSlugParam = HttpApiSchema.param("viewSlug", Schema.String);
-
 export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 	.annotate(OpenApi.Description, "Manages saved views")
-	.addError(Unauthorized, { status: 401 })
-	.addError(RateLimited, { status: 429 })
-	.middleware(AuthMiddleware)
 	.add(
-		HttpApiEndpoint.get("list", "/saved-views")
-			.setUrlParams(
-				Schema.Struct({
-					pluginSlug: Schema.optional(PluginSlug),
-					includeDisabled: Schema.optionalWith(Schema.BooleanFromString, {
-						default: () => false,
-					}),
-				}),
-			)
-			.addSuccess(Schema.Array(ListedSavedView))
-			.annotate(OpenApi.Description, "Lists saved views with optional plugin and status filters"),
+		HttpApiEndpoint.get("list", "/saved-views", {
+			query: {
+				pluginSlug: Schema.optional(PluginSlug),
+				includeDisabled: Schema.Boolean.pipe(
+					(schema) =>
+						Schema.optional(schema).pipe(
+							Schema.decodeTo(Schema.toType(schema), {
+								decode: SchemaGetter.withDefault(Effect.sync(() => false)),
+								encode: SchemaGetter.required(),
+							}),
+						),
+					Schema.withConstructorDefault(Effect.sync(() => false)),
+				),
+			},
+			success: Schema.Array(ListedSavedView),
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+		}).annotate(OpenApi.Description, "Lists saved views with optional plugin and status filters"),
 	)
 	.add(
-		HttpApiEndpoint.post("create", "/saved-views")
-			.setPayload(CreateSavedViewBody)
-			.addSuccess(ListedSavedView, { status: 201 })
-			.annotate(OpenApi.Description, "Creates a saved view"),
+		HttpApiEndpoint.post("create", "/saved-views", {
+			payload: CreateSavedViewBody,
+			success: ListedSavedView.pipe(HttpApiSchema.status(201)),
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+		}).annotate(OpenApi.Description, "Creates a saved view"),
 	)
 	.add(
-		HttpApiEndpoint.get("get")`/saved-views/${viewSlugParam}`
-			.addSuccess(ListedSavedView)
-			.addError(NotFound, { status: 404 })
-			.annotate(OpenApi.Description, "Gets a saved view by slug"),
+		HttpApiEndpoint.get("get", "/saved-views/:viewSlug", {
+			params: { viewSlug: Schema.String },
+			success: ListedSavedView,
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Gets a saved view by slug"),
 	)
 	.add(
-		HttpApiEndpoint.put("update")`/saved-views/${viewSlugParam}`
-			.setPayload(UpdateSavedViewBody)
-			.addSuccess(ListedSavedView)
-			.addError(NotFound, { status: 404 })
-			.annotate(OpenApi.Description, "Updates a saved view by slug"),
+		HttpApiEndpoint.put("update", "/saved-views/:viewSlug", {
+			params: { viewSlug: Schema.String },
+			payload: UpdateSavedViewBody,
+			success: ListedSavedView,
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Updates a saved view by slug"),
 	)
 	.add(
-		HttpApiEndpoint.del("delete")`/saved-views/${viewSlugParam}`
-			.addSuccess(ListedSavedView)
-			.addError(NotFound, { status: 404 })
-			.annotate(OpenApi.Description, "Deletes a saved view by slug"),
+		HttpApiEndpoint.delete("delete", "/saved-views/:viewSlug", {
+			params: { viewSlug: Schema.String },
+			success: ListedSavedView,
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Deletes a saved view by slug"),
 	)
 	.add(
-		HttpApiEndpoint.post("clone")`/saved-views/${viewSlugParam}/clone`
-			.addSuccess(ListedSavedView, { status: 201 })
-			.addError(NotFound, { status: 404 })
-			.annotate(OpenApi.Description, "Clones a saved view by slug"),
+		HttpApiEndpoint.post("clone", "/saved-views/:viewSlug/clone", {
+			params: { viewSlug: Schema.String },
+			success: ListedSavedView.pipe(HttpApiSchema.status(201)),
+			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Clones a saved view by slug"),
 	)
 	.add(
-		HttpApiEndpoint.post("reorder", "/saved-views/reorder")
-			.setPayload(ReorderSavedViewsBody)
-			.addSuccess(ReorderSavedViewsResponse)
-			.annotate(OpenApi.Description, "Reorders saved views"),
-	);
+		HttpApiEndpoint.post("reorder", "/saved-views/reorder", {
+			payload: ReorderSavedViewsBody,
+			success: ReorderSavedViewsResponse,
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+		}).annotate(OpenApi.Description, "Reorders saved views"),
+	)
+	.middleware(AuthMiddleware);
