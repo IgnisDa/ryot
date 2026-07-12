@@ -27,15 +27,16 @@ describe("book.openlibrary sandbox script", () => {
 		]);
 	});
 	it("maps search docs and drops docs missing a key or title", () => {
-		const host = makeHost(() =>
-			httpSuccess({
+		const host = makeHost((_method, url) => {
+			expect(new URL(url).host).toBe("openlibrary.org");
+			return httpSuccess({
 				num_found: 2,
 				docs: [
 					{ key: "/works/OL1W", title: "The Work", first_publish_year: 2001, cover_i: 111 },
 					{ key: "/works/OL2W", title: "" },
 				],
-			}),
-		);
+			});
+		});
 		return Effect.runPromise(
 			runSandboxTestScript(search, { query: "work", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
