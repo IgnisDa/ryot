@@ -1,12 +1,14 @@
 import { BunServices } from "@effect/platform-bun";
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import { Effect, Schema, FileSystem } from "effect";
 
 import {
 	ensureSandboxRuntimeDependencies,
+	materializeSandboxRuntimePayload,
 	SANDBOX_APPROVED_DEPENDENCIES,
 	SANDBOX_RUNTIME_IMPORT_MAP_CONTENT,
 } from "./dependencies";
+import { sandboxRuntimePayload } from "./runtime-payload.generated";
 
 it.effect("builds exact-version dependency modules in a read-only runtime directory", () =>
 	Effect.gen(function* () {
@@ -32,7 +34,7 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 			expect((yield* ensureSandboxRuntimeDependencies(root)).directory).toBe(runtime.directory);
 			expect(yield* fs.exists(runtime.cacheDirectory)).toBe(true);
 			expect(SANDBOX_APPROVED_DEPENDENCIES).toMatchObject([
-				{ name: "effect", version: "4.0.0-beta.107" },
+				{ name: "effect", version: "4.0.0-rc.111" },
 				{ name: "cheerio", version: "1.2.0" },
 				{ name: "youtubei", version: "17.2.0" },
 				{ name: "fflate", version: "0.8.3" },
@@ -45,12 +47,13 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 			expect(importMap).not.toContain('"npm:');
 			expect((yield* fs.readDirectory(runtime.directory)).sort()).toEqual([
 				"cheerio-1.2.0.mjs",
-				"effect-4.0.0-beta.107.mjs",
+				"effect-4.0.0-rc.111.mjs",
 				"fast-xml-parser-5.8.0.mjs",
 				"fflate-0.8.3.mjs",
 				"import-map.json",
 				"modules",
 				"papaparse-5.5.3.mjs",
+				"runtime-metadata.json",
 				"ryotql-workspace.mjs",
 				"youtubei-17.2.0.mjs",
 			]);
@@ -60,11 +63,11 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				),
 			)(importMap);
 			expect(parsedImportMap.imports["@ryot-app/sandbox-sdk/effect"]).toBe(
-				"./effect-4.0.0-beta.107.mjs",
+				"./effect-4.0.0-rc.111.mjs",
 			);
 			expect(
 				Object.entries(parsedImportMap.imports)
-					.filter(([, file]) => file === "./effect-4.0.0-beta.107.mjs")
+					.filter(([, file]) => file === "./effect-4.0.0-rc.111.mjs")
 					.map(([specifier]) => specifier)
 					.sort(),
 			).toEqual(["@ryot-app/plugin-kit/effect", "@ryot-app/sandbox-sdk/effect", "effect"]);
@@ -95,7 +98,9 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				expect((yield* fs.stat(modulePath)).mode & 0o222).toBe(0);
 			}
 
-			const primaryModule = `${runtime.directory}/${SANDBOX_APPROVED_DEPENDENCIES[0].runtimeFile}`;
+			const primaryDependency = SANDBOX_APPROVED_DEPENDENCIES[0];
+			assert(primaryDependency);
+			const primaryModule = `${runtime.directory}/${primaryDependency.runtimeFile}`;
 			yield* fs.chmod(primaryModule, 0o644);
 			yield* fs.writeFileString(primaryModule, "corrupt");
 			const repairedRuntime = yield* ensureSandboxRuntimeDependencies(root);
@@ -114,7 +119,9 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				secondRepair.directory,
 			);
 
-			const youtubeRuntimeFile = SANDBOX_APPROVED_DEPENDENCIES[2].runtimeFile;
+			const youtubeDependency = SANDBOX_APPROVED_DEPENDENCIES[2];
+			assert(youtubeDependency);
+			const youtubeRuntimeFile = youtubeDependency.runtimeFile;
 			const youtubeModulePath = `${secondRepair.directory}/${youtubeRuntimeFile}`;
 			const secondImportMap = yield* fs.readFileString(secondRepair.importMapPath);
 			const youtubeModule = yield* fs.readFileString(youtubeModulePath);
@@ -137,5 +144,37 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				}).pipe(Effect.ignore),
 			),
 		);
+	}).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("fails clearly for missing and corrupt shipped payloads", () =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-payload-" });
+		const missing = yield* Effect.flip(materializeSandboxRuntimePayload(root, undefined));
+		expect(missing.message).toBe("Trusted sandbox runtime payload is missing");
+
+		const corrupt = {
+			...sandboxRuntimePayload,
+			files: sandboxRuntimePayload.files.map((file, index) =>
+				index === 0 ? { ...file, contents: `${file.contents}\ncorrupt` } : file,
+			),
+		};
+		const failure = yield* Effect.flip(materializeSandboxRuntimePayload(root, corrupt));
+		expect(failure.message).toContain("payload file is corrupt");
+
+		const invalidLength = {
+			...sandboxRuntimePayload,
+			metadata: {
+				...sandboxRuntimePayload.metadata,
+				files: sandboxRuntimePayload.metadata.files.map((file, index) =>
+					index === 0 ? Object.assign({}, file, { byteLength: -1 }) : file,
+				),
+			},
+		};
+		const invalidMetadata = yield* Effect.flip(
+			materializeSandboxRuntimePayload(root, invalidLength),
+		);
+		expect(invalidMetadata.message).toBe("Trusted sandbox runtime payload metadata is invalid");
 	}).pipe(Effect.provide(BunServices.layer)),
 );

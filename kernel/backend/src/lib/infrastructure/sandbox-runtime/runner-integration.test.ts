@@ -79,6 +79,30 @@ export default defineScript({
 
 `;
 
+const aliasIdentitySource = `
+import { Effect as SdkEffect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect as PluginKitEffect } from "@ryot-app/plugin-kit/effect";
+import { table as sdkTable } from "@ryot-app/sandbox-sdk/ryotql";
+import { table as pluginKitTable } from "@ryot-app/plugin-kit/ryotql";
+
+const manifest = {
+  kind: "script",
+  capabilities: [],
+  name: "Runtime alias identity",
+  slug: "runtime-alias-identity",
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+};
+
+export default {
+  manifest,
+  definitionType: "ryot:sandbox-script",
+  input: Schema.Struct({}),
+  output: Schema.Boolean,
+  run: () => SdkEffect.succeed(SdkEffect === PluginKitEffect && sdkTable === pluginKitTable),
+};
+`;
+
 const failureSource = `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
@@ -1027,6 +1051,28 @@ it("loads one compiled fixture for each approved SDK dependency without remote m
 				expect(result).toMatchObject({ value: null, success: true });
 			}
 		}).pipe(Effect.provide(SandboxCompiler.layer)),
+	));
+
+it("preserves Effect and RyotQL identity across SDK and plugin-kit aliases", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const result = yield* runInDeno(
+				{
+					format: 1,
+					javascript: aliasIdentitySource,
+					manifest: {
+						kind: "script",
+						capabilities: [],
+						requiredPluginConfigKeys: [],
+						requiredSystemConfigKeys: [],
+						name: "Runtime alias identity",
+						slug: "runtime-alias-identity",
+					},
+				},
+				{},
+			);
+			expect(result).toMatchObject({ value: true, success: true });
+		}),
 	));
 
 it("disables obfuscated string-generated imports at runtime", () =>
