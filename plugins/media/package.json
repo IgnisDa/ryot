@@ -58,6 +58,18 @@
 			"types": "./shared/video-game-recipes.ts",
 			"default": "./shared/video-game-recipes.ts"
 		},
+		"./shared/creator-recipes": {
+			"types": "./shared/creator-recipes.ts",
+			"default": "./shared/creator-recipes.ts"
+		},
+		"./shared/person-recipes": {
+			"types": "./shared/person-recipes.ts",
+			"default": "./shared/person-recipes.ts"
+		},
+		"./shared/company-recipes": {
+			"types": "./shared/company-recipes.ts",
+			"default": "./shared/company-recipes.ts"
+		},
 		"./import-sources": {
 			"types": "./host/import-sources.ts",
 			"default": "./host/import-sources.ts"

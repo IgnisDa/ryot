@@ -224,23 +224,23 @@ it.live("shows a kernel notice for a Media schema with no detail renderer", () =
 		const frontendUrl = getFrontendUrl();
 		const { token, email, password } = yield* createTestUser(apiUrl);
 		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
-		const { schema } = yield* findBuiltinSchemaBySlug(client, "person");
+		const { schema } = yield* findBuiltinSchemaBySlug(client, "movie-group");
 		const provider = requirePresent(
 			schema.providers[0],
-			"Missing provider for built-in person schema",
+			"Missing provider for built-in movie group schema",
 		);
-		const person = yield* seedMediaEntity({
+		const movieGroup = yield* seedMediaEntity({
 			properties: {},
 			entitySchemaSlug: schema.id,
 			providerId: provider.providerId,
-			name: "Unsupported Media Person",
-			externalId: `media-person-${crypto.randomUUID()}`,
+			name: "Unsupported Media Movie Group",
+			externalId: `media-movie-group-${crypto.randomUUID()}`,
 		});
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${frontendUrl}/e/${person.id}`);
-		yield* page.waitForURL(`${frontendUrl}/e/${person.id}`);
+		yield* page.goto(`${frontendUrl}/e/${movieGroup.id}`);
+		yield* page.waitForURL(`${frontendUrl}/e/${movieGroup.id}`);
 
 		yield* page
 			.getByRole("heading", { level: 1, exact: true, name: "Entity page not registered" })

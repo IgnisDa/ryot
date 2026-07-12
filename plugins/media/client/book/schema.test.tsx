@@ -8,12 +8,12 @@ import {
 	flatGroupRow,
 } from "../../tests/client/flat-media/overview-fixture";
 import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
-import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
 import { readyQueryResult } from "../../tests/client/query-result-fixture";
+import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { bookPresentationFacts, bookSchema, bookSummaryFacts } from "./schema";
 
@@ -83,7 +83,7 @@ describe("book schema", () => {
 	});
 
 	it("presents the group as the series the book is part of", () => {
-		const { unmount, container } = renderFlatScreenBody(
+		const { unmount, container } = renderMediaScreenBody(
 			bookSchema,
 			bookSummary(),
 			decodeFlatOverview(bookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),

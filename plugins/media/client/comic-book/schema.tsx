@@ -5,6 +5,7 @@ import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
+import { mediaSchemaAspects } from "../schema-aspects";
 
 type ComicBookSummary = MediaSummaryOf<typeof comicBookRecipes>;
 
@@ -17,10 +18,10 @@ export const comicBookPresentationFacts = (comicBook: ComicBookPresentation) =>
 	mediaCountLabels(comicBook.pages, "page");
 
 export const comicBookSchema = defineFlatMediaSchema({
-	aspect: "poster",
 	recipes: comicBookRecipes,
 	facts: comicBookSummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,
+	aspect: mediaSchemaAspects["comic-book"],
 	presentationFacts: comicBookPresentationFacts,
 	measureFigure: { label: "Pages", value: mediaActivityCountFigure },
 	activityCopy: mediaFlatActivityCopy({ verb: "read", noun: "comic book" }),

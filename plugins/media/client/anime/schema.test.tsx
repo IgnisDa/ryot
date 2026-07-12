@@ -8,12 +8,12 @@ import {
 	flatPersonRow,
 } from "../../tests/client/flat-media/overview-fixture";
 import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
-import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
 import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
+import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import {
 	animePresentationFacts,
@@ -127,7 +127,7 @@ describe("anime schema", () => {
 	});
 
 	it("names the credit rails for an anime and never claims it is part of a series", () => {
-		const { unmount, container } = renderFlatScreenBody(
+		const { unmount, container } = renderMediaScreenBody(
 			animeSchema,
 			animeSummary(),
 			decodeFlatOverview(animeRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),

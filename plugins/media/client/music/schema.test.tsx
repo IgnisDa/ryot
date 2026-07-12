@@ -10,12 +10,12 @@ import {
 	FLAT_OVERVIEW_INPUT,
 } from "../../tests/client/flat-media/overview-fixture";
 import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
-import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
 import { readyQueryResult } from "../../tests/client/query-result-fixture";
+import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { musicPresentationFacts, musicSchema, musicSummaryFacts } from "./schema";
 
@@ -42,7 +42,7 @@ describe("music schema", () => {
 	});
 
 	it("titles the credits as artists and labels and the group as an album", () => {
-		const { unmount, container } = renderFlatScreenBody(
+		const { unmount, container } = renderMediaScreenBody(
 			musicSchema,
 			musicSummary(),
 			decodeFlatOverview(musicRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),

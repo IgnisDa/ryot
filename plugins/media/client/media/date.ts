@@ -49,3 +49,15 @@ const localDayIndex = (value: string) => {
 
 export const localDayCount = (earliest: string, latest: string) =>
 	Math.abs(localDayIndex(latest) - localDayIndex(earliest)) + 1;
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Whole years from `start` to `end`, both `YYYY-MM-DD`; `undefined` for any other input or when `end` precedes `start`. */
+export const completedYearsBetween = (start: string, end: string) => {
+	if (!ISO_DATE.test(start) || !ISO_DATE.test(end)) {
+		return undefined;
+	}
+	const years = Number(end.slice(0, 4)) - Number(start.slice(0, 4));
+	const completed = end.slice(5) < start.slice(5) ? years - 1 : years;
+	return completed < 0 ? undefined : completed;
+};

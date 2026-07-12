@@ -26,6 +26,7 @@ const noopAdapter = { query: () => Promise.resolve({}) };
 const relationsRender: MediaOverviewRelationsRender<Overview> = ({ divided, overview }) => (
 	<MediaOverviewRelations
 		compact
+		aspect="poster"
 		divided={divided}
 		overview={overview}
 		onViewAllPeople={() => undefined}

@@ -74,17 +74,17 @@ describe("media flat recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
-			"owned",
 			"providerName",
 			"description",
+			"images",
+			"isInLibrary",
+			"isMonitored",
+			"owned",
 			"publishDate",
 			"publishYear",
 			"genres",
-			"images",
 			"providerRating",
 			"productionStatus",
-			"isInLibrary",
-			"isMonitored",
 			"state",
 			"progressPercent",
 		]);
@@ -140,14 +140,44 @@ describe("media flat recipes", () => {
 			throw new Error("Expected the overview rows queries");
 		}
 
+		expect(people.joins?.[0]).toMatchObject({
+			on: {
+				right: { field: "id", tableAlias: "person" },
+				left: { field: "sourceEntityId", tableAlias: "personRelationship" },
+			},
+		});
 		expect(people.where).toMatchObject({
-			predicates: [{}, {}, { right: { type: "literal", value: "person-to-fixture" } }],
+			predicates: [
+				{ right: { type: "literal", value: "person" } },
+				{
+					right: { type: "literal", value: "media-1" },
+					left: { field: "targetEntityId", tableAlias: "personRelationship" },
+				},
+				{ right: { type: "literal", value: "person-to-fixture" } },
+			],
 		});
 		expect(companies.where).toMatchObject({
-			predicates: [{}, {}, { right: { type: "literal", value: "company-to-fixture" } }],
+			predicates: [
+				{ right: { type: "literal", value: "company" } },
+				{ left: { field: "targetEntityId", tableAlias: "companyRelationship" } },
+				{ right: { type: "literal", value: "company-to-fixture" } },
+			],
+		});
+		expect(recommendations.joins?.[0]).toMatchObject({
+			on: {
+				right: { field: "id", tableAlias: "suggested" },
+				left: { field: "targetEntityId", tableAlias: "suggestionRelationship" },
+			},
 		});
 		expect(recommendations.where).toMatchObject({
-			predicates: [{ right: { type: "literal", value: "fixture" } }, {}, {}],
+			predicates: [
+				{ right: { type: "literal", value: "fixture" } },
+				{
+					right: { type: "literal", value: "media-1" },
+					left: { field: "sourceEntityId", tableAlias: "suggestionRelationship" },
+				},
+				{ right: { type: "literal", value: "media-suggestion" } },
+			],
 		});
 	});
 
@@ -261,9 +291,9 @@ describe("media flat recipes", () => {
 			"occurredAt",
 			"text",
 			"rating",
+			"isSpoiler",
 			"timeSpent",
 			"consumedOn",
-			"isSpoiler",
 			"startedOn",
 			"completedOn",
 			"progressPercent",
