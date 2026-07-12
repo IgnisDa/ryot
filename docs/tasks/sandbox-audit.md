@@ -163,7 +163,9 @@ The runner-side name validation (runner-source.sandbox.ts:120-132) does not help
 
 **B6 — harvest paths leak into scripts.** `completedValue` (sandbox-script-workflow.ts:128-131) merges `chunkFiles: result.harvest.chunkPaths` — absolute host paths under `config.tmpDir` — into the activity result handed back to a sandbox script.
 
-- [ ] Return opaque handles the kernel resolves when granting the next execution.
+- [x] Return opaque handles the kernel resolves when granting the next execution. Workflow-scoped
+  Redis handles replace harvested host paths; kernel resolution validates trusted parent provenance,
+  and public sandbox results omit harvest metadata.
 
 **B7 — `removedCount` is fabricated.** compiled-modules.ts:135 returns `removedCount: candidates.length` regardless of whether `fs.remove` succeeded.
 
@@ -256,3 +258,7 @@ You asked for recommendations rather than questions, so:
 run origin, so script-controlled system context cannot forge signal attribution. B2 still rejects
 symlink entries in kernel-owned measurement and harvest paths regardless of Deno's `Deno.symlink`
 permission behavior.
+
+B6 now keeps physical harvest paths kernel-owned. Workflow activity manifests expose opaque handles,
+the kernel resolves them before chunk processing, and handle mappings release with workflow cleanup
+or expire through Redis TTL.

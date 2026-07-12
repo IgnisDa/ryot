@@ -1,6 +1,6 @@
 import {
-	genericImportAdapterManifestSchema,
 	genericImportKernelInputSchema,
+	genericImportWorkflowManifestSchema,
 	genericImportWorkflowInputSchema,
 	genericImportWorkflowResultSchema,
 } from "@ryot/sandbox-sdk/imports";
@@ -18,7 +18,7 @@ export const manifest = defineManifest({
 const activityReference = (scriptSlug: string) => ({
 	scriptSlug,
 	input: Schema.Struct({}),
-	output: genericImportAdapterManifestSchema,
+	output: genericImportWorkflowManifestSchema,
 });
 
 const kernelImport = {

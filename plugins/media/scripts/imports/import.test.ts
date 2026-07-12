@@ -144,7 +144,12 @@ it("marks adapter-only integration failures as failed kernel runs", async () => 
 	const chunkRequest = envelope.requests[journal.length];
 	assert(chunkRequest?.kind === "activity");
 	expect(chunkRequest.args.scriptSlug).toBe("activity.import.write-chunks");
-	journal.push({ totalItems: 1, failureCount: 1, writeItemCount: 0, chunkFiles: ["chunk.json"] });
+	journal.push({
+		totalItems: 1,
+		failureCount: 1,
+		writeItemCount: 0,
+		chunkHandles: ["harvest-handle-0"],
+	});
 
 	envelope = await replay();
 	const kernelRequest = envelope.requests[journal.length];
@@ -221,7 +226,7 @@ const driveWatcharrImport = (input: {
 					totalItems: 1,
 					failureCount: 1,
 					writeItemCount: 1,
-					chunkFiles: ["/tmp/ryot-sandbox-harvest-run/chunk-0.json"],
+					chunkHandles: ["harvest-handle-0"],
 				});
 			} else {
 				journal.push({ failedItems: 1, importedItems: 1, processedItems: 2 });
