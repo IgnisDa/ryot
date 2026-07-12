@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oauth";
-import { Effect } from "effect";
+import { Effect, Fiber } from "effect";
 
 import {
 	OAuthStorage,
@@ -70,6 +70,14 @@ const pending = () =>
 		clientId: OAUTH_WEB_CLIENT_ID,
 		redirectUri: `${origin}/auth/callback`,
 	}) as const;
+
+const openGate = () => {
+	let open!: () => void;
+	const opened = new Promise<void>((resolve) => {
+		open = resolve;
+	});
+	return { opened, open: () => open() };
+};
 
 describe("OAuth token service", () => {
 	it.effect("exchanges a code with PKCE, validates nonce, and stores the token set", () => {
@@ -266,6 +274,7 @@ describe("OAuth token service", () => {
 			);
 		},
 	);
+
 	it.effect("drops the stored token set when persisting a rotated refresh token fails", () => {
 		const storage = makeStorage({
 			setItem: () => Effect.fail(new OAuthStorageError({ reason: "write-failed" })),
@@ -293,6 +302,79 @@ describe("OAuth token service", () => {
 						Promise.resolve(
 							jsonResponse(tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" })),
 						),
+					() => now,
+				),
+			),
+			Effect.provide(storage.layer),
+		);
+	});
+
+	it.effect("finishes a refresh started by a caller that is later interrupted", () => {
+		const storage = makeStorage();
+		const gate = openGate();
+		let requests = 0;
+		return Effect.gen(function* () {
+			const persisted = yield* OAuthStorage;
+			yield* persisted.setTokenSet(origin, {
+				tokenType: "Bearer",
+				accessToken: "expired",
+				scope: "openid ryot:api",
+				refreshToken: "refresh-1",
+				accessTokenExpiresAt: now,
+				idToken: idToken("nonce-1"),
+			});
+			const tokens = yield* OAuthTokenService;
+			const abandoned = yield* Effect.forkChild(tokens.accessToken(origin, OAUTH_WEB_CLIENT_ID), {
+				startImmediately: true,
+			});
+			const surviving = yield* Effect.forkChild(tokens.accessToken(origin, OAUTH_WEB_CLIENT_ID), {
+				startImmediately: true,
+			});
+
+			yield* Fiber.interrupt(abandoned);
+			gate.open();
+			expect(yield* Fiber.join(surviving)).toBe("access-2");
+			expect(requests).toBe(1);
+			expect((yield* persisted.getTokenSet(origin))?.refreshToken).toBe("refresh-2");
+		}).pipe(
+			Effect.provide(
+				oauthTokenServiceLayer(
+					async () => {
+						requests += 1;
+						await gate.opened;
+						return jsonResponse(
+							tokenResponse({ access_token: "access-2", refresh_token: "refresh-2" }),
+						);
+					},
+					() => now,
+				),
+			),
+			Effect.provide(storage.layer),
+		);
+	});
+
+	it.effect("keeps the stored token set when a refresh fails to reach the server", () => {
+		const storage = makeStorage();
+		storage.values.set(
+			oauthTokenKey(origin),
+			JSON.stringify({
+				tokenType: "Bearer",
+				accessToken: "expired",
+				scope: "openid ryot:api",
+				refreshToken: "refresh-1",
+				accessTokenExpiresAt: now,
+				idToken: idToken("nonce-1"),
+			}),
+		);
+		return Effect.gen(function* () {
+			const tokens = yield* OAuthTokenService;
+			const failure = yield* Effect.flip(tokens.accessToken(origin, OAUTH_WEB_CLIENT_ID));
+			expect(failure.reason).toBe("request-failed");
+			expect(storage.values.has(oauthTokenKey(origin))).toBe(true);
+		}).pipe(
+			Effect.provide(
+				oauthTokenServiceLayer(
+					() => Promise.reject(new TypeError("network down")),
 					() => now,
 				),
 			),
