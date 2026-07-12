@@ -1,130 +1,92 @@
-import {
-	PLUGIN_KIT_EFFECT_IMPORT,
-	PLUGIN_KIT_RYOTQL_IMPORT,
-	SANDBOX_RUNTIME_SDK_IMPORTS,
-	SANDBOX_SDK_ROOT_IMPORT,
-} from "@ryot-app/sandbox-sdk/imports";
-import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
-import { Data, Effect, FileSystem, Path } from "effect";
+import { createSha256Hasher, sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { Data, Effect, FileSystem, Schema } from "effect";
 
-class SandboxRuntimeDependencyError extends Data.TaggedError("SandboxRuntimeDependencyError")<{
-	message: string;
-}> {}
+import { sandboxRuntimePayloadMetadataSchema, sandboxRuntimePayloadSchema } from "./payload";
+import { sandboxRuntimePayload } from "./runtime-payload.generated";
 
-const SANDBOX_RUNTIME_DEPENDENCY_FORMAT = 1 as const;
+export class SandboxRuntimeDependencyError extends Data.TaggedError(
+	"SandboxRuntimeDependencyError",
+)<{ readonly message: string }> {}
 
-const EFFECT_RUNTIME_FILE = "effect-4.0.0-beta.107.mjs";
-const RYOTQL_RUNTIME_FILE = "ryotql-workspace.mjs";
-
-export const SANDBOX_APPROVED_DEPENDENCIES = [
-	{
-		name: "effect",
-		version: "4.0.0-beta.107",
-		runtimeFile: EFFECT_RUNTIME_FILE,
-		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[0],
-	},
-	{
-		name: "cheerio",
-		version: "1.2.0",
-		runtimeFile: "cheerio-1.2.0.mjs",
-		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[1],
-	},
-	{
-		name: "youtubei",
-		version: "17.2.0",
-		runtimeFile: "youtubei-17.2.0.mjs",
-		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[2],
-	},
-	{
-		name: "fflate",
-		version: "0.8.3",
-		runtimeFile: "fflate-0.8.3.mjs",
-		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[3],
-	},
-	{
-		version: "5.5.3",
-		name: "papaparse",
-		runtimeFile: "papaparse-5.5.3.mjs",
-		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[4],
-	},
-	{
-		version: "5.8.0",
-		name: "fast-xml-parser",
-		runtimeFile: "fast-xml-parser-5.8.0.mjs",
-		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[5],
-	},
-	{
-		name: "ryotql",
-		version: "workspace",
-		runtimeFile: RYOTQL_RUNTIME_FILE,
-		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[6],
-	},
-] as const;
-
-const legacyYoutubeiRuntime = {
-	version: "17.2.0",
-	name: "youtubei-legacy-deno",
-	packageImport: "youtubei.js/package.json",
-	entryRelativePath: "dist/src/platform/deno.js",
-} as const;
-
-const runtimeModuleSource = (name: string) => {
-	if (name === "effect") {
-		return 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; import * as DateTime from "effect/DateTime"; import * as Duration from "effect/Duration"; import * as Result from "effect/Result"; import * as Option from "effect/Option"; import * as SchemaGetter from "effect/SchemaGetter"; import * as SchemaIssue from "effect/SchemaIssue"; import * as SchemaTransformation from "effect/SchemaTransformation"; export { DateTime, Duration, Effect, Option, Result, Schema, SchemaGetter, SchemaIssue, SchemaTransformation };';
-	}
-	if (name === "ryotql") {
-		return 'export * from "@ryot-app/sandbox-sdk/ryotql";';
-	}
-	return null;
-};
-
-const runtimeModules = SANDBOX_APPROVED_DEPENDENCIES.map((dependency) =>
-	dependency.name === "youtubei"
-		? {
-				...dependency,
-				...legacyYoutubeiRuntime,
-				resolveFromSdk: true,
-				sourceImport: legacyYoutubeiRuntime.packageImport,
-				runtimeSource: 'export * from "@ryot-app/sandbox-sdk/youtubei";',
-			}
-		: {
-				...dependency,
-				resolveFromSdk: false,
-				entryRelativePath: null,
-				sourceImport: dependency.sdkImport,
-				runtimeSource: runtimeModuleSource(dependency.name),
-			},
-);
-
-const runtimeDirectoryPrefix = `runtime-v${SANDBOX_RUNTIME_DEPENDENCY_FORMAT}-${SANDBOX_APPROVED_DEPENDENCIES.map(
-	({ name, version }) => `${name}-${version}`,
-).join("_")}`;
-
-const runtimeImportMap = {
-	imports: {
-		...Object.fromEntries(
-			runtimeModules.map(({ sdkImport, runtimeFile }) => [sdkImport, `./${runtimeFile}`]),
-		),
-		effect: `./${EFFECT_RUNTIME_FILE}`,
-		[PLUGIN_KIT_EFFECT_IMPORT]: `./${EFFECT_RUNTIME_FILE}`,
-		[PLUGIN_KIT_RYOTQL_IMPORT]: `./${RYOTQL_RUNTIME_FILE}`,
-	},
-};
-
-export const SANDBOX_RUNTIME_IMPORT_MAP_CONTENT = `${JSON.stringify(
-	runtimeImportMap,
-	null,
-	"\t",
-)}\n`;
-
-const runtimeFiles = runtimeModules.map(({ runtimeFile }) => runtimeFile);
 const runtimeModuleDirectoryName = "modules";
-const runtimeDirectoryEntries = [
-	"import-map.json",
-	runtimeModuleDirectoryName,
-	...runtimeFiles,
-].sort();
-const runtimeDirectoryFiles = ["import-map.json", ...runtimeFiles].sort();
+
+const payloadError = (message: string) => new SandboxRuntimeDependencyError({ message });
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+
+const validatePayload = (payload: unknown) =>
+	Effect.gen(function* () {
+		if (!payload || typeof payload !== "object") {
+			return yield* payloadError("Trusted sandbox runtime payload is missing");
+		}
+		const candidate = yield* Schema.decodeUnknownEffect(sandboxRuntimePayloadSchema)(payload).pipe(
+			Effect.mapError(() => payloadError("Trusted sandbox runtime payload metadata is invalid")),
+		);
+		const expectedFiles = new Map(candidate.metadata.files.map((file) => [file.path, file]));
+		const actualFiles = new Map(candidate.files.map((file) => [file.path, file.contents]));
+		if (
+			expectedFiles.size + 1 !== actualFiles.size ||
+			!actualFiles.has("runtime-metadata.json") ||
+			[...actualFiles.keys()].some(
+				(file) =>
+					file.includes("/") ||
+					file === runtimeModuleDirectoryName ||
+					(file !== "runtime-metadata.json" && !expectedFiles.has(file)),
+			)
+		) {
+			return yield* payloadError("Trusted sandbox runtime payload file set is inconsistent");
+		}
+		for (const [file, expected] of expectedFiles) {
+			const contents = actualFiles.get(file);
+			const bytes = typeof contents === "string" ? new TextEncoder().encode(contents) : undefined;
+			if (
+				!bytes ||
+				bytes.byteLength !== expected.byteLength ||
+				sha256Hex(bytes) !== expected.sha256
+			) {
+				return yield* payloadError(`Trusted sandbox runtime payload file is corrupt: ${file}`);
+			}
+		}
+		const metadataContents = actualFiles.get("runtime-metadata.json");
+		if (typeof metadataContents !== "string") {
+			return yield* payloadError("Trusted sandbox runtime payload metadata file is missing");
+		}
+		const fileMetadata = yield* Schema.decodeUnknownEffect(
+			Schema.fromJsonString(sandboxRuntimePayloadMetadataSchema),
+		)(metadataContents).pipe(
+			Effect.mapError(() =>
+				payloadError("Trusted sandbox runtime payload metadata file is invalid"),
+			),
+		);
+		if (
+			encodeJson(fileMetadata) !== encodeJson(candidate.metadata) ||
+			canonicalRuntimeHash(candidate.files) !== candidate.contentHash
+		) {
+			return yield* payloadError("Trusted sandbox runtime payload integrity check failed");
+		}
+		return candidate;
+	});
+
+const canonicalRuntimeHash = (
+	files: readonly { readonly path: string; readonly contents: string }[],
+) => {
+	const hasher = createSha256Hasher();
+	for (const { path, contents } of files
+		.slice()
+		.sort(({ path: left }, { path: right }) => left.localeCompare(right))) {
+		const bytes = new TextEncoder().encode(contents);
+		hasher.update(`${path.length}:${path}:${bytes.byteLength}:`);
+		hasher.update(bytes);
+	}
+	return hasher.digest("hex");
+};
+
+const trustedPayload = sandboxRuntimePayload;
+
+const runtimeDirectoryPrefix = `runtime-v${trustedPayload.metadata.format}-${trustedPayload.metadata.dependencies
+	.map(({ name, version }) => `${name}-${version}`)
+	.join("_")}`;
+const runtimeFiles = trustedPayload.files.map(({ path }) => path).sort();
+const runtimeDirectoryEntries = [...runtimeFiles, runtimeModuleDirectoryName].sort();
 
 export type SandboxRuntimePaths = {
 	readonly directory: string;
@@ -143,7 +105,7 @@ const sandboxRuntimePaths = (
 		directory,
 		importMapPath: `${directory}/import-map.json`,
 		moduleDirectory: `${directory}/${runtimeModuleDirectoryName}`,
-		cacheDirectory: `${denoDir}/cache-v${SANDBOX_RUNTIME_DEPENDENCY_FORMAT}-${contentHash}`,
+		cacheDirectory: `${denoDir}/cache-v${trustedPayload.metadata.format}-${contentHash}`,
 	};
 };
 
@@ -154,22 +116,17 @@ const runtimeContentHash = (fs: FileSystem.FileSystem, directory: string) =>
 			entries.length !== runtimeDirectoryEntries.length ||
 			entries.some((entry, index) => entry !== runtimeDirectoryEntries[index])
 		) {
-			return yield* new SandboxRuntimeDependencyError({
-				message: "Sandbox runtime dependency directory has unexpected files",
-			});
+			return yield* payloadError("Sandbox runtime dependency directory has unexpected files");
 		}
 		if ((yield* fs.stat(`${directory}/${runtimeModuleDirectoryName}`)).type !== "Directory") {
-			return yield* new SandboxRuntimeDependencyError({
-				message: "Sandbox runtime module path is not a directory",
-			});
+			return yield* payloadError("Sandbox runtime module path is not a directory");
 		}
-		const hasher = createSha256Hasher();
-		for (const file of runtimeDirectoryFiles) {
-			const contents = yield* fs.readFile(`${directory}/${file}`);
-			hasher.update(`${file.length}:${file}:${contents.byteLength}:`);
-			hasher.update(contents);
-		}
-		return hasher.digest("hex");
+		const files = yield* Effect.forEach(runtimeFiles, (file) =>
+			fs
+				.readFileString(`${directory}/${file}`)
+				.pipe(Effect.map((contents) => ({ contents, path: file }))),
+		);
+		return canonicalRuntimeHash(files);
 	});
 
 const runtimeMatches = (
@@ -182,84 +139,11 @@ const runtimeMatches = (
 		Effect.orElseSucceed(() => false),
 	);
 
-const buildRuntimeModule = (
-	name: string,
-	entrypoint: string,
-	outputDirectory: string,
-	runtimeFile: string,
-	runtimeSource: string | null,
-	runtimeSourceResolveDir?: string,
-) =>
-	Effect.tryPromise({
-		catch: (error) =>
-			new SandboxRuntimeDependencyError({
-				message: `Sandbox runtime dependency build failed: ${String(error)}`,
-			}),
-		try: () =>
-			Bun.build({
-				format: "esm",
-				minify: false,
-				splitting: false,
-				target: "browser",
-				packages: "bundle",
-				outdir: outputDirectory,
-				naming: { entry: runtimeFile },
-				entrypoints: [runtimeSource ? "ryot:sandbox-runtime-dependency" : entrypoint],
-				plugins: runtimeSource
-					? [
-							{
-								name: "sandbox-runtime-dependency",
-								setup(builder) {
-									builder.onResolve({ filter: /^ryot:sandbox-runtime-dependency$/ }, () => ({
-										path: runtimeFile,
-										namespace: "sandbox-runtime-dependency",
-									}));
-									builder.onLoad({ filter: /.*/, namespace: "sandbox-runtime-dependency" }, () => ({
-										loader: "js",
-										contents: runtimeSource,
-										resolveDir:
-											runtimeSourceResolveDir ?? entrypoint.slice(0, entrypoint.lastIndexOf("/")),
-									}));
-									builder.onResolve({ filter: /^@ryot-app\/sandbox-sdk\/effect$/ }, () => ({
-										external: true,
-										path: "@ryot-app/sandbox-sdk/effect",
-									}));
-									if (name !== "effect") {
-										builder.onResolve({ filter: /^effect$/ }, () => ({
-											path: "effect",
-											external: true,
-										}));
-									}
-									if (runtimeFile.startsWith("youtubei-")) {
-										builder.onResolve({ filter: /^youtubei\.js\/web$/ }, () => ({
-											path: entrypoint,
-										}));
-									}
-								},
-							},
-						]
-					: [],
-			}),
-	}).pipe(
-		Effect.flatMap((result) => {
-			const output = result.outputs.filter(({ kind }) => kind === "entry-point");
-			if (!result.success || output.length !== 1 || result.outputs.length !== 1) {
-				const details = result.logs.map(({ message }) => message).join("\n");
-				return Effect.fail(
-					new SandboxRuntimeDependencyError({
-						message: details || "Bun did not emit exactly one dependency module",
-					}),
-				);
-			}
-			return Effect.void;
-		}),
-	);
-
 const lockRuntimeDirectory = (fs: FileSystem.FileSystem, paths: SandboxRuntimePaths) =>
 	Effect.gen(function* () {
 		yield* Effect.forEach(
-			[paths.importMapPath, ...runtimeFiles.map((file) => `${paths.directory}/${file}`)],
-			(path) => fs.chmod(path, 0o444),
+			runtimeFiles.map((file) => `${paths.directory}/${file}`),
+			(file) => fs.chmod(file, 0o444),
 			{ discard: true },
 		);
 		yield* fs.chmod(paths.directory, 0o555);
@@ -344,71 +228,32 @@ const publishRuntimeDirectory = (
 		return yield* prepareRuntimePaths(fs, paths);
 	});
 
-export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
+export const materializeSandboxRuntimePayload = (denoDir: string, payload: unknown) =>
 	Effect.gen(function* () {
-		const path = yield* Path.Path;
 		const fs = yield* FileSystem.FileSystem;
+		const verified = yield* validatePayload(payload);
 		yield* fs.makeDirectory(denoDir, { recursive: true });
-
-		const from = yield* path.fromFileUrl(new URL(".", import.meta.url));
-		const sdkEntry = yield* Effect.try({
-			try: () => Bun.resolveSync(SANDBOX_SDK_ROOT_IMPORT, from),
-			catch: (error) =>
-				new SandboxRuntimeDependencyError({
-					message: `Sandbox SDK could not be resolved: ${String(error)}`,
-				}),
-		});
-		const sdkDirectory = sdkEntry.slice(0, sdkEntry.lastIndexOf("/"));
-		const entries = yield* Effect.forEach(runtimeModules, (runtimeModule) =>
-			Effect.try({
-				catch: (error) =>
-					new SandboxRuntimeDependencyError({
-						message: `Sandbox runtime dependency ${runtimeModule.name}@${runtimeModule.version} could not be resolved: ${String(error)}`,
-					}),
-				try: () => {
-					const resolved = Bun.resolveSync(
-						runtimeModule.sourceImport,
-						runtimeModule.resolveFromSdk ? sdkDirectory : from,
-					);
-					const entrypoint = runtimeModule.entryRelativePath
-						? `${resolved.slice(0, resolved.lastIndexOf("/"))}/${runtimeModule.entryRelativePath}`
-						: resolved;
-					return {
-						entrypoint,
-						name: runtimeModule.name,
-						runtimeFile: runtimeModule.runtimeFile,
-						runtimeSource: runtimeModule.runtimeSource,
-					};
-				},
-			}),
-		);
-
 		return yield* Effect.acquireUseRelease(
 			fs.makeTempDirectory({ directory: denoDir, prefix: ".ryot-sandbox-runtime-" }),
 			(temporaryDirectory) =>
 				Effect.gen(function* () {
 					yield* fs.makeDirectory(`${temporaryDirectory}/${runtimeModuleDirectoryName}`);
 					yield* Effect.forEach(
-						entries,
-						({ name, entrypoint, runtimeFile, runtimeSource }) =>
-							buildRuntimeModule(
-								name,
-								entrypoint,
-								temporaryDirectory,
-								runtimeFile,
-								runtimeSource,
-								runtimeSource ? from : undefined,
-							),
+						verified.files,
+						({ path, contents }) => fs.writeFileString(`${temporaryDirectory}/${path}`, contents),
 						{ discard: true },
 					);
-					yield* fs.writeFileString(
-						`${temporaryDirectory}/import-map.json`,
-						SANDBOX_RUNTIME_IMPORT_MAP_CONTENT,
+					return yield* publishRuntimeDirectory(
+						fs,
+						denoDir,
+						temporaryDirectory,
+						verified.contentHash,
 					);
-					const contentHash = yield* runtimeContentHash(fs, temporaryDirectory);
-					return yield* publishRuntimeDirectory(fs, denoDir, temporaryDirectory, contentHash);
 				}),
 			(temporaryDirectory) =>
 				fs.remove(temporaryDirectory, { recursive: true }).pipe(Effect.ignore),
 		);
 	});
+
+export const materializeShippedSandboxRuntime = (denoDir: string) =>
+	materializeSandboxRuntimePayload(denoDir, sandboxRuntimePayload);

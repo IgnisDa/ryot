@@ -14,6 +14,7 @@ import {
 	PluginAssetBridgeErrorReason,
 	PluginAssetOutcome,
 	PluginClientArtifact,
+	PluginClientArtifactFromBase64,
 	PluginAssetRequest,
 	PluginBridgeAssetCancel,
 	PluginBridgeAssetRequest,
@@ -61,6 +62,36 @@ const identity = {
 };
 
 describe("plugin client artifact contract", () => {
+	it("decodes canonical Base64 contents while retaining artifact validation", () => {
+		const decode = Schema.decodeUnknownResult(PluginClientArtifactFromBase64);
+		const artifact = {
+			hash: "hash",
+			format: CLIENT_ARTIFACT_FORMAT,
+			apiVersion: CLIENT_API_VERSION,
+			compilerVersion: CLIENT_COMPILER_VERSION,
+			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+		};
+		const decoded = decode({
+			...artifact,
+			files: [{ contents: "/wA=", name: "plugin.js", contentType: "text/javascript" }],
+		});
+		expect(Result.isSuccess(decoded)).toBe(true);
+		if (Result.isSuccess(decoded)) {
+			expect(decoded.success.files[0]?.contents).toEqual(new Uint8Array([0xff, 0x00]));
+		}
+		expect(
+			Result.isFailure(
+				decode({
+					...artifact,
+					files: [
+						{ contents: "/wA=", name: "plugin.js", contentType: "text/javascript" },
+						{ contents: "/wA=", name: "plugin.js", contentType: "text/javascript" },
+					],
+				}),
+			),
+		).toBe(true);
+	});
+
 	it("rejects duplicate emitted file names", () => {
 		const decode = Schema.decodeUnknownResult(PluginClientArtifact);
 		const file = { name: "plugin.js", contents: new Uint8Array(), contentType: "text/javascript" };

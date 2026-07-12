@@ -9,9 +9,9 @@
 	"scripts": {
 		"db:generate": "bun --bun drizzle-kit generate",
 		"architecture:check": "bun run scripts/check-architecture.ts",
-		"test": "bun run sandbox:compile-runner && bun --bun run vitest run",
-		"sandbox:compile-runner": "bun run scripts/compile-sandbox-runner.ts",
-		"check": "bun run architecture:check && bun run sandbox:compile-runner && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix",
+		"test": "bun run sandbox:prepare-runtime && bun --bun run vitest run",
+		"sandbox:prepare-runtime": "bun run scripts/generate-sandbox-runtime.ts",
+		"check": "bun run architecture:check && bun run sandbox:prepare-runtime && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix",
 		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts"
 	},
 	"dependencies": {
@@ -38,6 +38,7 @@
 		"@ryot-app/sandbox-sdk": "workspace:*",
 		"@ryot-app/transactional": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
+		"@ryot-app/vite-compiler": "workspace:*",
 		"@unkey/api": "2.3.5",
 		"better-auth": "1.7.2",
 		"drizzle-orm": "1.0.0-rc.5-169397b",
