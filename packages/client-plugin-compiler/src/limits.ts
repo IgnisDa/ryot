@@ -8,6 +8,7 @@ export const CLIENT_PLUGIN_COMPILER_LIMITS = {
 	timeoutMs: 30_000,
 	diagnosticCount: 100,
 	assetBytes: 256 * KiB,
+	artifactFileCount: 128,
 	sourceBytes: 512 * KiB,
 	artifactBytes: 8 * MiB,
 	memoryPollIntervalMs: 5,
