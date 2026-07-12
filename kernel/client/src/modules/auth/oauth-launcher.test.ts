@@ -8,19 +8,22 @@ import {
 } from "@ryot/contract/oauth";
 import { describe, expect, it } from "vitest";
 
+import { decodeServerOrigin } from "#/api/origin";
 import { buildAuthorizationUrl, selectOAuthClient } from "#/modules/auth/oauth-launcher";
+
+const origin = decodeServerOrigin("https://ryot.example");
 
 describe("OAuth authorization launcher", () => {
 	it("selects the fixed client and callback for each platform", () => {
-		expect(selectOAuthClient(false, "https://ryot.example")).toEqual({
+		expect(selectOAuthClient(false, origin)).toEqual({
 			clientId: OAUTH_WEB_CLIENT_ID,
 			redirectUri: "https://ryot.example/auth/callback",
 		});
-		expect(selectOAuthClient(true, "https://ryot.example", "io.ryot.app.dev")).toEqual({
+		expect(selectOAuthClient(true, origin, "io.ryot.app.dev")).toEqual({
 			clientId: OAUTH_NATIVE_CLIENT_ID,
 			redirectUri: "io.ryot.app.dev:/auth/callback",
 		});
-		expect(selectOAuthClient(true, "https://ryot.example", "unknown.app")).toBeNull();
+		expect(selectOAuthClient(true, origin, "unknown.app")).toBeNull();
 	});
 
 	it("builds an S256 authorization request with the API resource", () => {
@@ -34,7 +37,7 @@ describe("OAuth authorization launcher", () => {
 			serverOrigin: "https://ryot.example",
 			redirectUri: "https://ryot.example/auth/callback",
 		};
-		const url = new URL(buildAuthorizationUrl("https://ryot.example", pending, "challenge"));
+		const url = new URL(buildAuthorizationUrl(origin, pending, "challenge"));
 
 		expect(url.pathname).toBe(OAUTH_AUTHORIZE_PATH);
 		expect(Object.fromEntries(url.searchParams)).toEqual({

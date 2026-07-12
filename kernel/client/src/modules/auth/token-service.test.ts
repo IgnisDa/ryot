@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oauth";
 import { Effect, Fiber } from "effect";
 
+import { decodeServerOrigin } from "#/api/origin";
 import {
 	OAuthStorage,
 	OAuthStorageError,
@@ -11,7 +12,7 @@ import {
 } from "#/modules/auth/oauth-storage";
 import { OAuthTokenService, oauthTokenServiceLayer } from "#/modules/auth/token-service";
 
-const origin = "https://ryot.example";
+const origin = decodeServerOrigin("https://ryot.example");
 const now = 1_800_000_000_000;
 
 const encodeJwtPart = (value: unknown) =>
@@ -64,7 +65,7 @@ const pending = () =>
 		createdAt: now,
 		state: "state-1",
 		nonce: "nonce-1",
-		serverOrigin: origin,
+		serverOrigin: "https://ryot.example",
 		destination: "/settings",
 		codeVerifier: "verifier-1",
 		clientId: OAUTH_WEB_CLIENT_ID,

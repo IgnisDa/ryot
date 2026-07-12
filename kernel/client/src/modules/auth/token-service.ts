@@ -13,7 +13,7 @@ import {
 } from "@ryot/contract/oauth";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
-import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
+import type { ServerOrigin } from "#/api/origin";
 import {
 	postOAuthForm,
 	postOAuthFormRequest,
@@ -129,22 +129,21 @@ const makeTokenService = (
 		});
 
 	const refresh = (origin: ServerOrigin, clientId: string) =>
-		refreshes(origin, rotate(normalizeServerOrigin(origin), clientId));
+		refreshes(origin, rotate(origin, clientId));
 
 	const accessToken = Effect.fn("OAuthTokenService.accessToken")(function* (
 		origin: ServerOrigin,
 		clientId: string,
 		forceRefresh = false,
 	) {
-		const canonical = normalizeServerOrigin(origin);
-		const current = yield* fromStorage(storage.getTokenSet(canonical));
+		const current = yield* fromStorage(storage.getTokenSet(origin));
 		if (!current) {
 			return null;
 		}
 		if (!forceRefresh && current.accessTokenExpiresAt - now() > REFRESH_WINDOW_MS) {
 			return current.accessToken;
 		}
-		const refreshed = yield* refresh(canonical, clientId);
+		const refreshed = yield* refresh(origin, clientId);
 		return refreshed.accessToken;
 	});
 
@@ -192,13 +191,12 @@ const makeTokenService = (
 		state: string,
 		code: string,
 	) {
-		const canonical = normalizeServerOrigin(origin);
-		const pending = yield* fromStorage(storage.takePending(canonical, state));
+		const pending = yield* fromStorage(storage.takePending(origin, state));
 		if (!pending) {
 			return yield* Effect.fail(new OAuthTokenError({ reason: "missing-authorization" }));
 		}
 		if (
-			normalizeServerOrigin(pending.serverOrigin) !== canonical ||
+			pending.serverOrigin !== origin ||
 			pending.clientId !== expectedClientId ||
 			pending.redirectUri !== expectedRedirectUri
 		) {
@@ -206,7 +204,7 @@ const makeTokenService = (
 		}
 		const response = yield* postOAuthForm(
 			fetcher,
-			canonical,
+			origin,
 			OAUTH_TOKEN_PATH,
 			new URLSearchParams({
 				code,
@@ -214,7 +212,7 @@ const makeTokenService = (
 				grant_type: "authorization_code",
 				redirect_uri: pending.redirectUri,
 				code_verifier: pending.codeVerifier,
-				resource: getOAuthResource(canonical),
+				resource: getOAuthResource(origin),
 			}),
 			OAuthTokenResponse,
 		).pipe(
@@ -232,7 +230,7 @@ const makeTokenService = (
 		if (nonce !== pending.nonce) {
 			return yield* Effect.fail(new OAuthTokenError({ reason: "invalid-nonce" }));
 		}
-		yield* fromStorage(storage.setTokenSet(canonical, tokens));
+		yield* fromStorage(storage.setTokenSet(origin, tokens));
 		return pending;
 	});
 
@@ -251,12 +249,10 @@ const makeTokenService = (
 		clientId: string,
 		postLogoutRedirectUri: string,
 	) {
-		const canonical = normalizeServerOrigin(origin);
-		const clearLocal = Effect.all(
-			[storage.removeTokenSet(canonical), storage.clearPending(canonical)],
-			{ discard: true },
-		);
-		const current = yield* fromStorage(storage.getTokenSet(canonical));
+		const clearLocal = Effect.all([storage.removeTokenSet(origin), storage.clearPending(origin)], {
+			discard: true,
+		});
+		const current = yield* fromStorage(storage.getTokenSet(origin));
 		if (!current) {
 			yield* clearLocal;
 			return null;
@@ -271,14 +267,14 @@ const makeTokenService = (
 				).map(([token, tokenTypeHint]) =>
 					postOAuthFormRequest(
 						fetcher,
-						canonical,
+						origin,
 						OAUTH_REVOKE_PATH,
 						new URLSearchParams({ token, client_id: clientId, token_type_hint: tokenTypeHint }),
 					).pipe(Effect.catch(() => Effect.void)),
 				),
 				{ discard: true },
 			);
-			const url = new URL(getOAuthEndpoint(canonical, OAUTH_END_SESSION_PATH));
+			const url = new URL(getOAuthEndpoint(origin, OAUTH_END_SESSION_PATH));
 			url.search = new URLSearchParams({
 				client_id: clientId,
 				id_token_hint: current.idToken,

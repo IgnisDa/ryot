@@ -1,34 +1,38 @@
 import { describe, expect, it } from "vitest";
 
+import { decodeServerOrigin } from "#/api/origin";
 import { decideAuthRoute, decideProtectedRoute } from "#/modules/auth/route-gates";
+
+const origin = decodeServerOrigin("https://one.test");
+const equivalentOrigin = decodeServerOrigin(" https://one.test/ ");
 
 describe("authentication route gates", () => {
 	it("waits while a session is being restored", () => {
-		expect(decideAuthRoute("https://one.test", { status: "pending" }, "/library")).toEqual({
+		expect(decideAuthRoute(origin, { status: "pending" }, "/library")).toEqual({
 			action: "wait",
 		});
-		expect(decideProtectedRoute("https://one.test", { status: "pending" }, "/library")).toEqual({
+		expect(decideProtectedRoute(origin, { status: "pending" }, "/library")).toEqual({
 			action: "wait",
 		});
 	});
 
 	it("sends a missing protected session to auth with a safe destination", () => {
-		expect(
-			decideProtectedRoute("https://one.test", { status: "missing" }, "/library?tab=recent"),
-		).toEqual({
+		expect(decideProtectedRoute(origin, { status: "missing" }, "/library?tab=recent")).toEqual({
 			to: "/auth",
 			action: "redirect",
 			redirectTo: "/library?tab=recent",
 		});
-		expect(
-			decideProtectedRoute("https://one.test", { status: "missing" }, "https://evil.test"),
-		).toEqual({ to: "/auth", action: "redirect", redirectTo: undefined });
+		expect(decideProtectedRoute(origin, { status: "missing" }, "https://evil.test")).toEqual({
+			to: "/auth",
+			action: "redirect",
+			redirectTo: undefined,
+		});
 	});
 
 	it("allows a restored session with a canonical scope", () => {
 		expect(
 			decideProtectedRoute(
-				" https://one.test/// ",
+				equivalentOrigin,
 				{ status: "authenticated", userId: "user-1" },
 				"/library",
 			),
@@ -37,18 +41,10 @@ describe("authentication route gates", () => {
 
 	it("returns an authenticated auth visit to a safe destination or root", () => {
 		expect(
-			decideAuthRoute(
-				"https://one.test",
-				{ status: "authenticated", userId: "user-1" },
-				"/library",
-			),
+			decideAuthRoute(origin, { status: "authenticated", userId: "user-1" }, "/library"),
 		).toEqual({ action: "redirect", to: "/library" });
 		expect(
-			decideAuthRoute(
-				"https://one.test",
-				{ status: "authenticated", userId: "user-1" },
-				"//evil.test",
-			),
+			decideAuthRoute(origin, { status: "authenticated", userId: "user-1" }, "//evil.test"),
 		).toEqual({ action: "redirect", to: "/" });
 	});
 

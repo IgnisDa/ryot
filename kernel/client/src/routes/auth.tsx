@@ -3,6 +3,7 @@ import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { Effect, Match } from "effect";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
+import { decodeServerOrigin } from "#/api/origin";
 import { OAuthLauncher, type OAuthLaunchPlan } from "#/modules/auth/oauth-launcher";
 import { AuthService } from "#/modules/auth/service";
 import { AuthStatus } from "#/modules/auth/status";
@@ -86,7 +87,7 @@ function OAuthLaunch() {
 	}, [plan]);
 
 	async function changeServer() {
-		await runtime.runPromise(auth.changeServer(plan.pending.serverOrigin));
+		await runtime.runPromise(auth.changeServer(decodeServerOrigin(plan.pending.serverOrigin)));
 		await navigate({ replace: true, to: "/onboarding", search: { redirect: search.redirect } });
 	}
 
