@@ -21,14 +21,12 @@ export const fixtureManifest = () =>
 			name: "Fixture",
 			slug: "fixture",
 			version: "1.0.0",
-			accentColor: "blue",
 			description: "Fixture plugin",
 		},
 		entitySchemas: [
 			{
 				icon: "box",
 				name: "Fixture",
-				accentColor: "blue",
 				slug: "fixture-entity",
 				propertiesSchema: {
 					fields: {

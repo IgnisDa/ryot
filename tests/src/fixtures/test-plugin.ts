@@ -76,7 +76,6 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 		version: "1.0.0",
 		icon: "flask-conical",
 		slug: input.pluginSlug,
-		accentColor: "#64748b",
 		name: "E2E Test Plugin",
 		description: "Generic plugin fixture for end-to-end tests",
 	},

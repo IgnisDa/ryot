@@ -43,7 +43,6 @@ export const fitnessPlugin = definePlugin({
 		slug: "fitness",
 		version: "1.0.0",
 		icon: "heart-pulse",
-		accentColor: "#2DD4BF",
 		description: "Track workouts, measurements, and progress.",
 	},
 	bindings: {

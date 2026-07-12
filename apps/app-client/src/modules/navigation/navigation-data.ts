@@ -17,7 +17,6 @@ const homeView = {
 	sortOrder: 0,
 	name: "Home",
 	icon: "house",
-	accentColor: "",
 	pluginSlug: null,
 	isDisabled: false,
 } satisfies NavigationView;
