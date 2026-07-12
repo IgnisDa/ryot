@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { Clock, Effect, Schema } from "effect";
 
+import type { ContractSession } from "~/fixtures/kernel";
 import {
 	createAuthenticatedClient,
 	deleteUserAndWait,
@@ -74,12 +75,37 @@ const buildManifest = (input: {
 	},
 });
 
-/** The OAuth access token expires well inside a canonical run, so every repetition signs in again. */
-const refreshedSession = (email: string, password: string) =>
+const signedInSession = (email: string, password: string) =>
 	Effect.gen(function* () {
 		const signIn = yield* signInWithPassword(email, password);
 		const token = requirePresent(signIn.token, "Benchmark sign-in did not return an access token");
 		return makeSession(undefined, { Authorization: `Bearer ${token}` });
+	});
+
+const isUnauthorized = (error: unknown) =>
+	typeof error === "object" &&
+	error !== null &&
+	"_tag" in error &&
+	error._tag === "AuthUnauthorized";
+
+/**
+ * The OAuth access token expires inside a single high-concurrency repetition, so the driver signs
+ * in again and replays the request rather than losing the scenario.
+ */
+const resilientSession = (email: string, password: string) =>
+	Effect.map(signedInSession(email, password), (initial): ContractSession => {
+		let session = initial;
+		return {
+			call: (program, headers) =>
+				session.call(program, headers).pipe(
+					Effect.catchIf(isUnauthorized, () =>
+						Effect.flatMap(signedInSession(email, password), (next) => {
+							session = next;
+							return next.call(program, headers);
+						}),
+					),
+				),
+		};
 	});
 
 const driver = (config: DriverConfig) =>
@@ -118,7 +144,7 @@ const driver = (config: DriverConfig) =>
 				}
 				const context: ScenarioContext = {
 					...baseContext,
-					client: yield* refreshedSession(email, password),
+					client: yield* resilientSession(email, password),
 				};
 				const { artifact, rawRequests } = yield* runScenarioRepetition(
 					context,
@@ -139,7 +165,7 @@ const driver = (config: DriverConfig) =>
 		}
 		yield* uninstallTestPlugin({
 			...plugin.installed,
-			client: yield* refreshedSession(email, password),
+			client: yield* resilientSession(email, password),
 		}).pipe(
 			Effect.catchCause((cause) =>
 				Effect.logWarning("sandbox-resource-baseline.plugin-cleanup-failed", cause),
