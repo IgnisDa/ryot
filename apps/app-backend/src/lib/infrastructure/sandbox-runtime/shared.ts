@@ -21,9 +21,7 @@ export type SandboxRunInput = {
 	readonly executionId: string;
 	readonly contentHash: string;
 	readonly compiledCode: string;
-	readonly cacheNamespace: string;
 	readonly compiledFormat: number;
-	readonly scriptIsBuiltin: boolean;
 	readonly workflowExecutionId?: string;
 	readonly authority: ExecutionAuthority;
 	readonly grants?: SandboxExecutionGrants;

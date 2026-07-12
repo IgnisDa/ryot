@@ -25,9 +25,7 @@ phase sections are retained as implementation history, not as pending work.
   unrelated to this rewrite, but every affected or newly added e2e test must pass in focused runs.
 - If any question or unplanned architectural choice appears, stop and ask the project owner. Do not
   make complex decisions independently.
-- Keep all documentation aligned with the final code. No references to removed driver maps,
-  `driverName`, `driverNames`, script-backed provider identity, or superseded decisions may remain
-  in current-state documentation.
+- Keep all documentation aligned with the final direct-entrypoint and logical-provider model.
 - Do not edit legacy Rust migrations. This rewrite belongs to the Drizzle-based app backend.
 - Generated sandbox artifacts remain ignored and must not be committed.
 
@@ -125,7 +123,7 @@ or other script before enqueueing execution.
 - Provider-associated scripts use `providerId` as their cache namespace.
 - Standalone scripts use `scriptId` as their cache namespace.
 - Existing user isolation and per-run versus persistent cache behavior remain unchanged.
-- Splitting a provider must not break token, metadata, or preload caches that its current drivers
+- Splitting a provider must not break token, metadata, or preload caches that its current entrypoints
   share.
 
 ## Scope inventory
@@ -163,9 +161,8 @@ Before implementation:
 - Record existing unrelated e2e failures separately so they cannot be mistaken for regressions.
 - Confirm the Drizzle migration can be regenerated rather than adding a compatibility migration.
 - Confirm generated sandbox output remains ignored.
-- Search for all current occurrences of `driverName`, `driverNames`, `.drivers`,
-  `defineProviderDriver`, provider-facing `scriptSlug`, `sandboxScriptId`, and documentation that
-  explains the old model.
+- Search for all current documentation and contract references that explain the superseded
+  multi-entrypoint model.
 - Turn the search result into a checklist owned by the integration orchestrator.
 
 Stop and ask if development data unexpectedly must be retained or if an active durable sandbox job
@@ -214,10 +211,9 @@ Phase gate:
 
 ### SDK
 
-- Replace `GenericScriptDefinition.drivers` with one direct input, output, and run entrypoint.
+- Use one direct input, output, and run entrypoint for every generic script definition.
 - Change `defineScript` and `defineOperation` to construct direct definitions.
-- Replace `defineProviderDriver` plus `defineProvider({ drivers })` with one direct provider
-  definition API.
+- Use one direct provider definition API for each provider entrypoint.
 - Preserve the standard provider search, details, resolve, and translate schemas as the source of
   truth.
 - Keep automation and automation-policy definitions direct and align their compiled shape with the
@@ -227,8 +223,8 @@ Phase gate:
 ### Compiler
 
 - Remove top-level driver declaration discovery.
-- Remove drivers-object traversal and exposed-key validation.
-- Remove `driverNames` from source inspection and the compiler protocol.
+- Remove multi-entrypoint object traversal and exposed-key validation.
+- Keep source inspection and the compiler protocol free of entrypoint selector fields.
 - Validate exactly one direct default definition.
 - Validate definition kind and provider operation against the declared manifest.
 - Preserve manifest inspection, diagnostics, multi-file compilation, source maps, limits, and
@@ -249,7 +245,7 @@ Phase gate:
 - Keep provider IDs stable across plugin reingestion while compiled script rows remain
   content-addressed.
 - Persist provider membership on each relevant script.
-- Stop adding `driverNames` to stored script metadata.
+- Store direct script metadata without entrypoint selector fields.
 - Update plugin repository normalization and loader snapshots.
 - Replace schema-script resolution with schema-provider resolution.
 - Add explicit runtime resolver operations for search, details, resolve, and translate scripts.
@@ -272,14 +268,12 @@ Phase gate:
 
 ## Phase 4: Runtime execution and authorization
 
-- Remove `driverName` from public enqueue bodies, test-support bodies, durable execution payloads,
-  runtime service inputs, observability attributes, runner payloads, and generated runner types.
-- Remove `driverNames` from script metadata and persistence schemas.
+- Runtime payloads carry a script ID and direct definition metadata only; they do not carry an
+  entrypoint selector.
 - Change the Deno runner to validate and execute the direct definition entrypoint.
 - Preserve input decoding, output decoding, Effect execution, structured phase errors, source-map
   sanitization, timing, logs, process isolation, and resource limits.
-- Replace user ID plus driver-name authorization inference with the decided execution-authority
-  union.
+- Replace name-based authorization inference with the decided execution-authority union.
 - Update host-function binding and type narrowing around authority.
 - Derive the cache namespace on the backend from `providerId` or `scriptId`; do not let scripts
   choose it.
@@ -436,11 +430,12 @@ test must be green.
 
 ## Phase 8: Cleanup and documentation
 
-- Remove obsolete SDK driver types and helpers.
-- Remove compiler driver inspection and protocol fields.
-- Remove plugin validation that checks exposed driver names.
-- Remove persistence branches for `driverNames`.
-- Remove runner lookup errors and driver terminology where it means an executable entrypoint.
+- Remove obsolete SDK multi-entrypoint types and helpers.
+- Remove compiler inspection and protocol fields for entrypoint selectors.
+- Remove plugin validation that checks exposed entrypoint names.
+- Remove persistence branches for selector metadata.
+- Remove runner lookup errors and terminology where it describes a selector rather than an executable
+  script.
 - Remove temporary migration helpers and transitional types.
 - Run repository searches for removed symbols and inspect every remaining match.
 - Use the `codebase-cleanup` skill over all touched files and directly affected modules.
@@ -458,7 +453,7 @@ Update current-state documentation, including at minimum:
 Documentation requirements:
 
 - Describe only the final direct-entrypoint runtime and logical provider model.
-- Replace examples using `drivers` maps or `defineProviderDriver`.
+- Replace examples using multi-entrypoint maps with direct definitions.
 - Replace statements that entities use sandbox script provenance with provider provenance.
 - Document provider-scoped cache behavior and execution authority.
 - Remove obsolete migration instructions, historical alternatives, and superseded decisions rather
@@ -589,9 +584,8 @@ correct runtime baseline.
 
 - [x] Every production sandbox script has exactly one executable entrypoint.
 - [x] Runtime execution accepts a script ID and has no entrypoint selector.
-- [x] No `driverName` or `driverNames` field remains in runtime, contract, compiler, metadata, or
-      tests.
-- [x] No SDK or production script uses a `drivers` map or `defineProviderDriver`.
+- [x] Runtime, contract, compiler, metadata, and tests contain no entrypoint selector fields.
+- [x] SDK and production scripts use direct definitions rather than multi-entrypoint maps.
 - [x] Logical providers are persisted separately from executable scripts.
 - [x] Provider-backed entities store provider identity and deduplicate by provider.
 - [x] Provider reingestion changes active script versions without changing provider identity.

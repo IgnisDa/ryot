@@ -19,9 +19,7 @@ const makeRunInput = (
 	compiledFormat: 1,
 	scriptId: "script_1",
 	executionId: "exec_1",
-	scriptIsBuiltin: false,
 	allowedHostFunctions: [],
-	cacheNamespace: "script_1",
 });
 
 describe("requireSandboxCapabilityInput", () => {
