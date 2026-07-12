@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import {
 	SignalId,
 	SignalSchemaSlug,
@@ -7,6 +6,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { selectSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/service";
 import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
@@ -48,7 +48,6 @@ const runInput = {
 it.effect("derives signal authority and identity from the subscription run", () => {
 	let captured: EmitSignalInput | undefined;
 	const signals = Layer.mock(SignalEmissionService, {
-		_tag: "SignalEmissionService",
 		emit: (input) => {
 			captured = input;
 			return Effect.succeed({
@@ -68,10 +67,10 @@ it.effect("derives signal authority and identity from the subscription run", () 
 			});
 		},
 	});
-	const notifications = Layer.mock(NotificationsService, { _tag: "NotificationsService" });
+	const notifications = Layer.mock(NotificationsService, {});
 
 	return Effect.gen(function* () {
-		const host = yield* makeAutomationSandboxApiFunctions();
+		const host = yield* makeAutomationSandboxApiFunctions;
 		const result = yield* host.emitSignal(runInput, {
 			discriminator: "episode-1",
 			schemaSlug: "review.created",
@@ -92,19 +91,19 @@ it.effect("derives signal authority and identity from the subscription run", () 
 });
 
 it.effect("uses one run-derived message delivery identity across replay", () => {
-	const deliveries: Parameters<WorkflowEngine["Type"]["execute"]>[1][] = [];
+	const deliveries: Parameters<WorkflowEngine["Service"]["execute"]>[1][] = [];
 	const workflowEngine = makeWorkflowEngine({
 		execute: (_workflow, options) => {
 			deliveries.push(options);
 			return Effect.succeed(options.executionId);
 		},
 	});
-	const signals = Layer.mock(SignalEmissionService, { _tag: "SignalEmissionService" });
+	const signals = Layer.mock(SignalEmissionService, {});
 	const notificationsRepository = Layer.succeed(
 		NotificationsRepository,
 		Object.assign(Object.create(null), {}),
 	);
-	const notifications = NotificationsService.Default.pipe(
+	const notifications = NotificationsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
@@ -115,7 +114,7 @@ it.effect("uses one run-derived message delivery identity across replay", () => 
 	);
 
 	return Effect.gen(function* () {
-		const host = yield* makeAutomationSandboxApiFunctions();
+		const host = yield* makeAutomationSandboxApiFunctions;
 		const runNotifier = () => host.sendNotification(runInput, "Review posted for Dune");
 		expect(yield* runNotifier()).toBeNull();
 		expect(yield* runNotifier()).toBeNull();
@@ -134,11 +133,11 @@ it.effect("uses one run-derived message delivery identity across replay", () => 
 });
 
 it.effect("returns context failures through the Effect error channel", () => {
-	const signals = Layer.mock(SignalEmissionService, { _tag: "SignalEmissionService" });
-	const notifications = Layer.mock(NotificationsService, { _tag: "NotificationsService" });
+	const signals = Layer.mock(SignalEmissionService, {});
+	const notifications = Layer.mock(NotificationsService, {});
 
 	return Effect.gen(function* () {
-		const host = yield* makeAutomationSandboxApiFunctions();
+		const host = yield* makeAutomationSandboxApiFunctions;
 		const error = yield* Effect.flip(
 			host.sendNotification(
 				{ ...runInput, authority: { type: "system" } },

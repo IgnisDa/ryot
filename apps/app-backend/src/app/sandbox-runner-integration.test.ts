@@ -1,9 +1,10 @@
-import { Command, CommandExecutor, FileSystem, HttpApp, HttpServer, Path } from "@effect/platform";
-import { BunContext, BunHttpServer } from "@effect/platform-bun";
+import { BunServices, BunHttpServer } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
-import { Effect, Layer, Runtime, Schema, Stream } from "effect";
+import { Effect, Layer, Schema, Stream, FileSystem, Path } from "effect";
+import { HttpEffect, HttpServer } from "effect/unstable/http";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import { materializeSandboxCompiledModule } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
@@ -36,7 +37,7 @@ beforeAll(
 				dependencyRuntimeRoot = root;
 				dependencyRuntime = runtime;
 				runnerPath = compiledRunnerPath;
-			}).pipe(Effect.provide(BunContext.layer)),
+			}).pipe(Effect.provide(BunServices.layer)),
 		),
 	120_000,
 );
@@ -53,7 +54,7 @@ afterAll(() => {
 			const fs = yield* FileSystem.FileSystem;
 			yield* fs.chmod(runtime.directory, 0o755).pipe(Effect.ignore);
 			yield* fs.remove(root, { recursive: true });
-		}).pipe(Effect.provide(BunContext.layer)),
+		}).pipe(Effect.provide(BunServices.layer)),
 	);
 });
 
@@ -118,7 +119,7 @@ export const manifest = defineManifest({
 export default defineScript({
   manifest,
   output: Schema.Unknown,
-  input: Schema.Struct({ mode: Schema.Literal("output", "logs") }),
+  input: Schema.Struct({ mode: Schema.Literals(["output", "logs"]) }),
   run: (input) => Effect.sync(() => {
     if (input.mode === "output") {
       return "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1});
@@ -265,7 +266,7 @@ export const manifest = defineManifest({
 export default defineScript({
 	manifest,
 	output: Schema.Unknown,
-	input: Schema.Struct({ kind: Schema.Literal("host", "http") }),
+	input: Schema.Struct({ kind: Schema.Literals(["host", "http"]) }),
 	run: (input, host) => Effect.gen(function* () {
 		let result: unknown = null;
 		if (input.kind === "host") {
@@ -292,7 +293,7 @@ import {
   eventSchemaRecordSchema,
   integrationRecordSchema,
 } from "@ryot/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Result, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -326,7 +327,7 @@ export default defineScript({
   }),
   run: (_input, host) => Effect.gen(function* () {
     const entity = yield* host.getEntity("entity-1");
-    const missingResult = yield* Effect.either(host.getEntity("missing"));
+    const missingResult = yield* Effect.result(host.getEntity("missing"));
     const integration = yield* host.getIntegration();
     const events = yield* host.listEvents({ entityId: "entity-1" });
     const entitySchema = yield* host.getEntitySchema("movie");
@@ -335,7 +336,7 @@ export default defineScript({
         { entityId: "entity-1", eventSchemaSlug: "event-schema-1", properties: { watched: true } },
       ]);
     const query = yield* host.executeQueryEngine({ source: { type: "entities" } });
-    const rows = yield* Schema.decodeUnknown(Schema.Array(Schema.Struct({ id: Schema.String })))(query);
+    const rows = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ id: Schema.String })))(query);
     return {
       entity,
       created,
@@ -344,7 +345,7 @@ export default defineScript({
       events: [...events],
       queryRows: rows.length,
       eventSchemas: [...eventSchemas],
-      missing: missingResult._tag === "Left" ? missingResult.left.message : "unexpected",
+      missing: Result.isFailure(missingResult) ? missingResult.failure.message : "unexpected",
     };
   }),
 });
@@ -505,8 +506,8 @@ export default defineScript({
 });
 `;
 
-const encodeRunnerRequest = Schema.encodeSync(Schema.parseJson(Schema.Unknown));
-const decodeRunnerResponse = Schema.decodeUnknownSync(Schema.parseJson(Schema.Unknown));
+const encodeRunnerRequest = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const decodeRunnerResponse = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 type RunnerCompiledModule = {
 	readonly format: number;
 	readonly javascript: string;
@@ -569,54 +570,69 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 						})}\n`,
 				)
 				.join("");
-			const executor = yield* CommandExecutor.CommandExecutor;
-			const sandboxExecutor = makeSandboxCommandExecutor(executor, {
+			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+			const sandboxExecutor = makeSandboxCommandExecutor(spawner, {
 				DENO_DIR: runtime.cacheDirectory,
 				PATH: Bun.env["PATH"] ?? "/usr/bin:/bin",
 			});
-			const command = Command.make(
+			const command = ChildProcess.make(
 				"deno",
-				"run",
-				"--no-npm",
-				"--no-lock",
-				"--deny-run",
-				"--deny-env",
-				"--deny-ffi",
-				"--no-prompt",
-				"--no-config",
-				"--no-remote",
-				"--cached-only",
-				`--allow-net=${new URL(apiBase).host}`,
-				`--import-map=${runtime.importMapPath}`,
-				`--v8-flags=--max-old-space-size=${SANDBOX_LIMITS.execution.denoHeapMiB}`,
-				filesystem?.scratchDirectory
-					? `--allow-write=${filesystem.scratchDirectory}`
-					: "--deny-write",
-				`--allow-read=${[
+				[
+					"run",
+					"--no-npm",
+					"--no-lock",
+					"--deny-run",
+					"--deny-env",
+					"--deny-ffi",
+					"--no-prompt",
+					"--no-config",
+					"--no-remote",
+					"--cached-only",
+					`--allow-net=${new URL(apiBase).host}`,
+					`--import-map=${runtime.importMapPath}`,
+					`--v8-flags=--max-old-space-size=${SANDBOX_LIMITS.execution.denoHeapMiB}`,
+					filesystem?.scratchDirectory
+						? `--allow-write=${filesystem.scratchDirectory}`
+						: "--deny-write",
+					`--allow-read=${[
+						runnerPath,
+						runtime.directory,
+						...(filesystem?.artifactPath ? [filesystem.artifactPath] : []),
+						...Object.values(filesystem?.namedArtifactPaths ?? {}),
+						...(filesystem?.scratchDirectory ? [filesystem.scratchDirectory] : []),
+					].join(",")}`,
 					runnerPath,
-					runtime.directory,
-					...(filesystem?.artifactPath ? [filesystem.artifactPath] : []),
-					...Object.values(filesystem?.namedArtifactPaths ?? {}),
-					...(filesystem?.scratchDirectory ? [filesystem.scratchDirectory] : []),
-				].join(",")}`,
-				runnerPath,
-			).pipe(Command.feed(request), Command.stdout("pipe"), Command.stderr("pipe"));
+				],
+				{
+					stdin: Stream.succeed(new TextEncoder().encode(request)),
+					stdout: "pipe",
+					stderr: "pipe",
+				},
+			);
 			const denoProcess = yield* sandboxExecutor
-				.start(command)
+				.spawn(command)
 				.pipe(
 					Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 				);
-			yield* Effect.addFinalizer(() => denoProcess.kill("SIGKILL").pipe(Effect.ignore));
+			yield* Effect.addFinalizer(() =>
+				denoProcess.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore),
+			);
 
 			const [stdout, stderr, exitCode] = yield* Effect.all(
 				[
 					denoProcess.stdout.pipe(
-						Stream.decodeText("utf-8"),
-						Stream.runFold("", (a, b) => a + b),
+						Stream.decodeText({ encoding: "utf-8" }),
+						Stream.runFold(
+							() => "",
+							(a, b) => a + b,
+						),
 					),
 					denoProcess.stderr.pipe(
-						Stream.decodeText("utf-8"),
-						Stream.runFold("", (a, b) => a + b),
+						Stream.decodeText({ encoding: "utf-8" }),
+						Stream.runFold(
+							() => "",
+							(a, b) => a + b,
+						),
 					),
 					denoProcess.exitCode,
 				],
@@ -633,7 +649,7 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 				catch: (error) => new SandboxRunError({ message: unknownToMessage(error) }),
 			});
 		}),
-	).pipe(Effect.provide(BunContext.layer));
+	).pipe(Effect.provide(BunServices.layer));
 
 const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: RunnerOptions = {}) =>
 	runInDenoRequests([{ compiled, context, options }]).pipe(
@@ -671,12 +687,12 @@ const startCoreHostBridge = (
 		const executionScripts = new Map<string, string>();
 		const runCache = new Map<string, unknown>();
 		const persistentCache = new Map<string, unknown>();
-		const runtime = yield* Effect.runtime();
+		const runtime = yield* Effect.context();
 
 		const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
 		yield* HttpServer.serveEffect(
-			HttpApp.fromWebHandler((request) =>
-				Runtime.runPromise(runtime)(
+			HttpEffect.fromWebHandler((request) =>
+				Effect.runPromiseWith(runtime)(
 					Effect.gen(function* () {
 						const parts = new URL(request.url).pathname.split("/").filter(Boolean);
 						const executionId = decodeURIComponent(parts[1] ?? "");
@@ -775,9 +791,9 @@ it("loads compiled ESM in Deno and validates definition input and output", () =>
 				name: "Promise definition rejection",
 				slug: "promise-definition-rejection",
 			} as const;
-			const promiseManifestSource = yield* Schema.encode(Schema.parseJson(Schema.Unknown))(
-				promiseManifest,
-			);
+			const promiseManifestSource = yield* Schema.encodeUnknownEffect(
+				Schema.fromJsonString(Schema.Unknown),
+			)(promiseManifest);
 			const promiseOutput = yield* runInDeno(
 				{
 					format: 1,
@@ -805,7 +821,7 @@ export default {
 				phase: "load",
 				message: "Unsupported sandbox compiled format: 2",
 			});
-		}).pipe(Effect.provide(SandboxCompiler.Default)),
+		}).pipe(Effect.provide(SandboxCompiler.layer)),
 	));
 
 it("returns source-mapped, sanitized execution and load errors", () =>
@@ -862,7 +878,7 @@ it("returns source-mapped, sanitized execution and load errors", () =>
 			assert(pathLeakResult !== null && typeof pathLeakResult === "object");
 			const encodedPathLeakError = encodeRunnerRequest(Reflect.get(pathLeakResult, "error"));
 			expect(encodedPathLeakError).not.toContain(dependencyRuntime.moduleDirectory);
-		}).pipe(Effect.provide(Layer.merge(SandboxCompiler.Default, BunContext.layer))),
+		}).pipe(Effect.provide(Layer.merge(SandboxCompiler.layer, BunServices.layer))),
 	));
 
 it("enforces direct-definition output and log limits", () =>
@@ -883,7 +899,7 @@ it("enforces direct-definition output and log limits", () =>
 			assert(Array.isArray(logs));
 			expect(logs).toHaveLength(SANDBOX_LIMITS.logs.entryCount);
 			expect(logs.at(-1)).toBe("[sandbox logs truncated]");
-		}).pipe(Effect.provide(SandboxCompiler.Default)),
+		}).pipe(Effect.provide(SandboxCompiler.layer)),
 	));
 
 it("exposes only granted artifact reads and named scratch chunk writes", () =>
@@ -950,7 +966,7 @@ it("exposes only granted artifact reads and named scratch chunk writes", () =>
 					message: "Sandbox scratch chunk names must be plain file names",
 				});
 				expect(yield* fs.exists(`${root}/outside.json`)).toBe(false);
-			}).pipe(Effect.provide(Layer.merge(SandboxCompiler.Default, BunContext.layer))),
+			}).pipe(Effect.provide(Layer.merge(SandboxCompiler.layer, BunServices.layer))),
 		),
 	));
 
@@ -967,7 +983,7 @@ it("loads one compiled fixture for each approved SDK dependency without remote m
 				expect(Reflect.get(result, "error"), dependency.name).toBeUndefined();
 				expect(result).toMatchObject({ success: true, value: null });
 			}
-		}).pipe(Effect.provide(SandboxCompiler.Default)),
+		}).pipe(Effect.provide(SandboxCompiler.layer)),
 	));
 
 it("disables obfuscated string-generated imports at runtime", () =>
@@ -981,7 +997,7 @@ it("disables obfuscated string-generated imports at runtime", () =>
 				phase: "execute",
 				message: expect.stringContaining("Function is not a function"),
 			});
-		}).pipe(Effect.provide(SandboxCompiler.Default)),
+		}).pipe(Effect.provide(SandboxCompiler.layer)),
 	));
 
 it("executes typed core host methods and filters the Deno host to declared capabilities", () =>
@@ -1054,7 +1070,7 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				});
 
 				expect(new Set(bridge.calls.map((call) => call.fnName))).toEqual(new Set(apiFunctions));
-			}).pipe(Effect.provide(SandboxCompiler.Default)),
+			}).pipe(Effect.provide(SandboxCompiler.layer)),
 		),
 	));
 
@@ -1078,9 +1094,9 @@ it("rejects malformed private host wire responses", () =>
 				assert(result !== null && typeof result === "object");
 				expect(Reflect.get(result, "error")).toMatchObject({
 					phase: "execute",
-					message: expect.stringContaining("is missing"),
+					message: expect.stringContaining("Missing key"),
 				});
-			}).pipe(Effect.provide(SandboxCompiler.Default)),
+			}).pipe(Effect.provide(SandboxCompiler.layer)),
 		),
 	));
 
@@ -1444,7 +1460,7 @@ it("counts failed host-call attempts against total and HTTP budgets", () =>
 				expect(bridge.calls.filter((call) => call.fnName === "httpCall")).toHaveLength(
 					SANDBOX_LIMITS.hostCalls.http,
 				);
-			}).pipe(Effect.provide(SandboxCompiler.Default)),
+			}).pipe(Effect.provide(SandboxCompiler.layer)),
 		),
 	));
 
@@ -1510,11 +1526,11 @@ const domainEventSchemaRecord = {
 const startDomainHostBridge = () =>
 	Effect.gen(function* () {
 		const createdEvents: unknown[][] = [];
-		const runtime = yield* Effect.runtime();
+		const runtime = yield* Effect.context();
 		const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
 		yield* HttpServer.serveEffect(
-			HttpApp.fromWebHandler((request) =>
-				Runtime.runPromise(runtime)(
+			HttpEffect.fromWebHandler((request) =>
+				Effect.runPromiseWith(runtime)(
 					Effect.gen(function* () {
 						const parts = new URL(request.url).pathname.split("/").filter(Boolean);
 						const fnName = decodeURIComponent(parts[2] ?? "");
@@ -1583,6 +1599,6 @@ it("executes typed domain host methods through Deno", () =>
 					integration: { id: "integration-1", provider: "plex_yank" },
 				});
 				expect(bridge.createdEvents).toHaveLength(1);
-			}).pipe(Effect.provide(SandboxCompiler.Default)),
+			}).pipe(Effect.provide(SandboxCompiler.layer)),
 		),
 	));
