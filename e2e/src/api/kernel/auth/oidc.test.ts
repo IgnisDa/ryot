@@ -341,6 +341,29 @@ describe("OIDC sign-in happy path (API A)", () => {
 });
 
 describe("OIDC idempotency (API A)", () => {
+	it.live("pre-provisioned OIDC identity reuses the existing user", () =>
+		Effect.gen(function* () {
+			const username = `legacy-${crypto.randomUUID()}`;
+			const email = `${username}@example.com`;
+			const client = makeSession(getApiUrlA());
+			const provisioned = yield* client.call(
+				(c) =>
+					c.godMode.provisionUser({
+						payload: { email, name: username, provider: "oidc", oidcIssuerId: username },
+					}),
+				adminHeaders(),
+			);
+
+			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
+				Authorization: `Bearer ${sessionToken}`,
+			});
+
+			expect(yield* findUserIdByEmail(getApiUrlA(), email)).toBe(provisioned.userId);
+			expect(yield* countUsersByEmail(getApiUrlA(), email)).toBe(1);
+		}),
+	);
+
 	it.live("repeated OIDC sign-in with same identity reuses the same user row", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
