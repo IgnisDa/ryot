@@ -202,10 +202,9 @@ that a `[DECIDED]` item is wrong, **stop and surface it** rather than silently d
   schema references change to slugs.
 - The five native domain modules keep working, repointed at the registry — they are not moved
   into plugins until Phase 3.
-- The general YAGNI non-goals of the whole plan (no plugin-dependency resolution, no
-  marketplace/signing, no public install endpoint, no speculative manifest fields;
-  cross-phase invariant 5).
-- `apps/app-client-backup` (slated for removal — ignore entirely) and the legacy
+- The YAGNI non-goals through Phase 4 (no plugin-dependency resolution, marketplace/signing,
+  user-level installation, or speculative Phase 5 manifest fields; cross-phase invariant 5).
+- `apps/app-client-backup` (retained as a reference; deletion explicitly deferred) and the legacy
   `apps/backend`/`apps/frontend` system (untouched by this plan; Decision 17).
 
 ## Further Notes
