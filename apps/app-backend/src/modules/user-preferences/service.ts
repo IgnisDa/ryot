@@ -3,14 +3,14 @@ import type {
 	UpdateUserPreferencesBody,
 	UserPreferences,
 } from "@ryot/contract/modules/user-preferences/schemas";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { AuthService } from "#modules/auth/service";
 
-export class UserPreferencesService extends Effect.Service<UserPreferencesService>()(
+export class UserPreferencesService extends Context.Service<UserPreferencesService>()(
 	"UserPreferencesService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const auth = yield* AuthService;
 
 			const update = Effect.fn("UserPreferencesService.update")(function* (
@@ -31,4 +31,6 @@ export class UserPreferencesService extends Effect.Service<UserPreferencesServic
 			return { update };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

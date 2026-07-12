@@ -1,6 +1,6 @@
-import { Activity } from "@effect/workflow";
 import { DbError } from "@ryot/contract/errors";
 import { Effect, Layer, Schema } from "effect";
+import { Activity } from "effect/unstable/workflow";
 
 import { deliverEnabledChannels } from "./deliver-enabled-channels";
 import {

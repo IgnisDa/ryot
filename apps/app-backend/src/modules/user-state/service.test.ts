@@ -36,7 +36,6 @@ const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
 		...overrides,
-		_tag: "EntitiesRepository",
 	});
 
 const mockEventsRepository = Layer.mock(EventsRepository);
@@ -44,7 +43,6 @@ const mockEventsRepository = Layer.mock(EventsRepository);
 const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsRepository> = {}) =>
 	mockEventsRepository({
 		...overrides,
-		_tag: "EventsRepository",
 	});
 
 const mockEventsService = Layer.mock(EventsService);
@@ -52,7 +50,6 @@ const mockEventsService = Layer.mock(EventsService);
 const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
 	mockEventsService({
 		...overrides,
-		_tag: "EventsService",
 	});
 
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
@@ -62,7 +59,6 @@ const makeRelationshipsRepository = (
 ) =>
 	mockRelationshipsRepository({
 		...overrides,
-		_tag: "RelationshipsRepository",
 	});
 
 const mockRelationshipsService = Layer.mock(RelationshipsService);
@@ -70,7 +66,6 @@ const mockRelationshipsService = Layer.mock(RelationshipsService);
 const makeRelationshipsService = (overrides: MockOverrides<typeof mockRelationshipsService> = {}) =>
 	mockRelationshipsService({
 		...overrides,
-		_tag: "RelationshipsService",
 	});
 
 const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
@@ -80,7 +75,6 @@ const makeRelationshipSchemasRepository = (
 ) =>
 	mockRelationshipSchemasRepository({
 		...overrides,
-		_tag: "RelationshipSchemasRepository",
 	});
 
 const makeDefinitionRegistryLayer = (
@@ -88,7 +82,6 @@ const makeDefinitionRegistryLayer = (
 	deniedOperationsBySchema: Readonly<Record<string, ReadonlyArray<"clear" | "merge">>> = {},
 ) =>
 	Layer.succeed(DefinitionRegistry, {
-		_tag: "DefinitionRegistry",
 		...makeDefinitionRegistry({
 			savedViews: [],
 			signalSchemas: [],
@@ -136,7 +129,7 @@ const makeServiceLayer = (
 		relationshipSchemasRepository?: ReturnType<typeof makeRelationshipSchemasRepository>;
 	} = {},
 ) =>
-	UserStateService.Default.pipe(
+	UserStateService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
