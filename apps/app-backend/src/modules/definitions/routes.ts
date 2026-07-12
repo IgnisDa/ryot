@@ -1,4 +1,3 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
@@ -9,6 +8,7 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
@@ -61,19 +61,19 @@ export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definiti
 				);
 			}),
 		)
-		.handle("listWorkspaces", ({ urlParams }) =>
+		.handle("listWorkspaces", ({ query }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* DefinitionsService;
-				return yield* service.listWorkspaces(user, urlParams.includeDisabled).pipe(dieOnDbError);
+				return yield* service.listWorkspaces(user, query.includeDisabled).pipe(dieOnDbError);
 			}),
 		)
-		.handle("updateWorkspaceState", ({ path, payload }) =>
+		.handle("updateWorkspaceState", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* DefinitionsService;
 				return yield* service
-					.updateWorkspaceState(user, path.pluginSlug, payload)
+					.updateWorkspaceState(user, params.pluginSlug, payload)
 					.pipe(dieOnDbError);
 			}),
 		),

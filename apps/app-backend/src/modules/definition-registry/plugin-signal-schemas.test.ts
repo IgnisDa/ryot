@@ -2,7 +2,7 @@ import { assert, expect, it } from "@effect/vitest";
 import { RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import fitnessPlugin from "@ryot/plugin-fitness";
 import mediaPlugin from "@ryot/plugin-media";
-import { Effect, Either } from "effect";
+import { Effect, Result } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { makePluginLoader } from "#modules/plugins/loader";
@@ -53,14 +53,14 @@ it.effect("defines strict active actor contracts for the first notification sign
 			});
 			expect(valid).toEqual(properties);
 
-			const unknown = yield* Effect.either(
+			const unknown = yield* Effect.result(
 				parseAppSchemaProperties({
 					kind: "Signal",
 					properties: { ...properties, unexpected: true },
 					propertiesSchema: definition.propertiesSchema,
 				}),
 			);
-			expect(Either.isLeft(unknown)).toBe(true);
+			expect(Result.isFailure(unknown)).toBe(true);
 		}
 	}),
 );
@@ -140,14 +140,14 @@ it.effect("defines strict related-user contracts for media update signals", () =
 			});
 			expect(valid).toEqual(properties);
 
-			const unknown = yield* Effect.either(
+			const unknown = yield* Effect.result(
 				parseAppSchemaProperties({
 					kind: "Signal",
 					propertiesSchema: definition.propertiesSchema,
 					properties: { ...properties, unexpected: true },
 				}),
 			);
-			expect(Either.isLeft(unknown)).toBe(true);
+			expect(Result.isFailure(unknown)).toBe(true);
 		}
 	}),
 );
@@ -178,14 +178,14 @@ it.effect("validates both release-date variants and rejects incomplete variants"
 			{ oldYear: null, newYear: 2026, entityName: "Dune", changeKind: "publish_year" },
 			{ entityName: "Podcast", changeKind: "episode_date", oldDate: "2026-01-01" },
 		]) {
-			const result = yield* Effect.either(
+			const result = yield* Effect.result(
 				parseAppSchemaProperties({
 					properties,
 					kind: "Signal",
 					propertiesSchema: definition.propertiesSchema,
 				}),
 			);
-			expect(Either.isLeft(result)).toBe(true);
+			expect(Result.isFailure(result)).toBe(true);
 		}
 	}),
 );

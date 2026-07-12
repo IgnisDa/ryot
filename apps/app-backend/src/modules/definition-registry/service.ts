@@ -2,7 +2,7 @@ import type { DisplayConfiguration } from "@ryot/contract/display-configuration"
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import type { AppSchema, PropertyValidationError } from "@ryot/contract/schema/property-schema";
 import type { PluginEntitySchema } from "@ryot/plugin-kit/manifest";
-import { Data, Effect } from "effect";
+import { Context, Data, Effect, Layer } from "effect";
 
 import {
 	formatPropertyIssues,
@@ -284,6 +284,11 @@ export const makeDefinitionRegistry = (source: DefinitionSource = kernelDefiniti
 	};
 };
 
-export class DefinitionRegistry extends Effect.Service<DefinitionRegistry>()("DefinitionRegistry", {
-	sync: makeDefinitionRegistry,
-}) {}
+export class DefinitionRegistry extends Context.Service<DefinitionRegistry>()(
+	"DefinitionRegistry",
+	{
+		make: Effect.sync(makeDefinitionRegistry),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
