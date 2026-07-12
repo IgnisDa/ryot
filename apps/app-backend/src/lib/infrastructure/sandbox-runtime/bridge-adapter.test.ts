@@ -94,6 +94,12 @@ describe("bindSandboxHostFunctions", () => {
 				success: false,
 				error: "httpCall options.body must be a string",
 			});
+			expect(
+				yield* bound.httpCall(["POST", "https://example.com", { allowInsecureConnections: "yes" }]),
+			).toEqual({
+				success: false,
+				error: "httpCall options.allowInsecureConnections must be a boolean",
+			});
 			expect(yield* bound.getUserPreferences(["unexpected"])).toEqual({
 				success: false,
 				error: "getUserPreferences received an invalid number of arguments",
@@ -345,6 +351,24 @@ describe("bindSandboxHostFunctions", () => {
 				{ fnName: "listEvents", value: undefined },
 				{ fnName: "listIntegrations", value: undefined },
 			]);
+		}),
+	);
+
+	it.effect("forwards the per-call insecure connection opt-in without changing the default", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const implementations = makeImplementations({
+				httpCall: (_runInput, _method, _url, options) => {
+					calls.push(options);
+					return Effect.fail({ message: "reached" });
+				},
+			});
+			const bound = bindSandboxHostFunctions(implementations, input);
+
+			yield* bound.httpCall(["GET", "https://example.com"]);
+			yield* bound.httpCall(["GET", "https://example.com", { allowInsecureConnections: true }]);
+
+			expect(calls).toEqual([undefined, { allowInsecureConnections: true }]);
 		}),
 	);
 

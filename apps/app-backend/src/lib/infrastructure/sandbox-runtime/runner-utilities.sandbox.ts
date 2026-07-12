@@ -21,7 +21,11 @@ export interface SandboxRunnerPayload {
 	readonly compiledFormat: number;
 	readonly limits: SandboxRunnerLimits;
 	readonly metadata?: Record<string, unknown>;
-	readonly filesystem?: { readonly artifactPath?: string; readonly scratchDirectory?: string };
+	readonly filesystem?: {
+		readonly artifactPath?: string;
+		readonly scratchDirectory?: string;
+		readonly namedArtifactPaths?: Readonly<Record<string, string>>;
+	};
 }
 
 export interface SandboxRunnerError {

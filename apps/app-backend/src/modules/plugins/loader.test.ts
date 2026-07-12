@@ -145,6 +145,7 @@ it("rejects integration provider and import source slug collisions across active
 					{
 						slug: "hevy",
 						name: "Hevy",
+						lot: "single" as const,
 						input: "file" as const,
 						description: "Hevy CSV",
 						requiredAppConfigKeys: [],

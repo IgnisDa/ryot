@@ -5,6 +5,7 @@ const SANDBOX_FILESYSTEM_KEY = Symbol.for("@ryot/sandbox-sdk/filesystem");
 
 type SandboxFilesystemBinding = {
 	readonly readArtifact: () => Promise<Uint8Array>;
+	readonly readNamedArtifact: (key: string) => Promise<Uint8Array>;
 	readonly writeScratchChunks: (
 		chunks: ReadonlyArray<{ readonly name: string; readonly contents: Uint8Array }>,
 	) => Promise<void>;
@@ -41,6 +42,14 @@ export const readArtifact = () =>
 		const filesystem = binding();
 		return filesystem
 			? Effect.tryPromise({ try: () => filesystem.readArtifact(), catch: filesystemError })
+			: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
+	});
+
+export const readNamedArtifact = (key: string) =>
+	Effect.suspend(() => {
+		const filesystem = binding();
+		return filesystem
+			? Effect.tryPromise({ try: () => filesystem.readNamedArtifact(key), catch: filesystemError })
 			: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
 	});
 
