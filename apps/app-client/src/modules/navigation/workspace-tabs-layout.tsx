@@ -1,11 +1,28 @@
-import { Slot } from "expo-router";
-import { useState } from "react";
+import { Stack } from "expo-router";
+import { createContext, useContext, useState, type ComponentProps } from "react";
 
 import { MobileMoreSheet } from "./mobile-more-sheet";
+import { MobileWorkspaceFrame } from "./mobile-workspace-frame";
 import { NavigationStatus } from "./navigation-status";
-import { useWorkspaceNavigation } from "./use-workspace-navigation";
+import { type ReadyWorkspaceNavigation, useWorkspaceNavigation } from "./use-workspace-navigation";
 import { getSelectedWorkspaceTabKey, getWorkspaceTabs } from "./workspace-tabs";
 import { WorkspaceTabsView } from "./workspace-tabs-view";
+
+type ScreenLayoutProps = Parameters<NonNullable<ComponentProps<typeof Stack>["screenLayout"]>>[0];
+
+const WorkspaceNavigationContext = createContext<ReadyWorkspaceNavigation | null>(null);
+
+function WorkspaceScreenFrame(props: Pick<ScreenLayoutProps, "children">) {
+	const navigation = useContext(WorkspaceNavigationContext);
+	if (!navigation) {
+		throw new Error("Workspace navigation is unavailable");
+	}
+	return <MobileWorkspaceFrame navigation={navigation}>{props.children}</MobileWorkspaceFrame>;
+}
+
+function renderWorkspaceScreen(props: ScreenLayoutProps) {
+	return <WorkspaceScreenFrame>{props.children}</WorkspaceScreenFrame>;
+}
 
 export function WorkspaceTabsLayout() {
 	const navigation = useWorkspaceNavigation();
@@ -39,11 +56,12 @@ export function WorkspaceTabsLayout() {
 			<WorkspaceTabsView
 				tabs={tabs}
 				onSelect={selectTab}
-				navigation={navigation}
 				selectedKey={selectedKey}
 				key={navigation.workspace.slug}
 			>
-				<Slot />
+				<WorkspaceNavigationContext.Provider value={readyNavigation}>
+					<Stack screenLayout={renderWorkspaceScreen} screenOptions={{ headerShown: false }} />
+				</WorkspaceNavigationContext.Provider>
 			</WorkspaceTabsView>
 			{isMoreOpen && (
 				<MobileMoreSheet
