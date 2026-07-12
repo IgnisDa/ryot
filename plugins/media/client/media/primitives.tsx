@@ -124,6 +124,27 @@ export function MediaRailRow(props: {
 	);
 }
 
+export function MediaLabeledRows(props: {
+	readonly rows: readonly {
+		readonly key: string;
+		readonly title: string;
+		readonly detail?: string | undefined;
+	}[];
+}) {
+	return (
+		<div className="flex flex-col gap-2.5">
+			{props.rows.map((row) => (
+				<div key={row.key} className="flex flex-col">
+					<p className="font-ui font-medium text-[13px] leading-4.5 text-text">{row.title}</p>
+					{row.detail === undefined || row.detail === "" ? null : (
+						<p className="font-ui text-[11px] leading-3.75 text-text-subtle">{row.detail}</p>
+					)}
+				</div>
+			))}
+		</div>
+	);
+}
+
 export function MediaOverviewSection(props: {
 	readonly title: string;
 	readonly compact: boolean;

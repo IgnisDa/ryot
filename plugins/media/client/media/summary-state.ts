@@ -167,6 +167,13 @@ export const mediaOwnershipLabel = (owned: boolean | null) => {
 	return owned ? "Owned" : "Not owned";
 };
 
+export const mediaProductionStatusFact = (media: {
+	readonly productionStatus: string | null;
+}): MediaSummaryFact | undefined =>
+	media.productionStatus === null
+		? undefined
+		: { icon: "clapperboard", label: "Production status", value: media.productionStatus };
+
 export const mediaCountLabel = (count: number, singular: string) =>
 	`${count} ${count === 1 ? singular : `${singular}s`}`;
 

@@ -4,7 +4,7 @@ import {
 	podcastsByLifecycleStateRecipe,
 	showsByLifecycleStateRecipe,
 } from "@ryot-app/media-plugin/query-recipes";
-import { movieSummaryRecipe } from "@ryot-app/media-plugin/shared/movie-recipes";
+import { movieRecipes } from "@ryot-app/media-plugin/shared/movie-recipes";
 import { showSeasonEpisodesRecipe } from "@ryot-app/media-plugin/shared/show-recipes";
 import { column, descending, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
@@ -838,7 +838,7 @@ const readMovieSummary = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
 		const result = yield* executeRyotQLRecipe(
 			client,
-			movieSummaryRecipe({ entityId, collectionLimit: 1 }),
+			movieRecipes.summaryRecipe({ entityId, collectionLimit: 1 }),
 		);
 		assertPresent(result.summary, "Expected a movie summary row");
 		return result.summary;

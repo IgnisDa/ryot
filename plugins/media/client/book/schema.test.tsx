@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-	bookOverviewRecipe,
-	bookPresentationRecipe,
-	bookSummaryRecipe,
-} from "../../shared/book-recipes";
+import { bookRecipes } from "../../shared/book-recipes";
 import { decodeFlatActivity } from "../../tests/client/flat-media/activity-fixture";
 import {
 	decodeFlatOverview,
@@ -29,7 +25,7 @@ const UNLINKED_CREATORS = [
 ];
 
 const bookSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(bookSummaryRecipe(FLAT_SUMMARY_INPUT), {
+	decodeFlatSummary(bookRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
 		pages: 320,
 		isCompilation: false,
 		...overrides,
@@ -39,7 +35,7 @@ const bookOverview = (
 	input: Parameters<typeof decodeFlatOverview>[1] = {},
 	unlinkedCreators: readonly Record<string, unknown>[] | null = UNLINKED_CREATORS,
 ) =>
-	decodeFlatOverview(bookOverviewRecipe(FLAT_OVERVIEW_INPUT), {
+	decodeFlatOverview(bookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT), {
 		...input,
 		extra: {
 			creators: rowsResult([{ unlinkedCreators }], { limit: 1, hasMore: false, nextCursor: null }),
@@ -62,29 +58,31 @@ const renderBody = (overview = bookOverview()) =>
 	);
 
 const presentationData = () => {
-	const decoded = bookPresentationRecipe(["media-1"]).decode({
-		data: {
-			rows: rowsResult(
-				[
-					{
-						pages: 320,
-						images: null,
-						id: "media-1",
-						publishDate: null,
-						publishYear: 2014,
-						schemaSlug: "book",
-						progressPercent: 42,
-						name: "The Martian",
-						state: "in_progress",
-						productionStatus: null,
-						populationStatus: "ready",
-						translationStatus: "none",
-					},
-				],
-				{ limit: 100, hasMore: false, nextCursor: null },
-			),
-		},
-	});
+	const decoded = bookRecipes
+		.presentationRecipe(["media-1"])
+		.decode({
+			data: {
+				rows: rowsResult(
+					[
+						{
+							pages: 320,
+							images: null,
+							id: "media-1",
+							publishDate: null,
+							publishYear: 2014,
+							schemaSlug: "book",
+							progressPercent: 42,
+							name: "The Martian",
+							state: "in_progress",
+							productionStatus: null,
+							populationStatus: "ready",
+							translationStatus: "none",
+						},
+					],
+					{ limit: 100, hasMore: false, nextCursor: null },
+				),
+			},
+		});
 	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
 		throw new Error("Expected decoded presentation data");
 	}

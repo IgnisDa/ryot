@@ -1,9 +1,9 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 
-import { showActivityRecipe } from "../../../shared/show-recipes";
+import { showRecipes } from "../../../shared/show-recipes";
 import { rowsResult } from "../query-result-fixture";
 
-const showActivityFixtureRecipe = showActivityRecipe({
+const showActivityFixtureRecipe = showRecipes.activityRecipe({
 	timeZone: "UTC",
 	coverageLimit: 100,
 	entityId: "show-1",

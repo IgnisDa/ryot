@@ -24,6 +24,7 @@ import {
 	selectedRows,
 	sum,
 	table,
+	type Recipe,
 	type SelectedQuery,
 	type SelectedRow,
 	type SelectedSelection,
@@ -556,10 +557,44 @@ export const mediaUnlinkedCreatorsQuery = (id: string) => {
 
 const MEDIA_FLAT_PRESENTATION_LIMIT = 100;
 
+export type MediaExtraQueries = Readonly<Record<string, SelectedQuery<unknown>>>;
+
+/** A recipe factory's own overview queries, absent when it declares none. */
+export const extraOverviewQueries = <const Extra extends MediaExtraQueries, Input>(
+	build: ((input: Input) => Extra) | undefined,
+	input: Input,
+): Extra =>
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+	build === undefined ? ({} as Extra) : build(input);
+
+export type MediaSummaryOf<Recipes extends { readonly summaryRecipe: unknown }> =
+	Recipe.Success<Recipes["summaryRecipe"]> extends { readonly summary: infer Summary }
+		? NonNullable<Summary>
+		: never;
+
+export type MediaActivityOf<Recipes extends { readonly activityRecipe: unknown }> = Recipe.Success<
+	Recipes["activityRecipe"]
+>;
+
+export type MediaActivityEventOf<Recipes extends { readonly activityRecipe: unknown }> =
+	MediaActivityOf<Recipes> extends { readonly events: readonly (infer Event)[] } ? Event : never;
+
+export type MediaPresentationDataOf<Recipes extends { readonly presentationRecipe: unknown }> =
+	Recipe.Success<Recipes["presentationRecipe"]> extends readonly (infer Data)[] ? Data : never;
+
+export type MediaFlatOverviewInput = {
+	readonly entityId: string;
+	readonly groupLimit: number;
+	readonly peopleLimit: number;
+	readonly companyLimit: number;
+	readonly recommendationLimit: number;
+};
+
 export const mediaFlatRecipes = <
 	const SummaryFields extends SelectedSelection,
 	const PresentationFields extends SelectedSelection,
 	const ActivityEventFields extends SelectedSelection = Record<never, never>,
+	const ExtraOverviewQueries extends MediaExtraQueries = Record<never, never>,
 >(config: {
 	readonly slug: string;
 	readonly alias: string;
@@ -568,6 +603,7 @@ export const mediaFlatRecipes = <
 	readonly summaryFields: (entity: Table) => SummaryFields;
 	readonly presentationFields: (entity: Table) => PresentationFields;
 	readonly activityEventFields?: (event: Table) => ActivityEventFields;
+	readonly extraOverviewQueries?: (input: MediaFlatOverviewInput) => ExtraOverviewQueries;
 }) => {
 	const summaryRecipe = defineRecipe(
 		(input: { readonly entityId: string; readonly collectionLimit: number }) => {
@@ -604,15 +640,12 @@ export const mediaFlatRecipes = <
 		},
 	);
 
-	const overviewQueries = (input: {
-		readonly entityId: string;
-		readonly groupLimit: number;
-		readonly peopleLimit: number;
-		readonly companyLimit: number;
-		readonly recommendationLimit: number;
-	}) => {
+	const overviewQueries = (input: MediaFlatOverviewInput) => {
 		const { groupSlug } = config;
-		const credits = mediaOverviewQueries({ ...input, slug: config.slug });
+		const credits = {
+			...mediaOverviewQueries({ ...input, slug: config.slug }),
+			...extraOverviewQueries(config.extraOverviewQueries, input),
+		};
 		return groupSlug === undefined
 			? credits
 			: {
@@ -631,7 +664,7 @@ export const mediaFlatRecipes = <
 				};
 	};
 
-	const overviewRecipe = defineRecipe((input: Parameters<typeof overviewQueries>[0]) => ({
+	const overviewRecipe = defineRecipe((input: MediaFlatOverviewInput) => ({
 		queries: overviewQueries(input),
 	}));
 
@@ -704,5 +737,5 @@ export const mediaFlatRecipes = <
 		};
 	});
 
-	return { summaryRecipe, overviewRecipe, activityRecipe, overviewQueries, presentationRecipe };
+	return { summaryRecipe, overviewRecipe, activityRecipe, presentationRecipe };
 };

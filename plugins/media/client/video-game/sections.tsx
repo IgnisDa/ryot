@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { PlatformReleaseList, TimeToBeatValue } from "../../shared/video-game";
 import { mediaActivityDurationLabel } from "../media/activity-timeline";
 import { formatDateOnlyLabel } from "../media/date";
-import { MediaFactRow, MediaOverviewSection } from "../media/primitives";
+import { MediaFactRow, MediaLabeledRows, MediaOverviewSection } from "../media/primitives";
 import type { MediaSummaryFact } from "../media/summary-state";
 
 type VideoGameOverviewSummary = {
@@ -56,8 +56,8 @@ export function VideoGamePlatformsSection(props: {
 	}
 	return (
 		<MediaOverviewSection title="Platforms" divided={props.divided} compact={props.compact}>
-			<div className="flex flex-col gap-2.5">
-				{releases.map((release) => {
+			<MediaLabeledRows
+				rows={releases.map((release) => {
 					const releaseDate = release.releaseDate ?? undefined;
 					const detail = [
 						releaseDate === undefined ? undefined : formatDateOnlyLabel(releaseDate),
@@ -65,18 +65,9 @@ export function VideoGamePlatformsSection(props: {
 					]
 						.filter((part) => part !== undefined)
 						.join(" · ");
-					return (
-						<div className="flex flex-col" key={`${release.name}:${detail}`}>
-							<p className="font-ui font-medium text-[13px] leading-4.5 text-text">
-								{release.name}
-							</p>
-							{detail === "" ? null : (
-								<p className="font-ui text-[11px] leading-3.75 text-text-subtle">{detail}</p>
-							)}
-						</div>
-					);
+					return { detail, title: release.name, key: `${release.name}:${detail}` };
 				})}
-			</div>
+			/>
 		</MediaOverviewSection>
 	);
 }

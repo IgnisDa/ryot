@@ -1,28 +1,24 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 
-import {
-	podcastActivityRecipe,
-	podcastOverviewRecipe,
-	podcastSummaryRecipe,
-} from "../../../shared/podcast-recipes";
+import { podcastRecipes } from "../../../shared/podcast-recipes";
 import { rowsResult } from "../query-result-fixture";
 
 const rows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 100, hasMore: false, nextCursor: null });
 
-const podcastSummaryFixtureRecipe = podcastSummaryRecipe({
+const podcastSummaryFixtureRecipe = podcastRecipes.summaryRecipe({
 	collectionLimit: 6,
 	entityId: "podcast-1",
 });
 
-const podcastOverviewFixtureRecipe = podcastOverviewRecipe({
+const podcastOverviewFixtureRecipe = podcastRecipes.overviewRecipe({
 	peopleLimit: 12,
 	companyLimit: 6,
 	entityId: "podcast-1",
 	recommendationLimit: 12,
 });
 
-const podcastActivityFixtureRecipe = podcastActivityRecipe({
+const podcastActivityFixtureRecipe = podcastRecipes.activityRecipe({
 	timeZone: "UTC",
 	coverageLimit: 100,
 	watchDayLimit: 1000,
