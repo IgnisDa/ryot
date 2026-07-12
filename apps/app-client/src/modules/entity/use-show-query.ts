@@ -11,7 +11,7 @@ import {
 	showSeasonEpisodesAtom,
 	showSummaryAtom,
 } from "./atoms";
-import { showSeasonEpisodeEntityIds } from "./show-episodes-state";
+import { showSeasonEntityIds, showSeasonEpisodeEntityIds } from "./show-episodes-state";
 import { showOverviewEntityIds } from "./show-overview-state";
 
 function useShowQuery<State extends { readonly status: string }>(props: {
@@ -60,8 +60,8 @@ export const useShowEpisodes = (entityId: string) => {
 	return useShowQuery({
 		blocked: false,
 		label: "show episodes",
-		selectEntityIds: () => [entityId],
 		atom: showEpisodesAtom({ scope, entityId }),
+		selectEntityIds: (state) => [entityId, ...showSeasonEntityIds(state)],
 	});
 };
 
