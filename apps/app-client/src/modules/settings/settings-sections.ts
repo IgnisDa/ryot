@@ -19,7 +19,10 @@ export const settingsSections = [
 export type SettingsSection = (typeof settingsSections)[number];
 export type SettingsSectionSlug = SettingsSection["slug"];
 
+const matchesSettingsSection = (pathname: string, href: string) =>
+	pathname.endsWith(href) || pathname.includes(`${href}/`);
+
 export function getActiveSettingsSection(pathname: string): SettingsSectionSlug {
-	const section = settingsSections.find((item) => pathname.endsWith(item.href));
+	const section = settingsSections.find((item) => matchesSettingsSection(pathname, item.href));
 	return section?.slug ?? "general";
 }
