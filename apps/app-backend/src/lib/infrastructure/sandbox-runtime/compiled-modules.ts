@@ -1,6 +1,4 @@
-import { FileSystem, Path } from "@effect/platform";
-import { isPlatformError } from "@effect/platform/Error";
-import { Data, Effect } from "effect";
+import { Data, Effect, FileSystem, Path, PlatformError } from "effect";
 
 import type { SandboxRuntimePaths } from "./dependencies";
 
@@ -15,7 +13,9 @@ const hashBytes = (bytes: Uint8Array) => new Bun.CryptoHasher("sha256").update(b
 const compiledModuleName = /^([0-9a-f]{64})\.mjs$/;
 
 const hasSystemErrorReason = (error: unknown, reason: "AlreadyExists" | "NotFound") =>
-	isPlatformError(error) && error._tag === "SystemError" && error.reason === reason;
+	error instanceof PlatformError.PlatformError &&
+	error.reason instanceof PlatformError.SystemError &&
+	error.reason._tag === reason;
 
 const moduleMatches = (fs: FileSystem.FileSystem, modulePath: string, contentHash: string) =>
 	fs.readFile(modulePath).pipe(

@@ -14,6 +14,21 @@ import {
 
 type HostBudget = { http: number; total: number };
 type SandboxHostError = { readonly message: string; readonly data?: unknown };
+type ServiceFreeSchema = Schema.ConstraintDecoder<unknown>;
+type SandboxDefinition<
+	Input extends ServiceFreeSchema = ServiceFreeSchema,
+	Output extends ServiceFreeSchema = ServiceFreeSchema,
+> = {
+	readonly input: Input;
+	readonly output: Output;
+	readonly manifest: Record<string, unknown>;
+	readonly definitionType: "ryot:sandbox-script";
+	readonly run: (
+		input: Input["Type"],
+		host: Record<string, unknown>,
+		execution: { metadata: unknown; sandboxScriptId: string },
+	) => Effect.Effect<Output["Type"], unknown>;
+};
 
 const reflectGet = Reflect.get;
 const decoder = new TextDecoder();
@@ -48,9 +63,9 @@ const asyncFunction = Object.getPrototypeOf(async function () {}).constructor as
 const stringIncludes = String.prototype.includes.call.bind(String.prototype.includes);
 const asyncGeneratorFunction = Object.getPrototypeOf(async function* () {}).constructor as Function;
 
-const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
-	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
-const hostResultSchema = Schema.Union(
+const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+const hostResultSchema = Schema.Union([
 	strictStruct({
 		error: Schema.String,
 		success: Schema.Literal(false),
@@ -58,14 +73,19 @@ const hostResultSchema = Schema.Union(
 	}),
 	strictStruct({
 		data: Schema.Unknown.pipe(
-			Schema.filter((value) => value !== undefined, {
-				message: () => "Host result data is required",
-			}),
+			Schema.check(
+				Schema.makeFilter((schemaFilterInput) => {
+					const schemaFilterOutput = ((value) => value !== undefined)(schemaFilterInput);
+					return schemaFilterOutput === true || schemaFilterOutput === undefined
+						? schemaFilterOutput
+						: (() => "Host result data is required")();
+				}),
+			),
 		),
 		success: Schema.Literal(true),
 	}),
-);
-const decodeHostResult = Schema.decodeUnknown(hostResultSchema);
+]);
+const decodeHostResult = Schema.decodeUnknownEffect(hostResultSchema);
 
 let buffer = "";
 
@@ -247,9 +267,7 @@ const hostFailure = (error: string) => ({ error, success: false as const });
 const sandboxHostError = (error: unknown): SandboxHostError => {
 	const message =
 		isRecord(error) && typeof error.message === "string" ? error.message : nativeString(error);
-	return isRecord(error) && error.data !== undefined
-		? { message, data: error.data as SandboxHostError["data"] }
-		: { message };
+	return isRecord(error) && error.data !== undefined ? { message, data: error.data } : { message };
 };
 
 const transportHostCall =
@@ -425,6 +443,14 @@ const importCompiledModule = async (
 	}
 };
 
+const isSandboxDefinition = (definition: unknown): definition is SandboxDefinition =>
+	isRecord(definition) &&
+	definition.definitionType === "ryot:sandbox-script" &&
+	isRecord(definition.manifest) &&
+	typeof definition.run === "function" &&
+	Schema.isSchema(definition.input) &&
+	Schema.isSchema(definition.output);
+
 const executeDefinition = async (
 	definition: unknown,
 	payload: SandboxRunnerPayload,
@@ -434,27 +460,20 @@ const executeDefinition = async (
 	if (!isRecord(definition)) {
 		return throwPhase("load", "Compiled sandbox module must have a default definition export");
 	}
-
-	if (definition.definitionType !== "ryot:sandbox-script" || !isRecord(definition.manifest)) {
+	if (!isSandboxDefinition(definition)) {
 		return throwPhase("load", "Compiled sandbox module has an invalid script definition");
 	}
 	if (!manifestsMatch(definition.manifest, payload.metadata)) {
 		return throwPhase("load", "Compiled sandbox manifest does not match persisted metadata");
 	}
-	if (typeof definition.run !== "function") {
-		return throwPhase("load", "Compiled sandbox definition has an invalid run function");
-	}
-	if (!Schema.isSchema(definition.input) || !Schema.isSchema(definition.output)) {
-		return throwPhase("load", "Compiled sandbox definition has invalid schemas");
-	}
 	const run = definition.run;
-	const input = definition.input as Schema.Schema.AnyNoContext;
-	const output = definition.output as Schema.Schema.AnyNoContext;
+	const input = definition.input;
+	const output = definition.output;
 
 	setPhase("input");
 	let parsedInput: unknown;
 	try {
-		parsedInput = await Effect.runPromise(Schema.decodeUnknown(input)(payload.context ?? {}));
+		parsedInput = await Schema.decodeUnknownPromise(input)(payload.context ?? {});
 	} catch (error) {
 		return throwPhase("input", "Definition input validation failed: " + nativeString(error));
 	}
@@ -470,7 +489,7 @@ const executeDefinition = async (
 			return throwPhase("execute", "Sandbox definition must return an Effect");
 		}
 		const outcome = await Effect.runPromise(
-			Effect.match(execution as Effect.Effect<unknown, unknown>, {
+			Effect.match(execution, {
 				onFailure: (error) => ({ error, success: false as const }),
 				onSuccess: (value) => ({ value, success: true as const }),
 			}),
@@ -485,7 +504,7 @@ const executeDefinition = async (
 
 	setPhase("output");
 	try {
-		return await Effect.runPromise(Schema.decodeUnknown(output)(result));
+		return await Schema.decodeUnknownPromise(output)(result);
 	} catch (error) {
 		return throwPhase("output", "Definition output validation failed: " + nativeString(error));
 	}
@@ -560,10 +579,10 @@ void (async () => {
 			} catch (error) {
 				throwPhase("output", error);
 			}
-			if (typeof serialized !== "string") {
-				throwPhase("output", "Sandbox definition result is not JSON-serializable");
-			}
-			const serializedValue = serialized as string;
+			const serializedValue =
+				typeof serialized === "string"
+					? serialized
+					: throwPhase("output", "Sandbox definition result is not JSON-serializable");
 			if (encodeText(serializedValue).byteLength > payload.limits.resultBytes) {
 				throwPhase(
 					"output",

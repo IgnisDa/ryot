@@ -18,7 +18,7 @@ const JournalEntry = Schema.Struct({
 	name: Schema.String,
 	value: Schema.Unknown,
 	argsHash: Schema.String,
-	kind: Schema.Literal("activity", "sleep", "child"),
+	kind: Schema.Literals(["activity", "sleep", "child"]),
 });
 
 export type WorkflowJournalEntry = {
@@ -46,9 +46,9 @@ type WorkflowJournalProjectionRedis = {
 	};
 };
 
-const encodeJson = Schema.encodeSync(Schema.parseJson(Schema.Unknown));
-const decodeJournalEntry = Schema.decodeUnknown(Schema.parseJson(JournalEntry));
-const decodeBootstrapArgs = Schema.decodeUnknown(Schema.Tuple());
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const decodeJournalEntry = Schema.decodeUnknownResult(Schema.fromJsonString(JournalEntry));
+const decodeBootstrapArgs = Schema.decodeUnknownResult(Schema.Tuple([]));
 
 export const hashWorkflowCallArgs = (args: unknown) =>
 	new Bun.CryptoHasher("sha256").update(stableStringify(args)).digest("base64url");
@@ -96,29 +96,29 @@ export const projectWorkflowJournal = (
 	});
 
 export const makeWorkflowDurableCallsHostFunction =
-	(workflowExecutionId: string | undefined, redis: WorkflowJournalBridgeRedis): BoundHostFunction =>
-	(args) =>
-		Effect.gen(function* () {
-			const decoded = yield* decodeBootstrapArgs(args).pipe(Effect.either);
-			if (decoded._tag === "Left") {
+	(workflowExecutionId: string | undefined, redis: WorkflowJournalBridgeRedis) =>
+	(
+		args: Parameters<BoundHostFunction>[0],
+	): Effect.Effect<ReturnType<typeof apiFailure> | ReturnType<typeof apiSuccess<JsonValue[]>>> =>
+		Effect.gen(function* (): Effect.fn.Return<
+			ReturnType<typeof apiFailure> | ReturnType<typeof apiSuccess<JsonValue[]>>
+		> {
+			const decoded = decodeBootstrapArgs(args);
+			if (decoded._tag === "Failure") {
 				return apiFailure("durableCalls does not accept arguments");
 			}
 			if (!workflowExecutionId) {
 				return apiFailure("durableCalls is available only to workflow executions");
 			}
 			const key = redisKeys.sandboxWorkflowJournal(workflowExecutionId);
-			const rawHighWater = yield* Effect.tryPromise(() =>
-				redis.client.hget(key, highWaterField),
-			).pipe(Effect.orDie);
+			const rawHighWater = yield* Effect.promise(() => redis.client.hget(key, highWaterField));
 			const highWater = rawHighWater === null ? 0 : Number(rawHighWater);
 			if (!Number.isSafeInteger(highWater) || highWater < 0) {
 				return apiFailure("Sandbox workflow journal high-water mark is corrupt");
 			}
 			const fields = Array.from({ length: highWater }, (_, index) => String(index));
 			const rawEntries =
-				fields.length === 0
-					? []
-					: yield* Effect.tryPromise(() => redis.client.hmget(key, ...fields)).pipe(Effect.orDie);
+				fields.length === 0 ? [] : yield* Effect.promise(() => redis.client.hmget(key, ...fields));
 			const values: JsonValue[] = [];
 			for (let index = 0; index < rawEntries.length; index += 1) {
 				const raw = rawEntries[index];
@@ -126,11 +126,11 @@ export const makeWorkflowDurableCallsHostFunction =
 					return apiFailure(`Sandbox workflow journal[${index}] is missing`);
 				}
 
-				const entry = yield* decodeJournalEntry(raw).pipe(Effect.either);
-				if (entry._tag === "Left" || !isJsonValue(entry.right.value)) {
+				const entry = decodeJournalEntry(raw);
+				if (entry._tag === "Failure" || !isJsonValue(entry.success.value)) {
 					return apiFailure(`Sandbox workflow journal[${index}] is corrupt`);
 				}
-				values.push(entry.right.value);
+				values.push(entry.success.value);
 			}
 
 			return apiSuccess(values);

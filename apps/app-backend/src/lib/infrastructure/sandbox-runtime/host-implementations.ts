@@ -8,7 +8,7 @@ export type SandboxHostImplementationMaps = {
 	readonly automation: AutomationSandboxHostImplementationMap<SandboxRunInput>;
 };
 
-export class SandboxHostImplementations extends Context.Tag("SandboxHostImplementations")<
+export class SandboxHostImplementations extends Context.Service<
 	SandboxHostImplementations,
 	SandboxHostImplementationMaps
->() {}
+>()("SandboxHostImplementations") {}
