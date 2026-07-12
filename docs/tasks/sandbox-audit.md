@@ -159,7 +159,7 @@ The runner-side name validation (runner-source.sandbox.ts:120-132) does not help
 
 **B5 — child execution IDs embed unsanitized names.** `sandboxWorkflowChildExecutionId` (sandbox-script-workflow.ts:138) interpolates `request.name` raw into a durable execution key. Not exploitable that I can see, but it is the one place a script string reaches an engine primary key unfiltered.
 
-- [ ] Apply `sanitizeSandboxExecutionSegment`, which already exists in filesystem-grants.ts:12 for exactly this purpose.
+- [x] Apply `sanitizeSandboxExecutionSegment`, which already exists in filesystem-grants.ts:12 for exactly this purpose.
 
 **B6 — harvest paths leak into scripts.** `completedValue` (sandbox-script-workflow.ts:128-131) merges `chunkFiles: result.harvest.chunkPaths` — absolute host paths under `config.tmpDir` — into the activity result handed back to a sandbox script.
 
