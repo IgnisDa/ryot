@@ -18,3 +18,13 @@ Prerequisites: [Bun](https://bun.sh) and [Docker](https://www.docker.com).
 
 The server task builds and watches the shipped plugin bundles. Use `bun run build`,
 `bun run test`, and `bun run check` before you submit changes.
+
+## Contributor License Agreement
+
+External contributors must sign the
+[Ryot Individual Contributor License Agreement](https://github.com/IgnisDa/ryot/blob/main/CLA.md)
+before a pull request can be merged. CLA Assistant will request an electronic signature
+on the pull request.
+
+Only submit work that you have the right to contribute. Obtain any permission required
+from your employer, and identify third-party material and its license in the pull request.
