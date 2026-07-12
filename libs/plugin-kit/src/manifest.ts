@@ -33,6 +33,7 @@ export const PluginEntitySchema = strictStruct({
 	accentColor: Schema.String,
 	propertiesSchema: AppSchema,
 	eventSchemas: Schema.Array(PluginEventSchema),
+	mergeIdentityProperties: Schema.optional(Schema.Array(Schema.String)),
 });
 
 export type PluginEntitySchema = Schema.Schema.Type<typeof PluginEntitySchema>;
@@ -166,12 +167,24 @@ export const PluginScript = Schema.Union(
 
 export type PluginScript = Schema.Schema.Type<typeof PluginScript>;
 
-export const PluginCron = strictStruct({
+const PluginCronFields = {
 	slug: sandboxManifestSlug,
-	scriptSlug: sandboxManifestSlug,
 	schedule: sandboxManifestString,
 	description: sandboxManifestString,
-});
+};
+
+export const PluginCron = Schema.Union(
+	strictStruct({
+		...PluginCronFields,
+		lot: Schema.Literal("script"),
+		scriptSlug: sandboxManifestSlug,
+	}),
+	strictStruct({
+		...PluginCronFields,
+		lot: Schema.Literal("workflow"),
+		workflowSlug: sandboxManifestSlug,
+	}),
+);
 
 export type PluginCron = Schema.Schema.Type<typeof PluginCron>;
 
@@ -429,7 +442,7 @@ export const PluginManifest = PluginManifestFields.pipe(
 
 			const referencedScriptSlugs = [
 				...manifest.boot.map(({ scriptSlug }) => scriptSlug),
-				...manifest.crons.map(({ scriptSlug }) => scriptSlug),
+				...manifest.crons.flatMap((cron) => (cron.lot === "script" ? [cron.scriptSlug] : [])),
 				...manifest.operations.map(({ scriptSlug }) => scriptSlug),
 				...manifest.workflows.map(({ scriptSlug }) => scriptSlug),
 				...manifest.bindings.eventAutomations.map(({ scriptSlug }) => scriptSlug),
@@ -443,6 +456,9 @@ export const PluginManifest = PluginManifestFields.pipe(
 
 			return (
 				referencedScriptSlugs.every((scriptSlug) => scriptSlugs.has(scriptSlug)) &&
+				manifest.crons.every(
+					(cron) => cron.lot === "script" || workflowSlugs.has(cron.workflowSlug),
+				) &&
 				manifest.bindings.schemaProviderLinks.every(({ providerSlug }) =>
 					providerSlugs.has(providerSlug),
 				)

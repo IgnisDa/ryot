@@ -101,6 +101,40 @@ it("rejects definition collisions without replacing the current snapshot", () =>
 	expect(loader.getSnapshot()).toBe(original);
 });
 
+it("rejects invalid entity merge identity properties", () => {
+	const cases = [
+		{
+			expected: /merge identity property 'missing' is not defined/,
+			mergeIdentityProperties: ["missing"],
+		},
+		{
+			expected: /duplicate merge identity properties/,
+			mergeIdentityProperties: ["kind", "kind"],
+		},
+		{
+			expected: /merge identity property names cannot be empty/,
+			mergeIdentityProperties: [""],
+		},
+	];
+
+	for (const { expected, mergeIdentityProperties } of cases) {
+		const loader = makePluginLoader(makeDefinitionRegistry(emptySource));
+		const plugin = normalizedPlugin("1");
+		const entitySchema = plugin.manifest.entitySchemas[0];
+		assert(entitySchema);
+
+		expect(() =>
+			loader.load({
+				...plugin,
+				manifest: {
+					...plugin.manifest,
+					entitySchemas: [{ ...entitySchema, mergeIdentityProperties }],
+				},
+			}),
+		).toThrow(expected);
+	}
+});
+
 it("rejects script slug collisions across active plugins", () => {
 	const loader = makePluginLoader(makeDefinitionRegistry(emptySource));
 	loader.load(normalizedPlugin("1"));

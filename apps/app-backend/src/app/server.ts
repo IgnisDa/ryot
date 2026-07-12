@@ -26,7 +26,6 @@ import { GodModeRoutesLive } from "#modules/god-mode/routes";
 import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
 import { LibraryRoutesLive } from "#modules/library-membership/routes";
-import { MediaMonitoringRoutesLive } from "#modules/media-monitoring/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { PluginsRoutesLive } from "#modules/plugins/routes";
 import { QueryEngineRoutesLive } from "#modules/query-engine/routes";
@@ -96,9 +95,7 @@ const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(Layer.mergeAll(GodModeRoutesLive, TestSupportRoutesLive)),
 	Layer.provide(ImportsRoutesLive),
 	Layer.provide(Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive)),
-	Layer.provide(
-		Layer.mergeAll(MediaMonitoringRoutesLive, QueryEngineRoutesLive, InterestRoutesLive),
-	),
+	Layer.provide(Layer.mergeAll(QueryEngineRoutesLive, InterestRoutesLive)),
 	Layer.provide(AuthMiddlewareLive),
 	Layer.provide(AdminMiddlewareLive),
 	Layer.provide(UploadBodyLimitMiddlewareLive),

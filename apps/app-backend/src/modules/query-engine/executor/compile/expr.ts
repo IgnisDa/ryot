@@ -16,7 +16,7 @@ import {
 	propertyExtractTextSql,
 	schemaColumnSql,
 	systemColumnSql,
-	userVisibleSql,
+	rowVisibleSql,
 	type SqlFragment,
 } from "./fragments";
 import type { CompileScope, SqlRef } from "./scope";
@@ -623,7 +623,7 @@ const whereTail = (where: SqlFragment | null): SqlFragment => (where ? sql`AND $
 // scope its alias resolves in. Visibility is re-derived inline (schema-slug joins + user_id) at
 // every level, so nesting can never widen scope. Numbered aliases keep every level unique.
 const compileCorrelatedSource = (source: Source, parentScope: CompileScope): CorrelatedSource => {
-	const userId = parentScope.userId;
+	const executionScope = parentScope.executionScope;
 	const language = parentScope.language;
 	const suffix = parentScope.freshSuffix();
 
@@ -639,7 +639,7 @@ const compileCorrelatedSource = (source: Source, parentScope: CompileScope): Cor
 		const fromWhere = sql`
 			FROM event ${sql.raw(ev)}
 			WHERE ${sql.raw(ev)}.entity_id = ${sql.raw(anchor.sqlAlias)}.id
-				AND ${sql.raw(ev)}.user_id = ${userId}
+				AND ${rowVisibleSql("event", ev, executionScope)}
 				AND ${sql.raw(ev)}.event_schema_slug IN (${slugListSql(source.schemas)})
 				${whereTail(where)}
 		`;
@@ -656,7 +656,7 @@ const compileCorrelatedSource = (source: Source, parentScope: CompileScope): Cor
 		const where = source.where ? compileBool(source.where, scope) : null;
 		const fromWhere = sql`
 			FROM ${entitySourceSql(language)} ${sql.raw(e)}
-			WHERE ${userVisibleSql(e, userId)}
+			WHERE ${rowVisibleSql("entity", e, executionScope)}
 				AND ${sql.raw(e)}.entity_schema_slug IN (${slugListSql(source.schemas)})
 				${whereTail(where)}
 		`;
@@ -676,14 +676,19 @@ const compileCorrelatedSource = (source: Source, parentScope: CompileScope): Cor
 		]),
 	);
 	const where = source.where ? compileBool(source.where, scope) : null;
+	const endpoint = via.direction === "outgoing" ? "target" : "source";
 	const fromWhere = sql`
 		FROM relationship ${sql.raw(r)}
 		JOIN ${entitySourceSql(language)} ${sql.raw(e)} ON ${sql.raw(e)}.id = ${sql.raw(`${r}.${childColumn}`)}
 		WHERE ${sql.raw(`${r}.${anchorColumn}`)} = ${sql.raw(anchor.sqlAlias)}.id
 			AND ${sql.raw(r)}.relationship_schema_slug = ${via.schema}
 			AND ${sql.raw(e)}.entity_schema_slug IN (${slugListSql(source.schemas)})
-			AND ${userVisibleSql(r, userId)}
-			AND ${userVisibleSql(e, userId)}
+			AND ${rowVisibleSql("relationship", r, executionScope)}
+			AND ${rowVisibleSql("entity", e, executionScope, {
+				type: "relationshipEndpoint",
+				endpoint,
+				relationshipSchemaSlugs: [via.schema],
+			})}
 			${whereTail(where)}
 	`;
 	return { fromWhere, scope };

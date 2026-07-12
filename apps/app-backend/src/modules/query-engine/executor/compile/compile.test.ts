@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import { reconstructMeasureValue, reconstructOutputValue } from "../reconstruct";
 import { compileBool, compileValue } from "./expr";
-import { bucketStartSql, bucketStepSql, entitySourceSql } from "./fragments";
+import { bucketStartSql, bucketStepSql, entitySourceSql, rowVisibleSql } from "./fragments";
+import { compileIncludes } from "./includes";
 import { rootScope } from "./scope";
 
 type ComparisonOp = Extract<Expr, { type: "comparison" }>["operator"];
@@ -16,7 +17,7 @@ const render = (fragment: Parameters<typeof dialect.sqlToQuery>[0]) => dialect.s
 const scope = (language: string | null = null) =>
 	rootScope(
 		{ type: "entities", alias: "course", schemas: ["course"], where: null },
-		"user-1",
+		{ type: "user", userId: "user-1" },
 		language,
 	);
 
@@ -116,6 +117,129 @@ describe("compileBool", () => {
 		};
 		const { sql } = render(compileBool(aggExpr, scope()));
 		expect(sql).toContain("SELECT COUNT(*)");
+	});
+});
+
+describe("system query visibility", () => {
+	const system = {
+		type: "system" as const,
+		pluginSlug: "media",
+		eventSchemas: [],
+		entitySchemaSlugs: ["media"],
+		relationshipSchemaSlugs: ["media-monitoring"],
+	};
+
+	it("keeps entities global while allowing plugin relationship rows across users", () => {
+		const entity = render(rowVisibleSql("entity", "e", system));
+		const endpoint = render(
+			rowVisibleSql("entity", "e", system, {
+				type: "relationshipEndpoint",
+				endpoint: "target",
+				relationshipSchemaSlugs: ["media-monitoring"],
+			}),
+		);
+		const event = render(rowVisibleSql("event", "ev", system));
+		const relationship = render(rowVisibleSql("relationship", "r", system));
+
+		expect(entity.sql).toContain("e.user_id IS NULL");
+		expect(entity.params).toHaveLength(0);
+		expect(endpoint.sql).toBe("true");
+		expect(endpoint.params).toHaveLength(0);
+		expect(event.sql).toBe("true");
+		expect(event.params).toHaveLength(0);
+		expect(relationship.sql).toBe("true");
+		expect(relationship.params).toHaveLength(0);
+	});
+
+	it("preserves user visibility for entities, events, and relationships", () => {
+		const user = { type: "user" as const, userId: "user-1" };
+		const entity = render(rowVisibleSql("entity", "e", user));
+		const event = render(rowVisibleSql("event", "ev", user));
+		const relationship = render(rowVisibleSql("relationship", "r", user));
+
+		expect(entity.sql).toBe("(e.user_id = $1 OR e.user_id IS NULL)");
+		expect(entity.params).toEqual(["user-1"]);
+		expect(event.sql).toBe("(ev.user_id = $1 OR ev.user_id IS NULL)");
+		expect(event.params).toEqual(["user-1"]);
+		expect(relationship.sql).toBe("(r.user_id = $1 OR r.user_id IS NULL)");
+		expect(relationship.params).toEqual(["user-1"]);
+	});
+
+	it("limits cross-user entity visibility to relationship-bound correlated sources", () => {
+		const compileScope = rootScope(
+			{ type: "entities", alias: "media", schemas: ["media"], where: null },
+			system,
+			null,
+		);
+		const relationshipSource = {
+			where: null,
+			type: "entities" as const,
+			alias: "library",
+			schemas: ["library"] as [string, ...string[]],
+			via: {
+				alias: "monitoring",
+				direction: "outgoing" as const,
+				entityRef: "media",
+				schema: "media-monitoring",
+			},
+		};
+		const libraryId: Expr = {
+			type: "ref",
+			sourceAlias: "library",
+			field: { type: "system", name: "id" },
+		};
+		const fragments = [
+			compileBool({ type: "exists", source: relationshipSource }, compileScope),
+			compileValue(
+				{ type: "aggregate", source: relationshipSource, aggregation: { function: "count" } },
+				compileScope,
+			).value,
+			compileValue(
+				{
+					type: "first",
+					select: libraryId,
+					source: relationshipSource,
+					orderBy: [{ order: "asc", expr: libraryId }],
+				},
+				compileScope,
+			).value,
+			compileIncludes(
+				[
+					{
+						key: "libraries",
+						limit: 1,
+						include: [],
+						fields: [{ key: "id", expr: libraryId }],
+						source: relationshipSource,
+						orderBy: [{ order: "asc", expr: libraryId }],
+					},
+				],
+				compileScope,
+				"e",
+			).laterals,
+		];
+
+		for (const fragment of fragments) {
+			const compiled = render(fragment);
+			expect(compiled.sql).toContain("relationship");
+			expect(compiled.sql).not.toMatch(/e\d+\.user_id IS NULL/);
+		}
+
+		const direct = render(
+			compileBool(
+				{
+					type: "exists",
+					source: {
+						where: null,
+						type: "entities",
+						alias: "otherMedia",
+						schemas: ["media"],
+					},
+				},
+				compileScope,
+			),
+		);
+		expect(direct.sql).toMatch(/e\d+\.user_id IS NULL/);
 	});
 });
 

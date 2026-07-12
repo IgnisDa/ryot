@@ -332,6 +332,7 @@ export const details = defineProvider({
 			return {
 				name: title,
 				childEntities,
+				expectedChildEntitySchemaSlug: "podcast-episode",
 				relatedEntityGroups: [
 					{
 						entities: recommendations,

@@ -83,8 +83,12 @@ const AutomationSource = Schema.Union(
 
 const PopulationContext = Schema.Struct({
 	rootPreviouslyPopulated: Schema.Boolean,
-	owningSeason: Schema.optional(
-		Schema.Struct({ number: Schema.NullOr(Schema.Number), name: Schema.NullOr(Schema.String) }),
+	parentEntity: Schema.optional(
+		Schema.Struct({
+			name: Schema.String,
+			properties: AutomationProperties,
+			entitySchemaSlug: Schema.String,
+		}),
 	),
 	scopeEntity: Schema.Struct({
 		id: EntityId,

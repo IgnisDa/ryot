@@ -3,6 +3,7 @@ import { DateTime, Effect, Option } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
+import type { QueryExecutionScope } from "../execution-scope";
 import { compileBool, compileScalar } from "./compile/expr";
 import { bucketStartSql, bucketStepSql, timeRangeConditionSql } from "./compile/fragments";
 import { rootScope } from "./compile/scope";
@@ -47,7 +48,7 @@ const formatBoundary = (value: unknown): string => {
 // so empty buckets surface as 0 with no app-side grid construction. Grid math runs in naive-UTC
 // `timestamp` space, so stepping is timezone-independent and the join keys match date_trunc exactly.
 export const executeTimeSeriesQuery = Effect.fn("executeTimeSeriesQuery")(function* (
-	userId: string,
+	executionScope: QueryExecutionScope,
 	language: string | null,
 	doc: TimeSeriesQueryDocument,
 ) {
@@ -61,13 +62,13 @@ export const executeTimeSeriesQuery = Effect.fn("executeTimeSeriesQuery")(functi
 	const rangeEnd = DateTime.formatIso(endAt.value);
 
 	const { bucket } = output.time;
-	const scope = rootScope(source, userId, language);
+	const scope = rootScope(source, executionScope, language);
 	const timeColSql = compileScalar(output.time.expr, scope, "date");
 	const conditions = [
 		...(source.where ? [compileBool(source.where, scope)] : []),
 		timeRangeConditionSql(timeColSql, rangeStart, rangeEnd),
 	];
-	const fromWhere = yield* rootSourceFromWhereSql(userId, language, source, conditions);
+	const fromWhere = yield* rootSourceFromWhereSql(executionScope, language, source, conditions);
 
 	const measure = measureExprSql(output.measure.aggregation, scope);
 	const step = bucketStepSql(bucket);

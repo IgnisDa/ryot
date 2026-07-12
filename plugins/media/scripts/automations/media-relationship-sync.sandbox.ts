@@ -3,6 +3,8 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
+import { getSeasonContext, isSpecialSeason } from "./season-context";
+
 export const manifest = defineManifest({
 	kind: "automation",
 	requiredAppConfigKeys: [],
@@ -10,10 +12,6 @@ export const manifest = defineManifest({
 	name: "Media Relationship Sync Detector",
 	slug: "automation.media-relationship-sync",
 });
-
-const isSpecialSeason = (season: { name: string | null; number: number | null } | undefined) =>
-	season?.number === 0 ||
-	["special", "specials"].includes(season?.name?.trim().toLowerCase() ?? "");
 
 export default defineAutomation({
 	manifest,
@@ -25,6 +23,7 @@ export default defineAutomation({
 		if (!snapshot || !population?.rootPreviouslyPopulated || !batch?.isLeader) {
 			return Effect.succeed(null);
 		}
+		const season = getSeasonContext(population.parentEntity);
 
 		const properties: Record<string, JsonValue> = {
 			oldCount: batch.beforeCount,
@@ -46,9 +45,9 @@ export default defineAutomation({
 			(snapshot.relationshipSchemaSlug === "show-season-to-show-episode" ||
 				snapshot.relationshipSchemaSlug === "podcast-to-podcast-episode") &&
 			batch.createdCount > 0 &&
-			!isSpecialSeason(population.owningSeason)
+			!isSpecialSeason(season)
 		) {
-			const seasonNumber = population.owningSeason?.number;
+			const seasonNumber = season?.seasonNumber;
 			return host.emitSignal({
 				discriminator: batch.id,
 				schemaSlug: "media.episode.discovered",

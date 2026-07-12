@@ -1,8 +1,10 @@
 # Plugin System Rewrite — Overview
 
-Status: in progress. Phases 1 and 2 and Phase 3 steps 0-4 are complete; resume with Phase 3
-step 5 — `media-monitoring` and remaining media logic. Step 4's deferred imports e2e failure is
-recorded in `03-phase-3-capability-migrations.md` §4 and must be closed before the Phase 3 gate.
+Status: in progress. Phases 1 and 2, Phase 3 steps 0-4, and the Step 5 migration and purity
+triage are complete. Resume with Task 11's operational and deferred gate closure; do not repeat
+the Step 5 implementation. The opt-in operational gate timed out at two concurrent 1,001-item
+imports, and the owner-skipped Task 10 imports e2e failure also remains open.
+Neither Task 11 nor the Phase 3 gate is complete.
 Branch: `ultra-rewrite` (all work is local; there is no
 CI and `apps/app-backend` is not deployed anywhere, so there are no release, rollout, or
 data-migration constraints — dev databases are wipeable and the initial drizzle migration may
@@ -267,25 +269,26 @@ the named surfaces, but do not restore the superseded architecture.
 
 ### Native domain modules (the code that must end up inside plugins)
 
-The remaining native domain work begins at Phase 3 step 4: integration sink/yank adapters
-(`modules/integrations/{sinks,yank}/*`), the nineteen import-source adapters plus the
-media/non-media orchestration split (`modules/imports/{sources,media,workout,measurement}/*`),
-then `media-monitoring` and residual media branches in step 5. `media-trending`, `exercises`,
-`metadata-lookup`, `episode-resolver`, and the media import population/resolution workflows have
-already moved into plugins and their native code is deleted.
+The Phase 3 domain migrations are complete. Native `media-monitoring` and its contract are deleted;
+operations, workflows, and crons are plugin-owned, and no media- or fitness-specific module remains
+outside the documented `modules/legacy-bootstrap` V1-adoption quarantine. The comprehensive kernel
+purity grep and triage are recorded in `03-phase-3-capability-migrations.md`; Phase 3 remains open for
+the operational gate and the owner-skipped Task 10 imports e2e follow-up, not Step 5 implementation.
 
 ### Contract (`libs/contract/src/modules/`)
 
-Schema CRUD, tracker, metadata-lookup, and public sandbox-script groups are gone. Generic
-`definitions` and `plugins` groups expose the code-owned registry and plugin install/invoke
-surfaces. The remaining domain-specific `media-monitoring` surface migrates in Phase 3 step 5.
+Schema CRUD, tracker, metadata-lookup, media-monitoring, and public sandbox-script groups are gone.
+Generic `definitions` and `plugins` groups expose the code-owned registry and plugin install/invoke
+surfaces.
 
 ### E2e suite (`tests/`)
 
 The suite uses one shared backend per run and Effect-native fixtures. Hermetic provider coverage
-installs real test plugins with stable logical providers and separate operation scripts. The
-single-entrypoint final gate passed 78 files and 491 tests; re-baseline counts as later phases add,
-remove, or reorganize suites. Conventions live in `tests/AGENTS.md`.
+installs real test plugins with stable logical providers and separate operation scripts. The Step 5
+media-monitoring suites pass unchanged (4 files, 13 tests), and the system-query suite passes 9 tests
+covering 11 cases; combined, they pass 5 files and 22 tests. The full e2e gate is not green: the owner
+skipped Task 10's imports failure, and the opt-in operational test remains a blocker. Conventions
+live in `tests/AGENTS.md`.
 
 ## Target architecture (end state)
 

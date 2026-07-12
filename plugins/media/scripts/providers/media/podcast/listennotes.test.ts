@@ -109,6 +109,7 @@ describe("podcast.listennotes sandbox script", () => {
 			runSandboxTestScript(details, { externalId: "pod-1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("My Podcast");
+					expect(result.expectedChildEntitySchemaSlug).toBe("podcast-episode");
 					expect(result.childEntities).toEqual([
 						{
 							entitySchemaSlug: "podcast-episode",

@@ -166,6 +166,14 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.createEvents(input, ...args),
 		defaultFailure("createEvents", "createEvents expects an array of event items"),
 	),
+	changeUserRelationships: bindHostFunction(
+		domainSandboxHostContracts.changeUserRelationships,
+		(...args) => implementations.changeUserRelationships(input, ...args),
+		defaultFailure(
+			"changeUserRelationships",
+			"changeUserRelationships expects an array of valid change batches",
+		),
+	),
 	upsertGlobalEntities: bindHostFunction(
 		domainSandboxHostContracts.upsertGlobalEntities,
 		(...args) => implementations.upsertGlobalEntities(input, ...args),

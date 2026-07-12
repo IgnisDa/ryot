@@ -1,5 +1,6 @@
 import {
 	claimCachedValueResultSchema,
+	changeUserRelationshipsArgsSchema,
 	httpCallArgsSchema,
 	httpCallResultSchema,
 	logArgsSchema,
@@ -142,6 +143,39 @@ describe("shared value contracts", () => {
 		expect(() =>
 			decode(upsertGlobalRelationshipsArgsSchema)([
 				[{ relationships: [], selector: { type: "all" }, relationshipSchemaSlug: "acted-in" }],
+			]),
+		).toThrow();
+	});
+
+	test("validates generic user relationship change batches", () => {
+		const identity = {
+			sourceEntityId: "entity-1",
+			targetEntityId: "collection-1",
+			relationshipSchemaSlug: "member-of",
+		};
+		expect(
+			decode(changeUserRelationshipsArgsSchema)([
+				[
+					{
+						deletes: [],
+						creates: [{ ...identity, properties: {} }],
+					},
+				],
+			]),
+		).toHaveLength(1);
+		expect(() =>
+			decode(changeUserRelationshipsArgsSchema)([
+				[{ creates: [], deletes: [], userId: "caller-selected" }],
+			]),
+		).toThrow();
+		expect(() =>
+			decode(changeUserRelationshipsArgsSchema)([
+				[
+					{
+						creates: Array.from({ length: 51 }, () => ({ ...identity, properties: {} })),
+						deletes: Array.from({ length: 50 }, () => identity),
+					},
+				],
 			]),
 		).toThrow();
 	});

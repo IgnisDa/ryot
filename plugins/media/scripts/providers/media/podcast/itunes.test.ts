@@ -101,6 +101,7 @@ describe("podcast.itunes sandbox script", () => {
 			runSandboxTestScript(details, { externalId: "p1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("The Podcast");
+					expect(result.expectedChildEntitySchemaSlug).toBe("podcast-episode");
 					expect(result.childEntities).toEqual([
 						{
 							entitySchemaSlug: "podcast-episode",

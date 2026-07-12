@@ -31,24 +31,24 @@ and you record the choice you make in the plan file.
 
 **Overall Progress:** 10 of 12 tasks completed
 
-**Current Task:** [Task 11](./11-media-monitoring-and-phase-gate.md) (todo)
+**Current Task:** [Task 11](./11-media-monitoring-and-phase-gate.md) (in progress)
 
 ### Task List
 
-| #   | Task                                                                                                        | Type | Status |
-| --- | ----------------------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Step 0a — Effect-Native Sandbox Cutover](./01-effect-native-sandbox-cutover.md)                            | AFK  | done   |
-| 02  | [Step 0b — Structured Sandbox Observability](./02-structured-sandbox-observability.md)                      | AFK  | done   |
-| 03  | [Step 1 — Crons & Boot: media-trending + exercises](./03-crons-trending-exercises.md)                       | AFK  | done   |
-| 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md) | AFK  | done   |
-| 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                          | HITL | done   |
-| 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)   | AFK  | done   |
-| 07  | [Step 4a — Kernel Capability: Manifest Sections, FS Grants, Deps](./07-integration-import-kernel-capability.md) | AFK | done |
-| 08  | [Step 4b — Integration Adapters: Sinks + Yanks into media](./08-integration-adapters-media.md)              | AFK  | done   |
-| 09  | [Step 4c — Import Framework Collapse + Fitness Import Sources](./09-import-framework-fitness-sources.md)    | AFK  | done   |
-| 10  | [Step 4d — Media Import Sources into media](./10-media-import-sources.md)                                   | AFK  | done   |
-| 11  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./11-media-monitoring-and-phase-gate.md)   | AFK  | todo   |
-| 12  | [Codebase Cleanup](./12-codebase-cleanup.md)                                                                | AFK  | todo   |
+| #   | Task                                                                                                            | Type | Status      |
+| --- | --------------------------------------------------------------------------------------------------------------- | ---- | ----------- |
+| 01  | [Step 0a — Effect-Native Sandbox Cutover](./01-effect-native-sandbox-cutover.md)                                | AFK  | done        |
+| 02  | [Step 0b — Structured Sandbox Observability](./02-structured-sandbox-observability.md)                          | AFK  | done        |
+| 03  | [Step 1 — Crons & Boot: media-trending + exercises](./03-crons-trending-exercises.md)                           | AFK  | done        |
+| 04  | [Step 2 — Operations/invoke: metadata-lookup + episode-resolver](./04-operations-invoke-lookup-resolver.md)     | AFK  | done        |
+| 05  | [Step 3a — Durable Workflow Spike](./05-durable-workflow-spike.md)                                              | HITL | done        |
+| 06  | [Step 3b — Durable Workflows: media import population/resolution](./06-durable-workflows-media-import.md)       | AFK  | done        |
+| 07  | [Step 4a — Kernel Capability: Manifest Sections, FS Grants, Deps](./07-integration-import-kernel-capability.md) | AFK  | done        |
+| 08  | [Step 4b — Integration Adapters: Sinks + Yanks into media](./08-integration-adapters-media.md)                  | AFK  | done        |
+| 09  | [Step 4c — Import Framework Collapse + Fitness Import Sources](./09-import-framework-fitness-sources.md)        | AFK  | done        |
+| 10  | [Step 4d — Media Import Sources into media](./10-media-import-sources.md)                                       | AFK  | done        |
+| 11  | [Step 5 — media-monitoring + Remaining Media Logic + Phase Gate](./11-media-monitoring-and-phase-gate.md)       | AFK  | in progress |
+| 12  | [Codebase Cleanup](./12-codebase-cleanup.md)                                                                    | AFK  | todo        |
 
 Steps are strictly ordered (`00-overview.md` phase ordering; plan intro): each task starts only
 after the previous task's done criteria and gates pass (one capability in flight at a time,
@@ -65,14 +65,13 @@ large migration lands on it. Every design question in Step 4 was settled with th
 
 ## Problem Statement
 
-Phases 1 and 2 and Phase 3 Steps 0-3 are complete. The plugin format, loader, direct-script
-runtime, logical providers, authority model, crons, boot entries, operations, and durable workflows
-are established; `media-trending`, `exercises`, `metadata-lookup`, `episode-resolver`, and the media
-import population/resolution workflows have moved into plugins. The remaining domain logic is the
-integration sink/yank adapters, all nineteen import-source adapters plus the media/non-media import
-orchestration split, `media-monitoring`, and residual media branches. Until this
-code moves into plugins, the kernel-purity goal (Decision 2 — no media/fitness strings, branches,
-or imports) remains unmet and the syscall surface is not yet proven against all real workloads.
+Phases 1 and 2, Phase 3 Steps 0-4, and the Step 5 migration and comprehensive purity triage are
+complete. Native `media-monitoring` and its contract are deleted; operations, workflows, and crons
+are plugin-owned; and no media- or fitness-specific module remains outside the documented
+`legacy-bootstrap` V1-adoption quarantine. Task 11 remains in progress, and overall progress stays
+at 10 of 12, because the full Phase 3 gate is not closed: the opt-in operational gate timed out at its
+two-concurrent-1,001-item workload, and the owner-skipped Task 10 imports e2e failure has not been
+rerun or waived. The branch and full e2e suite are not recorded as green.
 
 The full rationale, and why this phase comes third, is in
 `docs/plans/plugin-system/00-overview.md` (see "Sequencing rationale": Phase 3 "orders
@@ -275,26 +274,26 @@ duration)` (durable timer), and `child(name, workflowRef, input)` (composes anot
 32. As the owner, I want push targets (radarr/sonarr/jellyfin) — already sandbox trigger
     scripts whose binding declarations moved in Phase 2 — to need no further migration here, so
     that step 4 does not redo Phase 2 work (plan §4).
-42. As the owner, I want `settingsSchema` expressed as a declarative `AppSchema` validated by the
+33. As the owner, I want `settingsSchema` expressed as a declarative `AppSchema` validated by the
     existing property-schema runtime, and a `secret?: true` flag on `AppPropertyBase` that makes
     the client render a password input and makes the kernel **redact marked fields when an
     integration is read**, so that the hardcoded provider-specifics union leaves the kernel and
     stored credentials stop being returned in plaintext (an owner-signed-off behavioral change;
     Decision 6; plan §4).
-43. As the owner, I want an `importSources` manifest section and the kernel's media-versus-non-media
+34. As the owner, I want an `importSources` manifest section and the kernel's media-versus-non-media
     import branch collapsed into **one** registry-driven dispatch path (resolve the run's source
     slug to its owning plugin's workflow), so that the kernel stops knowing which sources are media
     (Decision 2; plan §4).
-44. As a sandbox adapter script, I want to return output too large for `execution.resultBytes` by
+35. As a sandbox adapter script, I want to return output too large for `execution.resultBytes` by
     writing chunk files into my granted scratch directory and returning a small manifest, with the
     **kernel** harvesting those files at execution end into run-scoped storage before cleanup, so
     that full-size imports cross the boundary without raising `resultBytes` and re-introducing the
     context-pressure failure mode the step-3 spike hit (Decision 10; plan §4).
-45. As the kernel, I want to keep ownership of every entity, event, and relationship write — plugins
+36. As the kernel, I want to keep ownership of every entity, event, and relationship write — plugins
     parse and orchestrate, they never write import results — so that the four proposed run-scoped
     syscalls (`putRunBlobs`, `getRunBlobs`, `recordImportFailures`, `reportImportProgress`) are
     **not built** and the kernel still owns counters and failure rows (Decision 8; plan §4).
-46. As the owner, I want `ImportMediaEvent.episodeLocator` replaced by an already-resolved optional
+37. As the owner, I want `ImportMediaEvent.episodeLocator` replaced by an already-resolved optional
     `subjectEntityId`, with the plugin workflow resolving subjects between population and writing
     via its own `resolve-episodes` operation, so that the kernel writing path collapses to
     `subjectEntityId ?? group.entityId` and `event-target-workflow.ts` — which imports
@@ -410,6 +409,12 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
 
 ## Testing Decisions
 
+- **Current verification:** the system-query suite passes 1 file and 9 tests covering 11 cases; the
+  media-monitoring suites pass 4 files and 13 tests; combined they pass 5 files and 22 tests. Backend
+  unit tests pass 131 files and 931 tests, media-plugin tests pass 92 files and 351 tests, and the
+  backend, app-client, and media-plugin checks pass with zero warnings. These focused results do not
+  close the owner-skipped Task 10 imports failure or the timed-out two-concurrent-1,001-item
+  operational gate.
 - **What a good test is here:** the e2e suite (`tests/`) is the behavioral spec (Decision 16),
   and this phase migrates it in lockstep with each capability — plumbing changes (native
   modules become plugin scripts, contract endpoints become `invoke`, ids/fixtures shift), but

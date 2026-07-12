@@ -48,7 +48,13 @@ import {
 	makeSandboxObservabilityCollector,
 	mergeSandboxExecutionLogs,
 } from "./observability-host-functions";
-import { BridgeService, invalidateProcess, ProcessPool } from "./runtime";
+import {
+	BridgeService,
+	invalidateProcess,
+	ProcessPool,
+	recordSandboxExecutionFinished,
+	recordSandboxExecutionStarted,
+} from "./runtime";
 import {
 	type BoundHostFunction,
 	isJsonValue,
@@ -68,6 +74,8 @@ const invalidResponseMessage = "Invalid JSON response from Deno process";
 type BunRequestInit = RequestInit & { tls: { rejectUnauthorized: boolean } };
 const insecureRequestInit: BunRequestInit = { tls: { rejectUnauthorized: false } };
 const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
+const systemActivityHostFunctions = new Set<string>(["executeQueryEngine"]);
+const userAuthorityHostFunctions = new Set<string>(["changeUserRelationships"]);
 const automationHostFunctions = new Set<string>(AUTOMATION_SANDBOX_HOST_CAPABILITIES);
 const systemCronHostFunctions = new Set<string>(SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES);
 
@@ -86,6 +94,12 @@ export const selectSandboxHostFunctions = (
 		input.metadata !== null &&
 		"kind" in input.metadata &&
 		input.metadata.kind === "script";
+	const isSystemActivity =
+		input.authority.type === "system" &&
+		typeof input.metadata === "object" &&
+		input.metadata !== null &&
+		"kind" in input.metadata &&
+		input.metadata.kind === "activity";
 	for (const key of input.allowedHostFunctions) {
 		// `artifact-read` and `scratch` are per-execution Deno permission grants honoured at spawn
 		// time, never bridge-callable syscalls, so they must never resolve to a bound host function.
@@ -98,7 +112,11 @@ export const selectSandboxHostFunctions = (
 			(!automationHostFunctions.has(key) ||
 				input.authority.type === "subscription" ||
 				(input.authority.type === "system" && key === "emitSignal")) &&
-			(!systemCronHostFunctions.has(key) || isSystemScript)
+			(!systemCronHostFunctions.has(key) || isSystemScript) &&
+			(input.authority.type !== "system" ||
+				!systemActivityHostFunctions.has(key) ||
+				isSystemActivity) &&
+			(!userAuthorityHostFunctions.has(key) || input.authority.type === "user")
 		) {
 			selectedApiFunctions[key] = fn;
 		}
@@ -289,6 +307,8 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					const worker = dedicated
 						? yield* processes.spawnDedicated(grants)
 						: yield* processes.pool.get;
+					recordSandboxExecutionStarted();
+					yield* Effect.addFinalizer(() => Effect.sync(recordSandboxExecutionFinished));
 					if (!dedicated) {
 						yield* Effect.addFinalizer(() =>
 							invalidateProcess(processes.pool, worker).pipe(Effect.orDie),

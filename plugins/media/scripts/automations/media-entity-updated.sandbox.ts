@@ -3,6 +3,8 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
+import { getSeasonContext, isSpecialSeason } from "./season-context";
+
 export const manifest = defineManifest({
 	kind: "automation",
 	requiredAppConfigKeys: [],
@@ -54,10 +56,6 @@ const sameImages = (before: JsonValue | undefined, after: JsonValue | undefined)
 	return beforeSet.size === afterSet.size && [...beforeSet].every((image) => afterSet.has(image));
 };
 
-const isSpecialSeason = (season: { name: string | null; number: number | null } | undefined) =>
-	season?.number === 0 ||
-	["special", "specials"].includes(season?.name?.trim().toLowerCase() ?? "");
-
 export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
@@ -76,6 +74,7 @@ export default defineAutomation({
 		const before = source.before;
 		const after = source.after;
 		const scope = population.scopeEntity;
+		const season = getSeasonContext(population.parentEntity);
 		const emissions: Array<ReturnType<typeof host.emitSignal>> = [];
 		const emit = (
 			schemaSlug: string,
@@ -136,13 +135,13 @@ export default defineAutomation({
 
 		if (
 			(after.entitySchemaSlug === "show-episode" || after.entitySchemaSlug === "podcast-episode") &&
-			!isSpecialSeason(population.owningSeason)
+			!isSpecialSeason(season)
 		) {
 			const episodeNumber =
 				numberValue(after.properties["episodeNumber"]) ??
 				numberValue(before.properties["episodeNumber"]);
 			if (episodeNumber !== null && Number.isInteger(episodeNumber)) {
-				const seasonNumber = population.owningSeason?.number;
+				const seasonNumber = season?.seasonNumber;
 				const episodeProperties = {
 					entityName: scope.name,
 					episodeNumber,

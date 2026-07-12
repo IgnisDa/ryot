@@ -11,14 +11,14 @@ import type {
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Schema } from "effect";
 
-const JsonValueSchema: Schema.Schema<JsonValue, JsonValue> = Schema.suspend(() =>
+export const SandboxJsonValueSchema: Schema.Schema<JsonValue, JsonValue> = Schema.suspend(() =>
 	Schema.Union(
 		Schema.Null,
 		Schema.String,
 		Schema.Number,
 		Schema.Boolean,
-		Schema.Array(JsonValueSchema),
-		Schema.Record({ key: Schema.String, value: JsonValueSchema }),
+		Schema.Array(SandboxJsonValueSchema),
+		Schema.Record({ key: Schema.String, value: SandboxJsonValueSchema }),
 	),
 ).annotations({ identifier: "SandboxJsonValue" });
 
@@ -43,9 +43,9 @@ const ProviderSearchItemSchema: Schema.Schema<ProviderSearchItem, ProviderSearch
 	Schema.Struct({
 		titleProperty: TextProperty,
 		externalId: NonEmptyTrimmedString,
-		imageProperty: Schema.optional(JsonValueSchema),
-		calloutProperty: Schema.optional(JsonValueSchema),
-		secondarySubtitleProperty: Schema.optional(JsonValueSchema),
+		imageProperty: Schema.optional(SandboxJsonValueSchema),
+		calloutProperty: Schema.optional(SandboxJsonValueSchema),
+		secondarySubtitleProperty: Schema.optional(SandboxJsonValueSchema),
 		primarySubtitleProperty: Schema.optional(Schema.Union(NullProperty, NumberProperty)),
 	}).annotations(strict);
 
@@ -67,7 +67,7 @@ const ProviderDetailsRelatedEntitySchema: Schema.Schema<
 	name: Schema.String,
 	externalId: Schema.String,
 	providerSlug: Schema.String,
-	relationshipProperties: Schema.optional(JsonValueSchema),
+	relationshipProperties: Schema.optional(SandboxJsonValueSchema),
 }).annotations(strict);
 
 export const ProviderDetailsRelatedEntityGroupSchema: Schema.Schema<
@@ -87,8 +87,9 @@ export const ProviderDetailsChildEntitySchema: Schema.Schema<
 	Schema.Struct({
 		name: Schema.String,
 		externalId: Schema.String,
-		properties: JsonValueSchema,
+		properties: SandboxJsonValueSchema,
 		entitySchemaSlug: Schema.String,
+		expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
 		childEntities: Schema.optional(Schema.Array(ProviderDetailsChildEntitySchema)),
 	}).annotations(strict),
 ).annotations({ identifier: "ProviderDetailsChildEntity" });
@@ -96,7 +97,8 @@ export const ProviderDetailsChildEntitySchema: Schema.Schema<
 const ProviderDetailsResultSchema: Schema.Schema<ProviderDetailsResult, ProviderDetailsResult> =
 	Schema.Struct({
 		name: Schema.String,
-		properties: JsonValueSchema,
+		properties: SandboxJsonValueSchema,
+		expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
 		childEntities: Schema.optional(Schema.Array(ProviderDetailsChildEntitySchema)),
 		relatedEntityGroups: Schema.optional(Schema.Array(ProviderDetailsRelatedEntityGroupSchema)),
 	}).annotations(strict);
@@ -110,7 +112,7 @@ const ProviderTranslateResultSchema: Schema.Schema<
 > = Schema.Struct({
 	name: Schema.optional(Schema.NullOr(Schema.String)),
 	properties: Schema.optional(
-		Schema.NullOr(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
+		Schema.NullOr(Schema.Record({ key: Schema.String, value: SandboxJsonValueSchema })),
 	),
 }).annotations(strict);
 

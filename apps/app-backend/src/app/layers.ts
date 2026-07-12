@@ -66,9 +66,6 @@ import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-mem
 import { EnsureLibraryMembershipWorkerLive } from "#modules/library-membership/membership-worker";
 import { LibraryEntityImportWorkflowOperationsLive } from "#modules/library-membership/operations-workflow";
 import { LibraryImportService } from "#modules/library-membership/service";
-import { MediaMonitoringRefreshWorkflowDefinitionsLive } from "#modules/media-monitoring/refresh-workflow";
-import { MediaMonitoringRepository } from "#modules/media-monitoring/repository";
-import { MediaMonitoringService } from "#modules/media-monitoring/service";
 import { NotificationDeliveryService } from "#modules/notifications/delivery";
 import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
 import { NotificationsRepository } from "#modules/notifications/repository";
@@ -91,7 +88,6 @@ import { SandboxExecutionService } from "#modules/sandbox/service";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
-import { InfrequentCronSchedulerLive } from "#modules/scheduler/infrequent-cron";
 import { PluginBootDispatcherLive, PluginBootService } from "#modules/scheduler/plugin-boot";
 import { PluginCronSchedulerLive, PluginCronService } from "#modules/scheduler/plugin-cron";
 import { SignalsRepository } from "#modules/signals/repository";
@@ -101,15 +97,13 @@ import {
 	SignalsService,
 } from "#modules/signals/service";
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
+import { OperationalGateService } from "#modules/test-support/operational-gate-service";
 import { TestSupportService } from "#modules/test-support/service";
 import { UploadsService } from "#modules/uploads/service";
 import { UserPreferencesService } from "#modules/user-preferences/service";
 import { UserStateService } from "#modules/user-state/service";
 
-import {
-	FrequentCronWorkflowDefinitionsLive,
-	InfrequentCronWorkflowDefinitionsLive,
-} from "./cron-workflow-definitions";
+import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 import { ServerLive } from "./server";
 
@@ -128,7 +122,6 @@ const BaseInfrastructureLive = Layer.provide(BaseInfrastructureServicesLive, Con
 const ContentRepositoriesLive = Layer.mergeAll(
 	CollectionsRepository.Default,
 	EntitiesRepository.Default,
-	MediaMonitoringRepository.Default,
 	EntitySchemasRepository.Default,
 	EventSchemasRepository.Default,
 	EventsRepository.Default,
@@ -278,9 +271,9 @@ const ContentServicesLive = Layer.mergeAll(
 	TranslationsService.Default,
 );
 
-const UserStateServiceLive = Layer.provide(
-	UserStateService.Default,
-	Layer.mergeAll(EventsServiceLive, RelationshipsService.Default),
+const UserStateServiceLive = UserStateService.Default.pipe(
+	Layer.provide(Layer.mergeAll(EventsServiceLive, RelationshipsService.Default)),
+	Layer.provide(PluginLoaderLive),
 );
 
 const ImportsServiceLive = Layer.provideMerge(
@@ -315,28 +308,6 @@ const ServicesBaseLive = Layer.provideMerge(
 	CollectionsServiceLive,
 );
 
-const MediaMonitoringRelationshipsServiceLive = Layer.provide(
-	RelationshipsService.Default,
-	RelationshipsRepository.Default,
-);
-
-const MediaMonitoringCollectionsServiceLive = Layer.provideMerge(
-	CollectionsServiceLive,
-	Layer.mergeAll(RelationshipSchemasRepository.Default, RelationshipsRepository.Default),
-);
-
-const MediaMonitoringServiceDependenciesLive = Layer.mergeAll(
-	MediaMonitoringCollectionsServiceLive,
-	QueryEngineServiceLive,
-	MediaMonitoringRepository.Default,
-	MediaMonitoringRelationshipsServiceLive,
-);
-
-const MediaMonitoringServiceLive = Layer.provide(
-	MediaMonitoringService.Default,
-	MediaMonitoringServiceDependenciesLive,
-);
-
 const ContentAndSandboxServicesLive = Layer.provideMerge(ServicesBaseLive, SandboxServicesLive);
 
 const OperationsServiceLive = Layer.provide(
@@ -348,14 +319,16 @@ const ServicesLive = Layer.mergeAll(
 	ContentAndSandboxServicesLive,
 	PluginIngestionServiceLive,
 	OperationsServiceLive,
-	MediaMonitoringServiceLive,
 	InterestServicesLive,
 	LifecycleDispatchLayerLive,
 	PluginBootService.Default,
 	PluginCronService.Default,
 );
 
-const ServicesWithTestSupportLive = Layer.provideMerge(TestSupportService.Default, ServicesLive);
+const ServicesWithTestSupportLive = Layer.provideMerge(
+	Layer.mergeAll(TestSupportService.Default, OperationalGateService.Default),
+	ServicesLive,
+);
 
 const RuntimeLive = Layer.mergeAll(
 	AddEntityToCollectionWorkflowDefinitionsLive,
@@ -364,7 +337,6 @@ const RuntimeLive = Layer.mergeAll(
 	EventCreateWorkflowDefinitionsLive,
 	LibraryEntityImportWorkflowDefinitionsLive,
 	NotificationDeliveryWorkflowDefinitionsLive,
-	MediaMonitoringRefreshWorkflowDefinitionsLive,
 	IntegrationReconciliationWorkflowDefinitionsLive,
 	EnsureLibraryMembershipWorkerLive,
 	ImportWorkflowDefinitionsLive,
@@ -374,9 +346,7 @@ const RuntimeLive = Layer.mergeAll(
 	TranslateEntityWorkflowDefinitionsLive,
 	ServerLive,
 	FrequentCronWorkflowDefinitionsLive,
-	InfrequentCronWorkflowDefinitionsLive,
 	FrequentCronSchedulerLive,
-	InfrequentCronSchedulerLive,
 	PluginBootDispatcherLive,
 	PluginCronSchedulerLive,
 );

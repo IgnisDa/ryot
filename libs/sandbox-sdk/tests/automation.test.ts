@@ -6,7 +6,7 @@ import {
 	defineAutomation,
 	defineAutomationPolicy,
 } from "@ryot/sandbox-sdk/automation";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { describe, expect, test } from "vitest";
 
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
@@ -42,5 +42,33 @@ describe("automation definitions", () => {
 		});
 		expect(automation).not.toHaveProperty("drivers");
 		expect(policy).not.toHaveProperty("drivers");
+	});
+
+	test("accepts generic population parent context", () => {
+		const input = Schema.decodeUnknownSync(automationInputSchema)({
+			automation: {
+				ruleId: "rule-1",
+				operation: "update",
+				origin: { kind: "provider_refresh" },
+				occurrenceId: "occurrence-1",
+				occurredAt: "2026-07-29T00:00:00.000Z",
+				source: { kind: "entity" },
+				population: {
+					rootPreviouslyPopulated: true,
+					scopeEntity: { id: "root-1", name: "Root", entitySchemaSlug: "root" },
+					parentEntity: {
+						name: "Container",
+						properties: { ordinal: 1 },
+						entitySchemaSlug: "container",
+					},
+				},
+			},
+		});
+
+		expect(input.automation.population?.parentEntity).toEqual({
+			name: "Container",
+			properties: { ordinal: 1 },
+			entitySchemaSlug: "container",
+		});
 	});
 });

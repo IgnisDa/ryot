@@ -25,7 +25,7 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 
 ## Slim Migration Strategy
 
-The migration copies **user-generated data in full** and **provider-sourced ("global") data only as far as user data references it**. Provider entities (`metadata`, `metadata_group`, `person`/company and their season/episode children) are fully reconstructable on demand: V2's entity population workflow refetches an entity from its provider using the `(external_id, entity_schema_slug, sandbox_script_id)` tuple and rebuilds its `name`/`properties`, child entities, and all related-entity relationships (cast/crew, group membership, genres, media suggestions). A skeleton row (`populated_at = NULL`, `properties = {}`) is a first-class state that populates lazily on first view (interest declaration) or via the media-monitoring refresh cron.
+The migration copies **user-generated data in full** and **provider-sourced ("global") data only as far as user data references it**. Provider entities (`metadata`, `metadata_group`, `person`/company and their season/episode children) are fully reconstructable on demand: V2's entity population workflow refetches an entity from its provider using the `(external_id, entity_schema_slug, sandbox_script_id)` tuple and rebuilds its `name`/`properties`, child entities, and all related-entity relationships (cast/crew, group membership, genres, media suggestions). A skeleton row (`populated_at = NULL`, `properties = {}`) is a first-class state that populates lazily through declared interest or a plugin workflow.
 
 Consequences that drive the design below:
 

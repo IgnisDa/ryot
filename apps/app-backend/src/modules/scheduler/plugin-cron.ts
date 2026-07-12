@@ -7,6 +7,7 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
+import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
 
 type ActivePluginCron = {
 	readonly cron: PluginCron;
@@ -44,23 +45,44 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 			entry: ActivePluginCron,
 			executionId: string,
 		) {
-			const script = yield* runWithDb(runtime.findActiveScript(entry.cron.scriptSlug));
+			const script = yield* runWithDb(
+				entry.cron.lot === "script"
+					? runtime.findActiveScript(entry.cron.scriptSlug)
+					: runtime.findActiveWorkflowScript({
+							pluginSlug: entry.pluginSlug,
+							workflowSlug: entry.cron.workflowSlug,
+						}),
+			);
 			if (!script) {
-				return yield* Effect.logError("plugin cron script unavailable").pipe(
+				yield* Effect.logError("plugin cron target unavailable").pipe(
 					Effect.annotateLogs({
 						executionId,
 						cronSlug: entry.cron.slug,
 						pluginSlug: entry.pluginSlug,
-						scriptSlug: entry.cron.scriptSlug,
+						targetSlug:
+							entry.cron.lot === "script" ? entry.cron.scriptSlug : entry.cron.workflowSlug,
 					}),
 				);
+				return { status: "notFound" as const };
 			}
-			return yield* engine
-				.execute(RunSandboxWorkflow, {
+			if (entry.cron.lot === "workflow") {
+				const result = yield* engine.execute(SandboxScriptWorkflow, {
 					executionId,
-					payload: { context: {}, executionId, scriptId: script.id, authority: { type: "system" } },
-				})
-				.pipe(Effect.asVoid);
+					payload: {
+						input: {},
+						executionId,
+						scriptId: script.id,
+						resolutionMode: "exact",
+						authority: { type: "system" },
+					},
+				});
+				return { result, status: "executed" as const };
+			}
+			const result = yield* engine.execute(RunSandboxWorkflow, {
+				executionId,
+				payload: { context: {}, executionId, scriptId: script.id, authority: { type: "system" } },
+			});
+			return { result, status: "executed" as const };
 		});
 
 		const dispatchAll = (entries: ReadonlyArray<[ActivePluginCron, string]>) =>
@@ -103,7 +125,32 @@ export class PluginCronService extends Effect.Service<PluginCronService>()("Plug
 				]),
 			);
 
-		return { dispatchDue, triggerAll };
+		const trigger = Effect.fn("PluginCronService.trigger")(function* (
+			pluginSlug: string,
+			cronSlug: string,
+			parentExecutionId: string,
+		) {
+			const entry = list().find(
+				(candidate) => candidate.pluginSlug === pluginSlug && candidate.cron.slug === cronSlug,
+			);
+			if (!entry) {
+				return { status: "notFound" as const, cronSlug, pluginSlug };
+			}
+			const executionId = pluginCronExecutionId(pluginSlug, cronSlug, parentExecutionId);
+			const dispatched = yield* dispatch(entry, executionId);
+			return dispatched.status === "notFound"
+				? { status: "notFound" as const, cronSlug, pluginSlug }
+				: {
+						cronSlug,
+						pluginSlug,
+						executionId,
+						lot: entry.cron.lot,
+						result: dispatched.result,
+						status: "executed" as const,
+					};
+		});
+
+		return { trigger, dispatchDue, triggerAll };
 	}),
 }) {}
 

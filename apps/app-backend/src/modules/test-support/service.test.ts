@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -9,8 +8,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import type { MockOverrides, WorkflowEngineOverrides } from "#lib/test-utils/effect";
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import type { MockOverrides } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { AutomationsService } from "#modules/automations/service";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -53,7 +51,6 @@ const mockRelationships = Layer.mock(RelationshipsService);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemasRepository);
 const makeServiceLayer = (
 	overrides: {
-		workflow?: WorkflowEngineOverrides;
 		sandbox?: MockOverrides<typeof mockSandbox>;
 		entities?: MockOverrides<typeof mockEntities>;
 		pluginBoots?: MockOverrides<typeof mockPluginBoots>;
@@ -72,6 +69,8 @@ const makeServiceLayer = (
 				mockSandbox({ _tag: "SandboxExecutionService", ...overrides.sandbox }),
 				mockPluginCrons({
 					_tag: "PluginCronService",
+					trigger: (pluginSlug, cronSlug) =>
+						Effect.succeed({ status: "notFound" as const, cronSlug, pluginSlug }),
 					triggerAll: () => Effect.void,
 					...overrides.pluginCrons,
 				}),
@@ -84,13 +83,6 @@ const makeServiceLayer = (
 				mockTranslations({ _tag: "TranslationsService" }),
 				mockRelationships({ _tag: "RelationshipsService" }),
 				mockRelationshipSchemas({ _tag: "RelationshipSchemasRepository" }),
-				Layer.succeed(
-					WorkflowEngine,
-					makeWorkflowEngine({
-						execute: () => Effect.void.pipe(Effect.as(undefined)),
-						...overrides.workflow,
-					}),
-				),
 			),
 		),
 	);
@@ -232,23 +224,13 @@ it.effect("brands provider IDs in stored sandbox script responses", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("triggers plugin crons with the native infrequent execution id", () => {
-	const completed: Array<string> = [];
-	let infrequentDiscard: unknown;
+it.effect("triggers plugin crons with the manual infrequent execution id", () => {
 	let pluginCronExecutionId: string | undefined;
 	const layer = makeServiceLayer({
-		workflow: {
-			execute: (_workflow, options) =>
-				Effect.sync(() => {
-					infrequentDiscard = options.discard;
-					completed.push("infrequent");
-				}),
-		},
 		pluginCrons: {
 			triggerAll: (executionId) =>
 				Effect.sync(() => {
 					pluginCronExecutionId = executionId;
-					completed.push("plugin-crons");
 				}),
 		},
 	});
@@ -257,9 +239,35 @@ it.effect("triggers plugin crons with the native infrequent execution id", () =>
 		const service = yield* TestSupportService;
 		const result = yield* service.triggerInfrequentCron();
 		expect(result.executionId).toMatch(/^infrequent-cron-manual-/);
-		expect(infrequentDiscard).toBeUndefined();
 		expect(pluginCronExecutionId).toBe(result.executionId);
-		expect(completed).toEqual(["infrequent", "plugin-crons"]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("triggers exactly one requested plugin cron with a manual execution id", () => {
+	let triggerInput: ReadonlyArray<string> | undefined;
+	const layer = makeServiceLayer({
+		pluginCrons: {
+			trigger: (pluginSlug, cronSlug, executionId) =>
+				Effect.sync(() => {
+					triggerInput = [pluginSlug, cronSlug, executionId];
+					return {
+						cronSlug,
+						pluginSlug,
+						executionId,
+						lot: "script" as const,
+						result: { status: "completed" },
+						status: "executed" as const,
+					};
+				}),
+		},
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* TestSupportService;
+		const result = yield* service.triggerPluginCron({ pluginSlug: "media", cronSlug: "monitor" });
+		expect(result.status).toBe("executed");
+		expect(triggerInput?.slice(0, 2)).toEqual(["media", "monitor"]);
+		expect(triggerInput?.[2]).toMatch(/^plugin-cron-manual-/);
 	}).pipe(Effect.provide(layer));
 });
 
