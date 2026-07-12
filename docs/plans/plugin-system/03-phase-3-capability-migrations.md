@@ -386,18 +386,17 @@ bytes through the runner line protocol, `cluster_messages`, and Redis. Effect Sc
 transparent here (`Schema.Unknown`); the losses are the JSON layer's.
 
 **Timeouts.** An activity exceeding `SANDBOX_LIMITS.execution.timeoutMs` surfaces as a **typed failure**
-(`Sandbox timed out after 10000ms`) from `DurableQueue.process` via the `Effect.raceFirst` in
-`sandbox-runtime/service.ts` — not as a `SandboxCompletedResult` with `error` set. It is not
-retried, the failure itself is memoized (so a 60 s busy loop costs one 6 s timeout, not one per
-replay), the journal is not corrupted, and the workflow makes progress afterwards. Task 06 owns
-the explicit retry policy decision.
+(`Sandbox timed out after 10000ms`, optionally followed by a bounded Deno stderr tail) from
+`DurableQueue.process` via the `Effect.raceFirst` in `sandbox-runtime/service.ts` — not as a
+`SandboxCompletedResult` with `error` set. The sandbox queue applies a bounded retry schedule, and
+the durable engine memoizes the final failure so replay does not re-execute a completed side effect.
+The journal is not corrupted, and the workflow makes progress afterwards.
 
-**Implementation choice (2026-07-26): no automatic application-level retries.** Activity
-timeouts, queue failures, child failures, and completed activity errors fail the workflow; the
-durable engine memoizes the failure rather than re-executing the side effect during replay. A
-workflow-script failure without a pending durable request also fails immediately. This preserves
-at-most-once activity execution under replay and leaves any future retry policy explicit at the
-workflow-authoring layer rather than hidden in the kernel shell.
+**Implementation choice:** Sandbox queue failures use a bounded infrastructure retry policy.
+Activity timeouts, queue failures, child failures, and completed activity errors still fail the
+workflow after retries; the durable engine memoizes that final failure rather than re-executing a
+completed side effect during replay. A workflow-script failure without a pending durable request
+also fails immediately.
 
 **Process restart mid-execution.** SIGINT during a durable sleep followed by a respawn against
 the same Postgres/Redis resumed and completed with **zero re-execution** of prior steps —
