@@ -1,5 +1,3 @@
-import { Command } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
@@ -91,25 +89,26 @@ esac
 		}),
 		Layer.mock(RuntimeSandboxService)({
 			_tag: "SandboxService",
-			run: (input) => {
-				executedContent.push(input.compiledCode);
-				executedHashes.push(input.contentHash);
-				return Command.make("/bin/sh", "-c", input.compiledCode).pipe(
-					Command.env({ EXECUTION_ID: input.executionId }),
-					Command.string,
-					Effect.provide(BunContext.layer),
-					Effect.orDie,
-					Effect.map((output) => ({
+			run: (input) =>
+				Effect.sync(() => {
+					executedContent.push(input.compiledCode);
+					executedHashes.push(input.contentHash);
+					let value = "completed:active-v2";
+					if (input.compiledCode === historicalContent) {
+						value = input.executionId.endsWith("-replay-0")
+							? "pending:pinned-v1"
+							: "completed:pinned-v1";
+					}
+					return {
+						value,
 						logs: [],
 						error: null,
 						success: true,
-						value: output,
 						harvest: null,
 						executionId: input.executionId,
 						timing: { totalMs: 1, executionMs: 1 },
-					})),
-				);
-			},
+					};
+				}),
 		}),
 	);
 
