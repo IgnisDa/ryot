@@ -42,7 +42,7 @@ re-derive them:
   snapshot rather than authoring ALTERs.
 - **§3 Consumers:** convert every consumer named in §3 — write paths (validate via registry,
   store slugs), query engine (slug->row-id resolution disappears, read semantics preserved),
-  sandbox host functions (`getEntitySchema`/`listEventSchemas` re-read from the registry,
+  sandbox host functions (`getEntitySchemas`/`listEventSchemas` re-read from the registry,
   response shapes kept identical where possible), the deleted `entity-schemas`/`event-schemas`/
   `relationship-schemas`/`trackers` CRUD modules (dissolving the known gradient violations),
   `user-bootstrap` (stop materializing builtins per user; keep `ensureDefaultRules`),
