@@ -25,10 +25,9 @@ import {
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 
-import { resolveSandboxExecutionPayload } from "./durable-queues";
+import { processSandboxExecutionQueue, resolveSandboxExecutionPayload } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
-import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
 export const SANDBOX_WORKFLOW_MAX_STEPS = 1_000;
@@ -115,12 +114,7 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 });
 
 const processPinnedSandbox = (payload: SandboxExecutionPayload) =>
-	Effect.gen(function* () {
-		const engine = yield* WorkflowEngine;
-		return yield* engine
-			.execute(RunSandboxWorkflow, { payload, executionId: payload.executionId })
-			.pipe(withoutWorkflowParent);
-	});
+	processSandboxExecutionQueue(payload);
 
 const completedValue = (result: SandboxCompletedResult, label: string) =>
 	result.error
