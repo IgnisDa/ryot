@@ -39,7 +39,7 @@ import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
-import { IntegrationsRepository } from "#modules/integrations/repository";
+import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -80,6 +80,11 @@ const toSandboxIntegrationSettings = (settings: Readonly<Record<string, unknown>
 	Object.fromEntries(
 		Object.entries(settings).map(([key, value]) => [key, toSandboxJsonValue(value)]),
 	);
+
+const toSandboxIntegration = (integration: IntegrationRecord) => {
+	const { pluginSlug: _pluginSlug, ...record } = integration;
+	return { ...record, providerSpecifics: toSandboxIntegrationSettings(record.providerSpecifics) };
+};
 
 const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<string, string> => {
 	if (typeof value !== "string" || value.trim().length === 0) {
@@ -513,12 +518,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 								.pipe(
 									Effect.flatMap((integration) =>
 										integration
-											? Effect.succeed({
-													...integration,
-													providerSpecifics: toSandboxIntegrationSettings(
-														integration.providerSpecifics,
-													),
-												})
+											? Effect.succeed(toSandboxIntegration(integration))
 											: Effect.fail("Integration not found"),
 									),
 								),
@@ -611,14 +611,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 								...(typeof provider === "string" ? { provider } : {}),
 								...(typeof isDisabled === "boolean" ? { isDisabled } : {}),
 							}),
-						).pipe(
-							Effect.map((rows) =>
-								rows.map((integration) => ({
-									...integration,
-									providerSpecifics: toSandboxIntegrationSettings(integration.providerSpecifics),
-								})),
-							),
-						),
+						).pipe(Effect.map((rows) => rows.map(toSandboxIntegration))),
 					);
 				}),
 		} satisfies AdditionalSandboxHostImplementationMap;

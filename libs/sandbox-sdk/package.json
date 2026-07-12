@@ -79,7 +79,7 @@
 	"dependencies": {
 		"@types/papaparse": "5.5.2",
 		"cheerio": "1.2.0",
-		"effect": "3.21.4",
+		"effect": "3.22.1",
 		"fast-xml-parser": "5.8.0",
 		"fflate": "0.8.3",
 		"papaparse": "5.5.3",

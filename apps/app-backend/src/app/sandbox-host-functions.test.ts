@@ -144,6 +144,7 @@ describe("getIntegration", () => {
 			expect(requested).toEqual([{ integrationId: "int-trusted", userId: "user-1" }]);
 			const integration = Either.getOrThrow(result);
 			expect(integration.id).toBe("int-trusted");
+			expect(integration).not.toHaveProperty("pluginSlug");
 			expect(integration.providerSpecifics).toEqual({
 				kind: "plex_yank",
 				token: "plex-token",
