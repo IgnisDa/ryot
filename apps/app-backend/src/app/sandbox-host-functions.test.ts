@@ -478,7 +478,7 @@ describe("changeUserRelationships", () => {
 		const repository = Layer.mock(RelationshipsRepository)({
 			deleteRelationship: (input) => {
 				deleted.push(input);
-				return Effect.succeed(true);
+				return Effect.succeed(null);
 			},
 		});
 
@@ -489,7 +489,7 @@ describe("changeUserRelationships", () => {
 				repository,
 			);
 
-			expect(Result.getOrThrow(result)).toEqual([{ created: 0, deleted: 1 }]);
+			expect(Result.getOrThrow(result)).toEqual([{ created: 0, deleted: 0 }]);
 			expect(deleted).toEqual([
 				{
 					scope: "user",
