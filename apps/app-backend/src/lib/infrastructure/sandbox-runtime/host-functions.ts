@@ -215,6 +215,45 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 						);
 					}),
 				),
+			ensureUserEntities: (rawInput, items) =>
+				sandboxHostEffect(
+					Effect.gen(function* () {
+						const input = yield* requireUserSandboxRunInput(rawInput, "ensureUserEntities");
+						if (input.authority.type !== "user") {
+							return yield* Effect.fail("ensureUserEntities is available only to user executions");
+						}
+						const caller = yield* runWithDb(
+							pluginRuntime.resolveTrustedUserBootstrapCaller(SandboxScriptId.make(input.scriptId)),
+						);
+						if (!caller) {
+							return yield* Effect.fail(
+								"ensureUserEntities is available only to trusted user bootstrap scripts",
+							);
+						}
+						const ownedSchemaSlugs = new Set(caller.entitySchemaSlugs);
+						for (const item of items) {
+							const definition = definitions.getEntitySchema(item.entitySchemaSlug);
+							if (
+								!definition ||
+								definition.pluginSlug !== caller.pluginSlug ||
+								!ownedSchemaSlugs.has(item.entitySchemaSlug)
+							) {
+								return yield* Effect.fail(
+									`ensureUserEntities cannot write foreign entity schema: ${item.entitySchemaSlug}`,
+								);
+							}
+						}
+						return yield* runInTransaction(
+							entities.ensureUserEntities(
+								UserId.make(input.authority.userId),
+								items.map((item) => ({
+									...item,
+									entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
+								})),
+							),
+						);
+					}),
+				),
 			claimCachedValue: (input, key, value, ttlSeconds) => {
 				const keyError = sandboxCacheKeyError("claimCachedValue", key);
 				if (keyError) {
