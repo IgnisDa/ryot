@@ -193,7 +193,11 @@ describe("User integration authorization", () => {
 			{ Authorization: `Bearer ${ownerApiKey}` },
 		);
 		expect(ownerIntegrations).toMatchObject([
-			{ id: integration.id, name: "Private Sonarr integration" },
+			{
+				id: integration.id,
+				name: "Private Sonarr integration",
+				providerSpecifics: { sonarrApiKey: "owner-secret" },
+			},
 		]);
 
 		const { userIntegrations: attackerIntegrations } = await client.request(
