@@ -1,5 +1,7 @@
 import { faker } from "@faker-js/faker";
 import {
+	CreateOrUpdateUserIntegrationDocument,
+	IntegrationProvider,
 	ResetUserDocument,
 	UserDetailsDocument,
 	UserImportReportsDocument,
@@ -134,6 +136,72 @@ describe("User related tests", () => {
 	it("should have 0 measurements", async () => {
 		const measurements = await getUserMeasurementsList(url, userApiKey);
 		expect(measurements).toHaveLength(0);
+	});
+});
+
+describe("User integration authorization", () => {
+	const url = process.env.API_BASE_URL as string;
+
+	it("should reject updating another user's integration", async () => {
+		const client = getGraphqlClient(url);
+		const [ownerApiKey] = await registerTestUser(url);
+		const [attackerApiKey] = await registerTestUser(url);
+		const input = {
+			name: "Private Sonarr integration",
+			provider: IntegrationProvider.Sonarr,
+			extraSettings: { disableOnContinuousErrors: false },
+			providerSpecifics: {
+				sonarrApiKey: "owner-secret",
+				sonarrBaseUrl: "http://sonarr.local",
+			},
+		};
+
+		await client.request(
+			CreateOrUpdateUserIntegrationDocument,
+			{ input },
+			{ Authorization: `Bearer ${ownerApiKey}` },
+		);
+		const { userIntegrations } = await client.request(
+			UserIntegrationsDocument,
+			{},
+			{ Authorization: `Bearer ${ownerApiKey}` },
+		);
+		expect(userIntegrations).toHaveLength(1);
+
+		const integration = userIntegrations[0];
+		await expect(
+			client.request(
+				CreateOrUpdateUserIntegrationDocument,
+				{
+					input: {
+						...input,
+						integrationId: integration.id,
+						name: "Hijacked integration",
+						providerSpecifics: {
+							sonarrApiKey: "attacker-secret",
+							sonarrBaseUrl: "http://attacker.local",
+						},
+					},
+				},
+				{ Authorization: `Bearer ${attackerApiKey}` },
+			),
+		).rejects.toThrow("Integration does not belong to the user");
+
+		const { userIntegrations: ownerIntegrations } = await client.request(
+			UserIntegrationsDocument,
+			{},
+			{ Authorization: `Bearer ${ownerApiKey}` },
+		);
+		expect(ownerIntegrations).toMatchObject([
+			{ id: integration.id, name: "Private Sonarr integration" },
+		]);
+
+		const { userIntegrations: attackerIntegrations } = await client.request(
+			UserIntegrationsDocument,
+			{},
+			{ Authorization: `Bearer ${attackerApiKey}` },
+		);
+		expect(attackerIntegrations).toHaveLength(0);
 	});
 });
 
