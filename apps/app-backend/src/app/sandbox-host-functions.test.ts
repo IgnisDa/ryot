@@ -473,6 +473,35 @@ describe("changeUserRelationships", () => {
 		});
 	});
 
+	it.effect("brands deleted relationship identities before writing", () => {
+		const deleted: unknown[] = [];
+		const repository = Layer.mock(RelationshipsRepository)({
+			deleteRelationship: (input) => {
+				deleted.push(input);
+				return Effect.succeed(true);
+			},
+		});
+
+		return Effect.gen(function* () {
+			const result = yield* runChangeUserRelationships(
+				{ type: "user", userId: UserId.make("trusted-user") },
+				[{ creates: [], deletes: [identity] }],
+				repository,
+			);
+
+			expect(Result.getOrThrow(result)).toEqual([{ created: 0, deleted: 1 }]);
+			expect(deleted).toEqual([
+				{
+					scope: "user",
+					userId: "trusted-user",
+					sourceEntityId: "entity-1",
+					targetEntityId: "collection-1",
+					relationshipSchemaSlug: "member-of",
+				},
+			]);
+		});
+	});
+
 	it.effect("rejects a subscription relationship with an endpoint invisible to its user", () => {
 		let writes = 0;
 		const repository = Layer.mock(RelationshipsRepository)({
