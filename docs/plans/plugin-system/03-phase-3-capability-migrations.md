@@ -5,10 +5,8 @@ and Task 11's deferred gate closure are complete. The Task 10 imports and integr
 repaired, the standard full e2e gate passes all 79 files and 501 tests, and the opt-in operational
 gate passes at its unchanged two-concurrent-1,001-item workload and 15-minute budget.
 
-The decision records below are historical: they describe the migration as designed and deliberately
-retain withdrawn names (`episodeLocator`, `providerLotByProvider`, `source-definitions.ts`, the four
-unbuilt import syscalls). Current code uses `unresolvedEpisode` / `subjectEntityId`, logical
-`provider_id` provenance, and manifest-declared import sources — see
+The decision records below describe the migration as designed. Current code uses unresolved episode
+and subject-entity fields, logical provider provenance, and manifest-declared import sources — see
 `../../tasks/plugin-system-phase-3/12-codebase-cleanup.md` for the residue-search record.
 
 Goal: move the remaining native domain code into the plugins, one capability at a time. Step 0's

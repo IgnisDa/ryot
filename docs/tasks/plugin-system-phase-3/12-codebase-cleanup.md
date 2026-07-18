@@ -63,9 +63,8 @@ Standing exclusions applied throughout: generated/ignored output (`dist/`, `*.ge
 under `crates/`, and stale agent worktrees.
 
 A further **12 paths outside the union** were changed because this task's scope explicitly extends
-to them: the `legacy-bootstrap` module's migration targets and its generated-SQL test. Historical
-prose in `docs/plans/**` and `docs/tasks/**` deliberately retains withdrawn names where it is
-describing history.
+to them: the `legacy-bootstrap` module's migration targets and its generated-SQL test. Documentation
+describes the current ownership and runtime model without retaining withdrawn API names.
 
 ## Deliberate non-removals
 
@@ -74,9 +73,9 @@ describing history.
   `bridge-adapter.test.ts`, `observability-host-functions.test.ts`, and SDK `core.test.ts`, and is
   documented as `log`'s pair. Kept. None of the four _actually_ withdrawn host functions
   (`putRunBlobs`, `getRunBlobs`, `recordImportFailures`, `reportImportProgress`) exists anywhere.
-- **`packages/sandbox-compiler/src/compiler-source.ts` driver-map diagnostics** — the
-  `defineDriver`/`defineProviderDriver`/`drivers`-literal checks reject the withdrawn API rather
-  than supporting it, so they are a regression guardrail, not a compatibility layer. Kept.
+- **Compiler diagnostics for obsolete multi-entrypoint definitions** — these checks reject the
+  withdrawn API rather than supporting it, so they are a regression guardrail, not a compatibility
+  layer. Kept.
 - **`parseCsvText` duplicated between `plugins/fitness` and `plugins/media`** — the two plugins are
   intentionally isolated and neither depends on the other, so consolidating would mean inventing a
   new shared package. Left duplicated rather than adding an abstraction.

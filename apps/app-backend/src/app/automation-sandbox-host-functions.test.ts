@@ -36,8 +36,6 @@ const runInput = {
 	compiledCode: "",
 	compiledFormat: 1,
 	scriptId: "script-1",
-	scriptIsBuiltin: true,
-	cacheNamespace: "script-1",
 	executionId: `${runId}-sandbox`,
 	allowedHostFunctions: ["emitSignal", "sendNotification"],
 	authority: {

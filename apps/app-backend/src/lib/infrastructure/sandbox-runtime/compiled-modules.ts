@@ -9,8 +9,6 @@ export class SandboxCompiledModuleMaterializationError extends Data.TaggedError(
 	message: string;
 }> {}
 
-const hashBytes = sha256Hex;
-
 const verifiedModulePaths = new Set<string>();
 const compiledModuleName = /^([0-9a-f]{64})\.mjs$/;
 
@@ -21,7 +19,7 @@ const hasSystemErrorReason = (error: unknown, reason: "AlreadyExists" | "NotFoun
 
 const moduleMatches = (fs: FileSystem.FileSystem, modulePath: string, contentHash: string) =>
 	fs.readFile(modulePath).pipe(
-		Effect.map((bytes) => hashBytes(bytes) === contentHash),
+		Effect.map((bytes) => sha256Hex(bytes) === contentHash),
 		Effect.orElseSucceed(() => false),
 	);
 
@@ -34,7 +32,7 @@ export const materializeSandboxCompiledModule = (
 		const path = yield* Path.Path;
 		const fs = yield* FileSystem.FileSystem;
 		const bytes = new TextEncoder().encode(javascript);
-		if (hashBytes(bytes) !== contentHash) {
+		if (sha256Hex(bytes) !== contentHash) {
 			return yield* new SandboxCompiledModuleMaterializationError({
 				message: "Compiled module bytes do not match supplied content hash",
 			});

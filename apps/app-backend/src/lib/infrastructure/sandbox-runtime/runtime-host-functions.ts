@@ -89,7 +89,7 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 
 			const redisKey = redisKeys.sandboxCache(
 				sandboxRunUserId(input),
-				input.cacheNamespace,
+				input.providerId ?? input.scriptId,
 				key.trim(),
 			);
 
@@ -145,7 +145,7 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 						redisKeys.sandboxRunCache(
 							serverRun.id,
 							sandboxRunUserId(input),
-							input.cacheNamespace,
+							input.providerId ?? input.scriptId,
 							key.trim(),
 						),
 					)
@@ -234,7 +234,7 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 								redisKeys.sandboxRunCache(
 									serverRun.id,
 									sandboxRunUserId(input),
-									input.cacheNamespace,
+									input.providerId ?? input.scriptId,
 									key.trim(),
 								),
 								serialized,
