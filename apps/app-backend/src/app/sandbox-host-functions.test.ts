@@ -10,7 +10,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import type { ChangeUserRelationshipBatch } from "@ryot/sandbox-sdk/core";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
-import { Effect, Either, Layer, Option } from "effect";
+import { Effect, Result, Layer, Option } from "effect";
 import { describe } from "vitest";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -102,25 +102,24 @@ const runGetIntegration = (
 	authority: ExecutionAuthority,
 	getForUser: (input: GetForUserInput) => Effect.Effect<IntegrationRecord | null>,
 ) =>
-	makeAdditionalSandboxApiFunctions().pipe(
-		Effect.flatMap((functions) => Effect.either(functions.getIntegration(runInput(authority)))),
+	makeAdditionalSandboxApiFunctions.pipe(
+		Effect.flatMap((functions) => Effect.result(functions.getIntegration(runInput(authority)))),
 		Effect.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
-				Layer.mock(EventsService)({ _tag: "EventsService" }),
-				Layer.mock(EntitiesService)({ _tag: "EntitiesService" }),
-				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
-				Layer.mock(QueryEngineService)({ _tag: "QueryEngineService" }),
+				Layer.mock(EventsService)({}),
+				Layer.mock(EntitiesService)({}),
+				Layer.mock(EntitiesRepository)({}),
+				Layer.mock(QueryEngineService)({}),
 				Layer.succeed(DefinitionRegistry, {
-					_tag: "DefinitionRegistry",
 					...makeDefinitionRegistry(),
 				}),
-				Layer.mock(PluginRuntimeResolver)({ _tag: "PluginRuntimeResolver" }),
-				Layer.mock(RelationshipsRepository)({ _tag: "RelationshipsRepository" }),
-				Layer.mock(IntegrationsRepository)({ _tag: "IntegrationsRepository", getForUser }),
+				Layer.mock(PluginRuntimeResolver)({}),
+				Layer.mock(RelationshipsRepository)({}),
+				Layer.mock(IntegrationsRepository)({ getForUser }),
 			),
 		),
 	);
@@ -142,7 +141,7 @@ describe("getIntegration", () => {
 			);
 
 			expect(requested).toEqual([{ integrationId: "int-trusted", userId: "user-1" }]);
-			const integration = Either.getOrThrow(result);
+			const integration = Result.getOrThrow(result);
 			expect(integration.id).toBe("int-trusted");
 			expect(integration).not.toHaveProperty("pluginSlug");
 			expect(integration.providerSpecifics).toEqual({
@@ -168,7 +167,7 @@ describe("getIntegration", () => {
 			);
 
 			expect(requested).toEqual([{ integrationId: "int-origin", userId: "user-1" }]);
-			expect(Either.getOrThrow(result).id).toBe("int-origin");
+			expect(Result.getOrThrow(result).id).toBe("int-origin");
 		}),
 	);
 
@@ -184,7 +183,7 @@ describe("getIntegration", () => {
 						Effect.die("must not reach the repository"),
 					);
 
-					expect(Either.getLeft(result)).toEqual(
+					expect(Result.getFailure(result)).toEqual(
 						Option.some({
 							message: "getIntegration is available only to executions scoped to an integration",
 						}),
@@ -204,7 +203,7 @@ describe("getIntegration", () => {
 				() => Effect.succeed(null),
 			);
 
-			expect(Either.getLeft(result)).toEqual(Option.some({ message: "Integration not found" }));
+			expect(Result.getFailure(result)).toEqual(Option.some({ message: "Integration not found" }));
 		}),
 	);
 });
@@ -237,9 +236,9 @@ const runExecuteQueryEngine = (input: SandboxRunInput, caller: typeof systemQuer
 	const userCalls: unknown[] = [];
 	const systemCalls: unknown[] = [];
 	const resolvedScriptIds: string[] = [];
-	return makeAdditionalSandboxApiFunctions().pipe(
+	return makeAdditionalSandboxApiFunctions.pipe(
 		Effect.flatMap((functions) =>
-			Effect.either(functions.executeQueryEngine(input, queryDocument)),
+			Effect.result(functions.executeQueryEngine(input, queryDocument)),
 		),
 		Effect.map((result) => ({ result, resolvedScriptIds, systemCalls, userCalls })),
 		Effect.provide(
@@ -248,24 +247,21 @@ const runExecuteQueryEngine = (input: SandboxRunInput, caller: typeof systemQuer
 				transactionLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
-				Layer.mock(EventsService)({ _tag: "EventsService" }),
-				Layer.mock(EntitiesService)({ _tag: "EntitiesService" }),
-				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
-				Layer.mock(IntegrationsRepository)({ _tag: "IntegrationsRepository" }),
-				Layer.mock(RelationshipsRepository)({ _tag: "RelationshipsRepository" }),
+				Layer.mock(EventsService)({}),
+				Layer.mock(EntitiesService)({}),
+				Layer.mock(EntitiesRepository)({}),
+				Layer.mock(IntegrationsRepository)({}),
+				Layer.mock(RelationshipsRepository)({}),
 				Layer.succeed(DefinitionRegistry, {
-					_tag: "DefinitionRegistry",
 					...makeDefinitionRegistry(),
 				}),
 				Layer.mock(PluginRuntimeResolver)({
-					_tag: "PluginRuntimeResolver",
 					resolveSystemQueryActivity: (scriptId) => {
 						resolvedScriptIds.push(scriptId);
 						return Effect.succeed(caller);
 					},
 				}),
 				Layer.mock(QueryEngineService)({
-					_tag: "QueryEngineService",
 					executeSystem: (scope, doc) => {
 						systemCalls.push({ scope, doc });
 						return Effect.succeed(queryResponse);
@@ -288,7 +284,7 @@ describe("executeQueryEngine", () => {
 				systemQueryCaller,
 			);
 
-			expect(Either.getOrThrow(execution.result)).toEqual(queryResponse);
+			expect(Result.getOrThrow(execution.result)).toEqual(queryResponse);
 			expect(execution.resolvedScriptIds).toEqual(["script-1"]);
 			expect(execution.systemCalls).toEqual([{ scope: systemQueryCaller, doc: queryDocument }]);
 			expect(execution.userCalls).toEqual([]);
@@ -302,7 +298,7 @@ describe("executeQueryEngine", () => {
 				null,
 			);
 
-			expect(Either.getLeft(execution.result)).toEqual(
+			expect(Result.getFailure(execution.result)).toEqual(
 				Option.some({
 					message: "executeQueryEngine system access requires a pinned plugin activity script",
 				}),
@@ -320,7 +316,7 @@ describe("executeQueryEngine", () => {
 					null,
 				);
 
-				expect(Either.getOrThrow(execution.result)).toEqual(queryResponse);
+				expect(Result.getOrThrow(execution.result)).toEqual(queryResponse);
 				expect(execution.resolvedScriptIds).toEqual([]);
 				expect(execution.systemCalls).toEqual([]);
 				expect(execution.userCalls).toEqual([
@@ -374,9 +370,9 @@ const runChangeUserRelationships = (
 			),
 		}),
 ) =>
-	makeAdditionalSandboxApiFunctions().pipe(
+	makeAdditionalSandboxApiFunctions.pipe(
 		Effect.flatMap((functions) =>
-			Effect.either(functions.changeUserRelationships(runInput(authority), batches)),
+			Effect.result(functions.changeUserRelationships(runInput(authority), batches)),
 		),
 		Effect.provide(
 			Layer.mergeAll(
@@ -384,17 +380,16 @@ const runChangeUserRelationships = (
 				transactionLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
-				Layer.mock(EventsService)({ _tag: "EventsService" }),
-				Layer.mock(EntitiesService)({ _tag: "EntitiesService" }),
-				Layer.mock(QueryEngineService)({ _tag: "QueryEngineService" }),
-				Layer.mock(PluginRuntimeResolver)({ _tag: "PluginRuntimeResolver" }),
-				Layer.mock(IntegrationsRepository)({ _tag: "IntegrationsRepository" }),
+				Layer.mock(EventsService)({}),
+				Layer.mock(EntitiesService)({}),
+				Layer.mock(QueryEngineService)({}),
+				Layer.mock(PluginRuntimeResolver)({}),
+				Layer.mock(IntegrationsRepository)({}),
 				repository,
 				Layer.succeed(DefinitionRegistry, {
-					_tag: "DefinitionRegistry",
 					...makeDefinitionRegistry(),
 				}),
-				Layer.mock(EntitiesRepository)({ getEntityScopeForUser, _tag: "EntitiesRepository" }),
+				Layer.mock(EntitiesRepository)({ getEntityScopeForUser }),
 			),
 		),
 	);
@@ -410,7 +405,6 @@ describe("changeUserRelationships", () => {
 	it.effect("derives the relationship owner from direct user authority", () => {
 		const created: unknown[] = [];
 		const repository = Layer.mock(RelationshipsRepository)({
-			_tag: "RelationshipsRepository",
 			createRelationship: (input) => {
 				created.push(input);
 				return Effect.succeed({
@@ -429,7 +423,7 @@ describe("changeUserRelationships", () => {
 				repository,
 			);
 
-			expect(Either.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
+			expect(Result.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
 			expect(created).toEqual([
 				{
 					scope: "user",
@@ -446,7 +440,6 @@ describe("changeUserRelationships", () => {
 	it.effect("derives the relationship owner from subscription authority", () => {
 		const created: unknown[] = [];
 		const repository = Layer.mock(RelationshipsRepository)({
-			_tag: "RelationshipsRepository",
 			createRelationship: (input) => {
 				created.push(input);
 				return Effect.succeed({
@@ -465,7 +458,7 @@ describe("changeUserRelationships", () => {
 				repository,
 			);
 
-			expect(Either.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
+			expect(Result.getOrThrow(result)).toEqual([{ created: 1, deleted: 0 }]);
 			expect(created).toEqual([
 				{
 					scope: "user",
@@ -482,7 +475,6 @@ describe("changeUserRelationships", () => {
 	it.effect("rejects a subscription relationship with an endpoint invisible to its user", () => {
 		let writes = 0;
 		const repository = Layer.mock(RelationshipsRepository)({
-			_tag: "RelationshipsRepository",
 			createRelationship: () => {
 				writes += 1;
 				return Effect.die("must not write");
@@ -506,7 +498,7 @@ describe("changeUserRelationships", () => {
 							}),
 			);
 
-			expect(Either.getLeft(result)).toMatchObject(
+			expect(Result.getFailure(result)).toMatchObject(
 				Option.some({ _tag: "NotFound", message: "Entity not found" }),
 			);
 			expect(writes).toBe(0);
@@ -516,7 +508,6 @@ describe("changeUserRelationships", () => {
 	it.effect("rejects system authority and total change overflow before writing", () => {
 		let writes = 0;
 		const repository = Layer.mock(RelationshipsRepository)({
-			_tag: "RelationshipsRepository",
 			createRelationship: () => {
 				writes += 1;
 				return Effect.die("must not write");
@@ -532,10 +523,10 @@ describe("changeUserRelationships", () => {
 				repository,
 			);
 
-			expect(Either.getLeft(system)).toEqual(
+			expect(Result.getFailure(system)).toEqual(
 				Option.some({ message: "changeUserRelationships is not available for system executions" }),
 			);
-			expect(Either.getLeft(tooMany)).toEqual(
+			expect(Result.getFailure(tooMany)).toEqual(
 				Option.some({ message: "changeUserRelationships exceeds 500 changes" }),
 			);
 			expect(writes).toBe(0);
@@ -552,9 +543,9 @@ const runEnsureUserEntities = (options: {
 		items: ReadonlyArray<{ name: string; properties: unknown; entitySchemaSlug: EntitySchemaSlug }>,
 	) => Effect.Effect<Array<{ entityId: EntityId; wasInserted: boolean }>>;
 }) =>
-	makeAdditionalSandboxApiFunctions().pipe(
+	makeAdditionalSandboxApiFunctions.pipe(
 		Effect.flatMap((functions) =>
-			Effect.either(
+			Effect.result(
 				functions.ensureUserEntities(runInput(options.authority), [
 					{ name: "Workspace", properties: {}, entitySchemaSlug: "workspace" },
 				]),
@@ -566,24 +557,21 @@ const runEnsureUserEntities = (options: {
 				transactionLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
-				Layer.mock(EventsService)({ _tag: "EventsService" }),
-				Layer.mock(QueryEngineService)({ _tag: "QueryEngineService" }),
-				Layer.mock(IntegrationsRepository)({ _tag: "IntegrationsRepository" }),
-				Layer.mock(RelationshipsRepository)({ _tag: "RelationshipsRepository" }),
-				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
+				Layer.mock(EventsService)({}),
+				Layer.mock(QueryEngineService)({}),
+				Layer.mock(IntegrationsRepository)({}),
+				Layer.mock(RelationshipsRepository)({}),
+				Layer.mock(EntitiesRepository)({}),
 				Layer.mock(EntitiesService)({
-					_tag: "EntitiesService",
 					ensureUserEntities:
 						options.ensure ??
 						(() =>
 							Effect.succeed([{ entityId: EntityId.make("workspace-id"), wasInserted: true }])),
 				}),
 				Layer.mock(PluginRuntimeResolver)({
-					_tag: "PluginRuntimeResolver",
 					resolveTrustedUserBootstrapCaller: () => Effect.succeed(options.caller),
 				}),
 				Layer.succeed(DefinitionRegistry, {
-					_tag: "DefinitionRegistry",
 					...makeDefinitionRegistry(),
 					getEntitySchema: () => ({
 						icon: "box",
@@ -617,10 +605,10 @@ describe("ensureUserEntities", () => {
 						]);
 					},
 				});
-			expect(Either.getOrThrow(yield* run())).toEqual([
+			expect(Result.getOrThrow(yield* run())).toEqual([
 				{ entityId: "workspace-id", wasInserted: true },
 			]);
-			expect(Either.getOrThrow(yield* run())).toEqual([
+			expect(Result.getOrThrow(yield* run())).toEqual([
 				{ entityId: "workspace-id", wasInserted: false },
 			]);
 			expect(calls).toEqual([
@@ -657,18 +645,18 @@ describe("ensureUserEntities", () => {
 				authority: { type: "user", userId: UserId.make("user-1") },
 			});
 
-			expect(Either.getLeft(delegated)).toEqual(
+			expect(Result.getFailure(delegated)).toEqual(
 				Option.some({ message: "ensureUserEntities is available only to user executions" }),
 			);
-			expect(Either.getLeft(system)).toEqual(
+			expect(Result.getFailure(system)).toEqual(
 				Option.some({ message: "ensureUserEntities is not available for system executions" }),
 			);
-			expect(Either.getLeft(untrusted)).toEqual(
+			expect(Result.getFailure(untrusted)).toEqual(
 				Option.some({
 					message: "ensureUserEntities is available only to trusted user bootstrap scripts",
 				}),
 			);
-			expect(Either.getLeft(foreign)).toEqual(
+			expect(Result.getFailure(foreign)).toEqual(
 				Option.some({
 					message: "ensureUserEntities cannot write foreign entity schema: workspace",
 				}),
@@ -680,7 +668,7 @@ describe("ensureUserEntities", () => {
 describe("toSandboxCreateEventsResult", () => {
 	it.effect("preserves policy failures at the sandbox host boundary", () =>
 		Effect.gen(function* () {
-			const result = yield* Effect.either(
+			const result = yield* Effect.result(
 				toSandboxCreateEventsResult({
 					count: 0,
 					outcomes: [],
@@ -688,7 +676,7 @@ describe("toSandboxCreateEventsResult", () => {
 				}),
 			);
 
-			expect(Either.getLeft(result)).toEqual(Option.some("Policy failed"));
+			expect(Result.getFailure(result)).toEqual(Option.some("Policy failed"));
 		}),
 	);
 });

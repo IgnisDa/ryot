@@ -1,18 +1,17 @@
-import {
-	FileSystem,
-	HttpApiBuilder,
-	HttpApiScalar,
-	HttpApp,
-	HttpMiddleware,
-	HttpServer,
-} from "@effect/platform";
-import type { HttpApiError } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import { AppContract } from "@ryot/contract/contract";
 import { BadRequest } from "@ryot/contract/errors";
 import { UploadBodyLimitMiddlewareLive } from "@ryot/contract/modules/uploads/middleware";
-import { Effect, Layer, Runtime } from "effect";
+import { Cause, Effect, Layer, FileSystem, Result } from "effect";
 import type * as LayerTypes from "effect/Layer";
+import {
+	HttpEffect,
+	HttpRouter,
+	HttpServer,
+	HttpServerRequest,
+	HttpServerResponse,
+} from "effect/unstable/http";
+import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/httpapi";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
@@ -65,22 +64,20 @@ const mimeType = (path: string) => {
 	return mimeTypes[extension] ?? "text/html; charset=utf-8";
 };
 
-const decodeErrorsAsBadRequest: HttpApiBuilder.MiddlewareFn<BadRequest> = (httpApp) =>
-	(httpApp as HttpApp.Default<HttpApiError.HttpApiDecodeError>).pipe(
-		Effect.catchTag("HttpApiDecodeError", (error) =>
-			Effect.fail(new BadRequest({ message: error.message })),
-		),
-	);
-
-const DecodeErrorsAsBadRequestLive = HttpApiBuilder.middleware(
-	AppContract,
-	decodeErrorsAsBadRequest,
-);
+const decodeErrorsAsBadRequest = Effect.catchCause((cause) => {
+	const defect = Cause.findDefect(cause);
+	if (Result.isSuccess(defect) && HttpApiError.HttpApiSchemaError.is(defect.success)) {
+		return HttpServerResponse.json(new BadRequest({ message: String(defect.success.cause) }), {
+			status: 400,
+		}).pipe(Effect.orDie);
+	}
+	return Effect.failCause(cause);
+});
 
 const buildWebhookForwardRequest = (request: Request, url: URL) =>
 	new Request(url.toString(), request);
 
-const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
+const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(Layer.mergeAll(SystemRoutesLive, AutomationsRoutesLive)),
 	Layer.provide(DefinitionsRoutesLive),
 	Layer.provide(RelationshipsRoutesLive),
@@ -101,33 +98,30 @@ const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(UploadBodyLimitMiddlewareLive),
 );
 
-const ApiLive = Layer.provide(ApiBaseLive, DecodeErrorsAsBadRequestLive);
-
-const ScalarLive = HttpApiScalar.layer({ path: "/docs" }).pipe(Layer.provide(ApiLive));
+const ScalarLive = HttpApiScalar.layer(AppContract, { path: "/docs" });
 
 const ApiWithScalarLive = Layer.mergeAll(ApiLive, ScalarLive);
+type ApiRequirements = LayerTypes.Services<typeof ApiWithScalarLive>;
+type ApiContext =
+	| HttpRouter.Request.Without<ApiRequirements>
+	| HttpRouter.Request.Only<"Requires", ApiRequirements>;
 
-type ApiContext = LayerTypes.Layer.Context<typeof ApiWithScalarLive>;
-
-export const ServerLive = Layer.scopedDiscard(
+export const ServerLive = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const config = yield* AppConfig;
-		const runtime = yield* Effect.runtime();
 		const fs = yield* FileSystem.FileSystem;
 		const apiContext = yield* Effect.context<ApiContext>();
-
-		const apiLayer = ApiWithScalarLive.pipe(
-			Layer.provide(Layer.succeedContext(apiContext)),
-			Layer.provideMerge(BunHttpServer.layerContext),
+		const { dispose, handler } = HttpRouter.toWebHandler(
+			ApiWithScalarLive.pipe(
+				HttpRouter.provideRequest(Layer.succeedContext(apiContext)),
+				Layer.provide(Layer.succeedContext(apiContext)),
+				Layer.provide(BunHttpServer.layerHttpServices),
+			),
+			{ middleware: decodeErrorsAsBadRequest },
 		);
-		const apiRuntime = yield* Layer.toRuntime(
-			Layer.mergeAll(apiLayer, HttpApiBuilder.Router.Live, HttpApiBuilder.Middleware.layer),
-		);
-		const httpApp = yield* HttpApiBuilder.httpApp.pipe(Effect.provide(apiRuntime));
-		const handler = HttpApp.toWebHandlerRuntime(apiRuntime)(httpApp, HttpMiddleware.logger);
+		yield* Effect.addFinalizer(() => Effect.promise(dispose));
 
-		const runPromise = Runtime.runPromise(runtime);
 		const serveStatic = Effect.fn("serveStatic")(function* (pathname: string) {
 			const path = pathname === "/" ? "./client/index.html" : `./client${pathname}`;
 			const exists = yield* fs.exists(path);
@@ -138,20 +132,28 @@ export const ServerLive = Layer.scopedDiscard(
 
 		const server = yield* BunHttpServer.make({ port: config.port });
 		yield* HttpServer.serveEffect(
-			HttpApp.fromWebHandler((request) => {
-				const url = new URL(request.url);
-				if (url.pathname.startsWith("/api/auth/")) {
-					return auth.auth.handler(request);
+			Effect.gen(function* () {
+				const serverRequest = yield* HttpServerRequest.HttpServerRequest;
+				const serverUrl = new URL(serverRequest.url, config.frontendUrl);
+				if (
+					serverUrl.pathname.startsWith("/api/auth/") ||
+					serverUrl.pathname.startsWith("/_i/") ||
+					serverUrl.pathname.startsWith("/api/")
+				) {
+					return yield* HttpEffect.fromWebHandler((webRequest) => {
+						const webUrl = new URL(webRequest.url);
+						if (webUrl.pathname.startsWith("/api/auth/")) {
+							return auth.auth.handler(webRequest);
+						}
+						if (webUrl.pathname.startsWith("/_i/")) {
+							webUrl.pathname = `/webhooks/integrations/${webUrl.pathname.slice(4)}`;
+							return handler(buildWebhookForwardRequest(webRequest, webUrl));
+						}
+						webUrl.pathname = webUrl.pathname.slice(4);
+						return handler(new Request(webUrl.toString(), webRequest));
+					});
 				}
-				if (url.pathname.startsWith("/_i/")) {
-					url.pathname = `/webhooks/integrations/${url.pathname.slice(4)}`;
-					return handler(buildWebhookForwardRequest(request, url));
-				}
-				if (url.pathname.startsWith("/api/")) {
-					url.pathname = url.pathname.slice(4);
-					return handler(new Request(url.toString(), request));
-				}
-				return runPromise(serveStatic(url.pathname));
+				return HttpServerResponse.fromWeb(yield* serveStatic(serverUrl.pathname));
 			}),
 		).pipe(Effect.provideService(HttpServer.HttpServer, server));
 
@@ -160,4 +162,4 @@ export const ServerLive = Layer.scopedDiscard(
 		);
 		return yield* Effect.never;
 	}),
-);
+).pipe(Layer.provide(BunHttpServer.layerHttpServices), Layer.provide(HttpRouter.layer));

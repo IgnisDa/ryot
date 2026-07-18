@@ -1,5 +1,5 @@
-import { OpenApi } from "@effect/platform";
 import { AppContract } from "@ryot/contract/contract";
+import { OpenApi } from "effect/unstable/httpapi";
 import { describe, expect, it } from "vitest";
 
 const methods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"] as const;
