@@ -121,6 +121,7 @@ correction changes no schema or behavior and is the only domain move included in
   rerunning that operational gate so its post-change measurement is deferred to the separate gate
   diagnosis. Non-operational verification used the hermetic provider search/import suite, which
   passed all 11 tests in 18.48s after the change.
+
 - **In-flight host-call cap** per execution (the bridge has total-count budgets but no
   concurrency cap): a simple kernel-side semaphore per `executionId` in
   `BridgeService.handleRequest`. Pick the limit from observed batch-activity behavior.
@@ -137,11 +138,42 @@ correction changes no schema or behavior and is the only domain move included in
   suite passed 137 files and 952 tests; representative media/fitness imports passed 19 tests and
   provider search/import passed 11. The owner waived rerunning the standalone 1,001-item operational
   gate for this task.
+
 - **Pool/limits retuning** for the heavier post-migration sandbox load: revisit
   `SANDBOX_WORKER_CONCURRENCY`, `DATABASE_WORKFLOW_POOL_MAX`, and the Postgres
   `max_connections` arithmetic documented in `tests/AGENTS.md` (Timeouts & Pool Sizing), and
   the per-script-kind budget profiles introduced in Phase 3 step 3. Re-baseline the e2e
   suite wall-clock and record it here.
+
+  Task 12 implementation record (2026-07-31): the existing limits remain unchanged because no fresh
+  load evidence supports changing them. Production defaults are 5 sandbox workers with 10 app-pool
+  and 10 workflow-pool connections; after the cluster `SingleRunner` reservation and two always-on
+  durable-queue workers, the workflow pool has `10 - 1 - 5 - 2 = 2` spare connections. The shared
+  e2e harness retains 32 sandbox workers, 100 app-pool connections, and 100 workflow-pool
+  connections, leaving
+  `100 - 1 - 32 - 2 = 65` workflow connections for file-parallel durable work. Its two configured
+  pool maxima total 200 against Postgres `max_connections=400`. The prior full-suite measurement
+  peaked at 120 total and 4 active database connections, and the separate successful unchanged
+  two-concurrent-1,001-item operational run recorded peak sandbox overlap 8, zero app-pool waits,
+  zero advisory-lock waits, zero deadlocks, and zero Redis projection errors. Standard scripts keep
+  the 10-second default timeout, 256 KiB context, 1 MiB result, 200 host-call, and 50 HTTP-call
+  ceilings; workflows alone keep the measured 30-second floor, 64 KiB context, 4 MiB result, and
+  1,000 durable-step/host-call ceilings. The sandbox runtime reference owns the rationale and
+  mis-sizing symptoms for each profile.
+
+  Task 10's later pre-materialization run timed out after 902.16 seconds without an execution error
+  or deadlock; it did not isolate a worker, pool, database, or script-budget limit as the cause. The
+  post-materialization, post-concurrency-cap operational state remains unmeasured.
+
+  Measurements were reviewed on an Apple M4 with 10 logical CPUs and 16 GiB memory, macOS 26.3.1
+  (25D2128), Bun 1.3.14, Docker client 29.7.0, and Docker server 29.5.2. The owner required e2e files
+  to run individually and explicitly directed Task 12 not to rerun the standalone operational gate.
+  Fresh standard-suite wall-clock and operational pressure results are therefore waived for this
+  task, not claimed; changing resource values without those measurements would be speculative. The
+  full-size workload, assertions, timeout, and opt-in command remain unchanged for a later run. The
+  backend check passed, all 137 backend test files and 952 tests passed, the representative imports
+  e2e file passed 19 tests, and the provider search/import e2e file passed 11 tests.
+
 - **Superseded script-row GC**: delete script rows — plugin-owned and kernel source-zero
   alike — no longer referenced by any registry snapshot or in-flight workflow execution
   (pinning makes "referenced" precise). Source-zero rows resolve outside the loader snapshot,
@@ -171,6 +203,7 @@ correction changes no schema or behavior and is the only domain move included in
   Effects at runtime. Remaining Promise interop is private to compiler, runner, filesystem, Redis, and
   test execution adapters and is wrapped at the Effect boundary. No compatibility API or authoring
   path was removed because none remained.
+
 - Resolve migration residue in directly affected modules while preserving useful negative tests and
   private helpers. Do not turn Phase 4 into unrelated stylistic refactoring.
 
