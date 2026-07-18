@@ -324,26 +324,57 @@ const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 2026-04-03 08:00:00,75.2,22.6,15.1,60.0,40.0,After lunch
 `;
 
-export const uploadTemporaryFile = (
+export const uploadImportFile = (
 	cookies: string,
 	content: string,
 	fileName: string,
 	mimeType: string,
 ) =>
 	Effect.gen(function* () {
-		const formData = new FormData();
-		formData.append("files[]", new File([content], fileName, { type: mimeType }), fileName);
+		const intentResponse = yield* Effect.promise(() =>
+			fetch(`${getBackendUrl()}/uploads/intents`, {
+				method: "POST",
+				headers: { Cookie: cookies, "content-type": "application/json" },
+				body: JSON.stringify({
+					fileName,
+					kind: "temporary",
+					provider: "local",
+					contentType: mimeType,
+				}),
+			}),
+		);
+		if (!intentResponse.ok) {
+			throw new Error(`Could not create upload intent (${intentResponse.status})`);
+		}
+		const intent = (yield* Effect.promise(() => intentResponse.json())) as {
+			intentId: string;
+			method: string;
+			uploadUrl: string;
+			headers: Record<string, string>;
+		};
 
-		const response = yield* Effect.promise(() =>
-			fetch(`${getBackendUrl()}/uploads/temporary`, {
-				body: formData,
+		const uploadResponse = yield* Effect.promise(() =>
+			fetch(new URL(intent.uploadUrl, `${getBackendUrl()}/`), {
+				body: content,
+				method: intent.method,
+				headers: intent.headers,
+			}),
+		);
+		if (!uploadResponse.ok) {
+			throw new Error(`Could not upload import file (${uploadResponse.status})`);
+		}
+
+		const completeResponse = yield* Effect.promise(() =>
+			fetch(`${getBackendUrl()}/uploads/intents/${intent.intentId}/complete`, {
 				method: "POST",
 				headers: { Cookie: cookies },
 			}),
 		);
-
-		const tokens: string[] = yield* Effect.promise(() => response.json());
-		return requirePresent(tokens[0], "Upload token is missing");
+		if (!completeResponse.ok) {
+			throw new Error(`Could not complete upload intent (${completeResponse.status})`);
+		}
+		const completion = (yield* Effect.promise(() => completeResponse.json())) as { token?: string };
+		return requirePresent(completion.token, "Upload token is missing");
 	});
 
 export const startOpenScaleImport = (client: Client, uploadToken: string) =>
@@ -372,7 +403,7 @@ export const pollImportRunUntilTerminal = (client: Client, runId: string) =>
 
 export const runOpenScaleImportFixture = (client: Client, cookies: string) =>
 	Effect.gen(function* () {
-		const uploadToken = yield* uploadTemporaryFile(
+		const uploadToken = yield* uploadImportFile(
 			cookies,
 			OPENSCALE_SAMPLE_CSV,
 			"openscale-export.csv",
@@ -392,7 +423,7 @@ Push Day,2026-01-01T10:00:00,2026-01-01T11:00:00,Good session,Squat,,,1,140,3,no
 
 export const runHevyImportFixture = (client: Client, cookies: string) =>
 	Effect.gen(function* () {
-		const uploadToken = yield* uploadTemporaryFile(
+		const uploadToken = yield* uploadImportFile(
 			cookies,
 			HEVY_SAMPLE_CSV,
 			"hevy-export.csv",

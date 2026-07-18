@@ -217,23 +217,3 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 
 	return yield* extractEntries;
 });
-
-export const resolveImportPath = (filePath: string, tempDir: string): Effect.Effect<string[]> =>
-	resolveSafeImportFilePath(filePath, tempDir).pipe(
-		Effect.map((path) => [path]),
-		Effect.orElseSucceed(() => []),
-	);
-
-export const cleanupImportFile = Effect.fn("imports.cleanupImportFile")(function* (
-	safePath: string,
-) {
-	if (!safePath.trim()) {
-		return;
-	}
-	const fs = yield* FileSystem.FileSystem;
-	yield* fs.remove(safePath, { recursive: true }).pipe(
-		Effect.ignore({
-			log: true,
-		}),
-	);
-});

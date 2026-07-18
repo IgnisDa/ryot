@@ -6,19 +6,6 @@ import { assertTaggedError } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";
 
-const postTemporaryUploads = (files: File[], cookies: string) =>
-	Effect.promise(() => {
-		const formData = new FormData();
-		for (const file of files) {
-			formData.append("files[]", file, file.name);
-		}
-		return fetch(`${getBackendUrl()}/uploads/temporary`, {
-			body: formData,
-			method: "POST",
-			headers: { Cookie: cookies },
-		});
-	});
-
 const uploadAndComplete = (provider: "local" | "s3", fileName: string, contentType: string) =>
 	Effect.gen(function* () {
 		const { client } = yield* createAuthenticatedClient();
@@ -211,25 +198,10 @@ describe("legacy upload routes", () => {
 				fetch(`${getBackendUrl()}/uploads/presigned/download`, { method: "POST" }),
 			);
 			expect(downloadResponse.status).toBe(404);
-		}),
-	);
-});
-
-describe("POST /uploads/temporary", () => {
-	it.live("continues to accept supported temporary files", () =>
-		Effect.gen(function* () {
-			const { cookies } = yield* createAuthenticatedClient();
-			const response = yield* postTemporaryUploads(
-				[
-					new File(["csv data"], "report.csv", { type: "text/csv" }),
-					new File(["json data"], "payload.json", { type: "application/json" }),
-				],
-				cookies,
+			const temporaryResponse = yield* Effect.promise(() =>
+				fetch(`${getBackendUrl()}/uploads/temporary`, { method: "POST" }),
 			);
-			expect(response.status).toBe(201);
-			const tokens: unknown = yield* Effect.promise(() => response.json());
-			expect(Array.isArray(tokens)).toBe(true);
-			expect(tokens as Array<unknown>).toHaveLength(2);
+			expect(temporaryResponse.status).toBe(404);
 		}),
 	);
 });

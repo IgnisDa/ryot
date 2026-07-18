@@ -8,10 +8,9 @@ import type {
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { Context, DateTime, Effect, Result, FileSystem, Layer } from "effect";
+import { Context, DateTime, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import {
@@ -23,11 +22,7 @@ import { UploadsService } from "#modules/uploads/service";
 import { ImportRunFailuresService, type ImportRunFailureDetails } from "./failure-service";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { ImportsRepository } from "./repository";
-import {
-	cleanupImportFile,
-	resolveSafeImportFilePath,
-	validateFileExtension,
-} from "./runtime/import-files";
+import { validateFileExtension } from "./runtime/import-files";
 import {
 	buildImportInputSummary,
 	buildImportSourcePayload,
@@ -72,12 +67,10 @@ const isTerminalStatus = (status: ImportRunStatus): boolean =>
 
 export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {
 	make: Effect.gen(function* () {
-		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
 		const uploads = yield* UploadsService;
-		const fs = yield* FileSystem.FileSystem;
 		const repository = yield* ImportsRepository;
 		const importSources = yield* ImportSourceCatalog;
 		const workflowPinning = yield* ImportWorkflowPinning;
@@ -101,10 +94,10 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				yield* update({ runId, errorSummary, status: "failed", finishedAt });
 			});
 
-		const cleanupFiles = (paths: ReadonlyArray<string>) =>
+		const cleanupUploads = (intentIds: ReadonlyArray<string>) =>
 			Effect.forEach(
-				new Set(paths),
-				(path) => cleanupImportFile(path).pipe(Effect.provideService(FileSystem.FileSystem, fs)),
+				new Set(intentIds),
+				(intentId) => uploads.deleteTemporaryUpload(intentId).pipe(Effect.ignore),
 				{ discard: true },
 			);
 
@@ -116,9 +109,8 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			registered: RegisteredImportSource,
 			workflowScriptId: SandboxScriptId,
 		) {
-			const tempDir = config.fileStorage.localTempDir;
 			const queuedFilePaths: string[] = [];
-			const claimedFilePaths: string[] = [];
+			const claimedUploadIntentIds: string[] = [];
 			const namedArtifactPaths: Record<string, string> = {};
 
 			const sourcePayload = buildImportSourcePayload(body, registered) ?? {};
@@ -128,29 +120,28 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					if (sourceFileInput.required === false) {
 						continue;
 					}
-					yield* cleanupFiles(claimedFilePaths);
+					yield* cleanupUploads(claimedUploadIntentIds);
 					return yield* badRequest("Import source requires an upload token");
 				}
 
 				const claim = yield* uploads
-					.claimUploadToken(sourceFileInput.uploadToken, user.id)
+					.claimTemporaryUpload(sourceFileInput.uploadToken, user.id)
 					.pipe(Effect.result);
 				if (Result.isFailure(claim)) {
-					yield* cleanupFiles(claimedFilePaths);
+					yield* cleanupUploads(claimedUploadIntentIds);
 					return yield* claim.failure;
 				}
-				claimedFilePaths.push(claim.success.resolvedPath);
+				claimedUploadIntentIds.push(claim.success.intentId);
+				if (claim.success.locator.type !== "local" || !claim.success.resolvedPath) {
+					yield* cleanupUploads(claimedUploadIntentIds);
+					return yield* badRequest("Import uploads must use local storage");
+				}
 
-				const safePath = yield* resolveSafeImportFilePath(claim.success.resolvedPath, tempDir).pipe(
-					Effect.catch((message) =>
-						cleanupFiles(claimedFilePaths).pipe(Effect.flatMap(() => badRequest(message))),
-					),
-				);
-				claimedFilePaths[claimedFilePaths.length - 1] = safePath;
+				const safePath = claim.success.resolvedPath;
 
 				yield* validateFileExtension(safePath, sourceFileInput.allowedExtensions).pipe(
 					Effect.catch((message) =>
-						cleanupFiles(claimedFilePaths).pipe(Effect.flatMap(() => badRequest(message))),
+						cleanupUploads(claimedUploadIntentIds).pipe(Effect.flatMap(() => badRequest(message))),
 					),
 				);
 
@@ -165,10 +156,18 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 
 			const filePath = queuedFilePaths[0];
 			if (!filePath) {
+				yield* cleanupUploads(claimedUploadIntentIds);
 				return yield* badRequest("Import source requires at least one upload token");
 			}
 
-			const run = yield* create({ userId: user.id, source: body.source, inputSummary });
+			const created = yield* create({ userId: user.id, source: body.source, inputSummary }).pipe(
+				Effect.result,
+			);
+			if (Result.isFailure(created)) {
+				yield* cleanupUploads(claimedUploadIntentIds);
+				return yield* created.failure;
+			}
+			const run = created.success;
 			const sandboxExecutionId = `${run.id}-import`;
 			const pin = yield* workflowPinning
 				.preRegister({
@@ -179,8 +178,8 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				})
 				.pipe(Effect.result);
 			if (Result.isFailure(pin)) {
+				yield* cleanupUploads(claimedUploadIntentIds);
 				yield* failRun(run.id, "Failed to pin import workflow");
-				yield* cleanupFiles(claimedFilePaths);
 				return yield* badRequest("Could not queue the import job; please try again");
 			}
 
@@ -192,20 +191,21 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 						filePath,
 						runId: run.id,
 						userId: user.id,
+						workflowScriptId,
 						source: body.source,
 						pluginSlug: registered.pluginSlug,
-						workflowScriptId,
+						uploadIntentIds: claimedUploadIntentIds,
 						...(Object.keys(namedArtifactPaths).length > 0 ? { namedArtifactPaths } : {}),
 						...(Object.keys(sourcePayload).length > 0 ? { sourcePayload } : {}),
 					},
 				})
 				.pipe(Effect.result);
 			if (Result.isFailure(started)) {
+				yield* cleanupUploads(claimedUploadIntentIds);
 				if (pin.success.registrationStatus === "registered") {
 					yield* workflowPinning.release(sandboxExecutionId);
 				}
 				yield* failRun(run.id, "Failed to enqueue import job");
-				yield* cleanupFiles(claimedFilePaths);
 				return yield* badRequest("Could not queue the import job; please try again");
 			}
 
