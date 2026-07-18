@@ -58,17 +58,9 @@ type SandboxHostFunctionContext =
 	| IntegrationsRepository
 	| RelationshipsRepository;
 
-const entityNotFoundError = "Entity not found";
-
 const CreateEventsPayload = Schema.Array(CreateEventItem);
-const ListEventsQuery = Schema.Struct({
-	entityId: Schema.optional(Schema.String),
-	eventSchemaSlug: Schema.optional(Schema.String),
-	sessionEntityId: Schema.optional(Schema.String),
-});
 
 const decodeQueryDocument = Schema.decodeUnknownEffect(Schema.toType(QueryDocument));
-const decodeListEventsQuery = Schema.decodeUnknownEffect(ListEventsQuery);
 const decodeCreateEventsPayload = Schema.decodeUnknownEffect(CreateEventsPayload);
 
 const hashPayload = (payload: unknown) => sha256Base64Url(stableStringify(payload));
@@ -407,48 +399,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				),
 			);
 		},
-		getEntities: (rawInput, entityIds) =>
-			requireUserSandboxRunInput(rawInput, "getEntities").pipe(
-				Effect.flatMap((input) =>
-					Effect.forEach(entityIds, (entityId) =>
-						requireNonEmptyString(entityId, "getEntities expects non-empty entityIds"),
-					).pipe(
-						Effect.flatMap((rawEntityIds) => {
-							const resolvedEntityIds = [...new Set(rawEntityIds)].map((entityId) =>
-								EntityId.make(entityId),
-							);
-							if (resolvedEntityIds.length === 0) {
-								return Effect.succeed([]);
-							}
-							return runWithDb(
-								entitiesRepository.getByIdsForUser({
-									entityIds: resolvedEntityIds,
-									userId: UserId.make(input.authority.userId),
-								}),
-							).pipe(
-								Effect.flatMap((items) =>
-									items.length === resolvedEntityIds.length
-										? Effect.succeed(
-												items.map((entity) => ({
-													id: entity.id,
-													name: entity.name,
-													createdAt: entity.createdAt,
-													updatedAt: entity.updatedAt,
-													externalId: entity.externalId,
-													providerId: entity.providerId,
-													populatedAt: entity.populatedAt,
-													entitySchemaSlug: entity.entitySchemaSlug,
-													properties: toSandboxJsonValue(entity.properties),
-												})),
-											)
-										: Effect.fail(entityNotFoundError),
-								),
-							);
-						}),
-					),
-				),
-				sandboxHostEffect,
-			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>
 			requireUserSandboxRunInput(rawInput, "getEntitySchemas").pipe(
 				Effect.andThen(
@@ -574,37 +524,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 										)
 									: Effect.fail("Entity schema not found");
 							}).pipe(Effect.map((schemas) => schemas.flat()));
-						}),
-					),
-				),
-				sandboxHostEffect,
-			),
-		listEvents: (rawInput, query) =>
-			requireUserSandboxRunInput(rawInput, "listEvents").pipe(
-				Effect.flatMap((input) =>
-					decodeListEventsQuery(query ?? {}).pipe(
-						Effect.flatMap((parsedQuery) => {
-							const entityId = parsedQuery.entityId
-								? EntityId.make(parsedQuery.entityId)
-								: undefined;
-							const sessionEntityId = parsedQuery.sessionEntityId
-								? EntityId.make(parsedQuery.sessionEntityId)
-								: undefined;
-
-							return events
-								.listForUser(UserId.make(input.authority.userId), {
-									entityId,
-									sessionEntityId,
-									eventSchemaSlug: parsedQuery.eventSchemaSlug,
-								})
-								.pipe(
-									Effect.map((rows) =>
-										rows.map((event) => ({
-											...event,
-											properties: toSandboxJsonValue(event.properties),
-										})),
-									),
-								);
 						}),
 					),
 				),

@@ -26,13 +26,12 @@ Host functions are assembled through `SandboxHostImplementations`, so orchestrat
 
 ## 2. Host functions
 
-21 functions. Cohesive, with batch-first migration complete for config and metadata reads; real read-surface overlap remains.
+21 functions remain after entity/event data reads moved to the query engine. Cohesive, with batch-first migration complete for config and metadata reads.
 
 **Per-item designs that Decision 8(a) forbids, with completed migration retained:**
 
 | Function                    | Fix                             |
 | --------------------------- | ------------------------------- |
-| `getEntities(ids[])`        | - [x] batch entity reads        |
 | `getEntitySchemas(slugs[])` | - [x] batch entity schema reads |
 | `listEventSchemas(slugs[])` | - [x] accept `slugs[]`          |
 | `getPluginConfig(keys[])`   | - [x] batch plugin config reads |
@@ -40,9 +39,9 @@ Host functions are assembled through `SandboxHostImplementations`, so orchestrat
 
 The config migration is not just stylistic. Batch reads resolve and parse the entire plugin config schema once, then return requested values by key. A script reading 6 config keys now uses one host call and one config resolution pass.
 
-**Read-surface overlap.** `executeQueryEngine` can express entity and event reads. `getEntities`, `listEvents`, `listEventSchemas`, `getEntitySchemas` are four narrower syscalls doing what one general one does — and Decision 8(b) explicitly mandates query pushdown. Each also fails 8(d) ("must never be explicable only by one plugin's needs") less than cleanly.
+**Read-surface overlap.** `executeQueryEngine` is the entity and event data read surface. Schema functions remain for metadata introspection, while Decision 8(b) mandates query pushdown for data reads.
 
-- [ ] Keep `executeQueryEngine` as the read surface, delete `getEntities`/`listEvents` once query documents cover their shapes, and keep `getEntitySchemas`/`listEventSchemas` only as _metadata_ introspection. Net: 21 → 17 functions with no capability loss.
+- [x] Keep `executeQueryEngine` as the entity/event data read surface and retain schema functions only as _metadata_ introspection. Net: 23 → 21 functions with no capability loss.
 
 **Naming lies.** `getIntegration()` takes no arguments and returns the integration from the execution's authority (sandbox-host-functions.ts:495-521).
 
@@ -86,7 +85,7 @@ automationHostFunctions      = AUTOMATION_…                  // :98
 systemCronHostFunctions      = SYSTEM_CRON_…                 // :99
 ```
 
-…and others (`getEntities`, `listEvents`, `createEvents`, `getUserPreferences`, `listIntegrations`, `getIntegration`, `listEventSchemas`, `getEntitySchemas`) are gated **only** at call time by `requireUserSandboxRunInput`. And `ensureUserEntities` is gated in _both_ places plus a third DB lookup (`resolveTrustedUserBootstrapCaller`, sandbox-host-functions.ts:211).
+…and others (`createEvents`, `getUserPreferences`, `listIntegrations`, `getIntegration`, `listEventSchemas`, `getEntitySchemas`) are gated **only** at call time by `requireUserSandboxRunInput`. And `ensureUserEntities` is gated in _both_ places plus a third DB lookup (`resolveTrustedUserBootstrapCaller`, sandbox-host-functions.ts:211).
 
 The selection predicate itself is a five-clause negated boolean (service.ts:129-140):
 
@@ -112,7 +111,6 @@ const CAPABILITY_REQUIREMENTS = {
 	upsertGlobalEntities: { authority: ["system"], systemKinds: ["script"] },
 	emitSignal: { authority: ["subscription", "system"] },
 	sendNotification: { authority: ["subscription"] },
-	getEntities: { authority: ["user", "subscription"] },
 	// …
 } satisfies Record<SandboxHostCapability, CapabilityRequirement>;
 ```
@@ -250,8 +248,8 @@ You asked for recommendations rather than questions, so:
 2. [x] **Narrow sandbox submission.** Remove the redundant workflow hop from workflow-owned callers before touching replay performance; retain only top-level submission bridge.
 3. [ ] **Batched durable calls (P3).** Allow independent pending requests to execute as parallel durable steps.
 4. [ ] **Drop the Redis session store (P1).** The data is process-local by construction.
-5. [x] **Host-function batching.** Batch config functions now; defer entity/schema batching until query-engine consolidation is decided.
-6. [ ] **Collapse reads into `executeQueryEngine`.** Sequence after the capability table lands because this is a plugin-facing API break.
+5. [x] **Host-function batching.** Batch config and metadata functions now.
+6. [x] **Collapse reads into `executeQueryEngine`.** Entity/event data reads use query documents; schema functions remain metadata-only.
 7. [x] **Fix B1 and B2.** Bound retry and harden symlink handling regardless of larger refactor sequencing.
 
 ---

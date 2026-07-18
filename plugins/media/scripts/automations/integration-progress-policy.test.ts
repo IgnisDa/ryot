@@ -10,6 +10,7 @@ import {
 	hostFailure,
 	hostSuccess,
 	integrationRecord,
+	queryEngineRows,
 } from "./automation-test-utils";
 import definition, { manifest } from "./integration-progress-policy.sandbox";
 
@@ -41,9 +42,9 @@ const createHost = (options: {
 				calls.push("getIntegration");
 				return options.integration ? hostSuccess(options.integration) : hostFailure();
 			},
-			listEvents: () => {
-				calls.push("listEvents");
-				return hostSuccess(options.events ?? []);
+			executeQueryEngine: () => {
+				calls.push("executeQueryEngine");
+				return hostSuccess(queryEngineRows(options.events ?? []));
 			},
 			getPluginConfig: (keys) => {
 				calls.push("getPluginConfig");
