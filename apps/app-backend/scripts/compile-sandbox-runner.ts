@@ -1,14 +1,13 @@
 #!/usr/bin/env bun
 
-import { FileSystem, Path } from "@effect/platform";
 import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
-import { Data, Effect, Layer, Ref, Schema } from "effect";
+import { Data, Effect, Layer, Ref, Schema, FileSystem, Path } from "effect";
 
 class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
 	message: string;
 }> {}
 
-const encodeRunnerSource = Schema.encodeSync(Schema.parseJson(Schema.String));
+const encodeRunnerSource = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 
 const walkRunnerSources = (
 	directory: string,
@@ -100,8 +99,8 @@ const program = Effect.gen(function* () {
 		const nextSources = yield* walkRunnerSources(sandboxRuntimeDirectory, sandboxRuntimeDirectory);
 		const nextFingerprint = fingerprint(nextSources);
 		if (nextFingerprint !== (yield* Ref.get(currentFingerprint))) {
-			const compiled = yield* Effect.either(compileRunner(sandboxRuntimeDirectory));
-			if (compiled._tag === "Right") {
+			const compiled = yield* Effect.result(compileRunner(sandboxRuntimeDirectory));
+			if (compiled._tag === "Success") {
 				yield* Ref.set(currentFingerprint, nextFingerprint);
 			} else {
 				yield* Effect.sleep("2 seconds");
