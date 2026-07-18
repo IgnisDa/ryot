@@ -1,4 +1,4 @@
-import { ConfigProvider, Effect, Exit, LogLevel } from "effect";
+import { ConfigProvider, Effect, Exit } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
 import type { AppConfigValue } from "#lib/infrastructure/config/service";
@@ -18,16 +18,15 @@ const validate = (overrides?: Overrides) =>
 const loadSystemConfig = (logLevel?: string) =>
 	Effect.runSyncExit(
 		AppConfig.pipe(
-			Effect.provide(AppConfig.Default),
-			Effect.withConfigProvider(
-				ConfigProvider.fromMap(
-					new Map([
-						["REDIS_URL", "unused"],
-						["DATABASE_URL", "unused"],
-						["SERVER_ADMIN_ACCESS_TOKEN", "unused"],
-						...(logLevel === undefined ? [] : [["SERVER_LOG_LEVEL", logLevel] as const]),
-					]),
-				),
+			Effect.provide(AppConfig.layer),
+			Effect.provideService(
+				ConfigProvider.ConfigProvider,
+				ConfigProvider.fromUnknown({
+					REDIS_URL: "unused",
+					DATABASE_URL: "unused",
+					SERVER_ADMIN_ACCESS_TOKEN: "unused",
+					...(logLevel === undefined ? {} : { SERVER_LOG_LEVEL: logLevel }),
+				}),
 			),
 		),
 	);
@@ -36,7 +35,7 @@ describe("system log level config", () => {
 	it("defaults to info", () => {
 		const result = loadSystemConfig();
 		assert(Exit.isSuccess(result));
-		expect(result.value.server.logLevel).toBe(LogLevel.Info);
+		expect(result.value.server.logLevel).toBe("Info");
 	});
 
 	it("retains the infrequent scheduler phrase default", () => {
@@ -48,7 +47,7 @@ describe("system log level config", () => {
 	it("parses values case-insensitively", () => {
 		const result = loadSystemConfig("DeBuG");
 		assert(Exit.isSuccess(result));
-		expect(result.value.server.logLevel).toBe(LogLevel.Debug);
+		expect(result.value.server.logLevel).toBe("Debug");
 	});
 
 	it("fails with a config error for unsupported values", () => {
