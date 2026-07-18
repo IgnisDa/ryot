@@ -18,6 +18,7 @@ import {
 	PluginHost,
 	type CreatePluginArtifactSession,
 	type PluginArtifactSession,
+	type PluginHeaderPublication,
 	type RenewPluginArtifactSession,
 	type RevokePluginArtifactSession,
 } from "#/modules/plugins/plugin-host";
@@ -147,6 +148,7 @@ function renderHost(
 	overrides: Partial<PluginClientCatalogEntry> = {},
 	location = home,
 	callbacks: {
+		readonly onHeader?: Parameters<typeof PluginHost>[0]["onHeader"];
 		readonly onStaleSession?: () => void;
 		readonly onQuery?: Parameters<typeof PluginHost>[0]["onQuery"];
 		readonly onInvokeOperation?: Parameters<typeof PluginHost>[0]["onInvokeOperation"];
@@ -158,9 +160,9 @@ function renderHost(
 	const host = (state: HostState) => (
 		<PluginHost
 			theme={theme}
-			onHeader={() => {}}
 			navigation={navigationFor(state)}
 			onNavigateBack={() => backs.push(null)}
+			onHeader={callbacks.onHeader ?? (() => undefined)}
 			installation={{ ...installation, ...state.overrides }}
 			onRenewArtifactSession={recorder.onRenewArtifactSession}
 			artifactSessionScopeKey={state.scopeKey ?? "server:user"}
@@ -420,6 +422,42 @@ describe("plugin artifact session lifecycle", () => {
 			"create:artifact-hash",
 		]);
 		expect(screen.getByTitle("fixture plugin")).toBeTruthy();
+	});
+
+	it("accepts only the current screen's header", async () => {
+		const headers: PluginHeaderPublication[] = [];
+		const host = renderHost(createRecorder(), {}, home, {
+			onHeader: (header) => headers.push(header),
+		});
+		await flush();
+		const connected = connectFrame(screen.getByTitle("fixture plugin"));
+		connected.pluginPort.postMessage(connected.init);
+		await flush();
+		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await flush();
+		connected.pluginPort.postMessage({
+			index: 0,
+			key: "k0",
+			type: "header",
+			header: { title: "Home" },
+		});
+		await flush();
+
+		host.moveTo({ overrides: {}, index: 1, location: { path: "/details", search: "" } });
+		await flush();
+		connected.pluginPort.postMessage({
+			index: 0,
+			key: "k0",
+			type: "header",
+			header: { title: "Stale" },
+		});
+		connected.pluginPort.postMessage({ index: 1, key: "k1", header: null, type: "header" });
+		await flush();
+
+		expect(headers).toEqual([
+			{ index: 0, key: "k0", title: "Home" },
+			{ index: 1, key: "k1", title: null },
+		]);
 	});
 
 	it("renews five minutes before expiry and retries transient failure before expiry", async () => {

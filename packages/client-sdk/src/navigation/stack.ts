@@ -1,5 +1,8 @@
 import { PLUGIN_SCREEN_STACK_LIMIT } from "@ryot/contract/modules/plugins/client";
-import type { PluginLogicalLocation } from "@ryot/contract/modules/plugins/client";
+import type {
+	PluginHeaderContent,
+	PluginLogicalLocation,
+} from "@ryot/contract/modules/plugins/client";
 import type { ComponentType } from "react";
 
 export type PluginScreen = {
@@ -8,6 +11,7 @@ export type PluginScreen = {
 	readonly component: ComponentType;
 	readonly params: Record<string, string>;
 	readonly location: PluginLogicalLocation;
+	readonly header: PluginHeaderContent | null;
 };
 
 export type StackTransition = "same" | "push" | "pop" | "replace" | "reset";
@@ -40,15 +44,16 @@ export type StackResult = {
 	readonly stack: readonly PluginScreen[];
 };
 
-type Resolve = (location: PluginLogicalLocation) => {
+export type ResolvePluginScreen = (location: PluginLogicalLocation) => {
 	readonly component: ComponentType;
 	readonly params: Record<string, string>;
+	readonly header: PluginHeaderContent | null;
 };
 
 export function reconcileStack(
 	stack: readonly PluginScreen[],
 	incoming: StackEntry,
-	resolve: Resolve,
+	resolve: ResolvePluginScreen,
 ): StackResult {
 	const screen = { ...incoming, ...resolve(incoming.location) };
 	const top = stack.at(-1);

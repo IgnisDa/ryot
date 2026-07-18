@@ -5,8 +5,11 @@ import { EDGE_SWIPE_WIDTH, drawerWidth, gestureSpring } from "#/modules/navigati
 import type { EdgeResolution } from "#/modules/navigation/edge-intent";
 import { impactLight } from "#/modules/navigation/haptics";
 
-const OPEN_VELOCITY = 0.5;
+const OPEN_VELOCITY_PX_PER_SECOND = 500;
 const ACTIVATION_DISTANCE = 6;
+
+export const completesEdgeGesture = (offset: number, width: number, velocity: number) =>
+	offset > width / 3 || velocity > OPEN_VELOCITY_PX_PER_SECOND;
 
 type EdgeGestureProps = {
 	readonly isOpen: boolean;
@@ -62,7 +65,7 @@ export function EdgeGesture(props: EdgeGestureProps) {
 					return;
 				}
 				engaged.current = false;
-				const completed = info.offset.x > width.current / 3 || info.velocity.x > OPEN_VELOCITY;
+				const completed = completesEdgeGesture(info.offset.x, width.current, info.velocity.x);
 				if (completed) {
 					impactLight();
 				}
