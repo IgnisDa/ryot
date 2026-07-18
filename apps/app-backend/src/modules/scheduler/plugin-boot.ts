@@ -6,7 +6,7 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
+import { SandboxSubmissionWorkflow } from "#modules/sandbox/sandbox-submission-workflow";
 
 type ActivePluginBoot = {
 	readonly boot: PluginBoot;
@@ -57,7 +57,7 @@ export class PluginBootService extends Context.Service<PluginBootService>()("Plu
 				);
 			}
 			return yield* engine
-				.execute(RunSandboxWorkflow, {
+				.execute(SandboxSubmissionWorkflow, {
 					executionId,
 					payload: {
 						context: {},
