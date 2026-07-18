@@ -42,7 +42,6 @@ const propertiesSchema = {
 
 const actorSchema = {
 	userId: null,
-	isBuiltin: true,
 	propertiesSchema,
 	slug: "review.created",
 	name: "Review created",
@@ -222,10 +221,10 @@ it.effect("rejects a system principal for an actor audience", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("rejects a user-owned cross-user audience policy", () => {
+it.effect("rejects an unregistered signal schema", () => {
 	const layer = makeLayer({
 		signalSchemas: makeSignalSchemasRepository({
-			findVisibleBySlug: () => Effect.succeed({ ...relatedSchema, userId, isBuiltin: false }),
+			findVisibleBySlug: () => Effect.succeed(null),
 		}),
 		signals: makeSignalsRepository(),
 	});
