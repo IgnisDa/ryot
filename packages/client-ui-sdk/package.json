@@ -4,6 +4,10 @@
 	"type": "module",
 	"exports": {
 		"./theme.css": "./src/theme.css",
+		"./table": {
+			"types": "./src/table.tsx",
+			"default": "./src/table.tsx"
+		},
 		".": {
 			"types": "./src/index.tsx",
 			"default": "./src/index.tsx"
@@ -14,6 +18,7 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
+		"@tanstack/react-table": "9.1.2",
 		"clsx": "2.1.1",
 		"react": "^19.2.0"
 	},
