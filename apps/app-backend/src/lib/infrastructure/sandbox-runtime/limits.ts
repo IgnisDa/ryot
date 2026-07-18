@@ -19,6 +19,7 @@ export const SANDBOX_LIMITS = {
 	hostCalls: { http: 50, total: 200 },
 	harvest: { handleTtlSeconds: 60 * 60 },
 	globalWrites: GLOBAL_WRITE_SANDBOX_LIMITS,
+	diagnostics: { stderrBytes: 64 * KiB, stderrLines: 20 },
 	userRelationshipWrites: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
 	scratch: { maxDepth: 32, maxEntries: 4_096, totalBytes: 5 * MiB },
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
