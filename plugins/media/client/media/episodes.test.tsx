@@ -9,12 +9,12 @@ import {
 	EPISODIC_FIXTURE_RENDER,
 } from "../../tests/client/episodic/episodes-fixture";
 import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
+import { mediaCursorPageError } from "./cursor-page-state";
 import { MediaEpisodePages, type MediaEpisodePagesCopy } from "./episodes";
-import { mediaEpisodePageError } from "./episodes-state";
 
 const COPY: MediaEpisodePagesCopy = {
 	empty: "No episodes have been recorded yet.",
-	error: (state) => mediaEpisodePageError({ state, noun: "episodes" }),
+	error: (state) => mediaCursorPageError({ state, noun: "episodes" }),
 	loading: { title: "Loading episodes...", detail: "Fetching this feed's episodes." },
 };
 

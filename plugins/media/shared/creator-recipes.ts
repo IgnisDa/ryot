@@ -3,7 +3,6 @@ import {
 	and,
 	ascending,
 	column,
-	count,
 	defineRecipe,
 	descending,
 	eq,
@@ -14,7 +13,6 @@ import {
 	selectedOptionalRow,
 	table,
 	type Recipe,
-	type SelectedQuery,
 	type SelectedRow,
 	type SelectedSelection,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -28,13 +26,10 @@ import {
 } from "./entity-selections";
 import {
 	creditSelection,
-	mediaCollectionEventsQuery,
-	mediaEntityEventsQuery,
 	mediaEntitySummarySelection,
-	mediaReviewEventSelection,
+	mediaReviewActivityRecipe,
 	mediaSummaryQueries,
 	mediaSummaryResult,
-	mergeMediaActivityEvents,
 } from "./media-recipes";
 import {
 	builtinMediaEntitySchemaSlugs,
@@ -110,25 +105,6 @@ const isGroupTarget = (target: MediaCreatorCreditSlug): target is GroupTargetSlu
 
 export type MediaCreatorCredit = SelectedRow<ReturnType<typeof creditSelection>> & {
 	readonly character?: string | null | undefined;
-};
-
-type SelectedQuerySuccess<Query> = Query extends SelectedQuery<infer Success> ? Success : never;
-
-type MediaCreatorActivityCollectionRow = SelectedQuerySuccess<
-	ReturnType<typeof mediaCollectionEventsQuery>
->["items"][number];
-
-export type MediaCreatorActivityEvent = ReturnType<
-	typeof mergeMediaActivityEvents<
-		SelectedRow<ReturnType<typeof mediaReviewEventSelection>>,
-		MediaCreatorActivityCollectionRow
-	>
->[number];
-
-export type MediaCreatorActivityResult = {
-	readonly reviewCount: number;
-	readonly truncated: boolean;
-	readonly events: readonly MediaCreatorActivityEvent[];
 };
 
 export type MediaCreatorOverviewOf<Recipes extends { readonly overviewRecipe: unknown }> =
@@ -212,55 +188,7 @@ export const mediaCreatorRecipes = <
 		},
 	);
 
-	const activityRecipe = defineRecipe(
-		(input: {
-			readonly entityId: string;
-			readonly eventLimit: number;
-			readonly collectionEventLimit: number;
-		}) => {
-			const entity = table("entity", `${config.alias}ActivityEntity`);
-			const review = table("event", `${config.alias}ReviewCountEvent`);
-			return {
-				map: ({ totals, events, collectionEvents }) =>
-					Result.succeed({
-						reviewCount: totals?.reviewCount ?? 0,
-						truncated: events.pageInfo.hasMore || collectionEvents.pageInfo.hasMore,
-						events: mergeMediaActivityEvents({
-							parentEvents: events.items,
-							collectionEvents: collectionEvents.items,
-						}),
-					}),
-				queries: {
-					collectionEvents: mediaCollectionEventsQuery({
-						entityId: input.entityId,
-						limit: input.collectionEventLimit,
-					}),
-					events: mediaEntityEventsQuery({
-						slugs: ["review"],
-						limit: input.eventLimit,
-						entityId: input.entityId,
-						alias: `${config.alias}Event`,
-						selection: mediaReviewEventSelection,
-					}),
-					totals: selectedOptionalRow(entity, {
-						orderBy: [ascending(column(entity, "id"))],
-						where: and(entitySchema(entity, config.slug), entityId(entity, input.entityId)),
-						selection: {
-							reviewCount: selectedField(
-								count(review, {
-									where: and(
-										eq(column(review, "entityId"), column(entity, "id")),
-										eq(column(review, "eventSchemaSlug"), literal("review")),
-									),
-								}),
-								Schema.Number,
-							),
-						},
-					}),
-				},
-			};
-		},
-	);
+	const activityRecipe = mediaReviewActivityRecipe(config);
 
 	return { summaryRecipe, overviewRecipe, activityRecipe };
 };

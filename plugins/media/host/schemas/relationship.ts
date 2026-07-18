@@ -1,7 +1,10 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import { slugify } from "../../backend/contracts/slug";
-import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
+import {
+	builtinMediaEntitySchemaSlugs,
+	mediaGroupMemberSlugs,
+} from "../../shared/media-schema-slugs";
 
 type BuiltinRelationshipSchema = {
 	slug: string;
@@ -227,22 +230,18 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	}),
 	...(
 		[
-			{ media: "book", group: "book-group", name: "Book Series to Book" },
-			{ media: "music", group: "music-group", name: "Music Album to Music" },
-			{ media: "movie", group: "movie-group", name: "Movie Collection to Movie" },
-			{ media: "audiobook", group: "audiobook-group", name: "Audiobook Series to Audiobook" },
-			{ media: "comic-book", group: "comic-book-group", name: "Comic Book Series to Comic Book" },
-			{
-				media: "video-game",
-				group: "video-game-group",
-				name: "Video Game Collection to Video Game",
-			},
+			{ group: "book-group", name: "Book Series to Book" },
+			{ group: "music-group", name: "Music Album to Music" },
+			{ group: "movie-group", name: "Movie Collection to Movie" },
+			{ group: "audiobook-group", name: "Audiobook Series to Audiobook" },
+			{ group: "comic-book-group", name: "Comic Book Series to Comic Book" },
+			{ group: "video-game-group", name: "Video Game Collection to Video Game" },
 		] as const
-	).map(({ name, group, media }) => ({
+	).map(({ name, group }) => ({
 		name,
-		slug: `${group}-to-${media}`,
 		sourceEntitySchemaSlug: group,
-		targetEntitySchemaSlug: media,
 		propertiesSchema: groupRolesPropertiesSchema,
+		slug: `${group}-to-${mediaGroupMemberSlugs[group]}`,
+		targetEntitySchemaSlug: mediaGroupMemberSlugs[group],
 	})),
 ];

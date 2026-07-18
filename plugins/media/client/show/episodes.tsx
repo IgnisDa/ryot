@@ -5,17 +5,14 @@ import clsx from "clsx";
 import { useState } from "react";
 
 import { showSeasonEpisodesRecipe, showSeasonsRecipe } from "../../shared/show-recipes";
+import { mediaCursorPageError, type MediaCursorPage } from "../media/cursor-page-state";
 import {
 	MediaEpisodePages,
 	type MediaEpisodePageInput,
 	type MediaEpisodePagesCopy,
 	type MediaEpisodeRender,
 } from "../media/episodes";
-import {
-	mediaEpisodeNumberLabel,
-	mediaEpisodePageError,
-	type MediaEpisodePage,
-} from "../media/episodes-state";
+import { mediaEpisodeNumberLabel } from "../media/episodes-state";
 import { ManagedAssetImage } from "../media/managed-assets";
 import { MediaProgressBar, MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
 import {
@@ -59,7 +56,7 @@ export const showSeasonsQuery = createRyotQuery<{ readonly entityId: string }, S
 
 export const showSeasonEpisodesQuery = createRyotQuery<
 	MediaEpisodePageInput,
-	MediaEpisodePage<ShowEpisode>
+	MediaCursorPage<ShowEpisode>
 >(
 	({ input, client, signal }) =>
 		client.data.query(
@@ -90,7 +87,7 @@ const SHOW_EPISODE_PAGES_COPY: MediaEpisodePagesCopy = {
 	empty: "No episodes have been recorded for this season yet.",
 	loading: { title: "Loading season...", detail: "Fetching this season's episodes." },
 	error: (state) => ({
-		...mediaEpisodePageError({ state, noun: "episodes" }),
+		...mediaCursorPageError({ state, noun: "episodes" }),
 		title: "Unable to load this season",
 	}),
 };

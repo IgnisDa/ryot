@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 
 import type { MediaOverviewRows } from "../../shared/media-recipes";
+import type { MediaStatusCopy } from "./detail-screen";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import { MediaEntityRailSection } from "./entity-rail";
 import type { MediaGalleryImage, MediaImageAsset } from "./image";
@@ -18,12 +19,18 @@ import {
 	mediaRolesLabel,
 	mediaUnlinkedCredits,
 	type MediaCompany,
+	type MediaCreditPerson,
 	type MediaOverviewState,
-	type MediaPerson,
 	type MediaRecommendation,
 	type MediaUnlinkedCreator,
 } from "./overview-state";
-import { MediaExternalLink, MediaLinkButton, MediaOverviewSection, MediaRail } from "./primitives";
+import {
+	MediaExternalLink,
+	MediaLinkButton,
+	MediaOverviewSection,
+	MediaRail,
+	MediaStatusMessage,
+} from "./primitives";
 import { mediaGalleryAssets, type MediaSummaryFields } from "./summary-state";
 import { mediaSyncCounts } from "./sync-counts";
 import {
@@ -193,7 +200,7 @@ export function MediaPeopleSection(props: {
 	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly onViewAll: () => void;
-	readonly people: readonly MediaPerson[];
+	readonly people: readonly MediaCreditPerson[];
 	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
 }) {
 	const unlinked = props.unlinked ?? [];
@@ -212,7 +219,7 @@ export function MediaPeopleSection(props: {
 			<MediaRail compact={props.compact}>
 				{props.people.map((person) => {
 					const roles = mediaRolesLabel(person.roles);
-					const character = mediaCharacterLabel(person.character);
+					const character = mediaCharacterLabel(person.character ?? null);
 					return (
 						<PluginLink
 							key={person.id}
@@ -384,6 +391,46 @@ function MediaOverviewNotice(props: {
 	);
 }
 
+export function MediaCreditColumns(props: {
+	readonly compact: boolean;
+	readonly divided: boolean;
+	readonly copy: MediaCreditCopy;
+	readonly onViewAllPeople: () => void;
+	readonly companies: readonly MediaCompany[];
+	readonly people: readonly MediaCreditPerson[];
+	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
+}) {
+	const unlinked = mediaUnlinkedCredits(props.unlinked ?? []);
+	const hasPeople = props.people.length > 0 || unlinked.people.length > 0;
+	const hasCredits = hasPeople || props.companies.length > 0 || unlinked.companies.length > 0;
+	return (
+		<div
+			className={clsx(
+				"flex gap-7",
+				props.compact ? "flex-col" : "flex-row gap-10",
+				!props.compact && hasCredits && "pt-5",
+				!props.compact && hasCredits && props.divided && "border-t border-border",
+			)}
+		>
+			<MediaPeopleSection
+				people={props.people}
+				compact={props.compact}
+				divided={props.divided}
+				title={props.copy.people}
+				unlinked={unlinked.people}
+				onViewAll={props.onViewAllPeople}
+			/>
+			<MediaCompaniesSection
+				compact={props.compact}
+				companies={props.companies}
+				title={props.copy.companies}
+				unlinked={unlinked.companies}
+				divided={props.divided || hasPeople}
+			/>
+		</div>
+	);
+}
+
 export function MediaOverviewRelations(props: {
 	readonly compact: boolean;
 	readonly divided: boolean;
@@ -395,35 +442,19 @@ export function MediaOverviewRelations(props: {
 	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
 }) {
 	const { people, companies, recommendations } = props.overview;
-	const unlinked = mediaUnlinkedCredits(props.unlinked ?? []);
-	const hasPeople = people.items.length > 0 || unlinked.people.length > 0;
-	const hasCredits = hasPeople || companies.items.length > 0 || unlinked.companies.length > 0;
+	const hasCredits =
+		people.items.length > 0 || companies.items.length > 0 || (props.unlinked ?? []).length > 0;
 	return (
 		<>
-			<div
-				className={clsx(
-					"flex gap-7",
-					props.compact ? "flex-col" : "flex-row gap-10",
-					!props.compact && hasCredits && "pt-5",
-					!props.compact && hasCredits && props.divided && "border-t border-border",
-				)}
-			>
-				<MediaPeopleSection
-					people={people.items}
-					compact={props.compact}
-					divided={props.divided}
-					title={props.copy.people}
-					unlinked={unlinked.people}
-					onViewAll={props.onViewAllPeople}
-				/>
-				<MediaCompaniesSection
-					compact={props.compact}
-					companies={companies.items}
-					title={props.copy.companies}
-					unlinked={unlinked.companies}
-					divided={props.divided || hasPeople}
-				/>
-			</div>
+			<MediaCreditColumns
+				copy={props.copy}
+				people={people.items}
+				compact={props.compact}
+				divided={props.divided}
+				unlinked={props.unlinked}
+				companies={companies.items}
+				onViewAllPeople={props.onViewAllPeople}
+			/>
 			<MediaRecommendationsSection
 				aspect={props.aspect}
 				compact={props.compact}
@@ -484,6 +515,7 @@ export function MediaOverview<Overview>(props: {
 	readonly refreshStatus?: ReactNode;
 	readonly refreshOverview: () => void;
 	readonly media: MediaOverviewSubject;
+	readonly empty?: MediaStatusCopy | undefined;
 	readonly isEmpty: (overview: Overview) => boolean;
 	readonly overview: MediaOverviewState<Overview>;
 	readonly relations: MediaOverviewRelationsRender<Overview>;
@@ -493,6 +525,14 @@ export function MediaOverview<Overview>(props: {
 }) {
 	const gallery = mediaGalleryAssets(props.media);
 	const relations = props.overview.status !== "ready" || !props.isEmpty(props.overview.overview);
+	if (props.empty !== undefined && !relations && gallery.length === 0) {
+		return (
+			<>
+				{props.refreshStatus}
+				<MediaStatusMessage title={props.empty.title} detail={props.empty.detail} />
+			</>
+		);
+	}
 	return (
 		<div className={clsx("flex flex-col", props.compact ? "gap-7 pt-6" : "gap-9 pt-8")}>
 			{props.refreshStatus}
