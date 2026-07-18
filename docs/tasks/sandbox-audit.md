@@ -197,9 +197,9 @@ The runner-side name validation (runner-source.sandbox.ts:120-132) does not help
 
 **P3 — workflow replay is O(N) subprocess spawns.** This is the big one. Each durable step ends the replay and re-runs the whole script in a **fresh Deno process** (sandbox-script-workflow.ts:393-427). A 200-chunk media import = 201 spawns, 201 module materializations, 201 bridge sessions, 201 durable workflow records.
 
-But the envelope already carries `requests` as an **array**, and the kernel deliberately rejects more than one unrecorded call (`:185-191`). So a script doing `Effect.all([activity(a), activity(b), activity(c)])` is forced into three sequential replays instead of one.
+The envelope already carries `requests` as an **array**. Before P3, the kernel rejected more than one unrecorded call, so a script doing `Effect.all([activity(a), activity(b), activity(c)])` was forced into three sequential replays instead of one. P3 now accepts that contiguous pending suffix and executes it as one batch.
 
-- [ ] Allow a replay to emit multiple pending requests when they are independent, execute them as parallel durable steps, and append all results to the journal in one pass. Preserve determinism with index ordering and hash checks.
+- [x] Allow workflow scripts to use native `Effect.all` for independent durable calls. Replay registration is deterministic, pending suffixes execute in parallel with request-indexed identities, and results append in journal order with existing hash checks. The 1,000-request ceiling remains enforced.
 
 **P4 — journal projection is O(N²).** `projectWorkflowJournal` (sandbox-script-workflow.ts:394) is called at the top of every step and re-writes the entire prefix via `hsetnx` (workflow-journal.ts:71-82). Step _k_ writes _k_ fields → ~500k commands at the 1000-step ceiling.
 
