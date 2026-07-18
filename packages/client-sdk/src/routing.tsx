@@ -5,6 +5,7 @@ import {
 	useContext,
 	useEffect,
 	useEffectEvent,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -19,7 +20,13 @@ import {
 
 import { applyProgress, prefersReducedMotion, settleProgress } from "./navigation/animator";
 import { EDGE_SWIPE_WIDTH, dragProgress, shouldCommit, shouldEngage } from "./navigation/gesture";
-import { reconcileStack, type PluginScreen } from "./navigation/stack";
+import {
+	presentScreens,
+	reconcileStack,
+	type Presentation,
+	type PluginScreen,
+	type ScreenRole,
+} from "./navigation/stack";
 import type { PluginNavigationEntry, PluginRouterNavigation } from "./navigation/store";
 import { useRyot } from "./react";
 
@@ -137,7 +144,7 @@ const matchRoute = (routes: readonly PluginRouteDefinition[], path: string) => {
 	return undefined;
 };
 
-const screenStyle: CSSProperties = {
+const screenBase: CSSProperties = {
 	inset: 0,
 	overflowY: "auto",
 	position: "absolute",
@@ -146,6 +153,9 @@ const screenStyle: CSSProperties = {
 	// Vertical only: containing the x axis would disable the browser's own back-swipe.
 	overscrollBehaviorY: "contain",
 };
+
+const hiddenScreenStyle: CSSProperties = { ...screenBase, visibility: "hidden" };
+const visibleScreenStyle: CSSProperties = { ...screenBase, visibility: "visible" };
 
 const scrimStyle: CSSProperties = {
 	inset: 0,
@@ -163,6 +173,10 @@ const edgeStyle: CSSProperties = {
 	width: EDGE_SWIPE_WIDTH,
 };
 
+const rootStyle: CSSProperties = { height: "100%", overflow: "hidden", position: "relative" };
+
+const idle: Presentation = { kind: "idle" };
+
 type PluginRouterProps = {
 	readonly navigation: PluginRouterNavigation;
 	readonly definition: PluginRouterDefinition;
@@ -171,13 +185,25 @@ type PluginRouterProps = {
 export const PluginRouter = ({ definition, navigation }: PluginRouterProps) => {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const scrimRef = useRef<HTMLDivElement>(null);
-	const phase = useRef<"idle" | "dragging" | "committing">("idle");
-	const drag = useRef({ dx: 0, dy: 0, vx: 0, frame: 0, width: 0, lastX: 0, lastAt: 0 });
+	const settling = useRef<Promise<void> | undefined>(undefined);
 	const screenRefs = useRef(new Map<string, HTMLDivElement>());
 	const isFirstEntry = useRef(true);
-	const [stack, setStack] = useState<readonly PluginScreen[]>([]);
-	const [leaving, setLeaving] = useState<PluginScreen | undefined>(undefined);
-	const { edgeBack, entry } = useSyncExternalStore(navigation.subscribe, navigation.getSnapshot);
+	const drag = useRef({
+		dx: 0,
+		dy: 0,
+		vx: 0,
+		width: 0,
+		lastX: 0,
+		lastAt: 0,
+		active: false,
+		engaged: false,
+	});
+	const [screens, setScreens] = useState<readonly PluginScreen[]>([]);
+	const [presentation, setPresentation] = useState<Presentation>(idle);
+	const { compact, edgeBack, entry } = useSyncExternalStore(
+		navigation.subscribe,
+		navigation.getSnapshot,
+	);
 
 	const resolve = (location: PluginLogicalLocation) => {
 		if (location.path === "/") {
@@ -190,10 +216,7 @@ export const PluginRouter = ({ definition, navigation }: PluginRouterProps) => {
 		};
 	};
 
-	const screens = useMemo(
-		() => (leaving === undefined ? stack : [...stack, leaving]),
-		[stack, leaving],
-	);
+	const presented = useMemo(() => presentScreens(screens, presentation), [screens, presentation]);
 
 	const frameFor = (outgoingKey: string | undefined, incomingKey: string | undefined) => ({
 		scrim: scrimRef.current,
@@ -202,25 +225,25 @@ export const PluginRouter = ({ definition, navigation }: PluginRouterProps) => {
 	});
 
 	const applyEntry = useEffectEvent((effectEntry: PluginNavigationEntry) => {
-		const result = reconcileStack(stack, effectEntry, resolve);
-		const previousTop = stack.at(-1);
-		const committing = phase.current === "committing";
-
-		if (result.transition === "pop" && previousTop !== undefined) {
-			setStack(result.stack);
-			setLeaving(previousTop);
-			const frame = frameFor(previousTop.key, result.stack.at(-1)?.key);
-			void (committing ? Promise.resolve() : settleProgress(frame, 0, 1)).then(() => {
-				phase.current = "idle";
-				setLeaving(undefined);
-				return undefined;
-			});
+		const result = reconcileStack(screens, effectEntry, resolve);
+		const previousTop = screens.at(-1);
+		setScreens(result.stack);
+		if (
+			result.transition !== "pop" ||
+			previousTop === undefined ||
+			!(compact && !prefersReducedMotion())
+		) {
+			settling.current = undefined;
+			setPresentation(idle);
 			return;
 		}
-
-		setStack(result.stack);
-		setLeaving(undefined);
-		phase.current = "idle";
+		setPresentation({
+			kind: "popping",
+			leaving: previousTop,
+			incoming: result.stack.at(-1)?.key,
+			from:
+				presentation.kind === "dragging" ? dragProgress(drag.current.dx, drag.current.width) : 0,
+		});
 	});
 
 	useEffect(() => {
@@ -229,20 +252,40 @@ export const PluginRouter = ({ definition, navigation }: PluginRouterProps) => {
 		}
 	}, [entry]);
 
-	useEffect(() => {
-		if (leaving !== undefined || screens.length === 0) {
+	useLayoutEffect(() => {
+		if (presentation.kind !== "popping") {
+			return undefined;
+		}
+		const frame = frameFor(presentation.leaving.key, presentation.incoming);
+		const settle = settling.current ?? settleProgress(frame, presentation.from, 1);
+		settling.current = undefined;
+		let cancelled = false;
+		void settle.then(() => {
+			if (!cancelled) {
+				setPresentation(idle);
+			}
+			return undefined;
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [presentation]);
+
+	useLayoutEffect(() => {
+		if (presentation.kind !== "idle") {
 			return;
 		}
-		for (const [key, element] of screenRefs.current) {
-			if (!screens.some((screen) => screen.key === key)) {
-				screenRefs.current.delete(key);
-				continue;
-			}
+		for (const element of screenRefs.current.values()) {
 			element.style.transform = "";
-			element.style.visibility = key === screens.at(-1)?.key ? "visible" : "hidden";
 		}
 		if (scrimRef.current) {
 			scrimRef.current.style.opacity = "0";
+		}
+	}, [presentation]);
+
+	useEffect(() => {
+		if (presentation.kind !== "idle" || screens.length === 0) {
+			return;
 		}
 		if (isFirstEntry.current) {
 			isFirstEntry.current = false;
@@ -251,115 +294,111 @@ export const PluginRouter = ({ definition, navigation }: PluginRouterProps) => {
 		if (document.hasFocus()) {
 			screenRefs.current.get(screens.at(-1)?.key ?? "")?.focus({ preventScroll: true });
 		}
-	}, [screens, leaving]);
+	}, [screens, presentation]);
 
 	const beginDrag = (event: PointerEvent<HTMLDivElement>) => {
-		if (phase.current !== "idle" || stack.length < 2) {
+		if (drag.current.active || settling.current !== undefined || screens.length < 2) {
 			return;
 		}
 		drag.current = {
 			dx: 0,
 			dy: 0,
 			vx: 0,
-			frame: 0,
+			active: true,
+			engaged: false,
 			lastX: event.clientX,
 			lastAt: event.timeStamp,
 			width: rootRef.current?.clientWidth ?? 0,
 		};
-		phase.current = "dragging";
 	};
 
 	const moveDrag = (event: PointerEvent<HTMLDivElement>, originX: number, originY: number) => {
-		if (phase.current !== "dragging") {
+		const current = drag.current;
+		if (!current.active) {
 			return;
 		}
-		const current = drag.current;
 		const elapsed = event.timeStamp - current.lastAt;
 		current.vx = elapsed > 0 ? (event.clientX - current.lastX) / elapsed : 0;
 		current.lastX = event.clientX;
 		current.lastAt = event.timeStamp;
 		current.dx = event.clientX - originX;
 		current.dy = event.clientY - originY;
-		if (!current.frame && shouldEngage(current)) {
-			current.frame = 1;
-			const below = stack.at(-2);
-			const element = below === undefined ? undefined : screenRefs.current.get(below.key);
-			if (element) {
-				element.style.visibility = "visible";
-			}
+		if (!current.engaged && shouldEngage(current)) {
+			current.engaged = true;
+			setPresentation({ kind: "dragging" });
 		}
-		if (!current.frame || prefersReducedMotion()) {
+		if (!current.engaged || prefersReducedMotion()) {
 			return;
 		}
 		applyProgress(
-			frameFor(stack.at(-1)?.key, stack.at(-2)?.key),
+			frameFor(screens.at(-1)?.key, screens.at(-2)?.key),
 			dragProgress(current.dx, current.width),
 		);
 	};
 
 	const endDrag = () => {
-		if (phase.current !== "dragging") {
+		const current = drag.current;
+		if (!current.active) {
 			return;
 		}
-		const current = drag.current;
-		const frame = frameFor(stack.at(-1)?.key, stack.at(-2)?.key);
+		current.active = false;
+		const frame = frameFor(screens.at(-1)?.key, screens.at(-2)?.key);
 		const progress = dragProgress(current.dx, current.width);
-		if (!current.frame || !shouldCommit({ dx: current.dx, vx: current.vx, width: current.width })) {
-			phase.current = "idle";
+		if (!current.engaged || !shouldCommit(current)) {
 			void settleProgress(frame, progress, 0).then(() => {
-				const below = stack.at(-2);
-				const element = below === undefined ? undefined : screenRefs.current.get(below.key);
-				if (element && phase.current === "idle") {
-					element.style.visibility = "hidden";
+				if (!drag.current.active) {
+					setPresentation(idle);
 				}
 				return undefined;
 			});
 			return;
 		}
-		phase.current = "committing";
+		settling.current = settleProgress(frame, progress, 1);
 		navigation.back();
-		void settleProgress(frame, progress, 1);
 	};
 
-	if (screens.length === 0) {
+	if (presented.length === 0) {
 		return null;
 	}
 
+	const scrimAfter = presentation.kind === "popping" ? "active" : "beneath";
+
 	return (
-		<div ref={rootRef} style={{ height: "100%", overflow: "hidden", position: "relative" }}>
-			{screens.map((screen, position) => (
+		<div ref={rootRef} style={rootStyle}>
+			{presented.map(({ role, screen }) => (
 				<Fragment key={screen.key}>
-					<Screen active={position === screens.length - 1} screen={screen} refs={screenRefs} />
-					{position === screens.length - 2 && (
-						<div ref={scrimRef} aria-hidden="true" style={scrimStyle} />
-					)}
+					<Screen role={role} screen={screen} refs={screenRefs} />
+					{role === scrimAfter && <div ref={scrimRef} aria-hidden="true" style={scrimStyle} />}
 				</Fragment>
 			))}
-			{edgeBack && (
-				<EdgeStrip onEnd={endDrag} onMove={moveDrag} onStart={beginDrag} phase={phase} />
-			)}
+			{edgeBack && <EdgeStrip onEnd={endDrag} onMove={moveDrag} onStart={beginDrag} />}
 		</div>
 	);
 };
 
 function Screen(props: {
-	readonly active: boolean;
+	readonly role: ScreenRole;
 	readonly screen: PluginScreen;
 	readonly refs: RefObject<Map<string, HTMLDivElement>>;
 }) {
+	const active = props.role === "active";
 	const { location, params } = props.screen;
 	const value = useMemo(() => ({ location, params }), [location, params]);
 
 	return (
 		<div
 			tabIndex={-1}
-			style={screenStyle}
-			inert={!props.active}
-			aria-hidden={props.active ? undefined : true}
+			inert={!active}
+			aria-hidden={active ? undefined : true}
+			style={props.role === "hidden" ? hiddenScreenStyle : visibleScreenStyle}
 			ref={(element) => {
-				if (element) {
-					props.refs.current.set(props.screen.key, element);
+				if (element === null) {
+					return undefined;
 				}
+				props.refs.current.set(props.screen.key, element);
+				return () => {
+					props.refs.current.delete(props.screen.key);
+				};
 			}}
 		>
 			<RouterContext.Provider value={value}>
@@ -370,7 +409,6 @@ function Screen(props: {
 }
 
 function EdgeStrip(props: {
-	readonly phase: { current: "idle" | "dragging" | "committing" };
 	readonly onEnd: () => void;
 	readonly onStart: (event: PointerEvent<HTMLDivElement>) => void;
 	readonly onMove: (event: PointerEvent<HTMLDivElement>, originX: number, originY: number) => void;
