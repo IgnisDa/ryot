@@ -139,6 +139,17 @@ const query = Schema.decodeSync(jsonValueSchema)(JSON.parse(${JSON.stringify(JSO
 	});
 }
 
+export function entitiesSandboxSource(input: SandboxSourceIdentity) {
+	return scriptModuleSource({
+		...input,
+		capabilities: ["getEntities"],
+		sdkImports: ["entityRecordSchema"],
+		outputSchema: "Schema.Array(entityRecordSchema)",
+		run: "(input, host) => host.getEntities(input.ids)",
+		inputSchema: "Schema.Struct({ ids: Schema.Array(Schema.String) })",
+	});
+}
+
 export function pluginConfigSandboxSource(
 	input: SandboxSourceIdentity & {
 		readonly key: string;

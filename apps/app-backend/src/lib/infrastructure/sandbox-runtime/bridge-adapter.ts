@@ -136,10 +136,10 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.emitSignal(input, ...args),
 		defaultFailure("emitSignal", "emitSignal expects a valid signal request"),
 	),
-	getEntity: bindHostFunction(
-		domainSandboxHostContracts.getEntity,
-		(...args) => implementations.getEntity(input, ...args),
-		defaultFailure("getEntity", "getEntity expects a non-empty entityId string"),
+	getEntities: bindHostFunction(
+		domainSandboxHostContracts.getEntities,
+		(...args) => implementations.getEntities(input, ...args),
+		defaultFailure("getEntities", "getEntities expects an array of non-empty entityId strings"),
 	),
 	getEntitySchema: bindHostFunction(
 		domainSandboxHostContracts.getEntitySchema,

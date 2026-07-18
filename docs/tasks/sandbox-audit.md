@@ -26,13 +26,13 @@ Host functions are assembled through `SandboxHostImplementations`, so orchestrat
 
 ## 2. Host functions
 
-21 functions. Cohesive, but the batch-first rule from Decision 8(a) is violated in five places, and there is real read-surface overlap.
+21 functions. Cohesive, but the batch-first rule from Decision 8(a) remains violated in four places, and there is real read-surface overlap.
 
-**Per-item designs that Decision 8(a) forbids:**
+**Per-item designs that Decision 8(a) forbids, with completed migration retained:**
 
 | Function                    | Fix                               |
 | --------------------------- | --------------------------------- |
-| `getEntity(entityId)`       | - [ ] `getEntities(ids[])`        |
+| `getEntities(ids[])`        | - [x] batch entity reads          |
 | `getEntitySchema(slug)`     | - [ ] `getEntitySchemas(slugs[])` |
 | `listEventSchemas(slug)`    | - [ ] accept `slugs[]`            |
 | `getPluginConfigValue(key)` | - [ ] `getPluginConfig(keys[])`   |
@@ -40,9 +40,9 @@ Host functions are assembled through `SandboxHostImplementations`, so orchestrat
 
 The config ones are not just stylistic. `getPluginConfigValue` → `resolvePluginConfig` (app-config.ts:23-36) re-reads and re-parses the **entire** plugin config schema from env on every call. A script reading 6 config keys does 6 full `configFromAppSchema` + `parseAppSchemaProperties` passes, and burns 6 of its 200 host calls.
 
-**Read-surface overlap.** `executeQueryEngine` can express entity and event reads. `getEntity`, `listEvents`, `listEventSchemas`, `getEntitySchema` are four narrower syscalls doing what one general one does — and Decision 8(b) explicitly mandates query pushdown. Each also fails 8(d) ("must never be explicable only by one plugin's needs") less than cleanly.
+**Read-surface overlap.** `executeQueryEngine` can express entity and event reads. `getEntities`, `listEvents`, `listEventSchemas`, `getEntitySchema` are four narrower syscalls doing what one general one does — and Decision 8(b) explicitly mandates query pushdown. Each also fails 8(d) ("must never be explicable only by one plugin's needs") less than cleanly.
 
-- [ ] Keep `executeQueryEngine` as the read surface, delete `getEntity`/`listEvents` once query documents cover their shapes, and keep `getEntitySchema`/`listEventSchemas` only as _metadata_ introspection. Net: 21 → 17 functions with no capability loss.
+- [ ] Keep `executeQueryEngine` as the read surface, delete `getEntities`/`listEvents` once query documents cover their shapes, and keep `getEntitySchema`/`listEventSchemas` only as _metadata_ introspection. Net: 21 → 17 functions with no capability loss.
 
 **Naming lies.** `getIntegration()` takes no arguments and returns the integration from the execution's authority (sandbox-host-functions.ts:495-521).
 
@@ -86,7 +86,7 @@ automationHostFunctions      = AUTOMATION_…                  // :98
 systemCronHostFunctions      = SYSTEM_CRON_…                 // :99
 ```
 
-…and others (`getEntity`, `listEvents`, `createEvents`, `getUserPreferences`, `listIntegrations`, `getIntegration`, `listEventSchemas`, `getEntitySchema`) are gated **only** at call time by `requireUserSandboxRunInput`. And `ensureUserEntities` is gated in _both_ places plus a third DB lookup (`resolveTrustedUserBootstrapCaller`, sandbox-host-functions.ts:211).
+…and others (`getEntities`, `listEvents`, `createEvents`, `getUserPreferences`, `listIntegrations`, `getIntegration`, `listEventSchemas`, `getEntitySchema`) are gated **only** at call time by `requireUserSandboxRunInput`. And `ensureUserEntities` is gated in _both_ places plus a third DB lookup (`resolveTrustedUserBootstrapCaller`, sandbox-host-functions.ts:211).
 
 The selection predicate itself is a five-clause negated boolean (service.ts:129-140):
 
@@ -112,7 +112,7 @@ const CAPABILITY_REQUIREMENTS = {
 	upsertGlobalEntities: { authority: ["system"], systemKinds: ["script"] },
 	emitSignal: { authority: ["subscription", "system"] },
 	sendNotification: { authority: ["subscription"] },
-	getEntity: { authority: ["user", "subscription"] },
+	getEntities: { authority: ["user", "subscription"] },
 	// …
 } satisfies Record<SandboxHostCapability, CapabilityRequirement>;
 ```

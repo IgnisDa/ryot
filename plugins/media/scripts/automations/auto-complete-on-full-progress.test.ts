@@ -30,7 +30,8 @@ const createHost = (options: {
 	return {
 		created,
 		host: defineSandboxTestHost(manifest, {
-			getEntity: () => hostSuccess(entityRecord({ properties: options.entityProperties ?? {} })),
+			getEntities: () =>
+				hostSuccess([entityRecord({ properties: options.entityProperties ?? {} })]),
 			listEvents: () => hostSuccess(options.events ?? []),
 			listEventSchemas: () => hostSuccess([completeSchema]),
 			createEvents: (items) => {
