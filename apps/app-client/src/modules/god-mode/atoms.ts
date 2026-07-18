@@ -9,6 +9,10 @@ import { GOD_MODE_PAGE_SIZE } from "@/modules/god-mode/pagination";
 import { runUserLifecycleOperation } from "@/modules/god-mode/user-lifecycle";
 
 export type GodModeUser = ContractSuccess<"godMode", "listUsers">["users"][number];
+export type MigrationReportEntry = ContractSuccess<
+	"godMode",
+	"getMigrationReport"
+>["entries"][number];
 export type GodModePasswordResetResult = ContractSuccess<"godMode", "resetUserPassword">;
 export type GodModeSetDisabledResult = ContractSuccess<"godMode", "setUserDisabled">;
 
@@ -18,6 +22,16 @@ type GodModeUsersRequest = AdminSession & { readonly search: string; readonly of
 const usersReactivityKey = (session: AdminSession) => [
 	`god-mode-users:${adminRequestKey(session.serverUrl, session.sessionId)}`,
 ];
+
+const migrationReportReactivityKey = (session: AdminSession) => [
+	`god-mode-migration-report:${adminRequestKey(session.serverUrl, session.sessionId)}`,
+];
+
+const migrationReportFamily = Atom.family((session: AdminSession) =>
+	adminClient(session).query("godMode", "getMigrationReport", {
+		reactivityKeys: migrationReportReactivityKey(session),
+	}),
+);
 
 const usersPageFamily = Atom.family((request: GodModeUsersRequest) =>
 	adminClient(request).query("godMode", "listUsers", {
@@ -105,6 +119,9 @@ export const godModeUsersPageAtom = (request: GodModeUsersRequest) =>
 		search: request.search,
 		offset: request.offset,
 	});
+
+export const migrationReportAtom = (session: AdminSession) =>
+	migrationReportFamily(canonicalAdminSession(session));
 
 export const deleteUserAtom = (request: GodModeUserRequest) =>
 	deleteUserFamily(canonicalUserRequest(request));

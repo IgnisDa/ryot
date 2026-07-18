@@ -1,8 +1,9 @@
 import type { UserId } from "@ryot/contract/schema/brands";
-import { asc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
+import { migrationReport } from "#lib/infrastructure/db/schema/tables/migration-reports";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 const userSearchClause = (search?: string) =>
@@ -10,6 +11,24 @@ const userSearchClause = (search?: string) =>
 
 export class GodModeRepository extends Context.Service<GodModeRepository>()("GodModeRepository", {
 	make: Effect.sync(() => {
+		const listMigrationReportEntries = Effect.fn("GodModeRepository.listMigrationReportEntries")(
+			function* () {
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select()
+						.from(migrationReport)
+						.orderBy(
+							desc(sql`case when ${migrationReport.level} = 'warning' then 1 else 0 end`),
+							desc(migrationReport.createdAt),
+							desc(migrationReport.seq),
+						),
+				);
+
+				return rows.map((row) => Object.assign(row, { createdAt: row.createdAt.toISOString() }));
+			},
+		);
+
 		const countUsers = Effect.fn("GodModeRepository.countUsers")(function* (search?: string) {
 			const db = yield* Database;
 			const rows = yield* mapDatabaseErrors(
@@ -113,6 +132,7 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 			findUserIdByEmail,
 			listAccountsForUsers,
 			findUserDisabledState,
+			listMigrationReportEntries,
 		};
 	}),
 }) {

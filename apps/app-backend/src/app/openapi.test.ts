@@ -48,4 +48,9 @@ describe("OpenAPI documentation", () => {
 			{ adminToken: [] },
 		]);
 	});
+
+	it("documents migration reports as admin-only", () => {
+		const spec = OpenApi.fromApi(AppContract);
+		expect(spec.paths["/god-mode/migration-report"]?.get?.security).toEqual([{ adminToken: [] }]);
+	});
 });

@@ -89,17 +89,6 @@ class UnexpectedLegacyBootstrapWarning extends Data.TaggedError(
 	"UnexpectedLegacyBootstrapWarning",
 )<{ phase: string; message: string; count: number | null }> {}
 
-export const createReportTableSql = `
-CREATE TABLE IF NOT EXISTS "${reportTable}" (
-		"seq" serial PRIMARY KEY,
-		"phase" text NOT NULL,
-		"level" text NOT NULL CHECK ("level" IN ('info', 'warning')),
-		"message" text NOT NULL,
-		"count" integer,
-		"elapsed_seconds" double precision
-);
-`;
-
 const reportSequenceSql = `SELECT COALESCE(MAX("seq"), 0) AS "seq" FROM "${reportTable}";`;
 
 const selectReportSql = (afterSequence: number) => `
