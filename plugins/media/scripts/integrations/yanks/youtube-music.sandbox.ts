@@ -13,7 +13,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	slug: "integration.youtube-music",
-	capabilities: ["httpCall", "getCurrentIntegration", "claimCachedValue"],
+	capabilities: ["httpCall", "getCurrentIntegration", "claimPersistentValue"],
 });
 
 const Input = Schema.Struct({});
@@ -49,7 +49,7 @@ export default defineActivity({
 			const { localDate, ttlSeconds } = deduplicateWindow(timezone);
 			const entityGroups = yield* Effect.forEach(history.songs, (song, itemIndex) =>
 				Effect.gen(function* () {
-					const claim = yield* host.claimCachedValue(
+					const claim = yield* host.claimPersistentValue(
 						`${integration.id}:${song.videoId}:${localDate}`,
 						true,
 						ttlSeconds,

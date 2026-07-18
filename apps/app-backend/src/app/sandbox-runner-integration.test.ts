@@ -178,7 +178,7 @@ export const manifest = defineManifest({
     "httpCall",
     "getCachedValue",
     "setCachedValue",
-    "claimCachedValue",
+    "claimPersistentValue",
     "getSystemConfig",
     "getUserPreferences",
   ],
@@ -201,7 +201,7 @@ export default defineScript({
       yield* host.setCachedValue("shared", { value: 42 }, 60);
     }
     const after = yield* host.getCachedValue("shared");
-    const claim = yield* host.claimCachedValue(
+    const claim = yield* host.claimPersistentValue(
       "persistent", { owner: execution.sandboxScriptId }, 60,
     );
     const http = yield* host.httpCall("POST", "https://example.com/core", {
@@ -700,7 +700,7 @@ const startCoreHostBridge = (
 						} else if (fnName === "setCachedValue") {
 							runCache.set(cacheKey, args[1]);
 							result = { data: null, success: true };
-						} else if (fnName === "claimCachedValue") {
+						} else if (fnName === "claimPersistentValue") {
 							if (persistentCache.has(cacheKey)) {
 								result = {
 									success: true,

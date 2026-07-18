@@ -47,9 +47,9 @@ The config migration is not just stylistic. Batch reads resolve and parse the en
 
 - [x] Use `getCurrentIntegration` for execution-scoped integration access.
 
-**Cache trio asymmetry.** `getCachedValue`/`setCachedValue` write `redisKeys.sandboxRunCache(serverRun.id, …)` — wiped on restart. `claimCachedValue` writes `redisKeys.sandboxCache(…)` — persistent. Three same-shaped functions, two different lifetimes, discoverable only from README:108.
+**Cache trio asymmetry.** `getCachedValue`/`setCachedValue` write `redisKeys.sandboxRunCache(serverRun.id, …)` — wiped on restart. `claimPersistentValue` writes `redisKeys.sandboxCache(…)` — persistent. Three same-shaped functions, two different lifetimes, discoverable only from README:108.
 
-- [ ] Rename `claimCachedValue` to `claimPersistentValue`, or make lifetime an explicit argument.
+- [x] Use `claimPersistentValue` for persistent atomic cache claims.
 
 **Inconsistent validation.** Every host function decodes its args through an SDK contract in `bridge-adapter.ts` — except `listIntegrations`, which re-validates by hand inside the implementation (sandbox-host-functions.ts:583-598) _after_ already passing `domainSandboxHostContracts.listIntegrations`. Dead double-validation.
 

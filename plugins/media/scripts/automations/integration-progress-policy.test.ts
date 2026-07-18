@@ -52,7 +52,7 @@ const createHost = (options: {
 					Object.fromEntries(keys.map((key) => [key, options.thresholdHours ?? "2"])),
 				);
 			},
-			claimCachedValue: () =>
+			claimPersistentValue: () =>
 				hostSuccess(
 					options.claimed === false
 						? { claimed: false as const, value: null }
