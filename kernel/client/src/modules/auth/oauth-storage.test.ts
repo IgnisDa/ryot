@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oauth";
+import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
 import { Effect } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";

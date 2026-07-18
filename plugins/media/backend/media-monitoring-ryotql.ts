@@ -1,4 +1,4 @@
-import { Result, Schema } from "@ryot/sandbox-sdk/effect";
+import { Result, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	and,
 	ascending,
@@ -15,7 +15,7 @@ import {
 	selectedRows,
 	table,
 	type Recipe,
-} from "@ryot/sandbox-sdk/ryotql";
+} from "@ryot-app/sandbox-sdk/ryotql";
 
 import { builtinMediaEntitySchemaSlugs } from "./schemas/media-schema-slugs";
 

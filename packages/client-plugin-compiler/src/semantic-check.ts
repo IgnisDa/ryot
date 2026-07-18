@@ -1,4 +1,7 @@
-import { createTypeScriptProject, normalizeTypeScriptDiagnostic } from "@ryot/typescript-compiler";
+import {
+	createTypeScriptProject,
+	normalizeTypeScriptDiagnostic,
+} from "@ryot-app/typescript-compiler";
 import { Effect } from "effect";
 
 import type { ClientPluginCompilerDiagnostic } from "./diagnostics";

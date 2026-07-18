@@ -1,5 +1,5 @@
-import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
-import type { MediaImage } from "@ryot/media-plugin/query-recipes";
+import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
+import type { MediaImage } from "@ryot-app/media-plugin/query-recipes";
 
 type MediaImages = readonly MediaImage[] | null;
 

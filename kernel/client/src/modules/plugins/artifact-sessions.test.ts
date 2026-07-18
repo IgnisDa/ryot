@@ -1,11 +1,15 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { ContractClient, ContractPathParams, ContractPayload } from "@ryot/contract/client";
+import type {
+	ContractClient,
+	ContractPathParams,
+	ContractPayload,
+} from "@ryot-app/contract/client";
 import {
 	PluginArtifactSessionNotFoundError,
 	PluginArtifactSessionUnavailableError,
 	PluginConflictError,
-} from "@ryot/contract/modules/plugins/schemas";
-import { PluginSlug } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/plugins/schemas";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Exit, Fiber, Layer } from "effect";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";

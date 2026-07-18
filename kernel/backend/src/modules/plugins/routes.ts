@@ -1,6 +1,6 @@
-import { CurrentUser } from "@ryot/contract/auth-middleware";
-import { AppContract } from "@ryot/contract/contract";
-import { dieOnDbError } from "@ryot/contract/errors";
+import { CurrentUser } from "@ryot-app/contract/auth-middleware";
+import { AppContract } from "@ryot-app/contract/contract";
+import { dieOnDbError } from "@ryot-app/contract/errors";
 import { Effect } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";

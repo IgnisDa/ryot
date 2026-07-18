@@ -1,4 +1,4 @@
-import type { UserCollectionsListQuery } from "@ryot/generated/graphql/backend/graphql";
+import type { UserCollectionsListQuery } from "@ryot-app/generated/graphql/backend/graphql";
 import type { ComponentType } from "react";
 
 import type { UserMetadataDetails } from "../media-item/types";

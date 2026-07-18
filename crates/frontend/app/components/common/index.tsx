@@ -27,7 +27,7 @@ import {
 	type CollectionToEntityDetailsPartFragment,
 	EntityLot,
 	MediaSource,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import {
 	IconArrowsShuffle,
 	IconCheck,

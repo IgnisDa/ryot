@@ -1,7 +1,7 @@
-import { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
-import { EntityId, SubscriptionRunId, UserId } from "@ryot/contract/schema/brands";
-import { automationInputSchema } from "@ryot/sandbox-sdk/automation";
-import type { AutomationSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
+import { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
+import { EntityId, SubscriptionRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { automationInputSchema } from "@ryot-app/sandbox-sdk/automation";
+import type { AutomationSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
 import { DateTime, Effect, Option, Schema } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

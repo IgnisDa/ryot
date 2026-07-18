@@ -1,4 +1,4 @@
-import { importRunRecipe, manualImportRunsRecipe } from "@ryot/ryotql-recipes/import-runs";
+import { importRunRecipe, manualImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
 import { Atom } from "effect/unstable/reactivity";
 
 import { appClient } from "@/api/client";

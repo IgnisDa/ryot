@@ -1,5 +1,5 @@
-import { SandboxRunError } from "@ryot/contract/errors";
-import { EntityId, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
+import { SandboxRunError } from "@ryot-app/contract/errors";
+import { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 

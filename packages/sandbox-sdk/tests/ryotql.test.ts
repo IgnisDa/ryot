@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	column,
 	document,
@@ -10,8 +10,8 @@ import {
 	rows,
 	table,
 	userLibraryRecipe,
-} from "@ryot/sandbox-sdk/ryotql";
-import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
+} from "@ryot-app/sandbox-sdk/ryotql";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 const rowsResponse = {

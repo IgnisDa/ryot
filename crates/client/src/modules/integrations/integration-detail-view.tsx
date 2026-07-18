@@ -1,8 +1,8 @@
 import type {
 	ListedIntegration,
 	ListedIntegrationProvider,
-} from "@ryot/contract/modules/integrations/schemas";
-import type { ImportRunSummary } from "@ryot/ryotql-recipes/import-runs";
+} from "@ryot-app/contract/modules/integrations/schemas";
+import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import clsx from "clsx";
 import { ActivityIndicator, Text, View } from "react-native";
 

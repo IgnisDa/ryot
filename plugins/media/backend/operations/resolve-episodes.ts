@@ -1,4 +1,4 @@
-import { Effect, Result, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	and,
 	ascending,
@@ -15,7 +15,7 @@ import {
 	table,
 	type Recipe,
 	type RyotQLDocument,
-} from "@ryot/sandbox-sdk/ryotql";
+} from "@ryot-app/sandbox-sdk/ryotql";
 
 import type { ResolveEpisodesRef } from "./schemas";
 

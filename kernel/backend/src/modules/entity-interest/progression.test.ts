@@ -4,7 +4,7 @@ import {
 	EntitySchemaSlug,
 	SandboxProviderId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Clock, Duration, Effect, Layer } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";

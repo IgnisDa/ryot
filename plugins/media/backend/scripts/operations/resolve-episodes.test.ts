@@ -1,6 +1,6 @@
-import { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
+import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { execution } from "../automations/automation-test-utils";

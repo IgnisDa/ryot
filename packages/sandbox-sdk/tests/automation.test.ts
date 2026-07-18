@@ -5,8 +5,8 @@ import {
 	automationResultSchema,
 	defineAutomation,
 	defineAutomationPolicy,
-} from "@ryot/sandbox-sdk/automation";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+} from "@ryot-app/sandbox-sdk/automation";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { describe, expect, test } from "vitest";
 
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";

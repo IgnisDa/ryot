@@ -1,6 +1,6 @@
 import { assert, expect, it } from "@effect/vitest";
-import { EntityInterestTicketFailure } from "@ryot/contract/modules/entity-interest/contract";
-import { UserId } from "@ryot/contract/schema/brands";
+import { EntityInterestTicketFailure } from "@ryot-app/contract/modules/entity-interest/contract";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 import Redis from "ioredis";
 import { describe } from "vitest";

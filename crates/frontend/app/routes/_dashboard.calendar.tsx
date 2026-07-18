@@ -2,8 +2,8 @@ import { ActionIcon, Button, Container, Group, Stack, Text, Title } from "@manti
 import {
 	UserCalendarEventsDocument,
 	type UserCalendarEventsQuery,
-} from "@ryot/generated/graphql/backend/graphql";
-import { sum } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { sum } from "@ryot-app/ts-utils/lodash";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { parseAsString } from "nuqs";

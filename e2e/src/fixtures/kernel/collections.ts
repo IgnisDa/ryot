@@ -1,5 +1,5 @@
-import type { ContractPayload } from "@ryot/contract/client";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect } from "effect";
 
 import { requireObjectRecord, requirePresent } from "~/support/assertions";

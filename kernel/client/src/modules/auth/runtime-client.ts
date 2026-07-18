@@ -8,7 +8,7 @@ import {
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_WEB_CLIENT_ID,
 	type PendingAuthorization,
-} from "@ryot/contract/oauth";
+} from "@ryot-app/contract/oauth";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";

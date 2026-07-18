@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
-import { createSha256Hasher } from "@ryot/ts-utils/crypto";
+import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
 import { Data, Effect, Layer, Ref, Schema, FileSystem, Path } from "effect";
 
 class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
@@ -65,7 +65,7 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 					target: "browser",
 					packages: "bundle",
 					entrypoints: [entrypoint],
-					external: ["@ryot/sandbox-sdk/effect"],
+					external: ["@ryot-app/sandbox-sdk/effect"],
 				}),
 			catch: (error) =>
 				new RunnerGenerationError({ message: `Sandbox runner build failed: ${String(error)}` }),

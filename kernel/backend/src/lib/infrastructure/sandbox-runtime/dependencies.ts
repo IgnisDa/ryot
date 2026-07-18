@@ -1,5 +1,8 @@
-import { SANDBOX_RUNTIME_SDK_IMPORTS, SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
-import { createSha256Hasher } from "@ryot/ts-utils/crypto";
+import {
+	SANDBOX_RUNTIME_SDK_IMPORTS,
+	SANDBOX_SDK_ROOT_IMPORT,
+} from "@ryot-app/sandbox-sdk/imports";
+import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
 import { Data, Effect, FileSystem, Path } from "effect";
 
 class SandboxRuntimeDependencyError extends Data.TaggedError("SandboxRuntimeDependencyError")<{
@@ -67,7 +70,7 @@ const runtimeModuleSource = (name: string) => {
 		return 'import * as Effect from "effect/Effect"; import * as Schema from "effect/Schema"; import * as DateTime from "effect/DateTime"; import * as Duration from "effect/Duration"; import * as Result from "effect/Result"; import * as Option from "effect/Option"; import * as SchemaGetter from "effect/SchemaGetter"; import * as SchemaIssue from "effect/SchemaIssue"; import * as SchemaTransformation from "effect/SchemaTransformation"; export { DateTime, Duration, Effect, Option, Result, Schema, SchemaGetter, SchemaIssue, SchemaTransformation };';
 	}
 	if (name === "ryotql") {
-		return 'export * from "@ryot/sandbox-sdk/ryotql";';
+		return 'export * from "@ryot-app/sandbox-sdk/ryotql";';
 	}
 	return null;
 };
@@ -79,7 +82,7 @@ const runtimeModules = SANDBOX_APPROVED_DEPENDENCIES.map((dependency) =>
 				...legacyYoutubeiRuntime,
 				resolveFromSdk: true,
 				sourceImport: legacyYoutubeiRuntime.packageImport,
-				runtimeSource: 'export * from "@ryot/sandbox-sdk/youtubei";',
+				runtimeSource: 'export * from "@ryot-app/sandbox-sdk/youtubei";',
 			}
 		: {
 				...dependency,
@@ -208,9 +211,9 @@ const buildRuntimeModule = (
 										resolveDir:
 											runtimeSourceResolveDir ?? entrypoint.slice(0, entrypoint.lastIndexOf("/")),
 									}));
-									builder.onResolve({ filter: /^@ryot\/sandbox-sdk\/effect$/ }, () => ({
+									builder.onResolve({ filter: /^@ryot-app\/sandbox-sdk\/effect$/ }, () => ({
 										external: true,
-										path: "@ryot/sandbox-sdk/effect",
+										path: "@ryot-app/sandbox-sdk/effect",
 									}));
 									if (name !== "effect") {
 										builder.onResolve({ filter: /^effect$/ }, () => ({

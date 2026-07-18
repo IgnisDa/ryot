@@ -1,13 +1,13 @@
 import type {
 	SignalAudiencePolicy,
 	SignalCatalogState,
-} from "@ryot/contract/modules/automations/schemas";
+} from "@ryot-app/contract/modules/automations/schemas";
 import {
 	RelationshipSchemaSlug,
 	SignalSchemaSlug,
 	type UserId,
-} from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRegistry } from "#modules/definition-registry/service";

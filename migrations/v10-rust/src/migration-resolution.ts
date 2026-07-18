@@ -1,11 +1,14 @@
-import type { PluginIntegrationProvider } from "@ryot/contract/modules/plugins/manifest";
-import * as schema from "@ryot/kernel-backend/lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "@ryot/kernel-backend/lib/infrastructure/db/service";
-import type { DefinitionSnapshot } from "@ryot/kernel-backend/modules/definition-registry/service";
+import type { PluginIntegrationProvider } from "@ryot-app/contract/modules/plugins/manifest";
+import * as schema from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/combined";
+import {
+	Database,
+	mapDatabaseErrors,
+} from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definition-registry/service";
 import {
 	PluginLoader,
 	type PluginRegistryEntry,
-} from "@ryot/kernel-backend/modules/plugins/loader";
+} from "@ryot-app/kernel-backend/modules/plugins/loader";
 import { and, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 

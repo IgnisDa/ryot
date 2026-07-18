@@ -15,9 +15,9 @@ import { useInViewport } from "@mantine/hooks";
 import {
 	GenreDetailsDocument,
 	UserGenresListDocument,
-} from "@ryot/generated/graphql/backend/graphql";
-import { truncate } from "@ryot/ts-utils/lodash";
-import { getInitials } from "@ryot/ts-utils/string";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { truncate } from "@ryot-app/ts-utils/lodash";
+import { getInitials } from "@ryot-app/ts-utils/string";
 import { useQuery } from "@tanstack/react-query";
 import { parseAsInteger, parseAsString } from "nuqs";
 import { Link } from "react-router";

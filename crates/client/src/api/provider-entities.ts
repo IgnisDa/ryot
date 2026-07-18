@@ -1,8 +1,8 @@
 import type {
 	ImportEntityBody,
 	SearchProviderEntitiesBody,
-} from "@ryot/contract/modules/provider-entities/schemas";
-import type { SandboxProviderId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/provider-entities/schemas";
+import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { appClient, retryQueryResponse } from "./client";

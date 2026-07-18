@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import type { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import type { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Match } from "effect";
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";

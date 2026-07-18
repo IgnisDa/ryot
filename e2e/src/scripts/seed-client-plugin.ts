@@ -17,7 +17,7 @@ const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3000/api";
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
 async function buildFixturePlugin() {
-	const build = Bun.spawn(["bun", "turbo", "--filter=@ryot/fixture-plugin", "build"], {
+	const build = Bun.spawn(["bun", "turbo", "--filter=@ryot-app/fixture-plugin", "build"], {
 		stderr: "inherit",
 		stdout: "inherit",
 		cwd: repositoryRoot,

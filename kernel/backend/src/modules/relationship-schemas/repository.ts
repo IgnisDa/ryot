@@ -2,8 +2,8 @@ import {
 	EntitySchemaSlug,
 	RelationshipSchemaSlug,
 	type UserId,
-} from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

@@ -1,5 +1,5 @@
 import { it } from "@effect/vitest";
-import { ImportRunId } from "@ryot/contract/schema/brands";
+import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { expect as vitestExpect } from "vitest";
 

@@ -15,7 +15,7 @@ import {
 	type PluginOperationRequest,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
 import { afterEach, describe, expect, it } from "vitest";

@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import { databaseLayer } from "#lib/test-utils/effect";

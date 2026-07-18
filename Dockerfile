@@ -6,7 +6,7 @@ WORKDIR /app
 FROM base AS prepare
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install --global turbo@2.10.12
 COPY . .
-RUN turbo prune @ryot/fitness-plugin @ryot/kernel-client @ryot/media-plugin @ryot/server @ryot/v10-rust-migration --docker
+RUN turbo prune @ryot-app/fitness-plugin @ryot-app/kernel-client @ryot-app/media-plugin @ryot-app/server @ryot-app/v10-rust-migration --docker
 
 FROM base AS builder-base
 COPY --from=prepare /app/out/json/ .
@@ -17,20 +17,20 @@ COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 FROM builder-base AS backend-builder
 ARG UNKEY_ROOT_KEY=""
 ENV UNKEY_ROOT_KEY=$UNKEY_ROOT_KEY
-RUN bun turbo --filter=@ryot/server build
+RUN bun turbo --filter=@ryot-app/server build
 
 FROM builder-base AS plugin-builder
-RUN bun turbo --filter=@ryot/fitness-plugin --filter=@ryot/media-plugin build
+RUN bun turbo --filter=@ryot-app/fitness-plugin --filter=@ryot-app/media-plugin build
 RUN bun run --cwd apps/server assemble
 
 FROM builder-base AS client-builder
-RUN bun turbo --filter=@ryot/kernel-client build
+RUN bun turbo --filter=@ryot-app/kernel-client build
 
 FROM base AS compiler-runtime
 COPY --from=prepare /app/out/json/ .
 COPY --from=prepare /app/out/full/packages ./packages
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --filter @ryot/typescript-compiler --filter @ryot/sandbox-compiler --filter @ryot/client-plugin-compiler --production --frozen-lockfile
+    bun install --filter @ryot-app/typescript-compiler --filter @ryot-app/sandbox-compiler --filter @ryot-app/client-plugin-compiler --production --frozen-lockfile
 
 FROM base AS runner
 RUN useradd -m -u 1001 ryot

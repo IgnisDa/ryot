@@ -1,8 +1,8 @@
 import {
 	IntegrationProvider,
 	ListedIntegration,
-} from "@ryot/contract/modules/integrations/schemas";
-import { IntegrationId, PluginSlug } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/integrations/schemas";
+import { IntegrationId, PluginSlug } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	ascending,
@@ -16,7 +16,7 @@ import {
 	selectedOptionalRow,
 	selectedRows,
 	type Recipe,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";

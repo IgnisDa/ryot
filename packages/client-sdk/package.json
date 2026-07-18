@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/client-sdk",
+	"name": "@ryot-app/client-sdk",
 	"private": true,
 	"type": "module",
 	"exports": {
@@ -30,14 +30,14 @@
 	},
 	"dependencies": {
 		"@effect/atom-react": "4.0.0-beta.107",
-		"@ryot/contract": "workspace:*",
-		"@ryot/ryotql": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
 		"effect": "4.0.0-rc.111",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0"
 	},
 	"devDependencies": {
-		"@ryot/testing": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
 		"@testing-library/dom": "^10.4.1",
 		"@types/react": "^19.2.0",
 		"@types/react-dom": "^19.2.0",

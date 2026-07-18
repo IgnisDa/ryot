@@ -1,4 +1,4 @@
-import { RyotQLBadRequest } from "@ryot/contract/modules/ryotql/contract";
+import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import type {
 	AggregateMeasure,
 	AggregateOutput,
@@ -15,8 +15,8 @@ import type {
 	ScalarExpression,
 	TimeSeriesOutput,
 	TimeSeriesResult,
-} from "@ryot/contract/modules/ryotql/language";
-import { isJsonValue } from "@ryot/contract/schema/json";
+} from "@ryot-app/contract/modules/ryotql/language";
+import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { DateTime, Effect, Option, Schema } from "effect";

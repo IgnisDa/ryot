@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { SandboxRunError } from "@ryot/contract/errors";
-import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { SandboxRunError } from "@ryot-app/contract/errors";
+import { ImportRunId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Exit, Layer, Option, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

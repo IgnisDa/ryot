@@ -7,8 +7,8 @@ import {
 	type PluginLogicalLocation,
 	type PluginOperationOutcome,
 	type PluginRyotQLOutcome,
-} from "@ryot/contract/modules/plugins/client";
-import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
+} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Schema } from "effect";
 import { StrictMode } from "react";

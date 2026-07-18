@@ -1,4 +1,4 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 
 import { trending } from "./tmdb";
 

@@ -1,5 +1,5 @@
 import { BunServices } from "@effect/platform-bun";
-import { PluginArchiveError, writePluginArchive } from "@ryot/plugin-archive";
+import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
 import type { Path } from "effect";
 import { Effect, FileSystem } from "effect";
 import { assert, expect, it } from "vitest";

@@ -1,12 +1,15 @@
-import { Button } from "@ryot/client-ui-sdk";
-import { CLIENT_API_VERSION, PLUGIN_BACK_SETTLE_MS } from "@ryot/contract/modules/plugins/client";
+import { Button } from "@ryot-app/client-ui-sdk";
+import {
+	CLIENT_API_VERSION,
+	PLUGIN_BACK_SETTLE_MS,
+} from "@ryot-app/contract/modules/plugins/client";
 import type {
 	PluginOperationOutcome,
 	PluginOperationRequest,
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
-} from "@ryot/contract/modules/plugins/client";
-import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
+} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 

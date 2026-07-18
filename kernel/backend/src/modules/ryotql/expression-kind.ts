@@ -2,7 +2,7 @@ import type {
 	ColumnExpression,
 	CorrelatedQuerySet,
 	ScalarExpression,
-} from "@ryot/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/ryotql/language";
 
 import type { CatalogFieldKind } from "./catalog";
 

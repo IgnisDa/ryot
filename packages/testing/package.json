@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/testing",
+	"name": "@ryot-app/testing",
 	"private": true,
 	"type": "module",
 	"exports": {

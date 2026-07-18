@@ -1,7 +1,7 @@
-import { configFromAppSchema } from "@ryot/config";
-import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+import { configFromAppSchema } from "@ryot-app/config";
+import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Match, Option } from "effect";
 
 import { parseAppSchemaProperties } from "../../property-schema/property-schema-runtime";

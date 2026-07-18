@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/sandbox-sdk",
+	"name": "@ryot-app/sandbox-sdk",
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
@@ -77,9 +77,9 @@
 		"check": "tsc && tsc --project tests/tsconfig.json && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@ryot/contract": "workspace:*",
-		"@ryot/ryotql": "workspace:*",
-		"@ryot/ryotql-recipes": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@types/papaparse": "5.5.2",
 		"cheerio": "1.2.0",
 		"effect": "4.0.0-rc.111",
@@ -90,7 +90,7 @@
 	},
 	"devDependencies": {
 		"@effect/vitest": "4.0.0-beta.107",
-		"@ryot/testing": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
 		"vitest": "4.1.9"
 	}
 }

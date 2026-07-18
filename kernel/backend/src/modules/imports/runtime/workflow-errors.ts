@@ -1,4 +1,4 @@
-import { unknownToMessage } from "@ryot/contract/errors";
+import { unknownToMessage } from "@ryot-app/contract/errors";
 import { Schema } from "effect";
 
 export class ImportRunError extends Schema.TaggedError<ImportRunError>()("ImportRunError", {

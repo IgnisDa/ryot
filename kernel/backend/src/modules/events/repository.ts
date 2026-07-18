@@ -1,7 +1,7 @@
-import { DbError } from "@ryot/contract/errors";
-import type { ListedEvent } from "@ryot/contract/modules/events/schemas";
-import type { UserId } from "@ryot/contract/schema/brands";
-import { EntityId, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
+import { DbError } from "@ryot-app/contract/errors";
+import type { ListedEvent } from "@ryot-app/contract/modules/events/schemas";
+import type { UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EventId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, gt, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 

@@ -1,8 +1,8 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type {
 	UpdateUserPreferencesBody,
 	UserPreferences,
-} from "@ryot/contract/modules/user-settings/schemas";
+} from "@ryot-app/contract/modules/user-settings/schemas";
 import { Context, Effect, Layer } from "effect";
 
 import { AuthService } from "#modules/auth/service";

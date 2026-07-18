@@ -1,5 +1,5 @@
-import { runContract } from "@ryot/contract/client";
-import type { SystemConfigResponse } from "@ryot/contract/modules/system/contract";
+import { runContract } from "@ryot-app/contract/client";
+import type { SystemConfigResponse } from "@ryot-app/contract/modules/system/contract";
 import { Context, Data, Effect, Layer } from "effect";
 
 import { serverApiUrl, type ServerOrigin } from "#/api/origin";

@@ -1,4 +1,4 @@
-import { column, literal, table } from "@ryot/ryotql";
+import { column, literal, table } from "@ryot-app/ryotql";
 import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 

@@ -1,7 +1,7 @@
 import { Button, Group, Modal, rem, Select, Stack, Text } from "@mantine/core";
 import { type UseListStateHandlers, useListState } from "@mantine/hooks";
-import { isString } from "@ryot/ts-utils/lodash";
-import { changeCase } from "@ryot/ts-utils/string";
+import { isString } from "@ryot-app/ts-utils/lodash";
+import { changeCase } from "@ryot-app/ts-utils/string";
 import { produce } from "immer";
 import { useEffect, useMemo, useState } from "react";
 import invariant from "tiny-invariant";

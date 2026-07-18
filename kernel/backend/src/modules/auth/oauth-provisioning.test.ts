@@ -5,7 +5,7 @@ import {
 	OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
 	OAUTH_SCOPES,
 	OAUTH_WEB_CLIENT_ID,
-} from "@ryot/contract/oauth";
+} from "@ryot-app/contract/oauth";
 import { Effect, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

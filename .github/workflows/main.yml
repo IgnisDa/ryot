@@ -254,7 +254,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Build browser extensions
-        run: bun run turbo build --filter=@ryot/browser-extension
+        run: bun run turbo build --filter=@ryot-app/browser-extension
       - name: Upload browser extensions to releases
         env:
           REF_NAME: ${{ github.ref_name }}
@@ -280,7 +280,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Build documentation
-        run: bun run turbo build --filter=@ryot/docs
+        run: bun run turbo build --filter=@ryot-app/docs
       - name: Push to deployment branch
         uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
         with:

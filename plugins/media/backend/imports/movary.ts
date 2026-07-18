@@ -1,4 +1,4 @@
-import { Result } from "@ryot/sandbox-sdk/effect";
+import { Result } from "@ryot-app/sandbox-sdk/effect";
 
 import { parseCsvText } from "./csv";
 import { parseDateTime } from "./dates";

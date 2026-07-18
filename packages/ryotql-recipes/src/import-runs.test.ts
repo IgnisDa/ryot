@@ -1,4 +1,4 @@
-import type { NamedQuery } from "@ryot/contract/modules/ryotql/language";
+import type { NamedQuery } from "@ryot-app/contract/modules/ryotql/language";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 

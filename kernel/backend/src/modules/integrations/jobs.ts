@@ -1,4 +1,4 @@
-import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 
 export const IntegrationWebhookDelivery = Schema.Struct({

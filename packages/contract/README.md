@@ -1,6 +1,6 @@
 # Contract
 
-`@ryot/contract` owns Ryot's client-safe boundary: Effect Schema payloads, contract operations,
+`@ryot-app/contract` owns Ryot's client-safe boundary: Effect Schema payloads, contract operations,
 plugin manifests, and wire-safe failure data. The backend implements this boundary; clients consume
 it without depending on backend services or runtime details.
 

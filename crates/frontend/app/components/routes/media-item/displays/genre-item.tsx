@@ -1,5 +1,5 @@
 import { Anchor, Box, Group } from "@mantine/core";
-import type { GenreListItem } from "@ryot/generated/graphql/backend/graphql";
+import type { GenreListItem } from "@ryot-app/generated/graphql/backend/graphql";
 import { Link } from "react-router";
 import { $path } from "safe-routes";
 

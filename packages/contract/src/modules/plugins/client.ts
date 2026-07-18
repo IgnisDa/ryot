@@ -1,4 +1,4 @@
-import { canonicalRelativePosixPathIssue } from "@ryot/ts-utils/path";
+import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Schema } from "effect";
 
 import { JsonValue } from "../../schema/json";

@@ -25,10 +25,10 @@ import {
 	type MetadataSearchQuery,
 	UserMetadataListDocument,
 	type UserMetadataListInput,
-} from "@ryot/generated/graphql/backend/graphql";
-import { cloneDeep } from "@ryot/ts-utils/lodash";
-import { startCase } from "@ryot/ts-utils/lodash";
-import { changeCase } from "@ryot/ts-utils/string";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { cloneDeep } from "@ryot-app/ts-utils/lodash";
+import { startCase } from "@ryot-app/ts-utils/lodash";
+import { changeCase } from "@ryot-app/ts-utils/string";
 import { IconCheck, IconFilter, IconListCheck, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import {

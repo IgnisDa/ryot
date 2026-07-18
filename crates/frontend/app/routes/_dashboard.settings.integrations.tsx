@@ -34,11 +34,11 @@ import {
 	IntegrationProvider,
 	UserIntegrationsDocument,
 	type UserIntegrationsQuery,
-} from "@ryot/generated/graphql/backend/graphql";
-import { kebabCase } from "@ryot/ts-utils/lodash";
-import { getActionIntent, processSubmission } from "@ryot/ts-utils/request";
-import { changeCase } from "@ryot/ts-utils/string";
-import { zodCheckboxAsString } from "@ryot/ts-utils/zod";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { kebabCase } from "@ryot-app/ts-utils/lodash";
+import { getActionIntent, processSubmission } from "@ryot-app/ts-utils/request";
+import { changeCase } from "@ryot-app/ts-utils/string";
+import { zodCheckboxAsString } from "@ryot-app/ts-utils/zod";
 import { IconEye, IconEyeClosed, IconPencil, IconTrash } from "@tabler/icons-react";
 import { type ReactNode, useState } from "react";
 import { data, Form, useActionData, useLoaderData } from "react-router";

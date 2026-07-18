@@ -7,7 +7,7 @@ route or screen
   -> feature state or hook
   -> scoped query atom
   -> appClient(ApiScope)
-  -> @ryot/contract
+  -> @ryot-app/contract
 ```
 
 ## Backend Integration
@@ -112,7 +112,7 @@ The provider owns the authenticated stream lifecycle. The coordinator unions mou
 
 ## Adding A Backend Feature
 
-1. Build the application-owned query document with `@ryot/ryotql` or a named `@ryot/ryotql-recipes` recipe.
+1. Build the application-owned query document with `@ryot-app/ryotql` or a named `@ryot-app/ryotql-recipes` recipe.
 2. Pass `ApiScope` to the feature operation and use `appClient(scope)` for reactive queries or imperative contract access.
 3. Add a feature-owned atom keyed by `ApiScope` and all request inputs.
 4. Decode the response beside the recipe or feature atom into a discriminated application state.
@@ -122,7 +122,7 @@ The provider owns the authenticated stream lifecycle. The coordinator unions mou
 Use these commands for local validation:
 
 ```sh
-bun turbo --filter=@ryot/kernel-client test
-bun turbo --filter=@ryot/kernel-client check
-bun turbo --filter=@ryot/kernel-client build
+bun turbo --filter=@ryot-app/kernel-client test
+bun turbo --filter=@ryot-app/kernel-client check
+bun turbo --filter=@ryot-app/kernel-client build
 ```

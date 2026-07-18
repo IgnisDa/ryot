@@ -1,4 +1,4 @@
-import { load } from "@ryot/sandbox-sdk/cheerio";
+import { load } from "@ryot-app/sandbox-sdk/cheerio";
 
 export const cleanHtmlDescription = (html: unknown) => {
 	if (typeof html !== "string" || !html.trim()) {

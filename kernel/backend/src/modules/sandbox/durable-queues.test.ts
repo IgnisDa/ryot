@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";

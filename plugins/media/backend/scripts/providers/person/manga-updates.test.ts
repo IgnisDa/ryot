@@ -1,6 +1,6 @@
-import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest, search } from "./manga-updates";

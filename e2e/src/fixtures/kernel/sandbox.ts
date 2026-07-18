@@ -1,6 +1,6 @@
-import type { ContractPayload, ContractSuccess } from "@ryot/contract/client";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { UserId } from "@ryot/contract/schema/brands";
+import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { assertCompleted, requirePresent } from "~/support/assertions";

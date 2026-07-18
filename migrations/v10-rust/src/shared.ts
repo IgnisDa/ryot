@@ -1,5 +1,8 @@
 import { PgClient } from "@effect/sql-pg/PgClient";
-import { Database, mapDatabaseErrors } from "@ryot/kernel-backend/lib/infrastructure/db/service";
+import {
+	Database,
+	mapDatabaseErrors,
+} from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
 import { sql } from "drizzle-orm";
 import { Data, Effect, Match, Schema } from "effect";
 import type * as SqlConnection from "effect/unstable/sql/SqlConnection";

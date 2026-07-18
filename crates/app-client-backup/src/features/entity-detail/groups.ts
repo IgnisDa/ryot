@@ -1,5 +1,5 @@
-import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
-import { normalizeSlug } from "@ryot/ts-utils/slug";
+import { getQueryEngineField } from "@ryot-app/ts-utils/query-engine";
+import { normalizeSlug } from "@ryot-app/ts-utils/slug";
 
 import {
 	loadQueryEngineEntities,

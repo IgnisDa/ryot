@@ -1,4 +1,4 @@
-import { ImportRunId, IntegrationId } from "@ryot/contract/schema/brands";
+import { ImportRunId, IntegrationId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {

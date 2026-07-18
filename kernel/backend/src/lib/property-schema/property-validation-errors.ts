@@ -1,7 +1,7 @@
 import {
 	PropertyValidationError,
 	type PropertyValidationIssue,
-} from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/schema/property-schema";
 import type { Schema } from "effect";
 import { SchemaIssue } from "effect";
 

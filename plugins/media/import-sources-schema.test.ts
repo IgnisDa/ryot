@@ -1,4 +1,4 @@
-import { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
+import { CreateImportRunBody } from "@ryot-app/contract/modules/imports/schemas";
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 

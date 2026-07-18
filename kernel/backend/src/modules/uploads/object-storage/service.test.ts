@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { BadRequest } from "@ryot/contract/errors";
-import { UploadBadRequest } from "@ryot/contract/modules/uploads/schemas";
+import { BadRequest } from "@ryot-app/contract/errors";
+import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
 import { Effect, Layer, Stream } from "effect";
 
 import { LocalStorageService } from "#lib/infrastructure/local-storage";

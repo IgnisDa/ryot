@@ -1,7 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oauth";
+import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
 import { Effect } from "effect";
 import getPort from "get-port";
 import { chromium } from "playwright";

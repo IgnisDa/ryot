@@ -1,9 +1,9 @@
-import { createRyotClient } from "@ryot/client-sdk";
-import type { ContractClient, ContractPayload } from "@ryot/contract/client";
+import { createRyotClient } from "@ryot-app/client-sdk";
+import type { ContractClient, ContractPayload } from "@ryot-app/contract/client";
 import {
 	REQUIRED_THEME_TOKEN_NAMES,
 	PluginThemeSnapshot,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 

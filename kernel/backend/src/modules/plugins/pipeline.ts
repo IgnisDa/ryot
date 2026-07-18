@@ -1,18 +1,18 @@
-import type { ClientPluginCompilerFailure } from "@ryot/client-plugin-compiler/diagnostics";
-import type { BadRequest, DbError } from "@ryot/contract/errors";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import type { ClientPluginCompilerFailure } from "@ryot-app/client-plugin-compiler/diagnostics";
+import type { BadRequest, DbError } from "@ryot-app/contract/errors";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginRequestError,
 	type PluginConflictError,
-} from "@ryot/contract/modules/plugins/schemas";
-import type { UploadBadRequest } from "@ryot/contract/modules/uploads/schemas";
-import { PluginSlug } from "@ryot/contract/schema/brands";
-import type { PluginArchiveError } from "@ryot/plugin-archive";
-import type { SandboxCompilerFailure } from "@ryot/sandbox-compiler/diagnostics";
-import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
-import { stableStringify } from "@ryot/ts-utils/json";
-import { sortBy } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/contract/modules/plugins/schemas";
+import type { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import type { PluginArchiveError } from "@ryot-app/plugin-archive";
+import type { SandboxCompilerFailure } from "@ryot-app/sandbox-compiler/diagnostics";
+import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, Match } from "effect";
 
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";

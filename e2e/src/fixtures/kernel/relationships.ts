@@ -1,5 +1,5 @@
-import type { ContractPayload } from "@ryot/contract/client";
-import { EntityId, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 
 import type { Client } from "./auth";
 

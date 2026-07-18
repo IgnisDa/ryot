@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import { Effect } from "effect";
 
 import { RyotQLMalformedResultError } from "@/api/ryotql";

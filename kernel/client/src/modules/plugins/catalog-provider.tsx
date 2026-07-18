@@ -1,5 +1,5 @@
-import { useRyotQuery } from "@ryot/client-sdk/react";
-import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import { useRyotQuery } from "@ryot-app/client-sdk/react";
+import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect, Fiber } from "effect";
 import {
 	createContext,

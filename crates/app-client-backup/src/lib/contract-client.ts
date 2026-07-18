@@ -1,4 +1,4 @@
-import { runContract, type ContractClient, type RequestHeaders } from "@ryot/contract/client";
+import { runContract, type ContractClient, type RequestHeaders } from "@ryot-app/contract/client";
 import { useQuery } from "@tanstack/react-query";
 import type { Effect } from "effect";
 import { useMemo } from "react";

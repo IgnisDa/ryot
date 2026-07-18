@@ -1,5 +1,5 @@
-import { InternalError, internalError } from "@ryot/contract/errors";
-import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { InternalError, internalError } from "@ryot-app/contract/errors";
+import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, type WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

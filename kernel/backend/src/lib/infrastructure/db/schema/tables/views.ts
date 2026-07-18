@@ -1,4 +1,4 @@
-import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
+import type { SavedViewLayouts } from "@ryot-app/contract/modules/saved-views/schemas";
 import { generateId } from "better-auth";
 import {
 	boolean,

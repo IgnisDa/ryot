@@ -1,13 +1,13 @@
-import { DbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginClientArtifact,
-} from "@ryot/contract/modules/plugins/client";
-import type { PluginProviderOperation } from "@ryot/contract/modules/plugins/manifest";
-import { SandboxProviderId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginProviderOperation } from "@ryot-app/contract/modules/plugins/manifest";
+import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, exists, inArray, isNull, notExists, notInArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 

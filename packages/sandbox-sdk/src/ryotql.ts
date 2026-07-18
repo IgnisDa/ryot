@@ -1,17 +1,21 @@
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import type { PreparedRecipe } from "@ryot/ryotql";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { PreparedRecipe } from "@ryot-app/ryotql";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-export * from "@ryot/ryotql";
-export type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+export * from "@ryot-app/ryotql";
+export type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 export {
 	entityReadRecipe,
 	eventReadRecipe,
 	type EntityReadResult,
 	type EventReadResult,
-} from "@ryot/ryotql-recipes/sandbox";
-export { userLibraryRecipe } from "@ryot/ryotql-recipes/user-library";
-export { eventIsAfter, eventOrderDescending, latestEventField } from "@ryot/ryotql-recipes/events";
+} from "@ryot-app/ryotql-recipes/sandbox";
+export { userLibraryRecipe } from "@ryot-app/ryotql-recipes/user-library";
+export {
+	eventIsAfter,
+	eventOrderDescending,
+	latestEventField,
+} from "@ryot-app/ryotql-recipes/events";
 
 export const executeRyotqlRecipe = <Success, Error, Requirements>(
 	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, Error, Requirements>,

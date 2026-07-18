@@ -1,4 +1,4 @@
-import type { SandboxProviderId } from "@ryot/contract/schema/brands";
+import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 
 import { getProviderEntityImportResult, startProviderEntityImport } from "@/api/provider-entities";
 import type { ApiScope } from "@/api/request-key";

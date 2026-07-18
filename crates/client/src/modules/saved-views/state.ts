@@ -1,10 +1,10 @@
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import type {
 	SavedViewCardResultItem,
 	SavedViewResult,
 	SavedViewTableResultItem,
-} from "@ryot/ryotql-recipes/saved-views";
+} from "@ryot-app/ryotql-recipes/saved-views";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
 import { classifyRyotQLResult } from "@/api/ryotql";

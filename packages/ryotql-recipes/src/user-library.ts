@@ -1,4 +1,4 @@
-import { EntityId } from "@ryot/contract/schema/brands";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	ascending,
@@ -10,7 +10,7 @@ import {
 	selectedField,
 	selectedRow,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result } from "effect";
 
 const entityLibrary = table("entity", "library");

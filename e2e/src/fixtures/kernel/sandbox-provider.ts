@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
 
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import type { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type {
 	ProviderDetailsResult,
 	ProviderResolveResult,
 	ProviderSearchResult,
 	ProviderSearchOptionsResult,
 	ProviderTranslateResult,
-} from "@ryot/sandbox-sdk/provider";
+} from "@ryot-app/sandbox-sdk/provider";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
@@ -276,9 +276,9 @@ export function providerSandboxSource(input: {
 			: `\n  searchOptionsSchema: ${JSON.stringify(input.searchOptionsSchema)},`;
 
 	const source = `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineProvider, ${isTranslate ? "providerTranslateResultSchema" : resultSchema} } from "@ryot/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider, ${isTranslate ? "providerTranslateResultSchema" : resultSchema} } from "@ryot-app/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
   kind: "provider",

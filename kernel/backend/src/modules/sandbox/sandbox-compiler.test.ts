@@ -7,18 +7,18 @@ import {
 } from "./sandbox-compiler-test-support";
 
 const approvedDependencyImports = [
-	"@ryot/sandbox-sdk/effect",
-	"@ryot/sandbox-sdk/cheerio",
-	"@ryot/sandbox-sdk/fflate",
-	"@ryot/sandbox-sdk/youtubei",
-	"@ryot/sandbox-sdk/papaparse",
-	"@ryot/sandbox-sdk/fast-xml-parser",
+	"@ryot-app/sandbox-sdk/effect",
+	"@ryot-app/sandbox-sdk/cheerio",
+	"@ryot-app/sandbox-sdk/fflate",
+	"@ryot-app/sandbox-sdk/youtubei",
+	"@ryot-app/sandbox-sdk/papaparse",
+	"@ryot-app/sandbox-sdk/fast-xml-parser",
 ] as const;
 
 const automationSource = `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineAutomation } from "@ryot/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 
 export const manifest = defineManifest({
   capabilities: [],
@@ -36,7 +36,7 @@ export default defineAutomation({
 `;
 
 const workflowSource = `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   capabilities: [],
@@ -175,7 +175,7 @@ it.effect("rejects direct package, runtime, URL, Node, Bun, and relative imports
 			"zod",
 			"npm:zod@4.4.3",
 			"deno:npm:zod@4.4.3",
-			"@ryot/sandbox-sdk/testing",
+			"@ryot-app/sandbox-sdk/testing",
 			"https://example.com/module.ts",
 			"node:fs",
 			"bun:test",
@@ -197,7 +197,7 @@ it.effect("rejects direct package, runtime, URL, Node, Bun, and relative imports
 it.effect("rejects computed dynamic imports before resolution", () =>
 	Effect.gen(function* () {
 		const failure = yield* compile(
-			`${validSource}\nconst dependency = "@ryot/sandbox-sdk/cheerio";\nvoid import(dependency);`,
+			`${validSource}\nconst dependency = "@ryot-app/sandbox-sdk/cheerio";\nvoid import(dependency);`,
 		).pipe(Effect.flip);
 
 		expect(failure.diagnostics).toEqual([

@@ -1,6 +1,6 @@
-import { unknownToMessage } from "@ryot/contract/errors";
-import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
-import type { ImportRunId } from "@ryot/contract/schema/brands";
+import { unknownToMessage } from "@ryot-app/contract/errors";
+import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
+import type { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import { Activity } from "effect/unstable/workflow";
 

@@ -1,5 +1,5 @@
-import { sandboxManifestSchema } from "@ryot/sandbox-sdk/core";
-import { SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
+import { sandboxManifestSchema } from "@ryot-app/sandbox-sdk/core";
+import { SANDBOX_SDK_ROOT_IMPORT } from "@ryot-app/sandbox-sdk/imports";
 import { Result, Schema } from "effect";
 import * as ts from "typescript/unstable/ast";
 
@@ -173,7 +173,7 @@ export const extractSandboxManifest = (
 			diagnostic: diagnosticAt(
 				declaration,
 				"RYOT_MANIFEST",
-				`The exported manifest must be a direct defineManifest call from ${SANDBOX_SDK_ROOT_IMPORT} or @ryot/sandbox-sdk/driver`,
+				`The exported manifest must be a direct defineManifest call from ${SANDBOX_SDK_ROOT_IMPORT} or @ryot-app/sandbox-sdk/driver`,
 			),
 		};
 	}

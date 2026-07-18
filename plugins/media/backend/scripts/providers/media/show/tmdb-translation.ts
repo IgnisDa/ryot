@@ -1,5 +1,5 @@
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import type { ProviderTranslateInput } from "@ryot/sandbox-sdk/provider";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import type { ProviderTranslateInput } from "@ryot-app/sandbox-sdk/provider";
 
 import { asRecord, stringValue } from "../../../../shared/records";
 import {

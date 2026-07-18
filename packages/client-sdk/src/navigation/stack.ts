@@ -1,8 +1,8 @@
-import { PLUGIN_SCREEN_STACK_LIMIT } from "@ryot/contract/modules/plugins/client";
+import { PLUGIN_SCREEN_STACK_LIMIT } from "@ryot-app/contract/modules/plugins/client";
 import type {
 	PluginHeaderContent,
 	PluginLogicalLocation,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import type { ComponentType } from "react";
 
 export type PluginScreen = {

@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import { workflowReplayJournalEntrySchema } from "@ryot/sandbox-sdk/workflow";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { workflowReplayJournalEntrySchema } from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import { selectSandboxHostFunctions } from "./service";

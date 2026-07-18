@@ -1,4 +1,4 @@
-import { NotificationChannelId } from "@ryot/contract/schema/brands";
+import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -12,8 +12,8 @@ import {
 	literal,
 	rows,
 	table,
-} from "@ryot/ryotql";
-import { notificationChannelsRecipe } from "@ryot/ryotql-recipes/notification-channels";
+} from "@ryot-app/ryotql";
+import { notificationChannelsRecipe } from "@ryot-app/ryotql-recipes/notification-channels";
 import { Effect } from "effect";
 
 import {

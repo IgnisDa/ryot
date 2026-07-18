@@ -1,4 +1,4 @@
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { Innertube } from "youtubei.js/web";
 
 import type { SandboxHost } from "./core";
@@ -20,7 +20,9 @@ type RequestParts = {
 
 type ApprovedDependencyRuntime = <A>(operation: () => Promise<A>) => Promise<A>;
 
-const approvedDependencyRuntimeKey = Symbol.for("@ryot/sandbox-sdk/approved-dependency-runtime");
+const approvedDependencyRuntimeKey = Symbol.for(
+	"@ryot-app/sandbox-sdk/approved-dependency-runtime",
+);
 
 const isApprovedDependencyRuntime = (value: unknown): value is ApprovedDependencyRuntime =>
 	typeof value === "function";

@@ -1,4 +1,4 @@
-import { makeContractClient } from "@ryot/contract/client";
+import { makeContractClient } from "@ryot-app/contract/client";
 import { Effect, Layer } from "effect";
 import { fetch as expoFetch } from "expo/fetch";
 

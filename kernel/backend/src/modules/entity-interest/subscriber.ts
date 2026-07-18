@@ -1,4 +1,4 @@
-import { decodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
+import { decodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import { Cause, Context, Effect, FiberSet, Layer, Result } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

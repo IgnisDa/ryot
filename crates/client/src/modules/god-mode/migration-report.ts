@@ -1,4 +1,4 @@
-import type { MigrationReportLevel } from "@ryot/contract/modules/god-mode/contract";
+import type { MigrationReportLevel } from "@ryot-app/contract/modules/god-mode/contract";
 import { Match } from "effect";
 
 export const migrationReportLevelPresentation = (level: MigrationReportLevel) =>

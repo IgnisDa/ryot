@@ -2,9 +2,9 @@ import { tmpdir } from "node:os";
 
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { BadRequest } from "@ryot/contract/errors";
-import { UserId } from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import { BadRequest } from "@ryot-app/contract/errors";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect, FileSystem, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

@@ -1,4 +1,4 @@
-import { AuthUnauthorized } from "@ryot/contract/auth-middleware";
+import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { Cause, Option } from "effect";
 
 export const isUnauthorizedCause = (cause: Cause.Cause<unknown>) =>

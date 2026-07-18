@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/docs",
+	"name": "@ryot-app/docs",
 	"private": true,
 	"type": "module",
 	"scripts": {
@@ -9,12 +9,12 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"devDependencies": {
-		"@ryot/config": "workspace:*",
-		"@ryot/contract": "workspace:*",
-		"@ryot/fitness-plugin": "workspace:*",
-		"@ryot/kernel-backend": "workspace:*",
-		"@ryot/media-plugin": "workspace:*",
-		"@ryot/plugin-archive": "workspace:*",
+		"@ryot-app/config": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/fitness-plugin": "workspace:*",
+		"@ryot-app/kernel-backend": "workspace:*",
+		"@ryot-app/media-plugin": "workspace:*",
+		"@ryot-app/plugin-archive": "workspace:*",
 		"bun-types": "1.4.0",
 		"effect": "4.0.0-rc.111",
 		"vitepress": "2.0.0-alpha.15"

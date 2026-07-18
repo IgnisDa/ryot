@@ -14,9 +14,9 @@ import {
 	type PluginClientArtifactMetadata,
 	type PluginThemeSnapshot,
 	type RyotClientErrorReason,
-} from "@ryot/contract/modules/plugins/client";
-import type { JsonValue } from "@ryot/contract/schema/json";
-import type { PreparedRecipe } from "@ryot/ryotql";
+} from "@ryot-app/contract/modules/plugins/client";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Match, Result, Schema } from "effect";
 
 import { createRyotClient, RyotClientError, type RyotNavigationTarget } from "./index";

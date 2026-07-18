@@ -1,7 +1,7 @@
 import type {
 	PluginHeaderContent,
 	PluginLogicalLocation,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import {
 	Fragment,
 	createContext,

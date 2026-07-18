@@ -1,5 +1,5 @@
-import { Schema } from "@ryot/sandbox-sdk/effect";
-import { genericImportChunkSchema } from "@ryot/sandbox-sdk/imports";
+import { Schema } from "@ryot-app/sandbox-sdk/effect";
+import { genericImportChunkSchema } from "@ryot-app/sandbox-sdk/imports";
 import { expect, it } from "vitest";
 
 it("decodes generic media write intents without admitting plugin-private event fields", () => {

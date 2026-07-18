@@ -1,5 +1,5 @@
 import { it } from "@effect/vitest";
-import { hostSuccess } from "@ryot/sandbox-sdk/wire";
+import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import { Clock, Deferred, Effect, Exit, Fiber, Queue, Ref, Scope, Semaphore } from "effect";
 import { describe, expect } from "vitest";
 

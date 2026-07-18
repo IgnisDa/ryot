@@ -2,7 +2,7 @@ import { Stack, Text } from "@mantine/core";
 import {
 	CollectionRecommendationsDocument,
 	type CollectionRecommendationsInput,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import { parseAsInteger, parseAsString } from "nuqs";
 

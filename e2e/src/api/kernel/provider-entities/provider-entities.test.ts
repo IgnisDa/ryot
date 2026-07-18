@@ -1,5 +1,5 @@
-import { SandboxProviderId } from "@ryot/contract/schema/brands";
-import { providerEntityLinksRecipe } from "@ryot/ryotql-recipes/provider-entity-links";
+import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { providerEntityLinksRecipe } from "@ryot-app/ryotql-recipes/provider-entity-links";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
