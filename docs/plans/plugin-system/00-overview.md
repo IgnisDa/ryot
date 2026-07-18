@@ -1,9 +1,10 @@
 # Plugin System Rewrite — Overview
 
-Status: in progress. Phases 1 and 2 and all 12 Phase 3 tasks are complete. Phase 4 Tasks 01-17 are
-complete; Task 18 is next. Task 17 closed the documentation and phase gate with zero runtime cycles,
-and the standard e2e suite passed all 81 files and 511 tests through individual file runs. The owner
-explicitly waived a fresh Task 17 operational-gate run; the live-network gate remains excluded.
+Status: complete through Phase 4. Phases 1 and 2, all 12 Phase 3 tasks, and all 18 Phase 4 tasks are
+complete. Task 18 removed the final verified dead exports, type aliases, and test helper without
+changing behavior. Task 17 closed the documentation and phase gate with zero runtime cycles, and the
+standard e2e suite passed all 81 files and 511 tests through individual file runs. The owner explicitly
+waived fresh Task 18 standard and operational e2e runs; the live-network gate remains excluded.
 Task 12 was completed under an
 explicit owner waiver of its then-open Task 11 prerequisite; Task 11 subsequently closed the full
 Phase 3 gate. Phase 5 is a separate planned milestone for user-level plugin installation and must not
