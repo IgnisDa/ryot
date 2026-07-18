@@ -52,7 +52,7 @@ describe("sandbox filesystem grants", () => {
 			const result = yield* pollSandboxResult(userId, jobId);
 
 			assertCompleted(result, "scratch result boundary");
-			expect(result.value).toEqual({ chunkFiles: ["chunk-0.json"] });
+			expect(result.value).toEqual({ chunkHandles: [expect.any(String)] });
 			expect(result).not.toHaveProperty("harvest");
 		}),
 	);
