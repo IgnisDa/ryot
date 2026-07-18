@@ -76,7 +76,7 @@ workflow in the final entry was later removed:
 
 - The generic import writer awaiting `EventCreateWorkflow`.
 - `performSandboxWorkflowChild` awaiting plugin or kernel workflow references.
-- `SubscriptionExecutionWorkflow` awaiting its `RunSandboxWorkflow` automation script.
+- `SubscriptionExecutionWorkflow` dispatching its automation script through `SandboxExecutionQueue`.
 - `ProcessImportRunWorkflow` awaiting its sandbox import workflow.
 - `ProcessIntegrationRunWorkflow` awaiting its sandbox import workflow.
 - Superseded `LibraryEntityImportWorkflow` awaiting provider population.
@@ -121,31 +121,31 @@ The next run exposed the same defect inside `SandboxScriptWorkflow` itself. A pl
 alternates deterministic replays with sandbox activities and child workflows, so one execution can
 await the sandbox queue several times. The fourth sequential failed integration run remained
 `running` for 60 seconds before its adapter failure was recorded. Replay and activity sandbox calls
-now compose the existing `RunSandboxWorkflow` owner with their already-deterministic execution ids
-and await it through terminal polling. Exact pinned script ids, authority, filesystem grants, queue
-ownership, journal validation, and result/error propagation are preserved.
+now dispatch through `SandboxExecutionQueue` with their already-deterministic execution ids and
+await terminal results. Exact pinned script ids, authority, filesystem grants, queue ownership,
+journal validation, and result/error propagation are preserved.
 
 The same direct queue boundary also existed in active-script sandbox calls used by provider details,
 translation, event policy, and integration operations. A loaded media-monitoring baseline cron
 entered provider population and then held its HTTP request for the remaining 179 seconds of the test.
-`processSandboxExecution` still resolves and journals the active script first, but now delegates its
-deterministically keyed queue execution to `RunSandboxWorkflow` and awaits that owner through terminal
-polling. The queue payload and active-script pin are unchanged.
+`processSandboxExecution` still resolves and journals the active script first, then delegates its
+deterministically keyed work to `SandboxExecutionQueue` through the shared queue processor. The queue
+payload and active-script pin are unchanged.
 
 The full-size operational gate exposed one final failure inside that owner. Under sustained load,
-`RunSandboxWorkflow` could remain inside `DurableQueue.process` after the sandbox work had stopped
-making progress. Repeated runs ended with different subsets of the eight root workflows pending even
+`SandboxExecutionQueue` processing could remain suspended after the sandbox work had stopped making
+progress. Repeated runs ended with different subsets of the eight root workflows pending even
 though PostgreSQL had no pool pressure or deadlocks, Redis journal projections remained valid, and
 the sandbox process count stopped below the expected minimum. The varying cutoff ruled out a
 deterministic bad item; the stable boundary was the producer-side durable queue wait.
 
-`RunSandboxWorkflow` now gives that idempotent queue wait one minute to resolve and retries it every
-second with the same `executionId`, payload, and `SandboxExecutionQueue` idempotency key. A retry
-therefore re-offers or re-reads the same durable operation rather than creating another logical
-sandbox execution. The durable queue worker, process isolation, workflow journal, Redis projection,
-database path, result/error propagation, and configured workload remain unchanged. The structural
-workflow-boundary test pins both the durable queue call and its timeout/retry policy so a later
-cleanup cannot silently restore the indefinite wait.
+`processSandboxExecutionQueue` now gives that idempotent queue wait one minute to resolve and retries
+it with the same `executionId`, payload, and `SandboxExecutionQueue` idempotency key. A retry therefore
+re-offers or re-reads the same durable operation rather than creating another logical sandbox
+execution. The durable queue worker, process isolation, workflow journal, Redis projection, database
+path, result/error propagation, and configured workload remain unchanged. The structural
+workflow-boundary test pins the durable queue call and its timeout/retry policy so cleanup cannot
+silently restore the indefinite wait.
 
 The gate's advisory-lock assertion was also corrected to measure contention rather than incidental
 lock presence. Ryot deliberately disables Effect Cluster's shard advisory locks because its shared

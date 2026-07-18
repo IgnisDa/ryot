@@ -24,9 +24,7 @@ import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	type AdditionalSandboxHostImplementationMap,
 	isJsonValue,
-	requireSystemProviderSandboxRunInput,
-	requireUserSandboxRunInput,
-	requireSystemSandboxRunInput,
+	requireSandboxCapabilityInput,
 	sandboxRunIntegrationId,
 	sandboxHostEffect,
 	toSandboxJsonValue,
@@ -168,7 +166,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 		changeUserRelationships: (rawInput, batches) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
-					const input = yield* requireUserSandboxRunInput(rawInput, "changeUserRelationships");
+					const input = yield* requireSandboxCapabilityInput(rawInput, "changeUserRelationships");
 					const changeCount = batches.reduce(
 						(total, batch) => total + batch.creates.length + batch.deletes.length,
 						0,
@@ -205,10 +203,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 		ensureUserEntities: (rawInput, items) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
-					const input = yield* requireUserSandboxRunInput(rawInput, "ensureUserEntities");
-					if (input.authority.type !== "user") {
-						return yield* Effect.fail("ensureUserEntities is available only to user executions");
-					}
+					const input = yield* requireSandboxCapabilityInput(rawInput, "ensureUserEntities");
 					const caller = yield* runWithDb(
 						pluginRuntime.resolveTrustedUserBootstrapCaller(SandboxScriptId.make(input.scriptId)),
 					);
@@ -242,7 +237,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				}),
 			),
 		createEvents: (rawInput, body) =>
-			requireUserSandboxRunInput(rawInput, "createEvents").pipe(
+			requireSandboxCapabilityInput(rawInput, "createEvents").pipe(
 				Effect.flatMap((input) =>
 					decodeCreateEventsPayload(body).pipe(
 						Effect.flatMap((payload) => createEvents(input, payload)),
@@ -253,10 +248,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 		upsertGlobalEntities: (rawInput, items, options) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
-					const input = yield* requireSystemProviderSandboxRunInput(
-						rawInput,
-						"upsertGlobalEntities",
-					);
+					const input = yield* requireSandboxCapabilityInput(rawInput, "upsertGlobalEntities");
 					if (items.length > SANDBOX_LIMITS.globalWrites.entityItems) {
 						return yield* Effect.fail(
 							`upsertGlobalEntities exceeds ${SANDBOX_LIMITS.globalWrites.entityItems} items`,
@@ -290,7 +282,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 		upsertGlobalRelationships: (rawInput, groups) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
-					yield* requireSystemSandboxRunInput(rawInput, "upsertGlobalRelationships");
+					yield* requireSandboxCapabilityInput(rawInput, "upsertGlobalRelationships");
 					const relationshipCount = groups.reduce(
 						(total, group) => total + group.relationships.length,
 						0,
@@ -329,50 +321,48 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					);
 				}),
 			),
-		executeQueryEngine: (rawInput, query) => {
-			if (rawInput.authority.type === "system") {
-				return sandboxHostEffect(
-					Effect.gen(function* () {
-						const caller = yield* runWithDb(
-							pluginRuntime.resolveSystemQueryActivity(SandboxScriptId.make(rawInput.scriptId)),
-						);
-						if (!caller) {
-							return yield* Effect.fail(
-								"executeQueryEngine system access requires a pinned plugin activity script",
+		executeQueryEngine: (rawInput, query) =>
+			requireSandboxCapabilityInput(rawInput, "executeQueryEngine").pipe(
+				Effect.flatMap((input) => {
+					if (input.authority.type === "system") {
+						return Effect.gen(function* () {
+							const caller = yield* runWithDb(
+								pluginRuntime.resolveSystemQueryActivity(SandboxScriptId.make(input.scriptId)),
 							);
-						}
-						const doc = yield* decodeQueryDocument(query);
-						return yield* queryEngineService.executeSystem(
-							{
-								...caller,
-								pluginSlug: PluginSlug.make(caller.pluginSlug),
-								entitySchemaSlugs: caller.entitySchemaSlugs.map((slug) =>
-									EntitySchemaSlug.make(slug),
-								),
-								relationshipSchemaSlugs: caller.relationshipSchemaSlugs.map((slug) =>
-									RelationshipSchemaSlug.make(slug),
-								),
-								eventSchemas: caller.eventSchemas.map((eventSchema) => ({
-									entitySchemaSlug: EntitySchemaSlug.make(eventSchema.entitySchemaSlug),
-									eventSchemaSlug: EventSchemaSlug.make(eventSchema.eventSchemaSlug),
-								})),
-							},
-							doc,
-						);
-					}),
-				);
-			}
-			return requireUserSandboxRunInput(rawInput, "executeQueryEngine").pipe(
-				Effect.flatMap((input) =>
-					decodeQueryDocument(query).pipe(
+							if (!caller) {
+								return yield* Effect.fail(
+									"executeQueryEngine system access requires a pinned plugin activity script",
+								);
+							}
+							const doc = yield* decodeQueryDocument(query);
+							return yield* queryEngineService.executeSystem(
+								{
+									...caller,
+									pluginSlug: PluginSlug.make(caller.pluginSlug),
+									entitySchemaSlugs: caller.entitySchemaSlugs.map((slug) =>
+										EntitySchemaSlug.make(slug),
+									),
+									relationshipSchemaSlugs: caller.relationshipSchemaSlugs.map((slug) =>
+										RelationshipSchemaSlug.make(slug),
+									),
+									eventSchemas: caller.eventSchemas.map((eventSchema) => ({
+										eventSchemaSlug: EventSchemaSlug.make(eventSchema.eventSchemaSlug),
+										entitySchemaSlug: EntitySchemaSlug.make(eventSchema.entitySchemaSlug),
+									})),
+								},
+								doc,
+							);
+						});
+					}
+					const userId = input.authority.userId;
+					return decodeQueryDocument(query).pipe(
 						Effect.flatMap((doc) =>
-							queryEngineService.executeForUser(UserId.make(input.authority.userId), null, doc),
+							queryEngineService.executeForUser(UserId.make(userId), null, doc),
 						),
-					),
-				),
+					);
+				}),
 				sandboxHostEffect,
-			);
-		},
+			),
 		getPluginConfig: (input, rawKeys) =>
 			sandboxHostEffect(
 				normalizeConfigKeys("getPluginConfig", rawKeys).pipe(
@@ -406,7 +396,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				),
 			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>
-			requireUserSandboxRunInput(rawInput, "getEntitySchemas").pipe(
+			requireSandboxCapabilityInput(rawInput, "getEntitySchemas").pipe(
 				Effect.andThen(
 					requireUniqueNonEmptyStrings(
 						entitySchemaSlugs,
@@ -467,7 +457,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				sandboxHostEffect,
 			),
 		getCurrentIntegration: (rawInput) =>
-			requireUserSandboxRunInput(rawInput, "getCurrentIntegration").pipe(
+			requireSandboxCapabilityInput(rawInput, "getCurrentIntegration").pipe(
 				Effect.flatMap((input) => {
 					const integrationId = sandboxRunIntegrationId(input);
 					if (!integrationId) {
@@ -494,12 +484,12 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				sandboxHostEffect,
 			),
 		getUserPreferences: (rawInput) =>
-			requireUserSandboxRunInput(rawInput, "getUserPreferences").pipe(
+			requireSandboxCapabilityInput(rawInput, "getUserPreferences").pipe(
 				Effect.flatMap((input) => readUserPreferences(UserId.make(input.authority.userId))),
 				sandboxHostEffect,
 			),
 		listEventSchemas: (rawInput, entitySchemaSlugs) =>
-			requireUserSandboxRunInput(rawInput, "listEventSchemas").pipe(
+			requireSandboxCapabilityInput(rawInput, "listEventSchemas").pipe(
 				Effect.andThen(
 					requireUniqueNonEmptyStrings(
 						entitySchemaSlugs,
@@ -531,7 +521,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			),
 		listIntegrations: (rawInput, rawOptions) =>
 			Effect.gen(function* () {
-				const input = yield* requireUserSandboxRunInput(rawInput, "listIntegrations");
+				const input = yield* requireSandboxCapabilityInput(rawInput, "listIntegrations");
 				const options = rawOptions ?? {};
 
 				return yield* sandboxHostEffect(
