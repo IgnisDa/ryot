@@ -4,9 +4,9 @@ import type { SandboxManifest } from "./core";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
 import { jsonValueSchema } from "./wire";
 
-const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
-	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
-const propertiesSchema = Schema.Record({ key: Schema.String, value: jsonValueSchema });
+const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+const propertiesSchema = Schema.Record(Schema.String, jsonValueSchema);
 const entityReferenceSchema = strictStruct({
 	id: Schema.String,
 	name: Schema.String,
@@ -14,7 +14,7 @@ const entityReferenceSchema = strictStruct({
 });
 
 export type AutomationManifest = Extract<SandboxManifest, { readonly kind: "automation" }>;
-export const automationOriginSchema = Schema.Union(
+export const automationOriginSchema = Schema.Union([
 	strictStruct({ kind: Schema.Literal("api") }),
 	strictStruct({ kind: Schema.Literal("bootstrap") }),
 	strictStruct({ kind: Schema.Literal("provider_refresh") }),
@@ -25,7 +25,7 @@ export const automationOriginSchema = Schema.Union(
 		importRunId: Schema.optional(Schema.String),
 	}),
 	strictStruct({ kind: Schema.Literal("automation"), executionId: Schema.String }),
-);
+]);
 export const automationEntitySnapshotSchema = strictStruct({
 	id: Schema.String,
 	name: Schema.String,
@@ -53,7 +53,7 @@ export const automationSignalSnapshotSchema = strictStruct({
 	origin: automationOriginSchema,
 	signalSchemaSlug: Schema.String,
 });
-const automationSourceSchema = Schema.Union(
+const automationSourceSchema = Schema.Union([
 	strictStruct({ kind: Schema.Literal("signal"), signal: automationSignalSnapshotSchema }),
 	strictStruct({
 		kind: Schema.Literal("entity"),
@@ -70,7 +70,7 @@ const automationSourceSchema = Schema.Union(
 		after: Schema.optional(automationRelationshipSnapshotSchema),
 		before: Schema.optional(automationRelationshipSnapshotSchema),
 	}),
-);
+]);
 const automationPopulationSchema = strictStruct({
 	rootPreviouslyPopulated: Schema.Boolean,
 	parentEntity: Schema.optional(
@@ -101,7 +101,7 @@ export const automationContextSchema = strictStruct({
 	source: automationSourceSchema,
 	ruleMetadata: Schema.optional(jsonValueSchema),
 	population: Schema.optional(automationPopulationSchema),
-	operation: Schema.Literal("create", "update", "delete", "signal"),
+	operation: Schema.Literals(["create", "update", "delete", "signal"]),
 });
 export const automationInputSchema = strictStruct({ automation: automationContextSchema });
 export const automationResultSchema = jsonValueSchema;
@@ -125,7 +125,7 @@ export const automationPolicyContextSchema = strictStruct({
 export const automationPolicyInputSchema = strictStruct({
 	automation: automationPolicyContextSchema,
 });
-export const automationPolicyResultSchema = Schema.Union(
+export const automationPolicyResultSchema = Schema.Union([
 	strictStruct({ action: Schema.Literal("allow") }),
 	strictStruct({ action: Schema.Literal("skip"), reason: Schema.String }),
 	strictStruct({
@@ -136,7 +136,7 @@ export const automationPolicyResultSchema = Schema.Union(
 			sessionEntityId: Schema.optional(Schema.NullOr(Schema.String)),
 		}),
 	}),
-);
+]);
 
 export type AutomationInput = Schema.Schema.Type<typeof automationInputSchema>;
 export type AutomationContext = Schema.Schema.Type<typeof automationContextSchema>;

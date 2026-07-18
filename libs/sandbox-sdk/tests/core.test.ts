@@ -16,7 +16,7 @@ import { describe, expect, test } from "vitest";
 import { SANDBOX_SCRIPT_DEFINITION, defineManifest, defineScript } from "../src/driver";
 import { jsonValueSchema } from "../src/wire";
 
-const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decodeUnknownSync(schema);
+const decode = <A, I>(schema: Schema.Codec<A, I>) => Schema.decodeUnknownSync(schema);
 
 describe("generic script definitions", () => {
 	test("preserves the manifest, schemas, and inferred implementation", async () => {

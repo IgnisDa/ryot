@@ -33,10 +33,10 @@ export const SANDBOX_SDK_IMPORTS = [
 	...SANDBOX_RUNTIME_SDK_IMPORTS,
 ] as const;
 
-const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
-	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
+const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
-const importRecordSchema = Schema.Record({ key: Schema.String, value: jsonValueSchema });
+const importRecordSchema = Schema.Record(Schema.String, jsonValueSchema);
 
 export const genericImportFailureSchema = strictStruct({
 	message: Schema.String,
@@ -45,14 +45,14 @@ export const genericImportFailureSchema = strictStruct({
 	sourceIdentifier: Schema.String,
 	entitySchemaSlug: Schema.optional(Schema.String),
 	stage: Schema.optional(
-		Schema.Literal(
+		Schema.Literals([
 			"input_transformation",
 			"provider_resolution",
 			"provider_details",
 			"event_policy",
 			"database_commit",
 			"source_fetch",
-		),
+		]),
 	),
 });
 
@@ -63,12 +63,12 @@ export const genericImportEntityIntentSchema = strictStruct({
 	entitySchemaSlug: Schema.String,
 	entityId: Schema.optional(Schema.String),
 	existingOnly: Schema.optional(Schema.Boolean),
-	scope: Schema.optional(Schema.Literal("global", "user")),
+	scope: Schema.optional(Schema.Literals(["global", "user"])),
 	match: Schema.optional(
 		strictStruct({
 			name: Schema.String,
 			properties: importRecordSchema,
-			nameNormalization: Schema.optional(Schema.Literal("exact", "slug")),
+			nameNormalization: Schema.optional(Schema.Literals(["exact", "slug"])),
 		}),
 	),
 });
@@ -92,7 +92,7 @@ export const genericImportRelationshipIntentSchema = strictStruct({
 	targetAlias: Schema.String,
 	properties: importRecordSchema,
 	relationshipSchemaSlug: Schema.String,
-	propertiesMode: Schema.optional(Schema.Literal("preserve", "merge")),
+	propertiesMode: Schema.optional(Schema.Literals(["preserve", "merge"])),
 });
 
 export const genericImportWriteItemSchema = strictStruct({
@@ -115,15 +115,24 @@ export const genericImportChunkSchema = strictStruct({
 
 export const genericImportAdapterManifestSchema = strictStruct({
 	chunkFiles: Schema.Array(Schema.String),
-	totalItems: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-	failureCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-	writeItemCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	totalItems: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
+	failureCount: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
+	writeItemCount: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
 });
 
 export const genericImportWorkflowInputSchema = strictStruct({
 	runId: Schema.String,
 	source: Schema.String,
-	sourcePayload: Schema.optional(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
+	sourcePayload: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
 });
 
 export const genericImportWorkflowResultSchema = strictStruct({
@@ -137,9 +146,18 @@ export const genericImportKernelInputSchema = strictStruct({
 	failRun: Schema.optional(Schema.Boolean),
 	chunkFiles: Schema.Array(Schema.String),
 	integrationId: Schema.optional(Schema.String),
-	totalItems: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-	failureCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-	writeItemCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+	totalItems: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
+	failureCount: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
+	writeItemCount: Schema.Number.pipe(
+		Schema.check(Schema.isInt()),
+		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	),
 });
 
 export type GenericImportChunk = Schema.Schema.Type<typeof genericImportChunkSchema>;
