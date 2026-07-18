@@ -32,6 +32,18 @@ RUN_LIVE_PROVIDER_TESTS=1 bun turbo --filter=@ryot/tests test --only -- 'src/tes
 
 Operational gate exercises production-size workflow, Redis, sandbox, and database path with a 15-minute budget. Live smoke covers OpenLibrary import and TMDB translation and may require provider credentials.
 
+Warm hermetic sandbox benchmark:
+
+```bash
+RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full --filter=@ryot/tests test --only -- 'src/tests/kernel/sandbox/sandbox-runtime-benchmark.test.ts'
+```
+
+The benchmark reports `SANDBOX_RUNTIME_BASELINE` after three warm-ups and 15 samples per direct
+workload, plus one warm-up and five samples of a 10-item population chunk. Override those counts with
+`SANDBOX_BENCHMARK_WARMUPS`, `SANDBOX_BENCHMARK_SAMPLES`,
+`SANDBOX_BENCHMARK_IMPORT_WARMUPS`, `SANDBOX_BENCHMARK_IMPORT_SAMPLES`, and
+`SANDBOX_BENCHMARK_IMPORT_ITEMS`. It is an evidence harness, not an ordinary timing assertion.
+
 ## Harness
 
 `global-setup.ts` provisions containers and one shared backend, then provides `backendUrl` to workers. `src/support/backend.ts` reads it through Vitest `inject`; worker modules cannot import global setup state directly.
