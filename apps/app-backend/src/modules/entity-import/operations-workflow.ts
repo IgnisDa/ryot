@@ -1,10 +1,10 @@
-import * as PersistedQueue from "@effect/experimental/PersistedQueue";
-import { Activity } from "@effect/workflow";
-import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
 import type { SandboxCompletedResult as SandboxCompletedResultValue } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
+import { PersistedQueue } from "effect/unstable/persistence";
+import { Activity } from "effect/unstable/workflow";
+import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -47,10 +47,10 @@ export type EntityImportWorkflowOperationsValue = {
 	>;
 };
 
-export class EntityImportWorkflowOperations extends Context.Tag("EntityImportWorkflowOperations")<
+export class EntityImportWorkflowOperations extends Context.Service<
 	EntityImportWorkflowOperations,
 	EntityImportWorkflowOperationsValue
->() {}
+>()("EntityImportWorkflowOperations") {}
 
 export const EntityImportWorkflowOperationsLive = Layer.effect(
 	EntityImportWorkflowOperations,
