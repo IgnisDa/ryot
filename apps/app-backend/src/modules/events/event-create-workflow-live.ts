@@ -17,8 +17,8 @@ import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { withoutSchemaServices } from "#lib/shared/schema";
 import { AutomationsService } from "#modules/automations/service";
 import {
 	LifecycleDispatch,
@@ -116,9 +116,9 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 	const automations = yield* AutomationsService;
 
 	return yield* Activity.make({
-		success: withoutSchemaServices(PreparedItem),
+		success: PreparedItem satisfies DurableSchema,
 		name: `prepare-item-${itemIndex}`,
-		error: withoutSchemaServices(EventCreateWorkflowError),
+		error: EventCreateWorkflowError satisfies DurableSchema,
 		execute: Effect.gen(function* () {
 			const { entityId, entityScope, eventSchemaScope, sessionEntityId, occurredAt } =
 				yield* resolveEventCreateItemScopes({ item, userId: payload.userId });
@@ -168,8 +168,8 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const eventsRepository = yield* EventsRepository;
 
 	return yield* Activity.make({
-		success: withoutSchemaServices(CreatedEvent),
-		error: withoutSchemaServices(EventCreateWorkflowError),
+		success: CreatedEvent satisfies DurableSchema,
+		error: EventCreateWorkflowError satisfies DurableSchema,
 		name: `write-event-${itemIndex}`,
 		execute: Effect.gen(function* () {
 			const createdEvent = yield* runWithDb(
