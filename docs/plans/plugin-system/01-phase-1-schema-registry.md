@@ -107,7 +107,7 @@ Find them mechanically: grep app-backend `src/` for `entitySchema`, `eventSchema
 - **Sandbox host functions** (`sandbox-runtime/host-functions.ts`,
   `bridge-adapter.ts` implementations): `getEntitySchema` and `listEventSchemas` re-read from
   the registry. Keep the sandbox-facing response shapes identical if possible (provider
-  scripts consume them); if a shape must change, update `libs/sandbox-sdk` contracts and the
+  scripts consume them); if a shape must change, update `packages/sandbox-sdk` contracts and the
   builtin scripts in the same commit.
 - **`entity-schemas`, `event-schemas`, `relationship-schemas`, `trackers` modules**: CRUD
   services/routes deleted (see §5). Anything generic they own that survives (e.g. the tracker
@@ -147,7 +147,7 @@ the `saved_view` table (now with `trackerSlug`). `saved-views` module's read pat
 merge; its default-view workflow (`entity-schemas/default-saved-view-workflow*.ts`) dies with
 user-created schemas.
 
-## 5. Contract deletions (`libs/contract`)
+## 5. Contract deletions (`packages/contract`)
 
 - Delete groups: `entity-schemas`, `event-schemas`, `relationship-schemas` (user CRUD — all
   of it, since user-created schemas are removed).

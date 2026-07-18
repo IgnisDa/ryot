@@ -24,7 +24,7 @@ in this task. Tasks 08–10 consume what this builds.
    available providers from the registry.
 2. **`settingsSchema` as a declarative `AppSchema`**, validated by the existing property-schema
    runtime (`apps/app-backend/src/lib/property-schema/`).
-3. **`secret?: true` on `AppPropertyBase`** (`libs/contract/src/schema/property-schema.ts`), beside
+3. **`secret?: true` on `AppPropertyBase`** (`packages/contract/src/schema/property-schema.ts`), beside
    `translatable?: true` — validation-neutral, inherited by every property kind. The kernel
    **redacts marked fields when returning an integration**. This is an owner-signed-off behavioral
    change (§4); it must compose with the existing merge-preserve on update, which stays intact.
