@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { ConfigProvider, Effect } from "effect";
 
 import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
 
@@ -310,7 +310,7 @@ it.effect("reports every unconfigured plugin config key a registry source requir
 		).toBe(
 			"Netflix importer is not configured. Set RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN, RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY.",
 		);
-	}).pipe(Effect.provide(Layer.setConfigProvider(ConfigProvider.fromMap(new Map())))),
+	}).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({})))),
 );
 
 it.effect("accepts a registry source whose required plugin config keys are all set", () =>
@@ -322,8 +322,8 @@ it.effect("accepts a registry source whose required plugin config keys are all s
 		).toBeUndefined();
 	}).pipe(
 		Effect.provide(
-			Layer.setConfigProvider(
-				ConfigProvider.fromMap(new Map([["RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN", "tmdb-token"]])),
+			ConfigProvider.layer(
+				ConfigProvider.fromUnknown({ RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN: "tmdb-token" }),
 			),
 		),
 	),

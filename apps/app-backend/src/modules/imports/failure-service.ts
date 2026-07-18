@@ -1,6 +1,6 @@
 import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 
@@ -20,10 +20,10 @@ export type ImportRunFailureInput = {
 
 export type ImportRunFailureDetails = Omit<ImportRunFailureInput, "runId">;
 
-export class ImportRunFailuresService extends Effect.Service<ImportRunFailuresService>()(
+export class ImportRunFailuresService extends Context.Service<ImportRunFailuresService>()(
 	"ImportRunFailuresService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const repository = yield* ImportsRepository;
 
@@ -36,4 +36,6 @@ export class ImportRunFailuresService extends Effect.Service<ImportRunFailuresSe
 			return { create };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
