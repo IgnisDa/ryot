@@ -59,7 +59,7 @@ const createHttpCall =
 			return httpSuccess({ Items: items });
 		}
 		if (url.includes("/PlayedItems/")) {
-			return playedFailure ? httpFailure("already played", 409) : httpSuccess({});
+			return playedFailure ? httpFailure("already played") : httpSuccess({});
 		}
 		return httpFailure();
 	};

@@ -10,7 +10,11 @@ type TvdbHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
-const httpMissing = () => Effect.fail({ message: "not found", details: { status: 404 } });
+const httpMissing = () =>
+	Effect.fail({
+		message: "HTTP 404",
+		data: { body: JSON.stringify({ status: "failure" }), status: 404 },
+	});
 
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
