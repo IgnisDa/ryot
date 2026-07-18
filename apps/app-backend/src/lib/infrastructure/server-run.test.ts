@@ -10,6 +10,6 @@ describe("ServerRun", () => {
 				const first = yield* ServerRun;
 				const second = yield* ServerRun;
 				return [first.id, second.id];
-			}).pipe(Effect.provide(ServerRun.Default)),
+			}).pipe(Effect.provide(ServerRun.layer)),
 		).then((ids) => expect(ids[0]).toBe(ids[1])));
 });
