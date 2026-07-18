@@ -1,5 +1,3 @@
-// @vitest-environment jsdom
-
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { useEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";

@@ -1,5 +1,3 @@
-// @vitest-environment jsdom
-
 import type { EntityInterest, RyotClientAdapter } from "@ryot-app/client-sdk";
 import { useRyotQuery, type RyotQuery } from "@ryot-app/client-sdk/react";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
