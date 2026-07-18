@@ -13,6 +13,7 @@ import { type ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState
 
 import { collectManagedAssets, ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { AppIcon } from "#/modules/navigation/app-icon";
+import { ProviderAddModal } from "#/modules/provider-add/modal";
 import {
 	appendSavedViewPage,
 	createSavedViewController,
@@ -38,6 +39,10 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 	errorComponent: SavedViewError,
 	pendingComponent: SavedViewPending,
 	notFoundComponent: SavedViewNotFound,
+	validateSearch: (search) => ({
+		add: search.add === true || search.add === "true" ? true : undefined,
+		q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
+	}),
 	loader: async ({ abortController, context, params, parentMatchPromise }) => {
 		const slug = params.viewSlug.trim();
 		if (slug.length === 0) {
@@ -101,29 +106,67 @@ const layoutOptions = (["grid", "list", "table"] as const).map((layout) => ({
 }));
 
 function SavedViewPage() {
+	const router = useRouter();
+	const { add, q } = Route.useSearch();
+	const navigate = Route.useNavigate();
 	const { data, layout, record } = Route.useLoaderData();
+	const imported = useRef(false);
+	const loadedData = useRef(data);
+	const dataGeneration = useRef(0);
+	if (loadedData.current !== data) {
+		loadedData.current = data;
+		dataGeneration.current += 1;
+	}
+	const addSchemaSlug = add === true ? record.entitySchemaSlug : null;
+	const addOpen = addSchemaSlug !== null;
+
+	const openAdd = (query?: string) => {
+		void navigate({ search: { add: true, q: query === "" ? undefined : query } });
+	};
+	const closeAdd = () => {
+		const changed = imported.current;
+		imported.current = false;
+		void navigate({ search: { add: undefined, q: undefined } }).then(() =>
+			changed ? router.invalidate() : undefined,
+		);
+	};
+
 	return (
-		<SavedViewContent
-			data={data}
-			record={record}
-			layout={layout}
-			key={`${record.id}:${record.updatedAt}`}
-		/>
+		<>
+			<SavedViewContent
+				data={data}
+				record={record}
+				layout={layout}
+				onAdd={openAdd}
+				addOpen={addOpen}
+				key={`${record.id}:${record.updatedAt}:${dataGeneration.current}`}
+			/>
+			{addSchemaSlug !== null && (
+				<ProviderAddModal
+					initialQuery={q}
+					onClose={closeAdd}
+					entitySchemaSlug={addSchemaSlug}
+					onImported={() => {
+						imported.current = true;
+					}}
+				/>
+			)}
+		</>
 	);
 }
 
-const onAdd = () => console.log("TODO: open the provider add flow");
-
 function SavedViewContent(props: {
+	readonly addOpen: boolean;
 	readonly data: SavedViewData;
 	readonly layout: SavedViewLayoutName;
+	readonly onAdd: (query?: string) => void;
 	readonly record: ReturnType<typeof Route.useLoaderData>["record"];
 }) {
 	const ryot = useRyot();
 	const { runtime, scope } = Route.useRouteContext();
 	const canAdd = props.record.entitySchemaSlug !== null;
 	const initialIdentity = savedViewQueryIdentity(props.record, "");
-	const [search, setSearch] = useState("");
+	const [searchText, setSearchText] = useState("");
 	const [committedSearch, setCommittedSearch] = useState("");
 	const [count, setCount] = useState<CountState>({ key: "", status: "idle" });
 	const [state, dispatch] = useReducer(
@@ -142,7 +185,8 @@ function SavedViewContent(props: {
 	const pageRequest = useRef<PageRequest | undefined>(undefined);
 	stateRef.current = state;
 
-	useShortcut("A", onAdd, { enabled: canAdd });
+	const onAdd = useEffectEvent(() => props.onAdd());
+	useShortcut("A", onAdd, { enabled: canAdd && !props.addOpen });
 
 	const runPageRequest = useEffectEvent(
 		async (input: {
@@ -211,9 +255,9 @@ function SavedViewContent(props: {
 	);
 
 	useEffect(() => {
-		const timer = setTimeout(() => setCommittedSearch(normalizeSavedViewSearch(search)), 300);
+		const timer = setTimeout(() => setCommittedSearch(normalizeSavedViewSearch(searchText)), 300);
 		return () => clearTimeout(timer);
-	}, [search]);
+	}, [searchText]);
 
 	useEffect(() => {
 		const identity = savedViewQueryIdentity(props.record, committedSearch);
@@ -366,10 +410,10 @@ function SavedViewContent(props: {
 		} else {
 			content = (
 				<SavedViewNoMatches
-					onAdd={onAdd}
 					canAdd={canAdd}
 					query={committedSearch}
 					name={props.record.name}
+					onAdd={() => props.onAdd(committedSearch)}
 				/>
 			);
 		}
@@ -413,13 +457,14 @@ function SavedViewContent(props: {
 						<div className="flex items-center gap-2.5">
 							<SearchField
 								shortcut="/"
-								value={search}
-								onChange={setSearch}
+								value={searchText}
+								onChange={setSearchText}
+								shortcutEnabled={!props.addOpen}
 								label={`Search ${props.record.name}`}
 								icon={<AppIcon name="search" size={15} />}
 								clearIcon={<AppIcon name="x" size={14} />}
 								className="h-9.5 flex-1 md:h-8.5 md:w-60 md:flex-none"
-								onSubmit={() => setCommittedSearch(normalizeSavedViewSearch(search))}
+								onSubmit={() => setCommittedSearch(normalizeSavedViewSearch(searchText))}
 							/>
 							<SegmentedControl
 								className="self-start"
