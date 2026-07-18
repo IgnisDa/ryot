@@ -2,7 +2,10 @@ import {
 	PropertyValidationError,
 	type PropertyValidationIssue,
 } from "@ryot/contract/schema/property-schema";
-import { ParseResult } from "effect";
+import type { Schema } from "effect";
+import { SchemaIssue } from "effect";
+
+const formatIssue = SchemaIssue.makeFormatterStandardSchemaV1();
 
 export const formatValidationError = (issues: ReadonlyArray<PropertyValidationIssue>) =>
 	issues.map((issue) =>
@@ -16,9 +19,11 @@ export const toValidationError = (issues: ReadonlyArray<PropertyValidationIssue>
 	});
 
 export const parseErrorToIssues = (
-	error: ParseResult.ParseError,
+	error: Schema.SchemaError,
 ): ReadonlyArray<PropertyValidationIssue> =>
-	ParseResult.ArrayFormatter.formatErrorSync(error).map((issue) => ({
-		path: issue.path.map((segment) => String(segment)),
+	formatIssue(error.issue).issues.map((issue) => ({
+		path: (issue.path ?? []).map((segment) =>
+			String(typeof segment === "object" ? segment.key : segment),
+		),
 		message: issue.message,
 	}));
