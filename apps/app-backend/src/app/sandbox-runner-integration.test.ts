@@ -459,6 +459,31 @@ export default {
 };
 `;
 
+const approvedYoutubeiDeterminismSource = `
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { createYoutubeMusicClient } from "@ryot/sandbox-sdk/youtubei";
+
+export const manifest = defineManifest({
+  kind: "script",
+  capabilities: ["httpCall"],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  name: "Approved Youtubei determinism",
+  slug: "approved-youtubei-determinism",
+});
+
+export default defineScript({
+  manifest,
+  output: Schema.String,
+  input: Schema.Struct({}),
+  run: (_input, host) => createYoutubeMusicClient(host, undefined, {
+    retrievePlayer: false,
+    retrieveInnertubeConfig: false,
+  }).pipe(Effect.map((client) => String(client.session.context.client.visitorData))),
+});
+`;
+
 const generatedNpmImportSource = `
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
@@ -1586,6 +1611,27 @@ it("allows deterministic workflow dates without changing ambient APIs for script
 			});
 			expect(scriptResult).toMatchObject({ success: true, value: true });
 		}),
+	));
+
+it("resets approved Youtubei randomness for each replay", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(approvedYoutubeiDeterminismSource);
+			const run = (executionId: string) =>
+				runInDeno(compiled, {}, { executionId, startedAt: "2026-08-06T00:00:00.000Z" });
+			const first = yield* run("youtubei-replay");
+			const second = yield* run("youtubei-replay");
+			const other = yield* run("youtubei-other");
+			assert(first !== null && typeof first === "object");
+			assert(second !== null && typeof second === "object");
+			assert(other !== null && typeof other === "object");
+			expect(first).toMatchObject({ success: true, value: expect.any(String) });
+			expect(second).toMatchObject({ success: true, value: expect.any(String) });
+			expect(other).toMatchObject({ success: true, value: expect.any(String) });
+			expect(Reflect.get(second, "value")).toBe(Reflect.get(first, "value"));
+			expect(Reflect.get(other, "value")).not.toBe(Reflect.get(first, "value"));
+		}).pipe(Effect.provide(SandboxCompiler.layer)),
 	));
 
 it("does not expose Effect Clock or Random services to workflows at runtime", () =>
