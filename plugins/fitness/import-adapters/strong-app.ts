@@ -1,4 +1,4 @@
-import { DateTime, Duration, Either, Option } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Duration, Result, Option } from "@ryot/sandbox-sdk/effect";
 
 import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
@@ -136,19 +136,21 @@ export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAda
 		if (!row) {
 			continue;
 		}
-		const parsed = Either.try(() => parseStrongAppRow(row, rowIdx));
-		if (Either.isLeft(parsed)) {
+		const parsed = Result.try(() => parseStrongAppRow(row, rowIdx));
+		if (Result.isFailure(parsed)) {
 			failures.push({
 				itemIndex: rowIdx,
 				sourceLabel: `Row ${rowIdx + 1}`,
 				sourceIdentifier: String(rowIdx + 1),
 				message:
-					parsed.left instanceof Error ? parsed.left.message : "Could not parse StrongApp row",
+					parsed.failure instanceof Error
+						? parsed.failure.message
+						: "Could not parse StrongApp row",
 			});
 			continue;
 		}
-		if (parsed.right.setOrder !== "Rest Timer" && parsed.right.setOrder !== "Note") {
-			parsedRows.push(parsed.right);
+		if (parsed.success.setOrder !== "Rest Timer" && parsed.success.setOrder !== "Note") {
+			parsedRows.push(parsed.success);
 		}
 	}
 
@@ -182,15 +184,15 @@ export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAda
 			continue;
 		}
 
-		const parsedDuration = Either.try(() => parseWorkoutDurationSeconds(firstRow.workoutDuration));
-		if (Either.isLeft(parsedDuration)) {
+		const parsedDuration = Result.try(() => parseWorkoutDurationSeconds(firstRow.workoutDuration));
+		if (Result.isFailure(parsedDuration)) {
 			failures.push({
 				sourceLabel,
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,
 				message:
-					parsedDuration.left instanceof Error
-						? parsedDuration.left.message
+					parsedDuration.failure instanceof Error
+						? parsedDuration.failure.message
 						: "Could not parse workout duration",
 			});
 			continue;
@@ -238,7 +240,7 @@ export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAda
 			comment: firstRow.workoutNotes ?? null,
 			startedAt: DateTime.formatIso(startedAt.value),
 			endedAt: DateTime.formatIso(
-				DateTime.addDuration(startedAt.value, Duration.seconds(parsedDuration.right)),
+				DateTime.addDuration(startedAt.value, Duration.seconds(parsedDuration.success)),
 			),
 		});
 	}
