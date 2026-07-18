@@ -12,6 +12,7 @@ import {
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { SandboxHarvestHandleStore } from "#lib/infrastructure/sandbox-runtime/harvest-handles";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { dbRunnerLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { ImportsRepository } from "#modules/imports/repository";
@@ -46,6 +47,15 @@ const referencesLayer = (repositories: Layer.Layer<ImportsRepository | Integrati
 			BunServices.layer,
 			makeAppConfigLayer(),
 			Layer.succeed(ServerRun, { id: "test-server-run" }),
+			Layer.mock(SandboxHarvestHandleStore)({
+				resolve: (_executionId, handles) =>
+					Effect.succeed(
+						handles.map(
+							(_, index) =>
+								`/tmp/ryot-sandbox-harvest-test-server-run/parent-execution-activity-0/chunk-${index}.json`,
+						),
+					),
+			}),
 			Layer.mock(PluginRuntimeResolver)({}),
 		),
 	);
@@ -61,6 +71,9 @@ const populationReferencesLayer = (
 			BunServices.layer,
 			makeAppConfigLayer(),
 			Layer.succeed(ServerRun, { id: "test-server-run" }),
+			Layer.mock(SandboxHarvestHandleStore)({
+				resolve: () => Effect.succeed([]),
+			}),
 			Layer.mock(PluginRuntimeResolver)({
 				findActiveScriptById: () =>
 					Effect.succeed({
@@ -168,6 +181,9 @@ it.effect("resolves plugin provider slugs before dispatching entity imports", ()
 			BunServices.layer,
 			makeAppConfigLayer(),
 			Layer.succeed(ServerRun, { id: "test-server-run" }),
+			Layer.mock(SandboxHarvestHandleStore)({
+				resolve: () => Effect.succeed([]),
+			}),
 			Layer.mock(PluginRuntimeResolver)({
 				findSchemaProviderBySlug: () =>
 					Effect.succeed({
@@ -251,10 +267,9 @@ it.effect("binds import harvest provenance to the trusted parent workflow execut
 			{
 				totalItems: 0,
 				runId: "run-1",
-				chunkFiles: [],
+				chunkHandles: ["harvest-handle-0"],
 				failureCount: 0,
 				writeItemCount: 0,
-				expectedHarvestDirectoryPrefix: "/tmp/attacker-selected",
 			},
 			{ type: "user", userId: UserId.make("trusted-user") },
 			"child-execution",
@@ -268,6 +283,9 @@ it.effect("binds import harvest provenance to the trusted parent workflow execut
 				executionId: "child-execution",
 				expectedHarvestDirectoryPrefix:
 					"/tmp/ryot-sandbox-harvest-test-server-run/parent-execution-activity-",
+				chunkFiles: [
+					"/tmp/ryot-sandbox-harvest-test-server-run/parent-execution-activity-0/chunk-0.json",
+				],
 			}),
 		]);
 	}).pipe(

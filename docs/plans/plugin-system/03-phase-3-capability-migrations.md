@@ -598,11 +598,12 @@ starting point and may be raised without revisiting this design.
 far larger than `execution.resultBytes` (1 MiB) — a full Netflix or Trakt export is tens of
 thousands of entity groups — so it cannot be a script return value, and raising `resultBytes` to
 fit would re-introduce the context-pressure failure mode the step 3 spike hit. Instead the adapter
-**writes chunk files into its granted scratch directory** and returns only a small manifest (chunk
+**writes chunk files into its granted scratch directory** and returns only a small manifest (scratch-local
 file names, counts, failure summary). The kernel harvests those files at execution end into
-run-scoped kernel-owned storage, then cleans the scratch directory, then feeds the chunks into the
-resolution/population/writing pipeline. The reader is always the **kernel**, never a second sandbox
-execution, so the grant stays per-execution exactly as specified above.
+run-scoped kernel-owned storage, issues opaque workflow-scoped handles, then cleans the scratch
+directory and feeds resolved chunks into the resolution/population/writing pipeline. The reader is
+always the **kernel**, never a second sandbox execution, so host paths never enter workflow scripts
+or public sandbox results.
 
 **Withdrawn host functions** [DECIDED]. Earlier drafts of this step proposed run-scoped blob
 syscalls (`putRunBlobs` / `getRunBlobs`) to move an opaque payload between two sandbox executions,

@@ -1,5 +1,4 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
-import type { SandboxCompletedResult as SandboxCompletedResultValue } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import { PersistedQueue } from "effect/unstable/persistence";
@@ -9,6 +8,7 @@ import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { processSandboxExecution } from "#modules/sandbox/durable-queues";
+import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
@@ -40,11 +40,7 @@ export type EntityImportWorkflowOperationsValue = {
 	processSandbox: (
 		payload: EntityImportPayload,
 		executionId: string,
-	) => Effect.Effect<
-		SandboxCompletedResultValue,
-		SandboxRunError,
-		WorkflowEngine | WorkflowInstance
-	>;
+	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 };
 
 export class EntityImportWorkflowOperations extends Context.Service<

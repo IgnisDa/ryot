@@ -3,9 +3,11 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	FIXTURE_CONFIG_IMPORT_SOURCE,
+	FIXTURE_HANDLE_IMPORT_SOURCE,
 	FIXTURE_IMPORT_SOURCE,
 	installTestImportPlugin,
 	installTestImportPinningPlugin,
+	installTestHarvestHandleImportPlugin,
 	pollImportRunUntilTerminal,
 	pollUntil,
 	postBackendJson,
@@ -90,6 +92,28 @@ describe("Plugin Import Public Boundary", () => {
 			expect(completed.finishedAt).not.toBeNull();
 
 			expect(yield* uninstallWhenReleased(plugin)).toBe(true);
+		}),
+	);
+
+	it.live("resolves opaque harvest handles at kernel chunk consumption", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			yield* Effect.acquireRelease(installTestHarvestHandleImportPlugin, (installed) =>
+				uninstallWhenReleased(installed).pipe(Effect.asVoid, Effect.orDie),
+			);
+
+			const created = yield* client.call((c) =>
+				c.imports.createRun({ payload: { source: FIXTURE_HANDLE_IMPORT_SOURCE } }),
+			);
+			const completed = yield* pollImportRunUntilTerminal(client, created.id);
+
+			expect(completed).toMatchObject({
+				failedItems: 1,
+				status: "failed",
+				processedItems: 1,
+				source: FIXTURE_HANDLE_IMPORT_SOURCE,
+			});
+			expect(completed.errorSummary).toBe("harvest handle fixture failure");
 		}),
 	);
 
