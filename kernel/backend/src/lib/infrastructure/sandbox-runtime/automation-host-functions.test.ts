@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import {
+	AutomationOccurrenceId,
 	SignalId,
 	SignalSchemaSlug,
 	SandboxProviderId,
@@ -56,7 +57,12 @@ const runInput = {
 		subject: {
 			userId,
 			type: "subscription",
-			subscriptionRun: { id: runId, occurredAt, origin: { kind: "api" } },
+			subscriptionRun: {
+				id: runId,
+				occurredAt,
+				origin: { kind: "api" },
+				occurrenceId: AutomationOccurrenceId.make("occurrence-1"),
+			},
 		},
 	},
 } as const satisfies SandboxRunInput;

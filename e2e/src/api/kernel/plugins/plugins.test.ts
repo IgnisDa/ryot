@@ -76,8 +76,8 @@ describe("plugins", () => {
 				kind: "automation" as const,
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
-				capabilities: ["createEvents"],
 				name: "E2E Lifecycle Event Automation",
+				capabilities: ["createEvents", "executeRyotql"],
 			} satisfies PluginScript;
 			const initialDetailsSource = providerSandboxSource({
 				slug: detailsSlug,
@@ -98,29 +98,58 @@ describe("plugins", () => {
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import {
+  automationOccurrenceRecipe,
+  automationRunRecipe,
+  executeRyotqlRecipe,
+} from "@ryot-app/sandbox-sdk/ryotql";
 
 export const manifest = defineManifest({
   kind: "automation",
-  slug: ${JSON.stringify(automationSlug)},
-  capabilities: ["createEvents"],
-  name: "E2E Lifecycle Event Automation",
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
+  name: "E2E Lifecycle Event Automation",
+  slug: ${JSON.stringify(automationSlug)},
+  capabilities: ["createEvents", "executeRyotql"],
 });
 
 export default defineAutomation({
   manifest,
-  run: ({ automation }, host) => {
-    const event = automation.source.kind === "event" ? automation.source.after : undefined;
-    if (automation.origin.kind !== "api" || !event) return Effect.succeed(null);
+  run: ({ automation }, host) => Effect.gen(function* () {
+    if (automation.origin.kind !== "api" || automation.source.kind !== "event" || !automation.runId) {
+      return null;
+    }
+    const occurrence = yield* executeRyotqlRecipe(
+      host.executeRyotql,
+      automationOccurrenceRecipe(automation.occurrenceId),
+    );
+    const run = yield* executeRyotqlRecipe(host.executeRyotql, automationRunRecipe(automation.runId));
+    const foreignOccurrence = yield* executeRyotqlRecipe(
+      host.executeRyotql,
+      automationOccurrenceRecipe("not-the-current-occurrence"),
+    );
+    const foreignRun = yield* executeRyotqlRecipe(
+      host.executeRyotql,
+      automationRunRecipe("not-the-current-run"),
+    );
+    const event = occurrence?.source.kind === "event" ? occurrence.source.after : undefined;
+    if (!event || !run) return null;
     const note = event.properties.note;
-    if (typeof note !== "string") return Effect.succeed(null);
-    return host.createEvents([{
+    if (typeof note !== "string") return null;
+    yield* host.createEvents([{
       entityId: event.subject.id,
       eventSchemaSlug: ${JSON.stringify(resultEventSlug)},
-      properties: { sourceEventId: event.id, note },
-    }]).pipe(Effect.as(null));
-  },
+      properties: {
+        note,
+        sourceEventId: event.id,
+        runId: automation.runId,
+        occurrenceId: automation.occurrenceId,
+        foreignRunVisible: foreignRun !== null,
+        foreignOccurrenceVisible: foreignOccurrence !== null,
+      },
+    }]);
+    return null;
+  }),
 });
 `;
 			let entityId: string | null = null;
@@ -173,10 +202,30 @@ export default defineAutomation({
 										unknownKeys: "strict",
 										fields: {
 											note: { label: "Note", type: "string", description: "Source note" },
+											runId: {
+												type: "string",
+												label: "Run ID",
+												description: "Bound automation run ID",
+											},
 											sourceEventId: {
 												type: "string",
 												label: "Source event ID",
 												description: "Triggering event ID",
+											},
+											occurrenceId: {
+												type: "string",
+												label: "Occurrence ID",
+												description: "Bound automation occurrence ID",
+											},
+											foreignRunVisible: {
+												type: "boolean",
+												label: "Foreign run visible",
+												description: "Whether an unbound run was visible",
+											},
+											foreignOccurrenceVisible: {
+												type: "boolean",
+												label: "Foreign occurrence visible",
+												description: "Whether an unbound occurrence was visible",
 											},
 										},
 									},
@@ -337,8 +386,19 @@ export default defineAutomation({
 			);
 			expect(automatedEvent).toMatchObject({
 				eventSchemaSlug: resultEventSlug,
-				properties: { note: "lifecycle-observed", sourceEventId: eventOutcome.eventId },
+				properties: {
+					foreignRunVisible: false,
+					note: "lifecycle-observed",
+					foreignOccurrenceVisible: false,
+					sourceEventId: eventOutcome.eventId,
+				},
 			});
+			const automatedProperties = requireObjectRecord(
+				automatedEvent.properties,
+				"Missing automation execution properties",
+			);
+			expect(automatedProperties["occurrenceId"]).toEqual(expect.any(String));
+			expect(automatedProperties["runId"]).toEqual(expect.any(String));
 			const reingestedPlugin = (yield* getApiClient().call(
 				(c) => c.testSupport.listSystemPlugins({}),
 				adminHeaders(),

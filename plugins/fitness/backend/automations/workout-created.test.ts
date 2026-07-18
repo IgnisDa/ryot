@@ -12,9 +12,31 @@ const input = (origin: AutomationInput["automation"]["origin"]): AutomationInput
 		operation: "create",
 		occurrenceId: "occurrence-1",
 		occurredAt: "2026-07-20T10:00:00.000Z",
-		source: {
-			kind: "entity",
-			after: { properties: {}, id: "workout-1", name: "Morning Run", entitySchemaSlug: "workout" },
+		source: { kind: "entity", entityId: "workout-1" },
+	},
+});
+
+const occurrenceResponse = (origin: AutomationInput["automation"]["origin"]) => ({
+	data: {
+		occurrences: {
+			type: "rows" as const,
+			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+			items: [
+				{
+					origin,
+					population: null,
+					operation: "create",
+					source: {
+						kind: "entity",
+						after: {
+							properties: {},
+							id: "workout-1",
+							name: "Morning Run",
+							entitySchemaSlug: "workout",
+						},
+					},
+				},
+			],
 		},
 	},
 });
@@ -27,6 +49,7 @@ it("emits one actor signal for an API workout from its entity snapshot", () => {
 		definition.run(
 			input({ kind: "api" }),
 			defineSandboxTestHost(manifest, {
+				executeRyotql: () => Effect.succeed(occurrenceResponse({ kind: "api" })),
 				emitSignal: (request) => {
 					calls.push(request);
 					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
@@ -59,6 +82,7 @@ it.each([
 		definition.run(
 			input(origin),
 			defineSandboxTestHost(manifest, {
+				executeRyotql: () => Effect.succeed(occurrenceResponse(origin)),
 				emitSignal: (request) => {
 					calls.push(request);
 					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });

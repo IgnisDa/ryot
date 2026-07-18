@@ -1,6 +1,7 @@
-import { defineAutomation, type AutomationSignalSnapshot } from "@ryot-app/sandbox-sdk/automation";
+import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { automationOccurrenceRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 export const manifest = defineManifest({
@@ -9,7 +10,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	slug: "automation.notification",
-	capabilities: ["sendNotification"],
+	capabilities: ["executeRyotql", "sendNotification"],
 });
 
 const stringProperty = (properties: Readonly<Record<string, JsonValue>>, key: string) => {
@@ -20,11 +21,14 @@ const stringProperty = (properties: Readonly<Record<string, JsonValue>>, key: st
 	return value;
 };
 
-const formatMessage = (signal: AutomationSignalSnapshot) => {
-	if (signal.signalSchemaSlug === "integration.disabled") {
-		return `Integration ${stringProperty(signal.properties, "providerName")} has been disabled due to too many errors`;
+const formatMessage = (
+	signalSchemaSlug: string,
+	properties: Readonly<Record<string, JsonValue>>,
+) => {
+	if (signalSchemaSlug === "integration.disabled") {
+		return `Integration ${stringProperty(properties, "providerName")} has been disabled due to too many errors`;
 	}
-	throw new Error(`Unsupported signal schema: ${signal.signalSchemaSlug}`);
+	throw new Error(`Unsupported signal schema: ${signalSchemaSlug}`);
 };
 
 export default defineAutomation({
@@ -34,7 +38,19 @@ export default defineAutomation({
 			if (automation.source.kind !== "signal") {
 				return yield* Effect.die(new Error("Signal notification requires a signal source"));
 			}
-			yield* host.sendNotification(formatMessage(automation.source.signal));
+			const occurrence = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				automationOccurrenceRecipe(automation.occurrenceId),
+			);
+			if (occurrence?.source.kind !== "signal") {
+				return yield* Effect.die(new Error("Signal notification requires a signal source"));
+			}
+			yield* host.sendNotification(
+				formatMessage(
+					occurrence.source.signal.signalSchemaSlug,
+					occurrence.source.signal.properties,
+				),
+			);
 			return null;
 		});
 	},

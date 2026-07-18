@@ -20,11 +20,10 @@ export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) =>
 		Effect.gen(function* () {
-			if (automation.source.kind !== "entity" || !automation.source.after) {
+			if (automation.source.kind !== "provider-entity-import") {
 				return null;
 			}
-			const entity = automation.source.after;
-			if (!eligibleEntitySchemaSlugs.has(entity.entitySchemaSlug)) {
+			if (!eligibleEntitySchemaSlugs.has(automation.source.entitySchemaSlug)) {
 				return null;
 			}
 			const library = yield* executeRyotqlRecipe(host.executeRyotql, userLibraryRecipe());
@@ -34,9 +33,9 @@ export default defineAutomation({
 					creates: [
 						{
 							properties: {},
-							sourceEntityId: entity.id,
 							targetEntityId: library.entityId,
 							relationshipSchemaSlug: "in-library",
+							sourceEntityId: automation.source.entityId,
 						},
 					],
 				},

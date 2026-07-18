@@ -25,8 +25,11 @@ const context = (entitySchemaSlug: string): AutomationInput => ({
 		ruleId:
 			"binding:media:provider_entity_import:book:automation.media-library-membership-on-import:0",
 		source: {
-			kind: "entity",
-			after: { name: "Dune", id: "entity-1", entitySchemaSlug, properties: { title: "Dune" } },
+			entitySchemaSlug,
+			externalId: "dune",
+			entityId: "entity-1",
+			providerId: "provider-1",
+			kind: "provider-entity-import",
 		},
 	},
 });
@@ -104,10 +107,10 @@ it("ignores non-entity and irrelevant entity inputs", () => {
 			return hostSuccess([]);
 		},
 	});
-	const eventInput = {
+	const eventInput: AutomationInput = {
 		...context("book"),
-		automation: { ...context("book").automation, source: { kind: "event" as const } },
-	} as AutomationInput;
+		automation: { ...context("book").automation, source: { kind: "event", eventId: "event-1" } },
+	};
 	const irrelevantInput = context("workout");
 
 	return Effect.runPromise(

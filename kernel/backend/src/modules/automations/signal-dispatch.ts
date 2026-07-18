@@ -1,6 +1,6 @@
 import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
 import { AutomationProperties } from "@ryot-app/contract/modules/automations/schemas";
-import { SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { AutomationOccurrenceId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect, Result, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -22,6 +22,28 @@ export const SignalDispatchLive = Layer.effect(
 					const properties = yield* Schema.decodeUnknownEffect(AutomationProperties)(
 						input.properties,
 					);
+					const occurrenceId = AutomationOccurrenceId.make(input.id);
+					yield* automations.recordOccurrence({
+						userId: null,
+						recordId: null,
+						id: occurrenceId,
+						population: null,
+						signalId: input.id,
+						operation: "signal",
+						origin: input.origin,
+						sourceKind: "signal",
+						occurredAt: input.occurredAt,
+						source: {
+							kind: "signal",
+							signal: {
+								properties,
+								id: input.id,
+								origin: input.origin,
+								occurredAt: input.occurredAt,
+								signalSchemaSlug: SignalSchemaSlug.make(input.signalSchemaSlug),
+							},
+						},
+					});
 					const scopes = [input.actorUserId, ...input.recipientUserIds].filter(
 						(value, index, values) => values.indexOf(value) === index,
 					);
@@ -51,26 +73,7 @@ export const SignalDispatchLive = Layer.effect(
 								.execute(SubscriptionExecutionWorkflow, {
 									discard: true,
 									executionId: `subscription:${input.id}:${rule.id}`,
-									payload: {
-										rowUserId,
-										ruleId: rule.id,
-										signalId: input.id,
-										operation: "signal",
-										sourceKind: "signal",
-										origin: input.origin,
-										occurrenceId: input.id,
-										occurredAt: input.occurredAt,
-										source: {
-											kind: "signal",
-											signal: {
-												properties,
-												id: input.id,
-												origin: input.origin,
-												occurredAt: input.occurredAt,
-												signalSchemaSlug: input.signalSchemaSlug,
-											},
-										},
-									},
+									payload: { rowUserId, occurrenceId, ruleId: rule.id },
 								})
 								.pipe(Effect.result),
 						{ concurrency: "unbounded" },

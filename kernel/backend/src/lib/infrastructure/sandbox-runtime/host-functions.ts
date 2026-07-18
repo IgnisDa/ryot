@@ -263,36 +263,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				Effect.provideService(Database, database),
 				sandboxHostEffect,
 			),
-		executeRyotql: (rawInput, query) =>
-			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
-				Effect.flatMap((input) => {
-					const { subject } = input.principal;
-					if (subject.type === "system") {
-						return sandboxHostEffect(
-							Effect.gen(function* () {
-								const revision = input.principal.pluginRevision;
-								if (revision?.scope !== "system") {
-									return yield* Effect.fail(
-										"executeRyotql system access requires a pinned plugin script",
-									);
-								}
-								const document = yield* decodeRyotQLDocument(query);
-								return yield* ryotqlService.executeForPlugin(
-									{ pluginSlug: revision.slug, ...revision.schemaScope },
-									document,
-								);
-							}),
-						);
-					}
-					return sandboxHostEffect(
-						decodeRyotQLDocument(query).pipe(
-							Effect.flatMap((document) =>
-								ryotqlService.executeForUser(subject.userId, null, document),
-							),
-						),
-					);
-				}),
-			),
 		changeUserRelationships: (rawInput, batches) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -461,6 +431,52 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						Effect.provideService(Database, database),
 						Effect.provideService(DefinitionRegistry, definitions),
 						Effect.provideService(RelationshipsRepository, relationshipsRepository),
+					);
+				}),
+			),
+		executeRyotql: (rawInput, query) =>
+			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
+				Effect.flatMap((input) => {
+					const { subject } = input.principal;
+					const automationExecution =
+						subject.type === "subscription"
+							? {
+									...(subject.subscriptionRun.occurrenceId
+										? { automationOccurrenceId: subject.subscriptionRun.occurrenceId }
+										: {}),
+									automationRunId: subject.subscriptionRun.id,
+								}
+							: {
+									...(subject.type === "system" && subject.automationRunId
+										? { automationRunId: subject.automationRunId }
+										: {}),
+									...(subject.automationOccurrenceId
+										? { automationOccurrenceId: subject.automationOccurrenceId }
+										: {}),
+								};
+					if (subject.type === "system") {
+						return sandboxHostEffect(
+							Effect.gen(function* () {
+								const revision = input.principal.pluginRevision;
+								if (revision?.scope !== "system") {
+									return yield* Effect.fail(
+										"executeRyotql system access requires a pinned plugin script",
+									);
+								}
+								const document = yield* decodeRyotQLDocument(query);
+								return yield* ryotqlService.executeForPlugin(
+									{ pluginSlug: revision.slug, ...revision.schemaScope, ...automationExecution },
+									document,
+								);
+							}),
+						);
+					}
+					return sandboxHostEffect(
+						decodeRyotQLDocument(query).pipe(
+							Effect.flatMap((document) =>
+								ryotqlService.executeForUser(subject.userId, null, document, automationExecution),
+							),
+						),
 					);
 				}),
 			),

@@ -1,6 +1,12 @@
 import { Schema } from "effect";
 
-import { IntegrationId, SandboxScriptId, SubscriptionRunId, UserId } from "../../schema/brands";
+import {
+	AutomationOccurrenceId,
+	IntegrationId,
+	SandboxScriptId,
+	SubscriptionRunId,
+	UserId,
+} from "../../schema/brands";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 import { AutomationOrigin } from "../automations/schemas";
@@ -80,13 +86,18 @@ export type EnqueueSandboxBody = Schema.Schema.Type<typeof EnqueueSandboxBody>;
 export const EnqueueResponse = Schema.Struct({ jobId: Schema.String });
 
 export const SandboxExecutionSubject = Schema.Union([
-	strictStruct({ type: Schema.Literal("system") }),
+	strictStruct({
+		type: Schema.Literal("system"),
+		automationRunId: Schema.optional(SubscriptionRunId),
+		automationOccurrenceId: Schema.optional(AutomationOccurrenceId),
+	}),
 	// `integrationId` is the integration the execution belongs to. Only trusted kernel dispatch sets
 	// it, so a script can never widen its own credential scope by supplying an id.
 	strictStruct({
 		userId: UserId,
 		type: Schema.Literal("user"),
 		integrationId: Schema.optional(IntegrationId),
+		automationOccurrenceId: Schema.optional(AutomationOccurrenceId),
 	}),
 	strictStruct({
 		userId: UserId,
@@ -95,6 +106,7 @@ export const SandboxExecutionSubject = Schema.Union([
 			id: SubscriptionRunId,
 			origin: AutomationOrigin,
 			occurredAt: Schema.String,
+			occurrenceId: Schema.optional(AutomationOccurrenceId),
 		}),
 	}),
 ]);

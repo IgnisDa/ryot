@@ -5,6 +5,7 @@ import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
 import {
 	eventAutomationContext,
+	eventAutomationOccurrence,
 	entityRecord,
 	entitySchemaRecord,
 	execution,
@@ -76,6 +77,7 @@ const createHost = (options: {
 	log?: SonarrHost["log"];
 	entity?: ReturnType<typeof entityRecord> | null;
 	integrations?: ReturnType<typeof integrationRecord>[];
+	event?: Parameters<typeof eventAutomationOccurrence>[0];
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
@@ -83,8 +85,19 @@ const createHost = (options: {
 		log: options.log ?? (() => Effect.succeed(null)),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
 		getUserPreferences: () => hostSuccess({ allowNsfw: false, disableIntegrations: false }),
-		executeRyotql: () =>
-			options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure(),
+		executeRyotql: (document) => {
+			if ("occurrences" in document.queries) {
+				return hostSuccess(
+					eventAutomationOccurrence({
+						eventSchemaSlug: "add-entity-to-collection",
+						properties: { entityId: "show-1", entitySchemaSlug: "show" },
+						subject: { id: "collection-1", name: "Collection", entitySchemaSlug: "collection" },
+						...options.event,
+					}),
+				);
+			}
+			return options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure();
+		},
 	});
 
 describe("sonarr-push sandbox script", () => {
@@ -124,7 +137,12 @@ describe("sonarr-push sandbox script", () => {
 				[
 					definition.run(
 						createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
-						createHost({ httpCall, entity: showEntity, integrations: [sonarrIntegration] }),
+						createHost({
+							httpCall,
+							entity: showEntity,
+							integrations: [sonarrIntegration],
+							event: { properties: { entityId: "movie-1", entitySchemaSlug: "movie" } },
+						}),
 						execution,
 					),
 					definition.run(

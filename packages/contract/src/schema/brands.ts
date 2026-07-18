@@ -78,6 +78,10 @@ export const AutomationRuleId = Schema.String.pipe(Schema.brand("AutomationRuleI
 
 export type AutomationRuleId = typeof AutomationRuleId.Type;
 
+export const AutomationOccurrenceId = Schema.String.pipe(Schema.brand("AutomationOccurrenceId"));
+
+export type AutomationOccurrenceId = typeof AutomationOccurrenceId.Type;
+
 export const SubscriptionRunId = Schema.String.pipe(Schema.brand("SubscriptionRunId"));
 
 export type SubscriptionRunId = typeof SubscriptionRunId.Type;
