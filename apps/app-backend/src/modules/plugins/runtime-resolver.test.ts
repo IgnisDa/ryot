@@ -51,17 +51,17 @@ const normalizedPlugin = (): NormalizedPlugin => {
 		kind: "workflow" as const,
 		capabilities: [] as const,
 	};
-	const activity = {
+	const queryScript = {
 		...automation,
-		name: "Fixture activity",
-		slug: "fixture.activity",
-		kind: "activity" as const,
+		slug: "fixture.query",
+		kind: "script" as const,
+		name: "Fixture query script",
 	};
 	const normalizedManifest: PluginManifest = {
 		...manifest,
 		entitySchemas: [...manifest.entitySchemas, { ...fixtureEntitySchema, slug: "unbound-entity" }],
 		workflows: [{ slug: "fixture-run", scriptSlug: workflow.slug }],
-		scripts: [...manifest.scripts, activity, details, search, preload, workflow],
+		scripts: [...manifest.scripts, queryScript, details, search, preload, workflow],
 		providers: [
 			{
 				name: "Fixture provider",
@@ -132,26 +132,26 @@ const providerOwnerPlugin = (): NormalizedPlugin => {
 
 const providerRow = {
 	id: providerId,
+	pluginSlug: "fixture",
 	name: "Fixture provider",
 	slug: "fixture-provider",
-	pluginSlug: "fixture",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
 	information: { source: "fixture" },
 };
 
 const scriptRow = {
-	name: "Fixture details",
-	source: "source",
-	pluginSlug: "fixture",
 	providerId,
+	source: "source",
 	compiledFormat: 1,
+	pluginSlug: "fixture",
+	name: "Fixture details",
+	slug: "fixture.details",
 	compiledCode: "compiled",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	id: SandboxScriptId.make("details-script-id"),
-	slug: "fixture.details",
 	contentHash: "fixture.details-hash",
+	id: SandboxScriptId.make("details-script-id"),
 	metadata: {
 		capabilities: [],
 		name: "Fixture details",
@@ -166,8 +166,8 @@ const customScriptRow = {
 	...scriptRow,
 	name: "Fixture preload",
 	slug: "fixture.preload",
-	id: SandboxScriptId.make("preload-script-id"),
 	contentHash: "fixture.preload-hash",
+	id: SandboxScriptId.make("preload-script-id"),
 	metadata: {
 		capabilities: [],
 		kind: "script" as const,
@@ -183,8 +183,8 @@ const workflowScriptRow = {
 	providerId: null,
 	name: "Fixture workflow",
 	slug: "fixture.workflow",
-	id: SandboxScriptId.make("workflow-script-id"),
 	contentHash: "fixture.workflow-hash",
+	id: SandboxScriptId.make("workflow-script-id"),
 	metadata: {
 		capabilities: [],
 		name: "Fixture workflow",
@@ -195,20 +195,20 @@ const workflowScriptRow = {
 	},
 };
 
-const activityScriptRow = {
+const queryScriptRow = {
 	...scriptRow,
 	providerId: null,
-	name: "Fixture activity",
-	slug: "fixture.activity",
-	contentHash: "fixture.activity-hash",
-	id: SandboxScriptId.make("activity-script-id"),
+	slug: "fixture.query",
+	name: "Fixture query script",
+	contentHash: "fixture.query-hash",
+	id: SandboxScriptId.make("query-script-id"),
 	metadata: {
 		capabilities: [],
-		name: "Fixture activity",
-		slug: "fixture.activity",
+		slug: "fixture.query",
+		kind: "script" as const,
+		name: "Fixture query script",
 		requiredPluginConfigKeys: [],
 		requiredSystemConfigKeys: [],
-		kind: "activity" as const,
 	},
 };
 
@@ -243,7 +243,7 @@ const makeLayer = (
 							return Promise.resolve([workflowScriptRow]);
 						}
 						if (scriptSelectCount === 5) {
-							return Promise.resolve([activityScriptRow]);
+							return Promise.resolve([queryScriptRow]);
 						}
 						return Promise.resolve([scriptRow]);
 					},
@@ -313,7 +313,7 @@ it.effect("resolves active schema providers and their operation-specific scripts
 			}),
 		).toMatchObject({ id: "workflow-script-id", slug: "fixture.workflow" });
 		expect(
-			yield* resolver.resolveSystemQueryScript(SandboxScriptId.make("activity-script-id")),
+			yield* resolver.resolveSystemQueryScript(SandboxScriptId.make("query-script-id")),
 		).toMatchObject({
 			pluginSlug: "fixture",
 			entitySchemaSlugs: ["fixture-entity", "unbound-entity"],
