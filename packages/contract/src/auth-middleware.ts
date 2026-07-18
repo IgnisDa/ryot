@@ -53,6 +53,7 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
 	AuthMiddleware,
 	{ provides: CurrentUser }
 >()("AuthMiddleware", {
+	security: { apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }) },
 	error: [
 		Unauthorized.pipe(HttpApiSchema.status(401)),
 		RateLimited.pipe(HttpApiSchema.status(429)),

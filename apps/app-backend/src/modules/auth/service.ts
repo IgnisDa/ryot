@@ -429,7 +429,7 @@ export const makeAuthMiddleware = (auth: Pick<AuthService["Service"], "currentUs
 
 export const AuthMiddlewareLive = Layer.effect(
 	AuthMiddleware,
-	Effect.map(AuthService, makeAuthMiddleware),
+	Effect.map(AuthService, (auth) => ({ apiKey: makeAuthMiddleware(auth) })),
 );
 
 export const AdminMiddlewareLive = Layer.effect(
