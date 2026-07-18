@@ -47,7 +47,7 @@
 		"@ryot/query-engine": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
-		"effect": "3.21.4"
+		"effect": "3.22.1"
 	},
 	"devDependencies": {
 		"@ryot/testing": "workspace:*",

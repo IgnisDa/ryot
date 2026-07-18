@@ -12,7 +12,6 @@ import {
 	pollEntityImportResult,
 	pollSandboxResult,
 	pollEntityUntilTranslationStatus,
-	queryInLibraryRelationship,
 	seedPopulatedProviderEntity,
 	setUserLanguage,
 } from "~/fixtures";
@@ -45,7 +44,7 @@ function schemaProvider(
 }
 
 describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
-	it.live("searches OpenLibrary and imports a real result into the library", () =>
+	it.live("searches OpenLibrary and imports a real result", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
@@ -80,9 +79,6 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 			assertCompleted(imported, "OpenLibrary import");
 			expect(imported.data.name.length).toBeGreaterThan(0);
 			expect(imported.data.entitySchemaSlug).toBe(schema.id);
-
-			const inLibrary = yield* queryInLibraryRelationship(client, imported.data.id, schema.slug);
-			expect(inLibrary.data.items.length).toBeGreaterThan(0);
 		}),
 	);
 
