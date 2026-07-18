@@ -551,7 +551,7 @@ Generation checks:
 ```bash
 # Run from apps/app-backend
 bun run db:generate
-bun run sandbox:compile
+bun run sandbox:compile-runner
 bun run sandbox:check-runner
 ```
 

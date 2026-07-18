@@ -8,15 +8,19 @@ import details, { manifest as detailsManifest } from "./myanimelist-details.sand
 import search, { manifest as searchManifest } from "./myanimelist-search.sandbox";
 
 type MyAnimeListAnimeHost = SandboxHost<typeof manifest.capabilities>;
+
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
+
 const makeHost = (httpCall: MyAnimeListAnimeHost["httpCall"], isNsfw = false) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
 		getPluginConfigValue: () => Effect.succeed("client-id"),
 		getUserPreferences: () => Effect.succeed({ isNsfw, disableIntegrations: false }),
 	});
+
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
+
 describe("anime.myanimelist sandbox script", () => {
 	it("declares one script per operation", () => {
 		expect([
@@ -27,6 +31,30 @@ describe("anime.myanimelist sandbox script", () => {
 			["anime.myanimelist.details", "details"],
 		]);
 	});
+
+	it("loads the MAL client ID and sends it in the auth header", () => {
+		const configKeys: string[] = [];
+		const host = defineSandboxTestHost(manifest, {
+			getPluginConfigValue: (key) => {
+				configKeys.push(key);
+				return Effect.succeed("client-id");
+			},
+			getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
+			httpCall: (_method, _url, options) => {
+				expect(options?.headers).toEqual({ "X-MAL-CLIENT-ID": "client-id" });
+				return httpSuccess({ data: [], paging: {} });
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(search, { query: "hero", page: 1, pageSize: 20 }, host, execution).pipe(
+				Effect.map(() => {
+					expect(configKeys).toEqual(["malClientId"]);
+					return undefined;
+				}),
+			),
+		);
+	});
+
 	it("keeps MAL recommendations as related entities", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -65,6 +93,7 @@ describe("anime.myanimelist sandbox script", () => {
 			),
 		);
 	});
+
 	it("maps dates, NSFW flags, status casing, and the single airing entry", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -104,6 +133,7 @@ describe("anime.myanimelist sandbox script", () => {
 			),
 		);
 	});
+
 	it("requests the nsfw flag only when the user allows it", () => {
 		const requestUrls: string[] = [];
 		const emptyPage = () => httpSuccess({ data: [], paging: {} });
@@ -138,6 +168,7 @@ describe("anime.myanimelist sandbox script", () => {
 				),
 		);
 	});
+
 	it("derives paging from the MAL paging cursor", () => {
 		const host = makeHost(() =>
 			httpSuccess({
