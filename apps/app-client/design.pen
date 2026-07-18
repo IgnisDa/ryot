@@ -4060,7 +4060,7 @@
                                           "id": "q2YV9W",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Movies",
+                                          "name": "All Movies",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -4073,7 +4073,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Movies",
+                                              "content": "All Movies",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -4087,7 +4087,7 @@
                                           "id": "d9P5pV",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Shows",
+                                          "name": "All Shows",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -4100,7 +4100,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Shows",
+                                              "content": "All Shows",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -4114,7 +4114,7 @@
                                           "id": "L0kQzF",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Books",
+                                          "name": "All Books",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -4127,7 +4127,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Books",
+                                              "content": "All Books",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -4177,7 +4177,7 @@
                                           "id": "lzy76",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Music",
+                                          "name": "All Music",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -4190,7 +4190,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Music",
+                                              "content": "All Music",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -4204,7 +4204,7 @@
                                           "id": "zo5hZ",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Audio Books",
+                                          "name": "All Audio Books",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -4217,7 +4217,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Audio Books",
+                                              "content": "All Audio Books",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -4231,7 +4231,7 @@
                                           "id": "tyJyU",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Video Games",
+                                          "name": "All Video Games",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -4244,7 +4244,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Video Games",
+                                              "content": "All Video Games",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -4258,7 +4258,7 @@
                                           "id": "LvSjV",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "People",
+                                          "name": "All People",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -4271,7 +4271,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "People",
+                                              "content": "All People",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -4285,7 +4285,7 @@
                                           "id": "fBl5p",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Groups",
+                                          "name": "All Groups",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -4298,7 +4298,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Groups",
+                                              "content": "All Groups",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -4312,7 +4312,7 @@
                                           "id": "XFuhL",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Genres",
+                                          "name": "All Genres",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -4325,7 +4325,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Genres",
+                                              "content": "All Genres",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -5287,7 +5287,7 @@
                                           "id": "yYenH",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Movies",
+                                          "name": "All Movies",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -5300,7 +5300,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Movies",
+                                              "content": "All Movies",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -5314,7 +5314,7 @@
                                           "id": "c0qVIo",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Shows",
+                                          "name": "All Shows",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -5327,7 +5327,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Shows",
+                                              "content": "All Shows",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -5341,7 +5341,7 @@
                                           "id": "XIHek",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Books",
+                                          "name": "All Books",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -5354,7 +5354,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Books",
+                                              "content": "All Books",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -5404,7 +5404,7 @@
                                           "id": "LURIg",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Music",
+                                          "name": "All Music",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -5417,7 +5417,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Music",
+                                              "content": "All Music",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -5431,7 +5431,7 @@
                                           "id": "dD7lG",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Audio Books",
+                                          "name": "All Audio Books",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -5444,7 +5444,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Audio Books",
+                                              "content": "All Audio Books",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -5458,7 +5458,7 @@
                                           "id": "J4nKk",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Video Games",
+                                          "name": "All Video Games",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -5471,7 +5471,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Video Games",
+                                              "content": "All Video Games",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -5485,7 +5485,7 @@
                                           "id": "D6u8to",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "People",
+                                          "name": "All People",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -5498,7 +5498,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "People",
+                                              "content": "All People",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -5512,7 +5512,7 @@
                                           "id": "G0TrxY",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Groups",
+                                          "name": "All Groups",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -5525,7 +5525,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Groups",
+                                              "content": "All Groups",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -5539,7 +5539,7 @@
                                           "id": "IdZfX",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Genres",
+                                          "name": "All Genres",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -5552,7 +5552,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Genres",
+                                              "content": "All Genres",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -6733,7 +6733,7 @@
                                           "id": "ly9He",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Movies",
+                                          "name": "All Movies",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -6746,7 +6746,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Movies",
+                                              "content": "All Movies",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -6763,7 +6763,7 @@
                                           "id": "b3wR0",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Shows",
+                                          "name": "All Shows",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -6776,7 +6776,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Shows",
+                                              "content": "All Shows",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -6823,7 +6823,7 @@
                                           "id": "gS6Ap",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Books",
+                                          "name": "All Books",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -6836,7 +6836,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Books",
+                                              "content": "All Books",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -6886,7 +6886,7 @@
                                           "id": "i0iYyY",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Music",
+                                          "name": "All Music",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -6899,7 +6899,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Music",
+                                              "content": "All Music",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -6916,7 +6916,7 @@
                                           "id": "ETgDp",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Audio Books",
+                                          "name": "All Audio Books",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -6929,7 +6929,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Audio Books",
+                                              "content": "All Audio Books",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -6959,7 +6959,7 @@
                                           "id": "Aplt7",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "People",
+                                          "name": "All People",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -6972,7 +6972,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "People",
+                                              "content": "All People",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -6989,7 +6989,7 @@
                                           "id": "pslU3",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Groups",
+                                          "name": "All Groups",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -7002,7 +7002,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Groups",
+                                              "content": "All Groups",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -7019,7 +7019,7 @@
                                           "id": "QNW5X",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Genres",
+                                          "name": "All Genres",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -7032,7 +7032,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Genres",
+                                              "content": "All Genres",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -7704,7 +7704,7 @@
                           "id": "kJWzs",
                           "type": "ref",
                           "ref": "oNDqF",
-                          "name": "Video Games (dragging)",
+                          "name": "All Video Games",
                           "x": 110,
                           "y": 250,
                           "rotation": -1.5000000000000002,
@@ -7733,7 +7733,7 @@
                               "fill": "$--accent-text"
                             },
                             "hPDnR": {
-                              "content": "Video Games",
+                              "content": "All Video Games",
                               "fill": "$--text-primary"
                             },
                             "h75uN": {
@@ -8091,7 +8091,7 @@
                                           "id": "c63nn7",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Movies",
+                                          "name": "All Movies",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -8104,7 +8104,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Movies",
+                                              "content": "All Movies",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -8118,7 +8118,7 @@
                                           "id": "Uhgek",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Shows",
+                                          "name": "All Shows",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -8131,7 +8131,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Shows",
+                                              "content": "All Shows",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -8145,7 +8145,7 @@
                                           "id": "dsdnU",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Books",
+                                          "name": "All Books",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -8158,7 +8158,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Books",
+                                              "content": "All Books",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -8208,7 +8208,7 @@
                                           "id": "xIDgM",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Music",
+                                          "name": "All Music",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -8221,7 +8221,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Music",
+                                              "content": "All Music",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -8235,7 +8235,7 @@
                                           "id": "ttTE9",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Audio Books",
+                                          "name": "All Audio Books",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -8248,7 +8248,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Audio Books",
+                                              "content": "All Audio Books",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -8262,7 +8262,7 @@
                                           "id": "dMpRK",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Video Games",
+                                          "name": "All Video Games",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -8275,7 +8275,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Video Games",
+                                              "content": "All Video Games",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -8289,7 +8289,7 @@
                                           "id": "W17u4",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "People",
+                                          "name": "All People",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -8302,7 +8302,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "People",
+                                              "content": "All People",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -8316,7 +8316,7 @@
                                           "id": "fHhaN",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Groups",
+                                          "name": "All Groups",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -8329,7 +8329,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Groups",
+                                              "content": "All Groups",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -8343,7 +8343,7 @@
                                           "id": "q49Dcu",
                                           "type": "ref",
                                           "ref": "oNDqF",
-                                          "name": "Genres",
+                                          "name": "All Genres",
                                           "width": "fill_container",
                                           "padding": [
                                             5,
@@ -8356,7 +8356,7 @@
                                               "fill": "$--text-muted"
                                             },
                                             "hPDnR": {
-                                              "content": "Genres",
+                                              "content": "All Genres",
                                               "fill": "$--text-muted"
                                             },
                                             "h75uN": {
@@ -17649,7 +17649,7 @@
       "y": 4765,
       "name": "Web Saved View",
       "theme": {
-        "Mode": "Light"
+        "Mode": "Dark"
       },
       "fill": "$--background",
       "layout": "vertical",
@@ -17987,7 +17987,7 @@
                                               "id": "i7ot3",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Movies",
+                                              "name": "All Movies",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -18000,7 +18000,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Movies",
+                                                  "content": "All Movies",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -18014,7 +18014,7 @@
                                               "id": "R3ISL",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Shows",
+                                              "name": "All Shows",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -18027,7 +18027,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Shows",
+                                                  "content": "All Shows",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -18041,7 +18041,7 @@
                                               "id": "m9Aff",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Books",
+                                              "name": "All Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -18054,7 +18054,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Books",
+                                                  "content": "All Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -18104,7 +18104,7 @@
                                               "id": "VO02Q",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Music",
+                                              "name": "All Music",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -18117,7 +18117,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Music",
+                                                  "content": "All Music",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -18131,7 +18131,7 @@
                                               "id": "Ig1ZN",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Audio Books",
+                                              "name": "All Audio Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -18144,7 +18144,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Audio Books",
+                                                  "content": "All Audio Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -18158,7 +18158,7 @@
                                               "id": "l4e6JA",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Video Games",
+                                              "name": "All Video Games",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -18171,7 +18171,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Video Games",
+                                                  "content": "All Video Games",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -18185,7 +18185,7 @@
                                               "id": "z8sYSi",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "People",
+                                              "name": "All People",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -18198,7 +18198,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "People",
+                                                  "content": "All People",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -18212,7 +18212,7 @@
                                               "id": "P1U9a",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Groups",
+                                              "name": "All Groups",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -18225,7 +18225,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Groups",
+                                                  "content": "All Groups",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -18239,7 +18239,7 @@
                                               "id": "Ydthv",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Genres",
+                                              "name": "All Genres",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -18252,7 +18252,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Genres",
+                                                  "content": "All Genres",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -19736,7 +19736,7 @@
                                               "id": "SFqRj",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Movies",
+                                              "name": "All Movies",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -19749,7 +19749,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Movies",
+                                                  "content": "All Movies",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -19763,7 +19763,7 @@
                                               "id": "iMfBp",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Shows",
+                                              "name": "All Shows",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -19776,7 +19776,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Shows",
+                                                  "content": "All Shows",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -19790,7 +19790,7 @@
                                               "id": "EuNFP",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Books",
+                                              "name": "All Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -19803,7 +19803,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Books",
+                                                  "content": "All Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -19853,7 +19853,7 @@
                                               "id": "zSp1c",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Music",
+                                              "name": "All Music",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -19866,7 +19866,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Music",
+                                                  "content": "All Music",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -19880,7 +19880,7 @@
                                               "id": "ZUkYr",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Audio Books",
+                                              "name": "All Audio Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -19893,7 +19893,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Audio Books",
+                                                  "content": "All Audio Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -19907,7 +19907,7 @@
                                               "id": "G3g6B",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Video Games",
+                                              "name": "All Video Games",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -19920,7 +19920,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Video Games",
+                                                  "content": "All Video Games",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -19934,7 +19934,7 @@
                                               "id": "AXW71",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "People",
+                                              "name": "All People",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -19947,7 +19947,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "People",
+                                                  "content": "All People",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -19961,7 +19961,7 @@
                                               "id": "ZqTq4",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Groups",
+                                              "name": "All Groups",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -19974,7 +19974,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Groups",
+                                                  "content": "All Groups",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -19988,7 +19988,7 @@
                                               "id": "a2Ikf6",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Genres",
+                                              "name": "All Genres",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -20001,7 +20001,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Genres",
+                                                  "content": "All Genres",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -21396,7 +21396,7 @@
                                               "id": "THghT",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Movies",
+                                              "name": "All Movies",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -21409,7 +21409,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Movies",
+                                                  "content": "All Movies",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -21423,7 +21423,7 @@
                                               "id": "zKql2",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Shows",
+                                              "name": "All Shows",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -21436,7 +21436,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Shows",
+                                                  "content": "All Shows",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -21450,7 +21450,7 @@
                                               "id": "D8gUuC",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Books",
+                                              "name": "All Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -21463,7 +21463,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Books",
+                                                  "content": "All Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -21513,7 +21513,7 @@
                                               "id": "nzA0i",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Music",
+                                              "name": "All Music",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -21526,7 +21526,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Music",
+                                                  "content": "All Music",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -21540,7 +21540,7 @@
                                               "id": "kAPkT",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Audio Books",
+                                              "name": "All Audio Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -21553,7 +21553,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Audio Books",
+                                                  "content": "All Audio Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -21567,7 +21567,7 @@
                                               "id": "W5bwCK",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Video Games",
+                                              "name": "All Video Games",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -21580,7 +21580,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Video Games",
+                                                  "content": "All Video Games",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -21594,7 +21594,7 @@
                                               "id": "bPqWA",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "People",
+                                              "name": "All People",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -21607,7 +21607,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "People",
+                                                  "content": "All People",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -21621,7 +21621,7 @@
                                               "id": "p0Rs6t",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Groups",
+                                              "name": "All Groups",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -21634,7 +21634,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Groups",
+                                                  "content": "All Groups",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -21648,7 +21648,7 @@
                                               "id": "mkc0L",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Genres",
+                                              "name": "All Genres",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -21661,7 +21661,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Genres",
+                                                  "content": "All Genres",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -23155,7 +23155,7 @@
                                               "id": "Bejip",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Movies",
+                                              "name": "All Movies",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -23168,7 +23168,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Movies",
+                                                  "content": "All Movies",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -23182,7 +23182,7 @@
                                               "id": "a949LH",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Shows",
+                                              "name": "All Shows",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -23195,7 +23195,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Shows",
+                                                  "content": "All Shows",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -23209,7 +23209,7 @@
                                               "id": "TCyQ3",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Books",
+                                              "name": "All Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -23222,7 +23222,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Books",
+                                                  "content": "All Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -23272,7 +23272,7 @@
                                               "id": "J3ciD",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Music",
+                                              "name": "All Music",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -23285,7 +23285,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Music",
+                                                  "content": "All Music",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -23299,7 +23299,7 @@
                                               "id": "gEwp8",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Audio Books",
+                                              "name": "All Audio Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -23312,7 +23312,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Audio Books",
+                                                  "content": "All Audio Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -23326,7 +23326,7 @@
                                               "id": "Rqn2y",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Video Games",
+                                              "name": "All Video Games",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -23339,7 +23339,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Video Games",
+                                                  "content": "All Video Games",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -23353,7 +23353,7 @@
                                               "id": "c5WlA",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "People",
+                                              "name": "All People",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -23366,7 +23366,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "People",
+                                                  "content": "All People",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -23380,7 +23380,7 @@
                                               "id": "skUBt",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Groups",
+                                              "name": "All Groups",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -23393,7 +23393,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Groups",
+                                                  "content": "All Groups",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -23407,7 +23407,7 @@
                                               "id": "oJGbr",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Genres",
+                                              "name": "All Genres",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -23420,7 +23420,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Genres",
+                                                  "content": "All Genres",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -24588,7 +24588,7 @@
                                               "id": "G0NQM",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Movies",
+                                              "name": "All Movies",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -24601,7 +24601,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Movies",
+                                                  "content": "All Movies",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -24615,7 +24615,7 @@
                                               "id": "r9Iid",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Shows",
+                                              "name": "All Shows",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -24628,7 +24628,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Shows",
+                                                  "content": "All Shows",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -24642,7 +24642,7 @@
                                               "id": "RYC5y",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Books",
+                                              "name": "All Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -24655,7 +24655,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Books",
+                                                  "content": "All Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -24705,7 +24705,7 @@
                                               "id": "wqs1P",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Music",
+                                              "name": "All Music",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -24718,7 +24718,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Music",
+                                                  "content": "All Music",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -24732,7 +24732,7 @@
                                               "id": "wGHej",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Audio Books",
+                                              "name": "All Audio Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -24745,7 +24745,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Audio Books",
+                                                  "content": "All Audio Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -24759,7 +24759,7 @@
                                               "id": "Y0p1W",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Video Games",
+                                              "name": "All Video Games",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -24772,7 +24772,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Video Games",
+                                                  "content": "All Video Games",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -24786,7 +24786,7 @@
                                               "id": "XZptA",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "People",
+                                              "name": "All People",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -24799,7 +24799,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "People",
+                                                  "content": "All People",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -24813,7 +24813,7 @@
                                               "id": "gXioJ",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Groups",
+                                              "name": "All Groups",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -24826,7 +24826,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Groups",
+                                                  "content": "All Groups",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -24840,7 +24840,7 @@
                                               "id": "BRLRO",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Genres",
+                                              "name": "All Genres",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -24853,7 +24853,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Genres",
+                                                  "content": "All Genres",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -26026,7 +26026,7 @@
                                               "id": "gJcac",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Movies",
+                                              "name": "All Movies",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -26039,7 +26039,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Movies",
+                                                  "content": "All Movies",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -26053,7 +26053,7 @@
                                               "id": "O1p2B",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Shows",
+                                              "name": "All Shows",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -26066,7 +26066,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Shows",
+                                                  "content": "All Shows",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -26080,7 +26080,7 @@
                                               "id": "Qfrhy",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Books",
+                                              "name": "All Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -26093,7 +26093,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Books",
+                                                  "content": "All Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -26143,7 +26143,7 @@
                                               "id": "YPfHY",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Music",
+                                              "name": "All Music",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -26156,7 +26156,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Music",
+                                                  "content": "All Music",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -26170,7 +26170,7 @@
                                               "id": "GuyiJ",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Audio Books",
+                                              "name": "All Audio Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -26183,7 +26183,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Audio Books",
+                                                  "content": "All Audio Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -26197,7 +26197,7 @@
                                               "id": "D9ezR",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Video Games",
+                                              "name": "All Video Games",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -26210,7 +26210,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Video Games",
+                                                  "content": "All Video Games",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -26224,7 +26224,7 @@
                                               "id": "C0x2T9",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "People",
+                                              "name": "All People",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -26237,7 +26237,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "People",
+                                                  "content": "All People",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -26251,7 +26251,7 @@
                                               "id": "XD1mr",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Groups",
+                                              "name": "All Groups",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -26264,7 +26264,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Groups",
+                                                  "content": "All Groups",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -26278,7 +26278,7 @@
                                               "id": "ieCRe",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Genres",
+                                              "name": "All Genres",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -26291,7 +26291,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Genres",
+                                                  "content": "All Genres",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -28067,7 +28067,7 @@
                                               "id": "LGdAa",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Movies",
+                                              "name": "All Movies",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -28080,7 +28080,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Movies",
+                                                  "content": "All Movies",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -28094,7 +28094,7 @@
                                               "id": "uLaOO",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Shows",
+                                              "name": "All Shows",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -28107,7 +28107,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Shows",
+                                                  "content": "All Shows",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -28121,7 +28121,7 @@
                                               "id": "YeA5B",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Books",
+                                              "name": "All Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -28134,7 +28134,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Books",
+                                                  "content": "All Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -28184,7 +28184,7 @@
                                               "id": "r64PF",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Music",
+                                              "name": "All Music",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -28197,7 +28197,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Music",
+                                                  "content": "All Music",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -28211,7 +28211,7 @@
                                               "id": "RMlZ0",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Audio Books",
+                                              "name": "All Audio Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -28224,7 +28224,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Audio Books",
+                                                  "content": "All Audio Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -28238,7 +28238,7 @@
                                               "id": "E7XoLa",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Video Games",
+                                              "name": "All Video Games",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -28251,7 +28251,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Video Games",
+                                                  "content": "All Video Games",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -28265,7 +28265,7 @@
                                               "id": "Q6ImHx",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "People",
+                                              "name": "All People",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -28278,7 +28278,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "People",
+                                                  "content": "All People",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -28292,7 +28292,7 @@
                                               "id": "ryNxy",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Groups",
+                                              "name": "All Groups",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -28305,7 +28305,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Groups",
+                                                  "content": "All Groups",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -28319,7 +28319,7 @@
                                               "id": "I5Dv4",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Genres",
+                                              "name": "All Genres",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -28332,7 +28332,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Genres",
+                                                  "content": "All Genres",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -30116,7 +30116,7 @@
                                               "id": "XPvnI",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Movies",
+                                              "name": "All Movies",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -30129,7 +30129,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Movies",
+                                                  "content": "All Movies",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -30143,7 +30143,7 @@
                                               "id": "j7aig2",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Shows",
+                                              "name": "All Shows",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -30156,7 +30156,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Shows",
+                                                  "content": "All Shows",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -30170,7 +30170,7 @@
                                               "id": "k1o7Cl",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Books",
+                                              "name": "All Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -30183,7 +30183,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Books",
+                                                  "content": "All Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -30233,7 +30233,7 @@
                                               "id": "HyKcI",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Music",
+                                              "name": "All Music",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -30246,7 +30246,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Music",
+                                                  "content": "All Music",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -30260,7 +30260,7 @@
                                               "id": "FEO59",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Audio Books",
+                                              "name": "All Audio Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -30273,7 +30273,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Audio Books",
+                                                  "content": "All Audio Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -30287,7 +30287,7 @@
                                               "id": "Bz4KE",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Video Games",
+                                              "name": "All Video Games",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -30300,7 +30300,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Video Games",
+                                                  "content": "All Video Games",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -30314,7 +30314,7 @@
                                               "id": "RxmjX",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "People",
+                                              "name": "All People",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -30327,7 +30327,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "People",
+                                                  "content": "All People",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -30341,7 +30341,7 @@
                                               "id": "mjjlC",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Groups",
+                                              "name": "All Groups",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -30354,7 +30354,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Groups",
+                                                  "content": "All Groups",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -30368,7 +30368,7 @@
                                               "id": "TPNFz",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Genres",
+                                              "name": "All Genres",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -30381,7 +30381,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Genres",
+                                                  "content": "All Genres",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -31784,7 +31784,7 @@
                                               "id": "u8pOJI",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Movies",
+                                              "name": "All Movies",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -31797,7 +31797,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Movies",
+                                                  "content": "All Movies",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -31811,7 +31811,7 @@
                                               "id": "yM9FZ",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Shows",
+                                              "name": "All Shows",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -31824,7 +31824,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Shows",
+                                                  "content": "All Shows",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -31838,7 +31838,7 @@
                                               "id": "p8xRu",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Books",
+                                              "name": "All Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -31851,7 +31851,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Books",
+                                                  "content": "All Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -31901,7 +31901,7 @@
                                               "id": "TgeJc",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Music",
+                                              "name": "All Music",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -31914,7 +31914,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Music",
+                                                  "content": "All Music",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -31928,7 +31928,7 @@
                                               "id": "gwPQw",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Audio Books",
+                                              "name": "All Audio Books",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -31941,7 +31941,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Audio Books",
+                                                  "content": "All Audio Books",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -31955,7 +31955,7 @@
                                               "id": "IZ0XJ",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Video Games",
+                                              "name": "All Video Games",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -31968,7 +31968,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Video Games",
+                                                  "content": "All Video Games",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -31982,7 +31982,7 @@
                                               "id": "HhW1q",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "People",
+                                              "name": "All People",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -31995,7 +31995,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "People",
+                                                  "content": "All People",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -32009,7 +32009,7 @@
                                               "id": "EN2Y3",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Groups",
+                                              "name": "All Groups",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -32022,7 +32022,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Groups",
+                                                  "content": "All Groups",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
@@ -32036,7 +32036,7 @@
                                               "id": "i8eB2a",
                                               "type": "ref",
                                               "ref": "oNDqF",
-                                              "name": "Genres",
+                                              "name": "All Genres",
                                               "width": "fill_container",
                                               "padding": [
                                                 5,
@@ -32049,7 +32049,7 @@
                                                   "fill": "$--text-muted"
                                                 },
                                                 "hPDnR": {
-                                                  "content": "Genres",
+                                                  "content": "All Genres",
                                                   "fill": "$--text-muted"
                                                 },
                                                 "h75uN": {
