@@ -18,7 +18,7 @@ export const EntityMutationSnapshot = Schema.Struct({
 
 export type EntityMutationSnapshot = typeof EntityMutationSnapshot.Type;
 
-export const EntityMutationOutcome = Schema.Union(
+export const EntityMutationOutcome = Schema.Union([
 	Schema.Struct({
 		before: Schema.Null,
 		after: EntityMutationSnapshot,
@@ -34,7 +34,7 @@ export const EntityMutationOutcome = Schema.Union(
 		before: EntityMutationSnapshot,
 		operation: Schema.Literal("noop"),
 	}),
-);
+]);
 
 export type EntityMutationOutcome = typeof EntityMutationOutcome.Type;
 

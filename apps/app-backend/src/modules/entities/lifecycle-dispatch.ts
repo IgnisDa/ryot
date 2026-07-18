@@ -96,10 +96,9 @@ export type LifecycleDispatchValue = {
 	dispatch: (input: LifecycleDispatchInput) => Effect.Effect<void, DbError>;
 };
 
-export class LifecycleDispatch extends Context.Tag("LifecycleDispatch")<
-	LifecycleDispatch,
-	LifecycleDispatchValue
->() {}
+export class LifecycleDispatch extends Context.Service<LifecycleDispatch, LifecycleDispatchValue>()(
+	"LifecycleDispatch",
+) {}
 
 /**
  * A dispatch seam that drops every occurrence. Used by write paths that are
