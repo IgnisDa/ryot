@@ -17,8 +17,8 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 			runId: payload.runId,
 			userId: payload.userId,
 		});
-		const registered = (yield* ImportSourceCatalog).find(payload.source);
-		if (!registered) {
+		const resolution = (yield* ImportSourceCatalog).resolve(payload.source);
+		if (!resolution) {
 			yield* Activity.make({
 				error: ImportRunError,
 				name: "fail-import-run",
@@ -28,7 +28,7 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 			});
 			return;
 		}
-		yield* runPluginImportWorkflow(payload, executionId, registered);
+		yield* runPluginImportWorkflow(payload, executionId, resolution.source, resolution.script);
 	},
 	(effect, _payload, executionId) =>
 		Effect.annotateLogs(effect, { executionId, workflow: "ProcessImportRunWorkflow" }),

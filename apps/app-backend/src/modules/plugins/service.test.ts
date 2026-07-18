@@ -4,7 +4,9 @@ import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
 import { assert } from "vitest";
 
+import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import {
 	dbRunnerLayer,
 	makeRedisService,
@@ -12,6 +14,10 @@ import {
 	transactionLayer,
 } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import {
+	SandboxWorkflowReferenceRegistrationError,
+	SandboxWorkflowReferenceRepository,
+} from "#modules/sandbox/workflow-reference-repository";
 
 import { PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
@@ -147,13 +153,18 @@ const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginMa
 
 const makeLayer = (input?: {
 	readonly cached?: boolean;
+	readonly events?: Array<string>;
 	readonly deactivated?: Array<string>;
 	readonly hasEntityReferences?: boolean;
-	readonly persisted?: Array<NormalizedPlugin>;
-	readonly initialInstalled?: ReadonlyArray<StoredPlugin>;
-	readonly published?: Array<{ channel: string; message: string }>;
 	readonly afterPersist?: Effect.Effect<void>;
+	readonly persisted?: Array<NormalizedPlugin>;
+	readonly hasWorkflowReferences?: () => boolean;
 	readonly repositoryList?: PluginRepository["list"];
+	readonly deactivate?: PluginRepository["deactivate"];
+	readonly initialInstalled?: ReadonlyArray<StoredPlugin>;
+	readonly lockIngestion?: PluginRepository["lockIngestion"];
+	readonly published?: Array<{ channel: string; message: string }>;
+	readonly transactionRunnerLayer?: Layer.Layer<TransactionRunner>;
 }) => {
 	const installed: Array<StoredPlugin> = [...(input?.initialInstalled ?? [])];
 	const registry = makeDefinitionRegistry();
@@ -164,15 +175,23 @@ const makeLayer = (input?: {
 	const loaderLayer = PluginLoader.Default.pipe(Layer.provide(registryLayer));
 	const repositoryLayer = makeRepository({
 		list: input?.repositoryList ?? (() => Effect.succeed(installed)),
-		deactivate: (slug) =>
-			Effect.sync(() => {
-				input?.deactivated?.push(slug);
-				const index = installed.findIndex((plugin) => plugin.manifest.metadata.slug === slug);
-				if (index >= 0) {
-					installed.splice(index, 1);
-				}
-			}),
-		lockIngestion: () => Effect.void,
+		deactivate:
+			input?.deactivate ??
+			((slug) =>
+				Effect.sync(() => {
+					input?.events?.push("deactivate");
+					input?.deactivated?.push(slug);
+					const index = installed.findIndex((plugin) => plugin.manifest.metadata.slug === slug);
+					if (index >= 0) {
+						installed.splice(index, 1);
+					}
+				})),
+		lockIngestion:
+			input?.lockIngestion ??
+			(() =>
+				Effect.sync(() => {
+					input?.events?.push("lock");
+				})),
 		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
 		findBySourceHash: ({ sourceHash }) =>
 			Effect.succeed(input?.cached ? makeStoredPlugin(fixtureManifest(), sourceHash) : null),
@@ -194,11 +213,21 @@ const makeLayer = (input?: {
 				}
 			}),
 	});
+	const workflowReferenceLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
+		_tag: "SandboxWorkflowReferenceRepository",
+		hasReferences: () =>
+			Effect.sync(() => {
+				input?.events?.push("workflow-reference");
+				return input?.hasWorkflowReferences?.() ?? false;
+			}),
+	});
+	const transactionsLayer = input?.transactionRunnerLayer ?? transactionLayer;
 	const redisLayer = Layer.succeed(
 		RedisService,
 		makeRedisService({
 			publish: (channel, message) =>
 				Effect.sync(() => {
+					input?.events?.push("publish");
 					input?.published?.push({ channel, message });
 					return 1;
 				}),
@@ -206,7 +235,14 @@ const makeLayer = (input?: {
 	);
 	const ingestionLayer = PluginIngestionService.Default.pipe(
 		Layer.provide(
-			Layer.mergeAll(loaderLayer, redisLayer, repositoryLayer, dbRunnerLayer, transactionLayer),
+			Layer.mergeAll(
+				loaderLayer,
+				redisLayer,
+				repositoryLayer,
+				dbRunnerLayer,
+				transactionsLayer,
+				workflowReferenceLayer,
+			),
 		),
 	);
 	return Layer.mergeAll(loaderLayer, ingestionLayer);
@@ -539,6 +575,189 @@ it.effect("lists active plugins and uninstalls without deleting historical scrip
 		]);
 	}).pipe(Effect.provide(makeLayer({ deactivated, published, initialInstalled: [stored] })));
 });
+
+it.effect("fences uninstall while workflows reference the plugin and permits retry", () => {
+	const stored = makeStoredPlugin(fixtureManifest(), "stored-source-hash");
+	const deactivated: Array<string> = [];
+	const published: Array<{ channel: string; message: string }> = [];
+	const referenceState = { active: true };
+	const events: Array<string> = [];
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const ingestion = yield* PluginIngestionService;
+		yield* ingestion.rebuild();
+		const snapshot = loader.getSnapshot();
+		const plugins = yield* ingestion.listPlugins();
+
+		const refused = yield* Effect.exit(ingestion.uninstallPlugin("fixture"));
+
+		assertExitFails(
+			refused,
+			new Conflict({
+				message:
+					"Plugin 'fixture' cannot be uninstalled while running or suspended workflows reference it",
+			}),
+		);
+		expect(events).toEqual(["lock", "workflow-reference"]);
+		expect(loader.getSnapshot()).toBe(snapshot);
+		expect(yield* ingestion.listPlugins()).toEqual(plugins);
+		expect(deactivated).toEqual([]);
+		expect(published).toEqual([]);
+
+		referenceState.active = false;
+		const removed = yield* ingestion.uninstallPlugin("fixture");
+
+		expect(removed.slug).toBe("fixture");
+		expect(events).toEqual([
+			"lock",
+			"workflow-reference",
+			"lock",
+			"workflow-reference",
+			"deactivate",
+			"publish",
+		]);
+		expect(deactivated).toEqual(["fixture"]);
+		expect(loader.getSnapshot().plugins["fixture"]).toBeUndefined();
+		expect(published).toEqual([
+			{
+				channel: redisKeys.pluginRegistryChannel,
+				message: '{"action":"uninstall","slug":"fixture"}',
+			},
+		]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				events,
+				published,
+				deactivated,
+				initialInstalled: [stored],
+				hasWorkflowReferences: () => referenceState.active,
+			}),
+		),
+	);
+});
+
+it.effect("serializes workflow pin registration with refused and successful uninstall", () =>
+	Effect.forEach([true, false], (hasExistingReference) =>
+		Effect.gen(function* () {
+			const stored = makeStoredPlugin(fixtureManifest(), "stored-source-hash");
+			const exclusiveAcquired = yield* Deferred.make<void>();
+			const allowInspection = yield* Deferred.make<void>();
+			const exclusiveReleased = yield* Deferred.make<void>();
+			const sharedAttempted = yield* Deferred.make<void>();
+			const events: string[] = [];
+			let active = true;
+			let exclusive = false;
+			const registerWorkflowReference = Effect.gen(function* () {
+				events.push("shared-attempt");
+				yield* Deferred.succeed(sharedAttempted, undefined);
+				if (exclusive) {
+					yield* Deferred.await(exclusiveReleased);
+				}
+				events.push("shared-acquired");
+				if (!active) {
+					return yield* new SandboxWorkflowReferenceRegistrationError({
+						reason: "plugin-inactive",
+						message: "Plugin 'fixture' is not active",
+					});
+				}
+				events.push("registered");
+				return { status: "registered" as const };
+			});
+			const transactionRunnerLayer = Layer.succeed(
+				TransactionRunner,
+				<A, E, R>(effect: Effect.Effect<A, E, R>) =>
+					Effect.provideService(
+						effect.pipe(
+							Effect.ensuring(
+								Effect.suspend(() => {
+									if (!exclusive) {
+										return Effect.void;
+									}
+									exclusive = false;
+									events.push("exclusive-released");
+									return Deferred.succeed(exclusiveReleased, undefined);
+								}),
+							),
+						),
+						CurrentDb,
+						Object.create(null),
+					),
+			);
+			const layer = makeLayer({
+				events,
+				initialInstalled: [stored],
+				transactionRunnerLayer,
+				hasWorkflowReferences: () => hasExistingReference,
+				lockIngestion: () =>
+					Effect.gen(function* () {
+						exclusive = true;
+						events.push("exclusive-acquired");
+						yield* Deferred.succeed(exclusiveAcquired, undefined);
+						yield* Deferred.await(allowInspection);
+					}),
+				deactivate: () =>
+					Effect.sync(() => {
+						active = false;
+						events.push("deactivated");
+					}),
+			});
+
+			const program = Effect.gen(function* () {
+				const ingestion = yield* PluginIngestionService;
+				const uninstall = yield* Effect.fork(Effect.exit(ingestion.uninstallPlugin("fixture")));
+				yield* Deferred.await(exclusiveAcquired);
+				expect(events).toEqual(["exclusive-acquired"]);
+
+				const dispatch = yield* Effect.fork(Effect.exit(registerWorkflowReference));
+				yield* Deferred.await(sharedAttempted);
+				expect(events).toEqual(["exclusive-acquired", "shared-attempt"]);
+
+				yield* Deferred.succeed(allowInspection, undefined);
+				const uninstallExit = yield* Fiber.join(uninstall);
+				const dispatchExit = yield* Fiber.join(dispatch);
+
+				if (hasExistingReference) {
+					assertExitFails(
+						uninstallExit,
+						new Conflict({
+							message:
+								"Plugin 'fixture' cannot be uninstalled while running or suspended workflows reference it",
+						}),
+					);
+					expect(dispatchExit).toEqual(Exit.succeed({ status: "registered" }));
+					expect(events).toEqual([
+						"exclusive-acquired",
+						"shared-attempt",
+						"workflow-reference",
+						"exclusive-released",
+						"shared-acquired",
+						"registered",
+					]);
+				} else {
+					expect(Exit.isSuccess(uninstallExit)).toBe(true);
+					assertExitFails(
+						dispatchExit,
+						new SandboxWorkflowReferenceRegistrationError({
+							reason: "plugin-inactive",
+							message: "Plugin 'fixture' is not active",
+						}),
+					);
+					expect(events).toEqual([
+						"exclusive-acquired",
+						"shared-attempt",
+						"workflow-reference",
+						"deactivated",
+						"exclusive-released",
+						"publish",
+						"shared-acquired",
+					]);
+				}
+			});
+			yield* program.pipe(Effect.provide(layer));
+		}),
+	),
+);
 
 it.effect("refuses uninstall while entities reference a declared schema", () => {
 	const stored = makeStoredPlugin(fixtureManifest(), "stored-source-hash");

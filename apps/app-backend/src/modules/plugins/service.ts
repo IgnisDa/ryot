@@ -8,6 +8,7 @@ import { Effect, Runtime } from "effect";
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
+import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
 import { bootConfiguredPluginSlugs } from "./boot-sources";
 import { PluginLoader } from "./loader";
@@ -110,6 +111,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 			const repository = yield* PluginRepository;
 			const runTransaction = yield* TransactionRunner;
 			const mutationLock = yield* Effect.makeSemaphore(1);
+			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 			const kernelSignalSlugs = new Set(
 				kernelDefinitionSource().signalSchemas.map(({ slug }) => slug),
 			);
@@ -312,6 +314,11 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 							}
 							if (bootConfiguredPluginSlugs.has(slug)) {
 								return yield* conflict(`Boot-configured plugin '${slug}' cannot be uninstalled`);
+							}
+							if (yield* workflowReferences.hasReferences(slug)) {
+								return yield* conflict(
+									`Plugin '${slug}' cannot be uninstalled while running or suspended workflows reference it`,
+								);
 							}
 							const schemaSlugs = plugin.manifest.entitySchemas.map(
 								({ slug: entitySchemaSlug }) => entitySchemaSlug,

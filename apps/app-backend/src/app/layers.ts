@@ -82,6 +82,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
 import { SandboxExecutionService } from "#modules/sandbox/service";
+import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
@@ -137,6 +138,7 @@ const PlatformRepositoriesLive = Layer.mergeAll(
 	IntegrationsRepository.Default,
 	NotificationsRepository.Default,
 	SandboxRepository.Default,
+	SandboxWorkflowReferenceRepository.Default,
 	SavedViewsRepository.Default,
 	DefinitionsRepository.Default,
 	PluginRepository.Default,
@@ -158,7 +160,11 @@ const IntegrationProviderCatalogLive = Layer.provide(
 );
 const PluginIngestionServiceLive = Layer.provide(
 	PluginIngestionService.Default,
-	Layer.mergeAll(PluginLoaderLive, PluginRepository.Default),
+	Layer.mergeAll(
+		PluginLoaderLive,
+		PluginRepository.Default,
+		SandboxWorkflowReferenceRepository.Default,
+	),
 );
 const RepositoriesLive = Layer.provideMerge(
 	Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive),
