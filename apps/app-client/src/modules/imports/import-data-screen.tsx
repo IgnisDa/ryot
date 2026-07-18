@@ -6,9 +6,9 @@ import { useState } from "react";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { liveImportRun } from "@/modules/imports/run-presentation";
-import { SettingsSectionFrame } from "@/modules/settings/settings-section-frame";
 import { RUN_LIST_POLL_MS, useRunPolling } from "@/modules/ui/run/use-run-polling";
 import { SearchParamModalHost, useSearchParamModal } from "@/modules/ui/search-param-modal";
+import { SectionFrame } from "@/modules/ui/section-frame";
 
 import { IMPORT_RUNS_PAGE_SIZE, importRunsAtom, importSourcesAtom } from "./atoms";
 import { ImportDataView } from "./import-data-view";
@@ -40,7 +40,7 @@ export function ImportDataScreen() {
 	});
 
 	return (
-		<SettingsSectionFrame title="Import data">
+		<SectionFrame title="Import data">
 			<ImportDataView
 				state={state}
 				onRetry={refresh}
@@ -62,6 +62,6 @@ export function ImportDataScreen() {
 			>
 				<ImportStartWizard onClose={startModal.close} />
 			</SearchParamModalHost>
-		</SettingsSectionFrame>
+		</SectionFrame>
 	);
 }

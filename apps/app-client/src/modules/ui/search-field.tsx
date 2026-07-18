@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-nativ
 
 import { AppIcon } from "@/modules/icons";
 
-export type SavedViewSearch = {
+export type AppSearchState = {
 	readonly value: string;
 	readonly query: string;
 	readonly onClear: () => void;
@@ -14,11 +14,11 @@ export type SavedViewSearch = {
 	readonly onChange: (value: string) => void;
 };
 
-export function SavedViewSearchField(props: {
+export function AppSearchField(props: {
 	readonly name: string;
 	readonly className?: string;
 	readonly showShortcut?: boolean;
-	readonly search: SavedViewSearch;
+	readonly search: AppSearchState;
 	readonly inputRef?: RefObject<TextInput | null>;
 }) {
 	return (
@@ -45,7 +45,7 @@ export function SavedViewSearchField(props: {
 				</View>
 			) : null}
 			{props.search.isSearching ? (
-				<ActivityIndicator size="small" accessibilityLabel="Searching saved view" />
+				<ActivityIndicator size="small" accessibilityLabel={`Searching ${props.name}`} />
 			) : null}
 			{props.search.value === "" ? null : (
 				<Pressable
@@ -61,6 +61,6 @@ export function SavedViewSearchField(props: {
 	);
 }
 
-export const useSavedViewSearchShortcut = (inputRef: RefObject<TextInput | null>) => {
+export const useSearchFieldShortcut = (inputRef: RefObject<TextInput | null>) => {
 	useHotkey("/", () => inputRef.current?.focus(), { stopPropagation: false });
 };

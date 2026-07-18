@@ -5,8 +5,8 @@ import { useState } from "react";
 
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
-import { SettingsSectionFrame } from "@/modules/settings/settings-section-frame";
 import { SearchParamModalHost, useSearchParamModal } from "@/modules/ui/search-param-modal";
+import { SectionFrame } from "@/modules/ui/section-frame";
 
 import { INTEGRATIONS_PAGE_SIZE, integrationProvidersAtom, integrationsAtom } from "./atoms";
 import { INTEGRATION_WIZARD_TITLE, IntegrationCreateWizard } from "./integration-create-wizard";
@@ -33,7 +33,7 @@ export function IntegrationsScreen() {
 	);
 
 	return (
-		<SettingsSectionFrame title="Integrations">
+		<SectionFrame title="Integrations">
 			<IntegrationsView
 				state={state}
 				onRetry={refresh}
@@ -58,6 +58,6 @@ export function IntegrationsScreen() {
 			>
 				<IntegrationCreateWizard onClose={createModal.close} />
 			</SearchParamModalHost>
-		</SettingsSectionFrame>
+		</SectionFrame>
 	);
 }
