@@ -19,7 +19,6 @@ import { HttpEffect, HttpServer } from "effect/unstable/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { sandboxDenoDirConfig } from "../config/definition";
-import { redisKeys, RedisService } from "../redis";
 import { ensureSandboxRuntimeDependencies } from "./dependencies";
 import type { SandboxProcessGrants } from "./filesystem-grants";
 import {
@@ -33,17 +32,10 @@ import { apiFailure } from "./shared";
 import type { BoundHostFunction } from "./shared";
 import { readSandboxByteLimitedStream } from "./stream-utils";
 
-const SandboxSessionRecord = Schema.Struct({
-	token: Schema.String,
-	expiresAt: Schema.Finite,
-});
-
 const SandboxRpcArgs = Schema.Struct({
 	args: Schema.Array(Schema.Unknown),
 });
 
-const encodeSandboxSession = Schema.encodeSync(Schema.fromJsonString(SandboxSessionRecord));
-const decodeSandboxSession = Schema.decodeUnknownSync(Schema.fromJsonString(SandboxSessionRecord));
 const decodeSandboxRpcBody = Schema.decodeUnknownEffect(Schema.fromJsonString(SandboxRpcArgs));
 const encodeSandboxRpcResponse = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -78,10 +70,12 @@ type ExecutionSession = {
 };
 
 type ActiveExecutionSession = {
+	readonly token: string;
+	readonly expiresAt: number;
 	readonly hostCallLimit: number;
 	readonly parentSpan: Tracer.AnySpan;
-	readonly semaphore: Semaphore.Semaphore;
 	readonly budget: SandboxHostCallBudget;
+	readonly semaphore: Semaphore.Semaphore;
 	readonly closed: Deferred.Deferred<void>;
 	readonly apiFunctions: Record<string, BoundHostFunction>;
 };
@@ -103,13 +97,6 @@ type PooledProcess = {
 	readonly stderrClosed: Deferred.Deferred<void>;
 	readonly process: ChildProcessSpawner.ChildProcessHandle;
 };
-
-type SandboxSessionRecord = {
-	readonly token: string;
-	readonly expiresAt: number;
-};
-
-const parseSandboxSession = (raw: string) => decodeSandboxSession(raw);
 
 const truncateSandboxStderrLine = (line: string) => {
 	const limit = SANDBOX_LIMITS.diagnostics.stderrBytes;
@@ -316,7 +303,6 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 
 export class BridgeService extends Context.Service<BridgeService>()("BridgeService", {
 	make: Effect.gen(function* () {
-		const redis = yield* RedisService;
 		const runtime = yield* Effect.context();
 		const activeSessions = new Map<string, ActiveExecutionSession>();
 
@@ -328,27 +314,21 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 					Deferred.doneUnsafe(session.closed, Effect.void);
 				}
 			});
-			yield* redis.del(redisKeys.sandboxSession(executionId));
 		}, Effect.asVoid);
 
 		const addSession = Effect.fn("BridgeService.addSession")(function* (
 			executionId: string,
 			session: ExecutionSession,
 		) {
-			const now = yield* Clock.currentTimeMillis;
 			const closed = yield* Deferred.make<void>();
 			const semaphore = yield* Semaphore.make(SANDBOX_LIMITS.bridge.concurrentHostCalls);
-			const ttlSeconds = Math.max(1, Math.ceil((session.expiresAt - now) / 1000));
-			yield* redis.set(
-				redisKeys.sandboxSession(executionId),
-				encodeSandboxSession({ expiresAt: session.expiresAt, token: session.token }),
-				ttlSeconds,
-			);
 			yield* Effect.sync(() =>
 				activeSessions.set(executionId, {
 					closed,
-					budget: { http: 0, total: 0 },
 					semaphore,
+					token: session.token,
+					expiresAt: session.expiresAt,
+					budget: { http: 0, total: 0 },
 					parentSpan: session.parentSpan,
 					apiFunctions: session.apiFunctions,
 					hostCallLimit: session.hostCallLimit,
@@ -370,30 +350,22 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 
 				const executionId = decodeURIComponent(parts[1] ?? "");
 				const fnName = decodeURIComponent(parts[2] ?? "");
-				const sessionValue = yield* redis.get(redisKeys.sandboxSession(executionId));
-				if (!sessionValue) {
+				const activeSession = activeSessions.get(executionId);
+				if (!activeSession) {
 					return Response.json({ error: "Execution not found" }, { status: 404 });
 				}
 
-				const session = yield* Effect.try({
-					try: () => parseSandboxSession(sessionValue),
-					catch: () => badRequest("Sandbox session is invalid"),
-				});
 				const now = yield* Clock.currentTimeMillis;
-				if (now > session.expiresAt) {
+				if (now > activeSession.expiresAt) {
 					yield* removeSession(executionId);
 					return Response.json({ error: "Execution expired" }, { status: 410 });
 				}
 
 				const authHeader = request.headers.get("authorization");
-				if (authHeader !== `Bearer ${session.token}`) {
+				if (authHeader !== `Bearer ${activeSession.token}`) {
 					return Response.json({ error: "Unauthorized" }, { status: 401 });
 				}
 
-				const activeSession = activeSessions.get(executionId);
-				if (!activeSession) {
-					return Response.json({ error: "Execution not found" }, { status: 404 });
-				}
 				const budgetError = consumeSandboxHostCall(
 					activeSession.budget,
 					fnName,
