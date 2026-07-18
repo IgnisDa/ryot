@@ -17,8 +17,10 @@ describe("ThemeController", () => {
 				setLastWorkspace: () => Effect.void,
 				setSavedViewLayout: () => Effect.void,
 				setServerSelection: () => Effect.void,
+				setRememberedProvider: () => Effect.void,
 				getServerSelection: Effect.succeed(null),
 				getLastWorkspace: () => Effect.succeed(null),
+				getRememberedProvider: () => Effect.succeed(null),
 				getThemePreference: Effect.succeed("system" as const),
 				getSavedViewLayout: () => Effect.succeed("grid" as const),
 				setThemePreference: (preference) =>

@@ -17,6 +17,7 @@ import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogEventsService } from "#/modules/plugins/events";
 import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginQueriesService } from "#/modules/plugins/queries";
+import { ProviderAddService } from "#/modules/provider-add/service";
 import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";
 import { ClientStorage } from "#/persistence/storage";
@@ -65,6 +66,7 @@ export const ClientLive = Layer.mergeAll(
 	PluginOperationsService.layer,
 	PluginQueriesService.layer,
 	SavedViewsService.layer,
+	ProviderAddService.layer,
 	OAuthTokenLive,
 	RuntimeOAuthClientService.layer,
 ).pipe(Layer.provideMerge(InfrastructureLive));

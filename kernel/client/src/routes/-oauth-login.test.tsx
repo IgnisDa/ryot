@@ -14,14 +14,15 @@ import { PluginQueriesService } from "#/modules/plugins/queries";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
-	GodModeRouteStubs,
 	ServerStub,
+	GodModeRouteStubs,
 	SavedViewRouteStubs,
+	ProviderAddRouteStubs,
+	theme,
 	catalog,
 	makeAuthStub,
-	makeOAuthRouteStubs,
 	makeStorageStub,
-	theme,
+	makeOAuthRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const systemConfig = (
@@ -53,6 +54,7 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 	);
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
+			ProviderAddRouteStubs,
 			makeAuthStub(),
 			GodModeRouteStubs,
 			ServerStub,
