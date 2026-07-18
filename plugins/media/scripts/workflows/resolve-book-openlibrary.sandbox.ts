@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import {
@@ -9,15 +8,15 @@ import {
 import { resolve } from "../providers/media/book/openlibrary";
 
 export const manifest = defineManifest({
-	kind: "activity",
-	name: "Resolve imported OpenLibrary book",
-	slug: "activity.media-import-resolve.book.openlibrary",
+	kind: "script",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
+	name: "Resolve imported OpenLibrary book",
+	slug: "media-import-resolve.book.openlibrary",
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: MediaImportResolutionActivityInput,
 	output: MediaImportResolutionActivityResult,
