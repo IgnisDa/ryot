@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, FileSystem } from "effect";
 
 import { compileSandboxPackageEntries, type SandboxEntryDeclaration } from "./compiler-builtins";
 import { sandboxCompilationFailure, sandboxCompilerDiagnostic } from "./compiler-diagnostics";
@@ -34,24 +34,36 @@ export const compilePluginSandboxSourceEntries = (
 };
 
 const loadPluginSources = (packageRoot: string) =>
-	Effect.tryPromise({
-		try: async () => {
-			const files: Record<string, string> = {};
-			const glob = new Bun.Glob("**/*.ts");
-			for await (const path of glob.scan({ cwd: packageRoot, onlyFiles: true })) {
-				if (!path.endsWith(".test.ts")) {
-					files[path] = await Bun.file(`${packageRoot}/${path}`).text();
-				}
-			}
-			return files;
-		},
-		catch: (error) =>
-			sandboxCompilationFailure([
-				sandboxCompilerDiagnostic(
-					"RYOT_PLUGIN_SOURCE",
-					`Plugin sources could not be read: ${String(error)}`,
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const paths = yield* fs
+			.glob("**/*.ts", { root: packageRoot, exclude: ["node_modules/**"] })
+			.pipe(
+				Effect.mapError((error) =>
+					sandboxCompilationFailure([
+						sandboxCompilerDiagnostic(
+							"RYOT_PLUGIN_SOURCE",
+							`Plugin sources could not be read: ${String(error)}`,
+						),
+					]),
 				),
-			]),
+			);
+		const files: Record<string, string> = {};
+		for (const path of paths) {
+			if (!path.endsWith(".test.ts")) {
+				files[path] = yield* Effect.tryPromise({
+					try: () => Bun.file(`${packageRoot}/${path}`).text(),
+					catch: (error) =>
+						sandboxCompilationFailure([
+							sandboxCompilerDiagnostic(
+								"RYOT_PLUGIN_SOURCE",
+								`Plugin sources could not be read: ${String(error)}`,
+							),
+						]),
+				});
+			}
+		}
+		return files;
 	});
 
 export const compilePluginSandboxEntries = (
