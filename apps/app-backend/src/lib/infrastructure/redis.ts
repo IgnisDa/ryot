@@ -18,8 +18,6 @@ export const redisKeys = {
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
-	sandboxHarvestHandles: (workflowExecutionId: string) =>
-		`ryot:sandbox:harvest-handles:${workflowExecutionId}`,
 	sandboxCache: (userId: string | null, scriptId: string, key: string) =>
 		`ryot:sandbox:cache:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
 	sandboxRunCache: (serverRunId: string, userId: string | null, scriptId: string, key: string) =>

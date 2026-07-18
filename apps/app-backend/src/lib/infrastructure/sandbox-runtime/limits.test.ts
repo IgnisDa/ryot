@@ -24,7 +24,6 @@ describe("sandbox limits", () => {
 		expect(SANDBOX_LIMITS).toEqual({
 			workerConcurrency: 5,
 			hostCalls: { http: 50, total: 200 },
-			harvest: { handleTtlSeconds: 3_600 },
 			diagnostics: { stderrBytes: 65_536, stderrLines: 20 },
 			logs: { entryBytes: 8_192, entryCount: 500, totalBytes: 262_144 },
 			scratch: { maxDepth: 32, maxEntries: 4_096, totalBytes: 5_242_880 },
