@@ -9,7 +9,7 @@ export default function SettingsIndex() {
 	const dimensions = useWindowDimensions();
 
 	if (dimensions.width >= DESKTOP_BREAKPOINT) {
-		return <Redirect href="/settings/general" />;
+		return <Redirect href="/settings/preferences" />;
 	}
 	return <SettingsIndexScreen />;
 }
