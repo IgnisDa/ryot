@@ -152,7 +152,7 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 			"cleanup-import-artifacts-on-success",
 			"cleanup-import-uploads-on-success",
 		]);
-		expect(harness.sandboxParents).toEqual([false]);
+		expect(harness.sandboxParents).toEqual([true]);
 	}).pipe(Effect.provide(harness.layer));
 });
 
