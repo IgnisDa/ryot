@@ -16,7 +16,7 @@
 - Define services and repositories as Effect service classes; provide dependencies through layer composition, not hand-passed dependency parameters.
 - Access control lives in services, as pure helpers or direct checks after loading the smallest resource scope.
 - Do not add barrel re-exports in app-backend; import from the defining module directly.
-- Follow `libs/contract/AGENTS.md` for HTTP boundary ownership and endpoint changes.
+- Follow `packages/contract/AGENTS.md` for HTTP boundary ownership and endpoint changes.
 - Modules may depend only on more generic modules. Invert upward side effects through a generic `DurableQueue` hook, a specific worker, and layer wiring.
 - Every table has exactly one owning repository that performs its writes; every other consumer routes through that repository, and service code never issues raw table writes.
 - Cross-module side effects go through the owning module's service and never write another module's tables directly. Reach into another module's repository only when atomicity within one shared transaction requires it, and only to write tables that module owns.

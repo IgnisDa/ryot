@@ -17,7 +17,7 @@ Per `AGENTS.md`, launch an `explore` subagent first — the full contents of
 including `trackers.ts`, the sandbox scripts, and `AGENTS.md` semantics), the after-migrations
 slot in `app/layers.ts`, `automations/lifecycle-dispatch.ts`, and the tracker layer this task
 deletes (the `trackers` contract group, `tracker_state`, `savedView.trackerSlug`, the
-manifest `trackers` section in `libs/plugin-kit`). Depends on tasks 01 and 02.
+manifest `trackers` section in `packages/plugin-kit`). Depends on tasks 01 and 02.
 
 ## What to build
 
@@ -26,7 +26,7 @@ from in-kernel `builtins` code to loaded plugins. It cannot be honestly split �
 must be fed from exactly one source at boot.
 
 1. **Remove the tracker concept first** (plan §9; Decision 20): delete the `trackers`
-   manifest section from `libs/plugin-kit` and put the workspace display fields (`icon`,
+   manifest section from `packages/plugin-kit` and put the workspace display fields (`icon`,
    `accentColor`, `description`) on `metadata`; drop tracker definitions from the registry
    (workspace list = plugin metadata merged with per-user state); rename `tracker_state` →
    `plugin_state` and `savedView.trackerSlug` → `pluginSlug`; dissolve the `trackers`

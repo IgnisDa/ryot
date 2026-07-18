@@ -20,9 +20,9 @@
 		"types": ["@react-router/node", "vite/client", "vite-plugin-pwa/client"],
 		"paths": {
 			"~/*": ["./app/*"],
-			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
-			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
-			"@ryot/generated/*": ["../../libs/generated/src/*"]
+			"@ryot/graphql/*": ["../../packages/graphql/src/*"],
+			"@ryot/ts-utils/*": ["../../packages/ts-utils/src/*"],
+			"@ryot/generated/*": ["../../packages/generated/src/*"]
 		}
 	}
 }

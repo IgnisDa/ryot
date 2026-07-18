@@ -23,7 +23,7 @@ Standing rules for every host function added in this phase (Decision 8): batch-f
 signatures; query pushdown via `executeQueryEngine` rather than new list-and-filter
 functions; coarse atomic writes; generic naming and semantics (never explicable only by
 media). Every new host function follows the existing contract pattern
-(`libs/sandbox-sdk` contract + `bridge-adapter.ts` validation + `host-functions.ts`
+(`packages/sandbox-sdk` contract + `bridge-adapter.ts` validation + `host-functions.ts`
 implementation + limits entry) and gets observability: a span per host call already exists
 via the bridge; add structured log/span host functions in step 0 so plugin code is debuggable.
 
@@ -34,7 +34,7 @@ Status: complete.
 ### Step 0a — Effect-native sandbox cutover
 
 - **[DECIDED] Effect is the sole script authoring and typed host-function API.** Vendor `effect`
-  (host-pinned version) as an approved sandbox dependency by extending `libs/sandbox-sdk` and the
+  (host-pinned version) as an approved sandbox dependency by extending `packages/sandbox-sdk` and the
   import map / `PackageCacheManager` in `sandbox-runtime/dependencies.ts`. It is runtime-provided
   and never bundled per script.
 - Change every script-facing host function to return an `Effect` with a typed error. Change
@@ -143,12 +143,12 @@ query-engine-based; if any native read code remains, it moves to a saved view / 
 waits for step 2's operations.
 
 Delete: `modules/media-trending`, `modules/exercises` (and their contract surface if any —
-check `libs/contract`). E2e: `tests/src/tests/plugins/fitness/exercises.test.ts` re-pointed to rely on boot dispatch
+check `packages/contract`). E2e: `tests/src/tests/plugins/fitness/exercises.test.ts` re-pointed to rely on boot dispatch
 (no manual trigger needed) + trending coverage re-pointed (cron trigger fixture already
 exists: `triggerPluginCron`).
 
 Done: both modules deleted; exercises + trending e2e green; `crons` and `boot` manifest
-sections documented in `libs/plugin-kit`.
+sections documented in `packages/plugin-kit`.
 
 ## Step 2 — Operations (invoke): `metadata-lookup` + `episode-resolver`
 
@@ -164,7 +164,7 @@ Kernel capability:
   one call).
 - First-party client typing ("recipes"): plugin package exports its operation input/output
   types; clients import them and call `invoke` through a small typed wrapper in
-  `libs/plugin-kit` **[RECOMMENDED]**.
+  `packages/plugin-kit` **[RECOMMENDED]**.
 
 Migrate:
 
@@ -216,7 +216,7 @@ unknown operation) + migrated suites green; extension works against invoke.
    input/output schemas" within the existing architecture rather than duplicating schema data.
 
    **Operation scripts use a dedicated `operation` sandbox-script kind** (owner-approved
-   2026-07-25). `libs/plugin-kit`'s `PluginScript` union deliberately rejects the generic
+   2026-07-25). `packages/plugin-kit`'s `PluginScript` union deliberately rejects the generic
    `kind: "script"` catch-all (pinned by `manifest.test.ts`), so rather than open it, a first-class
    `kind: "operation"` is added across `@ryot/sandbox-sdk` (manifest-schema union + a
    `defineOperation` authoring helper), the compiler, and `PluginScript`. Operation scripts expose
@@ -238,9 +238,9 @@ unknown operation) + migrated suites green; extension works against invoke.
    `apps/app-backend/AGENTS.md`. The interim internal callers (import writing/event-target
    workflows) reach it through the temporary `invokeOperation` service path with single-element
    `refs` arrays until steps 3–4 move those callers into the plugin. `auth: "user"`.
-4. **First-party recipe typing = a generic typed invoker in `libs/plugin-kit` plus
+4. **First-party recipe typing = a generic typed invoker in `packages/plugin-kit` plus
    plugin-exported operation types.** `plugins/media` exports its operation input/output types
-   (derived from the operation schemas); `libs/plugin-kit` exports a small generic typed `invoke`
+   (derived from the operation schemas); `packages/plugin-kit` exports a small generic typed `invoke`
    wrapper over the `plugins.invoke` contract call. The browser extension imports the media
    operation type and the plugin-kit invoker, so no plugin-specific contract endpoint is added
    (Decision 9).
@@ -525,7 +525,7 @@ its settings — nothing more.
 The kernel integrations framework (credential storage, enable/disable, auto-disable, webhook
 endpoint, run bookkeeping) serves these generically and lists available providers from the
 registry. This deletes the hardcoded `IntegrationProviderSpecifics` union in
-`libs/contract/src/modules/integrations/schemas.ts` along with the `integrationProviders` and
+`packages/contract/src/modules/integrations/schemas.ts` along with the `integrationProviders` and
 `providerLotByProvider` tables in that module's `types.ts`; the switch dispatch in
 `integrations/sinks/sink-adapters.ts` and `integrations/worker.ts` becomes a registry lookup plus
 script resolution.
@@ -536,7 +536,7 @@ the same reason: Effect Schema cannot round-trip through `PluginManifest` (estab
 and the client needs introspectable property metadata to render integration forms.
 
 **Secret properties** [DECIDED]. Add `secret?: true` to `AppPropertyBase`
-(`libs/contract/src/schema/property-schema.ts`), beside the existing `translatable?: true`. It sits
+(`packages/contract/src/schema/property-schema.ts`), beside the existing `translatable?: true`. It sits
 on the base type so every property kind inherits it, and it is validation-neutral —
 `property-schema-runtime.ts` needs no change. It does two jobs: the client renders a password input,
 and the kernel redacts marked fields when returning an integration.

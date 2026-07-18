@@ -43,7 +43,7 @@ Do not edit, codemod, format, lint, test, or use as an acceptance gate:
 
 - `apps/app-client-backup/**`
 - `apps/frontend/**`
-- `libs/graphql/**`
+- `packages/graphql/**`
 
 `apps/app-client-backup/package.json` may retain Effect v3 and
 `@effect/platform` v3. Duplicate v3 and v4 entries in `bun.lock` are expected.
@@ -451,7 +451,7 @@ Migration is complete when:
 - No consolidated v3 import or removed v3 API remains in in-scope source.
 - Codemods are idempotent and report no unsupported in-scope syntax.
 - Generated output has been regenerated from v4 source.
-- `apps/app-client-backup/**`, `apps/frontend/**`, and `libs/graphql/**` have no
+- `apps/app-client-backup/**`, `apps/frontend/**`, and `packages/graphql/**` have no
   migration diff.
 - No compatibility shim was introduced for excluded or v3 code.
 - All verification commands and results are recorded accurately.

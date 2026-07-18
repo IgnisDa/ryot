@@ -19,10 +19,10 @@ Kernel capability (lands before consumers):
   (`auth` = authenticated-user vs admin; schemas use the SDK's Effect Schema contract style).
 - Add exactly one new contract endpoint, `plugins.invoke(pluginSlug, operationSlug, payload)`,
   that validates the payload against the declared schemas, dispatches to the driver, and returns
-  the result — batch-first payloads. The static typed contract (`libs/contract`) grows no
+  the result — batch-first payloads. The static typed contract (`packages/contract`) grows no
   plugin-specific endpoints (Decision 9).
 - First-party client typing ("recipes"): the plugin package exports its operation input/output
-  types and clients call `invoke` through a small typed wrapper in `libs/plugin-kit`
+  types and clients call `invoke` through a small typed wrapper in `packages/plugin-kit`
   (`[RECOMMENDED]`).
 
 Migration:

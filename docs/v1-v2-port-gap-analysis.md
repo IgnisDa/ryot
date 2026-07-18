@@ -83,7 +83,7 @@ media-monitoring changes are implemented. The remaining gaps are notification-pr
 
 #### Collections management completeness
 
-V2's entire collections surface today is 3 endpoints: `POST /collections` (create), `POST /collections/memberships`, `DELETE /collections/memberships` (verified against `libs/contract/src/modules/collections/contract.ts`). Missing, all present in V1:
+V2's entire collections surface today is 3 endpoints: `POST /collections` (create), `POST /collections/memberships`, `DELETE /collections/memberships` (verified against `packages/contract/src/modules/collections/contract.ts`). Missing, all present in V1:
 
 - List a user's collections; get one collection's contents with text search, entity-type filtering, sorting, and cross-collection AND/OR membership filtering.
 - Delete a (non-default) collection; rename/update a collection's name and description.
@@ -127,7 +127,7 @@ V2's importers (`modules/imports/sources/*`) cover the bulk of the ~19 sources, 
 
 #### Review & progress-event editing
 
-Reviews and seen/progress records are both `events`, which are create-only and immutable (`libs/contract/src/modules/events/contract.ts` has only `list` and `create`). V1 supports editing an existing review or seen entry in place — updating its rating/text, or correcting a progress percentage/timestamp after the fact. Confirm whether in-place editing is meant to work in V2, and if so, decide the mechanism (event supersession vs. a dedicated update path).
+Reviews and seen/progress records are both `events`, which are create-only and immutable (`packages/contract/src/modules/events/contract.ts` has only `list` and `create`). V1 supports editing an existing review or seen entry in place — updating its rating/text, or correcting a progress percentage/timestamp after the fact. Confirm whether in-place editing is meant to work in V2, and if so, decide the mechanism (event supersession vs. a dedicated update path).
 
 #### File storage completeness
 

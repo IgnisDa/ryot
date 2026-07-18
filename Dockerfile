@@ -24,8 +24,8 @@ RUN bun turbo --filter=@ryot/app-client build
 
 FROM base AS sandbox-compiler-runtime
 COPY --from=prepare /app/out/json/ .
-COPY --from=prepare /app/out/full/libs/sandbox-compiler ./libs/sandbox-compiler
-COPY --from=prepare /app/out/full/libs/sandbox-sdk ./libs/sandbox-sdk
+COPY --from=prepare /app/out/full/packages/sandbox-compiler ./packages/sandbox-compiler
+COPY --from=prepare /app/out/full/packages/sandbox-sdk ./packages/sandbox-sdk
 RUN bun install --filter @ryot/sandbox-compiler --production --frozen-lockfile \
     --backend=copyfile --linker=hoisted --ignore-scripts
 
@@ -55,9 +55,9 @@ COPY --chown=ryot:ryot apps/app-backend/src/modules/definition-registry/kernel-s
 COPY --chown=ryot:ryot plugins /plugins
 COPY --from=client-builder --chown=ryot:ryot /app/apps/app-client/dist ./client
 COPY --from=backend-builder --chown=ryot:ryot /app/apps/app-backend/dist ./dist
-COPY --from=backend-builder --chown=ryot:ryot /app/libs/sandbox-compiler/dist/compiler-worker.js* ./dist/
+COPY --from=backend-builder --chown=ryot:ryot /app/packages/sandbox-compiler/dist/compiler-worker.js* ./dist/
 COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/node_modules ./node_modules
-COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/libs ./libs
+COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/packages ./packages
 USER ryot
 RUN bun run dist/smoke-compiler-worker.js /home/ryot/dist/compiler-worker.js
 # Build the read-only sandbox dependency runtime so startup requires no registry access.
