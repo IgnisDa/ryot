@@ -10,7 +10,6 @@ import {
 	column,
 	defineRecipe,
 	eq,
-	isNull,
 	literal,
 	selectedField,
 	selectedOptionalRow,
@@ -32,7 +31,7 @@ export const manifest = defineManifest({
 
 const eligibleEntitySchemaSlugs = new Set<string>(mediaLibraryEligibleEntitySchemaSlugs);
 
-const globalEntityRecipe = defineRecipe((entityId: string, entitySchemaSlug: string) => {
+const entityRecipe = defineRecipe((entityId: string, entitySchemaSlug: string) => {
 	const entity = table("entity", "entity");
 	return {
 		map: ({ entity: row }) => Result.succeed(row?.entityId ?? null),
@@ -42,7 +41,6 @@ const globalEntityRecipe = defineRecipe((entityId: string, entitySchemaSlug: str
 				selection: { entityId: selectedField(column(entity, "id"), Schema.String) },
 				where: and(
 					eq(column(entity, "id"), literal(entityId)),
-					isNull(column(entity, "userId")),
 					eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
 				),
 			}),
@@ -76,7 +74,7 @@ export default defineAutomationPolicy({
 			}
 			const entityId = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				globalEntityRecipe(target.entityId, target.entitySchemaSlug),
+				entityRecipe(target.entityId, target.entitySchemaSlug),
 			);
 			if (!entityId) {
 				return { action: "allow" } as const;
