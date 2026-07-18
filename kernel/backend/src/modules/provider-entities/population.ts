@@ -12,13 +12,16 @@ import type { ProviderDetailsChildEntity } from "@ryot-app/sandbox-sdk/provider"
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 
-import type { LifecyclePlan } from "#lib/domain/lifecycle";
+import {
+	LifecycleDispatchPlan,
+	type LifecyclePlan,
+	toLifecycleDispatchPlan,
+} from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
 import { EntitiesService } from "#modules/entities/service";
-import { RelationshipsService } from "#modules/relationships/service";
 
 import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
 
@@ -38,6 +41,7 @@ const RelationshipReconciliationResult = Schema.Struct({
 });
 
 export const ChildEntitySetWriteResult = Schema.Struct({
+	dispatch: Schema.Array(LifecycleDispatchPlan),
 	processedChildren: Schema.Array(ProcessedChildEntity),
 	relationshipResults: Schema.Array(RelationshipReconciliationResult),
 });
@@ -72,13 +76,6 @@ const relationshipBatch = (
 		},
 	});
 
-const logWarnings = (warnings: ReadonlyArray<unknown>, parentEntityId: EntityId) =>
-	warnings.length === 0
-		? Effect.void
-		: Effect.logWarning("provider child population completed with automation warnings").pipe(
-				Effect.annotateLogs({ warnings, parentEntityId, warningCount: warnings.length }),
-			);
-
 export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	input: {
 		command: LifecycleCommand;
@@ -94,7 +91,6 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 ) {
 	const database = yield* Database;
 	const entities = yield* EntitiesService;
-	const relationships = yield* RelationshipsService;
 	const childSchemaSlugs = new Set(
 		input.childEntities.map(({ entitySchemaSlug }) => entitySchemaSlug),
 	);
@@ -213,15 +209,11 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 			),
 		),
 	).pipe(mapDbErrorToSandbox);
-	const warnings = [
-		...(yield* entities.executeCommittedPlans(committed.entityPlans).pipe(mapDbErrorToSandbox)),
-		...(yield* relationships
-			.executeCommittedPlans(committed.relationshipPlans)
-			.pipe(mapDbErrorToSandbox)),
-	];
-	yield* logWarnings(warnings, input.parentEntityId);
 	return {
 		processedChildren: committed.processedChildren,
 		relationshipResults: committed.relationshipResults,
+		dispatch: [...committed.entityPlans, ...committed.relationshipPlans].map(
+			toLifecycleDispatchPlan,
+		),
 	} satisfies ChildEntitySetWriteResult;
 });

@@ -58,6 +58,36 @@ const findBackupRestoreBoundaryViolations = (sources: ReadonlyArray<LayerWiringS
 		);
 	});
 
+const workflowScopePath = "kernel/backend/src/lib/infrastructure/workflow-scope.ts";
+
+export const findWorkflowScopeViolations = (sources: ReadonlyArray<LayerWiringSource>) =>
+	sources.flatMap(({ path, source }) => {
+		if (path === workflowScopePath) {
+			return [];
+		}
+		const violations: string[] = [];
+		if (source.includes("Activity.make(")) {
+			violations.push(
+				`${path}: Activity.make( must go through makeActivity in src/lib/infrastructure/workflow-scope.ts`,
+			);
+		}
+		if (source.includes(".toLayer(")) {
+			violations.push(
+				`${path}: .toLayer( must go through implementWorkflow in src/lib/infrastructure/workflow-scope.ts`,
+			);
+		}
+		return violations;
+	});
+
+const isAllSourcePath = (file: string) => file.endsWith(".ts") && !file.endsWith(".generated.ts");
+
+const walkAllSources = (directory: string, workspaceRoot: string) =>
+	walkSourceFiles(directory, workspaceRoot, isAllSourcePath).pipe(
+		Effect.map((files) =>
+			Object.entries(files).map(([path, source]) => ({ path, source }) satisfies LayerWiringSource),
+		),
+	);
+
 const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const scriptPath = yield* path.fromFileUrl(new URL(import.meta.url));
@@ -68,13 +98,24 @@ const program = Effect.gen(function* () {
 	);
 	const cycles = yield* analyzeRuntimeModules(modulesDir);
 	const sources = (yield* Effect.forEach(roots, (root) => walkSources(root, workspaceRoot))).flat();
+	const allBackendSources = yield* walkAllSources(
+		path.join(workspaceRoot, "kernel/backend/src"),
+		workspaceRoot,
+	);
 	const duplicateLayers = findDuplicateServiceLayers(sources);
 	const backupRestoreBoundaryViolations = findBackupRestoreBoundaryViolations(sources);
-	if (cycles.length || duplicateLayers.length || backupRestoreBoundaryViolations.length) {
+	const workflowScopeViolations = findWorkflowScopeViolations(allBackendSources);
+	if (
+		cycles.length ||
+		duplicateLayers.length ||
+		backupRestoreBoundaryViolations.length ||
+		workflowScopeViolations.length
+	) {
 		return yield* new ArchitectureCheckError({
 			message: [
 				...duplicateLayers,
 				...backupRestoreBoundaryViolations,
+				...workflowScopeViolations,
 				...(cycles.length ? [formatRuntimeCycleDiagnostics(cycles)] : []),
 			].join("\n"),
 		});
@@ -82,4 +123,6 @@ const program = Effect.gen(function* () {
 	return yield* Effect.logInfo(`Kernel architecture checks passed (${sources.length} files)`);
 }).pipe(Effect.tapError((error) => Effect.logError(String(error))));
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));
+if (import.meta.main) {
+	BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));
+}

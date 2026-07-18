@@ -1,44 +1,44 @@
-import { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
-import {
-	CollectionBadRequest,
-	MembershipResponse,
-} from "@ryot-app/contract/modules/collections/schemas";
-import { RelationshipMutationResult } from "@ryot-app/contract/modules/relationships/schemas";
-import { EntityId, EventSchemaSlug, type RelationshipId } from "@ryot-app/contract/schema/brands";
+import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import { CollectionBadRequest } from "@ryot-app/contract/modules/collections/schemas";
+import type { RelationshipId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, Layer, Schema } from "effect";
-import { Activity } from "effect/unstable/workflow";
+import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
-import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { runLifecycleWriteStep } from "#lib/infrastructure/lifecycle-workflow-step";
+import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
+import {
+	PendingRelationshipMutations,
+	RelationshipSingleResult,
+} from "#modules/relationships/mutation-pipeline";
 
 import {
 	AddEntityToCollectionWorkflow,
 	AddEntityToCollectionWorkflowError,
 	type AddEntityToCollectionWorkflowPayload,
 } from "./add-entity-to-collection-workflow";
-import { CollectionsService } from "./service";
-
-const WriteCollectionMembershipResult = Schema.Struct({
-	entityId: EntityId,
-	occurredAt: Schema.String,
-	entitySchemaSlug: Schema.String,
-	warnings: Schema.Array(AutomationWarning),
-	memberOf: MembershipResponse.fields.memberOf,
-	addEventSchemaSlug: Schema.NullOr(EventSchemaSlug),
-});
+import {
+	CollectionMembershipResult,
+	CollectionsService,
+	PendingCollectionMembership,
+} from "./service";
 
 const childCommand = (command: LifecycleCommand, itemIdentity: string): LifecycleCommand => ({
 	...command,
 	itemIdentity: stableStringify([command.itemIdentity, itemIdentity]),
 });
 
-type AddEntityToCollectionWorkflowOperationsValue = {
-	writeMembership: CollectionsService["Service"]["writeMembership"];
-	compensateMembership: CollectionsService["Service"]["compensateMembership"];
-};
+type AddEntityToCollectionWorkflowOperationsValue = Pick<
+	CollectionsService["Service"],
+	| "commitMembership"
+	| "prepareMembership"
+	| "commitCompensation"
+	| "prepareCompensation"
+	| "applyMembershipPolicies"
+	| "applyCompensationPolicies"
+>;
 
 export class AddEntityToCollectionWorkflowOperations extends Context.Service<
 	AddEntityToCollectionWorkflowOperations,
@@ -48,8 +48,12 @@ export class AddEntityToCollectionWorkflowOperations extends Context.Service<
 export const AddEntityToCollectionWorkflowOperationsLive = Layer.effect(
 	AddEntityToCollectionWorkflowOperations,
 	Effect.map(CollectionsService, (collections) => ({
-		writeMembership: collections.writeMembership,
-		compensateMembership: collections.compensateMembership,
+		commitMembership: collections.commitMembership,
+		prepareMembership: collections.prepareMembership,
+		commitCompensation: collections.commitCompensation,
+		prepareCompensation: collections.prepareCompensation,
+		applyMembershipPolicies: collections.applyMembershipPolicies,
+		applyCompensationPolicies: collections.applyCompensationPolicies,
 	})),
 );
 
@@ -64,11 +68,14 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 		const engine = yield* WorkflowEngine;
 		const operations = yield* AddEntityToCollectionWorkflowOperations;
 		const compensate = Effect.fnUntraced(function* (relationshipId: RelationshipId) {
-			const compensation = yield* Activity.make({
-				name: "compensate-collection-membership",
-				success: RelationshipMutationResult satisfies DurableSchema,
-				error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
-				execute: operations.compensateMembership(
+			const compensation = yield* runLifecycleWriteStep({
+				result: RelationshipSingleResult,
+				pending: PendingRelationshipMutations,
+				commit: operations.commitCompensation,
+				error: AddEntityToCollectionWorkflowError,
+				applyPolicies: operations.applyCompensationPolicies,
+				name: `compensate-collection-membership:${relationshipId}`,
+				prepare: operations.prepareCompensation(
 					payload.userId,
 					relationshipId,
 					childCommand(payload.command, `compensation:${relationshipId}`),
@@ -81,11 +88,14 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 			}
 		});
 
-		const result = yield* Activity.make({
+		const { result, warnings } = yield* runLifecycleWriteStep({
+			result: CollectionMembershipResult,
 			name: "write-collection-membership",
-			success: WriteCollectionMembershipResult satisfies DurableSchema,
-			error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
-			execute: operations.writeMembership({
+			commit: operations.commitMembership,
+			pending: PendingCollectionMembership,
+			error: AddEntityToCollectionWorkflowError,
+			applyPolicies: operations.applyMembershipPolicies,
+			prepare: operations.prepareMembership({
 				userId: payload.userId,
 				command: payload.command,
 				entityId: payload.entityId,
@@ -136,12 +146,13 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 			eventWarnings = eventAttempt.success.warnings;
 		}
 
-		return { memberOf: result.memberOf, warnings: [...result.warnings, ...eventWarnings] };
+		return { memberOf: result.memberOf, warnings: [...warnings, ...eventWarnings] };
 	},
 	(effect, _payload, executionId) =>
 		Effect.annotateLogs(effect, { executionId, workflow: "AddEntityToCollectionWorkflow" }),
 );
 
-export const AddEntityToCollectionWorkflowDefinitionsLive = AddEntityToCollectionWorkflow.toLayer(
+export const AddEntityToCollectionWorkflowDefinitionsLive = implementWorkflow(
+	AddEntityToCollectionWorkflow,
 	runAddEntityToCollectionWorkflow,
 );

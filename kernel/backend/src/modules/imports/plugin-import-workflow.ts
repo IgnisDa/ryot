@@ -3,11 +3,11 @@ import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schem
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import { genericImportWorkflowInputSchema } from "@ryot-app/sandbox-sdk/imports";
 import { Cause, Effect, Schema } from "effect";
-import { Activity } from "effect/unstable/workflow";
 import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { ImportSourceState } from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
+import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import type { ImportRunJobData } from "./jobs";
@@ -27,11 +27,11 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	let uploadIntentIds: ReadonlyArray<string> = [];
 	const { failRunAndCleanup, cleanupUploadsBestEffort, cleanupArtifactsBestEffort } =
 		createImportRunLifecycle(payload, executionId);
-	const releaseImportWorkflowPin = Activity.make({
+	const releaseImportWorkflowPin = makeActivity({
 		name: "release-import-workflow-pin",
 		execute: sandbox.releaseWorkflowRegistration(artifactOwnerExecutionId).pipe(Effect.ignore),
 	});
-	const releaseImportArtifacts = Activity.make({
+	const releaseImportArtifacts = makeActivity({
 		error: ImportRunError,
 		name: "release-import-artifacts",
 		execute: Effect.gen(function* () {
@@ -39,7 +39,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			yield* artifacts.release(artifactOwnerExecutionId, artifactReferenceExecutionId);
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
-	const retainImportDispatchArtifacts = Activity.make({
+	const retainImportDispatchArtifacts = makeActivity({
 		error: ImportRunError,
 		name: "retain-import-dispatch-artifacts",
 		execute: Effect.gen(function* () {
@@ -47,7 +47,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			yield* artifacts.retain(artifactOwnerExecutionId, artifactDispatchReferenceExecutionId);
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
-	const releaseImportDispatchArtifacts = Activity.make({
+	const releaseImportDispatchArtifacts = makeActivity({
 		error: ImportRunError,
 		name: "release-import-dispatch-artifacts",
 		execute: Effect.gen(function* () {
@@ -57,13 +57,13 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	});
 
 	const processWorkflow = Effect.gen(function* () {
-		yield* Activity.make({
+		yield* makeActivity({
 			error: ImportRunError,
 			name: "mark-import-run-started",
 			execute: markImportRunStarted(payload.runId).pipe(Effect.mapError(toWorkflowError)),
 		});
 
-		const sourceState = yield* Activity.make({
+		const sourceState = yield* makeActivity({
 			error: ImportRunError,
 			name: "claim-import-source-state",
 			success: Schema.NullOr(ImportSourceState),
@@ -85,7 +85,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 				? { namedArtifactPaths: { ...sourceState.namedArtifactPaths } }
 				: undefined;
 		const pinnedGrants = grants
-			? yield* Activity.make({
+			? yield* makeActivity({
 					error: ImportRunError,
 					success: SandboxExecutionGrants,
 					name: "materialize-import-artifacts",

@@ -6,6 +6,7 @@ import { WorkflowEngine, type WorkflowInstance } from "effect/unstable/workflow/
 
 import { Database } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
@@ -159,14 +160,14 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 		yield* Effect.annotateCurrentSpan({ executionId, installationId: payload.installationId });
 		const operations = yield* PluginInstallationWorkflowOperations;
 		const markFailed = (healthReason: string) =>
-			Activity.make({
+			makeActivity({
 				name: "fail-plugin-installation",
 				error: InternalError satisfies DurableSchema,
 				success: Schema.Void satisfies DurableSchema,
 				execute: operations.fail(payload.installationId, healthReason),
 			}).pipe(Activity.retry({ times: 3 }));
 
-		const started = yield* Activity.make({
+		const started = yield* makeActivity({
 			name: "begin-plugin-installation",
 			error: InternalError satisfies DurableSchema,
 			execute: operations.begin(payload.installationId),
@@ -196,7 +197,7 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 			}
 		}
 
-		const completed = yield* Activity.make({
+		const completed = yield* makeActivity({
 			name: "complete-plugin-installation",
 			error: InternalError satisfies DurableSchema,
 			success: Schema.Void satisfies DurableSchema,
@@ -210,7 +211,8 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 		Effect.annotateLogs(effect, { executionId, workflow: "PluginInstallationWorkflow" }),
 );
 
-export const PluginInstallationWorkflowDefinitionsLive = PluginInstallationWorkflow.toLayer(
+export const PluginInstallationWorkflowDefinitionsLive = implementWorkflow(
+	PluginInstallationWorkflow,
 	runPluginInstallationWorkflow,
 );
 

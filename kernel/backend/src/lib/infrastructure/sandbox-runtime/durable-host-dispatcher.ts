@@ -1,17 +1,24 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { createEventItemSchema } from "@ryot-app/sandbox-sdk/core";
+import { createEventItemSchema, sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import {
 	type WorkflowDurableResult,
 	workflowDurableResultSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
 import { Cause, Clock, Duration, Effect, Layer, Schema } from "effect";
-import { Activity, DurableClock } from "effect/unstable/workflow";
+import { DurableClock } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database } from "#lib/infrastructure/db/service";
+import {
+	runLifecycleWriteStep,
+	type LifecyclePreparedStep,
+} from "#lib/infrastructure/lifecycle-workflow-step";
 import {
 	ProviderHttpAdmissionBlockResult,
 	ProviderHttpAdmissionConfirmation,
@@ -20,8 +27,17 @@ import {
 	ProviderHttpAdmissionToken,
 } from "#lib/infrastructure/provider-http-admission";
 import { recordSandboxHostCall } from "#lib/infrastructure/runtime-metrics";
+import {
+	SandboxLifecycleHostFailure,
+	SandboxLifecycleHostInput,
+} from "#lib/infrastructure/sandbox-runtime/host-functions";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
-import { reportSandboxLifecycleWarnings } from "#lib/infrastructure/sandbox-runtime/shared";
+import {
+	reportSandboxLifecycleWarnings,
+	toSandboxHostError,
+} from "#lib/infrastructure/sandbox-runtime/shared";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { GlobalEntityUpsertResults, PendingGlobalEntityUpsert } from "#modules/entities/service";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
@@ -35,9 +51,15 @@ import {
 	type HttpRateLimitAuthorityResolution,
 } from "#modules/plugins/http-rate-limit-authority";
 import {
+	PendingRelationshipMutations,
+	RelationshipBatchSummary,
+	RelationshipReconciliationSummary,
+} from "#modules/relationships/mutation-pipeline";
+import {
 	dispatchSandboxHostActivity,
 	durableHostFailure,
 	prepareSandboxCreateEvents,
+	prepareSandboxLifecycleHostInput,
 	prepareSandboxSendNotification,
 	runSandboxDurableHostServiceWorkflow,
 	sandboxDurableHttpRequestUrl,
@@ -174,7 +196,14 @@ const retryAfterTimestamp = (
 		: fallback;
 };
 
-export const SandboxDurableHostServiceWorkflowLive = SandboxDurableHostServiceWorkflow.toLayer(
+const lifecycleHostSuccessSchemas = {
+	UpsertGlobalEntities: sandboxHostContracts.upsertGlobalEntities.success,
+	ChangeUserRelationships: sandboxHostContracts.changeUserRelationships.success,
+	UpsertGlobalRelationships: sandboxHostContracts.upsertGlobalRelationships.success,
+};
+
+export const SandboxDurableHostServiceWorkflowLive = implementWorkflow(
+	SandboxDurableHostServiceWorkflow,
 	(payload) => runSandboxDurableHostServiceWorkflow(payload),
 );
 
@@ -197,6 +226,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		const repository = yield* SandboxRepository;
 		const admission = yield* ProviderHttpAdmissionService;
 		const implementations = yield* SandboxHostImplementations;
+		const lifecycleExecution = yield* LifecycleExecution;
 		const rateLimitAuthority = yield* PluginHttpRateLimitAuthority;
 		const provideDispatchServices = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 			effect.pipe(
@@ -230,7 +260,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					Effect.gen(function* () {
 						for (;;) {
 							const activityAttempt = coordinationAttempt++;
-							const outcome = yield* Activity.make({
+							const outcome = yield* makeActivity({
 								success,
 								execute: execute(),
 								error: HttpAdmissionCoordinationError,
@@ -352,7 +382,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				const runNetworkAttempt = (policy: MatchedHttpRateLimit | null) => {
 					networkAttempt += 1;
 					const attempt = networkAttempt;
-					return Activity.make({
+					return makeActivity({
 						error: SandboxRunError,
 						success: HttpNetworkAttempt,
 						name: `sandbox-http-${request.index}-network-${attempt}`,
@@ -497,6 +527,133 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				}
 			});
 
+		const writeLifecycleItems = Effect.fnUntraced(function* <Item, Result>(options: {
+			readonly name: string;
+			readonly items: ReadonlyArray<Item>;
+			readonly warnings: Array<AutomationWarning>;
+			readonly result: Schema.Codec<Result, unknown>;
+			readonly applyPolicies: (
+				pending: PendingRelationshipMutations,
+			) => Effect.Effect<PendingRelationshipMutations, SandboxLifecycleHostFailure>;
+			readonly prepare: (
+				item: Item,
+				index: number,
+			) => Effect.Effect<
+				LifecyclePreparedStep<Result, PendingRelationshipMutations>,
+				SandboxLifecycleHostFailure
+			>;
+			readonly commit: (
+				item: Item,
+			) => (
+				pending: PendingRelationshipMutations,
+			) => Effect.Effect<
+				LifecyclePreparedStep<Result, PendingRelationshipMutations>,
+				SandboxLifecycleHostFailure
+			>;
+		}) {
+			const results = [];
+			for (const [index, item] of options.items.entries()) {
+				const outcome = yield* runLifecycleWriteStep({
+					result: options.result,
+					commit: options.commit(item),
+					name: `${options.name}-${index}`,
+					error: SandboxLifecycleHostFailure,
+					applyPolicies: options.applyPolicies,
+					pending: PendingRelationshipMutations,
+					prepare: options.prepare(item, index),
+				});
+				options.warnings.push(...outcome.warnings);
+				results.push(outcome.result);
+			}
+			return results;
+		});
+
+		const dispatchLifecycleHost = (
+			request: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[0],
+			payload: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[1],
+			principal: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[2],
+			executionId: string,
+			startedAt: string,
+		) =>
+			Effect.gen(function* () {
+				const capability = request.args.capability;
+				const name = `sandbox-host-${request.index}-${capability}`;
+				const prepared = yield* makeActivity({
+					name: `${name}-input`,
+					error: SandboxRunError,
+					success: SandboxLifecycleHostInput,
+					execute: provideDispatchServices(
+						prepareSandboxLifecycleHostInput(request, payload, principal, executionId, startedAt),
+					),
+				});
+				if (prepared._tag === "Failure") {
+					return durableHostFailure(prepared.message);
+				}
+				const steps = implementations.lifecycle;
+				const written = yield* Effect.gen(function* () {
+					const warnings: Array<AutomationWarning> = [];
+					if (prepared._tag === "UpsertGlobalEntities") {
+						const outcome = yield* runLifecycleWriteStep({
+							name: `${name}-0`,
+							result: GlobalEntityUpsertResults,
+							pending: PendingGlobalEntityUpsert,
+							error: SandboxLifecycleHostFailure,
+							applyPolicies: steps.upsertGlobalEntities.applyPolicies,
+							commit: (pending) => steps.upsertGlobalEntities.commit(prepared, pending),
+							prepare: steps.upsertGlobalEntities.prepare(prepared, {
+								planned: [],
+								accepted: null,
+							}),
+						});
+						warnings.push(...outcome.warnings);
+						return { warnings, value: steps.upsertGlobalEntities.value(outcome.result) };
+					}
+					if (prepared._tag === "ChangeUserRelationships") {
+						const summaries = yield* writeLifecycleItems({
+							name,
+							warnings,
+							items: prepared.batches,
+							result: RelationshipBatchSummary,
+							commit: () => steps.changeUserRelationships.commit,
+							applyPolicies: steps.changeUserRelationships.applyPolicies,
+							prepare: (batch, index) =>
+								steps.changeUserRelationships.prepare(prepared, batch, index),
+						});
+						return { warnings, value: steps.changeUserRelationships.value(summaries) };
+					}
+					const summaries = yield* writeLifecycleItems({
+						name,
+						warnings,
+						items: prepared.groups,
+						result: RelationshipReconciliationSummary,
+						applyPolicies: steps.upsertGlobalRelationships.applyPolicies,
+						commit: (group) => (pending) => steps.upsertGlobalRelationships.commit(group, pending),
+						prepare: (group, index) =>
+							steps.upsertGlobalRelationships.prepare(prepared, group, index),
+					});
+					return { warnings, value: steps.upsertGlobalRelationships.value(summaries) };
+				}).pipe(
+					Effect.map((outcome) => ({ ...outcome, _tag: "written" as const })),
+					Effect.catch((error) =>
+						Effect.succeed({ _tag: "failed" as const, message: toSandboxHostError(error).message }),
+					),
+				);
+				if (written._tag === "failed") {
+					return durableHostFailure(written.message);
+				}
+				yield* reportSandboxLifecycleWarnings(capability, written.warnings);
+				const value = yield* Schema.encodeUnknownEffect(lifecycleHostSuccessSchemas[prepared._tag])(
+					written.value,
+				).pipe(
+					Effect.flatMap(Schema.decodeUnknownEffect(jsonValueSchema)),
+					Effect.mapError(
+						(error) =>
+							new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+					),
+				);
+				return { value, state: "success" } satisfies WorkflowDurableResult;
+			}).pipe(Effect.provideService(LifecycleExecution, lifecycleExecution));
+
 		const dispatchDurableHostCall: SandboxDurableHostDispatcher["Service"]["dispatch"] = (
 			request,
 			payload,
@@ -525,8 +682,11 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				if (request.args.capability === "httpCall") {
 					return dispatchHttp(request, payload, principal, executionId, startedAt);
 				}
+				if (strategy === "lifecycle-workflow") {
+					return dispatchLifecycleHost(request, payload, principal, executionId, startedAt);
+				}
 				if (strategy === "activity") {
-					return Activity.make({
+					return makeActivity({
 						error: SandboxRunError,
 						success: workflowDurableResultSchema,
 						name: `sandbox-host-${request.index}-${request.args.capability}`,
@@ -550,7 +710,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 
 				if (strategy === "event-workflow") {
 					return Effect.gen(function* () {
-						const prepared = yield* Activity.make({
+						const prepared = yield* makeActivity({
 							error: SandboxRunError,
 							success: PreparedSandboxCreateEvents,
 							name: `prepare-sandbox-create-events-${request.index}`,
@@ -606,7 +766,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				}
 
 				return Effect.gen(function* () {
-					const prepared = yield* Activity.make({
+					const prepared = yield* makeActivity({
 						error: SandboxRunError,
 						success: PreparedSandboxSendNotification,
 						name: `prepare-sandbox-send-notification-${request.index}`,

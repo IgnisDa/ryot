@@ -2,7 +2,6 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationRelationshipDraft,
 	type AutomationRelationshipSnapshot,
-	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	RelationshipBadRequest,
@@ -10,10 +9,9 @@ import {
 } from "@ryot-app/contract/modules/relationships/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Cause, Effect, Option, Schema } from "effect";
+import { Cause, Effect, Schema } from "effect";
 
 import {
-	LifecyclePersistenceError,
 	lifecycleTriggerId,
 	type CommittedLifecycleWork,
 	type LifecyclePlan,
@@ -525,28 +523,10 @@ export const makePreparedRelationshipMutations = ({
 			return yield* persistPreparedUserMutation(prepared[preparedUserRelationshipDelete]);
 		},
 	);
-	const executeCommittedPlans = Effect.fn("RelationshipsService.executeCommittedPlans")(function* (
-		plans: ReadonlyArray<LifecyclePlan>,
-	) {
-		if (Option.isSome(yield* Effect.serviceOption(client.transactionService))) {
-			return yield* new LifecyclePersistenceError({ code: "postcommit-requires-root" });
-		}
-		return yield* Effect.forEach(plans, ({ runs, trigger }) =>
-			Effect.gen(function* () {
-				const warnings: AutomationWarning[] = [];
-				if (trigger.blockedReason?.hasRequiredHooks) {
-					warnings.push({ ...trigger.blockedReason, triggerId: trigger.id });
-				}
-				warnings.push(...(yield* execution.after({ runs, triggerId: trigger.id })));
-				return warnings;
-			}),
-		).pipe(Effect.map((warnings) => warnings.flat()));
-	});
 	return {
 		committedReplay,
 		prepareUserCreate,
 		prepareUserDelete,
-		executeCommittedPlans,
 		persistPreparedUserCreate,
 		persistPreparedUserDelete,
 	};

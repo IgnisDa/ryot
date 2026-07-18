@@ -1,20 +1,21 @@
 import { PgClient } from "@effect/sql-pg";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationEntitySnapshot,
 	AutomationEntityDraft,
-	type AutomationRequestPayload,
-	type AutomationWarning,
+	AutomationRequestPayload,
+	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EntityBadRequest,
 	EntityNotFound,
-	type ListedEntity,
+	ListedEntity,
 } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	EntityId,
-	type EntitySchemaSlug,
+	EntitySchemaSlug,
 	type SandboxProviderId,
-	type UserId,
+	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -23,21 +24,28 @@ import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
 import {
 	type CommittedLifecycleWork,
 	LifecyclePersistenceError,
-	LifecyclePlanner,
+	LifecyclePlannedPolicy,
 	type LifecyclePlan,
+	LifecyclePlanner,
 	lifecycleTriggerId,
+	toLifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
 import { LifecycleCommand, lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import {
+	runLifecycleWriteInline,
+	type LifecycleCommittedStep,
+	type LifecyclePreparedStep,
+} from "#lib/infrastructure/lifecycle-workflow-step";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { trimToNull } from "#lib/shared/validation";
 import {
 	catalogDefinitionFingerprint,
-	type CatalogDefinitionFingerprint,
+	CatalogDefinitionFingerprint,
 } from "#modules/plugins/runtime-resolver";
 
-import type { EntityMutationOutcome } from "./mutation-outcomes";
+import { EntityMutationOutcome } from "./mutation-outcomes";
 import { EntitiesRepository } from "./repository";
 
 type Scope = { scope: "global" } | { scope: "user"; userId: UserId };
@@ -81,17 +89,62 @@ export type EnsureUserEntityItem = {
 	properties: unknown;
 	entitySchemaSlug: EntitySchemaSlug;
 };
-type EntityRequest = Extract<AutomationRequestPayload, { resource: "entity" }>;
-type PreparedMutation = {
-	entityId: EntityId;
-	scopeUserId: UserId | null;
-	lifecycle: LifecycleCommand;
-	draft: AutomationEntityDraft;
-	entitySchemaPluginId: string | null;
-	entitySchemaFingerprint: CatalogDefinitionFingerprint;
-	before: AutomationEntitySnapshot | null;
-	requestId: LifecyclePlan["trigger"]["id"];
-	operation: "create" | "update" | "delete";
+const EntityRequest = Schema.Union([
+	AutomationRequestPayload.members[0],
+	AutomationRequestPayload.members[1],
+	AutomationRequestPayload.members[2],
+]);
+type EntityRequest = typeof EntityRequest.Type;
+const PreparedEntityMutation = Schema.Struct({
+	entityId: EntityId,
+	lifecycle: LifecycleCommand,
+	draft: AutomationEntityDraft,
+	scopeUserId: Schema.NullOr(UserId),
+	requestId: AutomationTrigger.fields.id,
+	before: Schema.NullOr(AutomationEntitySnapshot),
+	entitySchemaPluginId: Schema.NullOr(Schema.String),
+	entitySchemaFingerprint: CatalogDefinitionFingerprint,
+	operation: Schema.Literals(["create", "update", "delete"]),
+});
+type PreparedMutation = typeof PreparedEntityMutation.Type;
+export const PendingEntityMutation = Schema.Struct({
+	...PreparedEntityMutation.fields,
+	request: EntityRequest,
+	policies: Schema.Array(LifecyclePlannedPolicy),
+});
+export type PendingEntityMutation = typeof PendingEntityMutation.Type;
+export const EntitySaveResult = Schema.Struct({
+	entity: ListedEntity,
+	wasInserted: Schema.Boolean,
+	outcome: EntityMutationOutcome,
+});
+export type EntitySaveResult = typeof EntitySaveResult.Type;
+export const EntityMutationError = Schema.Union([EntityBadRequest, EntityNotFound, DbError]);
+const PlannedGlobalEntity = Schema.Struct({
+	externalId: Schema.String,
+	entitySchemaSlug: EntitySchemaSlug,
+	prepared: Schema.NullOr(PreparedEntityMutation),
+	entitySchemaPluginId: Schema.NullOr(Schema.String),
+});
+export const PendingGlobalEntityUpsert = Schema.Struct({
+	pending: PendingEntityMutation,
+	planned: Schema.Array(PlannedGlobalEntity),
+});
+export type PendingGlobalEntityUpsert = typeof PendingGlobalEntityUpsert.Type;
+export const GlobalEntityUpsertResults = Schema.Array(
+	Schema.Union([
+		Schema.Struct({ status: Schema.Literal("skipped") }),
+		Schema.Struct({
+			entityId: EntityId,
+			wasInserted: Schema.Boolean,
+			status: Schema.Literal("upserted"),
+		}),
+	]),
+);
+export type GlobalEntityUpsertResults = typeof GlobalEntityUpsertResults.Type;
+export type GlobalEntityUpsertCursor = {
+	readonly accepted: PendingEntityMutation | null;
+	readonly planned: PendingGlobalEntityUpsert["planned"];
 };
 
 const bad = (
@@ -120,6 +173,17 @@ const commandEntityId = (lifecycle: LifecycleCommand) =>
 	EntityId.make(
 		`ent_${sha256Base64Url(stableStringify([lifecycle.causation.executionId, lifecycle.itemIdentity]))}`,
 	);
+const committedStep = (saved: {
+	readonly plan: LifecyclePlan | null;
+	readonly entity: ListedEntity;
+	readonly wasInserted: boolean;
+	readonly outcome: EntityMutationOutcome;
+}): LifecycleCommittedStep<EntitySaveResult> => ({
+	_tag: "Committed",
+	dispatch: saved.plan ? [toLifecycleDispatchPlan(saved.plan)] : [],
+	result: { entity: saved.entity, outcome: saved.outcome, wasInserted: saved.wasInserted },
+});
+
 const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 	Effect.gen(function* () {
 		const database = yield* Database;
@@ -205,13 +269,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				entitySchemaFingerprint: catalogDefinitionFingerprint(definition),
 			};
 		});
-		const prepare = Effect.fnUntraced(function* (input: Omit<PreparedMutation, "requestId">) {
+		const planMutation = Effect.fnUntraced(function* (input: Omit<PreparedMutation, "requestId">) {
 			const lifecycle = yield* Schema.decodeEffect(LifecycleCommand)(input.lifecycle).pipe(
 				Effect.mapError(() => bad("mutation-conflict", "Invalid lifecycle command")),
 			);
-			let payload: EntityRequest;
+			let request: EntityRequest;
 			if (input.operation === "create") {
-				payload = {
+				request = {
 					resource: "entity",
 					draft: input.draft,
 					operation: "create",
@@ -221,7 +285,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				if (input.before === null) {
 					return yield* bad("mutation-conflict", "Mutation requires the persisted entity snapshot");
 				}
-				payload =
+				request =
 					input.operation === "update"
 						? {
 								resource: "entity",
@@ -233,13 +297,25 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						: { resource: "entity", operation: "delete", draft: input.before, category: "request" };
 			}
 			const planned = yield* transaction(
-				planner.plan({ trigger: lifecycleTrigger(lifecycle, input.scopeUserId, payload) }),
+				planner.plan({ trigger: lifecycleTrigger(lifecycle, input.scopeUserId, request) }),
 			);
 			if (planned.trigger.blockedReason !== null) {
 				return yield* bad("automation-limit", "Entity request exceeds automation limits");
 			}
+			return {
+				...input,
+				request,
+				lifecycle,
+				policies: planned.policies,
+				requestId: planned.trigger.id,
+			} satisfies PendingEntityMutation;
+		});
+		const applyMutationPolicies = Effect.fn("EntitiesService.applyMutationPolicies")(function* (
+			pending: PendingEntityMutation,
+		) {
+			let payload = pending.request;
 			yield* Effect.gen(function* () {
-				for (const policy of planned.policies) {
+				for (const policy of pending.policies) {
 					const output = yield* execution
 						.executePolicy({ payload, runId: policy.runId })
 						.pipe(
@@ -284,29 +360,30 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}).pipe(
 				Effect.catchCause((cause) =>
 					execution
-						.skipQueuedPolicies({ triggerId: planned.trigger.id })
+						.skipQueuedPolicies({ triggerId: pending.requestId })
 						.pipe(Effect.andThen(Effect.failCause(cause)), Effect.uninterruptible),
 				),
 			);
+			return { ...pending, request: payload } satisfies PendingEntityMutation;
+		});
+		const acceptedMutation = Effect.fnUntraced(function* (pending: PendingEntityMutation) {
 			const final = yield* validateDraft(
-				payload.operation === "delete" ? draftOf(payload.draft) : payload.draft,
-				input.scopeUserId,
+				pending.request.operation === "delete"
+					? draftOf(pending.request.draft)
+					: pending.request.draft,
+				pending.scopeUserId,
 			);
 			if (
-				final.entitySchemaPluginId !== input.entitySchemaPluginId ||
-				!same(final.entitySchemaFingerprint, input.entitySchemaFingerprint)
+				final.entitySchemaPluginId !== pending.entitySchemaPluginId ||
+				!same(final.entitySchemaFingerprint, pending.entitySchemaFingerprint)
 			) {
 				return yield* bad(
 					"mutation-conflict",
 					"Entity schema ownership changed while policies ran",
 				);
 			}
-			return {
-				...input,
-				lifecycle,
-				draft: final.draft,
-				requestId: planned.trigger.id,
-			} satisfies PreparedMutation;
+			const { request: _request, policies: _policies, ...prepared } = pending;
+			return { ...prepared, draft: final.draft } satisfies PreparedMutation;
 		});
 		const persisted = Effect.fnUntraced(function* (input: PreparedMutation) {
 			yield* repository.lockSchemaCatalog();
@@ -451,26 +528,30 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				wasInserted: input.operation === "create" && before === null,
 			};
 		});
-		const finish = Effect.fnUntraced(function* (
-			saved: Effect.Success<ReturnType<typeof persisted>>,
+		const commitMutation = Effect.fn("EntitiesService.commitMutation")(function* (
+			pending: PendingEntityMutation,
 		) {
-			const warnings: AutomationWarning[] = [];
-			if (saved.plan) {
-				if (saved.plan.trigger.blockedReason?.hasRequiredHooks) {
-					warnings.push({ ...saved.plan.trigger.blockedReason, triggerId: saved.plan.trigger.id });
-				}
-				warnings.push(
-					...(yield* execution.after({ runs: saved.plan.runs, triggerId: saved.plan.trigger.id })),
-				);
-			}
-			return {
-				warnings,
-				entity: saved.entity,
-				outcome: saved.outcome,
-				wasInserted: saved.wasInserted,
-			};
+			const prepared = yield* acceptedMutation(pending);
+			return committedStep(yield* transaction(persisted(prepared)));
 		});
-		const prepareCreate = Effect.fnUntraced(function* (
+		const mutationStep = Effect.fnUntraced(function* (pending: PendingEntityMutation) {
+			if (pending.policies.length === 0) {
+				return yield* commitMutation(pending);
+			}
+			return { pending, _tag: "PoliciesRequired" } satisfies LifecyclePreparedStep<
+				EntitySaveResult,
+				PendingEntityMutation
+			>;
+		});
+		const saveInline = <E, R>(
+			step: Effect.Effect<LifecyclePreparedStep<EntitySaveResult, PendingEntityMutation>, E, R>,
+		) =>
+			runLifecycleWriteInline(execution, {
+				prepare: step,
+				commit: commitMutation,
+				applyPolicies: applyMutationPolicies,
+			}).pipe(Effect.map(({ result, warnings }) => ({ ...result, warnings })));
+		const planCreate = Effect.fnUntraced(function* (
 			input: CreateEntityInput,
 			updateExisting?: boolean,
 		) {
@@ -519,11 +600,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				!replay &&
 				(updateExisting === undefined || (!updateExisting && existing.populatedAt !== null))
 			) {
-				return { existing, prepared: null };
+				return { existing, pending: null };
 			}
 			return {
 				existing: null,
-				prepared: yield* prepare({
+				pending: yield* planMutation({
 					...validated,
 					scopeUserId,
 					lifecycle: input.lifecycle,
@@ -533,23 +614,28 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				}),
 			};
 		});
-		const saveCreate = Effect.fnUntraced(function* (
+		const prepareCreateStep = Effect.fn("EntitiesService.prepareCreateStep")(function* (
 			input: CreateEntityInput,
 			updateExisting?: boolean,
 		) {
 			yield* assertOwner;
-			const prepared = yield* prepareCreate(input, updateExisting);
-			if (prepared.existing) {
-				const before = snapshot(prepared.existing);
+			const planned = yield* planCreate(input, updateExisting);
+			if (planned.existing) {
+				const before = snapshot(planned.existing);
 				return {
-					wasInserted: false,
-					entity: prepared.existing,
-					warnings: [] as ReadonlyArray<AutomationWarning>,
-					outcome: { before, after: before, operation: "noop" as const },
-				};
+					dispatch: [],
+					_tag: "Committed",
+					result: {
+						wasInserted: false,
+						entity: planned.existing,
+						outcome: { before, after: before, operation: "noop" },
+					},
+				} satisfies LifecycleCommittedStep<EntitySaveResult>;
 			}
-			return yield* finish(yield* transaction(persisted(prepared.prepared)));
+			return yield* mutationStep(planned.pending);
 		});
+		const saveCreate = (input: CreateEntityInput, updateExisting?: boolean) =>
+			saveInline(prepareCreateStep(input, updateExisting));
 		const create = Effect.fn("EntitiesService.create")(function* (input: CreateEntityInput) {
 			const { entity, warnings } = yield* saveCreate(input);
 			return { entity, warnings };
@@ -717,23 +803,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				} satisfies CommittedLifecycleWork<PlannedProviderEntityUpsertResult>;
 			},
 		);
-		const executeCommittedPlans = Effect.fn("EntitiesService.executeCommittedPlans")(function* (
-			plans: ReadonlyArray<LifecyclePlan>,
-		) {
-			if (Option.isSome(yield* Effect.serviceOption(sqlClient.transactionService))) {
-				return yield* new LifecyclePersistenceError({ code: "postcommit-requires-root" });
-			}
-			return yield* Effect.forEach(plans, ({ runs, trigger }) =>
-				Effect.gen(function* () {
-					const warnings: AutomationWarning[] = [];
-					if (trigger.blockedReason?.hasRequiredHooks) {
-						warnings.push({ ...trigger.blockedReason, triggerId: trigger.id });
-					}
-					warnings.push(...(yield* execution.after({ runs, triggerId: trigger.id })));
-					return warnings;
-				}),
-			).pipe(Effect.map((warnings) => warnings.flat()));
-		});
 		const update = Effect.fn("EntitiesService.update")(function* (input: UpdateEntityInput) {
 			yield* assertOwner;
 			const current = yield* repository.getMutationEntity(input.entityId);
@@ -757,7 +826,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				},
 				current.userId,
 			);
-			const prepared = yield* prepare({
+			const pending = yield* planMutation({
 				...validated,
 				before,
 				operation: "update",
@@ -765,7 +834,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				lifecycle: input.lifecycle,
 				scopeUserId: current.userId,
 			});
-			const { entity, warnings } = yield* finish(yield* transaction(persisted(prepared)));
+			const { entity, warnings } = yield* saveInline(mutationStep(pending));
 			return { entity, warnings };
 		});
 		const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(function* (
@@ -781,7 +850,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					}
 					const before = snapshot(current.entity);
 					const definition = yield* entitySchema(current.userId, before.entitySchemaSlug);
-					return yield* prepare({
+					const pending = yield* planMutation({
 						before,
 						entityId,
 						operation: "delete",
@@ -791,6 +860,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						entitySchemaPluginId: definition.pluginId ?? null,
 						entitySchemaFingerprint: catalogDefinitionFingerprint(definition),
 					});
+					return yield* acceptedMutation(yield* applyMutationPolicies(pending));
 				}),
 			);
 			const saved = yield* transaction(
@@ -799,8 +869,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					persisted,
 				),
 			);
-			const results = yield* Effect.forEach(saved, finish);
-			return { deletedCount: saved.length, warnings: results.flatMap((item) => item.warnings) };
+			const warnings = yield* execution
+				.dispatch(saved.flatMap((item) => committedStep(item).dispatch))
+				.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
+			return { warnings, deletedCount: saved.length };
 		});
 		const ensureUserEntities = Effect.fn("EntitiesService.ensureUserEntities")(function* (
 			userId: UserId,
@@ -819,12 +891,17 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						existing,
 						prepared: existing
 							? null
-							: (yield* prepareCreate({
-									...item,
-									userId,
-									scope: "user",
-									lifecycle: itemCommand(lifecycle, item.entitySchemaSlug),
-								})).prepared,
+							: yield* Effect.gen(function* () {
+									const planned = yield* planCreate({
+										...item,
+										userId,
+										scope: "user",
+										lifecycle: itemCommand(lifecycle, item.entitySchemaSlug),
+									});
+									return planned.pending
+										? yield* acceptedMutation(yield* applyMutationPolicies(planned.pending))
+										: null;
+								}),
 					};
 				}),
 			);
@@ -857,67 +934,46 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			);
 			return yield* Effect.forEach(saved, (item) =>
 				Effect.gen(function* () {
-					const result = item.saved ? yield* finish(item.saved) : null;
+					const committed = item.saved ? committedStep(item.saved) : null;
 					return {
 						entityId: item.entityId,
-						warnings: result?.warnings ?? [],
-						wasInserted: result?.wasInserted ?? false,
+						wasInserted: committed?.result.wasInserted ?? false,
+						warnings: committed
+							? yield* execution
+									.dispatch(committed.dispatch)
+									.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die))
+							: [],
 					};
 				}),
 			);
 		});
-		const upsertGlobalEntities = Effect.fn("EntitiesService.upsertGlobalEntities")(function* (
-			items: ReadonlyArray<UpsertGlobalEntityItem>,
+		const commitGlobalEntities = Effect.fnUntraced(function* (
+			planned: PendingGlobalEntityUpsert["planned"],
 			providerId: SandboxProviderId,
-			lifecycle: LifecycleCommand,
 			options?: UpsertGlobalEntitiesOptions,
 		) {
-			yield* assertOwner;
-			if (
-				options?.maximumTotal !== undefined &&
-				(!Number.isInteger(options.maximumTotal) || options.maximumTotal < 0)
-			) {
-				return yield* new EntityBadRequest({
-					reason: { field: "maximumTotal", code: "invalid-maximum-total" },
-				});
-			}
-			const prepared = yield* Effect.forEach(items, (item) =>
-				Effect.gen(function* () {
-					const result = yield* prepareCreate({
-						...item,
-						providerId,
-						scope: "global",
-						lifecycle: itemCommand(
-							lifecycle,
-							stableStringify([item.entitySchemaSlug, providerId, item.externalId]),
-						),
-					});
-					const definition = yield* entitySchema(null, item.entitySchemaSlug);
-					return { ...result, item, entitySchemaPluginId: definition.pluginId ?? null };
-				}),
-			);
 			const saved = yield* transaction(
 				Effect.gen(function* () {
-					for (const item of [...prepared].sort((a, b) =>
-						a.item.entitySchemaSlug.localeCompare(b.item.entitySchemaSlug),
+					for (const item of [...planned].sort((a, b) =>
+						a.entitySchemaSlug.localeCompare(b.entitySchemaSlug),
 					)) {
 						yield* repository.lockGlobalEntityProvenanceScope({
 							providerId,
-							entitySchemaSlug: item.item.entitySchemaSlug,
+							entitySchemaSlug: item.entitySchemaSlug,
 							entitySchemaPluginId: item.entitySchemaPluginId,
 						});
 					}
-					return yield* Effect.forEach(prepared, (input) =>
+					return yield* Effect.forEach(planned, (input) =>
 						Effect.gen(function* () {
 							const scope = {
 								providerId,
-								entitySchemaSlug: input.item.entitySchemaSlug,
+								entitySchemaSlug: input.entitySchemaSlug,
 								entitySchemaPluginId: input.entitySchemaPluginId,
 							};
 							const existing = yield* repository.findEntityByExternalId({
 								...scope,
 								scope: "global",
-								externalId: input.item.externalId,
+								externalId: input.externalId,
 							});
 							if (existing) {
 								return { saved: null, entityId: existing.id, status: "upserted" as const };
@@ -945,20 +1001,92 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					);
 				}),
 			);
-			return yield* Effect.forEach(saved, (item) =>
-				Effect.gen(function* () {
-					if (item.status === "skipped") {
-						return { status: "skipped" as const, warnings: [] as ReadonlyArray<AutomationWarning> };
+			return {
+				_tag: "Committed",
+				dispatch: saved.flatMap((item) => (item.saved ? committedStep(item.saved).dispatch : [])),
+				result: saved.map((item) =>
+					item.status === "skipped"
+						? { status: item.status }
+						: {
+								status: item.status,
+								entityId: item.entityId,
+								wasInserted: item.saved?.wasInserted ?? false,
+							},
+				),
+			} satisfies LifecycleCommittedStep<GlobalEntityUpsertResults>;
+		});
+		const prepareUpsertGlobalEntitiesStep = Effect.fn(
+			"EntitiesService.prepareUpsertGlobalEntitiesStep",
+		)(function* (
+			items: ReadonlyArray<UpsertGlobalEntityItem>,
+			providerId: SandboxProviderId,
+			lifecycle: LifecycleCommand,
+			options: UpsertGlobalEntitiesOptions | undefined,
+			cursor: GlobalEntityUpsertCursor,
+		) {
+			yield* assertOwner;
+			if (
+				options?.maximumTotal !== undefined &&
+				(!Number.isInteger(options.maximumTotal) || options.maximumTotal < 0)
+			) {
+				return yield* new EntityBadRequest({
+					reason: { field: "maximumTotal", code: "invalid-maximum-total" },
+				});
+			}
+			const planned = [...cursor.planned];
+			let accepted = cursor.accepted;
+			for (let index = planned.length; index < items.length; index += 1) {
+				const item = items[index];
+				if (!item) {
+					return yield* Effect.die("Global entity upsert cursor is out of range");
+				}
+				let pending = accepted;
+				accepted = null;
+				if (!pending) {
+					const result = yield* planCreate({
+						...item,
+						providerId,
+						scope: "global",
+						lifecycle: itemCommand(
+							lifecycle,
+							stableStringify([item.entitySchemaSlug, providerId, item.externalId]),
+						),
+					});
+					if (result.pending?.policies.length) {
+						return {
+							_tag: "PoliciesRequired",
+							pending: { planned, pending: result.pending },
+						} satisfies LifecyclePreparedStep<GlobalEntityUpsertResults, PendingGlobalEntityUpsert>;
 					}
-					const result = item.saved ? yield* finish(item.saved) : null;
-					return {
-						entityId: item.entityId,
-						status: "upserted" as const,
-						warnings: result?.warnings ?? [],
-						wasInserted: result?.wasInserted ?? false,
-					};
-				}),
-			);
+					pending = result.pending;
+				}
+				const prepared = pending ? yield* acceptedMutation(pending) : null;
+				const definition = yield* entitySchema(null, item.entitySchemaSlug);
+				planned.push({
+					prepared,
+					externalId: item.externalId,
+					entitySchemaSlug: item.entitySchemaSlug,
+					entitySchemaPluginId: definition.pluginId ?? null,
+				});
+			}
+			return yield* commitGlobalEntities(planned, providerId, options);
+		});
+		const applyGlobalEntityPolicies = (cursor: PendingGlobalEntityUpsert) =>
+			applyMutationPolicies(cursor.pending).pipe(Effect.map((pending) => ({ ...cursor, pending })));
+		const upsertGlobalEntities = Effect.fn("EntitiesService.upsertGlobalEntities")(function* (
+			items: ReadonlyArray<UpsertGlobalEntityItem>,
+			providerId: SandboxProviderId,
+			lifecycle: LifecycleCommand,
+			options?: UpsertGlobalEntitiesOptions,
+		) {
+			const prepare = (cursor: GlobalEntityUpsertCursor) =>
+				prepareUpsertGlobalEntitiesStep(items, providerId, lifecycle, options, cursor);
+			const { result, warnings } = yield* runLifecycleWriteInline(execution, {
+				applyPolicies: applyGlobalEntityPolicies,
+				prepare: prepare({ planned: [], accepted: null }),
+				commit: (cursor) => prepare({ planned: cursor.planned, accepted: cursor.pending }),
+			});
+			return { warnings, results: result };
 		});
 		const getByIdAnyScope = Effect.fn("EntitiesService.getByIdAnyScope")(function* (
 			entityId: EntityId,
@@ -975,11 +1103,15 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			update,
 			deleteByIds,
 			createGlobal,
+			commitMutation,
 			getByIdAnyScope,
+			prepareCreateStep,
 			ensureUserEntities,
 			upsertGlobalEntities,
-			executeCommittedPlans,
+			applyMutationPolicies,
+			applyGlobalEntityPolicies,
 			persistPlannedProviderUpsert,
+			prepareUpsertGlobalEntitiesStep,
 		};
 	}),
 }) {
