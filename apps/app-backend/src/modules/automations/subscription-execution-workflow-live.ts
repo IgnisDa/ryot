@@ -13,11 +13,11 @@ import {
 } from "@ryot/contract/schema/brands";
 import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
 import { Context, Effect, Layer, Schema } from "effect";
+import type { PersistedQueue } from "effect/unstable/persistence";
 import { Activity } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
-import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
+import { processSandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 import { AutomationsService } from "./service";
 import {
@@ -44,7 +44,11 @@ const BeginSubscriptionRunResult = Schema.Union([
 export type SubscriptionExecutionWorkflowOperationsValue = {
 	runSandbox: (
 		payload: SandboxExecutionPayload,
-	) => Effect.Effect<SandboxCompletedResult, SandboxRunError, WorkflowEngine>;
+	) => Effect.Effect<
+		SandboxCompletedResult,
+		SandboxRunError,
+		WorkflowEngine | WorkflowInstance | PersistedQueue.PersistedQueueFactory
+	>;
 };
 
 export class SubscriptionExecutionWorkflowOperations extends Context.Service<
@@ -55,13 +59,7 @@ export class SubscriptionExecutionWorkflowOperations extends Context.Service<
 export const SubscriptionExecutionWorkflowOperationsLive = Layer.succeed(
 	SubscriptionExecutionWorkflowOperations,
 	{
-		runSandbox: (payload) =>
-			Effect.gen(function* () {
-				const engine = yield* WorkflowEngine;
-				return yield* engine
-					.execute(RunSandboxWorkflow, { payload, executionId: payload.executionId })
-					.pipe(withoutWorkflowParent);
-			}),
+		runSandbox: processSandboxExecutionQueue,
 	},
 );
 

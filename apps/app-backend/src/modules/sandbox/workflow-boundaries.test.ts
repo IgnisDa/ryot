@@ -35,7 +35,7 @@ it.effect("keeps provider population independent of media hierarchy literals", (
 	}).pipe(Effect.provide(BunServices.layer)),
 );
 
-it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =>
+it.effect("keeps sandbox submission and queue execution at their allowed boundaries", () =>
 	Effect.gen(function* () {
 		const [
 			sandboxService,
@@ -59,23 +59,21 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			readModule("../automations/subscription-execution-workflow-live.ts"),
 		]);
 
-		expect(sandboxService.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
-		expect(durableQueues.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
-		expect(eventCreateCore.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(0);
-		expect(eventCreateWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(0);
-		expect(subscriptionWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
-		expect(sandboxScriptWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
-		expect(sandboxWorkflow).toContain(
-			"DurableQueue.process(SandboxExecutionQueue, executionPayload)",
-		);
-		expect(sandboxWorkflow).toContain('Effect.timeout("1 minute")');
-		expect(sandboxWorkflow).toContain("Effect.retry(sandboxRetrySchedule)");
-		expect(sandboxWorkflow).toContain('Schedule.exponential("1 second")');
-		expect(sandboxWorkflow).toContain("Schedule.recurs(2)");
-		expect(sandboxWorkflow).toContain("...(payload.grants ? { grants: payload.grants } : {})");
+		expect(sandboxService.match(/\.execute\(SandboxSubmissionWorkflow,/g)?.length ?? 0).toBe(1);
+		expect(durableQueues).toContain("Effect.flatMap(processSandboxExecutionQueue)");
+		expect(eventCreateCore).not.toContain("SandboxSubmissionWorkflow");
+		expect(eventCreateWorkflow).not.toContain("SandboxSubmissionWorkflow");
+		expect(subscriptionWorkflow).toContain("processSandboxExecutionQueue");
+		expect(sandboxScriptWorkflow).toContain("processSandboxExecutionQueue(payload)");
+		expect(sandboxWorkflow).toContain("processSandboxExecutionQueue(payload)");
+		expect(durableQueues).toContain('Effect.timeout("1 minute")');
+		expect(durableQueues).toContain("Effect.retry(sandboxRetrySchedule)");
+		expect(durableQueues).toContain('Schedule.exponential("1 second")');
+		expect(durableQueues).toContain("Schedule.recurs(2)");
+		expect(sandboxWorkflow).toContain("SandboxSubmissionWorkflow");
 
 		for (const source of [entityImportWorkflow, integrationWorkflow]) {
-			expect(source).not.toContain("execute(RunSandboxWorkflow");
+			expect(source).not.toContain("execute(SandboxSubmissionWorkflow");
 		}
 		expect(entityImportWorkflow).toContain("execute(ProviderEntityPopulationWorkflow");
 	}).pipe(Effect.provide(BunServices.layer)),

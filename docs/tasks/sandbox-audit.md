@@ -16,11 +16,11 @@ Host functions are assembled through `SandboxHostImplementations`, so orchestrat
 
 - [x] Move cache and HTTP implementations into `runtime-host-functions.ts`, merge them into `SandboxHostImplementations`, and keep `SandboxService` focused on orchestration.
 
-**Problem B — three-hop dispatch.** `processSandboxExecution` → resolution `Activity` → `RunSandboxWorkflow` → `DurableQueue.process(SandboxExecutionQueue)` → worker → `executeSandboxExecution` → `SandboxService.run`.
+**Problem B — three-hop dispatch.** Workflow-owned callers previously used `processSandboxExecution` → resolution `Activity` → `RunSandboxWorkflow` → `DurableQueue.process(SandboxExecutionQueue)` → worker → `executeSandboxExecution` → `SandboxService.run`.
 
-`RunSandboxWorkflow` (sandbox-run-workflow.ts:15) and `SandboxExecutionQueue` (durable-queues.ts:20) carry **the same** `idempotencyKey: ({executionId}) => executionId`, the same payload schema, the same error type, the same success type. The workflow's entire body is "call the queue and retry" (sandbox-workflow-live.ts:45-63).
+`RunSandboxWorkflow` and `SandboxExecutionQueue` carried **the same** `idempotencyKey: ({executionId}) => executionId`, payload schema, error type, and success type. Workflow-owned callers now use a shared queue-processing helper directly. Top-level HTTP enqueue, plugin boot, and direct cron dispatch retain a narrowly scoped `SandboxSubmissionWorkflow` because `DurableQueue.process` requires a parent `WorkflowInstance` for durable result polling.
 
-- [ ] Delete `RunSandboxWorkflow`. Callers enqueue directly; concurrency bounding is already the queue's job. This removes a workflow record per execution and one durable round-trip per replay step (which matters a lot given §5).
+- [x] Remove `RunSandboxWorkflow` from workflow-owned callers, centralize queue timeout/retry behavior, and narrow the remaining top-level adapter to `SandboxSubmissionWorkflow`. Concurrency bounding remains the queue worker's job.
 
 ---
 
@@ -215,7 +215,7 @@ Confirmed by grep, non-test usage only:
 | Item                                          | Location                                   | Note                                                                                                                                       |
 | --------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | - [ ] `scriptIsBuiltin`                       | shared.ts:21, written durable-queues.ts:99 | **Never read** outside tests. Costs a DB query per execution (`repository.isPluginScript`) whose result is discarded.                      |
-| - [ ] `RunSandboxWorkflowPayload`             | sandbox-run-workflow.ts:11-13              | `Schema.Struct({...SandboxExecutionPayload.fields})` — an alias for `SandboxExecutionPayload`.                                             |
+| - [x] `RunSandboxWorkflowPayload`             | sandbox-submission-workflow.ts             | Removed redundant alias; `SandboxSubmissionWorkflow` uses `SandboxExecutionPayload` directly.                                             |
 | - [ ] runner capability intersection          | runner-source.sandbox.ts:348-366           | No-op, see §3.                                                                                                                             |
 | - [ ] runner `for(;;)` + console save/restore | runner-source.sandbox.ts:509-602           | Processes are strictly single-use (pool invalidated service.ts:340-343; dedicated killed by scope). Multi-payload handling is unreachable. |
 | - [ ] `Object.hasOwn` + null check            | runtime.ts:353-360                         | Two guards for one condition.                                                                                                              |
@@ -247,7 +247,7 @@ Confirmed by grep, non-test usage only:
 You asked for recommendations rather than questions, so:
 
 1. [ ] **Capability table vs. current sets.** Adopt the table first.
-2. [ ] **Delete `RunSandboxWorkflow`.** Do this before touching replay performance.
+2. [x] **Narrow sandbox submission.** Remove the redundant workflow hop from workflow-owned callers before touching replay performance; retain only top-level submission bridge.
 3. [ ] **Batched durable calls (P3).** Allow independent pending requests to execute as parallel durable steps.
 4. [ ] **Drop the Redis session store (P1).** The data is process-local by construction.
 5. [ ] **Host-function batching.** Batch config functions now; defer entity/schema batching until query-engine consolidation is decided.
