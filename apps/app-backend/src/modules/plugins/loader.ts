@@ -1,6 +1,6 @@
 import { pluginConfigEnvironmentKey } from "@ryot/config";
 import type { PluginBindings, PluginManifest } from "@ryot/plugin-kit/manifest";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import {
 	buildDefinitionSnapshot,
@@ -146,7 +146,9 @@ const assertUniqueManifestEntrySlugs = (
 	}
 };
 
-export const makePluginLoader = (registry: Pick<DefinitionRegistry, "getSnapshot" | "replace">) => {
+export const makePluginLoader = (
+	registry: Pick<DefinitionRegistry["Service"], "getSnapshot" | "replace">,
+) => {
 	const base = definitionSourceFromSnapshot(registry.getSnapshot());
 	let snapshot: PluginRegistrySnapshot = {
 		plugins: {},
@@ -194,12 +196,14 @@ export const makePluginLoader = (registry: Pick<DefinitionRegistry, "getSnapshot
 	return { load, replace, preview, rebuild, previewAll, getSnapshot: () => snapshot };
 };
 
-export class PluginLoader extends Effect.Service<PluginLoader>()("PluginLoader", {
-	effect: Effect.gen(function* () {
+export class PluginLoader extends Context.Service<PluginLoader>()("PluginLoader", {
+	make: Effect.gen(function* () {
 		return makePluginLoader(yield* DefinitionRegistry);
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
-export const PluginLoaderLive = PluginLoader.Default.pipe(
-	Layer.provideMerge(DefinitionRegistry.Default),
+export const PluginLoaderLive = PluginLoader.layer.pipe(
+	Layer.provideMerge(DefinitionRegistry.layer),
 );

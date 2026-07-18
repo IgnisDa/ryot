@@ -3,7 +3,7 @@ import {
 	type PluginManifest as PluginManifestValue,
 	type PluginScript,
 } from "@ryot/plugin-kit/manifest";
-import { Cron, Data, Effect, Either, Schema } from "effect";
+import { Cron, Data, Effect, Result, Schema } from "effect";
 
 import {
 	formatPropertyIssues,
@@ -26,7 +26,7 @@ const assertReference = (kind: string, slug: string, available: ReadonlySet<stri
 		: Effect.fail(fail(`${kind} references missing definition: ${slug}`));
 
 export const decodePluginManifest = (input: unknown) =>
-	Schema.decodeUnknown(PluginManifest)(input).pipe(
+	Schema.decodeUnknownEffect(PluginManifest)(input).pipe(
 		Effect.mapError((error) => new PluginValidationError({ issues: [String(error)] })),
 	);
 
@@ -137,7 +137,7 @@ export const validatePluginManifestReferences = (
 						cron.workflowSlug,
 						new Set(manifest.workflows.map(({ slug }) => slug)),
 					);
-			if ("cron" in cron.schedule && Either.isLeft(Cron.parse(cron.schedule.cron))) {
+			if ("cron" in cron.schedule && Result.isFailure(Cron.parse(cron.schedule.cron))) {
 				return yield* fail(`Cron ${cron.slug} has invalid schedule: ${cron.schedule.cron}`);
 			}
 		}
