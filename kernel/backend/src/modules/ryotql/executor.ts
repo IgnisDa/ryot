@@ -712,7 +712,7 @@ const decodeCursor = Effect.fn("decodeRyotQLCursor")(function* (
 	if (bytes.toString("base64url") !== cursor) {
 		return yield* cursorError();
 	}
-	const decoded = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+	const decoded = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
 		bytes.toString("utf8"),
 	).pipe(Effect.mapError(cursorError));
 	if (

@@ -73,15 +73,12 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
 
 		const requireOperation = (operationId: string) =>
-			repository
-				.getInternalById(operationId)
-				.pipe(
-					Effect.flatMap((operation) =>
-						operation
-							? Effect.succeed(operation)
-							: internalError("User lifecycle operation was not found"),
-					),
-				);
+			repository.getInternalById(operationId).pipe(
+				Effect.filterOrElse(
+					(operation): operation is NonNullable<typeof operation> => operation !== null,
+					() => internalError("User lifecycle operation was not found"),
+				),
+			);
 
 		const begin = (operationId: string) =>
 			asInternal(

@@ -38,7 +38,7 @@ const resolvePackageManifest = (packageName: string, resolveFrom: string) =>
 					message: `Could not resolve ${packageName} package manifest: ${String(cause)}`,
 				}),
 		});
-		const manifest = yield* Schema.decodeUnknownEffect(PackageManifest)(
+		const manifest = yield* Schema.decodeEffect(PackageManifest)(
 			yield* fs.readFileString(manifestPath),
 		).pipe(
 			Effect.mapError(

@@ -140,7 +140,7 @@ const archiveBytes = Effect.fn(function* (
 const asChunks = (value: Uint8Array) => Stream.toAsyncIterable(Stream.make(value));
 
 const decodeManifest = (value: Uint8Array) =>
-	Schema.decodeUnknownSync(Schema.fromJsonString(ArchiveManifest))(new TextDecoder().decode(value));
+	Schema.decodeSync(Schema.fromJsonString(ArchiveManifest))(new TextDecoder().decode(value));
 
 const encodeManifest = (manifest: ArchiveManifest) =>
 	encoder.encode(`${stableStringify(Schema.encodeUnknownSync(ArchiveManifest)(manifest))}\n`);
@@ -298,7 +298,7 @@ it.effect("validates the V1 golden fixture", () =>
 it.effect("rejects a non-V1 manifest", () =>
 	Effect.gen(function* () {
 		const files = unzipSync(yield* archiveBytes());
-		const manifest = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ArchiveManifest))(
+		const manifest = yield* Schema.decodeEffect(Schema.fromJsonString(ArchiveManifest))(
 			new TextDecoder().decode(files["manifest.json"]),
 		);
 		files["manifest.json"] = new TextEncoder().encode(stableStringify({ ...manifest, version: 2 }));

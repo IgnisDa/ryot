@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
@@ -19,7 +19,7 @@ it.effect("dispatches the sync workflow with a tick-derived execution id", () =>
 
 	return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
 		Effect.provideService(WorkflowEngine, engine),
-		Effect.provide(Layer.succeed(WorkflowInstance, instance)),
+		Effect.provideService(WorkflowInstance, instance),
 		Effect.map(() => {
 			expect(captured).toMatchObject([
 				{
@@ -38,7 +38,7 @@ it.effect("swallows an enqueue failure so the cron tick keeps running", () => {
 
 	return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
 		Effect.provideService(WorkflowEngine, engine),
-		Effect.provide(Layer.succeed(WorkflowInstance, instance)),
+		Effect.provideService(WorkflowInstance, instance),
 		Effect.exit,
 		Effect.map((exit) => {
 			expect(exit._tag).toBe("Success");

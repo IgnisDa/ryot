@@ -128,7 +128,7 @@ const program = Effect.gen(function* () {
 			message: `Deno runtime smoke exited with code ${exitCode}: ${stderr || stdout}`,
 		});
 	}
-	return yield* Schema.decodeUnknownEffect(SmokeResponse)(stdout.trim()).pipe(
+	return yield* Schema.decodeEffect(SmokeResponse)(stdout.trim()).pipe(
 		Effect.mapError(
 			(error) =>
 				new SandboxRuntimeSmokeError({

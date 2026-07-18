@@ -81,7 +81,7 @@ const bindHostFunction =
 		failure: (error: SandboxHostError) => unknown = (error) => hostFailure(error.message),
 	): BoundHostFunction =>
 	(args) =>
-		Schema.decodeUnknownEffect(contract.args)(normalize(args)).pipe(
+		Schema.decodeEffect(contract.args)(normalize(args)).pipe(
 			Effect.matchEffect({
 				onFailure: (error) => Effect.succeed(invalid(error)),
 				onSuccess: (parsed) =>

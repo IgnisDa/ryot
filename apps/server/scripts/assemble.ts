@@ -13,7 +13,7 @@ const packageRoot = (slug: string) =>
 export const readShippedSlugs = Effect.gen(function* () {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	return yield* Schema.decodeUnknownEffect(ShippedPlugins)(
+	return yield* Schema.decodeEffect(ShippedPlugins)(
 		yield* fs.readFileString(path.join(serverRoot, "shipped-plugins.json")),
 	);
 });

@@ -38,9 +38,9 @@ const decodeCachedSources = (value: string | null) => {
 	if (value === null) {
 		return null;
 	}
-	const decoded = Schema.decodeUnknownResult(
-		Schema.fromJsonString(providerSearchOptionsResultSchema),
-	)(value);
+	const decoded = Schema.decodeResult(Schema.fromJsonString(providerSearchOptionsResultSchema))(
+		value,
+	);
 	return Result.isSuccess(decoded) ? decoded.success.sources : null;
 };
 

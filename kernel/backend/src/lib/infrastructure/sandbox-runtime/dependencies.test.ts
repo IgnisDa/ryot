@@ -43,7 +43,7 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 			expect((yield* fs.readDirectory(runtime.directory)).sort()).toEqual(
 				[...sandboxRuntimePayload.files.map(({ path }) => path), "modules"].sort(),
 			);
-			const parsedImportMap = yield* Schema.decodeUnknownEffect(
+			const parsedImportMap = yield* Schema.decodeEffect(
 				Schema.fromJsonString(
 					Schema.Struct({ imports: Schema.Record(Schema.String, Schema.String) }),
 				),

@@ -209,22 +209,20 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 						}),
 					adminHeaders(),
 				);
-				return yield* Effect.all(
-					relationships.map((relationship) =>
-						Effect.gen(function* () {
-							const entity = yield* getEntity(queryClient, relationship.sourceEntityId);
-							const properties = requireObjectRecord(
-								relationship.properties,
-								"Trending relationship properties",
-							);
-							return {
-								rank: properties["rank"],
-								providerId: entity.providerId,
-								external_id: entity.externalId,
-								fetched_at: properties["fetchedAt"],
-							};
-						}),
-					),
+				return yield* Effect.forEach(relationships, (relationship) =>
+					Effect.gen(function* () {
+						const entity = yield* getEntity(queryClient, relationship.sourceEntityId);
+						const properties = requireObjectRecord(
+							relationship.properties,
+							"Trending relationship properties",
+						);
+						return {
+							rank: properties["rank"],
+							providerId: entity.providerId,
+							external_id: entity.externalId,
+							fetched_at: properties["fetchedAt"],
+						};
+					}),
 				);
 			});
 

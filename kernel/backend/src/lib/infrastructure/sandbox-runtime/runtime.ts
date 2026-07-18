@@ -187,10 +187,9 @@ export const readSandboxBridgeRequestBody = (request: Request) => {
 		oversizedBridgeRequest,
 	).pipe(
 		Effect.map((body) => ({ body, oversized: false }) as const),
-		Effect.catch((error) =>
-			error === oversizedBridgeRequest
-				? Effect.succeed({ body: "", oversized: true } as const)
-				: Effect.fail(error),
+		Effect.catchIf(
+			(error) => error === oversizedBridgeRequest,
+			() => Effect.succeed({ body: "", oversized: true } as const),
 		),
 	);
 };
