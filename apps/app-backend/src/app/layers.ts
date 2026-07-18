@@ -17,6 +17,7 @@ import { makeRuntimeSandboxApiFunctions } from "#lib/infrastructure/sandbox-runt
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
+import { AuthRepository } from "#modules/auth/repository";
 import { AuthService } from "#modules/auth/service";
 import { LifecycleDispatchLive } from "#modules/automations/lifecycle-dispatch";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
@@ -27,6 +28,19 @@ import {
 	SubscriptionExecutionWorkflowDefinitionsLive,
 	SubscriptionExecutionWorkflowOperationsLive,
 } from "#modules/automations/subscription-execution-workflow-live";
+import { BackupExportSnapshot } from "#modules/backups/export/snapshot";
+import {
+	ExportBackupWorkflowDefinitionsLive,
+	ExportBackupWorkflowOperationsLive,
+} from "#modules/backups/export/workflow";
+import { BackupAccountCleanliness } from "#modules/backups/restore/account-cleanliness";
+import {
+	RestoreBackupWorkflowDefinitionsLive,
+	RestoreBackupWorkflowOperationsLive,
+} from "#modules/backups/restore/workflow";
+import { BackupRestoreWriter } from "#modules/backups/restore/writer";
+import { BackupsRepository } from "#modules/backups/runs/repository";
+import { BackupsService } from "#modules/backups/service";
 import {
 	AddEntityToCollectionWorkflowDefinitionsLive,
 	AddEntityToCollectionWorkflowOperationsLive,
@@ -113,6 +127,7 @@ import {
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
 import { OperationalGateService } from "#modules/test-support/operational-gate-service";
 import { TestSupportService } from "#modules/test-support/service";
+import { UploadsRepository } from "#modules/uploads/repository";
 import { UploadsService } from "#modules/uploads/service";
 import { AuthUserBootstrapLive } from "#modules/user-bootstrap/bootstrap";
 import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
@@ -157,7 +172,9 @@ const ContentRepositoriesLive = Layer.mergeAll(
 );
 
 const PlatformRepositoriesLive = Layer.mergeAll(
+	AuthRepository.layer,
 	AutomationsRepository.layer,
+	BackupsRepository.layer,
 	GodModeRepository.layer,
 	ImportsRepository.layer,
 	IntegrationsRepository.layer,
@@ -167,6 +184,7 @@ const PlatformRepositoriesLive = Layer.mergeAll(
 	SavedViewsRepository.layer,
 	DefinitionsRepository.layer,
 	PluginRepository.layer,
+	UploadsRepository.layer,
 );
 
 const SandboxPluginScriptResolverLive = Layer.provideMerge(
@@ -223,6 +241,18 @@ const ApplicationInfrastructureLive = CoreInfrastructureServicesLive.pipe(
 );
 
 const RyotQLServiceLive = RyotQLService.layer;
+const BackupExportSnapshotLive = BackupExportSnapshot.layer.pipe(
+	Layer.provide(UploadsService.layer),
+);
+const BackupAccountCleanlinessLive = BackupAccountCleanliness.layer.pipe(
+	Layer.provide(UploadsService.layer),
+);
+const BackupServicesLive = Layer.mergeAll(
+	BackupRestoreWriter.layer,
+	BackupExportSnapshotLive,
+	BackupAccountCleanlinessLive,
+	BackupsService.layer.pipe(Layer.provide([BackupAccountCleanlinessLive, UploadsService.layer])),
+);
 const NotificationSubscriptionsServiceLive = NotificationSubscriptionsService.layer.pipe(
 	Layer.provide(AutomationsService.layer),
 );
@@ -371,6 +401,7 @@ const ImportsServiceLive = ImportsService.layer.pipe(
 );
 
 const PlatformServicesLive = Layer.mergeAll(
+	BackupServicesLive,
 	RelationshipsService.layer,
 	UserStateServiceLive,
 	ImportsServiceLive,
@@ -423,6 +454,8 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	IntegrationReconciliationWorkflowDefinitionsLive,
 	ImportWorkflowDefinitionsLive,
 	ProcessGenericImportChunksWorkflowDefinitionsLive,
+	ExportBackupWorkflowDefinitionsLive,
+	RestoreBackupWorkflowDefinitionsLive,
 	Layer.provide(IntegrationWorkflowDefinitionsLive, IntegrationProviderCatalogLive),
 	Layer.provide(SandboxWorkflowDefinitionsLive, KernelWorkflowReferencesLive),
 	TranslateEntityWorkflowDefinitionsLive,
@@ -485,6 +518,10 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 		Layer.provide(EntityImportWorkflowOperationsLive, SandboxExecutionServiceLive),
 		Layer.provide(SubscriptionExecutionWorkflowOperationsLive, ServicesWithTestSupportLive),
 		Layer.provide(TranslateEntityWorkflowOperationsLive, SandboxExecutionServiceLive),
+		Layer.provide(
+			Layer.mergeAll(ExportBackupWorkflowOperationsLive, RestoreBackupWorkflowOperationsLive),
+			ServicesWithTestSupportLive,
+		),
 	),
 	ApplicationInfrastructureLive,
 );
