@@ -2,6 +2,7 @@ import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
+import { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	UserStateBadRequest,
@@ -19,7 +20,8 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
+import { assert } from "vitest";
 
 import { LifecyclePlanner, type LifecyclePlan } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
@@ -28,7 +30,10 @@ import { Database } from "#lib/infrastructure/db/service";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
-import { triggerFixture } from "#modules/automations/lifecycle.test-support";
+import {
+	triggerFixture,
+	withLifecycleBatchPlanning,
+} from "#modules/automations/lifecycle.test-support";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
@@ -153,6 +158,7 @@ const makeServiceLayer = (
 		relationshipsService?: ReturnType<typeof makeRelationshipsService>;
 		relationshipsRepository?: ReturnType<typeof makeRelationshipsRepository>;
 		lifecycleExecution?: Layer.Layer<LifecycleExecution>;
+		planner?: Layer.Layer<LifecyclePlanner>;
 	} = {},
 ) =>
 	UserStateService.layer.pipe(
@@ -160,7 +166,10 @@ const makeServiceLayer = (
 			Layer.mergeAll(
 				options.database ?? databaseLayer,
 				Layer.succeed(PgClient.PgClient, Object.create(null)),
-				Layer.mock(LifecyclePlanner)({ plan: () => Effect.die("unused") }),
+				options.planner ??
+					Layer.mock(LifecyclePlanner)(
+						withLifecycleBatchPlanning({ plan: () => Effect.die("unused") }),
+					),
 				options.lifecycleExecution ??
 					Layer.mock(LifecycleExecution)({
 						after: () => Effect.die("unused"),
@@ -267,20 +276,54 @@ it.effect("deletes matching events through EventsService when clearing user stat
 	}).pipe(Effect.provide(layer));
 });
 
+const snapshotFields = {
+	properties: {},
+	createdAt: "2026-01-01T00:00:00.000Z",
+	updatedAt: "2026-01-01T00:00:00.000Z",
+};
+const deletePlan = (id: string, resource: "event" | "relationship"): LifecyclePlan => ({
+	runs: [],
+	policies: [],
+	wasCreated: true,
+	trigger: Schema.decodeUnknownSync(AutomationTrigger)({
+		...triggerFixture(id),
+		kind: { resource, category: "change", operation: "delete" },
+		payload: {
+			resource,
+			category: "change",
+			operation: "delete",
+			before:
+				resource === "event"
+					? {
+							...snapshotFields,
+							id,
+							entityId: "entity-1",
+							sessionEntityId: null,
+							entitySchemaSlug: "record",
+							eventSchemaSlug: "progress",
+							occurredAt: "2026-01-01T00:00:00.000Z",
+						}
+					: {
+							...snapshotFields,
+							id,
+							sourceEntityId: "entity-1",
+							targetEntityId: "target-1",
+							relationshipSchemaSlug: "relationship-schema",
+						},
+		},
+	}),
+});
+
 it.effect(
 	"prepares all clear mutations before one persistence phase and aggregates warnings",
 	() => {
 		const calls: string[] = [];
-		const eventPlan: LifecyclePlan = {
-			runs: [],
-			policies: [],
-			wasCreated: true,
-			trigger: triggerFixture("event-trigger"),
-		};
-		const relationshipPlan: LifecyclePlan = {
-			...eventPlan,
-			trigger: triggerFixture("relationship-trigger"),
-		};
+		const batches: AutomationTrigger[] = [];
+		const eventPlans = [
+			deletePlan("event-trigger-1", "event"),
+			deletePlan("event-trigger-2", "event"),
+		];
+		const relationshipPlan = deletePlan("relationship-trigger", "relationship");
 		const eventWarning = {
 			code: "required-hook-pending" as const,
 			runId: AutomationRunId.make("event-run"),
@@ -294,8 +337,18 @@ it.effect(
 		const transactionDatabase = Object.create(null);
 		const layer = makeServiceLayer({
 			eventsRepository: makeEventsRepository({
-				listUserEventIdsForEntity: () => Effect.succeed([EventId.make("event-1")]),
+				listUserEventIdsForEntity: () =>
+					Effect.succeed([EventId.make("event-1"), EventId.make("event-2")]),
 			}),
+			planner: Layer.mock(LifecyclePlanner)(
+				withLifecycleBatchPlanning({
+					plan: ({ trigger }) =>
+						Effect.sync(() => {
+							batches.push(trigger);
+							return { trigger, runs: [], policies: [], wasCreated: true };
+						}),
+				}),
+			),
 			lifecycleExecution: Layer.mock(LifecycleExecution)({
 				dispatch: (plans) =>
 					Effect.sync(() => {
@@ -314,18 +367,6 @@ it.effect(
 					}),
 				),
 			),
-			eventsService: makeEventsService({
-				prepareDelete: () =>
-					Effect.sync(() => {
-						calls.push("prepare:event");
-						return preparedEventDelete;
-					}),
-				persistPreparedDelete: () =>
-					Effect.sync(() => {
-						calls.push("persist:event");
-						return { plans: [eventPlan], result: EventId.make("event-1") };
-					}),
-			}),
 			entitiesRepository: makeEntitiesRepository({
 				getEntityScopeForUser: () =>
 					Effect.succeed({
@@ -350,6 +391,20 @@ it.effect(
 						return { plans: [relationshipPlan], result: persistedRelationship };
 					}),
 			}),
+			eventsService: makeEventsService({
+				prepareDelete: () =>
+					Effect.sync(() => {
+						calls.push("prepare:event");
+						return preparedEventDelete;
+					}),
+				persistPreparedDelete: () =>
+					Effect.sync(() => {
+						calls.push("persist:event");
+						const plan = eventPlans[calls.filter((call) => call === "persist:event").length - 1];
+						assert(plan);
+						return { plans: [plan], result: EventId.make("event-1") };
+					}),
+			}),
 			relationshipsRepository: makeRelationshipsRepository({
 				listUserRelationshipsForEntityWithProvenance: () =>
 					Effect.succeed([
@@ -372,13 +427,23 @@ it.effect(
 			const result = yield* service.clearUserState(user, EntityId.make("entity-1"), command);
 
 			expect(result.warnings).toEqual([eventWarning, relationshipWarning]);
+			expect(
+				batches.map(({ payload }) =>
+					payload?.operation === "batch" ? [payload.resource, payload.items.length] : null,
+				),
+			).toEqual([
+				["event", 2],
+				["relationship", 1],
+			]);
 			expect(calls).toEqual([
+				"prepare:event",
 				"prepare:event",
 				"prepare:relationship",
 				"transaction",
 				"persist:event",
+				"persist:event",
 				"persist:relationship",
-				"dispatch:event-trigger,relationship-trigger",
+				`dispatch:${["event-trigger-1", "event-trigger-2", "relationship-trigger", ...batches.map(({ id }) => id)].join(",")}`,
 			]);
 		}).pipe(Effect.provide(layer));
 	},

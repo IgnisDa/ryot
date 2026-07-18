@@ -20,15 +20,17 @@ export default defineAutomation({
 	run: ({ automation }, host) => {
 		return Effect.suspend(() => {
 			const source = automation.payload;
-			if (source.resource !== "relationship") {
+			if (source.resource !== "relationship" || source.operation !== "batch") {
 				return Effect.succeed(null);
 			}
-			const population = source.population;
+			// The leader carries the group's counts, and only one chunk of a split batch holds it.
+			const leader = source.items.find((item) => item.population?.batch?.isLeader === true);
+			const population = leader?.population;
 			const batch = population?.batch;
-			const snapshot = source.operation === "delete" ? source.before : source.after;
-			if (!population?.rootPreviouslyPopulated || !batch?.isLeader) {
+			if (!leader || !population?.rootPreviouslyPopulated || !batch) {
 				return Effect.succeed(null);
 			}
+			const snapshot = leader.operation === "delete" ? leader.before : leader.after;
 			const season = getSeasonContext(population.parentEntity);
 
 			const properties: Record<string, JsonValue> = {

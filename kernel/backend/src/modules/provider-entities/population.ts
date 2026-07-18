@@ -12,11 +12,7 @@ import type { ProviderDetailsChildEntity } from "@ryot-app/sandbox-sdk/provider"
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 
-import {
-	LifecycleDispatchPlan,
-	type LifecyclePlan,
-	toLifecycleDispatchPlan,
-} from "#lib/domain/lifecycle";
+import { LifecycleDispatchPlan, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import type { DefinitionSnapshot } from "#modules/definition-registry/service";
@@ -146,36 +142,48 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 		mapDatabaseErrors(
 			database.transaction((transaction) =>
 				Effect.gen(function* () {
-					const entityPlans: LifecyclePlan[] = [];
+					if (orderedChildEntities.length > 0 && !childEntitySchemaSlug) {
+						return yield* Effect.die("Validated child schema is missing");
+					}
+					const childEntities = childEntitySchemaSlug
+						? orderedChildEntities.map(({ childEntity }) => ({
+								...scope,
+								name: childEntity.name,
+								providerId: input.providerId,
+								externalId: childEntity.externalId,
+								properties: childEntity.properties,
+								updateExisting: input.syncExisting ?? false,
+								entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
+								populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(input.command.occurredAt)),
+								lifecycle: commandFor(
+									input.command,
+									["child", String(input.parentEntityId), childEntity.externalId],
+									input.population,
+								),
+							}))
+						: [];
+					const upserts = yield* entities.persistPlannedProviderUpserts({
+						items: childEntities,
+						batch: {
+							command: { ...input.command, population: input.population },
+							identity: ["children", String(input.parentEntityId), "entities"],
+						},
+					});
 					const processedChildrenByIndex: Array<ProcessedChildEntity | undefined> = Array.from({
 						length: input.childEntities.length,
 					});
-					for (const { index, childEntity } of orderedChildEntities) {
-						if (!childEntitySchemaSlug) {
-							return yield* Effect.die("Validated child schema is missing");
+					for (const [position, { index }] of orderedChildEntities.entries()) {
+						const result = upserts.results[position];
+						if (!result || !childEntitySchemaSlug) {
+							return yield* Effect.die("Planned child entity upsert is missing its result");
 						}
-						const work = yield* entities.persistPlannedProviderUpsert({
-							...scope,
-							name: childEntity.name,
-							providerId: input.providerId,
-							externalId: childEntity.externalId,
-							properties: childEntity.properties,
-							updateExisting: input.syncExisting ?? false,
-							entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
-							populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(input.command.occurredAt)),
-							lifecycle: commandFor(
-								input.command,
-								["child", String(input.parentEntityId), childEntity.externalId],
-								input.population,
-							),
-						});
-						entityPlans.push(...work.plans);
 						processedChildrenByIndex[index] = {
-							entity: work.result.entity,
-							entityOutcome: work.result.outcome,
+							entity: result.entity,
+							entityOutcome: result.outcome,
 							entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
 						};
 					}
+					const entityPlans = upserts.plans;
 					const processedChildren = processedChildrenByIndex.flatMap((child) =>
 						child ? [child] : [],
 					);

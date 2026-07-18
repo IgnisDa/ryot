@@ -34,10 +34,12 @@ import { AutomationTriggerRepository } from "./trigger-repository";
 
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
-const plannerLayer = (maxRuns = 100) =>
+const plannerLayer = (maxRuns = 100, batchMaxItems = 200) =>
 	LifecyclePlannerLive.pipe(
 		Layer.provide(
-			makeAppConfigLayer({ automations: { maxRuns, maxDepth: 2, retryWindowDays: 7 } }),
+			makeAppConfigLayer({
+				automations: { maxRuns, maxDepth: 2, batchMaxItems, retryWindowDays: 7 },
+			}),
 		),
 	);
 const asDescendant = <T extends ReturnType<typeof entityTrigger>>(trigger: T) => ({
@@ -82,6 +84,30 @@ const entityTrigger = (
 		},
 	});
 };
+
+const entityChange = (id: string, entitySchemaSlug = "fixture-entity") => ({
+	category: "change" as const,
+	resource: "entity" as const,
+	operation: "create" as const,
+	after: {
+		id,
+		name: "Entity",
+		properties: {},
+		entitySchemaSlug,
+		externalId: null,
+		providerId: null,
+		populatedAt: null,
+		createdAt: "2026-09-15T00:00:00.000Z",
+		updatedAt: "2026-09-15T00:00:00.000Z",
+	},
+});
+const entityBatchTrigger = (id: string, items: ReadonlyArray<ReturnType<typeof entityChange>>) =>
+	Schema.decodeSync(AutomationTrigger)({
+		...triggerFixture(id),
+		scopeUserId: owner,
+		kind: { category: "change", operation: "batch", resource: "entity" },
+		payload: { items, category: "change", operation: "batch", resource: "entity" },
+	});
 
 type HookDeclaration = PluginManifest["hooks"][number];
 
@@ -143,6 +169,22 @@ const hookPackage = (version = "v1") => {
 					causationSources: ["api" as const],
 				},
 			],
+		},
+	};
+};
+
+const afterHookPackage = (
+	version: string,
+	addition: { frequency?: "item" | "batch"; executionScope?: "user" | "global" },
+) => {
+	const value = hookPackage(version);
+	return {
+		...value,
+		manifest: {
+			...value.manifest,
+			hooks: value.manifest.hooks.map((hook) =>
+				hook.slug === "fixture.changed" ? Object.assign(hook, addition) : hook,
+			),
 		},
 	};
 };
@@ -940,5 +982,87 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					expect(user?.name).toBe("Owner");
 				}).pipe(Effect.provide(Layer.merge(plannerLayer(2), AutomationTriggerRepository.layer))),
 			),
+	);
+	it.effect("plans an after hook only for the execution scope it declares", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const planner = yield* LifecyclePlanner;
+				const globalTrigger = (id: string) => ({ ...entityTrigger(id), scopeUserId: null });
+				yield* installRevisionPackage(afterHookPackage("v1", { executionScope: "user" }));
+				expect((yield* planner.plan({ trigger: entityTrigger("user-a") })).runs).toHaveLength(1);
+				expect((yield* planner.plan({ trigger: globalTrigger("global-a") })).runs).toEqual([]);
+				yield* installRevisionPackage(afterHookPackage("v2", { executionScope: "global" }));
+				expect((yield* planner.plan({ trigger: entityTrigger("user-b") })).runs).toEqual([]);
+				expect((yield* planner.plan({ trigger: globalTrigger("global-b") })).runs).toHaveLength(1);
+			}).pipe(Effect.provide(plannerLayer())),
+		),
+	);
+
+	it.effect("matches item hooks to item triggers and batch hooks to batch triggers", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const planner = yield* LifecyclePlanner;
+				const items = [entityChange("entity-1"), entityChange("entity-2")];
+				yield* installRevisionPackage(hookPackage());
+				expect((yield* planner.plan({ trigger: entityTrigger("item") })).runs).toHaveLength(1);
+				expect((yield* planner.plan({ trigger: entityBatchTrigger("batch", items) })).runs).toEqual(
+					[],
+				);
+				yield* installRevisionPackage(afterHookPackage("v2", { frequency: "batch" }));
+				expect((yield* planner.plan({ trigger: entityTrigger("item-2") })).runs).toEqual([]);
+				expect(
+					(yield* planner.plan({ trigger: entityBatchTrigger("batch-2", items) })).runs,
+				).toHaveLength(1);
+				expect(
+					(yield* planner.plan({
+						trigger: entityBatchTrigger("batch-partial", [
+							entityChange("other", "absent-entity"),
+							entityChange("entity-3"),
+						]),
+					})).runs,
+				).toHaveLength(1);
+				expect(
+					(yield* planner.plan({
+						trigger: entityBatchTrigger("batch-none", [entityChange("other", "absent-entity")]),
+					})).runs,
+				).toEqual([]);
+			}).pipe(Effect.provide(plannerLayer())),
+		),
+	);
+
+	it.effect("chunks batch plans deterministically and reuses trigger ids on replay", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const planner = yield* LifecyclePlanner;
+				yield* installRevisionPackage(afterHookPackage("v1", { frequency: "batch" }));
+				const plans = yield* Effect.forEach(["first", "second", "third"], (id) =>
+					planner.plan({ trigger: entityTrigger(id) }),
+				);
+				const input = {
+					plans,
+					resource: "entity" as const,
+					identity: ["children", "entity"],
+					command: {
+						itemIdentity: "population",
+						occurredAt: "2026-09-15T00:00:00.000Z",
+						causation: plans[0]?.trigger.causation ?? triggerFixture("unused").causation,
+					},
+				};
+				const chunked = yield* planner.planBatch(input);
+				expect(chunked).toHaveLength(2);
+				expect(
+					chunked.map(({ trigger }) =>
+						trigger.payload?.operation === "batch" ? trigger.payload.items.length : null,
+					),
+				).toEqual([2, 1]);
+				expect(chunked.every(({ wasCreated }) => wasCreated)).toBe(true);
+				expect(chunked.flatMap(({ runs }) => runs)).toHaveLength(2);
+				const replay = yield* planner.planBatch(input);
+				expect(replay.map(({ trigger }) => trigger.id)).toEqual(
+					chunked.map(({ trigger }) => trigger.id),
+				);
+				expect(replay.every(({ wasCreated }) => wasCreated)).toBe(false);
+			}).pipe(Effect.provide(plannerLayer(100, 2))),
+		),
 	);
 });

@@ -167,6 +167,21 @@ const makeTransaction = (rollback: () => void = () => {}) => {
 type PlannedEntityWork = Effect.Success<
 	ReturnType<EntitiesService["Service"]["persistPlannedProviderUpsert"]>
 >;
+type PlannedEntityUpserts = EntitiesService["Service"]["persistPlannedProviderUpserts"];
+
+const childEntityUpserts =
+	(record: (input: Parameters<typeof childEntityWork>[0]) => void): PlannedEntityUpserts =>
+	(input) =>
+		Effect.sync(() => {
+			const works = input.items.map((item) => {
+				record(item);
+				return childEntityWork(item);
+			});
+			return {
+				results: works.map(({ result }) => result),
+				plans: [...works.flatMap(({ plans }) => plans), planFixture("entities-batch")],
+			};
+		});
 
 const childEntityWork = (
 	input: Parameters<EntitiesService["Service"]["persistPlannedProviderUpsert"]>[0],
@@ -204,12 +219,10 @@ it.effect("commits a child set atomically and returns entity then relationship p
 		Layer.succeed(DefinitionRegistry, registry),
 		Layer.mock(EntitiesRepository)({}),
 		Layer.mock(EntitiesService)({
-			persistPlannedProviderUpsert: (input) =>
-				Effect.sync(() => {
-					expect(transaction.inTransaction()).toBe(true);
-					entityWrites.push(input.externalId);
-					return childEntityWork(input);
-				}),
+			persistPlannedProviderUpserts: childEntityUpserts((item) => {
+				expect(transaction.inTransaction()).toBe(true);
+				entityWrites.push(item.externalId);
+			}),
 		}),
 		Layer.mock(RelationshipsRepository)({
 			listRelationshipsForReconciliation: () => Effect.succeed([]),
@@ -250,6 +263,7 @@ it.effect("commits a child set atomically and returns entity then relationship p
 		expect(result.dispatch.map(({ triggerId }) => triggerId)).toEqual([
 			"entity-a",
 			"entity-b",
+			"entities-batch",
 			"relationships",
 		]);
 		expect(reconciliations[0]).toMatchObject({
@@ -280,11 +294,9 @@ it.effect("rolls back every child entity when relationship planning fails", () =
 		Layer.succeed(DefinitionRegistry, registry),
 		Layer.mock(EntitiesRepository)({}),
 		Layer.mock(EntitiesService)({
-			persistPlannedProviderUpsert: (input) =>
-				Effect.sync(() => {
-					persisted.push(input.externalId);
-					return childEntityWork(input);
-				}),
+			persistPlannedProviderUpserts: childEntityUpserts((item) => {
+				persisted.push(item.externalId);
+			}),
 		}),
 		Layer.mock(RelationshipsRepository)({
 			listRelationshipsForReconciliation: () => Effect.succeed([]),
@@ -348,15 +360,13 @@ it.effect("keeps private related entities and reconciliation in one user transac
 		}),
 		Layer.mock(EntitiesRepository)({}),
 		Layer.mock(EntitiesService)({
-			persistPlannedProviderUpsert: (input) =>
-				Effect.sync(() => {
-					expect(transaction.inTransaction()).toBe(true);
-					entityScopes.push({
-						scope: input.scope,
-						userId: input.scope === "user" ? input.userId : null,
-					});
-					return childEntityWork(input);
-				}),
+			persistPlannedProviderUpserts: childEntityUpserts((item) => {
+				expect(transaction.inTransaction()).toBe(true);
+				entityScopes.push({
+					scope: item.scope,
+					userId: item.scope === "user" ? item.userId : null,
+				});
+			}),
 		}),
 		Layer.mock(RelationshipsRepository)({
 			listRelationshipsForReconciliation: () => Effect.succeed([]),
@@ -422,12 +432,10 @@ it.effect("rolls back a complete related group when reconciliation fails", () =>
 				}),
 		}),
 		Layer.mock(EntitiesService)({
-			persistPlannedProviderUpsert: (input) =>
-				Effect.sync(() => {
-					expect(transaction.inTransaction()).toBe(true);
-					persisted.push(input.externalId);
-					return childEntityWork(input);
-				}),
+			persistPlannedProviderUpserts: childEntityUpserts((item) => {
+				expect(transaction.inTransaction()).toBe(true);
+				persisted.push(item.externalId);
+			}),
 		}),
 		Layer.mock(RelationshipsRepository)({}),
 		Layer.mock(RelationshipsService)({

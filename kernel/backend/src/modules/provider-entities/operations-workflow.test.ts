@@ -27,7 +27,10 @@ import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecyc
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database } from "#lib/infrastructure/db/service";
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
-import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
+import {
+	withLifecycleBatchPlanning,
+	withLifecycleDispatch,
+} from "#modules/automations/lifecycle.test-support";
 
 import { EntityImportWorkflow } from "./entity-import-workflow";
 import { completeProviderEntityImport } from "./operations-workflow";
@@ -129,15 +132,17 @@ it.effect("plans provider completion in a short transaction and invokes common e
 				})) satisfies Database["Service"]["transaction"],
 		}),
 	);
-	const planner = LifecyclePlanner.of({
-		plan: ({ trigger }) =>
-			Effect.gen(function* () {
-				expect(inTransaction).toBe(true);
-				expect(yield* Database).toBe(transaction);
-				planned.push(trigger);
-				return { trigger, policies: [], wasCreated: true, runs: [makeRun(trigger)] };
-			}),
-	});
+	const planner = LifecyclePlanner.of(
+		withLifecycleBatchPlanning({
+			plan: ({ trigger }) =>
+				Effect.gen(function* () {
+					expect(inTransaction).toBe(true);
+					expect(yield* Database).toBe(transaction);
+					planned.push(trigger);
+					return { trigger, policies: [], wasCreated: true, runs: [makeRun(trigger)] };
+				}),
+		}),
+	);
 	const execution = withLifecycleDispatch({
 		executePolicy: () => Effect.die("provider completion cannot execute before policies"),
 		skipQueuedPolicies: () => Effect.die("provider completion cannot stop a policy chain"),

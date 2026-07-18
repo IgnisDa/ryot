@@ -232,6 +232,84 @@ describe("lifecycle hook declarations", () => {
 		}
 	});
 
+	it("restricts batch frequency and execution scope to after hooks with mutation targets", () => {
+		const after = {
+			...manifest,
+			scripts: [{ ...script, automationType: "automation" }],
+			hooks: [{ ...hook, stage: "after", delivery: "async" }],
+		};
+		for (const addition of [
+			{ frequency: "item" },
+			{ frequency: "batch" },
+			{ executionScope: "user" },
+			{ executionScope: "global" },
+		]) {
+			expect(
+				Schema.decodeUnknownSync(PluginManifest)({
+					...after,
+					hooks: [{ ...after.hooks[0], ...addition }],
+				}).hooks,
+			).toHaveLength(1);
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({
+					...manifest,
+					hooks: [{ ...hook, ...addition }],
+				}),
+			).toThrow();
+		}
+		const nonBatchable = [
+			{
+				...after,
+				scripts: [{ ...script, automationType: "automation", capabilities: ["sendNotification"] }],
+				hooks: [
+					{
+						...after.hooks[0],
+						targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "changed" }],
+					},
+				],
+				signalSchemas: [
+					{
+						slug: "changed",
+						name: "Changed",
+						catalogState: "active",
+						propertiesSchema: { fields: {} },
+						audiencePolicy: { kind: "actor" },
+						notificationHookSlug: "item.policy",
+					},
+				],
+			},
+			{
+				...after,
+				hooks: [
+					{
+						...after.hooks[0],
+						targets: [
+							{
+								operation: "complete",
+								entitySchemaSlug: "item",
+								resource: "provider-entity-import",
+							},
+						],
+					},
+				],
+			},
+		];
+		for (const candidate of nonBatchable) {
+			expect(
+				Schema.decodeUnknownSync(PluginManifest)({
+					...candidate,
+					hooks: [{ ...candidate.hooks[0], executionScope: "user" }],
+				}).hooks,
+			).toHaveLength(1);
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({
+					...candidate,
+					hooks: [{ ...candidate.hooks[0], frequency: "batch" }],
+				}),
+			).toThrow();
+		}
+	});
+
 	it("requires external idempotency opt-in for automatic HTTP and notification retries", () => {
 		for (const capability of ["httpCall", "sendNotification"]) {
 			const after = {

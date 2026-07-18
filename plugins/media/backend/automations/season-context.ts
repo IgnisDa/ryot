@@ -1,7 +1,10 @@
 import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 
 type Population = NonNullable<
-	Extract<AutomationInput["automation"]["payload"], { resource: "entity" }>["population"]
+	Extract<
+		AutomationInput["automation"]["payload"],
+		{ resource: "entity"; operation: "create" | "update" | "delete" }
+	>["population"]
 >;
 
 export const getSeasonContext = (parentEntity: Population["parentEntity"]) => {

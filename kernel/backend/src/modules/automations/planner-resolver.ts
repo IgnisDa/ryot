@@ -19,7 +19,11 @@ import { activePluginFields } from "#modules/plugins/persisted-projections";
 import { PluginRepository } from "#modules/plugins/repository";
 import type { AvailablePlugin } from "#modules/plugins/runtime-resolver";
 
-const targetSnapshot = (payload: NonNullable<AutomationTrigger["payload"]>) => {
+type LifecyclePayload = NonNullable<AutomationTrigger["payload"]>;
+type BatchPayload = Extract<LifecyclePayload, { operation: "batch" }>;
+type ItemPayload = Exclude<LifecyclePayload, BatchPayload>;
+
+const targetSnapshot = (payload: ItemPayload) => {
 	if (payload.category === "request") {
 		return payload.draft;
 	}
@@ -29,9 +33,8 @@ const targetSnapshot = (payload: NonNullable<AutomationTrigger["payload"]>) => {
 	return payload.operation === "delete" ? payload.before : payload.after;
 };
 
-const matchesTarget = (target: PluginHookTarget, trigger: AutomationTrigger): boolean => {
-	const payload = trigger.payload;
-	if (!payload || target.resource !== payload.resource || target.operation !== payload.operation) {
+const matchesItem = (target: PluginHookTarget, payload: ItemPayload): boolean => {
+	if (target.resource !== payload.resource || target.operation !== payload.operation) {
 		return false;
 	}
 	const snapshot = targetSnapshot(payload);
@@ -59,6 +62,16 @@ const matchesTarget = (target: PluginHookTarget, trigger: AutomationTrigger): bo
 		default:
 			return false;
 	}
+};
+
+const matchesTarget = (target: PluginHookTarget, trigger: AutomationTrigger): boolean => {
+	const payload = trigger.payload;
+	if (!payload) {
+		return false;
+	}
+	return payload.operation === "batch"
+		? payload.items.some((item) => matchesItem(target, item))
+		: matchesItem(target, payload);
 };
 
 export class AutomationPlannerResolver extends Context.Service<AutomationPlannerResolver>()(
@@ -281,14 +294,24 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				if (signal && !kernelSignal && !signalDefinition) {
 					return result;
 				}
+				const isBatch = trigger.kind.operation === "batch";
 				for (const plugin of available) {
 					for (const hook of plugin.manifest.hooks) {
 						if (
 							hook.stage !== (trigger.kind.category === "request" ? "before" : "after") ||
-							(hook.causationSources &&
-								!hook.causationSources.includes(trigger.causation.source)) ||
-							!hook.targets.some((target) => matchesTarget(target, trigger))
+							(hook.causationSources && !hook.causationSources.includes(trigger.causation.source))
 						) {
+							continue;
+						}
+						if (
+							hook.stage === "after" &&
+							(((hook.frequency ?? "item") === "batch") !== isBatch ||
+								(hook.executionScope === "user" && executionUserId === null) ||
+								(hook.executionScope === "global" && executionUserId !== null))
+						) {
+							continue;
+						}
+						if (!hook.targets.some((target) => matchesTarget(target, trigger))) {
 							continue;
 						}
 						const notification =

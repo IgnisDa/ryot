@@ -299,7 +299,12 @@ script upserts `in-library` with `changeUserRelationships`, which emits a child 
 only when the upsert changes state. `media.record-library-membership-event` is a required after hook
 on new `in-library` relationships; it records `add-to-library` at the relationship creation time for
 each media library member. Repeated idempotent upserts and existing memberships do not create another
-event.
+event. Both declare `executionScope: "user"`, so global population plans no run for them at all.
+
+`media.association` and `media.relationship-sync` declare `frequency: "batch"`. Each run receives one
+write's relationship changes in `payload.items` and filters them itself: association reads every
+credited entity in the batch with one query, and relationship sync acts on the item the kernel marked
+as the population batch leader.
 
 `media.entity-updated` is an async after hook on entity updates. It reads the immutable population
 context from `payload.population` — `rootPreviouslyPopulated`, `scopeEntity`, and `parentEntity` —
