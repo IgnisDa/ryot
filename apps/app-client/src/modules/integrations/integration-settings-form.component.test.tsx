@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
+import type { ListedIntegrationProvider } from "@ryot/contract/modules/integrations/schemas";
 import { render, screen, userEvent } from "@testing-library/react-native";
 import { useEffect } from "react";
 import { Pressable, Text } from "react-native";
@@ -7,7 +8,7 @@ import type { SchemaFileUpload } from "@/modules/ui/schema-form/file/file-upload
 import { useSchemaForm } from "@/modules/ui/schema-form/schema-form";
 import type { SchemaFormMode, SchemaFormValues } from "@/modules/ui/schema-form/schema-form-state";
 
-import { makeListedIntegration, yankProvider } from "./integration-fixture";
+import { makeListedIntegration, sinkProvider, yankProvider } from "./integration-fixture";
 import { initialIntegrationFormValues, storedIntegrationFormValues } from "./integration-payload";
 import { IntegrationSettingsForm } from "./integration-settings-form";
 
@@ -17,12 +18,13 @@ const uploadNothing: SchemaFileUpload = () =>
 function SettingsHarness(props: {
 	readonly mode: SchemaFormMode;
 	readonly values: SchemaFormValues;
+	readonly provider: ListedIntegrationProvider;
 	readonly onSubmit: (values: SchemaFormValues) => void;
 }) {
 	const form = useSchemaForm({
 		mode: props.mode,
 		onSubmit: props.onSubmit,
-		schemas: [yankProvider.commonSchema, yankProvider.settingsSchema],
+		schemas: [props.provider.commonSchema, props.provider.settingsSchema],
 	});
 	useEffect(() => form.reset(props.values), [form, props.values]);
 	return (
@@ -30,7 +32,7 @@ function SettingsHarness(props: {
 			<IntegrationSettingsForm
 				form={form}
 				mode={props.mode}
-				provider={yankProvider}
+				provider={props.provider}
 				uploadFile={uploadNothing}
 			/>
 			<Pressable accessibilityRole="button" onPress={() => void form.handleSubmit()}>
@@ -44,7 +46,9 @@ const renderForm = (
 	mode: SchemaFormMode,
 	values: SchemaFormValues,
 	onSubmit: (values: SchemaFormValues) => void = () => undefined,
-) => render(<SettingsHarness mode={mode} values={values} onSubmit={onSubmit} />);
+	provider: ListedIntegrationProvider = yankProvider,
+) =>
+	render(<SettingsHarness mode={mode} values={values} provider={provider} onSubmit={onSubmit} />);
 
 describe("integration settings form", () => {
 	it("renders provider settings and sync settings from the server schemas", async () => {
@@ -92,6 +96,19 @@ describe("integration settings form", () => {
 		await user.press(screen.getByRole("button", { name: "Save" }));
 
 		expect(submitted).toHaveLength(1);
+	});
+
+	it("drops the provider section for a service that needs no settings", async () => {
+		await renderForm(
+			"create",
+			initialIntegrationFormValues(sinkProvider),
+			() => undefined,
+			sinkProvider,
+		);
+
+		expect(screen.queryByText("Kodi")).not.toBeOnTheScreen();
+		expect(screen.getByText("How Ryot syncs it")).toBeOnTheScreen();
+		expect(screen.getByLabelText("Minimum progress")).toBeOnTheScreen();
 	});
 
 	it("blocks a create with a missing required secret", async () => {
