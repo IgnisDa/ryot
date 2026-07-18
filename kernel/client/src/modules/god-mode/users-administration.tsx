@@ -1,19 +1,16 @@
-import { Button } from "@ryot-app/client-ui-sdk";
+import { Button, Menu, type MenuItem, Modal } from "@ryot-app/client-ui-sdk";
 import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
 import clsx from "clsx";
 import { Cause, Effect, Exit } from "effect";
 import {
-	type KeyboardEvent,
 	type RefObject,
 	type SyntheticEvent,
 	useEffect,
 	useEffectEvent,
 	useId,
-	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
-import { createPortal } from "react-dom";
 
 import { isUnauthorizedCause } from "#/modules/god-mode/errors";
 import type { ResetLinkTransfer } from "#/modules/god-mode/reset-link-transfer";
@@ -30,12 +27,7 @@ import type {
 import { AppIcon } from "#/modules/navigation/app-icon";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 
-const MENU_GAP = 4;
 const PAGE_SIZE = 50;
-const MENU_WIDTH = 224;
-const VIEWPORT_PADDING = 8;
-const focusable =
-	'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 type OperationResult<A> = Promise<Exit.Exit<A, unknown>>;
 type Page =
@@ -43,14 +35,6 @@ type Page =
 	| { readonly offset: number; readonly state: "loaded"; readonly value: GodModeUsers };
 
 type UserAction = "password" | "disabled" | "reset" | "delete";
-
-type UserActionItem = {
-	readonly label: string;
-	readonly key: UserAction;
-	readonly disabled: boolean;
-	readonly onSelect: () => void;
-	readonly destructive: boolean;
-};
 
 function UserPageStatus(props: {
 	readonly page: Extract<Page, { readonly state: "loading" | "error" }>;
@@ -70,14 +54,6 @@ function UserPageStatus(props: {
 		</div>
 	);
 }
-
-const getEnabledIndices = (items: ReadonlyArray<UserActionItem>) =>
-	items.reduce<Array<number>>((indices, item, index) => {
-		if (!item.disabled) {
-			indices.push(index);
-		}
-		return indices;
-	}, []);
 
 export type GodModeUserOperations = {
 	readonly resetUser: (userId: string) => OperationResult<GodModeUserResetResult>;
@@ -444,7 +420,7 @@ function UserRow(props: {
 		}
 		queueMicrotask(() => void (kind === "password" ? resetPassword() : toggleDisabled()));
 	};
-	const actionItems: ReadonlyArray<UserActionItem> = [
+	const actionItems: ReadonlyArray<MenuItem> = [
 		{
 			key: "password",
 			destructive: false,
@@ -573,24 +549,22 @@ function UserRow(props: {
 					</td>
 				</tr>
 			)}
-			{confirmation &&
-				createPortal(
-					<ConfirmationDialog
-						error={error}
-						kind={confirmation}
-						triggerRef={triggerRef}
-						onConfirm={() => void confirm()}
-						pending={pending === confirmation}
-						backInterceptors={props.backInterceptors}
-						onClose={() => {
-							if (pending === null) {
-								setError(undefined);
-								setConfirmation(null);
-							}
-						}}
-					/>,
-					document.body,
-				)}
+			{confirmation && (
+				<ConfirmationDialog
+					error={error}
+					kind={confirmation}
+					triggerRef={triggerRef}
+					onConfirm={() => void confirm()}
+					pending={pending === confirmation}
+					backInterceptors={props.backInterceptors}
+					onClose={() => {
+						if (pending === null) {
+							setError(undefined);
+							setConfirmation(null);
+						}
+					}}
+				/>
+			)}
 		</>
 	);
 }
@@ -600,183 +574,37 @@ function UserActionsMenu(props: {
 	readonly open: boolean;
 	readonly note?: string;
 	readonly activeIndex: number;
+	readonly items: ReadonlyArray<MenuItem>;
 	readonly backInterceptors: BackInterceptors;
-	readonly items: ReadonlyArray<UserActionItem>;
 	readonly onClose: (restoreFocus: boolean) => void;
 	readonly onActiveIndexChange: (index: number) => void;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
-	const {
-		id,
-		open,
-		note,
-		items,
-		triggerRef,
-		activeIndex,
-		backInterceptors,
-		onActiveIndexChange,
-		onClose,
-	} = props;
-	const menuRef = useRef<HTMLDivElement>(null);
-	const menuItems = useRef<Array<HTMLButtonElement | null>>([]);
-	const [position, setPosition] = useState({ left: 0, top: 0 });
-	const close = useEffectEvent((restoreFocus: boolean) => onClose(restoreFocus));
-
-	useLayoutEffect(() => {
-		if (!open) {
-			return undefined;
-		}
-		const updatePosition = () => {
-			const trigger = triggerRef.current;
-			const menu = menuRef.current;
-			if (trigger === null || menu === null) {
-				return;
-			}
-			const triggerRect = trigger.getBoundingClientRect();
-			const menuRect = menu.getBoundingClientRect();
-			const viewportWidth = Math.max(window.innerWidth, document.documentElement.clientWidth);
-			const viewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
-			const menuWidth =
-				menuRect.width || Math.min(MENU_WIDTH, viewportWidth - VIEWPORT_PADDING * 2);
-			const menuHeight = menuRect.height;
-			const maxLeft = Math.max(VIEWPORT_PADDING, viewportWidth - menuWidth - VIEWPORT_PADDING);
-			const left = Math.min(Math.max(triggerRect.right - menuWidth, VIEWPORT_PADDING), maxLeft);
-			const below = triggerRect.bottom + MENU_GAP;
-			const above = triggerRect.top - menuHeight - MENU_GAP;
-			const maxTop = Math.max(VIEWPORT_PADDING, viewportHeight - menuHeight - VIEWPORT_PADDING);
-			const top =
-				above >= VIEWPORT_PADDING && below + menuHeight > viewportHeight - VIEWPORT_PADDING
-					? above
-					: Math.min(Math.max(below, VIEWPORT_PADDING), maxTop);
-			setPosition({ left, top });
-		};
-
-		updatePosition();
-		window.addEventListener("resize", updatePosition);
-		document.addEventListener("scroll", updatePosition, true);
-		return () => {
-			window.removeEventListener("resize", updatePosition);
-			document.removeEventListener("scroll", updatePosition, true);
-		};
-	}, [open, triggerRef]);
+	const { open, backInterceptors } = props;
+	const close = useEffectEvent((restoreFocus: boolean) => props.onClose(restoreFocus));
 
 	useEffect(() => {
 		if (!open) {
 			return undefined;
 		}
-		const enabledIndices = getEnabledIndices(items);
-		const index = items[activeIndex]?.disabled ? enabledIndices.at(0) : activeIndex;
-		if (index === undefined) {
-			return undefined;
-		}
-		if (index !== activeIndex) {
-			onActiveIndexChange(index);
-			return undefined;
-		}
-		menuItems.current[index]?.focus();
-		return undefined;
-	}, [activeIndex, items, onActiveIndexChange, open]);
-
-	useEffect(() => {
-		if (!open) {
-			return undefined;
-		}
-		const dismiss = (event: PointerEvent) => {
-			if (!(event.target instanceof Node)) {
-				return;
-			}
-			if (menuRef.current?.contains(event.target) || triggerRef.current?.contains(event.target)) {
-				return;
-			}
-			close(false);
-		};
-		document.addEventListener("pointerdown", dismiss);
-		const unregister = backInterceptors.register(() => {
+		return backInterceptors.register(() => {
 			close(true);
 			return true;
 		});
-		return () => {
-			document.removeEventListener("pointerdown", dismiss);
-			unregister();
-		};
-	}, [backInterceptors, open, triggerRef]);
+	}, [backInterceptors, open]);
 
-	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-		if (event.key === "Escape") {
-			event.preventDefault();
-			event.stopPropagation();
-			close(true);
-			return;
-		}
-		const enabledIndices = getEnabledIndices(items);
-		if (enabledIndices.length === 0) {
-			return;
-		}
-		let index: number | undefined;
-		if (event.key === "Home") {
-			index = enabledIndices[0];
-		} else if (event.key === "End") {
-			index = enabledIndices.at(-1);
-		} else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-			const current = Math.max(0, enabledIndices.indexOf(activeIndex));
-			const offset = event.key === "ArrowDown" ? 1 : -1;
-			index = enabledIndices[(current + offset + enabledIndices.length) % enabledIndices.length];
-		}
-		if (index !== undefined) {
-			event.preventDefault();
-			onActiveIndexChange(index);
-		}
-	};
-
-	return open
-		? createPortal(
-				<div
-					role="menu"
-					ref={menuRef}
-					id={id}
-					onKeyDown={onKeyDown}
-					aria-label="User actions"
-					style={{ left: position.left, top: position.top }}
-					className="fixed z-50 flex max-h-[calc(100vh-1rem)] w-56 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl border border-border bg-surface p-1.5 shadow-card"
-					onBlur={(event) => {
-						const relatedTarget = event.relatedTarget;
-						if (
-							!(relatedTarget instanceof Node) ||
-							(!event.currentTarget.contains(relatedTarget) &&
-								!triggerRef.current?.contains(relatedTarget))
-						) {
-							close(false);
-						}
-					}}
-				>
-					{items.map((item, index) => (
-						<button
-							type="button"
-							key={item.key}
-							role="menuitem"
-							onClick={item.onSelect}
-							disabled={item.disabled}
-							tabIndex={index === activeIndex ? 0 : -1}
-							onFocus={() => onActiveIndexChange(index)}
-							ref={(element) => {
-								menuItems.current[index] = element;
-							}}
-							className={clsx(
-								"flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold outline-none hover:bg-surface-2 focus-visible:bg-surface-2",
-								item.destructive ? "text-danger" : "text-text",
-								"disabled:cursor-not-allowed disabled:text-text-subtle",
-							)}
-						>
-							{item.label}
-						</button>
-					))}
-					{note && (
-						<p className="border-t border-border px-3 pt-2 pb-1 text-xs text-text-subtle">{note}</p>
-					)}
-				</div>,
-				document.body,
-			)
-		: null;
+	return open ? (
+		<Menu
+			id={props.id}
+			note={props.note}
+			items={props.items}
+			label="User actions"
+			onClose={props.onClose}
+			triggerRef={props.triggerRef}
+			activeIndex={props.activeIndex}
+			onActiveIndexChange={props.onActiveIndexChange}
+		/>
+	) : null;
 }
 
 function Badge(props: { readonly children: string; readonly tone?: "success" | "danger" }) {
@@ -805,7 +633,6 @@ function ConfirmationDialog(props: {
 	readonly backInterceptors: BackInterceptors;
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
-	const dialogRef = useRef<HTMLDivElement>(null);
 	const cancelRef = useRef<HTMLButtonElement>(null);
 	const close = useEffectEvent(() => props.onClose());
 	const interceptBack = useEffectEvent(() => {
@@ -816,42 +643,8 @@ function ConfirmationDialog(props: {
 		return true;
 	});
 
-	useEffect(() => {
-		cancelRef.current?.focus();
-		const trigger = props.triggerRef.current;
-		const unregister = props.backInterceptors.register(interceptBack);
-		const overflow = document.body.style.overflow;
-		document.body.style.overflow = "hidden";
-		return () => {
-			unregister();
-			document.body.style.overflow = overflow;
-			queueMicrotask(() => trigger?.focus());
-		};
-	}, [props.backInterceptors, props.triggerRef]);
+	useEffect(() => props.backInterceptors.register(interceptBack), [props.backInterceptors]);
 
-	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-		if (event.key === "Escape" && !props.pending) {
-			event.preventDefault();
-			props.onClose();
-			return;
-		}
-		if (event.key !== "Tab") {
-			return;
-		}
-		const items = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(focusable) ?? []);
-		if (items.length === 0) {
-			return;
-		}
-		const first = items[0];
-		const last = items[items.length - 1];
-		if (event.shiftKey && document.activeElement === first) {
-			event.preventDefault();
-			last.focus();
-		} else if (!event.shiftKey && document.activeElement === last) {
-			event.preventDefault();
-			first.focus();
-		}
-	};
 	const reset = props.kind === "reset";
 	let pendingLabel = reset ? "Reset account" : "Delete user";
 	if (props.pending) {
@@ -859,47 +652,48 @@ function ConfirmationDialog(props: {
 	}
 
 	return (
-		<div
-			role="dialog"
-			aria-modal="true"
-			onKeyDown={onKeyDown}
-			aria-labelledby="user-confirmation-title"
-			className="fixed inset-0 z-50 grid place-items-center bg-overlay p-4"
+		<Modal
+			closeLabel="Close"
+			onClose={props.onClose}
+			triggerRef={props.triggerRef}
+			initialFocusRef={cancelRef}
+			className="ui-card w-[min(100%,460px)]"
+			labelledBy="user-confirmation-title"
+			onInterceptBack={() => props.pending}
+			containerClassName="items-center justify-center p-4"
 		>
-			<div ref={dialogRef} className="ui-card w-[min(100%,460px)]">
-				<h2 id="user-confirmation-title" className="font-display text-xl font-semibold">
-					{reset ? "Reset this user?" : "Delete this user?"}
-				</h2>
-				<p className="mt-3 text-sm text-text-muted">
-					{reset
-						? "This permanently deletes all user data, including progress, collections, and preferences. This cannot be undone."
-						: "This permanently deletes the user and all of their data. This cannot be undone."}
+			<h2 id="user-confirmation-title" className="font-display text-xl font-semibold">
+				{reset ? "Reset this user?" : "Delete this user?"}
+			</h2>
+			<p className="mt-3 text-sm text-text-muted">
+				{reset
+					? "This permanently deletes all user data, including progress, collections, and preferences. This cannot be undone."
+					: "This permanently deletes the user and all of their data. This cannot be undone."}
+			</p>
+			{props.error && (
+				<p role="alert" className="mt-3 text-sm text-danger">
+					{props.error}
 				</p>
-				{props.error && (
-					<p role="alert" className="mt-3 text-sm text-danger">
-						{props.error}
-					</p>
-				)}
-				<div className="mt-6 flex justify-end gap-3">
-					<Button
-						type="button"
-						ref={cancelRef}
-						variant="secondary"
-						onClick={props.onClose}
-						disabled={props.pending}
-					>
-						Cancel
-					</Button>
-					<button
-						type="button"
-						disabled={props.pending}
-						onClick={props.onConfirm}
-						className="min-h-11 rounded-lg bg-danger px-4 py-2.5 font-semibold text-white disabled:opacity-50"
-					>
-						{pendingLabel}
-					</button>
-				</div>
+			)}
+			<div className="mt-6 flex justify-end gap-3">
+				<Button
+					type="button"
+					ref={cancelRef}
+					variant="secondary"
+					onClick={props.onClose}
+					disabled={props.pending}
+				>
+					Cancel
+				</Button>
+				<button
+					type="button"
+					disabled={props.pending}
+					onClick={props.onConfirm}
+					className="min-h-11 rounded-lg bg-danger px-4 py-2.5 font-semibold text-white disabled:opacity-50"
+				>
+					{pendingLabel}
+				</button>
 			</div>
-		</div>
+		</Modal>
 	);
 }
