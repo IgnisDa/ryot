@@ -229,12 +229,35 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 				);
 			}
 			for (const relationship of item.relationships) {
-				if (
-					!entitySchemasByAlias.has(relationship.sourceAlias) ||
-					!entitySchemasByAlias.has(relationship.targetAlias)
-				) {
+				const sourceEntitySchemaSlug = entitySchemasByAlias.get(relationship.sourceAlias);
+				const targetEntitySchemaSlug = entitySchemasByAlias.get(relationship.targetAlias);
+				if (!sourceEntitySchemaSlug || !targetEntitySchemaSlug) {
 					return yield* new ImportRunError({
 						message: "Import relationship references an unknown entity alias",
+					});
+				}
+				const relationshipSchema = definitions.getRelationshipSchema(
+					relationship.relationshipSchemaSlug,
+				);
+				if (!relationshipSchema) {
+					return yield* new ImportRunError({
+						message: `Relationship schema '${relationship.relationshipSchemaSlug}' not found`,
+					});
+				}
+				if (
+					relationshipSchema.sourceEntitySchemaSlug !== null &&
+					relationshipSchema.sourceEntitySchemaSlug !== sourceEntitySchemaSlug
+				) {
+					return yield* new ImportRunError({
+						message: "Import relationship source entity schema does not match",
+					});
+				}
+				if (
+					relationshipSchema.targetEntitySchemaSlug !== null &&
+					relationshipSchema.targetEntitySchemaSlug !== targetEntitySchemaSlug
+				) {
+					return yield* new ImportRunError({
+						message: "Import relationship target entity schema does not match",
 					});
 				}
 				yield* definitions.validateRelationshipProperties(

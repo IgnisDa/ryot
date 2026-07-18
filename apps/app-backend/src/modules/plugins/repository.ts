@@ -112,6 +112,20 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 			},
 		);
 
+		const hasIntegrationReferences = Effect.fn("PluginRepository.hasIntegrationReferences")(
+			function* (pluginSlug: string) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({ id: schema.integration.id })
+						.from(schema.integration)
+						.where(eq(schema.integration.pluginSlug, pluginSlug))
+						.limit(1),
+				);
+				return row !== undefined;
+			},
+		);
+
 		const findBySourceHash = Effect.fn("PluginRepository.findBySourceHash")(function* (input: {
 			slug: string;
 			sourceHash: string;
@@ -315,15 +329,38 @@ export class PluginRepository extends Effect.Service<PluginRepository>()("Plugin
 			},
 		);
 
+		const listPersistedLivenessContentHashes = Effect.fn(
+			"PluginRepository.listPersistedLivenessContentHashes",
+		)(function* (referencedPluginSlugs: ReadonlySet<string>) {
+			const db = yield* CurrentDb;
+			const pluginSlugs = [...referencedPluginSlugs];
+			const rows = yield* dbEffect(() =>
+				db
+					.select({ contentHash: schema.sandboxScript.contentHash })
+					.from(schema.sandboxScript)
+					.where(
+						pluginSlugs.length > 0
+							? or(
+									isNull(schema.sandboxScript.pluginSlug),
+									inArray(schema.sandboxScript.pluginSlug, pluginSlugs),
+								)
+							: isNull(schema.sandboxScript.pluginSlug),
+					),
+			);
+			return rows.map(({ contentHash }) => contentHash);
+		});
+
 		return {
 			list,
 			persist,
 			deactivate,
 			lockIngestion,
 			findBySourceHash,
-			hasEntityReferences,
 			persistKernelScript,
+			hasEntityReferences,
+			hasIntegrationReferences,
 			deleteUnreferencedScripts,
+			listPersistedLivenessContentHashes,
 		};
 	},
 }) {}

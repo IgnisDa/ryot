@@ -16,6 +16,25 @@ import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, DbRunner, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
+import {
+	getPluginConfigValue,
+	getSystemConfigValue,
+} from "#lib/infrastructure/sandbox-runtime/app-config";
+import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
+import {
+	type AdditionalSandboxHostImplementationMap,
+	isJsonValue,
+	requireSystemProviderSandboxRunInput,
+	requireUserSandboxRunInput,
+	requireSystemSandboxRunInput,
+	sandboxRunIntegrationId,
+	sandboxHostEffect,
+	sandboxHostFailure,
+	toSandboxJsonValue,
+	type UserSandboxRunInput,
+} from "#lib/infrastructure/sandbox-runtime/shared";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -29,33 +48,8 @@ import {
 	reconcileGlobalRelationships,
 } from "#modules/relationships/service";
 
-import * as schema from "../db/schema/tables/combined";
-import { CurrentDb, DbRunner, dbEffect, TransactionRunner } from "../db/service";
-import { RedisService, redisKeys } from "../redis";
-import { getPluginConfigValue, getSystemConfigValue } from "./app-config";
-import {
-	sandboxCacheKeyError,
-	sandboxCacheTtlError,
-	sandboxCacheValueError,
-	SANDBOX_LIMITS,
-} from "./limits";
-import {
-	type AdditionalSandboxHostImplementationMap,
-	isJsonValue,
-	requireSystemProviderSandboxRunInput,
-	requireUserSandboxRunInput,
-	requireSystemSandboxRunInput,
-	sandboxRunIntegrationId,
-	sandboxRunUserId,
-	sandboxHostEffect,
-	sandboxHostFailure,
-	toSandboxJsonValue,
-	type UserSandboxRunInput,
-} from "./shared";
-
 type SandboxHostFunctionContext =
 	| DbRunner
-	| RedisService
 	| EventsService
 	| EntitiesService
 	| TransactionRunner
@@ -75,9 +69,9 @@ const ListEventsQuery = Schema.Struct({
 	sessionEntityId: Schema.optional(Schema.String),
 });
 
+const decodeQueryDocument = Schema.decodeUnknown(QueryDocument);
 const decodeListEventsQuery = Schema.decodeUnknown(ListEventsQuery);
 const decodeCreateEventsPayload = Schema.decodeUnknown(CreateEventsPayload);
-const decodeQueryDocument = Schema.decodeUnknown(QueryDocument);
 
 const hashPayload = (payload: unknown) =>
 	new Bun.CryptoHasher("sha256").update(stableStringify(payload)).digest("base64url");
@@ -114,7 +108,6 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 	SandboxHostFunctionContext
 > =>
 	Effect.gen(function* () {
-		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
 		const events = yield* EventsService;
 		const entities = yield* EntitiesService;
@@ -249,66 +242,6 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 						);
 					}),
 				),
-			claimCachedValue: (input, key, value, ttlSeconds) => {
-				const keyError = sandboxCacheKeyError("claimCachedValue", key);
-				if (keyError) {
-					return sandboxHostFailure(keyError);
-				}
-				const ttlError = sandboxCacheTtlError("claimCachedValue", ttlSeconds, "TTL");
-				if (ttlError) {
-					return sandboxHostFailure(ttlError);
-				}
-
-				const redisKey = redisKeys.sandboxCache(
-					sandboxRunUserId(input),
-					input.cacheNamespace,
-					key.trim(),
-				);
-
-				return sandboxHostEffect(
-					Effect.gen(function* () {
-						const serialized = yield* Schema.encode(Schema.parseJson(Schema.Unknown))(value).pipe(
-							Effect.mapError(() => "claimCachedValue value must be JSON-serializable"),
-						);
-						const valueError = sandboxCacheValueError("claimCachedValue", serialized);
-						if (valueError) {
-							return yield* Effect.fail(valueError);
-						}
-
-						const setResult = yield* Effect.tryPromise({
-							try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
-							catch: unknownToMessage,
-						});
-						if (setResult !== null) {
-							return { claimed: true as const };
-						}
-
-						const existing = yield* Effect.tryPromise({
-							try: () => redis.client.get(redisKey),
-							catch: unknownToMessage,
-						});
-						if (existing === null) {
-							return { claimed: false, value: null };
-						}
-						const existingValueError = sandboxCacheValueError(
-							"claimCachedValue",
-							existing,
-							"stored value",
-						);
-						if (existingValueError) {
-							return yield* Effect.fail(existingValueError);
-						}
-
-						return yield* Schema.decode(Schema.parseJson(Schema.Unknown))(existing).pipe(
-							Effect.map((decoded) => ({
-								claimed: false as const,
-								value: isJsonValue(decoded) ? decoded : null,
-							})),
-							Effect.orElseSucceed(() => ({ claimed: false as const, value: null })),
-						);
-					}),
-				);
-			},
 			createEvents: (rawInput, body) =>
 				requireUserSandboxRunInput(rawInput, "createEvents").pipe(
 					Effect.flatMap((input) =>

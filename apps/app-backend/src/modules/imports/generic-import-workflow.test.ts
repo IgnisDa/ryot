@@ -21,7 +21,11 @@ import {
 	makeWorkflowActivityEngine,
 } from "#lib/test-utils/effect";
 import { CollectionsService } from "#modules/collections/service";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
+import {
+	DefinitionRegistry,
+	type DefinitionSource,
+	makeDefinitionRegistry,
+} from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -39,6 +43,37 @@ const transactionRunnerLayer = Layer.succeed(
 	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
+
+const makeRelationshipSchemaImportItem = (
+	itemIndex: number,
+	relationshipSchemaSlug: string,
+	sourceEntitySchemaSlug: string,
+	targetEntitySchemaSlug: string,
+) => ({
+	itemIndex,
+	events: [],
+	collectionMemberships: [],
+	subjectEntityAlias: "source",
+	sourceLabel: `Item ${itemIndex}`,
+	sourceIdentifier: String(itemIndex),
+	relationships: [
+		{ properties: {}, sourceAlias: "source", targetAlias: "target", relationshipSchemaSlug },
+	],
+	entities: [
+		{
+			properties: {},
+			alias: "source",
+			name: `source-${itemIndex}`,
+			entitySchemaSlug: sourceEntitySchemaSlug,
+		},
+		{
+			properties: {},
+			alias: "target",
+			name: `target-${itemIndex}`,
+			entitySchemaSlug: targetEntitySchemaSlug,
+		},
+	],
+});
 
 it.effect(
 	"processes generic writes and attributes relationship mutation failures to the subject schema",
@@ -419,6 +454,161 @@ it.effect(
 		);
 	},
 );
+
+it.effect("validates relationship endpoint schemas before generic import writes", () => {
+	const executionId = "generic-import-relationship-schemas";
+	const failures: Array<Record<string, unknown>> = [];
+	const entityWrites: Array<string> = [];
+	const relationshipWrites: Array<Record<string, unknown>> = [];
+	const directory = `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-0`;
+	const path = `${directory}/chunk-0.json`;
+	const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
+	const propertiesSchema = { fields: {}, unknownKeys: "strict" } as const;
+	const definitionSource = {
+		savedViews: [],
+		signalSchemas: [],
+		entitySchemas: ["source", "target", "other"].map((slug) => ({
+			slug,
+			name: slug,
+			icon: "circle",
+			pluginSlug: null,
+			eventSchemas: [],
+			propertiesSchema,
+			accentColor: "#000000",
+		})),
+		relationshipSchemas: [
+			{
+				propertiesSchema,
+				name: "Source constrained",
+				slug: "source-constrained",
+				targetEntitySchemaSlug: null,
+				sourceEntitySchemaSlug: "source",
+			},
+			{
+				propertiesSchema,
+				name: "Target constrained",
+				slug: "target-constrained",
+				sourceEntitySchemaSlug: null,
+				targetEntitySchemaSlug: "target",
+			},
+			{
+				propertiesSchema,
+				name: "Unrestricted",
+				slug: "unrestricted",
+				sourceEntitySchemaSlug: null,
+				targetEntitySchemaSlug: null,
+			},
+		],
+	} satisfies DefinitionSource;
+	const definitions = makeDefinitionRegistry(definitionSource);
+
+	return Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		yield* fs.makeDirectory(directory, { recursive: true });
+		yield* fs.writeFileString(
+			path,
+			yield* Schema.encode(Schema.parseJson(Schema.Unknown))({
+				failures: [],
+				items: [
+					makeRelationshipSchemaImportItem(0, "source-constrained", "other", "target"),
+					makeRelationshipSchemaImportItem(1, "target-constrained", "source", "other"),
+					makeRelationshipSchemaImportItem(2, "unrestricted", "other", "other"),
+				],
+			}),
+		);
+
+		const result = yield* runProcessGenericImportChunksWorkflow(
+			{
+				executionId,
+				totalItems: 3,
+				failureCount: 0,
+				writeItemCount: 3,
+				chunkFiles: [path],
+				userId: UserId.make("user-1"),
+				runId: ImportRunId.make("run-relationship-schemas"),
+				expectedHarvestDirectoryPrefix: `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-`,
+			},
+			executionId,
+		);
+
+		expect(result).toEqual({ failedItems: 2, importedItems: 1, processedItems: 3 });
+		expect(failures).toEqual([
+			expect.objectContaining({
+				itemIndex: 0,
+				message: "Import relationship source entity schema does not match",
+			}),
+			expect.objectContaining({
+				itemIndex: 1,
+				message: "Import relationship target entity schema does not match",
+			}),
+		]);
+		expect(entityWrites).toEqual(["source-2", "target-2"]);
+		expect(relationshipWrites).toEqual([
+			expect.objectContaining({
+				sourceEntityId: "source-2-id",
+				targetEntityId: "target-2-id",
+				relationshipSchemaSlug: "unrestricted",
+			}),
+		]);
+	}).pipe(
+		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+		Effect.provideService(WorkflowInstance, instance),
+		Effect.provide(
+			Layer.mergeAll(
+				dbRunnerLayer,
+				transactionRunnerLayer,
+				BunContext.layer,
+				makeAppConfigLayer(),
+				collectionsLayer,
+				Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...definitions }),
+				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
+				Layer.mock(EntitiesService)({
+					_tag: "EntitiesService",
+					create: (input) =>
+						Effect.sync(() => {
+							entityWrites.push(input.name);
+							assert(isObjectRecord(input.properties));
+							return {
+								name: input.name,
+								providerId: null,
+								externalId: null,
+								populatedAt: null,
+								properties: input.properties,
+								createdAt: "2026-01-01T00:00:00.000Z",
+								updatedAt: "2026-01-01T00:00:00.000Z",
+								id: EntityId.make(`${input.name}-id`),
+								entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							};
+						}),
+				}),
+				Layer.mock(RelationshipsService)({
+					_tag: "RelationshipsService",
+					create: (input) =>
+						Effect.sync(() => {
+							relationshipWrites.push(input);
+							return {
+								properties: {},
+								wasInserted: true,
+								sourceEntityId: input.sourceEntityId,
+								targetEntityId: input.targetEntityId,
+								createdAt: "2026-01-01T00:00:00.000Z",
+								id: RelationshipId.make("relationship-1"),
+								relationshipSchemaSlug: input.relationshipSchemaSlug,
+							};
+						}),
+				}),
+				Layer.mock(ImportsService)({
+					_tag: "ImportsService",
+					update: () => Effect.void,
+				}),
+				Layer.mock(ImportRunFailuresService)({
+					_tag: "ImportRunFailuresService",
+					create: (input) => Effect.sync(() => failures.push(input)).pipe(Effect.asVoid),
+				}),
+			),
+		),
+	);
+});
 
 it.effect("cleans trusted activity directories when the initial run update fails", () => {
 	const executionId = "generic-import-update-failure";

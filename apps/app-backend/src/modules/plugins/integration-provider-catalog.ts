@@ -45,10 +45,16 @@ export class IntegrationProviderCatalog extends Effect.Service<IntegrationProvid
 
 			const find = (providerSlug: string) =>
 				list().find(({ slug }) => slug === providerSlug) ?? null;
+			const findOwned = (providerSlug: string, pluginSlug: string) =>
+				fromSnapshot(loader.getSnapshot()).find(
+					(provider) => provider.slug === providerSlug && provider.pluginSlug === pluginSlug,
+				) ?? null;
 
-			const resolve = (providerSlug: string) => {
+			const resolveOwned = (providerSlug: string, pluginSlug: string) => {
 				const snapshot = loader.getSnapshot();
-				const provider = fromSnapshot(snapshot).find(({ slug }) => slug === providerSlug);
+				const provider = fromSnapshot(snapshot).find(
+					(candidate) => candidate.slug === providerSlug && candidate.pluginSlug === pluginSlug,
+				);
 				if (!provider) {
 					return null;
 				}
@@ -61,7 +67,7 @@ export class IntegrationProviderCatalog extends Effect.Service<IntegrationProvid
 				return { provider, script };
 			};
 
-			return { find, list, resolve };
+			return { find, list, findOwned, resolveOwned };
 		}),
 	},
 ) {}

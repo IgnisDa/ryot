@@ -3,7 +3,7 @@ import type { PluginListItem } from "@ryot/contract/modules/plugins/schemas";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import { stableStringify } from "@ryot/ts-utils/json";
-import { Effect, Runtime } from "effect";
+import { Cause, Effect, FiberSet } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
@@ -28,6 +28,17 @@ import {
 } from "./validation";
 
 const digest = (value: string) => new Bun.CryptoHasher("sha256").update(value).digest("hex");
+
+const PLUGIN_REGISTRY_RECONCILIATION_INTERVAL = "30 seconds";
+
+const registryFingerprint = (
+	plugins: ReadonlyArray<Pick<NormalizedPlugin, "manifest" | "sourceHash">>,
+) =>
+	stableStringify(
+		plugins
+			.map(({ manifest, sourceHash }) => [manifest.metadata.slug, sourceHash] as const)
+			.sort(([left], [right]) => left.localeCompare(right)),
+	);
 
 const declaredScriptMetadata = (
 	script: PluginManifest["scripts"][number],
@@ -161,6 +172,31 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 			const rebuild = Effect.fn("PluginIngestionService.rebuild")(() =>
 				mutationLock.withPermits(1)(Effect.uninterruptible(rebuildUnlocked())),
 			);
+			const reconcile = Effect.fn("PluginIngestionService.reconcile")(() =>
+				mutationLock.withPermits(1)(
+					Effect.gen(function* () {
+						const installed = yield* runWithDb(repository.list());
+						const loaded = Object.values(loader.getSnapshot().plugins);
+						if (registryFingerprint(installed) === registryFingerprint(loaded)) {
+							return false;
+						}
+						yield* Effect.uninterruptible(rebuildUnlocked());
+						return true;
+					}),
+				),
+			);
+			const publishInvalidation = Effect.fn("PluginIngestionService.publishInvalidation")(
+				(message: string) =>
+					redis
+						.publish(redisKeys.pluginRegistryChannel, message)
+						.pipe(
+							Effect.catchAllCause((cause) =>
+								Cause.isInterrupted(cause)
+									? Effect.failCause(cause)
+									: Effect.logError("plugin registry invalidation publish failed", cause),
+							),
+						),
+			);
 
 			const ingestPluginUnlocked = Effect.fn("PluginIngestionService.ingestPluginUnlocked")(
 				function* (source: PluginSource, trusted: boolean) {
@@ -195,6 +231,9 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 						});
 						yield* validateSnapshot(snapshot);
 						loader.replace(snapshot);
+						yield* publishInvalidation(
+							stableStringify({ slug: manifest.metadata.slug, sourceHash }),
+						);
 						return cached;
 					}
 
@@ -266,10 +305,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 							}),
 						).pipe(Effect.tap((snapshot) => Effect.sync(() => loader.replace(snapshot)))),
 					);
-					yield* redis.publish(
-						redisKeys.pluginRegistryChannel,
-						stableStringify({ slug: manifest.metadata.slug, sourceHash }),
-					);
+					yield* publishInvalidation(stableStringify({ slug: manifest.metadata.slug, sourceHash }));
 					return normalized;
 				},
 			);
@@ -329,6 +365,11 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 									`Plugin '${slug}' cannot be uninstalled while running or suspended workflows reference it`,
 								);
 							}
+							if (yield* repository.hasIntegrationReferences(slug)) {
+								return yield* conflict(
+									`Plugin '${slug}' cannot be uninstalled while integrations reference it`,
+								);
+							}
 							const schemaSlugs = plugin.manifest.entitySchemas.map(
 								({ slug: entitySchemaSlug }) => entitySchemaSlug,
 							);
@@ -367,10 +408,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 						}),
 					);
 					loader.replace(result.snapshot);
-					yield* redis.publish(
-						redisKeys.pluginRegistryChannel,
-						stableStringify({ action: "uninstall", slug }),
-					);
+					yield* publishInvalidation(stableStringify({ action: "uninstall", slug }));
 					return toListItem(result.plugin);
 				},
 			);
@@ -380,6 +418,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 
 			return {
 				rebuild,
+				reconcile,
 				listPlugins,
 				ingestPlugin,
 				installPlugin,
@@ -398,23 +437,46 @@ export const handlePluginRegistryInvalidation = (
 		? ingestion.rebuild().pipe(Effect.asVoid)
 		: Effect.void;
 
+export const runPluginRegistryReconciliation = (
+	tick: Effect.Effect<void>,
+	ingestion: Pick<PluginIngestionService, "reconcile">,
+) =>
+	tick.pipe(
+		Effect.zipRight(
+			ingestion
+				.reconcile()
+				.pipe(
+					Effect.catchAllCause((cause) =>
+						Cause.isInterrupted(cause)
+							? Effect.failCause(cause)
+							: Effect.logError("plugin registry reconciliation failed", cause),
+					),
+				),
+		),
+		Effect.forever,
+	);
+
 export class PluginInvalidationSubscriber extends Effect.Service<PluginInvalidationSubscriber>()(
 	"PluginInvalidationSubscriber",
 	{
 		scoped: Effect.gen(function* () {
 			const redis = yield* RedisService;
-			const runtime = yield* Effect.runtime();
+			const runFork = yield* FiberSet.makeRuntime();
 			const subscriber = redis.client.duplicate();
 			const ingestion = yield* PluginIngestionService;
 			const rebuildLock = yield* Effect.makeSemaphore(1);
 			const channel = redisKeys.pluginRegistryChannel;
 			const onMessage = (incoming: string) => {
-				Runtime.runFork(runtime)(
+				runFork(
 					rebuildLock
 						.withPermits(1)(handlePluginRegistryInvalidation(incoming, ingestion))
 						.pipe(Effect.catchAllCause((cause) => Effect.logError(cause))),
 				);
 			};
+			yield* runPluginRegistryReconciliation(
+				Effect.sleep(PLUGIN_REGISTRY_RECONCILIATION_INTERVAL),
+				ingestion,
+			).pipe(Effect.forkScoped);
 			subscriber.on("message", onMessage);
 			yield* Effect.tryPromise(() => subscriber.subscribe(channel)).pipe(Effect.orDie);
 			yield* Effect.addFinalizer(() =>
