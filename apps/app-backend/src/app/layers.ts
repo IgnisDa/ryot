@@ -8,7 +8,6 @@ import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/infrastruct
 import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
-import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
@@ -434,10 +433,6 @@ const MigrationOnlyCoreLive = MigrationsComplete.Default.pipe(
 	Layer.provide(DbService.Default),
 	Layer.provide(RedisService.Default),
 	Layer.provide(ConfigLive),
-);
-
-export const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(
-	Layer.provide(BunContext.layer),
 );
 
 const AppCoreLive = RuntimeAfterMigrationsLive;
