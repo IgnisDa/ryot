@@ -6,7 +6,7 @@ import {
 	mediaImageAsset,
 	mediaImageAssets,
 	preferredMediaImageAsset,
-} from "./media-image";
+} from "../media-image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 
 export type ShowSummary = NonNullable<ShowSummaryResult["show"]>;
@@ -68,7 +68,7 @@ export const showManagedAssets = (show: ShowSummary) =>
 	collectManagedAssetLocators([
 		showPosterAsset(show),
 		showBackdropAsset(show),
-		...showGalleryAssets(show),
+		...mediaImageAssets(show.images),
 	]);
 
 export const showReleaseLabel = (show: Pick<ShowSummary, "publishDate" | "publishYear">) =>

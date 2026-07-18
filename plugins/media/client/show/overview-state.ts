@@ -1,7 +1,7 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 
 import type { ShowOverviewResult } from "../../shared/show-recipes";
-import { collectManagedAssetLocators, preferredMediaImageAsset } from "./media-image";
+import { collectManagedAssetLocators, preferredMediaImageAsset } from "../media-image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 
 export type ShowOverview = ShowOverviewResult;

@@ -5,7 +5,7 @@ import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
 import { waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { flushRyotClient, mountRyotClient } from "../../tests/client/show/test-support";
+import { flushRyotClient, mountRyotClient } from "../tests/client/test-support";
 import { ManagedAssetImage } from "./managed-assets";
 
 const recordingAdapter = (
