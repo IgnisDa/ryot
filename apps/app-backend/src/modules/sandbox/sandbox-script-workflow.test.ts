@@ -52,15 +52,9 @@ import {
 const makeProjectionRedis = () =>
 	makeRedisService({
 		client: Object.assign(Object.create(null), {
+			eval: () => Promise.resolve(1),
 			hmget: () => Promise.resolve([]),
-			expire: () => Promise.resolve(1),
 			hget: () => Promise.resolve(null),
-			pipeline: () => ({
-				hset: () => undefined,
-				expire: () => undefined,
-				hsetnx: () => undefined,
-				exec: () => Promise.resolve([]),
-			}),
 		}),
 	});
 
@@ -120,34 +114,23 @@ fi
 	const executedContent: string[] = [];
 	const hashes = new Map<string, Map<string, string>>();
 	const redisClient: RedisService["Service"]["client"] = Object.assign(Object.create(null), {
+		eval: (
+			_script: string,
+			_numberOfKeys: number,
+			key: string,
+			highWater: string,
+			_ttl: string,
+			...entries: string[]
+		) => {
+			const fields = hashes.get(key) ?? new Map<string, string>();
+			fields.set("high-water", highWater);
+			entries.forEach((entry, index) => fields.set(String(index), entry));
+			hashes.set(key, fields);
+			return Promise.resolve(1);
+		},
 		hget: (key: string, field: string) => Promise.resolve(hashes.get(key)?.get(field) ?? null),
 		hmget: (key: string, ...fields: string[]) =>
 			Promise.resolve(fields.map((field) => hashes.get(key)?.get(field) ?? null)),
-		expire: () => Promise.resolve(1),
-		pipeline: () => {
-			const writes: Array<() => void> = [];
-			return {
-				expire: () => undefined,
-				hset: (key: string, field: string, value: string) =>
-					writes.push(() => {
-						const fields = hashes.get(key) ?? new Map<string, string>();
-						fields.set(field, value);
-						hashes.set(key, fields);
-					}),
-				hsetnx: (key: string, field: string, value: string) =>
-					writes.push(() => {
-						const fields = hashes.get(key) ?? new Map<string, string>();
-						if (!fields.has(field)) {
-							fields.set(field, value);
-						}
-						hashes.set(key, fields);
-					}),
-				exec: () => {
-					writes.forEach((write) => write());
-					return Promise.resolve([]);
-				},
-			};
-		},
 	});
 	const script = (id: typeof historicalScriptId, compiledCode: string) => ({
 		id,
