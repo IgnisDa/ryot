@@ -397,21 +397,21 @@ using the real plugin ingestion endpoint.
 
 Run and update at least these focused suites:
 
-- `tests/src/tests/sandbox/enqueue.test.ts`
-- `tests/src/tests/sandbox/sandbox.test.ts`
-- `tests/src/tests/sandbox/async-flow.test.ts`
-- `tests/src/tests/sandbox/cache.test.ts`
-- `tests/src/tests/plugins/plugins.test.ts`
-- `tests/src/tests/plugins/operations.test.ts`
-- `tests/src/tests/entity-import/entity-import.test.ts`
-- `tests/src/tests/entity-schemas/search-import.test.ts`
-- `tests/src/tests/entity-interest/population-dispatch.test.ts`
-- `tests/src/tests/media-monitoring/media-monitoring.test.ts`
-- `tests/src/tests/media-monitoring/association-detectors.test.ts`
-- `tests/src/tests/media-monitoring/association-detectors-variants.test.ts`
-- `tests/src/tests/media-monitoring/media-entity-update-signals.test.ts`
-- `tests/src/tests/god-mode/delete-user.test.ts`
-- `tests/src/tests/system/observability.test.ts`
+- `tests/src/tests/kernel/sandbox/enqueue.test.ts`
+- `tests/src/tests/kernel/sandbox/sandbox.test.ts`
+- `tests/src/tests/kernel/sandbox/async-flow.test.ts`
+- `tests/src/tests/kernel/sandbox/cache.test.ts`
+- `tests/src/tests/kernel/plugins/plugins.test.ts`
+- `tests/src/tests/kernel/plugins/operations.test.ts`
+- `tests/src/tests/kernel/entity-import/entity-import.test.ts`
+- `tests/src/tests/kernel/entity-schemas/search-import.test.ts`
+- `tests/src/tests/kernel/entity-interest/population-dispatch.test.ts`
+- `tests/src/tests/plugins/media/media-monitoring/media-monitoring.test.ts`
+- `tests/src/tests/plugins/media/media-monitoring/association-detectors.test.ts`
+- `tests/src/tests/plugins/media/media-monitoring/association-detectors-variants.test.ts`
+- `tests/src/tests/plugins/media/media-monitoring/media-entity-update-signals.test.ts`
+- `tests/src/tests/kernel/god-mode/delete-user.test.ts`
+- `tests/src/tests/kernel/system/observability.test.ts`
 
 Add focused e2e tests if the existing suites do not prove:
 
@@ -425,9 +425,9 @@ Add focused e2e tests if the existing suites do not prove:
 Run affected e2e files explicitly from `tests/`, for example:
 
 ```bash
-bun run test -- src/tests/sandbox/enqueue.test.ts
-bun run test -- src/tests/plugins/plugins.test.ts
-bun run test -- src/tests/entity-import/entity-import.test.ts
+bun run test -- src/tests/kernel/sandbox/enqueue.test.ts
+bun run test -- src/tests/kernel/plugins/plugins.test.ts
+bun run test -- src/tests/kernel/entity-import/entity-import.test.ts
 ```
 
 The entire e2e suite should still be attempted at the final gate. If it fails, record the failing
