@@ -15,15 +15,15 @@ import { requestSourceJson, requestSourceResponse, type HttpHost } from "./sourc
 const API_URL = "https://api.trakt.tv";
 const PAGE_LIMIT = "1000";
 const Ids = Schema.Struct({
-	tmdb: Schema.optional(Schema.Number),
-	imdb: Schema.optional(Schema.String),
 	slug: Schema.optional(Schema.String),
-	trakt: Schema.optional(Schema.Number),
+	imdb: Schema.optional(Schema.NullOr(Schema.String)),
+	tmdb: Schema.optional(Schema.NullOr(Schema.Number)),
+	trakt: Schema.optional(Schema.NullOr(Schema.Number)),
 });
 const Item = Schema.Struct({
 	ids: Ids,
-	year: Schema.optional(Schema.Number),
 	title: Schema.optional(Schema.String),
+	year: Schema.optional(Schema.NullOr(Schema.Number)),
 });
 type Item = typeof Item.Type;
 const History = Schema.Struct({
@@ -202,7 +202,7 @@ export const adaptTraktExport = (archive: Record<string, Uint8Array>) => {
 			continue;
 		}
 		for (const list of decodeExportEntry(entry.name, entry.bytes, Schema.Array(ExportList))) {
-			if (list.ids.trakt !== undefined) {
+			if (typeof list.ids.trakt === "number") {
 				lists.set(list.ids.trakt, list.name);
 			}
 		}
@@ -217,7 +217,8 @@ export const adaptTraktExport = (archive: Record<string, Uint8Array>) => {
 			message,
 			itemIndex: currentIndex,
 			sourceLabel: source?.title,
-			sourceIdentifier: source?.ids.trakt === undefined ? undefined : String(source.ids.trakt),
+			sourceIdentifier:
+				typeof source?.ids.trakt === "number" ? String(source.ids.trakt) : undefined,
 		});
 	};
 	const groupFor = (item: ExportItem, currentIndex: number) => {
@@ -364,7 +365,7 @@ const ref = (item: Item, entitySchemaSlug: "movie" | "show"): ImportEntityRef | 
 	const sourceLabel =
 		item.title ??
 		`${entitySchemaSlug === "movie" ? "Movie" : "Show"} ${item.ids.trakt ?? "unknown"}`;
-	if (item.ids.tmdb !== undefined) {
+	if (typeof item.ids.tmdb === "number") {
 		return {
 			sourceLabel,
 			kind: "resolved",
@@ -429,7 +430,7 @@ export const adaptTraktData = (target: TraktApiTarget, clientId: string, host: H
 				itemIndex: currentIndex,
 				sourceLabel: item.title,
 				message: `${kind} does not have a TMDB or IMDb id`,
-				sourceIdentifier: item.ids.trakt === undefined ? undefined : String(item.ids.trakt),
+				sourceIdentifier: typeof item.ids.trakt === "number" ? String(item.ids.trakt) : undefined,
 			});
 		};
 		const importListItems = (items: ListItem[], collection: string) => {
@@ -532,7 +533,7 @@ export const adaptTraktData = (target: TraktApiTarget, clientId: string, host: H
 			);
 		}
 		for (const list of yield* fetchAll(`${userUrl}/lists`, List)) {
-			if (list.name.toLowerCase() === "watchlist" || list.ids.trakt === undefined) {
+			if (list.name.toLowerCase() === "watchlist" || typeof list.ids.trakt !== "number") {
 				continue;
 			}
 			importListItems(
