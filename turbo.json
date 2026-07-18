@@ -1,37 +1,13 @@
 {
 	"$schema": "https://turbo.build/schema.json",
 	"tasks": {
+		"dev": { "cache": false, "persistent": true },
+		"check": { "dependsOn": ["^check"], "outputLogs": "errors-only" },
+		"test": { "outputLogs": "errors-only", "dependsOn": ["^build", "^check", "^test"] },
 		"build": {
 			"dependsOn": ["^build"],
 			"outputLogs": "errors-only",
 			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
-		},
-		"build-chrome": {
-			"dependsOn": ["^build"],
-			"outputs": ["dist/chrome-mv3/**", "dist/*-chrome.zip"]
-		},
-		"build-firefox": {
-			"dependsOn": ["^build"],
-			"outputs": ["dist/firefox-mv2/**", "dist/*-sources.zip", "dist/*-firefox.zip"]
-		},
-		"check": {
-			"dependsOn": ["^check"],
-			"outputLogs": "errors-only"
-		},
-		"test": {
-			"outputLogs": "errors-only",
-			"dependsOn": ["^build", "^check", "^test"]
-		},
-		"dev": {
-			"cache": false,
-			"persistent": true
-		},
-		"test-watch": {
-			"cache": false,
-			"persistent": true
-		},
-		"backend-graphql": {
-			"cache": false
 		}
 	}
 }
