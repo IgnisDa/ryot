@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 14 of 18 tasks completed
+**Overall Progress:** 15 of 18 tasks completed
 
-**Current Task:** [Task 15](./15-third-party-plugin-lifecycle-e2e.md) (todo)
+**Current Task:** [Task 16](./16-ownership-based-e2e-test-tree.md) (todo)
 
 ### Task List
 
@@ -24,7 +24,7 @@
 | 12  | [Sandbox and Database Limit Retuning](./12-sandbox-database-limit-retuning.md)                | done   |
 | 13  | [Race-Safe Resolution and Uninstall Fencing](./13-race-safe-resolution-uninstall.md)          | done   |
 | 14  | [Superseded Script and Module GC](./14-superseded-script-module-gc.md)                        | done   |
-| 15  | [Complete Third-Party Plugin Lifecycle E2E](./15-third-party-plugin-lifecycle-e2e.md)         | todo   |
+| 15  | [Complete Third-Party Plugin Lifecycle E2E](./15-third-party-plugin-lifecycle-e2e.md)         | done   |
 | 16  | [Ownership-Based E2E Test Tree](./16-ownership-based-e2e-test-tree.md)                        | todo   |
 | 17  | [Final Architecture Documentation and Phase Gate](./17-final-docs-phase-gate.md)              | todo   |
 | 18  | [Codebase Cleanup](./18-codebase-cleanup.md)                                                  | todo   |
