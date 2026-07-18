@@ -173,19 +173,21 @@ function MediaStatusRail(props: {
 						)}
 					</>
 				)}
-				<MediaRailRow
-					icon="radio"
-					compact={compact}
-					title="Monitoring"
-					detail="Keep provider details up to date"
-					trailing={
-						<Switch
-							checked={media.isMonitored}
-							label="Toggle media monitoring"
-							onChange={() => console.log("TODO: toggle media monitoring")}
-						/>
-					}
-				/>
+				{media.providerName === null ? null : (
+					<MediaRailRow
+						icon="radio"
+						compact={compact}
+						title="Monitoring"
+						detail="Keep provider details up to date"
+						trailing={
+							<Switch
+								checked={media.isMonitored}
+								label="Toggle media monitoring"
+								onChange={() => console.log("TODO: toggle media monitoring")}
+							/>
+						}
+					/>
+				)}
 				<MediaRailRow
 					icon="library"
 					compact={compact}
