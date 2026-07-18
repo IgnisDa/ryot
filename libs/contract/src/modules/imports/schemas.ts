@@ -4,11 +4,11 @@ import { Schema } from "effect";
 import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "../../schema/brands";
 import { importRunFailureStages, importRunStatuses } from "./types";
 
-const ImportRunStatus = Schema.Literal(...importRunStatuses);
+const ImportRunStatus = Schema.Literals([...importRunStatuses]);
 
-export const ImportRunFailureStage = Schema.Literal(...importRunFailureStages);
+export const ImportRunFailureStage = Schema.Literals([...importRunFailureStages]);
 
-const InputSummary = Schema.Record({ key: Schema.String, value: Schema.Unknown });
+const InputSummary = Schema.Record(Schema.String, Schema.Unknown);
 
 export const ListedImportRun = Schema.Struct({
 	id: ImportRunId,
@@ -57,10 +57,10 @@ export const DetailedImportRun = Schema.Struct({
 
 export type DetailedImportRun = typeof DetailedImportRun.Type;
 
-export const CreateImportRunBody = Schema.Struct(
-	{ source: Schema.NonEmptyString },
-	Schema.Record({ key: Schema.String, value: jsonValueSchema }),
-).pipe(Schema.annotations({ identifier: "CreateImportRunBody" }));
+export const CreateImportRunBody = Schema.StructWithRest(
+	Schema.Struct({ source: Schema.NonEmptyString }),
+	[Schema.Record(Schema.String, jsonValueSchema)],
+).pipe(Schema.annotate({ identifier: "CreateImportRunBody" }));
 
 export type CreateImportRunBody = typeof CreateImportRunBody.Type;
 

@@ -1,16 +1,21 @@
-import { Either, Schema } from "effect";
+import { Result, Schema } from "effect";
 
 import { strictStruct } from "./utils";
 
 const nonEmptyTrimmedString = Schema.String.pipe(
-	Schema.filter((value) => value.trim().length > 0, {
-		message: () => "Expected a non-empty string",
-	}),
+	Schema.check(
+		Schema.makeFilter((schemaFilterInput) =>
+			((value) => value.trim().length > 0)(schemaFilterInput),
+		),
+	),
 );
 
-const nonNegativeInteger = Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0));
+const nonNegativeInteger = Schema.Number.pipe(
+	Schema.check(Schema.isInt()),
+	Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+);
 
-const positiveNumber = Schema.Number.pipe(Schema.greaterThan(0));
+const positiveNumber = Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0)));
 
 export const createPropertySchemaMessage = (label: string) =>
 	`${label} must contain at least one property`;
@@ -178,12 +183,12 @@ const PropertyValidationIssue = Schema.Struct({
 
 export type PropertyValidationIssue = typeof PropertyValidationIssue.Type;
 
-export class PropertyValidationError extends Schema.TaggedError<PropertyValidationError>()(
+export class PropertyValidationError extends Schema.TaggedErrorClass<PropertyValidationError>()(
 	"PropertyValidationError",
 	{ message: Schema.String, issues: Schema.Array(PropertyValidationIssue) },
 ) {}
 
-const AppSchemaUnknownKeysPolicy = Schema.Literal("strip", "strict", "passthrough");
+const AppSchemaUnknownKeysPolicy = Schema.Literals(["strip", "strict", "passthrough"]);
 
 const requiredValidationSchema = strictStruct({ required: Schema.optional(Schema.Literal(true)) });
 
@@ -215,38 +220,39 @@ const numberValidationSchema = strictStruct({
 	exclusiveMaximum: Schema.optional(Schema.Number),
 	exclusiveMinimum: Schema.optional(Schema.Number),
 }).pipe(
-	Schema.filter(
-		(value) =>
-			!(value.minimum !== undefined && value.exclusiveMinimum !== undefined) &&
-			!(value.maximum !== undefined && value.exclusiveMaximum !== undefined),
-		{
-			message: () =>
-				"Use either minimum or exclusiveMinimum, and either maximum or exclusiveMaximum",
-		},
+	Schema.check(
+		Schema.makeFilter((schemaFilterInput2) =>
+			((value) =>
+				!(value.minimum !== undefined && value.exclusiveMinimum !== undefined) &&
+				!(value.maximum !== undefined && value.exclusiveMaximum !== undefined))(schemaFilterInput2),
+		),
 	),
-	Schema.filter(hasValidNumericBounds, {
-		message: () => "Lower bounds must be less than upper bounds",
-	}),
+	Schema.check(
+		Schema.makeFilter((schemaFilterInput3) => hasValidNumericBounds(schemaFilterInput3)),
+	),
 );
 
 const stringValidationSchema = strictStruct({
 	pattern: Schema.optional(
 		Schema.String.pipe(
-			Schema.filter((value) => Either.isRight(Either.try(() => new RegExp(value))), {
-				message: () => "Pattern must be a valid regular expression",
-			}),
+			Schema.check(
+				Schema.makeFilter((schemaFilterInput4) =>
+					((value) => Result.isSuccess(Result.try(() => new RegExp(value))))(schemaFilterInput4),
+				),
+			),
 		),
 	),
 	required: Schema.optional(Schema.Literal(true)),
 	maxLength: Schema.optional(nonNegativeInteger),
 	minLength: Schema.optional(nonNegativeInteger),
 }).pipe(
-	Schema.filter(
-		(value) =>
-			value.minLength === undefined ||
-			value.maxLength === undefined ||
-			value.minLength <= value.maxLength,
-		{ message: () => "minLength must be less than or equal to maxLength" },
+	Schema.check(
+		Schema.makeFilter((schemaFilterInput5) =>
+			((value) =>
+				value.minLength === undefined ||
+				value.maxLength === undefined ||
+				value.minLength <= value.maxLength)(schemaFilterInput5),
+		),
 	),
 );
 
@@ -255,12 +261,13 @@ const arrayValidationSchema = strictStruct({
 	minItems: Schema.optional(nonNegativeInteger),
 	required: Schema.optional(Schema.Literal(true)),
 }).pipe(
-	Schema.filter(
-		(value) =>
-			value.minItems === undefined ||
-			value.maxItems === undefined ||
-			value.minItems <= value.maxItems,
-		{ message: () => "minItems must be less than or equal to maxItems" },
+	Schema.check(
+		Schema.makeFilter((schemaFilterInput6) =>
+			((value) =>
+				value.minItems === undefined ||
+				value.maxItems === undefined ||
+				value.minItems <= value.maxItems)(schemaFilterInput6),
+		),
 	),
 );
 
@@ -271,12 +278,14 @@ const roundTransformSchema = strictStruct({
 
 const numberTransformSchema = strictStruct({ round: Schema.optional(roundTransformSchema) });
 
-const rulePathSchema = Schema.Array(nonEmptyTrimmedString).pipe(Schema.minItems(1));
+const rulePathSchema = Schema.Array(nonEmptyTrimmedString).pipe(
+	Schema.check(Schema.isMinLength(1)),
+);
 
-const ruleValueSchema = Schema.Union(Schema.Boolean, Schema.Null, Schema.Number, Schema.String);
+const ruleValueSchema = Schema.Union([Schema.Boolean, Schema.Null, Schema.Number, Schema.String]);
 
 const enumOptionsSchema = Schema.Array(nonEmptyTrimmedString).pipe(
-	Schema.minItems(1, { message: () => "Expected at least one enum option" }),
+	Schema.check(Schema.isMinLength(1, { message: "Expected at least one enum option" })),
 );
 
 const propertyBaseFields = {
@@ -306,7 +315,7 @@ const integerPropertySchema = strictStruct({
 	type: Schema.Literal("integer"),
 	transform: Schema.optional(numberTransformSchema),
 	validation: Schema.optional(numberValidationSchema),
-	defaultValue: Schema.optional(Schema.Number.pipe(Schema.int())),
+	defaultValue: Schema.optional(Schema.Number.pipe(Schema.check(Schema.isInt()))),
 });
 
 const booleanPropertySchema = strictStruct({
@@ -330,8 +339,8 @@ const datetimePropertySchema = strictStruct({
 	validation: Schema.optional(requiredValidationSchema),
 });
 
-const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schema.suspend(() =>
-	Schema.Union(
+const AppPropertyDefinition: Schema.Codec<AppPropertyDefinition, unknown> = Schema.suspend(() =>
+	Schema.Union([
 		datePropertySchema,
 		numberPropertySchema,
 		stringPropertySchema,
@@ -345,7 +354,7 @@ const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schema.suspe
 			validation: Schema.optional(arrayValidationSchema),
 			defaultValue: Schema.optional(Schema.Array(Schema.Unknown)),
 		}).pipe(
-			Schema.annotations({
+			Schema.annotate({
 				identifier: "ArrayPropertyDefinition",
 				title: "Array Property Definition",
 			}),
@@ -355,10 +364,10 @@ const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schema.suspe
 			type: Schema.Literal("object"),
 			validation: Schema.optional(requiredValidationSchema),
 			unknownKeys: Schema.optional(AppSchemaUnknownKeysPolicy),
-			properties: Schema.Record({ key: Schema.String, value: AppPropertyDefinition }),
-			defaultValue: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+			properties: Schema.Record(Schema.String, AppPropertyDefinition),
+			defaultValue: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 		}).pipe(
-			Schema.annotations({
+			Schema.annotate({
 				identifier: "ObjectPropertyDefinition",
 				title: "Object Property Definition",
 			}),
@@ -370,14 +379,15 @@ const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schema.suspe
 			defaultValue: Schema.optional(Schema.String),
 			validation: Schema.optional(requiredValidationSchema),
 		}).pipe(
-			Schema.filter(
-				(value) => value.defaultValue === undefined || value.options.includes(value.defaultValue),
-				{ message: () => "defaultValue must be one of the enum options" },
+			Schema.check(
+				Schema.makeFilter((schemaFilterInput7) =>
+					((value) =>
+						value.defaultValue === undefined || value.options.includes(value.defaultValue))(
+						schemaFilterInput7,
+					),
+				),
 			),
-			Schema.annotations({
-				identifier: "EnumPropertyDefinition",
-				title: "Enum Property Definition",
-			}),
+			Schema.annotate({ title: "Enum Property Definition", identifier: "EnumPropertyDefinition" }),
 		),
 		strictStruct({
 			...propertyBaseFields,
@@ -386,53 +396,52 @@ const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schema.suspe
 			validation: Schema.optional(arrayValidationSchema),
 			defaultValue: Schema.optional(Schema.Array(Schema.String)),
 		}).pipe(
-			Schema.filter(
-				(value) =>
-					value.defaultValue === undefined ||
-					value.defaultValue.every((item) => value.options.includes(item)),
-				{ message: () => "defaultValue items must be one of the enum options" },
+			Schema.check(
+				Schema.makeFilter((schemaFilterInput8) =>
+					((value) =>
+						value.defaultValue === undefined ||
+						value.defaultValue.every((item) => value.options.includes(item)))(schemaFilterInput8),
+				),
 			),
-			Schema.annotations({
-				identifier: "EnumArrayPropertyDefinition",
+			Schema.annotate({
 				title: "Enum Array Property Definition",
+				identifier: "EnumArrayPropertyDefinition",
 			}),
 		),
-	),
-).pipe(
-	Schema.annotations({ identifier: "AppPropertyDefinition", title: "App Property Definition" }),
-);
+	]),
+).pipe(Schema.annotate({ identifier: "AppPropertyDefinition", title: "App Property Definition" }));
 
 const ruleConditionValueSchema = strictStruct({
 	path: rulePathSchema,
 	value: ruleValueSchema,
-	operator: Schema.Literal("eq", "neq"),
+	operator: Schema.Literals(["eq", "neq"]),
 });
 
 const ruleConditionExistsSchema = strictStruct({
 	path: rulePathSchema,
-	operator: Schema.Literal("exists", "not_exists"),
+	operator: Schema.Literals(["exists", "not_exists"]),
 });
 
 const ruleConditionManySchema = strictStruct({
 	path: rulePathSchema,
-	value: Schema.Array(ruleValueSchema).pipe(Schema.minItems(1)),
-	operator: Schema.Literal("in", "not_in"),
+	operator: Schema.Literals(["in", "not_in"]),
+	value: Schema.Array(ruleValueSchema).pipe(Schema.check(Schema.isMinLength(1))),
 });
 
-const AppSchemaRuleCondition: Schema.Schema<AppSchemaRuleCondition> = Schema.suspend(() =>
-	Schema.Union(
+const AppSchemaRuleCondition: Schema.Codec<AppSchemaRuleCondition, unknown> = Schema.suspend(() =>
+	Schema.Union([
 		ruleConditionManySchema,
 		ruleConditionValueSchema,
 		ruleConditionExistsSchema,
 		strictStruct({
-			operator: Schema.Literal("all", "any"),
-			conditions: Schema.Array(AppSchemaRuleCondition).pipe(Schema.minItems(1)),
+			operator: Schema.Literals(["all", "any"]),
+			conditions: Schema.Array(AppSchemaRuleCondition).pipe(Schema.check(Schema.isMinLength(1))),
 		}).pipe(
-			Schema.annotations({ identifier: "CombinedRuleCondition", title: "Combined Rule Condition" }),
+			Schema.annotate({ identifier: "CombinedRuleCondition", title: "Combined Rule Condition" }),
 		),
-	),
+	]),
 ).pipe(
-	Schema.annotations({ identifier: "AppSchemaRuleCondition", title: "App Schema Rule Condition" }),
+	Schema.annotate({ identifier: "AppSchemaRuleCondition", title: "App Schema Rule Condition" }),
 );
 
 const AppSchemaRule = strictStruct({
@@ -446,10 +455,10 @@ const AppSchemaRule = strictStruct({
 const appSchemaBase = strictStruct({
 	unknownKeys: Schema.optional(AppSchemaUnknownKeysPolicy),
 	rules: Schema.optional(Schema.Array(AppSchemaRule)),
-	fields: Schema.Record({ key: Schema.String, value: AppPropertyDefinition }),
-}).pipe(Schema.annotations({ identifier: "AppSchema", title: "App Schema" }));
+	fields: Schema.Record(Schema.String, AppPropertyDefinition),
+}).pipe(Schema.annotate({ identifier: "AppSchema", title: "App Schema" }));
 
-export const AppSchema: Schema.Schema<AppSchema> = appSchemaBase;
+export const AppSchema: Schema.Codec<AppSchema, unknown> = appSchemaBase;
 
 /**
  * Returns the top-level property keys a schema declares as translatable. These are

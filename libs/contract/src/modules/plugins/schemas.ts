@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 export const InstallPluginBody = Schema.Struct({
 	manifest: Schema.Unknown,
-	files: Schema.Record({ key: Schema.String, value: Schema.String }),
+	files: Schema.Record(Schema.String, Schema.String),
 });
 
 export type InstallPluginBody = Schema.Schema.Type<typeof InstallPluginBody>;

@@ -1,17 +1,16 @@
-import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { RateLimited, Unauthorized } from "../../errors";
+import { BadRequest } from "../../errors";
 import { UpdateUserPreferencesBody, UserPreferences } from "./schemas";
 
 export const UserPreferencesGroup = HttpApiGroup.make("userPreferences")
 	.annotate(OpenApi.Description, "Manage user preferences.")
-	.addError(Unauthorized, { status: 401 })
-	.addError(RateLimited, { status: 429 })
-	.middleware(AuthMiddleware)
 	.add(
-		HttpApiEndpoint.patch("update", "/user-preferences")
-			.annotate(OpenApi.Description, "Update the user's preferences.")
-			.setPayload(UpdateUserPreferencesBody)
-			.addSuccess(UserPreferences),
-	);
+		HttpApiEndpoint.patch("update", "/user-preferences", {
+			payload: UpdateUserPreferencesBody,
+			success: UserPreferences,
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+		}).annotate(OpenApi.Description, "Update the user's preferences."),
+	)
+	.middleware(AuthMiddleware);

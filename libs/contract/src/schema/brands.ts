@@ -75,8 +75,10 @@ export const SubscriptionRunId = Schema.String.pipe(Schema.brand("SubscriptionRu
 export type SubscriptionRunId = typeof SubscriptionRunId.Type;
 
 export const Slug = Schema.String.pipe(
-	Schema.filter((value) =>
-		/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? true : "must be a non-empty kebab-case slug",
+	Schema.check(
+		Schema.makeFilter((value) =>
+			/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? true : "must be a non-empty kebab-case slug",
+		),
 	),
 	Schema.brand("Slug"),
 );
