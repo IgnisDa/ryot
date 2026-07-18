@@ -10,6 +10,7 @@ import type {
 } from "@ryot/contract/modules/integrations/schemas";
 import { IntegrationWebhookPayload as IntegrationWebhookPayloadSchema } from "@ryot/contract/modules/integrations/schemas";
 import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, Effect, Result, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -30,6 +31,56 @@ import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 const defaultExtraSettings = {
 	disableOnContinuousErrors: false,
 } satisfies IntegrationExtraSettings;
+
+const baseCommonFields = {
+	name: { label: "Name", type: "string", description: "Optional name for this integration" },
+	isDisabled: {
+		type: "boolean",
+		label: "Disabled",
+		defaultValue: false,
+		description: "Disable this integration",
+	},
+	disableOnContinuousErrors: {
+		type: "boolean",
+		defaultValue: false,
+		label: "Disable on continuous errors",
+		description: "Disable this integration after continuous errors",
+	},
+} satisfies AppSchema["fields"];
+
+const progressCommonFields = {
+	minimumProgress: {
+		type: "number",
+		defaultValue: 2,
+		label: "Minimum progress",
+		validation: { minimum: 0, maximum: 100 },
+		description: "Minimum progress percentage to synchronize",
+	},
+	maximumProgress: {
+		type: "number",
+		defaultValue: 95,
+		label: "Maximum progress",
+		validation: { minimum: 0, maximum: 100 },
+		description: "Maximum progress percentage to synchronize",
+	},
+} satisfies AppSchema["fields"];
+
+const integrationCommonSchema = (lot: RegisteredIntegrationProvider["lot"]): AppSchema => ({
+	fields: {
+		...baseCommonFields,
+		...(lot === "push" ? {} : progressCommonFields),
+		...(lot === "yank"
+			? {
+					syncOwnership: {
+						defaultValue: false,
+						label: "Sync ownership",
+						type: "boolean" as const,
+						description: "Synchronize ownership from this integration",
+					},
+				}
+			: {}),
+	},
+});
 
 const encodeIntegrationWebhookPayload = Schema.encodeUnknownEffect(
 	Schema.fromJsonString(IntegrationWebhookPayloadSchema),
@@ -86,11 +137,13 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 	"IntegrationsService",
 	{
 		make: Effect.gen(function* () {
-			const engine = yield* WorkflowEngine;
 			const database = yield* Database;
+			const engine = yield* WorkflowEngine;
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
 			const providerCatalog = yield* IntegrationProviderCatalog;
+			const redactForClient = (integration: IntegrationRecord) =>
+				redactIntegrationForClient(providerCatalog.findOwned, integration);
 
 			const failCreatedRun = (runId: ImportRunId, message: string) =>
 				importsService.failRunForIntegration(runId, message);
@@ -106,6 +159,33 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				return integration;
 			});
 
+			const listIntegrationProviders = Effect.fn("IntegrationsService.listIntegrationProviders")(
+				function* () {
+					return yield* Effect.forEach(providerCatalog.list(), (provider) =>
+						Effect.gen(function* () {
+							const resolution =
+								provider.lot === "push"
+									? null
+									: providerCatalog.resolveOwned(provider.slug, provider.pluginSlug);
+							const script = resolution === null ? null : yield* resolution.script;
+							return {
+								lot: provider.lot,
+								slug: provider.slug,
+								name: provider.name,
+								pluginSlug: provider.pluginSlug,
+								description: provider.description,
+								settingsSchema: provider.settingsSchema,
+								commonSchema: integrationCommonSchema(provider.lot),
+								isCreatable: provider.lot === "push" || script !== null,
+							};
+						}),
+					);
+				},
+			);
+
+			const getForClient = (userId: UserId, integrationId: IntegrationId) =>
+				requireIntegration(userId, integrationId).pipe(Effect.map(redactForClient));
+
 			const create = Effect.fn("IntegrationsService.create")(function* (
 				user: CurrentUserValue,
 				body: CreateIntegrationBody,
@@ -116,9 +196,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				}
 				yield* validateRegisteredSettings(body.provider, registered, body.providerSpecifics);
 				const lot = registered.lot;
-				if (lot === "push") {
-					return yield* badRequest(`Integration provider '${body.provider}' cannot be created`);
-				}
 
 				const minimumProgress = body.minimumProgress ?? 2;
 				const maximumProgress = body.maximumProgress ?? 95;
@@ -141,7 +218,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					lot,
 				});
 
-				return { id: created.id };
+				return redactForClient(created);
 			});
 
 			const update = Effect.fn("IntegrationsService.update")(function* (
@@ -324,18 +401,17 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				},
 			);
 
-			const redactForClient = (integration: IntegrationRecord) =>
-				redactIntegrationForClient(providerCatalog.findOwned, integration);
-
 			const updateForClient = (...input: Parameters<typeof update>) =>
 				update(...input).pipe(Effect.map(redactForClient));
 
 			return {
 				create,
 				update,
+				getForClient,
 				handleWebhook,
 				updateForClient,
 				disableIfEnabled,
+				listIntegrationProviders,
 				prepareScheduledYankRuns,
 				delete: deleteIntegration,
 			};
