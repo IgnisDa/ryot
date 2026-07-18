@@ -144,10 +144,10 @@ export const bindSandboxHostFunctions = (
 			"getEntitySchemas expects an array of non-empty entitySchemaSlug strings",
 		),
 	),
-	getIntegration: bindHostFunction(
-		domainSandboxHostContracts.getIntegration,
-		(...args) => implementations.getIntegration(input, ...args),
-		defaultFailure("getIntegration", "getIntegration received invalid arguments"),
+	getCurrentIntegration: bindHostFunction(
+		domainSandboxHostContracts.getCurrentIntegration,
+		(...args) => implementations.getCurrentIntegration(input, ...args),
+		defaultFailure("getCurrentIntegration", "getCurrentIntegration received invalid arguments"),
 	),
 	listEventSchemas: bindHostFunction(
 		domainSandboxHostContracts.listEventSchemas,

@@ -6,14 +6,15 @@ import { TEMPORARY_UPLOAD_MAX_REQUEST_BYTES } from "./upload-policy";
 
 type MultipartErrorReason = Multipart.MultipartErrorReason["_tag"];
 
-const multipartErrorSchema = <const Reasons extends ReadonlyArray<MultipartErrorReason>>(
-	reasons: Reasons,
+const multipartErrorSchema = <const ReasonTag extends MultipartErrorReason>(
+	reasons: readonly [ReasonTag, ...ReasonTag[]],
 	status: number,
 ) => {
 	const Reason = Schema.Literals(reasons);
 	const Runtime = Schema.declare(
 		(value): value is Multipart.MultipartError =>
-			value instanceof Multipart.MultipartError && reasons.includes(value.reason._tag),
+			value instanceof Multipart.MultipartError &&
+			reasons.some((reason) => reason === value.reason._tag),
 	);
 	const Wire = Schema.Struct({
 		_tag: Schema.Literal("MultipartError"),

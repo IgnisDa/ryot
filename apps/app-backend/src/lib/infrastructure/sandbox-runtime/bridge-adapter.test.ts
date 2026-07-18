@@ -29,9 +29,10 @@ const makeImplementations = (
 	httpCall: () => Effect.fail({ message: "unused" }),
 	emitSignal: () => Effect.fail({ message: "unused" }),
 	createEvents: () => Effect.fail({ message: "unused" }),
-	getIntegration: () => Effect.fail({ message: "unused" }),
 	getCachedValue: () => Effect.fail({ message: "unused" }),
 	setCachedValue: () => Effect.fail({ message: "unused" }),
+	getPluginConfig: () => Effect.fail({ message: "unused" }),
+	getSystemConfig: () => Effect.fail({ message: "unused" }),
 	getEntitySchemas: () => Effect.fail({ message: "unused" }),
 	listEventSchemas: () => Effect.fail({ message: "unused" }),
 	listIntegrations: () => Effect.fail({ message: "unused" }),
@@ -40,9 +41,8 @@ const makeImplementations = (
 	executeQueryEngine: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
-	getPluginConfig: () => Effect.fail({ message: "unused" }),
-	getSystemConfig: () => Effect.fail({ message: "unused" }),
 	upsertGlobalEntities: () => Effect.fail({ message: "unused" }),
+	getCurrentIntegration: () => Effect.fail({ message: "unused" }),
 	changeUserRelationships: () => Effect.fail({ message: "unused" }),
 	upsertGlobalRelationships: () => Effect.fail({ message: "unused" }),
 	...overrides,
@@ -313,7 +313,7 @@ describe("bindSandboxHostFunctions", () => {
 				let calls = 0;
 				let receivedUserId: string | null = "unset";
 				const implementations = makeImplementations({
-					getIntegration: (runInput) => {
+					getCurrentIntegration: (runInput) => {
 						calls += 1;
 						receivedUserId = "userId" in runInput.authority ? runInput.authority.userId : null;
 						return Effect.fail({ message: "reached" });
@@ -321,12 +321,12 @@ describe("bindSandboxHostFunctions", () => {
 				});
 				const bound = bindSandboxHostFunctions(implementations, input);
 
-				yield* bound.getIntegration([]);
-				const surplus = yield* bound.getIntegration(["integration-1"]);
+				yield* bound.getCurrentIntegration([]);
+				const surplus = yield* bound.getCurrentIntegration(["integration-1"]);
 
 				expect(surplus).toEqual({
 					success: false,
-					error: "getIntegration received an invalid number of arguments",
+					error: "getCurrentIntegration received an invalid number of arguments",
 				});
 				expect(calls).toBe(1);
 				expect(receivedUserId).toBe("user-1");

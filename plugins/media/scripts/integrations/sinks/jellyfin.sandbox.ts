@@ -11,7 +11,7 @@ export const manifest = defineManifest({
 	name: "Jellyfin sink",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["getIntegration"],
+	capabilities: ["getCurrentIntegration"],
 	slug: "integration.jellyfin-sink",
 });
 
@@ -21,7 +21,7 @@ export default defineActivity({
 	output: MediaIntegrationAdapterResult,
 	run: (input, host) =>
 		host
-			.getIntegration()
+			.getCurrentIntegration()
 			.pipe(
 				Effect.flatMap((integration) =>
 					parseMediaServer("Jellyfin", input.rawBody, integration.providerSpecifics),
