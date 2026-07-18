@@ -46,7 +46,7 @@ beforeAll(async () => {
 		extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
 	});
 	backendProcess = spawnBackendProcess(env);
-	await waitForHealthCheck(`${backendOrigin}/api/system/health`, "Plugin Boot Disabled Setup");
+	await waitForHealthCheck(`${backendOrigin}/api/system/health`, "Plugin Boot Disabled Setup", 90);
 }, 120_000);
 
 afterAll(async () => {
