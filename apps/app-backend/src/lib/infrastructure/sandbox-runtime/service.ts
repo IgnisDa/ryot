@@ -35,8 +35,7 @@ import {
 	measureSandboxScratchBytes,
 	SANDBOX_HARVEST_DIRECTORY_PREFIX,
 	sanitizeSandboxExecutionSegment,
-	sandboxArtifactGrantPath,
-	sandboxNamedArtifactGrantPaths,
+	sandboxArtifactGrant,
 	sandboxGrantPathError,
 	type SandboxProcessGrants,
 } from "./filesystem-grants";
@@ -193,11 +192,11 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						durableCalls: makeWorkflowDurableCallsHostFunction(input.workflowExecutionId, redis),
 					};
 					const selectedApiFunctions = selectSandboxHostFunctions(boundApiFunctions, input);
-					const artifactPath = sandboxArtifactGrantPath(
+					const artifactPath = sandboxArtifactGrant(
 						input.allowedHostFunctions,
 						input.grants?.artifactPath,
 					);
-					const namedArtifactPaths = sandboxNamedArtifactGrantPaths(
+					const namedArtifactPaths = sandboxArtifactGrant(
 						input.allowedHostFunctions,
 						input.grants?.namedArtifactPaths,
 					);
