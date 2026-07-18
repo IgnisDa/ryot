@@ -1,6 +1,6 @@
-import { Command, CommandExecutor } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { Effect } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { expect, it } from "vitest";
 
 import { makeSandboxCommandExecutor } from "./restricted-command-executor";
@@ -14,15 +14,12 @@ it("passes only the explicit sandbox environment allowlist to child processes", 
 		}),
 		() =>
 			Effect.gen(function* () {
-				const executor = yield* CommandExecutor.CommandExecutor;
+				const executor = yield* ChildProcessSpawner.ChildProcessSpawner;
 				const restricted = makeSandboxCommandExecutor(executor, {
 					PATH: "/usr/bin:/bin",
 					DENO_DIR: "/tmp/ryot-sandbox-deno",
 				});
-				const output = yield* Command.make("/usr/bin/env").pipe(
-					Command.string,
-					Effect.provideService(CommandExecutor.CommandExecutor, restricted),
-				);
+				const output = yield* restricted.string(ChildProcess.make("/usr/bin/env"));
 				expect(output.trim().split("\n").sort()).toEqual([
 					"DENO_DIR=/tmp/ryot-sandbox-deno",
 					"PATH=/usr/bin:/bin",
@@ -36,5 +33,5 @@ it("passes only the explicit sandbox environment allowlist to child processes", 
 					Bun.env[sentinel] = previous;
 				}
 			}),
-	).pipe(Effect.provide(BunContext.layer));
+	).pipe(Effect.provide(BunServices.layer));
 });

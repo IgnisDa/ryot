@@ -1,11 +1,10 @@
-import { FileSystem, Path } from "@effect/platform";
-import type { PlatformError } from "@effect/platform/Error";
 import {
 	FILESYSTEM_GRANT_SANDBOX_CAPABILITIES,
 	type FilesystemGrantSandboxCapability,
 } from "@ryot/sandbox-sdk/core";
 import { sandboxScratchManifestSchema } from "@ryot/sandbox-sdk/filesystem";
-import { Effect, Schema } from "effect";
+import { Effect, Schema, FileSystem, Path } from "effect";
+import type { PlatformError } from "effect/PlatformError";
 
 const SANDBOX_SCRATCH_DIRECTORY_PREFIX = "ryot-sandbox-scratch-";
 export const SANDBOX_HARVEST_DIRECTORY_PREFIX = "ryot-sandbox-harvest-";

@@ -1,8 +1,22 @@
-import { Command, CommandExecutor, FileSystem, HttpApp, HttpServer } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
-import type { PlatformError } from "@effect/platform/Error";
 import { badRequest, internalError, unknownToMessage } from "@ryot/contract/errors";
-import { Clock, Deferred, Effect, Pool, Queue, Runtime, Schema, Stream, type Tracer } from "effect";
+import {
+	Clock,
+	Context,
+	Deferred,
+	Effect,
+	Layer,
+	Pool,
+	Queue,
+	Schema,
+	Stream,
+	type Tracer,
+	FileSystem,
+	Semaphore,
+} from "effect";
+import type { PlatformError } from "effect/PlatformError";
+import { HttpEffect, HttpServer } from "effect/unstable/http";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { sandboxDenoDirConfig } from "../config/definition";
 import { AppConfig } from "../config/service";
@@ -22,17 +36,17 @@ import type { BoundHostFunction } from "./shared";
 
 const SandboxSessionRecord = Schema.Struct({
 	token: Schema.String,
-	expiresAt: Schema.Number,
+	expiresAt: Schema.Finite,
 });
 
 const SandboxRpcArgs = Schema.Struct({
 	args: Schema.Array(Schema.Unknown),
 });
 
-const encodeSandboxSession = Schema.encodeSync(Schema.parseJson(SandboxSessionRecord));
-const decodeSandboxSession = Schema.decodeUnknownSync(Schema.parseJson(SandboxSessionRecord));
-const decodeSandboxRpcBody = Schema.decode(Schema.parseJson(SandboxRpcArgs));
-const encodeSandboxRpcResponse = Schema.encode(Schema.parseJson(Schema.Unknown));
+const encodeSandboxSession = Schema.encodeSync(Schema.fromJsonString(SandboxSessionRecord));
+const decodeSandboxSession = Schema.decodeUnknownSync(Schema.fromJsonString(SandboxSessionRecord));
+const decodeSandboxRpcBody = Schema.decodeUnknownEffect(Schema.fromJsonString(SandboxRpcArgs));
+const encodeSandboxRpcResponse = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
 const decoder = new TextDecoder();
 const oversizedBridgeRequest = Symbol("oversizedBridgeRequest");
@@ -67,14 +81,14 @@ type ExecutionSession = {
 type ActiveExecutionSession = {
 	readonly hostCallLimit: number;
 	readonly parentSpan: Tracer.AnySpan;
-	readonly semaphore: Effect.Semaphore;
+	readonly semaphore: Semaphore.Semaphore;
 	readonly budget: SandboxHostCallBudget;
 	readonly closed: Deferred.Deferred<void>;
 	readonly apiFunctions: Record<string, BoundHostFunction>;
 };
 
 type PooledProcess = {
-	readonly process: CommandExecutor.Process;
+	readonly process: ChildProcessSpawner.ChildProcessHandle;
 	readonly responseQueue: Queue.Queue<string>;
 	readonly stdinQueue: Queue.Queue<Uint8Array>;
 };
@@ -96,12 +110,15 @@ export const readSandboxBridgeRequestBody = (request: Request) => {
 		evaluate: () => stream,
 		onError: () => badRequest("Invalid request body"),
 	}).pipe(
-		Stream.runFoldEffect({ bytes: 0, chunks: [] as Uint8Array[] }, (state, chunk) => {
-			const bytes = state.bytes + chunk.byteLength;
-			return bytes > SANDBOX_LIMITS.bridge.requestBytes
-				? Effect.fail(oversizedBridgeRequest)
-				: Effect.succeed({ bytes, chunks: [...state.chunks, chunk] });
-		}),
+		Stream.runFoldEffect(
+			() => ({ bytes: 0, chunks: [] as Uint8Array[] }),
+			(state, chunk) => {
+				const bytes = state.bytes + chunk.byteLength;
+				return bytes > SANDBOX_LIMITS.bridge.requestBytes
+					? Effect.fail(oversizedBridgeRequest)
+					: Effect.succeed({ bytes, chunks: [...state.chunks, chunk] });
+			},
+		),
 		Effect.map(({ bytes, chunks }) => {
 			const body = new Uint8Array(bytes);
 			let offset = 0;
@@ -111,7 +128,7 @@ export const readSandboxBridgeRequestBody = (request: Request) => {
 			}
 			return { body: decoder.decode(body), oversized: false } as const;
 		}),
-		Effect.catchAll((error) =>
+		Effect.catch((error) =>
 			error === oversizedBridgeRequest
 				? Effect.succeed({ body: "", oversized: true } as const)
 				: Effect.fail(error),
@@ -147,19 +164,19 @@ export const runSandboxBridgeHostFunction = (
 	);
 
 export const withSandboxHostCallPermit = <A, E, R>(
-	semaphore: Effect.Semaphore,
+	semaphore: Semaphore.Semaphore,
 	effect: Effect.Effect<A, E, R>,
 ) => semaphore.withPermits(1)(effect);
 
-const killProcessHandle = (process: CommandExecutor.Process) =>
-	process.kill().pipe(Effect.orElse(() => Effect.void));
+const killProcessHandle = (process: ChildProcessSpawner.ChildProcessHandle) =>
+	process.kill().pipe(Effect.ignore);
 
 const killProcess = (worker: PooledProcess) => killProcessHandle(worker.process);
 
 export const invalidateProcess = (
 	pool: Pool.Pool<PooledProcess, PlatformError>,
 	worker: PooledProcess,
-) => pool.invalidate(worker).pipe(Effect.zipRight(killProcess(worker)));
+) => Pool.invalidate(pool, worker).pipe(Effect.andThen(killProcess(worker)));
 
 type SpawnDenoProcessOptions = {
 	readonly denoDir: string;
@@ -204,27 +221,20 @@ export const sandboxDenoRunFlags = (options: Omit<SpawnDenoProcessOptions, "deno
 const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	options: SpawnDenoProcessOptions,
 ) {
-	const executor = yield* CommandExecutor.CommandExecutor;
+	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const path = Bun.env["PATH"];
 	if (!path) {
-		return yield* Effect.dieMessage("Sandbox process PATH is unavailable");
+		return yield* Effect.die(new Error("Sandbox process PATH is unavailable"));
 	}
-	const sandboxExecutor = makeSandboxCommandExecutor(executor, {
+	const sandboxSpawner = makeSandboxCommandExecutor(spawner, {
 		PATH: path,
 		DENO_DIR: options.denoDir,
 	});
-	const denoProcess = yield* Command.make(
+	const denoProcess = yield* ChildProcess.make(
 		"deno",
-		"run",
-		...sandboxDenoRunFlags(options),
-		options.runnerPath,
-	).pipe(
-		Command.stdin("pipe"),
-		Command.stdout("pipe"),
-		Command.stderr("pipe"),
-		Command.start,
-		Effect.provideService(CommandExecutor.CommandExecutor, sandboxExecutor),
-	);
+		["run", ...sandboxDenoRunFlags(options), options.runnerPath],
+		{ stdin: "pipe", stdout: "pipe", stderr: "pipe" },
+	).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, sandboxSpawner));
 
 	yield* Effect.addFinalizer(() => killProcessHandle(denoProcess));
 
@@ -234,14 +244,14 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	yield* Stream.fromQueue(stdinQueue).pipe(Stream.run(denoProcess.stdin), Effect.forkScoped);
 
 	yield* denoProcess.stdout.pipe(
-		Stream.decodeText("utf-8"),
+		Stream.decodeText({ encoding: "utf-8" }),
 		Stream.splitLines,
-		Stream.runForEach((line) => responseQueue.offer(line).pipe(Effect.asVoid)),
+		Stream.runForEach((line) => Queue.offer(responseQueue, line).pipe(Effect.asVoid)),
 		Effect.forkScoped,
 	);
 
 	yield* denoProcess.stderr.pipe(
-		Stream.decodeText("utf-8"),
+		Stream.decodeText({ encoding: "utf-8" }),
 		Stream.splitLines,
 		Stream.runForEach(() => Effect.void),
 		Effect.forkScoped,
@@ -250,10 +260,10 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	return { process: denoProcess, stdinQueue, responseQueue };
 });
 
-export class BridgeService extends Effect.Service<BridgeService>()("BridgeService", {
-	scoped: Effect.gen(function* () {
+export class BridgeService extends Context.Service<BridgeService>()("BridgeService", {
+	make: Effect.gen(function* () {
 		const redis = yield* RedisService;
-		const runtime = yield* Effect.runtime();
+		const runtime = yield* Effect.context();
 		const activeSessions = new Map<string, ActiveExecutionSession>();
 
 		const removeSession = Effect.fn("BridgeService.removeSession")(function* (executionId: string) {
@@ -261,7 +271,7 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 				const session = activeSessions.get(executionId);
 				activeSessions.delete(executionId);
 				if (session) {
-					Deferred.unsafeDone(session.closed, Effect.void);
+					Deferred.doneUnsafe(session.closed, Effect.void);
 				}
 			});
 			yield* redis.del(redisKeys.sandboxSession(executionId));
@@ -273,7 +283,7 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 		) {
 			const now = yield* Clock.currentTimeMillis;
 			const closed = yield* Deferred.make<void>();
-			const semaphore = yield* Effect.makeSemaphore(SANDBOX_LIMITS.bridge.concurrentHostCalls);
+			const semaphore = yield* Semaphore.make(SANDBOX_LIMITS.bridge.concurrentHostCalls);
 			const ttlSeconds = Math.max(1, Math.ceil((session.expiresAt - now) / 1000));
 			yield* redis.set(
 				redisKeys.sandboxSession(executionId),
@@ -372,7 +382,7 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 				}).pipe(
 					Effect.mapError((error) => internalError(unknownToMessage(error))),
 					Effect.flatMap(sandboxBridgeResultResponse),
-					Effect.catchAll((error) =>
+					Effect.catch((error) =>
 						Effect.succeed(Response.json({ error: unknownToMessage(error) }, { status: 500 })),
 					),
 				);
@@ -384,7 +394,7 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 					),
 				);
 			},
-			Effect.catchAll((error) =>
+			Effect.catch((error) =>
 				Effect.succeed(Response.json({ error: unknownToMessage(error) }, { status: 400 })),
 			),
 		);
@@ -394,7 +404,9 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 			hostname: "127.0.0.1",
 		});
 		yield* HttpServer.serveEffect(
-			HttpApp.fromWebHandler((request) => Runtime.runPromise(runtime)(handleRequest(request))),
+			HttpEffect.fromWebHandler((request) =>
+				Effect.runPromiseWith(runtime)(handleRequest(request)),
+			),
 		).pipe(Effect.provideService(HttpServer.HttpServer, server));
 		const address = server.address;
 		if (address._tag === "UnixAddress") {
@@ -409,36 +421,41 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 
 		return { addSession, removeSession, port: address.port };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
-class RunnerFile extends Effect.Service<RunnerFile>()("RunnerFile", {
-	scoped: Effect.gen(function* () {
+class RunnerFile extends Context.Service<RunnerFile>()("RunnerFile", {
+	make: Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const directory = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-runner-" });
 		const path = `${directory}/runner.mjs`;
 		yield* fs.writeFileString(path, sandboxRunnerSource);
 		return { path };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
-export class PackageCacheManager extends Effect.Service<PackageCacheManager>()(
+export class PackageCacheManager extends Context.Service<PackageCacheManager>()(
 	"PackageCacheManager",
 	{
-		scoped: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const denoDir = yield* sandboxDenoDirConfig;
 			return yield* ensureSandboxRuntimeDependencies(denoDir);
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
-export class ProcessPool extends Effect.Service<ProcessPool>()("ProcessPool", {
-	dependencies: [BridgeService.Default, RunnerFile.Default, PackageCacheManager.Default],
-	scoped: Effect.gen(function* () {
+export class ProcessPool extends Context.Service<ProcessPool>()("ProcessPool", {
+	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const runner = yield* RunnerFile;
 		const bridge = yield* BridgeService;
 		const dependencies = yield* PackageCacheManager;
-		const executor = yield* CommandExecutor.CommandExecutor;
+		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 		// The executor is captured here so a dedicated spawn does not leak a context requirement into
 		// every caller of `SandboxService.run`.
 		const spawn = (grants?: SandboxProcessGrants) =>
@@ -449,11 +466,15 @@ export class ProcessPool extends Effect.Service<ProcessPool>()("ProcessPool", {
 				runtimeDirectory: dependencies.directory,
 				importMapPath: dependencies.importMapPath,
 				...(grants ? { grants } : {}),
-			}).pipe(Effect.provideService(CommandExecutor.CommandExecutor, executor));
+			}).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner));
 		const pool = yield* Pool.make({
 			acquire: spawn(),
 			size: config.sandbox.workerConcurrency + 2,
 		});
 		return { pool, runtimePaths: dependencies, spawnDedicated: spawn };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(Layer.mergeAll(BridgeService.layer, RunnerFile.layer, PackageCacheManager.layer)),
+	);
+}

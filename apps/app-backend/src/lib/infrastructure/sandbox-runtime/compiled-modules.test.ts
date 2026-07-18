@@ -1,7 +1,6 @@
-import { FileSystem, Path } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, FileSystem, Path } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 
@@ -30,7 +29,7 @@ const withModuleDirectory = <A, E>(
 			yield* fs.makeDirectory(moduleDirectory);
 			return yield* use(fs, moduleDirectory);
 		}),
-	).pipe(Effect.provide(BunContext.layer));
+	).pipe(Effect.provide(BunServices.layer));
 
 it.effect("materializes exact compiled bytes at a deterministic read-only path", () =>
 	withModuleDirectory((fs, moduleDirectory) =>
