@@ -1,11 +1,12 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
+import { NotificationDeliveryWorkflowPayload } from "./notification-delivery-workflow";
 import { NotificationsRepository } from "./repository";
 import { NotificationsService } from "./service";
 
@@ -21,15 +22,15 @@ const repositoryLayer = Layer.succeed(
 	Object.assign(Object.create(null), {}),
 );
 
-const makeServiceLayer = (workflowEngine: WorkflowEngine["Type"]) =>
-	NotificationsService.Default.pipe(
+const makeServiceLayer = (workflowEngine: WorkflowEngine["Service"]) =>
+	NotificationsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(dbRunnerLayer, repositoryLayer, Layer.succeed(WorkflowEngine, workflowEngine)),
 		),
 	);
 
 it.effect("enqueues a fire-and-forget test delivery without delivering synchronously", () => {
-	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 
 	const workflowEngine = makeWorkflowEngine({
 		execute: (_workflow, options) => {
@@ -46,12 +47,15 @@ it.effect("enqueues a fire-and-forget test delivery without delivering synchrono
 			discard: true,
 			payload: { userId: user.id, request: { kind: "test" } },
 		});
-		expect(typeof capturedOptions?.payload.executionId).toBe("string");
+		expect(
+			Schema.is(NotificationDeliveryWorkflowPayload)(capturedOptions?.payload) &&
+				typeof capturedOptions.payload.executionId,
+		).toBe("string");
 	}).pipe(Effect.provide(makeServiceLayer(workflowEngine)));
 });
 
 it.effect("enqueues a message delivery with a caller-supplied execution ID", () => {
-	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 
 	const workflowEngine = makeWorkflowEngine({
 		execute: (_workflow, options) => {

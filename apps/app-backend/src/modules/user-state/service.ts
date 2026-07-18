@@ -3,7 +3,7 @@ import { badRequest, notFound } from "@ryot/contract/errors";
 import type { MergeUserStateBody } from "@ryot/contract/modules/user-state/schemas";
 import { EntityId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { trimToNull } from "#lib/shared/validation";
@@ -21,8 +21,8 @@ const entityMergeDeniedError = "Entity user state cannot be merged";
 const entityClearDeniedError = "Entity user state cannot be cleared";
 const differentEntitySchemaError = "Entities must belong to the same schema";
 
-export class UserStateService extends Effect.Service<UserStateService>()("UserStateService", {
-	effect: Effect.gen(function* () {
+export class UserStateService extends Context.Service<UserStateService>()("UserStateService", {
+	make: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const eventsRepository = yield* EventsRepository;
 		const events = yield* EventsService;
@@ -229,4 +229,6 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 
 		return { clearUserState, mergeUserState };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

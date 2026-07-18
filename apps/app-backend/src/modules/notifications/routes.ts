@@ -1,8 +1,8 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { NotificationsService } from "./service";
 
@@ -25,18 +25,18 @@ export const NotificationsRoutesLive = HttpApiBuilder.group(
 					return yield* service.create(user, payload).pipe(dieOnDbError);
 				}),
 			)
-			.handle("updateChannel", ({ path, payload }) =>
+			.handle("updateChannel", ({ params, payload }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* NotificationsService;
-					return yield* service.update(user, path.channelId, payload).pipe(dieOnDbError);
+					return yield* service.update(user, params.channelId, payload).pipe(dieOnDbError);
 				}),
 			)
-			.handle("deleteChannel", ({ path }) =>
+			.handle("deleteChannel", ({ params }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* NotificationsService;
-					return yield* service.delete(user, path.channelId).pipe(dieOnDbError);
+					return yield* service.delete(user, params.channelId).pipe(dieOnDbError);
 				}),
 			)
 			.handle("testChannels", () =>
