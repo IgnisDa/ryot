@@ -29,7 +29,7 @@ import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/a
 import { verifyBearerToken } from "better-auth/oauth2";
 import { genericOAuth, jwt, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
-import { Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect";
+import { Cause, Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect";
 import { HttpServerRequest, type HttpServerResponse } from "effect/unstable/http";
 import type { HttpApiEndpoint } from "effect/unstable/httpapi";
 import type Redis from "ioredis";
@@ -248,10 +248,12 @@ const makeAuthInstance = (args: {
 							),
 						);
 					}).pipe(
-						Effect.catchCause((cause) =>
-							Effect.logError("reset password delivery failed", cause).pipe(
-								Effect.annotateLogs({ email: user.email }),
-							),
+						Effect.catchCauseIf(
+							(cause) => !Cause.hasInterruptsOnly(cause),
+							(cause) =>
+								Effect.logError("reset password delivery failed", cause).pipe(
+									Effect.annotateLogs({ email: user.email }),
+								),
 						),
 					),
 				),

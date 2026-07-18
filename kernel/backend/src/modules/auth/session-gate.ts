@@ -1,7 +1,7 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { APIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
-import { Effect } from "effect";
+import { Cause, Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -43,13 +43,21 @@ export const gateSessionCreation = (
 		}
 		if (foundUser && !foundUser.bootstrapCompletedAt) {
 			yield* runBootstrap(userId).pipe(
-				Effect.catchCause(() =>
-					Effect.fail(
-						APIError.from("SERVICE_UNAVAILABLE", {
-							code: "USER_INITIALIZING",
-							message: "Account initialization in progress. Please sign in again.",
-						}),
-					),
+				Effect.catchCauseIf(
+					(cause) => !Cause.hasInterruptsOnly(cause),
+					() =>
+						Effect.fail(
+							APIError.from("SERVICE_UNAVAILABLE", {
+								code: "USER_INITIALIZING",
+								message: "Account initialization in progress. Please sign in again.",
+							}),
+						),
+				),
+				Effect.mapError(() =>
+					APIError.from("SERVICE_UNAVAILABLE", {
+						code: "USER_INITIALIZING",
+						message: "Account initialization in progress. Please sign in again.",
+					}),
 				),
 			);
 		}
