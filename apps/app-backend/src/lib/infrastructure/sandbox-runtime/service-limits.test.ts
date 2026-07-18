@@ -3,7 +3,7 @@ import { FetchHttpClient, HttpClientRequest, HttpClientResponse } from "effect/u
 import { assert, describe, expect, it } from "vitest";
 
 import { SANDBOX_LIMITS, utf8ByteLength } from "./limits";
-import { applySandboxHttpRequestInit, readSandboxHttpResponseText } from "./service";
+import { applySandboxHttpRequestInit, readSandboxHttpResponseText } from "./runtime-host-functions";
 
 const request = HttpClientRequest.get("https://example.com");
 const fromWeb = (response: Response) => HttpClientResponse.fromWeb(request, response);
