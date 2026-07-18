@@ -1,4 +1,4 @@
-import { Either } from "@ryot/sandbox-sdk/effect";
+import { Result } from "@ryot/sandbox-sdk/effect";
 
 import { parseCsvText } from "./csv";
 import { parseDateTime } from "./dates";
@@ -140,7 +140,7 @@ export const adaptMovaryExports = (input: {
 		const index = itemIndex++;
 		const label = sourceLabel(readCell(row, TITLE_ALIASES), "history", index);
 		const identifier = readCell(row, TMDB_ID_ALIASES);
-		const parsed = Either.try(() => {
+		const parsed = Result.try(() => {
 			const occurredAt = parseDateTime(
 				readRequiredCell(row, HISTORY_DATE_ALIASES, "watched_at"),
 				MOVARY_DATE_FORMATS,
@@ -160,9 +160,9 @@ export const adaptMovaryExports = (input: {
 				group.events.push(review);
 			}
 		});
-		if (Either.isLeft(parsed)) {
+		if (Result.isFailure(parsed)) {
 			pushFailure(failures, {
-				error: parsed.left,
+				error: parsed.failure,
 				itemIndex: index,
 				fileLabel: "History",
 				sourceLabel: label,
@@ -185,7 +185,7 @@ export const adaptMovaryExports = (input: {
 		const index = itemIndex++;
 		const label = sourceLabel(readCell(row, TITLE_ALIASES), "ratings", index);
 		const identifier = readCell(row, TMDB_ID_ALIASES);
-		const parsed = Either.try(() => {
+		const parsed = Result.try(() => {
 			const id = tmdbId(row);
 			const normalizedRating = rating(readRequiredCell(row, RATING_ALIASES, "user_rating"));
 			const group = movieGroup(groups, { itemIndex: index, sourceLabel: label, tmdbId: id });
@@ -195,9 +195,9 @@ export const adaptMovaryExports = (input: {
 				occurredAt: input.importedAt,
 			});
 		});
-		if (Either.isLeft(parsed)) {
+		if (Result.isFailure(parsed)) {
 			pushFailure(failures, {
-				error: parsed.left,
+				error: parsed.failure,
 				itemIndex: index,
 				fileLabel: "Ratings",
 				sourceLabel: label,
@@ -219,7 +219,7 @@ export const adaptMovaryExports = (input: {
 		const index = itemIndex++;
 		const label = sourceLabel(readCell(row, TITLE_ALIASES), "watchlist", index);
 		const identifier = readCell(row, TMDB_ID_ALIASES);
-		const parsed = Either.try(() => {
+		const parsed = Result.try(() => {
 			const group = movieGroup(groups, {
 				itemIndex: index,
 				sourceLabel: label,
@@ -227,9 +227,9 @@ export const adaptMovaryExports = (input: {
 			});
 			group.events.push(createBacklogEvent(input.importedAt));
 		});
-		if (Either.isLeft(parsed)) {
+		if (Result.isFailure(parsed)) {
 			pushFailure(failures, {
-				error: parsed.left,
+				error: parsed.failure,
 				itemIndex: index,
 				fileLabel: "Watchlist",
 				sourceLabel: label,

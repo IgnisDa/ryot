@@ -24,7 +24,7 @@ export default defineActivity({
 	run: (input, host, execution) =>
 		resolve.run(input, host, execution).pipe(
 			Effect.map(({ externalId }) => ({ status: "completed" as const, externalId })),
-			Effect.catchAll((error) =>
+			Effect.catch((error) =>
 				Effect.succeed({ status: "failed" as const, message: String(error) }),
 			),
 		),

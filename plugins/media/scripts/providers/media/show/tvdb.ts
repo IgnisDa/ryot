@@ -80,7 +80,7 @@ export const translate = defineProvider({
 			});
 			const [translationData, detailsData] = yield* Effect.all([
 				tvdbGetOptional(host, request.translationPath),
-				tvdbGet(host, request.detailsPath).pipe(Effect.catchAll(() => Effect.succeed(null))),
+				tvdbGet(host, request.detailsPath).pipe(Effect.catch(() => Effect.succeed(null))),
 			]);
 			const detailsShow = detailsData ? asRecord(detailsData["data"]) : null;
 			const artworks = detailsShow ? (detailsShow["artworks"] ?? detailsShow["artwork"]) : null;

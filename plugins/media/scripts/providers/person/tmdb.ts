@@ -245,7 +245,7 @@ export const translate = defineProvider({
 						[
 							tmdbGet(host, `/person/${input.externalId}/translations`, {}, token),
 							tmdbGet(host, `/person/${input.externalId}/images`, {}, token).pipe(
-								Effect.catchAll(() => Effect.succeed({})),
+								Effect.catch(() => Effect.succeed({})),
 							),
 						],
 						{ concurrency: "unbounded" },

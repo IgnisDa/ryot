@@ -1,4 +1,4 @@
-import { Either, Schema } from "@ryot/sandbox-sdk/effect";
+import { Result, Schema } from "@ryot/sandbox-sdk/effect";
 
 import { getOccurredAtValue, nowIso, parseDateInput } from "./dates";
 import {
@@ -54,8 +54,8 @@ const WatcharrItem = Schema.Struct({
 	content: Schema.Struct({ type: Schema.String, title: Schema.String, tmdbId: Schema.Int }),
 });
 
-const decodeWatcharrItem = Schema.decodeUnknownEither(WatcharrItem);
-const decodeWatcharrActivityData = Schema.decodeUnknownEither(WatcharrActivityData);
+const decodeWatcharrItem = Schema.decodeUnknownResult(WatcharrItem);
+const decodeWatcharrActivityData = Schema.decodeUnknownResult(WatcharrActivityData);
 
 const normalizeOccurredAt = (value: string | null | undefined, fallback: string) =>
 	parseDateInput(value) ?? fallback;
@@ -75,15 +75,15 @@ const findEpisodeWatchDate = (
 		if (!activity.type.includes("EPISODE") || !activityData) {
 			continue;
 		}
-		const parsed = Either.try(() => JSON.parse(activityData) as unknown);
-		if (Either.isLeft(parsed)) {
+		const parsed = Result.try(() => JSON.parse(activityData) as unknown);
+		if (Result.isFailure(parsed)) {
 			continue;
 		}
-		const decoded = decodeWatcharrActivityData(parsed.right);
+		const decoded = decodeWatcharrActivityData(parsed.success);
 		if (
-			Either.isRight(decoded) &&
-			decoded.right.season === season &&
-			decoded.right.episode === episode
+			Result.isSuccess(decoded) &&
+			decoded.success.season === season &&
+			decoded.success.episode === episode
 		) {
 			const occurredAt = normalizeOccurredAt(activity.customDate, fallback);
 			matched = matched ? latestOccurredAt(matched, occurredAt) : occurredAt;
@@ -113,7 +113,7 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 	const end = Math.min(parsed.length, start + limit);
 	for (let itemIndex = start; itemIndex < end; itemIndex += 1) {
 		const parsedItem = decodeWatcharrItem(parsed[itemIndex]);
-		if (Either.isLeft(parsedItem)) {
+		if (Result.isFailure(parsedItem)) {
 			failures.push({
 				itemIndex,
 				message: "Watcharr item is malformed",
@@ -121,7 +121,7 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 			continue;
 		}
 
-		const item = parsedItem.right;
+		const item = parsedItem.success;
 		const entitySchemaSlug = entitySchemaSlugForContentType(item.content.type);
 		if (!entitySchemaSlug) {
 			failures.push({

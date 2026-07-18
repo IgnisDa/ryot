@@ -62,7 +62,7 @@ export const getCredentials = (host: IgdbHost) =>
 
 export const getAccessToken = (host: IgdbHost): Effect.Effect<CachedToken, unknown> =>
 	host.getCachedValue(TOKEN_CACHE_KEY).pipe(
-		Effect.catchAll(() => Effect.succeed(null)),
+		Effect.catch(() => Effect.succeed(null)),
 		Effect.flatMap((cached) => {
 			const cachedToken = asCachedToken(cached);
 			if (cachedToken) {
@@ -97,7 +97,7 @@ export const getAccessToken = (host: IgdbHost): Effect.Effect<CachedToken, unkno
 								const token = { accessToken, clientId };
 								return host.setCachedValue(TOKEN_CACHE_KEY, token, expiryWithBuffer).pipe(
 									Effect.as(token),
-									Effect.catchAll((error) => {
+									Effect.catch((error) => {
 										console.warn(`IGDB token cache write failed: ${error.message}`);
 										return Effect.succeed(token);
 									}),

@@ -114,7 +114,7 @@ export const resolveEpisodes = (
 ) =>
 	Effect.forEach(refs, (ref) =>
 		executeQueryEngine(refDocument(ref)).pipe(
-			Effect.flatMap(Schema.decodeUnknown(QueryRowsResponse)),
+			Effect.flatMap(Schema.decodeUnknownEffect(QueryRowsResponse)),
 			Effect.map(({ data }) => ({
 				index: ref.index,
 				entityId: data.items.length === 1 ? (data.items[0]?.entityId.value ?? null) : null,

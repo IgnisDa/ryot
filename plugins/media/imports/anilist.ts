@@ -1,4 +1,4 @@
-import { Either, ParseResult, Schema } from "@ryot/sandbox-sdk/effect";
+import { Result, Schema, SchemaIssue } from "@ryot/sandbox-sdk/effect";
 
 import { nowIso, parseZonedDateTime } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
@@ -56,11 +56,16 @@ const AnilistRoot = Schema.Struct({
 	),
 });
 const decodeRoot = Schema.decodeUnknownSync(AnilistRoot);
-const decodeList = Schema.decodeUnknownEither(AnilistList);
-const decodeReview = Schema.decodeUnknownEither(AnilistReview);
-const decodeFavorite = Schema.decodeUnknownEither(AnilistFavorite);
-const issuePaths = (error: ParseResult.ParseError) =>
-	ParseResult.ArrayFormatter.formatErrorSync(error).map((issue) => issue.path.join("."));
+const decodeList = Schema.decodeUnknownResult(AnilistList);
+const decodeReview = Schema.decodeUnknownResult(AnilistReview);
+const decodeFavorite = Schema.decodeUnknownResult(AnilistFavorite);
+const formatIssue = SchemaIssue.makeFormatterStandardSchemaV1();
+const issuePaths = (error: Schema.SchemaError) =>
+	formatIssue(error.issue).issues.map((issue) =>
+		(issue.path ?? [])
+			.map((segment) => String(typeof segment === "object" ? segment.key : segment))
+			.join("."),
+	);
 const getSeriesTarget = (seriesType: number) => {
 	if (seriesType === 0) {
 		return {
@@ -105,9 +110,9 @@ const parseCustomListIds = (value: string | null | undefined) => {
 	if (!raw) {
 		return [];
 	}
-	const parsed = Either.try(() => JSON.parse(raw) as unknown);
-	return Either.isRight(parsed) && Array.isArray(parsed.right)
-		? parsed.right.filter(
+	const parsed = Result.try(() => JSON.parse(raw) as unknown);
+	return Result.isSuccess(parsed) && Array.isArray(parsed.success)
+		? parsed.success.filter(
 				(entry): entry is number => typeof entry === "number" && Number.isInteger(entry),
 			)
 		: [];
@@ -123,16 +128,16 @@ export const adaptAnilistExport = (jsonText: string, timezone: string) => {
 	let itemIndex = 0;
 	for (const rawItem of data.lists ?? []) {
 		const parsed = decodeList(rawItem);
-		if (Either.isLeft(parsed)) {
+		if (Result.isFailure(parsed)) {
 			failures.push({
 				itemIndex,
 				message: "Anilist list item is malformed",
-				context: { issues: issuePaths(parsed.left) },
+				context: { issues: issuePaths(parsed.failure) },
 			});
 			itemIndex += 1;
 			continue;
 		}
-		const item = parsed.right;
+		const item = parsed.success;
 		const target = getSeriesTarget(item.series_type);
 		if (!target) {
 			failures.push({
@@ -198,16 +203,16 @@ export const adaptAnilistExport = (jsonText: string, timezone: string) => {
 	}
 	for (const rawReview of data.reviews ?? []) {
 		const parsed = decodeReview(rawReview);
-		if (Either.isLeft(parsed)) {
+		if (Result.isFailure(parsed)) {
 			failures.push({
 				itemIndex,
 				message: "Anilist review item is malformed",
-				context: { issues: issuePaths(parsed.left) },
+				context: { issues: issuePaths(parsed.failure) },
 			});
 			itemIndex += 1;
 			continue;
 		}
-		const review = parsed.right;
+		const review = parsed.success;
 		const target = getSeriesTarget(review.series_type);
 		if (!target) {
 			failures.push({
@@ -242,16 +247,16 @@ export const adaptAnilistExport = (jsonText: string, timezone: string) => {
 	}
 	for (const rawFavorite of data.favourites ?? []) {
 		const parsed = decodeFavorite(rawFavorite);
-		if (Either.isLeft(parsed)) {
+		if (Result.isFailure(parsed)) {
 			failures.push({
 				itemIndex,
 				message: "Anilist favorite item is malformed",
-				context: { issues: issuePaths(parsed.left) },
+				context: { issues: issuePaths(parsed.failure) },
 			});
 			itemIndex += 1;
 			continue;
 		}
-		const favorite = parsed.right;
+		const favorite = parsed.success;
 		const target = getFavoriteTarget(favorite.favourite_type);
 		if (!target) {
 			failures.push({

@@ -16,8 +16,12 @@ export const manifest = defineManifest({
 export default defineScript({
 	manifest,
 	input: Schema.Struct({
-		timezone: Schema.Trim.pipe(Schema.minLength(1, { message: () => "timezone is required" })),
-		authCookie: Schema.Trim.pipe(Schema.minLength(1, { message: () => "authCookie is required" })),
+		timezone: Schema.Trim.pipe(
+			Schema.check(Schema.isMinLength(1, { message: "timezone is required" })),
+		),
+		authCookie: Schema.Trim.pipe(
+			Schema.check(Schema.isMinLength(1, { message: "authCookie is required" })),
+		),
 	}),
 	output: Schema.Struct({
 		songs: Schema.Array(Schema.Struct({ title: Schema.String, videoId: Schema.String })),

@@ -1,4 +1,4 @@
-import { Effect, Either, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Result, Schema } from "@ryot/sandbox-sdk/effect";
 
 import { parseDateInput } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
@@ -64,14 +64,14 @@ export const adaptJellyfinData = (
 			path: "Users/AuthenticateByName",
 			headers: headers(),
 			body: JSON.stringify({ Pw: input.password ?? "", Username: input.username }),
-		}).pipe(Effect.flatMap(Schema.decodeUnknown(AuthResponse)));
+		}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(AuthResponse)));
 		const requestHeaders = headers(auth.AccessToken);
 		const library = yield* requestSourceJson(requestHost, {
 			headers: requestHeaders,
 			baseUrl: input.apiUrl,
 			path: `Users/${auth.User.Id}/Items`,
 			query: { fields: "ProviderIds", IsPlayed: true, recursive: true },
-		}).pipe(Effect.flatMap(Schema.decodeUnknown(ItemsResponse)));
+		}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ItemsResponse)));
 		const failures: MediaImportAdapterFailure[] = [];
 		const groups = new Map<string, ImportMediaEntityGroupBuilder>();
 		const seriesCache = new Map<string, typeof Item.Type>();
@@ -133,8 +133,8 @@ export const adaptJellyfinData = (
 					headers: requestHeaders,
 					baseUrl: input.apiUrl,
 					path: `Items/${item.SeriesId}`,
-				}).pipe(Effect.flatMap(Schema.decodeUnknown(Item)), Effect.either);
-				if (Either.isLeft(result)) {
+				}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Item)), Effect.result);
+				if (Result.isFailure(result)) {
 					failures.push(
 						sourceFetchFailure({
 							itemIndex,
@@ -146,7 +146,7 @@ export const adaptJellyfinData = (
 					);
 					continue;
 				}
-				series = result.right;
+				series = result.success;
 				seriesCache.set(item.SeriesId, series);
 			}
 			const label = item.SeriesName ?? series.Name;

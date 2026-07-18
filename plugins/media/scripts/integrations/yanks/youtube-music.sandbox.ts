@@ -19,16 +19,16 @@ export const manifest = defineManifest({
 const Input = Schema.Struct({});
 
 export const deduplicateWindow = (timezone: string) =>
-	Option.match(DateTime.makeZoned(DateTime.unsafeNow(), { timeZone: timezone }), {
+	Option.match(DateTime.makeZoned(DateTime.nowUnsafe(), { timeZone: timezone }), {
 		onNone: () => ({
 			ttlSeconds: 86_400,
-			localDate: DateTime.formatIsoDateUtc(DateTime.unsafeNow()),
+			localDate: DateTime.formatIsoDateUtc(DateTime.nowUnsafe()),
 		}),
 		onSome: (zoned) => {
 			const parts = DateTime.toParts(zoned);
 			return {
 				localDate: DateTime.formatIsoDate(zoned),
-				ttlSeconds: Math.max(1, 86_400 - parts.hours * 3_600 - parts.minutes * 60 - parts.seconds),
+				ttlSeconds: Math.max(1, 86_400 - parts.hour * 3_600 - parts.minute * 60 - parts.second),
 			};
 		},
 	});
