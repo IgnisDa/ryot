@@ -3,12 +3,13 @@ import { Redirect } from "expo-router";
 
 import { useAuthClient } from "@/modules/auth/client";
 import { scopedWorkspaceAtom } from "@/modules/navigation/atoms";
+import { getWorkspaceHref } from "@/modules/navigation/navigation-data";
 import { useServerUrl } from "@/modules/server/state";
 import { CLOUD_URL } from "@/modules/server/url";
 
 function WorkspaceRedirect(props: { serverUrl: string; userId: string }) {
 	const workspace = useAtomValue(scopedWorkspaceAtom(props));
-	return <Redirect href={{ pathname: "/[workspace]", params: { workspace } }} />;
+	return <Redirect href={getWorkspaceHref(workspace)} />;
 }
 
 export default function AppIndex() {
