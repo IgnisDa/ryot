@@ -41,13 +41,13 @@ export const createAudiobookshelfIntegration = (client: Client) =>
 export const listIntegrations = (
 	client: Client,
 	query?: ContractUrlParams<"integrations", "list">,
-) => client.call((c) => c.integrations.list({ urlParams: query ?? {} }));
+) => client.call((c) => c.integrations.list({ query: query ?? {} }));
 
 export const getIntegration = (client: Client, id: string) =>
-	client.call((c) => c.integrations.get({ path: { integrationId: IntegrationId.make(id) } }));
+	client.call((c) => c.integrations.get({ params: { integrationId: IntegrationId.make(id) } }));
 
 export const deleteIntegration = (client: Client, id: string) =>
-	client.call((c) => c.integrations.delete({ path: { integrationId: IntegrationId.make(id) } }));
+	client.call((c) => c.integrations.delete({ params: { integrationId: IntegrationId.make(id) } }));
 
 export const postIntegrationWebhook = (
 	client: Client,
@@ -57,7 +57,7 @@ export const postIntegrationWebhook = (
 	client.call((c) =>
 		c.integrations.webhook({
 			payload: body,
-			path: { integrationId: IntegrationId.make(integrationId) },
+			params: { integrationId: IntegrationId.make(integrationId) },
 		}),
 	);
 

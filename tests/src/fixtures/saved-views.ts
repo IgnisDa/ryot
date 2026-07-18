@@ -263,7 +263,7 @@ export const listSavedViews = (
 ) =>
 	client.call((c) =>
 		c.savedViews.list({
-			urlParams: {
+			query: {
 				includeDisabled: options.includeDisabled ?? false,
 				pluginSlug: options.pluginSlug ? PluginSlug.make(options.pluginSlug) : undefined,
 			},
@@ -279,7 +279,7 @@ export const findBuiltinSavedView = (client: Client) =>
 	});
 
 export const getSavedView = (client: Client, viewSlug: string) =>
-	client.call((c) => c.savedViews.get({ path: { viewSlug } }));
+	client.call((c) => c.savedViews.get({ params: { viewSlug } }));
 
 export const updateSavedView = (
 	client: Client,
@@ -288,7 +288,7 @@ export const updateSavedView = (
 ) =>
 	client.call((c) =>
 		c.savedViews.update({
-			path: { viewSlug },
+			params: { viewSlug },
 			payload: buildUpdatedSavedViewBody(overrides),
 		}),
 	);
@@ -301,16 +301,16 @@ export const updateSavedViewWithQueryDocument = (
 ) =>
 	client.call((c) =>
 		c.savedViews.update({
-			path: { viewSlug },
+			params: { viewSlug },
 			payload: buildUpdatedSavedViewQueryDocumentBody(queryDocument, overrides),
 		}),
 	);
 
 export const cloneSavedView = (client: Client, viewSlug: string) =>
-	client.call((c) => c.savedViews.clone({ path: { viewSlug } }));
+	client.call((c) => c.savedViews.clone({ params: { viewSlug } }));
 
 export const deleteSavedView = (client: Client, viewSlug: string) =>
-	client.call((c) => c.savedViews.delete({ path: { viewSlug } }));
+	client.call((c) => c.savedViews.delete({ params: { viewSlug } }));
 
 export const reorderSavedViews = (client: Client, body: ReorderSavedViewsBody) =>
 	client.call((c) => c.savedViews.reorder({ payload: body }));
