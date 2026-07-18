@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 
 import { queryProviderSearchOptions, searchProviderEntities } from "@/api/provider-entities";
 import { useApiScope } from "@/api/scope";
+import { temporaryFileUploadOperation } from "@/api/uploads";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { AppIcon } from "@/modules/icons";
 import { AppButton } from "@/modules/ui/button";
@@ -193,6 +194,7 @@ export function ProviderSearchPanel(props: {
 		schema: optionsSchema,
 		onSubmit: () => dispatch({ type: "search-requested" }),
 	});
+	const uploadFile = temporaryFileUploadOperation(scope);
 	const lastRunToken = useRef<number | undefined>(undefined);
 	const optionsRequestId = useRef(0);
 
@@ -479,6 +481,7 @@ export function ProviderSearchPanel(props: {
 											<SchemaForm
 												form={optionsForm}
 												schema={ready.schema}
+												uploadFile={uploadFile}
 												onChange={() => {
 													dispatch({ type: "options-changed" });
 												}}
