@@ -13,6 +13,7 @@ import {
 	savedViewRecordAtom,
 	savedViewResultAtom,
 } from "./atoms";
+import type { collectManagedAssets } from "./display-data";
 import type { SavedViewLayout } from "./saved-view-layout-selector";
 import {
 	mapManagedAssetResolution,

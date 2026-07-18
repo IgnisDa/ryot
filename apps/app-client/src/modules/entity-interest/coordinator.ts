@@ -15,25 +15,24 @@ type RetryDelay = (delayMs: number, signal: AbortSignal) => Promise<void>;
 
 type DeclarationFailure = (error: unknown, attempt: number, retryDelayMs: number) => void;
 
-const waitForRetry: RetryDelay = (delayMs, signal) =>
-	new Promise((resolve) => {
-		let settled = false;
-		let timeout: ReturnType<typeof setTimeout>;
-		const finish = () => {
-			if (settled) {
-				return;
-			}
-			settled = true;
-			clearTimeout(timeout);
-			signal.removeEventListener("abort", finish);
-			resolve();
-		};
-		timeout = setTimeout(finish, delayMs);
-		signal.addEventListener("abort", finish, { once: true });
-		if (signal.aborted) {
-			finish();
-		}
+const waitForRetry: RetryDelay = (delayMs, signal) => {
+	if (signal.aborted) {
+		return Promise.resolve();
+	}
+	let timeout: ReturnType<typeof setTimeout>;
+	let handleAbort: () => void;
+	const timeoutElapsed = new Promise<void>((resolve) => {
+		timeout = setTimeout(resolve, delayMs);
 	});
+	const aborted = new Promise<void>((resolve) => {
+		handleAbort = () => resolve();
+		signal.addEventListener("abort", handleAbort, { once: true });
+	});
+	return Promise.race([timeoutElapsed, aborted]).finally(() => {
+		clearTimeout(timeout);
+		signal.removeEventListener("abort", handleAbort);
+	});
+};
 
 export class EntityInterestCoordinator {
 	private dirty = false;
