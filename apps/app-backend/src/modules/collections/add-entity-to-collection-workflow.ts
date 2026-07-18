@@ -1,10 +1,12 @@
-import { Workflow } from "@effect/workflow";
 import { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
 import { MembershipResponse } from "@ryot/contract/modules/collections/schemas";
 import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
+import { Workflow } from "effect/unstable/workflow";
 
-export const AddEntityToCollectionWorkflowError = Schema.Union(BadRequest, DbError, NotFound);
+import { withoutSchemaServices } from "#lib/shared/schema";
+
+export const AddEntityToCollectionWorkflowError = Schema.Union([BadRequest, DbError, NotFound]);
 
 export type AddEntityToCollectionWorkflowError = typeof AddEntityToCollectionWorkflowError.Type;
 
@@ -18,10 +20,9 @@ export const AddEntityToCollectionWorkflowPayload = Schema.Struct({
 
 export type AddEntityToCollectionWorkflowPayload = typeof AddEntityToCollectionWorkflowPayload.Type;
 
-export const AddEntityToCollectionWorkflow = Workflow.make({
-	success: MembershipResponse,
-	name: "AddEntityToCollectionWorkflow",
-	error: AddEntityToCollectionWorkflowError,
-	payload: AddEntityToCollectionWorkflowPayload,
+export const AddEntityToCollectionWorkflow = Workflow.make("AddEntityToCollectionWorkflow", {
+	success: withoutSchemaServices(MembershipResponse),
+	error: withoutSchemaServices(AddEntityToCollectionWorkflowError),
+	payload: withoutSchemaServices(AddEntityToCollectionWorkflowPayload),
 	idempotencyKey: ({ executionId }) => executionId,
 });

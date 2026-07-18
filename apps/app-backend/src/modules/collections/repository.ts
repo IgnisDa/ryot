@@ -6,7 +6,7 @@ import {
 	SandboxProviderId,
 } from "@ryot/contract/schema/brands";
 import { and, eq, isNull, or } from "drizzle-orm";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -46,10 +46,10 @@ const toCollectionResponse = (row: CollectionRow) => ({
 	providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
 });
 
-export class CollectionsRepository extends Effect.Service<CollectionsRepository>()(
+export class CollectionsRepository extends Context.Service<CollectionsRepository>()(
 	"CollectionsRepository",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRegistry;
 			const getBuiltinCollectionSchema = Effect.fn(
 				"CollectionsRepository.getBuiltinCollectionSchema",
@@ -151,4 +151,6 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 			};
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

@@ -1,10 +1,11 @@
-import { Activity } from "@effect/workflow";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import { MembershipResponse } from "@ryot/contract/modules/collections/schemas";
 import { EntityId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
+import { Activity } from "effect/unstable/workflow";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { withoutSchemaServices } from "#lib/shared/schema";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 
 import {
@@ -23,13 +24,14 @@ const WriteCollectionMembershipResult = Schema.Struct({
 });
 
 type AddEntityToCollectionWorkflowOperationsValue = {
-	writeMembership: CollectionsService["writeMembership"];
-	compensateMembership: CollectionsService["compensateMembership"];
+	writeMembership: CollectionsService["Service"]["writeMembership"];
+	compensateMembership: CollectionsService["Service"]["compensateMembership"];
 };
 
-export class AddEntityToCollectionWorkflowOperations extends Context.Tag(
-	"AddEntityToCollectionWorkflowOperations",
-)<AddEntityToCollectionWorkflowOperations, AddEntityToCollectionWorkflowOperationsValue>() {}
+export class AddEntityToCollectionWorkflowOperations extends Context.Service<
+	AddEntityToCollectionWorkflowOperations,
+	AddEntityToCollectionWorkflowOperationsValue
+>()("AddEntityToCollectionWorkflowOperations") {}
 
 export const AddEntityToCollectionWorkflowOperationsLive = Layer.effect(
 	AddEntityToCollectionWorkflowOperations,
@@ -52,8 +54,8 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 
 		const result = yield* Activity.make({
 			name: "write-collection-membership",
-			success: WriteCollectionMembershipResult,
-			error: AddEntityToCollectionWorkflowError,
+			success: withoutSchemaServices(WriteCollectionMembershipResult),
+			error: withoutSchemaServices(AddEntityToCollectionWorkflowError),
 			execute: operations.writeMembership({
 				userId: payload.userId,
 				entityId: payload.entityId,
@@ -86,24 +88,24 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 						],
 					},
 				})
-				.pipe(Effect.either);
-			if (eventAttempt._tag === "Left") {
+				.pipe(Effect.result);
+			if (eventAttempt._tag === "Failure") {
 				yield* Activity.make({
-					success: Schema.Boolean,
+					success: withoutSchemaServices(Schema.Boolean),
 					name: "compensate-collection-membership",
-					error: AddEntityToCollectionWorkflowError,
+					error: withoutSchemaServices(AddEntityToCollectionWorkflowError),
 					execute: operations.compensateMembership(payload.userId, result.memberOf.id),
 				});
-				return yield* eventAttempt.left;
+				return yield* eventAttempt.failure;
 			}
-			if (eventAttempt.right.failure) {
+			if (eventAttempt.success.failure) {
 				yield* Activity.make({
-					success: Schema.Boolean,
+					success: withoutSchemaServices(Schema.Boolean),
 					name: "compensate-collection-membership",
-					error: AddEntityToCollectionWorkflowError,
+					error: withoutSchemaServices(AddEntityToCollectionWorkflowError),
 					execute: operations.compensateMembership(payload.userId, result.memberOf.id),
 				});
-				const { reason } = eventAttempt.right.failure;
+				const { reason } = eventAttempt.success.failure;
 				return yield* reason.kind === "not_found"
 					? notFound(reason.message)
 					: badRequest(reason.message);
