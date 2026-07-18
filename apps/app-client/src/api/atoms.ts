@@ -1,7 +1,11 @@
 import { makeContractClient } from "@ryot/contract/client";
 import { buildNavigationDocument } from "@ryot/ryotql-recipes/navigation";
 import { buildNotificationChannelsDocument } from "@ryot/ryotql-recipes/notification-channels";
-import { buildSavedViewRecordsDocument } from "@ryot/ryotql-recipes/saved-view-records";
+import {
+	buildSavedViewRecordDocument,
+	buildSavedViewRecordsDocument,
+	type SavedViewRecord,
+} from "@ryot/ryotql-recipes/saved-view-records";
 import { Effect, Schema } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { Atom } from "effect/unstable/reactivity";
@@ -27,9 +31,28 @@ export const navigationAtom = appQueryClient.query("ryotql", "execute", {
 	payload: buildNavigationDocument(),
 });
 
+export const savedViewRecordAtom = Atom.family((slug: string) =>
+	appQueryClient.query("ryotql", "execute", {
+		payload: buildSavedViewRecordDocument({ slug }),
+	}),
+);
+
+export const savedViewResultAtom = Atom.family((record: SavedViewRecord) =>
+	appQueryClient.query("ryotql", "execute", { payload: record.queryDocument }),
+);
+
 export const savedViewsAtom = appQueryClient.query("ryotql", "execute", {
 	payload: buildSavedViewRecordsDocument({ includeDisabled: true, limit: 10, page: 1 }),
 });
+
+export const savedViewLayoutAtom = Atom.family((viewSlug: string) =>
+	Atom.kvs({
+		runtime: storageRuntime,
+		defaultValue: () => "grid" as const,
+		key: `saved-view-layout:${viewSlug}`,
+		schema: Schema.Literals(["grid", "list", "table"]),
+	}),
+);
 
 export const serverUrlAtom = Atom.kvs({
 	key: "server-url",
