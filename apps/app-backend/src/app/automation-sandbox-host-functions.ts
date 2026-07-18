@@ -1,11 +1,14 @@
-import { EntityId, UserId } from "@ryot/contract/schema/brands";
+import { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
+import { EntityId, SubscriptionRunId, UserId } from "@ryot/contract/schema/brands";
+import { automationInputSchema } from "@ryot/sandbox-sdk/automation";
 import type { AutomationSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
-import { DateTime, Effect, Option } from "effect";
+import { DateTime, Effect, Option, Schema } from "effect";
 
 import {
 	requireSandboxCapabilityInput,
 	sandboxHostEffect,
 	sandboxHostFailure,
+	toSandboxHostError,
 	type SandboxRunInput,
 } from "#lib/infrastructure/sandbox-runtime/shared";
 import { NotificationsService } from "#modules/notifications/service";
@@ -22,35 +25,56 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 	return {
 		emitSignal: (rawInput, request) =>
 			requireSandboxCapabilityInput(rawInput, "emitSignal").pipe(
-				Effect.flatMap((input) => {
-					const execution = input.authority.subscriptionRun;
-					const occurredAt = DateTime.make(execution.occurredAt);
-					if (Option.isNone(occurredAt)) {
-						return sandboxHostFailure("emitSignal received an invalid occurrence time");
-					}
+				Effect.flatMap((input) =>
+					Effect.gen(function* () {
+						const execution =
+							input.authority.type === "subscription"
+								? input.authority.subscriptionRun
+								: yield* Schema.decodeUnknownEffect(automationInputSchema)(input.context).pipe(
+										Effect.flatMap(({ automation }) =>
+											Schema.decodeUnknownEffect(AutomationOrigin)(automation.origin).pipe(
+												Effect.map((origin) => ({
+													origin,
+													occurredAt: automation.occurredAt,
+													id: SubscriptionRunId.make(input.executionId),
+												})),
+											),
+										),
+										Effect.mapError(() =>
+											toSandboxHostError("emitSignal requires a trusted automation context"),
+										),
+									);
+						const occurredAt = DateTime.make(execution.occurredAt);
+						if (Option.isNone(occurredAt)) {
+							return yield* sandboxHostFailure("emitSignal received an invalid occurrence time");
+						}
 
-					return sandboxHostEffect(
-						signals
-							.emit({
-								origin: execution.origin,
-								executionId: execution.id,
-								properties: request.properties,
-								schemaSlug: request.schemaSlug,
-								discriminator: request.discriminator,
-								occurredAt: DateTime.toDate(occurredAt.value),
-								principal: { kind: "user", userId: UserId.make(input.authority.userId) },
-								...(request.subjectEntityId
-									? { subjectEntityId: EntityId.make(request.subjectEntityId) }
-									: {}),
-							})
-							.pipe(
-								Effect.map((result) => ({
-									signalId: result.signal.id,
-									wasCreated: result.wasCreated,
-								})),
-							),
-					);
-				}),
+						return yield* sandboxHostEffect(
+							signals
+								.emit({
+									origin: execution.origin,
+									executionId: execution.id,
+									properties: request.properties,
+									schemaSlug: request.schemaSlug,
+									discriminator: request.discriminator,
+									occurredAt: DateTime.toDate(occurredAt.value),
+									...(request.subjectEntityId
+										? { subjectEntityId: EntityId.make(request.subjectEntityId) }
+										: {}),
+									principal:
+										input.authority.type === "subscription"
+											? { kind: "user", userId: UserId.make(input.authority.userId) }
+											: { kind: "system" },
+								})
+								.pipe(
+									Effect.map((result) => ({
+										signalId: result.signal.id,
+										wasCreated: result.wasCreated,
+									})),
+								),
+						);
+					}),
+				),
 			),
 		sendNotification: (rawInput, message) =>
 			requireSandboxCapabilityInput(rawInput, "sendNotification").pipe(
