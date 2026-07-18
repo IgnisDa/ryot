@@ -33,8 +33,8 @@ budget values. Record arithmetic and results in the owning docs.
 The review retained existing production and test-harness values. Production defaults use 5 sandbox
 workers and 10 connections in each database pool. The workflow pool has two spare connections after
 its reserved cluster connection, five sandbox workers, and two durable-queue workers. The shared e2e
-harness uses 32 sandbox workers and 100 connections in each pool, leaving 65 workflow connections for
-file-parallel work; Postgres permits 400 connections across the two 100-connection pools and server
+harness uses the fixed five-worker sandbox limit and 100 connections in each pool, leaving 92 workflow
+connections for file-parallel work; Postgres permits 400 connections across the two 100-connection pools and server
 overhead.
 
 Historical evidence remains the latest load evidence: a full-suite run peaked at 120 total database

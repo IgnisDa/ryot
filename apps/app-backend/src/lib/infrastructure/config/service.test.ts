@@ -57,29 +57,23 @@ describe("system log level config", () => {
 	});
 });
 
-describe("validateSystemConfig workflow-pool inversion", () => {
-	it("passes with defaults (workerConcurrency 5, workflowPoolMax 10)", () => {
+describe("validateSystemConfig workflow-pool capacity", () => {
+	it("passes with default workflow pool capacity", () => {
 		expect(Exit.isSuccess(validate())).toBe(true);
 	});
 
-	it("fails when workerConcurrency exceeds usable workflow-pool connections", () => {
-		const result = validate({
-			sandbox: { workerConcurrency: 32 },
-			database: { workflowPoolMax: 10 },
-		});
+	it("fails when workflow pool cannot support fixed sandbox worker capacity", () => {
+		const result = validate({ database: { workflowPoolMax: 5 } });
 		expect(Exit.isFailure(result)).toBe(true);
 		if (Exit.isFailure(result)) {
 			const message = JSON.stringify(result.cause);
-			expect(message).toContain("SANDBOX_WORKER_CONCURRENCY");
+			expect(message).toContain("SANDBOX_LIMITS.workerConcurrency");
 			expect(message).toContain("DATABASE_WORKFLOW_POOL_MAX");
 		}
 	});
 
-	it("passes at the boundary workerConcurrency = workflowPoolMax - 1", () => {
-		const result = validate({
-			sandbox: { workerConcurrency: 9 },
-			database: { workflowPoolMax: 10 },
-		});
+	it("passes when workflow pool matches fixed sandbox worker capacity", () => {
+		const result = validate({ database: { workflowPoolMax: 6 } });
 		expect(Exit.isSuccess(result)).toBe(true);
 	});
 });

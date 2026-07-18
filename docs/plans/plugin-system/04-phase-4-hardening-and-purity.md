@@ -143,18 +143,18 @@ correction changes no schema or behavior and is the only domain move included in
   gate for this task.
 
 - **Pool/limits retuning** for the heavier post-migration sandbox load: revisit
-  `SANDBOX_WORKER_CONCURRENCY`, `DATABASE_WORKFLOW_POOL_MAX`, and the Postgres
+  `SANDBOX_LIMITS.workerConcurrency`, `DATABASE_WORKFLOW_POOL_MAX`, and the Postgres
   `max_connections` arithmetic documented in `tests/AGENTS.md` (Timeouts & Pool Sizing), and
   the per-script-kind budget profiles introduced in Phase 3 step 3. Re-baseline the e2e
   suite wall-clock and record it here.
 
   Task 12 implementation record (2026-07-31): the existing limits remain unchanged because no fresh
-  load evidence supports changing them. Production defaults are 5 sandbox workers with 10 app-pool
+  load evidence supports changing them. The fixed limit is 5 sandbox workers with 10 app-pool
   and 10 workflow-pool connections; after the cluster `SingleRunner` reservation and two always-on
   durable-queue workers, the workflow pool has `10 - 1 - 5 - 2 = 2` spare connections. The shared
-  e2e harness retains 32 sandbox workers, 100 app-pool connections, and 100 workflow-pool
-  connections, leaving
-  `100 - 1 - 32 - 2 = 65` workflow connections for file-parallel durable work. Its two configured
+  e2e harness uses the fixed worker limit, 100 app-pool connections, and 100 workflow-pool
+  connections, leaving `100 - 1 - 5 - 2 = 92` workflow connections for file-parallel durable work.
+  Its two configured
   pool maxima total 200 against Postgres `max_connections=400`. The prior full-suite measurement
   peaked at 120 total and 4 active database connections, and the separate successful unchanged
   two-concurrent-1,001-item operational run recorded peak sandbox overlap 8, zero app-pool waits,
