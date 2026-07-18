@@ -1,9 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
-import { Effect, Layer, Logger, Option, Tracer, type Exit, References } from "effect";
+import { Effect, Layer, Logger, Option, Tracer, References } from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
 import { describe } from "vitest";
+
+import { makeRecordingTracer } from "#lib/test-utils/tracer";
 
 import { SANDBOX_LIMITS } from "./limits";
 import {
@@ -36,40 +38,6 @@ const input: SandboxRunInput = {
 		subject: { type: "user", userId: UserId.make("user-1") },
 	},
 };
-
-const makeTracer = (spans: Tracer.Span[]) =>
-	Tracer.make({
-		span: ({ name, kind, links, parent, sampled, startTime, annotations }) => {
-			let status: Tracer.SpanStatus = { startTime, _tag: "Started" };
-			const attributes = new Map<string, unknown>();
-			const span: Tracer.Span = {
-				name,
-				kind,
-				links,
-				parent,
-				sampled,
-				attributes,
-				annotations,
-				_tag: "Span",
-				event: () => undefined,
-				addLinks: () => undefined,
-				spanId: `span-${spans.length + 1}`,
-				get status() {
-					return status;
-				},
-				attribute: (key, value) => attributes.set(key, value),
-				traceId: parent.pipe(
-					Option.map((value) => value.traceId),
-					Option.getOrElse(() => "trace-1"),
-				),
-				end: (endTime, exit: Exit.Exit<unknown, unknown>) => {
-					status = { exit, endTime, startTime, _tag: "Ended" };
-				},
-			};
-			spans.push(span);
-			return span;
-		},
-	});
 
 describe("sandbox observability host functions", () => {
 	it("selects log and span only when explicitly allowed", () => {
@@ -183,7 +151,7 @@ describe("sandbox observability host functions", () => {
 					annotations: options.fiber.getRef(References.CurrentLogAnnotations),
 				}),
 			);
-			const tracer = makeTracer(spans);
+			const tracer = makeRecordingTracer(spans);
 
 			return Effect.gen(function* () {
 				const parentSpan = yield* Effect.currentSpan;
