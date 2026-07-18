@@ -1,17 +1,14 @@
 import { Schema } from "effect";
 
-import { EntityId, EventId, EventSchemaSlug } from "../../schema/brands";
+import {
+	AutomationRunId,
+	AutomationTriggerId,
+	EntityId,
+	EventId,
+	EventSchemaSlug,
+} from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
-
-export const EventCreateOrigin = Schema.Literals([
-	"api",
-	"sandbox",
-	"import",
-	"collection",
-	"integration",
-]);
-
-export type EventCreateOrigin = typeof EventCreateOrigin.Type;
+import { AutomationWarning } from "../automations/lifecycle";
 
 export const ListedEvent = Schema.Struct({
 	id: EventId,
@@ -38,7 +35,11 @@ export const CreateEventItem = Schema.Struct({
 export type CreateEventItem = typeof CreateEventItem.Type;
 
 export const EventCreateFailureReason = Schema.Union([
-	strictStruct({ code: Schema.Literal("policy-failed") }),
+	strictStruct({ runId: AutomationRunId, code: Schema.Literal("policy-execution-failed") }),
+	strictStruct({
+		triggerId: AutomationTriggerId,
+		code: Schema.Literal("automation-limit-reached"),
+	}),
 	strictStruct({ code: Schema.Literal("entity-id-required") }),
 	strictStruct({ code: Schema.Literal("invalid-properties") }),
 	strictStruct({ code: Schema.Literal("event-schema-slug-required") }),
@@ -76,15 +77,12 @@ export type EventCreateItemOutcome = typeof EventCreateItemOutcome.Type;
 
 export const CreateEventsResponse = strictStruct({
 	count: Schema.Number,
+	warnings: Schema.Array(AutomationWarning),
 	outcomes: Schema.Array(EventCreateItemOutcome),
 	failure: Schema.NullOr(strictStruct({ index: Schema.Number, reason: EventCreateFailureReason })),
 });
 
 export type CreateEventsResponse = typeof CreateEventsResponse.Type;
-
-export class EventsBadRequest extends Schema.TaggedError<EventsBadRequest>()("EventsBadRequest", {
-	reason: strictStruct({ code: Schema.Literal("integration-id-required") }),
-}) {}
 
 export class EventsInternalError extends Schema.TaggedError<EventsInternalError>()(
 	"EventsInternalError",

@@ -38,7 +38,13 @@ const registered = (
 	pluginId: "example-plugin-id",
 	installationId: "example-installation",
 	scriptSlug: "integration.test-provider",
-	configContext: { kind: "environment", pluginSlug: "example", configSchema: { fields: {} } },
+	configContext: {
+		kind: "revision",
+		ownerUserId: null,
+		configSchema: { fields: {} },
+		pluginConfigRevisionId: null,
+		pluginRevisionId: "example-revision-id",
+	},
 });
 
 it("omits top-level secret settings and keeps nonsecret siblings", () => {

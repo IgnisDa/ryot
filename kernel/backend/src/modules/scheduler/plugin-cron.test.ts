@@ -35,6 +35,7 @@ const normalizedPlugin = (
 	const script = { ...declared, slug: scriptSlug };
 	const normalizedManifest = {
 		...manifest,
+		hooks: [],
 		savedViews: [],
 		scripts: [script],
 		entitySchemas: [],
@@ -44,13 +45,6 @@ const normalizedPlugin = (
 		crons: [
 			{ schedule, scriptSlug, slug: `${pluginSlug}-cron`, description: `${pluginSlug} cron` },
 		],
-		bindings: {
-			eventAutomations: [],
-			entityAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-		},
 	} satisfies PluginManifest;
 	const { entry, ...metadata } = script;
 	return {
@@ -141,10 +135,10 @@ const makeLayer = (
 									compiledFormat: 1,
 									pluginId: pluginSlug,
 									createdAt: new Date(0),
-									updatedAt: new Date(0),
 									compiledCode: "compiled",
 									contentHash: `${slug}-hash`,
 									id: SandboxScriptId.make(`${slug}-id`),
+									pluginRevisionId: `${pluginSlug}-revision-id`,
 									metadata: {
 										kind,
 										slug,
@@ -366,9 +360,9 @@ it.effect(
 							...script,
 							providerId: null,
 							createdAt: testDate,
-							updatedAt: testDate,
 							pluginId: identity.pluginSlug,
 							id: SandboxScriptId.make(`${script.contentHash}-id`),
+							pluginRevisionId: `${identity.pluginSlug}-revision-id`,
 						},
 					};
 				});
@@ -435,12 +429,12 @@ const privateCronScriptRow = (installationId: string) => ({
 	source: "source",
 	compiledFormat: 1,
 	createdAt: testDate,
-	updatedAt: testDate,
 	name: "Private script",
 	slug: "private-script",
 	compiledCode: "compiled",
 	pluginId: "private-plugin-id",
 	contentHash: "private-script-hash",
+	pluginRevisionId: "private-revision-id",
 	id: SandboxScriptId.make(`${installationId}-script-id`),
 	metadata: {
 		capabilities: [],

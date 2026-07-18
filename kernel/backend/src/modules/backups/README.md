@@ -45,7 +45,7 @@ Custom renderer draft and published source state is archived before the saved vi
 
 Source files are user-authored and may contain credentials, so they are not redacted. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
 
-A restore target is clean only when every existing entity has bootstrap origin. Archived bootstrap entities match destination rows by schema and plugin ownership, never by name or initial properties. Every archived entity schema must exist in the current kernel or declared-plugin definition snapshot.
+A restore target is clean only when every existing entity looks bootstrap-created: no provider, no external ID, and at most one such entity per entity schema, which is what a user-bootstrap ensure produces. Archived bootstrap entities match destination rows by schema and plugin ownership, never by name or initial properties. Every archived entity schema must exist in the current kernel or declared-plugin definition snapshot.
 
 ## Failure Contract
 

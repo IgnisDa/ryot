@@ -105,7 +105,7 @@ describe("Plugin Import Public Boundary", () => {
 		}),
 	);
 
-	it.live("pins an accepted plugin import until terminal completion", () =>
+	it.live("fails an in-flight import when its plugin is uninstalled", () =>
 		Effect.gen(function* () {
 			const { plugin, source } = yield* Effect.acquireRelease(
 				installTestImportPinningPlugin,
@@ -116,21 +116,18 @@ describe("Plugin Import Public Boundary", () => {
 
 			const created = yield* client.call((c) => c.imports.createRun({ payload: { source } }));
 
-			const conflict = yield* Effect.flip(uninstallTestPluginStrict(plugin));
-			assertTaggedError(conflict, "PluginConflictError");
+			yield* uninstallTestPluginStrict(plugin);
 
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
 			expect(completed).toMatchObject({
 				source,
-				progress: 100,
+				progress: 0,
 				failedItems: 0,
+				status: "failed",
 				importedItems: 0,
 				processedItems: 0,
-				status: "completed",
 			});
 			expect(completed.finishedAt).not.toBeNull();
-
-			expect(yield* uninstallWhenReleased(plugin)).toBe(true);
 		}),
 	);
 

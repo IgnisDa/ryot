@@ -102,7 +102,9 @@ it.effect("resolves provider identity and its active details executable", () => 
 				source: "source",
 				compiledFormat: 1,
 				id: detailsScriptId,
+				optionsSchema: null,
 				pluginId: "fixture",
+				pluginRevisionId: null,
 				createdAt: new Date(0),
 				updatedAt: new Date(0),
 				slug: "fixture.details",
@@ -132,7 +134,6 @@ it.effect("keeps kernel and plugin entities with the same natural key separate",
 		scope: "global" as const,
 		externalId: "external-1",
 		properties: { status: "active" },
-		origin: { kind: "api" as const },
 		providerId: SandboxProviderId.make("provider-1"),
 		entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 	};
@@ -146,7 +147,6 @@ it.effect("keeps kernel and plugin entities with the same natural key separate",
 			null,
 			"plugin-1",
 		]);
-		expect(rows.map(({ origin }) => origin)).toEqual([{ kind: "api" }, { kind: "api" }]);
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 
@@ -290,7 +290,6 @@ it.effect("restores an entity with its archived identity and timestamps", () => 
 		populatedAt: null,
 		properties: { exact: true },
 		userId: UserId.make("user-id"),
-		origin: { kind: "api" as const },
 		id: EntityId.make("archived-id"),
 		createdAt: new Date("2024-01-01T00:00:00.000Z"),
 		updatedAt: new Date("2025-01-01T00:00:00.000Z"),
@@ -316,7 +315,6 @@ it.effect("lists portable entity provenance", () => {
 		providerPluginId: null,
 		entitySchemaSlug: "entity",
 		entitySchemaPluginId: null,
-		origin: { kind: "bootstrap" as const },
 		createdAt: new Date("2024-01-01T00:00:00.000Z"),
 		updatedAt: new Date("2025-01-01T00:00:00.000Z"),
 	};
@@ -330,7 +328,6 @@ it.effect("lists portable entity provenance", () => {
 				id: row.id,
 				name: row.name,
 				provider: null,
-				origin: row.origin,
 				createdAt: row.createdAt,
 				updatedAt: row.updatedAt,
 				properties: row.properties,

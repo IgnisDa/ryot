@@ -72,7 +72,6 @@ const makeAuthMock = (state?: {
 	Object.assign(Object.create(null), {
 		currentUser: () => Effect.die("unused"),
 		createAuthUser: () => Effect.die("unused"),
-		deleteAuthUser: () => Effect.die("unused"),
 		linkAuthAccount: () => Effect.die("unused"),
 		purgeApiKeyCaches: () => Effect.die("unused"),
 		auth: { api: { requestPasswordReset: () => Promise.resolve(undefined) } },

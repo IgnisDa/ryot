@@ -3,8 +3,6 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
-import type { PluginConfigContext } from "#lib/infrastructure/sandbox-runtime/app-config";
-
 import {
 	pluginConfigContextFor,
 	PluginRuntimeResolver,
@@ -23,7 +21,7 @@ export type RegisteredIntegrationProvider = {
 	readonly settingsSchema: AppSchema;
 	readonly scriptSlug: string | null;
 	readonly pluginScope: "system" | "user";
-	readonly configContext: PluginConfigContext;
+	readonly configContext: ReturnType<typeof pluginConfigContextFor>;
 	readonly lot: PluginIntegrationProvider["lot"];
 };
 

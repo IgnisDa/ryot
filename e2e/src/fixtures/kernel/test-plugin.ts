@@ -1,8 +1,14 @@
 import { randomUUID } from "node:crypto";
 
-import type { ContractPayload } from "@ryot-app/contract/client";
+import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginSlug, type SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import {
+	type PluginConfigRevisionId,
+	type PluginId,
+	PluginSlug,
+	type PluginRevisionId,
+	type SandboxScriptId,
+} from "@ryot-app/contract/schema/brands";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { Effect, Encoding } from "effect";
 
@@ -19,6 +25,7 @@ type TestPluginManifest = PluginManifest;
 type PluginScript = TestPluginManifest["scripts"][number];
 type PluginProvider = TestPluginManifest["providers"][number];
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
+type PluginOperationResult = ContractSuccess<"testSupport", "installSystemPlugin">;
 
 export type TestPluginScript = {
 	[Kind in PluginScript["kind"]]: Omit<Extract<PluginScript, { kind: Kind }>, "entry">;
@@ -29,6 +36,7 @@ type TestPluginManifestInput = Partial<
 		TestPluginManifest,
 		| "boot"
 		| "crons"
+		| "hooks"
 		| "savedViews"
 		| "scripts"
 		| "workflows"
@@ -44,9 +52,7 @@ type TestPluginManifestInput = Partial<
 > & {
 	providers?: ReadonlyArray<PluginProvider>;
 	clientDefinition?: TestPluginManifest["client"];
-	bindings?: Partial<TestPluginManifest["bindings"]>;
 	pluginSlug: TestPluginManifest["metadata"]["slug"];
-	eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
 };
 
 type TestPluginOwner = { client?: undefined; scope: "system" } | { client: Client; scope?: "user" };
@@ -55,9 +61,14 @@ export type InstalledTestPlugin = {
 	slug: string;
 	client?: Client;
 	active: boolean;
+	pluginId: PluginId;
 	pluginSlug: PluginSlug;
 	scope: "system" | "user";
+	sourceHash: string;
 	scriptId: SandboxScriptId;
+	installationId: string | null;
+	configRevisionId: PluginConfigRevisionId | null;
+	activePluginRevisionId: PluginRevisionId;
 	manifest: TestPluginManifest;
 	files: PluginArchivePackage["files"];
 	scriptIds: Record<string, SandboxScriptId>;
@@ -66,7 +77,6 @@ export type InstalledTestPlugin = {
 type InstalledScriptRegistration = { targetSlug: string; installed: InstalledTestPlugin };
 
 const encoder = new TextEncoder();
-const decoder = new TextDecoder("utf-8", { fatal: true });
 const installedByScriptId = new Map<string, InstalledScriptRegistration>();
 const definitionManifests = new Map<string, { client: Client; manifest: TestPluginManifest }>();
 
@@ -94,6 +104,7 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 	signalSchemas: [],
 	boot: input.boot ?? [],
 	crons: input.crons ?? [],
+	hooks: input.hooks ?? [],
 	scripts: input.scripts ?? [],
 	workflows: input.workflows ?? [],
 	savedViews: input.savedViews ?? [],
@@ -114,14 +125,6 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 		name: "E2E Test Plugin",
 		description: "Generic plugin fixture for end-to-end tests",
 	},
-	bindings: {
-		entityAutomations: [],
-		signalAutomations: [],
-		relationshipAutomations: [],
-		providerEntityImportAutomations: [],
-		eventAutomations: input.eventAutomations ?? [],
-		...input.bindings,
-	},
 });
 
 export const testPluginSavedView = (input: {
@@ -138,20 +141,11 @@ export const testPluginSavedView = (input: {
 	renderer: { kind: "kernel", name: "entity-browser" },
 });
 
-const findInstalledScriptId = (scriptSlug: string, source: string, baseUrl?: string) =>
-	Effect.gen(function* () {
-		const scripts = yield* getApiClient(baseUrl).call(
-			(c) => c.testSupport.listSandboxScripts({ query: {} }),
-			adminHeaders(),
-		);
-		const script = scripts.find(
-			(candidate) => candidate.slug === scriptSlug && candidate.source === source,
-		);
-		if (!script) {
-			throw new Error(`Installed test plugin script '${scriptSlug}' was not found`);
-		}
-		return script.id;
-	});
+const operationScriptIds = (result: PluginOperationResult) =>
+	Object.fromEntries(result.scripts.map(({ id, slug }) => [slug, id]));
+
+const requireFixtureUserId = (client: Client) =>
+	requirePresent(client.userId, "Private test plugin client has no fixture user ID");
 
 export const installTestPlugin = (
 	input: {
@@ -173,7 +167,6 @@ export const installTestPlugin = (
 	Effect.gen(function* () {
 		const entry = `backend/scripts/${input.script.kind}.sandbox.ts`;
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
-		const pluginSlugId = PluginSlug.make(pluginSlug);
 		const manifest = testPluginManifest({
 			pluginSlug,
 			providers: input.providers ?? [],
@@ -188,8 +181,9 @@ export const installTestPlugin = (
 			...(input.integrationProviders ? { integrationProviders: input.integrationProviders } : {}),
 		});
 		const files = { [entry]: encoder.encode(input.source) };
+		let operationResult: PluginOperationResult;
 		if (input.scope === "system") {
-			yield* getApiClient().call(
+			operationResult = yield* getApiClient().call(
 				(c) =>
 					c.testSupport.installSystemPlugin({
 						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
@@ -198,8 +192,13 @@ export const installTestPlugin = (
 			);
 		} else {
 			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files, manifest });
-			yield* input.client.call((c) =>
-				c.plugins.install({ payload: { uploadToken, config: input.config ?? {} } }),
+			operationResult = yield* getApiClient().call(
+				(c) =>
+					c.testSupport.installPrivatePlugin({
+						payload: { uploadToken, config: input.config ?? {} },
+						params: { userId: requireFixtureUserId(input.client) },
+					}),
+				adminHeaders(),
 			);
 			yield* pollUntil(
 				`private test plugin '${pluginSlug}' installation`,
@@ -213,17 +212,26 @@ export const installTestPlugin = (
 					),
 			);
 		}
-		const scriptId = yield* findInstalledScriptId(input.script.slug, input.source);
+		const scriptIds = operationScriptIds(operationResult);
+		const scriptId = requirePresent(
+			scriptIds[input.script.slug],
+			`Installed test plugin script '${input.script.slug}' was not returned`,
+		);
 		const installed = {
 			files,
 			manifest,
 			scriptId,
+			scriptIds,
 			active: true,
 			client: input.client,
 			slug: input.script.slug,
-			pluginSlug: pluginSlugId,
-			scope: input.scope ?? "user",
-			scriptIds: { [input.script.slug]: scriptId },
+			scope: operationResult.scope,
+			pluginSlug: operationResult.slug,
+			pluginId: operationResult.pluginId,
+			sourceHash: operationResult.sourceHash,
+			installationId: operationResult.installationId,
+			configRevisionId: operationResult.configRevisionId,
+			activePluginRevisionId: operationResult.activePluginRevisionId,
 		};
 		installedByScriptId.set(scriptId, { installed, targetSlug: input.script.slug });
 		return installed;
@@ -234,6 +242,7 @@ export const installTestPluginBundle = (
 		baseUrl?: string;
 		pluginSlug?: string;
 		crons?: TestPluginManifest["crons"];
+		hooks?: TestPluginManifest["hooks"];
 		scripts: TestPluginManifest["scripts"];
 		files: Readonly<Record<string, string>>;
 		config?: InstallPluginPayload["config"];
@@ -248,16 +257,15 @@ export const installTestPluginBundle = (
 		httpRateLimits?: TestPluginManifest["httpRateLimits"];
 		relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
 		integrationProviders?: TestPluginManifest["integrationProviders"];
-		eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
 	} & TestPluginOwner,
 ) =>
 	Effect.gen(function* () {
 		const files = encodePluginSourceFiles(input.files);
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
-		const pluginSlugId = PluginSlug.make(pluginSlug);
 		const manifest = testPluginManifest({
 			pluginSlug,
 			crons: input.crons,
+			hooks: input.hooks,
 			scripts: input.scripts,
 			workflows: input.workflows,
 			savedViews: input.savedViews,
@@ -267,13 +275,13 @@ export const installTestPluginBundle = (
 			importSources: input.importSources,
 			entitySchemas: input.entitySchemas,
 			httpRateLimits: input.httpRateLimits,
-			eventAutomations: input.eventAutomations,
 			clientDefinition: input.clientDefinition,
 			relationshipSchemas: input.relationshipSchemas,
 			integrationProviders: input.integrationProviders,
 		});
+		let operationResult: PluginOperationResult;
 		if (input.scope === "system") {
-			yield* getApiClient(input.baseUrl).call(
+			operationResult = yield* getApiClient(input.baseUrl).call(
 				(c) =>
 					c.testSupport.installSystemPlugin({
 						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
@@ -286,8 +294,13 @@ export const installTestPluginBundle = (
 				{ files, manifest },
 				input.baseUrl,
 			);
-			yield* input.client.call((c) =>
-				c.plugins.install({ payload: { uploadToken, config: input.config ?? {} } }),
+			operationResult = yield* getApiClient(input.baseUrl).call(
+				(c) =>
+					c.testSupport.installPrivatePlugin({
+						payload: { uploadToken, config: input.config ?? {} },
+						params: { userId: requireFixtureUserId(input.client) },
+					}),
+				adminHeaders(),
 			);
 			yield* pollUntil(
 				`private test plugin '${pluginSlug}' installation`,
@@ -301,15 +314,7 @@ export const installTestPluginBundle = (
 					),
 			);
 		}
-		const scriptIds = Object.fromEntries(
-			yield* Effect.forEach(input.scripts, (script) =>
-				findInstalledScriptId(
-					script.slug,
-					decoder.decode(files[script.entry] ?? new Uint8Array()),
-					input.baseUrl,
-				).pipe(Effect.map((scriptId) => [script.slug, scriptId] as const)),
-			),
-		);
+		const scriptIds = operationScriptIds(operationResult);
 		const scriptId =
 			scriptIds[input.providers?.[0]?.operations.details ?? ""] ??
 			scriptIds[input.scripts[0]?.slug ?? ""];
@@ -323,8 +328,13 @@ export const installTestPluginBundle = (
 			scriptIds,
 			active: true,
 			client: input.client,
-			pluginSlug: pluginSlugId,
-			scope: input.scope ?? "user",
+			scope: operationResult.scope,
+			pluginSlug: operationResult.slug,
+			pluginId: operationResult.pluginId,
+			sourceHash: operationResult.sourceHash,
+			installationId: operationResult.installationId,
+			configRevisionId: operationResult.configRevisionId,
+			activePluginRevisionId: operationResult.activePluginRevisionId,
 			slug: input.providers?.[0]?.slug ?? input.scripts[0]?.slug ?? pluginSlug,
 		};
 		for (const [targetSlug, id] of Object.entries(scriptIds)) {
@@ -406,8 +416,9 @@ export const reinstallTestPluginScript = (
 		const scripts = [...installed.manifest.scripts];
 		scripts[targetIndex] = { ...script, entry: target.entry };
 		const manifest = { ...installed.manifest, scripts };
+		let operationResult: PluginOperationResult;
 		if (installed.scope === "system") {
-			yield* getApiClient().call(
+			operationResult = yield* getApiClient().call(
 				(c) =>
 					c.testSupport.installSystemPlugin({
 						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
@@ -417,25 +428,43 @@ export const reinstallTestPluginScript = (
 		} else {
 			const client = requirePresent(installed.client, "User test plugin has no client");
 			const uploadToken = yield* uploadPrivatePluginPackage(client, { files, manifest });
-			yield* client.call((c) =>
-				c.plugins.update({
-					payload: { uploadToken },
-					params: { pluginSlug: installed.pluginSlug },
-				}),
+			operationResult = yield* getApiClient().call(
+				(c) =>
+					c.testSupport.updatePrivatePlugin({
+						payload: { uploadToken },
+						params: { pluginSlug: installed.pluginSlug, userId: requireFixtureUserId(client) },
+					}),
+				adminHeaders(),
 			);
 		}
-		const scriptId = yield* findInstalledScriptId(script.slug, source);
+		const nextScriptIds = operationScriptIds(operationResult);
+		const scriptId = requirePresent(
+			nextScriptIds[script.slug],
+			`Updated test plugin script '${script.slug}' was not returned`,
+		);
 		const updatesPrimaryScript = installed.scriptId === installed.scriptIds[targetSlug];
-		installed.files = files;
-		installed.manifest = manifest;
-		if (updatesPrimaryScript) {
-			installed.scriptId = scriptId;
+		const nextInstalled: InstalledTestPlugin = {
+			...installed,
+			files,
+			manifest,
+			scriptIds: nextScriptIds,
+			pluginSlug: operationResult.slug,
+			pluginId: operationResult.pluginId,
+			sourceHash: operationResult.sourceHash,
+			installationId: operationResult.installationId,
+			configRevisionId: operationResult.configRevisionId,
+			scriptId: updatesPrimaryScript ? scriptId : installed.scriptId,
+			activePluginRevisionId: operationResult.activePluginRevisionId,
+		};
+		for (const [registeredId, current] of installedByScriptId) {
+			if (current.installed === installed) {
+				installedByScriptId.set(registeredId, { ...current, installed: nextInstalled });
+			}
 		}
-		delete installed.scriptIds[targetSlug];
-		installed.scriptIds[script.slug] = scriptId;
-		registration.targetSlug = script.slug;
-		installedByScriptId.set(scriptId, registration);
-		return installed;
+		for (const [scriptSlug, id] of Object.entries(nextScriptIds)) {
+			installedByScriptId.set(id, { targetSlug: scriptSlug, installed: nextInstalled });
+		}
+		return nextInstalled;
 	});
 
 export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
@@ -457,7 +486,7 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 		}
 		installed.active = false;
 		for (const [scriptId, registration] of installedByScriptId) {
-			if (registration.installed === installed) {
+			if (registration.installed.pluginId === installed.pluginId) {
 				installedByScriptId.delete(scriptId);
 			}
 		}

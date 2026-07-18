@@ -4,7 +4,7 @@
 - Keep operation input/output schemas in `backend/contracts/operations.ts`, outside sandbox entrypoints. Workflow consumers import `Schema` from `@ryot-app/sandbox-sdk/workflow`.
 - Media signal definitions own notification message vocabulary and select `automation.media-notification`; do not move either into kernel.
 - Keep `backend/lib/title-parsing.ts` and `backend/lib/title-matching.ts` within sandbox compiler ES2022 support; do not use `toReversed`.
-- Contract or lifecycle changes must update `README.md`, manifest bindings, scripts, and focused tests together.
+- Contract or lifecycle changes must update `README.md`, manifest hooks, scripts, and focused tests together.
 - Sandbox scripts report non-fatal failures through the `log` host capability, never `console.warn`.
 - Entity-presentation recipes and RyotQL lifecycle expression builders live in `shared/`. `shared/media-recipes.ts` owns the schema-agnostic selections, query shapes, and `mediaFlatRecipes`; `shared/episodic-recipes.ts` owns the episodic counterpart; `shared/creator-recipes.ts` owns the person and company counterpart; `shared/<slug>-recipes.ts` composes its own recipes over them.
 - Flat schemas are a `mediaFlatRecipes` config in `shared/<slug>-recipes.ts` and a `defineFlatMediaSchema` descriptor in `client/<slug>/schema.tsx`. Engine behaviour is tested in `client/media/` and `shared/media-recipes.test.ts`; schema tests cover only descriptor output.

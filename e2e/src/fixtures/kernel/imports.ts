@@ -66,6 +66,7 @@ export default defineWorkflow({
         chunkHandles: [],
         writeItemCount: 0,
         runId: input.runId,
+        command: input.command,
       });
     }),
 });
@@ -109,7 +110,6 @@ export const installTestImportPlugin = Effect.suspend(() => {
 				fixtureToken: {
 					type: "string",
 					label: "Fixture token",
-					validation: { required: true },
 					description: "Intentionally absent E2E import configuration",
 				},
 			},
@@ -207,6 +207,7 @@ export default defineWorkflow({
         ...manifest,
         failRun: true,
         runId: input.runId,
+        command: input.command,
       });
     }),
 });
@@ -336,6 +337,7 @@ export default defineWorkflow({
         chunkHandles: [],
         writeItemCount: 0,
         runId: input.runId,
+        command: input.command,
       });
     }),
 });

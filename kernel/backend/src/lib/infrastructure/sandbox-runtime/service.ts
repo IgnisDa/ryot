@@ -1,5 +1,6 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot-app/contract/errors";
 import { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
 import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { generateId } from "better-auth";
@@ -67,6 +68,7 @@ import {
 import {
 	isSandboxCapabilityAllowed as isCapabilityAllowed,
 	sandboxMetadataKind,
+	sandboxPlatformFailureKind,
 	type BoundHostFunction,
 	type SandboxRunInput,
 } from "./shared";
@@ -186,7 +188,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						const context = input.context ?? {};
 						const contextError = sandboxContextError(context);
 						if (contextError) {
-							return yield* new SandboxRunError({ message: contextError });
+							return yield* new SandboxRunError({ message: contextError, kind: "invalid-input" });
 						}
 
 						const collector = makeSandboxObservabilityCollector();
@@ -202,7 +204,12 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							),
 						};
 						const selectedApiFunctions = selectSandboxHostFunctions(boundApiFunctions, input);
-						const declaredCapabilities = input.principal.metadata.capabilities ?? [];
+						const declaredCapabilities = (input.principal.metadata.capabilities ?? []).filter(
+							(capability) =>
+								input.principal.subject.type !== "automation-run" ||
+								input.principal.subject.stage !== "before" ||
+								POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
+						);
 						const artifactPath = sandboxArtifactGrant(
 							declaredCapabilities,
 							input.grants?.artifactPath,
@@ -219,7 +226,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 								localTempRoot,
 							);
 							if (pathError) {
-								return yield* new SandboxRunError({ message: pathError });
+								return yield* new SandboxRunError({ message: pathError, kind: "invalid-input" });
 							}
 						}
 						for (const [key, artifact] of Object.entries(namedArtifactPaths ?? {})) {
@@ -230,7 +237,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 								localTempRoot,
 							);
 							if (pathError) {
-								return yield* new SandboxRunError({ message: pathError });
+								return yield* new SandboxRunError({ message: pathError, kind: "invalid-input" });
 							}
 						}
 
@@ -270,7 +277,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						})}\n`;
 						const requestError = sandboxRunnerRequestError(requestLine);
 						if (requestError) {
-							return yield* new SandboxRunError({ message: requestError });
+							return yield* new SandboxRunError({ message: requestError, kind: "invalid-input" });
 						}
 
 						const grants: SandboxProcessGrants = {
@@ -314,7 +321,12 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							Deferred.await(worker.stderrClosed).pipe(
 								Effect.ignore,
 								Effect.andThen(
-									Effect.fail(new SandboxRunError({ message: withProcessStderr(message) })),
+									Effect.fail(
+										new SandboxRunError({
+											kind: "infrastructure",
+											message: withProcessStderr(message),
+										}),
+									),
 								),
 							);
 						const processExit = worker.process.exitCode.pipe(
@@ -347,7 +359,8 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 
 						const raw = yield* Effect.try({
 							try: () => decodeSandboxRunnerResponse(responseLine),
-							catch: () => new SandboxRunError({ message: invalidResponseMessage }),
+							catch: () =>
+								new SandboxRunError({ kind: "infrastructure", message: invalidResponseMessage }),
 						});
 
 						// Deno offers no preventive filesystem quota, so the ceiling is measured once the run is
@@ -357,7 +370,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 								yield* measureSandboxScratchBytes(scratchDirectory),
 							);
 							if (quotaError) {
-								return yield* new SandboxRunError({ message: quotaError });
+								return yield* new SandboxRunError({ message: quotaError, kind: "script-failure" });
 							}
 						}
 
@@ -386,7 +399,11 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 										destination: harvest.directory,
 									}).pipe(
 										Effect.mapError(
-											(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+											(error) =>
+												new SandboxRunError({
+													message: unknownToMessage(error),
+													kind: sandboxPlatformFailureKind(error),
+												}),
 										),
 									)
 								: [];
@@ -405,7 +422,11 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						const finishedAt = yield* Clock.currentTimeMillis;
 						const error = raw.success
 							? null
-							: (raw.error ?? { phase: "load", message: "Sandbox runner failed without an error" });
+							: (raw.error ?? {
+									phase: "load",
+									kind: "infrastructure",
+									message: "Sandbox runner failed without an error",
+								});
 						const totalMs = Math.max(1, Math.round(finishedAt - now));
 						const consoleLogs = "logs" in raw && Array.isArray(raw.logs) ? raw.logs : [];
 						const logs = mergeSandboxExecutionLogs(consoleLogs, collector);
@@ -440,7 +461,10 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 					Effect.mapError((error) =>
 						error instanceof TimeoutError || error instanceof SandboxRunError
 							? error
-							: new SandboxRunError({ message: unknownToMessage(error) }),
+							: new SandboxRunError({
+									message: unknownToMessage(error),
+									kind: sandboxPlatformFailureKind(error),
+								}),
 					),
 					Effect.onExit((exit) =>
 						Effect.gen(function* () {

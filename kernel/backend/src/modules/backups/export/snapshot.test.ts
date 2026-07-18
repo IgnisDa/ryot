@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { BadRequest } from "@ryot-app/contract/errors";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import {
+	NotificationSubscriptionId,
+	SignalSchemaSlug,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect, FileSystem, Layer } from "effect";
 
@@ -129,8 +133,10 @@ const installationRow = (input: {
 	sortOrder: 0,
 	isDisabled: false,
 	healthReason: null,
+	uninstalledAt: null,
 	homeSavedViewId: null,
 	health: "ready" as const,
+	activeConfigRevisionId: null,
 	createdAt: new Date("2026-08-24T12:00:00.000Z"),
 	updatedAt: new Date("2026-08-24T12:00:00.000Z"),
 });
@@ -169,6 +175,7 @@ it.effect(
 				pluginId: "private-plugin-id",
 			}),
 			health: "incompatible" as const,
+			activeConfigRevisionId: "source-config-revision",
 			config: {
 				unit: "minutes",
 				credentials: { token: "secret", region: "local" },
@@ -178,6 +185,7 @@ it.effect(
 		const privateManifest = {
 			...fixtureManifest(),
 			crons: [],
+			hooks: [],
 			scripts: [],
 			workflows: [],
 			providers: [],
@@ -187,13 +195,6 @@ it.effect(
 			userBootstrap: [],
 			relationshipSchemas: [],
 			metadata: { ...fixtureManifest().metadata, slug: "private-plugin" },
-			bindings: {
-				eventAutomations: [],
-				entityAutomations: [],
-				signalAutomations: [],
-				relationshipAutomations: [],
-				providerEntityImportAutomations: [],
-			},
 			entitySchemas: [
 				{
 					icon: "box",
@@ -307,7 +308,29 @@ it.effect(
 		let effectiveDefinitionReads = 0;
 		const effectiveDefinitions = buildDefinitionSnapshot(
 			mergeManifestDefinitions(
-				{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
+				{
+					savedViews: [],
+					entitySchemas: [],
+					relationshipSchemas: [],
+					signalSchemas: [
+						{
+							name: "Default signal",
+							slug: "default.signal",
+							catalogState: "active",
+							propertiesSchema: { fields: {} },
+							audiencePolicy: { kind: "actor" },
+							notificationHookSlug: "automation.notification",
+						},
+						{
+							name: "Changed signal",
+							slug: "changed.signal",
+							catalogState: "active",
+							propertiesSchema: { fields: {} },
+							audiencePolicy: { kind: "actor" },
+							notificationHookSlug: "automation.notification",
+						},
+					],
+				},
 				[{ slug: "private-plugin", id: "different-plugin-id", manifest: differentOwnerManifest }],
 			),
 		);
@@ -365,7 +388,6 @@ it.effect(
 								embeddedDependencyIds = ids;
 								return [
 									{
-										origin: null,
 										provider: null,
 										externalId: null,
 										populatedAt: null,
@@ -382,7 +404,6 @@ it.effect(
 						listUserEntitiesForBackup: () =>
 							Effect.succeed([
 								{
-									origin: null,
 									provider: null,
 									externalId: null,
 									populatedAt: null,
@@ -406,7 +427,29 @@ it.effect(
 						listUserRelationshipsForBackup: () => Effect.succeed([]),
 					}),
 					Layer.mock(AutomationsRepository, {
-						listNotificationSubscriptionsForBackup: () => Effect.succeed([]),
+						listNotificationSubscriptionsForBackup: () =>
+							Effect.succeed([
+								{
+									userId,
+									metadata: null,
+									isActive: true,
+									signalSchemaPluginId: null,
+									createdAt: privateTimestamp.toISOString(),
+									updatedAt: privateTimestamp.toISOString(),
+									id: NotificationSubscriptionId.make("default-rule"),
+									signalSchemaSlug: SignalSchemaSlug.make("default.signal"),
+								},
+								{
+									userId,
+									metadata: null,
+									isActive: false,
+									signalSchemaPluginId: null,
+									createdAt: privateTimestamp.toISOString(),
+									updatedAt: privateTimestamp.toISOString(),
+									id: NotificationSubscriptionId.make("changed-rule"),
+									signalSchemaSlug: SignalSchemaSlug.make("changed.signal"),
+								},
+							]),
 					}),
 					Layer.mock(ManagedAssetsService, {
 						verifyManagedAssetOwnership: () => Effect.succeed([]),
@@ -516,12 +559,12 @@ it.effect(
 			]);
 			expect(prepared.records.entities).toEqual([
 				expect.objectContaining({
-					origin: null,
 					id: "private-entity",
 					entitySchemaPluginKey: `user:private-plugin:${privateSourceHash}`,
 					properties: { title: "Private title", relatedEntityId: "private-dependency" },
 				}),
 			]);
+			expect(prepared.records.entities[0]).not.toHaveProperty("origin");
 			expect(prepared.records.entityDependencies).toEqual([
 				expect.objectContaining({
 					id: "private-dependency",
@@ -547,6 +590,15 @@ it.effect(
 				"/credentials/token",
 				"/accounts/0/token",
 			]);
+			expect(prepared.records.installations[1]).not.toHaveProperty("activeConfigRevisionId");
+			expect(prepared.records.notificationSubscriptions).toEqual([
+				{
+					metadata: null,
+					isActive: false,
+					signalSchemaPluginKey: null,
+					signalSchemaSlug: "changed.signal",
+				},
+			]);
 			expect(prepared.records.integrations).toEqual([
 				expect.objectContaining({
 					configuredSecretPaths: ["/credentials/token"],
@@ -568,6 +620,7 @@ it.effect("reuses one export context across every event page", () => {
 	const manifest = {
 		...fixtureManifest(),
 		crons: [],
+		hooks: [],
 		scripts: [],
 		workflows: [],
 		providers: [],
@@ -579,13 +632,6 @@ it.effect("reuses one export context across every event page", () => {
 		integrationProviders: [],
 		configSchema: { fields: {}, unknownKeys: "strict" as const },
 		metadata: { ...fixtureManifest().metadata, slug: "private-plugin" },
-		bindings: {
-			eventAutomations: [],
-			entityAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-		},
 		entitySchemas: [
 			{
 				icon: "box",
@@ -676,7 +722,6 @@ it.effect("reuses one export context across every event page", () => {
 					listUserEntitiesForBackup: () =>
 						Effect.succeed([
 							{
-								origin: null,
 								properties: {},
 								provider: null,
 								externalId: null,

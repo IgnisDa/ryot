@@ -1,37 +1,13 @@
+import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
-import {
-	automationOccurrenceRows,
-	hostSuccess,
-} from "../../tests/backend/automations/automation-test-utils";
+import { automationContext } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-relationship-sync.sandbox";
 
-type Population = {
-	readonly rootPreviouslyPopulated: boolean;
-	readonly scopeEntity: {
-		readonly id: string;
-		readonly name: string;
-		readonly entitySchemaSlug: string;
-	};
-	readonly parentEntity?: {
-		readonly name: string;
-		readonly properties: Readonly<Record<string, JsonValue>>;
-		readonly entitySchemaSlug: string;
-	};
-	readonly batch: {
-		readonly id: string;
-		readonly isLeader: boolean;
-		readonly afterCount: number;
-		readonly beforeCount: number;
-		readonly createdCount: number;
-		readonly deletedCount: number;
-		readonly updatedCount: number;
-	};
-};
+type Population = typeof AutomationPopulationContext.Encoded;
 
 const input = (overrides: {
 	isLeader?: boolean;
@@ -56,43 +32,32 @@ const input = (overrides: {
 			createdCount: overrides.createdCount ?? 1,
 		},
 	};
-	return {
-		context: {
-			automation: {
-				ruleId: "rule-1",
-				operation: "create",
-				occurrenceId: "occurrence-1",
-				origin: { kind: "provider_refresh" },
-				occurredAt: "2026-07-20T10:00:00.000Z",
-				source: { kind: "relationship", relationshipId: "relationship-1" },
-			},
-		} satisfies AutomationInput,
-		occurrence: automationOccurrenceRows(
-			{
-				kind: "relationship",
-				after: {
-					properties: {},
-					id: "relationship-1",
-					source: { id: "source-1", name: "Source", entitySchemaSlug: "show" },
-					target: { id: "target-1", name: "Target", entitySchemaSlug: "show-season" },
-					relationshipSchemaSlug: overrides.relationshipSchemaSlug ?? "show-to-show-season",
-				},
-			},
-			population,
-		),
-	};
+	return automationContext({
+		population,
+		category: "change",
+		operation: "create",
+		resource: "relationship",
+		after: {
+			properties: {},
+			id: "relationship-1",
+			sourceEntityId: "source-1",
+			targetEntityId: "target-1",
+			createdAt: "2026-07-20T10:00:00.000Z",
+			updatedAt: "2026-07-20T10:00:00.000Z",
+			relationshipSchemaSlug: overrides.relationshipSchemaSlug ?? "show-to-show-season",
+		},
+	});
 };
 
 const run = (value: ReturnType<typeof input>) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
 	return definition
 		.run(
-			value.context,
+			value,
 			defineSandboxTestHost(manifest, {
-				executeRyotql: () => hostSuccess(value.occurrence),
 				emitSignal: (request) => {
 					calls.push(request);
-					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
+					return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
 				},
 			}),
 			{ metadata: {}, sandboxScriptId: "script-1" },

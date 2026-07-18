@@ -65,12 +65,14 @@ it.effect("rejects a non-push integration provider bound to a non-script kind", 
 		const manifest = fixtureManifest();
 		const script = manifest.scripts[0];
 		assert(script);
+		const { automationType: _automationType, ...common } = script;
 		const withProvider = (scriptSlug: string) => ({
 			...manifest,
-			bindings: { ...manifest.bindings, entityAutomations: [] },
+			hooks: [],
+			signalSchemas: [],
 			scripts: [
 				...manifest.scripts,
-				{ ...script, name: "Sink", kind: "script" as const, slug: "integration.sink" },
+				{ ...common, name: "Sink", kind: "script" as const, slug: "integration.sink" },
 			],
 			integrationProviders: [
 				{

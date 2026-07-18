@@ -22,6 +22,7 @@ export class EventSchemasRepository extends Context.Service<EventSchemasReposito
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRegistry;
 			const pluginRuntime = yield* PluginRuntimeResolver;
+			const lockCatalog = pluginRuntime.lockCatalog;
 			const effectiveForUser = (userId: UserId) => pluginRuntime.getEffectiveDefinitions(userId);
 			const getEntitySchemaScopeById = (input: {
 				userId: UserId;
@@ -60,18 +61,26 @@ export class EventSchemasRepository extends Context.Service<EventSchemasReposito
 			const getScopeForUser = (input: {
 				userId: UserId;
 				eventSchemaSlug: EventSchemaSlug;
+				entitySchemaPluginId: string | null;
 				entitySchemaSlug: EntitySchemaSlug;
 			}) => {
 				return effectiveForUser(input.userId).pipe(
 					Effect.map((effective) => {
-						const event =
-							effective.entitySchemas[input.entitySchemaSlug]?.eventSchemas[input.eventSchemaSlug];
+						const entity = effective.entitySchemas[input.entitySchemaSlug];
+						if (!entity || (entity.pluginId ?? null) !== input.entitySchemaPluginId) {
+							return null;
+						}
+						const event = entity.eventSchemas[input.eventSchemaSlug];
+						if (event && (event.pluginId ?? null) !== input.entitySchemaPluginId) {
+							return null;
+						}
 						return event ? toListed(input.entitySchemaSlug, event) : null;
 					}),
 				);
 			};
 
 			return {
+				lockCatalog,
 				getScopeForUser,
 				getBuiltinBySlug,
 				getEntitySchemaScopeById,

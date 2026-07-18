@@ -37,7 +37,7 @@ it("accepts new schemas, optional properties, and widened enums", () => {
 					catalogState: "active",
 					propertiesSchema: { fields: {} },
 					audiencePolicy: { kind: "actor" },
-					notificationScriptSlug: "fixture.automation",
+					notificationHookSlug: "fixture.created",
 				},
 			],
 			entitySchemas: [

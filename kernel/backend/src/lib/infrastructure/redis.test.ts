@@ -1,4 +1,9 @@
-import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import {
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
+	SandboxScriptId,
+} from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -68,6 +73,19 @@ describe("import source state", () => {
 			workflowScriptId: SandboxScriptId.make("script-1"),
 			namedArtifactPaths: { history: "/tmp/history.csv" },
 			sourcePayload: { apiKey: "secret", history: "history" },
+			pluginRevision: {
+				ownerId: null,
+				slug: "example",
+				compiledHashes: {},
+				workflowScripts: {},
+				scope: "system" as const,
+				userBootstrapScriptSlugs: [],
+				id: PluginId.make("example-plugin-id"),
+				revisionId: PluginRevisionId.make("example-revision"),
+				configSchema: { fields: {}, unknownKeys: "strict" as const },
+				configRevisionId: PluginConfigRevisionId.make("example-config-revision"),
+				schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+			},
 		};
 		const encoded = Schema.encodeSync(ImportSourceStateFromJson)(state);
 

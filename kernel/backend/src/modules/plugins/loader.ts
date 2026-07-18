@@ -1,4 +1,4 @@
-import type { PluginBindings, PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { and, column, eq, literal, table } from "@ryot-app/ryotql";
 import { Context, Effect, Layer } from "effect";
@@ -22,7 +22,6 @@ import type { PluginRevision, StoredPluginIdentity } from "./types";
 export type PluginRegistryEntry = PluginRevision & StoredPluginIdentity;
 
 export type PluginRegistrySnapshot = {
-	readonly bindings: PluginBindings;
 	readonly definitions: DefinitionSnapshot;
 	readonly httpRateLimits: HttpRateLimitLookups;
 	readonly plugins: Readonly<Record<string, PluginRegistryEntry>>;
@@ -40,14 +39,6 @@ const deepFreeze = <Value>(value: Value): Value => {
 	}
 	return Object.freeze(value);
 };
-
-const emptyBindings = (): PluginBindings => ({
-	eventAutomations: [],
-	entityAutomations: [],
-	signalAutomations: [],
-	relationshipAutomations: [],
-	providerEntityImportAutomations: [],
-});
 
 export const materializeSavedView = (
 	definition: PluginManifest["savedViews"][number],
@@ -171,24 +162,6 @@ export const mergeManifestDefinitions = (
 	],
 });
 
-const mergeBindings = (manifests: ReadonlyArray<PluginManifest>): PluginBindings =>
-	manifests.reduce<PluginBindings>(
-		(bindings, manifest) => ({
-			eventAutomations: [...bindings.eventAutomations, ...manifest.bindings.eventAutomations],
-			entityAutomations: [...bindings.entityAutomations, ...manifest.bindings.entityAutomations],
-			signalAutomations: [...bindings.signalAutomations, ...manifest.bindings.signalAutomations],
-			relationshipAutomations: [
-				...bindings.relationshipAutomations,
-				...manifest.bindings.relationshipAutomations,
-			],
-			providerEntityImportAutomations: [
-				...bindings.providerEntityImportAutomations,
-				...manifest.bindings.providerEntityImportAutomations,
-			],
-		}),
-		emptyBindings(),
-	);
-
 const assertUniqueScriptSlugs = (plugins: Readonly<Record<string, PluginRegistryEntry>>) => {
 	const ownerBySlug = new Map<string, string>();
 	for (const [pluginSlug, plugin] of Object.entries(plugins)) {
@@ -262,7 +235,6 @@ export const makePluginLoader = (
 	const base = definitionSourceFromSnapshot(registry.getSnapshot());
 	let snapshot: PluginRegistrySnapshot = deepFreeze({
 		plugins: {},
-		bindings: emptyBindings(),
 		definitions: buildDefinitionSnapshot(base),
 		httpRateLimits: { byKey: {}, byOrigin: {} },
 	});
@@ -286,7 +258,6 @@ export const makePluginLoader = (
 		const manifests = pluginEntries.map(({ manifest }) => manifest);
 		return deepFreeze({
 			plugins: clonedPlugins,
-			bindings: mergeBindings(manifests),
 			httpRateLimits: buildHttpRateLimitLookups(manifests),
 			definitions: buildDefinitionSnapshot(mergeManifestDefinitions(base, pluginEntries)),
 		} satisfies PluginRegistrySnapshot);

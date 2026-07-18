@@ -2,12 +2,12 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { compileClientPlugin } from "@ryot-app/client-plugin-compiler";
-import { pluginClientFileExtension } from "@ryot-app/client-plugin-contract";
+import { isPluginSourceFile, pluginClientFileExtension } from "@ryot-app/client-plugin-contract";
 import {
 	AuthoredPluginManifest as AuthoredPluginManifestSchema,
 	PluginManifest as PluginManifestSchema,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import { writePluginArchive } from "@ryot-app/plugin-archive";
+import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
 import type { SandboxCompilerDiagnostic } from "@ryot-app/sandbox-compiler/diagnostics";
 import {
 	derivePluginSandboxScripts,
@@ -81,18 +81,18 @@ const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
 	const path = yield* Path.Path;
 	const fs = yield* FileSystem.FileSystem;
 	const backendPaths = yield* Stream.fromAsyncIterable(
-		new Bun.Glob("backend/**/*.ts").scan({ cwd, onlyFiles: true }),
+		new Bun.Glob("backend/**/*").scan({ cwd, onlyFiles: true }),
 		(error) => new BuildError({ message: `Unable to discover backend sources: ${String(error)}` }),
 	).pipe(
-		Stream.filter((sourcePath) => !sourcePath.endsWith(".test.ts")),
+		Stream.filter(isPluginSourceFile),
 		Stream.map((sourcePath) => path.normalize(sourcePath)),
 		Stream.runCollect,
 	);
 	const sharedPaths = yield* Stream.fromAsyncIterable(
-		new Bun.Glob("shared/**/*.ts").scan({ cwd, onlyFiles: true }),
+		new Bun.Glob("shared/**/*").scan({ cwd, onlyFiles: true }),
 		(error) => new BuildError({ message: `Unable to discover shared sources: ${String(error)}` }),
 	).pipe(
-		Stream.filter((sourcePath) => !path.basename(sourcePath).includes(".test.")),
+		Stream.filter(isPluginSourceFile),
 		Stream.map((sourcePath) => path.normalize(sourcePath)),
 		Stream.runCollect,
 	);
@@ -100,8 +100,7 @@ const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
 		new Bun.Glob("client/**/*").scan({ cwd, onlyFiles: true }),
 		(error) => new BuildError({ message: `Unable to discover client sources: ${String(error)}` }),
 	).pipe(
-		Stream.filter((sourcePath) => pluginClientFileExtension(sourcePath) !== undefined),
-		Stream.filter((sourcePath) => !path.basename(sourcePath).includes(".test.")),
+		Stream.filter(isPluginSourceFile),
 		Stream.map((sourcePath) => path.normalize(sourcePath)),
 		Stream.runCollect,
 	);
@@ -195,11 +194,21 @@ const writeOutput = Effect.fn("writeOutput")(function* (
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const temporary = path.join(path.dirname(output), `.${path.basename(output)}.tmp`);
-	const archive = writePluginArchive({
-		manifest,
-		files: Object.fromEntries(
-			sources.map(({ contents, path: sourcePath }) => [sourcePath, contents]),
-		),
+	const archive = yield* Effect.try({
+		try: () =>
+			writePluginArchive({
+				manifest,
+				files: Object.fromEntries(
+					sources.map(({ contents, path: sourcePath }) => [sourcePath, contents]),
+				),
+			}),
+		catch: (error) =>
+			new BuildError({
+				message:
+					error instanceof PluginArchiveError
+						? `Invalid plugin archive: ${error.reason}`
+						: `Unable to create plugin archive: ${String(error)}`,
+			}),
 	});
 	yield* fs.makeDirectory(path.dirname(output), { recursive: true });
 	yield* fs.remove(temporary, { force: true, recursive: true });

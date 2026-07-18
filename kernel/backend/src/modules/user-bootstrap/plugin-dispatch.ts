@@ -53,6 +53,7 @@ export const makePluginUserBootstrapDispatcher = (
 				});
 				if (!resolved) {
 					return yield* new SandboxRunError({
+						kind: "script-failure",
 						message: `Plugin user bootstrap script not found: ${entry.pluginSlug}/${entry.bootstrap.slug}`,
 					});
 				}
@@ -70,12 +71,14 @@ export const makePluginUserBootstrapDispatcher = (
 					Effect.mapError(
 						(error) =>
 							new SandboxRunError({
+								kind: "script-failure",
 								message: `Plugin user bootstrap failed: ${entry.pluginSlug}/${entry.bootstrap.slug}: ${String(error)}`,
 							}),
 					),
 				);
 				if (result.error) {
 					return yield* new SandboxRunError({
+						kind: "script-failure",
 						message: `Plugin user bootstrap failed: ${entry.pluginSlug}/${entry.bootstrap.slug}: ${result.error.message}`,
 					});
 				}

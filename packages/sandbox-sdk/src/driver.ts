@@ -1,4 +1,3 @@
-import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
 import type { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import type { ExecutionMetadata, SandboxHost, SandboxManifest, ScriptManifest } from "./core";
@@ -6,13 +5,15 @@ import type { ExecutionMetadata, SandboxHost, SandboxManifest, ScriptManifest } 
 type ScriptExecution<
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.Codec<unknown, unknown>,
-	Capabilities extends readonly SandboxHostCapability[],
+	Manifest extends SandboxManifest,
 > = {
 	readonly input: Input;
 	readonly output: Output;
 	readonly run: (
 		input: Input["Type"],
-		host: SandboxHost<Capabilities>,
+		host: Manifest extends { readonly kind: "automation"; readonly automationType: "policy" }
+			? Omit<SandboxHost<Manifest["capabilities"]>, "executeWorkflow">
+			: SandboxHost<Manifest["capabilities"]>,
 		execution: ExecutionMetadata,
 	) => Effect.Effect<Output["Type"], unknown>;
 };
@@ -25,7 +26,7 @@ export type GenericScriptDefinition<
 	Manifest extends SandboxManifest,
 	Input extends Schema.Codec<unknown, unknown>,
 	Output extends Schema.Codec<unknown, unknown>,
-> = ScriptExecution<Input, Output, Manifest["capabilities"]> & {
+> = ScriptExecution<Input, Output, Manifest> & {
 	readonly manifest: Manifest;
 	readonly definitionType: typeof SANDBOX_SCRIPT_DEFINITION;
 };

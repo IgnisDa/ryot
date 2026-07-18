@@ -53,18 +53,12 @@ const failureOf = (exit: Exit.Exit<unknown, unknown>) => {
 
 const privateManifest = (overrides: Partial<PluginManifest> = {}): PluginManifest => ({
 	...fixtureManifest(),
+	hooks: [],
 	scripts: [],
 	entitySchemas: [],
 	signalSchemas: [],
 	relationshipSchemas: [],
 	metadata: { ...fixtureManifest().metadata, name: "Private", slug: "private-fixture" },
-	bindings: {
-		eventAutomations: [],
-		entityAutomations: [],
-		signalAutomations: [],
-		relationshipAutomations: [],
-		providerEntityImportAutomations: [],
-	},
 	...overrides,
 });
 
@@ -88,10 +82,12 @@ const installationRow = (
 	health: "ready",
 	isDisabled: false,
 	healthReason: null,
+	uninstalledAt: null,
 	pluginScope: "user",
 	homeSavedViewId: null,
 	createdAt: new Date(),
 	updatedAt: new Date(),
+	activeConfigRevisionId: null,
 	pluginSlug: "private-fixture",
 	id: `${overrides.pluginId}-installation`,
 	...overrides,
@@ -183,16 +179,10 @@ const makeLayer = (input?: {
 			Effect.succeed((input?.installations ?? []).find((row) => row.pluginId === pluginId) ?? null),
 		findHomeSavedViewBySlug: (_ownerId, installationId, slug) =>
 			Effect.succeed(input?.defaultHomeTargets?.get(`${installationId}:${slug}`) ?? null),
-		create: (values) =>
+		upsertState: (values) =>
 			Effect.sync(() => {
 				input?.created?.push(values);
 				return installationRow({ ...values, pluginId: values.pluginId });
-			}),
-		updateState: (values) =>
-			Effect.sync(() => {
-				input?.updated?.push(values);
-				const current = (input?.installations ?? []).find((row) => row.id === values.id);
-				return current ? { ...current, ...values } : undefined;
 			}),
 		lockHomeSavedView: (_ownerId, savedViewId) =>
 			Effect.gen(function* () {
@@ -208,6 +198,20 @@ const makeLayer = (input?: {
 				input?.homeViewEvents?.push("set-installation");
 				input?.homeViewUpdates?.push({ id, homeSavedViewId, userId: ownerId });
 				return (input?.installations ?? []).some((row) => row.id === id && row.userId === ownerId);
+			}),
+		updateState: (values) =>
+			Effect.sync(() => {
+				input?.updated?.push(values);
+				const current = (input?.installations ?? []).find((row) => row.id === values.id);
+				return current
+					? {
+							...current,
+							...values,
+							healthReason: current.health === "needs-configuration" ? null : current.healthReason,
+							health:
+								current.health === "needs-configuration" ? ("ready" as const) : current.health,
+						}
+					: undefined;
 			}),
 	});
 	const lifecycleDispatcherLayer = Layer.succeed(PluginInstallationLifecycleDispatcher, {
@@ -454,7 +458,7 @@ it.effect("rejects only the private manifest surfaces that cannot carry user sub
 				files: {},
 				config: {},
 				manifest: privateManifest({
-					bindings: fixture.bindings,
+					hooks: fixture.hooks,
 					userBootstrap: [userBootstrapEntry],
 					entitySchemas: fixture.entitySchemas,
 					signalSchemas: fixture.signalSchemas,
@@ -1136,7 +1140,7 @@ it.effect("hides foreign installations and rejects enabling an unready installat
 			),
 		).toMatchObject({
 			_tag: "PluginConflictError",
-			reason: { health: "needs-configuration", code: "installation-not-ready" },
+			reason: { health: "installing", code: "installation-not-ready" },
 		});
 	}).pipe(
 		Effect.provide(
@@ -1145,8 +1149,8 @@ it.effect("hides foreign installations and rejects enabling an unready installat
 				installations: [
 					installationRow({
 						isDisabled: true,
+						health: "installing",
 						pluginId: privatePlugin.id,
-						health: "needs-configuration",
 						config: { region: "eu", token: "stored-secret" },
 					}),
 				],
@@ -1264,18 +1268,16 @@ it.effect("keeps a private plugin referenced by persisted definitions", () => {
 	);
 });
 
-it.effect("keeps a referenced private plugin installed", () => {
+it.effect("tombstones a private installation while accepted workflows retain their pins", () => {
 	const deactivated: Array<string> = [];
 	const privatePlugin = storedPrivatePlugin(privateManifest());
 	const installations = [installationRow({ pluginId: privatePlugin.id })];
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
-		const failure = failureOf(
-			yield* Effect.exit(service.uninstallPlugin(userId, privatePlugin.slug)),
+		expect((yield* service.uninstallPlugin(userId, privatePlugin.slug)).slug).toBe(
+			privatePlugin.slug,
 		);
-		assert(failure instanceof PluginConflictError);
-		expect(failure.reason.code).toBe("workflow-referenced");
-		expect(deactivated).toEqual([]);
+		expect(deactivated).toEqual([privatePlugin.id]);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
@@ -1442,7 +1444,27 @@ it.effect("fails a package update when generated views cannot be materialized", 
 	);
 });
 
-it.effect("rejects package updates that change identity or invalidate merged config", () => {
+it.effect("rejects changed identity but activates an upgrade needing configuration", () => {
+	const nextManifest: PluginManifest = {
+		...configuredManifest,
+		metadata: { ...configuredManifest.metadata, version: "2.0.0" },
+		configSchema: {
+			...configuredManifest.configSchema,
+			fields: {
+				...configuredManifest.configSchema.fields,
+				endpoint: {
+					type: "string",
+					label: "Endpoint",
+					validation: { required: true },
+					description: "Required endpoint",
+				},
+			},
+		},
+	};
+	const persisted: Array<{ plugin: StoredPlugin["manifest"]; identity: Record<string, unknown> }> =
+		[];
+	const healthUpdates: Array<Record<string, unknown>> = [];
+	const updated: Array<Record<string, unknown>> = [];
 	const privatePlugin = storedPrivatePlugin(configuredManifest);
 	const installations = [
 		installationRow({
@@ -1469,24 +1491,97 @@ it.effect("rejects package updates that change identity or invalidate merged con
 			_tag: "PluginRequestError",
 			reason: { code: "validation-failed" },
 		});
+		expect(persisted).toEqual([]);
 
-		const invalidConfig = failureOf(
-			yield* Effect.exit(
-				service.updatePrivatePlugin({
-					userId,
-					files: {},
-					unsetConfigKeys: ["token"],
-					manifest: configuredManifest,
-					pluginSlug: privatePlugin.slug,
+		const invalidConfig = yield* service.updatePrivatePlugin({
+			userId,
+			files: {},
+			manifest: nextManifest,
+			pluginSlug: privatePlugin.slug,
+		});
+		expect(invalidConfig).toMatchObject({
+			config: { region: "us" },
+			health: "needs-configuration",
+		});
+		expect(persisted.map(({ plugin }) => plugin)).toEqual([nextManifest]);
+		expect(healthUpdates).toEqual([
+			{
+				id: installations[0]?.id,
+				health: "needs-configuration",
+				healthReason: "Configuration does not match the active package revision",
+			},
+		]);
+		expect(updated).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				updated,
+				persisted,
+				installations,
+				healthUpdates,
+				privatePlugins: [privatePlugin],
+			}),
+		),
+	);
+});
+
+it.effect(
+	"validates reconfiguration before enabling and materializes newly compatible definitions",
+	() => {
+		const updated: Array<Record<string, unknown>> = [];
+		const materialized: Array<UserId> = [];
+		const privatePlugin = storedPrivatePlugin(configuredManifest);
+		const installation = installationRow({
+			isDisabled: true,
+			config: { region: "us" },
+			pluginId: privatePlugin.id,
+			health: "needs-configuration",
+		});
+		return Effect.gen(function* () {
+			const service = yield* PluginInstallationService;
+			expect(
+				failureOf(
+					yield* Effect.exit(
+						service.updateInstallation(userId, privatePlugin.slug, { isDisabled: false }),
+					),
+				),
+			).toMatchObject({ _tag: "PluginRequestError", reason: { code: "validation-failed" } });
+			expect(updated).toEqual([]);
+			expect(materialized).toEqual([]);
+			const result = yield* service.updateInstallation(userId, privatePlugin.slug, {
+				isDisabled: false,
+				config: { token: "replacement-secret" },
+			});
+			expect(result).toMatchObject({
+				health: "ready",
+				isDisabled: false,
+				config: { region: "us" },
+				configuredSecrets: ["token"],
+			});
+			expect(updated).toEqual([
+				{
+					sortOrder: 0,
+					isDisabled: false,
+					id: installation.id,
+					config: { region: "us", token: "replacement-secret" },
+				},
+			]);
+			expect(materialized).toEqual([userId]);
+		}).pipe(
+			Effect.provide(
+				makeLayer({
+					updated,
+					installations: [installation],
+					privatePlugins: [privatePlugin],
+					materialize: (owner) =>
+						Effect.sync(() => {
+							materialized.push(owner);
+						}),
 				}),
 			),
 		);
-		expect(invalidConfig).toMatchObject({
-			_tag: "PluginRequestError",
-			reason: { code: "validation-failed" },
-		});
-	}).pipe(Effect.provide(makeLayer({ installations, privatePlugins: [privatePlugin] })));
-});
+	},
+);
 
 it.effect("rejects package updates for system and foreign plugins", () => {
 	const systemPlugin = systemEntry(

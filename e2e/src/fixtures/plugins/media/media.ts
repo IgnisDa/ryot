@@ -240,7 +240,7 @@ export const seedMediaEntity = (input: {
 	Effect.gen(function* () {
 		const entitySchemaSlug = makeEntitySchemaSlug(input.entitySchemaSlug);
 		const providerId = input.providerId ? SandboxProviderId.make(input.providerId) : undefined;
-		const entity = input.userId
+		const result = input.userId
 			? yield* requirePresent(
 					input.client,
 					"Client is required for user-scoped entity seeding",
@@ -268,6 +268,8 @@ export const seedMediaEntity = (input: {
 						}),
 					adminHeaders(),
 				);
+		const entity = "entity" in result ? result.entity : result;
+		const warnings = "warnings" in result ? result.warnings : undefined;
 
 		return {
 			id: entity.id,
@@ -277,6 +279,7 @@ export const seedMediaEntity = (input: {
 			externalId: input.externalId,
 			providerId: input.providerId,
 			entitySchemaSlug: entity.entitySchemaSlug,
+			...(warnings !== undefined ? { warnings } : {}),
 		};
 	});
 

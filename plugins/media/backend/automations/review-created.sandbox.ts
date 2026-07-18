@@ -1,10 +1,11 @@
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { automationOccurrenceRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
+import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 export const manifest = defineManifest({
 	kind: "automation",
+	automationType: "automation",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	name: "Review Created Detector",
@@ -15,24 +16,30 @@ export const manifest = defineManifest({
 export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
-		if (automation.origin.kind !== "api" || automation.source.kind !== "event") {
+		const payload = automation.payload;
+		if (
+			payload.resource !== "event" ||
+			payload.operation !== "create" ||
+			payload.after.eventSchemaSlug !== "review"
+		) {
 			return Effect.succeed(null);
 		}
+		const event = payload.after;
 		return executeRyotqlRecipe(
 			host.executeRyotql,
-			automationOccurrenceRecipe(automation.occurrenceId),
+			entityReadRecipe({ entityIds: [event.entityId] }),
 		).pipe(
-			Effect.flatMap((occurrence) => {
-				const event = occurrence?.source.kind === "event" ? occurrence.source.after : undefined;
-				return event?.eventSchemaSlug === "review"
+			Effect.flatMap(({ items }) => {
+				const entity = items[0];
+				return entity
 					? host.emitSignal({
 							discriminator: event.id,
 							schemaSlug: "review.created",
 							properties: {
 								reviewEventId: event.id,
-								entityId: event.subject.id,
-								entityName: event.subject.name,
-								entitySchemaSlug: event.subject.entitySchemaSlug,
+								entityName: entity.name,
+								entityId: event.entityId,
+								entitySchemaSlug: event.entitySchemaSlug,
 							},
 						})
 					: Effect.succeed(null);

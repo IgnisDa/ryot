@@ -8,6 +8,7 @@ import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
+import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 export const AddEntityToCollectionWorkflowError = Schema.Union([
@@ -22,6 +23,7 @@ export const AddEntityToCollectionWorkflowPayload = Schema.Struct({
 	userId: UserId,
 	entityId: EntityId,
 	collectionId: EntityId,
+	command: LifecycleCommand,
 	executionId: Schema.String,
 	properties: Schema.optional(Schema.Unknown),
 });

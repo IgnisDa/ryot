@@ -27,7 +27,7 @@ const processSandboxTranslation = Effect.fn("processSandboxTranslation")(functio
 		name: `resolve-provider-translate-script-${executionId}`,
 		execute: pluginRuntime.resolveUserTranslateScript(payload.userId, payload.providerId).pipe(
 			Effect.map(({ id }) => id),
-			Effect.mapError(toSandboxRunError),
+			Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
 		),
 	});
 	return yield* sandbox
@@ -42,7 +42,7 @@ const processSandboxTranslation = Effect.fn("processSandboxTranslation")(functio
 				entitySchemaSlug: payload.entitySchemaSlug,
 			},
 		})
-		.pipe(Effect.mapError(toSandboxRunError));
+		.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 });
 
 export type TranslateEntityWorkflowOperationsValue = {

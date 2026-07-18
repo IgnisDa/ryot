@@ -14,7 +14,7 @@ import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
-import { EntityImportPayload } from "./schemas";
+import { ProviderEntityImportWorkflowPayload } from "./schemas";
 
 export class EntityImportError extends Schema.TaggedError<EntityImportError>()(
 	"EntityImportError",
@@ -25,7 +25,7 @@ export const EntityImportWorkflow = Workflow.make("EntityImportWorkflow", {
 	success: ListedEntity satisfies DurableSchema,
 	error: EntityImportError satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
-	payload: EntityImportPayload satisfies DurableSchema,
+	payload: ProviderEntityImportWorkflowPayload satisfies DurableSchema,
 });
 
 const measureImportPhase = <A, R>(
@@ -45,7 +45,7 @@ const measureImportPhase = <A, R>(
 	);
 
 const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
-	payload: EntityImportPayload,
+	payload: ProviderEntityImportWorkflowPayload,
 	executionId: string,
 ) {
 	const engine = yield* WorkflowEngine;
@@ -57,7 +57,7 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 				executionId: populationExecutionId,
 				payload: {
 					mode: "ensure",
-					origin: payload.origin,
+					command: payload.command,
 					providerId: payload.providerId,
 					externalId: payload.externalId,
 					entityScope: payload.entityScope,
@@ -75,7 +75,7 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 	yield* measureImportPhase(
 		"provider-import-automation",
 		operations
-			.runProviderImportAutomations(payload, importedEntity, executionId)
+			.completeProviderEntityImport(payload, importedEntity, executionId)
 			.pipe(
 				Effect.mapError(
 					(error) =>
@@ -87,7 +87,7 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 });
 
 export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(function* (
-	payload: EntityImportPayload,
+	payload: ProviderEntityImportWorkflowPayload,
 	executionId: string,
 ) {
 	yield* Effect.annotateCurrentSpan({

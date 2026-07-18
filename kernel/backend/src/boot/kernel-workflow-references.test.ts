@@ -78,6 +78,7 @@ const populationReferencesLayer = (
 						slug: "catalog.refresh",
 						compiledCode: "compiled",
 						contentHash: "workflow-hash",
+						pluginRevisionId: "catalog-revision",
 						id: SandboxScriptId.make("caller-script"),
 						metadata: {
 							kind: "workflow",
@@ -133,7 +134,7 @@ it.effect("binds kernel workflow user ids to the trusted execution subject", () 
 				executionId: "entity-import-execution",
 				entityScope: { type: "global", userId: "trusted-user" },
 			},
-			{ userId: "trusted-user", executionId: "event-create-execution" },
+			{ userId: "trusted-user", command: { causation: { executionId: "event-create-execution" } } },
 		]);
 	}).pipe(
 		Effect.provide(referencesLayer(unownedRepositories)),
@@ -291,17 +292,18 @@ it.effect("rejects user-scoped kernel workflows for system executions", () =>
 	),
 );
 
-it.effect("rejects a script-supplied import run owned by another user", () =>
+it.effect("rejects an import run owned by another user", () =>
 	Effect.gen(function* () {
 		const references = yield* KernelWorkflowReferences;
 		const exit = yield* Effect.exit(
 			references.execute(
-				KERNEL_ENTITY_IMPORT_WORKFLOW,
+				KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 				{
-					providerId: "zeta",
-					externalId: "record-1",
-					entitySchemaSlug: "record",
-					origin: { kind: "import", importRunId: ImportRunId.make("victim-run") },
+					totalItems: 0,
+					failureCount: 0,
+					writeItemCount: 0,
+					runId: "victim-run",
+					chunkHandles: ["harvest-handle-0"],
 				},
 				{ type: "user", userId: UserId.make("trusted-user") },
 				"entity-import-execution",
@@ -319,18 +321,18 @@ it.effect("rejects a script-supplied import run owned by another user", () =>
 	),
 );
 
-it.effect("rejects a script-supplied integration owned by another user", () =>
+it.effect("rejects a trusted integration subject owned by another user", () =>
 	Effect.gen(function* () {
 		const references = yield* KernelWorkflowReferences;
 		const exit = yield* Effect.exit(
 			references.execute(
 				KERNEL_EVENT_CREATE_WORKFLOW,
+				{ payload: [] },
 				{
-					payload: [],
-					origin: "integration",
+					type: "user",
+					userId: UserId.make("trusted-user"),
 					integrationId: IntegrationId.make("victim-integration"),
 				},
-				{ type: "user", userId: UserId.make("trusted-user") },
 				"event-create-execution",
 				"parent-execution",
 				SandboxScriptId.make("caller-script"),
@@ -392,10 +394,17 @@ it.effect(
 					mode: "refresh",
 					externalId: "record-1",
 					entitySchemaSlug: "record",
-					origin: { kind: "provider_refresh" },
 					providerId: "provider-record-catalog",
 					executionId: "population-reference-item-0",
 					entityScope: { userId: null, type: "global" },
+					command: expect.objectContaining({
+						itemIdentity: "kernel:provider-entity-population:0",
+						causation: expect.objectContaining({
+							source: "provider-refresh",
+							executionId: "population-reference-item-0",
+							providerExecutionId: "population-reference-item-0",
+						}),
+					}),
 				}),
 				expect.objectContaining({
 					externalId: "record-2",
@@ -416,10 +425,16 @@ it.effect("awaits every provider population exit and reports failures in input o
 			Effect.gen(function* () {
 				executionIds.push(options.executionId);
 				if (options.executionId.endsWith("item-0")) {
-					return yield* new SandboxRunError({ message: "first item failed" });
+					return yield* new SandboxRunError({
+						kind: "script-failure",
+						message: "first item failed",
+					});
 				}
 				if (options.executionId.endsWith("item-2")) {
-					return yield* new SandboxRunError({ message: "third item failed" });
+					return yield* new SandboxRunError({
+						kind: "script-failure",
+						message: "third item failed",
+					});
 				}
 				return { id: options.executionId };
 			}),

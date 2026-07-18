@@ -1,22 +1,28 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
+import {
+	AutomationRun,
+	AutomationTrigger,
+	type AutomationWarning,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
-import { AutomationOccurrenceId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
+import { LifecyclePlanner } from "#lib/domain/lifecycle";
+import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
+import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database } from "#lib/infrastructure/db/service";
-import { AutomationsService } from "#modules/automations/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
-import type { EntityImportPayload } from "./schemas";
+import type { EntityImportPayload, ProviderEntityImportWorkflowPayload } from "./schemas";
 
-const ResolvedProviderEntityImportAutomation = Schema.Struct({
-	ruleId: Schema.String,
-	sandboxScriptId: SandboxScriptId,
+const ProviderImportCompletionPlan = Schema.Struct({
+	trigger: AutomationTrigger,
+	runs: Schema.Array(AutomationRun),
 });
 const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
 	Effect.gen(function* () {
@@ -28,7 +34,7 @@ const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: 
 				: pluginRuntime.resolveDetailsScript(payload.providerId)
 		).pipe(
 			Effect.map(({ id }) => id),
-			Effect.mapError(toSandboxRunError),
+			Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
 		);
 		const scriptId = yield* Activity.make({
 			error: SandboxRunError,
@@ -44,88 +50,58 @@ const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: 
 				? { type: "user", userId: payload.entityScope.userId }
 				: { type: "system" },
 		});
-	}).pipe(Effect.mapError(toSandboxRunError));
+	}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 
-const runProviderImportAutomations = (
-	payload: EntityImportPayload,
+export const completeProviderEntityImport = (
+	payload: ProviderEntityImportWorkflowPayload,
 	importedEntity: ListedEntity,
 	executionId: string,
 ) =>
 	Effect.gen(function* () {
-		const sandbox = yield* SandboxExecutionService;
-		const pluginRuntime = yield* PluginRuntimeResolver;
-		const automations = yield* Activity.make({
+		const database = yield* Database;
+		const planner = yield* LifecyclePlanner;
+		const execution = yield* LifecycleExecution;
+		const completion = {
+			entityId: importedEntity.id,
+			category: "change" as const,
+			externalId: payload.externalId,
+			providerId: payload.providerId,
+			operation: "complete" as const,
+			userId: payload.entityScope.userId,
+			entitySchemaSlug: payload.entitySchemaSlug,
+			resource: "provider-entity-import" as const,
+		};
+		const plan = yield* Activity.make({
 			error: SandboxRunError,
-			name: `resolve-provider-import-automations-${executionId}`,
-			success: Schema.Array(ResolvedProviderEntityImportAutomation),
-			execute: pluginRuntime
-				.listProviderEntityImportAutomations(payload.entityScope.userId, payload.entitySchemaSlug)
-				.pipe(Effect.mapError(toSandboxRunError)),
+			success: ProviderImportCompletionPlan,
+			name: `plan-provider-import-completion-${executionId}`,
+			execute: database
+				.transaction((transaction) =>
+					planner
+						.plan({
+							trigger: lifecycleTrigger(payload.command, payload.entityScope.userId, completion),
+						})
+						.pipe(
+							Effect.provideService(Database, transaction),
+							Effect.map(({ runs, trigger }) => ({ runs, trigger })),
+						),
+				)
+				.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
 		});
-		if (automations.length > 0 && !payload.entityScope.userId) {
-			return yield* new SandboxRunError({
-				message: "Provider import automations require a user subject",
-			});
+		const warnings: AutomationWarning[] = [];
+		if (plan.trigger.blockedReason?.hasRequiredHooks) {
+			warnings.push({ ...plan.trigger.blockedReason, triggerId: plan.trigger.id });
 		}
-		if (payload.entityScope.userId) {
-			const automationService = yield* AutomationsService;
-			const occurrenceId = AutomationOccurrenceId.make(executionId);
-			yield* automationService
-				.recordOccurrence({
-					signalId: null,
-					id: occurrenceId,
-					population: null,
-					operation: "create",
-					origin: { kind: "import" },
-					recordId: importedEntity.id,
-					userId: payload.entityScope.userId,
-					occurredAt: importedEntity.updatedAt,
-					sourceKind: "provider-entity-import",
-					source: {
-						entityId: importedEntity.id,
-						kind: "provider-entity-import",
-						externalId: payload.externalId,
-						providerId: payload.providerId,
-						entitySchemaSlug: payload.entitySchemaSlug,
-					},
-				})
-				.pipe(Effect.mapError(toSandboxRunError));
-			for (const [index, automation] of automations.entries()) {
-				const hookExecutionId = `${executionId}-provider-import-automation-${index}`;
-				const context = {
-					automation: {
-						occurrenceId,
-						operation: "create",
-						ruleId: automation.ruleId,
-						origin: { kind: "import" },
-						occurredAt: importedEntity.updatedAt,
-						source: {
-							entityId: importedEntity.id,
-							kind: "provider-entity-import",
-							externalId: payload.externalId,
-							providerId: payload.providerId,
-							entitySchemaSlug: payload.entitySchemaSlug,
-						},
-					},
-				} satisfies AutomationInput;
-				const result = yield* sandbox
-					.executeScript({
-						input: context,
-						executionId: hookExecutionId,
-						scriptId: automation.sandboxScriptId,
-						subject: {
-							type: "user",
-							userId: payload.entityScope.userId,
-							automationOccurrenceId: occurrenceId,
-						},
-					})
-					.pipe(Effect.mapError(toSandboxRunError));
-				if (result.error) {
-					return yield* new SandboxRunError({ message: result.error.message });
-				}
-			}
+		warnings.push(
+			...(yield* execution
+				.after({ runs: plan.runs, triggerId: plan.trigger.id })
+				.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")))),
+		);
+		if (warnings.length > 0) {
+			yield* Effect.logWarning("provider import completed with automation warnings").pipe(
+				Effect.annotateLogs({ warningCount: warnings.length, warnings: warnings.slice(0, 100) }),
+			);
 		}
-		return undefined;
 	});
 
 export type EntityImportWorkflowOperationsValue = {
@@ -133,8 +109,8 @@ export type EntityImportWorkflowOperationsValue = {
 		payload: EntityImportPayload,
 		executionId: string,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
-	runProviderImportAutomations: (
-		payload: EntityImportPayload,
+	completeProviderEntityImport: (
+		payload: ProviderEntityImportWorkflowPayload,
 		importedEntity: ListedEntity,
 		executionId: string,
 	) => Effect.Effect<void, SandboxRunError, WorkflowEngine | WorkflowInstance>;
@@ -150,7 +126,8 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 	EntityImportWorkflowOperations,
 	Effect.gen(function* () {
 		const database = yield* Database;
-		const automations = yield* AutomationsService;
+		const planner = yield* LifecyclePlanner;
+		const execution = yield* LifecycleExecution;
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		return {
@@ -160,12 +137,11 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(SandboxExecutionService, sandbox),
 				),
-			runProviderImportAutomations: (payload, importedEntity, executionId) =>
-				runProviderImportAutomations(payload, importedEntity, executionId).pipe(
+			completeProviderEntityImport: (payload, importedEntity, executionId) =>
+				completeProviderEntityImport(payload, importedEntity, executionId).pipe(
 					Effect.provideService(Database, database),
-					Effect.provideService(AutomationsService, automations),
-					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
-					Effect.provideService(SandboxExecutionService, sandbox),
+					Effect.provideService(LifecyclePlanner, planner),
+					Effect.provideService(LifecycleExecution, execution),
 				),
 		} satisfies EntityImportWorkflowOperationsValue;
 	}),

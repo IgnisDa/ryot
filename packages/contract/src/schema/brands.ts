@@ -66,25 +66,35 @@ export const RelationshipSchemaSlug = Schema.String.pipe(Schema.brand("Relations
 
 export type RelationshipSchemaSlug = typeof RelationshipSchemaSlug.Type;
 
-export const SignalId = Schema.String.pipe(Schema.brand("SignalId"));
-
-export type SignalId = typeof SignalId.Type;
-
 export const SignalSchemaSlug = Schema.String.pipe(Schema.brand("SignalSchemaSlug"));
 
 export type SignalSchemaSlug = typeof SignalSchemaSlug.Type;
 
-export const AutomationRuleId = Schema.String.pipe(Schema.brand("AutomationRuleId"));
+export const NotificationSubscriptionId = Schema.String.pipe(
+	Schema.brand("NotificationSubscriptionId"),
+);
 
-export type AutomationRuleId = typeof AutomationRuleId.Type;
+export type NotificationSubscriptionId = typeof NotificationSubscriptionId.Type;
 
-export const AutomationOccurrenceId = Schema.String.pipe(Schema.brand("AutomationOccurrenceId"));
-
-export type AutomationOccurrenceId = typeof AutomationOccurrenceId.Type;
-
-export const SubscriptionRunId = Schema.String.pipe(Schema.brand("SubscriptionRunId"));
-
-export type SubscriptionRunId = typeof SubscriptionRunId.Type;
+export const PluginId = Schema.String.pipe(Schema.brand("PluginId"));
+export type PluginId = typeof PluginId.Type;
+export const PluginRevisionId = Schema.String.pipe(Schema.brand("PluginRevisionId"));
+export type PluginRevisionId = typeof PluginRevisionId.Type;
+export const PluginConfigRevisionId = Schema.String.pipe(Schema.brand("PluginConfigRevisionId"));
+export type PluginConfigRevisionId = typeof PluginConfigRevisionId.Type;
+export const AutomationTriggerId = Schema.String.pipe(Schema.brand("AutomationTriggerId"));
+export type AutomationTriggerId = typeof AutomationTriggerId.Type;
+export const AutomationRunId = Schema.String.pipe(Schema.brand("AutomationRunId"));
+export type AutomationRunId = typeof AutomationRunId.Type;
+export const AutomationRunAttemptId = Schema.String.pipe(Schema.brand("AutomationRunAttemptId"));
+export type AutomationRunAttemptId = typeof AutomationRunAttemptId.Type;
+export const AutomationExecutionId = Schema.String.pipe(Schema.brand("AutomationExecutionId"));
+export type AutomationExecutionId = typeof AutomationExecutionId.Type;
+export const AutomationHookSlug = Schema.String.pipe(
+	Schema.check(Schema.makeFilter((value) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value))),
+	Schema.brand("AutomationHookSlug"),
+);
+export type AutomationHookSlug = typeof AutomationHookSlug.Type;
 
 export const Slug = Schema.String.pipe(
 	Schema.check(

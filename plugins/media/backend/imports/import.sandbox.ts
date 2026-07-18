@@ -293,9 +293,10 @@ export default defineWorkflow({
 									externalId: group.entityRef.externalId,
 									providerSlug: group.entityRef.providerSlug,
 									entitySchemaSlug: group.entityRef.entitySchemaSlug,
-									origin: isIntegration
-										? { integrationId, importRunId: input.runId, kind: "integration" as const }
-										: { kind: "import" as const, importRunId: input.runId },
+									command: {
+										...input.command,
+										itemIdentity: JSON.stringify([input.command.itemIdentity, "population", index]),
+									},
 								},
 							]
 						: [],
@@ -411,11 +412,20 @@ export default defineWorkflow({
 							});
 							continue;
 						}
-						events.push({ ...finalized, subjectEntityId });
+						events.push({
+							...finalized,
+							subjectEntityId,
+							subjectEntitySchemaSlug: {
+								show: "show-episode",
+								podcast: "podcast-episode",
+								"show-season": "show-season",
+							}[event.unresolvedEpisode.type],
+						});
 					}
 					finalizedGroups.push({ ...group, events });
 				}
 				const chunk = yield* replay.activity(`chunks-${batchIndex}`, chunkWriter, {
+					...(isIntegration ? { integration: { integrationId, importRunId: input.runId } } : {}),
 					entityGroups: finalizedGroups,
 					populationResults: populationOutput.results,
 					failures: [...batch.failures, ...episodeFailures],
@@ -442,8 +452,8 @@ export default defineWorkflow({
 				failureCount,
 				writeItemCount,
 				runId: input.runId,
+				command: input.command,
 				...(failRun ? { failRun: true } : {}),
-				...(isIntegration ? { integrationId } : {}),
 			});
 		}),
 });
