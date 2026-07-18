@@ -1,6 +1,6 @@
 import { Effect, Stream } from "effect";
 
-export const readSandboxByteLimitedStream = <E, R, O>(
+const readSandboxByteLimitedStream = <E, R, O>(
 	stream: Stream.Stream<Uint8Array, E, R>,
 	limit: number,
 	oversized: O,
@@ -27,4 +27,15 @@ export const readSandboxByteLimitedStream = <E, R, O>(
 			}
 			return body;
 		}),
+	);
+
+const decoder = new TextDecoder();
+
+export const readSandboxByteLimitedText = <E, R, O>(
+	stream: Stream.Stream<Uint8Array, E, R>,
+	limit: number,
+	oversized: O,
+) =>
+	readSandboxByteLimitedStream(stream, limit, oversized).pipe(
+		Effect.map((body) => decoder.decode(body)),
 	);

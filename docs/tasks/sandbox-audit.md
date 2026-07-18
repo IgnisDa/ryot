@@ -229,7 +229,7 @@ Confirmed by grep, non-test usage only:
 ## 7. Duplication
 
 - [x] **Metadata-kind checks.** Replace duplicated checks with one `sandboxMetadataKind(metadata)` returning the kind.
-- [ ] **Byte-limited stream readers.** Consolidate `readSandboxHttpResponseText` and `readSandboxBridgeRequestBody` into one helper.
+- [x] **Byte-limited stream readers.** Consolidate `readSandboxHttpResponseText` and `readSandboxBridgeRequestBody` into one helper.
 - [ ] **Budget accounting, twice.** Generate budget messages from one shared source while keeping both counters.
 - [ ] **Grant path helpers.** Replace `sandboxArtifactGrantPath` and `sandboxNamedArtifactGrantPaths` with one generic.
 - [ ] **Cache guard preludes.** Consolidate the shared key/TTL/value validation ladder into one guard combinator.

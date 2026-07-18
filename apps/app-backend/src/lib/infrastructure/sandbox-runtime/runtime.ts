@@ -30,7 +30,7 @@ import {
 import { sandboxRunnerSource } from "./runner.generated";
 import { apiFailure } from "./shared";
 import type { BoundHostFunction } from "./shared";
-import { readSandboxByteLimitedStream } from "./stream-utils";
+import { readSandboxByteLimitedText } from "./stream-utils";
 
 const SandboxRpcArgs = Schema.Struct({
 	args: Schema.Array(Schema.Unknown),
@@ -39,7 +39,6 @@ const SandboxRpcArgs = Schema.Struct({
 const decodeSandboxRpcBody = Schema.decodeUnknownEffect(Schema.fromJsonString(SandboxRpcArgs));
 const encodeSandboxRpcResponse = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
-const decoder = new TextDecoder();
 const oversizedBridgeRequest = Symbol("oversizedBridgeRequest");
 let totalSandboxExecutions = 0;
 let activeSandboxExecutions = 0;
@@ -156,7 +155,7 @@ export const readSandboxBridgeRequestBody = (request: Request) => {
 		return Effect.succeed({ body: "", oversized: false } as const);
 	}
 
-	return readSandboxByteLimitedStream(
+	return readSandboxByteLimitedText(
 		Stream.fromReadableStream({
 			evaluate: () => stream,
 			onError: () => badRequest("Invalid request body"),
@@ -164,7 +163,7 @@ export const readSandboxBridgeRequestBody = (request: Request) => {
 		SANDBOX_LIMITS.bridge.requestBytes,
 		oversizedBridgeRequest,
 	).pipe(
-		Effect.map((body) => ({ body: decoder.decode(body), oversized: false }) as const),
+		Effect.map((body) => ({ body, oversized: false }) as const),
 		Effect.catch((error) =>
 			error === oversizedBridgeRequest
 				? Effect.succeed({ body: "", oversized: true } as const)
