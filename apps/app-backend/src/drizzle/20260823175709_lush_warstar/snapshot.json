@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "e0c58af1-a276-4461-a1aa-e0effc63901d",
+	"id": "143566c4-21dd-485d-9def-d20abb6efca3",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -13,6 +13,12 @@
 		{
 			"isRlsEnabled": false,
 			"name": "apikey",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "backup_run",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -55,6 +61,12 @@
 		{
 			"isRlsEnabled": false,
 			"name": "integration_auto_disable_claim",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "managed_asset",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -627,6 +639,162 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "apikey"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "error",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "artifact_key",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "kind",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "0",
+			"generated": null,
+			"identity": null,
+			"name": "progress",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "expires_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "started_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "finished_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "artifact_provider",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "'pending'",
+			"generated": null,
+			"identity": null,
+			"name": "status",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
 		},
 		{
 			"type": "text",
@@ -1563,6 +1731,97 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "integration_auto_disable_claim"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "provider",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "managed_asset"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "key",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "managed_asset"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "owner_user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "managed_asset"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "size",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "managed_asset"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "content_type",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "managed_asset"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "sha256",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "managed_asset"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "managed_asset"
 		},
 		{
 			"type": "text",
@@ -3536,6 +3795,69 @@
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
+			"name": "backup_run_user_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "status",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "backup_run_status_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "expires_at",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "backup_run_expires_at_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
 			"name": "entity_user_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
@@ -4156,6 +4478,27 @@
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "integration_auto_disable_claim"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "owner_user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "managed_asset_owner_user_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "managed_asset"
 		},
 		{
 			"nameExplicit": true,
@@ -4863,6 +5206,19 @@
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
+			"name": "backup_run_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
 			"name": "entity_user_id_user_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
@@ -4997,6 +5353,19 @@
 			"entityType": "fks",
 			"schema": "public",
 			"table": "integration_auto_disable_claim"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["owner_user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "managed_asset_owner_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "managed_asset"
 		},
 		{
 			"nameExplicit": false,
@@ -5285,6 +5654,14 @@
 			"table": "two_factor"
 		},
 		{
+			"columns": ["provider", "key"],
+			"nameExplicit": false,
+			"name": "managed_asset_pkey",
+			"entityType": "pks",
+			"schema": "public",
+			"table": "managed_asset"
+		},
+		{
 			"columns": ["signal_id", "user_id"],
 			"nameExplicit": false,
 			"name": "signal_recipient_pkey",
@@ -5306,6 +5683,14 @@
 			"name": "apikey_pkey",
 			"schema": "public",
 			"table": "apikey",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "backup_run_pkey",
+			"schema": "public",
+			"table": "backup_run",
 			"entityType": "pks"
 		},
 		{
