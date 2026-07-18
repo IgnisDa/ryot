@@ -1,5 +1,5 @@
 import type { ScalarExpression } from "@ryot/contract/modules/ryotql/language";
-import { castText, column, jsonPath, literal, table, titleCase } from "@ryot/ryotql";
+import { castJson, column, jsonPath, literal, table, titleCase } from "@ryot/ryotql";
 import type { SavedViewProjectionInput } from "@ryot/ryotql-recipes/saved-views";
 
 type ViewExpressions = Omit<SavedViewProjectionInput, "entityId">;
@@ -7,7 +7,7 @@ type ViewExpressions = Omit<SavedViewProjectionInput, "entityId">;
 const entity = table("entity", "entity");
 const entityColumn = (name: string) => column(entity, name);
 const entityProperty = (property: string) => jsonPath(column(entity, "properties"), property);
-const entityImage = () => castText(jsonPath(column(entity, "properties"), "images", 0, "url"));
+const entityImage = () => castJson(jsonPath(column(entity, "properties"), "images", 0));
 
 const cardExpressions = (slug: string, schemaName: string): ViewExpressions["grid"] => {
 	const overline = literal(schemaName);

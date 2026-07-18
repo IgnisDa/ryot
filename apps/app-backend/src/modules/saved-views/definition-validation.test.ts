@@ -2,7 +2,17 @@ import { it } from "@effect/vitest";
 import { BadRequest } from "@ryot/contract/errors";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { SavedViewDisplayConfiguration } from "@ryot/contract/modules/saved-views/schemas";
-import { ascending, column, document, field, literal, rows, table } from "@ryot/ryotql";
+import {
+	ascending,
+	castJson,
+	column,
+	document,
+	field,
+	jsonPath,
+	literal,
+	rows,
+	table,
+} from "@ryot/ryotql";
 import { Effect } from "effect";
 import { expect } from "vitest";
 
@@ -17,6 +27,8 @@ const queryDocument = document({
 		fields: [
 			field("id", column(book, "id")),
 			field("name", column(book, "name")),
+			field("image", castJson(jsonPath(column(book, "properties"), "images", 0))),
+			field("imageUrl", jsonPath(column(book, "properties"), "images", 0, "url")),
 			field("count", literal(1)),
 		],
 	}),
@@ -24,19 +36,19 @@ const queryDocument = document({
 
 const displayConfiguration = {
 	entityIdField: "id",
-	table: { imageField: null, columns: [{ label: "Name", field: "name" }] },
+	table: { imageField: "image", columns: [{ label: "Name", field: "name" }] },
 	grid: {
-		imageField: null,
 		titleField: "name",
 		calloutField: null,
 		overlineField: null,
+		imageField: "image",
 		primaryMetadataField: null,
 		secondaryMetadataField: null,
 	},
 	list: {
-		imageField: null,
 		titleField: "name",
 		calloutField: null,
+		imageField: "image",
 		overlineField: null,
 		primaryMetadataField: null,
 		secondaryMetadataField: null,
@@ -72,7 +84,7 @@ it.effect("rejects a non-text entity ID expression", () =>
 	}),
 );
 
-it.effect("rejects non-text title and image expressions", () =>
+it.effect("rejects non-text titles and non-JSON image expressions", () =>
 	Effect.sync(() => {
 		const invalidConfigurations = [
 			{
@@ -90,24 +102,31 @@ it.effect("rejects non-text title and image expressions", () =>
 				},
 			},
 			{
-				expected: "Saved view grid imageField must resolve to text",
+				expected: "Saved view grid imageField must resolve to JSON AssetLocator",
 				value: {
 					...displayConfiguration,
-					grid: { ...displayConfiguration.grid, imageField: "count" },
+					grid: { ...displayConfiguration.grid, imageField: "name" },
 				},
 			},
 			{
-				expected: "Saved view list imageField must resolve to text",
+				expected: "Saved view list imageField must resolve to JSON AssetLocator",
 				value: {
 					...displayConfiguration,
-					list: { ...displayConfiguration.list, imageField: "count" },
+					list: { ...displayConfiguration.list, imageField: "name" },
 				},
 			},
 			{
-				expected: "Saved view table imageField must resolve to text",
+				expected: "Saved view table imageField must resolve to JSON AssetLocator",
 				value: {
 					...displayConfiguration,
-					table: { ...displayConfiguration.table, imageField: "count" },
+					table: { ...displayConfiguration.table, imageField: "name" },
+				},
+			},
+			{
+				expected: "Saved view grid imageField must resolve to JSON AssetLocator",
+				value: {
+					...displayConfiguration,
+					grid: { ...displayConfiguration.grid, imageField: "imageUrl" },
 				},
 			},
 		] satisfies ReadonlyArray<{

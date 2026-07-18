@@ -146,11 +146,14 @@ const configuredFields = (displayConfiguration: SavedViewDisplayConfiguration) =
 		...displayConfiguration.table.columns.map(({ field }) => field),
 	].filter((field): field is string => field !== null);
 
-const textDisplayFields = (displayConfiguration: SavedViewDisplayConfiguration) =>
+const textDisplayFields = (displayConfiguration: SavedViewDisplayConfiguration) => [
+	{ field: displayConfiguration.entityIdField, slot: "entityIdField" },
+	{ field: displayConfiguration.grid.titleField, slot: "grid titleField" },
+	{ field: displayConfiguration.list.titleField, slot: "list titleField" },
+];
+
+const imageDisplayFields = (displayConfiguration: SavedViewDisplayConfiguration) =>
 	[
-		{ field: displayConfiguration.entityIdField, slot: "entityIdField" },
-		{ field: displayConfiguration.grid.titleField, slot: "grid titleField" },
-		{ field: displayConfiguration.list.titleField, slot: "list titleField" },
 		{ field: displayConfiguration.grid.imageField, slot: "grid imageField" },
 		{ field: displayConfiguration.list.imageField, slot: "list imageField" },
 		{ field: displayConfiguration.table.imageField, slot: "table imageField" },
@@ -224,6 +227,15 @@ export const getSavedViewValidationError = (input: {
 		}
 		if (expressionKind(selection.expr, scope) !== "text") {
 			return `Saved view ${slot} must resolve to text`;
+		}
+	}
+	for (const { field, slot } of imageDisplayFields(input.displayConfiguration)) {
+		const selection = displayExpression(rootFields, field);
+		if (!selection) {
+			return `Saved view display field '${field}' is not in the root projection`;
+		}
+		if (selection.expr.type !== "cast" || selection.expr.target !== "json") {
+			return `Saved view ${slot} must resolve to JSON AssetLocator`;
 		}
 	}
 
