@@ -27,9 +27,9 @@ const makeImplementations = (
 	log: () => Effect.fail({ message: "unused" }),
 	span: () => Effect.fail({ message: "unused" }),
 	httpCall: () => Effect.fail({ message: "unused" }),
-	getEntity: () => Effect.fail({ message: "unused" }),
 	emitSignal: () => Effect.fail({ message: "unused" }),
 	listEvents: () => Effect.fail({ message: "unused" }),
+	getEntities: () => Effect.fail({ message: "unused" }),
 	createEvents: () => Effect.fail({ message: "unused" }),
 	getIntegration: () => Effect.fail({ message: "unused" }),
 	getCachedValue: () => Effect.fail({ message: "unused" }),
@@ -92,9 +92,9 @@ describe("bindSandboxHostFunctions", () => {
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
-			expect(yield* bound.getEntity([])).toEqual({
+			expect(yield* bound.getEntities([])).toEqual({
 				success: false,
-				error: "getEntity received an invalid number of arguments",
+				error: "getEntities received an invalid number of arguments",
 			});
 			const result = yield* bound.httpCall(["POST", "https://example.com", { body: 42 }]);
 
@@ -163,8 +163,8 @@ describe("bindSandboxHostFunctions", () => {
 		Effect.gen(function* () {
 			const calls: Array<{ fnName: string; value: unknown }> = [];
 			const implementations = makeImplementations({
-				getEntity: (_runInput, entityId) => {
-					calls.push({ fnName: "getEntity", value: entityId });
+				getEntities: (_runInput, entityIds) => {
+					calls.push({ fnName: "getEntities", value: entityIds });
 					return Effect.fail({ message: "reached" });
 				},
 				createEvents: (_runInput, items) => {
@@ -182,13 +182,13 @@ describe("bindSandboxHostFunctions", () => {
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
 
-			expect(yield* bound.getEntity(["entity-1"])).toEqual({
+			expect(yield* bound.getEntities([["entity-1"]])).toEqual({
 				success: false,
 				error: "reached",
 			});
-			expect(yield* bound.getEntity([42])).toEqual({
+			expect(yield* bound.getEntities([[42]])).toEqual({
 				success: false,
-				error: "getEntity expects a non-empty entityId string",
+				error: "getEntities expects an array of non-empty entityId strings",
 			});
 
 			expect(
@@ -234,7 +234,7 @@ describe("bindSandboxHostFunctions", () => {
 			});
 
 			expect(calls).toEqual([
-				{ fnName: "getEntity", value: "entity-1" },
+				{ fnName: "getEntities", value: ["entity-1"] },
 				{
 					fnName: "createEvents",
 					value: [{ entityId: "e-1", eventSchemaSlug: "es-1", properties: { watched: true } }],

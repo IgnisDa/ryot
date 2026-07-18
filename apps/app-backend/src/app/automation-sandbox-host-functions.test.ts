@@ -21,7 +21,7 @@ const userId = UserId.make("user-1");
 const occurredAt = "2026-07-20T10:00:00.000Z";
 const upsertGlobalEntities = () => Effect.void;
 const runId = SubscriptionRunId.make("run-1");
-const getEntity = () => Effect.succeed(null);
+const getEntities = () => Effect.succeed([]);
 const emitSignal = () => Effect.succeed(null);
 const sendNotification = () => Effect.succeed(null);
 const changeUserRelationships = () => Effect.succeed([]);
@@ -152,30 +152,30 @@ it.effect("returns context failures through the Effect error channel", () => {
 });
 
 it("exposes notification delivery only to subscriptions and signal emission to trusted runs", () => {
-	const bound = { emitSignal, getEntity, sendNotification };
+	const bound = { emitSignal, getEntities, sendNotification };
 	const direct = selectSandboxHostFunctions(bound, {
 		metadata: { kind: "script" },
 		authority: { type: "user", userId },
-		allowedHostFunctions: ["emitSignal", "getEntity", "sendNotification"],
+		allowedHostFunctions: ["emitSignal", "getEntities", "sendNotification"],
 	});
 	const subscription = selectSandboxHostFunctions(bound, runInput);
 	const system = selectSandboxHostFunctions(bound, {
 		authority: { type: "system" },
 		metadata: { kind: "automation" },
-		allowedHostFunctions: ["emitSignal", "getEntity", "sendNotification"],
+		allowedHostFunctions: ["emitSignal", "getEntities", "sendNotification"],
 	});
 
-	expect(direct).toEqual({ getEntity });
-	expect(system).toEqual({ emitSignal, getEntity });
+	expect(direct).toEqual({ getEntities });
+	expect(system).toEqual({ emitSignal, getEntities });
 	expect(subscription).toEqual({ emitSignal, sendNotification });
 });
 
 it("exposes global writes only to system runs with explicit capabilities", () => {
-	const bound = { getEntity, upsertGlobalEntities };
+	const bound = { getEntities, upsertGlobalEntities };
 	const user = selectSandboxHostFunctions(bound, {
 		metadata: { kind: "script" },
 		authority: { type: "user", userId },
-		allowedHostFunctions: ["getEntity", "upsertGlobalEntities"],
+		allowedHostFunctions: ["getEntities", "upsertGlobalEntities"],
 	});
 	const subscription = selectSandboxHostFunctions(bound, {
 		authority: runInput.authority,
@@ -193,7 +193,7 @@ it("exposes global writes only to system runs with explicit capabilities", () =>
 		allowedHostFunctions: ["upsertGlobalEntities"],
 	});
 
-	expect(user).toEqual({ getEntity });
+	expect(user).toEqual({ getEntities });
 	expect(subscription).toEqual({});
 	expect(system).toEqual({ upsertGlobalEntities });
 	expect(providerSystem).toEqual({});
