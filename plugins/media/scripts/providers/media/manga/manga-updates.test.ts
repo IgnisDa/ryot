@@ -98,8 +98,11 @@ describe("manga.manga-updates sandbox script", () => {
 		);
 	});
 	it("maps search hits and skips failed suggestion lookups", () => {
-		const host = makeHost(() =>
-			httpSuccess({
+		const host = makeHost((_method, url) => {
+			const requestUrl = new URL(url);
+			expect(requestUrl.host).toBe("api.mangaupdates.com");
+			expect(requestUrl.pathname).toBe("/v1/series/search");
+			return httpSuccess({
 				total_hits: 25,
 				results: [
 					{
@@ -114,8 +117,8 @@ describe("manga.manga-updates sandbox script", () => {
 					{ record: { series_id: 10 } },
 					{ hit_title: "No Record" },
 				],
-			}),
-		);
+			});
+		});
 		return Effect.runPromise(
 			runSandboxTestScript(search, { query: "hit", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {

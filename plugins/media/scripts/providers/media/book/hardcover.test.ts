@@ -30,8 +30,9 @@ describe("book.hardcover sandbox script", () => {
 		]);
 	});
 	it("maps search hits and drops documents missing an id or title", () => {
-		const host = makeHost(() =>
-			httpSuccess({
+		const host = makeHost((_method, url) => {
+			expect(new URL(url).host).toBe("api.hardcover.app");
+			return httpSuccess({
 				data: {
 					search: {
 						results: {
@@ -51,8 +52,8 @@ describe("book.hardcover sandbox script", () => {
 						},
 					},
 				},
-			}),
-		);
+			});
+		});
 		return Effect.runPromise(
 			runSandboxTestScript(search, { query: "book", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {

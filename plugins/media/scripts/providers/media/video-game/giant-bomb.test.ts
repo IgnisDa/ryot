@@ -26,6 +26,42 @@ describe("video-game.giant-bomb sandbox script", () => {
 			["video-game.giant-bomb.details", "details", ["httpCall", "getPluginConfigValue"]],
 		]);
 	});
+	it("maps search hits from the GiantBomb search endpoint", () => {
+		const host = makeHost((_method, url) => {
+			const requestUrl = new URL(url);
+			expect(requestUrl.host).toBe("www.giantbomb.com");
+			expect(requestUrl.pathname).toBe("/api/search/");
+			return httpSuccess({
+				error: "OK",
+				number_of_total_results: 1,
+				results: [
+					{
+						guid: "3030-1",
+						name: "My Game",
+						original_release_date: "2015-06-01 00:00:00",
+						image: { original_url: "https://img/gb.jpg" },
+					},
+				],
+			});
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(search, { query: "game", page: 1, pageSize: 20 }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result).toMatchObject({
+						details: { totalItems: 1, nextPage: null },
+						items: [
+							{
+								externalId: "3030-1",
+								titleProperty: { kind: "text", value: "My Game" },
+								primarySubtitleProperty: { kind: "number", value: 2015 },
+							},
+						],
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
 	it("keeps similar games as related entities", () => {
 		const host = makeHost(() =>
 			httpSuccess({
