@@ -16,7 +16,6 @@ const readModules = (paths: ReadonlyArray<string>) =>
 const integrationWorkflowModules = [
 	"../integrations/integration-workflow.ts",
 	"../integrations/integration-workflow-live.ts",
-	"../integrations/operations-workflow.ts",
 	"../integrations/failure-workflow.ts",
 ] as const;
 
