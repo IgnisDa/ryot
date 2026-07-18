@@ -69,7 +69,9 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			"DurableQueue.process(SandboxExecutionQueue, executionPayload)",
 		);
 		expect(sandboxWorkflow).toContain('Effect.timeout("1 minute")');
-		expect(sandboxWorkflow).toContain('Effect.retry(Schedule.spaced("1 second"))');
+		expect(sandboxWorkflow).toContain("Effect.retry(sandboxRetrySchedule)");
+		expect(sandboxWorkflow).toContain('Schedule.exponential("1 second")');
+		expect(sandboxWorkflow).toContain("Schedule.recurs(2)");
 		expect(sandboxWorkflow).toContain("...(payload.grants ? { grants: payload.grants } : {})");
 
 		for (const source of [entityImportWorkflow, integrationWorkflow]) {
