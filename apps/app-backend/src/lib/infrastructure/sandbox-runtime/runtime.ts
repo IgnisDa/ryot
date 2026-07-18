@@ -29,7 +29,6 @@ import {
 	type SandboxHostCallBudget,
 	utf8ByteLength,
 } from "./limits";
-import { makeSandboxCommandExecutor } from "./restricted-command-executor";
 import { sandboxRunnerSource } from "./runner.generated";
 import { apiFailure } from "./shared";
 import type { BoundHostFunction } from "./shared";
@@ -221,20 +220,21 @@ export const sandboxDenoRunFlags = (options: Omit<SpawnDenoProcessOptions, "deno
 const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	options: SpawnDenoProcessOptions,
 ) {
-	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const path = Bun.env["PATH"];
 	if (!path) {
 		return yield* Effect.die(new Error("Sandbox process PATH is unavailable"));
 	}
-	const sandboxSpawner = makeSandboxCommandExecutor(spawner, {
-		PATH: path,
-		DENO_DIR: options.denoDir,
-	});
 	const denoProcess = yield* ChildProcess.make(
 		"deno",
 		["run", ...sandboxDenoRunFlags(options), options.runnerPath],
-		{ stdin: "pipe", stdout: "pipe", stderr: "pipe" },
-	).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, sandboxSpawner));
+		{
+			stdin: "pipe",
+			stdout: "pipe",
+			stderr: "pipe",
+			extendEnv: false,
+			env: { PATH: path, DENO_DIR: options.denoDir },
+		},
+	);
 
 	yield* Effect.addFinalizer(() => killProcessHandle(denoProcess));
 
