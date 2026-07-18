@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -17,14 +17,25 @@ libraries and wrap it behind Effect.
 
 ## Acceptance criteria
 
-- [ ] Sandbox definition run functions and public SDK host methods expose Effect values only
-- [ ] Backend host implementations and typed bridge dispatch compose Effect without compatibility overloads
-- [ ] No legacy Promise host API or dual authoring path remains exported
-- [ ] Private Promise adapters are narrowly scoped and do not leak through plugin-facing types
-- [ ] Workflow authoring remains deterministic and does not gain ambient async APIs
-- [ ] Representative compiler/type tests reject raw Promise-authored sandbox definitions
-- [ ] Existing filesystem, fetch, dependency-client, and runner behavior remains functional
-- [ ] SDK, compiler, backend, media, and fitness checks/tests pass
+- [x] Sandbox definition run functions and public SDK host methods expose Effect values only
+- [x] Backend host implementations and typed bridge dispatch compose Effect without compatibility overloads
+- [x] No legacy Promise host API or dual authoring path remains exported
+- [x] Private Promise adapters are narrowly scoped and do not leak through plugin-facing types
+- [x] Workflow authoring remains deterministic and does not gain ambient async APIs
+- [x] Representative compiler/type tests reject raw Promise-authored sandbox definitions
+- [x] Existing filesystem, fetch, dependency-client, and runner behavior remains functional
+- [x] SDK, compiler, backend, media, and fitness checks/tests pass
+
+## Implementation notes
+
+The audit found the public boundary already complete from the plugin rewrite. Sandbox definition and
+host types derive Effect-returning methods from canonical SDK contracts, and backend bridge dispatch
+preserves those types through schema decoding and encoding. Existing static tests reject raw Promise
+definitions and implementations; runtime bridge coverage verifies bound calls remain Effects.
+
+Promise interop remains only in private compiler, runner, filesystem, Redis, third-party, and test
+adapters, where it is wrapped with Effect. No compatibility API, dual authoring path, production
+behavior, or e2e assertion changed in this task.
 
 ## User stories addressed
 
