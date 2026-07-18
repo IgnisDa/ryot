@@ -78,6 +78,14 @@ describe("Exercises E2E", () => {
 				label: "Equipment",
 				options: expect.arrayContaining(["body_only", "ez_curl_bar"]),
 			});
+			expect(exerciseSchema?.propertiesSchema.fields.images).toMatchObject({
+				type: "array",
+				label: "Images",
+			});
+			expect(exerciseSchema?.propertiesSchema.fields.videos).toMatchObject({
+				type: "array",
+				label: "Videos",
+			});
 			expect(exerciseSchema?.propertiesSchema.fields).not.toHaveProperty("source");
 		}),
 	);
