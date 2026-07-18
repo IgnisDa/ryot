@@ -18,7 +18,8 @@ const makeHost = (
 ) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getPluginConfigValue: () => Effect.succeed("listen-key"),
+		getPluginConfig: (keys) =>
+			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "listen-key"]))),
 		getCachedValue: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
 		...overrides,
@@ -42,9 +43,9 @@ describe("podcast.listennotes sandbox script", () => {
 		const host = defineSandboxTestHost(manifest, {
 			getCachedValue: () => Effect.succeed(null),
 			setCachedValue: () => Effect.succeed(null),
-			getPluginConfigValue: (key) => {
-				configKeys.push(key);
-				return Effect.succeed("listen-key");
+			getPluginConfig: (keys) => {
+				configKeys.push(...keys);
+				return Effect.succeed(Object.fromEntries(keys.map((key) => [key, "listen-key"])));
 			},
 			httpCall: (_method, url, options) => {
 				const requestUrl = new URL(url);

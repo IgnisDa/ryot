@@ -22,7 +22,7 @@ export const manifest = defineManifest({
 	slug: "activity.import.netflix",
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	requiredSystemConfigKeys: [],
-	capabilities: ["artifact-read", "httpCall", "getPluginConfigValue", "getUserPreferences"],
+	capabilities: ["artifact-read", "httpCall", "getPluginConfig", "getUserPreferences"],
 });
 
 const csvEntry = (archive: ReturnType<typeof unzipSync>, baseName: string) => {

@@ -13,7 +13,7 @@ export const manifest = defineManifest({
 		"httpCall",
 		"getCachedValue",
 		"setCachedValue",
-		"getPluginConfigValue",
+		"getPluginConfig",
 		"upsertGlobalEntities",
 	],
 });

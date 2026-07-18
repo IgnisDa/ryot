@@ -174,35 +174,35 @@ export function eventSchemasSandboxSource(input: SandboxSourceIdentity) {
 
 export function pluginConfigSandboxSource(
 	input: SandboxSourceIdentity & {
-		readonly key: string;
+		readonly keys: readonly string[];
 		readonly requiredPluginConfigKeys?: readonly string[];
 	},
 ) {
 	return scriptModuleSource({
 		...input,
-		inputSchema: "Schema.Struct({})",
-		outputSchema: "jsonValueSchema",
-		capabilities: ["getPluginConfigValue"],
 		sdkImports: ["jsonValueSchema"],
-		requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? [input.key],
-		run: `(_input, host) => host.getPluginConfigValue(${JSON.stringify(input.key)})`,
+		inputSchema: "Schema.Struct({})",
+		capabilities: ["getPluginConfig"],
+		outputSchema: "Schema.Record(Schema.String, jsonValueSchema)",
+		requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? input.keys,
+		run: `(_input, host) => host.getPluginConfig(${JSON.stringify(input.keys)})`,
 	});
 }
 
 export function systemConfigSandboxSource(
 	input: SandboxSourceIdentity & {
-		readonly key: string;
+		readonly keys: readonly string[];
 		readonly requiredSystemConfigKeys?: readonly string[];
 	},
 ) {
 	return scriptModuleSource({
 		...input,
-		inputSchema: "Schema.Struct({})",
-		outputSchema: "jsonValueSchema",
-		capabilities: ["getSystemConfigValue"],
 		sdkImports: ["jsonValueSchema"],
-		requiredSystemConfigKeys: input.requiredSystemConfigKeys ?? [input.key],
-		run: `(_input, host) => host.getSystemConfigValue(${JSON.stringify(input.key)})`,
+		inputSchema: "Schema.Struct({})",
+		capabilities: ["getSystemConfig"],
+		outputSchema: "Schema.Record(Schema.String, jsonValueSchema)",
+		requiredSystemConfigKeys: input.requiredSystemConfigKeys ?? input.keys,
+		run: `(_input, host) => host.getSystemConfig(${JSON.stringify(input.keys)})`,
 	});
 }
 

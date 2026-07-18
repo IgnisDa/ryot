@@ -20,7 +20,7 @@ export const manifest = defineManifest({
 	slug: "show.tvdb",
 	requiredPluginConfigKeys: ["tvdbApiKey"],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfigValue"],
+	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
 });
 
 const getTranslationRequest = (input: ProviderTranslateInput, providerLanguage: string) => {

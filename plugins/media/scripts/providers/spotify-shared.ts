@@ -4,7 +4,7 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
 
 export type SpotifyHost = SandboxHost<
-	readonly ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"]
+	readonly ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"]
 >;
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -30,26 +30,11 @@ export const getImagesSortedBySize = (images: unknown): string[] => {
 export const getFirstImage = (images: unknown) => getImagesSortedBySize(images)[0] ?? null;
 
 export const getCredentials = (host: SpotifyHost) =>
-	Effect.all(
-		[
-			host
-				.getPluginConfigValue("spotifyClientId")
-				.pipe(
-					Effect.mapError(
-						(error) => new Error(error.message || "Failed to retrieve Spotify client ID"),
-					),
-				),
-			host
-				.getPluginConfigValue("spotifyClientSecret")
-				.pipe(
-					Effect.mapError(
-						(error) => new Error(error.message || "Failed to retrieve Spotify client secret"),
-					),
-				),
-		],
-		{ concurrency: "unbounded" },
-	).pipe(
-		Effect.map(([clientIdValue, clientSecretValue]) => {
+	host.getPluginConfig(["spotifyClientId", "spotifyClientSecret"]).pipe(
+		Effect.mapError(
+			(error) => new Error(error.message || "Failed to retrieve Spotify credentials"),
+		),
+		Effect.map(({ spotifyClientId: clientIdValue, spotifyClientSecret: clientSecretValue }) => {
 			const clientId = stringValue(clientIdValue);
 			const clientSecret = stringValue(clientSecretValue);
 			if (!clientId) {

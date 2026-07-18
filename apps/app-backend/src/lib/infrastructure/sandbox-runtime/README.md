@@ -88,7 +88,7 @@ Host functions are bridge handlers exposed only when listed in the compiled modu
 | Scope                   | Functions                                                                                                                                                                                                              |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Runtime                 | `httpCall`, `log`, `span`                                                                                                                                                                                              |
-| Script                  | `getPluginConfigValue`, `getSystemConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                                                 |
+| Script                  | `getPluginConfig`, `getSystemConfig`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                                                           |
 | User                    | `changeUserRelationships`, `createEvents`, `ensureUserEntities`, `executeQueryEngine`, `getEntities`, `getEntitySchemas`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
 | Automation subscription | `emitSignal`, `sendNotification`                                                                                                                                                                                       |
 | System cron / boot      | `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                                                                                    |
@@ -102,6 +102,9 @@ Plugin scripts may read only their owning plugin's fields listed in `requiredPlu
 The runtime derives environment variable names from trusted script provenance and rejects normalized
 name collisions when loading plugins. Explicitly exported kernel fields require a matching
 `requiredSystemConfigKeys` declaration. First-party and runtime-installed plugins use the same grants.
+`getPluginConfig` and `getSystemConfig` accept key arrays and return key-indexed records. Duplicate keys
+are coalesced, empty batches return empty records, and a batch fails when any requested key is not
+declared, readable, or configured.
 
 Automation functions require both a declared script capability and the server-only subscription-run marker. Other execution paths do not receive them even if stored metadata lists the capability. `sendNotification` additionally requires a user principal; system subscriptions cannot send notifications.
 

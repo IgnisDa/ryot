@@ -13,7 +13,7 @@ import {
 import type { RoleRelatedEntity } from "../script-helpers/role-accumulator";
 
 export type TvdbHost = SandboxHost<
-	readonly ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfigValue"]
+	readonly ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"]
 >;
 
 export type RemoteImage = { type: "remote"; url: string };
@@ -27,7 +27,8 @@ export const firstStringValue = (record: UnknownRecord, keys: readonly string[])
 	keys.reduce<string | null>((value, key) => value ?? stringValue(record[key]), null);
 
 const getTvdbApiKey = (host: TvdbHost) =>
-	host.getPluginConfigValue("tvdbApiKey").pipe(
+	host.getPluginConfig(["tvdbApiKey"]).pipe(
+		Effect.map(({ tvdbApiKey }) => tvdbApiKey),
 		Effect.mapError((error) => new Error(error.message || "Failed to retrieve TVDB API key")),
 		Effect.map((value) => {
 			const key = stringValue(value);

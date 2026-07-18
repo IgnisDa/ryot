@@ -19,7 +19,10 @@ const makeHost = (
 	overrides: Partial<SpotifyMusicHost> = {},
 ): SpotifyMusicHost =>
 	defineSandboxTestHost(manifest, {
-		getPluginConfigValue: (key) => Effect.succeed(key.endsWith("Secret") ? "secret" : "id"),
+		getPluginConfig: (keys) =>
+			Effect.succeed(
+				Object.fromEntries(keys.map((key) => [key, key.endsWith("Secret") ? "secret" : "id"])),
+			),
 		getCachedValue: () => Effect.succeed("cached-token"),
 		setCachedValue: () => Effect.succeed(null),
 		httpCall: (_method, url) => {
@@ -38,12 +41,12 @@ describe("music.spotify sandbox script", () => {
 			[
 				"music.spotify.search",
 				"search",
-				["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
+				["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 			],
 			[
 				"music.spotify.details",
 				"details",
-				["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
+				["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 			],
 		]);
 	});

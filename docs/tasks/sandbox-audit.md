@@ -26,19 +26,19 @@ Host functions are assembled through `SandboxHostImplementations`, so orchestrat
 
 ## 2. Host functions
 
-21 functions. Cohesive, but the batch-first rule from Decision 8(a) remains violated in four places, and there is real read-surface overlap.
+21 functions. Cohesive, with batch-first migration complete for config and metadata reads; real read-surface overlap remains.
 
 **Per-item designs that Decision 8(a) forbids, with completed migration retained:**
 
-| Function                    | Fix                               |
-| --------------------------- | --------------------------------- |
-| `getEntities(ids[])`        | - [x] batch entity reads          |
+| Function                    | Fix                             |
+| --------------------------- | ------------------------------- |
+| `getEntities(ids[])`        | - [x] batch entity reads        |
 | `getEntitySchemas(slugs[])` | - [x] batch entity schema reads |
-| `listEventSchemas(slugs[])`  | - [x] accept `slugs[]`            |
-| `getPluginConfigValue(key)` | - [ ] `getPluginConfig(keys[])`   |
-| `getSystemConfigValue(key)` | - [ ] `getSystemConfig(keys[])`   |
+| `listEventSchemas(slugs[])` | - [x] accept `slugs[]`          |
+| `getPluginConfig(keys[])`   | - [x] batch plugin config reads |
+| `getSystemConfig(keys[])`   | - [x] batch system config reads |
 
-The config ones are not just stylistic. `getPluginConfigValue` → `resolvePluginConfig` (app-config.ts:23-36) re-reads and re-parses the **entire** plugin config schema from env on every call. A script reading 6 config keys does 6 full `configFromAppSchema` + `parseAppSchemaProperties` passes, and burns 6 of its 200 host calls.
+The config migration is not just stylistic. Batch reads resolve and parse the entire plugin config schema once, then return requested values by key. A script reading 6 config keys now uses one host call and one config resolution pass.
 
 **Read-surface overlap.** `executeQueryEngine` can express entity and event reads. `getEntities`, `listEvents`, `listEventSchemas`, `getEntitySchemas` are four narrower syscalls doing what one general one does — and Decision 8(b) explicitly mandates query pushdown. Each also fails 8(d) ("must never be explicable only by one plugin's needs") less than cleanly.
 
@@ -215,7 +215,7 @@ Confirmed by grep, non-test usage only:
 | Item                                          | Location                                   | Note                                                                                                                                       |
 | --------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | - [ ] `scriptIsBuiltin`                       | shared.ts:21, written durable-queues.ts:99 | **Never read** outside tests. Costs a DB query per execution (`repository.isPluginScript`) whose result is discarded.                      |
-| - [x] `RunSandboxWorkflowPayload`             | sandbox-submission-workflow.ts             | Removed redundant alias; `SandboxSubmissionWorkflow` uses `SandboxExecutionPayload` directly.                                             |
+| - [x] `RunSandboxWorkflowPayload`             | sandbox-submission-workflow.ts             | Removed redundant alias; `SandboxSubmissionWorkflow` uses `SandboxExecutionPayload` directly.                                              |
 | - [ ] runner capability intersection          | runner-source.sandbox.ts:348-366           | No-op, see §3.                                                                                                                             |
 | - [ ] runner `for(;;)` + console save/restore | runner-source.sandbox.ts:509-602           | Processes are strictly single-use (pool invalidated service.ts:340-343; dedicated killed by scope). Multi-payload handling is unreachable. |
 | - [ ] `Object.hasOwn` + null check            | runtime.ts:353-360                         | Two guards for one condition.                                                                                                              |
@@ -250,7 +250,7 @@ You asked for recommendations rather than questions, so:
 2. [x] **Narrow sandbox submission.** Remove the redundant workflow hop from workflow-owned callers before touching replay performance; retain only top-level submission bridge.
 3. [ ] **Batched durable calls (P3).** Allow independent pending requests to execute as parallel durable steps.
 4. [ ] **Drop the Redis session store (P1).** The data is process-local by construction.
-5. [ ] **Host-function batching.** Batch config functions now; defer entity/schema batching until query-engine consolidation is decided.
+5. [x] **Host-function batching.** Batch config functions now; defer entity/schema batching until query-engine consolidation is decided.
 6. [ ] **Collapse reads into `executeQueryEngine`.** Sequence after the capability table lands because this is a plugin-facing API break.
 7. [x] **Fix B1 and B2.** Bound retry and harden symlink handling regardless of larger refactor sequencing.
 

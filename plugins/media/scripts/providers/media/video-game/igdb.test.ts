@@ -16,8 +16,12 @@ const makeHost = (overrides: Partial<IgdbVideoGameHost>): IgdbVideoGameHost =>
 	defineSandboxTestHost(manifest, {
 		getCachedValue: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
-		getPluginConfigValue: (key) =>
-			Effect.succeed(key === "twitchClientId" ? "client-id" : "client-secret"),
+		getPluginConfig: (keys) =>
+			Effect.succeed(
+				Object.fromEntries(
+					keys.map((key) => [key, key === "twitchClientId" ? "client-id" : "client-secret"]),
+				),
+			),
 		httpCall: () => Effect.fail(new Error("no route")),
 		...overrides,
 	});
@@ -31,12 +35,12 @@ describe("video-game.igdb sandbox script", () => {
 			[
 				"video-game.igdb.search",
 				"search",
-				["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
+				["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 			],
 			[
 				"video-game.igdb.details",
 				"details",
-				["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
+				["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 			],
 		]);
 	});

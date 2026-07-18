@@ -20,7 +20,8 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getPluginConfigValue: () => Effect.succeed("token"),
+		getPluginConfig: (keys) =>
+			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
 		getUserPreferences: () => Effect.succeed({ isNsfw: false, disableIntegrations: false }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -32,10 +33,10 @@ describe("show.tmdb sandbox script", () => {
 			[resolveManifest.slug, resolve.operation, resolveManifest.capabilities],
 			[translateManifest.slug, translate.operation, translateManifest.capabilities],
 		]).toEqual([
-			["show.tmdb.search", "search", ["httpCall", "getPluginConfigValue", "getUserPreferences"]],
-			["show.tmdb.details", "details", ["httpCall", "getPluginConfigValue"]],
-			["show.tmdb.resolve", "resolve", ["httpCall", "getPluginConfigValue"]],
-			["show.tmdb.translate", "translate", ["httpCall", "getPluginConfigValue"]],
+			["show.tmdb.search", "search", ["httpCall", "getPluginConfig", "getUserPreferences"]],
+			["show.tmdb.details", "details", ["httpCall", "getPluginConfig"]],
+			["show.tmdb.resolve", "resolve", ["httpCall", "getPluginConfig"]],
+			["show.tmdb.translate", "translate", ["httpCall", "getPluginConfig"]],
 		]);
 	});
 	it("declares trending as a generic provider-associated script", () => {
@@ -49,7 +50,7 @@ describe("show.tmdb sandbox script", () => {
 			kind: "script",
 			slug: "show.tmdb.trending",
 			operation: null,
-			capabilities: ["httpCall", "getPluginConfigValue"],
+			capabilities: ["httpCall", "getPluginConfig"],
 			requiredPluginConfigKeys: ["tmdbAccessToken"],
 		});
 	});
