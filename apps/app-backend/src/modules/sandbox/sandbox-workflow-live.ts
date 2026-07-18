@@ -3,42 +3,23 @@ import type {
 	SandboxExecutionPayload,
 	SandboxRunResult,
 } from "@ryot/contract/modules/sandbox/schemas";
-import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
+import { Effect, Layer } from "effect";
 import type { Workflow } from "effect/unstable/workflow";
+
+import { toWorkflowRunResult } from "#lib/shared/workflow-result";
 
 import { processSandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
 import type { SandboxExecutionResult } from "./execution-result";
 import { runSandboxScriptWorkflow, SandboxScriptWorkflow } from "./sandbox-script-workflow";
 import { SandboxSubmissionWorkflow } from "./sandbox-submission-workflow";
 
-const workflowFailureResult = (
-	cause: Cause.Cause<SandboxRunError>,
-): Extract<SandboxRunResult, { status: "failed" }> =>
-	Option.match(Cause.findErrorOption(cause), {
-		onSome: (error) => ({ status: "failed", error: error.message }),
-		onNone: () => ({
-			status: "failed",
-			error: `Sandbox job failed: ${Cause.pretty(cause).slice(0, 500)}`,
-		}),
-	});
-
 export const toSandboxRunResult = (
 	result: Workflow.Result<SandboxExecutionResult, SandboxRunError> | undefined,
-): SandboxRunResult => {
-	if (!result) {
-		return { status: "pending" };
-	}
-
-	return Match.value(result).pipe(
-		Match.tag("Suspended", () => ({ status: "pending" as const })),
-		Match.orElse(({ exit }) =>
-			Exit.match(exit, {
-				onFailure: workflowFailureResult,
-				onSuccess: ({ harvest: _harvest, ...value }) => value,
-			}),
-		),
-	);
-};
+): SandboxRunResult =>
+	toWorkflowRunResult(result, {
+		failurePrefix: "Sandbox job failed: ",
+		onSuccess: ({ harvest: _harvest, status: _status, ...value }) => value,
+	});
 
 const runSandboxSubmissionWorkflow = Effect.fn("SandboxSubmissionWorkflow")(
 	function* (payload: SandboxExecutionPayload, executionId: string) {
