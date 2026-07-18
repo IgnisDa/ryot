@@ -1,5 +1,6 @@
-import { Result, useAtomValue } from "@effect-atom/atom-react";
+import { useAtomValue } from "@effect/atom-react";
 import { Cause } from "effect";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { router } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
@@ -8,7 +9,7 @@ import { useAuthClient } from "@/modules/auth/client";
 
 const notificationChannelsAtom = AppApi.query("notifications", "listChannels", {});
 const savedViewsAtom = AppApi.query("savedViews", "list", {
-	urlParams: { includeDisabled: true },
+	query: { includeDisabled: true },
 });
 
 export default function AppHome() {
@@ -32,7 +33,7 @@ export default function AppHome() {
 
 				<View className="gap-3 rounded-xl border border-border bg-surface p-5">
 					<Text className="font-ui-semibold text-base text-text">GET /api/saved-views</Text>
-					{Result.builder(savedViews)
+					{AsyncResult.builder(savedViews)
 						.onInitial(() => <Text className="font-ui text-text-muted">Loading...</Text>)
 						.onFailure((cause) => (
 							<Text selectable className="font-mono text-sm text-danger">
@@ -51,7 +52,7 @@ export default function AppHome() {
 					<Text className="font-ui-semibold text-base text-text">
 						GET /api/notifications/channels
 					</Text>
-					{Result.builder(notificationChannels)
+					{AsyncResult.builder(notificationChannels)
 						.onInitial(() => <Text className="font-ui text-text-muted">Loading...</Text>)
 						.onFailure((cause) => (
 							<Text selectable className="font-mono text-sm text-danger">

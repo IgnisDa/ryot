@@ -1,5 +1,6 @@
-import { Atom, Result, useAtomSet, useAtomValue } from "@effect-atom/atom-react";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import clsx from "clsx";
+import { Atom, AsyncResult } from "effect/unstable/reactivity";
 import { router } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
@@ -115,7 +116,7 @@ export default function Onboarding() {
 						{validationError && (
 							<Text className="font-ui text-sm text-danger">{validationError}</Text>
 						)}
-						{Result.isFailure(connectResult) && (
+						{AsyncResult.isFailure(connectResult) && (
 							<Text className="font-ui text-sm text-danger">
 								Could not reach that Ryot server. Check the address and try again.
 							</Text>
