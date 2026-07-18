@@ -40,10 +40,16 @@ export const queryEngineComputedRef = (sourceAlias: string, name: "translationSt
 
 export const queryEngineMeasureRef = (key: string) => ({ type: "measureRef" as const, key });
 
-export const queryEngineLiteral = (value: unknown, valueType?: "date") =>
-	valueType === undefined
+export function queryEngineLiteral<TValue>(value: TValue): { type: "literal"; value: TValue };
+export function queryEngineLiteral<TValue>(
+	value: TValue,
+	valueType: "date",
+): { type: "literal"; value: TValue; valueType: "date" };
+export function queryEngineLiteral<TValue>(value: TValue, valueType?: "date") {
+	return valueType === undefined
 		? { type: "literal" as const, value }
 		: { type: "literal" as const, value, valueType };
+}
 
 export const queryEngineComparison = <TLeft, TRight>(
 	operator: QueryEngineComparisonOperator,
@@ -82,6 +88,14 @@ export const queryEngineOr = <TValues extends QueryEngineNonEmptyArray<unknown>>
 	type: "or" as const,
 	values,
 });
+
+export const queryEngineAndOrNull = <TExpr>(values: readonly TExpr[]) => {
+	const [first, ...rest] = values;
+	if (first === undefined) {
+		return null;
+	}
+	return rest.length === 0 ? first : queryEngineAnd(first, ...rest);
+};
 
 export const queryEngineCoalesce = <TValues extends QueryEngineNonEmptyArray<unknown>>(
 	...values: TValues

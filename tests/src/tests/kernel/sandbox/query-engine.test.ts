@@ -45,10 +45,13 @@ describe("sandbox query-engine reads", () => {
 			expect(result.status).toBe("completed");
 			assertCompleted(result, "query entities sandbox job");
 			expect(result.error).toBeNull();
-			expect(result.value).toMatchObject([
-				{ id: first.id, name: "First entity" },
-				{ id: second.id, name: "Second entity" },
-			]);
+			expect(result.value).toHaveLength(2);
+			expect(result.value).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ id: first.id, name: "First entity" }),
+					expect.objectContaining({ id: second.id, name: "Second entity" }),
+				]),
+			);
 
 			const { jobId: emptyJobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,

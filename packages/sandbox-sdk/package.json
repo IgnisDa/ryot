@@ -81,6 +81,7 @@
 		"check": "tsc && tsc --project tests/tsconfig.json && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
+		"@ryot/query-engine": "workspace:*",
 		"@types/papaparse": "5.5.2",
 		"cheerio": "1.2.0",
 		"effect": "4.0.0-beta.102",
