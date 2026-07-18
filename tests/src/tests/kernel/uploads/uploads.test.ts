@@ -34,6 +34,9 @@ const uploadAndComplete = (provider: "local" | "s3", fileName: string, contentTy
 		const asset = yield* client.call((c) =>
 			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
 		);
+		if (!("key" in asset)) {
+			throw new Error("Expected a permanent asset locator");
+		}
 		return { asset, client };
 	});
 
@@ -64,6 +67,51 @@ describe("POST /uploads/intents", () => {
 			const downloadResponse = yield* Effect.promise(() => fetch(downloadUrl ?? ""));
 			expect(downloadResponse.status).toBe(200);
 			expect(yield* Effect.promise(() => downloadResponse.text())).toBe("title\nexample");
+		}),
+	);
+
+	it.live("creates, uploads, and completes a local temporary intent", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const intent = yield* client.call((c) =>
+				c.uploads.createIntent({
+					payload: {
+						kind: "temporary",
+						provider: "local",
+						fileName: "report.csv",
+						contentType: "text/csv",
+					},
+				}),
+			);
+			const uploadResponse = yield* Effect.promise(() =>
+				fetch(new URL(intent.uploadUrl, `${getBackendUrl()}/`), {
+					method: intent.method,
+					body: "temporary data",
+					headers: intent.headers,
+				}),
+			);
+			expect([200, 204]).toContain(uploadResponse.status);
+			const token = yield* client.call((c) =>
+				c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
+			);
+			if (!("token" in token)) {
+				throw new Error("Expected a temporary upload token");
+			}
+			expect(token.token).toMatch(/^[A-Za-z0-9_-]+$/);
+			expect(token.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+		}),
+	);
+
+	it.live("requires authentication for temporary intents", () =>
+		Effect.gen(function* () {
+			const response = yield* Effect.promise(() =>
+				fetch(`${getBackendUrl()}/uploads/intents`, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: '{"kind":"temporary","provider":"local","fileName":"report.csv","contentType":"text/csv"}',
+				}),
+			);
+			expect(response.status).toBe(401);
 		}),
 	);
 });

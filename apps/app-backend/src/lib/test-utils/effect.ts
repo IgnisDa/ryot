@@ -60,13 +60,18 @@ export const makeRedisService = (
 		del: () => Effect.die("unused"),
 		get: () => Effect.die("unused"),
 		set: () => Effect.die("unused"),
-		claim: () => Effect.die("unused"),
 		zadd: () => Effect.die("unused"),
 		zrem: () => Effect.die("unused"),
+		claim: () => Effect.die("unused"),
 		getdel: () => Effect.die("unused"),
 		publish: () => Effect.die("unused"),
+		renewLease: () => Effect.die("unused"),
 		setAndIndex: () => Effect.die("unused"),
+		acquireLease: () => Effect.die("unused"),
+		releaseLease: () => Effect.die("unused"),
 		zrangeByScore: () => Effect.die("unused"),
+		setAndIndexAndSet: () => Effect.die("unused"),
+		setAndIndexAndDelete: () => Effect.die("unused"),
 		setAndRemoveFromIndex: () => Effect.die("unused"),
 		...overrides,
 	});
@@ -84,7 +89,6 @@ export const makeAppConfigLayer = (
 ): Layer.Layer<AppConfig> => {
 	const defaults = {
 		port: 3000,
-		tmpDir: "/tmp",
 		nodeEnv: "test",
 		timezone: "Etc/GMT",
 		frontendUrl: "http://localhost:3000",
@@ -108,6 +112,7 @@ export const makeAppConfigLayer = (
 		},
 		fileStorage: {
 			url: Option.none(),
+			localTempDir: "/tmp",
 			region: Option.none(),
 			localDir: Option.none(),
 			bucketName: Option.none(),
