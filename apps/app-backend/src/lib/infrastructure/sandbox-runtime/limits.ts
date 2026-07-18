@@ -44,8 +44,15 @@ export const WORKFLOW_SANDBOX_LIMITS = {
 
 export const SANDBOX_LOG_TRUNCATION_MARKER = "[sandbox logs truncated]";
 
+export const sandboxHostCallLimitMessage = (limit: number) =>
+	`Sandbox execution exceeds ${limit} host calls`;
+
+export const sandboxHttpCallLimitMessage = (limit: number) =>
+	`Sandbox execution exceeds ${limit} httpCall calls`;
+
 const makeSandboxRunnerLimits = (workflow: boolean) => ({
 	httpCallCount: SANDBOX_LIMITS.hostCalls.http,
+	httpCallLimitMessage: sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http),
 	logEntryBytes: SANDBOX_LIMITS.logs.entryBytes,
 	logEntryCount: SANDBOX_LIMITS.logs.entryCount,
 	logTotalBytes: SANDBOX_LIMITS.logs.totalBytes,
@@ -55,6 +62,9 @@ const makeSandboxRunnerLimits = (workflow: boolean) => ({
 	hostCallCount: workflow
 		? WORKFLOW_SANDBOX_LIMITS.hostCalls.total
 		: SANDBOX_LIMITS.hostCalls.total,
+	hostCallLimitMessage: sandboxHostCallLimitMessage(
+		workflow ? WORKFLOW_SANDBOX_LIMITS.hostCalls.total : SANDBOX_LIMITS.hostCalls.total,
+	),
 	resultBytes: workflow
 		? WORKFLOW_SANDBOX_LIMITS.execution.resultBytes
 		: SANDBOX_LIMITS.execution.resultBytes,
@@ -84,10 +94,10 @@ export const consumeSandboxHostCall = (
 		budget.http += 1;
 	}
 	if (budget.total > totalLimit) {
-		return `Sandbox execution exceeds ${totalLimit} host calls`;
+		return sandboxHostCallLimitMessage(totalLimit);
 	}
 	if (budget.http > SANDBOX_LIMITS.hostCalls.http) {
-		return `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`;
+		return sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http);
 	}
 	return null;
 };
