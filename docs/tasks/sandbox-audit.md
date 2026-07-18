@@ -203,7 +203,7 @@ The envelope already carries `requests` as an **array**. Before P3, the kernel r
 
 **P4 — journal projection is O(N²).** `projectWorkflowJournal` (sandbox-script-workflow.ts:394) is called at the top of every step and re-writes the entire prefix via `hsetnx` (workflow-journal.ts:71-82). Step _k_ writes _k_ fields → ~500k commands at the 1000-step ceiling.
 
-- [ ] Write only journal entries beyond the stored high-water mark.
+- [x] Write only journal entries beyond the stored high-water mark.
 
 ---
 
@@ -244,9 +244,9 @@ Confirmed by grep, non-test usage only:
 
 You asked for recommendations rather than questions, so:
 
-1. [ ] **Capability table vs. current sets.** Adopt the table first.
+1. [x] **Capability table vs. current sets.** Adopt the table first.
 2. [x] **Narrow sandbox submission.** Remove the redundant workflow hop from workflow-owned callers before touching replay performance; retain only top-level submission bridge.
-3. [ ] **Batched durable calls (P3).** Allow independent pending requests to execute as parallel durable steps.
+3. [x] **Batched durable calls (P3).** Allow independent pending requests to execute as parallel durable steps.
 4. [x] **Drop the Redis session store (P1).** The data is process-local by construction.
 5. [x] **Host-function batching.** Batch config and metadata functions now.
 6. [x] **Collapse reads into `executeQueryEngine`.** Entity/event data reads use query documents; schema functions remain metadata-only.
