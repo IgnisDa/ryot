@@ -173,7 +173,6 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 					rendererId: input.rendererId,
 					artifactHash: input.artifactHash,
 					graphIdentity: input.graphIdentity,
-					publishedHash: input.publishedHash,
 				});
 				if (!buildId) {
 					return null;
@@ -300,8 +299,6 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 				readonly artifactHash: string;
 				readonly graphIdentity: ClientPageGraphIdentity;
 				readonly rendererId?: string;
-				readonly publishedHash?: string;
-				readonly kernelRendererName?: string;
 			}) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(

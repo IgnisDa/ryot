@@ -889,7 +889,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (definition?.catalogState !== "active") {
 						return yield* badRequest("Backup references an unavailable notification subscription");
 					}
-					const restored = yield* automations.restoreNotificationSubscriptionState({
+					const restored = yield* automations.restoreNotificationSubscription({
 						userId,
 						isActive: subscription.isActive,
 						signalSchemaSlug: SignalSchemaSlug.make(subscription.signalSchemaSlug),

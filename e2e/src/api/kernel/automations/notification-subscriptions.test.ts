@@ -8,10 +8,10 @@ import {
 	findBuiltinSchemaBySlug,
 	getAutomationCatalogSchema,
 	getEntity,
-	getNotificationSubscriptionState,
+	getNotificationSubscription,
 	installNotificationRule,
 	listAutomationCatalog,
-	listNotificationSubscriptionStates,
+	listNotificationSubscriptions,
 	pollUntil,
 	postApiJson,
 	setNotificationRuleActive,
@@ -37,7 +37,7 @@ describe("notification subscription catalog and rules", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const catalog = yield* listAutomationCatalog(client);
-			const rules = yield* listNotificationSubscriptionStates(client, { limit: 100 });
+			const rules = yield* listNotificationSubscriptions(client, { limit: 100 });
 
 			expect(catalog.map((schema) => schema.slug).sort()).toEqual([
 				"company.media-group.associated",
@@ -72,7 +72,7 @@ describe("notification subscription catalog and rules", () => {
 			const owner = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const catalog = yield* listAutomationCatalog(owner.client);
-			const ownerRules = yield* listNotificationSubscriptionStates(owner.client, { limit: 100 });
+			const ownerRules = yield* listNotificationSubscriptions(owner.client, { limit: 100 });
 			const reviewSchema = requirePresent(
 				catalog.find((schema) => schema.id === "review.created"),
 				"Expected the review notification schema",
@@ -82,9 +82,9 @@ describe("notification subscription catalog and rules", () => {
 				"Expected the default review notification rule",
 			);
 
-			const inaccessible = yield* getNotificationSubscriptionState(other.client, reviewRule.id);
+			const inaccessible = yield* getNotificationSubscription(other.client, reviewRule.id);
 			expect(inaccessible).toBeUndefined();
-			const nonexistent = yield* getNotificationSubscriptionState(
+			const nonexistent = yield* getNotificationSubscription(
 				owner.client,
 				`missing-${crypto.randomUUID()}`,
 			);
@@ -93,7 +93,7 @@ describe("notification subscription catalog and rules", () => {
 			const deactivated = yield* setNotificationRuleActive(owner.client, reviewRule.id, false);
 			expect(deactivated.isActive).toBe(false);
 			const loadedDeactivated = requirePresent(
-				yield* getNotificationSubscriptionState(owner.client, reviewRule.id),
+				yield* getNotificationSubscription(owner.client, reviewRule.id),
 				"Expected the deactivated notification rule",
 			);
 			expect(loadedDeactivated.isActive).toBe(false);

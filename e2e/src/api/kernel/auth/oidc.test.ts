@@ -10,7 +10,7 @@ import {
 	type MockOidcServer,
 	adminHeaders,
 	createTestAuthClient,
-	listNotificationSubscriptionStates,
+	listNotificationSubscriptions,
 	makeSession,
 	oidcSignIn,
 	performOidcSignIn,
@@ -329,7 +329,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 			const client = makeSession(getApiUrlA(), headers);
 			const [catalog, rules] = yield* Effect.all([
 				client.call((c) => c.automations.listCatalog()),
-				listNotificationSubscriptionStates(client, { limit: 100 }),
+				listNotificationSubscriptions(client, { limit: 100 }),
 			]);
 			expect(rules).toHaveLength(catalog.length);
 			expect(rules.map((rule) => rule.signalSchemaSlug).sort()).toEqual(
