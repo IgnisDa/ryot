@@ -67,8 +67,9 @@ Bootstrap statements write structured rows to `_legacy_bootstrap_report`. Each r
 phase, level, message, optional count, and elapsed seconds. The orchestration logs new rows after each
 phase and retains the table for post-migration inspection.
 
-Information rows describe completed work. Warning rows are allowed only for the documented unresolved
-episode omissions in seen and review migration. Any other warning fails the bootstrap.
+Information rows describe completed work. Warning rows are allowed for the documented unresolved
+episode omissions in seen and review migration and unresolved legacy S3 assets. Any other warning fails
+the bootstrap.
 
 ## Validation Runbook
 
