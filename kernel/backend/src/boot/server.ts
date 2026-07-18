@@ -13,6 +13,7 @@ import {
 import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/httpapi";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { logHttpResponseAtRoot } from "#lib/infrastructure/http-response-logger";
 import { RequestLogUrl } from "#lib/infrastructure/request-log-url";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
@@ -154,13 +155,12 @@ const requestLogger = HttpMiddleware.make((httpApp) =>
 	Effect.gen(function* () {
 		const logUrl = yield* RequestLogUrl;
 		const request = yield* HttpServerRequest.HttpServerRequest;
-		const url = yield* logUrl.resolve(request);
-		return yield* Effect.provideService(
-			HttpMiddleware.logger(
-				Effect.provideService(httpApp, HttpServerRequest.HttpServerRequest, request),
-			),
-			HttpServerRequest.HttpServerRequest,
-			request.modify({ url }),
+		const url = (yield* logUrl.resolve(request)).replace(/[?#].*$/, "");
+		return yield* logHttpResponseAtRoot(
+			Effect.provideService(httpApp, HttpServerRequest.HttpServerRequest, request),
+			url,
+			{},
+			"Debug",
 		);
 	}),
 );
