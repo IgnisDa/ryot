@@ -31,7 +31,7 @@ const makeRunner = () => {
 		);
 	const db = Object.assign(Object.create(null), { transaction });
 	const layer = TransactionRunnerLive.pipe(
-		Layer.provide(Layer.succeed(DbService, { _tag: "DbService", db, pool: Object.create(null) })),
+		Layer.provide(Layer.succeed(DbService, { db, pool: Object.create(null) })),
 	);
 	return { layer, order };
 };
@@ -71,7 +71,7 @@ describe("TransactionRunner", () => {
 			});
 
 			const runInTransaction = yield* TransactionRunner;
-			const fiber = yield* Effect.fork(
+			const fiber = yield* Effect.forkChild(
 				runInTransaction(transactional).pipe(
 					Effect.onInterrupt(() => Effect.sync(() => order.push("caller-interrupted"))),
 				),
@@ -79,9 +79,9 @@ describe("TransactionRunner", () => {
 
 			// Request interruption while the transaction is mid-flight, then let it finish.
 			yield* Deferred.await(inTransaction);
-			const interrupting = yield* Effect.fork(Fiber.interrupt(fiber));
+			fiber.interruptUnsafe();
 			yield* Deferred.succeed(release, undefined);
-			yield* Fiber.join(interrupting);
+			yield* Fiber.await(fiber);
 
 			// The commit lands before the caller observes the interrupt — the transaction
 			// is never abandoned in-flight.
@@ -97,7 +97,6 @@ describe("DbRunner", () => {
 		const layer = DbRunnerLive.pipe(
 			Layer.provide(
 				Layer.succeed(DbService, {
-					_tag: "DbService",
 					db: fallbackDb,
 					pool: Object.create(null),
 				}),
