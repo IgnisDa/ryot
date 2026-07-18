@@ -25,7 +25,6 @@ const loadSystemConfig = (
 		readonly logLevel?: string;
 		readonly processMode?: string;
 		readonly logRotationSize?: string;
-		readonly logRetentionFiles?: string;
 		readonly workerConcurrency?: string;
 		readonly logRotationInterval?: string;
 	} = {},
@@ -44,9 +43,6 @@ const loadSystemConfig = (
 							...(options.logRotationSize === undefined
 								? {}
 								: { SERVER_LOG_ROTATION_SIZE: options.logRotationSize }),
-							...(options.logRetentionFiles === undefined
-								? {}
-								: { SERVER_LOG_RETENTION_FILES: options.logRetentionFiles }),
 							...(options.logRotationInterval === undefined
 								? {}
 								: { SERVER_LOG_ROTATION_INTERVAL: options.logRotationInterval }),
@@ -71,7 +67,6 @@ describe("system log config", () => {
 		expect(result.value.observability.logging.file.path).toBe("./logs/ryot.log");
 		expect(result.value.observability.logging.file.rotationSize).toBe("10M");
 		expect(result.value.observability.logging.file.rotationInterval).toBe("1d");
-		expect(result.value.observability.logging.file.retentionFiles).toBe(7);
 	});
 
 	it("retains the infrequent scheduler phrase default", () => {
@@ -130,7 +125,6 @@ describe("system log config", () => {
 		[{ logFile: " " }, "SERVER_LOG_FILE"],
 		[{ logRotationSize: "10" }, "SERVER_LOG_ROTATION_SIZE"],
 		[{ logRotationInterval: "7m" }, "SERVER_LOG_ROTATION_INTERVAL"],
-		[{ logRetentionFiles: "0" }, "SERVER_LOG_RETENTION_FILES"],
 	] as const)("rejects invalid file logging configuration", (options, message) => {
 		const result = loadSystemConfig(options);
 		assert(Exit.isFailure(result));
