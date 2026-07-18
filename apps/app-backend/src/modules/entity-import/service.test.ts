@@ -1,11 +1,9 @@
-import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { assert, expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
 import { EntitySchemaSlug, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
-import type { Exit } from "effect";
-import { Effect, Layer } from "effect";
-import { assert } from "vitest";
+import { Cause, Effect, Exit, Layer, Option } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { createWorkflowJobId } from "#lib/shared/job-id";
 import {
@@ -33,7 +31,7 @@ const entitySchemaSlug = EntitySchemaSlug.make("schema-1");
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
-	mockEntitiesRepository({ _tag: "EntitiesRepository", ...overrides });
+	mockEntitiesRepository({ ...overrides });
 
 const fakeEntitySchemaScope = {
 	slug: "movie",
@@ -44,7 +42,7 @@ const fakeEntitySchemaScope = {
 };
 
 const makeServiceLayer = (entitiesRepo = makeEntitiesRepository(), engine = makeWorkflowEngine()) =>
-	EntityImportService.Default.pipe(
+	EntityImportService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
@@ -56,11 +54,13 @@ const makeServiceLayer = (entitiesRepo = makeEntitiesRepository(), engine = make
 		),
 	);
 
-const getFailureCause = <A, E>(result: Exit.Exit<A, E>) => {
-	expect(result._tag).toBe("Failure");
-	assert(result._tag === "Failure", "Expected effect to fail");
+const getFailure = <A, E>(result: Exit.Exit<A, E>) => {
+	expect(Exit.isFailure(result)).toBe(true);
+	assert(Exit.isFailure(result), "Expected effect to fail");
+	const failure = Cause.findErrorOption(result.cause);
+	assert(Option.isSome(failure), "Expected typed failure");
 
-	return result.cause;
+	return failure.value;
 };
 
 it.effect("returns BadRequest when providerId is blank", () =>
@@ -73,8 +73,7 @@ it.effect("returns BadRequest when providerId is blank", () =>
 				providerId: SandboxProviderId.make("   "),
 			}),
 		);
-		const cause = getFailureCause(result);
-		const failure = cause._tag === "Fail" ? cause.error : null;
+		const failure = getFailure(result);
 		expect(failure).toBeInstanceOf(BadRequest);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
@@ -85,8 +84,7 @@ it.effect("returns BadRequest when externalId is blank", () =>
 		const result = yield* Effect.exit(
 			service.import(user, { providerId, externalId: "  ", entitySchemaSlug }),
 		);
-		const cause = getFailureCause(result);
-		const failure = cause._tag === "Fail" ? cause.error : null;
+		const failure = getFailure(result);
 		expect(failure).toBeInstanceOf(BadRequest);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
@@ -101,8 +99,7 @@ it.effect("returns BadRequest when entitySchemaSlug is blank", () =>
 				entitySchemaSlug: EntitySchemaSlug.make(""),
 			}),
 		);
-		const cause = getFailureCause(result);
-		const failure = cause._tag === "Fail" ? cause.error : null;
+		const failure = getFailure(result);
 		expect(failure).toBeInstanceOf(BadRequest);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
@@ -113,8 +110,7 @@ it.effect("returns NotFound when the entity schema is not found", () =>
 		const result = yield* Effect.exit(
 			service.import(user, { providerId, externalId, entitySchemaSlug }),
 		);
-		const cause = getFailureCause(result);
-		const failure = cause._tag === "Fail" ? cause.error : null;
+		const failure = getFailure(result);
 		expect(failure).toBeInstanceOf(NotFound);
 	}).pipe(
 		Effect.provide(
@@ -155,8 +151,7 @@ it.effect("returns NotFound for a blank getImportResult jobId", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.getImportResult(user, "   "));
-		const cause = getFailureCause(result);
-		const failure = cause._tag === "Fail" ? cause.error : null;
+		const failure = getFailure(result);
 		expect(failure).toBeInstanceOf(NotFound);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
@@ -165,8 +160,7 @@ it.effect("returns NotFound for a jobId with an invalid signature", () =>
 	Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.getImportResult(user, "fake-execution-id.badsig"));
-		const cause = getFailureCause(result);
-		const failure = cause._tag === "Fail" ? cause.error : null;
+		const failure = getFailure(result);
 		expect(failure).toBeInstanceOf(NotFound);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
@@ -184,7 +178,7 @@ it.effect("returns pending status when the workflow has not completed", () =>
 		Effect.provide(
 			makeServiceLayer(
 				makeEntitiesRepository(),
-				makeWorkflowEngine({ poll: () => Effect.sync(() => undefined) }),
+				makeWorkflowEngine({ poll: () => Effect.succeedNone }),
 			),
 		),
 	),

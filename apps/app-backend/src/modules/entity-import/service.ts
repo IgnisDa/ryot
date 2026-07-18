@@ -1,9 +1,9 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
-import { Effect, Redacted } from "effect";
+import { Context, Effect, Layer, Option, Redacted } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -17,10 +17,10 @@ import { toEntityImportRunResult } from "./result-workflow";
 const entitySchemaNotFoundError = "Entity schema not found";
 const importJobNotFoundError = "Entity import job not found";
 
-export class EntityImportService extends Effect.Service<EntityImportService>()(
+export class EntityImportService extends Context.Service<EntityImportService>()(
 	"EntityImportService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
@@ -86,10 +86,14 @@ export class EntityImportService extends Effect.Service<EntityImportService>()(
 					return yield* notFound(importJobNotFoundError);
 				}
 
-				return toEntityImportRunResult(yield* engine.poll(EntityImportWorkflow, executionId));
+				return toEntityImportRunResult(
+					Option.getOrUndefined(yield* engine.poll(EntityImportWorkflow, executionId)),
+				);
 			});
 
 			return { getImportResult, import: importEntity };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

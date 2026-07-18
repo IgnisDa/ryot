@@ -1,5 +1,5 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 
@@ -29,7 +29,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 					})
 					.pipe(
 						Effect.asVoid,
-						Effect.catchAllCause((cause) =>
+						Effect.catchCause((cause) =>
 							Effect.logWarning("entity population enqueue failed", cause),
 						),
 					);

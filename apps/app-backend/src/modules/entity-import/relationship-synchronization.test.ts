@@ -59,7 +59,6 @@ it.effect(
 		const stale = existing[0];
 		assert(stale);
 		const entitiesRepository = Layer.mock(EntitiesRepository)({
-			_tag: "EntitiesRepository",
 			listEntityReferencesByIds: (ids) =>
 				Effect.succeed(
 					ids.map((id) => ({
@@ -70,11 +69,9 @@ it.effect(
 				),
 		});
 		const relationshipsRepository = Layer.mock(RelationshipsRepository)({
-			_tag: "RelationshipsRepository",
 			listGlobalRelationships: () => Effect.succeed(existing),
 		});
 		const relationshipsService = Layer.mock(RelationshipsService)({
-			_tag: "RelationshipsService",
 			create: (input) => {
 				assertRecord(input.properties);
 				if (input.targetEntityId === "created") {
@@ -181,16 +178,13 @@ it.effect("preserves different existing properties as a noop", () => {
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
 		Layer.mock(EntitiesRepository)({
-			_tag: "EntitiesRepository",
 			listEntityReferencesByIds: (ids) =>
 				Effect.succeed(ids.map((id) => ({ id, name: `Entity ${id}`, entitySchemaSlug: "person" }))),
 		}),
 		Layer.mock(RelationshipsRepository)({
-			_tag: "RelationshipsRepository",
 			listGlobalRelationships: () => Effect.succeed([current]),
 		}),
 		Layer.mock(RelationshipsService)({
-			_tag: "RelationshipsService",
 			update: () =>
 				Effect.sync(() => {
 					updated = true;
@@ -236,7 +230,6 @@ it.effect(
 			const layer = Layer.mergeAll(
 				dbRunnerLayer,
 				Layer.mock(EntitiesRepository)({
-					_tag: "EntitiesRepository",
 					listEntityReferencesByIds: (ids) =>
 						Effect.succeed(
 							ids.map((id) => ({
@@ -247,11 +240,9 @@ it.effect(
 						),
 				}),
 				Layer.mock(RelationshipsRepository)({
-					_tag: "RelationshipsRepository",
 					listGlobalRelationships: () => Effect.succeed(stored ? [stored] : []),
 				}),
 				Layer.mock(RelationshipsService)({
-					_tag: "RelationshipsService",
 					create: () =>
 						Effect.sync(() => {
 							if (stored) {

@@ -1,14 +1,14 @@
-import type { Result as WorkflowResult } from "@effect/workflow/Workflow";
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import type { ImportEntityRunResult } from "@ryot/contract/modules/entity-import/schemas";
 import { Cause, Exit, Match, Option } from "effect";
+import type { Workflow } from "effect/unstable/workflow";
 
 export type EntityImportRunResult = typeof ImportEntityRunResult.Type;
 
 const workflowFailureResult = <E extends { readonly message: string }>(
 	cause: Cause.Cause<E>,
 ): Extract<EntityImportRunResult, { status: "failed" }> =>
-	Option.match(Cause.failureOption(cause), {
+	Option.match(Cause.findErrorOption(cause), {
 		onSome: (error) => ({ status: "failed", error: error.message }),
 		onNone: () => ({
 			status: "failed",
@@ -17,7 +17,7 @@ const workflowFailureResult = <E extends { readonly message: string }>(
 	});
 
 export const toEntityImportRunResult = <E extends { readonly message: string }>(
-	result: WorkflowResult<ListedEntity, E> | undefined,
+	result: Workflow.Result<ListedEntity, E> | undefined,
 ): EntityImportRunResult => {
 	if (!result) {
 		return { status: "pending" };
