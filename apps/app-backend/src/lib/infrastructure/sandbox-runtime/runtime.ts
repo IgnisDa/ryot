@@ -175,13 +175,14 @@ export const readSandboxBridgeRequestBody = (request: Request) => {
 const hostFailureResponse = (message: string) =>
 	Response.json({ result: hostFailure(message) }, { status: 200 });
 
-export const sandboxBridgeResultResponse = (result: unknown) =>
+export const sandboxBridgeResultResponse = (
+	result: unknown,
+	maximumBytes = SANDBOX_LIMITS.bridge.responseBytes,
+) =>
 	encodeSandboxRpcResponse({ result }).pipe(
 		Effect.map((body) =>
-			utf8ByteLength(body) > SANDBOX_LIMITS.bridge.responseBytes
-				? hostFailureResponse(
-						`Sandbox bridge response exceeds ${SANDBOX_LIMITS.bridge.responseBytes} UTF-8 bytes`,
-					)
+			utf8ByteLength(body) > maximumBytes
+				? hostFailureResponse(`Sandbox bridge response exceeds ${maximumBytes} UTF-8 bytes`)
 				: new Response(body, { status: 200, headers: { "Content-Type": "application/json" } }),
 		),
 		Effect.orElseSucceed(() => hostFailureResponse("Sandbox bridge response is not valid JSON")),
@@ -404,7 +405,14 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 					parentSpan: activeSession.parentSpan,
 				}).pipe(
 					Effect.mapError((error) => internalError(unknownToMessage(error))),
-					Effect.flatMap(sandboxBridgeResultResponse),
+					Effect.flatMap((result) =>
+						sandboxBridgeResultResponse(
+							result,
+							fnName === "durableCalls"
+								? SANDBOX_LIMITS.bridge.durableResponseBytes
+								: SANDBOX_LIMITS.bridge.responseBytes,
+						),
+					),
 					Effect.catch((error) =>
 						Effect.succeed(Response.json({ error: unknownToMessage(error) }, { status: 500 })),
 					),

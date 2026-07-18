@@ -1,15 +1,16 @@
 export interface SandboxRunnerLimits {
 	readonly resultBytes: number;
 	readonly hostCallCount: number;
-	readonly hostCallLimitMessage: string;
 	readonly httpCallCount: number;
-	readonly httpCallLimitMessage: string;
 	readonly logEntryBytes: number;
 	readonly logEntryCount: number;
 	readonly logTotalBytes: number;
 	readonly bridgeRequestBytes: number;
-	readonly bridgeResponseBytes: number;
 	readonly logTruncationMarker: string;
+	readonly bridgeResponseBytes: number;
+	readonly hostCallLimitMessage: string;
+	readonly httpCallLimitMessage: string;
+	readonly durableBridgeResponseBytes: number;
 }
 
 export interface SandboxRunnerPayload {
@@ -18,10 +19,12 @@ export interface SandboxRunnerPayload {
 	readonly scriptId: string;
 	readonly context?: unknown;
 	readonly moduleUrl: string;
+	readonly startedAt: string;
 	readonly executionId: string;
 	readonly apiFunctions?: unknown;
 	readonly compiledFormat: number;
 	readonly limits: SandboxRunnerLimits;
+	readonly workflowExecutionId?: string;
 	readonly metadata?: Record<string, unknown>;
 	readonly filesystem?: {
 		readonly artifactPath?: string;
@@ -404,6 +407,7 @@ export const validateLimits = (limits: unknown): limits is SandboxRunnerLimits =
 		"logTotalBytes",
 		"bridgeRequestBytes",
 		"bridgeResponseBytes",
+		"durableBridgeResponseBytes",
 	]) {
 		const value = limits[key];
 		if (!Number.isSafeInteger(value) || (typeof value === "number" && value <= 0)) {

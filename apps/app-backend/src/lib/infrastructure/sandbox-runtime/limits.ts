@@ -25,8 +25,13 @@ export const SANDBOX_LIMITS = {
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
 	http: { requestBytes: MiB, responseBytes: 10 * MiB, timeoutMs: 8_000 },
 	cache: { keyBytes: 256, valueBytes: 256 * KiB, ttlSeconds: 30 * 24 * 60 * 60 },
-	bridge: { concurrentHostCalls: 4, requestBytes: MiB, responseBytes: 10 * MiB },
 	observability: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
+	bridge: {
+		requestBytes: MiB,
+		concurrentHostCalls: 4,
+		responseBytes: 10 * MiB,
+		durableResponseBytes: 101 * MiB,
+	},
 	execution: {
 		resultBytes: MiB,
 		denoHeapMiB: 256,
@@ -38,6 +43,7 @@ export const SANDBOX_LIMITS = {
 
 export const WORKFLOW_SANDBOX_LIMITS = {
 	timeoutMs: 30_000,
+	journalBytes: 100 * MiB,
 	hostCalls: { http: 0, total: 1_000 },
 	execution: { contextBytes: 64 * KiB, resultBytes: 4 * MiB },
 } as const;
@@ -52,19 +58,20 @@ export const sandboxHttpCallLimitMessage = (limit: number) =>
 
 const makeSandboxRunnerLimits = (workflow: boolean) => ({
 	httpCallCount: SANDBOX_LIMITS.hostCalls.http,
-	httpCallLimitMessage: sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http),
 	logEntryBytes: SANDBOX_LIMITS.logs.entryBytes,
 	logEntryCount: SANDBOX_LIMITS.logs.entryCount,
 	logTotalBytes: SANDBOX_LIMITS.logs.totalBytes,
 	logTruncationMarker: SANDBOX_LOG_TRUNCATION_MARKER,
 	bridgeRequestBytes: SANDBOX_LIMITS.bridge.requestBytes,
 	bridgeResponseBytes: SANDBOX_LIMITS.bridge.responseBytes,
-	hostCallCount: workflow
-		? WORKFLOW_SANDBOX_LIMITS.hostCalls.total
-		: SANDBOX_LIMITS.hostCalls.total,
+	durableBridgeResponseBytes: SANDBOX_LIMITS.bridge.durableResponseBytes,
+	httpCallLimitMessage: sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http),
 	hostCallLimitMessage: sandboxHostCallLimitMessage(
 		workflow ? WORKFLOW_SANDBOX_LIMITS.hostCalls.total : SANDBOX_LIMITS.hostCalls.total,
 	),
+	hostCallCount: workflow
+		? WORKFLOW_SANDBOX_LIMITS.hostCalls.total
+		: SANDBOX_LIMITS.hostCalls.total,
 	resultBytes: workflow
 		? WORKFLOW_SANDBOX_LIMITS.execution.resultBytes
 		: SANDBOX_LIMITS.execution.resultBytes,
@@ -79,8 +86,10 @@ export const isWorkflowSandboxMetadata = (metadata: unknown) =>
 	"kind" in metadata &&
 	metadata.kind === "workflow";
 
-export const sandboxRunnerLimits = (metadata: unknown) =>
-	isWorkflowSandboxMetadata(metadata) ? WORKFLOW_SANDBOX_RUNNER_LIMITS : SANDBOX_RUNNER_LIMITS;
+export const sandboxRunnerLimits = (metadata: unknown, durable = false) =>
+	durable || isWorkflowSandboxMetadata(metadata)
+		? WORKFLOW_SANDBOX_RUNNER_LIMITS
+		: SANDBOX_RUNNER_LIMITS;
 
 export type SandboxHostCallBudget = { http: number; total: number };
 
@@ -142,11 +151,12 @@ export const sandboxRunnerRequestError = (request: string) =>
 		? `Sandbox runner request exceeds ${SANDBOX_LIMITS.execution.requestBytes} UTF-8 bytes`
 		: null;
 
-export const sandboxContextError = (context: unknown, metadata?: unknown) => {
+export const sandboxContextError = (context: unknown, metadata?: unknown, durable = false) => {
 	const bytes = jsonByteLength(context);
-	const limit = isWorkflowSandboxMetadata(metadata)
-		? WORKFLOW_SANDBOX_LIMITS.execution.contextBytes
-		: SANDBOX_LIMITS.execution.contextBytes;
+	const limit =
+		durable || isWorkflowSandboxMetadata(metadata)
+			? WORKFLOW_SANDBOX_LIMITS.execution.contextBytes
+			: SANDBOX_LIMITS.execution.contextBytes;
 	return bytes === null || bytes > limit
 		? `Sandbox definition context must be JSON and no larger than ${limit} UTF-8 bytes`
 		: null;
