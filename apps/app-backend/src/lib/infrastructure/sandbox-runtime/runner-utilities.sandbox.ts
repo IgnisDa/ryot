@@ -353,9 +353,6 @@ export const executionError = (
 		if (mappedLine > 0 && mappedColumn > 0) {
 			push(frames, { line: mappedLine, column: mappedColumn });
 		}
-		if (frames.length === 10) {
-			break;
-		}
 	}
 
 	let rawMessage = safeErrorProperty(error, "message");
