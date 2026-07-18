@@ -18,6 +18,10 @@
 			"types": "./operations/schemas.ts",
 			"default": "./operations/schemas.ts"
 		},
+		"./query-recipes": {
+			"types": "./query-recipes.ts",
+			"default": "./query-recipes.ts"
+		},
 		"./schemas/media-schema-slugs": {
 			"types": "./schemas/media-schema-slugs.ts",
 			"default": "./schemas/media-schema-slugs.ts"
