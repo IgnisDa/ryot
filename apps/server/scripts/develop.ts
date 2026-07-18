@@ -1,40 +1,23 @@
 #!/usr/bin/env bun
 
-import { BunServices, BunRuntime } from "@effect/platform-bun";
+import { BunRuntime, BunServices } from "@effect/platform-bun";
 import dotenv from "dotenv";
-import { Effect, FileSystem, Stream } from "effect";
+import { Effect, FileSystem, Path, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
+
+import { assemble, readShippedSlugs } from "./assemble";
 
 dotenv.config();
 
 type ProcessCommand = readonly [string, ...string[]];
 
-const generateSandboxRuntimeScript = Bun.fileURLToPath(
-	new URL("../../../kernel/backend/scripts/generate-sandbox-runtime.ts", import.meta.url),
-);
+const repositoryRoot = Bun.fileURLToPath(new URL("../../..", import.meta.url));
 
-const generateRenderersScript = Bun.fileURLToPath(
-	new URL("../../../packages/kernel-renderers/scripts/generate-sources.ts", import.meta.url),
-);
+const pluginRoot = (slug: string) => `${repositoryRoot}/plugins/${slug}`;
 
-const prepareRuntimeCommand: ProcessCommand = [
-	process.execPath,
-	"run",
-	generateSandboxRuntimeScript,
-];
-const generateRenderersCommand: ProcessCommand = [process.execPath, "run", generateRenderersScript];
-const pluginBuildCommand: ProcessCommand = [
-	process.execPath,
-	"turbo",
-	"--filter=@ryot-app/media-plugin",
-	"--filter=@ryot-app/fitness-plugin",
-	"build",
-];
-const assembleCommand: ProcessCommand = [process.execPath, "run", "assemble"];
-export const developmentCommands: readonly [ProcessCommand, ProcessCommand] = [
-	[...prepareRuntimeCommand, "--watch", "--skip-initial"],
-	[process.execPath, "run", "assemble", "--watch"],
-];
+const rendererSourceRoot = `${repositoryRoot}/packages/kernel-renderers/src`;
+
+const sandboxRuntimeGenerator = `${repositoryRoot}/kernel/backend/scripts/generate-sandbox-runtime.ts`;
 
 const runCommand = ([executable, ...args]: ProcessCommand) =>
 	ChildProcess.make(executable, args, {
@@ -46,25 +29,63 @@ const runCommand = ([executable, ...args]: ProcessCommand) =>
 		Effect.scoped,
 	);
 
+const turboBuild = (...packages: readonly string[]): ProcessCommand => [
+	process.execPath,
+	"turbo",
+	...packages.map((name) => `--filter=${name}`),
+	"build",
+];
+
+const buildPlugin = (slug: string, ...flags: readonly string[]): ProcessCommand => [
+	process.execPath,
+	"run",
+	"--cwd",
+	pluginRoot(slug),
+	"build",
+	...flags,
+];
+
+const failWith = (exitCode: number) =>
+	Effect.sync(() => {
+		process.exitCode = exitCode;
+	});
+
 const program = Effect.gen(function* () {
-	for (const command of [
-		prepareRuntimeCommand,
-		generateRenderersCommand,
-		pluginBuildCommand,
-		assembleCommand,
-	]) {
-		const exitCode = yield* runCommand(command);
-		if (exitCode === 0) {
-			continue;
-		}
-		yield* Effect.sync(() => {
-			process.exitCode = exitCode;
-		});
-		return;
+	const path = yield* Path.Path;
+	const slugs = yield* readShippedSlugs;
+	const fs = yield* FileSystem.FileSystem;
+
+	const generated = yield* runCommand(
+		turboBuild("@ryot-app/kernel-backend", "@ryot-app/kernel-renderers"),
+	);
+	if (generated !== 0) {
+		return yield* failWith(generated);
 	}
+	const built = yield* Effect.forEach(slugs, (slug) => runCommand(buildPlugin(slug)), {
+		concurrency: "unbounded",
+	});
+	const failedBuild = built.find((exitCode) => exitCode !== 0);
+	if (failedBuild !== undefined) {
+		return yield* failWith(failedBuild);
+	}
+	yield* assemble;
+
+	const archiveAssembled = Stream.mergeAll(
+		slugs.map((slug) =>
+			fs
+				.watch(path.join(pluginRoot(slug), "dist"))
+				.pipe(Stream.filter((event) => path.basename(event.path) === `${slug}.zip`)),
+		),
+		{ concurrency: "unbounded" },
+	).pipe(Stream.debounce("500 millis"), Stream.runHead, Effect.andThen(assemble));
+
+	const watchRenderers = fs.watch(rendererSourceRoot, { recursive: true }).pipe(
+		Stream.filter((event) => !event.path.endsWith(".generated.ts")),
+		Stream.debounce("500 millis"),
+		Stream.runForEach(() => runCommand(turboBuild("@ryot-app/kernel-renderers"))),
+	);
 
 	const runServer = Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
 		let restart = true;
 		let outerExitCode = 0;
 		while (restart) {
@@ -72,14 +93,7 @@ const program = Effect.gen(function* () {
 				runCommand([process.execPath, "run", "--watch", "src/main.ts"]).pipe(
 					Effect.map((exitCode) => ({ exitCode, restart: false as const })),
 				),
-				fs.watch("plugins").pipe(
-					Stream.filter(
-						(event) => !event.path.split(/[/\\]/).some((segment) => segment.startsWith(".")),
-					),
-					Stream.debounce("500 millis"),
-					Stream.runHead,
-					Effect.as({ restart: true as const }),
-				),
+				archiveAssembled.pipe(Effect.as({ restart: true as const })),
 			);
 			restart = result.restart;
 			if (!result.restart) {
@@ -89,13 +103,13 @@ const program = Effect.gen(function* () {
 		return outerExitCode;
 	});
 
-	const exitCode = yield* Effect.raceFirst(
-		runCommand(developmentCommands[0]),
-		Effect.raceFirst(runCommand(developmentCommands[1]), runServer),
-	);
-	yield* Effect.sync(() => {
-		process.exitCode = exitCode;
-	});
+	const exitCode = yield* Effect.raceAllFirst([
+		runCommand([process.execPath, "run", sandboxRuntimeGenerator, "--watch", "--skip-initial"]),
+		watchRenderers.pipe(Effect.as(0)),
+		...slugs.map((slug) => runCommand(buildPlugin(slug, "--watch", "--skip-initial"))),
+		runServer,
+	]);
+	yield* failWith(exitCode);
 });
 
 BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));

@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
 
-import { preparationSources } from "./sandbox-runtime-preparation";
+import { sandboxRuntimeInputs } from "./sandbox-runtime-inputs";
 
 it.effect("covers deterministic sandbox runtime preparation inputs", () =>
 	Effect.gen(function* () {
@@ -10,14 +10,14 @@ it.effect("covers deterministic sandbox runtime preparation inputs", () =>
 		const scriptsDirectory = path.dirname(Bun.fileURLToPath(import.meta.url));
 		const kernelDirectory = path.resolve(scriptsDirectory, "..");
 		const runtimeDirectory = path.join(kernelDirectory, "src/lib/infrastructure/sandbox-runtime");
-		const inputs = yield* preparationSources(kernelDirectory, runtimeDirectory);
+		const inputs = yield* sandboxRuntimeInputs(kernelDirectory, runtimeDirectory);
 		for (const expected of [
 			"bun.lock",
 			"package.json",
 			"kernel/backend/package.json",
 			"kernel/backend/scripts/generate-sandbox-runtime.ts",
 			"kernel/backend/scripts/sandbox-runtime-payload.ts",
-			"kernel/backend/scripts/sandbox-runtime-preparation.ts",
+			"kernel/backend/scripts/sandbox-runtime-inputs.ts",
 			"kernel/backend/scripts/sandbox-runtime-registry.ts",
 			"kernel/backend/src/lib/infrastructure/sandbox-runtime/payload.ts",
 			"kernel/backend/src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts",
@@ -45,7 +45,7 @@ const limitedPreparation = (
 		root: string,
 		runtimeDirectory: string,
 	) => Effect.Effect<void, unknown, FileSystem.FileSystem>,
-	limits: Parameters<typeof preparationSources>[2],
+	limits: Parameters<typeof sandboxRuntimeInputs>[2],
 ) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
@@ -55,7 +55,7 @@ const limitedPreparation = (
 		const runtimeDirectory = path.join(kernelDirectory, "runtime");
 		yield* fs.makeDirectory(runtimeDirectory, { recursive: true });
 		yield* fixture(root, runtimeDirectory);
-		return yield* preparationSources(kernelDirectory, runtimeDirectory, limits).pipe(Effect.flip);
+		return yield* sandboxRuntimeInputs(kernelDirectory, runtimeDirectory, limits).pipe(Effect.flip);
 	});
 
 it.effect("rejects symbolic links before reading preparation inputs", () =>
@@ -70,10 +70,7 @@ it.effect("rejects symbolic links before reading preparation inputs", () =>
 				}),
 			{},
 		);
-		expect(failure).toMatchObject({
-			reason: "symbolic-link",
-			_tag: "SandboxRuntimePreparationError",
-		});
+		expect(failure).toMatchObject({ reason: "symbolic-link", _tag: "SourceWalkError" });
 		expect(String(failure)).toContain("linked.sandbox.ts");
 	}).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
 );
@@ -110,6 +107,6 @@ it.effect.each([
 ] as const)("rejects preparation inputs at the $reason", ({ limits, reason, fixture }) =>
 	Effect.gen(function* () {
 		const failure = yield* limitedPreparation(fixture, limits);
-		expect(failure).toMatchObject({ reason, _tag: "SandboxRuntimePreparationError" });
+		expect(failure).toMatchObject({ reason, _tag: "SourceWalkError" });
 	}).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
 );

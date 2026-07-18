@@ -6,8 +6,9 @@ import {
 	encodeClientCompilerWorkerRequest,
 } from "@ryot-app/client-plugin-compiler/protocol";
 import { CompilerWorkerRequest, CompilerWorkerResponse } from "@ryot-app/sandbox-compiler/protocol";
-import { Data, Effect, FileSystem, Schema, Stream } from "effect";
-import { ChildProcess } from "effect/unstable/process";
+import { Data, Effect, FileSystem, Schema } from "effect";
+
+import { runProcessCapturing } from "./run-process";
 
 class CompilerWorkerSmokeError extends Data.TaggedError("CompilerWorkerSmokeError")<{
 	message: string;
@@ -80,32 +81,10 @@ const decodeSandboxResponse = Schema.decodeUnknownEffect(
 
 const runWorker = (name: string, workerPath: string, input: string) =>
 	Effect.gen(function* () {
-		const command = ChildProcess.make(
+		const { stdout, stderr, exitCode } = yield* runProcessCapturing(
 			process.execPath,
 			["--smol", "--no-orphans", "--no-install", "--no-env-file", workerPath],
-			{ stdout: "pipe", stderr: "pipe", stdin: Stream.succeed(new TextEncoder().encode(input)) },
-		);
-		const worker = yield* command;
-		yield* Effect.addFinalizer(() => worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore));
-		const { stderr, stdout, exitCode } = yield* Effect.all(
-			{
-				exitCode: worker.exitCode,
-				stdout: worker.stdout.pipe(
-					Stream.decodeText({ encoding: "utf-8" }),
-					Stream.runFold(
-						() => "",
-						(output, chunk) => output + chunk,
-					),
-				),
-				stderr: worker.stderr.pipe(
-					Stream.decodeText({ encoding: "utf-8" }),
-					Stream.runFold(
-						() => "",
-						(output, chunk) => output + chunk,
-					),
-				),
-			},
-			{ concurrency: "unbounded" },
+			{ input },
 		);
 		if (exitCode !== 0) {
 			return yield* new CompilerWorkerSmokeError({
