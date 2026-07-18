@@ -446,41 +446,65 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				),
 				sandboxHostEffect,
 			),
-		getEntitySchema: (rawInput, entitySchemaSlug) =>
-			requireUserSandboxRunInput(rawInput, "getEntitySchema").pipe(
+		getEntitySchemas: (rawInput, entitySchemaSlugs) =>
+			requireUserSandboxRunInput(rawInput, "getEntitySchemas").pipe(
 				Effect.andThen(
-					requireNonEmptyString(
-						entitySchemaSlug,
-						"getEntitySchema expects a non-empty entitySchemaSlug",
+					Effect.forEach(entitySchemaSlugs, (entitySchemaSlug) =>
+						requireNonEmptyString(
+							entitySchemaSlug,
+							"getEntitySchemas expects non-empty entitySchemaSlugs",
+						),
 					).pipe(
-						Effect.flatMap((resolvedEntitySchemaSlug) => {
-							const definition = definitions.getEntitySchema(resolvedEntitySchemaSlug);
-							if (!definition) {
-								return Effect.fail("Entity schema not found");
+						Effect.flatMap((rawEntitySchemaSlugs) => {
+							const resolvedEntitySchemaSlugs = [...new Set(rawEntitySchemaSlugs)];
+							if (resolvedEntitySchemaSlugs.length === 0) {
+								return Effect.succeed([]);
 							}
-							if (!definition.pluginSlug) {
-								return Effect.fail("Entity schema plugin not found");
-							}
-							const pluginSlug = definition.pluginSlug;
-							return runWithDb(
-								Effect.gen(function* () {
-									const links = yield* pluginRuntime.listSchemaProviders([
-										resolvedEntitySchemaSlug,
-									]);
-									const providers = links.map(({ provider }) => ({
-										name: provider.name,
-										providerId: provider.id,
-									}));
-									return {
-										...definition,
-										providers,
-										pluginSlug,
-										isBuiltin: true,
-										id: resolvedEntitySchemaSlug,
-										propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
-									};
-								}),
-							).pipe(Effect.mapError(unknownToMessage));
+
+							return Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
+								const definition = definitions.getEntitySchema(entitySchemaSlug);
+								if (!definition) {
+									return Effect.fail("Entity schema not found");
+								}
+								if (!definition.pluginSlug) {
+									return Effect.fail("Entity schema plugin not found");
+								}
+								return Effect.succeed({
+									definition,
+									entitySchemaSlug,
+									pluginSlug: definition.pluginSlug,
+								});
+							}).pipe(
+								Effect.flatMap((schemas) =>
+									runWithDb(
+										Effect.gen(function* () {
+											const links =
+												yield* pluginRuntime.listSchemaProviders(resolvedEntitySchemaSlugs);
+											const providersBySchema = new Map<
+												string,
+												Array<{ name: string; providerId: string }>
+											>();
+											for (const { entitySchemaSlug, provider } of links) {
+												const providers = providersBySchema.get(entitySchemaSlug) ?? [];
+												providers.push({ name: provider.name, providerId: provider.id });
+												providersBySchema.set(entitySchemaSlug, providers);
+											}
+
+											return schemas.map(({ definition, entitySchemaSlug, pluginSlug }) => ({
+												accentColor: definition.accentColor,
+												icon: definition.icon,
+												id: entitySchemaSlug,
+												isBuiltin: true,
+												name: definition.name,
+												pluginSlug,
+												propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
+												providers: providersBySchema.get(entitySchemaSlug) ?? [],
+												slug: definition.slug,
+											}));
+										}),
+									).pipe(Effect.mapError(unknownToMessage)),
+								),
+							);
 						}),
 					),
 				),
@@ -499,8 +523,8 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return runWithDb(
 						integrationsRepository
 							.getForUser({
-								integrationId: IntegrationId.make(integrationId),
 								userId: UserId.make(input.authority.userId),
+								integrationId: IntegrationId.make(integrationId),
 							})
 							.pipe(
 								Effect.flatMap((integration) =>

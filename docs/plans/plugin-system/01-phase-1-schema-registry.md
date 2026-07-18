@@ -105,7 +105,7 @@ Find them mechanically: grep app-backend `src/` for `entitySchema`, `eventSchema
   Preserve read semantics (`modules/query-engine/README.md` is the spec; the 21-file e2e
   suite pins it).
 - **Sandbox host functions** (`sandbox-runtime/host-functions.ts`,
-  `bridge-adapter.ts` implementations): `getEntitySchema` and `listEventSchemas` re-read from
+  `bridge-adapter.ts` implementations): `getEntitySchemas` and `listEventSchemas` re-read from
   the registry. Keep the sandbox-facing response shapes identical if possible (provider
   scripts consume them); if a shape must change, update `packages/sandbox-sdk` contracts and the
   builtin scripts in the same commit.

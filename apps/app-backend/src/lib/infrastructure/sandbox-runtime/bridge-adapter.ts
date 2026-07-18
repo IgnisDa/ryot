@@ -141,12 +141,12 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.getEntities(input, ...args),
 		defaultFailure("getEntities", "getEntities expects an array of non-empty entityId strings"),
 	),
-	getEntitySchema: bindHostFunction(
-		domainSandboxHostContracts.getEntitySchema,
-		(...args) => implementations.getEntitySchema(input, ...args),
+	getEntitySchemas: bindHostFunction(
+		domainSandboxHostContracts.getEntitySchemas,
+		(...args) => implementations.getEntitySchemas(input, ...args),
 		defaultFailure(
-			"getEntitySchema",
-			"getEntitySchema expects a non-empty entitySchemaSlug string",
+			"getEntitySchemas",
+			"getEntitySchemas expects an array of non-empty entitySchemaSlug strings",
 		),
 	),
 	getIntegration: bindHostFunction(
