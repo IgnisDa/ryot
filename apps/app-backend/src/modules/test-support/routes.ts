@@ -32,16 +32,16 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.getSandboxResult(urlParams.executingUserId, path.jobId);
 			}).pipe(dieOnDbError),
 		)
-		.handle("startMediaPopulationGate", ({ payload }) =>
+		.handle("startWorkflowLoadGate", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* OperationalGateService;
-				return yield* svc.startMediaPopulation(payload);
+				return yield* svc.startWorkflowLoad(payload);
 			}).pipe(dieOnDbError),
 		)
-		.handle("getMediaPopulationGateResult", ({ payload }) =>
+		.handle("getWorkflowLoadGateResult", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* OperationalGateService;
-				return yield* svc.getMediaPopulationResult(payload);
+				return yield* svc.getWorkflowLoadResult(payload);
 			}).pipe(dieOnDbError),
 		)
 		.handle("sampleOperationalPressure", ({ payload }) =>
