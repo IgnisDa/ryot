@@ -32,7 +32,7 @@ export const providerSearchRecipe = defineRecipe(
 					),
 					joins: [
 						join("inner", operation, eq(column(provider, "id"), column(operation, "providerId"))),
-						join("inner", plugin, eq(column(provider, "pluginSlug"), column(plugin, "slug"))),
+						join("inner", plugin, eq(column(provider, "pluginId"), column(plugin, "id"))),
 					],
 					orderBy: [
 						ascending(column(provider, "name")),

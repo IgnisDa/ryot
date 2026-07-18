@@ -127,7 +127,7 @@ it.effect("updates populatedAt without changing entity fields", () => {
 		yield* service.setEntityPopulatedAt(entityId, populatedAt);
 		expect(updateInput).toEqual({
 			entityId,
-			entitySchemaSlug,
+			scope: "global",
 			name: entity.name,
 			populatedAt: populatedAtDate,
 			properties: entity.properties,

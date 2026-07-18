@@ -133,7 +133,9 @@ it.effect("keeps user-triggered system provider entities global", () => {
 			entitySchemaSlug: EntitySchemaSlug.make("record"),
 			providerId: SandboxProviderId.make("provider-1"),
 		});
-		expect(capture.getPayload()).toMatchObject({ entityScope: "global", userId: "user-1" });
+		expect(capture.getPayload()).toMatchObject({
+			entityScope: { type: "global", userId: "user-1" },
+		});
 	}).pipe(Effect.provide(capture.layer));
 });
 
@@ -149,6 +151,8 @@ it.effect("keeps user-triggered private provider entities user-owned", () => {
 			entitySchemaSlug: EntitySchemaSlug.make("record"),
 			providerId: SandboxProviderId.make("provider-1"),
 		});
-		expect(capture.getPayload()).toMatchObject({ entityScope: "user", userId: "user-1" });
+		expect(capture.getPayload()).toMatchObject({
+			entityScope: { type: "user", userId: "user-1" },
+		});
 	}).pipe(Effect.provide(capture.layer));
 });

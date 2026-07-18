@@ -1,16 +1,16 @@
-import type { PluginEntitySchema } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginEntityUserStatePolicy } from "@ryot-app/contract/modules/plugins/manifest";
 import type {
 	FieldSelection,
 	RyotQLDocument,
 	RowSelection,
 } from "@ryot-app/contract/modules/ryotql/language";
-import type {
-	SavedViewDefinitionIssue,
-	SavedViewLayoutName,
+import {
 	SavedViewLayouts,
+	type SavedViewDefinitionIssue,
+	type SavedViewLayoutName,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import type { AppSchema, PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
-import { Context, Data, Effect, Layer } from "effect";
+import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
+import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import {
 	formatPropertyIssues,
@@ -22,66 +22,81 @@ import { expressionKind, validateRyotQLDocument } from "#modules/ryotql/validato
 
 import { kernelDefinitionSource } from "./kernel-source";
 
-export type EventSchemaDefinition = {
-	readonly name: string;
-	readonly slug: string;
-	readonly propertiesSchema: AppSchema;
-	readonly pluginId?: string | null | undefined;
-};
+const pluginIdField = { pluginId: Schema.optional(Schema.NullOr(Schema.String)) };
 
-export type EntitySchemaDefinition = {
-	readonly icon: string;
-	readonly name: string;
-	readonly slug: string;
-	readonly pluginSlug: string | null;
-	readonly propertiesSchema: AppSchema;
-	readonly pluginId?: string | null | undefined;
-	readonly userState?: PluginEntitySchema["userState"];
-	readonly mergeIdentityProperties: ReadonlyArray<string>;
-	readonly eventSchemas: ReadonlyArray<EventSchemaDefinition>;
-};
+export const EventSchemaDefinition = Schema.Struct({
+	...pluginIdField,
+	name: Schema.String,
+	slug: Schema.String,
+	propertiesSchema: AppSchema,
+});
+
+export type EventSchemaDefinition = typeof EventSchemaDefinition.Type;
+
+export const EntitySchemaDefinition = Schema.Struct({
+	...pluginIdField,
+	icon: Schema.String,
+	name: Schema.String,
+	slug: Schema.String,
+	propertiesSchema: AppSchema,
+	pluginSlug: Schema.NullOr(Schema.String),
+	eventSchemas: Schema.Array(EventSchemaDefinition),
+	mergeIdentityProperties: Schema.Array(Schema.String),
+	userState: Schema.optional(PluginEntityUserStatePolicy),
+});
+
+export type EntitySchemaDefinition = typeof EntitySchemaDefinition.Type;
 
 type EntitySchemaSourceDefinition = Omit<EntitySchemaDefinition, "mergeIdentityProperties"> & {
 	readonly mergeIdentityProperties?: ReadonlyArray<string> | undefined;
 };
 
-export type RelationshipSchemaDefinition = {
-	readonly name: string;
-	readonly slug: string;
-	readonly propertiesSchema: AppSchema;
-	readonly pluginId?: string | null | undefined;
-	readonly sourceEntitySchemaSlug: string | null;
-	readonly targetEntitySchemaSlug: string | null;
-};
+export const RelationshipSchemaDefinition = Schema.Struct({
+	...pluginIdField,
+	name: Schema.String,
+	slug: Schema.String,
+	propertiesSchema: AppSchema,
+	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
+	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
+});
 
-export type SignalAudiencePolicy =
-	| { readonly kind: "actor" }
-	| {
-			readonly kind: "related_users";
-			readonly relationshipSchemaSlug: string;
-			readonly subjectSide: "source" | "target";
-	  };
+export type RelationshipSchemaDefinition = typeof RelationshipSchemaDefinition.Type;
 
-export type SignalSchemaDefinition = {
-	readonly name: string;
-	readonly slug: string;
-	readonly propertiesSchema: AppSchema;
-	readonly notificationScriptSlug: string;
-	readonly catalogState: "active" | "hidden";
-	readonly pluginId?: string | null | undefined;
-	readonly audiencePolicy: SignalAudiencePolicy;
-};
+export const SignalAudiencePolicy = Schema.Union([
+	Schema.Struct({ kind: Schema.Literal("actor") }),
+	Schema.Struct({
+		kind: Schema.Literal("related_users"),
+		relationshipSchemaSlug: Schema.String,
+		subjectSide: Schema.Literals(["source", "target"]),
+	}),
+]);
 
-export type SavedViewDefinition = {
-	readonly icon: string;
-	readonly name: string;
-	readonly slug: string;
-	readonly sortOrder: number;
-	readonly pluginSlug: string | null;
-	readonly layouts: SavedViewLayouts;
-	readonly entitySchemaSlug: string | null;
-	readonly pluginId?: string | null | undefined;
-};
+export type SignalAudiencePolicy = typeof SignalAudiencePolicy.Type;
+
+export const SignalSchemaDefinition = Schema.Struct({
+	...pluginIdField,
+	name: Schema.String,
+	slug: Schema.String,
+	propertiesSchema: AppSchema,
+	audiencePolicy: SignalAudiencePolicy,
+	notificationScriptSlug: Schema.String,
+	catalogState: Schema.Literals(["active", "hidden"]),
+});
+
+export type SignalSchemaDefinition = typeof SignalSchemaDefinition.Type;
+
+export const SavedViewDefinition = Schema.Struct({
+	...pluginIdField,
+	icon: Schema.String,
+	name: Schema.String,
+	slug: Schema.String,
+	sortOrder: Schema.Finite,
+	layouts: SavedViewLayouts,
+	pluginSlug: Schema.NullOr(Schema.String),
+	entitySchemaSlug: Schema.NullOr(Schema.String),
+});
+
+export type SavedViewDefinition = typeof SavedViewDefinition.Type;
 
 type SourceDefinition<Definition> = Omit<Definition, "pluginId"> & {
 	readonly pluginId?: string | null | undefined;
@@ -99,16 +114,21 @@ export type DefinitionSource = {
 	>;
 };
 
-type EntitySchemaSnapshot = Omit<EntitySchemaDefinition, "eventSchemas"> & {
-	readonly eventSchemas: Readonly<Record<string, EventSchemaDefinition>>;
-};
+export const EntitySchemaSnapshot = Schema.Struct({
+	...EntitySchemaDefinition.fields,
+	eventSchemas: Schema.Record(Schema.String, EventSchemaDefinition),
+});
 
-export type DefinitionSnapshot = {
-	readonly savedViews: Readonly<Record<string, SavedViewDefinition>>;
-	readonly entitySchemas: Readonly<Record<string, EntitySchemaSnapshot>>;
-	readonly signalSchemas: Readonly<Record<string, SignalSchemaDefinition>>;
-	readonly relationshipSchemas: Readonly<Record<string, RelationshipSchemaDefinition>>;
-};
+export type EntitySchemaSnapshot = typeof EntitySchemaSnapshot.Type;
+
+export const DefinitionSnapshot = Schema.Struct({
+	savedViews: Schema.Record(Schema.String, SavedViewDefinition),
+	entitySchemas: Schema.Record(Schema.String, EntitySchemaSnapshot),
+	signalSchemas: Schema.Record(Schema.String, SignalSchemaDefinition),
+	relationshipSchemas: Schema.Record(Schema.String, RelationshipSchemaDefinition),
+});
+
+export type DefinitionSnapshot = typeof DefinitionSnapshot.Type;
 
 export class DefinitionNotFound extends Data.TaggedError("DefinitionNotFound")<{
 	readonly kind: string;

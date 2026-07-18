@@ -177,6 +177,7 @@ it.effect(
 
 		return Effect.gen(function* () {
 			const outcomes = yield* synchronizeGlobalRelationships({
+				scope: "global",
 				anchorEntityId,
 				direction: "outgoing",
 				onConflict: "replaceProperties",
@@ -251,6 +252,7 @@ it.effect("preserves different existing properties as a noop", () => {
 
 	return Effect.gen(function* () {
 		const outcomes = yield* synchronizeGlobalRelationships({
+			scope: "global",
 			anchorEntityId,
 			direction: "outgoing",
 			synchronization: "additive",
@@ -311,6 +313,7 @@ it.effect(
 			);
 			const synchronize = (direction: "incoming" | "outgoing") =>
 				synchronizeGlobalRelationships({
+					scope: "global",
 					direction,
 					synchronization: "additive",
 					onConflict: "preserveExisting",
