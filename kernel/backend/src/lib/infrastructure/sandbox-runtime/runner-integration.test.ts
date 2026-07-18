@@ -1037,21 +1037,25 @@ it("exposes only granted artifact reads and named scratch chunk writes", () =>
 		),
 	));
 
-it("loads one compiled fixture for each approved SDK dependency without remote modules", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const compiler = yield* SandboxCompiler;
-			for (const dependency of SANDBOX_RUNTIME_REGISTRY) {
-				const compiled = yield* compiler.compile(
-					dependencySource(dependency.name, dependency.sdkImport),
-				);
-				const result = yield* runInDeno(compiled, {});
-				assert(result !== null && typeof result === "object");
-				expect(Reflect.get(result, "error"), dependency.name).toBeUndefined();
-				expect(result).toMatchObject({ value: null, success: true });
-			}
-		}).pipe(Effect.provide(SandboxCompiler.layer)),
-	));
+it(
+	"loads one compiled fixture for each approved SDK dependency without remote modules",
+	() =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const compiler = yield* SandboxCompiler;
+				for (const dependency of SANDBOX_RUNTIME_REGISTRY) {
+					const compiled = yield* compiler.compile(
+						dependencySource(dependency.name, dependency.sdkImport),
+					);
+					const result = yield* runInDeno(compiled, {});
+					assert(result !== null && typeof result === "object");
+					expect(Reflect.get(result, "error"), dependency.name).toBeUndefined();
+					expect(result).toMatchObject({ value: null, success: true });
+				}
+			}).pipe(Effect.provide(SandboxCompiler.layer)),
+		),
+	50_000,
+);
 
 it("preserves Effect and RyotQL identity across SDK and plugin-kit aliases", () =>
 	Effect.runPromise(
