@@ -1139,7 +1139,7 @@ it(
 						}),
 					{ concurrency: 5 },
 				);
-			}),
+			}).pipe(Effect.provide(BunServices.layer)),
 		),
 	120_000,
 );
@@ -1206,7 +1206,7 @@ it(
 							sourceUrl: "https://anilist.co/anime/7/Compiled%20Anime",
 						},
 					});
-				}),
+				}).pipe(Effect.provide(BunServices.layer)),
 			),
 		),
 	120_000,
@@ -1261,7 +1261,7 @@ it(
 					});
 					const cacheWrite = bridge.calls.find((call) => call.fnName === "setCachedValue");
 					expect(cacheWrite?.args).toEqual(["tvdb_access_token", "Bearer compiled-token", 82_800]);
-				}),
+				}).pipe(Effect.provide(BunServices.layer)),
 			),
 		),
 	120_000,

@@ -1,3 +1,4 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
 import { Conflict } from "@ryot/contract/errors";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
@@ -257,7 +258,7 @@ const makeLayer = (input?: {
 			),
 		),
 	);
-	return Layer.mergeAll(loaderLayer, ingestionLayer);
+	return Layer.mergeAll(BunFileSystem.layer, loaderLayer, ingestionLayer);
 };
 
 it.effect("validates, compiles, content-addresses, persists, loads, and publishes", () => {
@@ -670,7 +671,7 @@ it.effect("periodically rebuilds a peer after lost install and uninstall publica
 		yield* Queue.offer(ticks, undefined);
 		yield* Queue.take(rebuilds);
 		expect(peerLoader.getSnapshot().plugins["fixture"]).toBeUndefined();
-	}),
+	}).pipe(Effect.provide(BunFileSystem.layer)),
 );
 
 it.effect("fences uninstall while a queued import workflow references the plugin", () => {
