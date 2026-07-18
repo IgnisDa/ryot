@@ -9,6 +9,7 @@ describe("settings sections", () => {
 			["Integrations", "/settings/integrations"],
 			["Notification channels", "/settings/notification-channels"],
 			["Import data", "/settings/import-data"],
+			["Backups", "/settings/backups"],
 			["Account", "/settings/account"],
 		]);
 	});
@@ -21,6 +22,7 @@ describe("settings sections", () => {
 		["/settings/import-data", "import-data"],
 		["/settings/import-data/run-1", "import-data"],
 		["/media/settings/import-data/run-1", "import-data"],
+		["/settings/backups", "backups"],
 		["/settings/account-recovery", "general"],
 		["/settings/account", "account"],
 	] as const)("resolves %s to %s", (pathname, expected) => {

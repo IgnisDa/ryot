@@ -3,11 +3,6 @@
 Ryot backups are portable copies of your personal data. You can keep a backup for safety or
 restore it to a new Ryot account later.
 
-::: info
-Backup and restore support is available in the Ryot server, but the controls are not yet
-available in the web app.
-:::
-
 ## What a backup includes
 
 A backup includes your:
@@ -32,7 +27,24 @@ A backup does not include:
 
 Secret fields declared by a plugin are removed from the backup.
 
-## Before restoring
+## Creating a backup
+
+Open _Settings_ → _Backups_ and choose _Create a backup_. Your server packs the backup in the
+background, so you can leave the page or close Ryot while it runs. The backup appears in the list
+on that page with its progress, and becomes downloadable once it finishes.
+
+Choose _Download_ on a finished backup to save the `.zip` archive. On a phone or tablet, Ryot
+hands the archive to the system share sheet so you can save it wherever you keep your files.
+
+You can also delete a backup from this page. Deleting removes the record and the stored archive;
+it never touches the data in your account.
+
+## Keeping backups safe
+
+Backup downloads expire after 24 hours. Download the file before it expires and store it in a
+safe place. A backup can contain private history and copies of files you uploaded to Ryot.
+
+## Restoring a backup
 
 A backup can only be restored to a clean account. A clean account is new or has been reset and
 contains no personal data or custom settings.
@@ -40,15 +52,15 @@ contains no personal data or custom settings.
 The same required plugins and providers must be available on the destination Ryot server. You
 do not need to configure integrations again until after the restore.
 
+To restore, open _Settings_ → _Backups_ on the destination account, choose _Restore from a
+backup_, and upload the `.zip` archive. Ryot checks the archive before it writes anything, so a
+damaged or incomplete file is rejected without changing your account. The restore then runs on
+your server, and its progress appears in the same list as your backups.
+
 Restore is separate from importing. Do not upload a Ryot backup through the Imports page.
 
 After a successful restore, the account is no longer clean, so the same or another backup cannot
 be restored again without resetting the account first.
-
-## Keeping backups safe
-
-Backup downloads expire after 24 hours. Download the file before it expires and store it in a
-safe place. A backup can contain private history and copies of files you uploaded to Ryot.
 
 ## Whole-server backups
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createWizardState, wizardReducer, wizardStepLabel } from "./wizard-state";
+import { createWizardState, WIZARD_STEPS, wizardReducer, wizardStepLabel } from "./wizard-state";
 
 const headings = {
 	pick: "Choose a service",
@@ -14,8 +14,10 @@ const picked = wizardReducer(initial, { type: "picked", slug: "netflix" });
 
 describe("wizard state", () => {
 	it("numbers each step for the header", () => {
-		expect(wizardStepLabel("pick", headings)).toBe("Step 1 of 3 · Choose a service");
-		expect(wizardStepLabel("review", headings)).toBe("Step 3 of 3 · Review and start");
+		expect(wizardStepLabel("pick", WIZARD_STEPS, headings)).toBe("Step 1 of 3 · Choose a service");
+		expect(wizardStepLabel("review", WIZARD_STEPS, headings)).toBe(
+			"Step 3 of 3 · Review and start",
+		);
 	});
 
 	it("advances from a picked service through review", () => {

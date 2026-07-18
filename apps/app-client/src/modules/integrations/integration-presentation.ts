@@ -1,4 +1,4 @@
-import { formatImportRelativeTime } from "@/modules/import-runs/run-presentation";
+import { formatRelativeTime } from "@/modules/ui/run/run-status";
 
 import { integrationProviderKey } from "./state";
 
@@ -33,7 +33,7 @@ export const integrationSyncLabel = (
 ) =>
 	integration.lastFinishedAt === null
 		? "Never synced"
-		: `Synced ${formatImportRelativeTime(integration.lastFinishedAt, nowMs)}`;
+		: `Synced ${formatRelativeTime(integration.lastFinishedAt, nowMs)}`;
 
 export const integrationStateLabel = (integration: { readonly isDisabled: boolean }) =>
 	integration.isDisabled ? "Paused" : "Active";
