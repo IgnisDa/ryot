@@ -1,6 +1,3 @@
-import * as PersistedQueue from "@effect/experimental/PersistedQueue";
-import { Activity } from "@effect/workflow";
-import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { SandboxRunError } from "@ryot/contract/errors";
 import { badRequest } from "@ryot/contract/errors";
 import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
@@ -15,9 +12,13 @@ import type {
 import { EntityId, EntitySchemaSlug, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
+import { PersistedQueue } from "effect/unstable/persistence";
+import { Activity } from "effect/unstable/workflow";
+import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+import { withoutSchemaServices } from "#lib/shared/schema";
 import { AutomationsService } from "#modules/automations/service";
 import {
 	LifecycleDispatch,
@@ -64,7 +65,7 @@ const CreatedEvent = Schema.Struct({
 	subjectName: Schema.String,
 	eventSchemaSlug: EventSchemaSlug,
 	entitySchemaSlug: EntitySchemaSlug,
-	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+	properties: Schema.Record(Schema.String, Schema.Unknown),
 });
 
 type CreatedEvent = typeof CreatedEvent.Type;
@@ -81,10 +82,10 @@ export type EventCreateWorkflowOperationsValue = {
  * context, so these requirements are intentionally pass-through.
  * @effect-expect-leaking WorkflowEngine WorkflowInstance
  */
-export class EventCreateWorkflowOperations extends Context.Tag("EventCreateWorkflowOperations")<
+export class EventCreateWorkflowOperations extends Context.Service<
 	EventCreateWorkflowOperations,
 	EventCreateWorkflowOperationsValue
->() {}
+>()("EventCreateWorkflowOperations") {}
 
 export const EventCreateWorkflowOperationsLive = Layer.effect(
 	EventCreateWorkflowOperations,
@@ -115,9 +116,9 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 	const automations = yield* AutomationsService;
 
 	return yield* Activity.make({
-		success: PreparedItem,
+		success: withoutSchemaServices(PreparedItem),
 		name: `prepare-item-${itemIndex}`,
-		error: EventCreateWorkflowError,
+		error: withoutSchemaServices(EventCreateWorkflowError),
 		execute: Effect.gen(function* () {
 			const { entityId, entityScope, eventSchemaScope, sessionEntityId, occurredAt } =
 				yield* resolveEventCreateItemScopes({ item, userId: payload.userId });
@@ -167,8 +168,8 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const eventsRepository = yield* EventsRepository;
 
 	return yield* Activity.make({
-		success: CreatedEvent,
-		error: EventCreateWorkflowError,
+		success: withoutSchemaServices(CreatedEvent),
+		error: withoutSchemaServices(EventCreateWorkflowError),
 		name: `write-event-${itemIndex}`,
 		execute: Effect.gen(function* () {
 			const createdEvent = yield* runWithDb(
@@ -180,7 +181,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 					eventSchemaSlug: prepared.eventSchemaSlug,
 					eventSchemaName: prepared.eventSchemaName,
 					id: EventId.make(`${payload.executionId}-event-${itemIndex}`),
-					occurredAt: DateTime.toDate(DateTime.unsafeMake(draft.occurredAt)),
+					occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
 				}),
 			);
 

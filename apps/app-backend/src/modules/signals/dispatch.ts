@@ -17,7 +17,6 @@ type SignalDispatchValue = {
 	dispatch: (input: SignalDispatchInput) => Effect.Effect<void, DbError>;
 };
 
-export class SignalDispatch extends Context.Tag("SignalDispatch")<
-	SignalDispatch,
-	SignalDispatchValue
->() {}
+export class SignalDispatch extends Context.Service<SignalDispatch, SignalDispatchValue>()(
+	"SignalDispatch",
+) {}

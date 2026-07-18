@@ -5,7 +5,7 @@ import {
 } from "@ryot/contract/modules/automations/schemas";
 import { EntityId, SignalId, SignalSchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
-import { Effect, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -34,7 +34,7 @@ export type InsertSignalInput = {
 };
 
 const toStoredSignal = Effect.fn(function* (row: SignalRow) {
-	const origin = yield* Schema.decodeUnknown(AutomationOrigin)(row.origin).pipe(
+	const origin = yield* Schema.decodeUnknownEffect(AutomationOrigin)(row.origin).pipe(
 		Effect.mapError(() => new DbError({ message: `Invalid origin for signal ${row.id}` })),
 	);
 	return {
@@ -49,8 +49,8 @@ const toStoredSignal = Effect.fn(function* (row: SignalRow) {
 	};
 });
 
-export class SignalsRepository extends Effect.Service<SignalsRepository>()("SignalsRepository", {
-	sync: () => {
+export class SignalsRepository extends Context.Service<SignalsRepository>()("SignalsRepository", {
+	make: Effect.sync(() => {
 		const insert = Effect.fn("SignalsRepository.insert")(function* (input: InsertSignalInput) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -144,5 +144,7 @@ export class SignalsRepository extends Effect.Service<SignalsRepository>()("Sign
 			listBySchemaSlug,
 			listRecipientUserIds,
 		};
-	},
-}) {}
+	}),
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
