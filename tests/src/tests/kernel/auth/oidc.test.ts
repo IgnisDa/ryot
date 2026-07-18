@@ -242,7 +242,7 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 			const client = makeSession(getBackendUrlA(), headers);
 			const [catalog, rules] = yield* Effect.all([
 				client.call((c) => c.automations.listCatalog()),
-				listNotificationSubscriptionStates(client, { limit: 100, page: 1 }),
+				listNotificationSubscriptionStates(client, { limit: 100 }),
 			]);
 			expect(rules).toHaveLength(catalog.length);
 			expect(rules.map((rule) => rule.signalSchemaSlug).sort()).toEqual(

@@ -1,6 +1,7 @@
 import {
 	BooleanFieldValue,
 	DateFieldValue,
+	RowsPageInfo,
 	TextFieldValue,
 	rowsResultSchema,
 } from "@ryot/contract/modules/ryotql/language";
@@ -38,15 +39,8 @@ export const NotificationSubscriptionState = strictStruct({
 });
 export type NotificationSubscriptionState = typeof NotificationSubscriptionState.Type;
 
-const NotificationSubscriptionStatePageInfo = strictStruct({
-	page: Schema.Int,
-	limit: Schema.Int,
-	total: Schema.Int,
-	hasMore: Schema.Boolean,
-});
-
 export const NotificationSubscriptionStateList = strictStruct({
-	pageInfo: NotificationSubscriptionStatePageInfo,
+	pageInfo: RowsPageInfo,
 	items: Schema.Array(NotificationSubscriptionState),
 });
 export type NotificationSubscriptionStateList = typeof NotificationSubscriptionStateList.Type;
@@ -86,7 +80,7 @@ const notificationSubscriptionStateFields = (
 ];
 
 export const buildNotificationSubscriptionStatesDocument = (input: {
-	readonly page: number;
+	readonly after?: string | undefined;
 	readonly limit: number;
 }) => {
 	const notificationSubscriptionState = table(
@@ -95,7 +89,7 @@ export const buildNotificationSubscriptionStatesDocument = (input: {
 	);
 	return document({
 		notificationSubscriptionStates: rows(notificationSubscriptionState, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			fields: notificationSubscriptionStateFields(notificationSubscriptionState),
 			orderBy: [

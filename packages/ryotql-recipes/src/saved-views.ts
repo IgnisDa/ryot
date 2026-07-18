@@ -115,7 +115,7 @@ export const buildSavedViewLayoutProjections = (input: SavedViewLayoutProjection
 });
 
 export const buildSavedViewDocument = (input: {
-	readonly page?: number | undefined;
+	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly where?: Predicate | undefined;
 	readonly fields: readonly FieldSelection[];
@@ -134,7 +134,7 @@ export const buildSavedViewDocument = (input: {
 
 	return document({
 		savedView: rows(entity, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			fields: input.fields,
 			where: input.where ? and(schemaFilter, input.where) : schemaFilter,

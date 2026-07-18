@@ -125,12 +125,12 @@ export const buildUserLibraryDocument = () => {
 	});
 };
 
-export const buildMediaMonitoringSweepDocument = (page: number, limit: number) => {
+export const buildMediaMonitoringSweepDocument = (after: string | undefined, limit: number) => {
 	const entity = table("entity", "entity");
 	const relationship = table("relationship", "monitoringRelationship");
 	return document({
 		targets: rows(entity, {
-			page,
+			after,
 			limit,
 			fields: targetFields(entity),
 			orderBy: [ascending(column(entity, "id"))],
@@ -168,7 +168,7 @@ export const decodeMediaMonitoringSweep = (response: unknown) => {
 			providerId: row.providerId.value,
 			entitySchemaSlug: row.entitySchemaSlug.value,
 		})),
-		hasMore: result.pageInfo.hasMore,
+		nextCursor: result.pageInfo.nextCursor,
 	};
 };
 

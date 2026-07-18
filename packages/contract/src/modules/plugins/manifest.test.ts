@@ -10,7 +10,7 @@ const queryDocument = {
 			output: {
 				orderBy: [],
 				type: "rows",
-				pagination: { limit: 20, page: 1 },
+				pagination: { limit: 20 },
 				fields: [
 					{ key: "entityId", expr: { field: "id", tableAlias: "entity", type: "column" } },
 					{ key: "title", expr: { field: "name", tableAlias: "entity", type: "column" } },

@@ -418,7 +418,6 @@ function buildSeedLayouts(
 	const documentFor = (fields: readonly FieldSelection[]) =>
 		buildSavedViewDocument({
 			fields,
-			page: 1,
 			limit: 20,
 			entitySchemaSlugs: scope as [string, ...string[]],
 		});
