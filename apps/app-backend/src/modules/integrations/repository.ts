@@ -8,7 +8,7 @@ import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { and, desc, eq } from "drizzle-orm";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
@@ -60,10 +60,10 @@ const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): Integra
 const ownedIntegrationWhere = (input: { integrationId: IntegrationId; userId: UserId }) =>
 	and(eq(schema.integration.id, input.integrationId), eq(schema.integration.userId, input.userId));
 
-export class IntegrationsRepository extends Effect.Service<IntegrationsRepository>()(
+export class IntegrationsRepository extends Context.Service<IntegrationsRepository>()(
 	"IntegrationsRepository",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const { frontendUrl } = yield* AppConfig;
 
 			const createForUser = Effect.fn("IntegrationsRepository.createForUser")(function* (input: {
@@ -314,4 +314,6 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 			};
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

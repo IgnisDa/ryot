@@ -1,5 +1,5 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import type { CronTask } from "#modules/scheduler/types";
 
@@ -20,7 +20,7 @@ export const integrationsFrequentTask: FrequentCronTask = {
 					payload: { executionId: reconcileExecutionId },
 				})
 				.pipe(
-					Effect.catchAllCause((cause) =>
+					Effect.catchCause((cause) =>
 						Effect.logError("integrations reconcile enqueue failed", cause),
 					),
 				);

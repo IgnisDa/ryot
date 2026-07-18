@@ -1,4 +1,3 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
@@ -11,7 +10,8 @@ import type {
 } from "@ryot/contract/modules/integrations/schemas";
 import { IntegrationWebhookPayload as IntegrationWebhookPayloadSchema } from "@ryot/contract/modules/integrations/schemas";
 import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
-import { Effect, Either, Schema } from "effect";
+import { Context, Effect, Result, Layer, Schema } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import {
@@ -31,8 +31,8 @@ const defaultExtraSettings = {
 	disableOnContinuousErrors: false,
 } satisfies IntegrationExtraSettings;
 
-const encodeIntegrationWebhookPayload = Schema.encode(
-	Schema.parseJson(IntegrationWebhookPayloadSchema),
+const encodeIntegrationWebhookPayload = Schema.encodeUnknownEffect(
+	Schema.fromJsonString(IntegrationWebhookPayloadSchema),
 );
 
 const validateRegisteredSettings = (
@@ -82,10 +82,10 @@ export const validateProgressThresholds = (
 	return null;
 };
 
-export class IntegrationsService extends Effect.Service<IntegrationsService>()(
+export class IntegrationsService extends Context.Service<IntegrationsService>()(
 	"IntegrationsService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const importsService = yield* ImportsService;
@@ -298,9 +298,9 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 							contentType: "application/json",
 						},
 					})
-					.pipe(Effect.either);
+					.pipe(Effect.result);
 
-				if (Either.isLeft(started)) {
+				if (Result.isFailure(started)) {
 					yield* failCreatedRun(run.id, "Failed to enqueue integration job");
 					return yield* badRequest("Could not queue the integration job; please try again");
 				}
@@ -372,4 +372,6 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 			};
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

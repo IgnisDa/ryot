@@ -1,10 +1,10 @@
-import * as PersistedQueue from "@effect/experimental/PersistedQueue";
-import { Activity } from "@effect/workflow";
-import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
 import type { SandboxCompletedResult } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
+import { PersistedQueue } from "effect/unstable/persistence";
+import { Activity } from "effect/unstable/workflow";
+import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
@@ -26,10 +26,10 @@ export type IntegrationRunOperationsValue = {
 	) => Effect.Effect<SandboxCompletedResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 };
 
-export class IntegrationRunOperations extends Context.Tag("IntegrationRunOperations")<
+export class IntegrationRunOperations extends Context.Service<
 	IntegrationRunOperations,
 	IntegrationRunOperationsValue
->() {}
+>()("IntegrationRunOperations") {}
 
 const runIntegrationAdapter = (input: RunAdapterInput) =>
 	Effect.gen(function* () {
