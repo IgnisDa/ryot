@@ -235,27 +235,28 @@ const server = group(
 	{
 		oidc,
 		smtp,
-		logFile: stringField({
-			label: "Log file",
-			envKey: "SERVER_LOG_FILE",
-			description: "File path for appended structured logs",
-		}),
-		logLevel: stringField({
-			label: "Log level",
-			defaultValue: "info",
-			envKey: "SERVER_LOG_LEVEL",
-			description: "Minimum application log level",
-		}),
 		otlpEndpoint: stringField({
 			label: "OTLP endpoint",
 			envKey: "SERVER_OTLP_ENDPOINT",
-			description: "Base URL for OTLP traces and metrics export",
+			description: "Base URL for OTLP logs, traces, and metrics export",
 		}),
 		proKey: stringField({
 			secret: true,
 			label: "Pro key",
 			envKey: "SERVER_PRO_KEY",
 			description: "The key that can be used to enable Ryot Pro features",
+		}),
+		logFile: stringField({
+			label: "Log file",
+			envKey: "SERVER_LOG_FILE",
+			defaultValue: "./logs/ryot.log",
+			description: "File path for rotating structured logs",
+		}),
+		logLevel: stringField({
+			label: "Log level",
+			defaultValue: "info",
+			envKey: "SERVER_LOG_LEVEL",
+			description: "Minimum log level for file and OTLP logs; console logs always use info",
 		}),
 		clientDir: stringField({
 			hidden: true,
@@ -269,6 +270,24 @@ const server = group(
 			label: "Disable notifications",
 			envKey: "SERVER_DISABLE_NOTIFICATIONS",
 			description: "Disable delivery of all notifications",
+		}),
+		logRotationSize: stringField({
+			defaultValue: "10M",
+			label: "Log rotation size",
+			envKey: "SERVER_LOG_ROTATION_SIZE",
+			description: "Maximum active log file size before rotation, such as 10M",
+		}),
+		logRotationInterval: stringField({
+			defaultValue: "1d",
+			label: "Log rotation interval",
+			envKey: "SERVER_LOG_ROTATION_INTERVAL",
+			description: "UTC interval between log rotations, such as 1d",
+		}),
+		logRetentionFiles: integerField({
+			defaultValue: 7,
+			label: "Log retention files",
+			envKey: "SERVER_LOG_RETENTION_FILES",
+			description: "Maximum number of compressed rotated log files to retain",
 		}),
 		adminAccessToken: stringField({
 			secret: true,
