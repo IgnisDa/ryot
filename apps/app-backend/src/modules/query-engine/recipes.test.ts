@@ -6,7 +6,7 @@ import {
 	buildWorkoutListQueryDocument,
 	buildWorkoutTemplateDetailQueryDocument,
 	buildWorkoutTemplateListQueryDocument,
-} from "@ryot/plugin-fitness/query-recipes";
+} from "@ryot/fitness-plugin/query-recipes";
 import {
 	buildCollectionMediaSuggestionsQueryDocument,
 	buildCompletedPodcastsQueryDocument,
@@ -18,7 +18,7 @@ import {
 	buildPodcastDetailQueryDocument,
 	buildShowDetailQueryDocument,
 	buildTrendingMediaQueryDocument,
-} from "@ryot/plugin-media/query-recipes";
+} from "@ryot/media-fitness/query-recipes";
 import {
 	buildDefaultSavedViewQueryDocument,
 	buildEntityDetailQueryDocument,

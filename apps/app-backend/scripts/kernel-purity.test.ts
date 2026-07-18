@@ -1,4 +1,4 @@
-import fitnessPlugin from "@ryot/plugin-fitness";
+import fitnessPlugin from "@ryot/fitness-plugin";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { assert, describe, expect, it } from "vitest";
 

@@ -1,4 +1,4 @@
-import { buildCompletedShowsQueryDocument } from "@ryot/plugin-media/query-recipes";
+import { buildCompletedShowsQueryDocument } from "@ryot/media-fitness/query-recipes";
 import { Effect } from "effect";
 
 import {
