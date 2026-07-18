@@ -1,4 +1,5 @@
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Context, Effect, Layer } from "effect";
 
@@ -11,7 +12,7 @@ import { ScriptGarbageCollector } from "./script-garbage-collector";
 import { PluginIngestionService } from "./service";
 import { loadPluginSource } from "./source";
 
-const digest = (value: string) => new Bun.CryptoHasher("sha256").update(value).digest("hex");
+const digest = sha256Hex;
 
 export class FirstPartyPluginBootstrap extends Context.Service<FirstPartyPluginBootstrap>()(
 	"FirstPartyPluginBootstrap",

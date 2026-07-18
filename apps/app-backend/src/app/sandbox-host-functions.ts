@@ -11,6 +11,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
+import { sha256Base64Url } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { eq } from "drizzle-orm";
@@ -73,8 +74,7 @@ const decodeQueryDocument = Schema.decodeUnknownEffect(Schema.toType(QueryDocume
 const decodeListEventsQuery = Schema.decodeUnknownEffect(ListEventsQuery);
 const decodeCreateEventsPayload = Schema.decodeUnknownEffect(CreateEventsPayload);
 
-const hashPayload = (payload: unknown) =>
-	new Bun.CryptoHasher("sha256").update(stableStringify(payload)).digest("base64url");
+const hashPayload = (payload: unknown) => sha256Base64Url(stableStringify(payload));
 
 const toSandboxIntegrationSettings = (settings: Readonly<Record<string, unknown>>) =>
 	Object.fromEntries(

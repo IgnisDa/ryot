@@ -1,5 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Effect, FileSystem, Path } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -11,8 +12,7 @@ import {
 	SandboxCompiledModuleMaterializationError,
 } from "./compiled-modules";
 
-const hash = (javascript: string) =>
-	new Bun.CryptoHasher("sha256").update(new TextEncoder().encode(javascript)).digest("hex");
+const hash = sha256Hex;
 
 const withModuleDirectory = <A, E>(
 	use: (

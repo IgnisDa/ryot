@@ -2,6 +2,7 @@ import { BunServices, BunHttpServer } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Effect, Layer, Schema, Stream, FileSystem, Path } from "effect";
 import { HttpEffect, HttpServer } from "effect/unstable/http";
 import { ChildProcess } from "effect/unstable/process";
@@ -544,7 +545,7 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 			const moduleUrls = yield* Effect.forEach(requests, ({ compiled }) =>
 				materializeSandboxCompiledModule(
 					runtime,
-					new Bun.CryptoHasher("sha256").update(compiled.javascript).digest("hex"),
+					sha256Hex(compiled.javascript),
 					compiled.javascript,
 				).pipe(
 					Effect.flatMap(path.toFileUrl),
