@@ -1,8 +1,12 @@
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Exit, Layer, Option, Redacted, Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
 import type { AppConfigValue } from "#lib/infrastructure/config/service";
-import { AppConfig, validateSystemConfig } from "#lib/infrastructure/config/service";
+import {
+	AppConfig,
+	parseOtlpHeaders,
+	validateSystemConfig,
+} from "#lib/infrastructure/config/service";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 
 type Overrides = Parameters<typeof makeAppConfigLayer>[0];
@@ -139,5 +143,92 @@ describe("FRONTEND_URL validation", () => {
 				"FRONTEND_URL must be an absolute HTTP or HTTPS origin",
 			);
 		}
+	});
+});
+
+describe("SERVER_OTLP_ENDPOINT validation", () => {
+	it.each(["http://127.0.0.1:4318", "https://collector.example", "https://collector.example/otlp"])(
+		"accepts collector base URL %s",
+		(endpoint) => {
+			const result = validate({ server: { otlpEndpoint: Option.some(endpoint) } });
+			expect(Exit.isSuccess(result)).toBe(true);
+		},
+	);
+
+	it.each(["collector.example", "ftp://collector.example", "127.0.0.1:4318"])(
+		"rejects non-HTTP endpoint %s",
+		(endpoint) => {
+			const result = validate({ server: { otlpEndpoint: Option.some(endpoint) } });
+			assert(Exit.isFailure(result));
+			expect(JSON.stringify(result.cause)).toContain(
+				"SERVER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL",
+			);
+		},
+	);
+
+	it.each([
+		"https://collector.example?token=abc",
+		"https://collector.example#fragment",
+		"https://user:secret@collector.example",
+	])("rejects endpoint %s carrying a query, fragment, or credentials", (endpoint) => {
+		const result = validate({ server: { otlpEndpoint: Option.some(endpoint) } });
+		assert(Exit.isFailure(result));
+		expect(JSON.stringify(result.cause)).toContain(
+			"SERVER_OTLP_ENDPOINT must not contain a query, fragment, or credentials",
+		);
+	});
+
+	it.each(["https://api.honeycomb.io/v1/traces", "https://collector.example/otlp/v1/traces/"])(
+		"rejects endpoint %s that already carries the appended signal path",
+		(endpoint) => {
+			const result = validate({ server: { otlpEndpoint: Option.some(endpoint) } });
+			assert(Exit.isFailure(result));
+			expect(JSON.stringify(result.cause)).toContain("without '/v1/traces'");
+		},
+	);
+});
+
+describe("SERVER_OTLP_HEADERS validation", () => {
+	it("parses comma-separated pairs and keeps separators inside values", () => {
+		const parsed = parseOtlpHeaders("x-honeycomb-team=abc123 , authorization=Basic dXNlcj1wdw==");
+		assert(Result.isSuccess(parsed));
+		expect(parsed.success).toEqual({
+			"x-honeycomb-team": "abc123",
+			authorization: "Basic dXNlcj1wdw==",
+		});
+	});
+
+	it("ignores empty entries left by a trailing comma", () => {
+		const parsed = parseOtlpHeaders("x-api-key=abc123,");
+		assert(Result.isSuccess(parsed));
+		expect(parsed.success).toEqual({ "x-api-key": "abc123" });
+	});
+
+	it("keeps the token out of the failure message for a pair with no separator", () => {
+		const parsed = parseOtlpHeaders("s3cret-token");
+		assert(Result.isFailure(parsed));
+		expect(parsed.failure).toBe("entry 1 is not a key=value pair");
+	});
+
+	it.each(["x-api-key=", "x-api-key=   "])("rejects header %s with an empty value", (value) => {
+		const parsed = parseOtlpHeaders(value);
+		assert(Result.isFailure(parsed));
+		expect(parsed.failure).toBe("header 'x-api-key' has an empty value");
+	});
+
+	it.each(["", "  ", ","])("rejects value %s that yields no headers", (value) => {
+		const parsed = parseOtlpHeaders(value);
+		assert(Result.isFailure(parsed));
+		expect(parsed.failure).toBe("it is set but contains no headers");
+	});
+
+	it("fails startup when the configured headers are malformed", () => {
+		const result = validate({
+			server: { otlpHeaders: Option.some(Redacted.make("s3cret-token")) },
+		});
+		assert(Exit.isFailure(result));
+		expect(JSON.stringify(result.cause)).toContain(
+			"SERVER_OTLP_HEADERS is invalid: entry 1 is not a key=value pair",
+		);
 	});
 });

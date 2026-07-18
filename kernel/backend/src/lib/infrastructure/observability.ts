@@ -1,8 +1,19 @@
-import { Effect, Layer, Logger, LogLevel, Option, type Context, Tracer, References } from "effect";
+import {
+	Effect,
+	Layer,
+	Logger,
+	LogLevel,
+	Option,
+	Redacted,
+	Result,
+	type Context,
+	Tracer,
+	References,
+} from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { OtlpSerialization, OtlpTracer } from "effect/unstable/observability";
 
-import { AppConfig } from "./config/service";
+import { AppConfig, type AppConfigValue, parseOtlpHeaders } from "./config/service";
 
 const stdoutLogfmtLogger = Logger.formatLogFmt.pipe(
 	Logger.map((line) => globalThis.console.log(line)),
@@ -71,16 +82,26 @@ const decorateTracer = (tracer: Tracer.Tracer, runtime: Context.Context<never>) 
 		},
 	});
 
-const makeTracerLayer = (endpoint: Option.Option<string>, logLevel: LogLevel.LogLevel) => {
-	const inner = Option.match(endpoint, {
+const otlpHeaders = (headers: Option.Option<Redacted.Redacted>) =>
+	Option.match(headers, {
+		onNone: () => undefined,
+		onSome: (value) => Result.getOrUndefined(parseOtlpHeaders(Redacted.value(value))),
+	});
+
+const makeTracerLayer = (config: AppConfigValue) => {
+	const inner = Option.match(config.server.otlpEndpoint, {
 		onNone: () => Layer.empty,
 		onSome: (baseUrl) =>
 			OtlpTracer.layer({
-				resource: { serviceName: "ryot-backend" },
+				headers: otlpHeaders(config.server.otlpHeaders),
 				url: `${baseUrl.replace(/\/+$/, "")}/v1/traces`,
+				resource: {
+					serviceName: "ryot-backend",
+					attributes: { "deployment.environment": config.nodeEnv },
+				},
 			}).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, OtlpSerialization.layerJson))),
 	});
-	if (!LogLevel.isLessThanOrEqualTo(logLevel, "Debug")) {
+	if (!LogLevel.isLessThanOrEqualTo(config.server.logLevel, "Debug")) {
 		return inner;
 	}
 	const decorator = Layer.unwrap(
@@ -100,9 +121,7 @@ export const ObservabilityLive = Layer.unwrap(
 			Layer.succeed(References.MinimumLogLevel, config.server.logLevel),
 			logger,
 		);
-		const tracer = makeTracerLayer(config.server.otlpEndpoint, config.server.logLevel).pipe(
-			Layer.provide(logging),
-		);
+		const tracer = makeTracerLayer(config).pipe(Layer.provide(logging));
 		return Layer.mergeAll(logging, tracer);
 	}),
 );
