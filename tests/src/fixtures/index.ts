@@ -37,7 +37,7 @@ export type { InstalledTestProvider } from "./sandbox-provider";
 export * from "./sandbox-source";
 export * from "./test-plugin";
 export * from "./saved-views";
-export * from "./plugin-workspaces";
+export * from "./plugins";
 export * from "./translations";
 export * from "./user-preferences";
 export * from "./user-state";

@@ -11,7 +11,7 @@ import {
 	createSavedViewWithQueryDocument,
 	createQueryEnginePluginSchema,
 	entityField,
-	findBuiltinWorkspaceBySlug,
+	findBuiltinPluginBySlug,
 	getSavedView,
 	listSavedViews,
 	systemRef,
@@ -28,8 +28,8 @@ describe("Saved views query documents E2E", () => {
 	it.live("stores media built-in saved views with canonical in-library filters", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const mediaWorkspace = yield* findBuiltinWorkspaceBySlug(client, "media");
-			const views = yield* listSavedViews(client, { pluginSlug: mediaWorkspace.slug });
+			const mediaPlugin = yield* findBuiltinPluginBySlug(client, "media");
+			const views = yield* listSavedViews(client, { pluginSlug: mediaPlugin.slug });
 			const allBooksView = views.find((view) => view.name === "All Books");
 
 			expect(allBooksView?.queryDocument).toMatchObject({

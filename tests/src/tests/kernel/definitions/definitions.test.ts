@@ -62,22 +62,18 @@ describe("Definitions E2E", () => {
 		}),
 	);
 
-	it.live("lists installed plugin workspaces", () =>
+	it.live("lists installed plugins", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const [schemas, workspaces] = yield* Effect.all([
+			const [schemas, plugins] = yield* Effect.all([
 				client.call((c) => c.definitions.listEntities({})),
-				client.call((c) => c.definitions.listWorkspaces({ query: { includeDisabled: true } })),
+				client.call((c) => c.definitions.listPlugins({ query: { includeDisabled: true } })),
 			]);
-			const selected = workspaces.filter((workspace) =>
-				["media", "fitness"].includes(workspace.slug),
-			);
+			const selected = plugins.filter((plugin) => ["media", "fitness"].includes(plugin.slug));
 
-			expect(selected.map((workspace) => workspace.slug)).toEqual(["media", "fitness"]);
+			expect(selected.map((plugin) => plugin.slug)).toEqual(["media", "fitness"]);
 			expect(
-				selected.every((workspace) =>
-					schemas.some((schema) => schema.pluginSlug === workspace.slug),
-				),
+				selected.every((plugin) => schemas.some((schema) => schema.pluginSlug === plugin.slug)),
 			).toBe(true);
 		}),
 	);
