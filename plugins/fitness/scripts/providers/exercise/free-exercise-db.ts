@@ -1,5 +1,5 @@
-import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { DateTime, Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import type { ExecutionMetadata, SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import type { ProviderDetailsInput, ProviderSearchInput } from "@ryot/sandbox-sdk/provider";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
@@ -63,14 +63,18 @@ const exercisePayloadSchema = Schema.Array(Schema.Unknown);
 
 type EnumResult = { ok: boolean; value: string | null };
 
-const EXERCISES_URL =
-	"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
-const IMAGES_PREFIX_URL =
-	"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises";
-
-const CACHE_KEY = "free-exercise-db:normalized:v1";
 const CACHE_TTL_SECONDS = 86400;
 const CACHE_CHUNK_BYTE_LIMIT = 80000;
+const CACHE_KEY = "free-exercise-db:normalized:v1";
+const IMAGES_PREFIX_URL =
+	"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises";
+const EXERCISES_URL =
+	"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
+
+const executionStartedAt = (execution: ExecutionMetadata) =>
+	execution.startedAt
+		? Effect.succeed(execution.startedAt)
+		: Effect.fail(new Error("Sandbox execution startedAt metadata is required"));
 
 const equipmentAliases: Record<string, string> = {
 	"e-z curl bar": "ez_curl_bar",
@@ -375,10 +379,13 @@ const chunkExercises = (rows: readonly NormalizedExercise[]) => {
 	return chunks;
 };
 
-const writeCachedExercises = (host: ExerciseSourceHost, rows: readonly NormalizedExercise[]) => {
-	const version = String(Date.now());
-
-	return Effect.gen(function* () {
+const writeCachedExercises = (
+	host: ExerciseSourceHost,
+	rows: readonly NormalizedExercise[],
+	execution: ExecutionMetadata,
+) =>
+	Effect.gen(function* () {
+		const version = yield* executionStartedAt(execution);
 		const chunks = yield* Effect.try({
 			try: () => chunkExercises(rows),
 			catch: (error) =>
@@ -389,9 +396,8 @@ const writeCachedExercises = (host: ExerciseSourceHost, rows: readonly Normalize
 		}
 		yield* writeCachedValue(host, CACHE_KEY, { version, chunkCount: chunks.length });
 	});
-};
 
-const loadExercises = (host: ExerciseSourceHost) =>
+const loadExercises = (host: ExerciseSourceHost, execution: ExecutionMetadata) =>
 	Effect.gen(function* () {
 		const cached = yield* readCachedExercises(host);
 		if (cached) {
@@ -410,7 +416,7 @@ const loadExercises = (host: ExerciseSourceHost) =>
 			.map(normalizeExercise)
 			.filter((exercise): exercise is NormalizedExercise => exercise !== null)
 			.sort((left, right) => left.name.localeCompare(right.name));
-		yield* writeCachedExercises(host, rows);
+		yield* writeCachedExercises(host, rows, execution);
 		return rows;
 	});
 
@@ -450,11 +456,15 @@ const matchesExercise = (row: NormalizedExercise, query: string, tokens: readonl
 	return tokens.every((token) => row.searchText.includes(token));
 };
 
-export const searchExercises = (input: ProviderSearchInput, host: ExerciseSourceHost) => {
+export const searchExercises = (
+	input: ProviderSearchInput,
+	host: ExerciseSourceHost,
+	execution: ExecutionMetadata,
+) => {
 	const normalizedQuery = normalizeSearchText([input.query]);
 	const tokens = normalizedQuery ? normalizedQuery.split(" ") : [];
 	return Effect.gen(function* () {
-		const rows = yield* loadExercises(host);
+		const rows = yield* loadExercises(host, execution);
 		const matchedRows = rows
 			.filter((row) => matchesExercise(row, normalizedQuery, tokens))
 			.map((row) => ({ row, score: scoreExercise(row, normalizedQuery, tokens) }))
@@ -494,9 +504,13 @@ export const searchExercises = (input: ProviderSearchInput, host: ExerciseSource
 	});
 };
 
-export const getExerciseDetails = (input: ProviderDetailsInput, host: ExerciseSourceHost) =>
+export const getExerciseDetails = (
+	input: ProviderDetailsInput,
+	host: ExerciseSourceHost,
+	execution: ExecutionMetadata,
+) =>
 	Effect.gen(function* () {
-		const rows = yield* loadExercises(host);
+		const rows = yield* loadExercises(host, execution);
 		const row = rows.find((exercise) => exercise.externalId === input.externalId);
 		if (!row) {
 			return yield* Effect.fail(new Error(`Exercise not found: ${input.externalId}`));
@@ -517,7 +531,7 @@ export const preloadResultSchema = Schema.Struct({
 	),
 });
 
-export const preloadExercises = (host: ExercisePreloadHost) =>
+export const preloadExercises = (host: ExercisePreloadHost, execution: ExecutionMetadata) =>
 	Effect.gen(function* () {
 		const { exercisePreloadLimit: configuredLimit } = yield* host.getPluginConfig([
 			"exercisePreloadLimit",
@@ -526,8 +540,8 @@ export const preloadExercises = (host: ExercisePreloadHost) =>
 			return yield* Effect.fail(new Error("Exercise preload limit must be a number"));
 		}
 		const preloadLimit = Math.min(MAX_PRELOAD_EXERCISE_LIMIT, Math.max(0, configuredLimit));
-		const exercises = (yield* loadExercises(host)).slice(0, preloadLimit);
-		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
+		const exercises = (yield* loadExercises(host, execution)).slice(0, preloadLimit);
+		const populatedAt = yield* executionStartedAt(execution);
 		let inserted = 0;
 
 		for (let offset = 0; offset < exercises.length; offset += PRELOAD_BATCH_SIZE) {
