@@ -3,7 +3,7 @@ import {
 	mediaMonitoringDisableRecipe,
 	mediaMonitoringEnableRecipe,
 	mediaMonitoringStatusRecipe,
-} from "@ryot/media-fitness/operations/recipes";
+} from "@ryot/media-plugin/operations/recipes";
 import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
 import {
 	buildQueryEngineRowsDocument,

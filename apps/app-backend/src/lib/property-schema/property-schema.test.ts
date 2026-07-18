@@ -6,7 +6,7 @@ import {
 import {
 	moviePropertiesSchema,
 	personPropertiesSchema,
-} from "@ryot/media-fitness/schemas/property-schemas";
+} from "@ryot/media-plugin/schemas/property-schemas";
 import { describe, expect, it } from "vitest";
 
 describe("collectTranslatableProperties", () => {

@@ -1,5 +1,5 @@
 import fitnessPlugin from "@ryot/fitness-plugin";
-import mediaPlugin from "@ryot/media-fitness";
+import mediaPlugin from "@ryot/media-plugin";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Effect } from "effect";
 import { assert, describe, expect, it } from "vitest";
