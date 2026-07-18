@@ -18,9 +18,11 @@ import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
+import { classifyAuthState } from "#modules/user-lifecycle/auth-state";
+import { UserLifecycleService } from "#modules/user-lifecycle/service";
 
 import { GodModeRepository } from "./repository";
-import { checkResetEligibility, classifyAuthState, GodModeService } from "./service";
+import { checkResetEligibility, GodModeService } from "./service";
 
 type SearchWhere = ReturnType<typeof ilike>;
 type UserRow = {
@@ -154,6 +156,11 @@ const bootstrapSavedViewsServiceLayer = Layer.mock(SavedViewsService)({
 const pluginUserBootstrapDispatcherLayer = Layer.mock(PluginUserBootstrapDispatcher)({
 	dispatchAll: () => Effect.sync((): undefined => undefined),
 });
+const defaultUserLifecycleServiceLayer = Layer.mock(UserLifecycleService)({
+	resetUser: () => Effect.die("unused"),
+	deleteUser: () => Effect.die("unused"),
+	getOperation: () => Effect.die("unused"),
+});
 
 const makeServiceLayer = (
 	db: object,
@@ -161,6 +168,7 @@ const makeServiceLayer = (
 	authState?: Parameters<typeof makeAuthMock>[0],
 	transactionDb = makeBootstrapDb(),
 	auth: ReturnType<typeof makeAuthMock> = makeAuthMock(authState),
+	lifecycleLayer = defaultUserLifecycleServiceLayer,
 ) =>
 	GodModeService.layer.pipe(
 		Layer.provideMerge(
@@ -187,6 +195,7 @@ const makeServiceLayer = (
 				bootstrapNotificationSubscriptionsServiceLayer,
 				bootstrapSavedViewsServiceLayer,
 				pluginUserBootstrapDispatcherLayer,
+				lifecycleLayer,
 			),
 		),
 	);
@@ -205,6 +214,7 @@ const makeProvisionLayer = (db: object, auth: ReturnType<typeof makeProvisionAut
 				bootstrapNotificationSubscriptionsServiceLayer,
 				bootstrapSavedViewsServiceLayer,
 				pluginUserBootstrapDispatcherLayer,
+				defaultUserLifecycleServiceLayer,
 			),
 		),
 	);
@@ -308,65 +318,6 @@ const makeProvisionUserDb = (options?: {
 	});
 
 	return { auth: makeProvisionAuthMock(state, options), db, state };
-};
-
-const makeRecoveryAuthMock = (state: {
-	deletedUserIds: string[];
-	deleteUserSessionsCalled: boolean;
-	createdUser: null | Record<string, unknown>;
-	createdAccount: null | Record<string, unknown>;
-	purgedApiKeys: null | { apiKeys: ReadonlyArray<{ id: string; key: string }>; userId: string };
-}) =>
-	Object.assign(Object.create(null), makeAuthMock(), {
-		createAuthUser: (user: Record<string, unknown>) => {
-			state.createdUser = user;
-			return Effect.succeed(user);
-		},
-		deleteAuthUser: (userId: UserId) => {
-			state.deletedUserIds.push(userId);
-			return Effect.void;
-		},
-		deleteUserSessions: () => {
-			state.deleteUserSessionsCalled = true;
-			return Effect.void;
-		},
-		linkAuthAccount: (account: Record<string, unknown>) => {
-			state.createdAccount = account;
-			return Effect.succeed(account);
-		},
-		purgeApiKeyCaches: (userId: UserId, apiKeys: ReadonlyArray<{ id: string; key: string }>) => {
-			state.purgedApiKeys = { apiKeys, userId };
-			return Effect.void;
-		},
-	});
-
-const makeSnapshotDb = (snapshot: {
-	apiKeys: ReadonlyArray<{ id: string; key: string }>;
-	accounts: ReadonlyArray<{ accountId: string; providerId: string }>;
-	user: { email: string; emailVerified: boolean; id: string; name: string };
-}) => {
-	const db = makeBootstrapDb();
-	return Object.assign(db, {
-		select: () => ({
-			from: (table: unknown) => {
-				let rows: ReadonlyArray<unknown> = [];
-				if (table === schema.user) {
-					rows = [snapshot.user];
-				} else if (table === schema.account) {
-					rows = snapshot.accounts;
-				} else if (table === schema.apikey) {
-					rows = snapshot.apiKeys;
-				}
-				return {
-					where: () =>
-						Object.assign(Effect.succeed(rows), {
-							for: () => Effect.succeed(rows),
-							limit: () => Effect.succeed(rows),
-						}),
-				};
-			},
-		}),
-	});
 };
 
 describe("classifyAuthState", () => {
@@ -657,75 +608,33 @@ it.effect("returns a db error when persisting disabled state fails", () => {
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
-it.effect("deletes the user through AuthService and preserves cleanup inputs", () => {
-	const snapshot = {
-		accounts: [],
-		apiKeys: [{ id: "key_1", key: "raw-key" }],
-		user: { id: "user_1", name: "Test User", email: "test@example.com", emailVerified: true },
+it.effect("delegates deletion to the durable lifecycle service", () => {
+	const { db } = makeListUsersDb({ total: 0, users: [], accounts: [] });
+	const operation = {
+		error: null,
+		startedAt: null,
+		finishedAt: null,
+		id: "operation-1",
+		resetResult: null,
+		kind: "delete" as const,
+		status: "pending" as const,
+		userId: UserId.make("user_1"),
+		createdAt: "2026-08-24T00:00:00.000Z",
 	};
-	const state = {
-		deletedUserIds: [] as string[],
-		deleteUserSessionsCalled: false,
-		createdUser: null as null | Record<string, unknown>,
-		createdAccount: null as null | Record<string, unknown>,
-		purgedApiKeys: null as {
-			userId: string;
-			apiKeys: ReadonlyArray<{ id: string; key: string }>;
-		} | null,
-	};
-	const auth = makeRecoveryAuthMock(state);
-	const db = makeSnapshotDb(snapshot);
+	const lifecycle = Layer.mock(UserLifecycleService)({
+		resetUser: () => Effect.die("unused"),
+		getOperation: () => Effect.die("unused"),
+		deleteUser: () => Effect.succeed(operation),
+	});
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const result = yield* service.deleteUser(UserId.make("user_1"));
-
-		expect(result).toEqual({ id: "user_1" });
-		expect(state.deletedUserIds).toEqual(["user_1"]);
-		expect(state.deleteUserSessionsCalled).toBe(true);
-		expect(state.purgedApiKeys).toEqual({ userId: "user_1", apiKeys: snapshot.apiKeys });
-	}).pipe(Effect.provide(makeServiceLayer(db, false, undefined, makeSnapshotDb(snapshot), auth)));
-});
-
-it.effect("resets an OIDC user through AuthService primitives", () => {
-	const snapshot = {
-		accounts: [{ providerId: "oidc", accountId: "oidc-subject" }],
-		apiKeys: [{ id: "key_1", key: "raw-key" }],
-		user: { id: "user_1", name: "Test User", email: "test@example.com", emailVerified: true },
-	};
-	const state = {
-		deletedUserIds: [] as string[],
-		deleteUserSessionsCalled: false,
-		createdUser: null as null | Record<string, unknown>,
-		createdAccount: null as null | Record<string, unknown>,
-		purgedApiKeys: null as {
-			userId: string;
-			apiKeys: ReadonlyArray<{ id: string; key: string }>;
-		} | null,
-	};
-	const auth = makeRecoveryAuthMock(state);
-	const db = makeSnapshotDb(snapshot);
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.resetUser(UserId.make("user_1"));
-
-		expect(result).toEqual({ userId: "user_1", email: snapshot.user.email, resetUrl: null });
-		expect(state.deletedUserIds).toEqual(["user_1"]);
-		expect(state.createdUser).toMatchObject({
-			id: "user_1",
-			name: snapshot.user.name,
-			email: snapshot.user.email,
-			preferences: defaultUserPreferences,
-		});
-		expect(state.createdAccount).toMatchObject({
-			userId: "user_1",
-			providerId: "oidc",
-			accountId: "oidc-subject",
-		});
-		expect(state.deleteUserSessionsCalled).toBe(true);
-		expect(state.purgedApiKeys).toEqual({ userId: "user_1", apiKeys: snapshot.apiKeys });
-	}).pipe(Effect.provide(makeServiceLayer(db, false, undefined, makeSnapshotDb(snapshot), auth)));
+		expect(yield* service.deleteUser(UserId.make("user_1"))).toEqual(operation);
+	}).pipe(
+		Effect.provide(
+			makeServiceLayer(db, false, undefined, makeBootstrapDb(), makeAuthMock(), lifecycle),
+		),
+	);
 });
 
 vitestIt("creates a credential user without an account row", () => {

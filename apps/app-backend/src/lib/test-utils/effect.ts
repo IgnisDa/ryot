@@ -17,7 +17,14 @@ export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
 
 type TransactionDatabase = Parameters<Parameters<Database["Service"]["transaction"]>[0]>[0];
 
-const transactionDatabase: TransactionDatabase = Object.create(null);
+const transactionDatabase: TransactionDatabase = Object.assign(Object.create(null), {
+	execute: () => Effect.succeed([]),
+	select: () => ({
+		from: () => ({
+			where: () => ({ limit: () => Effect.succeed([]) }),
+		}),
+	}),
+});
 
 export const databaseLayer = Layer.succeed(
 	Database,
@@ -64,6 +71,7 @@ export const makeRedisService = (
 ): RedisService["Service"] =>
 	Object.assign(Object.create(null), {
 		client: undefined,
+		claim: () => Effect.die("unused"),
 		del: () => Effect.die("unused"),
 		get: () => Effect.die("unused"),
 		set: () => Effect.die("unused"),
@@ -122,7 +130,7 @@ export const makeAppConfigLayer = (
 			localDir: "/home/ryot/storage",
 			secretAccessKey: Option.none(),
 			localTempDir: "/home/ryot/work",
-			localSigningSecret: Option.none(),
+			localSigningSecret: Redacted.make("test-local-signing-secret"),
 		},
 		server: {
 			logLevel: "Info",

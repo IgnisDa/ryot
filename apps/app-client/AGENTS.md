@@ -30,3 +30,8 @@ Ryot is a self-hosted personal tracker. Keep the UI warm, calm, compact, scannab
 - All text inputs must be submittable via Enter. Last field: `onSubmitEditing` + `returnKeyType="go"`. Intermediate fields: `returnKeyType="next"` with focus forwarding.
 - Name rendered component tests `*.component.test.tsx` and run them with RNTL/Jest. Keep pure domain and state tests as regular `*.test.ts` files under Vitest.
 - Before writing React Native component tests, read the installed RNTL guidance under `node_modules/@testing-library/react-native/docs/`, starting with `docs/guides/llm-guidelines.md`.
+- Keep selected upload data file-backed as `Blob` or `File` through the picker, form field, and upload transport. Never read an entire selected file into a `Uint8Array`.
+- Stream native downloads into an Expo `FileHandle`. On web, prefer the save-file picker writable; limit the Blob fallback to 50 MiB with both metadata and counted-stream guards.
+- Invalidate file-field attempts before opening a picker and on removal or unmount. Picker and upload completions may update state only while their attempt is current.
+- Keep native backup share files isolated per transfer. Prune only Ryot-owned stale cache entries and never remove a transfer that the current runtime may still be sharing.
+- Creating a backup restore dispatches the restore run after the account-cleanliness check. The dispatched workflow claims the temporary upload, so claim, archive, or plugin failures belong to run history rather than the create response.

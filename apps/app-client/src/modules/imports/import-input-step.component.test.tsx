@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { render, screen, userEvent } from "@testing-library/react-native";
 
-import type { SchemaFileUpload } from "@/modules/ui/schema-form/file-upload";
+import type { SchemaFileUpload } from "@/modules/ui/schema-form/file/file-upload";
 import { useSchemaForm } from "@/modules/ui/schema-form/schema-form";
 import type { SchemaFormValues } from "@/modules/ui/schema-form/schema-form-state";
 

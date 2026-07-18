@@ -1,37 +1,16 @@
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
-import type { DbError } from "@ryot/contract/errors";
-import { badRequest, internalError, notFound, unknownToMessage } from "@ryot/contract/errors";
+import { badRequest } from "@ryot/contract/errors";
 import type { ProvisionUserBody } from "@ryot/contract/modules/god-mode/contract";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Context, DateTime, Effect, Result, Layer } from "effect";
+import { Context, DateTime, Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { AuthService, type AuthUserInput } from "#modules/auth/service";
-import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { SavedViewsService } from "#modules/saved-views/service";
-import { acquireBootstrapLock, performBootstrap } from "#modules/user-bootstrap/bootstrap";
-import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
+import { AuthService } from "#modules/auth/service";
+import { classifyAuthState } from "#modules/user-lifecycle/auth-state";
+import { UserLifecycleService } from "#modules/user-lifecycle/service";
 
 import { GodModeRepository } from "./repository";
-
-const RESET_LINK_TIMEOUT_MS = 10_000;
-
-export const classifyAuthState = (accounts: ReadonlyArray<{ providerId: string }>) => {
-	const hasCredential = accounts.some((a) => a.providerId === "credential");
-	const hasOidc = accounts.some((a) => a.providerId === "oidc");
-	if (hasCredential && hasOidc) {
-		return "mixed" as const;
-	}
-	if (hasCredential) {
-		return "credential" as const;
-	}
-	if (hasOidc) {
-		return "oidc" as const;
-	}
-	return "none" as const;
-};
 
 export const checkResetEligibility = (authState: ReturnType<typeof classifyAuthState>) => {
 	if (authState !== "credential" && authState !== "none") {
@@ -41,39 +20,17 @@ export const checkResetEligibility = (authState: ReturnType<typeof classifyAuthS
 	return null;
 };
 
-const parseResetLinkMessage = (message: string) => {
-	const parsed = Result.try(() => JSON.parse(message));
-	if (Result.isFailure(parsed)) {
-		return null;
-	}
-	const value = parsed.success;
-	if (value !== null && typeof value === "object") {
-		const email = Reflect.get(value, "email");
-		const resetUrl = Reflect.get(value, "resetUrl");
-		if (typeof email === "string" && typeof resetUrl === "string") {
-			return { email, resetUrl };
-		}
-	}
-	return null;
-};
-
 export class GodModeService extends Context.Service<GodModeService>()("GodModeService", {
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
-		const redis = yield* RedisService;
 		const repository = yield* GodModeRepository;
-		const savedViews = yield* SavedViewsService;
-		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
-		const notificationSubscriptions = yield* NotificationSubscriptionsService;
+		const lifecycle = yield* UserLifecycleService;
 		const {
-			auth,
-			transaction,
 			createAuthUser,
-			deleteAuthUser,
 			linkAuthAccount,
-			purgeApiKeyCaches,
 			deleteUserSessions,
 			updateAuthUserDisabled,
+			requestPasswordResetLink,
 		} = yield* AuthService;
 
 		const listUsers = Effect.fn("GodModeService.listUsers")(function* (input: {
@@ -166,111 +123,6 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			return { id: userId, disabledAt: disabledAt?.toISOString() ?? null };
 		});
 
-		const deleteUser = Effect.fn("GodModeService.deleteUser")(function* (userId: UserId) {
-			const apiKeys = yield* transaction(() =>
-				Effect.gen(function* () {
-					yield* acquireBootstrapLock(userId);
-					const snapshot = yield* repository.loadDeleteSnapshot(userId);
-					if (!snapshot) {
-						return yield* notFound(`User with id '${userId}' not found`);
-					}
-
-					yield* deleteAuthUser(userId);
-					return snapshot.apiKeys;
-				}),
-			);
-
-			yield* deleteUserSessions(userId);
-			yield* purgeApiKeyCaches(userId, apiKeys);
-
-			return { id: userId };
-		});
-
-		const captureResetLink = Effect.fn("GodModeService.captureResetLink")(function* (
-			email: string,
-		) {
-			const correlationId = crypto.randomUUID();
-			const pendingKey = redisKeys.godModePendingReset(email);
-			const channel = redisKeys.godModeResetChannel(correlationId);
-
-			const stored = yield* Effect.tryPromise(() =>
-				redis.client.set(pendingKey, correlationId, "EX", 60, "NX"),
-			).pipe(Effect.orDie);
-
-			if (stored !== "OK") {
-				return yield* badRequest(
-					"A password reset link is already being generated for this user. Please try again shortly.",
-				);
-			}
-
-			const resetResult = yield* Effect.acquireUseRelease(
-				Effect.sync(() => redis.client.duplicate()),
-				(subscriber) =>
-					Effect.callback<{ email: string; resetUrl: string }>((resume) => {
-						let settled = false;
-
-						const onMessage = (_channel: string, message: string) => {
-							if (_channel !== channel) {
-								return;
-							}
-							const value = parseResetLinkMessage(message);
-							if (value !== null) {
-								settle(value);
-							}
-						};
-
-						const settle = (value: { email: string; resetUrl: string }) => {
-							if (settled) {
-								return;
-							}
-							settled = true;
-							subscriber.off("message", onMessage);
-							resume(Effect.succeed(value));
-						};
-
-						subscriber.on("message", onMessage);
-
-						void subscriber
-							.subscribe(channel)
-							.then(() => auth.api.requestPasswordReset({ body: { email } }))
-							.catch(() => undefined);
-
-						return Effect.sync(() => {
-							subscriber.off("message", onMessage);
-						});
-					}).pipe(
-						Effect.timeoutOrElse({
-							duration: RESET_LINK_TIMEOUT_MS,
-							orElse: () => Effect.succeed(null),
-						}),
-					),
-				(subscriber, _exit) =>
-					Effect.all(
-						[
-							Effect.tryPromise(() =>
-								redis.client.eval(
-									"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-									1,
-									pendingKey,
-									correlationId,
-								),
-							).pipe(Effect.catch(() => Effect.void)),
-							Effect.tryPromise(() => subscriber.unsubscribe(channel)).pipe(
-								Effect.catch(() => Effect.void),
-							),
-							Effect.tryPromise(() => subscriber.quit()).pipe(Effect.catch(() => Effect.void)),
-						],
-						{ discard: true },
-					),
-			);
-
-			if (!resetResult?.resetUrl) {
-				return yield* internalError("Reset link capture timed out — please try again");
-			}
-
-			return { email: resetResult.email, resetUrl: resetResult.resetUrl };
-		});
-
 		const resetUserPassword = Effect.fn("GodModeService.resetUserPassword")(function* (
 			userId: UserId,
 		) {
@@ -293,88 +145,17 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				return yield* badRequest(eligibilityError);
 			}
 
-			return yield* captureResetLink(userData.user.email);
-		});
-
-		const resetUser = Effect.fn("GodModeService.resetUser")(function* (userId: UserId) {
-			const resetTransaction = (
-				createUser: (user: AuthUserInput) => Effect.Effect<unknown, DbError>,
-			) =>
-				Effect.gen(function* () {
-					yield* acquireBootstrapLock(userId);
-					const resetSnapshot = yield* repository.loadResetSnapshot(userId);
-					if (!resetSnapshot) {
-						return yield* badRequest(`User with id '${userId}' not found`);
-					}
-
-					const authState = classifyAuthState(resetSnapshot.accounts);
-					if (authState === "mixed") {
-						return yield* badRequest(
-							"Cannot reset a user with mixed authentication (both credential and OIDC accounts).",
-						);
-					}
-
-					const resetUsesLocalAuth = authState === "credential" || authState === "none";
-					if (resetUsesLocalAuth && config.users.disableLocalAuth) {
-						return yield* badRequest("Local authentication is disabled on this instance");
-					}
-
-					const oidcAccountId =
-						authState === "oidc"
-							? (resetSnapshot.accounts.find((account) => account.providerId === "oidc")
-									?.accountId ?? null)
-							: null;
-
-					yield* deleteAuthUser(userId);
-					yield* createUser({
-						id: userId,
-						name: resetSnapshot.user.name,
-						email: resetSnapshot.user.email,
-						preferences: defaultUserPreferences,
-						emailVerified: resetSnapshot.user.emailVerified,
-					});
-					if (oidcAccountId !== null) {
-						yield* linkAuthAccount({
-							userId,
-							providerId: "oidc",
-							id: crypto.randomUUID(),
-							accountId: oidcAccountId,
-							issuer: createOAuthAccountIssuer("oidc"),
-						});
-					}
-					return { snapshot: resetSnapshot, usesLocalAuth: resetUsesLocalAuth };
-				});
-			const resetResult = yield* transaction(({ createAuthUser: createUser }) =>
-				resetTransaction(createUser),
-			);
-			const snapshot = resetResult.snapshot;
-			const usesLocalAuth = resetResult.usesLocalAuth;
-
-			yield* performBootstrap(userId).pipe(
-				Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
-				Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
-				Effect.provideService(SavedViewsService, savedViews),
-				Effect.catch((error) =>
-					internalError(`User bootstrap failed after reset: ${unknownToMessage(error)}`),
-				),
-			);
-			yield* deleteUserSessions(userId);
-			yield* purgeApiKeyCaches(userId, snapshot.apiKeys);
-
-			const resetUrl = usesLocalAuth
-				? (yield* captureResetLink(snapshot.user.email)).resetUrl
-				: null;
-
-			return { userId, email: snapshot.user.email, resetUrl };
+			return yield* requestPasswordResetLink(userData.user.email);
 		});
 
 		return {
-			resetUser,
 			listUsers,
-			deleteUser,
 			provisionUser,
 			setUserDisabled,
 			resetUserPassword,
+			resetUser: lifecycle.resetUser,
+			deleteUser: lifecycle.deleteUser,
+			getUserLifecycleOperation: lifecycle.getOperation,
 		};
 	}),
 }) {

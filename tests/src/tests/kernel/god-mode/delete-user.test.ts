@@ -1,14 +1,17 @@
+import { UserLifecycleOperation as UserLifecycleOperationSchema } from "@ryot/contract/modules/god-mode/user-lifecycle";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	ADMIN_TOKEN,
+	type DeleteUserOperation,
 	adminAccessTokenHeaders,
 	uninstallTestProvider,
 	createAuthenticatedClient,
 	createApiKey,
 	createEntity,
 	createNotificationChannel,
+	deleteUserAndWait,
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
@@ -22,6 +25,7 @@ import {
 	pollProviderEntityImportResult,
 	pollSignal,
 	pollSignalWithRecipientCount,
+	pollUserLifecycleOperation,
 	pollTerminalSubscriptionRuns,
 	installTestProvider,
 	seedMediaEntity,
@@ -29,6 +33,7 @@ import {
 	updatePluginState,
 } from "~/fixtures";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
+import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";
 
 const WRONG_TOKEN = "wrong-token";
@@ -100,22 +105,17 @@ describe("Delete user", () => {
 				"X-Api-Key": apiKey,
 			});
 
-			const deleted = yield* client.call(
-				(c) => c.godMode.deleteUser({ params: { userId } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+			const acceptedResponse = yield* Effect.promise(() =>
+				fetch(`${getBackendUrl()}/god-mode/users/${userId}`, {
+					method: "DELETE",
+					headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+				}),
 			);
-			expect(deleted.id).toBe(userId);
-
-			const listed = yield* client.call(
-				(c) => c.godMode.listUsers({ query: { limit: 50, offset: 0, search: email } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
-			);
-			expect(listed.users).toHaveLength(0);
-
-			const plugins = yield* observerClient.call((c) =>
-				c.definitions.listPlugins({ query: { includeDisabled: true } }),
-			);
-			expect(plugins.some((candidate) => candidate.slug === plugin.slug)).toBe(true);
+			expect(acceptedResponse.status).toBe(202);
+			const accepted: DeleteUserOperation = yield* Schema.decodeUnknownEffect(
+				UserLifecycleOperationSchema,
+			)(yield* Effect.promise(() => acceptedResponse.json()));
+			expect(accepted).toMatchObject({ kind: "delete", userId });
 
 			const revokedSession = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
@@ -130,6 +130,25 @@ describe("Delete user", () => {
 				}),
 			);
 			assertTaggedError(revokedApiKey, "Unauthorized");
+
+			const deleted = yield* pollUserLifecycleOperation(accepted.id);
+			expect(deleted).toMatchObject({
+				error: null,
+				kind: "delete",
+				status: "completed",
+				userId,
+			});
+
+			const listed = yield* client.call(
+				(c) => c.godMode.listUsers({ query: { limit: 50, offset: 0, search: email } }),
+				adminAccessTokenHeaders(ADMIN_TOKEN),
+			);
+			expect(listed.users).toHaveLength(0);
+
+			const plugins = yield* observerClient.call((c) =>
+				c.definitions.listPlugins({ query: { includeDisabled: true } }),
+			);
+			expect(plugins.some((candidate) => candidate.slug === plugin.slug)).toBe(true);
 		}),
 	);
 });
@@ -137,7 +156,6 @@ describe("Delete user", () => {
 describe("Delete user automation data cleanup", () => {
 	it.live("removes a deleted user's private actor-audience signal and subscription run", () =>
 		Effect.gen(function* () {
-			const client = getBackendClient();
 			const { userId: rawUserId, client: userClient } = yield* createAuthenticatedClient();
 			const userId = UserId.make(rawUserId);
 			const { schema } = yield* findBuiltinSchemaBySlug(userClient, "workout");
@@ -154,10 +172,7 @@ describe("Delete user automation data cleanup", () => {
 			});
 			yield* pollTerminalSubscriptionRuns({ executionUserId: rawUserId, signalId });
 
-			yield* client.call(
-				(c) => c.godMode.deleteUser({ params: { userId } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
-			);
+			yield* deleteUserAndWait(userId);
 
 			expect(yield* listSignals({ schemaSlug: "workout.created", actorUserId: rawUserId })).toEqual(
 				[],
@@ -259,10 +274,7 @@ describe("Delete user automation data cleanup", () => {
 				const rulesBeforeDeletion = yield* getAutomationRuleCount(secondMonitor.userId);
 				expect(rulesBeforeDeletion).toBeGreaterThan(0);
 
-				yield* getBackendClient().call(
-					(c) => c.godMode.deleteUser({ params: { userId: UserId.make(firstMonitor.userId) } }),
-					adminAccessTokenHeaders(ADMIN_TOKEN),
-				);
+				yield* deleteUserAndWait(UserId.make(firstMonitor.userId));
 
 				const [remainingSignal] = yield* listSignals({
 					subjectEntityId: person.id,
