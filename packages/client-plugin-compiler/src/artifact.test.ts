@@ -1,3 +1,4 @@
+import { CLIENT_BRIDGE_PROTOCOL_VERSION } from "@ryot/contract/modules/plugins/client";
 import { expect, it } from "vitest";
 
 import { clientArtifactMetadata, clientAssetName, clientGeneratedArtifactFile } from "./artifact";
@@ -21,9 +22,9 @@ it("builds stable metadata from sorted byte hashes and metadata identity", () =>
 	expect(clientArtifactMetadata([first, second])).toEqual({
 		format: 1,
 		apiVersion: 1,
-		bridgeVersion: 1,
 		compilerVersion: 1,
-		hash: "fc89f62930dc35deb36298bc20196674416db1afd42b5a6703d3fbb505892421",
+		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+		hash: "af15b2045e198729c5db48c09a15ba234e352e5af36cddeef30c077cd88dbbe2",
 	});
 	expect(clientArtifactMetadata([first, second])).toEqual(clientArtifactMetadata([second, first]));
 	expect(clientArtifactMetadata([first, second]).hash).not.toBe(

@@ -1,8 +1,9 @@
-import { createFileRoute, useLocation, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useCallback, useEffect } from "react";
 
-import { useSetPluginHeaderTitle } from "#/modules/navigation/authenticated-shell";
+import { useEdge, useSetPluginHeaderTitle } from "#/modules/navigation/authenticated-shell";
+import { historyEntry } from "#/modules/navigation/history-entry";
 import { ArtifactSessions, ArtifactSessionStaleError } from "#/modules/plugins/artifact-sessions";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -31,10 +32,12 @@ function PluginInstallation(props: {
 	readonly refetch: () => void;
 	readonly installation: Parameters<typeof PluginHost>[0]["installation"];
 }) {
+	const edge = useEdge();
+	const router = useRouter();
 	const navigate = useNavigate();
 	const setHeaderTitle = useSetPluginHeaderTitle();
 	const { pluginSlug } = Route.useParams();
-	const { pathname, searchStr } = useLocation();
+	const { pathname, searchStr, state } = useLocation();
 	const { runtime, scope, theme } = Route.useRouteContext();
 	const { installation, refetch } = props;
 	const { serverUrl, userId } = scope;
@@ -87,10 +90,7 @@ function PluginInstallation(props: {
 		[runtime, serverUrl, userId],
 	);
 
-	useEffect(() => {
-		setHeaderTitle(null);
-		return () => setHeaderTitle(null);
-	}, [pathname, setHeaderTitle]);
+	useEffect(() => () => setHeaderTitle(null), [setHeaderTitle]);
 
 	return (
 		<PluginHost
@@ -102,9 +102,14 @@ function PluginInstallation(props: {
 			onCreateArtifactSession={onCreateArtifactSession}
 			onRevokeArtifactSession={onRevokeArtifactSession}
 			artifactSessionScopeKey={`${serverUrl}\0${userId}`}
-			location={toPluginLocation(pluginSlug, pathname, searchStr)}
+			onNavigateBack={() => router.history.back()}
 			onNavigate={(request) => {
 				void navigate({ href: request.href, replace: request.replace });
+			}}
+			navigation={{
+				...historyEntry(state),
+				edgeBack: edge.owner === "plugin" && edge.intent === "back",
+				location: toPluginLocation(pluginSlug, pathname, searchStr),
 			}}
 			onQuery={(request, signal) =>
 				runtime.runPromise(

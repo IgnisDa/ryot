@@ -9,14 +9,9 @@ import { afterEach, describe, expect, it } from "vitest";
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 import { createRyotClient } from "./index";
+import { createPluginNavigationStore } from "./navigation/store";
 import { RyotProvider, useRyot } from "./react";
-import {
-	createPluginLocationStore,
-	PluginLink,
-	PluginRouter,
-	usePluginParams,
-	usePluginSearch,
-} from "./routing";
+import { PluginLink, PluginRouter, usePluginParams, usePluginSearch } from "./routing";
 
 let mountCount = 0;
 
@@ -58,10 +53,25 @@ const Home = () => {
 
 let roots: Root[] = [];
 
+const pointer = (type: string, clientX: number) =>
+	new PointerEvent(type, { bubbles: true, clientX, clientY: 0, pointerId: 1 });
+
 const openChannel = () => {
 	const messages: unknown[] = [];
-	const locations = createPluginLocationStore();
-	const send = (path: string, search = "") => locations.set({ path, search });
+	const store = createPluginNavigationStore();
+	let position = -1;
+	const send = (
+		path: string,
+		search = "",
+		options: { readonly key?: string; readonly index?: number } = {},
+	) => {
+		position = options.index ?? position + 1;
+		store.setEntry({
+			index: position,
+			key: options.key ?? `k${position}`,
+			location: { path, search },
+		});
+	};
 	const navigate = (
 		mode: "push" | "replace",
 		to: { path: string; search?: Record<string, string> },
@@ -72,9 +82,14 @@ const openChannel = () => {
 
 	return {
 		send,
+		store,
 		messages,
-		locations,
 		client: createRyotClient({ navigate, query: () => Promise.resolve({}) }),
+		navigation: {
+			subscribe: store.subscribe,
+			getSnapshot: store.getSnapshot,
+			back: () => messages.push({ type: "navigate-back" }),
+		},
 	};
 };
 
@@ -92,7 +107,7 @@ const renderRouter = (
 		const definition = notFound ? { home: Home, routes, notFound } : { home: Home, routes };
 		root.render(
 			<RyotProvider client={channel.client}>
-				<PluginRouter locations={channel.locations} definition={definition} />
+				<PluginRouter navigation={channel.navigation} definition={definition} />
 			</RyotProvider>,
 		);
 	});
@@ -108,8 +123,14 @@ const mount = (
 	const container = renderRouter(channel, routes, notFound);
 	return {
 		container,
+		store: channel.store,
 		messages: channel.messages,
-		sendLocation: (path: string, search = "") => act(() => channel.send(path, search)),
+		setEdgeBack: (enabled: boolean) => act(() => channel.store.setEdgeBack(enabled)),
+		sendLocation: (
+			path: string,
+			search = "",
+			options: { readonly key?: string; readonly index?: number } = {},
+		) => act(() => channel.send(path, search, options)),
 	};
 };
 
@@ -130,7 +151,7 @@ describe("PluginRouter", () => {
 	it("renders a location that arrived before the router mounted", async () => {
 		const channel = openChannel();
 		channel.send("/items/item-9");
-		await waitFor(() => expect(channel.locations.getSnapshot()).toBeDefined());
+		await waitFor(() => expect(channel.store.getSnapshot().entry).toBeDefined());
 
 		const container = renderRouter(channel, [{ path: "/items/$itemId", component: ItemRoute }]);
 
@@ -299,7 +320,7 @@ describe("PluginRouter", () => {
 		void act(() => greetButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 		await waitFor(() => expect(container.textContent).toContain("Greeted 1 times."));
 
-		sendLocation("/", "tab=stats");
+		sendLocation("/", "tab=stats", { index: 0 });
 		await waitFor(() => expect(container.textContent).toContain("Tab stats"));
 		expect(container.textContent).toContain("Greeted 1 times.");
 		expect(mountCount).toBe(1);
@@ -310,7 +331,7 @@ describe("PluginRouter", () => {
 		sendLocation("/");
 		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
 
-		const routeContainer = container.firstElementChild;
+		const routeContainer = container.querySelector('[tabindex="-1"]');
 		const greetButton = container.querySelector("button");
 		if (!greetButton || !(routeContainer instanceof HTMLElement)) {
 			throw new Error("expected a route container and a greet button");
@@ -319,7 +340,116 @@ describe("PluginRouter", () => {
 		expect(document.hasFocus()).toBe(true);
 		expect(document.activeElement).not.toBe(routeContainer);
 
-		sendLocation("/", "tab=stats");
+		sendLocation("/", "tab=stats", { index: 0 });
 		await waitFor(() => expect(document.activeElement).toBe(routeContainer));
+	});
+
+	it("retains the previous screen across a pop, without remounting it", async () => {
+		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		sendLocation("/");
+		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
+		expect(mountCount).toBe(1);
+
+		sendLocation("/items/item-1");
+		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
+
+		sendLocation("/", "", { index: 0 });
+		await waitFor(() => expect(container.textContent).not.toContain("Item item-1"));
+
+		expect(container.textContent).toContain("Greeted 0 times.");
+		expect(mountCount).toBe(1);
+	});
+
+	it("keeps a retained screen mounted and inert beneath the top screen", async () => {
+		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		sendLocation("/");
+		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
+
+		sendLocation("/items/item-1");
+		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
+
+		const screens = container.querySelectorAll('[tabindex="-1"]');
+		expect(screens).toHaveLength(2);
+		expect(screens[0]?.getAttribute("aria-hidden")).toBe("true");
+		expect(screens[1]?.getAttribute("aria-hidden")).toBeNull();
+	});
+
+	it("renders no back edge until the kernel hands the plugin the edge", async () => {
+		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		sendLocation("/");
+		sendLocation("/items/item-1");
+		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
+
+		expect(container.querySelector('[data-plugin-edge="back"]')).toBeNull();
+	});
+
+	it("posts one navigate-back when an edge drag passes the commit threshold", async () => {
+		const { container, messages, sendLocation, setEdgeBack } = mount([
+			{ path: "/items/$itemId", component: ItemRoute },
+		]);
+		sendLocation("/");
+		sendLocation("/items/item-1");
+		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
+		setEdgeBack(true);
+
+		const edge = container.querySelector('[data-plugin-edge="back"]');
+		const root = container.firstElementChild;
+		if (!(edge instanceof HTMLElement) || !(root instanceof HTMLElement)) {
+			throw new Error("expected a plugin edge strip inside a router root");
+		}
+		Object.defineProperty(root, "clientWidth", { configurable: true, value: 300 });
+
+		act(() => {
+			edge.dispatchEvent(pointer("pointerdown", 2));
+			edge.dispatchEvent(pointer("pointermove", 160));
+			edge.dispatchEvent(pointer("pointerup", 160));
+		});
+
+		await waitFor(() => expect(messages).toEqual([{ type: "navigate-back" }]));
+	});
+
+	it("posts nothing when an edge drag is released below the commit threshold", async () => {
+		const { container, messages, sendLocation, setEdgeBack } = mount([
+			{ path: "/items/$itemId", component: ItemRoute },
+		]);
+		sendLocation("/");
+		sendLocation("/items/item-1");
+		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
+		setEdgeBack(true);
+
+		const edge = container.querySelector('[data-plugin-edge="back"]');
+		const root = container.firstElementChild;
+		if (!(edge instanceof HTMLElement) || !(root instanceof HTMLElement)) {
+			throw new Error("expected a plugin edge strip inside a router root");
+		}
+		Object.defineProperty(root, "clientWidth", { configurable: true, value: 300 });
+
+		act(() => {
+			edge.dispatchEvent(pointer("pointerdown", 2));
+			edge.dispatchEvent(pointer("pointermove", 30));
+			edge.dispatchEvent(pointer("pointerup", 30));
+		});
+
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(messages).toEqual([]);
+	});
+
+	it("keeps exactly one screen per history entry across back and forward", async () => {
+		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		sendLocation("/", "", { index: 0 });
+		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
+
+		sendLocation("/items/item-1", "", { index: 1 });
+		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
+
+		sendLocation("/", "", { index: 0 });
+		await waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1));
+
+		sendLocation("/items/item-1", "", { index: 1 });
+		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
+
+		sendLocation("/", "", { index: 0 });
+		await waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1));
+		expect(mountCount).toBe(1);
 	});
 });

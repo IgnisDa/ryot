@@ -447,7 +447,7 @@ Artifact persistence is append-only. `plugin_client_artifact` stores metadata ke
 
 ### Artifact identity is embedded, never authored
 
-The artifact hash covers the compiled bundle, stylesheet, and assets, so it cannot exist inside them. The compiler emits `index.html` last, embedding the artifact hash and the exact client markers, including bridge protocol version 1, as JSON in a `<script type="application/json" id="ryot-client-artifact">` element.
+The artifact hash covers the compiled bundle, stylesheet, and assets, so it cannot exist inside them. The compiler emits `index.html` last, embedding the artifact hash and the exact client markers, including bridge protocol version 2, as JSON in a `<script type="application/json" id="ryot-client-artifact">` element.
 
 `bootstrapClientPlugin` reads that element and refuses to accept a bridge port when it is absent or malformed. Plugin source therefore never declares, derives, or passes its own artifact identity, and the kernel, the compiler, and the running plugin compare the same embedded values.
 
@@ -747,7 +747,7 @@ Third-party plugins must not import or invoke native plugins themselves.
 
 A plugin iframe and the kernel execute in separate JavaScript/document contexts.
 
-Communication between a plugin iframe and the kernel occurs through the exact bridge protocol version 1. The protocol marker is validated by exact equality.
+Communication between a plugin iframe and the kernel occurs through the exact bridge protocol version 2. The protocol marker is validated by exact equality, so an artifact compiled against an earlier protocol is rejected at handshake rather than given a compatibility path.
 
 The preferred plugin transport is `MessageChannel`, with the kernel explicitly handing a communication port to the top-level plugin document. The shared `RyotClient` does not depend on this transport: the kernel direct adapter calls kernel services directly, while the plugin runtime serializes the same semantic calls over its session `MessagePort`.
 
@@ -794,7 +794,7 @@ disposed  all runtime resources are released; this state is terminal
 
 The normal path is `ready -> active -> closing -> disposed`. A fatal failure enters `failed` from `ready` or `active` through the same `closing` cleanup; `failed` and `disposed` are terminal states. A close can enter `closing` directly. Every transition is idempotent, and messages received after `failed`, `closing`, or `disposed` are ignored.
 
-`bootstrapClientPlugin` owns embedded metadata validation, the one-time parent-window bootstrap listener, the artifact root, and the top-level React root/unmount coordinator. It accepts exactly one valid init with exactly one transferred port, validates the artifact hash and all exact markers, including bridge protocol version 1, before accepting the session, requires the artifact root, creates the runtime, and supplies its client to `RyotProvider`. It removes the bootstrap listener after acceptance. The runtime owns `port.start()`, the session port listeners, the single dispatcher, lifecycle state, location state, pending calls, the `RyotClient`, and idempotent disposal. Runtime termination tells bootstrap to unmount the root. `PluginHost` owns the iframe element and the kernel-side session handle; it does not create capability-specific bridge objects.
+`bootstrapClientPlugin` owns embedded metadata validation, the one-time parent-window bootstrap listener, the artifact root, and the top-level React root/unmount coordinator. It accepts exactly one valid init with exactly one transferred port, validates the artifact hash and all exact markers, including bridge protocol version 2, before accepting the session, requires the artifact root, creates the runtime, and supplies its client to `RyotProvider`. It removes the bootstrap listener after acceptance. The runtime owns `port.start()`, the session port listeners, the single dispatcher, lifecycle state, location state, pending calls, the `RyotClient`, and idempotent disposal. Runtime termination tells bootstrap to unmount the root. `PluginHost` owns the iframe element and the kernel-side session handle; it does not create capability-specific bridge objects.
 
 The single dispatcher routes location, theme, query, operation, and terminal `lifecycle-close` messages and stores location and theme state in the same runtime. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. Together, operation and RyotQL pending requests share an aggregate maximum of 64 per session, enforced by both the SDK and kernel. Exceeding that limit is a protocol failure using the existing wire `failed` and public `protocol` teardown; requests are not queued or retried, and no new error reason is introduced. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
 
@@ -802,13 +802,17 @@ Every pending query or operation entry is removed before its promise is settled.
 
 When either peer closes or fails a session, it sends `{ type: "lifecycle-close", reason: "disposed" | "failed" }` when the port is usable, marks the session closing, rejects the plugin-side pending calls, and closes the port. A wire `disposed` close maps to public `disposed`; a wire `failed` close maps to public `protocol`. The wire value `failed` is not a public `RyotClientError` reason. Kernel-side abort signals cancel in-flight service work on a best-effort basis and suppress late responses. Abort is not a transaction or rollback mechanism: an authenticated operation may already have committed before abort, and the committed work cannot be undone by closing the session or rejecting the caller's promise.
 
-### Protocol version 1 request/response calls
+### Protocol version 2 request/response calls
 
-Protocol version 1 implements strict request/response calls for plugin data access. It carries navigation messages, recipe-backed RyotQL query messages, backend operation messages, semantic theme messages, and terminal runtime messages over the one plugin session port.
+Protocol version 2 implements strict request/response calls for plugin data access. It carries navigation messages, recipe-backed RyotQL query messages, backend operation messages, semantic theme messages, and terminal runtime messages over the one plugin session port.
+
+The kernel-to-plugin `location` message carries the full navigation state of the entry, not just its path: `{ type: "location", index, key, edgeBack, location }`. `index` and `key` are the kernel's history identifiers, and the plugin's screen stack derives push, pop, replace, and reset from them (§18). `edgeBack` is the `resolveEdge` verdict — it is `true` only while the plugin document owns the left edge (§25). The kernel re-sends the message whenever any of those fields change, so a viewport change that moves edge ownership does not wait for a navigation.
+
+Plugin to kernel carries `{ type: "navigate-back" }` when a plugin-owned back gesture commits. It is a semantic request, not a history mutation: the kernel owns global history and decides whether the pop happens. No per-frame gesture data crosses the port.
 
 Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input: JsonValue }`; `input` is required. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where a successful outcome carries a `JsonValue` and a declared backend/platform operation execution failure carries the opaque `"operation-failed"` outcome. The SDK maps local validation, capability, result, lifecycle, protocol, and transport conditions to the exact public `RyotClientError` reasons above. A non-JSON operation output becomes `"malformed-result"` before bridge delivery; it is not stringified or otherwise normalized. Expected plugin business/domain outcomes remain successful values decoded by the caller's output schema.
 
-Recipe queries carry the recipe document through the same exact version 1 session protocol. `RyotClient.data.query(recipe, { signal })` forwards its `AbortSignal` to the adapter. If a plugin query is aborted, the plugin runtime removes its pending entry and sends the strict `{ type: "ryotql-cancel", requestId }` message; the kernel validates it under protocol version 1, aborts the corresponding service work on a best-effort basis, and suppresses late results. The response is decoded locally by the recipe's decoder after the client receives it. Declared backend/platform query execution failures use `query-failed`; malformed decoded results use `malformed-result`.
+Recipe queries carry the recipe document through the same exact version 2 session protocol. `RyotClient.data.query(recipe, { signal })` forwards its `AbortSignal` to the adapter. If a plugin query is aborted, the plugin runtime removes its pending entry and sends the strict `{ type: "ryotql-cancel", requestId }` message; the kernel validates it under protocol version 2, aborts the corresponding service work on a best-effort basis, and suppresses late results. The response is decoded locally by the recipe's decoder after the client receives it. Declared backend/platform query execution failures use `query-failed`; malformed decoded results use `malformed-result`.
 
 `input` is required on the wire. A no-input operation explicitly sends JSON `null`; an omitted input fails strict request decoding and is not treated as a no-input call.
 
@@ -1177,7 +1181,9 @@ The kernel owns the namespace prefix.
 
 Plugin applications use an in-memory router.
 
-The iframe does not call `window.history.pushState()` for Ryot application navigation.
+The iframe does not call `window.history.pushState()` for Ryot application navigation. It does not pop
+history either: a plugin-owned back gesture posts `navigate-back` and the kernel performs the pop, so
+global history has exactly one owner (§2.4).
 
 For:
 
@@ -1196,6 +1202,24 @@ the kernel may deliver a logical plugin location such as:
 ```
 
 The plugin's in-memory router renders the corresponding React route.
+
+The router keeps a **screen stack** rather than one mounted route. Each `location` message carries the kernel's history `index` and `key`, and the stack reconciles against them:
+
+```text
+key === top.key                     same     update the top screen in place, no remount
+index === top.index, key differs    replace  swap the top screen
+index === top.index + 1             push     append and animate in
+index/key match a retained entry    pop      truncate back to it and animate out
+anything else                       reset    discard the stack and start fresh
+```
+
+A retained screen stays mounted and keeps its React key, so its component state, its in-flight work, and its atom subscriptions all survive a pop. Retention is bounded by `PLUGIN_SCREEN_STACK_LIMIT`; a push past the limit drops the bottom entry, which then behaves like any other cold screen when it is reached again.
+
+Retained screens are marked `inert`, `aria-hidden`, and `visibility: hidden` — never `display: none`. `visibility: hidden` preserves layout, which preserves `scrollTop`. **Scroll restoration is therefore a property of retention, not a separate mechanism**: there is no save/restore pass anywhere in the router.
+
+Because each screen owns its own scroll container, the artifact document itself does not scroll. The compiler-owned base layer pins `html`, `body`, and `#app` to the viewport, and each screen is an absolutely positioned `overflow-y: auto` region. Plugin code must scroll its own screen; `window.scrollTo` and document-level scrolling are not available. A `position: fixed` descendant is fixed to its screen, which is full-viewport, so it renders identically except while that screen is being transformed.
+
+Two screens can legitimately render the same route: replacing the top entry with the route already sitting beneath it leaves that route mounted at two distinct history entries.
 
 When plugin code requests navigation:
 
@@ -1407,23 +1431,17 @@ The authenticated layout route's loader loads the catalog once, through the dire
 
 ---
 
-## 23. View Transitions and document boundaries
+## 23. Page transitions and document boundaries
 
-Plugin pages are normal React DOM pages inside one persistent document.
+Plugin pages are normal React DOM pages inside one persistent document, so plugin-internal navigation is the one place where an outgoing and an incoming page genuinely co-exist. The transition therefore belongs to the plugin document, and is driven by the screen stack of §18.
 
-Same-document View Transitions can therefore be used for plugin-internal navigation.
+The browser View Transition API is deliberately **not** the mechanism. It cannot express an interactive back gesture:
 
-For example:
+- it is not reversible — there is no cancel that restores the pre-transition state, and `skipTransition()` jumps to the end state, so releasing a drag under threshold is unimplementable;
+- it exposes no scrub handle, so tracking a finger means seeking pseudo-element animations by hand;
+- `::view-transition-old` is a static snapshot, while the requirement is that the previous screen returns *live*, with its state and scroll intact.
 
-```text
-Media home
-  ↓
-Show detail
-  ↓
-Episode detail
-```
-
-can use the browser View Transition API.
+Instead the SDK writes transforms directly: one `requestAnimationFrame` write per frame while a finger is down, and a Web Animations settle on release. Both are feature-detected, so a runtime without `Element.prototype.animate` applies the end state synchronously rather than failing. The plugin SDK takes no animation dependency — it is bundled into every artifact (§5), and this costs roughly forty lines instead of a library.
 
 However, the browser cannot perform a true same-document shared-element transition across the kernel document and a plugin iframe.
 
@@ -1472,29 +1490,50 @@ delete threshold crossed
   -> ryot.feedback.haptic(...)
 ```
 
+The kernel's own chrome gestures follow the same rule. The drawer and the kernel-owned edge gesture fire
+a light impact through Capacitor Haptics at the moment a gesture commits, behind the same native
+capability check as the rest of the native host (§26), so the web build is a no-op rather than a branch at
+the call site. `ryot.feedback.haptic(...)` is the plugin-facing surface over the same capability.
+
 ---
 
 ## 25. Sidebar and back gestures
 
-The kernel owns the application-level edge gesture policy, and implements it in the DOM. Both left-edge
-gestures are ordinary Pointer Events driven by `motion`; no native gesture recognizer is involved.
+The kernel owns the application-level edge gesture **policy**. `resolveEdge` in
+`kernel/client/src/modules/navigation/edge-intent.ts` is the single source of truth and returns both an
+`intent` and an `owner`.
 
-The arbitration rule is that **the left edge does whatever the header's leading control does**. A route
-whose header offers the drawer trigger binds the edge to opening the drawer; a route whose header offers
-Back binds the edge to Back. The gesture can therefore never contradict the control the user is looking
-at. `resolveEdgeIntent` in `kernel/client/src/modules/navigation/edge-intent.ts` is the single source of
-truth, and both `EdgeGesture` and `MobileHeader` read it.
+The arbitration rule is unchanged: **the left edge does whatever the header's leading control does**.
+`MobileHeader` reads `intent`, so the gesture can never contradict the control the user is looking at.
 
 ```text
-workspace root (/:pluginSlug)   edge opens the drawer      header shows the menu button
-plugin child route              edge goes back             header shows the back chevron
-settings routes                 edge goes back             SettingsFrame owns its back control
+workspace root (/:pluginSlug)   intent drawer   owner kernel   header shows the menu button
+plugin child route              intent back     owner plugin   header shows the back chevron
+settings routes                 intent back     owner kernel   SettingsFrame owns its back control
+desktop                         intent back     owner kernel   no edge gesture is offered
 "back" with nothing to pop      falls through to the drawer where one is mounted
 ```
 
-The recognizer ports the Expo client's constants exactly: a 24px left-edge strip, activation at
-`dx > 6 && |dx| > |dy|`, progress tracked as `dx / drawerWidth`, and completion at
-`dx > drawerWidth / 3 || vx > 0.5` over 240ms, honouring `prefers-reduced-motion`.
+`owner` decides which document *recognizes* the gesture, and only one strip is ever mounted:
+
+- **kernel** — `EdgeGesture` renders its 24px strip above the iframe and drives the drawer, or performs a
+  plain Back on a kernel-rendered route such as settings, which has no second screen to animate.
+- **plugin** — the kernel renders no strip at all, the iframe receives the pointer events natively, and
+  the plugin document runs a fully interactive, reversible transition against its own screen stack (§18).
+  On commit it posts `navigate-back`; the kernel still owns the pop.
+
+This is why per-frame gesture data never crosses the bridge (§24, §36): the recognizer and the two
+screens it animates are always in the same document. Ownership is a pure function of route shape, so a
+plugin child route has no edge strip for the few hundred milliseconds before its bridge is ready, and the
+plugin strip is bounded by the iframe rather than reaching into the header band. Both are accepted.
+
+The recognizer keeps the Expo client's constants: a 24px left-edge strip, activation at
+`dx > 6 && |dx| > |dy|`, and completion at `dx > width / 3 || vx > 0.5`. `width` is the drawer width for
+the kernel's drawer gesture and the viewport width for the plugin's back gesture, and `vx` is measured in
+px/ms. The kernel settles with a velocity-seeded spring rather than a fixed tween, so a flick and a slow
+drag no longer finish at the same speed. Both documents honour `prefers-reduced-motion` by applying the
+end state instead of animating; **screen retention is not disabled with it**, because scroll and state
+preservation are correctness, not motion.
 
 WKWebView's native back/forward gesture is deliberately **not** enabled. It drives the WebView's own
 back-forward list with screenshot-based transitions, which contradicts §2.4's single-history rule, and

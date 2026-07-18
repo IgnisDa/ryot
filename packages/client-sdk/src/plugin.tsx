@@ -43,7 +43,7 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 				});
 				root.render(
 					<RyotProvider client={runtime.client}>
-						<PluginRouter definition={definition} locations={runtime.locations} />
+						<PluginRouter definition={definition} navigation={runtime.navigation} />
 					</RyotProvider>,
 				);
 			} catch {
