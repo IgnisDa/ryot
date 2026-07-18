@@ -20,7 +20,7 @@ import {
 } from "#modules/entities/lifecycle-dispatch";
 import type { ResolvedAutomationRule } from "#modules/plugins/runtime-resolver";
 
-import { LifecycleDispatchLive } from "./lifecycle-dispatch";
+import { lifecycleWorkflowExecutionId, LifecycleDispatchLive } from "./lifecycle-dispatch";
 import type { AutomationRuleTarget } from "./repository";
 import { AutomationsService } from "./service";
 import { SubscriptionExecutionWorkflow } from "./subscription-execution-workflow";
@@ -59,6 +59,17 @@ const entityInput: LifecycleDispatchInput = {
 	occurredAt: "2026-07-20T10:00:00.000Z",
 	source: { kind: "entity", after: entitySnapshot },
 };
+
+it("builds bounded stable lifecycle workflow execution ids", () => {
+	const occurrenceId = `occ_${"segment".repeat(100)}`;
+	const first = lifecycleWorkflowExecutionId(occurrenceId, AutomationRuleId.make("rule-1"));
+	const repeated = lifecycleWorkflowExecutionId(occurrenceId, AutomationRuleId.make("rule-1"));
+	const second = lifecycleWorkflowExecutionId(occurrenceId, AutomationRuleId.make("rule-2"));
+
+	expect(first).toBe(repeated);
+	expect(first).not.toBe(second);
+	expect(first.length).toBeLessThanOrEqual(64);
+});
 
 const executionEngine = (
 	instance: WorkflowInstance["Service"],
