@@ -1,10 +1,10 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { Workflow } from "@effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError } from "@ryot/contract/errors";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer, Option } from "effect";
+import { Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -51,7 +51,7 @@ const makeHarness = (suspendWorkflow = false, failWorkflow = false) => {
 	const workflowResult = suspendWorkflow
 		? Effect.interrupt
 		: Effect.fail(new SandboxRunError({ message: "import failed" })).pipe(
-				Effect.when(() => failWorkflow),
+				Effect.when(Effect.succeed(failWorkflow)),
 				Effect.as(null),
 			);
 
@@ -63,9 +63,8 @@ const makeHarness = (suspendWorkflow = false, failWorkflow = false) => {
 			makeAppConfigLayer(),
 			Layer.succeed(WorkflowEngine, engine),
 			Layer.succeed(WorkflowInstance, instance),
-			Layer.mock(ImportRunArtifacts)({ _tag: "ImportRunArtifacts" }),
+			Layer.mock(ImportRunArtifacts)({}),
 			Layer.mock(SandboxExecutionService)({
-				_tag: "SandboxExecutionService",
 				executeWorkflow: (input) =>
 					Effect.serviceOption(WorkflowInstance).pipe(
 						Effect.tap((parent) =>
@@ -74,14 +73,14 @@ const makeHarness = (suspendWorkflow = false, failWorkflow = false) => {
 								sandboxCalls.push({ input, method: "executeWorkflow" });
 							}),
 						),
-						Effect.zipRight(workflowResult),
+						Effect.andThen(workflowResult),
 					),
 			}),
 			dbRunnerLayer,
 			BunFileSystem.layer,
 			Layer.succeed(RedisService, makeRedisService()),
-			Layer.mock(ImportsService)({ _tag: "ImportsService" }),
-			Layer.mock(ImportRunFailuresService)({ _tag: "ImportRunFailuresService" }),
+			Layer.mock(ImportsService)({}),
+			Layer.mock(ImportRunFailuresService)({}),
 		),
 	};
 };
@@ -166,7 +165,7 @@ it.effect("preserves workflow suspension while awaiting the plugin import child"
 	return Effect.gen(function* () {
 		const exit = yield* Effect.exit(runProcessImportRunWorkflow(payload, executionId));
 
-		expect(Exit.isInterrupted(exit)).toBe(true);
+		expect(Exit.hasInterrupts(exit)).toBe(true);
 		expect(harness.activityNames).not.toContain("fail-import-run-unexpected");
 	}).pipe(Effect.provide(harness.layer));
 });
