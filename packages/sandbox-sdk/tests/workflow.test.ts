@@ -136,7 +136,7 @@ describe("workflow definitions", () => {
 						replayJournal: () =>
 							Effect.succeed(
 								values.map((value, index) => {
-									const request = requests[index];
+									const request = requests.at(index);
 									if (!request) {
 										throw new Error("Missing test request");
 									}

@@ -309,14 +309,15 @@ const runDirectSample = (input: {
 		const after = yield* sampleOperationalPressure([executionId]);
 		assertCompleted(result, "sandbox benchmark sample");
 		expect(result.error).toBeNull();
-		assertPresent(result.timing, "Sandbox benchmark result did not include timing");
+		const timing = result.timing;
+		assertPresent(timing, "Sandbox benchmark result did not include timing");
 		const sandboxExecutions = after.sandbox.totalExecutions - before.sandbox.totalExecutions;
 		return {
 			latencyMs,
 			sandboxExecutions,
 			bodyReplays: sandboxExecutions,
 			moduleLoads: sandboxExecutions,
-			...(result.timing ? { sandboxExecutionMs: result.timing.totalMs } : {}),
+			sandboxExecutionMs: timing.totalMs,
 			orchestrationMs: Math.max(0, latencyMs - input.upstreamDelayMs),
 			maxWorkflowActivityChildRoundTrips: after.redis.maxHighWater,
 			redisProjectionKeys: Math.max(0, after.redis.projectionCount - before.redis.projectionCount),
