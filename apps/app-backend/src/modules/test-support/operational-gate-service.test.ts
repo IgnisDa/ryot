@@ -12,7 +12,7 @@ import { Effect, Layer } from "effect";
 import { DbService } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import type { MockOverrides } from "#lib/test-utils/effect";
+import { makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -20,7 +20,6 @@ import { OperationalGateService } from "./operational-gate-service";
 
 const mockDb = Layer.mock(DbService);
 const runId = ImportRunId.make("run-id");
-const mockRedis = Layer.mock(RedisService);
 const executingUserId = UserId.make("user-id");
 const mockImports = Layer.mock(ImportsService);
 const mockSandbox = Layer.mock(SandboxExecutionService);
@@ -62,7 +61,7 @@ const makeServiceLayer = (
 			Layer.mergeAll(
 				mockImports({ ...imports }),
 				mockSandbox({ ...sandbox }),
-				mockRedis({ client: Object.create(null) }),
+				Layer.succeed(RedisService, makeRedisService()),
 				mockDb({ db: Object.create(null), pool: Object.create(null) }),
 			),
 		),
