@@ -306,7 +306,7 @@ export const manifest = defineManifest({
     "listEvents",
     "createEvents",
     "getIntegration",
-    "getEntitySchema",
+    "getEntitySchemas",
     "listEventSchemas",
     "executeQueryEngine",
   ],
@@ -321,9 +321,9 @@ export default defineScript({
     entity: entityRecordSchema,
     integration: integrationRecordSchema,
     created: createEventsResultDataSchema,
-    entitySchema: entitySchemaRecordSchema,
     events: Schema.Array(eventRecordSchema),
     eventSchemas: Schema.Array(eventSchemaRecordSchema),
+    entitySchemas: Schema.Array(entitySchemaRecordSchema),
   }),
   run: (_input, host) => Effect.gen(function* () {
     const entity = yield* host.getEntities(["entity-1"]).pipe(
@@ -332,7 +332,7 @@ export default defineScript({
     const missingResult = yield* Effect.result(host.getEntities(["missing"]));
     const integration = yield* host.getIntegration();
     const events = yield* host.listEvents({ entityId: "entity-1" });
-    const entitySchema = yield* host.getEntitySchema("movie");
+     const entitySchemas = yield* host.getEntitySchemas(["movie"]);
     const eventSchemas = yield* host.listEventSchemas("movie");
     const created = yield* host.createEvents([
         { entityId: "entity-1", eventSchemaSlug: "event-schema-1", properties: { watched: true } },
@@ -343,7 +343,7 @@ export default defineScript({
       entity,
       created,
       integration,
-      entitySchema,
+       entitySchemas,
       events: [...events],
       queryRows: rows.length,
       eventSchemas: [...eventSchemas],
@@ -1556,8 +1556,8 @@ const startDomainHostBridge = () =>
 									};
 						} else if (fnName === "getIntegration") {
 							result = { data: domainIntegrationRecord, success: true };
-						} else if (fnName === "getEntitySchema") {
-							result = { data: domainEntitySchemaRecord, success: true };
+						} else if (fnName === "getEntitySchemas") {
+							result = { data: [domainEntitySchemaRecord], success: true };
 						} else if (fnName === "listEventSchemas") {
 							result = { data: [domainEventSchemaRecord], success: true };
 						} else if (fnName === "listEvents") {
@@ -1602,8 +1602,8 @@ it("executes typed domain host methods through Deno", () =>
 					queryRows: 2,
 					created: { count: 1 },
 					missing: "Entity not found",
-					entitySchema: { id: "movie", name: "Movie" },
 					entity: { id: "entity-1", name: "Inception" },
+					entitySchemas: [{ id: "movie", name: "Movie" }],
 					integration: { id: "integration-1", provider: "plex_yank" },
 					eventSchemas: [{ id: "watched", entitySchemaSlug: "movie" }],
 				});

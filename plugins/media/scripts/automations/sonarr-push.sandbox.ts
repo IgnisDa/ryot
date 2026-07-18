@@ -23,7 +23,7 @@ export const manifest = defineManifest({
 	capabilities: [
 		"httpCall",
 		"getEntities",
-		"getEntitySchema",
+		"getEntitySchemas",
 		"listIntegrations",
 		"getUserPreferences",
 	],

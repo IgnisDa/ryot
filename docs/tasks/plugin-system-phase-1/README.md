@@ -98,7 +98,7 @@ calling host functions), **API client** (`app-client` and the browser extension)
    joining schema tables, so that writes no longer depend on definition rows.
 9. As the query engine, I want stored slugs to remove the slug→row-id resolution step, so that
    read semantics are preserved while the resolution layer disappears.
-10. As a sandbox script, I want `getEntitySchema` and `listEventSchemas` to return the same
+10. As a sandbox script, I want `getEntitySchemas` and `listEventSchemas` to return the same
     response shapes as before, now sourced from the registry, so that provider and automation
     scripts keep working unchanged.
 11. As an end user, I want builtin trackers and saved views to come from the registry rather
