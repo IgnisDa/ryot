@@ -319,7 +319,7 @@ BEGIN
 	INNER JOIN "entity" src ON src.id = legacy_relationships.metadata_group_id
 	INNER JOIN "entity" tgt ON tgt.id = legacy_relationships.metadata_id
 	WHERE legacy_relationships.user_id IS NOT NULL
-	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug") DO NOTHING;
+	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
 	${buildReportSql("metadata_group -> relationship", [{ message: "user-authored row(s) migrated", count: "rows_inserted" }])}
