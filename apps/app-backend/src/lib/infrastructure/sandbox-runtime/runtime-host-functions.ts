@@ -53,6 +53,17 @@ const sandboxCacheInputError = (fnName: string, key: unknown, ttl?: unknown, ttl
 	return null;
 };
 
+const sandboxCacheInputGuard = <A, E>(
+	fnName: string,
+	key: unknown,
+	effect: () => Effect.Effect<A, E>,
+	ttl?: unknown,
+	ttlLabel?: string,
+) => {
+	const error = sandboxCacheInputError(fnName, key, ttl, ttlLabel);
+	return error ? sandboxHostFailure(error) : effect();
+};
+
 const encodeSandboxCacheValue = (fnName: string, value: unknown) =>
 	Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(value).pipe(
 		Effect.mapError(() => `${fnName} value must be JSON-serializable`),
@@ -81,73 +92,69 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 
 	return {
 		claimPersistentValue: (input, key, value, ttlSeconds) => {
-			const inputError = sandboxCacheInputError("claimPersistentValue", key, ttlSeconds, "TTL");
-			if (inputError) {
-				return sandboxHostFailure(inputError);
-			}
-
-			const redisKey = redisKeys.sandboxCache(
-				sandboxRunUserId(input),
-				input.providerId ?? input.scriptId,
-				key.trim(),
-			);
-
-			return sandboxHostEffect(
-				Effect.gen(function* () {
-					const serialized = yield* encodeSandboxCacheValue("claimPersistentValue", value);
-
-					const setResult = yield* Effect.tryPromise({
-						try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
-						catch: unknownToMessage,
-					});
-					if (setResult !== null) {
-						return { claimed: true as const };
-					}
-
-					const existing = yield* Effect.tryPromise({
-						try: () => redis.client.get(redisKey),
-						catch: unknownToMessage,
-					});
-					if (existing === null) {
-						return { claimed: false, value: null };
-					}
-					const existingValueError = sandboxCacheValueError(
-						"claimPersistentValue",
-						existing,
-						"stored value",
+			return sandboxCacheInputGuard(
+				"claimPersistentValue",
+				key,
+				() => {
+					const redisKey = redisKeys.sandboxCache(
+						sandboxRunUserId(input),
+						input.providerId ?? input.scriptId,
+						key.trim(),
 					);
-					if (existingValueError) {
-						return yield* Effect.fail(existingValueError);
-					}
 
-					return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
-						existing,
-					).pipe(
-						Effect.map((decoded) => ({
-							claimed: false as const,
-							value: isJsonValue(decoded) ? decoded : null,
-						})),
-						Effect.orElseSucceed(() => ({ claimed: false as const, value: null })),
-					);
-				}),
+					return Effect.gen(function* () {
+						const serialized = yield* encodeSandboxCacheValue("claimPersistentValue", value);
+
+						const setResult = yield* Effect.tryPromise({
+							try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
+							catch: unknownToMessage,
+						});
+						if (setResult !== null) {
+							return { claimed: true as const };
+						}
+
+						const existing = yield* Effect.tryPromise({
+							try: () => redis.client.get(redisKey),
+							catch: unknownToMessage,
+						});
+						if (existing === null) {
+							return { claimed: false, value: null };
+						}
+						const existingValueError = sandboxCacheValueError(
+							"claimPersistentValue",
+							existing,
+							"stored value",
+						);
+						if (existingValueError) {
+							return yield* Effect.fail(existingValueError);
+						}
+
+						return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
+							existing,
+						).pipe(
+							Effect.map((decoded) => ({
+								claimed: false as const,
+								value: isJsonValue(decoded) ? decoded : null,
+							})),
+							Effect.orElseSucceed(() => ({ claimed: false as const, value: null })),
+						);
+					}).pipe(sandboxHostEffect);
+				},
+				ttlSeconds,
+				"TTL",
 			);
 		},
 		getCachedValue: (input, key) => {
-			const inputError = sandboxCacheInputError("getCachedValue", key);
-			if (inputError) {
-				return sandboxHostFailure(inputError);
-			}
+			return sandboxCacheInputGuard("getCachedValue", key, () => {
+				const redisKey = redisKeys.sandboxRunCache(
+					serverRun.id,
+					sandboxRunUserId(input),
+					input.providerId ?? input.scriptId,
+					key.trim(),
+				);
 
-			return sandboxHostEffect(
-				redis
-					.get(
-						redisKeys.sandboxRunCache(
-							serverRun.id,
-							sandboxRunUserId(input),
-							input.providerId ?? input.scriptId,
-							key.trim(),
-						),
-					)
+				return redis
+					.get(redisKey)
 					.pipe(
 						Effect.flatMap((cached) => {
 							if (cached === null) {
@@ -166,8 +173,9 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 								Effect.mapError(() => "getCachedValue: stored value is not valid JSON"),
 							);
 						}),
-					),
-			);
+					)
+					.pipe(sandboxHostEffect);
+			});
 		},
 		httpCall: (_input, method, url, options) => {
 			if (typeof method !== "string" || !method.trim()) {
@@ -220,28 +228,26 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 			);
 		},
 		setCachedValue: (input, key, value, expiry) => {
-			const inputError = sandboxCacheInputError("setCachedValue", key, expiry, "expiry");
-			if (inputError) {
-				return sandboxHostFailure(inputError);
-			}
+			return sandboxCacheInputGuard(
+				"setCachedValue",
+				key,
+				() => {
+					const redisKey = redisKeys.sandboxRunCache(
+						serverRun.id,
+						sandboxRunUserId(input),
+						input.providerId ?? input.scriptId,
+						key.trim(),
+					);
 
-			return sandboxHostEffect(
-				encodeSandboxCacheValue("setCachedValue", value).pipe(
-					Effect.flatMap((serialized) =>
-						redis
-							.set(
-								redisKeys.sandboxRunCache(
-									serverRun.id,
-									sandboxRunUserId(input),
-									input.providerId ?? input.scriptId,
-									key.trim(),
-								),
-								serialized,
-								expiry,
-							)
-							.pipe(Effect.as(null)),
-					),
-				),
+					return encodeSandboxCacheValue("setCachedValue", value).pipe(
+						Effect.flatMap((serialized) =>
+							redis.set(redisKey, serialized, expiry).pipe(Effect.as(null)),
+						),
+						sandboxHostEffect,
+					);
+				},
+				expiry,
+				"expiry",
 			);
 		},
 	};
