@@ -3,8 +3,8 @@ import { Effect, Schema } from "effect";
 export interface OperationRecipe<Input, InputEncoded, Output, OutputEncoded> {
 	readonly pluginSlug: string;
 	readonly operationSlug: string;
-	readonly input: Schema.Schema<Input, InputEncoded>;
-	readonly output: Schema.Schema<Output, OutputEncoded>;
+	readonly input: Schema.Schema<Input> & Schema.Encoder<InputEncoded>;
+	readonly output: Schema.Decoder<Output> & Schema.Encoder<OutputEncoded>;
 }
 
 export const defineOperationRecipe = <Input, InputEncoded, Output, OutputEncoded>(
@@ -20,13 +20,9 @@ export const invokeOperationRecipe = <Input, InputEncoded, Output, OutputEncoded
 		readonly operationSlug: string;
 	}) => Effect.Effect<unknown, E>,
 ) =>
-	Schema.encode(recipe.input)(input).pipe(
+	Schema.encodeEffect(recipe.input)(input).pipe(
 		Effect.flatMap((payload) =>
-			transport({
-				payload,
-				pluginSlug: recipe.pluginSlug,
-				operationSlug: recipe.operationSlug,
-			}),
+			transport({ payload, pluginSlug: recipe.pluginSlug, operationSlug: recipe.operationSlug }),
 		),
-		Effect.flatMap(Schema.decodeUnknown(recipe.output)),
+		Effect.flatMap(Schema.decodeUnknownEffect(recipe.output)),
 	);

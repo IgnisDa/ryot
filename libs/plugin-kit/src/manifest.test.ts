@@ -231,6 +231,26 @@ describe("definePlugin", () => {
 		expect(Schema.decodeUnknownSync(PluginManifest)(manifest)).toEqual(manifest);
 	});
 
+	it("rejects excess properties throughout the manifest", () => {
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				metadata: { ...manifest.metadata, unsupported: true },
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				providers: [
+					{
+						...manifest.providers[0],
+						information: { ...manifest.providers[0].information, unsupported: true },
+					},
+				],
+			}),
+		).toThrow();
+	});
+
 	it("decodes optional entity merge identity properties", () => {
 		const decoded = Schema.decodeUnknownSync(PluginManifest)({
 			...manifest,
