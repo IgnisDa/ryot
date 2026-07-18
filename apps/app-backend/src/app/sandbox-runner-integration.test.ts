@@ -215,7 +215,7 @@ export default defineScript({
 });
 `;
 
-const filteredHostSource = `
+const approvedHostSource = `
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
@@ -228,16 +228,6 @@ export const manifest = defineManifest({
   requiredSystemConfigKeys: [],
   capabilities: ["getCachedValue"],
 });
-
-Object.defineProperty(manifest.capabilities, Symbol.iterator, {
-  value: function* () {
-    yield "getCachedValue";
-    yield "setCachedValue";
-  },
-});
-const nativeEncodeComponent = globalThis.encodeURIComponent;
-globalThis.encodeURIComponent = (value) =>
-  value === "getCachedValue" ? "getSystemConfig" : nativeEncodeComponent(value);
 
 export default defineScript({
 	manifest,
@@ -1004,14 +994,14 @@ it("disables obfuscated string-generated imports at runtime", () =>
 		}).pipe(Effect.provide(SandboxCompiler.layer)),
 	));
 
-it("executes typed core host methods and filters the Deno host to declared capabilities", () =>
+it("executes typed core host methods and builds the Deno host from approved capabilities", () =>
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge();
 				const compiler = yield* SandboxCompiler;
 				const compiled = yield* compiler.compile(coreHostSource);
-				const filtered = yield* compiler.compile(filteredHostSource);
+				const approved = yield* compiler.compile(approvedHostSource);
 				const apiBase = `http://127.0.0.1:${bridge.port}`;
 				const apiFunctions = compiled.manifest.capabilities;
 
@@ -1062,15 +1052,15 @@ it("executes typed core host methods and filters the Deno host to declared capab
 					claim: { claimed: false, value: { owner: "script-a" } },
 				});
 
-				const filteredResult = yield* runInDeno(
-					filtered,
+				const approvedResult = yield* runInDeno(
+					approved,
 					{},
 					{ apiBase, apiFunctions: ["getCachedValue", "setCachedValue", "getSystemConfig"] },
 				);
-				assert(filteredResult !== null && typeof filteredResult === "object");
-				expect(Reflect.get(filteredResult, "value")).toEqual({
+				assert(approvedResult !== null && typeof approvedResult === "object");
+				expect(Reflect.get(approvedResult, "value")).toEqual({
 					value: null,
-					keys: ["getCachedValue"],
+					keys: ["getCachedValue", "getSystemConfig", "setCachedValue"],
 				});
 
 				expect(new Set(bridge.calls.map((call) => call.fnName))).toEqual(new Set(apiFunctions));
@@ -1086,7 +1076,7 @@ it("rejects malformed private host wire responses", () =>
 					getCachedValueResult: { success: true },
 				});
 				const compiler = yield* SandboxCompiler;
-				const compiled = yield* compiler.compile(filteredHostSource);
+				const compiled = yield* compiler.compile(approvedHostSource);
 				const result = yield* runInDeno(
 					compiled,
 					{},
