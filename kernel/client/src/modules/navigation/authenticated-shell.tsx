@@ -7,16 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { motion, useMotionValue, useTransform } from "motion/react";
-import {
-	createContext,
-	useContext,
-	useEffect,
-	useEffectEvent,
-	useId,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { useDesktopEffect, useIsDesktop } from "#/modules/navigation/breakpoint";
@@ -29,6 +20,7 @@ import { historyEntry } from "#/modules/navigation/history-entry";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
 import { MobileHeader } from "#/modules/navigation/mobile-header";
 import {
+	isWorkspaceRoot,
 	resolvePluginRouteWorkspace,
 	resolveRememberedWorkspace,
 } from "#/modules/navigation/workspace-state";
@@ -93,11 +85,8 @@ export function AuthenticatedShell(props: {
 	const settingsActive = isSettingsPath(pathname);
 	const routeSlug = pathname.split("/")[1] ?? "";
 	const routeWorkspace = resolvePluginRouteWorkspace(catalog, routeSlug);
-	const current = settingsActive
-		? resolveRememberedWorkspace(catalog, rememberedSlug)
-		: routeWorkspace;
-	const homePath = current === null ? null : `/${current.slug}`;
-	const homeActive = homePath !== null && (pathname === homePath || pathname === `${homePath}/`);
+	const current = resolveRememberedWorkspace(catalog, rememberedSlug);
+	const homeActive = isWorkspaceRoot(pathname, current);
 	const entry = historyEntry(state);
 	const pluginTitle =
 		pluginHeader?.owner === routeSlug &&
@@ -106,15 +95,6 @@ export function AuthenticatedShell(props: {
 			? pluginHeader.title
 			: null;
 	const session = runtime.runSync(AuthService).session(server);
-	const rememberRouteWorkspace = useEffectEvent((slug: string) => {
-		if (slug === rememberedSlug) {
-			return;
-		}
-		setRememberedSlug(slug);
-		void runtime.runPromise(
-			Effect.flatMap(ClientStorage, (storage) => storage.setLastWorkspace(scope, slug)),
-		);
-	});
 	const selectWorkspace = async (slug: string) => {
 		impactLight();
 		await runtime.runPromise(
@@ -135,16 +115,11 @@ export function AuthenticatedShell(props: {
 	const edge = resolveEdge({
 		pathname,
 		isDesktop,
-		atRoot: homeActive,
 		canGoBack: router.history.canGoBack(),
+		atRoot: isWorkspaceRoot(pathname, routeWorkspace),
 		hasPluginDocument: !settingsActive && routeWorkspace !== null,
 	});
 
-	useEffect(() => {
-		if (routeWorkspace !== null && !routeWorkspace.isDisabled) {
-			rememberRouteWorkspace(routeWorkspace.slug);
-		}
-	}, [routeWorkspace]);
 	useEffect(() => {
 		if (!drawerOpen) {
 			return undefined;
