@@ -26,11 +26,11 @@ const Metadata = Schema.Struct({
 
 const Episode = Schema.Struct({
 	id: Schema.optional(Schema.String),
-	index: Schema.optional(Schema.Number),
-	number: Schema.optional(Schema.Number),
-	sequence: Schema.optional(Schema.Number),
-	episodeNumber: Schema.optional(Schema.Number),
-	episode: Schema.optional(Schema.Union([Schema.Number, Schema.String])),
+	index: Schema.optional(Schema.NullOr(Schema.Number)),
+	number: Schema.optional(Schema.NullOr(Schema.Number)),
+	sequence: Schema.optional(Schema.NullOr(Schema.Number)),
+	episodeNumber: Schema.optional(Schema.NullOr(Schema.Number)),
+	episode: Schema.optional(Schema.NullOr(Schema.Union([Schema.Number, Schema.String]))),
 });
 
 const Progress = Schema.Struct({ isFinished: Schema.optional(Schema.Boolean) });
@@ -38,7 +38,7 @@ const Progress = Schema.Struct({ isFinished: Schema.optional(Schema.Boolean) });
 const Item = Schema.Struct({
 	id: Schema.String,
 	name: Schema.optional(Schema.String),
-	userMediaProgress: Schema.optional(Progress),
+	userMediaProgress: Schema.optional(Schema.NullOr(Progress)),
 	mediaType: Schema.optional(Schema.Literals(["book", "podcast"])),
 	media: Schema.optional(
 		Schema.Struct({
@@ -67,7 +67,9 @@ const DetailsResponse = Schema.Struct({
 	media: Schema.optional(Schema.Struct({ episodes: Schema.optional(Schema.Array(Episode)) })),
 });
 
-const ProgressResponse = Schema.Struct({ userMediaProgress: Schema.optional(Progress) });
+const ProgressResponse = Schema.Struct({
+	userMediaProgress: Schema.optional(Schema.NullOr(Progress)),
+});
 
 const validIsbn = (value: string) => {
 	if (/^\d{13}$/.test(value)) {
