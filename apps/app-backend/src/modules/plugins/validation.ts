@@ -130,13 +130,7 @@ export const validatePluginManifestReferences = (
 				return yield* fail(`Duplicate cron slug: ${cron.slug}`);
 			}
 			cronSlugs.add(cron.slug);
-			yield* cron.lot === "script"
-				? assertReference("Cron", cron.scriptSlug, scriptSlugs)
-				: assertReference(
-						"Cron",
-						cron.workflowSlug,
-						new Set(manifest.workflows.map(({ slug }) => slug)),
-					);
+			yield* assertReference("Cron", cron.scriptSlug, scriptSlugs);
 			if ("cron" in cron.schedule && Result.isFailure(Cron.parse(cron.schedule.cron))) {
 				return yield* fail(`Cron ${cron.slug} has invalid schedule: ${cron.schedule.cron}`);
 			}

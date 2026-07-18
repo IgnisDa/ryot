@@ -29,7 +29,6 @@ const manifest = definePlugin({
 	],
 	crons: [
 		{
-			lot: "script",
 			slug: "refresh.test",
 			scriptSlug: "automation.test",
 			schedule: { cron: "0 * * * *" },
@@ -734,18 +733,11 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
-				crons: [{ ...cron, lot: "workflow", workflowSlug: "refresh.workflow" }],
-			}),
-		).toThrow();
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
 				crons: [
 					{
-						lot: "workflow",
 						slug: cron.slug,
 						schedule: cron.schedule,
-						workflowSlug: "missing.workflow",
+						scriptSlug: "missing.script",
 						description: cron.description,
 					},
 				],
