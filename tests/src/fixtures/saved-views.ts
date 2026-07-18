@@ -6,7 +6,10 @@ import {
 	decodeSavedViewRecordResponse,
 	decodeSavedViewRecordsResponse,
 } from "@ryot/ryotql-recipes/saved-view-records";
-import { buildSavedViewDocument, buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
+import {
+	buildSavedViewDocument,
+	buildSavedViewLayoutProjections,
+} from "@ryot/ryotql-recipes/saved-views";
 import { Data, Effect } from "effect";
 
 import { requirePresent, resultToEffect } from "~/support/assertions";
@@ -17,8 +20,8 @@ type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
 type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
 
-export type SavedViewQueryDocument = CreateSavedViewBody["queryDocument"];
-type SavedViewDisplayConfiguration = CreateSavedViewBody["displayConfiguration"];
+export type SavedViewLayouts = CreateSavedViewBody["layouts"];
+export type SavedViewQueryDocument = SavedViewLayouts["grid"]["queryDocument"];
 type CreateSavedViewInput = Partial<CreateSavedViewBody>;
 type UpdateSavedViewInput = Partial<UpdateSavedViewBody>;
 
@@ -31,25 +34,31 @@ const entityProperties = column(entity, "properties");
 const entityProperty = (...path: [string | number, ...(string | number)[]]) =>
 	jsonPath(entityProperties, ...path);
 
-const defaultProjection = buildSavedViewProjection({
-	entityId: column(entity, "id"),
+const defaultProjections = buildSavedViewLayoutProjections({
 	grid: {
-		callout: null,
-		secondaryMetadata: null,
-		overline: literal("Book"),
-		title: column(entity, "name"),
-		primaryMetadata: entityProperty("publishYear"),
-		image: castJson(entityProperty("images", 0)),
+		itemId: column(entity, "id"),
+		card: {
+			callout: null,
+			secondaryMetadata: null,
+			overline: literal("Book"),
+			title: column(entity, "name"),
+			primaryMetadata: entityProperty("publishYear"),
+			image: castJson(entityProperty("images", 0)),
+		},
 	},
 	list: {
-		callout: null,
-		secondaryMetadata: null,
-		overline: literal("Book"),
-		title: column(entity, "name"),
-		primaryMetadata: entityProperty("publishYear"),
-		image: castJson(entityProperty("images", 0)),
+		itemId: column(entity, "id"),
+		card: {
+			callout: null,
+			secondaryMetadata: null,
+			overline: literal("Book list"),
+			title: column(entity, "name"),
+			primaryMetadata: entityProperty("publishYear"),
+			image: castJson(entityProperty("images", 0)),
+		},
 	},
 	table: {
+		itemId: column(entity, "id"),
 		image: castJson(entityProperty("images", 0)),
 		columns: [
 			{ label: "Name", expression: column(entity, "name") },
@@ -58,17 +67,41 @@ const defaultProjection = buildSavedViewProjection({
 	},
 });
 
-const defaultDisplayConfiguration =
-	defaultProjection.displayConfiguration satisfies SavedViewDisplayConfiguration;
+const layoutDocument = (
+	fields: readonly (typeof defaultProjections.grid.fields)[number][],
+	entitySchemaSlugs: readonly [string, ...string[]],
+) => buildSavedViewDocument({ page: 1, limit: 2, entitySchemaSlugs, fields });
 
-export const rowsDocument = buildSavedViewDocument({
-	page: 1,
-	limit: 2,
-	entitySchemaSlugs: ["book"],
-	fields: defaultProjection.fields,
-}) satisfies SavedViewQueryDocument;
+export function buildSavedViewLayouts(
+	documents: Partial<Record<keyof SavedViewLayouts, SavedViewQueryDocument>> = {},
+	entitySchemaSlugs: readonly [string, ...string[]] = ["book"],
+): SavedViewLayouts {
+	return {
+		grid: {
+			...defaultProjections.grid.mappings,
+			queryDocument:
+				documents.grid ?? layoutDocument(defaultProjections.grid.fields, entitySchemaSlugs),
+		},
+		list: {
+			...defaultProjections.list.mappings,
+			queryDocument:
+				documents.list ?? layoutDocument(defaultProjections.list.fields, entitySchemaSlugs),
+		},
+		table: {
+			...defaultProjections.table.mappings,
+			queryDocument:
+				documents.table ?? layoutDocument(defaultProjections.table.fields, entitySchemaSlugs),
+		},
+	};
+}
+
+export const rowsLayouts = buildSavedViewLayouts();
+export const rowsDocument = rowsLayouts.grid.queryDocument;
 
 const rowsQuery = rowsDocument.queries.savedView;
+if (rowsQuery?.output.type !== "rows") {
+	throw new Error("Saved view fixture requires a savedView rows query");
+}
 type SavedViewFieldSelection = Extract<
 	(typeof rowsQuery.output.fields)[number],
 	{ readonly key: string }
@@ -80,9 +113,8 @@ export const rowsFields = rowsQuery.output.fields.filter(
 export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): CreateSavedViewBody {
 	return {
 		icon: "star",
+		layouts: rowsLayouts,
 		name: `Saved View ${crypto.randomUUID()}`,
-		queryDocument: rowsDocument,
-		displayConfiguration: defaultDisplayConfiguration,
 		...overrides,
 	};
 }
@@ -92,40 +124,43 @@ export function buildUpdatedSavedViewBody(
 ): UpdateSavedViewBody {
 	return {
 		icon: "heart",
-		name: `Updated View ${crypto.randomUUID()}`,
 		isDisabled: false,
-		queryDocument: rowsDocument,
-		displayConfiguration: defaultDisplayConfiguration,
+		layouts: rowsLayouts,
+		name: `Updated View ${crypto.randomUUID()}`,
 		...overrides,
 	};
 }
 
-export function buildSavedViewQueryDocumentBody(
+export function buildSavedViewGridDocumentBody(
 	queryDocument: SavedViewQueryDocument,
 	overrides: CreateSavedViewInput = {},
 ): CreateSavedViewBody {
-	return buildSavedViewBody({ ...overrides, queryDocument });
+	return buildSavedViewBody({
+		layouts: buildSavedViewLayouts({ grid: queryDocument }),
+		...overrides,
+	});
 }
 
-export function buildUpdatedSavedViewQueryDocumentBody(
+export function buildUpdatedSavedViewGridDocumentBody(
 	queryDocument: SavedViewQueryDocument,
 	overrides: UpdateSavedViewInput = {},
 ): UpdateSavedViewBody {
-	return buildUpdatedSavedViewBody({ ...overrides, queryDocument });
+	return buildUpdatedSavedViewBody({
+		layouts: buildSavedViewLayouts({ grid: queryDocument }),
+		...overrides,
+	});
 }
 
 export const createSavedView = (client: Client, overrides: CreateSavedViewInput = {}) =>
 	client.call((c) => c.savedViews.create({ payload: buildSavedViewBody(overrides) }));
 
-export const createSavedViewWithQueryDocument = (
+export const createSavedViewWithGridDocument = (
 	client: Client,
 	queryDocument: SavedViewQueryDocument,
 	overrides: CreateSavedViewInput = {},
 ) =>
 	client.call((c) =>
-		c.savedViews.create({
-			payload: buildSavedViewQueryDocumentBody(queryDocument, overrides),
-		}),
+		c.savedViews.create({ payload: buildSavedViewGridDocumentBody(queryDocument, overrides) }),
 	);
 
 export const listSavedViews = (
@@ -181,7 +216,7 @@ export const updateSavedView = (
 		}),
 	);
 
-export const updateSavedViewWithQueryDocument = (
+export const updateSavedViewWithGridDocument = (
 	client: Client,
 	viewSlug: string,
 	queryDocument: SavedViewQueryDocument,
@@ -190,7 +225,7 @@ export const updateSavedViewWithQueryDocument = (
 	client.call((c) =>
 		c.savedViews.update({
 			params: { viewSlug },
-			payload: buildUpdatedSavedViewQueryDocumentBody(queryDocument, overrides),
+			payload: buildUpdatedSavedViewGridDocumentBody(queryDocument, overrides),
 		}),
 	);
 

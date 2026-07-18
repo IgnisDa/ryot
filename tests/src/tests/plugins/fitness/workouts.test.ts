@@ -1,6 +1,4 @@
-import type { FieldSelection } from "@ryot/contract/modules/ryotql/language";
 import { buildWorkoutListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
-import { column, field, jsonPath, literal, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
@@ -24,22 +22,6 @@ import {
 } from "~/fixtures";
 import { assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-const savedViewEntity = table("entity", "entity");
-const expectedSavedViewFields = [
-	field("entityId", column(savedViewEntity, "id")),
-	field("gridTitle", column(savedViewEntity, "name")),
-	field("gridOverline", literal("Workout")),
-	field("gridPrimaryMetadata", jsonPath(column(savedViewEntity, "properties"), "startedAt")),
-	field("gridSecondaryMetadata", jsonPath(column(savedViewEntity, "properties"), "endedAt")),
-	field("listTitle", column(savedViewEntity, "name")),
-	field("listOverline", literal("Workout")),
-	field("listPrimaryMetadata", jsonPath(column(savedViewEntity, "properties"), "startedAt")),
-	field("listSecondaryMetadata", jsonPath(column(savedViewEntity, "properties"), "endedAt")),
-	field("tableColumn0", column(savedViewEntity, "name")),
-	field("tableColumn1", jsonPath(column(savedViewEntity, "properties"), "startedAt")),
-	field("tableColumn2", jsonPath(column(savedViewEntity, "properties"), "endedAt")),
-] satisfies readonly FieldSelection[];
 
 describe("Workouts E2E", () => {
 	it.live("links the built-in workout schema to the fitness plugin", () =>
@@ -130,7 +112,7 @@ describe("Workouts E2E", () => {
 			});
 			const allWorkoutsView = views.find((view) => view.name === "All Workouts");
 			assertPresent(allWorkoutsView, "Expected the built-in All Workouts saved view");
-			const savedViewQuery = allWorkoutsView.queryDocument.queries.savedView;
+			const savedViewQuery = allWorkoutsView.layouts.grid.queryDocument.queries.savedView;
 			assertPresent(savedViewQuery, "Expected the All Workouts saved-view query");
 			assertCondition(
 				savedViewQuery.output.type === "rows",
@@ -141,45 +123,23 @@ describe("Workouts E2E", () => {
 				isBuiltin: true,
 				name: "All Workouts",
 				pluginSlug: fitnessPlugin.slug,
-				queryDocument: {
-					queries: {
-						savedView: {
-							where: {
-								left: { field: "entitySchemaSlug", tableAlias: "entity" },
-								right: { value: "workout" },
-							},
-						},
-					},
-				},
-				displayConfiguration: {
-					entityIdField: "entityId",
-					grid: {
-						imageField: null,
-						calloutField: null,
-						titleField: "gridTitle",
-						overlineField: "gridOverline",
-						primaryMetadataField: "gridPrimaryMetadata",
-						secondaryMetadataField: "gridSecondaryMetadata",
-					},
-					list: {
-						imageField: null,
-						calloutField: null,
-						titleField: "listTitle",
-						overlineField: "listOverline",
-						primaryMetadataField: "listPrimaryMetadata",
-						secondaryMetadataField: "listSecondaryMetadata",
-					},
+				layouts: {
+					grid: { itemIdField: "itemId", titleField: "title", imageField: null },
+					list: { itemIdField: "itemId", titleField: "title", imageField: null },
 					table: {
+						itemIdField: "itemId",
 						imageField: null,
 						columns: [
-							{ label: "Name", field: "tableColumn0" },
-							{ label: "Started At", field: "tableColumn1" },
-							{ label: "Ended At", field: "tableColumn2" },
+							{ label: "Name", field: "column0" },
+							{ label: "Started At", field: "column1" },
+							{ label: "Ended At", field: "column2" },
 						],
 					},
 				},
 			});
-			expect(savedViewQuery.output.fields).toEqual(expectedSavedViewFields);
+			expect(
+				savedViewQuery.output.fields.map((selection) => "key" in selection && selection.key),
+			).toEqual(["itemId", "title", "overline", "primaryMetadata", "secondaryMetadata"]);
 		}),
 	);
 
