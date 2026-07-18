@@ -56,11 +56,9 @@ const makeLayer = (options: {
 			Effect.provideService(effect, CurrentDb, db),
 		),
 		Layer.mock(PluginUserBootstrapDispatcher)({
-			_tag: "PluginUserBootstrapDispatcher",
 			dispatchAll: options.dispatch,
 		}),
 		Layer.mock(NotificationSubscriptionsService)({
-			_tag: "NotificationSubscriptionsService",
 			ensureDefaultRules: (inputUserId) => Effect.sync(() => options.onDefaultRules?.(inputUserId)),
 		}),
 	);

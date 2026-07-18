@@ -75,17 +75,15 @@ loader.load(
 );
 
 type ActiveScript = NonNullable<
-	Effect.Effect.Success<ReturnType<PluginRuntimeResolver["findActiveScript"]>>
+	Effect.Success<ReturnType<PluginRuntimeResolver["Service"]["findActiveScript"]>>
 >;
 
 const layer = Layer.mergeAll(
 	dbRunnerLayer,
 	Layer.succeed(PluginLoader, {
-		_tag: "PluginLoader",
 		...loader,
 	}),
 	Layer.mock(PluginRuntimeResolver)({
-		_tag: "PluginRuntimeResolver",
 		resolveActivePluginUserBootstrap: ({ bootstrapSlug, pluginSlug }) => {
 			const bootstrap = loader
 				.getSnapshot()

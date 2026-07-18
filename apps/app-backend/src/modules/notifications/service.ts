@@ -1,4 +1,3 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
@@ -6,17 +5,18 @@ import type {
 	UpdateNotificationChannelBody,
 } from "@ryot/contract/modules/notifications/schemas";
 import type { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 
 import { enqueueNotificationDelivery } from "./notification-delivery-workflow";
 import { NotificationsRepository } from "./repository";
 
-export class NotificationsService extends Effect.Service<NotificationsService>()(
+export class NotificationsService extends Context.Service<NotificationsService>()(
 	"NotificationsService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* NotificationsRepository;
@@ -97,4 +97,6 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 			return { create, delete: remove, list, sendMessage, test, update };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
