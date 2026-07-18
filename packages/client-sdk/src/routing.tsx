@@ -143,7 +143,8 @@ const screenStyle: CSSProperties = {
 	position: "absolute",
 	willChange: "transform",
 	background: "var(--bg)",
-	overscrollBehavior: "contain",
+	// Vertical only: containing the x axis would disable the browser's own back-swipe.
+	overscrollBehaviorY: "contain",
 };
 
 const scrimStyle: CSSProperties = {
