@@ -5,7 +5,7 @@ import type {
 } from "@ryot/contract/modules/automations/schemas";
 import type { AutomationRuleId, SignalSchemaSlug, UserId } from "@ryot/contract/schema/brands";
 import { SignalSchemaSlug as SignalSchemaSlugBrand } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import {
@@ -34,10 +34,10 @@ const toInstalledNotificationRule = (
 	signalSchema: toCatalogSignalSchema(signalSchema),
 });
 
-export class NotificationSubscriptionsService extends Effect.Service<NotificationSubscriptionsService>()(
+export class NotificationSubscriptionsService extends Context.Service<NotificationSubscriptionsService>()(
 	"NotificationSubscriptionsService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const definitions = yield* DefinitionRegistry;
 			const repository = yield* AutomationsRepository;
@@ -181,4 +181,6 @@ export class NotificationSubscriptionsService extends Effect.Service<Notificatio
 			};
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

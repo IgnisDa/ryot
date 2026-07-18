@@ -39,7 +39,7 @@ const makeDb = () => {
 
 const makeLayer = (db: ReturnType<typeof makeDb>) =>
 	Layer.mergeAll(
-		AutomationsRepository.Default,
+		AutomationsRepository.layer,
 		Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
 	);
 
