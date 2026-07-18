@@ -27,13 +27,19 @@ export class EntityInterestCoordinator {
 	}
 
 	setInterest(owner: string, entityIds: readonly string[]) {
-		this.interests.set(owner, new Set(entityIds));
+		const next = new Set(entityIds);
+		const current = this.interests.get(owner);
+		if (current && current.size === next.size && [...current].every((id) => next.has(id))) {
+			return;
+		}
+		this.interests.set(owner, next);
 		this.requestDeclaration();
-		return () => {
-			if (this.interests.delete(owner)) {
-				this.requestDeclaration();
-			}
-		};
+	}
+
+	removeInterest(owner: string) {
+		if (this.interests.delete(owner)) {
+			this.requestDeclaration();
+		}
 	}
 
 	subscribe(listener: UpdateListener) {
