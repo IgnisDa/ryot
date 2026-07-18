@@ -1,8 +1,6 @@
-import { BadRequest } from "@ryot/contract/errors";
-import { Cause } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { importStartFailure, importStartFailureMessage } from "./start-failure";
+import { importStartFailure } from "./start-failure";
 
 describe("import start failure", () => {
 	it("sends a rejected file extension back to the inputs", () => {
@@ -10,7 +8,7 @@ describe("import start failure", () => {
 			"Import file must have one of the following extensions: csv, json",
 		);
 
-		expect(failure.step).toBe("input");
+		expect(failure.step).toBe("configure");
 		expect(failure.detail).toBe(
 			"That file is not a format this service can read. Choose a different file.",
 		);
@@ -25,7 +23,11 @@ describe("import start failure", () => {
 			"Import source payload field is reserved: integrationScriptSlug",
 		);
 
-		expect([invalid.step, undeclared.step, reserved.step]).toEqual(["input", "input", "input"]);
+		expect([invalid.step, undeclared.step, reserved.step]).toEqual([
+			"configure",
+			"configure",
+			"configure",
+		]);
 		expect(invalid.detail).toBe(
 			"Some of these details could not be used. Check them and try again.",
 		);
@@ -39,11 +41,7 @@ describe("import start failure", () => {
 		const missing = importStartFailure("Import source is not available");
 		const workflow = importStartFailure("Import source workflow is not available");
 
-		expect([unconfigured.step, missing.step, workflow.step]).toEqual([
-			"source",
-			"source",
-			"source",
-		]);
+		expect([unconfigured.step, missing.step, workflow.step]).toEqual(["pick", "pick", "pick"]);
 		expect(unconfigured.detail).toBe(
 			"This service is not configured on your server yet. Set what it needs, then choose it again.",
 		);
@@ -60,15 +58,5 @@ describe("import start failure", () => {
 			detail: "This import could not be started. Try again.",
 		});
 		expect(importStartFailure(undefined)).toEqual(unmapped);
-	});
-
-	it("reads the message only from a rejected request", () => {
-		expect(
-			importStartFailureMessage(
-				Cause.fail(new BadRequest({ message: "Import source is not available" })),
-			),
-		).toBe("Import source is not available");
-		expect(importStartFailureMessage(Cause.fail(new Error("offline")))).toBeUndefined();
-		expect(importStartFailureMessage(Cause.die(new Error("defect")))).toBeUndefined();
 	});
 });

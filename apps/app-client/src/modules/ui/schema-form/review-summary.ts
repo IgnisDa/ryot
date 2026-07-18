@@ -6,9 +6,9 @@ import {
 	type SchemaFormField,
 	type SchemaFormValue,
 	type SchemaFormValues,
-} from "@/modules/ui/schema-form/schema-form-state";
+} from "./schema-form-state";
 
-export type ImportReviewRow = { readonly label: string; readonly value: string };
+export type SchemaReviewRow = { readonly label: string; readonly value: string };
 
 export const MASKED_REVIEW_VALUE = "Kept hidden";
 
@@ -37,10 +37,10 @@ const reviewValue = (field: SchemaFormField, value: Exclude<SchemaFormValue, und
 	return typeof value === "string" ? choiceLabel(field, value) : String(value);
 };
 
-export const importReviewRows = (
+export const schemaReviewRows = (
 	schema: AppSchema,
 	values: SchemaFormValues,
-): readonly ImportReviewRow[] =>
+): readonly SchemaReviewRow[] =>
 	describeSchemaFormFields(schema, values).fields.flatMap((field) => {
 		const value = values[field.key];
 		if (value === undefined || value === "" || (typeof value === "object" && value.length === 0)) {

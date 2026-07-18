@@ -17,8 +17,7 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type IntegrationRow = typeof schema.integration.$inferSelect;
 
-export type IntegrationRecord = ListedIntegration &
-	Pick<IntegrationRow, "pluginSlug"> & { readonly userId: UserId };
+export type IntegrationRecord = ListedIntegration & { readonly userId: UserId };
 
 const integrationSelection = {
 	id: schema.integration.id,
