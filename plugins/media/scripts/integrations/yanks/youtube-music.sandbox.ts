@@ -1,14 +1,13 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 
 import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
 import { buildHistory } from "../../providers/media/music/youtube-music";
 import { createYoutubeHistoryClient } from "../../providers/youtube-music-shared";
-import { specifics } from "../shared";
+import { executionStartedAt, specifics } from "../shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
 	name: "YouTube Music yank",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
@@ -18,11 +17,11 @@ export const manifest = defineManifest({
 
 const Input = Schema.Struct({});
 
-export const deduplicateWindow = (timezone: string) =>
-	Option.match(DateTime.makeZoned(DateTime.nowUnsafe(), { timeZone: timezone }), {
+export const deduplicateWindow = (timezone: string, startedAt: string) =>
+	Option.match(DateTime.makeZoned(DateTime.makeUnsafe(startedAt), { timeZone: timezone }), {
 		onNone: () => ({
 			ttlSeconds: 86_400,
-			localDate: DateTime.formatIsoDateUtc(DateTime.nowUnsafe()),
+			localDate: DateTime.formatIsoDateUtc(DateTime.makeUnsafe(startedAt)),
 		}),
 		onSome: (zoned) => {
 			const parts = DateTime.toParts(zoned);
@@ -33,12 +32,13 @@ export const deduplicateWindow = (timezone: string) =>
 		},
 	});
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: Input,
 	output: MediaIntegrationAdapterResult,
-	run: (_input, host) =>
+	run: (_input, host, execution) =>
 		Effect.gen(function* () {
+			const occurredAt = yield* executionStartedAt(execution);
 			const integration = yield* host.getCurrentIntegration();
 			const settings = specifics(integration.providerSpecifics);
 			const authCookie = typeof settings?.["authCookie"] === "string" ? settings["authCookie"] : "";
@@ -46,7 +46,7 @@ export default defineActivity({
 			const history = yield* createYoutubeHistoryClient(host, authCookie).pipe(
 				Effect.flatMap((client) => buildHistory(client, timezone)),
 			);
-			const { localDate, ttlSeconds } = deduplicateWindow(timezone);
+			const { localDate, ttlSeconds } = deduplicateWindow(timezone, occurredAt);
 			const entityGroups = yield* Effect.forEach(history.songs, (song, itemIndex) =>
 				Effect.gen(function* () {
 					const claim = yield* host.claimPersistentValue(
@@ -66,8 +66,8 @@ export default defineActivity({
 						},
 						events: [
 							{
+								occurredAt,
 								eventSchemaSlug: "progress",
-								occurredAt: new Date().toISOString(),
 								properties: {
 									consumedOn: "youtube_music",
 									progressPercent: claim.claimed ? 35 : 100,
