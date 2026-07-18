@@ -35,6 +35,7 @@
 	},
 	"dependencies": {
 		"@ryot/sandbox-sdk": "workspace:*",
+		"@ryot/ts-utils": "workspace:*",
 		"effect": "4.0.0-beta.102",
 		"typescript": "7.0.2"
 	},

@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import { sha256Base64Url } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect } from "effect";
 
@@ -36,8 +37,7 @@ const request = (index: number, name: string, input: JsonValue = { index }) => (
 const journalEntry = (name: string, argsHash: string, value: unknown) =>
 	JSON.stringify({ name, value, argsHash, kind: "activity" });
 
-const hash = (value: unknown) =>
-	new Bun.CryptoHasher("sha256").update(stableStringify(value)).digest("base64url");
+const hash = (value: unknown) => sha256Base64Url(stableStringify(value));
 
 const unusedHostFunction = () => Effect.succeed(null);
 

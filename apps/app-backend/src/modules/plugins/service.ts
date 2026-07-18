@@ -2,6 +2,7 @@ import { badRequest, conflict, notFound } from "@ryot/contract/errors";
 import type { PluginListItem } from "@ryot/contract/modules/plugins/schemas";
 import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Cause, Context, Effect, FiberSet, Layer, Semaphore } from "effect";
 
@@ -27,7 +28,7 @@ import {
 	validateSignalSchemaFormatterReferences,
 } from "./validation";
 
-const digest = (value: string) => new Bun.CryptoHasher("sha256").update(value).digest("hex");
+const digest = sha256Hex;
 
 const PLUGIN_REGISTRY_RECONCILIATION_INTERVAL = "30 seconds";
 
