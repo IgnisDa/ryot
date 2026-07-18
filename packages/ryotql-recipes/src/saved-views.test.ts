@@ -24,7 +24,7 @@ describe("saved-view recipes", () => {
 	it("allocates stable keys across every saved-view layout", () => {
 		const projections = buildSavedViewLayoutProjections({
 			table: {
-				itemId: literal("table id"),
+				entityId: literal("table id"),
 				image: literal("table image"),
 				columns: [
 					{ label: "Name", expression: literal("name") },
@@ -32,7 +32,7 @@ describe("saved-view recipes", () => {
 				],
 			},
 			grid: {
-				itemId: literal("grid id"),
+				entityId: literal("grid id"),
 				card: {
 					image: null,
 					callout: null,
@@ -43,7 +43,7 @@ describe("saved-view recipes", () => {
 				},
 			},
 			list: {
-				itemId: literal("list id"),
+				entityId: literal("list id"),
 				card: {
 					overline: null,
 					primaryMetadata: null,
@@ -56,20 +56,20 @@ describe("saved-view recipes", () => {
 		});
 
 		expect(projections.grid.fields.map(({ key }) => key)).toEqual([
-			"itemId",
+			"entityId",
 			"title",
 			"overline",
 			"primaryMetadata",
 		]);
 		expect(projections.list.fields.map(({ key }) => key)).toEqual([
-			"itemId",
+			"entityId",
 			"title",
 			"image",
 			"callout",
 			"secondaryMetadata",
 		]);
 		expect(projections.table.fields.map(({ key }) => key)).toEqual([
-			"itemId",
+			"entityId",
 			"image",
 			"column0",
 			"column1",
@@ -77,8 +77,8 @@ describe("saved-view recipes", () => {
 		expect(projections).toMatchObject({
 			table: {
 				mappings: {
-					itemIdField: "itemId",
 					imageField: "image",
+					entityIdField: "entityId",
 					columns: [
 						{ label: "Name", field: "column0" },
 						{ label: "Year", field: "column1" },
@@ -90,7 +90,7 @@ describe("saved-view recipes", () => {
 					imageField: null,
 					calloutField: null,
 					titleField: "title",
-					itemIdField: "itemId",
+					entityIdField: "entityId",
 					overlineField: "overline",
 					secondaryMetadataField: null,
 					primaryMetadataField: "primaryMetadata",
@@ -101,8 +101,8 @@ describe("saved-view recipes", () => {
 					imageField: "image",
 					titleField: "title",
 					overlineField: null,
-					itemIdField: "itemId",
 					calloutField: "callout",
+					entityIdField: "entityId",
 					primaryMetadataField: null,
 					secondaryMetadataField: "secondaryMetadata",
 				},

@@ -33,11 +33,11 @@ type TableColumnExpression = Omit<SavedViewTableMapping["columns"][number], "fie
 
 type CardProjectionInput = {
 	readonly card: CardExpressions;
-	readonly itemId: ScalarExpression;
+	readonly entityId: ScalarExpression;
 };
 
 type TableProjectionInput = {
-	readonly itemId: ScalarExpression;
+	readonly entityId: ScalarExpression;
 	readonly image: ScalarExpression | null;
 	readonly columns: readonly [TableColumnExpression, ...TableColumnExpression[]];
 };
@@ -51,14 +51,14 @@ export type SavedViewLayoutProjectionsInput = {
 const cardProjection = (input: CardProjectionInput) => {
 	const title = "title";
 	const image = "image";
-	const itemId = "itemId";
 	const callout = "callout";
+	const entityId = "entityId";
 	const overline = "overline";
 	const primaryMetadata = "primaryMetadata";
 	const secondaryMetadata = "secondaryMetadata";
 	return {
 		fields: [
-			field(itemId, input.itemId),
+			field(entityId, input.entityId),
 			field(title, input.card.title),
 			...(input.card.image === null ? [] : [field(image, input.card.image)]),
 			...(input.card.overline === null ? [] : [field(overline, input.card.overline)]),
@@ -71,19 +71,19 @@ const cardProjection = (input: CardProjectionInput) => {
 				: [field(secondaryMetadata, input.card.secondaryMetadata)]),
 		] satisfies readonly FieldSelection[],
 		mappings: {
-			itemIdField: itemId,
 			titleField: title,
+			entityIdField: entityId,
 			imageField: input.card.image === null ? null : image,
 			calloutField: input.card.callout === null ? null : callout,
 			overlineField: input.card.overline === null ? null : overline,
 			primaryMetadataField: input.card.primaryMetadata === null ? null : primaryMetadata,
 			secondaryMetadataField: input.card.secondaryMetadata === null ? null : secondaryMetadata,
-		} satisfies SavedViewCardMapping & { readonly itemIdField: string },
+		} satisfies SavedViewCardMapping & { readonly entityIdField: string },
 	};
 };
 
 const tableProjection = (input: TableProjectionInput) => {
-	const itemId = "itemId";
+	const entityId = "entityId";
 	const image = "image";
 	const [firstTableColumn, ...remainingTableColumns] = input.columns;
 	const columns = [
@@ -96,15 +96,15 @@ const tableProjection = (input: TableProjectionInput) => {
 
 	return {
 		fields: [
-			field(itemId, input.itemId),
+			field(entityId, input.entityId),
 			...(input.image === null ? [] : [field(image, input.image)]),
 			...input.columns.map((tableColumn, index) => field(`column${index}`, tableColumn.expression)),
 		] satisfies readonly FieldSelection[],
 		mappings: {
 			columns,
-			itemIdField: itemId,
+			entityIdField: entityId,
 			imageField: input.image === null ? null : image,
-		} satisfies SavedViewTableMapping & { readonly itemIdField: string },
+		} satisfies SavedViewTableMapping & { readonly entityIdField: string },
 	};
 };
 

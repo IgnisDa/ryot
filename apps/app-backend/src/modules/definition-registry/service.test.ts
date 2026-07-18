@@ -129,7 +129,7 @@ describe("definition registry", () => {
 						...savedView,
 						layouts: {
 							...savedView.layouts,
-							grid: { ...savedView.layouts.grid, itemIdField: "missing" },
+							grid: { ...savedView.layouts.grid, entityIdField: "missing" },
 						},
 					},
 					...source.savedViews.slice(1),
