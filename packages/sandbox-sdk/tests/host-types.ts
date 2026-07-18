@@ -150,7 +150,7 @@ defineScript({
 			const setting: JsonValue | undefined = integration.providerSpecifics["customSetting"];
 			const events = yield* host.listEvents({ entityId: "entity-1" });
 			const occurredAt: string = events[0]?.occurredAt ?? "";
-			yield* host.listEventSchemas("schema-1");
+			yield* host.listEventSchemas(["schema-1"]);
 			yield* host.listIntegrations({ provider: "plugin_defined_provider" });
 			const providers: ReadonlyArray<{ readonly name: string; readonly providerId: string }> =
 				entitySchema.providers;

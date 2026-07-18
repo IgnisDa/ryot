@@ -161,6 +161,17 @@ export function entitySchemasSandboxSource(input: SandboxSourceIdentity) {
 	});
 }
 
+export function eventSchemasSandboxSource(input: SandboxSourceIdentity) {
+	return scriptModuleSource({
+		...input,
+		capabilities: ["listEventSchemas"],
+		sdkImports: ["eventSchemaRecordSchema"],
+		outputSchema: "Schema.Array(eventSchemaRecordSchema)",
+		run: "(input, host) => host.listEventSchemas(input.slugs)",
+		inputSchema: "Schema.Struct({ slugs: Schema.Array(Schema.String) })",
+	});
+}
+
 export function pluginConfigSandboxSource(
 	input: SandboxSourceIdentity & {
 		readonly key: string;
