@@ -28,6 +28,14 @@ export const flatBacklogEventRow = {
 	occurredAt: "2025-11-01T12:00:00.000Z",
 };
 
+export const flatLibraryEventRow = {
+	...emptyEventProperties,
+	id: "media-library",
+	eventSchemaSlug: "add-to-library",
+	createdAt: "2025-11-01T00:00:05.000Z",
+	occurredAt: "2025-11-01T00:00:00.000Z",
+};
+
 export const flatProgressEventRow = {
 	...emptyEventProperties,
 	progressPercent: 42,
@@ -98,6 +106,7 @@ export const decodeFlatActivity = (input: ActivityRows = {}) =>
 				),
 				events: activityRows(
 					input.events ?? [
+						flatLibraryEventRow,
 						flatBacklogEventRow,
 						flatProgressEventRow,
 						flatCompletionEventRow,
