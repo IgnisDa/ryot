@@ -6,6 +6,8 @@ import { sandboxScratchManifestSchema } from "@ryot/sandbox-sdk/filesystem";
 import { Effect, Schema, FileSystem, Path } from "effect";
 import type { PlatformError } from "effect/PlatformError";
 
+import { SANDBOX_LIMITS } from "./limits";
+
 const SANDBOX_SCRATCH_DIRECTORY_PREFIX = "ryot-sandbox-scratch-";
 export const SANDBOX_HARVEST_DIRECTORY_PREFIX = "ryot-sandbox-harvest-";
 
@@ -78,29 +80,52 @@ export const acquireSandboxScratchDirectory = Effect.fn("sandbox.acquireScratchD
 	},
 );
 
+const inspectSandboxScratchEntry = (fs: FileSystem.FileSystem, entryPath: string) =>
+	fs.readLink(entryPath).pipe(
+		Effect.as({ type: "SymbolicLink" as const }),
+		Effect.catch(() => fs.stat(entryPath)),
+	);
+
+const sandboxScratchEntryError = (entryPath: string, type: string) =>
+	`Sandbox scratch entry "${entryPath}" must be a regular file or directory (found ${type})`;
+
 export const measureSandboxScratchBytes = Effect.fn("sandbox.measureScratchBytes")(function* (
 	directory: string,
 ) {
 	const path = yield* Path.Path;
 	const fs = yield* FileSystem.FileSystem;
-	const walk = (current: string): Effect.Effect<number, PlatformError> =>
-		fs.readDirectory(current).pipe(
-			Effect.flatMap((entries) =>
-				Effect.forEach(entries, (entry) => {
-					const entryPath = path.join(current, entry);
-					return fs
-						.stat(entryPath)
-						.pipe(
-							Effect.flatMap((info) =>
-								info.type === "Directory" ? walk(entryPath) : Effect.succeed(Number(info.size)),
-							),
-						);
-				}),
-			),
-			Effect.map((sizes) => sizes.reduce((total, size) => total + size, 0)),
-		);
+	let entryCount = 0;
+	const walk = (current: string, depth: number): Effect.Effect<number, PlatformError | string> =>
+		Effect.gen(function* () {
+			if (depth > SANDBOX_LIMITS.scratch.maxDepth) {
+				return yield* Effect.fail(
+					`Sandbox scratch directory exceeds ${SANDBOX_LIMITS.scratch.maxDepth} directory levels`,
+				);
+			}
 
-	return yield* walk(directory);
+			let total = 0;
+			for (const entry of yield* fs.readDirectory(current)) {
+				entryCount += 1;
+				if (entryCount > SANDBOX_LIMITS.scratch.maxEntries) {
+					return yield* Effect.fail(
+						`Sandbox scratch directory exceeds ${SANDBOX_LIMITS.scratch.maxEntries} entries`,
+					);
+				}
+
+				const entryPath = path.join(current, entry);
+				const info = yield* inspectSandboxScratchEntry(fs, entryPath);
+				if (info.type === "Directory") {
+					total += yield* walk(entryPath, depth + 1);
+				} else if (info.type === "File") {
+					total += Number(info.size);
+				} else {
+					return yield* Effect.fail(sandboxScratchEntryError(entryPath, info.type));
+				}
+			}
+			return total;
+		});
+
+	return yield* walk(directory, 0);
 });
 
 export const SandboxScratchManifest = sandboxScratchManifestSchema;
@@ -133,6 +158,30 @@ export const harvestSandboxScratchChunks = Effect.fn("sandbox.harvestScratchChun
 			if (!(yield* fs.exists(source))) {
 				return yield* Effect.fail(
 					`Sandbox scratch manifest names a missing chunk file "${chunkFile}"`,
+				);
+			}
+
+			const relativeParts = path.relative(scratchRoot, source).split(path.sep).filter(Boolean);
+			let current = scratchRoot;
+			for (const [index, part] of relativeParts.entries()) {
+				current = path.join(current, part);
+				const info = yield* inspectSandboxScratchEntry(fs, current);
+				if (info.type === "SymbolicLink") {
+					return yield* Effect.fail(
+						`Sandbox scratch entry "${current}" must not be a symbolic link`,
+					);
+				}
+				if (index < relativeParts.length - 1 && info.type !== "Directory") {
+					return yield* Effect.fail(sandboxScratchEntryError(current, info.type));
+				}
+				if (index === relativeParts.length - 1 && info.type !== "File") {
+					return yield* Effect.fail(sandboxScratchEntryError(current, info.type));
+				}
+			}
+
+			if (relativeParts.length === 0) {
+				return yield* Effect.fail(
+					`Sandbox scratch manifest names an invalid chunk file "${chunkFile}"`,
 				);
 			}
 
