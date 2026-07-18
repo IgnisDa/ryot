@@ -43,7 +43,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 					yield* setLocalStatementTimeout(RYOTQL_STATEMENT_TIMEOUT_MS);
 					const results: Array<readonly [string, RyotQLResult]> = [];
 					for (const [name, query] of Object.entries(normalizedDocument.queries)) {
-						results.push([name, yield* executeNamedQuery(scope, query)]);
+						results.push([name, yield* executeNamedQuery(scope, query, name)]);
 					}
 					return { data: Object.fromEntries(results) };
 				}),
