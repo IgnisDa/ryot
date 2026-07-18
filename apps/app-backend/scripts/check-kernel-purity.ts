@@ -15,6 +15,7 @@ import {
 	type PuritySource,
 } from "./kernel-purity";
 import { kernelPurityAllowlist } from "./kernel-purity-allowlist";
+import { analyzeRuntimeModules, formatRuntimeCycleDiagnostics } from "./runtime-module-analysis";
 
 class KernelPurityError extends Data.TaggedError("KernelPurityError")<{ message: string }> {}
 
@@ -45,16 +46,22 @@ const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const scriptPath = yield* path.fromFileUrl(new URL(import.meta.url));
 	const workspaceRoot = path.resolve(path.dirname(scriptPath), "..", "..", "..");
+	const modulesDir = path.join(workspaceRoot, "apps/app-backend/src/modules");
 	const roots = ["apps/app-backend/src", "libs/contract/src", "libs/query-engine/src"].map((root) =>
 		path.join(workspaceRoot, root),
 	);
+	const cycles = yield* analyzeRuntimeModules(modulesDir);
 	const sources = (yield* Effect.forEach(roots, (root) => walkSources(root, workspaceRoot))).flat();
 	const terms = deriveDomainVocabulary([mediaPlugin, fitnessPlugin]);
 	const findings = scanPuritySources(sources, terms);
 	const { errors, violations } = applyPurityAllowlist(findings, kernelPurityAllowlist);
-	if (errors.length || violations.length) {
+	if (cycles.length || errors.length || violations.length) {
 		return yield* new KernelPurityError({
-			message: [...errors, ...violations.map(formatPurityFinding)].join("\n"),
+			message: [
+				...errors,
+				...violations.map(formatPurityFinding),
+				...(cycles.length ? [formatRuntimeCycleDiagnostics(cycles)] : []),
+			].join("\n"),
 		});
 	}
 	return yield* Effect.logInfo(

@@ -17,9 +17,12 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { resolveSandboxExecutionPayload } from "./durable-queues";
+import {
+	SandboxPluginScriptResolver,
+	type SandboxPluginScriptResolverValue,
+} from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 import { SandboxScriptWorkflow } from "./sandbox-script-workflow";
@@ -57,7 +60,7 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* SandboxRepository;
-			const pluginRuntime = yield* PluginRuntimeResolver;
+			const pluginScriptResolver = yield* SandboxPluginScriptResolver;
 			const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 
 			const enqueue = Effect.fn("SandboxExecutionService.enqueue")(function* (
@@ -90,7 +93,7 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 				).pipe(
 					Effect.provideService(DbRunner, runWithDb),
 					Effect.provideService(SandboxRepository, repository),
-					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
+					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
 					Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)),
 				);
 				yield* engine
@@ -135,8 +138,8 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 				function* (
 					input: { pluginSlug: string; workflowSlug: string; executionId: string },
 					resolution: ReturnType<
-						PluginRuntimeResolver["findActiveWorkflowScript"]
-					> = pluginRuntime.findActiveWorkflowScript({
+						SandboxPluginScriptResolverValue["findActiveWorkflowScript"]
+					> = pluginScriptResolver.findActiveWorkflowScript({
 						pluginSlug: input.pluginSlug,
 						workflowSlug: input.workflowSlug,
 					}),
@@ -202,7 +205,7 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 						return yield* new SandboxRunError({ message: contextError });
 					}
 					const script = yield* runWithDb(
-						pluginRuntime.findActiveWorkflowScript({
+						pluginScriptResolver.findActiveWorkflowScript({
 							pluginSlug: input.pluginSlug,
 							workflowSlug: input.workflowSlug,
 						}),

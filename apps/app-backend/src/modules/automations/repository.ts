@@ -13,9 +13,6 @@ import {
 	SignalSchemaSlug,
 	SubscriptionRunId,
 	UserId,
-	type EntitySchemaSlug,
-	type EventSchemaSlug,
-	type RelationshipSchemaSlug,
 } from "@ryot/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot/contract/schema/core";
 import { and, asc, count, eq, isNull } from "drizzle-orm";
@@ -23,15 +20,12 @@ import { DateTime, Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import type { AutomationRuleTarget as PluginAutomationRuleTarget } from "#modules/plugins/runtime-resolver";
 
 type NotificationSubscriptionStateRow = typeof schema.notificationSubscriptionState.$inferSelect;
 type SubscriptionRunRow = typeof schema.subscriptionRun.$inferSelect;
 
-export type AutomationRuleTarget =
-	| { kind: "event_schema"; id: EventSchemaSlug }
-	| { kind: "entity_schema"; id: EntitySchemaSlug }
-	| { kind: "signal_schema"; id: SignalSchemaSlug }
-	| { kind: "relationship_schema"; id: RelationshipSchemaSlug };
+export type AutomationRuleTarget = PluginAutomationRuleTarget;
 
 export type StoredNotificationSubscription = {
 	userId: UserId;
