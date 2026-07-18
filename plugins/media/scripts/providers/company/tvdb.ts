@@ -11,7 +11,7 @@ export const manifest = defineManifest({
 	slug: "company.tvdb",
 	requiredPluginConfigKeys: ["tvdbApiKey"],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfigValue"],
+	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
 });
 
 export const search = defineProvider({
