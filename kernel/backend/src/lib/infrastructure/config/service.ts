@@ -68,8 +68,8 @@ const otlpEndpointError = (endpoint: string) => {
 	if (url.search !== "" || url.hash !== "" || url.username !== "" || url.password !== "") {
 		return "SERVER_OTLP_ENDPOINT must not contain a query, fragment, or credentials.";
 	}
-	if (/\/v1\/traces\/*$/i.test(url.pathname)) {
-		return "SERVER_OTLP_ENDPOINT must be the collector base URL without '/v1/traces'; the signal path is appended automatically.";
+	if (/\/v1\/(?:traces|metrics)\/*$/i.test(url.pathname)) {
+		return "SERVER_OTLP_ENDPOINT must be the collector base URL without an OTLP signal path; '/v1/traces' and '/v1/metrics' are appended automatically.";
 	}
 	return undefined;
 };
