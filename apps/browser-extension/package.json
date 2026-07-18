@@ -10,13 +10,12 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@effect/platform": "0.97.1",
 		"@ryot/contract": "workspace:*",
 		"@ryot/plugin-kit": "workspace:*",
 		"@ryot/plugin-media": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@tailwindcss/vite": "4.1.18",
-		"effect": "3.22.1",
+		"effect": "4.0.0-beta.102",
 		"lucide-react": "0.563.0",
 		"react": "19.2.4",
 		"react-dom": "19.2.4",
