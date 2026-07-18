@@ -33,12 +33,19 @@ const Episode = Schema.Struct({
 	episode: Schema.optional(Schema.NullOr(Schema.Union([Schema.Number, Schema.String]))),
 });
 
-const Progress = Schema.Struct({ isFinished: Schema.optional(Schema.Boolean) });
+const MediaProgress = Schema.Struct({
+	episodeId: Schema.optional(Schema.NullOr(Schema.String)),
+	isFinished: Schema.optional(Schema.NullOr(Schema.Boolean)),
+	libraryItemId: Schema.optional(Schema.NullOr(Schema.String)),
+});
+
+const MeResponse = Schema.Struct({
+	mediaProgress: Schema.optional(Schema.NullOr(Schema.Array(MediaProgress))),
+});
 
 const Item = Schema.Struct({
 	id: Schema.String,
 	name: Schema.optional(Schema.String),
-	userMediaProgress: Schema.optional(Schema.NullOr(Progress)),
 	mediaType: Schema.optional(Schema.Literals(["book", "podcast"])),
 	media: Schema.optional(
 		Schema.Struct({
@@ -65,10 +72,6 @@ const ListingResponse = Schema.Struct({ results: Schema.optional(Schema.Array(It
 
 const DetailsResponse = Schema.Struct({
 	media: Schema.optional(Schema.Struct({ episodes: Schema.optional(Schema.Array(Episode)) })),
-});
-
-const ProgressResponse = Schema.Struct({
-	userMediaProgress: Schema.optional(Schema.NullOr(Progress)),
 });
 
 const validIsbn = (value: string) => {
@@ -143,6 +146,14 @@ export default defineScript({
 			const libraries = yield* requestJson(host, "GET", `${url}/libraries`, { headers }).pipe(
 				Effect.flatMap(Schema.decodeUnknownEffect(LibrariesResponse)),
 			);
+			const me = yield* requestJson(host, "GET", `${url}/me`, { headers }).pipe(
+				Effect.flatMap(Schema.decodeUnknownEffect(MeResponse)),
+			);
+			const finishedEpisodes = new Set(
+				(me.mediaProgress ?? [])
+					.filter((entry) => entry.isFinished && entry.episodeId)
+					.map((entry) => `${entry.libraryItemId}:${entry.episodeId}`),
+			);
 			const failures: Array<MediaIntegrationAdapterResult["failures"][number]> = [];
 			const entityGroups: Array<MediaIntegrationAdapterResult["entityGroups"][number]> = [];
 			let itemIndex = 0;
@@ -213,61 +224,33 @@ export default defineScript({
 							);
 						}
 						const details = Option.getOrNull(detailsResult);
-						if (details && (details.media?.episodes ?? []).length === 0) {
-							failures.push({
-								itemIndex: currentIndex,
-								sourceIdentifier: item.id,
-								sourceLabel: ref.sourceLabel,
-								stage: "input_transformation",
-								message: "Audiobookshelf podcast has no episodes",
-							});
-						}
 						for (const episode of details?.media?.episodes ?? []) {
-							if (episode.id) {
-								const progressResult = yield* requestJson(
-									host,
-									"GET",
-									`${url}/items/${item.id}?expanded=1&include=progress&episode=${episode.id}`,
-									{ headers },
-								).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ProgressResponse)), Effect.option);
-								if (Option.isNone(progressResult)) {
-									failures.push(
-										sourceFetchFailure({
-											itemIndex: currentIndex,
-											sourceIdentifier: item.id,
-											sourceLabel: ref.sourceLabel,
-											message: "Failed to fetch Audiobookshelf podcast episode progress",
-										}),
-									);
-									continue;
-								}
-								const progress = progressResult.value;
-								const number =
-									episode.episodeNumber ??
-									episode.number ??
-									episode.index ??
-									episode.sequence ??
-									(typeof episode.episode === "number"
-										? episode.episode
-										: Number.parseInt(episode.episode ?? "", 10));
-								if (progress.userMediaProgress?.isFinished && Number.isInteger(number)) {
-									events.push({
-										occurredAt,
-										eventSchemaSlug: "progress",
-										properties: { progressPercent: 100 },
-										unresolvedEpisode: { type: "podcast", episodeNumber: number },
-									});
-								}
+							if (!episode.id || !finishedEpisodes.has(`${item.id}:${episode.id}`)) {
+								continue;
 							}
-						}
-						if (details && (details.media?.episodes ?? []).length > 0 && events.length === 0) {
-							failures.push({
-								itemIndex: currentIndex,
-								sourceIdentifier: item.id,
-								sourceLabel: ref.sourceLabel,
-								stage: "input_transformation",
-								message:
-									"Audiobookshelf podcast has no finished episodes with importable episode numbers",
+							const number =
+								episode.episodeNumber ??
+								episode.number ??
+								episode.index ??
+								episode.sequence ??
+								(typeof episode.episode === "number"
+									? episode.episode
+									: Number.parseInt(episode.episode ?? "", 10));
+							if (!Number.isInteger(number)) {
+								failures.push({
+									itemIndex: currentIndex,
+									sourceIdentifier: episode.id,
+									sourceLabel: ref.sourceLabel,
+									stage: "input_transformation",
+									message: "Audiobookshelf podcast episode is finished but has no episode number",
+								});
+								continue;
+							}
+							events.push({
+								occurredAt,
+								eventSchemaSlug: "progress",
+								properties: { progressPercent: 100 },
+								unresolvedEpisode: { type: "podcast", episodeNumber: number },
 							});
 						}
 					}
