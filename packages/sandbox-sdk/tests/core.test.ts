@@ -239,48 +239,28 @@ describe("domain host contracts", () => {
 			slug: "domain-reader",
 			requiredPluginConfigKeys: [],
 			requiredSystemConfigKeys: [],
-			capabilities: ["getEntities", "executeQueryEngine"],
+			capabilities: ["executeQueryEngine"],
 		});
 		const definition = defineScript({
 			manifest,
-			input: Schema.Struct({ entityId: Schema.String }),
-			output: Schema.Struct({ name: Schema.String, rows: Schema.Number }),
-			run: (input, host) =>
-				Effect.all({
-					entity: host.getEntities([input.entityId]).pipe(Effect.map(([entity]) => entity)),
-					result: host.executeQueryEngine({ source: { type: "entities" } }),
-				}).pipe(
-					Effect.map(({ entity, result }) => ({
-						name: entity.name,
-						rows: Array.isArray(result) ? result.length : 0,
-					})),
-				),
+			input: Schema.Struct({}),
+			output: Schema.Struct({ rows: Schema.Number }),
+			run: (_input, host) =>
+				host
+					.executeQueryEngine({ source: { type: "entities" } })
+					.pipe(Effect.map((result) => ({ rows: Array.isArray(result) ? result.length : 0 }))),
 		});
 		const host = defineSandboxTestHost(manifest, {
-			getEntities: (entityIds) =>
-				Effect.succeed(
-					entityIds.map((id) => ({
-						id,
-						name: "Inception",
-						populatedAt: null,
-						providerId: null,
-						externalId: "tt1375666",
-						entitySchemaSlug: "movie",
-						properties: { runtime: 148 },
-						createdAt: "2024-01-01T00:00:00.000Z",
-						updatedAt: "2024-01-01T00:00:00.000Z",
-					})),
-				),
 			executeQueryEngine: () => Effect.succeed([{ id: "a" }, { id: "b" }]),
 		});
 
 		expect(
 			await Effect.runPromise(
-				runSandboxTestScript(definition, { entityId: "entity-1" }, host, {
+				runSandboxTestScript(definition, {}, host, {
 					metadata: {},
 					sandboxScriptId: "script-1",
 				}),
 			),
-		).toEqual({ name: "Inception", rows: 2 });
+		).toEqual({ rows: 2 });
 	});
 });

@@ -22,10 +22,10 @@ export const manifest = defineManifest({
 	slug: "trigger.sonarr-push",
 	capabilities: [
 		"httpCall",
-		"getEntities",
 		"getEntitySchemas",
 		"listIntegrations",
 		"getUserPreferences",
+		"executeQueryEngine",
 	],
 });
 
@@ -87,7 +87,7 @@ export default defineAutomation({
 			if (matching.length === 0) {
 				return null;
 			}
-			const entity = yield* fetchEntity(host, entityId);
+			const entity = yield* fetchEntity(host, entityId, entitySchemaSlug);
 			const providerName = yield* resolveEntityProviderName(host, entity);
 			const externalId = entity.externalId;
 			if (providerName !== "TVDB" || !externalId) {
