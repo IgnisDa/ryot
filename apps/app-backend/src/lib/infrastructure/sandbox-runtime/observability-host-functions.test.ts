@@ -20,6 +20,7 @@ const selectedHostFunction: BoundHostFunction = () => Effect.succeed(null);
 const input: SandboxRunInput = {
 	context: {},
 	metadata: {},
+	contentHash: "",
 	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,

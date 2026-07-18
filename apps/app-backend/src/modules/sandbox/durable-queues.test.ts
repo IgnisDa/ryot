@@ -41,6 +41,7 @@ esac
 `;
 	const replacementContent = "printf 'completed:active-v2'";
 	let activeId = historicalScriptId;
+	const executedHashes: string[] = [];
 	const executedContent: string[] = [];
 	const payload = {
 		context: {},
@@ -93,6 +94,7 @@ esac
 			_tag: "SandboxService",
 			run: (input) => {
 				executedContent.push(input.compiledCode);
+				executedHashes.push(input.contentHash);
 				return Command.make("/bin/sh", "-c", input.compiledCode).pipe(
 					Command.env({ EXECUTION_ID: input.executionId }),
 					Command.string,
@@ -127,6 +129,7 @@ esac
 		});
 		expect(replayed.value).toBe("completed:pinned-v1");
 		expect(executedContent).toEqual([historicalContent, historicalContent]);
+		expect(executedHashes).toEqual(["historical-hash", "historical-hash"]);
 		expect(executedContent).not.toContain(replacementContent);
 	}).pipe(Effect.provide(layer));
 });
@@ -137,6 +140,7 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 	let executedCode: string | undefined;
 	const executedScriptIds: string[] = [];
 	const executedProviderIds: Array<string | null> = [];
+	const executedHashes: string[] = [];
 	const executedCacheNamespaces: string[] = [];
 	const executedScriptIsBuiltin: boolean[] = [];
 	const repository = Layer.mock(SandboxRepository)({
@@ -146,9 +150,10 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 			Effect.succeed({
 				id: scriptId,
 				metadata: {},
-				providerId: scriptId === queuedScriptId ? "provider-id" : null,
 				compiledFormat: 1,
 				compiledCode: "queued-version",
+				providerId: scriptId === queuedScriptId ? "provider-id" : null,
+				contentHash: scriptId === queuedScriptId ? "queued-hash" : "kernel-hash",
 			}),
 	});
 	const sandbox = Layer.mock(RuntimeSandboxService)({
@@ -156,6 +161,7 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 		run: (input) =>
 			Effect.sync(() => {
 				executedCode = input.compiledCode;
+				executedHashes.push(input.contentHash);
 				executedScriptIds.push(input.scriptId);
 				executedProviderIds.push(input.providerId);
 				executedCacheNamespaces.push(input.cacheNamespace);
@@ -176,20 +182,21 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 	return Effect.gen(function* () {
 		const result = yield* executeSandboxExecution({
 			context: {},
-			authority: { type: "system" },
 			scriptId: queuedScriptId,
 			executionId: "execution-id",
+			authority: { type: "system" },
 		});
 		yield* executeSandboxExecution({
 			context: {},
-			authority: { type: "system" },
 			scriptId: kernelScriptId,
+			authority: { type: "system" },
 			executionId: "kernel-execution-id",
 		});
 
 		expect(executedCode).toBe("queued-version");
 		expect(executedScriptIds).toEqual([queuedScriptId, kernelScriptId]);
 		expect(executedProviderIds).toEqual(["provider-id", null]);
+		expect(executedHashes).toEqual(["queued-hash", "kernel-hash"]);
 		expect(executedCacheNamespaces).toEqual(["provider-id", kernelScriptId]);
 		expect(executedScriptIsBuiltin).toEqual([false, true]);
 		expect(result.value).toBe("queued-result");

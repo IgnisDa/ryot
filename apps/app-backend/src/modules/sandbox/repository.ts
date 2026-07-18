@@ -46,6 +46,7 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 						id: schema.sandboxScript.id,
 						metadata: schema.sandboxScript.metadata,
 						providerId: schema.sandboxScript.providerId,
+						contentHash: schema.sandboxScript.contentHash,
 						compiledCode: schema.sandboxScript.compiledCode,
 						compiledFormat: schema.sandboxScript.compiledFormat,
 					})
