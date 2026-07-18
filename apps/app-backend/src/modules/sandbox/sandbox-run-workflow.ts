@@ -10,9 +10,7 @@ import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 const RunSandboxWorkflowPayload = Schema.Struct({
 	...SandboxExecutionPayload.fields,
-	// Effect injects this into child payloads before strict excess-property decoding.
-	"~@effect/workflow/parent": Schema.optional(Schema.Unknown),
-}).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+});
 
 export const RunSandboxWorkflow = Workflow.make("RunSandboxWorkflow", {
 	error: SandboxRunError satisfies DurableSchema,
