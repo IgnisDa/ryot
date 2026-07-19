@@ -17,7 +17,7 @@ import {
 	providerEntityImportEntry,
 	setProviderEntityImportEntry,
 } from "./import-controller";
-import { runProviderEntityImport } from "./import-runner";
+import { addProviderEntityToLibrary, runProviderEntityImport } from "./import-runner";
 import { ProviderSearchOptionsForm } from "./options-form";
 import {
 	initialOptionValues,
@@ -124,6 +124,7 @@ function ProviderChips(props: {
 
 function ProviderSearchResultList(props: {
 	readonly providerId: SandboxProviderId;
+	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly onAdd: (externalId: string) => void;
 	readonly items: readonly ProviderSearchItem[];
 	readonly importState: ProviderEntityImportState;
@@ -132,7 +133,14 @@ function ProviderSearchResultList(props: {
 	const [first, ...rest] = props.items.map((item) => item.externalId);
 	const externalIds = [first, ...rest] as const;
 	const links = mapProviderEntityLinks(
-		useAtomValue(providerEntityLinksAtom({ ...scope, externalIds, providerId: props.providerId })),
+		useAtomValue(
+			providerEntityLinksAtom({
+				...scope,
+				externalIds,
+				providerId: props.providerId,
+				entitySchemaSlug: props.entitySchemaSlug,
+			}),
+		),
 	);
 	useProviderAddFailureLogging("provider entity links", links);
 	const linked = links.status === "ready" ? links.externalIds : undefined;
@@ -156,6 +164,7 @@ function ProviderSearchResults(props: {
 	readonly onLoadMore: () => void;
 	readonly state: ProviderSearchState;
 	readonly providerId: SandboxProviderId;
+	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly onAdd: (externalId: string) => void;
 	readonly importState: ProviderEntityImportState;
 }) {
@@ -169,6 +178,7 @@ function ProviderSearchResults(props: {
 				items={props.state.items}
 				providerId={props.providerId}
 				importState={props.importState}
+				entitySchemaSlug={props.entitySchemaSlug}
 			/>
 			{hasMoreProviderSearchResults(props.state) && props.state.status !== "loading-more" ? (
 				<Pressable
@@ -298,7 +308,10 @@ export function ProviderSearchPanel(props: {
 				externalId,
 				serverUrl: scope.serverUrl,
 				providerId: selected.providerId,
-				onImported: () => Effect.sync(() => props.onImported()),
+				onImported: (entityId) =>
+					addProviderEntityToLibrary({ entityId, serverUrl: scope.serverUrl }).pipe(
+						Effect.andThen(Effect.sync(() => props.onImported())),
+					),
 			}),
 		).then((entry) =>
 			setImportState((current) => setProviderEntityImportEntry(current, externalId, entry)),
@@ -417,6 +430,7 @@ export function ProviderSearchPanel(props: {
 								importState={importState}
 								onAdd={addProviderEntity}
 								providerId={selected.providerId}
+								entitySchemaSlug={props.entitySchemaSlug}
 								onLoadMore={() => dispatch({ type: "next-page-requested" })}
 							/>
 						)),
