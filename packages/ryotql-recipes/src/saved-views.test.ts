@@ -5,7 +5,6 @@ import {
 	document,
 	eq,
 	field,
-	include,
 	join,
 	literal,
 	rows,
@@ -15,57 +14,234 @@ import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
-	buildSavedViewCountDocument,
-	buildSavedViewDocument,
 	buildSavedViewLayoutProjections,
-	decodeSavedViewCountResponse,
+	savedViewCountRecipe,
+	savedViewRecipe,
 } from "./saved-views";
 
+const entity = table("entity", "entity");
+const projections = buildSavedViewLayoutProjections({
+	grid: {
+		entityId: column(entity, "id"),
+		card: {
+			image: column(entity, "image"),
+			title: column(entity, "name"),
+			callout: { displayKind: "number", expression: column(entity, "score") },
+			overline: { displayKind: "text", expression: literal("Book") },
+			primaryMetadata: { displayKind: "date", expression: column(entity, "publishedAt") },
+			secondaryMetadata: null,
+		},
+	},
+	list: {
+		entityId: column(entity, "id"),
+		card: {
+			image: null,
+			callout: null,
+			overline: null,
+			primaryMetadata: null,
+			secondaryMetadata: null,
+			title: column(entity, "name"),
+		},
+	},
+	table: {
+		entityId: column(entity, "id"),
+		image: column(entity, "image"),
+		columns: [
+			{ label: "Name", displayKind: "text", expression: column(entity, "name") },
+			{ label: "Score", displayKind: "number", expression: column(entity, "score") },
+			{ label: "Active", displayKind: "boolean", expression: column(entity, "active") },
+			{ label: "Published", displayKind: "date", expression: column(entity, "publishedAt") },
+			{ label: "Details", displayKind: "json", expression: column(entity, "details") },
+		],
+	},
+});
+
+const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" } as const;
+
 describe("saved-view recipes", () => {
-	it("uses a discriminator membership predicate for multiple entity schemas", () => {
-		const entity = table("entity", "entity");
-		const query = buildSavedViewDocument({
-			entitySchemaSlugs: ["smartphone", "tablet"],
-			fields: [field("id", column(entity, "id"))],
+	it("prepares a generated rows document with filtering, ordering, and pagination", () => {
+		const prepared = savedViewRecipe({
+			layout: { type: "card", mapping: projections.grid.mappings },
+			source: {
+				type: "generated",
+				after: "cursor",
+				limit: 2,
+				fields: projections.grid.fields,
+				entitySchemaSlugs: ["smartphone", "tablet"],
+				orderBy: [ascending(column(entity, "createdAt"))],
+				where: eq(column(entity, "status"), literal("active")),
+			},
 		});
 
-		expect(query.queries.savedView.where).toMatchObject({
-			type: "in",
-			expr: { type: "column", field: "entitySchemaSlug", tableAlias: "entity" },
-			values: [
-				{ type: "literal", value: "smartphone" },
-				{ type: "literal", value: "tablet" },
+		expect(prepared.document.queries.savedView).toMatchObject({
+			output: {
+				type: "rows",
+				pagination: { after: "cursor", limit: 2 },
+				orderBy: [{ direction: "asc", expr: { field: "createdAt", tableAlias: "entity" } }],
+			},
+			where: {
+				type: "and",
+				predicates: [
+					{
+						type: "in",
+						expr: { field: "entitySchemaSlug", tableAlias: "entity" },
+						values: [{ value: "smartphone" }, { value: "tablet" }],
+					},
+					{ type: "comparison", operator: "eq", right: { value: "active" } },
+				],
+			},
+		});
+	});
+
+	it("decodes plain card rows with persisted display metadata and pagination", () => {
+		const prepared = savedViewRecipe({
+			layout: { type: "card", mapping: projections.grid.mappings },
+			source: {
+				type: "persisted",
+				queryDocument: document({
+					custom: rows(entity, { fields: projections.grid.fields, limit: 2 }),
+				}),
+			},
+		});
+
+		expect(prepared.document.queries).toHaveProperty("savedView");
+		expect(
+			Result.getOrThrow(
+				prepared.decode({
+					data: {
+						savedView: {
+							pageInfo,
+							type: "rows",
+							items: [
+								{
+									entityId: "book-1",
+									title: "Piranesi",
+									callout: 4.5,
+									overline: "Book",
+									primaryMetadata: "2026-08-12",
+									image: { type: "remote", url: "https://example.com/cover.jpg" },
+								},
+							],
+						},
+					},
+				}),
+			),
+		).toEqual({
+			pageInfo,
+			items: [
+				{
+					entityId: "book-1",
+					title: "Piranesi",
+					image: { type: "remote", url: "https://example.com/cover.jpg" },
+					callout: { displayKind: "number", value: 4.5 },
+					overline: { displayKind: "text", value: "Book" },
+					primaryMetadata: { displayKind: "date", value: "2026-08-12" },
+					secondaryMetadata: undefined,
+				},
 			],
 		});
 	});
 
-	it("builds a count document from the first rows query", () => {
-		const entity = table("entity", "entity");
-		const relatedEntity = table("entity", "relatedEntity");
+	it("decodes every table display kind and preserves null as a value state", () => {
+		const prepared = savedViewRecipe({
+			layout: { type: "table", mapping: projections.table.mappings },
+			source: {
+				type: "generated",
+				fields: projections.table.fields,
+				entitySchemaSlugs: ["book"],
+			},
+		});
+		const decoded = Result.getOrThrow(
+			prepared.decode({
+				data: {
+					savedView: {
+						pageInfo: { ...pageInfo, hasMore: false, nextCursor: null },
+						type: "rows",
+						items: [
+							{
+								entityId: "book-1",
+								image: null,
+								column0: "Piranesi",
+								column1: null,
+								column2: true,
+								column3: "2026-08-12",
+								column4: { pages: 272 },
+							},
+						],
+					},
+				},
+			}),
+		);
+
+		expect(decoded.items[0]).toEqual({
+			entityId: "book-1",
+			image: null,
+			cells: [
+				{ key: "column0", label: "Name", value: { displayKind: "text", value: "Piranesi" } },
+				{ key: "column1", label: "Score", value: { displayKind: "number", value: null } },
+				{ key: "column2", label: "Active", value: { displayKind: "boolean", value: true } },
+				{
+					key: "column3",
+					label: "Published",
+					value: { displayKind: "date", value: "2026-08-12" },
+				},
+				{
+					key: "column4",
+					label: "Details",
+					value: { displayKind: "json", value: { pages: 272 } },
+				},
+			],
+		});
+	});
+
+	it("rejects malformed plain values according to display metadata", () => {
+		const prepared = savedViewRecipe({
+			layout: { type: "card", mapping: projections.grid.mappings },
+			source: {
+				type: "generated",
+				fields: projections.grid.fields,
+				entitySchemaSlugs: ["book"],
+			},
+		});
+
+		expect(
+			Result.isFailure(
+				prepared.decode({
+					data: {
+						savedView: {
+							pageInfo,
+							type: "rows",
+							items: [
+								{
+									entityId: "book-1",
+									title: "Book",
+									image: null,
+									callout: "4.5",
+									overline: "Book",
+									primaryMetadata: "not-a-date",
+								},
+							],
+						},
+					},
+				}),
+			),
+		).toBe(true);
+	});
+
+	it("prepares and decodes an aggregate count from the rows source", () => {
+		const related = table("entity", "related");
 		const where = eq(column(entity, "status"), literal("active"));
-		const joins = [
-			join("inner", relatedEntity, eq(column(entity, "id"), column(relatedEntity, "id"))),
-		];
+		const joins = [join("inner", related, eq(column(entity, "id"), column(related, "id")))];
 		const source = document({
 			savedView: rows(entity, {
 				where,
 				joins,
-				limit: 25,
-				after: "cursor",
-				orderBy: [ascending(column(entity, "name"))],
-				fields: [field("id", column(entity, "id")), field("name", column(entity, "name"))],
-				include: [
-					include(relatedEntity, {
-						limit: 1,
-						key: "related",
-						fields: [field("id", column(relatedEntity, "id"))],
-						orderBy: [ascending(column(relatedEntity, "id"))],
-					}),
-				],
+				fields: [field("id", column(entity, "id"))],
 			}),
 		});
+		const prepared = Result.getOrThrow(savedViewCountRecipe(source));
 
-		expect(buildSavedViewCountDocument(source)).toEqual({
+		expect(prepared.document).toEqual({
 			queries: {
 				savedViewCount: {
 					where,
@@ -78,134 +254,28 @@ describe("saved-view recipes", () => {
 				},
 			},
 		});
-	});
-
-	it("returns null when the source document has no rows query", () => {
-		const entity = table("entity", "entity");
-
-		expect(buildSavedViewCountDocument(document({}))).toBeNull();
-		expect(
-			buildSavedViewCountDocument(
-				document({
-					savedView: aggregate(entity, {
-						measures: [{ key: "total", aggregation: { function: "count" } }],
-					}),
-				}),
-			),
-		).toBeNull();
-	});
-
-	it("decodes an ungrouped count response", () => {
 		expect(
 			Result.getOrThrow(
-				decodeSavedViewCountResponse({
-					data: {
-						savedViewCount: {
-							type: "aggregate",
-							items: [{ total: { kind: "number", value: 42 } }],
-						},
-					},
+				prepared.decode({
+					data: { savedViewCount: { type: "aggregate", items: [{ total: 42 }] } },
 				}),
 			),
 		).toBe(42);
 	});
 
-	it("fails to decode a count response with no items", () => {
-		expect(
-			Result.isFailure(
-				decodeSavedViewCountResponse({
-					data: { savedViewCount: { type: "aggregate", items: [] } },
-				}),
-			),
-		).toBe(true);
-	});
-
-	it("allocates stable keys across every saved-view layout", () => {
-		const projections = buildSavedViewLayoutProjections({
-			table: {
-				entityId: literal("table id"),
-				image: literal("table image"),
-				columns: [
-					{ label: "Name", expression: literal("name") },
-					{ label: "Year", expression: literal(2026) },
-				],
-			},
-			grid: {
-				entityId: literal("grid id"),
-				card: {
-					image: null,
-					callout: null,
-					secondaryMetadata: null,
-					overline: literal("Grid"),
-					title: literal("grid title"),
-					primaryMetadata: literal("Primary"),
-				},
-			},
-			list: {
-				entityId: literal("list id"),
-				card: {
-					overline: null,
-					primaryMetadata: null,
-					image: literal("image"),
-					callout: literal("Callout"),
-					title: literal("list title"),
-					secondaryMetadata: literal("Secondary"),
-				},
-			},
+	it("fails count preparation for empty, multiple, and non-row documents", () => {
+		const aggregateDocument = document({
+			count: aggregate(entity, {
+				measures: [{ key: "total", aggregation: { function: "count" } }],
+			}),
+		});
+		const multipleDocument = document({
+			first: rows(entity, { fields: [] }),
+			second: rows(entity, { fields: [] }),
 		});
 
-		expect(projections.grid.fields.map(({ key }) => key)).toEqual([
-			"entityId",
-			"title",
-			"overline",
-			"primaryMetadata",
-		]);
-		expect(projections.list.fields.map(({ key }) => key)).toEqual([
-			"entityId",
-			"title",
-			"image",
-			"callout",
-			"secondaryMetadata",
-		]);
-		expect(projections.table.fields.map(({ key }) => key)).toEqual([
-			"entityId",
-			"image",
-			"column0",
-			"column1",
-		]);
-		expect(projections).toMatchObject({
-			table: {
-				mappings: {
-					imageField: "image",
-					entityIdField: "entityId",
-					columns: [
-						{ label: "Name", field: "column0" },
-						{ label: "Year", field: "column1" },
-					],
-				},
-			},
-			grid: {
-				mappings: {
-					imageField: null,
-					calloutField: null,
-					titleField: "title",
-					entityIdField: "entityId",
-					overlineField: "overline",
-					secondaryMetadataField: null,
-					primaryMetadataField: "primaryMetadata",
-				},
-			},
-			list: {
-				mappings: {
-					imageField: "image",
-					titleField: "title",
-					overlineField: null,
-					calloutField: "callout",
-					entityIdField: "entityId",
-					primaryMetadataField: null,
-					secondaryMetadataField: "secondaryMetadata",
-				},
-			},
-		});
+		expect(Result.isFailure(savedViewCountRecipe(document({})))).toBe(true);
+		expect(Result.isFailure(savedViewCountRecipe(multipleDocument))).toBe(true);
+		expect(Result.isFailure(savedViewCountRecipe(aggregateDocument))).toBe(true);
 	});
 });

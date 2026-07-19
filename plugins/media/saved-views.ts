@@ -1,7 +1,7 @@
 import { column, table } from "@ryot/ryotql";
 import { buildSavedViewLayoutProjections } from "@ryot/ryotql-recipes/saved-views";
 
-import { buildDefaultMediaSavedViewQueryDocument } from "./query-recipes";
+import { defaultMediaSavedViewRecipe } from "./query-recipes";
 import { mediaEntitySchemas } from "./schemas/entity-schemas";
 import { slugify } from "./shared/slug";
 import { buildViewExpressions } from "./shared/view-helpers";
@@ -81,24 +81,27 @@ export const mediaSavedViews = () => {
 			layouts: {
 				grid: {
 					...projections.grid.mappings,
-					queryDocument: buildDefaultMediaSavedViewQueryDocument({
+					queryDocument: defaultMediaSavedViewRecipe({
 						fields: projections.grid.fields,
 						schemas: [view.entitySchemaSlug],
-					}),
+						layout: { type: "card", mapping: projections.grid.mappings },
+					}).document,
 				},
 				list: {
 					...projections.list.mappings,
-					queryDocument: buildDefaultMediaSavedViewQueryDocument({
+					queryDocument: defaultMediaSavedViewRecipe({
 						fields: projections.list.fields,
 						schemas: [view.entitySchemaSlug],
-					}),
+						layout: { type: "card", mapping: projections.list.mappings },
+					}).document,
 				},
 				table: {
 					...projections.table.mappings,
-					queryDocument: buildDefaultMediaSavedViewQueryDocument({
+					queryDocument: defaultMediaSavedViewRecipe({
 						fields: projections.table.fields,
 						schemas: [view.entitySchemaSlug],
-					}),
+						layout: { type: "table", mapping: projections.table.mappings },
+					}).document,
 				},
 			},
 		};

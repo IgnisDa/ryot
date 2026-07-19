@@ -3,6 +3,8 @@ import { and, contains, literal } from "@ryot/ryotql";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import { Effect } from "effect";
 
+import { RyotQLMalformedResultError } from "@/api/ryotql";
+
 import {
 	appendSavedViewPage,
 	materializeSavedViewData,
@@ -223,14 +225,15 @@ export const canRefreshSavedView = (state: SavedViewControllerState) => {
 
 export const executeSavedViewRequest = (input: {
 	readonly queryDocument: RyotQLDocument;
-	readonly execute: (queryDocument: RyotQLDocument) => Effect.Effect<unknown, unknown>;
-	readonly decode: (
-		response: unknown,
-	) => Effect.Effect<SavedViewReadyState, SavedViewRequestFailure>;
+	readonly execute: (queryDocument: RyotQLDocument) => Effect.Effect<SavedViewReadyState, unknown>;
 }) =>
 	input.execute(input.queryDocument).pipe(
-		Effect.mapError((cause): SavedViewRequestFailure => ({ cause, status: "transport-error" })),
-		Effect.flatMap(input.decode),
+		Effect.mapError(
+			(cause): SavedViewRequestFailure => ({
+				cause,
+				status: cause instanceof RyotQLMalformedResultError ? "malformed" : "transport-error",
+			}),
+		),
 	);
 
 type SavedViewLayoutDefinition = SavedViewRecord["layouts"][keyof SavedViewRecord["layouts"]];
@@ -313,10 +316,7 @@ export const fetchSavedViewPages = (input: {
 	readonly pagesToLoad: number;
 	readonly queryDocument: RyotQLDocument;
 	readonly initialData?: SavedViewNormalizedState;
-	readonly execute: (queryDocument: RyotQLDocument) => Effect.Effect<unknown, unknown>;
-	readonly decode: (
-		response: unknown,
-	) => Effect.Effect<SavedViewReadyState, SavedViewRequestFailure>;
+	readonly execute: (queryDocument: RyotQLDocument) => Effect.Effect<SavedViewReadyState, unknown>;
 }) =>
 	Effect.gen(function* () {
 		let queryDocument = input.queryDocument;

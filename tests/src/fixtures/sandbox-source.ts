@@ -174,9 +174,18 @@ export function ryotqlSandboxSource(
 const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
 		run: `(_input, host) => Effect.gen(function* () {
     const result = yield* host.executeRyotql(query);
-    return ryotqlRows(result, queryName).items;
-  })`,
-		ryotqlImports: ["ryotqlRows"],
+     const data = result && typeof result === "object" && "data" in result ? result.data : null;
+     const queryResults = data && typeof data === "object" ? data as Record<string, unknown> : null;
+     const rows = queryResults?.[queryName];
+     if (!rows || typeof rows !== "object") {
+       throw new Error("Expected a rows result");
+     }
+     const rowResult = rows as Record<string, unknown>;
+     if (rowResult.type !== "rows" || !Array.isArray(rowResult.items)) {
+       throw new Error("Expected a rows result");
+     }
+     return rowResult.items;
+   })`,
 	});
 }
 
@@ -191,22 +200,31 @@ export function systemRyotqlProbeSandboxSource(
 		...input,
 		capabilities: ["executeRyotql", "upsertGlobalEntities"],
 		sdkImports: ["ryotqlDocumentSchema"],
-		ryotqlImports: ["ryotqlRows"],
 		inputSchema: "Schema.Struct({})",
 		outputSchema: "Schema.Struct({ count: Schema.Number })",
 		declarations: `const queryName = ${JSON.stringify(input.queryName)};
 const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
 		run: `(_input, host) => Effect.gen(function* () {
     const result = yield* host.executeRyotql(query);
-    const rows = ryotqlRows(result, queryName).items;
+     const data = result && typeof result === "object" && "data" in result ? result.data : null;
+     const queryResults = data && typeof data === "object" ? data as Record<string, unknown> : null;
+     const rowResult = queryResults?.[queryName];
+     if (!rowResult || typeof rowResult !== "object") {
+       throw new Error("Expected a rows result");
+     }
+     const rows = rowResult as Record<string, unknown>;
+     const items = rows.items;
+     if (rows.type !== "rows" || !Array.isArray(items)) {
+       throw new Error("Expected a rows result");
+     }
     yield* host.upsertGlobalEntities([{
       entitySchemaSlug: ${JSON.stringify(input.entitySchemaSlug)},
       externalId: "system-ryotql-probe",
       name: "RyotQL system probe",
       populatedAt: null,
-      properties: { rowCount: rows.length },
+      properties: { rowCount: items.length },
     }]);
-    return { count: rows.length };
+    return { count: items.length };
   })`,
 	});
 }
@@ -217,18 +235,13 @@ export function entityRowsSandboxSource(input: SandboxSourceIdentity) {
 		sdkImports: ["entityRecordSchema"],
 		capabilities: ["executeRyotql"],
 		outputSchema: "Schema.Array(entityRecordSchema)",
-		ryotqlImports: ["buildEntityReadDocument", "ryotqlRows"],
-		declarations: `const unwrapRows = (response: unknown) => ryotqlRows(response, "entities").items.map((row) =>
-  Schema.decodeUnknownSync(entityRecordSchema)(Object.fromEntries(Object.entries(row).map(([key, field]) => [key,
-    typeof field === "object" && field !== null && "value" in field ? field.value : null,
-  ])))
-);`,
+		ryotqlImports: ["entityReadRecipe", "executeRyotqlRecipe"],
 		inputSchema: "Schema.Struct({ ids: Schema.Array(Schema.String) })",
 		run: `(input, host) => input.ids.length === 0
     ? Effect.succeed([])
-	    : host.executeRyotql(buildEntityReadDocument({
+	    : executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({
 				entityIds: input.ids as [string, ...string[]],
-		      })).pipe(Effect.map(unwrapRows))`,
+		      })).pipe(Effect.map((result) => result.items))`,
 	});
 }
 
@@ -236,18 +249,13 @@ export function eventRowsSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
 		capabilities: ["executeRyotql"],
-		ryotqlImports: ["buildEventReadDocument", "ryotqlRows"],
-		declarations: `const unwrapRows = (response: unknown) => ryotqlRows(response, "events").items.map((row) =>
-  Object.fromEntries(Object.entries(row).map(([key, field]) => [key,
-    typeof field === "object" && field !== null && "value" in field ? field.value : null,
-  ]))
-);`,
+		ryotqlImports: ["eventReadRecipe", "executeRyotqlRecipe"],
 		outputSchema: "Schema.Array(Schema.Unknown)",
-		run: `(input, host) => host.executeRyotql(buildEventReadDocument({
+		run: `(input, host) => executeRyotqlRecipe(host.executeRyotql, eventReadRecipe({
         entityId: input.entityId,
         entitySchemaSlug: input.entitySchemaSlug,
         eventSchemaSlug: input.eventSchemaSlug,
-	      })).pipe(Effect.map(unwrapRows))`,
+	      })).pipe(Effect.map((result) => result.items))`,
 		inputSchema:
 			"Schema.Struct({ entityId: Schema.String, entitySchemaSlug: Schema.String, eventSchemaSlug: Schema.String })",
 	});

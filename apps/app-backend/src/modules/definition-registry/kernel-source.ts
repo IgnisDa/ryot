@@ -1,6 +1,5 @@
 import { column, literal, table } from "@ryot/ryotql";
-import { buildAllCollectionsDocument } from "@ryot/ryotql-recipes/collections";
-import { buildSavedViewLayoutProjections } from "@ryot/ryotql-recipes/saved-views";
+import { buildSavedViewLayoutProjections, savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 
 import { manifest as notificationManifest } from "./kernel-scripts/notification.sandbox";
 import type { DefinitionSource } from "./service";
@@ -92,12 +91,12 @@ const collectionSchema = {
 	},
 };
 
-const collection = table("entity", "collection");
+const collection = table("entity", "entity");
 const collectionProjections = buildSavedViewLayoutProjections({
 	table: {
 		image: null,
 		entityId: column(collection, "id"),
-		columns: [{ label: "Name", expression: column(collection, "name") }],
+		columns: [{ label: "Name", displayKind: "text", expression: column(collection, "name") }],
 	},
 	grid: {
 		entityId: column(collection, "id"),
@@ -106,7 +105,7 @@ const collectionProjections = buildSavedViewLayoutProjections({
 			callout: null,
 			primaryMetadata: null,
 			secondaryMetadata: null,
-			overline: literal(collectionSchema.name),
+			overline: { displayKind: "text", expression: literal(collectionSchema.name) },
 			title: column(collection, "name"),
 		},
 	},
@@ -117,7 +116,7 @@ const collectionProjections = buildSavedViewLayoutProjections({
 			callout: null,
 			primaryMetadata: null,
 			secondaryMetadata: null,
-			overline: literal(collectionSchema.name),
+			overline: { displayKind: "text", expression: literal(collectionSchema.name) },
 			title: column(collection, "name"),
 		},
 	},
@@ -126,15 +125,36 @@ const collectionProjections = buildSavedViewLayoutProjections({
 const collectionLayouts = {
 	grid: {
 		...collectionProjections.grid.mappings,
-		queryDocument: buildAllCollectionsDocument({ fields: collectionProjections.grid.fields }),
+		queryDocument: savedViewRecipe({
+			layout: { type: "card", mapping: collectionProjections.grid.mappings },
+			source: {
+				type: "generated",
+				entitySchemaSlugs: ["collection"],
+				fields: collectionProjections.grid.fields,
+			},
+		}).document,
 	},
 	list: {
 		...collectionProjections.list.mappings,
-		queryDocument: buildAllCollectionsDocument({ fields: collectionProjections.list.fields }),
+		queryDocument: savedViewRecipe({
+			layout: { type: "card", mapping: collectionProjections.list.mappings },
+			source: {
+				type: "generated",
+				entitySchemaSlugs: ["collection"],
+				fields: collectionProjections.list.fields,
+			},
+		}).document,
 	},
 	table: {
 		...collectionProjections.table.mappings,
-		queryDocument: buildAllCollectionsDocument({ fields: collectionProjections.table.fields }),
+		queryDocument: savedViewRecipe({
+			layout: { type: "table", mapping: collectionProjections.table.mappings },
+			source: {
+				type: "generated",
+				entitySchemaSlugs: ["collection"],
+				fields: collectionProjections.table.fields,
+			},
+		}).document,
 	},
 };
 
