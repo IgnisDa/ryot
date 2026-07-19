@@ -15,7 +15,6 @@ import {
 	Effect,
 	Layer,
 	Option,
-	Pool,
 	Queue,
 	Schema,
 	FileSystem,
@@ -57,8 +56,7 @@ import {
 import {
 	BridgeService,
 	formatSandboxStderr,
-	invalidateProcess,
-	ProcessPool,
+	SandboxProcessManager,
 	recordSandboxExecutionFinished,
 	recordSandboxExecutionStarted,
 } from "./runtime";
@@ -173,9 +171,9 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const redis = yield* RedisService;
 		const serverRun = yield* ServerRun;
 		const bridge = yield* BridgeService;
-		const processes = yield* ProcessPool;
 		const fs = yield* FileSystem.FileSystem;
 		const artifacts = yield* SandboxArtifactStore;
+		const processes = yield* SandboxProcessManager;
 		const hostImplementations = yield* SandboxHostImplementations;
 		const localTempRoot = yield* fs.realPath(config.fileStorage.localTempDir).pipe(Effect.orDie);
 
@@ -287,21 +285,17 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						...(scratchDirectory !== undefined ? { scratchDirectory } : {}),
 						...(namedArtifactPaths !== undefined ? { namedArtifactPaths } : {}),
 					};
-					// `ProcessPool` pre-warms processes before the execution's grants are known, so a
-					// grant-carrying execution gets a process spawned for it alone.
 					const dedicated =
 						artifactPath !== undefined ||
 						namedArtifactPaths !== undefined ||
 						scratchDirectory !== undefined;
 					const worker = dedicated
 						? yield* processes.spawnDedicated(grants)
-						: yield* Pool.get(processes.pool);
+						: yield* processes.acquire;
 					recordSandboxExecutionStarted();
 					yield* Effect.addFinalizer(() => Effect.sync(recordSandboxExecutionFinished));
 					if (!dedicated) {
-						yield* Effect.addFinalizer(() =>
-							invalidateProcess(processes.pool, worker).pipe(Effect.orDie),
-						);
+						yield* Effect.addFinalizer(() => processes.release(worker).pipe(Effect.orDie));
 					}
 					yield* Queue.poll(worker.responseQueue).pipe(Effect.asVoid);
 
@@ -452,7 +446,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 }) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
 		Layer.provide(
-			Layer.mergeAll(ProcessPool.layer, BridgeService.layer, SandboxArtifactStore.layer),
+			Layer.mergeAll(SandboxProcessManager.layer, BridgeService.layer, SandboxArtifactStore.layer),
 		),
 	);
 }

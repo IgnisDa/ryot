@@ -105,6 +105,7 @@ export const makeAppConfigLayer = (
 		},
 		sandbox: {
 			denoDir: "/tmp",
+			processMode: "on-demand",
 			jobIdSecret: Redacted.make("test-secret"),
 		},
 		fileStorage: {
