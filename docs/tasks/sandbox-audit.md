@@ -1,6 +1,6 @@
 # Sandbox audit
 
-Isolation model solid. Deno flags, content-addressed modules, per-execution token, budgets — all good and genuinely defensive. The weakness is not security posture, it is **layering**: permission decisions are spread across five places with three different mechanisms, and the execution path has one hop too many. Not over-engineered overall, but three specific subsystems are (bridge error messages, Redis session store, runner-side re-intersection).
+Isolation model solid. Deno flags, content-addressed modules, per-execution token, budgets — all good and genuinely defensive. The weakness is not security posture, it is **layering**: permission decisions are spread across five places with three different mechanisms, and the execution path has one hop too many. Not over-engineered overall, but two specific subsystems remain (bridge error messages, Redis session store).
 
 This is a greenfield project so breaking changes are fine.
 
@@ -65,17 +65,16 @@ Layers currently in play:
 2. Persisted metadata capabilities
 3. `allowedHostFunctions` on the run input (durable-queues.ts:111)
 4. `selectSandboxHostFunctions` — authority rules (service.ts:101-145)
-5. Runner intersects `payload.apiFunctions` × `manifest.capabilities` (runner-source.sandbox.ts:348-366)
-6. `manifestsMatch` — compiled manifest vs persisted metadata (runner-source.sandbox.ts:462)
-7. Per-implementation `require*SandboxRunInput` (shared.ts:128-171)
-8. Deno process flags
-9. Bridge token + TTL + budget
+5. `manifestsMatch` — compiled manifest vs persisted metadata before host creation (runner-source.sandbox.ts:455)
+6. Per-implementation `require*SandboxRunInput` (shared.ts:128-171)
+7. Deno process flags
+8. Bridge token + TTL + budget
 
-**Layer 5 is provably a no-op.** Layer 6 fails the execution unless `manifest.capabilities === metadata.capabilities`, and layer 3 derives `apiFunctions` from `metadata.capabilities`. So layer 5 intersects a set with a superset of itself. It also runs _inside the untrusted process_, so it has zero security value by construction.
+The runner treats `payload.apiFunctions` as the approved host surface. `manifestsMatch` runs before host creation, so persisted metadata validation completes before API stubs exist. Authority remains kernel-side in `selectSandboxHostFunctions`.
 
-- [ ] Delete `declaredCapabilities` threading; build the host from `payload.apiFunctions` and move `manifestsMatch` before `createHost`.
+- [x] Build the host from `payload.apiFunctions` and move `manifestsMatch` before `createHost`.
 
-**The real problem is layers 4 and 7 splitting one decision.** Some capabilities are gated at selection time by set membership:
+**The real problem is layers 4 and 6 splitting one decision.** Some capabilities are gated at selection time by set membership:
 
 ```ts
 userAuthorityHostFunctions   = { ensureUserEntities }        // service.ts:95
@@ -119,7 +118,7 @@ const CAPABILITY_REQUIREMENTS = {
 
 `selectSandboxHostFunctions` becomes a filter over the table (~10 lines). `require*SandboxRunInput` derives its narrowing from the same table instead of restating it. `satisfies Record<SandboxHostCapability, …>` makes a missing entry a compile error, so a new host function _cannot_ ship ungated — which today it silently can, since anything absent from all five sets defaults to allowed.
 
-**Is it over-engineered?** The _count_ of layers is justified (defense in depth across a trust boundary is correct). The _expression_ of the layers is not. Removing layer 5 and unifying 4+7 loses no security and removes about 120 lines.
+**Is it over-engineered?** The _count_ of layers is justified (defense in depth across a trust boundary is correct). The _expression_ of layers 4 and 6 is not. Unifying those layers loses no security and removes about 120 lines.
 
 **Doc drift:** README:106 says automation functions require "the server-only subscription-run marker", but service.ts:133 grants `emitSignal` to `system` authority too.
 
@@ -214,7 +213,6 @@ Confirmed by grep, non-test usage only:
 | --------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | - [ ] `scriptIsBuiltin`                       | shared.ts:21, written durable-queues.ts:99 | **Never read** outside tests. Costs a DB query per execution (`repository.isPluginScript`) whose result is discarded.                      |
 | - [x] `RunSandboxWorkflowPayload`             | sandbox-submission-workflow.ts             | Removed redundant alias; `SandboxSubmissionWorkflow` uses `SandboxExecutionPayload` directly.                                              |
-| - [ ] runner capability intersection          | runner-source.sandbox.ts:348-366           | No-op, see §3.                                                                                                                             |
 | - [ ] runner `for(;;)` + console save/restore | runner-source.sandbox.ts:509-602           | Processes are strictly single-use (pool invalidated service.ts:340-343; dedicated killed by scope). Multi-payload handling is unreachable. |
 | - [ ] `Object.hasOwn` + null check            | runtime.ts:353-360                         | Two guards for one condition.                                                                                                              |
 | - [ ] `parseSandboxSession`                   | runtime.ts:100                             | Wrapper that only calls `decodeSandboxSession`. Moot if P1 lands.                                                                          |
