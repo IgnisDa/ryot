@@ -1,8 +1,8 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { AppContract } from "@ryot/contract/contract";
 import { healthCheckFailed, unknownToMessage } from "@ryot/contract/errors";
 import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { AppConfig, isOidcEnabled, isSmtpEnabled } from "#lib/infrastructure/config/service";
 import { DbService } from "#lib/infrastructure/db/service";
