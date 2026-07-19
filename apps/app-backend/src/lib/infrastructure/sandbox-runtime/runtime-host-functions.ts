@@ -33,7 +33,7 @@ const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )
 
 export type RuntimeSandboxHostImplementationMap = Pick<
 	SandboxHostImplementationMap,
-	"claimCachedValue" | "getCachedValue" | "httpCall" | "setCachedValue"
+	"claimPersistentValue" | "getCachedValue" | "httpCall" | "setCachedValue"
 >;
 
 export const readSandboxHttpResponseText = (response: HttpClientResponse.HttpClientResponse) =>
@@ -76,12 +76,12 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 	const httpClient = yield* HttpClient.HttpClient;
 
 	return {
-		claimCachedValue: (input, key, value, ttlSeconds) => {
-			const keyError = sandboxCacheKeyError("claimCachedValue", key);
+		claimPersistentValue: (input, key, value, ttlSeconds) => {
+			const keyError = sandboxCacheKeyError("claimPersistentValue", key);
 			if (keyError) {
 				return sandboxHostFailure(keyError);
 			}
-			const ttlError = sandboxCacheTtlError("claimCachedValue", ttlSeconds, "TTL");
+			const ttlError = sandboxCacheTtlError("claimPersistentValue", ttlSeconds, "TTL");
 			if (ttlError) {
 				return sandboxHostFailure(ttlError);
 			}
@@ -96,8 +96,10 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 				Effect.gen(function* () {
 					const serialized = yield* Schema.encodeUnknownEffect(
 						Schema.fromJsonString(Schema.Unknown),
-					)(value).pipe(Effect.mapError(() => "claimCachedValue value must be JSON-serializable"));
-					const valueError = sandboxCacheValueError("claimCachedValue", serialized);
+					)(value).pipe(
+						Effect.mapError(() => "claimPersistentValue value must be JSON-serializable"),
+					);
+					const valueError = sandboxCacheValueError("claimPersistentValue", serialized);
 					if (valueError) {
 						return yield* Effect.fail(valueError);
 					}
@@ -118,7 +120,7 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 						return { claimed: false, value: null };
 					}
 					const existingValueError = sandboxCacheValueError(
-						"claimCachedValue",
+						"claimPersistentValue",
 						existing,
 						"stored value",
 					);
