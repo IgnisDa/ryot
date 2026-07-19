@@ -110,7 +110,7 @@ Cache keys are isolated per `(executing user, providerId)`. The dispatched `cach
 ### Adding A Host Function
 
 1. Define the script-facing schema and method in `@ryot/sandbox-sdk`.
-2. Implement app-bound context-first methods in `src/app/sandbox-host-functions.ts` or `src/app/automation-sandbox-host-functions.ts`; runtime-owned methods stay in `service.ts`.
+2. Implement app-bound context-first methods in `src/app/sandbox-host-functions.ts` or `src/app/automation-sandbox-host-functions.ts`; runtime-owned methods go in `runtime-host-functions.ts`.
 3. Decode its untrusted RPC argument array in `bridge-adapter.ts`; implementation functions must not accept unknown argument arrays.
 4. Use `requireUserSandboxRunInput(input, fnName)` for user-scoped functions.
 5. Add the function name to this section.

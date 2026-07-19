@@ -10,6 +10,7 @@ import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
+import { makeRuntimeSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/runtime-host-functions";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
@@ -280,6 +281,7 @@ const SignalEmissionServiceLive = Layer.provide(
 export const SandboxHostImplementationsLive = Layer.effect(
 	SandboxHostImplementations,
 	Effect.all({
+		runtime: makeRuntimeSandboxApiFunctions,
 		additional: makeAdditionalSandboxApiFunctions,
 		automation: makeAutomationSandboxApiFunctions,
 	}),
