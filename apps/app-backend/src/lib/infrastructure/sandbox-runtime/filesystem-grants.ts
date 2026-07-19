@@ -148,11 +148,9 @@ export const measureSandboxScratchBytes = Effect.fn("sandbox.measureScratchBytes
 	return yield* walk(directory, 0);
 });
 
-export const SandboxScratchManifest = sandboxScratchManifestSchema;
-
-export type SandboxScratchManifest = Schema.Schema.Type<typeof SandboxScratchManifest>;
-
-export const decodeSandboxScratchManifest = Schema.decodeUnknownOption(SandboxScratchManifest);
+export const decodeSandboxScratchManifest = Schema.decodeUnknownOption(
+	sandboxScratchManifestSchema,
+);
 
 // Only files the returned manifest names are harvested; anything else left in the scratch directory
 // is ignored and disappears with the unconditional cleanup.

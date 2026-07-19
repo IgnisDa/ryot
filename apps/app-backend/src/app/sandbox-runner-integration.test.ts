@@ -511,43 +511,36 @@ type RunnerRequest = {
 	readonly compiled: RunnerCompiledModule;
 };
 
-const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
+const runInDenoRequest = ({ compiled, context, options = {} }: RunnerRequest) =>
 	Effect.scoped(
 		Effect.gen(function* () {
 			const runtime = dependencyRuntime;
 			assert(runtime);
 			assert(runnerPath);
 			const path = yield* Path.Path;
-			const apiBase = requests[0]?.options?.apiBase ?? "http://127.0.0.1:1";
-			const filesystem = requests[0]?.options?.filesystem;
-			const moduleUrls = yield* Effect.forEach(requests, ({ compiled }) =>
-				materializeSandboxCompiledModule(
-					runtime,
-					sha256Hex(compiled.javascript),
-					compiled.javascript,
-				).pipe(
-					Effect.flatMap(path.toFileUrl),
-					Effect.map((url) => url.href),
-				),
+			const apiBase = options.apiBase ?? "http://127.0.0.1:1";
+			const filesystem = options.filesystem;
+			const moduleUrl = yield* materializeSandboxCompiledModule(
+				runtime,
+				sha256Hex(compiled.javascript),
+				compiled.javascript,
+			).pipe(
+				Effect.flatMap(path.toFileUrl),
+				Effect.map((url) => url.href),
 			);
-			const request = requests
-				.map(
-					({ compiled, context, options = {} }, index) =>
-						`${encodeRunnerRequest({
-							context,
-							token: "unused",
-							metadata: compiled.manifest,
-							limits: SANDBOX_RUNNER_LIMITS,
-							compiledFormat: compiled.format,
-							apiBase: options.apiBase ?? apiBase,
-							scriptId: options.scriptId ?? "script-1",
-							apiFunctions: options.apiFunctions ?? [],
-							executionId: options.executionId ?? "execution-1",
-							moduleUrl: options.moduleUrl ?? moduleUrls[index],
-							...(options.filesystem ? { filesystem: options.filesystem } : {}),
-						})}\n`,
-				)
-				.join("");
+			const request = `${encodeRunnerRequest({
+				context,
+				apiBase,
+				token: "unused",
+				metadata: compiled.manifest,
+				limits: SANDBOX_RUNNER_LIMITS,
+				compiledFormat: compiled.format,
+				...(filesystem ? { filesystem } : {}),
+				scriptId: options.scriptId ?? "script-1",
+				apiFunctions: options.apiFunctions ?? [],
+				moduleUrl: options.moduleUrl ?? moduleUrl,
+				executionId: options.executionId ?? "execution-1",
+			})}\n`;
 			const command = ChildProcess.make(
 				"deno",
 				[
@@ -617,23 +610,14 @@ const runInDenoRequests = (requests: readonly RunnerRequest[]) =>
 			expect(exitCode, stderr).toBe(0);
 
 			return yield* Effect.try({
-				try: () =>
-					stdout
-						.trim()
-						.split("\n")
-						.map((line) => decodeRunnerResponse(line)),
+				try: () => decodeRunnerResponse(stdout.trim()),
 				catch: (error) => new SandboxRunError({ message: unknownToMessage(error) }),
 			});
 		}),
 	).pipe(Effect.provide(BunServices.layer));
 
 const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: RunnerOptions = {}) =>
-	runInDenoRequests([{ compiled, context, options }]).pipe(
-		Effect.map(([result]) => {
-			assert(result !== undefined);
-			return result;
-		}),
-	);
+	runInDenoRequest({ compiled, context, options });
 
 const compileBootPluginScript = (slug: string) =>
 	Effect.gen(function* () {
@@ -1378,20 +1362,14 @@ it("allows deterministic workflow dates without changing ambient APIs for script
 				requiredPluginConfigKeys: [] as const,
 				requiredSystemConfigKeys: [] as const,
 			};
-			const [workflowResult, scriptResult] = yield* runInDenoRequests([
-				{
-					context: { operation: "parse", timestamp: "2024-01-01T00:00:00.000Z" },
-					compiled: {
-						format: 1,
-						manifest: workflowManifest,
-						javascript: workflowNondeterminismSource,
-					},
-				},
-				{
-					context: {},
-					compiled: { format: 1, manifest: scriptManifest, javascript: ambientScriptSource },
-				},
-			]);
+			const workflowResult = yield* runInDeno(
+				{ format: 1, manifest: workflowManifest, javascript: workflowNondeterminismSource },
+				{ operation: "parse", timestamp: "2024-01-01T00:00:00.000Z" },
+			);
+			const scriptResult = yield* runInDeno(
+				{ format: 1, manifest: scriptManifest, javascript: ambientScriptSource },
+				{},
+			);
 			expect(workflowResult).toMatchObject({
 				success: true,
 				value: {

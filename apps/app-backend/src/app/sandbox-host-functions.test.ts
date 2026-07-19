@@ -79,10 +79,8 @@ const runInput = (authority: ExecutionAuthority): SandboxRunInput => ({
 	compiledCode: "",
 	compiledFormat: 1,
 	scriptId: "script-1",
-	scriptIsBuiltin: false,
 	allowedHostFunctions: [],
 	executionId: "execution-1",
-	cacheNamespace: "script-1",
 });
 
 const subscriptionAuthority = (
