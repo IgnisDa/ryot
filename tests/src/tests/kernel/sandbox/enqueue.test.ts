@@ -35,7 +35,11 @@ describe("sandbox enqueue by script ID", () => {
 				}),
 			);
 
-			assertTaggedError(error, "NotFound");
+			assertTaggedError(error, "TestSupportNotFound");
+			expect(error.reason).toEqual({
+				code: "resource-not-found",
+				diagnostic: "Sandbox script not found",
+			});
 		}),
 	);
 

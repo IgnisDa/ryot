@@ -72,7 +72,7 @@ describe("Events bulk POST", () => {
 			expect(rejectedResult).toMatchObject({
 				count: 0,
 				outcomes: [],
-				failure: { index: 0, reason: { kind: "bad_request" } },
+				failure: { index: 0, reason: { code: "invalid-properties" } },
 			});
 
 			const acceptedResult = yield* apiClient.call((c) =>

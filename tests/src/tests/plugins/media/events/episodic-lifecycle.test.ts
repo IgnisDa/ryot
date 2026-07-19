@@ -209,7 +209,7 @@ describe("Episodic lifecycle sessions", () => {
 			});
 			const progressEvent = yield* waitForEventWithSchema(client, episodeId, "progress");
 
-			expect(run).toMatchObject({ status: "completed", errorSummary: null });
+			expect(run).toMatchObject({ status: "completed", failureReason: null });
 			expect(progressEvent.sessionEntityId).toBe(showId);
 		}),
 	);
@@ -249,7 +249,7 @@ describe("Episodic lifecycle sessions", () => {
 			const completedRun = yield* pollImportRunUntilTerminal(client, created.id);
 			const progressEvent = yield* waitForEventWithSchema(client, episodeId, "progress");
 
-			expect(completedRun).toMatchObject({ status: "completed", errorSummary: null });
+			expect(completedRun).toMatchObject({ status: "completed", failureReason: null });
 			expect(progressEvent.sessionEntityId).toBe(showId);
 		}),
 	);

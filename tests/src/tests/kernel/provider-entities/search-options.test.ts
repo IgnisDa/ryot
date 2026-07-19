@@ -153,7 +153,7 @@ describe("POST /provider-entities/search-options", () => {
 				),
 			);
 
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 });
@@ -180,8 +180,8 @@ describe("POST /provider-entities/search — search option validation", () => {
 					providerId: dynamicProvider.providerId,
 				}),
 			);
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toContain("Expected one of the enum choices");
+			assertTaggedError(error, "ProviderEntityBadRequest");
+			expect(error.reason).toEqual({ code: "invalid-search-options" });
 		}),
 	);
 });
@@ -207,16 +207,16 @@ describe("provider search-options execution failure", () => {
 					providerId: failingProvider.providerId,
 				}),
 			);
-			assertTaggedError(filteredSearchError, "BadRequest");
-			expect(filteredSearchError.message).toBe("Provider search options could not be resolved");
+			assertTaggedError(filteredSearchError, "ProviderEntityBadRequest");
+			expect(filteredSearchError.reason).toEqual({ code: "search-options-unavailable" });
 
 			const searchOptionsError = yield* Effect.flip(
 				client.call((c) =>
 					c.providerEntities.searchOptions({ payload: { providerId: failingProvider.providerId } }),
 				),
 			);
-			assertTaggedError(searchOptionsError, "BadRequest");
-			expect(searchOptionsError.message).toBe(filteredSearchError.message);
+			assertTaggedError(searchOptionsError, "ProviderEntityBadRequest");
+			expect(searchOptionsError.reason).toEqual(filteredSearchError.reason);
 		}),
 	);
 });

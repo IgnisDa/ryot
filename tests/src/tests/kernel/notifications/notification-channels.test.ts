@@ -98,14 +98,16 @@ describe("notification channel CRUD", () => {
 					}),
 				),
 			);
-			assertTaggedError(updateError, "NotFound");
+			assertTaggedError(updateError, "NotificationNotFoundError");
+			expect(updateError.reason).toEqual({ code: "channel-not-found", channelId: id });
 
 			const deleteError = yield* Effect.flip(
 				other.client.call((c) =>
 					c.notifications.deleteChannel({ params: { channelId: NotificationChannelId.make(id) } }),
 				),
 			);
-			assertTaggedError(deleteError, "NotFound");
+			assertTaggedError(deleteError, "NotificationNotFoundError");
+			expect(deleteError.reason).toEqual({ code: "channel-not-found", channelId: id });
 
 			yield* deleteNotificationChannel(owner.client, id);
 			expect(yield* listNotificationChannels(owner.client)).toEqual([]);
@@ -125,7 +127,12 @@ describe("notification channel CRUD", () => {
 					}),
 				),
 			);
-			assertTaggedError(mismatch, "BadRequest");
+			assertTaggedError(mismatch, "NotificationRequestError");
+			expect(mismatch.reason).toEqual({
+				channel: "email",
+				code: "channel-kind-mismatch",
+				specificsKind: "apprise",
+			});
 		}),
 	);
 });
@@ -308,7 +315,7 @@ describe("notification delivery", () => {
 					c.ryotql.execute({ payload: notificationChannelsRecipe({ limit: 100 }).document }),
 				),
 			);
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 });
