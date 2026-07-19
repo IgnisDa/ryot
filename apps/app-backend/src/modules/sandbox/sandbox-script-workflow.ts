@@ -1,7 +1,6 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import {
 	ExecutionAuthority,
-	type SandboxCompletedResult,
 	SandboxExecutionGrants,
 	type SandboxExecutionPayload,
 } from "@ryot/contract/modules/sandbox/schemas";
@@ -13,12 +12,14 @@ import {
 	workflowReplayEnvelopeSchema,
 	type WorkflowDurableCallRequest,
 } from "@ryot/sandbox-sdk/workflow";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Cause, Duration, Effect, Schema } from "effect";
 import { Activity, DurableClock, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
+import { SandboxHarvestHandleStore } from "#lib/infrastructure/sandbox-runtime/harvest-handles";
 import {
 	hashWorkflowCallArgs,
 	projectWorkflowJournal,
@@ -27,6 +28,7 @@ import {
 import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 
 import { processSandboxExecutionQueue, resolveSandboxExecutionPayload } from "./durable-queues";
+import type { SandboxExecutionResult } from "./execution-result";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
@@ -117,12 +119,15 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 const processPinnedSandbox = (payload: SandboxExecutionPayload) =>
 	processSandboxExecutionQueue(payload);
 
-const completedValue = (result: SandboxCompletedResult, label: string) =>
+const completedValue = (result: SandboxExecutionResult, label: string) =>
 	result.error
 		? Effect.fail(sandboxFailure(`${label} failed: ${result.error.phase}: ${result.error.message}`))
 		: Schema.decodeUnknownEffect(jsonValueSchema)(
-				result.harvest && typeof result.value === "object" && result.value !== null
-					? { ...result.value, chunkFiles: result.harvest.chunkPaths }
+				result.harvest && isObjectRecord(result.value)
+					? (() => {
+							const { chunkFiles: _chunkFiles, ...value } = result.value;
+							return { ...value, chunkHandles: result.harvest.chunkHandles };
+						})()
 					: result.value,
 			).pipe(
 				Effect.mapError((error) =>
@@ -262,7 +267,7 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 	step: number,
 	processSandbox: (
 		payload: SandboxExecutionPayload,
-	) => Effect.Effect<SandboxCompletedResult, SandboxRunError, R>,
+	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, R>,
 ) {
 	if (request.kind === "sleep") {
 		yield* DurableClock.sleep({
@@ -295,15 +300,16 @@ export const performSandboxWorkflowActivity = Effect.fn("performSandboxWorkflowA
 		step: number,
 		processSandbox: (
 			payload: SandboxExecutionPayload,
-		) => Effect.Effect<SandboxCompletedResult, SandboxRunError, R>,
+		) => Effect.Effect<SandboxExecutionResult, SandboxRunError, R>,
 	) {
 		if (!targetScriptId) {
 			return yield* sandboxFailure("Workflow activity script was not resolved");
 		}
 		const result = yield* processSandbox({
-			authority: payload.authority,
-			context: request.args.input,
 			scriptId: targetScriptId,
+			context: request.args.input,
+			authority: payload.authority,
+			workflowExecutionId: executionId,
 			executionId: `${executionId}-activity-${step}`,
 			...(payload.grants ? { grants: payload.grants } : {}),
 		});
@@ -356,7 +362,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 	executionId: string,
 	processReplay: (
 		payload: SandboxExecutionPayload,
-	) => Effect.Effect<SandboxCompletedResult, SandboxRunError, R>,
+	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, R>,
 ) {
 	const pin = yield* Activity.make({
 		error: SandboxRunError,
@@ -371,17 +377,19 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		),
 	});
 
-	const releaseReference = pin.pluginSlug
-		? Activity.make({
-				error: SandboxRunError,
-				name: "release-sandbox-workflow-reference",
-				execute: Effect.gen(function* () {
-					const runWithDb = yield* DbRunner;
-					const references = yield* SandboxWorkflowReferenceRepository;
-					yield* runWithDb(references.release(executionId));
-				}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
-			})
-		: Effect.void;
+	const releaseReference = Activity.make({
+		error: SandboxRunError,
+		name: "release-sandbox-workflow-reference",
+		execute: Effect.gen(function* () {
+			const handles = yield* SandboxHarvestHandleStore;
+			yield* handles.release(executionId);
+			if (pin.pluginSlug) {
+				const runWithDb = yield* DbRunner;
+				const references = yield* SandboxWorkflowReferenceRepository;
+				yield* runWithDb(references.release(executionId));
+			}
+		}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
+	});
 
 	return yield* Effect.gen(function* () {
 		const journal: WorkflowJournalEntry[] = [];
@@ -393,6 +401,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				scriptId: pin.scriptId,
 				authority: payload.authority,
 				executionId: replayExecutionId,
+				workflowExecutionId: executionId,
 				...(payload.grants ? { grants: payload.grants } : {}),
 			});
 			if (replay.error) {

@@ -5,10 +5,7 @@ import type {
 	EventCreateFailureReason,
 	EventCreateItemOutcome,
 } from "@ryot/contract/modules/events/schemas";
-import type {
-	SandboxCompletedResult,
-	SandboxExecutionPayload,
-} from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { EntityId, EntitySchemaSlug, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
@@ -25,6 +22,7 @@ import {
 	type LifecycleDispatchValue,
 } from "#modules/entities/lifecycle-dispatch";
 import { processSandboxExecution } from "#modules/sandbox/durable-queues";
+import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
@@ -74,7 +72,7 @@ export type EventCreateWorkflowOperationsValue = {
 	dispatchLifecycleOccurrence: LifecycleDispatchValue["dispatch"];
 	processSandboxExecution: (
 		payload: SandboxExecutionPayload,
-	) => Effect.Effect<SandboxCompletedResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 };
 
 /**

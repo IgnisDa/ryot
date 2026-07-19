@@ -22,7 +22,7 @@ myanimelist, watcharr, jellyfin, plex, audiobookshelf, media-tracker.
 File-based sources parse inside the sandbox using `artifact-read` plus `fflate` (zip, gunzip),
 `papaparse` (CSV), and `fast-xml-parser` (MyAnimeList). Credentialed sources fetch through
 `httpCall`. Output crosses via scratch-dir chunk files and a small return manifest; the kernel
-harvests it and performs every entity, event, and relationship write.
+harvests it into opaque handles and performs every entity, event, and relationship write.
 
 **`episodeLocator` becomes `subjectEntityId`.** Replace the locator on the import event envelope
 with an optional, already-resolved `subjectEntityId`. The plugin workflow resolves subjects between
