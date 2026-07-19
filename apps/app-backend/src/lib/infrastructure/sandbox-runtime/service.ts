@@ -1,9 +1,9 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
 import {
 	SANDBOX_CAPABILITY_REQUIREMENTS,
 	type SandboxCapabilityRequirement,
-	type SandboxHostCapability,
 } from "@ryot/sandbox-sdk/core";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { generateId } from "better-auth";

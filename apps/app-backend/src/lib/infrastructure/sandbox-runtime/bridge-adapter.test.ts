@@ -27,6 +27,7 @@ const makeImplementations = (
 	httpCall: () => Effect.fail({ message: "unused" }),
 	emitSignal: () => Effect.fail({ message: "unused" }),
 	createEvents: () => Effect.fail({ message: "unused" }),
+	executeRyotql: () => Effect.fail({ message: "unused" }),
 	getCachedValue: () => Effect.fail({ message: "unused" }),
 	setCachedValue: () => Effect.fail({ message: "unused" }),
 	getPluginConfig: () => Effect.fail({ message: "unused" }),
