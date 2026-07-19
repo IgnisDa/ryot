@@ -2,7 +2,7 @@ import { BunHttpServer } from "@effect/platform-bun";
 import { AppContract } from "@ryot/contract/contract";
 import { BadRequest } from "@ryot/contract/errors";
 import { UploadBodyLimitMiddlewareLive } from "@ryot/contract/modules/uploads/middleware";
-import { Cause, Effect, Layer, FileSystem, Result } from "effect";
+import { Cause, Context, Effect, Layer, FileSystem, Result } from "effect";
 import type * as LayerTypes from "effect/Layer";
 import {
 	HttpEffect,
@@ -111,10 +111,12 @@ export const ServerLive = Layer.effectDiscard(
 		const auth = yield* AuthService;
 		const config = yield* AppConfig;
 		const fs = yield* FileSystem.FileSystem;
-		const apiContext = yield* Effect.context<ApiContext>();
+		const apiContext = yield* Effect.map(
+			Effect.context<ApiContext>(),
+			Context.omit(HttpRouter.HttpRouter),
+		);
 		const { dispose, handler } = HttpRouter.toWebHandler(
 			ApiWithScalarLive.pipe(
-				HttpRouter.provideRequest(Layer.succeedContext(apiContext)),
 				Layer.provide(Layer.succeedContext(apiContext)),
 				Layer.provide(BunHttpServer.layerHttpServices),
 			),
@@ -147,10 +149,10 @@ export const ServerLive = Layer.effectDiscard(
 						}
 						if (webUrl.pathname.startsWith("/_i/")) {
 							webUrl.pathname = `/webhooks/integrations/${webUrl.pathname.slice(4)}`;
-							return handler(buildWebhookForwardRequest(webRequest, webUrl));
+							return handler(buildWebhookForwardRequest(webRequest, webUrl), apiContext);
 						}
 						webUrl.pathname = webUrl.pathname.slice(4);
-						return handler(new Request(webUrl.toString(), webRequest));
+						return handler(new Request(webUrl.toString(), webRequest), apiContext);
 					});
 				}
 				return HttpServerResponse.fromWeb(yield* serveStatic(serverUrl.pathname));
