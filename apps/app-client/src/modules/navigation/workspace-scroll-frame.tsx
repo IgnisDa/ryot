@@ -21,7 +21,7 @@ export function WorkspaceScrollFrame(props: {
 	const [isScrolled, setIsScrolled] = useState(false);
 
 	return (
-		<View className="relative flex-1 bg-bg">
+		<View className="relative flex-1 bg-bg pt-4">
 			<ScrollView
 				className="flex-1"
 				scrollEventThrottle={16}
