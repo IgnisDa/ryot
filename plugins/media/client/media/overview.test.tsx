@@ -41,6 +41,7 @@ const overviewScreen = (input: {
 }) => (
 	<MediaOverview
 		compact
+		safeAreaTop={0}
 		overview={input.overview}
 		relations={relationsRender}
 		isEmpty={mediaRelationsAreEmpty}
