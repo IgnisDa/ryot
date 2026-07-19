@@ -24,13 +24,16 @@ guide](guides/file-storage.md) for the complete configuration.
 
 1. Click on "+ New Project" on your dashboard and select "Empty project".
 2. Once the project is created click on "+ New" and select "Database" and then
-   "Add PostgreSQL".
+   "Add PostgreSQL". Repeat this step and select "Add Redis".
 3. Click on "+ New" again and select "Docker Image". Type `ignisda/ryot` and hit Enter.
 4. Click on the newly created service and go to the "Variables" section. Click on
-   "New Variable" and then "Add Reference". Click on "Add".
-5. Go to the "Settings" tab and then click on "Generate Domain".
-6. Optionally, you can set the [health-check](https://docs.railway.app/deploy/healthchecks)
-   path to `/api/health`.
+   "New Variable" and then "Add Reference" to add both `DATABASE_URL` and `REDIS_URL`.
+   Click on "Add".
+5. Add a `SERVER_ADMIN_ACCESS_TOKEN` variable set to a long random string. The server
+   refuses to start without it.
+6. Go to the "Settings" tab and then click on "Generate Domain".
+7. Optionally, you can set the [health-check](https://docs.railway.app/deploy/healthchecks)
+   path to `/api/system/health`.
 
 ## Dokku
 
@@ -73,14 +76,22 @@ if dokku apps:exists $APPNAME; then
     exit 0
 fi
 
-dokku apps:create "$APPNAME"
-dokku postgres:create "$APPNAME-service"
-dokku postgres:link "$APPNAME-service" "$APPNAME"
+# check if required dokku plugins exist
+if ! dokku plugin:list | grep redis; then
+    dokku plugin:install https://github.com/dokku/dokku-redis.git
+fi
 
-# check if required dokku plugin exists
 if ! dokku plugin:list | grep letsencrypt; then
     dokku plugin:install https://github.com/dokku/dokku-letsencrypt.git
 fi
+
+dokku apps:create "$APPNAME"
+dokku postgres:create "$APPNAME-service"
+dokku postgres:link "$APPNAME-service" "$APPNAME"
+dokku redis:create "$APPNAME-cache"
+dokku redis:link "$APPNAME-cache" "$APPNAME"
+dokku ports:set "$APPNAME" http:80:8000
+dokku config:set --no-restart "$APPNAME" SERVER_ADMIN_ACCESS_TOKEN="$(openssl rand -hex 16)"
 
 dokku domains:add $APPNAME $APPNAME."$(cat /home/dokku/VHOST)"
 dokku letsencrypt:enable "$APPNAME"
@@ -110,7 +121,20 @@ are required to deploy to Fly.
    fly postgres attach --app ryot ryot-db
    ```
 
-4. Optionally you can configure the instance using `fly secrets set`.
+4. Create a Redis instance and point Ryot at it. Ryot does not start without one.
+
+   ```bash
+   flyctl redis create
+   fly secrets set REDIS_URL='<the connection string printed above>'
+   ```
+
+5. Set the admin access token, which is also required.
+
+   ```bash
+   fly secrets set SERVER_ADMIN_ACCESS_TOKEN="$(openssl rand -hex 16)"
+   ```
+
+6. Optionally you can configure the instance using `fly secrets set`.
    ```bash
    fly secrets set \
      FILE_STORAGE_S3_URL='https://s3.example.com' \
