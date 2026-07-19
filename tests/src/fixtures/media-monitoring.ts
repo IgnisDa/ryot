@@ -86,7 +86,7 @@ const operationTransport =
 			.call((contract) =>
 				contract.plugins.invoke({
 					payload: { payload: request.payload },
-					path: {
+					params: {
 						operationSlug: request.operationSlug,
 						pluginSlug: PluginSlug.make(request.pluginSlug),
 					},

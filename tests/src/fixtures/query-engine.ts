@@ -109,113 +109,112 @@ export const insertGlobalRelationship = (input: {
 		adminHeaders,
 	);
 
-export const createCourseLessonFilterFixture = () =>
-	Effect.gen(function* () {
-		const { client } = yield* createAuthenticatedClient();
-		const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
-			client,
-			{ schemaName: "FilterCourse" },
-		);
-		const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
-			client,
-			{ schemaName: "FilterModule" },
-		);
-		const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEnginePluginSchema(
-			client,
-			{
-				schemaName: "FilterLesson",
-				propertiesSchema: {
-					fields: {
-						durationMinutes: {
-							type: "integer",
-							label: "Duration Minutes",
-							description: "Lesson duration in minutes",
-						},
+export const createCourseLessonFilterFixture = Effect.gen(function* () {
+	const { client } = yield* createAuthenticatedClient();
+	const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
+		client,
+		{ schemaName: "FilterCourse" },
+	);
+	const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
+		client,
+		{ schemaName: "FilterModule" },
+	);
+	const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEnginePluginSchema(
+		client,
+		{
+			schemaName: "FilterLesson",
+			propertiesSchema: {
+				fields: {
+					durationMinutes: {
+						type: "integer",
+						label: "Duration Minutes",
+						description: "Lesson duration in minutes",
 					},
 				},
 			},
-		);
-		const completeSlug = `filter-complete-${crypto.randomUUID()}`;
-		const completeSchema = yield* createEventSchema(client, {
-			slug: completeSlug,
-			name: "Filter Complete",
-			entitySchemaSlug: lessonSchemaId,
-		});
-		const courseModuleSlug = `filter-course-module-${crypto.randomUUID()}`;
-		const moduleLessonSlug = `filter-module-lesson-${crypto.randomUUID()}`;
-		const courseModuleSchema = yield* createRelationshipSchema(client, {
-			slug: courseModuleSlug,
-			name: "Filter Course Module",
-			targetEntitySchemaSlug: moduleSchemaId,
-			sourceEntitySchemaSlug: courseSchemaId,
-		});
-		const moduleLessonSchema = yield* createRelationshipSchema(client, {
-			slug: moduleLessonSlug,
-			name: "Filter Module Lesson",
-			targetEntitySchemaSlug: lessonSchemaId,
-			sourceEntitySchemaSlug: moduleSchemaId,
-		});
-
-		const createCourse = (
-			name: string,
-			lessons: readonly { durationMinutes: number; complete: boolean }[],
-		) =>
-			Effect.gen(function* () {
-				const course = yield* createQueryEngineEntity(client, {
-					name,
-					entitySchemaSlug: courseSchemaId,
-				});
-				yield* Effect.all(
-					lessons.map((lessonInput, index) =>
-						Effect.gen(function* () {
-							const [module, lesson] = yield* Effect.all([
-								createQueryEngineEntity(client, {
-									entitySchemaSlug: moduleSchemaId,
-									name: `${name} Module ${index + 1}`,
-								}),
-								createQueryEngineEntity(client, {
-									entitySchemaSlug: lessonSchemaId,
-									name: `${name} Lesson ${index + 1}`,
-									properties: { durationMinutes: lessonInput.durationMinutes },
-								}),
-							]);
-							yield* Effect.all([
-								createRelationship(client, {
-									targetEntityId: module.id,
-									sourceEntityId: course.id,
-									relationshipSchemaSlug: courseModuleSchema.id,
-								}),
-								createRelationship(client, {
-									targetEntityId: lesson.id,
-									sourceEntityId: module.id,
-									relationshipSchemaSlug: moduleLessonSchema.id,
-								}),
-							]);
-							if (lessonInput.complete) {
-								yield* createQueryEngineEvent(client, {
-									entityId: lesson.id,
-									eventSchemaSlug: completeSchema.id,
-								});
-							}
-						}),
-					),
-				);
-			});
-
-		yield* createCourse("Advanced Course", [
-			{ complete: true, durationMinutes: 35 },
-			{ complete: true, durationMinutes: 65 },
-		]);
-		yield* createCourse("Short Course", [{ complete: true, durationMinutes: 30 }]);
-		yield* createCourse("Long Incomplete Course", [{ complete: false, durationMinutes: 90 }]);
-
-		return {
-			client,
-			courseSlug,
-			moduleSlug,
-			lessonSlug,
-			completeSlug,
-			moduleLessonSlug,
-			courseModuleSlug,
-		};
+		},
+	);
+	const completeSlug = `filter-complete-${crypto.randomUUID()}`;
+	const completeSchema = yield* createEventSchema(client, {
+		slug: completeSlug,
+		name: "Filter Complete",
+		entitySchemaSlug: lessonSchemaId,
 	});
+	const courseModuleSlug = `filter-course-module-${crypto.randomUUID()}`;
+	const moduleLessonSlug = `filter-module-lesson-${crypto.randomUUID()}`;
+	const courseModuleSchema = yield* createRelationshipSchema(client, {
+		slug: courseModuleSlug,
+		name: "Filter Course Module",
+		targetEntitySchemaSlug: moduleSchemaId,
+		sourceEntitySchemaSlug: courseSchemaId,
+	});
+	const moduleLessonSchema = yield* createRelationshipSchema(client, {
+		slug: moduleLessonSlug,
+		name: "Filter Module Lesson",
+		targetEntitySchemaSlug: lessonSchemaId,
+		sourceEntitySchemaSlug: moduleSchemaId,
+	});
+
+	const createCourse = (
+		name: string,
+		lessons: readonly { durationMinutes: number; complete: boolean }[],
+	) =>
+		Effect.gen(function* () {
+			const course = yield* createQueryEngineEntity(client, {
+				name,
+				entitySchemaSlug: courseSchemaId,
+			});
+			yield* Effect.all(
+				lessons.map((lessonInput, index) =>
+					Effect.gen(function* () {
+						const [module, lesson] = yield* Effect.all([
+							createQueryEngineEntity(client, {
+								entitySchemaSlug: moduleSchemaId,
+								name: `${name} Module ${index + 1}`,
+							}),
+							createQueryEngineEntity(client, {
+								entitySchemaSlug: lessonSchemaId,
+								name: `${name} Lesson ${index + 1}`,
+								properties: { durationMinutes: lessonInput.durationMinutes },
+							}),
+						]);
+						yield* Effect.all([
+							createRelationship(client, {
+								targetEntityId: module.id,
+								sourceEntityId: course.id,
+								relationshipSchemaSlug: courseModuleSchema.id,
+							}),
+							createRelationship(client, {
+								targetEntityId: lesson.id,
+								sourceEntityId: module.id,
+								relationshipSchemaSlug: moduleLessonSchema.id,
+							}),
+						]);
+						if (lessonInput.complete) {
+							yield* createQueryEngineEvent(client, {
+								entityId: lesson.id,
+								eventSchemaSlug: completeSchema.id,
+							});
+						}
+					}),
+				),
+			);
+		});
+
+	yield* createCourse("Advanced Course", [
+		{ complete: true, durationMinutes: 35 },
+		{ complete: true, durationMinutes: 65 },
+	]);
+	yield* createCourse("Short Course", [{ complete: true, durationMinutes: 30 }]);
+	yield* createCourse("Long Incomplete Course", [{ complete: false, durationMinutes: 90 }]);
+
+	return {
+		client,
+		courseSlug,
+		moduleSlug,
+		lessonSlug,
+		completeSlug,
+		moduleLessonSlug,
+		courseModuleSlug,
+	};
+});

@@ -49,7 +49,7 @@ export const waitForSessionEventCount = (
 		`${expectedCount} events on session ${sessionEntityId}`,
 		Effect.gen(function* () {
 			const events = yield* client.call((c) =>
-				c.events.list({ urlParams: { sessionEntityId: EntityId.make(sessionEntityId) } }),
+				c.events.list({ query: { sessionEntityId: EntityId.make(sessionEntityId) } }),
 			);
 			return events.length >= expectedCount ? events : null;
 		}),

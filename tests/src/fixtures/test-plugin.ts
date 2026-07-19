@@ -145,7 +145,7 @@ export const testPluginManifest = (input: {
 const findInstalledScriptId = (scriptSlug: string, source: string) =>
 	Effect.gen(function* () {
 		const scripts = yield* getBackendClient().call(
-			(c) => c.testSupport.listSandboxScripts({ urlParams: {} }),
+			(c) => c.testSupport.listSandboxScripts({ query: {} }),
 			adminHeaders,
 		);
 		const script = scripts.find(
@@ -262,7 +262,7 @@ export const installTestPluginBundle = (input: {
 			scriptIds[input.providers?.[0]?.operations.details ?? ""] ??
 			scriptIds[input.scripts[0]?.slug ?? ""];
 		if (!scriptId) {
-			return yield* Effect.dieMessage("Test plugin bundle requires at least one script");
+			return yield* Effect.die(new Error("Test plugin bundle requires at least one script"));
 		}
 		const installed: InstalledTestPlugin = {
 			manifest,
@@ -356,7 +356,7 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 			return;
 		}
 		yield* getBackendClient().call(
-			(c) => c.plugins.uninstall({ path: { pluginSlug: installed.pluginSlug } }),
+			(c) => c.plugins.uninstall({ params: { pluginSlug: installed.pluginSlug } }),
 			adminHeaders,
 		);
 		installed.active = false;
@@ -369,7 +369,7 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 
 export const uninstallTestPlugin = (installed: InstalledTestPlugin) =>
 	uninstallTestPluginStrict(installed).pipe(
-		Effect.catchAll((error) =>
+		Effect.catch((error) =>
 			Effect.logWarning(
 				`[test-plugin] cleanup failed for '${installed.pluginSlug}' (non-fatal)`,
 				error,

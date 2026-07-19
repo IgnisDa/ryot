@@ -23,14 +23,14 @@ export const updateNotificationChannel = (
 	client.call((c) =>
 		c.notifications.updateChannel({
 			payload,
-			path: { channelId: NotificationChannelId.make(channelId) },
+			params: { channelId: NotificationChannelId.make(channelId) },
 		}),
 	);
 
 export const deleteNotificationChannel = (client: Client, channelId: string) =>
 	client.call((c) =>
 		c.notifications.deleteChannel({
-			path: { channelId: NotificationChannelId.make(channelId) },
+			params: { channelId: NotificationChannelId.make(channelId) },
 		}),
 	);
 
@@ -45,8 +45,7 @@ export function startFakeAppriseServer() {
 	);
 }
 
-export const startFakeAppriseServerScoped = () =>
-	Effect.acquireRelease(
-		Effect.promise(() => startFakeAppriseServer()),
-		(server) => Effect.sync(() => server.stop()),
-	);
+export const startFakeAppriseServerScoped = Effect.acquireRelease(
+	Effect.promise(() => startFakeAppriseServer()),
+	(server) => Effect.sync(() => server.stop()),
+);

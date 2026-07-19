@@ -64,8 +64,8 @@ export const pollSandboxResult = (executingUserId: string, jobId: string) =>
 			const result = yield* getBackendClient().call(
 				(c) =>
 					c.testSupport.getSandboxResult({
-						path: { jobId },
-						urlParams: { executingUserId: UserId.make(executingUserId) },
+						params: { jobId },
+						query: { executingUserId: UserId.make(executingUserId) },
 					}),
 				adminHeaders,
 			);
