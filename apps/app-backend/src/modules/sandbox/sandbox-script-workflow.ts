@@ -1,16 +1,13 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import { jsonByteLength } from "@ryot/sandbox-compiler/limits";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
+import { jsonValueSchema, type JsonValue } from "@ryot/sandbox-sdk/wire";
 import {
 	type WorkflowDurableResult,
 	type WorkflowReplayEnvelope,
 	workflowDurableCallRequestSchema,
 	workflowReplayEnvelopeSchema,
 	type WorkflowDurableCallRequest,
-	type WorkflowReplayJournalEntry,
 } from "@ryot/sandbox-sdk/workflow";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Cause, Clock, DateTime, Duration, Effect, Schema } from "effect";
@@ -21,12 +18,14 @@ import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
 import {
+	jsonByteLength,
 	SANDBOX_LIMITS,
 	sandboxWorkflowJournalByteError,
 } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	hashWorkflowCallArgs,
 	projectWorkflowJournal,
+	type WorkflowJournalEntry,
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 
@@ -156,7 +155,7 @@ export const sandboxWorkflowChildExecutionId = (
 
 const nondeterminismMessage = (
 	index: number,
-	entry: WorkflowReplayJournalEntry,
+	entry: WorkflowJournalEntry,
 	request: WorkflowDurableCallRequest,
 ) => {
 	const recordedHash = hashWorkflowCallArgs(entry.request.args);
@@ -166,7 +165,7 @@ const nondeterminismMessage = (
 
 export const validateWorkflowReplayEnvelope = (
 	envelope: WorkflowReplayEnvelope,
-	journal: ReadonlyArray<WorkflowReplayJournalEntry>,
+	journal: ReadonlyArray<WorkflowJournalEntry>,
 ): Effect.Effect<ObservedWorkflowReplay, SandboxRunError> => {
 	for (let index = 0; index < envelope.requests.length; index += 1) {
 		const request = envelope.requests[index];
@@ -236,7 +235,7 @@ export const validateWorkflowReplayEnvelope = (
 
 const observeWorkflowReplay = (
 	replayValue: unknown,
-	journal: ReadonlyArray<WorkflowReplayJournalEntry>,
+	journal: ReadonlyArray<WorkflowJournalEntry>,
 	workflowScriptId: SandboxScriptId,
 	step: number,
 ) =>
@@ -449,7 +448,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 	});
 
 	return yield* Effect.gen(function* () {
-		const journal: WorkflowReplayJournalEntry[] = [];
+		const journal: WorkflowJournalEntry[] = [];
 		let journalBytes = 2;
 		let projectionRetries = 0;
 		for (let step = 0; journal.length <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {

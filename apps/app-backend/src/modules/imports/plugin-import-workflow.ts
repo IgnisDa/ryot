@@ -1,8 +1,7 @@
 import { unknownToMessage } from "@ryot/contract/errors";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { SandboxExecutionGrants } from "@ryot/contract/modules/sandbox/schemas";
 import { genericImportWorkflowInputSchema } from "@ryot/sandbox-sdk/imports";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
+import { jsonValueSchema, type JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Cause, Effect, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

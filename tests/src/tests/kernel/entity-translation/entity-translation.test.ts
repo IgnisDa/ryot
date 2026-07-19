@@ -20,8 +20,8 @@ import {
 	setUserLanguage,
 	waitForEntityPopulated,
 	type Client,
+	type InstalledTestProvider,
 } from "~/fixtures";
-import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
 import { assertPresent, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 

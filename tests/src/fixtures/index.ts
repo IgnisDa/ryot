@@ -24,7 +24,16 @@ export * from "./ryotql";
 export * from "./relationship-schemas";
 export * from "./relationships";
 export * from "./sandbox";
-export * from "./sandbox-provider";
+export {
+	fakeProviderDetailsResult,
+	fakeProviderSearchResult,
+	fakeProviderTranslations,
+	installTestProvider,
+	providerSandboxSource,
+	replaceSandboxScriptCompiledRepresentation,
+	uninstallTestProvider,
+} from "./sandbox-provider";
+export type { InstalledTestProvider } from "./sandbox-provider";
 export * from "./sandbox-source";
 export * from "./test-plugin";
 export * from "./saved-views";
