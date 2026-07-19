@@ -1,7 +1,4 @@
-import {
-	REQUIRED_THEME_TOKEN_NAMES,
-	type PluginThemeSnapshot,
-} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginThemeSnapshot } from "@ryot-app/contract/modules/plugins/client";
 import { describe, expect, it } from "vitest";
 
 import { createThemeStore } from "#/modules/theme/store";
@@ -18,14 +15,7 @@ function setup(matches: boolean, initial: "light" | "dark" | "system" = "system"
 		removeAttribute: (name: string) => attributes.delete(name),
 		setAttribute: (name: string, value: string) => attributes.set(name, value),
 	};
-	const store = createThemeStore(initial, {
-		media,
-		root,
-		getStyle: () => ({
-			getPropertyValue: (name) =>
-				`${attributes.get("data-theme") ?? (media.matches ? "dark" : "light")}-${name.slice(2)}`,
-		}),
-	});
+	const store = createThemeStore(initial, { media, root });
 	return {
 		media,
 		store,
@@ -52,31 +42,6 @@ describe("theme store", () => {
 		store.setPreference("light");
 		expect(store.getSnapshot().resolvedMode).toBe("light");
 		expect(attributes.get("data-theme")).toBe("light");
-	});
-
-	it("extracts every required semantic token from computed style", () => {
-		const { store } = setup(false, "light");
-		const snapshot = store.getSnapshot();
-
-		expect(Object.keys(snapshot.tokens)).toEqual([...REQUIRED_THEME_TOKEN_NAMES]);
-		expect(snapshot.tokens).toEqual(
-			Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `light-${name}`])),
-		);
-		expect(snapshot.tokens["nav-indicator"]).toBe("light-nav-indicator");
-	});
-
-	it("rejects a missing required computed token", () => {
-		expect(() =>
-			createThemeStore("light", {
-				media: {
-					matches: false,
-					addEventListener: () => undefined,
-					removeEventListener: () => undefined,
-				},
-				root: { removeAttribute: () => undefined, setAttribute: () => undefined },
-				getStyle: () => ({ getPropertyValue: () => "" }),
-			}),
-		).toThrow();
 	});
 
 	it("publishes media changes only for system preference and cleans up", () => {

@@ -14,10 +14,9 @@ const blockAt = (marker: string) => {
 
 const declarationsOf = (block: string) =>
 	new Map(
-		[...block.matchAll(/^\t+(--[\w-]+):\s*([^;]+);$/gm)].map(([, token, value]) => [
-			token,
-			value.trim(),
-		]),
+		[...block.matchAll(/^\t+(--[\w-]+):\s*([^;]+);$/gm)].flatMap(([, token, value]) =>
+			token === undefined || value === undefined ? [] : [[token, value.trim()] as const],
+		),
 	);
 
 const light = declarationsOf(blockAt(":root,"));

@@ -82,20 +82,17 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		sessionId: crypto.randomUUID(),
 		apiVersion: CLIENT_API_VERSION,
 		format: CLIENT_ARTIFACT_FORMAT,
+		mode: options.theme.resolvedMode,
 		artifactHash: options.artifactHash,
 		compilerVersion: CLIENT_COMPILER_VERSION,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 	};
 
-	let bridgeReady = false;
-	let theme = options.theme;
-	let nextThemeGeneration = 0;
 	let navigation = options.navigation;
+	let mode = options.theme.resolvedMode;
 	const channel = new MessageChannel();
 	let state: PluginBridgeState = "ready";
 	const listeners = new AbortController();
-	let sentTheme: PluginThemeSnapshot | undefined;
-	let awaitingThemeGeneration: number | undefined;
 	const pending = new Map<string, PendingRequest>();
 	const timer = window.setTimeout(() => fail(), options.timeoutMs ?? HANDSHAKE_TIMEOUT_MS);
 
@@ -141,24 +138,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		}
 	}
 
-	function postTheme(nextTheme: PluginThemeSnapshot) {
-		nextThemeGeneration += 1;
-		const generation = nextThemeGeneration;
-		post({ generation, theme: nextTheme, type: "theme" } satisfies PluginBridgeTheme);
-		return generation;
-	}
-
-	function sendAwaitedTheme(nextTheme: PluginThemeSnapshot) {
-		sentTheme = nextTheme;
-		awaitingThemeGeneration = postTheme(nextTheme);
-	}
-
 	function sendTheme(next: PluginThemeSnapshot) {
-		theme = next;
+		mode = next.resolvedMode;
 		if (state !== "active") {
 			return;
 		}
-		postTheme(theme);
+		post({ mode, type: "theme" } satisfies PluginBridgeTheme);
 	}
 
 	function sendLocation(next: PluginBridgeNavigationState) {
@@ -277,7 +262,6 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					return;
 				}
 				Match.value(decoded.success).pipe(
-					Match.when({ type: "theme-applied" }, () => fail()),
 					Match.when({ type: "navigate-back" }, () => options.onNavigateBack()),
 					Match.when({ type: "header" }, (request) => options.onHeader(request)),
 					Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
@@ -287,31 +271,6 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
 					Match.exhaustive,
 				);
-				return;
-			}
-			if (bridgeReady) {
-				const decoded = decodeClientMessage(event.data);
-				if (Result.isSuccess(decoded) && decoded.success.type === "lifecycle-close") {
-					handleLifecycleClose(decoded.success.reason);
-					return;
-				}
-				if (Result.isFailure(decoded) || decoded.success.type !== "theme-applied") {
-					fail();
-					return;
-				}
-				if (decoded.success.generation !== awaitingThemeGeneration) {
-					fail();
-					return;
-				}
-				if (sentTheme !== theme) {
-					sendAwaitedTheme(theme);
-					return;
-				}
-				awaitingThemeGeneration = undefined;
-				state = "active";
-				clearTimeout(timer);
-				post({ ...navigation, type: "location" } satisfies PluginBridgeLocation);
-				options.onReady();
 				return;
 			}
 			const lifecycleClose = decodeLifecycleClose(event.data);
@@ -324,8 +283,13 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				fail();
 				return;
 			}
-			bridgeReady = true;
-			sendAwaitedTheme(theme);
+			state = "active";
+			clearTimeout(timer);
+			post({ ...navigation, type: "location" } satisfies PluginBridgeLocation);
+			if (mode !== init.mode) {
+				post({ mode, type: "theme" } satisfies PluginBridgeTheme);
+			}
+			options.onReady();
 		},
 		{ signal: listeners.signal },
 	);
