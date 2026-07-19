@@ -12,13 +12,16 @@ import { mediaSignalSchemas } from "./schemas/signal-schemas";
 import { mediaScripts } from "./script-catalog";
 
 const entitySchemas = mediaEntitySchemas();
+
 const relationshipSchemas = builtinRelationshipSchemas();
+
 const eventSlugs = (eventSlug: string) =>
 	entitySchemas.flatMap((schema) =>
 		schema.eventSchemas.some(({ slug }) => slug === eventSlug)
 			? [`${schema.slug}:${eventSlug}`]
 			: [],
 	);
+
 const creditRelationshipSlugs = relationshipSchemas
 	.filter(({ sourceEntitySchemaSlug, targetEntitySchemaSlug }) => {
 		const isCreditSource =
@@ -30,7 +33,9 @@ const creditRelationshipSlugs = relationshipSchemas
 		return isCreditSource && isCreditTarget;
 	})
 	.map(({ slug }) => slug);
+
 type ProviderOperation = "details" | "resolve" | "search" | "search-options" | "translate";
+
 const provider = (
 	rootEntitySchemaSlug: string,
 	slug: string,
@@ -51,6 +56,7 @@ const provider = (
 		...(operations.includes("translate") ? { translate: `${slug}.translate` } : {}),
 	},
 });
+
 const mediaProviders = [
 	provider(
 		"anime",
@@ -203,12 +209,13 @@ const mediaProviders = [
 ] as const;
 
 const stringSetting = (label: string, description: string, required = true, secret = false) => ({
-	type: "string" as const,
 	label,
 	description,
+	type: "string" as const,
 	...(secret ? { secret: true as const } : {}),
 	...(required ? { validation: { required: true as const } } : {}),
 });
+
 const kindSetting = (kind: string) => ({
 	defaultValue: kind,
 	type: "enum" as const,
@@ -217,9 +224,11 @@ const kindSetting = (kind: string) => ({
 	description: "Integration provider discriminator",
 	choices: { kind: "static" as const, values: [{ value: kind }] },
 });
+
 const providerSettings = (kind: string, fields = {}) => ({
 	fields: { kind: kindSetting(kind), ...fields },
 });
+
 const integrationProviders = [
 	{
 		lot: "sink",
@@ -242,9 +251,9 @@ const integrationProviders = [
 			metadataProvider: {
 				type: "enum",
 				defaultValue: "tmdb",
-				choices: { kind: "static", values: [{ value: "tmdb" }, { value: "tvdb" }] },
 				label: "Metadata provider",
 				description: "Provider used to identify Jellyfin media",
+				choices: { kind: "static", values: [{ value: "tmdb" }, { value: "tvdb" }] },
 			},
 		}),
 	},
@@ -343,9 +352,9 @@ const integrationProviders = [
 		description: "Push collection movies to Radarr",
 		settingsSchema: providerSettings("radarr", {
 			baseUrl: stringSetting("Base URL", "Radarr instance URL"),
-			apiKey: stringSetting("API key", "Radarr API key", true, true),
 			profileId: stringSetting("Profile ID", "Radarr quality profile ID"),
 			rootFolderPath: stringSetting("Root folder path", "Radarr root folder path"),
+			apiKey: stringSetting("API key", "Radarr API key", true, true),
 			syncCollectionIds: {
 				type: "array",
 				label: "Collections",
@@ -366,17 +375,17 @@ const integrationProviders = [
 		name: "Sonarr",
 		description: "Push collection shows to Sonarr",
 		settingsSchema: providerSettings("sonarr", {
+			tagIds: { type: "integer", label: "Tag ID", description: "Sonarr tag ID" },
 			baseUrl: stringSetting("Base URL", "Sonarr instance URL"),
-			apiKey: stringSetting("API key", "Sonarr API key", true, true),
 			profileId: stringSetting("Profile ID", "Sonarr quality profile ID"),
 			rootFolderPath: stringSetting("Root folder path", "Sonarr root folder path"),
+			apiKey: stringSetting("API key", "Sonarr API key", true, true),
 			syncCollectionIds: {
 				type: "array",
 				label: "Collections",
 				description: "Collection IDs synchronized to Sonarr",
 				items: stringSetting("Collection ID", "Collection ID", false),
 			},
-			tagIds: { type: "integer", label: "Tag ID", description: "Sonarr tag ID" },
 		}),
 	},
 	{
