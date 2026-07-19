@@ -3,7 +3,7 @@ import type { BadRequest, DbError } from "@ryot/contract/errors";
 import { badRequest, internalError, notFound, unknownToMessage } from "@ryot/contract/errors";
 import type { ProvisionUserBody } from "@ryot/contract/modules/god-mode/contract";
 import { UserId } from "@ryot/contract/schema/brands";
-import { DateTime, Effect, Either } from "effect";
+import { Context, DateTime, Effect, Result, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import type { CurrentDb } from "#lib/infrastructure/db/service";
@@ -48,11 +48,11 @@ export const checkResetEligibility = (authState: ReturnType<typeof classifyAuthS
 };
 
 const parseResetLinkMessage = (message: string) => {
-	const parsed = Either.try(() => JSON.parse(message));
-	if (Either.isLeft(parsed)) {
+	const parsed = Result.try(() => JSON.parse(message));
+	if (Result.isFailure(parsed)) {
 		return null;
 	}
-	const value = parsed.right;
+	const value = parsed.success;
 	if (value !== null && typeof value === "object") {
 		const email = Reflect.get(value, "email");
 		const resetUrl = Reflect.get(value, "resetUrl");
@@ -63,8 +63,8 @@ const parseResetLinkMessage = (message: string) => {
 	return null;
 };
 
-export class GodModeService extends Effect.Service<GodModeService>()("GodModeService", {
-	effect: Effect.gen(function* () {
+export class GodModeService extends Context.Service<GodModeService>()("GodModeService", {
+	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
@@ -215,39 +215,44 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			const resetResult = yield* Effect.acquireUseRelease(
 				Effect.sync(() => redis.client.duplicate()),
 				(subscriber) =>
-					Effect.async<{ email: string; resetUrl: string } | null>((resume) => {
+					Effect.callback<{ email: string; resetUrl: string }>((resume) => {
 						let settled = false;
 
 						const onMessage = (_channel: string, message: string) => {
 							if (_channel !== channel) {
 								return;
 							}
-							settle(parseResetLinkMessage(message));
+							const value = parseResetLinkMessage(message);
+							if (value !== null) {
+								settle(value);
+							}
 						};
 
-						const settle = (value: { email: string; resetUrl: string } | null) => {
+						const settle = (value: { email: string; resetUrl: string }) => {
 							if (settled) {
 								return;
 							}
 							settled = true;
-							clearTimeout(timeout);
 							subscriber.off("message", onMessage);
 							resume(Effect.succeed(value));
 						};
 
 						subscriber.on("message", onMessage);
-						const timeout = setTimeout(() => settle(null), RESET_LINK_TIMEOUT_MS);
 
 						void subscriber
 							.subscribe(channel)
 							.then(() => auth.api.requestPasswordReset({ body: { email } }))
-							.catch(() => settle(null));
+							.catch(() => undefined);
 
 						return Effect.sync(() => {
-							clearTimeout(timeout);
 							subscriber.off("message", onMessage);
 						});
-					}),
+					}).pipe(
+						Effect.timeoutOrElse({
+							duration: RESET_LINK_TIMEOUT_MS,
+							orElse: () => Effect.succeed(null),
+						}),
+					),
 				(subscriber, _exit) =>
 					Effect.all(
 						[
@@ -258,11 +263,11 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 									pendingKey,
 									correlationId,
 								),
-							).pipe(Effect.catchAll(() => Effect.void)),
+							).pipe(Effect.catch(() => Effect.void)),
 							Effect.tryPromise(() => subscriber.unsubscribe(channel)).pipe(
-								Effect.catchAll(() => Effect.void),
+								Effect.catch(() => Effect.void),
 							),
-							Effect.tryPromise(() => subscriber.quit()).pipe(Effect.catchAll(() => Effect.void)),
+							Effect.tryPromise(() => subscriber.quit()).pipe(Effect.catch(() => Effect.void)),
 						],
 						{ discard: true },
 					),
@@ -362,7 +367,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 				Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
 				Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
 				Effect.provideService(TransactionRunner, runInTransaction),
-				Effect.catchAll((error) =>
+				Effect.catch((error) =>
 					internalError(`User bootstrap failed after reset: ${unknownToMessage(error)}`),
 				),
 			);
@@ -385,4 +390,6 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			resetUserPassword,
 		};
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
