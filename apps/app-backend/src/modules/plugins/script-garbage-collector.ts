@@ -3,7 +3,6 @@ import { Context, Effect, Layer, Option, Ref, FileSystem, Path } from "effect";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { garbageCollectSandboxCompiledModules } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
 import { PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
@@ -18,7 +17,6 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 			const database = yield* Database;
 			const repository = yield* PluginRepository;
 			const runtime = yield* PackageCacheManager;
-			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 			const kernelContentHashes = yield* Ref.make<Option.Option<ReadonlySet<string>>>(
 				Option.none(),
 			);
@@ -27,15 +25,10 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 				kernelHashes: ReadonlySet<string>,
 			) {
 				const localPlugins = Object.values(loader.getSnapshot().plugins);
-				const plugins = yield* repository.list();
-				const references = yield* workflowReferences.listReferences();
-				const persistedHashes = yield* repository.listPersistedLivenessContentHashes(
-					new Set(references.map(({ pluginSlug }) => pluginSlug)),
-				);
+				const persistedHashes = yield* repository.listPersistedLivenessContentHashes();
 				return new Set([
 					...kernelHashes,
 					...persistedHashes,
-					...plugins.flatMap(({ scripts }) => scripts.map(({ contentHash }) => contentHash)),
 					...localPlugins.flatMap(({ scripts }) => scripts.map(({ contentHash }) => contentHash)),
 				]);
 			});

@@ -134,7 +134,7 @@ export const installTestPlugin = (input: {
 		});
 		const files = { [entry]: input.source };
 		yield* getBackendClient().call(
-			(c) => c.plugins.install({ payload: { files, manifest } }),
+			(c) => c.testSupport.installSystemPlugin({ payload: { files, manifest } }),
 			adminHeaders,
 		);
 		const scriptId = yield* findInstalledScriptId(input.script.slug, input.source);
@@ -189,7 +189,7 @@ export const installTestPluginBundle = (input: {
 			integrationProviders: input.integrationProviders,
 		});
 		yield* getBackendClient(input.baseUrl).call(
-			(c) => c.plugins.install({ payload: { files: input.files, manifest } }),
+			(c) => c.testSupport.installSystemPlugin({ payload: { files: input.files, manifest } }),
 			adminHeaders,
 		);
 		const scriptIds = Object.fromEntries(
@@ -247,7 +247,7 @@ export const installTestDefinitions = (input: {
 			),
 		});
 		yield* getBackendClient().call(
-			(c) => c.plugins.install({ payload: { files: {}, manifest } }),
+			(c) => c.testSupport.installSystemPlugin({ payload: { files: {}, manifest } }),
 			adminHeaders,
 		);
 		definitionManifests.set(input.pluginSlug, manifest);
@@ -276,7 +276,7 @@ export const reinstallTestPluginScript = (
 		scripts[targetIndex] = { ...script, entry: target.entry };
 		const manifest = { ...installed.manifest, scripts };
 		yield* getBackendClient().call(
-			(c) => c.plugins.install({ payload: { files, manifest } }),
+			(c) => c.testSupport.installSystemPlugin({ payload: { files, manifest } }),
 			adminHeaders,
 		);
 		const scriptId = yield* findInstalledScriptId(script.slug, source);
@@ -299,7 +299,7 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 			return;
 		}
 		yield* getBackendClient().call(
-			(c) => c.plugins.uninstall({ params: { pluginSlug: installed.pluginSlug } }),
+			(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: installed.pluginSlug } }),
 			adminHeaders,
 		);
 		installed.active = false;

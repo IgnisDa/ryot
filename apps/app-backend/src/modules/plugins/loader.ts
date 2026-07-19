@@ -11,14 +11,19 @@ import {
 } from "#modules/definition-registry/service";
 
 import { buildHttpRateLimitLookups, type HttpRateLimitLookups } from "./http-rate-limits";
-import type { NormalizedPlugin } from "./types";
+import type { NormalizedPlugin, StoredPluginIdentity } from "./types";
+
+export type PluginRegistryEntry = NormalizedPlugin & StoredPluginIdentity;
 
 export type PluginRegistrySnapshot = {
 	readonly bindings: PluginBindings;
 	readonly definitions: DefinitionSnapshot;
-	readonly plugins: Readonly<Record<string, NormalizedPlugin>>;
 	readonly httpRateLimits: HttpRateLimitLookups;
+	readonly plugins: Readonly<Record<string, PluginRegistryEntry>>;
 };
+
+export const findPluginEntryById = (snapshot: PluginRegistrySnapshot, pluginId: string) =>
+	Object.values(snapshot.plugins).find((plugin) => plugin.id === pluginId) ?? null;
 
 const deepFreeze = <Value>(value: Value): Value => {
 	if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
@@ -81,7 +86,7 @@ const mergeBindings = (manifests: ReadonlyArray<PluginManifest>): PluginBindings
 		emptyBindings(),
 	);
 
-const assertUniqueScriptSlugs = (plugins: Readonly<Record<string, NormalizedPlugin>>) => {
+const assertUniqueScriptSlugs = (plugins: Readonly<Record<string, PluginRegistryEntry>>) => {
 	const ownerBySlug = new Map<string, string>();
 	for (const [pluginSlug, plugin] of Object.entries(plugins)) {
 		for (const script of plugin.scripts) {
@@ -96,7 +101,7 @@ const assertUniqueScriptSlugs = (plugins: Readonly<Record<string, NormalizedPlug
 	}
 };
 
-const assertUniqueProviderSlugs = (plugins: Readonly<Record<string, NormalizedPlugin>>) => {
+const assertUniqueProviderSlugs = (plugins: Readonly<Record<string, PluginRegistryEntry>>) => {
 	const ownerBySlug = new Map<string, string>();
 	for (const [pluginSlug, plugin] of Object.entries(plugins)) {
 		for (const provider of plugin.manifest.providers) {
@@ -112,7 +117,7 @@ const assertUniqueProviderSlugs = (plugins: Readonly<Record<string, NormalizedPl
 };
 
 const assertUniquePluginConfigEnvironmentKeys = (
-	plugins: Readonly<Record<string, NormalizedPlugin>>,
+	plugins: Readonly<Record<string, PluginRegistryEntry>>,
 ) => {
 	const ownerByEnvironmentKey = new Map<string, string>();
 	for (const [pluginSlug, plugin] of Object.entries(plugins)) {
@@ -131,8 +136,8 @@ const assertUniquePluginConfigEnvironmentKeys = (
 
 const assertUniqueManifestEntrySlugs = (
 	kind: string,
-	plugins: Readonly<Record<string, NormalizedPlugin>>,
-	select: (plugin: NormalizedPlugin) => ReadonlyArray<{ readonly slug: string }>,
+	plugins: Readonly<Record<string, PluginRegistryEntry>>,
+	select: (plugin: PluginRegistryEntry) => ReadonlyArray<{ readonly slug: string }>,
 ) => {
 	const ownerBySlug = new Map<string, string>();
 	for (const [pluginSlug, plugin] of Object.entries(plugins)) {
@@ -159,7 +164,7 @@ export const makePluginLoader = (
 		definitions: buildDefinitionSnapshot(base),
 	});
 
-	const buildSnapshot = (plugins: Readonly<Record<string, NormalizedPlugin>>) => {
+	const buildSnapshot = (plugins: Readonly<Record<string, PluginRegistryEntry>>) => {
 		assertUniquePluginConfigEnvironmentKeys(plugins);
 		assertUniqueScriptSlugs(plugins);
 		assertUniqueProviderSlugs(plugins);
@@ -182,18 +187,16 @@ export const makePluginLoader = (
 			definitions: buildDefinitionSnapshot(mergeManifestDefinitions(base, manifests)),
 		} satisfies PluginRegistrySnapshot);
 	};
-	const preview = (plugin: NormalizedPlugin) =>
-		buildSnapshot({ ...snapshot.plugins, [plugin.manifest.metadata.slug]: plugin });
-	const previewAll = (plugins: ReadonlyArray<NormalizedPlugin>) =>
-		buildSnapshot(
-			Object.fromEntries(plugins.map((plugin) => [plugin.manifest.metadata.slug, plugin])),
-		);
+	const preview = (plugin: PluginRegistryEntry) =>
+		buildSnapshot({ ...snapshot.plugins, [plugin.slug]: plugin });
+	const previewAll = (plugins: ReadonlyArray<PluginRegistryEntry>) =>
+		buildSnapshot(Object.fromEntries(plugins.map((plugin) => [plugin.slug, plugin])));
 	const replace = (next: PluginRegistrySnapshot) => {
 		registry.replace(definitionSourceFromSnapshot(next.definitions));
 		snapshot = next;
 	};
-	const load = (plugin: NormalizedPlugin) => replace(preview(plugin));
-	const rebuild = (plugins: ReadonlyArray<NormalizedPlugin>) => {
+	const load = (plugin: PluginRegistryEntry) => replace(preview(plugin));
+	const rebuild = (plugins: ReadonlyArray<PluginRegistryEntry>) => {
 		replace(previewAll(plugins));
 	};
 

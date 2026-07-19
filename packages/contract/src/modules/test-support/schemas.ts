@@ -15,6 +15,7 @@ import {
 } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { SubscriptionRunStatus } from "../automations/schemas";
+import { PluginPackage } from "../plugins/schemas";
 import { EnqueueSandboxBody, SandboxScriptMetadata } from "../sandbox/schemas";
 
 const TestSupportDiagnosticReason = Schema.Union([
@@ -40,6 +41,21 @@ export class TestSupportOperationFailure extends Schema.TaggedError<TestSupportO
 	"TestSupportOperationFailure",
 	{ reason: TestSupportDiagnosticReason },
 ) {}
+
+export const TestSupportInstallSystemPluginBody = Schema.Struct({ ...PluginPackage.fields });
+
+export type TestSupportInstallSystemPluginBody = typeof TestSupportInstallSystemPluginBody.Type;
+
+export const TestSupportSystemPlugin = Schema.Struct({
+	slug: PluginSlug,
+	icon: Schema.String,
+	name: Schema.String,
+	version: Schema.String,
+	sourceHash: Schema.String,
+	description: Schema.String,
+});
+
+export type TestSupportSystemPlugin = typeof TestSupportSystemPlugin.Type;
 
 export const TestSupportStoredSandboxScript = Schema.Struct({
 	id: SandboxScriptId,

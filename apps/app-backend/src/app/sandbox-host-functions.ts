@@ -362,16 +362,14 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				normalizeConfigKeys("getPluginConfig", rawKeys).pipe(
 					Effect.flatMap((keys) =>
 						pluginRuntime
-							.findActivePluginConfigByScriptId(SandboxScriptId.make(input.scriptId))
+							.resolvePluginConfigContext({
+								authority: input.authority,
+								scriptId: SandboxScriptId.make(input.scriptId),
+							})
 							.pipe(
-								Effect.flatMap((plugin) =>
-									plugin
-										? getPluginConfig({
-												keys,
-												metadata: input.metadata,
-												pluginSlug: plugin.pluginSlug,
-												configSchema: plugin.configSchema,
-											})
+								Effect.flatMap((context) =>
+									context
+										? getPluginConfig({ keys, context, metadata: input.metadata })
 										: Effect.fail("Plugin config is available only to active plugin scripts"),
 								),
 								Effect.flatMap((values) => encodeConfigValues("Plugin", values)),

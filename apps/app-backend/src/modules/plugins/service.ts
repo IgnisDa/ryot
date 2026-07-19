@@ -1,16 +1,7 @@
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import {
-	PluginConflictError,
-	PluginNotFoundError,
-	PluginRequestError,
-	type PluginListItem,
-} from "@ryot/contract/modules/plugins/schemas";
+import { PluginConflictError, PluginNotFoundError } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug } from "@ryot/contract/schema/brands";
-import type { SandboxCompilerFailure } from "@ryot/sandbox-compiler/diagnostics";
-import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
-import { Cause, Context, Effect, FiberSet, Layer, Match, Semaphore } from "effect";
+import { Cause, Context, Effect, FiberSet, Layer, Semaphore } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
@@ -18,12 +9,17 @@ import { kernelDefinitionSource, kernelScripts } from "#modules/definition-regis
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
 import { bootConfiguredPluginSlugs } from "./boot-sources";
-import { PluginLoader } from "./loader";
+import { PluginLoader, type PluginRegistryEntry } from "./loader";
+import {
+	compilePluginPackage,
+	pluginSourceHash,
+	structurePluginFailure,
+	validationDiagnostics,
+} from "./pipeline";
 import { PluginRepository } from "./repository";
-import type { SchemaEvolutionError } from "./schema-evolution";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
 import { ScriptGarbageCollector } from "./script-garbage-collector";
-import type { NormalizedPlugin, PluginScriptMetadata, PluginSource } from "./types";
+import type { NormalizedPlugin, PluginSource } from "./types";
 import {
 	decodePluginManifest,
 	PluginValidationError,
@@ -34,8 +30,6 @@ import {
 	validatePluginSourcePaths,
 	validateSignalSchemaFormatterReferences,
 } from "./validation";
-
-const digest = sha256Hex;
 
 const PLUGIN_REGISTRY_RECONCILIATION_INTERVAL = "30 seconds";
 
@@ -48,96 +42,11 @@ const registryFingerprint = (
 			.sort(([left], [right]) => left.localeCompare(right)),
 	);
 
-const declaredScriptMetadata = (
-	script: PluginManifest["scripts"][number],
-): PluginScriptMetadata => {
-	if (script.kind === "script") {
-		return {
-			slug: script.slug,
-			name: script.name,
-			kind: script.kind,
-			capabilities: script.capabilities,
-			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
-			...(script.providerSlug ? { providerSlug: script.providerSlug } : {}),
-		};
-	}
-	if (script.kind === "operation" || script.kind === "automation") {
-		return {
-			slug: script.slug,
-			name: script.name,
-			kind: script.kind,
-			capabilities: script.capabilities,
-			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
-		};
-	}
-	if (script.kind === "workflow") {
-		return {
-			slug: script.slug,
-			name: script.name,
-			kind: "workflow",
-			capabilities: script.capabilities,
-			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
-		};
-	}
-	return {
-		slug: script.slug,
-		name: script.name,
-		kind: "provider",
-		capabilities: script.capabilities,
-		providerSlug: script.providerSlug,
-		providerOperation: script.providerOperation,
-		requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-		requiredSystemConfigKeys: script.requiredSystemConfigKeys,
-		...("searchOptionsSchema" in script && script.searchOptionsSchema
-			? { searchOptionsSchema: script.searchOptionsSchema }
-			: {}),
-	};
-};
-
-const compiledScriptMetadata = (script: PluginManifest["scripts"][number]) => {
-	if (script.kind === "script") {
-		const { entry: _entry, providerSlug: _providerSlug, ...compiledMetadata } = script;
-		return compiledMetadata;
-	}
-	if (script.kind !== "provider") {
-		return declaredScriptMetadata(script);
-	}
-	const {
-		entry: _entry,
-		providerSlug: _providerSlug,
-		providerOperation: _providerOperation,
-		...compiledMetadata
-	} = script;
-	return compiledMetadata;
-};
-
-const toListItem = (plugin: NormalizedPlugin): PluginListItem => ({
+const toSystemPluginItem = (plugin: Pick<NormalizedPlugin, "manifest" | "sourceHash">) => ({
 	...plugin.manifest.metadata,
 	sourceHash: plugin.sourceHash,
+	slug: PluginSlug.make(plugin.manifest.metadata.slug),
 });
-
-const validationDiagnostics = (error: PluginValidationError) =>
-	error.issues.map((message) => ({
-		message,
-		phase: "validate" as const,
-		severity: "error" as const,
-		code: "plugin-validation-error",
-	}));
-
-const schemaEvolutionCode = (code: SchemaEvolutionError["issues"][number]["code"]) =>
-	Match.value(code).pipe(
-		Match.when("enum_narrowed", () => "enum-narrowed" as const),
-		Match.when("schema_changed", () => "schema-changed" as const),
-		Match.when("schema_removed", () => "schema-removed" as const),
-		Match.when("property_changed", () => "property-changed" as const),
-		Match.when("property_removed", () => "property-removed" as const),
-		Match.when("property_type_changed", () => "property-type-changed" as const),
-		Match.when("required_property_added", () => "required-property-added" as const),
-		Match.exhaustive,
-	);
 
 export class PluginIngestionService extends Context.Service<PluginIngestionService>()(
 	"PluginIngestionService",
@@ -241,12 +150,19 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					}
 					const files = source.files;
 					yield* validatePluginSourcePaths(files, manifest.scripts);
-					const sourceHash = digest(stableStringify({ files, manifest }));
+					const sourceHash = pluginSourceHash(manifest, files);
+					const slug = manifest.metadata.slug;
+					const existing = loader.getSnapshot().plugins[slug];
 					const candidate = {
+						slug,
 						sourceHash,
 						scripts: [],
+						ownerId: null,
+						sourceFiles: files,
+						scope: "system" as const,
+						id: existing?.id ?? `pending:${slug}`,
 						manifest: { ...manifest, httpRateLimits: [] },
-					} satisfies NormalizedPlugin;
+					} satisfies PluginRegistryEntry;
 					const prospectiveSnapshot = yield* Effect.try({
 						try: () => loader.preview(candidate),
 						catch: (error) => new PluginValidationError({ issues: [String(error)] }),
@@ -254,8 +170,10 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					yield* validateSnapshot(prospectiveSnapshot, false);
 
 					const cached = yield* repository.findBySourceHash({
-						slug: manifest.metadata.slug,
+						slug,
 						sourceHash,
+						ownerId: null,
+						scope: "system",
 					});
 					if (cached) {
 						const committed = yield* Effect.uninterruptible(
@@ -265,9 +183,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										yield* repository.lockIngestion();
 										const installed = yield* repository.list();
 										const authoritative = installed.find(
-											(plugin) =>
-												plugin.manifest.metadata.slug === manifest.metadata.slug &&
-												plugin.sourceHash === sourceHash,
+											(plugin) => plugin.slug === slug && plugin.sourceHash === sourceHash,
 										);
 										if (!authoritative) {
 											return null;
@@ -287,147 +203,74 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							),
 						);
 						if (committed) {
-							yield* publishInvalidation(
-								stableStringify({ slug: manifest.metadata.slug, sourceHash }),
-							);
+							yield* publishInvalidation(stableStringify({ slug, sourceHash }));
 							return committed.plugin;
 						}
 					}
 
-					const compilerScripts = manifest.scripts.map((script) => {
-						if (script.kind === "script") {
-							const { providerSlug, ...genericScript } = script;
-							return providerSlug ? { ...genericScript, providerSlug } : genericScript;
-						}
-						return script;
-					});
-					const compiled = yield* compilePluginSandboxSourceEntries(files, compilerScripts).pipe(
-						Effect.tapError((error) => Effect.logError("plugin compile error", error)),
-					);
-					const compiledByEntry = new Map(compiled.map((script) => [script.entry, script]));
-					const scripts = yield* Effect.forEach(manifest.scripts, (script) => {
-						const output = compiledByEntry.get(script.entry);
-						if (!output) {
-							return Effect.fail(
-								new PluginValidationError({
-									issues: [`Compiler returned no output for ${script.entry}`],
-								}),
-							);
-						}
-						const metadata = declaredScriptMetadata(script);
-						if (
-							stableStringify(compiledScriptMetadata(script)) !==
-							stableStringify(output.compiled.manifest)
-						) {
-							return Effect.fail(
-								new PluginValidationError({
-									issues: [`Declared script metadata does not match ${script.entry}`],
-								}),
-							);
-						}
-						return Effect.succeed({
-							slug: script.slug,
-							name: script.name,
-							entry: script.entry,
-							source: output.source,
-							compiledFormat: output.compiled.format,
-							compiledCode: output.compiled.javascript,
-							contentHash: digest(output.compiled.javascript),
-							metadata,
-						});
-					});
-					const normalized = { manifest, scripts, sourceHash } satisfies NormalizedPlugin;
-					yield* Effect.uninterruptible(
+					const normalized = yield* compilePluginPackage({ files, manifest, sourceHash });
+					const stored = yield* Effect.uninterruptible(
 						mapDatabaseErrors(
 							database.transaction((transaction) =>
 								Effect.gen(function* () {
 									yield* repository.lockIngestion();
 									const installed = yield* repository.list();
-									const previous = installed.find(
-										(plugin) => plugin.manifest.metadata.slug === manifest.metadata.slug,
-									);
+									const previous = installed.find((plugin) => plugin.slug === slug);
 									if (previous) {
 										yield* validateAdditiveSchemaEvolution(previous.manifest, manifest);
 									}
+									const pluginId = yield* repository.persist(normalized, {
+										slug,
+										ownerId: null,
+										scope: "system",
+									});
+									const entry = {
+										...normalized,
+										slug,
+										id: pluginId,
+										ownerId: null,
+										scope: "system" as const,
+									} satisfies PluginRegistryEntry;
 									const nextInstalled = [
-										...installed.filter(
-											(plugin) => plugin.manifest.metadata.slug !== manifest.metadata.slug,
-										),
-										normalized,
+										...installed.filter((plugin) => plugin.slug !== slug),
+										entry,
 									];
 									const snapshot = yield* Effect.try({
 										try: () => loader.previewAll(nextInstalled),
 										catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 									});
 									yield* validateSnapshot(snapshot);
-									yield* repository.persist(normalized);
-									return snapshot;
+									return { entry, snapshot };
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
-						).pipe(Effect.tap((snapshot) => Effect.sync(() => loader.replace(snapshot)))),
+						).pipe(Effect.tap(({ snapshot }) => Effect.sync(() => loader.replace(snapshot)))),
 					);
-					yield* publishInvalidation(stableStringify({ slug: manifest.metadata.slug, sourceHash }));
-					return normalized;
+					yield* publishInvalidation(stableStringify({ slug, sourceHash }));
+					return stored.entry;
 				},
 			);
-			type IngestionError = Effect.Error<ReturnType<typeof ingestPluginUnlocked>>;
-			const structureIngestionFailure = <A, R>(effect: Effect.Effect<A, IngestionError, R>) =>
-				effect.pipe(
-					Effect.catchTags({
-						SchemaEvolutionError: (error: SchemaEvolutionError) =>
-							Effect.fail(
-								new PluginRequestError({
-									reason: {
-										code: "schema-evolution-failed",
-										issues: error.issues.map(({ code, path }) => ({
-											path,
-											code: schemaEvolutionCode(code),
-										})),
-									},
-								}),
-							),
-						PluginValidationError: (error: PluginValidationError) =>
-							Effect.fail(
-								new PluginRequestError({
-									reason: { code: "validation-failed", diagnostics: validationDiagnostics(error) },
-								}),
-							),
-						SandboxCompilerFailure: (error: SandboxCompilerFailure) =>
-							Effect.fail(
-								new PluginRequestError({
-									reason: {
-										code: "compilation-failed",
-										diagnostics: error.diagnostics.map((diagnostic) => ({
-											...diagnostic,
-											phase: "compile" as const,
-										})),
-									},
-								}),
-							),
-					}),
-				);
 			const ingestPlugin = Effect.fn("PluginIngestionService.ingestPlugin")(
 				(source: PluginSource) =>
 					mutationLock.withPermits(1)(
-						ingestPluginUnlocked(source, false).pipe(structureIngestionFailure),
+						ingestPluginUnlocked(source, false).pipe(structurePluginFailure),
 					),
 			);
 			const ingestTrustedPlugin = Effect.fn("PluginIngestionService.ingestTrustedPlugin")(
 				(source: PluginSource) =>
 					mutationLock.withPermits(1)(
-						ingestPluginUnlocked(source, true).pipe(structureIngestionFailure),
+						ingestPluginUnlocked(source, true).pipe(structurePluginFailure),
 					),
 			);
 
 			const listPlugins = Effect.fn("PluginIngestionService.listPlugins")(function* () {
 				const plugins = yield* repository.list();
-				return plugins.map(toListItem);
+				return plugins.map(toSystemPluginItem);
 			});
 
 			const installPlugin = Effect.fn("PluginIngestionService.installPlugin")(function* (
 				source: PluginSource,
 			) {
-				return toListItem(yield* ingestPlugin(source));
+				return toSystemPluginItem(yield* ingestPlugin(source));
 			});
 
 			const uninstallPluginUnlocked = Effect.fn("PluginIngestionService.uninstallPluginUnlocked")(
@@ -438,9 +281,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							Effect.gen(function* () {
 								yield* repository.lockIngestion();
 								const installed = yield* repository.list();
-								const plugin = installed.find(
-									(candidate) => candidate.manifest.metadata.slug === slug,
-								);
+								const plugin = installed.find((candidate) => candidate.slug === slug);
 								if (!plugin) {
 									return yield* new PluginNotFoundError({
 										reason: { code: "plugin-not-found", pluginSlug },
@@ -451,7 +292,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										reason: { code: "boot-configured", pluginSlug },
 									});
 								}
-								if (yield* workflowReferences.hasReferences(slug)) {
+								if (yield* workflowReferences.hasReferences(plugin.id)) {
 									return yield* new PluginConflictError({
 										reason: { code: "workflow-referenced", pluginSlug },
 									});
@@ -466,7 +307,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 								);
 								if (
 									yield* repository.hasEntityReferences({
-										pluginSlug: slug,
+										pluginId: plugin.id,
 										entitySchemaSlugs: schemaSlugs,
 									})
 								) {
@@ -474,9 +315,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										reason: { code: "entity-referenced", pluginSlug },
 									});
 								}
-								const remaining = installed.filter(
-									(candidate) => candidate.manifest.metadata.slug !== slug,
-								);
+								const remaining = installed.filter((candidate) => candidate.slug !== slug);
 								const snapshot = yield* Effect.try({
 									try: () => loader.previewAll(remaining),
 									catch: (error) =>
@@ -504,14 +343,14 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										},
 									});
 								}
-								yield* repository.deactivate(slug);
+								yield* repository.deactivate(plugin.id);
 								return { plugin, snapshot };
 							}).pipe(Effect.provideService(Database, transaction)),
 						),
 					);
 					loader.replace(result.snapshot);
 					yield* publishInvalidation(stableStringify({ action: "uninstall", slug }));
-					return toListItem(result.plugin);
+					return toSystemPluginItem(result.plugin);
 				},
 			);
 			const uninstallPlugin = Effect.fn("PluginIngestionService.uninstallPlugin")((slug: string) =>

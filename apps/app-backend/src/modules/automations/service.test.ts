@@ -42,7 +42,7 @@ const signalSchemaSlug = SignalSchemaSlug.make("review.created");
 const kernelScript = {
 	id: scriptId,
 	userId: null,
-	pluginSlug: null,
+	pluginId: null,
 	providerId: null,
 	compiledFormat: 1,
 	contentHash: "hash-1",
@@ -202,7 +202,7 @@ it.effect("resolves a source-zero notification formatter for the row owner", () 
 });
 
 it.effect("resolves notification state through an active plugin formatter", () => {
-	const pluginScript = { ...kernelScript, pluginSlug: "reviews", slug: kernelScript.slug };
+	const pluginScript = { ...kernelScript, pluginId: "reviews", slug: kernelScript.slug };
 	const layer = makeLayer(
 		makeRepository({
 			isUserEnabled: () => Effect.succeed(true),

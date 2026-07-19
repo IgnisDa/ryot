@@ -1,16 +1,16 @@
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
-import { AdminMiddleware, AuthRateLimited, AuthUnauthorized } from "../../auth-middleware";
+import { AuthMiddleware, AuthRateLimited, AuthUnauthorized } from "../../auth-middleware";
 import { PluginSlug } from "../../schema/brands";
 import {
 	InstallPluginBody,
 	PluginConflictError,
+	PluginInstallationItem,
+	PluginInstallationList,
 	PluginInvocationError,
 	PluginInvokeBody,
 	PluginInvokeResult,
-	PluginList,
-	PluginListItem,
 	PluginNotFoundError,
 	PluginRequestError,
 } from "./schemas";
@@ -19,22 +19,25 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 	.annotate(OpenApi.Description, "Manages installed plugins for this instance.")
 	.add(
 		HttpApiEndpoint.get("list", "/plugins", {
-			success: PluginList,
-		}).annotate(OpenApi.Description, "Lists active plugins."),
+			success: PluginInstallationList,
+		}).annotate(OpenApi.Description, "Lists the caller's plugin installations."),
 	)
 	.add(
 		HttpApiEndpoint.post("install", "/plugins", {
 			payload: InstallPluginBody,
-			success: PluginListItem.pipe(HttpApiSchema.status(201)),
-			error: [PluginRequestError.pipe(HttpApiSchema.status(400))],
+			success: PluginInstallationItem.pipe(HttpApiSchema.status(201)),
+			error: [
+				PluginRequestError.pipe(HttpApiSchema.status(400)),
+				PluginConflictError.pipe(HttpApiSchema.status(409)),
+			],
 		}).annotate(
 			OpenApi.Description,
-			"Validates, compiles, and installs a plugin from a manifest and source file map.",
+			"Validates, compiles, and installs a private plugin from a manifest, source file map, and initial config.",
 		),
 	)
 	.add(
 		HttpApiEndpoint.delete("uninstall", "/plugins/:pluginSlug", {
-			success: PluginListItem,
+			success: PluginInstallationItem,
 			params: { pluginSlug: PluginSlug },
 			error: [
 				PluginConflictError.pipe(HttpApiSchema.status(409)),
@@ -42,10 +45,10 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 			],
 		}).annotate(
 			OpenApi.Description,
-			"Uninstalls a plugin unless it is boot-configured or its entity schemas are referenced.",
+			"Uninstalls the caller's private plugin unless its definitions are still referenced.",
 		),
 	)
-	.middleware(AdminMiddleware)
+	.middleware(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("invoke", "/plugins/:pluginSlug/operations/:operationSlug", {
 			payload: PluginInvokeBody,

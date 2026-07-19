@@ -23,11 +23,12 @@ describe("OpenAPI documentation", () => {
 		expect(undocumentedRoutes).toEqual([]);
 	});
 
-	it("documents the admin plugin management surface", () => {
+	it("documents the user plugin installation surface", () => {
 		const spec = OpenApi.fromApi(AppContract);
-		expect(spec.paths["/plugins"]?.get?.security).toEqual([{ adminToken: [] }]);
+		expect(spec.paths["/plugins"]?.get?.security).toEqual([{ apiKey: [] }]);
 		expect(spec.paths["/plugins"]?.post?.description).toContain("source file map");
 		expect(spec.paths["/plugins/{pluginSlug}"]?.delete?.responses["409"]).toBeDefined();
+		expect(spec.paths["/test-support/system-plugins"]?.get?.security).toEqual([{ adminToken: [] }]);
 	});
 
 	it("documents API key authentication without Better Auth cookie internals", () => {

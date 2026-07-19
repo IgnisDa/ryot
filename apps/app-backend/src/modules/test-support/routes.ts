@@ -1,5 +1,5 @@
 import { AppContract } from "@ryot/contract/contract";
-import { unknownToMessage } from "@ryot/contract/errors";
+import { dieOnDbError, unknownToMessage } from "@ryot/contract/errors";
 import {
 	TestSupportBadRequest,
 	TestSupportConflict,
@@ -192,6 +192,24 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				const svc = yield* TestSupportService;
 				return yield* svc.listSubscriptionRuns(payload);
 			}).pipe(mapTestSupportFailure),
+		)
+		.handle("installSystemPlugin", ({ payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc.installSystemPlugin(payload).pipe(dieOnDbError);
+			}),
+		)
+		.handle("listSystemPlugins", () =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc.listSystemPlugins();
+			}).pipe(mapTestSupportFailure),
+		)
+		.handle("uninstallSystemPlugin", ({ params }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc.uninstallSystemPlugin(params.pluginSlug).pipe(dieOnDbError);
+			}),
 		)
 		.handle("countAutomationRules", ({ params }) =>
 			Effect.gen(function* () {
