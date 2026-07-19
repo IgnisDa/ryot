@@ -74,12 +74,7 @@ const hostResultSchema = Schema.Union([
 	strictStruct({
 		data: Schema.Unknown.pipe(
 			Schema.check(
-				Schema.makeFilter((schemaFilterInput) => {
-					const schemaFilterOutput = ((value) => value !== undefined)(schemaFilterInput);
-					return schemaFilterOutput === true || schemaFilterOutput === undefined
-						? schemaFilterOutput
-						: (() => "Host result data is required")();
-				}),
+				Schema.makeFilter((value) => value !== undefined || "Host result data is required"),
 			),
 		),
 		success: Schema.Literal(true),
