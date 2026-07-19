@@ -760,6 +760,55 @@ describe("saved-view provider add flow", () => {
 		}
 	});
 
+	it("releases the search field on a second Escape so the page shortcuts work again", async () => {
+		const view = mountAddableView(makeProviderAdd());
+		try {
+			const search = await screen.findByRole("searchbox", { name: "Search Books" });
+			fireEvent.keyDown(window.document, { key: "/" });
+
+			expect(window.document.activeElement).toBe(search);
+
+			fireEvent.change(search, { target: { value: "dune" } });
+			fireEvent.keyDown(search, { key: "Escape" });
+
+			await waitFor(() => expect(search).toHaveProperty("value", ""));
+			expect(window.document.activeElement).toBe(search);
+
+			fireEvent.keyDown(search, { key: "Escape" });
+
+			expect(window.document.activeElement).not.toBe(search);
+
+			fireEvent.keyDown(window.document, { key: "A" });
+
+			expect(await findAddDialog()).toBeTruthy();
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
+	it("clears the provider query before Escape is allowed to close the flow", async () => {
+		const view = mountAddableView(makeProviderAdd());
+		try {
+			fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+			await findAddDialog();
+			const search = await screen.findByRole("textbox", { name: "Search providers" });
+			fireEvent.change(search, { target: { value: "dune" } });
+
+			fireEvent.keyDown(search, { key: "Escape" });
+
+			await waitFor(() => expect(search).toHaveProperty("value", ""));
+			expect(addDialog()).toBeTruthy();
+
+			fireEvent.keyDown(search, { key: "Escape" });
+
+			await waitFor(() => expect(addDialog()).toBeNull());
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
 	it("seeds the provider query from the no-matches action and searches for it", async () => {
 		const payloads: Array<{ readonly query: string; readonly page: number }> = [];
 		let pages = 0;

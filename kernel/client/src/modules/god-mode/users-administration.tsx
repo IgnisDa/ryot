@@ -1,4 +1,4 @@
-import { Button, Menu, type MenuItem, Modal } from "@ryot-app/client-ui-sdk";
+import { Button, Menu, type MenuItem, Modal, useFieldEscape } from "@ryot-app/client-ui-sdk";
 import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
 import clsx from "clsx";
 import { Cause, Effect, Exit } from "effect";
@@ -107,6 +107,8 @@ const logFailure = (label: string, cause: Cause.Cause<unknown>) =>
 export function UsersAdministration(props: UsersAdministrationProps) {
 	const generation = useRef(0);
 	const [search, setSearch] = useState("");
+	const searchInput = useRef<HTMLInputElement>(null);
+	useFieldEscape(searchInput, { hasValue: search !== "", onClear: () => setSearch("") });
 	const [query, setQuery] = useState("");
 	const [pages, setPages] = useState<ReadonlyArray<Page>>([]);
 
@@ -226,6 +228,7 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 				<input
 					type="search"
 					value={search}
+					ref={searchInput}
 					id="god-mode-user-search"
 					className="ui-field-input"
 					placeholder="Search by email"

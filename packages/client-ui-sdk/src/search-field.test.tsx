@@ -87,20 +87,38 @@ describe("SearchField", () => {
 		expect(document.activeElement).toBe(screen.getByRole("searchbox"));
 	});
 
-	it("ignores its shortcut while the caller suppresses it", () => {
+	it("clears on Escape while it holds a value and keeps focus", () => {
+		const changes: string[] = [];
 		render(
 			<SearchField
 				{...icons}
-				value=""
-				shortcut="/"
+				value="dune"
 				label="Search"
-				onChange={() => {}}
-				shortcutEnabled={false}
+				onChange={(next) => changes.push(next)}
 			/>,
 		);
+		const input = screen.getByRole("searchbox");
+		input.focus();
 
-		fireEvent.keyDown(document, { key: "/" });
+		const defaultAllowed = fireEvent.keyDown(input, { key: "Escape" });
 
-		expect(document.activeElement).not.toBe(screen.getByRole("searchbox"));
+		expect(changes).toEqual([""]);
+		expect(defaultAllowed).toBe(false);
+		expect(document.activeElement).toBe(input);
+	});
+
+	it("blurs on Escape once it is empty and lets the event through", () => {
+		const changes: string[] = [];
+		render(
+			<SearchField {...icons} value="" label="Search" onChange={(next) => changes.push(next)} />,
+		);
+		const input = screen.getByRole("searchbox");
+		input.focus();
+
+		const defaultAllowed = fireEvent.keyDown(input, { key: "Escape" });
+
+		expect(changes).toEqual([]);
+		expect(defaultAllowed).toBe(true);
+		expect(document.activeElement).not.toBe(input);
 	});
 });
