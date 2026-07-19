@@ -1,10 +1,5 @@
-import { Slot } from "expo-router";
-import { View } from "react-native";
+import { WorkspaceShell } from "@/modules/navigation/workspace-shell";
 
 export default function WorkspaceLayout() {
-	return (
-		<View className="flex-1 bg-bg">
-			<Slot />
-		</View>
-	);
+	return <WorkspaceShell />;
 }
