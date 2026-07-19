@@ -21,8 +21,7 @@ import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
-import { withoutSchemaServices } from "#lib/shared/schema";
+import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { slugify } from "#lib/shared/slug";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { CollectionsService } from "#modules/collections/service";
@@ -47,9 +46,9 @@ export const ProcessGenericImportChunksPayload = Schema.Struct({
 export const ProcessGenericImportChunksWorkflow = Workflow.make(
 	"ProcessGenericImportChunksWorkflow",
 	{
-		error: withoutSchemaServices(ImportRunError),
-		success: withoutSchemaServices(genericImportWorkflowResultSchema),
-		payload: withoutSchemaServices(ProcessGenericImportChunksPayload),
+		error: ImportRunError satisfies DurableSchema,
+		success: genericImportWorkflowResultSchema satisfies DurableSchema,
+		payload: ProcessGenericImportChunksPayload satisfies DurableSchema,
 		idempotencyKey: ({ executionId }) => executionId,
 	},
 );
