@@ -172,7 +172,7 @@ describe("Exercises E2E", () => {
 		}),
 	);
 
-	it.live("lists seeded built-in exercises through the query engine", () =>
+	it.live("lists seeded built-in exercises through RyotQL", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const exercise = yield* waitForSeededExercise(client);

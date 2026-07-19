@@ -1,13 +1,10 @@
 import { unknownToMessage } from "@ryot/contract/errors";
 import { CreateEventItem, type CreateEventsResponse } from "@ryot/contract/modules/events/schemas";
-import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
-	EventSchemaSlug,
 	IntegrationId,
-	PluginSlug,
 	RelationshipSchemaSlug,
 	SandboxScriptId,
 	UserId,
@@ -37,7 +34,6 @@ import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import {
 	changeUserRelationships,
@@ -53,14 +49,12 @@ type SandboxHostFunctionContext =
 	| TransactionRunner
 	| EntitiesRepository
 	| DefinitionRegistry
-	| QueryEngineService
 	| PluginRuntimeResolver
 	| IntegrationsRepository
 	| RelationshipsRepository;
 
 const CreateEventsPayload = Schema.Array(CreateEventItem);
 
-const decodeQueryDocument = Schema.decodeUnknownEffect(Schema.toType(QueryDocument));
 const decodeRyotQLDocument = Schema.decodeUnknownEffect(Schema.toType(RyotQLDocument));
 const decodeCreateEventsPayload = Schema.decodeUnknownEffect(CreateEventsPayload);
 
@@ -149,7 +143,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	const runInTransaction = yield* TransactionRunner;
 	const pluginRuntime = yield* PluginRuntimeResolver;
 	const entitiesRepository = yield* EntitiesRepository;
-	const queryEngineService = yield* QueryEngineService;
 	const integrationsRepository = yield* IntegrationsRepository;
 	const relationshipsRepository = yield* RelationshipsRepository;
 
@@ -331,48 +324,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						Effect.provideService(RelationshipsRepository, relationshipsRepository),
 					);
 				}),
-			),
-		executeQueryEngine: (rawInput, query) =>
-			requireSandboxCapabilityInput(rawInput, "executeQueryEngine").pipe(
-				Effect.flatMap((input) => {
-					if (input.authority.type === "system") {
-						return Effect.gen(function* () {
-							const caller = yield* runWithDb(
-								pluginRuntime.resolveSystemQueryScript(SandboxScriptId.make(input.scriptId)),
-							);
-							if (!caller) {
-								return yield* Effect.fail(
-									"executeQueryEngine system access requires a pinned plugin script",
-								);
-							}
-							const doc = yield* decodeQueryDocument(query);
-							return yield* queryEngineService.executeSystem(
-								{
-									...caller,
-									pluginSlug: PluginSlug.make(caller.pluginSlug),
-									entitySchemaSlugs: caller.entitySchemaSlugs.map((slug) =>
-										EntitySchemaSlug.make(slug),
-									),
-									relationshipSchemaSlugs: caller.relationshipSchemaSlugs.map((slug) =>
-										RelationshipSchemaSlug.make(slug),
-									),
-									eventSchemas: caller.eventSchemas.map((eventSchema) => ({
-										eventSchemaSlug: EventSchemaSlug.make(eventSchema.eventSchemaSlug),
-										entitySchemaSlug: EntitySchemaSlug.make(eventSchema.entitySchemaSlug),
-									})),
-								},
-								doc,
-							);
-						});
-					}
-					const userId = input.authority.userId;
-					return decodeQueryDocument(query).pipe(
-						Effect.flatMap((doc) =>
-							queryEngineService.executeForUser(UserId.make(userId), null, doc),
-						),
-					);
-				}),
-				sandboxHostEffect,
 			),
 		executeRyotql: (rawInput, query) =>
 			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(

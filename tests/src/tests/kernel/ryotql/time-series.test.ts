@@ -17,9 +17,9 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createEventSchema,
-	createQueryEngineEntity,
-	createQueryEngineEvent,
-	createQueryEnginePluginSchema,
+	createEntityFixture,
+	createEventFixture,
+	createPluginEntitySchema,
 	createRelationship,
 	createRelationshipSchema,
 	executeRyotQL,
@@ -40,7 +40,7 @@ describe("RyotQL time-series outputs", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schemaId } = yield* createQueryEnginePluginSchema(client, {
+				const { schemaId } = yield* createPluginEntitySchema(client, {
 					schemaName: "RyotQLTimeSeriesEvent",
 				});
 				const eventSchema = yield* createEventSchema(client, {
@@ -51,7 +51,7 @@ describe("RyotQL time-series outputs", () => {
 						fields: { rating: { type: "integer", label: "Rating", description: "Rating" } },
 					},
 				});
-				const entity = yield* createQueryEngineEntity(client, {
+				const entity = yield* createEntityFixture(client, {
 					entitySchemaSlug: schemaId,
 					name: "RyotQL Time Series Entity",
 				});
@@ -61,7 +61,7 @@ describe("RyotQL time-series outputs", () => {
 					["2025-01-03T12:00:00.000Z", 7],
 					["2025-01-04T00:00:00.000Z", 100],
 				] as const) {
-					yield* createQueryEngineEvent(client, {
+					yield* createEventFixture(client, {
 						occurredAt,
 						entityId: entity.id,
 						properties: { rating },
@@ -154,7 +154,7 @@ describe("RyotQL time-series outputs", () => {
 	it.live("aligns JSON hour and week buckets and relationship calendar months in UTC", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
+			const { schemaId, slug } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLTimeSeriesDate",
 				propertiesSchema: {
 					fields: {
@@ -163,12 +163,12 @@ describe("RyotQL time-series outputs", () => {
 				},
 			});
 			const entities = yield* Effect.all([
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Published Entity",
 					entitySchemaSlug: schemaId,
 					properties: { publishedAt: "2026-01-07T12:30:00.000Z" },
 				}),
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					entitySchemaSlug: schemaId,
 					name: "Malformed Date Entity",
 					properties: { publishedAt: "not-a-date" },

@@ -1,8 +1,8 @@
 ## Tasks
 
-**Overall Progress:** 13 of 15 tasks completed
+**Overall Progress:** 14 of 15 tasks completed
 
-**Current Task:** [Task 14](./14-legacy-query-engine-deletion.md) (todo)
+**Current Task:** [Task 15](./15-codebase-cleanup.md) (todo)
 
 ### Task List
 
@@ -21,7 +21,7 @@
 | 11  | [Media Recipe Migration](./11-media-recipe-migration.md)                   | completed |
 | 12  | [Fitness Recipe Migration](./12-fitness-recipe-migration.md)               | completed |
 | 13  | [Saved-View Migration](./13-saved-view-migration.md)                       | completed |
-| 14  | [Legacy Query Engine Deletion](./14-legacy-query-engine-deletion.md)       | todo      |
+| 14  | [Legacy Query Engine Deletion](./14-legacy-query-engine-deletion.md)       | completed |
 | 15  | [Codebase Cleanup](./15-codebase-cleanup.md)                               | todo      |
 
 ## Problem Statement

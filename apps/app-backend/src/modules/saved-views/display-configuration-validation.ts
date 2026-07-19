@@ -8,13 +8,11 @@ import {
 } from "@ryot/contract/display-configuration";
 import type { BadRequest } from "@ryot/contract/errors";
 import { badRequest } from "@ryot/contract/errors";
-import type { AppPropertyDefinition } from "@ryot/contract/schema/property-schema";
+import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
-import type { VisibleEntityPropertySchema } from "#modules/query-engine/executor/schema-loaders";
-import type { CoarseType } from "#modules/query-engine/validator/type-check";
-
-type DisplayExpressionType = CoarseType | "null";
+type VisibleEntityPropertySchema = { slug: string; propertiesSchema: AppSchema };
+type DisplayExpressionType = "boolean" | "date" | "number" | "string" | "unknown" | "null";
 
 const entityBuiltinTypeMap = {
 	id: "string",
