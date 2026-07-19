@@ -2,6 +2,7 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 } from "@ryot/contract/display-configuration";
+import type { IncludeResult, RowItem } from "@ryot/contract/modules/ryotql/language";
 import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import {
 	buildWorkoutDetailQueryDocument,
@@ -15,17 +16,16 @@ import {
 	createEntity,
 	createCollection,
 	createWorkoutTemplateEntityFixture,
-	executeQueryEngine,
+	executeRyotQL,
 	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
 	getEntity,
-	getQueryEngineFieldOrThrow,
-	requireQueryEngineIncludeValue,
 	insertRelationshipRow,
 	listEntitySchemas,
 	listSavedViews,
 	waitForSeededExerciseIds,
+	requireRyotQLFieldValue,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -52,6 +52,14 @@ type WorkoutTemplateProperties = {
 			setLot: "normal" | "warm_up" | "drop" | "failure";
 		}>;
 	}>;
+};
+
+const requireRyotQLInclude = (item: RowItem, key: string): IncludeResult => {
+	const value = item[key];
+	if (!value || !("items" in value)) {
+		throw new Error(`Expected '${key}' include`);
+	}
+	return value;
 };
 
 describe("Workout Templates E2E", () => {
@@ -239,15 +247,19 @@ describe("Workout Templates E2E", () => {
 
 				const { workoutTemplate, workoutTemplateId } =
 					yield* createWorkoutTemplateEntityFixture(client);
-				const result = yield* executeQueryEngine(
+				const result = yield* executeRyotQL(
 					client,
 					buildWorkoutTemplateListQueryDocument({ entityId: workoutTemplateId }),
 				);
+				const templates = result.data["workoutTemplates"];
+				if (templates?.type !== "rows") {
+					throw new Error("Expected workout templates rows result");
+				}
 
-				expect(result.data.items).toHaveLength(1);
-				expect(getQueryEngineFieldOrThrow(result.data.items[0], "name").value).toBe(
-					workoutTemplate.name,
-				);
+				const firstTemplate = templates.items[0];
+				assertPresent(firstTemplate, "Expected at least one workout template item");
+				expect(templates.items).toHaveLength(1);
+				expect(requireRyotQLFieldValue(firstTemplate, "name").value).toBe(workoutTemplate.name);
 			}),
 	);
 
@@ -381,23 +393,25 @@ describe("Workout Templates E2E", () => {
 				targetEntityId: workoutTemplateId,
 			});
 
-			const result = yield* executeQueryEngine(
+			const result = yield* executeRyotQL(
 				client,
 				buildWorkoutDetailQueryDocument({ entityId: workoutId, templateLimit: 1 }),
 			);
-			expect(result.data.items).toHaveLength(1);
-			const workoutRow = result.data.items[0];
+			const workouts = result.data["workout"];
+			if (workouts?.type !== "rows") {
+				throw new Error("Expected workout rows result");
+			}
+			expect(workouts.items).toHaveLength(1);
+			const workoutRow = workouts.items[0];
 			assertPresent(workoutRow, "Expected workout row");
-			const template = requireQueryEngineIncludeValue(workoutRow, "template").items[0];
+			const template = requireRyotQLInclude(workoutRow, "template").items[0];
 			assertPresent(template, "Expected workout template include");
-			expect(getQueryEngineFieldOrThrow(template, "id")).toEqual({
+			expect(requireRyotQLFieldValue(template, "id")).toEqual({
 				kind: "text",
-				key: "id",
 				value: workoutTemplateId,
 			});
-			expect(getQueryEngineFieldOrThrow(template, "name")).toEqual({
+			expect(requireRyotQLFieldValue(template, "name")).toEqual({
 				kind: "text",
-				key: "name",
 				value: workoutTemplate.name,
 			});
 		}),
@@ -430,23 +444,25 @@ describe("Workout Templates E2E", () => {
 				targetEntityId: workoutTemplateId,
 			});
 
-			const result = yield* executeQueryEngine(
+			const result = yield* executeRyotQL(
 				client,
 				buildWorkoutTemplateDetailQueryDocument({ entityId: workoutTemplateId, workoutLimit: 10 }),
 			);
-			expect(result.data.items).toHaveLength(1);
-			const templateRow = result.data.items[0];
+			const templates = result.data["workoutTemplate"];
+			if (templates?.type !== "rows") {
+				throw new Error("Expected workout template rows result");
+			}
+			expect(templates.items).toHaveLength(1);
+			const templateRow = templates.items[0];
 			assertPresent(templateRow, "Expected workout template row");
-			const workout = requireQueryEngineIncludeValue(templateRow, "workouts").items[0];
+			const workout = requireRyotQLInclude(templateRow, "workouts").items[0];
 			assertPresent(workout, "Expected workout include");
-			expect(getQueryEngineFieldOrThrow(workout, "id")).toEqual({
+			expect(requireRyotQLFieldValue(workout, "id")).toEqual({
 				kind: "text",
-				key: "id",
 				value: workoutId,
 			});
-			expect(getQueryEngineFieldOrThrow(workout, "name")).toEqual({
+			expect(requireRyotQLFieldValue(workout, "name")).toEqual({
 				kind: "text",
-				key: "name",
 				value: workoutName,
 			});
 		}),
