@@ -1,8 +1,10 @@
-import { conflict, DbError } from "@ryot/contract/errors";
-import type {
-	BackupRun,
-	BackupRunArtifactProvider,
-	BackupRunKind,
+import { DbError } from "@ryot/contract/errors";
+import {
+	BackupConflict,
+	type BackupRun,
+	type BackupRunArtifactProvider,
+	type BackupRunFailure,
+	type BackupRunKind,
 } from "@ryot/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import { and, asc, desc, eq, inArray, isNotNull, lte, notInArray } from "drizzle-orm";
@@ -25,8 +27,8 @@ type BackupRunArtifactRecord = BackupRun & {
 
 const normalizeRun = (row: BackupRunRow): BackupRun => ({
 	kind: row.kind,
-	error: row.error,
 	status: row.status,
+	failure: row.failure,
 	progress: row.progress,
 	id: BackupRunId.make(row.id),
 	artifactProvider: row.artifactProvider,
@@ -52,16 +54,6 @@ const normalizeArtifact = (row: BackupRunRow): BackupRunArtifactRecord | null =>
 const boundedProgress = (progress: number) =>
 	Number.isFinite(progress) ? Math.max(0, Math.min(100, Math.trunc(progress))) : 0;
 
-const sanitizedError = (error: unknown) => {
-	if (typeof error === "string") {
-		return error;
-	}
-	if (error instanceof Error) {
-		return error.message;
-	}
-	return "Backup run failed";
-};
-
 export class BackupsRepository extends Context.Service<BackupsRepository>()("BackupsRepository", {
 	make: Effect.sync(() => {
 		const createRun = Effect.fn("BackupsRepository.createRun")(function* (input: {
@@ -76,7 +68,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 					.returning(),
 			).pipe(
 				Effect.catchIf(isUniqueConstraintError("backup_run_user_active_unique"), () =>
-					conflict("A backup operation is already pending or running"),
+					Effect.fail(new BackupConflict({ reason: { code: "active-run-exists" } })),
 				),
 			);
 			if (!row) {
@@ -230,7 +222,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 		});
 
 		const failRun = Effect.fn("BackupsRepository.failRun")(function* (input: {
-			error: unknown;
+			failure: BackupRunFailure;
 			userId: UserId;
 			runId: BackupRunId;
 		}) {
@@ -239,7 +231,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.update(schema.backupRun)
-					.set({ status: "failed", error: sanitizedError(input.error), finishedAt })
+					.set({ status: "failed", failure: input.failure, finishedAt })
 					.where(
 						and(
 							eq(schema.backupRun.id, input.runId),
@@ -283,8 +275,8 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 		);
 
 		const deleteRunById = Effect.fn("BackupsRepository.deleteRunById")(function* (input: {
-			runId: BackupRunId;
 			userId: UserId;
+			runId: BackupRunId;
 		}) {
 			const db = yield* Database;
 			const [row] = yield* mapDatabaseErrors(

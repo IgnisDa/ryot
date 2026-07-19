@@ -8,8 +8,8 @@ import { UserLifecycleRepository } from "./repository";
 
 it.effect("normalizes persisted lifecycle rows to the wire operation", () => {
 	const row = {
-		error: null,
 		metadata: {},
+		failure: null,
 		userId: "user-1",
 		id: "operation-1",
 		workflowAttempt: 1,
@@ -36,8 +36,8 @@ it.effect("normalizes persisted lifecycle rows to the wire operation", () => {
 	return Effect.gen(function* () {
 		const repository = yield* UserLifecycleRepository;
 		expect(yield* repository.getById("operation-1")).toEqual({
-			error: null,
 			kind: "reset",
+			failure: null,
 			userId: "user-1",
 			id: "operation-1",
 			status: "completed",
@@ -52,7 +52,7 @@ it.effect("normalizes persisted lifecycle rows to the wire operation", () => {
 it.effect("acquires the per-user lock before reading an active operation", () => {
 	const events: string[] = [];
 	const active = {
-		error: null,
+		failure: null,
 		startedAt: null,
 		finishedAt: null,
 		userId: "user-1",

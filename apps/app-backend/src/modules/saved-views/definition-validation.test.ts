@@ -1,7 +1,9 @@
 import { it } from "@effect/vitest";
-import { BadRequest } from "@ryot/contract/errors";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
+import {
+	SavedViewBadRequest,
+	type SavedViewLayouts,
+} from "@ryot/contract/modules/saved-views/schemas";
 import {
 	ascending,
 	castJson,
@@ -14,11 +16,10 @@ import {
 	table,
 } from "@ryot/ryotql";
 import { Effect } from "effect";
-import { expect } from "vitest";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 
-import { getSavedViewValidationError, validateSavedViewDefinition } from "./definition-validation";
+import { validateSavedViewDefinition } from "./definition-validation";
 
 const book = table("entity", "book");
 const queryDocument = document({
@@ -58,10 +59,7 @@ const layouts = {
 } satisfies SavedViewLayouts;
 
 it.effect("accepts three independently valid layouts", () =>
-	Effect.gen(function* () {
-		expect(getSavedViewValidationError({ layouts })).toBeNull();
-		yield* validateSavedViewDefinition({ layouts });
-	}),
+	validateSavedViewDefinition({ layouts }),
 );
 
 it.effect("prefixes validation failures with the layout name", () =>
@@ -69,25 +67,40 @@ it.effect("prefixes validation failures with the layout name", () =>
 		const invalid = { ...layouts, list: { ...layouts.list, entityIdField: "count" } };
 		const exit = yield* Effect.exit(validateSavedViewDefinition({ layouts: invalid }));
 
-		expect(getSavedViewValidationError({ layouts: invalid })).toBe(
-			"List layout: entityIdField must resolve to text",
-		);
 		assertExitFails(
 			exit,
-			new BadRequest({ message: "List layout: entityIdField must resolve to text" }),
+			new SavedViewBadRequest({
+				reason: {
+					layout: "list",
+					issue: "field-kind",
+					field: "entityIdField",
+					code: "invalid-definition",
+				},
+			}),
 		);
 	}),
 );
 
-it("requires the entity ID mapping to project an entity primary key", () => {
+it.effect("requires the entity ID mapping to project an entity primary key", () => {
 	const invalid = { ...layouts, grid: { ...layouts.grid, entityIdField: "textId" } };
-
-	expect(getSavedViewValidationError({ layouts: invalid })).toBe(
-		"Grid layout: entityIdField must project an entity primary key",
+	return Effect.exit(validateSavedViewDefinition({ layouts: invalid })).pipe(
+		Effect.map((exit) =>
+			assertExitFails(
+				exit,
+				new SavedViewBadRequest({
+					reason: {
+						layout: "grid",
+						field: "entityIdField",
+						issue: "entity-id-source",
+						code: "invalid-definition",
+					},
+				}),
+			),
+		),
 	);
 });
 
-it("validates mappings against only their layout projection", () => {
+it.effect("validates mappings against only their layout projection", () => {
 	const tableDocument = document({
 		savedView: rows(book, {
 			fields: [field("id", column(book, "id")), field("tableName", column(book, "name"))],
@@ -102,29 +115,52 @@ it("validates mappings against only their layout projection", () => {
 		},
 	} satisfies SavedViewLayouts;
 
-	expect(getSavedViewValidationError({ layouts: invalid })).toBe(
-		"Table layout: mapping field 'image' is not in its root projection",
+	return Effect.exit(validateSavedViewDefinition({ layouts: invalid })).pipe(
+		Effect.map((exit) =>
+			assertExitFails(
+				exit,
+				new SavedViewBadRequest({
+					reason: {
+						field: "image",
+						layout: "table",
+						code: "invalid-definition",
+						issue: "mapping-field-missing",
+					},
+				}),
+			),
+		),
 	);
 });
 
-it("enforces card title text, explicit JSON image casts, and nonempty table columns", () => {
-	const cases: ReadonlyArray<{ expected: string; layouts: SavedViewLayouts }> = [
+it.effect("enforces card title text and explicit JSON image casts", () => {
+	const cases = [
 		{
-			expected: "Grid layout: titleField must resolve to text",
 			layouts: { ...layouts, grid: { ...layouts.grid, titleField: "count" } },
+			reason: {
+				layout: "grid",
+				issue: "field-kind",
+				field: "titleField",
+				code: "invalid-definition",
+			} as const,
 		},
 		{
-			expected: "List layout: imageField must use an explicit JSON cast for AssetLocator",
 			layouts: { ...layouts, list: { ...layouts.list, imageField: "imageUrl" } },
+			reason: {
+				layout: "list",
+				issue: "image-cast",
+				field: "imageField",
+				code: "invalid-definition",
+			} as const,
 		},
 	];
-
-	for (const value of cases) {
-		expect(getSavedViewValidationError({ layouts: value.layouts })).toBe(value.expected);
-	}
+	return Effect.forEach(cases, ({ layouts: invalid, reason }) =>
+		Effect.exit(validateSavedViewDefinition({ layouts: invalid })).pipe(
+			Effect.map((exit) => assertExitFails(exit, new SavedViewBadRequest({ reason }))),
+		),
+	);
 });
 
-it("enforces the document rules independently for every layout", () => {
+it.effect("enforces the document rules independently for every layout", () => {
 	const secondQuery = {
 		...queryDocument,
 		queries: { ...queryDocument.queries, second: queryDocument.queries.savedView },
@@ -145,14 +181,28 @@ it("enforces the document rules independently for every layout", () => {
 		},
 	};
 
-	expect(
-		getSavedViewValidationError({
-			layouts: { ...layouts, grid: { ...layouts.grid, queryDocument: secondQuery } },
-		}),
-	).toBe("Grid layout: must contain exactly one named query");
-	expect(
-		getSavedViewValidationError({
-			layouts: { ...layouts, table: { ...layouts.table, queryDocument: withCursor } },
-		}),
-	).toBe("Table layout: query pagination must not contain a cursor");
+	return Effect.gen(function* () {
+		const queryCountExit = yield* Effect.exit(
+			validateSavedViewDefinition({
+				layouts: { ...layouts, grid: { ...layouts.grid, queryDocument: secondQuery } },
+			}),
+		);
+		const cursorExit = yield* Effect.exit(
+			validateSavedViewDefinition({
+				layouts: { ...layouts, table: { ...layouts.table, queryDocument: withCursor } },
+			}),
+		);
+		assertExitFails(
+			queryCountExit,
+			new SavedViewBadRequest({
+				reason: { layout: "grid", issue: "query-count", code: "invalid-definition" },
+			}),
+		);
+		assertExitFails(
+			cursorExit,
+			new SavedViewBadRequest({
+				reason: { layout: "table", issue: "cursor-pagination", code: "invalid-definition" },
+			}),
+		);
+	});
 });

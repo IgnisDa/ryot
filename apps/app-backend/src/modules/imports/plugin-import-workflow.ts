@@ -1,4 +1,3 @@
-import { unknownToMessage } from "@ryot/contract/errors";
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { SandboxExecutionGrants } from "@ryot/contract/modules/sandbox/schemas";
 import { jsonValueSchema } from "@ryot/contract/modules/sandbox/wire";
@@ -134,16 +133,17 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			Effect.flatMap(WorkflowInstance, (instance) =>
 				instance.suspended && Cause.hasInterruptsOnly(cause)
 					? Effect.failCause(cause)
-					: releaseImportWorkflowPin.pipe(
+					: Effect.logError("plugin import workflow failed", cause).pipe(
+							Effect.andThen(releaseImportWorkflowPin),
 							Effect.andThen(releaseImportDispatchArtifacts),
 							Effect.andThen(releaseImportArtifacts),
 							Effect.andThen(
 								failRunAndCleanup({
 									uploadIntentIds,
 									failureName: "fail-import-run-unexpected",
-									message: unknownToMessage(Cause.squash(cause)),
 									cleanupName: "cleanup-import-artifacts-on-unexpected-failure",
 									uploadCleanupName: "cleanup-import-uploads-on-unexpected-failure",
+									reason: { code: "unexpected-failure", operation: "plugin-import" },
 								}),
 							),
 						),

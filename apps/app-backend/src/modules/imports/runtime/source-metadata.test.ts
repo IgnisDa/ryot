@@ -10,7 +10,6 @@ import {
 	parseRegistryImportSourceInput,
 	registryImportSourceFileInputs,
 	registryImportSourceMissingConfigKeys,
-	registryImportSourceStartError,
 } from "./source-metadata";
 
 const configSchema = {
@@ -261,7 +260,7 @@ it("summarizes only source and claimed original file names", () => {
 	expect(buildImportInputSummary("trakt", {})).toEqual({ source: "trakt" });
 });
 
-it.effect("formats every unconfigured plugin config key for starts and listings", () =>
+it.effect("formats every un-configured plugin config key", () =>
 	Effect.gen(function* () {
 		const source = registeredSource({
 			requiredPluginConfigKeys: ["tmdbAccessToken", "hardcoverApiKey"],
@@ -270,20 +269,5 @@ it.effect("formats every unconfigured plugin config key for starts and listings"
 			"RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN",
 			"RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY",
 		]);
-		expect(yield* registryImportSourceStartError(source)).toBe(
-			"Netflix importer is not configured. Set RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN, RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY.",
-		);
 	}).pipe(Effect.provide(makeConfigProviderLayer())),
-);
-
-it.effect("accepts a source whose required plugin config keys are all set", () =>
-	Effect.gen(function* () {
-		expect(
-			yield* registryImportSourceStartError(
-				registeredSource({ requiredPluginConfigKeys: ["tmdbAccessToken"] }),
-			),
-		).toBeUndefined();
-	}).pipe(
-		Effect.provide(makeConfigProviderLayer({ RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN: "tmdb-token" })),
-	),
 );

@@ -126,7 +126,7 @@ export const normalizePreferences = (value: unknown) => {
 
 export const toSandboxCreateEventsResult = (result: CreateEventsResponse) =>
 	result.failure
-		? Effect.fail(result.failure.reason.message)
+		? Effect.fail(`Event creation failed: ${result.failure.reason.code}`)
 		: Effect.succeed({ count: result.count });
 
 export const makeAdditionalSandboxApiFunctions: Effect.Effect<

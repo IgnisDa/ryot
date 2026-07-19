@@ -1,11 +1,21 @@
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
-import { dieOnDbError } from "@ryot/contract/errors";
+import type { DbError } from "@ryot/contract/errors";
+import { ProviderEntityInternalError } from "@ryot/contract/modules/provider-entities/schemas";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { ProviderEntitySearchService } from "./search-service";
 import { EntityImportService } from "./service";
+
+const mapProviderEntityDbError = <A, E, R>(effect: Effect.Effect<A, E | DbError, R>) =>
+	effect.pipe(
+		Effect.catchTag("DbError", (error) =>
+			Effect.logError("provider entity request failed", error).pipe(
+				Effect.andThen(new ProviderEntityInternalError({ reason: { code: "unexpected-error" } })),
+			),
+		),
+	);
 
 export const ProviderEntitiesRoutesLive = HttpApiBuilder.group(
 	AppContract,
@@ -16,7 +26,7 @@ export const ProviderEntitiesRoutesLive = HttpApiBuilder.group(
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* ProviderEntitySearchService;
-					return yield* service.search(user, payload).pipe(dieOnDbError);
+					return yield* mapProviderEntityDbError(service.search(user, payload));
 				}),
 			)
 			.handle("searchOptions", ({ payload }) =>
@@ -26,7 +36,7 @@ export const ProviderEntitiesRoutesLive = HttpApiBuilder.group(
 					return {
 						schema: yield* service
 							.resolveSearchOptionsSchema(user, payload.providerId)
-							.pipe(dieOnDbError),
+							.pipe(mapProviderEntityDbError),
 					};
 				}),
 			)
@@ -34,7 +44,7 @@ export const ProviderEntitiesRoutesLive = HttpApiBuilder.group(
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* EntityImportService;
-					return yield* service.import(user, payload).pipe(dieOnDbError);
+					return yield* mapProviderEntityDbError(service.import(user, payload));
 				}),
 			)
 			.handle("getImportResult", ({ params }) =>

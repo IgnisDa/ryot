@@ -1,6 +1,10 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest, notFound } from "@ryot/contract/errors";
-import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
+import {
+	ImportNotFoundError,
+	ImportRequestError,
+	type CreateImportRunBody,
+	type ImportRunFailureReason,
+} from "@ryot/contract/modules/imports/schemas";
 import type { ImportRunSource } from "@ryot/contract/modules/imports/types";
 import type {
 	ImportRunId,
@@ -29,7 +33,6 @@ import {
 	parseRegistryImportSourceInput,
 	registryImportSourceFileInputs,
 	registryImportSourceMissingConfigKeys,
-	registryImportSourceStartError,
 	type ImportSourceFileInput,
 } from "./runtime/source-metadata";
 import { deleteImportSourceState, storeImportSourceState } from "./runtime/source-state-store";
@@ -50,16 +53,13 @@ export type UpdateImportRunInput = {
 	runId: ImportRunId;
 	totalItems?: number;
 	failedItems?: number;
-	errorSummary?: string;
 	importedItems?: number;
 	processedItems?: number;
 	inputSummary?: Record<string, unknown>;
+	failureReason?: ImportRunFailureReason;
 };
 
-export type DeleteImportRunInput = {
-	userId: UserId;
-	runId: ImportRunId;
-};
+export type DeleteImportRunInput = { userId: UserId; runId: ImportRunId };
 
 const isTerminalStatus = (status: RunStatus): boolean =>
 	status === "completed" || status === "failed";
@@ -86,10 +86,10 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			yield* repository.deleteRunById(input);
 		});
 
-		const failRun = (runId: ImportRunId, errorSummary: string) =>
+		const failRun = (runId: ImportRunId, failureReason: ImportRunFailureReason) =>
 			Effect.gen(function* () {
 				const finishedAt = yield* DateTime.nowAsDate;
-				yield* update({ runId, errorSummary, status: "failed", finishedAt });
+				yield* update({ runId, failureReason, status: "failed", finishedAt });
 			});
 
 		const cleanupUploads = (intentIds: ReadonlyArray<string>) =>
@@ -135,13 +135,17 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				if (Result.isFailure(claim)) {
 					yield* cleanupUploads(claimedUploadIntentIds);
 					yield* deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore);
-					return yield* claim.failure;
+					return yield* new ImportRequestError({
+						reason: { code: "upload-unavailable", field: sourceFileInput.key },
+					});
 				}
 				claimedUploadIntentIds.push(claim.success.intentId);
 				if (claim.success.locator.type !== "local" || !claim.success.resolvedPath) {
 					yield* cleanupUploads(claimedUploadIntentIds);
 					yield* deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore);
-					return yield* badRequest("Import uploads must use local storage");
+					return yield* new ImportRequestError({
+						reason: { code: "upload-unavailable", field: sourceFileInput.key },
+					});
 				}
 
 				const safePath = claim.success.resolvedPath;
@@ -150,10 +154,18 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					claim.success.fileName,
 					sourceFileInput.allowedExtensions,
 				).pipe(
-					Effect.catch((message) =>
+					Effect.catch(() =>
 						cleanupUploads(claimedUploadIntentIds).pipe(
 							Effect.andThen(deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore)),
-							Effect.flatMap(() => badRequest(message)),
+							Effect.flatMap(
+								() =>
+									new ImportRequestError({
+										reason: {
+											code: "unsupported-file-extension",
+											allowedExtensions: sourceFileInput.allowedExtensions,
+										},
+									}),
+							),
 						),
 					),
 				);
@@ -182,8 +194,11 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				.pipe(Effect.result);
 			if (Result.isFailure(pin)) {
 				yield* cleanupUploads(claimedUploadIntentIds);
-				yield* failRun(run.id, "Failed to pin import workflow");
-				return yield* badRequest("Could not queue the import job; please try again");
+				yield* Effect.logError("import workflow pinning failed", pin.failure);
+				yield* failRun(run.id, { code: "queue-unavailable", operation: "workflow-pin" });
+				return yield* new ImportRequestError({
+					reason: { code: "queue-unavailable", operation: "import-run" },
+				});
 			}
 			const stored = yield* storeImportSourceState({
 				stateId: run.id,
@@ -202,8 +217,11 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				if (pin.success.registrationStatus === "registered") {
 					yield* workflowPinning.release(sandboxExecutionId);
 				}
-				yield* failRun(run.id, "Failed to queue import source state");
-				return yield* badRequest("Could not queue the import job; please try again");
+				yield* Effect.logError("import source state queue failed", stored.cause);
+				yield* failRun(run.id, { code: "queue-unavailable", operation: "source-state" });
+				return yield* new ImportRequestError({
+					reason: { code: "queue-unavailable", operation: "import-run" },
+				});
 			}
 
 			const started = yield* engine
@@ -219,8 +237,11 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				if (pin.success.registrationStatus === "registered") {
 					yield* workflowPinning.release(sandboxExecutionId);
 				}
-				yield* failRun(run.id, "Failed to enqueue import job");
-				return yield* badRequest("Could not queue the import job; please try again");
+				yield* Effect.logError("import workflow enqueue failed", started.failure);
+				yield* failRun(run.id, { code: "queue-unavailable", operation: "workflow" });
+				return yield* new ImportRequestError({
+					reason: { code: "queue-unavailable", operation: "import-run" },
+				});
 			}
 
 			return { id: run.id };
@@ -248,8 +269,11 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					})
 					.pipe(Effect.result);
 				if (Result.isFailure(pin)) {
-					yield* failRun(run.id, "Failed to pin import workflow");
-					return yield* badRequest("Could not queue the import job; please try again");
+					yield* Effect.logError("import workflow pinning failed", pin.failure);
+					yield* failRun(run.id, { code: "queue-unavailable", operation: "workflow-pin" });
+					return yield* new ImportRequestError({
+						reason: { code: "queue-unavailable", operation: "import-run" },
+					});
 				}
 				const stored = yield* storeImportSourceState({
 					stateId: run.id,
@@ -267,8 +291,11 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					if (pin.success.registrationStatus === "registered") {
 						yield* workflowPinning.release(sandboxExecutionId);
 					}
-					yield* failRun(run.id, "Failed to queue import source state");
-					return yield* badRequest("Could not queue the import job; please try again");
+					yield* Effect.logError("import source state queue failed", stored.cause);
+					yield* failRun(run.id, { code: "queue-unavailable", operation: "source-state" });
+					return yield* new ImportRequestError({
+						reason: { code: "queue-unavailable", operation: "import-run" },
+					});
 				}
 
 				const started = yield* engine
@@ -283,8 +310,11 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 						yield* workflowPinning.release(sandboxExecutionId);
 					}
 					yield* cleanupSourceState(run.id);
-					yield* failRun(run.id, "Failed to enqueue import job");
-					return yield* badRequest("Could not queue the import job; please try again");
+					yield* Effect.logError("import workflow enqueue failed", started.failure);
+					yield* failRun(run.id, { code: "queue-unavailable", operation: "workflow" });
+					return yield* new ImportRequestError({
+						reason: { code: "queue-unavailable", operation: "import-run" },
+					});
 				}
 
 				return { id: run.id };
@@ -297,19 +327,28 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		) {
 			const resolution = importSources.resolve(body.source);
 			if (!resolution) {
-				return yield* badRequest("Import source is not available");
+				return yield* new ImportRequestError({
+					reason: { code: "source-not-found", source: body.source },
+				});
 			}
 			const registered = resolution.source;
 			const workflowScript = yield* resolution.script;
 			if (!workflowScript) {
-				return yield* badRequest("Import source workflow is not available");
+				return yield* new ImportRequestError({
+					reason: { code: "workflow-unavailable", source: body.source },
+				});
 			}
-			const startError = yield* registryImportSourceStartError(registered);
-			if (startError) {
-				return yield* badRequest(startError);
+			const missingConfigKeys = yield* registryImportSourceMissingConfigKeys(registered);
+			if (missingConfigKeys.length > 0) {
+				return yield* new ImportRequestError({
+					reason: { missingConfigKeys, source: body.source, code: "source-not-configured" },
+				});
 			}
 			const properties = yield* parseRegistryImportSourceInput(registered, body).pipe(
-				Effect.mapError(badRequest),
+				Effect.tapError((cause) => Effect.logWarning("invalid import source input", cause)),
+				Effect.mapError(
+					() => new ImportRequestError({ reason: { code: "invalid-input", field: null } }),
+				),
 			);
 			const sourceFileInputs = registryImportSourceFileInputs(registered, properties);
 
@@ -347,7 +386,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		) {
 			const run = yield* repository.getRunById({ runId, userId: user.id });
 			if (!run) {
-				return yield* notFound("Import run not found");
+				return yield* new ImportNotFoundError({ reason: { code: "run-not-found", runId } });
 			}
 
 			return run;
@@ -359,7 +398,9 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		) {
 			const run = yield* requireImportRun(user, runId);
 			if (!isTerminalStatus(run.status)) {
-				return yield* badRequest("Can only delete completed or failed import runs");
+				return yield* new ImportRequestError({
+					reason: { code: "run-not-terminal", runId, status: run.status },
+				});
 			}
 			yield* deleteRun({ runId, userId: user.id });
 			return { id: runId };
@@ -377,24 +418,20 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 
 		const failRunForIntegration = Effect.fn("ImportsService.failRunForIntegration")(function* (
 			runId: ImportRunId,
-			message: string,
+			reason: ImportRunFailureReason,
 		) {
-			const failure: ImportRunFailureDetails = {
-				message,
-				itemIndex: 0,
-				stage: "source_fetch",
-			};
+			const failure: ImportRunFailureDetails = { reason, itemIndex: 0, stage: "source_fetch" };
 			yield* failureService.create({ ...failure, runId });
 			const finishedAt = yield* DateTime.nowAsDate;
 			yield* update({
 				runId,
 				finishedAt,
-				errorSummary: message,
 				progress: 100,
-				status: "failed",
 				totalItems: 1,
 				failedItems: 1,
+				status: "failed",
 				processedItems: 1,
+				failureReason: reason,
 			});
 		});
 

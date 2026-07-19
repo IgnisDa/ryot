@@ -1,4 +1,8 @@
-import { badRequest, internalError, notFound } from "@ryot/contract/errors";
+import {
+	GodModeInternalFailure,
+	GodModeNotFound,
+	GodModeRequestFailure,
+} from "@ryot/contract/modules/god-mode/contract";
 import type { UserLifecycleOperationKind } from "@ryot/contract/modules/god-mode/user-lifecycle";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { Context, DateTime, Effect, Layer, Result } from "effect";
@@ -35,7 +39,9 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 			) {
 				const current = yield* repository.getInternalById(operationId);
 				if (!current) {
-					return yield* internalError("User lifecycle operation was not found");
+					return yield* new GodModeInternalFailure({
+						reason: { code: "lifecycle-state-conflict" },
+					});
 				}
 				if (current.accessRevokedAt !== null) {
 					return current;
@@ -51,7 +57,9 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 					if (refreshed?.accessRevokedAt) {
 						return refreshed;
 					}
-					return yield* internalError("User lifecycle access revocation is already in progress");
+					return yield* new GodModeInternalFailure({
+						reason: { code: "lifecycle-state-conflict" },
+					});
 				}
 
 				return yield* Effect.gen(function* () {
@@ -68,21 +76,25 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 					yield* auth.purgeApiKeyCaches(claimed.operation.userId, claimed.metadata.apiKeys);
 					return (
 						(yield* repository.markAccessRevoked(operationId)) ??
-						(yield* internalError("User lifecycle access revocation could not be recorded"))
+						(yield* new GodModeInternalFailure({
+							reason: { code: "access-revocation-failed" },
+						}))
 					);
 				}).pipe(
 					Effect.catchCause((cause) =>
-						repository
-							.releaseAccessRevocation(operationId)
-							.pipe(
-								Effect.ignoreCause,
-								Effect.andThen(
-									Effect.logError("user lifecycle access revocation failed", cause).pipe(
-										Effect.annotateLogs({ operationId }),
-									),
+						repository.releaseAccessRevocation(operationId).pipe(
+							Effect.ignoreCause,
+							Effect.andThen(
+								Effect.logError("user lifecycle access revocation failed", cause).pipe(
+									Effect.annotateLogs({ operationId }),
 								),
-								Effect.andThen(internalError("User lifecycle access revocation failed")),
 							),
+							Effect.andThen(
+								new GodModeInternalFailure({
+									reason: { code: "access-revocation-failed" },
+								}),
+							),
+						),
 					),
 				);
 			});
@@ -102,7 +114,9 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 					yield* Effect.logError("user lifecycle workflow enqueue failed", dispatched.failure).pipe(
 						Effect.annotateLogs({ operationId: operation.operation.id }),
 					);
-					return yield* internalError("User lifecycle workflow could not be queued");
+					return yield* new GodModeInternalFailure({
+						reason: { code: "lifecycle-dispatch-failed" },
+					});
 				}
 				return undefined;
 			});
@@ -117,7 +131,9 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 							Effect.gen(function* () {
 								const preparation = yield* repository.loadPreparationForUpdate(userId, kind);
 								if (!preparation) {
-									return yield* notFound(`User with id '${userId}' not found`);
+									return yield* new GodModeNotFound({
+										reason: { code: "user-not-found", userId },
+									});
 								}
 								if (preparation.active) {
 									return preparation.active;
@@ -125,19 +141,23 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 								if (preparation.retryable) {
 									return (
 										(yield* repository.reactivateFailed(preparation.retryable.operation.id)) ??
-										(yield* internalError("Failed user lifecycle operation could not be retried"))
+										(yield* new GodModeInternalFailure({
+											reason: { code: "lifecycle-state-conflict" },
+										}))
 									);
 								}
 
 								const authState = classifyAuthState(preparation.metadata.accounts);
 								if (kind === "reset" && authState === "mixed") {
-									return yield* badRequest(
-										"Cannot reset a user with mixed authentication (both credential and OIDC accounts).",
-									);
+									return yield* new GodModeRequestFailure({
+										reason: { code: "mixed-auth-reset-unsupported" },
+									});
 								}
 								const usesLocalAuth = authState === "credential" || authState === "none";
 								if (kind === "reset" && usesLocalAuth && config.users.disableLocalAuth) {
-									return yield* badRequest("Local authentication is disabled on this instance");
+									return yield* new GodModeRequestFailure({
+										reason: { code: "local-auth-disabled" },
+									});
 								}
 
 								return yield* repository.create({
@@ -184,7 +204,9 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 			) {
 				return (
 					(yield* repository.getById(operationId)) ??
-					(yield* notFound(`User lifecycle operation '${operationId}' was not found`))
+					(yield* new GodModeNotFound({
+						reason: { code: "lifecycle-operation-not-found", operationId },
+					}))
 				);
 			});
 

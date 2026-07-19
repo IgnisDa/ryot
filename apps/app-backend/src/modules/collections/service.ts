@@ -1,9 +1,12 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
 	CreateCollectionBody,
 	CreateMembershipBody,
 	DeleteMembershipBody,
+} from "@ryot/contract/modules/collections/schemas";
+import {
+	CollectionBadRequest,
+	CollectionNotFound,
 } from "@ryot/contract/modules/collections/schemas";
 import type {
 	EntityId,
@@ -22,7 +25,7 @@ import {
 	parseAppSchemaProperties,
 	parseLabeledPropertySchemaInput,
 } from "#lib/property-schema/property-schema-runtime";
-import { requireText } from "#lib/shared/validation";
+import { trimToNull } from "#lib/shared/validation";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -30,15 +33,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 
 import { AddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow";
 import { CollectionsRepository } from "./repository";
-import {
-	circularReferenceError,
-	collectionNotFoundError,
-	entityNotFoundError,
-	invalidMembershipPropertiesError,
-	invalidMembershipSchemaError,
-	isPlainObject,
-	toCollectionResponse,
-} from "./service-support";
+import { isPlainObject, toCollectionResponse } from "./service-support";
 
 const requireBuiltinOrDie =
 	<T>(message: string) =>
@@ -49,8 +44,8 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 	"CollectionsService",
 	{
 		make: Effect.gen(function* () {
-			const engine = yield* WorkflowEngine;
 			const events = yield* EventsService;
+			const engine = yield* WorkflowEngine;
 			const entities = yield* EntitiesService;
 			const repository = yield* CollectionsRepository;
 			const relationships = yield* RelationshipsService;
@@ -123,15 +118,27 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				user: CurrentUserValue,
 				payload: CreateCollectionBody,
 			) {
-				const name = yield* requireText(payload.name, "Collection name is required");
+				const name = trimToNull(payload.name);
+				if (!name) {
+					return yield* new CollectionBadRequest({
+						reason: { code: "name-required", field: "name" },
+					});
+				}
 
 				if (payload.membershipPropertiesSchema !== undefined) {
 					yield* parseLabeledPropertySchemaInput(
 						payload.membershipPropertiesSchema,
 						"membershipPropertiesSchema",
 					).pipe(
-						Effect.mapError((error) =>
-							badRequest(`${invalidMembershipSchemaError}: ${error.message}`),
+						Effect.mapError(
+							(error) =>
+								new CollectionBadRequest({
+									reason: {
+										code: "invalid-membership-schema",
+										field: "membershipPropertiesSchema",
+										paths: error.issues.map(({ path }) => path),
+									},
+								}),
 						),
 					);
 				}
@@ -153,7 +160,18 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						userId: user.id,
 						entitySchemaSlug: entitySchema.entitySchemaSlug,
 					})
-					.pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
+					.pipe(
+						Effect.catchTags({
+							EntityNotFound: (error) => Effect.die(error),
+							EntityBadRequest: (error) =>
+								new CollectionBadRequest({
+									reason: {
+										code: "invalid-collection-properties",
+										paths: error.reason.code === "invalid-properties" ? error.reason.paths : [],
+									},
+								}),
+						}),
+					);
 				return toCollectionResponse(created);
 			});
 
@@ -177,7 +195,12 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 							properties: {},
 							entitySchemaSlug: entitySchema.entitySchemaSlug,
 						})
-						.pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
+						.pipe(
+							Effect.catchTags({
+								EntityNotFound: (error) => Effect.die(error),
+								EntityBadRequest: (error) => Effect.die(error),
+							}),
+						);
 					return toCollectionResponse(created);
 				},
 			);
@@ -189,17 +212,21 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				collectionId: EntityId;
 			}) {
 				if (input.collectionId === input.entityId) {
-					return yield* badRequest(circularReferenceError);
+					return yield* new CollectionBadRequest({ reason: { code: "circular-membership" } });
 				}
 
 				const collection = yield* repository.getCollectionById(input.collectionId, input.userId);
 				if (!collection) {
-					return yield* notFound(collectionNotFoundError);
+					return yield* new CollectionNotFound({
+						reason: { code: "collection-not-found", collectionId: input.collectionId },
+					});
 				}
 
 				const entity = yield* repository.getEntityForMembership(input.entityId, input.userId);
 				if (!entity) {
-					return yield* notFound(entityNotFoundError);
+					return yield* new CollectionNotFound({
+						reason: { code: "entity-not-found", entityId: input.entityId },
+					});
 				}
 
 				const collectionProps = isPlainObject(collection.properties) ? collection.properties : {};
@@ -218,8 +245,14 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						propertiesSchema: membershipSchema,
 						properties: input.properties ?? {},
 					}).pipe(
-						Effect.mapError((error) =>
-							badRequest(`${invalidMembershipPropertiesError}: ${error.message}`),
+						Effect.mapError(
+							(error) =>
+								new CollectionBadRequest({
+									reason: {
+										code: "invalid-membership-properties",
+										paths: error.issues.map(({ path }) => path),
+									},
+								}),
 						),
 					);
 				} else {
@@ -242,8 +275,33 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 								relationshipSchemaSlug: memberOfRelationshipSchema.id,
 								propertiesSchema: memberOfRelationshipSchema.propertiesSchema,
 							} as const;
-							const created = yield* relationships.create(membershipInput);
-							return created.wasInserted ? created : yield* relationships.update(membershipInput);
+							const created = yield* relationships.create(membershipInput).pipe(
+								Effect.catchTag(
+									"RelationshipBadRequest",
+									(error) =>
+										new CollectionBadRequest({
+											reason: {
+												code: "invalid-membership-properties",
+												paths: error.reason.code === "invalid-properties" ? error.reason.paths : [],
+											},
+										}),
+								),
+							);
+							return created.wasInserted
+								? created
+								: yield* relationships.update(membershipInput).pipe(
+										Effect.catchTags({
+											RelationshipBadRequest: (error) =>
+												new CollectionBadRequest({
+													reason: {
+														code: "invalid-membership-properties",
+														paths:
+															error.reason.code === "invalid-properties" ? error.reason.paths : [],
+													},
+												}),
+											RelationshipNotFound: (error) => Effect.die(error),
+										}),
+									);
 						}).pipe(Effect.provideService(Database, transaction)),
 					),
 				);
@@ -289,12 +347,16 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			) {
 				const collection = yield* repository.getCollectionById(payload.collectionId, user.id);
 				if (!collection) {
-					return yield* notFound(collectionNotFoundError);
+					return yield* new CollectionNotFound({
+						reason: { code: "collection-not-found", collectionId: payload.collectionId },
+					});
 				}
 
 				const entity = yield* repository.getEntityForMembership(payload.entityId, user.id);
 				if (!entity) {
-					return yield* notFound(entityNotFoundError);
+					return yield* new CollectionNotFound({
+						reason: { code: "entity-not-found", entityId: payload.entityId },
+					});
 				}
 
 				const memberOf = yield* memberOfSchema;
@@ -307,7 +369,13 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				});
 
 				if (!deleted) {
-					return yield* notFound("Entity is not in collection");
+					return yield* new CollectionNotFound({
+						reason: {
+							entityId: payload.entityId,
+							code: "membership-not-found",
+							collectionId: payload.collectionId,
+						},
+					});
 				}
 
 				const removeEvent = yield* removeEventSchema;

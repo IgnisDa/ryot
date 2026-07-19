@@ -1,4 +1,4 @@
-import { BadRequest } from "@ryot/contract/errors";
+import { RyotQLBadRequest } from "@ryot/contract/modules/ryotql/contract";
 import type {
 	AggregateMeasure,
 	AggregateOutput,
@@ -717,7 +717,7 @@ const appendPrimaryKeyOrders = (query: QuerySet, requested: readonly Order[]) =>
 	}),
 ];
 
-const cursorError = () => new BadRequest({ message: "Invalid RyotQL cursor" });
+const cursorError = () => new RyotQLBadRequest({ reason: { code: "invalid-cursor" } });
 
 const makeCursorValue = (
 	kind: CatalogFieldKind | "null",

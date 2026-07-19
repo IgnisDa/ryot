@@ -1,5 +1,7 @@
-import { badRequest, notFound } from "@ryot/contract/errors";
-import { MembershipResponse } from "@ryot/contract/modules/collections/schemas";
+import {
+	CollectionBadRequest,
+	MembershipResponse,
+} from "@ryot/contract/modules/collections/schemas";
 import { EntityId, EventSchemaSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
@@ -91,12 +93,15 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 				.pipe(Effect.result);
 			if (eventAttempt._tag === "Failure") {
 				yield* Activity.make({
-					success: Schema.Boolean satisfies DurableSchema,
 					name: "compensate-collection-membership",
+					success: Schema.Boolean satisfies DurableSchema,
 					error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
 					execute: operations.compensateMembership(payload.userId, result.memberOf.id),
 				});
-				return yield* eventAttempt.failure;
+				yield* Effect.logWarning("collection membership event execution failed", {
+					failure: eventAttempt.failure,
+				});
+				return yield* new CollectionBadRequest({ reason: { code: "membership-event-failed" } });
 			}
 			if (eventAttempt.success.failure) {
 				yield* Activity.make({
@@ -105,10 +110,10 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 					error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
 					execute: operations.compensateMembership(payload.userId, result.memberOf.id),
 				});
-				const { reason } = eventAttempt.success.failure;
-				return yield* reason.kind === "not_found"
-					? notFound(reason.message)
-					: badRequest(reason.message);
+				yield* Effect.logWarning("collection membership event failed", {
+					failure: eventAttempt.success.failure.reason,
+				});
+				return yield* new CollectionBadRequest({ reason: { code: "membership-event-failed" } });
 			}
 		}
 

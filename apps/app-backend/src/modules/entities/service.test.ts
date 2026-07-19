@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { NotFound } from "@ryot/contract/errors";
+import { EntityNotFound } from "@ryot/contract/modules/entities/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -122,7 +122,15 @@ it.effect("returns not found when entity schema is not visible", () => {
 			}),
 		);
 
-		assertExitFails(exit, new NotFound({ message: "Entity schema not found" }));
+		assertExitFails(
+			exit,
+			new EntityNotFound({
+				reason: {
+					code: "entity-schema-not-found",
+					entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
+				},
+			}),
+		);
 	}).pipe(Effect.provide(layer));
 });
 

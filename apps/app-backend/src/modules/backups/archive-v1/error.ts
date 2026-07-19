@@ -1,6 +1,6 @@
 import { Data } from "effect";
 
-type BackupArchiveErrorReason =
+export type BackupArchiveErrorReason =
 	| "invalid_entry"
 	| "invalid_path"
 	| "missing_entry"

@@ -1,6 +1,9 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest, notFound } from "@ryot/contract/errors";
-import type { MergeUserStateBody } from "@ryot/contract/modules/user-state/schemas";
+import {
+	type MergeUserStateBody,
+	UserStateBadRequest,
+	UserStateNotFound,
+} from "@ryot/contract/modules/user-state/schemas";
 import { EntityId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
@@ -14,12 +17,6 @@ import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
-
-const entityNotFoundError = "Entity not found";
-const sameEntityMergeError = "Cannot merge an entity into itself";
-const entityMergeDeniedError = "Entity user state cannot be merged";
-const entityClearDeniedError = "Entity user state cannot be cleared";
-const differentEntitySchemaError = "Entities must belong to the same schema";
 
 export class UserStateService extends Context.Service<UserStateService>()("UserStateService", {
 	make: Effect.gen(function* () {
@@ -37,18 +34,24 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 		) {
 			const trimmedEntityId = trimToNull(entityIdInput);
 			if (!trimmedEntityId) {
-				return yield* badRequest("Entity id is required");
+				return yield* new UserStateBadRequest({
+					reason: { code: "required-field", field: "entityId" },
+				});
 			}
 
 			const entityId = EntityId.make(trimmedEntityId);
 			const scope = yield* entitiesRepository.getEntityScopeForUser({ userId: user.id, entityId });
 			if (!scope) {
-				return yield* notFound(entityNotFoundError);
+				return yield* new UserStateNotFound({
+					reason: { code: "entity-not-found", entityIds: [entityId] },
+				});
 			}
 
 			const entitySchema = definitions.getEntitySchema(scope.entitySchemaSlug);
 			if (entitySchema?.userState?.deniedOperations.includes("clear")) {
-				return yield* badRequest(entityClearDeniedError);
+				return yield* new UserStateBadRequest({
+					reason: { code: "operation-denied", operation: "clear" },
+				});
 			}
 
 			const database = yield* Database;
@@ -98,13 +101,17 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 			const trimmedMergeInto = trimToNull(payload.mergeInto);
 
 			if (!trimmedMergeFrom) {
-				return yield* badRequest("mergeFrom is required");
+				return yield* new UserStateBadRequest({
+					reason: { code: "required-field", field: "mergeFrom" },
+				});
 			}
 			if (!trimmedMergeInto) {
-				return yield* badRequest("mergeInto is required");
+				return yield* new UserStateBadRequest({
+					reason: { code: "required-field", field: "mergeInto" },
+				});
 			}
 			if (trimmedMergeFrom === trimmedMergeInto) {
-				return yield* badRequest(sameEntityMergeError);
+				return yield* new UserStateBadRequest({ reason: { code: "same-entity-merge" } });
 			}
 
 			const mergeFrom = EntityId.make(trimmedMergeFrom);
@@ -121,7 +128,9 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				}),
 			]);
 			if (!fromScope || !intoScope) {
-				return yield* notFound(entityNotFoundError);
+				return yield* new UserStateNotFound({
+					reason: { code: "entity-not-found", entityIds: [mergeFrom, mergeInto] },
+				});
 			}
 			const fromEntitySchema = definitions.getEntitySchema(fromScope.entitySchemaSlug);
 			const intoEntitySchema = definitions.getEntitySchema(intoScope.entitySchemaSlug);
@@ -129,17 +138,21 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				fromEntitySchema?.userState?.deniedOperations.includes("merge") ||
 				intoEntitySchema?.userState?.deniedOperations.includes("merge")
 			) {
-				return yield* badRequest(entityMergeDeniedError);
+				return yield* new UserStateBadRequest({
+					reason: { code: "operation-denied", operation: "merge" },
+				});
 			}
 			if (fromScope.entitySchemaSlug !== intoScope.entitySchemaSlug) {
-				return yield* badRequest(differentEntitySchemaError);
+				return yield* new UserStateBadRequest({ reason: { code: "entity-schema-mismatch" } });
 			}
 			if (!fromEntitySchema) {
 				return yield* Effect.die("Entity schema not found during entity merge");
 			}
 			for (const property of fromEntitySchema.mergeIdentityProperties) {
 				if (!Bun.deepEquals(fromScope.properties[property], intoScope.properties[property])) {
-					return yield* badRequest(`Entities must have the same '${property}' property`);
+					return yield* new UserStateBadRequest({
+						reason: { code: "identity-property-mismatch", property },
+					});
 				}
 			}
 			const database = yield* Database;
@@ -197,15 +210,29 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 								relationship.targetEntityId === mergeFrom ? mergeInto : relationship.targetEntityId;
 
 							if (sourceEntityId !== targetEntityId) {
-								yield* relationships.create({
-									scope: "user",
-									sourceEntityId,
-									targetEntityId,
-									userId: user.id,
-									properties: relationship.properties,
-									relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-									propertiesSchema: yield* getPropertiesSchema(relationship.relationshipSchemaSlug),
-								});
+								yield* relationships
+									.create({
+										scope: "user",
+										sourceEntityId,
+										targetEntityId,
+										userId: user.id,
+										properties: relationship.properties,
+										relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+										propertiesSchema: yield* getPropertiesSchema(
+											relationship.relationshipSchemaSlug,
+										),
+									})
+									.pipe(
+										Effect.catchTag("RelationshipBadRequest", (error) =>
+											Effect.logWarning("relationship merge validation failed", error).pipe(
+												Effect.andThen(
+													new UserStateBadRequest({
+														reason: { code: "relationship-merge-failed" },
+													}),
+												),
+											),
+										),
+									);
 							}
 
 							const deleted = yield* relationships.delete({

@@ -1,10 +1,11 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest } from "@ryot/contract/errors";
 import {
 	ManagedAssetLocator,
 	UploadKind,
 	UploadProvider,
 	type UploadIntentInput,
+	UploadBadRequest,
+	type UploadFailureReason,
 } from "@ryot/contract/modules/uploads/schemas";
 import {
 	type UploadContentType,
@@ -28,6 +29,8 @@ const UPLOAD_TOKEN_TTL_SECONDS = 15 * 60;
 const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
 const PROCESSING_LEASE_SECONDS = 24 * 60 * 60;
 const CLEANUP_LEASE_SECONDS = 60;
+
+const uploadError = (reason: UploadFailureReason) => new UploadBadRequest({ reason });
 
 const UploadIntentMetadata = Schema.Struct({
 	userId: UserId,
@@ -62,7 +65,7 @@ const isUploadContentType = (value: string): value is UploadContentType =>
 const resolveContentType = (contentType: string) => {
 	const normalized = contentType.split(";")[0]?.trim().toLowerCase() ?? "";
 	if (!normalized || !isUploadContentType(normalized)) {
-		return Effect.fail(badRequest("Upload content type must be a supported MIME type"));
+		return Effect.fail(uploadError({ code: "unsupported-file-type", contentType: normalized }));
 	}
 	return Effect.succeed(normalized);
 };
@@ -73,7 +76,7 @@ const resolveContentTypeFromFileName = (fileName: string) => {
 		exts.includes(extension),
 	);
 	if (!entry || !isUploadContentType(entry[0])) {
-		return Effect.fail(badRequest(`Unsupported file extension: .${extension}`));
+		return Effect.fail(uploadError({ code: "unsupported-file-extension", extension }));
 	}
 	return Effect.succeed(entry[0]);
 };
@@ -92,7 +95,7 @@ const resolveFileName = (name: string) => {
 		.filter(Boolean);
 	const fileName = segments[segments.length - 1];
 	if (!fileName) {
-		return Effect.fail(badRequest("Upload file name must not be empty"));
+		return Effect.fail(uploadError({ code: "empty-file-name" }));
 	}
 	return Effect.succeed(fileName);
 };
@@ -168,9 +171,9 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 						Effect.flatMap((raw) =>
 							raw
 								? Schema.decodeUnknownEffect(Schema.fromJsonString(UploadIntentMetadata))(raw).pipe(
-										Effect.mapError(() => badRequest("Upload intent is invalid")),
+										Effect.mapError(() => uploadError({ code: "intent-invalid", intentId })),
 									)
-								: Effect.fail(badRequest("Upload intent is invalid or has expired")),
+								: Effect.fail(uploadError({ code: "intent-expired", intentId })),
 						),
 					);
 
@@ -179,12 +182,12 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					const lockKey = redisKeys.uploadIntentLock(intentId);
 					const lease = yield* redis.acquireLease(lockKey, UPLOAD_URL_EXPIRY_SECONDS);
 					if (lease === null) {
-						return yield* badRequest("Upload intent is currently being processed");
+						return yield* uploadError({ code: "intent-busy", intentId });
 					}
 					return yield* Effect.gen(function* () {
 						const metadata = yield* getIntent(intentId);
 						if (metadata.userId !== user.id) {
-							return yield* badRequest("Upload intent does not belong to this user");
+							return yield* uploadError({ code: "intent-forbidden", intentId });
 						}
 						if (metadata.state !== "pending" && metadata.completion) {
 							return "token" in metadata.completion
@@ -198,22 +201,26 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 						}
 						const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
 						if (metadata.expiresAt <= now) {
-							return yield* badRequest("Upload intent is invalid or has expired");
+							return yield* uploadError({ code: "intent-expired", intentId });
 						}
 						const info =
 							metadata.provider === "local"
 								? yield* localStorage
 										.statObject(metadata.objectKey)
-										.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")))
+										.pipe(Effect.mapError(() => uploadError({ code: "object-missing", intentId })))
 								: yield* s3Service
 										.statObject(metadata.objectKey)
-										.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")));
+										.pipe(Effect.mapError(() => uploadError({ code: "object-missing", intentId })));
 						const maxBytes = uploadMaxBytes(metadata.kind, metadata.contentType);
 						if (Number(info.size) > maxBytes) {
 							yield* objectStorage
 								.deleteObject({ type: metadata.provider, key: metadata.objectKey })
 								.pipe(Effect.ignore);
-							return yield* badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`);
+							return yield* uploadError({
+								code: "upload-too-large",
+								maxBytes,
+								actualBytes: Number(info.size),
+							});
 						}
 						if (
 							metadata.provider === "s3" &&
@@ -222,7 +229,11 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 							yield* objectStorage
 								.deleteObject({ type: metadata.provider, key: metadata.objectKey })
 								.pipe(Effect.ignore);
-							return yield* badRequest("Upload content type does not match the upload intent");
+							return yield* uploadError({
+								code: "content-type-mismatch",
+								expected: metadata.contentType,
+								actual: info.type,
+							});
 						}
 						const completion =
 							metadata.kind === "temporary"
@@ -244,7 +255,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 								Effect.sync(() => {
 									hasher.update(chunk);
 								}),
-							).pipe(Effect.mapError(() => badRequest("Upload object could not be read")));
+							).pipe(Effect.mapError(() => uploadError({ code: "upload-failed" })));
 							yield* managedAssets
 								.registerManagedAsset({
 									key: locator.key,
@@ -256,7 +267,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 								})
 								.pipe(
 									Effect.catchTag("Conflict", () =>
-										Effect.fail(badRequest("Upload object is already registered")),
+										Effect.fail(uploadError({ code: "upload-failed" })),
 									),
 								);
 						}
@@ -318,28 +329,45 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 				const lockKey = redisKeys.uploadIntentLock(intentId);
 				const lease = yield* redis.acquireLease(lockKey, UPLOAD_URL_EXPIRY_SECONDS);
 				if (lease === null) {
-					return yield* badRequest("Upload intent is currently being processed");
+					return yield* uploadError({ code: "intent-busy", intentId });
 				}
 				yield* Effect.gen(function* () {
 					const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
 					if (!raw) {
-						return yield* badRequest("Upload intent is invalid or has expired");
+						return yield* uploadError({ code: "intent-expired", intentId });
 					}
 					const metadata = yield* Schema.decodeUnknownEffect(
 						Schema.fromJsonString(UploadIntentMetadata),
-					)(raw).pipe(Effect.mapError(() => badRequest("Upload intent is invalid")));
+					)(raw).pipe(Effect.mapError(() => uploadError({ code: "intent-invalid", intentId })));
 					if (metadata.state !== "pending") {
-						return yield* badRequest("Upload intent is invalid or has expired");
+						return yield* uploadError({ code: "intent-expired", intentId });
 					}
 					if (metadata.provider !== "local") {
-						return yield* badRequest("Upload intent does not target local storage");
+						return yield* uploadError({ code: "intent-provider-mismatch", intentId });
 					}
 					if (metadata.expiresAt <= Math.floor((yield* Clock.currentTimeMillis) / 1000)) {
-						return yield* badRequest("Upload intent is invalid or has expired");
+						return yield* uploadError({ code: "intent-expired", intentId });
 					}
 					const normalizedContentType = contentType?.split(";")[0]?.trim().toLowerCase();
 					if (normalizedContentType !== metadata.contentType) {
-						return yield* badRequest("Upload content type does not match the upload intent");
+						return yield* uploadError({
+							code: "content-type-mismatch",
+							expected: metadata.contentType,
+							actual: normalizedContentType ?? null,
+						});
+					}
+					const maxBytes = uploadMaxBytes(metadata.kind, metadata.contentType);
+					const declaredBytes = contentLength === undefined ? null : Number(contentLength);
+					if (
+						declaredBytes !== null &&
+						Number.isFinite(declaredBytes) &&
+						declaredBytes > maxBytes
+					) {
+						return yield* uploadError({
+							maxBytes,
+							code: "upload-too-large",
+							actualBytes: declaredBytes,
+						});
 					}
 					const renewedStream = stream.pipe(
 						Stream.mapEffect((chunk) =>
@@ -349,24 +377,16 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 									Effect.flatMap((renewed) =>
 										renewed
 											? Effect.succeed(chunk)
-											: Effect.fail(badRequest("Upload intent is no longer active")),
+											: Effect.fail(uploadError({ code: "intent-expired", intentId })),
 									),
 								),
 						),
 					);
 					yield* localStorage
-						.writeObject(
-							metadata.objectKey,
-							renewedStream,
-							contentLength,
-							uploadMaxBytes(metadata.kind, metadata.contentType),
-						)
+						.writeObject(metadata.objectKey, renewedStream, contentLength, maxBytes)
 						.pipe(
-							Effect.mapError((error) =>
-								error instanceof Error
-									? badRequest(error.message)
-									: badRequest("Local upload failed"),
-							),
+							Effect.tapError((error) => Effect.logError("local upload failed", error)),
+							Effect.mapError(() => uploadError({ code: "upload-failed" })),
 						);
 					return void 0;
 				}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
@@ -383,7 +403,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 				}
 				const metadata = yield* Schema.decodeUnknownEffect(
 					Schema.fromJsonString(UploadIntentMetadata),
-				)(raw).pipe(Effect.mapError(() => badRequest("Upload intent is invalid")));
+				)(raw).pipe(Effect.mapError(() => uploadError({ code: "intent-invalid", intentId })));
 				yield* objectStorage.deleteObject({
 					type: metadata.provider,
 					key: metadata.objectKey,
@@ -420,7 +440,9 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 								}
 								const metadata = yield* Schema.decodeUnknownEffect(
 									Schema.fromJsonString(UploadIntentMetadata),
-								)(raw).pipe(Effect.mapError(() => badRequest("Upload intent is invalid")));
+								)(raw).pipe(
+									Effect.mapError(() => uploadError({ code: "intent-invalid", intentId })),
+								);
 								if (
 									!(["pending", "completed", "claimed", "cleaning"] as const).includes(
 										metadata.state,
@@ -479,20 +501,18 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 				function* (token: string, userId: UserId, claimId: string) {
 					const rawToken = yield* redis.get(redisKeys.uploadToken(token));
 					if (!rawToken) {
-						return yield* badRequest("Upload token is invalid or has expired");
+						return yield* uploadError({ code: "token-invalid" });
 					}
 					const tokenValue = yield* Schema.decodeUnknownEffect(
 						Schema.fromJsonString(UploadTokenValue),
-					)(rawToken).pipe(
-						Effect.mapError(() => badRequest("Upload token is invalid or has expired")),
-					);
+					)(rawToken).pipe(Effect.mapError(() => uploadError({ code: "token-invalid" })));
 					if (tokenValue.userId !== userId) {
-						return yield* badRequest("Upload token does not belong to this user");
+						return yield* uploadError({ code: "token-forbidden" });
 					}
 					const lockKey = redisKeys.uploadIntentLock(tokenValue.intentId);
 					const lease = yield* redis.acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
 					if (lease === null) {
-						return yield* badRequest("Upload token is currently being processed");
+						return yield* uploadError({ code: "token-busy" });
 					}
 					return yield* Effect.gen(function* () {
 						const metadata = yield* getIntent(tokenValue.intentId);
@@ -506,16 +526,20 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 							!("token" in metadata.completion) ||
 							metadata.completion.token !== token
 						) {
-							return yield* badRequest("Upload token is invalid or has expired");
+							return yield* uploadError({ code: "token-invalid" });
 						}
 						if (metadata.state === "claimed" && metadata.claimId !== claimId) {
-							return yield* badRequest("Upload token was claimed by a different operation");
+							return yield* uploadError({ code: "token-already-claimed" });
 						}
 						const resolvedPath =
 							metadata.provider === "local"
 								? yield* localStorage
 										.resolveObjectPath(metadata.objectKey)
-										.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")))
+										.pipe(
+											Effect.mapError(() =>
+												uploadError({ code: "object-missing", intentId: tokenValue.intentId }),
+											),
+										)
 								: null;
 						if (metadata.state === "claimed") {
 							return {
@@ -563,7 +587,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					const lockKey = redisKeys.uploadIntentLock(intentId);
 					const lease = yield* redis.acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
 					if (lease === null) {
-						return yield* badRequest("Upload is currently being processed");
+						return yield* uploadError({ code: "intent-busy", intentId });
 					}
 					yield* removeUploadIntent(intentId).pipe(
 						Effect.ensuring(redis.releaseLease(lockKey, lease)),

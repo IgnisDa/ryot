@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest } from "@ryot/contract/errors";
+import { RyotQLBadRequest } from "@ryot/contract/modules/ryotql/contract";
 import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
@@ -75,7 +75,7 @@ it.effect("removes filtered memberships and carries tokens for terminal updates"
 });
 
 it.effect("does not catch reconciliation failures", () => {
-	const error = new BadRequest({ message: "reconciliation failed" });
+	const error = new RyotQLBadRequest({ reason: { code: "invalid-query" } });
 	const store = Layer.mock(EntityInterestStore)({});
 	const reconciler = Layer.mock(InterestReconciler)({ reconcile: () => Effect.fail(error) });
 	const layer = InterestService.layer.pipe(Layer.provide(Layer.mergeAll(store, reconciler)));
