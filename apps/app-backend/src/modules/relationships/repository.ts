@@ -16,12 +16,17 @@ type RelationshipSnapshotRow = Pick<
 	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaSlug"
 >;
 
+type RelationshipSnapshotWithProvenanceRow = RelationshipSnapshotRow & {
+	readonly relationshipSchemaPluginId: string | null;
+};
+
 type RelationshipRow = RelationshipSnapshotRow & { readonly wasInserted: boolean };
 
 export type RelationshipIdentityInput = {
 	sourceEntityId: EntityId;
 	targetEntityId: EntityId;
 	relationshipSchemaSlug: RelationshipSchemaSlug;
+	relationshipSchemaPluginId?: string | null | undefined;
 } & ({ scope: "global" } | { scope: "user"; userId: UserId });
 
 export type CreateRelationshipInput = RelationshipIdentityInput & {
@@ -63,6 +68,11 @@ const relationshipSnapshotSelection = {
 	relationshipSchemaSlug: schema.relationship.relationshipSchemaSlug,
 };
 
+const relationshipSnapshotWithProvenanceSelection = {
+	...relationshipSnapshotSelection,
+	relationshipSchemaPluginId: schema.relationship.relationshipSchemaPluginId,
+};
+
 const relationshipSelection = {
 	...relationshipSnapshotSelection,
 	wasInserted: sql<boolean>`(xmax = '0'::xid)`,
@@ -77,10 +87,24 @@ const toRelationship = (row: RelationshipSnapshotRow) => ({
 	relationshipSchemaSlug: RelationshipSchemaSlug.make(row.relationshipSchemaSlug),
 });
 
+const toRelationshipWithProvenance = (row: RelationshipSnapshotWithProvenanceRow) => ({
+	...toRelationship(row),
+	relationshipSchemaPluginId: row.relationshipSchemaPluginId,
+});
+
 const toSavedRelationship = (row: RelationshipRow) => ({
 	...toRelationship(row),
 	wasInserted: row.wasInserted,
 });
+
+const relationshipSchemaPluginWhere = (pluginId: string | null | undefined) => {
+	if (pluginId === undefined) {
+		return undefined;
+	}
+	return pluginId === null
+		? isNull(schema.relationship.relationshipSchemaPluginId)
+		: eq(schema.relationship.relationshipSchemaPluginId, pluginId);
+};
 
 const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
 	input.scope === "user"
@@ -89,12 +113,14 @@ const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
 				eq(schema.relationship.sourceEntityId, input.sourceEntityId),
 				eq(schema.relationship.targetEntityId, input.targetEntityId),
 				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
+				relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
 			)
 		: and(
 				isNull(schema.relationship.userId),
 				eq(schema.relationship.sourceEntityId, input.sourceEntityId),
 				eq(schema.relationship.targetEntityId, input.targetEntityId),
 				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
+				relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
 			);
 
 const globalRelationshipConflictColumns = [
@@ -202,8 +228,9 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 					properties: input.properties,
 					sourceEntityId: input.sourceEntityId,
 					targetEntityId: input.targetEntityId,
-					relationshipSchemaSlug: input.relationshipSchemaSlug,
 					userId: input.scope === "user" ? input.userId : null,
+					relationshipSchemaSlug: input.relationshipSchemaSlug,
+					relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
 				};
 
 				const [inserted] = yield* mapDatabaseErrors(
@@ -303,6 +330,27 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 
 				return rows.map(toRelationship);
 			});
+			const listUserRelationshipsForEntityWithProvenance = Effect.fn(
+				"RelationshipsRepository.listUserRelationshipsForEntityWithProvenance",
+			)(function* (input: { userId: UserId; entityId: EntityId }) {
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select(relationshipSnapshotWithProvenanceSelection)
+						.from(schema.relationship)
+						.where(
+							and(
+								eq(schema.relationship.userId, input.userId),
+								or(
+									eq(schema.relationship.sourceEntityId, input.entityId),
+									eq(schema.relationship.targetEntityId, input.entityId),
+								),
+							),
+						)
+						.for("update"),
+				);
+				return rows.map(toRelationshipWithProvenance);
+			});
 
 			const listEnabledOwnersForSubject = Effect.fn(
 				"RelationshipsRepository.listEnabledOwnersForSubject",
@@ -310,6 +358,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				subjectEntityId: EntityId;
 				subjectSide: "source" | "target";
 				relationshipSchemaSlug: RelationshipSchemaSlug;
+				relationshipSchemaPluginId?: string | null | undefined;
 			}) {
 				const db = yield* Database;
 				const rows = yield* mapDatabaseErrors(
@@ -322,6 +371,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 								isNotNull(schema.relationship.userId),
 								isNull(schema.user.disabledAt),
 								eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
+								relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
 								eq(
 									input.subjectSide === "source"
 										? schema.relationship.sourceEntityId
@@ -366,6 +416,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				listEnabledOwnersForSubject,
 				listUserRelationshipsForEntity,
 				listUserRelationshipsForBackup,
+				listUserRelationshipsForEntityWithProvenance,
 			};
 		}),
 	},

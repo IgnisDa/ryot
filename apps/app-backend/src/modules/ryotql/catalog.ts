@@ -17,6 +17,11 @@ export type CatalogField = {
 export type CatalogVisibility =
 	| { readonly user: { readonly type: "public" } }
 	| {
+			readonly user:
+				| { readonly type: "effectivePlugin"; readonly pluginColumn: string }
+				| { readonly type: "effectiveProviderPlugin"; readonly providerColumn: string };
+	  }
+	| {
 			readonly user: {
 				readonly type: "owned";
 				readonly column: string;
@@ -70,6 +75,12 @@ const physicalField = (column: string, kind: CatalogFieldKind, nullable = true):
 	kind,
 	nullable,
 	resolve: ({ sqlAlias }) => sql.raw(`${sqlAlias}.${column}`),
+});
+
+const pluginMetadataField = (key: "icon" | "name"): CatalogField => ({
+	kind: "text",
+	nullable: false,
+	resolve: ({ sqlAlias }) => sql.raw(`${sqlAlias}.manifest -> 'metadata' ->> '${key}'`),
 });
 
 const localizedEntityName: CatalogField = {
@@ -188,12 +199,13 @@ const plugin: CatalogTable = {
 	primaryKey: "id",
 	visibility: { user: { type: "owned", column: "owner_id", includeGlobal: true } },
 	fields: {
+		icon: pluginMetadataField("icon"),
+		name: pluginMetadataField("name"),
 		id: physicalField("id", "text", false),
 		slug: physicalField("slug", "text", false),
 		scope: physicalField("scope", "text", false),
 		status: physicalField("status", "text", false),
 		version: physicalField("version", "text", false),
-		manifest: physicalField("manifest", "json", false),
 		ingestedAt: physicalField("ingested_at", "date", false),
 	},
 };
@@ -216,7 +228,7 @@ const pluginInstallation: CatalogTable = {
 const sandboxProvider: CatalogTable = {
 	primaryKey: "id",
 	name: "sandbox_provider",
-	visibility: { user: { type: "public" } },
+	visibility: { user: { type: "effectivePlugin", pluginColumn: "plugin_id" } },
 	fields: {
 		id: physicalField("id", "text", false),
 		slug: physicalField("slug", "text", false),
@@ -232,7 +244,7 @@ const sandboxProvider: CatalogTable = {
 const sandboxProviderOperation: CatalogTable = {
 	primaryKey: "id",
 	name: "sandbox_provider_operation",
-	visibility: { user: { type: "public" } },
+	visibility: { user: { type: "effectiveProviderPlugin", providerColumn: "provider_id" } },
 	fields: {
 		id: physicalField("id", "text", false),
 		optionsSchema: physicalField("options_schema", "json"),

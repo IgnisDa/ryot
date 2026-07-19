@@ -1,30 +1,65 @@
 import { SandboxRunError, dieOnDbError, mapDbErrorToSandbox } from "@ryot/contract/errors";
-import type { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	RelationshipSchemaSlug,
+	type EntityId,
+	type UserId,
+} from "@ryot/contract/schema/brands";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderDetailsRelatedEntityGroup,
 } from "@ryot/sandbox-sdk/provider";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import {
+	RelationshipSchemasRepository,
+	type RelationshipSchemaScope,
+} from "#modules/relationship-schemas/repository";
 
 import { synchronizeGlobalRelationships } from "./relationship-synchronization";
 
-export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (input: {
-	primaryEntityId: EntityId;
-	primaryEntitySchemaSlug: EntitySchemaSlug;
-	group: ProviderDetailsRelatedEntityGroup;
-}) {
+export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (
+	input: {
+		primaryEntityId: EntityId;
+		primaryEntitySchemaSlug: EntitySchemaSlug;
+		group: ProviderDetailsRelatedEntityGroup;
+	} & ({ scope?: "global" } | { scope: "user"; userId: UserId }),
+) {
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
+	const pluginRuntime = Option.getOrUndefined(yield* Effect.serviceOption(PluginRuntimeResolver));
 
-	const relationshipSchema = yield* relationshipSchemasRepository
-		.findBuiltinBySlug(input.group.relationshipSchemaSlug)
-		.pipe(mapDbErrorToSandbox);
+	const effective =
+		input.scope === "user" && pluginRuntime
+			? yield* pluginRuntime.getEffectiveDefinitions(input.userId).pipe(mapDbErrorToSandbox)
+			: null;
+	const relationshipDefinition = effective?.relationshipSchemas[input.group.relationshipSchemaSlug];
+	let relationshipSchema: RelationshipSchemaScope | null = relationshipDefinition
+		? ({
+				isBuiltin: true,
+				name: relationshipDefinition.name,
+				slug: relationshipDefinition.slug,
+				pluginId: relationshipDefinition.pluginId ?? null,
+				propertiesSchema: relationshipDefinition.propertiesSchema,
+				id: RelationshipSchemaSlug.make(relationshipDefinition.slug),
+				sourceEntitySchemaSlug: relationshipDefinition.sourceEntitySchemaSlug
+					? EntitySchemaSlug.make(relationshipDefinition.sourceEntitySchemaSlug)
+					: null,
+				targetEntitySchemaSlug: relationshipDefinition.targetEntitySchemaSlug
+					? EntitySchemaSlug.make(relationshipDefinition.targetEntitySchemaSlug)
+					: null,
+			} as const)
+		: null;
+	if (!effective) {
+		relationshipSchema = yield* relationshipSchemasRepository
+			.findBuiltinBySlug(input.group.relationshipSchemaSlug)
+			.pipe(mapDbErrorToSandbox);
+	}
 	if (!relationshipSchema) {
 		return yield* new SandboxRunError({
 			message: `Relationship schema not found: ${input.group.relationshipSchemaSlug}`,
@@ -41,21 +76,37 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	}
 
 	for (const relatedEntity of uniqueRelatedEntities.values()) {
-		const schemaProvider = yield* repository
-			.findEntitySchemaProviderBySlug(relatedEntity.providerSlug)
-			.pipe(mapDbErrorToSandbox);
+		const availableProvider =
+			input.scope === "user" && pluginRuntime
+				? yield* pluginRuntime
+						.findProviderAvailableToUserBySlug(input.userId, relatedEntity.providerSlug)
+						.pipe(mapDbErrorToSandbox)
+				: null;
+		const persistedSchemaProvider =
+			input.scope === "global"
+				? yield* repository
+						.findEntitySchemaProviderBySlug(relatedEntity.providerSlug)
+						.pipe(mapDbErrorToSandbox)
+				: null;
+		const schemaProvider = availableProvider
+			? ({
+					providerId: availableProvider.id,
+					entitySchemaSlug: EntitySchemaSlug.make(availableProvider.rootEntitySchemaSlug),
+				} as const)
+			: persistedSchemaProvider;
 		if (!schemaProvider) {
 			continue;
 		}
 		const entity = yield* entities
 			.create({
 				properties: {},
-				scope: "global",
-				populatedAt: null,
 				name: relatedEntity.name,
 				externalId: relatedEntity.externalId,
 				providerId: schemaProvider.providerId,
 				entitySchemaSlug: schemaProvider.entitySchemaSlug,
+				...(input.scope === "user"
+					? { scope: "user" as const, userId: input.userId }
+					: { scope: "global" as const, populatedAt: null }),
 			})
 			.pipe(mapDbErrorToSandbox);
 
@@ -116,6 +167,10 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 
 	return yield* synchronizeGlobalRelationships({
 		...syncInput,
+		relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
 		propertiesSchema: relationshipSchema.propertiesSchema,
+		...(input.scope === "user"
+			? { scope: "user" as const, userId: input.userId }
+			: { scope: "global" as const }),
 	});
 }, dieOnDbError);

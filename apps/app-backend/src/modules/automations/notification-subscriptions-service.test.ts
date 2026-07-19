@@ -111,6 +111,7 @@ it.effect("installs an active catalog schema with only server-selected state fie
 			metadata: null,
 			isActive: true,
 			signalSchemaSlug,
+			signalSchemaPluginId: null,
 		});
 	}).pipe(Effect.provide(layer));
 });

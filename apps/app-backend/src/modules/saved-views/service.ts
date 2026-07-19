@@ -6,11 +6,14 @@ import type {
 } from "@ryot/contract/modules/saved-views/schemas";
 import { SavedViewBadRequest, SavedViewNotFound } from "@ryot/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Option } from "effect";
 
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginDefinitionMaterializer } from "#modules/plugins/definition-materializer";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { validateSavedViewDefinition } from "./definition-validation";
 import { SavedViewsRepository } from "./repository";
@@ -19,6 +22,14 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 	make: Effect.gen(function* () {
 		const definitions = yield* DefinitionRegistry;
 		const repository = yield* SavedViewsRepository;
+		const pluginRuntime = Option.getOrUndefined(yield* Effect.serviceOption(PluginRuntimeResolver));
+		const installations = Option.getOrUndefined(
+			yield* Effect.serviceOption(PluginInstallationRepository),
+		);
+		const effectiveForUser = (userId: CurrentUserValue["id"], includeUnavailable = false) =>
+			pluginRuntime
+				? pluginRuntime.getEffectiveDefinitions(userId, includeUnavailable)
+				: Effect.succeed(definitions.getSnapshot());
 
 		const list = Effect.fn(function* (
 			user: CurrentUserValue,
@@ -28,21 +39,37 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		});
 
 		const ensureBuiltinViews = Effect.fn(function* (userId: CurrentUserValue["id"]) {
-			const views = Object.values(definitions.getSnapshot().savedViews);
+			const effective = yield* effectiveForUser(userId, true);
+			const views = Object.values(effective.savedViews);
+			const installationByPluginId = new Map(
+				(installations ? yield* installations.listForUser(userId) : []).map((state) => [
+					state.pluginId,
+					state.id,
+				]),
+			);
 			yield* repository.ensureBuiltinViews(
 				userId,
-				views.map(({ slug, name, icon, layouts, sortOrder, pluginSlug, entitySchemaSlug }) => ({
-					slug,
-					name,
-					icon,
-					layouts,
-					sortOrder,
-					pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
-					entitySchemaSlug:
-						entitySchemaSlug === null ? null : EntitySchemaSlug.make(entitySchemaSlug),
-				})),
+				views.map(
+					({ slug, name, icon, layouts, sortOrder, pluginId, pluginSlug, entitySchemaSlug }) => ({
+						slug,
+						name,
+						icon,
+						layouts,
+						sortOrder,
+						pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
+						pluginInstallationId: pluginId ? (installationByPluginId.get(pluginId) ?? null) : null,
+						entitySchemaSlug:
+							entitySchemaSlug === null ? null : EntitySchemaSlug.make(entitySchemaSlug),
+						entitySchemaPluginId:
+							entitySchemaSlug === null
+								? null
+								: (effective.entitySchemas[entitySchemaSlug]?.pluginId ?? null),
+					}),
+				),
 			);
 		});
+		const removeGenerated = (pluginInstallationId: string) =>
+			repository.deleteGeneratedByInstallation(pluginInstallationId);
 
 		const requireSavedView = Effect.fn(function* (user: CurrentUserValue, viewSlug: string) {
 			const savedView = yield* repository.findBySlug(user.id, viewSlug);
@@ -68,14 +95,12 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					reason: { code: "required-field", field: "slug" },
 				});
 			}
-			if (definitions.getSavedView(slug) || (yield* repository.findBySlug(user.id, slug))) {
+			const effective = yield* effectiveForUser(user.id);
+			if (effective.savedViews[slug] || (yield* repository.findBySlug(user.id, slug))) {
 				return yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } });
 			}
 			yield* validateSavedViewDefinition(payload);
-			if (
-				payload.entitySchemaSlug !== null &&
-				!definitions.getEntitySchema(payload.entitySchemaSlug)
-			) {
+			if (payload.entitySchemaSlug !== null && !effective.entitySchemas[payload.entitySchemaSlug]) {
 				return yield* new SavedViewBadRequest({
 					reason: { code: "entity-schema-not-found", entitySchemaSlug: payload.entitySchemaSlug },
 				});
@@ -86,8 +111,13 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				userId: user.id,
 				icon: payload.icon,
 				layouts: payload.layouts,
+				pluginInstallationId: null,
 				pluginSlug: payload.pluginSlug,
 				entitySchemaSlug: payload.entitySchemaSlug,
+				entitySchemaPluginId:
+					payload.entitySchemaSlug === null
+						? null
+						: (effective.entitySchemas[payload.entitySchemaSlug]?.pluginId ?? null),
 			});
 			return created ?? (yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } }));
 		});
@@ -100,6 +130,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const current = yield* requireSavedView(user, viewSlug);
 			const layouts = payload.layouts ?? current.layouts;
 			const entitySchemaSlug = payload.entitySchemaSlug ?? current.entitySchemaSlug;
+			const effective = yield* effectiveForUser(user.id);
 			if (current.isBuiltin) {
 				if (
 					payload.name !== current.name ||
@@ -130,7 +161,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				});
 			}
 			yield* validateSavedViewDefinition({ layouts });
-			if (entitySchemaSlug !== null && !definitions.getEntitySchema(entitySchemaSlug)) {
+			if (entitySchemaSlug !== null && !effective.entitySchemas[entitySchemaSlug]) {
 				return yield* new SavedViewBadRequest({
 					reason: { code: "entity-schema-not-found", entitySchemaSlug },
 				});
@@ -138,7 +169,17 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const updated = yield* repository.updateBySlug(
 				user.id,
 				viewSlug,
-				{ ...payload, layouts, name, entitySchemaSlug, sortOrder: payload.sortOrder },
+				{
+					...payload,
+					name,
+					layouts,
+					entitySchemaSlug,
+					sortOrder: payload.sortOrder,
+					entitySchemaPluginId:
+						entitySchemaSlug === null
+							? null
+							: (effective.entitySchemas[entitySchemaSlug]?.pluginId ?? null),
+				},
 				current.pluginSlug,
 			);
 			return (
@@ -225,6 +266,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			create,
 			update,
 			reorder,
+			removeGenerated,
 			delete: deleteView,
 			ensureBuiltinViews,
 		};
@@ -232,3 +274,15 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 }) {
 	static readonly layer = Layer.effect(this, this.make);
 }
+
+export const SavedViewPluginDefinitionMaterializerLive = Layer.effect(
+	PluginDefinitionMaterializer,
+	Effect.gen(function* () {
+		const savedViews = yield* SavedViewsService;
+		return {
+			materialize: (userId: CurrentUserValue["id"]) => savedViews.ensureBuiltinViews(userId),
+			removeGenerated: (pluginInstallationId: string) =>
+				savedViews.removeGenerated(pluginInstallationId),
+		};
+	}),
+);
