@@ -110,6 +110,31 @@ it("exposes only approved application-table fields", () => {
 	expect(new Set(Object.keys(getCatalogTable("pluginState")?.fields ?? {}))).toEqual(
 		new Set(["id", "pluginSlug", "sortOrder", "isDisabled", "createdAt", "updatedAt"]),
 	);
+	expect(new Set(Object.keys(getCatalogTable("sandboxProvider")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"slug",
+			"name",
+			"pluginSlug",
+			"rootEntitySchemaSlug",
+			"information",
+			"createdAt",
+			"updatedAt",
+		]),
+	);
+	expect(getCatalogTable("sandboxProvider")?.name).toBe("sandbox_provider");
+	expect(getCatalogTable("sandboxProvider")?.primaryKey).toBe("id");
+	expect(getCatalogTable("sandboxProvider")?.visibility).toEqual({
+		user: { type: "public" },
+	});
+	expect(new Set(Object.keys(getCatalogTable("sandboxProviderOperation")?.fields ?? {}))).toEqual(
+		new Set(["id", "providerId", "operation", "optionsSchema", "createdAt", "updatedAt"]),
+	);
+	expect(getCatalogTable("sandboxProviderOperation")?.name).toBe("sandbox_provider_operation");
+	expect(getCatalogTable("sandboxProviderOperation")?.primaryKey).toBe("id");
+	expect(getCatalogTable("sandboxProviderOperation")?.visibility).toEqual({
+		user: { type: "public" },
+	});
 	expect(new Set(Object.keys(getCatalogTable("savedView")?.fields ?? {}))).toEqual(
 		new Set([
 			"id",
@@ -121,7 +146,6 @@ it("exposes only approved application-table fields", () => {
 			"isDisabled",
 			"pluginSlug",
 			"layouts",
-			"sandboxScripts",
 			"createdAt",
 			"updatedAt",
 		]),
@@ -243,6 +267,7 @@ it("rejects hidden application-table fields", () => {
 		["plugin", "compiledHashes"],
 		["pluginState", "config"],
 		["pluginState", "userId"],
+		["sandboxProviderOperation", "scriptId"],
 		["savedView", "userId"],
 		["notificationChannel", "userId"],
 		["notificationChannel", "channelSpecifics"],
@@ -274,7 +299,7 @@ it("rejects hidden application-table fields", () => {
 	}
 });
 
-it("denies import catalog tables to plugin execution", () => {
+it("denies user-only catalog tables to plugin execution", () => {
 	for (const tableName of ["importRun", "importRunFailure"] as const) {
 		const source = table(tableName, "source");
 		expect(
@@ -282,6 +307,57 @@ it("denies import catalog tables to plugin execution", () => {
 				type: "plugin",
 			}),
 		).toBe(`Query 'rows': Table '${tableName}' is not available to plugin execution`);
+	}
+});
+
+it("denies sandbox catalog tables in every plugin query occurrence", () => {
+	for (const tableName of ["sandboxProvider", "sandboxProviderOperation"] as const) {
+		const root = table("entity", "root");
+		const joined = table(tableName, "joined");
+		const included = table(tableName, "included");
+		const correlated = table(tableName, "correlated");
+		const pluginScope = { type: "plugin" } as const;
+
+		expect(
+			validateRyotQLDocument(document({ root: rows(joined, { fields: [] }) }), pluginScope),
+		).toContain(`Table '${tableName}' is not available to plugin execution`);
+		expect(
+			validateRyotQLDocument(
+				document({
+					root: rows(root, {
+						fields: [],
+						joins: [join("inner", joined, eq(column(root, "id"), column(joined, "id")))],
+					}),
+				}),
+				pluginScope,
+			),
+		).toContain(`Table '${tableName}' is not available to plugin execution`);
+		expect(
+			validateRyotQLDocument(
+				document({
+					root: rows(root, {
+						fields: [],
+						include: [
+							include(included, {
+								limit: 1,
+								fields: [],
+								key: "providers",
+								orderBy: [ascending(column(included, "id"))],
+							}),
+						],
+					}),
+				}),
+				pluginScope,
+			),
+		).toContain(`Table '${tableName}' is not available to plugin execution`);
+		expect(
+			validateRyotQLDocument(
+				document({
+					root: rows(root, { fields: [field("hasProvider", exists(correlated))] }),
+				}),
+				pluginScope,
+			),
+		).toContain(`Table '${tableName}' is not available to plugin execution`);
 	}
 });
 

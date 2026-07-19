@@ -57,7 +57,7 @@ describe("hierarchical media entity-update signals", () => {
 				client,
 				slug: animeSlug,
 				details: buildDetails(12, 2025),
-				linkToEntitySchemaSlug: animeSchemaId,
+				rootEntitySchemaSlug: animeSchemaId,
 			});
 
 			const anime = yield* seedMediaEntity({
@@ -175,7 +175,7 @@ describe("hierarchical media entity-update signals", () => {
 				const showProvider = yield* installTestProvider({
 					client,
 					slug: showSlug,
-					linkToEntitySchemaSlug: showSchemaId,
+					rootEntitySchemaSlug: showSchemaId,
 					details: buildDetails({
 						episodeName: "Episode 1",
 						specialName: "Special 1",

@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { assert } from "vitest";
 
@@ -14,6 +15,15 @@ import { fixtureManifest } from "./test-support";
 import type { NormalizedPlugin } from "./types";
 
 const providerId = SandboxProviderId.make("provider-id");
+
+type MockQuery = Promise<ReadonlyArray<unknown>> & {
+	limit: () => Promise<ReadonlyArray<unknown>>;
+};
+
+const limitable = (rows: ReadonlyArray<unknown>): MockQuery => {
+	const promise = Promise.resolve(rows);
+	return Object.assign(promise, { limit: () => promise });
+};
 
 const normalizedPlugin = (): NormalizedPlugin => {
 	const manifest = fixtureManifest();
@@ -59,23 +69,19 @@ const normalizedPlugin = (): NormalizedPlugin => {
 	};
 	const normalizedManifest: PluginManifest = {
 		...manifest,
-		entitySchemas: [...manifest.entitySchemas, { ...fixtureEntitySchema, slug: "unbound-entity" }],
+		bindings: manifest.bindings,
 		workflows: [{ slug: "fixture-run", scriptSlug: workflow.slug }],
 		scripts: [...manifest.scripts, queryScript, details, search, preload, workflow],
+		entitySchemas: [...manifest.entitySchemas, { ...fixtureEntitySchema, slug: "unbound-entity" }],
 		providers: [
 			{
 				name: "Fixture provider",
 				slug: "fixture-provider",
 				information: { source: "fixture" },
+				rootEntitySchemaSlug: "fixture-entity",
 				operations: { details: details.slug, search: search.slug },
 			},
 		],
-		bindings: {
-			...manifest.bindings,
-			schemaProviderLinks: [
-				{ providerSlug: "fixture-provider", entitySchemaSlug: "fixture-entity" },
-			],
-		},
 	};
 	return {
 		sourceHash: "source-hash",
@@ -115,6 +121,7 @@ const providerOwnerPlugin = (): NormalizedPlugin => {
 			importSources: [],
 			relationshipSchemas: [],
 			integrationProviders: [],
+			providers: plugin.manifest.providers,
 			entitySchemas: [{ ...entitySchema, slug: "foreign-entity" }],
 			metadata: { ...plugin.manifest.metadata, name: "Provider owner", slug: "provider-owner" },
 			bindings: {
@@ -122,9 +129,6 @@ const providerOwnerPlugin = (): NormalizedPlugin => {
 				entityAutomations: [],
 				signalAutomations: [],
 				relationshipAutomations: [],
-				schemaProviderLinks: [
-					{ providerSlug: "fixture-provider", entitySchemaSlug: "foreign-entity" },
-				],
 			},
 		},
 	};
@@ -135,6 +139,7 @@ const providerRow = {
 	pluginSlug: "fixture",
 	name: "Fixture provider",
 	slug: "fixture-provider",
+	rootEntitySchemaSlug: "fixture-entity",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
 	information: { source: "fixture" },
@@ -243,29 +248,55 @@ const makeLayer = (
 	if (crossPlugin) {
 		loader.load(providerOwnerPlugin());
 	}
-	let scriptSelectCount = 0;
+	const dialect = new PgDialect();
+	const operationScripts = new Map([
+		[firstScript.slug.endsWith(".search") ? "search" : "details", firstScript],
+	]);
+	const sqlParams = (condition: unknown) => {
+		const getSQL =
+			typeof condition === "object" && condition !== null
+				? Reflect.get(condition, "getSQL")
+				: undefined;
+		return typeof getSQL === "function" ? dialect.sqlToQuery(getSQL.call(condition)).params : [];
+	};
+	const scriptRows = (condition: unknown) => {
+		const params = sqlParams(condition);
+		if (params.includes("fixture.preload")) {
+			return [customScriptRow];
+		}
+		if (params.includes("fixture.workflow")) {
+			return [workflowScriptRow];
+		}
+		if (params.includes("fixture.query") || params.includes("query-script-id")) {
+			return [queryScriptRow];
+		}
+		return params.includes("details-script-id") || params.includes("fixture.details")
+			? [scriptRow]
+			: [firstScript];
+	};
 	const db = {
 		select: () => ({
-			from: (table: unknown) => ({
-				where: () => ({
-					limit: () => {
+			from: (table: unknown) => {
+				const builder = {
+					innerJoin: () => builder,
+					leftJoin: () => builder,
+					where: (condition: unknown) => {
 						if (table === schema.sandboxProvider) {
-							return Promise.resolve(storedProvider ? [storedProvider] : []);
+							return limitable(storedProvider ? [storedProvider] : []);
 						}
-						scriptSelectCount += 1;
-						if (scriptSelectCount === 3) {
-							return Promise.resolve([customScriptRow]);
+						if (table === schema.sandboxProviderOperation) {
+							const params = sqlParams(condition);
+							const operation = params.find((value) =>
+								["details", "search", "resolve", "translate"].includes(String(value)),
+							);
+							const script = operationScripts.get(String(operation));
+							return limitable(script ? [{ script }] : []);
 						}
-						if (scriptSelectCount === 4) {
-							return Promise.resolve([workflowScriptRow]);
-						}
-						if (scriptSelectCount === 5) {
-							return Promise.resolve([queryScriptRow]);
-						}
-						return Promise.resolve([firstScript]);
+						return limitable(scriptRows(condition));
 					},
-				}),
-			}),
+				};
+				return builder;
+			},
 		}),
 	};
 	return PluginRuntimeResolver.layer.pipe(
@@ -290,6 +321,12 @@ it.effect("resolves active schema providers and their operation-specific scripts
 			entitySchemaSlug: "fixture-entity",
 			provider: { id: providerId, slug: "fixture-provider" },
 		});
+		expect(yield* resolver.listSchemaProviders()).toMatchObject([
+			{
+				entitySchemaSlug: "fixture-entity",
+				provider: { id: providerId, name: "Fixture provider" },
+			},
+		]);
 		expect(
 			yield* resolver.findAuthorizedSchemaProviderById({
 				providerId,
@@ -345,30 +382,30 @@ it.effect("resolves active schema providers and their operation-specific scripts
 	}).pipe(Effect.provide(makeLayer())),
 );
 
-it.effect("resolves only active provider search scripts for saved views", () =>
+it.effect("resolves provider operations from persisted operation rows", () =>
 	Effect.gen(function* () {
 		const resolver = yield* PluginRuntimeResolver;
-		expect(yield* resolver.resolveSavedViewSearchScript("fixture.search")).toMatchObject({
-			entitySchemaSlug: "fixture-entity",
-			provider: { id: providerId, name: "Fixture provider" },
-			script: { id: "search-script-id", slug: "fixture.search" },
+		expect(yield* resolver.resolveSearchScript(providerId)).toMatchObject({
+			optionsSchema: null,
+			id: "search-script-id",
+			slug: "fixture.search",
 		});
 	}).pipe(Effect.provide(makeLayer(providerRow, false, searchScriptRow))),
 );
 
-it.effect("rejects missing, inactive, wrong-kind, and non-search saved-view scripts", () =>
+it.effect("rejects provider operations absent from the operation table", () =>
 	Effect.gen(function* () {
 		const resolver = yield* PluginRuntimeResolver;
-		for (const slug of ["missing", "fixture.preload", "fixture.details"]) {
-			expect(yield* resolver.resolveSavedViewSearchScript(slug)).toBeNull();
-		}
+		const exit = yield* Effect.exit(resolver.resolveTranslateScript(providerId));
+		expect(Exit.isFailure(exit)).toBe(true);
 	}).pipe(Effect.provide(makeLayer())),
 );
 
-it.effect("rejects saved-view search scripts with an inactive provider", () =>
+it.effect("rejects provider operations for an inactive provider", () =>
 	Effect.gen(function* () {
 		const resolver = yield* PluginRuntimeResolver;
-		expect(yield* resolver.resolveSavedViewSearchScript("fixture.search")).toBeNull();
+		const exit = yield* Effect.exit(resolver.resolveSearchScript(providerId));
+		expect(Exit.isFailure(exit)).toBe(true);
 	}).pipe(Effect.provide(makeLayer(null))),
 );
 
@@ -456,20 +493,27 @@ it.effect(
 			};
 			const db = {
 				select: () => ({
-					from: (table: unknown) => ({
-						where: () => ({
-							limit: () => {
-								if (table === schema.sandboxProvider) {
-									return Effect.runPromiseWith(runtime)(
-										Deferred.succeed(selected, undefined).pipe(
-											Effect.andThen(Deferred.await(release)),
-										),
-									).then(() => [providerRow]);
-								}
-								return Promise.resolve([scriptRow]);
-							},
-						}),
-					}),
+					from: (table: unknown) => {
+						const builder = {
+							leftJoin: () => builder,
+							innerJoin: () => builder,
+							where: () => ({
+								limit: () => {
+									if (table === schema.sandboxProvider) {
+										return Effect.runPromiseWith(runtime)(
+											Deferred.succeed(selected, undefined).pipe(
+												Effect.andThen(Deferred.await(release)),
+											),
+										).then(() => [providerRow]);
+									}
+									return table === schema.sandboxProviderOperation
+										? Promise.resolve([{ script: scriptRow }])
+										: Promise.resolve([scriptRow]);
+								},
+							}),
+						};
+						return builder;
+					},
 				}),
 			};
 			const layer = PluginRuntimeResolver.layer.pipe(
