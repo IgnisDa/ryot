@@ -1,4 +1,4 @@
-import { Data, Effect } from "effect";
+import { Data, Effect, FileSystem } from "effect";
 
 import type { PluginSource } from "./types";
 
@@ -8,13 +8,13 @@ export class PluginSourceError extends Data.TaggedError("PluginSourceError")<{
 
 export const loadPluginSource = (packageRoot: string, manifest: unknown) =>
 	Effect.gen(function* () {
-		const paths = yield* Effect.try({
-			try: () =>
-				Array.from(new Bun.Glob("**/*.ts").scanSync({ cwd: packageRoot, onlyFiles: true })).filter(
-					(path) => !path.endsWith(".test.ts"),
-				),
-			catch: (error) => new PluginSourceError({ message: String(error) }),
-		});
+		const fs = yield* FileSystem.FileSystem;
+		const paths = yield* fs
+			.glob("**/*.ts", { root: packageRoot, exclude: ["node_modules/**"] })
+			.pipe(
+				Effect.mapError((error) => new PluginSourceError({ message: String(error) })),
+				Effect.map((matchedPaths) => matchedPaths.filter((path) => !path.endsWith(".test.ts"))),
+			);
 		const entries = yield* Effect.forEach(paths, (path) =>
 			Effect.tryPromise({
 				try: () => Bun.file(`${packageRoot}/${path}`).text(),
