@@ -17,7 +17,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { genericOAuth, twoFactor } from "better-auth/plugins";
 import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
-import { HttpServerRequest } from "effect/unstable/http";
+import { HttpMiddleware, HttpServerError, HttpServerRequest } from "effect/unstable/http";
 import type Redis from "ioredis";
 
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
@@ -35,6 +35,19 @@ import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { gateSessionCreation } from "./session-gate";
 
 const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
+
+const stripSearchAndHash = (url: string) => {
+	const queryIndex = url.indexOf("?");
+	const hashIndex = url.indexOf("#");
+
+	if (queryIndex === -1) {
+		return hashIndex === -1 ? url : url.slice(0, hashIndex);
+	}
+	if (hashIndex === -1) {
+		return url.slice(0, queryIndex);
+	}
+	return url.slice(0, Math.min(queryIndex, hashIndex));
+};
 
 export class AuthUserBootstrap extends Context.Service<
 	AuthUserBootstrap,
@@ -365,28 +378,59 @@ export const AuthMiddlewareLive = Layer.effect(
 
 		const resolveFromRequest = Effect.gen(function* () {
 			const request = yield* HttpServerRequest.HttpServerRequest;
-			const user = yield* auth.currentUser(new Headers(request.headers));
-			const span = yield* Effect.catchNoSuchElement(Effect.currentSpan);
-			yield* Effect.annotateLogsScoped(
-				Option.isSome(span)
-					? { userId: user.id, traceId: span.value.traceId }
-					: { userId: user.id },
-			);
-			return user;
+			return yield* auth.currentUser(new Headers(request.headers));
 		});
 
 		const resolveWithToken = (token: Redacted.Redacted) =>
 			Redacted.value(token) === "" ? Effect.fail(unauthorized()) : resolveFromRequest;
+		const authenticate = <A extends { readonly status: number }, E, R>(
+			httpEffect: Effect.Effect<A, E, CurrentUser | R>,
+			credential: Redacted.Redacted,
+		) =>
+			Effect.flatMap(resolveWithToken(credential), (user) =>
+				Effect.gen(function* () {
+					const request = yield* HttpServerRequest.HttpServerRequest;
+					const span = yield* Effect.catchNoSuchElement(Effect.currentSpan);
+					const annotations = Option.isSome(span)
+						? { userId: user.id, traceId: span.value.traceId }
+						: { userId: user.id };
+					const handler = Effect.provideService(httpEffect, CurrentUser, user);
+
+					return yield* Effect.withLogSpan(
+						Effect.flatMap(Effect.exit(handler), (exit) => {
+							if (exit._tag === "Failure") {
+								const [response, cause] = HttpServerError.causeResponseStripped(exit.cause);
+								return Effect.andThen(
+									Effect.annotateLogs(
+										Effect.log(Option.getOrElse(cause, () => "Sent HTTP Response")),
+										{
+											...annotations,
+											"http.method": request.method,
+											"http.url": stripSearchAndHash(request.url),
+											"http.status": response.status,
+										},
+									),
+									exit,
+								);
+							}
+							return Effect.andThen(
+								Effect.annotateLogs(Effect.log("Sent HTTP response"), {
+									...annotations,
+									"http.method": request.method,
+									"http.url": stripSearchAndHash(request.url),
+									"http.status": exit.value.status,
+								}),
+								exit,
+							);
+						}),
+						"http.span",
+					);
+				}).pipe(HttpMiddleware.withLoggerDisabled),
+			);
 
 		return {
-			cookie: (httpEffect, { credential }) =>
-				Effect.flatMap(resolveWithToken(credential), (user) =>
-					Effect.provideService(httpEffect, CurrentUser, user),
-				),
-			apiKey: (httpEffect, { credential }) =>
-				Effect.flatMap(resolveWithToken(credential), (user) =>
-					Effect.provideService(httpEffect, CurrentUser, user),
-				),
+			cookie: (httpEffect, { credential }) => authenticate(httpEffect, credential),
+			apiKey: (httpEffect, { credential }) => authenticate(httpEffect, credential),
 		};
 	}),
 );
