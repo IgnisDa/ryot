@@ -557,6 +557,7 @@
         "@effect/vitest": "4.0.0-beta.107",
         "@faker-js/faker": "10.4.0",
         "@ryot/app-backend": "workspace:*",
+        "@ryot/app-client": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/fitness-plugin": "workspace:*",
         "@ryot/media-plugin": "workspace:*",
