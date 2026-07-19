@@ -6,10 +6,10 @@ import { details } from "./hardcover";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "Hardcover Details",
+	requiredSystemConfigKeys: [],
 	slug: "book.hardcover.details",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["hardcoverApiKey"],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });

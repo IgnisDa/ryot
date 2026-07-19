@@ -6,10 +6,10 @@ import { search } from "./openlibrary";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "OpenLibrary Search",
-	slug: "book.openlibrary.search",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
+	slug: "book.openlibrary.search",
 });
 
 export default defineProvider({ manifest, operation: "search", run: search.run });
