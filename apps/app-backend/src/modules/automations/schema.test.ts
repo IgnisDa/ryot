@@ -11,7 +11,7 @@ const dialect = new PgDialect();
 it("defines generated, user-owned notification subscription state", () => {
 	const config = getTableConfig(notificationSubscriptionState);
 	const id = config.columns.find((column) => column.name === "id");
-	const userId = config.columns.find((column) => column.name === "userId");
+	const userId = config.columns.find((column) => column.name === "user_id");
 	expect(id).toMatchObject({ notNull: true, primary: true });
 	expect(id?.defaultFn).toBeTypeOf("function");
 	expect(userId?.notNull).toBe(true);
@@ -26,12 +26,12 @@ it("uniquely identifies notification state by user and signal schema", () => {
 	expect(uniqueIndexes[0]?.config.name).toBe("notification_subscription_state_user_signal_unique");
 	expect(
 		uniqueIndexes[0]?.config.columns.map((column) => ("name" in column ? column.name : null)),
-	).toEqual(["userId", "signalSchemaSlug"]);
+	).toEqual(["user_id", "signal_schema_slug"]);
 });
 
 it("stores one non-null durable rule attribution without a foreign key", () => {
 	const config = getTableConfig(subscriptionRun);
-	const ruleIdColumns = config.columns.filter((column) => column.name === "ruleId");
+	const ruleIdColumns = config.columns.filter((column) => column.name === "rule_id");
 	expect(ruleIdColumns).toHaveLength(1);
 	expect(ruleIdColumns[0]?.notNull).toBe(true);
 	expect(config.foreignKeys).toHaveLength(2);
@@ -48,6 +48,6 @@ it("constrains run status and lifecycle-versus-signal references", () => {
 	);
 	expect(checks.get("subscription_run_status_check")).toContain("queued");
 	expect(checks.get("subscription_run_status_check")).toContain("skipped");
-	expect(checks.get("subscription_run_source_check")).toContain("recordId");
-	expect(checks.get("subscription_run_source_check")).toContain("signalId");
+	expect(checks.get("subscription_run_source_check")).toContain("record_id");
+	expect(checks.get("subscription_run_source_check")).toContain("signal_id");
 });
