@@ -2,7 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import clsx from "clsx";
 import { Cause } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { router, Slot, useLocalSearchParams, usePathname } from "expo-router";
+import { router, Slot, useGlobalSearchParams, usePathname } from "expo-router";
 import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -566,7 +566,7 @@ export function WorkspaceShell() {
 	const pluginsResult = useAtomValue(pluginsAtom);
 	const savedViewsResult = useAtomValue(savedViewsAtom);
 	const collectionsResult = useAtomValue(collectionsAtom);
-	const params = useLocalSearchParams<{ workspace?: string }>();
+	const params = useGlobalSearchParams<{ workspace?: string }>();
 	const routeWorkspace = Array.isArray(params.workspace) ? params.workspace[0] : params.workspace;
 	const activeKey = getActiveNavigationKey(pathname);
 	const [mobileSheet, setMobileSheet] = useState<"more" | "workspace" | "account" | null>(null);
