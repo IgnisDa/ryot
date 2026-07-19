@@ -13,7 +13,7 @@ import { Activity, Workflow } from "effect/unstable/workflow";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { withoutSchemaServices } from "#lib/shared/schema";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 import {
 	LifecycleDispatch,
 	type LifecyclePopulationContext,
@@ -85,9 +85,9 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	const repository = yield* EntitiesRepository;
 
 	return yield* Activity.make({
-		error: withoutSchemaServices(SandboxRunError),
+		error: SandboxRunError satisfies DurableSchema,
 		name: "check-existing-entity",
-		success: withoutSchemaServices(Schema.NullOr(ListedEntity)),
+		success: Schema.NullOr(ListedEntity) satisfies DurableSchema,
 		execute: runWithDb(
 			repository.findGlobalEntityByExternalId({
 				externalId: payload.externalId,
@@ -100,8 +100,8 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 
 const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (value: unknown) {
 	return yield* Activity.make({
-		error: withoutSchemaServices(SandboxRunError),
-		success: withoutSchemaServices(ValidatedEntityDetails),
+		error: SandboxRunError satisfies DurableSchema,
+		success: ValidatedEntityDetails satisfies DurableSchema,
 		name: "validate-entity-details",
 		execute: Effect.gen(function* () {
 			const details = yield* decodeProviderDetailsResult(value).pipe(
@@ -132,9 +132,9 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
-		error: withoutSchemaServices(SandboxRunError),
+		error: SandboxRunError satisfies DurableSchema,
 		name: "upsert-root-entity",
-		success: withoutSchemaServices(ProviderEntitySaveEnvelope),
+		success: ProviderEntitySaveEnvelope satisfies DurableSchema,
 		// A brand-new or not-yet-populated entity is written with a null populatedAt so
 		// children can reference it before the final stamp activity; refresh preserves an
 		// already-populated entity until then. Initial population replaces the skeleton.
@@ -164,8 +164,8 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
-		error: withoutSchemaServices(SandboxRunError),
-		success: withoutSchemaServices(RelationshipSyncEnvelope),
+		error: SandboxRunError satisfies DurableSchema,
+		success: RelationshipSyncEnvelope satisfies DurableSchema,
 		name: `sync-related-entity-group:${index}:${group.relationshipSchemaSlug}`,
 		execute: runInTransaction(
 			Effect.gen(function* () {
@@ -188,8 +188,8 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
-		error: withoutSchemaServices(SandboxRunError),
-		success: withoutSchemaServices(ChildEntitySetWriteResult),
+		error: SandboxRunError satisfies DurableSchema,
+		success: ChildEntitySetWriteResult satisfies DurableSchema,
 		name: `write-child-entity-set:${scope.parentExternalId}`,
 		execute: runInTransaction(
 			writeChildEntitySet({
@@ -212,9 +212,9 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
-		error: withoutSchemaServices(SandboxRunError),
+		error: SandboxRunError satisfies DurableSchema,
 		name: "stamp-root-populated-at",
-		success: withoutSchemaServices(ProviderEntitySaveEnvelope),
+		success: ProviderEntitySaveEnvelope satisfies DurableSchema,
 		execute: runInTransaction(
 			Effect.gen(function* () {
 				const populatedAt = yield* DateTime.nowAsDate;
@@ -239,7 +239,7 @@ const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function*
 	const redis = yield* RedisService;
 
 	yield* Activity.make({
-		error: withoutSchemaServices(SandboxRunError),
+		error: SandboxRunError satisfies DurableSchema,
 		name: "publish-primary-entity",
 		execute: redis
 			.publish(redisKeys.entityUpdatedChannel, encodeEntityUpdatedMessage(entity.id, "populated"))
@@ -529,9 +529,9 @@ export const ProviderEntityPopulationPayload = Schema.Struct({
 export type ProviderEntityPopulationPayload = typeof ProviderEntityPopulationPayload.Type;
 
 export const ProviderEntityPopulationWorkflow = Workflow.make("ProviderEntityPopulationWorkflow", {
-	success: withoutSchemaServices(ListedEntity),
-	error: withoutSchemaServices(SandboxRunError),
-	payload: withoutSchemaServices(ProviderEntityPopulationPayload),
+	success: ListedEntity satisfies DurableSchema,
+	error: SandboxRunError satisfies DurableSchema,
+	payload: ProviderEntityPopulationPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
