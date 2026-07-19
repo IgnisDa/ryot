@@ -47,10 +47,11 @@ const assetItemSchema: AppPropertyDefinition = {
 			type: "enum",
 			label: "Type",
 			description: "Type",
-			options: ["s3", "remote"],
 			validation: { required: true },
+			options: ["local", "s3", "remote"],
 		},
 	},
+	validation: { asset: true },
 };
 
 const assetArrayField = (label: string, description: string) =>

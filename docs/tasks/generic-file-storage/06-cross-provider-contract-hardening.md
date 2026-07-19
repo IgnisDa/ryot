@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Generic File Storage](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -20,18 +20,18 @@ introduce compatibility wrappers or a parallel abstraction.
 
 ## Acceptance criteria
 
-- [ ] Runtime property schemas and plugin-owned image/video schemas accept exactly `remote`, `s3`, and `local` asset variants where applicable
-- [ ] Query, import, and stored-property fixtures cover local assets without reintroducing provider-specific image or video arrays
-- [ ] One shared upload policy defines the 50 MiB limit and all approved document, image, and video MIME-to-extension mappings
-- [ ] Empty and octet-stream declarations fall back only to recognized safe filename extensions
-- [ ] Local signatures bind method, key, and expiry, use constant-time verification, and never expose or log the signing secret
-- [ ] Local path handling rejects traversal, absolute keys, namespace mismatches, malformed encodings, and symlink escape
-- [ ] Local GET, HEAD, valid ranges, invalid ranges, and media response headers are covered behaviorally
-- [ ] Completion retries, wrong-user completion, missing objects, provider-unavailable requests, oversized objects, and metadata mismatch have typed outcomes
-- [ ] Claim and cleanup races plus duplicate cron dispatches remain safe across both providers
-- [ ] End-to-end suites exercise permanent and temporary local and S3 flows against one backend configured with both providers
-- [ ] End-to-end suites verify authentication, invalid signatures, unsupported content types, size rejection, generic downloads, and removed route behavior
-- [ ] No S3-specific route, handler, service, schema, or test terminology from the old flow remains in active backend, contract, or test code
+- [x] Runtime property schemas and plugin-owned image/video schemas accept exactly `remote`, `s3`, and `local` asset variants where applicable
+- [x] Query, import, and stored-property fixtures cover local assets without reintroducing provider-specific image or video arrays
+- [x] One shared upload policy defines the 50 MiB limit and all approved document, image, and video MIME-to-extension mappings
+- [x] Empty and octet-stream declarations fall back only to recognized safe filename extensions
+- [x] Local signatures bind method, key, and expiry, use constant-time verification, and never expose or log the signing secret
+- [x] Local path handling rejects traversal, absolute keys, namespace mismatches, malformed encodings, and symlink escape
+- [x] Local GET, HEAD, valid ranges, invalid ranges, and media response headers are covered behaviorally
+- [x] Completion retries, wrong-user completion, missing objects, provider-unavailable requests, oversized objects, and metadata mismatch have typed outcomes
+- [x] Claim and cleanup races plus duplicate cron dispatches remain safe across both providers
+- [x] End-to-end suites exercise permanent and temporary local and S3 flows against one backend configured with both providers
+- [x] End-to-end suites verify authentication, invalid signatures, unsupported content types, size rejection, generic downloads, and removed route behavior
+- [x] No S3-specific route, handler, service, schema, or test terminology from the old flow remains in active backend, contract, or test code
 
 ## User stories addressed
 

@@ -93,14 +93,14 @@ describe("Workouts E2E", () => {
 					endedAt: "2026-04-27T11:00:00Z",
 					startedAt: "2026-04-27T10:00:00Z",
 					videos: [{ type: "s3", key: "workouts/video.mp4" }],
-					images: [{ type: "remote", url: "https://example.com/workout.jpg" }],
+					images: [{ type: "local", key: "permanent/workout.jpg" }],
 				},
 			});
 			const entity = yield* getEntity(client, workout.id);
 
 			expect(entity.properties).toMatchObject({
 				videos: [{ type: "s3", key: "workouts/video.mp4" }],
-				images: [{ type: "remote", url: "https://example.com/workout.jpg" }],
+				images: [{ type: "local", key: "permanent/workout.jpg" }],
 			});
 		}),
 	);

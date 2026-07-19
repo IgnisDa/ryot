@@ -1,10 +1,10 @@
+import { UPLOAD_MAX_FILE_BYTES } from "@ryot/contract/modules/uploads/upload-policy";
 import { Data, Effect, FileSystem, Path } from "effect";
 import { unzipRaw } from "unzipit";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 
 const MAX_ZIP_ENTRY_COUNT = 100;
-const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_ZIP_ENTRY_BYTES = 25 * 1024 * 1024;
 const MAX_ZIP_TOTAL_BYTES = 100 * 1024 * 1024;
 const ZIP_TEMP_DIRECTORY_PREFIX = "ryot-import-zip-";
@@ -103,7 +103,7 @@ export const readImportFile = Effect.fn("imports.readImportFile")(function* (saf
 
 export const readImportFileBytes = Effect.fn("imports.readImportFileBytes")(function* (
 	safePath: string,
-	maxBytes = MAX_FILE_BYTES,
+	maxBytes = UPLOAD_MAX_FILE_BYTES,
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	const info = yield* fs.stat(safePath).pipe(Effect.mapError(() => "Could not read import file"));
@@ -140,9 +140,9 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 	const config = yield* AppConfig;
 	const fs = yield* FileSystem.FileSystem;
 	const fileInfo = yield* fs.stat(safePath);
-	if (Number(fileInfo.size) > MAX_FILE_BYTES) {
+	if (Number(fileInfo.size) > UPLOAD_MAX_FILE_BYTES) {
 		return yield* zipArchiveError(
-			`Import file exceeds maximum allowed size of ${MAX_FILE_BYTES} bytes (file is ${fileInfo.size} bytes)`,
+			`Import file exceeds maximum allowed size of ${UPLOAD_MAX_FILE_BYTES} bytes (file is ${fileInfo.size} bytes)`,
 		);
 	}
 
