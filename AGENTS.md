@@ -12,6 +12,7 @@
 - Quote shell paths with single quotes, for example `git add 'path/file.ts'`.
 - Check backend code with `bun turbo --filter=@ryot/app-backend check`.
 - Test backend code with `bun turbo --filter=@ryot/app-backend test`.
+- Use `@explore` agents only for bounded read-only exploration; they must not make decisions.
 
 ## Engineering
 
