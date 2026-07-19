@@ -2,6 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot/contract/errors";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Effect, Layer, Ref, FileSystem } from "effect";
 import { assert } from "vitest";
 
@@ -16,7 +17,7 @@ import { ScriptGarbageCollector } from "./script-garbage-collector";
 import { fixtureManifest } from "./test-support";
 import type { NormalizedPlugin } from "./types";
 
-const hash = (value: string) => new Bun.CryptoHasher("sha256").update(value).digest("hex");
+const hash = sha256Hex;
 
 const withCollector = <A, E, R>(
 	effect: Effect.Effect<A, E, R | ScriptGarbageCollector>,

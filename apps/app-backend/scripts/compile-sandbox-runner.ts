@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
+import { createSha256Hasher } from "@ryot/ts-utils/crypto";
 import { Data, Effect, Layer, Ref, Schema, FileSystem, Path } from "effect";
 
 class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
@@ -64,7 +65,7 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 	});
 
 const fingerprint = (files: Readonly<Record<string, string>>) => {
-	const hasher = new Bun.CryptoHasher("sha256");
+	const hasher = createSha256Hasher();
 	for (const [path, source] of Object.entries(files).sort(([left], [right]) =>
 		left.localeCompare(right),
 	)) {

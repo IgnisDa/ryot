@@ -1,6 +1,7 @@
 import { DbError, unknownToMessage } from "@ryot/contract/errors";
 import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
 import { type AutomationRuleId, EventSchemaSlug } from "@ryot/contract/schema/brands";
+import { sha256Base64Url } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, Result, Layer, Match, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -18,9 +19,7 @@ import { SubscriptionExecutionWorkflow } from "./subscription-execution-workflow
 const decodeProperties = Schema.decodeUnknownEffect(AutomationProperties);
 
 export const lifecycleWorkflowExecutionId = (occurrenceId: string, ruleId: AutomationRuleId) =>
-	`lifecycle_${new Bun.CryptoHasher("sha256")
-		.update(stableStringify([occurrenceId, ruleId]))
-		.digest("base64url")}`;
+	`lifecycle_${sha256Base64Url(stableStringify([occurrenceId, ruleId]))}`;
 
 const sourceSnapshot = <A>(source: { after?: A; before?: A }): A => {
 	const snapshot = source.after ?? source.before;

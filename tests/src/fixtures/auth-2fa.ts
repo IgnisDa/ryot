@@ -1,5 +1,4 @@
-import { createHmac } from "node:crypto";
-
+import { hmacDigest } from "@ryot/ts-utils/crypto";
 import { base32 } from "rfc4648";
 
 import { requireNonEmptyArray, requirePresent, requireString } from "~/support/assertions";
@@ -39,7 +38,7 @@ function generateTotpCode(secret: string, timeOffset = 0) {
 	counterBuffer.writeUInt32BE(Math.floor(counter / 2 ** 32), 0);
 	counterBuffer.writeUInt32BE(counter >>> 0, 4);
 
-	const hmac = createHmac("sha1", key).update(counterBuffer).digest();
+	const hmac = hmacDigest("sha1", key, counterBuffer);
 	const offset = (hmac[hmac.length - 1] ?? 0) & 0x0f;
 	const byte0 = hmac[offset] ?? 0;
 	const byte1 = hmac[offset + 1] ?? 0;

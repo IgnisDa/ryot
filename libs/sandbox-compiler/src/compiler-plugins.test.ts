@@ -1,13 +1,10 @@
 import { expect, it } from "@effect/vitest";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Effect } from "effect";
 
 import { compilePluginSandboxEntries, compilePluginSandboxSourceEntries } from "./compiler-plugins";
 
-const digest = (value: string) => {
-	const hasher = new Bun.CryptoHasher("sha256");
-	hasher.update(value);
-	return hasher.digest("hex");
-};
+const digest = sha256Hex;
 
 it.effect(
 	"compiles plugin scripts in deterministic order with package-local shared modules",

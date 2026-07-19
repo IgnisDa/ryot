@@ -6,6 +6,7 @@ import type {
 	ProviderDetailsChildEntity,
 	ProviderDetailsRelatedEntityGroup,
 } from "@ryot/sandbox-sdk/provider";
+import { sha256Base64Url } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { asRecord } from "@ryot/ts-utils/predicates";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
@@ -276,7 +277,7 @@ const toLifecycleRelationshipSnapshot = (snapshot: RelationshipMutationSnapshot)
 });
 
 const deterministicId = (prefix: string, parts: ReadonlyArray<string>) =>
-	`${prefix}_${new Bun.CryptoHasher("sha256").update(stableStringify(parts)).digest("base64url")}`;
+	`${prefix}_${sha256Base64Url(stableStringify(parts))}`;
 
 const relationshipSnapshot = (outcome: RelationshipMutationOutcome) =>
 	outcome.after ?? outcome.before;

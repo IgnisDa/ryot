@@ -1,8 +1,10 @@
+import { hmacSha256Base64Url } from "@ryot/ts-utils/crypto";
+
 const separator = ".";
 const textEncoder = new TextEncoder();
 
 const createSignature = (secret: string, executionId: string, userId: string) =>
-	new Bun.CryptoHasher("sha256", secret).update(`${executionId}:${userId}`).digest("base64url");
+	hmacSha256Base64Url(secret, `${executionId}:${userId}`);
 
 const signaturesMatch = (actual: string, expected: string) => {
 	const actualBytes = textEncoder.encode(actual);
