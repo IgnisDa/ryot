@@ -341,7 +341,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							invalidateProcess(processes.pool, worker).pipe(Effect.orDie),
 						);
 					}
-					yield* Queue.takeAll(worker.responseQueue).pipe(Effect.asVoid);
+					yield* Queue.poll(worker.responseQueue).pipe(Effect.asVoid);
 
 					const workflow = isWorkflowSandboxMetadata(input.metadata);
 					const timeoutMs = workflow
