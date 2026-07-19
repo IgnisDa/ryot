@@ -6,7 +6,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -134,10 +134,10 @@ const globalRelationshipLockKey = (input: GlobalRelationshipListInput) =>
 		? `self:${input.relationshipSchemaSlug}`
 		: `anchored:${input.direction}:${input.anchorEntityId}:${input.relationshipSchemaSlug}`;
 
-export class RelationshipsRepository extends Effect.Service<RelationshipsRepository>()(
+export class RelationshipsRepository extends Context.Service<RelationshipsRepository>()(
 	"RelationshipsRepository",
 	{
-		sync: () => {
+		make: Effect.sync(() => {
 			const findRelationshipProperties = Effect.fn(
 				"RelationshipsRepository.findRelationshipProperties",
 			)(function* (input: {
@@ -329,6 +329,8 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				listEnabledOwnersForSubject,
 				listUserRelationshipsForEntity,
 			};
-		},
+		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

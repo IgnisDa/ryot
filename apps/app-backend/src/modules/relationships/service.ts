@@ -7,7 +7,7 @@ import type {
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
@@ -218,10 +218,10 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 	},
 );
 
-export class RelationshipsService extends Effect.Service<RelationshipsService>()(
+export class RelationshipsService extends Context.Service<RelationshipsService>()(
 	"RelationshipsService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const repository = yield* RelationshipsRepository;
 
@@ -352,4 +352,6 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 			};
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
