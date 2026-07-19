@@ -48,7 +48,7 @@ const activeElementAttribute = (attribute: string) =>
 const modalSearch = () => dialog().getByLabel("Search providers");
 const dialog = () => page.getByRole("dialog", { name: MODAL_LABEL });
 const fab = () => page.getByRole("button", { name: "Add to this view" });
-const closeModal = () => dialog().getByRole("button", { name: "Close" });
+const closeModal = () => dialog().getByRole("button", { name: /^(Close|Cancel)$/ });
 const headerAdd = () => page.getByRole("button", { name: "Add", exact: true });
 const providerChip = () => dialog().getByRole("radio", { name: PROVIDER_NAME });
 const pageSearch = () => page.getByRole("searchbox", { name: `Search ${VIEW_NAME}` });
