@@ -4,7 +4,7 @@ import {
 	extractMetadataLookupBaseTitle,
 	extractMetadataLookupSeasonEpisode,
 	hasMetadataLookupShowIndicators,
-} from "../shared/title-parsing";
+} from "../lib/title-parsing";
 import { parseCsvText } from "./csv";
 import { parseDateTime } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";

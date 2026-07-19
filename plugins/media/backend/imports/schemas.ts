@@ -2,7 +2,7 @@ import { genericImportFailureSchema } from "@ryot-app/sandbox-sdk/imports";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { Schema } from "@ryot-app/sandbox-sdk/workflow";
 
-import { MediaImportPopulationWorkflowOutput } from "../workflows/schemas";
+import { MediaImportPopulationWorkflowOutput } from "../contracts/workflows";
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });

@@ -1,0 +1,83 @@
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import { describe, expect, it } from "vitest";
+
+import { details, manifest, search } from "./shared";
+
+type VndbHost = SandboxHost<typeof manifest.capabilities>;
+
+const httpSuccess = (body: unknown) =>
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
+
+const makeHost = (httpCall: VndbHost["httpCall"]) => defineSandboxTestHost(manifest, { httpCall });
+
+const execution = { metadata: {}, sandboxScriptId: "script_test" };
+
+describe("person.vndb sandbox script", () => {
+	it("maps producer search hits and drops entries missing an id or name", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				count: 1,
+				more: false,
+				results: [{ id: "p1", name: "KID" }, { id: "p2", name: "" }, { name: "No Id" }],
+			}),
+		);
+
+		return runSandboxTestScript(
+			search,
+			{ query: "kid", page: 1, pageSize: 20 },
+			host,
+			execution,
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([{ title: "KID", externalId: "p1" }]);
+				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
+	});
+
+	it("maps producer details with cleaned aliases", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				results: [
+					{
+						id: "p1",
+						name: "KID",
+						description: "A game developer.",
+						aliases: ["Kindle Imagine Develop", "", "  "],
+					},
+				],
+			}),
+		);
+
+		return runSandboxTestScript(details, { externalId: "p1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("KID");
+				expect(result.relatedEntityGroups).toBeUndefined();
+				expect(result.properties).toEqual({
+					images: [],
+					sourceUrl: "https://vndb.org/p1",
+					description: "A game developer.",
+					alternateNames: ["Kindle Imagine Develop"],
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
+	});
+
+	it("rejects an externalId that is not a VNDB producer id", async () => {
+		const host = makeHost(() => httpSuccess({ results: [] }));
+		try {
+			await Effect.runPromise(
+				runSandboxTestScript(details, { externalId: "v17" }, host, execution),
+			);
+			expect.unreachable("expected details to reject a non-producer externalId");
+		} catch (error: unknown) {
+			expect(error).toBeInstanceOf(Error);
+		}
+	});
+});

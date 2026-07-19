@@ -1,4 +1,4 @@
-import type { MetadataLookupResult } from "@ryot-app/media-plugin/operations/schemas";
+import type { MetadataLookupResult } from "@ryot-app/media-plugin/contracts/operations";
 
 import { storage } from "#imports";
 

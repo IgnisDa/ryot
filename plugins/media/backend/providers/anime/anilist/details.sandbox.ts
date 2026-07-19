@@ -1,0 +1,15 @@
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+
+import { details } from "./shared";
+
+export const manifest = defineManifest({
+	name: "Anilist Details",
+	kind: "provider",
+	slug: "anime.anilist.details",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getUserPreferences"],
+});
+
+export default defineProvider({ manifest, operation: "details", run: details.run });
