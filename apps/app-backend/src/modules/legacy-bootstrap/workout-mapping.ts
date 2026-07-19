@@ -1,35 +1,13 @@
+import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
 import { quoteSqlString } from "./shared";
 
 // V1 Option<Decimal> is a rust_decimal JSON string; cast to float8.
 const buildDecimalStatField = (statAlias: string, field: string) =>
 	`NULLIF(${statAlias} -> 'statistic' ->> '${field}', '')::float8`;
 
-// Renames V1 snake_case EntityAssets keys to V2 camelCase and lowercases the remote-video source
-// enum (V1 "Youtube"/"Dailymotion" -> V2 "youtube"/"dailymotion").
-const buildAssetsConversionSql = (assetsExpr: string) => `CASE
-	WHEN ${assetsExpr} IS NOT NULL
-		AND ${assetsExpr} <> 'null'::jsonb
-	THEN jsonb_build_object(
-		's3Images',     COALESCE(${assetsExpr} -> 's3_images', '[]'::jsonb),
-		's3Videos',     COALESCE(${assetsExpr} -> 's3_videos', '[]'::jsonb),
-		'remoteImages', COALESCE(${assetsExpr} -> 'remote_images', '[]'::jsonb),
-		'remoteVideos', COALESCE(
-			(
-				SELECT jsonb_agg(jsonb_build_object(
-					'url',    rv ->> 'url',
-					'source', lower(rv ->> 'source')
-				))
-				FROM jsonb_array_elements(${assetsExpr} -> 'remote_videos') AS rv
-			),
-			'[]'::jsonb
-		)
-	)
-	ELSE NULL
-END`;
-
 // Workout templates use the same set structure as workouts but a simplified per-set shape: the
-// per-set statistics/totals/timers/personal_bests and per-exercise lot/unit_system/assets/total
-// are dropped.
+// per-set statistics/totals/timers/personal_bests and per-exercise lot/unit_system/total are
+// dropped while per-exercise media is preserved.
 export const buildWorkoutTemplateMigrationSql = (workoutTemplateEntitySchemaSlug: string) => `
 DO $$
 DECLARE
@@ -74,7 +52,8 @@ BEGIN
 			${quoteSqlString(workoutTemplateEntitySchemaSlug)},
 			jsonb_strip_nulls(jsonb_build_object(
 				'comment',  NULLIF(wt.information ->> 'comment', ''),
-				'assets',   ${buildAssetsConversionSql("wt.information -> 'assets'")},
+				'images',   ${buildLegacyImagesSql("wt.information -> 'assets'")},
+				'videos',   ${buildLegacyVideosSql("wt.information -> 'assets'")},
 				'supersets', COALESCE(wt.information -> 'supersets', '[]'::jsonb),
 				'exercises', COALESCE(
 					(
@@ -83,6 +62,8 @@ BEGIN
 								'exerciseId',    ex.value ->> 'id',
 								'exerciseOrder', (ex.ordinality - 1)::int,
 								'notes',         COALESCE(ex.value -> 'notes', '[]'::jsonb),
+								'images',        ${buildLegacyImagesSql("ex.value -> 'assets'")},
+								'videos',        ${buildLegacyVideosSql("ex.value -> 'assets'")},
 								'sets', COALESCE(
 									(
 										SELECT jsonb_agg(
@@ -180,7 +161,8 @@ BEGIN
 				'endedAt',       to_char(w.end_time   AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
 				'comment',       NULLIF(w.information ->> 'comment', ''),
 				'caloriesBurnt', w.calories_burnt,
-				'assets',        ${buildAssetsConversionSql("w.information -> 'assets'")},
+				'images',        ${buildLegacyImagesSql("w.information -> 'assets'")},
+				'videos',        ${buildLegacyVideosSql("w.information -> 'assets'")},
 				'supersets',     CASE
 					WHEN jsonb_array_length(COALESCE(w.information -> 'supersets', '[]'::jsonb)) > 0
 					THEN w.information -> 'supersets'
@@ -263,7 +245,8 @@ BEGIN
 				'restTimerStartedAt', s.value ->> 'rest_timer_started_at',
 				'personalBests',      s.value -> 'personal_bests',
 				'unitSystem',         lower(ex.value ->> 'unit_system'),
-				'exerciseAssets',     ${buildAssetsConversionSql("ex.value -> 'assets'")},
+				'images',              ${buildLegacyImagesSql("ex.value -> 'assets'")},
+				'videos',              ${buildLegacyVideosSql("ex.value -> 'assets'")},
 				'reps',               ${buildDecimalStatField("s.value", "reps")},
 				'pace',               ${buildDecimalStatField("s.value", "pace")},
 				'weight',             ${buildDecimalStatField("s.value", "weight")},

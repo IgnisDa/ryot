@@ -35,7 +35,7 @@ export const stringArrayField = (label: string, description: string) =>
 		items: { type: "string", label: "Item", description: "Item" },
 	}) as const;
 
-const imageItemSchema: AppPropertyDefinition = {
+const assetItemSchema: AppPropertyDefinition = {
 	label: "Item",
 	type: "object",
 	description: "Item",
@@ -53,11 +53,10 @@ const imageItemSchema: AppPropertyDefinition = {
 	},
 };
 
+const assetArrayField = (label: string, description: string) =>
+	({ label, description, type: "array", items: assetItemSchema }) as const;
+
 export const imagesField = (description: string) =>
-	({
-		description,
-		type: "array",
-		label: "Images",
-		translatable: true,
-		items: imageItemSchema,
-	}) as const;
+	({ ...assetArrayField("Images", description), translatable: true }) as const;
+
+export const videosField = (description: string) => assetArrayField("Videos", description);
