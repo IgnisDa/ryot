@@ -10,27 +10,55 @@ import {
 } from "../../tests/client/show/overview-fixture";
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
-import { ShowOverview, ShowWatchProvidersSection } from "./overview";
+import {
+	MediaOverview,
+	MediaOverviewRelations,
+	MediaWatchProvidersSection,
+	type MediaOverviewRelationsRender,
+} from "./overview";
+import { mediaRelationsAreEmpty, type MediaOverviewState } from "./overview-state";
 import { watchProviderGroups, watchProviderLink } from "./watch-providers";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
 
+const relationsRender: MediaOverviewRelationsRender<Overview> = ({ divided, overview }) => (
+	<MediaOverviewRelations
+		compact
+		divided={divided}
+		overview={overview}
+		onViewAllPeople={() => undefined}
+	/>
+);
+
+type Overview = ReturnType<typeof decodeShowOverview>;
+
 const readyOverview = decodeShowOverview();
+
+const overviewScreen = (input: {
+	readonly media?: ReturnType<typeof decodeShowSummary>;
+	readonly overview: MediaOverviewState<Overview>;
+	readonly refreshOverview?: () => void;
+}) => (
+	<MediaOverview
+		compact
+		overview={input.overview}
+		relations={relationsRender}
+		isEmpty={mediaRelationsAreEmpty}
+		media={input.media ?? decodeShowSummary()}
+		refreshOverview={input.refreshOverview ?? (() => undefined)}
+		loadingDetail="Fetching the cast, companies and recommendations for this show."
+	/>
+);
 
 afterEach(() => {
 	document.body.innerHTML = "";
 });
 
-describe("ShowOverview", () => {
+describe("MediaOverview", () => {
 	it("renders the gallery, cast, companies and recommendations from a ready overview", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<ShowOverview
-				compact
-				show={decodeShowSummary()}
-				refreshOverview={() => undefined}
-				overview={{ status: "ready", overview: readyOverview }}
-			/>,
+			overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
 		);
 
 		expect(container.textContent).toContain("Images");
@@ -46,12 +74,7 @@ describe("ShowOverview", () => {
 	it("omits the cast, companies and recommendations sections when the overview has none", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<ShowOverview
-				compact
-				show={decodeShowSummary()}
-				refreshOverview={() => undefined}
-				overview={{ status: "ready", overview: emptyShowOverview() }}
-			/>,
+			overviewScreen({ overview: { status: "ready", overview: emptyShowOverview() } }),
 		);
 
 		expect(container.textContent).toContain("Images");
@@ -62,15 +85,15 @@ describe("ShowOverview", () => {
 	});
 
 	it("renders each offer group, the region attribution and the link for the region", () => {
-		const show = decodeShowSummary();
+		const media = decodeShowSummary();
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<ShowWatchProvidersSection
+			<MediaWatchProvidersSection
 				compact
 				region="US"
 				divided={false}
-				link={watchProviderLink(show, "US")}
-				groups={watchProviderGroups(show, "US")}
+				link={watchProviderLink(media, "US")}
+				groups={watchProviderGroups(media, "US")}
 			/>,
 		);
 
@@ -88,12 +111,10 @@ describe("ShowOverview", () => {
 	it("omits the watch providers section when the region carries none", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<ShowOverview
-				compact
-				refreshOverview={() => undefined}
-				show={decodeShowSummary({ watchProviders: null })}
-				overview={{ status: "ready", overview: readyOverview }}
-			/>,
+			overviewScreen({
+				media: decodeShowSummary({ watchProviders: null }),
+				overview: { status: "ready", overview: readyOverview },
+			}),
 		);
 
 		expect(container.textContent).not.toContain("Where to watch");
@@ -104,12 +125,7 @@ describe("ShowOverview", () => {
 	it("shows a loading notice while the overview is loading", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<ShowOverview
-				compact
-				show={decodeShowSummary()}
-				overview={{ status: "loading" }}
-				refreshOverview={() => undefined}
-			/>,
+			overviewScreen({ overview: { status: "loading" } }),
 		);
 
 		expect(container.textContent).toContain("Loading details...");
@@ -120,14 +136,12 @@ describe("ShowOverview", () => {
 		let refreshCount = 0;
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<ShowOverview
-				compact
-				show={decodeShowSummary()}
-				overview={{ status: "transport-error" }}
-				refreshOverview={() => {
+			overviewScreen({
+				overview: { status: "transport-error" },
+				refreshOverview: () => {
 					refreshCount += 1;
-				}}
-			/>,
+				},
+			}),
 		);
 
 		expect(container.textContent).toContain("Unable to load these details");

@@ -218,29 +218,29 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
-it.live("shows a kernel notice for an unsupported Media schema", () =>
+it.live("shows a kernel notice for a Media schema with no detail renderer", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const { token, email, password } = yield* createTestUser(apiUrl);
 		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
-		const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
+		const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
 		const provider = requirePresent(
 			schema.providers[0],
-			"Missing provider for built-in movie schema",
+			"Missing provider for built-in book schema",
 		);
-		const movie = yield* seedMediaEntity({
+		const book = yield* seedMediaEntity({
 			properties: {},
 			entitySchemaSlug: schema.id,
-			name: "Unsupported Media Movie",
+			name: "Unsupported Media Book",
 			providerId: provider.providerId,
-			externalId: `media-movie-${crypto.randomUUID()}`,
+			externalId: `media-book-${crypto.randomUUID()}`,
 		});
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${frontendUrl}/e/${movie.id}`);
-		yield* page.waitForURL(`${frontendUrl}/e/${movie.id}`);
+		yield* page.goto(`${frontendUrl}/e/${book.id}`);
+		yield* page.waitForURL(`${frontendUrl}/e/${book.id}`);
 
 		yield* page
 			.getByRole("heading", { level: 1, exact: true, name: "Entity page not registered" })

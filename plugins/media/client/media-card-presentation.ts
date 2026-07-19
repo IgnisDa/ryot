@@ -1,1 +1,1 @@
-export { mediaCardPresentation as default } from "./media-presentation";
+export { mediaCardPresentation as default } from "./media/presentation";

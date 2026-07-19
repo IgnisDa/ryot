@@ -21,14 +21,11 @@ import {
 	secondWatchDayRow,
 	specialsSeasonRow,
 } from "../../tests/client/show/activity-fixture";
+import { mediaActivitySpanLabel, mediaActivityTimeLabel } from "../media/activity-timeline";
 import {
 	showActivityCoverage,
-	showActivityDurationLabel,
 	showActivityEpisodesLabel,
-	showActivityError,
 	showActivityRowLabel,
-	showActivitySpanLabel,
-	showActivityTimeLabel,
 	showActivityView,
 	type ShowActivityRow,
 	type ShowActivityView,
@@ -247,7 +244,7 @@ describe("show activity summary", () => {
 		});
 
 		expect(view.summary.minutes).toEqual({ total: 136, missing: 0 });
-		expect(showActivityTimeLabel(view.summary)).toBe("2h 16m");
+		expect(mediaActivityTimeLabel(view.summary.minutes)).toBe("2h 16m");
 	});
 
 	it("marks the total as a floor when a watched episode has no known length", () => {
@@ -256,7 +253,7 @@ describe("show activity summary", () => {
 		});
 
 		expect(view.summary.minutes).toEqual({ total: 55, missing: 1 });
-		expect(showActivityTimeLabel(view.summary)).toBe("55m+");
+		expect(mediaActivityTimeLabel(view.summary.minutes)).toBe("55m+");
 	});
 
 	it("reports a bounded span as days across the tracked range", () => {
@@ -264,7 +261,7 @@ describe("show activity summary", () => {
 
 		assert(view.summary.span.bound === "full");
 		expect(view.summary.span.days).toBe(8);
-		expect(showActivitySpanLabel(view.summary)).toEqual({
+		expect(mediaActivitySpanLabel(view.summary.span)).toEqual({
 			label: "Span",
 			value: "8 days",
 			detail: "Nov 1 – Nov 8, 2025",
@@ -275,7 +272,7 @@ describe("show activity summary", () => {
 		const view = viewOf({ truncated: true });
 
 		expect(view.summary.span).toEqual({ bound: "partial", latest: "2025-11-08T12:00:00.000Z" });
-		expect(showActivitySpanLabel(view.summary)).toEqual({
+		expect(mediaActivitySpanLabel(view.summary.span)).toEqual({
 			label: "Latest",
 			detail: undefined,
 			value: "Nov 8, 2025",
@@ -334,19 +331,10 @@ describe("show activity labels", () => {
 		expect(review.body).toBeUndefined();
 		expect(review.rating).toBe(90);
 	});
-
-	it("formats recorded durations without padding empty units", () => {
-		expect([0, 59, 60, 66].map(showActivityDurationLabel)).toEqual(["0m", "59m", "1h", "1h 6m"]);
-	});
 });
 
 describe("show activity states", () => {
 	it("reports an empty record when nothing was ever tracked", () => {
 		expect(showActivityView(emptyShowActivity())).toBeUndefined();
-	});
-
-	it("separates transport failures from malformed activity", () => {
-		expect(showActivityError({ status: "transport-error" }).detail).toContain("your connection");
-		expect(showActivityError({ status: "malformed" }).detail).toContain("could not be displayed");
 	});
 });
