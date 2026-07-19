@@ -1,7 +1,7 @@
 import { assert, expect, it } from "@effect/vitest";
 import { RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
-import fitnessPlugin from "@ryot/plugin-fitness";
-import mediaPlugin from "@ryot/plugin-media";
+import fitnessPlugin from "@ryot/fitness-plugin";
+import mediaPlugin from "@ryot/media-fitness";
 import { Effect, Result } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
