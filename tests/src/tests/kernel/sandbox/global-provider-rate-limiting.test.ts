@@ -363,6 +363,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 				s3BucketName: ISOLATED_BUCKET_NAME,
 				label: "Global Rate Limit Backend A",
 				s3Endpoint: infrastructure.s3Endpoint,
+				extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
 			});
 			backendEnvB = buildBackendEnv({
 				port: backendPortB,
@@ -372,6 +373,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 				s3BucketName: ISOLATED_BUCKET_NAME,
 				label: "Global Rate Limit Backend B",
 				s3Endpoint: infrastructure.s3Endpoint,
+				extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
 			});
 			backendProcessA = spawnBackendProcess(backendEnvA);
 			await waitForHealthCheck(
