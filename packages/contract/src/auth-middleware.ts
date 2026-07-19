@@ -1,9 +1,27 @@
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { Context } from "effect";
+import { Context, Schema } from "effect";
 import { HttpApiMiddleware, HttpApiSchema, HttpApiSecurity } from "effect/unstable/httpapi";
 
-import { RateLimited, Unauthorized } from "./errors";
 import type { UserId } from "./schema/brands";
+
+const AuthUnauthorizedReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("write-blocked") }),
+	Schema.Struct({ code: Schema.Literal("admin-access-required") }),
+	Schema.Struct({ code: Schema.Literal("authentication-required") }),
+]);
+
+export class AuthUnauthorized extends Schema.TaggedError<AuthUnauthorized>()("AuthUnauthorized", {
+	reason: AuthUnauthorizedReason,
+}) {}
+
+const AuthRateLimitReason = Schema.Struct({
+	code: Schema.Literal("session-rate-limited"),
+	retryAfterMs: Schema.NullOr(Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
+});
+
+export class AuthRateLimited extends Schema.TaggedError<AuthRateLimited>()("AuthRateLimited", {
+	reason: AuthRateLimitReason,
+}) {}
 
 export type CachedUserPreferences = {
 	readonly allowNsfw: boolean;
@@ -56,8 +74,8 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
 >()("AuthMiddleware", {
 	security: { apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }) },
 	error: [
-		Unauthorized.pipe(HttpApiSchema.status(401)),
-		RateLimited.pipe(HttpApiSchema.status(429)),
+		AuthUnauthorized.pipe(HttpApiSchema.status(401)),
+		AuthRateLimited.pipe(HttpApiSchema.status(429)),
 	],
 }) {}
 
@@ -65,6 +83,6 @@ export class AdminMiddleware extends HttpApiMiddleware.Service<
 	AdminMiddleware,
 	{ provides: AdminAccess }
 >()("AdminMiddleware", {
-	error: Unauthorized.pipe(HttpApiSchema.status(401)),
+	error: AuthUnauthorized.pipe(HttpApiSchema.status(401)),
 	security: { adminToken: HttpApiSecurity.apiKey({ in: "header", key: "Admin-Access-Token" }) },
 }) {}

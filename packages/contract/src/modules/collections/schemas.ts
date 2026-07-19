@@ -8,6 +8,45 @@ import {
 	SandboxProviderId,
 } from "../../schema/brands";
 
+const CollectionBadRequestReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("circular-membership") }),
+	Schema.Struct({ code: Schema.Literal("membership-event-failed") }),
+	Schema.Struct({ code: Schema.Literal("name-required"), field: Schema.Literal("name") }),
+	Schema.Struct({
+		paths: Schema.Array(Schema.Array(Schema.String)),
+		code: Schema.Literal("invalid-collection-properties"),
+	}),
+	Schema.Struct({
+		code: Schema.Literal("invalid-membership-schema"),
+		field: Schema.Literal("membershipPropertiesSchema"),
+		paths: Schema.Array(Schema.Array(Schema.String)),
+	}),
+	Schema.Struct({
+		paths: Schema.Array(Schema.Array(Schema.String)),
+		code: Schema.Literal("invalid-membership-properties"),
+	}),
+]);
+
+const CollectionNotFoundReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("collection-not-found"), collectionId: EntityId }),
+	Schema.Struct({ code: Schema.Literal("entity-not-found"), entityId: EntityId }),
+	Schema.Struct({
+		entityId: EntityId,
+		collectionId: EntityId,
+		code: Schema.Literal("membership-not-found"),
+	}),
+]);
+
+export class CollectionBadRequest extends Schema.TaggedError<CollectionBadRequest>()(
+	"CollectionBadRequest",
+	{ reason: CollectionBadRequestReason },
+) {}
+
+export class CollectionNotFound extends Schema.TaggedError<CollectionNotFound>()(
+	"CollectionNotFound",
+	{ reason: CollectionNotFoundReason },
+) {}
+
 export const CollectionResponse = Schema.Struct({
 	id: EntityId,
 	name: Schema.String,
@@ -24,9 +63,9 @@ export type CollectionResponse = typeof CollectionResponse.Type;
 const MembershipRelationship = Schema.Struct({
 	id: RelationshipId,
 	createdAt: Schema.String,
-	properties: Schema.Unknown,
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,
+	properties: Schema.Unknown,
 	relationshipSchemaSlug: RelationshipSchemaSlug,
 });
 

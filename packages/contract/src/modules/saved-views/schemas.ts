@@ -4,13 +4,66 @@ import { EntitySchemaSlug, PluginSlug, SavedViewId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { JsonValue, OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 
+export const SavedViewLayoutName = Schema.Literals(["grid", "list", "table"]);
+export type SavedViewLayoutName = typeof SavedViewLayoutName.Type;
+
+const SavedViewBadRequestReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("duplicate-name") }),
+	Schema.Struct({ code: Schema.Literal("builtin-view-immutable"), viewSlug: Schema.String }),
+	Schema.Struct({
+		entitySchemaSlug: EntitySchemaSlug,
+		code: Schema.Literal("entity-schema-not-found"),
+	}),
+	Schema.Struct({
+		code: Schema.Literal("required-field"),
+		field: Schema.Literals(["name", "slug"]),
+	}),
+	Schema.Struct({
+		viewSlugs: Schema.Array(Schema.String),
+		code: Schema.Literal("invalid-reorder"),
+		issue: Schema.Literals(["empty", "duplicate", "unknown-view", "update-failed"]),
+	}),
+	Schema.Struct({
+		layout: SavedViewLayoutName,
+		field: Schema.optional(Schema.String),
+		code: Schema.Literal("invalid-definition"),
+		issue: Schema.Literals([
+			"query-count",
+			"output-kind",
+			"cursor-pagination",
+			"explicit-fields-required",
+			"nested-results",
+			"columns-empty",
+			"query-invalid",
+			"mapping-field-missing",
+			"field-kind",
+			"entity-id-source",
+			"image-cast",
+		]),
+	}),
+]);
+
+const SavedViewNotFoundReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("saved-view-not-found"), viewSlug: Schema.String }),
+]);
+
+export class SavedViewBadRequest extends Schema.TaggedError<SavedViewBadRequest>()(
+	"SavedViewBadRequest",
+	{ reason: SavedViewBadRequestReason },
+) {}
+
+export class SavedViewNotFound extends Schema.TaggedError<SavedViewNotFound>()(
+	"SavedViewNotFound",
+	{ reason: SavedViewNotFoundReason },
+) {}
+
 export const SavedViewDisplayKind = Schema.Literals(["text", "date", "json", "number", "boolean"]);
 export type SavedViewDisplayKind = typeof SavedViewDisplayKind.Type;
 
 export const SavedViewDisplayValue = Schema.Union([
+	strictStruct({ value: JsonValue, displayKind: Schema.Literal("json") }),
 	strictStruct({ value: Schema.NullOr(Schema.String), displayKind: Schema.Literal("text") }),
 	strictStruct({ value: Schema.NullOr(Schema.String), displayKind: Schema.Literal("date") }),
-	strictStruct({ value: JsonValue, displayKind: Schema.Literal("json") }),
 	strictStruct({ value: Schema.NullOr(Schema.Number), displayKind: Schema.Literal("number") }),
 	strictStruct({ value: Schema.NullOr(Schema.Boolean), displayKind: Schema.Literal("boolean") }),
 ]);

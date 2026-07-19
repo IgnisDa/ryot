@@ -1,7 +1,6 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
+import { HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { BadRequest } from "../../errors";
 import { UpdateUserPreferencesBody, UserAvatar, UserPreferences, UserSettings } from "./schemas";
 
 export const UserSettingsGroup = HttpApiGroup.make("userSettings")
@@ -15,7 +14,6 @@ export const UserSettingsGroup = HttpApiGroup.make("userSettings")
 		HttpApiEndpoint.patch("updatePreferences", "/user-settings/preferences", {
 			success: UserPreferences,
 			payload: UpdateUserPreferencesBody,
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Update the current user's preferences."),
 	)
 	.add(
