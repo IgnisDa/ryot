@@ -7,15 +7,10 @@ import { canonicalManagedAssets } from "./managed-assets";
 
 export type SavedViewRecordRequest = ApiScope & { slug: string };
 
-export type SavedViewResultRequest = ApiScope & { queryDocument: RyotQLDocument };
-
 export type ManagedAssetResolutionRequest = ApiScope & { assets: readonly ManagedAssetLocator[] };
 
 export const savedViewRecordRequestKey = (request: SavedViewRecordRequest) =>
 	scopedRequestKey(request, request.slug);
-
-export const savedViewResultRequestKey = (request: SavedViewResultRequest) =>
-	scopedRequestKey(request, request.queryDocument);
 
 export const withSavedViewCursor = (queryDocument: RyotQLDocument, after: string) => {
 	const [queryName, query] = Object.entries(queryDocument.queries)[0];

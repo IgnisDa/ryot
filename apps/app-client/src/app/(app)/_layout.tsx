@@ -1,6 +1,7 @@
 import { Redirect, Stack, useUnstableGlobalHref } from "expo-router";
 import { Text, View } from "react-native";
 
+import { ApiScopeProvider } from "@/api/scope";
 import { useAuthClient } from "@/modules/auth/client";
 import { EntityInterestProvider } from "@/modules/entity-interest/provider";
 import { getGateHref, getSafeRedirectTo } from "@/modules/navigation/redirect";
@@ -28,8 +29,10 @@ export default function AppLayout() {
 	}
 
 	return (
-		<EntityInterestProvider key={session.user.id} serverUrl={serverUrl} userId={session.user.id}>
-			<Stack screenOptions={{ headerShown: false }} />
-		</EntityInterestProvider>
+		<ApiScopeProvider serverUrl={serverUrl} userId={session.user.id}>
+			<EntityInterestProvider>
+				<Stack screenOptions={{ headerShown: false }} />
+			</EntityInterestProvider>
+		</ApiScopeProvider>
 	);
 }
