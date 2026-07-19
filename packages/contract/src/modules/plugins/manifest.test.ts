@@ -32,7 +32,7 @@ const cardMapping = {
 	secondaryMetadata: null,
 } as const;
 
-const manifest = definePlugin({
+const authoredManifest = definePlugin({
 	entitySchemas: [],
 	httpRateLimits: [],
 	relationshipSchemas: [],
@@ -177,78 +177,81 @@ const manifest = definePlugin({
 		relationshipAutomations: [],
 		providerEntityImportAutomations: [],
 	},
-	scripts: [
-		{
-			kind: "automation",
-			name: "Test automation",
-			slug: "automation.test",
-			requiredPluginConfigKeys: [],
-			requiredSystemConfigKeys: [],
-			capabilities: ["emitSignal"],
-			entry: "scripts/test.sandbox.ts",
-		},
-		{
-			capabilities: [],
-			kind: "operation",
-			name: "Test operation",
-			slug: "operation.test",
-			requiredPluginConfigKeys: [],
-			requiredSystemConfigKeys: [],
-			entry: "scripts/operation.sandbox.ts",
-		},
-		{
-			kind: "provider",
-			capabilities: [],
-			providerOperation: "details",
-			requiredPluginConfigKeys: [],
-			requiredSystemConfigKeys: [],
-			name: "Test provider details",
-			slug: "provider.test.details",
-			providerSlug: "provider.test",
-			entry: "scripts/provider-details.sandbox.ts",
-		},
-		{
-			kind: "provider",
-			capabilities: [],
-			providerOperation: "search",
-			requiredPluginConfigKeys: [],
-			requiredSystemConfigKeys: [],
-			name: "Test provider search",
-			slug: "provider.test.search",
-			providerSlug: "provider.test",
-			entry: "scripts/provider-search.sandbox.ts",
-			searchOptionsSchema: {
-				unknownKeys: "strict",
-				fields: {
-					passRawQuery: {
-						type: "boolean",
-						label: "Pass raw query",
-						description: "Pass the query without modification",
-					},
+});
+
+const scripts = [
+	{
+		kind: "automation",
+		name: "Test automation",
+		slug: "automation.test",
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+		capabilities: ["emitSignal"],
+		entry: "scripts/test.sandbox.ts",
+	},
+	{
+		capabilities: [],
+		kind: "operation",
+		name: "Test operation",
+		slug: "operation.test",
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+		entry: "scripts/operation.sandbox.ts",
+	},
+	{
+		kind: "provider",
+		capabilities: [],
+		providerOperation: "details",
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+		name: "Test provider details",
+		slug: "provider.test.details",
+		providerSlug: "provider.test",
+		entry: "scripts/provider-details.sandbox.ts",
+	},
+	{
+		kind: "provider",
+		capabilities: [],
+		providerOperation: "search",
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+		name: "Test provider search",
+		slug: "provider.test.search",
+		providerSlug: "provider.test",
+		entry: "scripts/provider-search.sandbox.ts",
+		searchOptionsSchema: {
+			unknownKeys: "strict",
+			fields: {
+				passRawQuery: {
+					type: "boolean",
+					label: "Pass raw query",
+					description: "Pass the query without modification",
 				},
 			},
 		},
-		{
-			kind: "script",
-			capabilities: [],
-			requiredPluginConfigKeys: [],
-			requiredSystemConfigKeys: [],
-			name: "Test provider preload",
-			slug: "provider.test.preload",
-			providerSlug: "provider.test",
-			entry: "scripts/provider-preload.sandbox.ts",
-		},
-		{
-			kind: "workflow",
-			capabilities: [],
-			name: "Test workflow",
-			slug: "workflow.test",
-			requiredPluginConfigKeys: [],
-			requiredSystemConfigKeys: [],
-			entry: "scripts/workflow.sandbox.ts",
-		},
-	],
-});
+	},
+	{
+		kind: "script",
+		capabilities: [],
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+		name: "Test provider preload",
+		slug: "provider.test.preload",
+		providerSlug: "provider.test",
+		entry: "scripts/provider-preload.sandbox.ts",
+	},
+	{
+		kind: "workflow",
+		capabilities: [],
+		name: "Test workflow",
+		slug: "workflow.test",
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+		entry: "scripts/workflow.sandbox.ts",
+	},
+] as const;
+
+const manifest = { ...authoredManifest, scripts };
 
 describe("definePlugin", () => {
 	it("preserves manifest literals", () => {

@@ -559,14 +559,13 @@ export const PluginBindings = strictStruct({
 
 export type PluginBindings = Schema.Schema.Type<typeof PluginBindings>;
 
-const PluginManifestFields = strictStruct({
+const PluginManifestAuthoredFields = {
 	metadata: PluginMetadata,
 	bindings: PluginBindings,
 	configSchema: PluginConfigSchema,
 	boot: Schema.Array(PluginBoot),
 	httpRateLimits: PluginHttpRateLimits,
 	crons: Schema.Array(PluginCron),
-	scripts: Schema.Array(PluginScript),
 	workflows: Schema.Array(PluginWorkflow),
 	providers: Schema.Array(PluginProvider),
 	savedViews: Schema.Array(PluginSavedView),
@@ -578,7 +577,76 @@ const PluginManifestFields = strictStruct({
 	userBootstrap: Schema.Array(PluginUserBootstrap),
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
+};
+
+const AuthoredPluginManifestFields = strictStruct(PluginManifestAuthoredFields);
+
+const PluginManifestFields = strictStruct({
+	...PluginManifestAuthoredFields,
+	scripts: Schema.Array(PluginScript),
 });
+
+const hasValidAuthoredPluginManifestReferences = (
+	manifest: typeof AuthoredPluginManifestFields.Type,
+) => {
+	const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
+	const configKeys = new Set(Object.keys(manifest.configSchema.fields));
+	const configEnvironmentKeys = [...configKeys].map((key) =>
+		pluginConfigEnvironmentKey(manifest.metadata.slug, key),
+	);
+	if (new Set(configEnvironmentKeys).size !== configEnvironmentKeys.length) {
+		return false;
+	}
+	if (
+		!manifest.importSources
+			.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys)
+			.every((key) => configKeys.has(key))
+	) {
+		return false;
+	}
+	if (new Set(manifest.providers.map(({ slug }) => slug)).size !== manifest.providers.length) {
+		return false;
+	}
+	if (workflowSlugs.size !== manifest.workflows.length) {
+		return false;
+	}
+	if (
+		new Set(manifest.userBootstrap.map(({ slug }) => slug)).size !== manifest.userBootstrap.length
+	) {
+		return false;
+	}
+	if (
+		new Set(manifest.importSources.map(({ slug }) => slug)).size !== manifest.importSources.length
+	) {
+		return false;
+	}
+	if (
+		new Set(manifest.integrationProviders.map(({ slug }) => slug)).size !==
+		manifest.integrationProviders.length
+	) {
+		return false;
+	}
+	if (manifest.importSources.some(({ workflowSlug }) => !workflowSlugs.has(workflowSlug))) {
+		return false;
+	}
+	const assignedScriptSlugs = manifest.providers.flatMap((provider) =>
+		Object.values(provider.operations),
+	);
+	return new Set(assignedScriptSlugs).size === assignedScriptSlugs.length;
+};
+
+export const AuthoredPluginManifest = AuthoredPluginManifestFields.pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(manifest) =>
+				hasValidAuthoredPluginManifestReferences(manifest) ||
+				"Expected valid plugin config, provider, workflow, and import-source references",
+			strictParseOptions,
+		),
+	),
+);
+
+export type AuthoredPluginManifest = Schema.Schema.Type<typeof AuthoredPluginManifest>;
 
 const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.Type) => {
 	const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
@@ -747,6 +815,6 @@ export const PluginManifest = PluginManifestFields.pipe(
 
 export type PluginManifest = Schema.Schema.Type<typeof PluginManifest>;
 
-export const definePlugin = <const Manifest extends PluginManifest>(
-	manifest: Manifest & Record<Exclude<keyof Manifest, keyof PluginManifest>, never>,
+export const definePlugin = <const Manifest extends AuthoredPluginManifest>(
+	manifest: Manifest & Record<Exclude<keyof Manifest, keyof AuthoredPluginManifest>, never>,
 ) => manifest;

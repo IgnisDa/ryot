@@ -195,7 +195,7 @@ it.effect("rejects a definition collision before private plugin persistence", ()
 
 it.effect("rejects compilation failure before private plugin persistence", () => {
 	let persists = 0;
-	const entry = "scripts/broken.sandbox.ts";
+	const entry = "backend/automations/broken.sandbox.ts";
 	const manifest = {
 		...privateManifest(),
 		scripts: [

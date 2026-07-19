@@ -1,7 +1,11 @@
-import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
+import { manifest as hevyManifest } from "../backend/imports/hevy.sandbox";
+import { manifest as openScaleManifest } from "../backend/imports/open-scale.sandbox";
+import { manifest as strongAppManifest } from "../backend/imports/strong-app.sandbox";
+import { manifest as preloadManifest } from "../backend/providers/exercise/free-exercise-db/preload.sandbox";
 import { FitnessCreateImportRunBody } from "./import-sources";
 import { fitnessPlugin } from "./plugin";
 
@@ -27,7 +31,7 @@ const expectedImportSources = [
 ] as const;
 
 it("declares the complete fitness-owned source", () => {
-	expect(() => Schema.decodeUnknownSync(PluginManifest)(fitnessPlugin)).not.toThrow();
+	expect(() => Schema.decodeUnknownSync(AuthoredPluginManifest)(fitnessPlugin)).not.toThrow();
 	expect(fitnessPlugin.entitySchemas.map(({ slug }) => slug)).toEqual([
 		"exercise",
 		"workout",
@@ -65,8 +69,6 @@ it("declares the complete fitness-owned source", () => {
 			},
 		},
 	]);
-	expect(fitnessPlugin.scripts).toHaveLength(9);
-	expect(fitnessPlugin.scripts.some(({ slug }) => slug.startsWith("activity."))).toBe(false);
 	expect(fitnessPlugin.workflows).toEqual([{ slug: "import", scriptSlug: "workflow.import" }]);
 	expect(fitnessPlugin.importSources.map(({ slug }) => slug)).toEqual(
 		expectedImportSources.map(({ slug }) => slug),
@@ -100,9 +102,11 @@ it("declares the complete fitness-owned source", () => {
 		).not.toThrow();
 	}
 	expect(
-		fitnessPlugin.scripts
-			.filter(({ slug }) => slug.startsWith("import."))
-			.map(({ capabilities, kind, slug }) => ({ capabilities, kind, slug })),
+		[hevyManifest, openScaleManifest, strongAppManifest].map(({ capabilities, kind, slug }) => ({
+			capabilities,
+			kind,
+			slug,
+		})),
 	).toEqual([
 		{
 			kind: "script",
@@ -116,44 +120,13 @@ it("declares the complete fitness-owned source", () => {
 			capabilities: ["artifact-read", "scratch", "getSystemConfig"],
 		},
 	]);
-	expect(
-		fitnessPlugin.scripts.find(({ slug }) => slug === "exercise.free-exercise-db.preload"),
-	).toEqual(
+	expect(preloadManifest).toEqual(
 		expect.objectContaining({
-			providerSlug: "exercise.free-exercise-db",
+			kind: "script",
+			slug: "exercise.free-exercise-db.preload",
 			requiredPluginConfigKeys: ["exercisePreloadLimit"],
 		}),
 	);
-	expect(
-		fitnessPlugin.scripts.flatMap((script) =>
-			"providerSlug" in script
-				? [
-						{
-							slug: script.slug,
-							providerSlug: script.providerSlug,
-							providerOperation:
-								"providerOperation" in script ? script.providerOperation : undefined,
-						},
-					]
-				: [],
-		),
-	).toEqual([
-		{
-			providerOperation: "details",
-			slug: "exercise.free-exercise-db.details",
-			providerSlug: "exercise.free-exercise-db",
-		},
-		{
-			providerOperation: undefined,
-			slug: "exercise.free-exercise-db.preload",
-			providerSlug: "exercise.free-exercise-db",
-		},
-		{
-			providerOperation: "search",
-			slug: "exercise.free-exercise-db.search",
-			providerSlug: "exercise.free-exercise-db",
-		},
-	]);
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
 	expect(
 		fitnessPlugin.savedViews.map(({ name, entitySchemaSlug }) => ({ name, entitySchemaSlug })),

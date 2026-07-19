@@ -32,6 +32,7 @@ export type CompiledBuiltInSandboxEntry = {
 	readonly entry: string;
 	readonly source: string;
 	readonly compiled: CompiledSandboxModule;
+	readonly providerOperation: string | null;
 };
 
 export type SandboxEntryDeclaration =
@@ -271,6 +272,7 @@ export const compileSandboxPackageEntries = (
 					return Effect.succeed({
 						entry,
 						source,
+						providerOperation: inspection.providerOperation,
 						compiled: {
 							manifest: extracted.manifest,
 							javascript: bundled.javascript,

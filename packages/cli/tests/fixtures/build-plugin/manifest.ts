@@ -30,15 +30,4 @@ export default {
 		name: "CLI test plugin",
 		description: "A fixture for the CLI tests.",
 	},
-	scripts: [
-		{
-			slug: "main",
-			name: "Main",
-			kind: "script",
-			capabilities: [],
-			entry: "backend/main.ts",
-			requiredPluginConfigKeys: [],
-			requiredSystemConfigKeys: [],
-		},
-	],
 };
