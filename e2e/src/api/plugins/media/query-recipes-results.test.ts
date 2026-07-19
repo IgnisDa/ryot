@@ -1270,6 +1270,12 @@ describe("Media RyotQL query recipe results", () => {
 				{ seasonNumber: 1, watchedTotal: 1, watchedMinutes: 45, watchedUnknownRuntime: 0 },
 			]);
 			expect(identity).toEqual([
+				expect.objectContaining({
+					kind: "parent",
+					seasonNumber: null,
+					episodeNumber: null,
+					eventSchemaSlug: "add-to-library",
+				}),
 				{
 					kind: "parent",
 					seasonNumber: null,
@@ -1377,7 +1383,9 @@ describe("Media RyotQL query recipe results", () => {
 				consumedOn: null,
 				episodeNumber: 2,
 			});
-			expect(activity.events[0]).toMatchObject({
+			const backlogEvent = activity.events.find((event) => event.eventSchemaSlug === "backlog");
+			assertPresent(backlogEvent, "Expected backlog event");
+			expect(backlogEvent).toMatchObject({
 				kind: "parent",
 				timeSpent: null,
 				consumedOn: null,
@@ -1430,14 +1438,21 @@ describe("Media RyotQL query recipe results", () => {
 				client,
 				showRecipes.activityRecipe({
 					...ACTIVITY_LIMITS,
-					parentEventLimit: 1,
+					parentEventLimit: 2,
 					entityId: seeded.show.id,
 				}),
 			);
 
 			expect(activity.truncated).toBe(true);
-			expect(activity.events).toHaveLength(1);
-			expect(activity.events[0]).toMatchObject({ occurredAt: "2024-07-02T12:00:00.000Z" });
+			expect(activity.events).toHaveLength(2);
+			expect(activity.events[0]).toMatchObject({
+				kind: "parent",
+				eventSchemaSlug: "add-to-library",
+			});
+			expect(activity.events[1]).toMatchObject({
+				eventSchemaSlug: "complete",
+				occurredAt: "2024-07-02T12:00:00.000Z",
+			});
 		}),
 	);
 });

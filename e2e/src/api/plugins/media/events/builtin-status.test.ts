@@ -36,7 +36,8 @@ describe("Events built-in status schemas", () => {
 
 			expect(createResult.count).toBe(2);
 
-			const events = yield* waitForEventCount(apiClient, entityId, 2);
+			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
+			const events = allEvents.filter((event) => event.eventSchemaSlug === "backlog");
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["backlog", "backlog"]);
 			expect(events.map((event) => event.properties)).toEqual([{}, {}]);
@@ -70,7 +71,9 @@ describe("Events built-in status schemas", () => {
 
 				expect(createResult.count).toBe(2);
 
-				const events = yield* waitForEventCount(apiClient, entityId, 2);
+				const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
+				expect(allEvents.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
+				const events = allEvents.filter((event) => event.eventSchemaSlug === "progress");
 				expect(events).toHaveLength(2);
 				expect(events.map((event) => event.eventSchemaSlug)).toEqual(["progress", "progress"]);
 				expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
@@ -107,7 +110,8 @@ describe("Events built-in status schemas", () => {
 
 			expect(createResult.count).toBe(2);
 
-			const events = yield* waitForEventCount(apiClient, entityId, 2);
+			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
+			const events = allEvents.filter((event) => event.eventSchemaSlug === "complete");
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["complete", "complete"]);
 			expect(events.map((event) => event.properties)).toEqual(
@@ -139,7 +143,8 @@ describe("Events built-in status schemas", () => {
 
 			expect(createResult.count).toBe(1);
 
-			const events = yield* waitForEventCount(apiClient, entityId, 1);
+			const allEvents = yield* waitForEventCount(apiClient, entityId, 2);
+			const events = allEvents.filter((event) => event.eventSchemaSlug === "complete");
 			expect(events).toHaveLength(1);
 			expect(events[0]?.eventSchemaSlug).toBe("complete");
 			expect(events[0]?.properties).toMatchObject({ timeSpent: 120, completionMode: "just_now" });
@@ -215,7 +220,8 @@ describe("Events built-in status schemas", () => {
 
 			expect(createResult.count).toBe(2);
 
-			const events = yield* waitForEventCount(apiClient, entityId, 2);
+			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
+			const events = allEvents.filter((event) => event.eventSchemaSlug === "review");
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["review", "review"]);
 			expect(events.map((event) => event.properties)).toEqual(
@@ -244,9 +250,10 @@ describe("Events built-in status schemas", () => {
 
 			expect(createResult.count).toBe(1);
 
-			const events = yield* waitForEventCount(apiClient, entityId, 1);
-			expect(events[0]?.eventSchemaSlug).toBe("dropped");
-			expect(events[0]?.properties).toMatchObject({ timeSpent: 90, progressPercent: 40 });
+			const allEvents = yield* waitForEventCount(apiClient, entityId, 2);
+			const droppedEvent = allEvents.find((event) => event.eventSchemaSlug === "dropped");
+			expect(droppedEvent?.eventSchemaSlug).toBe("dropped");
+			expect(droppedEvent?.properties).toMatchObject({ timeSpent: 90, progressPercent: 40 });
 		}),
 	);
 
@@ -270,9 +277,10 @@ describe("Events built-in status schemas", () => {
 
 			expect(createResult.count).toBe(1);
 
-			const events = yield* waitForEventCount(apiClient, entityId, 1);
-			expect(events[0]?.eventSchemaSlug).toBe("on_hold");
-			expect(events[0]?.properties).toMatchObject({ timeSpent: 45, progressPercent: 60 });
+			const allEvents = yield* waitForEventCount(apiClient, entityId, 2);
+			const onHoldEvent = allEvents.find((event) => event.eventSchemaSlug === "on_hold");
+			expect(onHoldEvent?.eventSchemaSlug).toBe("on_hold");
+			expect(onHoldEvent?.properties).toMatchObject({ timeSpent: 45, progressPercent: 60 });
 		}),
 	);
 
@@ -327,7 +335,8 @@ describe("Events built-in status schemas", () => {
 
 			expect(createResult.count).toBe(2);
 
-			const events = yield* waitForEventCount(apiClient, entityId, 2);
+			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
+			const events = allEvents.filter((event) => event.eventSchemaSlug === "dropped");
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["dropped", "dropped"]);
 			expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
@@ -361,7 +370,8 @@ describe("Events built-in status schemas", () => {
 
 			expect(createResult.count).toBe(2);
 
-			const events = yield* waitForEventCount(apiClient, entityId, 2);
+			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
+			const events = allEvents.filter((event) => event.eventSchemaSlug === "on_hold");
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["on_hold", "on_hold"]);
 			expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
@@ -419,7 +429,8 @@ describe("Events built-in status schemas", () => {
 
 			expect(createResult.count).toBe(2);
 
-			const events = yield* waitForEventCount(apiClient, entity.id, 2);
+			const allEvents = yield* waitForEventCount(apiClient, entity.id, 3);
+			const events = allEvents.filter((event) => event.eventSchemaSlug !== "add-to-library");
 			expect(events).toHaveLength(2);
 			expect(sortBy(events.map((event) => event.eventSchemaSlug))).toEqual(["dropped", "on_hold"]);
 			const sortedEvents = sortBy(events, (event) => event.eventSchemaSlug);
