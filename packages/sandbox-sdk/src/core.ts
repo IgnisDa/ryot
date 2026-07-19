@@ -1,4 +1,4 @@
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
 import type { Effect } from "@ryot/sandbox-sdk/effect";
 import { Schema } from "@ryot/sandbox-sdk/effect";
@@ -425,10 +425,7 @@ export const listIntegrationsOptionsSchema = strictStruct({
 	isDisabled: Schema.optional(Schema.Boolean),
 	provider: Schema.optional(integrationProviderSchema),
 });
-export const ryotqlDocumentSchema = jsonValueSchema as unknown as Schema.Codec<
-	RyotQLDocument,
-	typeof jsonValueSchema.Encoded
->;
+export const ryotqlDocumentSchema = RyotQLDocument;
 export type ListIntegrationsOptions = Schema.Schema.Type<typeof listIntegrationsOptionsSchema>;
 
 export const getCurrentIntegrationArgsSchema = Schema.Tuple([]);
