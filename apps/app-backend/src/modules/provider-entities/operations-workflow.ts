@@ -59,7 +59,7 @@ const runProviderImportAutomations = (
 			name: `resolve-provider-import-automations-${executionId}`,
 			success: Schema.Array(ResolvedProviderEntityImportAutomation),
 			execute: pluginRuntime
-				.listProviderEntityImportAutomations(payload.entitySchemaSlug)
+				.listProviderEntityImportAutomations(payload.userId, payload.entitySchemaSlug)
 				.pipe(Effect.mapError(toSandboxRunError)),
 		});
 		if (automations.length > 0 && !payload.userId) {
