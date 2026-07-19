@@ -1,7 +1,7 @@
 import { badRequest } from "@ryot/contract/errors";
 import type { TestSupportStartWorkflowLoadGateBody } from "@ryot/contract/modules/test-support/schemas";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
-import { DateTime, Effect } from "effect";
+import { Context, DateTime, Effect, Layer } from "effect";
 
 import { DbService, dbEffect } from "#lib/infrastructure/db/service";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
@@ -21,10 +21,10 @@ type PressureRow = {
 	lock_waiting_connections: number;
 };
 
-export class OperationalGateService extends Effect.Service<OperationalGateService>()(
+export class OperationalGateService extends Context.Service<OperationalGateService>()(
 	"OperationalGateService",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const db = yield* DbService;
 			const redis = yield* RedisService;
 			const imports = yield* ImportsService;
@@ -134,7 +134,7 @@ export class OperationalGateService extends Effect.Service<OperationalGateServic
 					`),
 				).pipe(Effect.map((result) => result.rows[0]));
 				if (!pressure) {
-					return yield* Effect.dieMessage("Operational pressure query returned no row");
+					return yield* Effect.die(new Error("Operational pressure query returned no row"));
 				}
 
 				let projectionCount = 0;
@@ -196,4 +196,6 @@ export class OperationalGateService extends Effect.Service<OperationalGateServic
 			return { samplePressure, startWorkflowLoad, getWorkflowLoadResult };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

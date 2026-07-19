@@ -57,13 +57,13 @@ const makeServiceLayer = (
 	imports: MockOverrides<typeof mockImports>,
 	sandbox: MockOverrides<typeof mockSandbox>,
 ) =>
-	OperationalGateService.Default.pipe(
+	OperationalGateService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				mockImports({ _tag: "ImportsService", ...imports }),
-				mockSandbox({ _tag: "SandboxExecutionService", ...sandbox }),
-				mockRedis({ client: Object.create(null), _tag: "RedisService" }),
-				mockDb({ db: Object.create(null), pool: Object.create(null), _tag: "DbService" }),
+				mockImports({ ...imports }),
+				mockSandbox({ ...sandbox }),
+				mockRedis({ client: Object.create(null) }),
+				mockDb({ db: Object.create(null), pool: Object.create(null) }),
 			),
 		),
 	);
