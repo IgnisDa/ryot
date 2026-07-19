@@ -62,6 +62,46 @@ describe("POST /uploads/presigned", () => {
 	);
 });
 
+describe("POST /uploads/intents", () => {
+	it.live("creates, uploads, and completes a local permanent intent", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const intent = yield* client.call((c) =>
+				c.uploads.createIntent({
+					payload: {
+						kind: "permanent",
+						provider: "local",
+						fileName: "report.csv",
+						contentType: "text/csv",
+					},
+				}),
+			);
+
+			expect(intent.method).toBe("PUT");
+			expect(intent.uploadUrl.startsWith("uploads/local/")).toBe(true);
+			const uploadResponse = yield* Effect.promise(() =>
+				fetch(new URL(intent.uploadUrl, `${getBackendUrl()}/`), {
+					method: intent.method,
+					body: "title\nexample",
+					headers: intent.headers,
+				}),
+			);
+			expect(uploadResponse.status).toBe(204);
+
+			const completed = yield* client.call((c) =>
+				c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
+			);
+			expect(completed).toMatchObject({ type: "local" });
+			expect(completed.key).toMatch(/^permanent\/.+\.csv$/);
+
+			const retried = yield* client.call((c) =>
+				c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
+			);
+			expect(retried).toEqual(completed);
+		}),
+	);
+});
+
 describe("POST /uploads/presigned/download", () => {
 	it.live("returns 401 when not authenticated", () =>
 		Effect.gen(function* () {

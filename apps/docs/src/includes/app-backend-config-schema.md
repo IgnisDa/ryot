@@ -76,10 +76,12 @@
 | `scheduler.frequentCronJobsSchedule` | `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` | Interval phrase for the frequent cron tier | No | No | `every 5 minutes` |
 | `scheduler.infrequentCronJobsSchedule` | `SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE` | Cron expression used by plugin crons assigned to the infrequent tier | No | No | `0 0 * * *` |
 
-### S3-compatible file storage
+### S3-compatible and local file storage
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
+| `fileStorage.localDir` | `FILE_STORAGE_LOCAL_DIR` | Writable persistent directory for permanent local objects | No | No | — |
+| `fileStorage.localSigningSecret` | `FILE_STORAGE_LOCAL_SIGNING_SECRET` | Secret used to sign local upload and download paths | No | Yes | — |
 | `fileStorage.url` | `FILE_STORAGE_S3_URL` | S3-compatible endpoint URL | No | No | — |
 | `fileStorage.region` | `FILE_STORAGE_S3_REGION` | S3 bucket region | No | No | — |
 | `fileStorage.bucketName` | `FILE_STORAGE_S3_BUCKET_NAME` | S3 bucket name | No | No | — |
