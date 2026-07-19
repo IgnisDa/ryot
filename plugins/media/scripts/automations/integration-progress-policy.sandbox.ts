@@ -14,7 +14,12 @@ export const manifest = defineManifest({
 	name: "Integration Progress Policy",
 	slug: "trigger.integration-progress-policy",
 	requiredPluginConfigKeys: ["progressUpdateThresholdHours"],
-	capabilities: ["executeQueryEngine", "getIntegration", "claimCachedValue", "getPluginConfig"],
+	capabilities: [
+		"getPluginConfig",
+		"claimCachedValue",
+		"executeQueryEngine",
+		"getCurrentIntegration",
+	],
 });
 
 type Draft = AutomationPolicyInput["automation"]["source"]["draft"];
@@ -125,7 +130,7 @@ export default defineAutomationPolicy({
 		}
 		let progressPercent: number = parsedProgressPercent;
 		return Effect.gen(function* () {
-			const integration = yield* host.getIntegration();
+			const integration = yield* host.getCurrentIntegration();
 			const minimumProgress = toFiniteNumber(integration.minimumProgress) ?? 0;
 			const maximumProgress = toFiniteNumber(integration.maximumProgress) ?? 100;
 			if (progressPercent < minimumProgress) {

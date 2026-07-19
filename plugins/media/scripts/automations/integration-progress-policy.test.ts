@@ -38,8 +38,8 @@ const createHost = (options: {
 	return {
 		calls,
 		host: defineSandboxTestHost(manifest, {
-			getIntegration: () => {
-				calls.push("getIntegration");
+			getCurrentIntegration: () => {
+				calls.push("getCurrentIntegration");
 				return options.integration ? hostSuccess(options.integration) : hostFailure();
 			},
 			executeQueryEngine: () => {
