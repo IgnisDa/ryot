@@ -1,6 +1,6 @@
-import { HttpApp, HttpServer } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Exit, Scope } from "effect";
+import { HttpEffect, HttpServer } from "effect/unstable/http";
 
 export type FakeHttpServer = {
 	url: string;
@@ -14,12 +14,12 @@ export async function startFakeHttpServer(
 ): Promise<FakeHttpServer> {
 	const scope = await Effect.runPromise(Scope.make());
 	const { requests, url } = await Effect.runPromise(
-		Scope.extend(
+		Scope.provide(
 			Effect.gen(function* () {
 				const recorded: FakeHttpServer["requests"] = [];
 				const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
 				yield* HttpServer.serveEffect(
-					HttpApp.fromWebHandler(async (request) => {
+					HttpEffect.fromWebHandler(async (request) => {
 						const reqUrl = new URL(request.url);
 						recorded.push({ path: reqUrl.pathname, body: await request.json().catch(() => null) });
 						return respond(reqUrl, request);
