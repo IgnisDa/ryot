@@ -1,7 +1,6 @@
 import type { EntityId } from "@ryot/contract/schema/brands";
 import { Context, Duration, Effect, Layer } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import {
 	ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS,
 	redisKeys,
@@ -18,7 +17,6 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
-			const runWithDb = yield* DbRunner;
 			const store = yield* EntityInterestStore;
 			const entities = yield* EntitiesService;
 			const translations = yield* TranslationsService;
@@ -47,9 +45,7 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 					) {
 						return;
 					}
-					const provider = yield* runWithDb(
-						providerResolver.findActiveProviderById(entity.providerId),
-					);
+					const provider = yield* providerResolver.findActiveProviderById(entity.providerId);
 					const canonicalLanguage = provider?.information.canonicalLanguage;
 					if (!canonicalLanguage) {
 						return;

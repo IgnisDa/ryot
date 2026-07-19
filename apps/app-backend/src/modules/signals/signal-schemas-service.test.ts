@@ -4,7 +4,7 @@ import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
 import { SignalSchemaContractDrift, SignalSchemasService } from "./service";
@@ -65,7 +65,7 @@ const makeLayer = (
 ) =>
 	SignalSchemasService.layer.pipe(
 		Layer.provide(
-			Layer.mergeAll(dbRunnerLayer, signalSchemasRepository, relationshipSchemasRepository),
+			Layer.mergeAll(databaseLayer, signalSchemasRepository, relationshipSchemasRepository),
 		),
 	);
 

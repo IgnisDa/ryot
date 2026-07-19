@@ -19,7 +19,7 @@ import { and, asc, count, eq, isNull } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type { AutomationRuleTarget as PluginAutomationRuleTarget } from "#modules/plugins/runtime-resolver";
 
 type NotificationSubscriptionStateRow = typeof schema.notificationSubscriptionState.$inferSelect;
@@ -102,6 +102,7 @@ const toStoredRun = (row: SubscriptionRunRow) => ({
 
 export type StoredSubscriptionRun = ReturnType<typeof toStoredRun>;
 
+/** @effect-expect-leaking Database */
 export class AutomationsRepository extends Context.Service<AutomationsRepository>()(
 	"AutomationsRepository",
 	{
@@ -109,8 +110,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const listActiveNotificationSubscriptions = Effect.fn(
 				"AutomationsRepository.listActiveNotificationSubscriptions",
 			)(function* (input: { userId: UserId; signalSchemaSlug: SignalSchemaSlug }) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.notificationSubscriptionState)
@@ -129,8 +130,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const findNotificationSubscription = Effect.fn(
 				"AutomationsRepository.findNotificationSubscription",
 			)(function* (input: { userId: UserId; ruleId: AutomationRuleId }) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.notificationSubscriptionState)
@@ -148,8 +149,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const lockActiveNotificationSubscription = Effect.fn(
 				"AutomationsRepository.lockActiveNotificationSubscription",
 			)(function* (ruleId: AutomationRuleId) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.notificationSubscriptionState)
@@ -168,8 +169,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const insertNotificationSubscription = Effect.fn(
 				"AutomationsRepository.insertNotificationSubscription",
 			)(function* (input: InsertNotificationSubscriptionInput) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.notificationSubscriptionState)
 						.values(input)
@@ -182,8 +183,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const setNotificationSubscriptionActive = Effect.fn(
 				"AutomationsRepository.setNotificationSubscriptionActive",
 			)(function* (input: { userId: UserId; ruleId: AutomationRuleId; isActive: boolean }) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.notificationSubscriptionState)
 						.set({ isActive: input.isActive })
@@ -201,8 +202,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const deleteNotificationSubscription = Effect.fn(
 				"AutomationsRepository.deleteNotificationSubscription",
 			)(function* (input: { userId: UserId; ruleId: AutomationRuleId }) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.delete(schema.notificationSubscriptionState)
 						.where(
@@ -219,8 +220,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const countByUser = Effect.fn("AutomationsRepository.countByUser")(function* (
 				userId: UserId,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ count: count() })
 						.from(schema.notificationSubscriptionState)
@@ -232,8 +233,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const isUserEnabled = Effect.fn("AutomationsRepository.isUserEnabled")(function* (
 				userId: UserId,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.user.id })
 						.from(schema.user)
@@ -246,8 +247,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const findScriptExecution = Effect.fn("AutomationsRepository.findScriptExecution")(function* (
 				scriptId: SandboxScriptId,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ updatedAt: schema.sandboxScript.updatedAt })
 						.from(schema.sandboxScript)
@@ -260,8 +261,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const insertRun = Effect.fn("AutomationsRepository.insertRun")(function* (
 				input: InsertSubscriptionRunInput,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.subscriptionRun)
 						.values(input)
@@ -274,8 +275,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const findRunById = Effect.fn("AutomationsRepository.findRunById")(function* (
 				id: SubscriptionRunId,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.subscriptionRun)
@@ -289,9 +290,9 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				id: SubscriptionRunId;
 				scriptUpdatedAt: Date;
 			}) {
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 				const startedAt = yield* DateTime.nowAsDate;
-				const [row] = yield* dbEffect(() =>
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.subscriptionRun)
 						.set({ startedAt, status: "running", scriptUpdatedAt: input.scriptUpdatedAt })
@@ -309,10 +310,10 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const finishRun = Effect.fn("AutomationsRepository.finishRun")(function* (
 				input: FinishSubscriptionRunInput,
 			) {
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 				const finishedAt = yield* DateTime.nowAsDate;
 				const { id, ...outcome } = input;
-				const [row] = yield* dbEffect(() =>
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.subscriptionRun)
 						.set({ ...outcome, finishedAt })
@@ -328,9 +329,9 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				id: SubscriptionRunId;
 				reason: SubscriptionRunSkipReason;
 			}) {
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 				const now = yield* DateTime.nowAsDate;
-				const [row] = yield* dbEffect(() =>
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.subscriptionRun)
 						.set({ status: "skipped", startedAt: now, finishedAt: now, skipReason: input.reason })
@@ -347,8 +348,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 
 			const listRunsByRuleId = Effect.fn("AutomationsRepository.listRunsByRuleId")(
 				function* (input: { userId: UserId; ruleId: AutomationRuleId }) {
-					const db = yield* CurrentDb;
-					const rows = yield* dbEffect(() =>
+					const db = yield* Database;
+					const rows = yield* mapDatabaseErrors(
 						db
 							.select()
 							.from(schema.subscriptionRun)
@@ -367,8 +368,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const listRunsByExecutionUserId = Effect.fn(
 				"AutomationsRepository.listRunsByExecutionUserId",
 			)(function* (input: { executionUserId: UserId; signalId?: SignalId | undefined }) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.subscriptionRun.id, status: schema.subscriptionRun.status })
 						.from(schema.subscriptionRun)

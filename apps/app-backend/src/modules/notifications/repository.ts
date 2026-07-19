@@ -9,7 +9,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Match, Option } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 export type NotificationChannelRecord = ListedNotificationChannel & {
 	readonly userId: UserId;
@@ -79,6 +79,7 @@ const ownedChannelWhere = (input: { channelId: NotificationChannelId; userId: Us
 		eq(schema.notificationChannel.userId, input.userId),
 	);
 
+/** @effect-expect-leaking Database */
 export class NotificationsRepository extends Context.Service<NotificationsRepository>()(
 	"NotificationsRepository",
 	{
@@ -89,8 +90,8 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				channel: NotificationChannelKind;
 				channelSpecifics: NotificationChannelSpecifics;
 			}) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.notificationChannel)
 						.values({
@@ -111,8 +112,8 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				userId: UserId;
 				channelId: NotificationChannelId;
 			}) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db.select().from(schema.notificationChannel).where(ownedChannelWhere(input)).limit(1),
 				);
 				return row ? toRecord(row) : null;
@@ -123,7 +124,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				channelId: NotificationChannelId;
 				body: UpdateNotificationChannelBody;
 			}) {
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 				const updates: Partial<typeof schema.notificationChannel.$inferInsert> = {};
 				if (input.body.isDisabled !== undefined) {
 					updates.isDisabled = input.body.isDisabled;
@@ -134,7 +135,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 					return existing ? toListed(existing) : null;
 				}
 
-				const [row] = yield* dbEffect(() =>
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.notificationChannel)
 						.set(updates)
@@ -148,8 +149,8 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				userId: UserId;
 				channelId: NotificationChannelId;
 			}) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
 					db
 						.delete(schema.notificationChannel)
 						.where(ownedChannelWhere(input))
@@ -160,8 +161,8 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 
 			const listEnabledForUser = Effect.fn("NotificationsRepository.listEnabledForUser")(
 				function* (input: { userId: UserId }) {
-					const db = yield* CurrentDb;
-					const rows = yield* dbEffect(() =>
+					const db = yield* Database;
+					const rows = yield* mapDatabaseErrors(
 						db
 							.select()
 							.from(schema.notificationChannel)

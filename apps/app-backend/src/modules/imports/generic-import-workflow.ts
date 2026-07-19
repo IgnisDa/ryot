@@ -19,7 +19,6 @@ import { Cause, DateTime, Effect, FileSystem, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { slugify } from "#lib/shared/slug";
@@ -87,7 +86,6 @@ const resolveEntityIntents = Effect.fn("imports.resolveGenericEntityIntents")(fu
 	item: GenericImportWriteItem,
 	userId: UserId,
 ) {
-	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const aliases = new Map<string, EntityId>();
 	const repository = yield* EntitiesRepository;
@@ -100,9 +98,10 @@ const resolveEntityIntents = Effect.fn("imports.resolveGenericEntityIntents")(fu
 		}
 		let entityId: EntityId | undefined;
 		if (intent.entityId) {
-			const existing = yield* runWithDb(
-				repository.getByIdForUser({ userId, entityId: EntityId.make(intent.entityId) }),
-			);
+			const existing = yield* repository.getByIdForUser({
+				userId,
+				entityId: EntityId.make(intent.entityId),
+			});
 			if (!existing || existing.entitySchemaSlug !== intent.entitySchemaSlug) {
 				return yield* new ImportRunError({
 					message: "Import entity id is unavailable or has the wrong schema",
@@ -110,30 +109,26 @@ const resolveEntityIntents = Effect.fn("imports.resolveGenericEntityIntents")(fu
 			}
 			entityId = existing.id;
 		} else if (intent.match) {
-			const candidates = yield* runWithDb(
-				repository.listMatchCandidatesBySchema({
-					userId,
-					entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
-				}),
-			);
+			const candidates = yield* repository.listMatchCandidatesBySchema({
+				userId,
+				entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+			});
 			const scopedCandidates = intent.scope
-				? yield* runWithDb(
-						Effect.forEach(candidates, (candidate) =>
-							repository
-								.getEntityScopeForUser({ userId, entityId: candidate.id })
-								.pipe(
-									Effect.map((scope) =>
-										(
-											intent.scope === "user"
-												? scope?.entityUserId === userId
-												: scope?.entityUserId === null
-										)
-											? [candidate]
-											: [],
-									),
+				? yield* Effect.forEach(candidates, (candidate) =>
+						repository
+							.getEntityScopeForUser({ userId, entityId: candidate.id })
+							.pipe(
+								Effect.map((scope) =>
+									(
+										intent.scope === "user"
+											? scope?.entityUserId === userId
+											: scope?.entityUserId === null
+									)
+										? [candidate]
+										: [],
 								),
-						).pipe(Effect.map((groups) => groups.flat())),
-					)
+							),
+					).pipe(Effect.map((groups) => groups.flat()))
 				: candidates;
 			const expectedName =
 				intent.match.nameNormalization === "slug" ? slugify(intent.match.name) : intent.match.name;
@@ -149,7 +144,7 @@ const resolveEntityIntents = Effect.fn("imports.resolveGenericEntityIntents")(fu
 			entityId = existing?.id;
 		}
 		if (entityId && intent.scope && intent.entityId) {
-			const scope = yield* runWithDb(repository.getEntityScopeForUser({ userId, entityId }));
+			const scope = yield* repository.getEntityScopeForUser({ userId, entityId });
 			const matchesScope =
 				intent.scope === "user" ? scope?.entityUserId === userId : scope?.entityUserId === null;
 			if (!matchesScope) {
@@ -178,7 +173,6 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 		name: `write-generic-import-item-${index}`,
 		success: ItemWriteOutcome,
 		execute: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
 			const definitions = yield* DefinitionRegistry;
 			const collections = yield* CollectionsService;
 			const relationships = yield* RelationshipsService;
@@ -194,12 +188,10 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 			for (const event of item.events) {
 				const subject =
 					event.subjectEntityId !== undefined
-						? yield* runWithDb(
-								entitiesRepository.getByIdForUser({
-									userId,
-									entityId: EntityId.make(event.subjectEntityId),
-								}),
-							)
+						? yield* entitiesRepository.getByIdForUser({
+								userId,
+								entityId: EntityId.make(event.subjectEntityId),
+							})
 						: null;
 				if (event.subjectEntityId !== undefined && !subject) {
 					return yield* new ImportRunError({

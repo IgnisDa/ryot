@@ -8,7 +8,7 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type SavedViewRow = typeof schema.savedView.$inferSelect;
 
@@ -55,6 +55,7 @@ const toListedSavedView = (row: SavedViewRow) => ({
 const withSavedViewScope = (pluginSlug?: PluginSlug) =>
 	pluginSlug ? eq(schema.savedView.pluginSlug, pluginSlug) : isNull(schema.savedView.pluginSlug);
 
+/** @effect-expect-leaking Database */
 export class SavedViewsRepository extends Context.Service<SavedViewsRepository>()(
 	"SavedViewsRepository",
 	{
@@ -63,7 +64,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				input: { pluginSlug?: PluginSlug | undefined; includeDisabled: boolean },
 			) {
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 				const clauses = [eq(schema.savedView.userId, userId)];
 
 				if (!input.includeDisabled) {
@@ -74,7 +75,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					clauses.push(eq(schema.savedView.pluginSlug, input.pluginSlug));
 				}
 
-				const rows = yield* dbEffect(() =>
+				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.savedView)
@@ -93,8 +94,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				viewSlug: string,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.savedView)
@@ -109,8 +110,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				input: CreateSavedViewInput,
 			) {
-				const db = yield* CurrentDb;
-				const [orderRow] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [orderRow] = yield* mapDatabaseErrors(
 					db
 						.select({
 							maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)`,
@@ -124,7 +125,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						),
 				);
 
-				const rows = yield* dbEffect(() =>
+				const rows = yield* mapDatabaseErrors(
 					db
 						.insert(schema.savedView)
 						.values({
@@ -152,14 +153,14 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				data: UpdateSavedViewData,
 				currentPluginSlug: PluginSlug | null,
 			) {
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 				const nextPluginSlug = data.pluginSlug ?? null;
 				let sortOrder = data.sortOrder;
 				if (sortOrder === undefined && currentPluginSlug !== nextPluginSlug) {
 					sortOrder = yield* getNextSortOrder(userId, nextPluginSlug);
 				}
 
-				const [row] = yield* dbEffect(() =>
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.savedView)
 						.set({
@@ -180,8 +181,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 
 			const updateBuiltinStateBySlug = Effect.fn("SavedViewsRepository.updateBuiltinStateBySlug")(
 				function* (userId: UserId, viewSlug: string, isDisabled: boolean, sortOrder: number) {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
 						db
 							.update(schema.savedView)
 							.set({ isDisabled, sortOrder })
@@ -203,8 +204,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				viewSlug: string,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.delete(schema.savedView)
 						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
@@ -223,8 +224,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					return 0;
 				}
 
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
 					db
 						.select({ slug: schema.savedView.slug })
 						.from(schema.savedView)
@@ -244,13 +245,13 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				pluginSlug?: PluginSlug,
 			) {
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 				const scope = and(eq(schema.savedView.userId, userId), withSavedViewScope(pluginSlug));
-				yield* dbEffect(() =>
+				yield* mapDatabaseErrors(
 					db.select({ id: schema.savedView.id }).from(schema.savedView).where(scope).for("update"),
 				);
 
-				const rows = yield* dbEffect(() =>
+				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
 						.from(schema.savedView)
@@ -265,11 +266,11 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				views: ReadonlyArray<BuiltinSavedViewInput>,
 			) {
-				const db = yield* CurrentDb;
+				const db = yield* Database;
 				if (views.length === 0) {
 					return;
 				}
-				yield* dbEffect(() =>
+				yield* mapDatabaseErrors(
 					db
 						.insert(schema.savedView)
 						.values(views.map((view) => ({ ...view, isBuiltin: true, userId })))
@@ -295,8 +296,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 }
 
 const getNextSortOrder = Effect.fn(function* (userId: UserId, pluginSlug: PluginSlug | null) {
-	const db = yield* CurrentDb;
-	const [orderRow] = yield* dbEffect(() =>
+	const db = yield* Database;
+	const [orderRow] = yield* mapDatabaseErrors(
 		db
 			.select({
 				maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)`,

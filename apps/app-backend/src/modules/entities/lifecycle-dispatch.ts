@@ -15,6 +15,8 @@ import type {
 } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
+import type { Database } from "#lib/infrastructure/db/service";
+
 export type LifecycleEntityReference = {
 	id: EntityId;
 	name: string;
@@ -93,7 +95,7 @@ export type LifecycleDispatchInput = {
 };
 
 export type LifecycleDispatchValue = {
-	dispatch: (input: LifecycleDispatchInput) => Effect.Effect<void, DbError>;
+	dispatch: (input: LifecycleDispatchInput) => Effect.Effect<void, DbError, Database>;
 };
 
 export class LifecycleDispatch extends Context.Service<LifecycleDispatch, LifecycleDispatchValue>()(

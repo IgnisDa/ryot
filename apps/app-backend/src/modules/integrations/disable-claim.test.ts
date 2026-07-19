@@ -3,7 +3,7 @@ import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { dbRunnerLayer, makeWorkflowEngine, transactionLayer } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationProviderCatalogLive } from "#modules/plugins/integration-provider-catalog";
 
@@ -19,8 +19,7 @@ const makeLayer = (repository: Layer.Layer<IntegrationsRepository>) =>
 	IntegrationsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
+				databaseLayer,
 				repository,
 				IntegrationProviderCatalogLive,
 				Layer.mock(ImportsService, {}),

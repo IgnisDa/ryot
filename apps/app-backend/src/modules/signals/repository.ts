@@ -8,7 +8,7 @@ import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type SignalRow = typeof schema.signal.$inferSelect;
 
@@ -49,11 +49,12 @@ const toStoredSignal = Effect.fn(function* (row: SignalRow) {
 	};
 });
 
+/** @effect-expect-leaking Database */
 export class SignalsRepository extends Context.Service<SignalsRepository>()("SignalsRepository", {
 	make: Effect.sync(() => {
 		const insert = Effect.fn("SignalsRepository.insert")(function* (input: InsertSignalInput) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.insert(schema.signal)
 					.values(input)
@@ -64,8 +65,8 @@ export class SignalsRepository extends Context.Service<SignalsRepository>()("Sig
 		});
 
 		const findById = Effect.fn("SignalsRepository.findById")(function* (id: SignalId) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db.select().from(schema.signal).where(eq(schema.signal.id, id)).limit(1),
 			);
 			return row ? yield* toStoredSignal(row) : null;
@@ -78,8 +79,8 @@ export class SignalsRepository extends Context.Service<SignalsRepository>()("Sig
 			if (input.userIds.length === 0) {
 				return;
 			}
-			const db = yield* CurrentDb;
-			yield* dbEffect(() =>
+			const db = yield* Database;
+			yield* mapDatabaseErrors(
 				db
 					.insert(schema.signalRecipient)
 					.values(input.userIds.map((userId) => ({ userId, signalId: input.signalId })))
@@ -90,8 +91,8 @@ export class SignalsRepository extends Context.Service<SignalsRepository>()("Sig
 		const listRecipientUserIds = Effect.fn("SignalsRepository.listRecipientUserIds")(function* (
 			signalId: SignalId,
 		) {
-			const db = yield* CurrentDb;
-			const rows = yield* dbEffect(() =>
+			const db = yield* Database;
+			const rows = yield* mapDatabaseErrors(
 				db
 					.select({ userId: schema.signalRecipient.userId })
 					.from(schema.signalRecipient)
@@ -106,7 +107,7 @@ export class SignalsRepository extends Context.Service<SignalsRepository>()("Sig
 			actorUserId?: UserId | undefined;
 			subjectEntityId?: EntityId | undefined;
 		}) {
-			const db = yield* CurrentDb;
+			const db = yield* Database;
 			const conditions = [eq(schema.signal.signalSchemaSlug, input.schemaSlug)];
 			if (input.actorUserId) {
 				conditions.push(eq(schema.signal.actorUserId, input.actorUserId));
@@ -114,7 +115,7 @@ export class SignalsRepository extends Context.Service<SignalsRepository>()("Sig
 			if (input.subjectEntityId) {
 				conditions.push(eq(schema.signal.subjectEntityId, input.subjectEntityId));
 			}
-			const rows = yield* dbEffect(() =>
+			const rows = yield* mapDatabaseErrors(
 				db
 					.select({ signal: schema.signal })
 					.from(schema.signal)
@@ -125,8 +126,8 @@ export class SignalsRepository extends Context.Service<SignalsRepository>()("Sig
 		});
 
 		const isUserEnabled = Effect.fn("SignalsRepository.isUserEnabled")(function* (userId: UserId) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.user.id })
 					.from(schema.user)

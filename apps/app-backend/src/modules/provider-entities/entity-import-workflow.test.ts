@@ -14,15 +14,14 @@ import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import {
-	dbRunnerLayer,
+	databaseLayer,
 	makeRedisService,
 	makeWorkflowEngine,
 	makeWorkflowActivityEngine,
-	transactionLayer,
 } from "#lib/test-utils/effect";
 import {
 	LifecycleDispatch,
@@ -245,7 +244,7 @@ const makeRelationshipSchemasRepository = (
 type TestLayerOptions = {
 	entitiesService?: Layer.Layer<EntitiesService>;
 	lifecycleDispatch?: Layer.Layer<LifecycleDispatch>;
-	transactionRunner?: Layer.Layer<TransactionRunner>;
+	databaseLayer?: Layer.Layer<Database>;
 	entitiesRepository?: Layer.Layer<EntitiesRepository>;
 	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
 	relationshipsRepository?: Layer.Layer<RelationshipsRepository>;
@@ -257,12 +256,11 @@ const makeTestLayer = (options: TestLayerOptions) => {
 	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
 
 	const relationshipsServiceLayer = RelationshipsService.layer.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, relationshipsRepository)),
+		Layer.provide(Layer.mergeAll(options.databaseLayer ?? databaseLayer, relationshipsRepository)),
 	);
 
 	return Layer.mergeAll(
-		dbRunnerLayer,
-		options.transactionRunner ?? transactionLayer,
+		options.databaseLayer ?? databaseLayer,
 		relationshipsServiceLayer,
 		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
 		options.lifecycleDispatch ?? LifecycleDispatchNoop,
@@ -1647,22 +1645,26 @@ it.effect("retries related writes after a failed related validation", () => {
 it.effect("commits earlier population scopes when a later scope fails", () => {
 	const writes: string[] = [];
 	let stamped = false;
-	const transactionRunner = Layer.succeed(
-		TransactionRunner,
-		<A, E, R>(effect: Effect.Effect<A, E, R>) => {
-			const initialLength = writes.length;
-			return Effect.provideService(effect, CurrentDb, Object.create(null)).pipe(
-				Effect.tapCause(() =>
-					Effect.sync(() => {
-						writes.length = initialLength;
-					}),
-				),
-			);
-		},
+	const transactionDatabaseLayer = Layer.succeed(
+		Database,
+		Database.of(
+			Object.assign(Object.create(null), {
+				transaction: ((callback) => {
+					const initialLength = writes.length;
+					return callback(Object.create(null)).pipe(
+						Effect.tapCause(() =>
+							Effect.sync(() => {
+								writes.length = initialLength;
+							}),
+						),
+					);
+				}) satisfies Database["Service"]["transaction"],
+			}),
+		),
 	);
 	const payload = { ...importPayload, executionId: "partial-scope-commit" };
 	const options = {
-		transactionRunner,
+		databaseLayer: transactionDatabaseLayer,
 		processSandbox: () =>
 			Effect.succeed({
 				logs: [],

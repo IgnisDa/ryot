@@ -5,20 +5,23 @@ import { Effect, Option } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { AppConfig, isOidcEnabled, isSmtpEnabled } from "#lib/infrastructure/config/service";
-import { DbService } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 
 export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (handlers) =>
 	handlers
 		.handle("health", () =>
 			Effect.gen(function* () {
-				const { db } = yield* DbService;
+				const database = yield* Database;
 				const redis = yield* RedisService;
 
-				yield* Effect.tryPromise({
-					try: () => db.execute(sql`select 1`),
-					catch: (cause) => healthCheckFailed(`Database check failed: ${unknownToMessage(cause)}`),
-				});
+				yield* database
+					.execute(sql`select 1`)
+					.pipe(
+						Effect.mapError((cause) =>
+							healthCheckFailed(`Database check failed: ${unknownToMessage(cause)}`),
+						),
+					);
 
 				yield* Effect.tryPromise({
 					try: () => redis.client.ping(),
