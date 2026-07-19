@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import {
 	decodeNavigationResponse,
 	type NavigationData,
@@ -12,7 +12,7 @@ import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { navigationAtom } from "@/api/atoms";
+import { navigationAtom, themeAtom } from "@/api/atoms";
 import { useAuthClient } from "@/modules/auth/client";
 import { AppIcon as NavigationIcon } from "@/modules/icons";
 import { useSetWorkspace, useWorkspace } from "@/modules/server/state";
@@ -518,6 +518,9 @@ function MobileAccountSheet(props: {
 	onClose: () => void;
 	accountEmail: string;
 }) {
+	const theme = useAtomValue(themeAtom);
+	const setTheme = useAtomSet(themeAtom);
+
 	return (
 		<Sheet title="Account" onClose={props.onClose} className="h-75">
 			<Pressable
@@ -539,18 +542,22 @@ function MobileAccountSheet(props: {
 					Appearance
 				</Text>
 				<View className="flex-row rounded-lg border border-border bg-bg p-1">
-					{[
-						["sun", "Light"],
-						["moon", "Dark"],
-						["monitor", "System"],
-					].map(([icon, label], index) => (
+					{(
+						[
+							["sun", "Light", "light"],
+							["moon", "Dark", "dark"],
+							["monitor", "System", "system"],
+						] as const
+					).map(([icon, label, value]) => (
 						<Pressable
 							key={label}
 							accessibilityRole="button"
+							onPress={() => setTheme(value)}
 							accessibilityLabel={`Use ${label} appearance`}
+							accessibilityState={{ selected: theme === value }}
 							className={clsx(
 								"flex-1 flex-row items-center justify-center gap-1 rounded-md py-2",
-								index === 0 && "bg-nav-indicator",
+								theme === value && "bg-nav-indicator",
 							)}
 						>
 							<NavigationIcon name={icon} size={14} />
@@ -558,9 +565,6 @@ function MobileAccountSheet(props: {
 						</Pressable>
 					))}
 				</View>
-				<Text className="font-ui text-[11px] text-text-muted">
-					Theme selection will be connected when account preferences are available.
-				</Text>
 			</View>
 		</Sheet>
 	);

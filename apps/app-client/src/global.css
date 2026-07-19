@@ -88,6 +88,10 @@
 	--r-pill: 999px;
 }
 
+:root[data-theme="light"] {
+	color-scheme: light;
+}
+
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
 		--bg: #101113;
@@ -122,6 +126,8 @@
 }
 
 :root[data-theme="dark"] {
+	color-scheme: dark;
+
 	--bg: #101113;
 	--gold: #e0a63f;
 	--info: #85b0d6;
