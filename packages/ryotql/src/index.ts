@@ -1,6 +1,7 @@
 import type {
 	ColumnExpression,
 	FieldSelection,
+	Include,
 	Join,
 	JsonValue,
 	LiteralExpression,
@@ -122,6 +123,32 @@ export const join = (type: Join["type"], tableName: TableReference, on: Predicat
 	table: tableName,
 });
 
+export const include = (
+	from: TableReference,
+	input: {
+		readonly key: string;
+		readonly limit: number;
+		readonly where?: Predicate | undefined;
+		readonly fields: readonly FieldSelection[];
+		readonly joins?: readonly Join[] | undefined;
+		readonly include?: readonly Include[] | undefined;
+		readonly orderBy: readonly [OrderBy, ...OrderBy[]];
+	},
+): Include => ({
+	from,
+	key: input.key,
+	limit: input.limit,
+	fields: [...input.fields],
+	...(input.where ? { where: input.where } : {}),
+	orderBy: [...input.orderBy] as [OrderBy, ...OrderBy[]],
+	...(input.joins && input.joins.length > 0
+		? { joins: [...input.joins] as [Join, ...Join[]] }
+		: {}),
+	...(input.include && input.include.length > 0
+		? { include: [...input.include] as [Include, ...Include[]] }
+		: {}),
+});
+
 export const rows = (
 	from: TableReference,
 	input: {
@@ -130,16 +157,22 @@ export const rows = (
 		readonly where?: Predicate | undefined;
 		readonly fields: readonly FieldSelection[];
 		readonly joins?: readonly Join[] | undefined;
+		readonly include?: readonly Include[] | undefined;
 		readonly orderBy?: readonly OrderBy[] | undefined;
 	},
 ): NamedQuery => ({
 	from,
 	...(input.where ? { where: input.where } : {}),
-	...(input.joins && input.joins.length > 0 ? { joins: [...input.joins] } : {}),
+	...(input.joins && input.joins.length > 0
+		? { joins: [...input.joins] as [Join, ...Join[]] }
+		: {}),
 	output: {
 		type: "rows",
 		fields: [...input.fields],
 		pagination: { page: input.page ?? 1, limit: input.limit ?? 20 },
+		...(input.include && input.include.length > 0
+			? { include: [...input.include] as [Include, ...Include[]] }
+			: {}),
 		orderBy: input.orderBy ? [...input.orderBy] : [ascending(column(from, "id"))],
 	},
 });
