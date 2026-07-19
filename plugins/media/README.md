@@ -323,6 +323,13 @@ validated event patch for `sessionEntityId`; it does not return a replacement re
 are chained in deterministic hook order, and the kernel validates the final event draft before the
 write.
 
+Episodic parent auto-completion runs one script through two user-scoped hooks.
+`media.auto-complete-episodic-parent` is required and targets only `show-episode:complete` and
+`podcast-episode:complete`. `media.auto-complete-on-status-change` is async and targets the
+`media.status.changed` signal, so a production status turning terminal fans out one run per
+media-monitoring owner instead of a global run during population; the signal carries
+`entitySchemaSlug` so the script can select show or podcast coverage.
+
 `media.review-created` targets `review` events including `collection:review`; the radarr and sonarr
 push hooks target `collection:add-entity-to-collection`. `media.notification`, `media.radarr-push`,
 and `media.sonarr-push` read inline payloads and declare one attempt with no automatic external

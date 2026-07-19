@@ -26,7 +26,7 @@ export const manifest = defineManifest({
 	capabilities: ["executeRyotql", "createEvents", "listEventSchemas", "claimPersistentValue"],
 	inputProjection: {
 		event: { properties: [], compareProperties: [] },
-		entity: { compareProperties: [], parentEntityProperties: [], properties: ["productionStatus"] },
+		signal: { properties: ["entitySchemaSlug", "oldStatus", "newStatus"] },
 	},
 });
 
@@ -46,8 +46,8 @@ type CompletionTrigger = {
 
 const terminalProductionStatuses = new Set(["ended", "canceled", "cancelled"]);
 
-const productionStatus = (properties: Readonly<Record<string, JsonValue>>) => {
-	const value = properties["productionStatus"];
+const stringProperty = (properties: Readonly<Record<string, JsonValue>>, key: string) => {
+	const value = properties[key];
 	return typeof value === "string" ? value : null;
 };
 
@@ -97,25 +97,20 @@ const getCompletionTrigger = (source: Payload): CompletionTrigger | null => {
 		return { event, config, parentEntityId: event.sessionEntityId };
 	}
 
+	if (source.resource !== "signal" || source.signalSchemaSlug !== "media.status.changed") {
+		return null;
+	}
+	const entitySchemaSlug = stringProperty(source.properties, "entitySchemaSlug");
+	const config = entitySchemaSlug === null ? null : configForParent(entitySchemaSlug);
 	if (
-		source.category !== "change" ||
-		source.resource !== "entity" ||
-		source.operation !== "update"
+		!config ||
+		!source.subjectEntityId ||
+		isTerminalProductionStatus(stringProperty(source.properties, "oldStatus")) ||
+		!isTerminalProductionStatus(stringProperty(source.properties, "newStatus"))
 	) {
 		return null;
 	}
-	const before = source.before;
-	const after = source.after;
-	const config = configForParent(after.entitySchemaSlug);
-	if (!config) {
-		return null;
-	}
-	const beforeStatus = productionStatus(before.properties);
-	const afterStatus = productionStatus(after.properties);
-	if (isTerminalProductionStatus(beforeStatus) || !isTerminalProductionStatus(afterStatus)) {
-		return null;
-	}
-	return { config, event: null, parentEntityId: after.id };
+	return { config, event: null, parentEntityId: source.subjectEntityId };
 };
 
 const snapshotCanComplete = (
