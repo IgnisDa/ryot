@@ -1,11 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
 import { createRyotClient } from "@ryot-app/client-sdk";
-import type { ContractClient } from "@ryot-app/contract/client";
+import type { ContractSuccess } from "@ryot-app/contract/client";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
+import { makeProviderEntitiesApi } from "#/api/ports.test-layer";
+import type { ProviderEntitiesApi } from "#/api/provider-entities";
 import type { ApiScope } from "#/api/scope";
 import { ProviderAddService } from "#/modules/provider-add/service";
 
@@ -23,50 +25,41 @@ const providerRow = {
 	rootEntitySchemaSlug: entitySchemaSlug,
 };
 
-type ContractCall = { readonly method: string; readonly request: unknown };
+type ProviderEntitiesMethod = keyof ProviderEntitiesApi["Service"];
+type ContractCall = { readonly method: ProviderEntitiesMethod; readonly request: unknown };
 
-const makeApi = (
-	calls: ContractCall[],
-	respond: (method: string) => Effect.Effect<unknown, unknown>,
-) => {
-	const record = (method: string) => (request: unknown) => {
-		calls.push({ method, request });
-		return respond(method);
-	};
-	// A ContractProgram is always handed a whole ContractClient, so a fake implementing only the
-	// group under test cannot be produced without asserting over the other contract groups.
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const client = {
-		providerEntities: {
-			search: record("search"),
-			import: record("import"),
-			searchOptions: record("searchOptions"),
-			getImportResult: record("getImportResult"),
-		},
-	} as unknown as ContractClient;
+const makeApi = (calls: ContractCall[], offline = false) => {
+	const record =
+		<M extends ProviderEntitiesMethod>(
+			method: M,
+			response: ContractSuccess<"providerEntities", M>,
+		) =>
+		(_scope: ApiScope, request: unknown) => {
+			calls.push({ method, request });
+			return offline
+				? Effect.fail(new AuthenticatedApiError({ cause: "offline" }))
+				: Effect.succeed(response);
+		};
 	return ProviderAddService.layer.pipe(
 		Layer.provide(
-			Layer.succeed(AuthenticatedApi, {
-				run: <A, E>(_scope: ApiScope, program: (client: ContractClient) => Effect.Effect<A, E>) =>
-					program(client).pipe(
-						Effect.catch((cause) => Effect.fail(new AuthenticatedApiError({ cause }))),
-					),
+			makeProviderEntitiesApi({
+				import: record("import", { jobId: "job-1" }),
+				searchOptions: record("searchOptions", { schema: null }),
+				getImportResult: record("getImportResult", { status: "pending" }),
+				search: record("search", {
+					items: [],
+					providerId,
+					providerName: "Open Library",
+					rootEntitySchemaSlug: entitySchemaSlug,
+				}),
 			}),
 		),
 	);
 };
 
-const contractResponses: Record<string, unknown> = {
-	import: { jobId: "job-1" },
-	searchOptions: { schema: null },
-	getImportResult: { status: "pending" },
-	search: { items: [], providerId, providerName: "Open Library" },
-};
+const workingApi = (calls: ContractCall[]) => makeApi(calls);
 
-const workingApi = (calls: ContractCall[]) =>
-	makeApi(calls, (method) => Effect.succeed(contractResponses[method]));
-
-const failingApi = () => makeApi([], () => Effect.fail("offline"));
+const failingApi = () => makeApi([], true);
 
 const dataClient = (queries: unknown[]) =>
 	createRyotClient({

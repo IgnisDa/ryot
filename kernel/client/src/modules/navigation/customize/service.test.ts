@@ -1,13 +1,15 @@
 import { describe, expect, it } from "@effect/vitest";
 import type {
-	ContractClient,
 	ContractPathParams,
 	ContractPayload,
+	ContractSuccess,
 } from "@ryot-app/contract/client";
+import { SavedViewId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
+import { makeSavedViewsApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
 import type { CustomizePlan } from "#/modules/navigation/customize/customize-plan";
 import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
@@ -22,32 +24,56 @@ type Call =
 			readonly params: ContractPathParams<"savedViews", "update">;
 	  };
 
-type UpdateRequest = {
-	readonly payload: ContractPayload<"savedViews", "update">;
-	readonly params: ContractPathParams<"savedViews", "update">;
+const cardLayout = {
+	callout: null,
+	overline: null,
+	imageField: null,
+	titleField: "title",
+	entityIdField: "id",
+	primaryMetadata: null,
+	secondaryMetadata: null,
+	queryDocument: { queries: {} },
 };
-type ReorderRequest = { readonly payload: ContractPayload<"savedViews", "reorder"> };
 
-const makeApi = (calls: Call[], fail?: Call["kind"]) => {
-	const update = (request: UpdateRequest): Effect.Effect<unknown, unknown> => {
-		calls.push({ kind: "update", ...request });
-		return fail === "update" ? Effect.fail("boom") : Effect.succeed({});
-	};
-	const reorder = (request: ReorderRequest): Effect.Effect<unknown, unknown> => {
-		calls.push({ kind: "reorder", ...request });
-		return fail === "reorder" ? Effect.fail("boom") : Effect.succeed({});
-	};
-	// A ContractProgram is always handed a whole ContractClient, so a fake implementing only the
-	// methods under test cannot be produced without asserting over the other contract groups.
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const client = { savedViews: { update, reorder } } as ContractClient;
-	return Layer.succeed(AuthenticatedApi, {
-		run: <A, E>(_scope: ApiScope, program: (client: ContractClient) => Effect.Effect<A, E>) =>
-			program(client).pipe(
-				Effect.catch((cause) => Effect.fail(new AuthenticatedApiError({ cause }))),
-			),
-	});
+const savedView: ContractSuccess<"savedViews", "update"> = {
+	name: "All",
+	slug: "all",
+	sortOrder: 0,
+	icon: "list",
+	pluginSlug: null,
+	isBuiltin: false,
+	isDisabled: false,
+	entitySchemaSlug: null,
+	id: SavedViewId.make("view-1"),
+	createdAt: "2026-01-01T00:00:00.000Z",
+	updatedAt: "2026-01-01T00:00:00.000Z",
+	layouts: {
+		grid: cardLayout,
+		list: cardLayout,
+		table: {
+			imageField: null,
+			entityIdField: "id",
+			queryDocument: { queries: {} },
+			columns: [{ label: "Name", field: "title", displayKind: "text" }],
+		},
+	},
 };
+
+const authFailure = Effect.fail(new AuthenticatedApiError({ cause: "boom" }));
+
+const makeApi = (calls: Call[], fail?: Call["kind"]) =>
+	makeSavedViewsApi({
+		update: (_scope, request) => {
+			calls.push({ kind: "update", ...request });
+			return fail === "update" ? authFailure : Effect.succeed(savedView);
+		},
+		reorder: (_scope, request) => {
+			calls.push({ kind: "reorder", ...request });
+			return fail === "reorder"
+				? authFailure
+				: Effect.succeed({ viewSlugs: request.payload.viewSlugs });
+		},
+	});
 
 const plan: CustomizePlan = {
 	reorders: [{ viewSlugs: ["all", "recent"] }],

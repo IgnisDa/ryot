@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AuthenticatedApi } from "#/api/authenticated";
+import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { OAuthTokenError } from "#/modules/auth/token-service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
@@ -14,19 +14,19 @@ import { PluginQueriesService } from "#/modules/plugins/queries";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
-	ServerStub,
-	GodModeRouteStubs,
-	SavedViewRouteStubs,
-	ProviderAddRouteStubs,
-	CustomizeRouteStubs,
-	NavigationRouteStubs,
 	theme,
 	server,
 	catalog,
+	ServerStub,
 	makeAuthStub,
 	makeStorageStub,
+	GodModeRouteStubs,
 	makePublicApiStub,
+	CustomizeRouteStubs,
+	SavedViewRouteStubs,
 	makeOAuthRouteStubs,
+	NavigationRouteStubs,
+	ProviderAddRouteStubs,
 } from "#/routes/-route-fixtures";
 
 type Exchange = {
@@ -85,7 +85,7 @@ const mountCallback = (
 				create: () => Effect.die("not used"),
 			}),
 			makePluginCatalogEventsTestLayer().layer,
-			AuthenticatedApi.layer,
+			KernelApiTestLayer,
 		).pipe(
 			Layer.provideMerge(oauth),
 			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub())),

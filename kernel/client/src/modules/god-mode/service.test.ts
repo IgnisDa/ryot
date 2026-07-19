@@ -1,11 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { ContractClient } from "@ryot-app/contract/client";
+import type { ContractSuccess } from "@ryot-app/contract/client";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 
-import { AdminApi, AdminApiError } from "#/api/admin";
-import { decodeServerOrigin } from "#/api/origin";
+import type { GodModeApi } from "#/api/god-mode";
+import { decodeServerOrigin, type ServerOrigin } from "#/api/origin";
+import { makeGodModeApi } from "#/api/ports.test-layer";
 import { GodModeService, GodModeSessionNotFound } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import type { GodModeUserLifecycleOperation } from "#/modules/god-mode/user-lifecycle";
@@ -39,70 +40,50 @@ const makeLayer = () => {
 		userId: UserId.make("user-1"),
 		resetUrl: "https://ryot.example/reset-password?token=reset-secret",
 	};
-	// Contract programs receive the whole generated client; this fake implements only God Mode.
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const client = {
-		godMode: {
-			listUsers: (request: unknown) =>
-				Effect.sync(() => {
-					requests.push({ request, name: "listUsers" });
-					return {
-						total: 1,
-						users: [
-							{
-								id: "user-1",
-								name: "Reader",
-								disabledAt: null,
-								twoFactorEnabled: false,
-								email: "reader@example.com",
-								authState: "credential" as const,
-								createdAt: "2026-09-01T00:00:00.000Z",
-							},
-						],
-					};
-				}),
-			getMigrationReport: () =>
-				Effect.sync(() => {
-					requests.push({ name: "getMigrationReport" });
-					return { entries: [] };
-				}),
-			resetUserPassword: (request: unknown) =>
-				Effect.sync(() => {
-					requests.push({ request, name: "resetUserPassword" });
-					return { email: resetResult.email, resetUrl: resetResult.resetUrl };
-				}),
-			setUserDisabled: (request: unknown) =>
-				Effect.sync(() => {
-					requests.push({ request, name: "setUserDisabled" });
-					return { id: "user-1", disabledAt: "2026-09-01T01:00:00.000Z" };
-				}),
-			resetUser: (request: unknown) =>
-				Effect.sync(() => {
-					requests.push({ request, name: "resetUser" });
-					return operation("reset", "pending");
-				}),
-			deleteUser: (request: unknown) =>
-				Effect.sync(() => {
-					requests.push({ request, name: "deleteUser" });
-					return operation("delete", "completed");
-				}),
-			getUserLifecycleOperation: (request: unknown) =>
-				Effect.sync(() => {
-					lifecyclePolls += 1;
-					requests.push({ request, name: "getUserLifecycleOperation" });
-					return operation("reset", "completed", { resetResult });
-				}),
-		},
-	} as unknown as ContractClient;
-	const admin = Layer.succeed(AdminApi, {
-		run: (requestedOrigin, token, program) =>
-			Effect.sync(() => calls.push({ token, origin: requestedOrigin })).pipe(
-				Effect.andThen(program(client)),
-				Effect.mapError((cause) => new AdminApiError({ cause })),
-			),
+	const record =
+		<M extends keyof GodModeApi["Service"]>(
+			name: M,
+			respond: () => ContractSuccess<"godMode", M>,
+		) =>
+		(requestedOrigin: ServerOrigin, token: string, request?: unknown) =>
+			Effect.sync(() => {
+				calls.push({ token, origin: requestedOrigin });
+				requests.push({ name, request });
+				return respond();
+			});
+	const godMode = makeGodModeApi({
+		getMigrationReport: record("getMigrationReport", () => ({ entries: [] })),
+		deleteUser: record("deleteUser", () => operation("delete", "completed")),
+		resetUser: record("resetUser", () => operation("reset", "pending")),
+		resetUserPassword: record("resetUserPassword", () => ({
+			email: resetResult.email,
+			resetUrl: resetResult.resetUrl,
+		})),
+		setUserDisabled: record("setUserDisabled", () => ({
+			id: UserId.make("user-1"),
+			disabledAt: "2026-09-01T01:00:00.000Z",
+		})),
+		getUserLifecycleOperation: record("getUserLifecycleOperation", () => {
+			lifecyclePolls += 1;
+			return operation("reset", "completed", { resetResult });
+		}),
+		listUsers: record("listUsers", () => ({
+			total: 1,
+			users: [
+				{
+					name: "Reader",
+					disabledAt: null,
+					twoFactorEnabled: false,
+					email: "reader@example.com",
+					id: UserId.make("user-1"),
+					authState: "credential" as const,
+					createdAt: "2026-09-01T00:00:00.000Z",
+				},
+			],
+		})),
 	});
 	const session = Layer.succeed(GodModeSessionService, sessions);
-	const layer = GodModeService.layer.pipe(Layer.provide(admin), Layer.provide(session));
+	const layer = GodModeService.layer.pipe(Layer.provide(godMode), Layer.provide(session));
 
 	return { calls, layer, requests, sessions, lifecyclePolls: () => lifecyclePolls, resetResult };
 };
