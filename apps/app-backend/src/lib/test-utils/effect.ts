@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Redacted } from "effect";
+import { ConfigProvider, Effect, Layer, Option, Redacted } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import {
 	layerMemory as workflowEngineMemoryLayer,
@@ -147,6 +147,9 @@ export const makeAppConfigLayer = (
 		},
 	});
 };
+
+export const makeConfigProviderLayer = (values: Readonly<Record<string, unknown>> = {}) =>
+	ConfigProvider.layer(ConfigProvider.fromUnknown(values));
 
 export const makeWorkflowActivityEngine = (
 	instance: WorkflowInstance["Service"],
