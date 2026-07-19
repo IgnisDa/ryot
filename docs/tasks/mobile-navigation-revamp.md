@@ -10,6 +10,8 @@ Entity details                     Child
 
 A workspace switch changes the application context. A saved view changes the current root destination within that context. Opening an item pushes a child screen.
 
+This document covers the mobile app only. The web app will not have a page header or page title; all header and large-title behavior described below is mobile-only and has no web equivalent.
+
 ## Recommended route behavior
 
 ```text
