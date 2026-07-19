@@ -22,8 +22,8 @@ import { Effect, Match, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { withoutSchemaServices } from "#lib/shared/schema";
 
 import { EventCreateWorkflowError, type EventCreateWorkflowPayload } from "./event-create-workflow";
 import { resolveEventCreateItemScopes } from "./event-creation";
@@ -103,9 +103,9 @@ const validateEventDraft = Effect.fn("validateEventPolicyDraft")(function* (
 	draft: { properties: unknown; occurredAt: string; sessionEntityId?: EntityId | undefined },
 ) {
 	return yield* Activity.make({
-		error: withoutSchemaServices(EventCreateWorkflowError),
+		error: EventCreateWorkflowError satisfies DurableSchema,
 		name: `validate-policy-draft-${itemIndex}-${stepId}`,
-		success: withoutSchemaServices(EventPolicyDraft),
+		success: EventPolicyDraft satisfies DurableSchema,
 		execute: Effect.gen(function* () {
 			const scopes = yield* resolveEventCreateItemScopes({
 				userId: payload.userId,
