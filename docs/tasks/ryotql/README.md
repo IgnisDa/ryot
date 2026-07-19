@@ -1,8 +1,8 @@
 ## Tasks
 
-**Overall Progress:** 8 of 15 tasks completed
+**Overall Progress:** 9 of 15 tasks completed
 
-**Current Task:** [Task 09](./09-focused-navigation-queries.md) (todo)
+**Current Task:** [Task 10](./10-sandbox-media-monitoring.md) (todo)
 
 ### Task List
 
@@ -16,7 +16,7 @@
 | 06  | [Correlated Query Expressions](./06-correlated-query-expressions.md)       | completed |
 | 07  | [Aggregate Outputs](./07-aggregate-outputs.md)                             | completed |
 | 08  | [Time-Series Outputs](./08-time-series-outputs.md)                         | completed |
-| 09  | [Focused Navigation Queries](./09-focused-navigation-queries.md)           | todo      |
+| 09  | [Focused Navigation Queries](./09-focused-navigation-queries.md)           | completed |
 | 10  | [Sandbox Execution And Media Monitoring](./10-sandbox-media-monitoring.md) | todo      |
 | 11  | [Media Recipe Migration](./11-media-recipe-migration.md)                   | todo      |
 | 12  | [Fitness Recipe Migration](./12-fitness-recipe-migration.md)               | todo      |
