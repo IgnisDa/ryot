@@ -1,4 +1,8 @@
-import type { BackupRun, BackupRunKind } from "@ryot/contract/modules/backups/schemas";
+import type {
+	BackupRun,
+	BackupRunFailure,
+	BackupRunKind,
+} from "@ryot/contract/modules/backups/schemas";
 import type { RunStatus } from "@ryot/contract/schema/run-status";
 import { DateTime, Match } from "effect";
 
@@ -77,52 +81,47 @@ export const backupExpiryLabel = (run: Pick<BackupRun, "expiresAt">, nowMs: numb
 	return days === 1 ? "Expires in 1 day" : `Expires in ${days} days`;
 };
 
-export const backupRunFailureNotice = (error: string | null): BackupRunFailureNotice => {
-	const summary = (error ?? "").toLowerCase();
-	if (/not clean/.test(summary)) {
-		return {
-			label: "Account not empty",
-			detail:
-				"This account already had data in it, so nothing was changed. A backup can only be restored into a new, empty account.",
-		};
-	}
-	if (/encrypt|compression|unsupported|not supported|format/.test(summary)) {
-		return {
-			label: "Archive unsupported",
-			detail:
-				"This archive uses a zip form Ryot cannot open. Upload the original file exactly as Ryot exported it.",
-		};
-	}
-	if (/requires plugin|unavailable plugin/.test(summary)) {
-		return {
-			label: "Plugin missing",
-			detail:
-				"This backup needs a plugin that is not installed on this server. Install it, then restore again.",
-		};
-	}
-	if (/could not be claimed|download object/.test(summary)) {
-		return {
-			label: "Upload expired",
-			detail:
-				"The file you uploaded was no longer on the server when this restore ran, so nothing was changed. Upload the backup again.",
-		};
-	}
-	if (/checksum|truncat|invalid|malformed|missing/.test(summary)) {
-		return {
-			label: "Archive damaged",
-			detail:
-				"This archive was damaged or incomplete, so nothing was changed. Download the backup again and retry.",
-		};
-	}
-	return {
-		label: "Stopped early",
-		detail: "This stopped before it finished. Nothing was left half-written.",
-	};
-};
+const stoppedEarly = {
+	label: "Stopped early",
+	detail: "This stopped before it finished. Nothing was left half-written.",
+} as const;
+
+export const backupRunFailureNotice = (failure: BackupRunFailure | null): BackupRunFailureNotice =>
+	failure === null
+		? stoppedEarly
+		: Match.value(failure).pipe(
+				Match.when({ code: "account-not-clean" }, () => ({
+					label: "Account not empty",
+					detail:
+						"This account already had data in it, so nothing was changed. A backup can only be restored into a new, empty account.",
+				})),
+				Match.when({ code: "archive-unsupported" }, () => ({
+					label: "Archive unsupported",
+					detail:
+						"This archive uses a zip form Ryot cannot open. Upload the original file exactly as Ryot exported it.",
+				})),
+				Match.when({ code: "required-plugin-unavailable" }, () => ({
+					label: "Plugin missing",
+					detail:
+						"This backup needs a plugin that is not installed on this server. Install it, then restore again.",
+				})),
+				Match.when({ code: "upload-unavailable" }, () => ({
+					label: "Upload expired",
+					detail:
+						"The file you uploaded was no longer on the server when this restore ran, so nothing was changed. Upload the backup again.",
+				})),
+				Match.when({ code: "archive-invalid" }, () => ({
+					label: "Archive damaged",
+					detail:
+						"This archive was damaged or incomplete, so nothing was changed. Download the backup again and retry.",
+				})),
+				Match.when({ code: "unexpected-failure" }, () => stoppedEarly),
+				Match.exhaustive,
+			);
 
 export const backupRunOutcomeLabel = (run: BackupRun, nowMs: number) => {
 	if (run.status === "failed") {
-		return backupRunFailureNotice(run.error).label;
+		return backupRunFailureNotice(run.failure).label;
 	}
 	if (!isTerminalRunStatus(run.status)) {
 		return backupRunProgress(run).label;

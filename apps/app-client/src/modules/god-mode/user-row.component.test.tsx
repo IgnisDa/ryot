@@ -37,7 +37,7 @@ const actions = (overrides: Partial<GodModeUserActions> = {}): GodModeUserAction
 	deleteUser: () =>
 		Promise.resolve(
 			Exit.succeed({
-				error: null,
+				failure: null,
 				kind: "delete",
 				startedAt: null,
 				resetResult: null,
@@ -119,7 +119,7 @@ describe("God-mode user lifecycle actions", () => {
 			createdAt: "2026-08-24T00:00:00.000Z",
 			userId: UserId.make(userRow.id),
 			finishedAt: "2026-08-24T00:00:00.000Z",
-			error: "database cleanup failed at step 4",
+			failure: { code: "database-cleanup-failed" },
 		} as const satisfies GodModeUserLifecycleOperation;
 		await render(
 			<TestUserRow
@@ -133,7 +133,7 @@ describe("God-mode user lifecycle actions", () => {
 		await pressSheetControl("button", "Reset account");
 
 		expect(await screen.findByText("Could not reset this user. Try again.")).toBeOnTheScreen();
-		expect(screen.queryByText(/database cleanup|step 4/)).not.toBeOnTheScreen();
+		expect(screen.queryByText(/database-cleanup-failed/)).not.toBeOnTheScreen();
 	});
 
 	it("blocks reset links for OIDC-only users while keeping other actions available", async () => {
@@ -147,7 +147,7 @@ describe("God-mode user lifecycle actions", () => {
 						deleteCount += 1;
 						return Promise.resolve(
 							Exit.succeed({
-								error: null,
+								failure: null,
 								kind: "delete",
 								startedAt: null,
 								resetResult: null,

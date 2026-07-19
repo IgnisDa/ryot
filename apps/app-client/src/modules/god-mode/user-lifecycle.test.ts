@@ -10,7 +10,7 @@ const operation = (
 	overrides: Partial<GodModeUserLifecycleOperation> = {},
 ): GodModeUserLifecycleOperation => ({
 	status,
-	error: null,
+	failure: null,
 	kind: "delete",
 	startedAt: null,
 	finishedAt: null,
@@ -74,8 +74,8 @@ it.effect("fails immediately with the terminal operation details", () =>
 	Effect.gen(function* () {
 		let polls = 0;
 		const failed = operation("failed", {
-			error: "database cleanup failed",
 			finishedAt: "2026-08-24T00:00:00.000Z",
+			failure: { code: "database-cleanup-failed" },
 		});
 
 		const result = yield* Effect.flip(

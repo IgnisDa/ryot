@@ -93,26 +93,29 @@ describe("backup run presentation", () => {
 	});
 
 	it("explains each way a run can fail without repeating the server wording", () => {
-		const damaged = backupRunFailureNotice("Section checksum mismatch");
-		const truncated = backupRunFailureNotice("ZIP central directory entry is truncated");
-		const encrypted = backupRunFailureNotice("Unsupported ZIP compression or encryption");
-		const plugin = backupRunFailureNotice("Backup requires plugin 'media' at version '1.2.0'");
-		const unclean = backupRunFailureNotice("Account is not clean: entities");
-		const unknown = backupRunFailureNotice("Backup restore could not start");
-		const expired = backupRunFailureNotice("Backup upload could not be claimed");
-		const gone = backupRunFailureNotice("Local download object is missing or invalid");
-		const zip64 = backupRunFailureNotice("Zip64 archives are not supported");
+		const damaged = backupRunFailureNotice({ code: "archive-invalid", issue: "checksum-mismatch" });
+		const encrypted = backupRunFailureNotice({
+			feature: "compression",
+			code: "archive-unsupported",
+		});
+		const plugin = backupRunFailureNotice({
+			pluginSlug: "media",
+			requiredVersion: "1.2.0",
+			code: "required-plugin-unavailable",
+		});
+		const unclean = backupRunFailureNotice({ code: "account-not-clean", category: "entities" });
+		const unknown = backupRunFailureNotice({ code: "unexpected-failure", operation: "restore" });
+		const expired = backupRunFailureNotice({ code: "upload-unavailable" });
 
-		expect([damaged.label, truncated.label]).toEqual(["Archive damaged", "Archive damaged"]);
+		expect(damaged.label).toBe("Archive damaged");
 		expect(encrypted.label).toBe("Archive unsupported");
 		expect(plugin.label).toBe("Plugin missing");
 		expect(plugin.detail).not.toContain("media");
 		expect(unclean.label).toBe("Account not empty");
 		expect(unclean.detail).not.toContain("entities");
 		expect(unknown.label).toBe("Stopped early");
-		expect([expired.label, gone.label]).toEqual(["Upload expired", "Upload expired"]);
+		expect(expired.label).toBe("Upload expired");
 		expect(expired.detail).toContain("Upload the backup again");
-		expect(zip64.label).toBe("Archive unsupported");
 		expect(backupRunFailureNotice(null).label).toBe("Stopped early");
 	});
 
@@ -128,7 +131,10 @@ describe("backup run presentation", () => {
 		expect(backupRunOutcomeLabel(backupRun({ status: "pending" }), NOW_MS)).toBe("Preparing");
 		expect(
 			backupRunOutcomeLabel(
-				backupRun({ status: "failed", error: "Section checksum mismatch" }),
+				backupRun({
+					status: "failed",
+					failure: { code: "archive-invalid", issue: "checksum-mismatch" },
+				}),
 				NOW_MS,
 			),
 		).toBe("Archive damaged");
