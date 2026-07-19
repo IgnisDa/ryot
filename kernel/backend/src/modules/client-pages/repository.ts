@@ -265,8 +265,6 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 			const findBuild = Effect.fn("ClientPagesRepository.findBuild")(function* (input: {
 				readonly userId: UserId;
 				readonly graphHash: string;
-				readonly rendererId: string;
-				readonly publishedHash: string;
 			}) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
@@ -288,8 +286,6 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 						.where(
 							and(
 								eq(schema.clientPageBuild.userId, input.userId),
-								eq(schema.clientPageBuild.rendererId, input.rendererId),
-								eq(schema.clientPageBuild.publishedHash, input.publishedHash),
 								eq(schema.clientPageBuild.graphHash, input.graphHash),
 							),
 						)
@@ -301,10 +297,11 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 			const createBuild = Effect.fn("ClientPagesRepository.createBuild")(function* (input: {
 				readonly userId: UserId;
 				readonly graphHash: string;
-				readonly rendererId: string;
 				readonly artifactHash: string;
-				readonly publishedHash: string;
 				readonly graphIdentity: ClientPageGraphIdentity;
+				readonly rendererId?: string;
+				readonly publishedHash?: string;
+				readonly kernelRendererName?: string;
 			}) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
@@ -312,89 +309,13 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 						.insert(schema.clientPageBuild)
 						.values(input)
 						.onConflictDoUpdate({
+							target: [schema.clientPageBuild.userId, schema.clientPageBuild.graphHash],
 							set: { artifactHash: input.artifactHash, graphIdentity: input.graphIdentity },
-							target: [
-								schema.clientPageBuild.rendererId,
-								schema.clientPageBuild.publishedHash,
-								schema.clientPageBuild.graphHash,
-							],
 						})
 						.returning({ id: schema.clientPageBuild.id }),
 				);
 				return row?.id ?? null;
 			});
-
-			const findKernelBuild = Effect.fn("ClientPagesRepository.findKernelBuild")(function* (input: {
-				readonly userId: UserId;
-				readonly graphHash: string;
-				readonly sourceHash: string;
-				readonly kernelRendererName: string;
-			}) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.select({
-							id: schema.clientPageBuild.id,
-							format: schema.pluginClientArtifact.format,
-							artifactHash: schema.clientPageBuild.artifactHash,
-							apiVersion: schema.pluginClientArtifact.apiVersion,
-							graphIdentity: schema.clientPageBuild.graphIdentity,
-							bridgeVersion: schema.pluginClientArtifact.bridgeVersion,
-							compilerVersion: schema.pluginClientArtifact.compilerVersion,
-						})
-						.from(schema.clientPageBuild)
-						.innerJoin(
-							schema.pluginClientArtifact,
-							eq(schema.pluginClientArtifact.hash, schema.clientPageBuild.artifactHash),
-						)
-						.where(
-							and(
-								eq(schema.clientPageBuild.userId, input.userId),
-								eq(schema.clientPageBuild.kernelRendererName, input.kernelRendererName),
-								eq(schema.clientPageBuild.publishedHash, input.sourceHash),
-								eq(schema.clientPageBuild.graphHash, input.graphHash),
-							),
-						)
-						.limit(1),
-				);
-				return row ?? null;
-			});
-
-			const createKernelBuild = Effect.fn("ClientPagesRepository.createKernelBuild")(
-				function* (input: {
-					readonly userId: UserId;
-					readonly graphHash: string;
-					readonly sourceHash: string;
-					readonly artifactHash: string;
-					readonly kernelRendererName: string;
-					readonly graphIdentity: ClientPageGraphIdentity;
-				}) {
-					const db = yield* Database;
-					const [row] = yield* mapDatabaseErrors(
-						db
-							.insert(schema.clientPageBuild)
-							.values({
-								userId: input.userId,
-								graphHash: input.graphHash,
-								publishedHash: input.sourceHash,
-								artifactHash: input.artifactHash,
-								graphIdentity: input.graphIdentity,
-								kernelRendererName: input.kernelRendererName,
-							})
-							.onConflictDoUpdate({
-								set: { artifactHash: input.artifactHash, graphIdentity: input.graphIdentity },
-								target: [
-									schema.clientPageBuild.userId,
-									schema.clientPageBuild.kernelRendererName,
-									schema.clientPageBuild.publishedHash,
-									schema.clientPageBuild.graphHash,
-								],
-							})
-							.returning({ id: schema.clientPageBuild.id }),
-					);
-					return row?.id ?? null;
-				},
-			);
 
 			const findArtifactFile = Effect.fn("ClientPagesRepository.findArtifactFile")(function* (
 				artifactHash: string,
@@ -431,9 +352,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 				createRenderer,
 				deleteRenderer,
 				restoreRenderer,
-				findKernelBuild,
 				findArtifactFile,
-				createKernelBuild,
 				findPreparedTarget,
 				listDependentSettings,
 			};

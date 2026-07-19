@@ -59,8 +59,14 @@ function mount(
 			};
 		},
 	};
-	const props = (location: PluginLogicalLocation, index: number, freshnessCheckRevision = 0) => ({
+	const props = (
+		location: PluginLogicalLocation,
+		index: number,
+		freshnessCheckRevision = 0,
+		active = true,
+	) => ({
 		theme,
+		active,
 		location,
 		title: "Fixture",
 		backInterceptors,
@@ -121,6 +127,7 @@ function mount(
 		providerSearches,
 		backInterceptors,
 		refresh: mutationCompleted.hint,
+		setActive: (active: boolean) => view.rerender(<PluginFrame {...props(home, 0, 0, active)} />),
 		move: (location: PluginLogicalLocation, index: number, freshnessCheckRevision = 0) =>
 			view.rerender(<PluginFrame {...props(location, index, freshnessCheckRevision)} />),
 	};
@@ -240,6 +247,32 @@ describe("PluginFrame", () => {
 
 		host.refresh();
 
+		await waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" }));
+		expect(
+			bridge.messages.filter(
+				(message) =>
+					typeof message === "object" &&
+					message !== null &&
+					Reflect.get(message, "type") === "page-refresh",
+			),
+		).toHaveLength(1);
+	});
+
+	it("suppresses retained frame effects and refreshes once after a missed mutation", async () => {
+		const host = mount();
+		await flush();
+		const bridge = connect(screen.getByTitle("Fixture plugin"));
+		bridge.port.postMessage(bridge.ready);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+		bridge.port.postMessage({ count: 1, type: "overlay-state" });
+		await waitFor(() => expect(host.backInterceptors.run()).toBe(true));
+
+		host.setActive(false);
+		host.refresh();
+		expect(host.backInterceptors.run()).toBe(false);
+		expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
+
+		host.setActive(true);
 		await waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" }));
 		expect(
 			bridge.messages.filter(

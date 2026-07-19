@@ -23,7 +23,6 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import type { WatchEntities } from "#/modules/entity-interest/service";
 import { subscribeNativeResume } from "#/modules/entity-interest/transport";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
-import { mainContentProps } from "#/modules/navigation/skip-link";
 import {
 	openPluginBridge,
 	type PluginBridgeNavigationState,
@@ -91,6 +90,7 @@ const noticeMessages: Record<PluginHostStatus, string> = {
 };
 
 export function PluginFrame(props: {
+	readonly active: boolean;
 	readonly title: string;
 	readonly inert?: boolean;
 	readonly theme: ThemeStore;
@@ -156,6 +156,8 @@ export function PluginFrame(props: {
 	const markArtifactStale = useRef<(() => void) | undefined>(undefined);
 	const freshnessRevision = useRef(props.freshnessCheckRevision);
 	const freshnessPending = useRef(false);
+	const mutationRevision = useRef(0);
+	const refreshedMutationRevision = useRef(0);
 	const [overlayCount, setOverlayCount] = useState(0);
 	const [pageShortcuts, setPageShortcuts] = useState<readonly PageShortcutKey[]>([]);
 	const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -302,7 +304,9 @@ export function PluginFrame(props: {
 			if (document.visibilityState !== "visible") {
 				return;
 			}
-			bridge.current?.sendPageRefresh();
+			if (latest.current.active) {
+				bridge.current?.sendPageRefresh();
+			}
 			if (stale || active === undefined) {
 				return;
 			}
@@ -316,9 +320,11 @@ export function PluginFrame(props: {
 		};
 
 		document.addEventListener("visibilitychange", onVisibilityChange);
-		const releaseResume = (subscribeResume ?? subscribeNativeResume)(() =>
-			bridge.current?.sendPageRefresh(),
-		);
+		const releaseResume = (subscribeResume ?? subscribeNativeResume)(() => {
+			if (latest.current.active) {
+				bridge.current?.sendPageRefresh();
+			}
+		});
 		void lifecycle
 			.onCreateArtifactSession(
 				{
@@ -383,9 +389,23 @@ export function PluginFrame(props: {
 	}, [props.freshnessCheckRevision]);
 
 	useEffect(() => {
+		if (!props.active) {
+			return;
+		}
 		window.clearTimeout(backSettle.current);
 		bridge.current?.sendLocation(latest.current.navigation);
-	}, [compact, edgeBack, entityId, entitySchemaSlug, index, key, leading, routePath, routeSearch]);
+	}, [
+		props.active,
+		compact,
+		edgeBack,
+		entityId,
+		entitySchemaSlug,
+		index,
+		key,
+		leading,
+		routePath,
+		routeSearch,
+	]);
 
 	useEffect(
 		() =>
@@ -396,22 +416,35 @@ export function PluginFrame(props: {
 	);
 
 	useEffect(() => {
-		if (overlayCount === 0) {
+		if (!props.active || overlayCount === 0) {
 			return undefined;
 		}
 		return props.backInterceptors.register(() => bridge.current?.requestOverlayDismiss() ?? false, {
 			priority: "iframe",
 		});
-	}, [overlayCount, props.backInterceptors]);
+	}, [overlayCount, props.active, props.backInterceptors]);
 
 	useEffect(() => {
 		bridge.current?.sendViewport(props.viewport);
 	}, [props.viewport]);
 
 	useEffect(
-		() => props.mutationCompleted.subscribe(() => bridge.current?.sendPageRefresh()),
+		() =>
+			props.mutationCompleted.subscribe(() => {
+				mutationRevision.current++;
+				if (latest.current.active) {
+					refreshedMutationRevision.current = mutationRevision.current;
+					bridge.current?.sendPageRefresh();
+				}
+			}),
 		[props.mutationCompleted],
 	);
+	useEffect(() => {
+		if (props.active && refreshedMutationRevision.current !== mutationRevision.current) {
+			refreshedMutationRevision.current = mutationRevision.current;
+			bridge.current?.sendPageRefresh();
+		}
+	}, [props.active]);
 
 	function connect() {
 		if (artifact.status !== "active") {
@@ -516,8 +549,9 @@ export function PluginFrame(props: {
 	}
 
 	return (
-		<main {...mainContentProps} className="relative h-full w-full">
+		<div className="relative h-full w-full">
 			{frameStatus === "ready" &&
+				props.active &&
 				props.inert !== true &&
 				!updateAvailable &&
 				pageShortcuts.map((shortcut) => (
@@ -537,7 +571,9 @@ export function PluginFrame(props: {
 				className={clsx("h-full w-full border-0", frameStatus !== "ready" && "invisible")}
 				ref={(node) => {
 					frame.current = node;
-					props.chromeTriggerRef.current = node;
+					if (props.active) {
+						props.chromeTriggerRef.current = node;
+					}
 				}}
 			/>
 			{frameStatus === "ready" ? null : (
@@ -571,7 +607,7 @@ export function PluginFrame(props: {
 					</PluginChromeFrame>
 				</div>
 			) : null}
-		</main>
+		</div>
 	);
 }
 
@@ -617,7 +653,7 @@ function PluginNotice(props: {
 	readonly status: PluginHostStatus;
 }) {
 	return (
-		<main {...mainContentProps} className="h-full">
+		<div className="h-full">
 			<PluginChromeFrame
 				compact={props.compact}
 				leading={props.leading}
@@ -626,7 +662,7 @@ function PluginNotice(props: {
 			>
 				<PluginNoticePanel status={props.status} onReload={props.onReload} />
 			</PluginChromeFrame>
-		</main>
+		</div>
 	);
 }
 
