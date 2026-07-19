@@ -126,9 +126,6 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			user: CurrentUserValue,
 			input: typeof UploadIntentInput.Type,
 		) {
-			if (input.kind === "temporary" && input.provider !== "local") {
-				return yield* badRequest("Temporary upload intents currently support local storage only");
-			}
 			if (input.provider === "s3" && !s3Service.isConfigured) {
 				return yield* badRequest(
 					"S3 file storage is not configured. Set the FILE_STORAGE_S3_* settings.",
@@ -239,6 +236,11 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 								.statObject(metadata.objectKey)
 								.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")));
 				if (Number(info.size) > UPLOAD_MAX_FILE_BYTES) {
+					yield* (
+						metadata.provider === "local"
+							? localStorage.deleteObject(metadata.objectKey)
+							: s3Service.deleteObject(metadata.objectKey)
+					).pipe(Effect.ignore);
 					return yield* badRequest(
 						`Upload exceeds maximum allowed size of ${UPLOAD_MAX_FILE_BYTES} bytes`,
 					);
@@ -247,6 +249,7 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 					metadata.provider === "s3" &&
 					info.type.split(";", 1)[0]?.trim().toLowerCase() !== metadata.contentType
 				) {
+					yield* s3Service.deleteObject(metadata.objectKey).pipe(Effect.ignore);
 					return yield* badRequest("Upload content type does not match the upload intent");
 				}
 				const completion =
@@ -541,7 +544,6 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 				const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
 				if (
 					metadata.userId !== userId ||
-					metadata.provider !== "local" ||
 					metadata.kind !== "temporary" ||
 					metadata.state !== "completed" ||
 					metadata.expiresAt <= now ||
@@ -551,15 +553,18 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 				) {
 					return yield* badRequest("Upload token is invalid or has expired");
 				}
-				const resolvedPath = yield* localStorage
-					.resolveObjectPath(metadata.objectKey)
-					.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")));
+				const resolvedPath =
+					metadata.provider === "local"
+						? yield* localStorage
+								.resolveObjectPath(metadata.objectKey)
+								.pipe(Effect.mapError(() => badRequest("Upload object is missing or invalid")))
+						: null;
 				const leaseExpiresAt = now + PROCESSING_LEASE_SECONDS;
 				const claimed = {
 					...metadata,
-					expiresAt: leaseExpiresAt,
-					state: "claimed" as const,
 					claimedAt: now,
+					state: "claimed" as const,
+					expiresAt: leaseExpiresAt,
 				};
 				const encoded = yield* Schema.encodeUnknownEffect(
 					Schema.fromJsonString(UploadIntentMetadata),
@@ -573,10 +578,10 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 					redisKeys.uploadToken(token),
 				);
 				return {
-					resolvedPath,
 					intentId: tokenValue.intentId,
+					...(resolvedPath === null ? {} : { resolvedPath }),
+					locator: { type: metadata.provider, key: metadata.objectKey },
 					leaseExpiresAt: DateTime.formatIso(DateTime.makeUnsafe(leaseExpiresAt * 1000)),
-					locator: { type: "local" as const, key: metadata.objectKey },
 				};
 			}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
 		});
