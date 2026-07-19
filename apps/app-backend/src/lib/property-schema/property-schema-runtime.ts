@@ -13,6 +13,7 @@ import {
 	type AppSchemaRuleValue,
 	type AppSchemaUnknownKeysPolicy,
 	createPropertySchemaMessage,
+	isAppPropertyRequired,
 	type PropertyValidationError,
 	type PropertyValidationIssue,
 } from "@ryot/contract/schema/property-schema";
@@ -100,9 +101,6 @@ const isCompatibleRuleValue = (type: AppPropertyPrimitiveType, value: AppSchemaR
 	}
 	return typeof value === "string";
 };
-
-const isAppPropertyRequired = (property: AppPropertyDefinition) =>
-	property.validation?.required === true;
 
 export const getAppPropertyDefinitionAtPath = (
 	fields: AppSchemaFields,
