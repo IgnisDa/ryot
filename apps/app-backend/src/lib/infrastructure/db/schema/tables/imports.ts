@@ -10,6 +10,7 @@ import type { RunStatus } from "@ryot/contract/schema/run-status";
 import { generateId } from "better-auth";
 import {
 	boolean,
+	foreignKey,
 	index,
 	integer,
 	jsonb,
@@ -20,12 +21,14 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { pluginInstallation } from "./core";
 
 export const integration = snakeCase.table(
 	"integration",
 	{
 		name: text(),
 		pluginSlug: text().notNull(),
+		pluginInstallationId: text().notNull(),
 		lot: text().notNull().$type<IntegrationLot>(),
 		isDisabled: boolean().notNull().default(false),
 		provider: text().$type<IntegrationProvider>().notNull(),
@@ -52,8 +55,13 @@ export const integration = snakeCase.table(
 		index("integration_user_id_created_at_idx").on(table.userId, table.createdAt.desc()),
 		index("integration_user_id_provider_idx").on(table.userId, table.provider),
 		index("integration_plugin_slug_idx").on(table.pluginSlug),
+		index("integration_plugin_installation_id_idx").on(table.pluginInstallationId),
 		index("integration_lot_is_disabled_idx").on(table.lot, table.isDisabled),
 		index("integration_provider_is_disabled_idx").on(table.provider, table.isDisabled),
+		foreignKey({
+			columns: [table.pluginInstallationId, table.userId],
+			foreignColumns: [pluginInstallation.id, pluginInstallation.userId],
+		}).onDelete("cascade"),
 	],
 );
 
@@ -73,6 +81,7 @@ export const importRun = snakeCase.table(
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		integrationId: text().references(() => integration.id, { onDelete: "cascade" }),
+		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "set null" }),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -91,6 +100,7 @@ export const importRun = snakeCase.table(
 			table.integrationId,
 			table.createdAt.desc(),
 		),
+		index("import_run_plugin_installation_id_idx").on(table.pluginInstallationId),
 	],
 );
 

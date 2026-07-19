@@ -4,11 +4,6 @@ import type { RegisteredIntegrationProvider } from "#modules/plugins/integration
 
 import type { IntegrationRecord } from "./repository";
 
-export type RegisteredProviderLookup = (
-	providerSlug: string,
-	pluginSlug: string,
-) => RegisteredIntegrationProvider | null;
-
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -47,10 +42,9 @@ const redactSecretValues = (
  * route through here.
  */
 export const redactIntegrationForClient = (
-	findProvider: RegisteredProviderLookup,
+	registered: RegisteredIntegrationProvider | null,
 	integration: IntegrationRecord,
 ): IntegrationRecord => {
-	const registered = findProvider(integration.provider, integration.pluginSlug);
 	if (!registered) {
 		const kind = integration.providerSpecifics["kind"];
 		const providerSpecifics = typeof kind === "string" ? { kind } : {};

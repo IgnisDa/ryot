@@ -17,7 +17,10 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type IntegrationRow = typeof schema.integration.$inferSelect;
 
-export type IntegrationRecord = ListedIntegration & { readonly userId: UserId };
+export type IntegrationRecord = ListedIntegration & {
+	readonly userId: UserId;
+	readonly pluginInstallationId: string;
+};
 
 const integrationSelection = {
 	id: schema.integration.id,
@@ -35,6 +38,7 @@ const integrationSelection = {
 	minimumProgress: schema.integration.minimumProgress,
 	maximumProgress: schema.integration.maximumProgress,
 	providerSpecifics: schema.integration.providerSpecifics,
+	pluginInstallationId: schema.integration.pluginInstallationId,
 };
 
 const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): IntegrationRecord => ({
@@ -50,6 +54,7 @@ const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): Integra
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	providerSpecifics: row.providerSpecifics,
+	pluginInstallationId: row.pluginInstallationId,
 	lastFinishedAt: row.lastFinishedAt?.toISOString() ?? null,
 	minimumProgress: Number.parseFloat(row.minimumProgress),
 	maximumProgress: Number.parseFloat(row.maximumProgress),
@@ -87,6 +92,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				syncOwnership: boolean;
 				minimumProgress: string;
 				maximumProgress: string;
+				pluginInstallationId: string;
 				provider: IntegrationProvider;
 				extraSettings: IntegrationExtraSettings;
 				providerSpecifics: IntegrationProviderSettings;
@@ -107,6 +113,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 							minimumProgress: input.minimumProgress,
 							maximumProgress: input.maximumProgress,
 							providerSpecifics: input.providerSpecifics,
+							pluginInstallationId: input.pluginInstallationId,
 						})
 						.returning(integrationSelection),
 				);
