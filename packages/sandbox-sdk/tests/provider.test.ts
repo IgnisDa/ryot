@@ -4,6 +4,8 @@ import {
 	providerDetailsResultSchema,
 	providerResolveResultSchema,
 	providerSearchInputSchema,
+	providerSearchOptionsInputSchema,
+	providerSearchOptionsResultSchema,
 	providerSearchResultSchema,
 	providerTranslateResultSchema,
 } from "@ryot/sandbox-sdk/provider";
@@ -56,6 +58,18 @@ describe("provider definitions", () => {
 			options: { passRawQuery: true, filters: { genreIds: ["5"] } },
 		});
 		expect(() => decode(providerSearchInputSchema)({ options: [] })).toThrow();
+	});
+
+	test("supports the search-options provider operation", () => {
+		const definition = defineProvider({
+			manifest,
+			operation: "search-options",
+			run: () => Effect.succeed({ sources: { statuses: [{ value: "active", label: "Active" }] } }),
+		});
+
+		expect(definition.input).toBe(providerSearchOptionsInputSchema);
+		expect(definition.output).toBe(providerSearchOptionsResultSchema);
+		expect(decode(definition.input)({})).toEqual({});
 	});
 });
 

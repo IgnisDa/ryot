@@ -631,10 +631,10 @@ describe("definePlugin", () => {
 			{ type: "date", label: "Value", description: "A date value" },
 			{ type: "datetime", label: "Value", description: "A datetime value" },
 			{
-				type: "enum-array",
 				label: "Value",
-				options: ["one"],
+				type: "enum-array",
 				description: "An enum array value",
+				choices: { kind: "static", values: [{ value: "one" }] },
 			},
 			{
 				type: "array",
@@ -712,6 +712,68 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				scripts: [...manifest.scripts, { ...manifest.scripts[1], slug: manifest.scripts[0].slug }],
+			}),
+		).toThrow();
+	});
+
+	it("accepts dynamic search choices only with a search-options binding", () => {
+		const provider = manifest.providers[0];
+		const search = manifest.scripts[3];
+		assert(provider);
+		const searchOptions = {
+			...manifest.scripts[2],
+			kind: "provider" as const,
+			providerSlug: provider.slug,
+			name: "Test provider search options",
+			slug: "provider.test.search-options",
+			providerOperation: "search-options" as const,
+		};
+		const dynamicSearch = {
+			...search,
+			searchOptionsSchema: {
+				...search.searchOptionsSchema,
+				fields: {
+					...search.searchOptionsSchema.fields,
+					status: {
+						label: "Status",
+						type: "enum" as const,
+						description: "Status",
+						choices: { kind: "dynamic" as const, source: "statuses" },
+					},
+				},
+			},
+		};
+		const dynamicManifest = {
+			...manifest,
+			providers: [
+				{ ...provider, operations: { ...provider.operations, searchOptions: searchOptions.slug } },
+			],
+			scripts: [
+				...manifest.scripts.filter(({ slug }) => slug !== search.slug),
+				dynamicSearch,
+				searchOptions,
+			],
+		};
+
+		expect(Schema.decodeUnknownSync(PluginManifest)(dynamicManifest)).toBeTruthy();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...dynamicManifest,
+				providers: [{ ...provider, operations: provider.operations }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				providers: [
+					{ ...provider, operations: { ...provider.operations, searchOptions: "missing.script" } },
+				],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				scripts: [...manifest.scripts, searchOptions],
 			}),
 		).toThrow();
 	});
