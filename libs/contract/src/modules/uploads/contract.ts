@@ -8,7 +8,6 @@ import {
 	MultipartInternalErrorSchema,
 	MultipartLimitErrorSchema,
 	MultipartParseErrorSchema,
-	UploadBodyLimitMiddleware,
 } from "./middleware";
 import { PresignedDownloadResponse, PresignedUploadResponse } from "./schemas";
 import {
@@ -50,8 +49,6 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 				MultipartParseErrorSchema,
 				MultipartInternalErrorSchema,
 			],
-		})
-			.middleware(UploadBodyLimitMiddleware)
-			.annotate(OpenApi.Description, "Uploads files to temporary storage"),
+		}).annotate(OpenApi.Description, "Uploads files to temporary storage"),
 	)
 	.middleware(AuthMiddleware);
