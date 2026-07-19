@@ -161,9 +161,10 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const fs = yield* FileSystem.FileSystem;
 		const hostImplementations = yield* SandboxHostImplementations;
 		const harvestHandles = yield* SandboxHarvestHandleStore;
+		const localTempRoot = yield* fs.realPath(config.fileStorage.localTempDir).pipe(Effect.orDie);
 
 		const harvestRoot = path.join(
-			config.fileStorage.localTempDir,
+			localTempRoot,
 			`${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`,
 		);
 
@@ -205,7 +206,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							path,
 							"Sandbox artifact grant path",
 							artifactPath,
-							config.fileStorage.localTempDir,
+							localTempRoot,
 						);
 						if (pathError) {
 							return yield* new SandboxRunError({ message: pathError });
@@ -216,7 +217,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							path,
 							`Sandbox named artifact grant path "${key}"`,
 							artifact,
-							config.fileStorage.localTempDir,
+							localTempRoot,
 						);
 						if (pathError) {
 							return yield* new SandboxRunError({ message: pathError });
@@ -229,7 +230,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						input.allowedHostFunctions,
 						"scratch",
 					)
-						? yield* acquireSandboxScratchDirectory(config.fileStorage.localTempDir)
+						? yield* acquireSandboxScratchDirectory(localTempRoot)
 						: undefined;
 
 					const token = generateId();

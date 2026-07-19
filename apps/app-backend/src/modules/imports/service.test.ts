@@ -75,7 +75,18 @@ const makeImportRunFailuresService = () =>
 
 const makeUploadsService = (resolvedPath?: string) =>
 	mockUploadsService(
-		resolvedPath ? { claimUploadToken: () => Effect.succeed({ resolvedPath }) } : {},
+		resolvedPath
+			? {
+					deleteTemporaryUpload: () => Effect.sync(() => undefined),
+					claimTemporaryUpload: (token) =>
+						Effect.succeed({
+							resolvedPath,
+							intentId: token,
+							leaseExpiresAt: now,
+							locator: { key: `temporary/${token}.csv`, type: "local" as const },
+						}),
+				}
+			: {},
 	);
 
 const makeImportSourceCatalog = (registered: RegisteredImportSource | null = null) =>
@@ -184,11 +195,25 @@ it.effect("delegates import run CRUD through the canonical service methods", () 
 });
 
 it.effect("validates uploaded extensions against the registry when it declares the source", () => {
+	const deletedIntentIds: string[] = [];
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
 			makeImportSourceCatalog(goodreadsSource({ allowedFileExtensions: ["json"] })),
-			makeUploadsService("/tmp/goodreads-export.csv"),
+			mockUploadsService({
+				claimTemporaryUpload: () =>
+					Effect.succeed({
+						leaseExpiresAt: now,
+						intentId: "intent-goodreads",
+						resolvedPath: "/tmp/goodreads-export.csv",
+						locator: { key: "temporary/goodreads-export.csv", type: "local" as const },
+					}),
+				deleteTemporaryUpload: (intentId) =>
+					Effect.sync(() => {
+						deletedIntentIds.push(intentId);
+						return undefined;
+					}),
+			}),
 			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 		),
 	);
@@ -201,19 +226,55 @@ it.effect("validates uploaded extensions against the registry when it declares t
 		);
 
 		expect(error.message).toBe("Import file must have one of the following extensions: json");
+		expect(deletedIntentIds).toEqual(["intent-goodreads"]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects temporary uploads claimed from S3 storage", () => {
+	const deletedIntentIds: string[] = [];
+	const layer = makeServiceLayer(
+		makeImportsRepository(),
+		Layer.mergeAll(
+			makeImportSourceCatalog(goodreadsSource()),
+			mockUploadsService({
+				claimTemporaryUpload: () =>
+					Effect.succeed({
+						leaseExpiresAt: now,
+						intentId: "intent-s3",
+						locator: { key: "temporary/object.csv", type: "s3" as const },
+					}),
+				deleteTemporaryUpload: (intentId) =>
+					Effect.sync(() => {
+						deletedIntentIds.push(intentId);
+						return undefined;
+					}),
+			}),
+			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+		),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* ImportsService;
+		const error = yield* Effect.flip(
+			service.startImportRun(user, { source: "goodreads", uploadToken: "tok_s3" }),
+		);
+
+		expect(error.message).toBe("Import uploads must use local storage");
+		expect(deletedIntentIds).toEqual(["intent-s3"]);
 	}).pipe(Effect.provide(layer));
 });
 
 it.effect("claims and queues registry-declared named artifacts under stable keys", () => {
 	const executed: unknown[] = [];
 	const claimedTokens: string[] = [];
+	const deletedIntentIds: string[] = [];
 	const source = {
 		lot: "named",
+		configSchema,
 		input: "file",
 		name: "Movary",
 		slug: "movary",
 		pluginSlug: "media",
-		configSchema,
 		requiredPluginConfigKeys: [],
 		description: "Movary export",
 		workflowSlug: "movary-import",
@@ -243,10 +304,20 @@ it.effect("claims and queues registry-declared named artifacts under stable keys
 		Layer.mergeAll(
 			makeImportSourceCatalog(source),
 			mockUploadsService({
-				claimUploadToken: (token) =>
+				claimTemporaryUpload: (token) =>
 					Effect.sync(() => {
 						claimedTokens.push(token);
-						return { resolvedPath: `/tmp/${token}.csv` };
+						return {
+							leaseExpiresAt: now,
+							intentId: `intent-${token}`,
+							resolvedPath: `/tmp/${token}.csv`,
+							locator: { key: `temporary/${token}.csv`, type: "local" as const },
+						};
+					}),
+				deleteTemporaryUpload: (intentId) =>
+					Effect.sync(() => {
+						deletedIntentIds.push(intentId);
+						return undefined;
 					}),
 			}),
 			Layer.succeed(
@@ -271,9 +342,11 @@ it.effect("claims and queues registry-declared named artifacts under stable keys
 		});
 
 		expect(claimedTokens).toEqual(["history", "ratings", "watchlist"]);
+		expect(deletedIntentIds).toEqual([]);
 		expect(executed[0]).toMatchObject({
 			payload: {
 				filePath: "/tmp/history.csv",
+				uploadIntentIds: ["intent-history", "intent-ratings", "intent-watchlist"],
 				namedArtifactPaths: {
 					historyFilePath: "/tmp/history.csv",
 					ratingsFilePath: "/tmp/ratings.csv",
@@ -316,7 +389,7 @@ it.effect("rejects an undeclared artifact token before claiming uploads or start
 		Layer.mergeAll(
 			makeImportSourceCatalog(goodreadsSource()),
 			mockUploadsService({
-				claimUploadToken: () => Effect.die("upload token must not be claimed"),
+				claimTemporaryUpload: () => Effect.die("upload token must not be claimed"),
 			}),
 			Layer.succeed(
 				WorkflowEngine,

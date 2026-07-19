@@ -9,10 +9,8 @@ import {
 } from "@ryot/contract/modules/uploads/upload-policy";
 import { UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
-import { Clock, Context, DateTime, Effect, FileSystem, Layer, Schema, Stream } from "effect";
-import type { Multipart } from "effect/unstable/http";
+import { Clock, Context, DateTime, Effect, Layer, Schema, Stream } from "effect";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
@@ -45,7 +43,6 @@ const UploadIntentMetadata = Schema.Struct({
 type UploadIntentMetadata = typeof UploadIntentMetadata.Type;
 
 const UploadTokenValue = Schema.Struct({ intentId: Schema.String, userId: UserId });
-const LegacyUploadTokenValue = Schema.Struct({ userId: UserId, resolvedPath: Schema.String });
 
 const resolveExtension = (contentType: UploadContentType) =>
 	uploadContentTypeExtensions[contentType][0];
@@ -72,17 +69,6 @@ const resolveContentTypeFromFileName = (
 		return Effect.fail(badRequest(`Unsupported file extension: .${extension}`));
 	}
 	return Effect.succeed(entry[0]);
-};
-
-const resolveTemporaryUploadContentType = (
-	contentType: string,
-	fileName: string,
-): Effect.Effect<UploadContentType, BadRequest> => {
-	const normalized = contentType.split(";")[0]?.trim().toLowerCase() ?? "";
-	if (!normalized || normalized === "application/octet-stream") {
-		return resolveContentTypeFromFileName(fileName);
-	}
-	return resolveContentType(normalized);
 };
 
 const resolveIntentContentType = (contentType: string, fileName: string) => {
@@ -116,10 +102,8 @@ const resolveContentTypeFromKey = (key: string): Effect.Effect<UploadContentType
 
 export class UploadsService extends Context.Service<UploadsService>()("UploadsService", {
 	make: Effect.gen(function* () {
-		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const s3Service = yield* S3Service;
-		const fs = yield* FileSystem.FileSystem;
 		const localStorage = yield* LocalStorageService;
 
 		const createUploadIntent = Effect.fn("UploadsService.createUploadIntent")(function* (
@@ -597,76 +581,9 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			yield* removeUploadIntent(intentId).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
 		});
 
-		const uploadTemporary = Effect.fn("UploadsService.uploadTemporary")(function* (
-			user: CurrentUserValue,
-			files: ReadonlyArray<Multipart.PersistedFile>,
-		) {
-			if (files.length === 0) {
-				return yield* badRequest("At least one upload file is required");
-			}
-
-			const tempDir = config.fileStorage.localTempDir;
-			const resolvedFiles = yield* Effect.forEach(files, (file) =>
-				Effect.gen(function* () {
-					const fileName = yield* resolveFileName(file.name);
-					yield* resolveTemporaryUploadContentType(file.contentType, fileName);
-
-					const info = yield* fs.stat(file.path).pipe(Effect.orDie);
-					if (Number(info.size) > UPLOAD_MAX_FILE_BYTES) {
-						return yield* badRequest(
-							`Upload file exceeds maximum allowed size of ${UPLOAD_MAX_FILE_BYTES} bytes (file is ${info.size} bytes)`,
-						);
-					}
-
-					const id = generateId();
-					const destPath = `${tempDir.replace(/[\\/]+$/, "")}/${id}-${fileName}`;
-
-					const bytes = yield* fs.readFile(file.path).pipe(Effect.orDie);
-					yield* fs.writeFile(destPath, bytes).pipe(Effect.orDie);
-
-					return { id, destPath };
-				}),
-			);
-
-			const tokens = yield* Effect.forEach(resolvedFiles, ({ id, destPath }) =>
-				Effect.gen(function* () {
-					const encoded = yield* Schema.encodeUnknownEffect(
-						Schema.fromJsonString(LegacyUploadTokenValue),
-					)({
-						userId: user.id,
-						resolvedPath: destPath,
-					}).pipe(Effect.orDie);
-					const key = redisKeys.uploadToken(id);
-					yield* redis.set(key, encoded, UPLOAD_TOKEN_TTL_SECONDS);
-					return id;
-				}),
-			);
-
-			return tokens;
-		});
-
-		const claimUploadToken = Effect.fn("UploadsService.claimUploadToken")(function* (
-			token: string,
-			userId: UserId,
-		) {
-			const raw = yield* redis.getdel(redisKeys.uploadToken(token));
-			if (!raw) {
-				return yield* badRequest("Upload token is invalid or has expired");
-			}
-			const value = yield* Schema.decodeUnknownEffect(
-				Schema.fromJsonString(LegacyUploadTokenValue),
-			)(raw).pipe(Effect.mapError(() => badRequest("Upload token is invalid or has expired")));
-			if (value.userId !== userId) {
-				return yield* badRequest("Upload token does not belong to this user");
-			}
-			return { resolvedPath: value.resolvedPath };
-		});
-
 		return {
 			putLocalIntent,
-			uploadTemporary,
 			resolveDownloads,
-			claimUploadToken,
 			removeUploadIntent,
 			createUploadIntent,
 			completeUploadIntent,

@@ -100,13 +100,6 @@ export const UploadsRoutesLive = HttpApiBuilder.group(AppContract, "uploads", (h
 				const service = yield* UploadsService;
 				return yield* service.resolveDownloads(user, payload.assets).pipe(dieOnDbError);
 			}),
-		)
-		.handle("uploadTemporary", ({ payload }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* UploadsService;
-				return yield* service.uploadTemporary(user, payload["files[]"]).pipe(dieOnDbError);
-			}),
 		),
 );
 

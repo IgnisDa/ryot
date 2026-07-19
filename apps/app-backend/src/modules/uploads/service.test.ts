@@ -3,8 +3,7 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest } from "@ryot/contract/errors";
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot/contract/modules/uploads/upload-policy";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Effect, FileSystem, Inspectable, Layer, Option, Path, Redacted } from "effect";
-import { Multipart } from "effect/unstable/http";
+import { Effect, FileSystem, Layer, Option, Path, Redacted } from "effect";
 import Redis from "ioredis";
 
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
@@ -23,18 +22,6 @@ const user: CurrentUserValue = {
 };
 
 const TEST_TMP_DIR = "/tmp/ryot-test-uploads";
-
-const fakeFile = (name: string, contentType: string): Multipart.PersistedFile => ({
-	name,
-	key: name,
-	contentType,
-	toJSON: () => ({}),
-	_tag: "PersistedFile",
-	path: `/tmp/test-uploads/${name}`,
-	[Multipart.TypeId]: Multipart.TypeId,
-	toString: () => `PersistedFile(${name})`,
-	[Inspectable.NodeInspectSymbol]: () => `PersistedFile(${name})`,
-});
 
 const mockS3Service = Layer.mock(S3Service);
 const mockLocalStorageService = Layer.mock(LocalStorageService);
@@ -709,53 +696,3 @@ it.effect("retries failed cleanup for an expired claimed local upload", () => {
 		),
 	);
 });
-
-it.effect("writes supported files to temporary directory and returns tokens", () => {
-	const writtenPaths: Array<{ path: string; bytes: Uint8Array }> = [];
-	const storedTokens: Array<{ key: string; value: string; ttl: number | undefined }> = [];
-
-	return Effect.gen(function* () {
-		const service = yield* UploadsService;
-		const files = [
-			fakeFile("report.csv", "text/csv"),
-			fakeFile("archive.zip", "application/zip"),
-			fakeFile("payload.json", "application/json"),
-		];
-		const tokens = yield* service.uploadTemporary(user, files);
-		expect(tokens).toHaveLength(3);
-		expect(writtenPaths).toHaveLength(3);
-		expect(storedTokens).toHaveLength(3);
-	}).pipe(
-		Effect.provide(
-			makeUploadsLayer({
-				redisService: makeRedisLayer({
-					set: (_key, _value, _ttl) => {
-						storedTokens.push({ key: _key, value: _value, ttl: _ttl });
-						return Effect.void;
-					},
-				}),
-				fsLayer: makeFsLayer({
-					stat: () => Effect.succeed(defaultFileInfo),
-					readFile: () => Effect.succeed(new Uint8Array([99, 115, 118])),
-					writeFile: (path: string, bytes: Uint8Array) => {
-						writtenPaths.push({ path, bytes });
-						return Effect.void;
-					},
-				}),
-			}),
-		),
-	);
-});
-
-it.effect("rejects unsupported temporary upload file types", () =>
-	Effect.gen(function* () {
-		const service = yield* UploadsService;
-		const exit = yield* Effect.exit(
-			service.uploadTemporary(user, [fakeFile("document.pdf", "application/pdf")]),
-		);
-		assertExitFails(
-			exit,
-			new BadRequest({ message: "Upload content type must be a supported MIME type" }),
-		);
-	}).pipe(Effect.provide(makeUploadsLayer())),
-);

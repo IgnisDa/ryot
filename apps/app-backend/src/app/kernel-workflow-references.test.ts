@@ -30,6 +30,7 @@ import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
+const testTempRoot = process.platform === "darwin" ? "/private/tmp" : "/tmp";
 
 const unownedRepositories = Layer.mergeAll(
 	mockImportsRepository({ getRunById: () => Effect.succeed(null) }),
@@ -52,7 +53,7 @@ const referencesLayer = (repositories: Layer.Layer<ImportsRepository | Integrati
 					Effect.succeed(
 						handles.map(
 							(_, index) =>
-								`/tmp/ryot-sandbox-harvest-test-server-run/parent-execution-activity-0/chunk-${index}.json`,
+								`${testTempRoot}/ryot-sandbox-harvest-test-server-run/parent-execution-activity-0/chunk-${index}.json`,
 						),
 					),
 			}),
@@ -281,10 +282,9 @@ it.effect("binds import harvest provenance to the trusted parent workflow execut
 			expect.objectContaining({
 				userId: "trusted-user",
 				executionId: "child-execution",
-				expectedHarvestDirectoryPrefix:
-					"/tmp/ryot-sandbox-harvest-test-server-run/parent-execution-activity-",
+				expectedHarvestDirectoryPrefix: `${testTempRoot}/ryot-sandbox-harvest-test-server-run/parent-execution-activity-`,
 				chunkFiles: [
-					"/tmp/ryot-sandbox-harvest-test-server-run/parent-execution-activity-0/chunk-0.json",
+					`${testTempRoot}/ryot-sandbox-harvest-test-server-run/parent-execution-activity-0/chunk-0.json`,
 				],
 			}),
 		]);
