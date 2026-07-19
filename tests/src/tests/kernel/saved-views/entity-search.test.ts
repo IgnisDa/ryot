@@ -4,19 +4,21 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	adminHeaders,
-	enqueueEntityImport,
+	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
 	getGlobalEntityByProvenance,
 	installTestProvider,
-	pollEntityImportResult,
+	pollProviderEntityImportResult,
 	rowsLayouts,
+	searchProviderEntities,
 	uninstallTestProvider,
 } from "~/fixtures";
 import type { Client } from "~/fixtures/auth";
 import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
+import { assertPresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
 const viewSlug = `saved-view-search-${crypto.randomUUID()}`;
@@ -81,20 +83,21 @@ afterAll(async () => {
 describe("saved-view configured entity search and import", () => {
 	it.live("searches the allowlisted provider and imports the selected result", () =>
 		Effect.gen(function* () {
-			const search = yield* client.call((c) =>
-				c.savedViews.searchEntities({
-					params: { viewSlug },
-					payload: { query: "saved view", page: 1, pageSize: 10 },
-				}),
-			);
-			const result = search.providers[0];
+			const search = yield* searchProviderEntities(client, {
+				savedViewSlug: viewSlug,
+				query: "saved view",
+				page: 1,
+				pageSize: 10,
+			});
+			const result = search.providers.find(({ providerId }) => providerId === provider.providerId);
+			assertPresent(result, "Expected configured provider search result");
 			expect(result).toMatchObject({
 				status: "success",
 				entitySchemaSlug: "book",
 				providerId: provider.providerId,
 				providerName: "Saved View Search Provider",
 			});
-			if (result?.status !== "success") {
+			if (result.status !== "success") {
 				throw new Error("Expected configured provider search to succeed");
 			}
 			const selected = result.items[0];
@@ -106,12 +109,12 @@ describe("saved-view configured entity search and import", () => {
 				titleProperty: { kind: "text", value: "Saved View Search Result" },
 			});
 
-			const { jobId } = yield* enqueueEntityImport(client, {
+			const { jobId } = yield* enqueueProviderEntityImport(client, {
 				providerId: result.providerId,
 				externalId: selected.externalId,
 				entitySchemaSlug: result.entitySchemaSlug,
 			});
-			yield* pollEntityImportResult(client, jobId);
+			yield* pollProviderEntityImportResult(client, jobId);
 			const imported = yield* getGlobalEntityByProvenance(client, {
 				providerId: result.providerId,
 				externalId: selected.externalId,
