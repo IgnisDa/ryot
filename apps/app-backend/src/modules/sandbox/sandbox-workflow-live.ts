@@ -1,19 +1,15 @@
 import type { SandboxRunError } from "@ryot/contract/errors";
-import { toSandboxRunError } from "@ryot/contract/errors";
 import type {
 	SandboxCompletedResult as SandboxCompletedResultValue,
 	SandboxExecutionPayload,
 	SandboxRunResult,
 } from "@ryot/contract/modules/sandbox/schemas";
-import { Cause, Effect, Exit, Layer, Match, Option, Schedule } from "effect";
-import { DurableQueue } from "effect/unstable/workflow";
+import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
 import type { Workflow } from "effect/unstable/workflow";
 
-import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
-import { RunSandboxWorkflow } from "./sandbox-run-workflow";
+import { processSandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
 import { runSandboxScriptWorkflow, SandboxScriptWorkflow } from "./sandbox-script-workflow";
-
-const sandboxRetrySchedule = Schedule.max([Schedule.exponential("1 second"), Schedule.recurs(2)]);
+import { SandboxSubmissionWorkflow } from "./sandbox-submission-workflow";
 
 const workflowFailureResult = (
 	cause: Cause.Cause<SandboxRunError>,
@@ -44,31 +40,22 @@ export const toSandboxRunResult = (
 	);
 };
 
-const runSandboxWorkflow = Effect.fn("RunSandboxWorkflow")(
+const runSandboxSubmissionWorkflow = Effect.fn("SandboxSubmissionWorkflow")(
 	function* (payload: SandboxExecutionPayload, executionId: string) {
 		yield* Effect.annotateCurrentSpan({ executionId });
-		const executionPayload: SandboxExecutionPayload = {
-			context: payload.context,
-			scriptId: payload.scriptId,
-			authority: payload.authority,
-			executionId: payload.executionId,
-			...(payload.grants ? { grants: payload.grants } : {}),
-		};
-		return yield* DurableQueue.process(SandboxExecutionQueue, executionPayload).pipe(
-			Effect.timeout("1 minute"),
-			Effect.retry(sandboxRetrySchedule),
-			Effect.mapError(toSandboxRunError),
-		);
+		return yield* processSandboxExecutionQueue(payload);
 	},
 	(effect, _payload, executionId) =>
-		Effect.annotateLogs(effect, { executionId, workflow: "RunSandboxWorkflow" }),
+		Effect.annotateLogs(effect, { executionId, workflow: "SandboxSubmissionWorkflow" }),
 );
 
-const RunSandboxWorkflowLive = RunSandboxWorkflow.toLayer(runSandboxWorkflow);
+const SandboxSubmissionWorkflowLive = SandboxSubmissionWorkflow.toLayer(
+	runSandboxSubmissionWorkflow,
+);
 const SandboxScriptWorkflowLive = SandboxScriptWorkflow.toLayer(runSandboxScriptWorkflow);
 
 export const SandboxWorkflowDefinitionsLive = Layer.mergeAll(
-	RunSandboxWorkflowLive,
+	SandboxSubmissionWorkflowLive,
 	SandboxScriptWorkflowLive,
 	SandboxExecutionQueueWorkerLive,
 );

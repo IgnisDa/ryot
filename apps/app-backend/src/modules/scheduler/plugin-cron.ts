@@ -7,8 +7,8 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
+import { SandboxSubmissionWorkflow } from "#modules/sandbox/sandbox-submission-workflow";
 
 type ActivePluginCron = {
 	readonly cron: PluginCron;
@@ -75,7 +75,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 				});
 				return { result, cron: resolved.cron, status: "executed" as const };
 			}
-			const result = yield* engine.execute(RunSandboxWorkflow, {
+			const result = yield* engine.execute(SandboxSubmissionWorkflow, {
 				executionId,
 				payload: {
 					context: {},
