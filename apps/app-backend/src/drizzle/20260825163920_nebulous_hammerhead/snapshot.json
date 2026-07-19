@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "1729cd3b-8d23-4847-8c84-95699eff74fa",
+	"id": "d2e4a6fa-3bb4-4ae9-b5f1-1bfee14d3017",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -2116,6 +2116,19 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
+			"name": "slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
 			"name": "status",
 			"entityType": "columns",
 			"schema": "public",
@@ -2130,19 +2143,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "version",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "slug",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin"
@@ -2187,19 +2187,6 @@
 			"table": "plugin"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "owner_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin"
-		},
-		{
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
@@ -2234,6 +2221,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "ingested_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "owner_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin"
@@ -2356,19 +2356,6 @@
 			"table": "plugin_installation"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_installation"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -2377,6 +2364,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "updated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_installation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_installation"
@@ -2845,6 +2845,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "execution_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "sandbox_workflow_reference"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_installation_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "sandbox_workflow_reference"
@@ -5407,6 +5420,27 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "plugin_installation_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "sandbox_workflow_reference_plugin_installation_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "sandbox_workflow_reference"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "user_id",
 					"isExpression": false,
 					"asc": true,
@@ -6039,6 +6073,19 @@
 			"entityType": "fks",
 			"schema": "public",
 			"table": "sandbox_script"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["plugin_installation_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin_installation",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
+			"name": "sandbox_workflow_reference_NZbiTLiwtL2v_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "sandbox_workflow_reference"
 		},
 		{
 			"nameExplicit": false,

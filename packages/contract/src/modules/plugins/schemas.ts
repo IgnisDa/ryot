@@ -147,6 +147,14 @@ export const InstallPluginBody = Schema.Struct({
 
 export type InstallPluginBody = Schema.Schema.Type<typeof InstallPluginBody>;
 
+export const UpdatePrivatePluginBody = strictStruct({
+	...PluginPackage.fields,
+	unsetConfigKeys: Schema.optional(Schema.Array(Schema.String)),
+	config: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+});
+
+export type UpdatePrivatePluginBody = typeof UpdatePrivatePluginBody.Type;
+
 export const UpdatePluginInstallationBody = strictStruct({
 	isDisabled: Schema.optional(Schema.Boolean),
 	unsetConfigKeys: Schema.optional(Schema.Array(Schema.String)),
