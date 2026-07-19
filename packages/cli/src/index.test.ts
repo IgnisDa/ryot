@@ -18,6 +18,15 @@ const createPlugin = Effect.fn("createPlugin")(function* () {
 	return plugin;
 });
 
+const collect = <E>(stream: Stream.Stream<Uint8Array, E>) =>
+	stream.pipe(
+		Stream.decodeText({ encoding: "utf-8" }),
+		Stream.runFold(
+			() => "",
+			(output, chunk) => output + chunk,
+		),
+	);
+
 const run = Effect.fn("runCli")(function* (cwd: string, args: ReadonlyArray<string>) {
 	const path = yield* Path.Path;
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
@@ -26,23 +35,14 @@ const run = Effect.fn("runCli")(function* (cwd: string, args: ReadonlyArray<stri
 		ChildProcess.make(process.execPath, [entry, ...args], {
 			cwd,
 			stderr: "pipe",
-			stdout: "ignore",
+			stdout: "pipe",
 		}),
 	);
-	const [exitCode, stderr] = yield* Effect.all(
-		[
-			child.exitCode,
-			child.stderr.pipe(
-				Stream.decodeText({ encoding: "utf-8" }),
-				Stream.runFold(
-					() => "",
-					(output, chunk) => output + chunk,
-				),
-			),
-		],
+	const [exitCode, stderr, stdout] = yield* Effect.all(
+		[child.exitCode, collect(child.stderr), collect(child.stdout)],
 		{ concurrency: "unbounded" },
 	);
-	return { stderr, exitCode };
+	return { stdout, stderr, exitCode };
 });
 
 const waitFor = Effect.fn("waitFor")(function* (
@@ -201,6 +201,35 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 		}),
 	);
 
+	test.effect("fails the build when a manifest value is not a JSON-safe literal", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin();
+			const mainPath = path.join(plugin, "backend", "main.ts");
+			yield* fs.writeFileString(
+				path.join(plugin, "backend", "shared.ts"),
+				'export const CONFIG_KEYS = ["alpha"] as const;\n',
+			);
+			const main = yield* fs.readFileString(mainPath);
+			yield* fs.writeFileString(
+				mainPath,
+				`import { CONFIG_KEYS } from "./shared";\n${main.replace(
+					"requiredPluginConfigKeys: []",
+					"requiredPluginConfigKeys: CONFIG_KEYS",
+				)}`,
+			);
+
+			const result = yield* run(plugin, ["plugin", "build"]);
+
+			expect(result.exitCode).not.toBe(0);
+			expect(result.stdout).toMatch(
+				/backend\/main\.ts:\d+:\d+ error RYOT_MANIFEST: Manifest values must be JSON-safe literals/,
+			);
+			expect(yield* fs.exists(path.join(plugin, "dist", "cli-test.zip"))).toBe(false);
+		}),
+	);
+
 	test.effect("rejects extra commands, arguments, and options", () =>
 		Effect.gen(function* () {
 			const plugin = yield* createPlugin();
@@ -240,10 +269,9 @@ it.live("rebuilds after a watched backend change", () =>
 		yield* Effect.addFinalizer(() => child.kill().pipe(Effect.ignore));
 
 		yield* waitFor(fs.exists(output));
-		yield* fs.writeFileString(
-			path.join(plugin, "backend", "main.ts"),
-			'export const main = "updated";\n',
-		);
+		const mainPath = path.join(plugin, "backend", "main.ts");
+		const main = yield* fs.readFileString(mainPath);
+		yield* fs.writeFileString(mainPath, main.replace('"initial"', '"updated"'));
 		yield* waitFor(
 			Effect.gen(function* () {
 				if (!(yield* fs.exists(output))) {

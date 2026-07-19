@@ -19,6 +19,10 @@
 			"types": "./src/compiler-protocol.ts",
 			"default": "./src/compiler-protocol.ts"
 		},
+		"./plugin-manifest": {
+			"types": "./src/compiler-plugin-manifest.ts",
+			"default": "./src/compiler-plugin-manifest.ts"
+		},
 		"./plugins": {
 			"types": "./src/compiler-plugins.ts",
 			"default": "./src/compiler-plugins.ts"
@@ -34,6 +38,7 @@
 		"build": "tsc && bun build src/compiler-worker.ts --outdir dist --entry-naming sandbox-compiler-worker.js --target bun --sourcemap"
 	},
 	"dependencies": {
+		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/sandbox-sdk": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/typescript-compiler": "workspace:*",
