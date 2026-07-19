@@ -16,7 +16,7 @@ describe("Events bulk POST", () => {
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
 
-			const error = yield* Effect.flip(apiClient.call((c) => c.events.list({ urlParams: {} })));
+			const error = yield* Effect.flip(apiClient.call((c) => c.events.list({ query: {} })));
 
 			assertTaggedError(error, "BadRequest");
 		}),

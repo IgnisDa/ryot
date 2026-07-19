@@ -97,39 +97,37 @@ describe("entity translation via client-declared interest", () => {
 		}),
 	);
 
-	it.scopedLive(
-		"reports pending, translates on interest, then shares the overlay across users",
-		() =>
-			Effect.gen(function* () {
-				const auth = yield* createAuthenticatedClient();
-				const { client } = auth;
-				const movie = yield* seedPopulatedMovie(client, "Canonical Fight Club");
+	it.live("reports pending, translates on interest, then shares the overlay across users", () =>
+		Effect.gen(function* () {
+			const auth = yield* createAuthenticatedClient();
+			const { client } = auth;
+			const movie = yield* seedPopulatedMovie(client, "Canonical Fight Club");
 
-				yield* setUserLanguage(client, "es");
+			yield* setUserLanguage(client, "es");
 
-				const beforeInterest = yield* getEntity(client, movie.id);
-				expect(beforeInterest.translationStatus).toBe("pending");
-				expect(beforeInterest.name).toBe("Canonical Fight Club");
+			const beforeInterest = yield* getEntity(client, movie.id);
+			expect(beforeInterest.translationStatus).toBe("pending");
+			expect(beforeInterest.name).toBe("Canonical Fight Club");
 
-				const stream = yield* declareInterest(auth, [movie.id]);
-				const event = yield* Effect.promise(() =>
-					stream.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 }),
-				);
-				expect(event.reason).toBe("translated");
+			const stream = yield* declareInterest(auth, [movie.id]);
+			const event = yield* Effect.promise(() =>
+				stream.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 }),
+			);
+			expect(event.reason).toBe("translated");
 
-				const localizedRead = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready");
-				expect(localizedRead.name).toBe(TRANSLATED_ES_NAME);
+			const localizedRead = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready");
+			expect(localizedRead.name).toBe(TRANSLATED_ES_NAME);
 
-				const { client: clientB } = yield* createAuthenticatedClient();
-				yield* setUserLanguage(clientB, "es");
-				const sharedRead = yield* getEntity(clientB, movie.id);
-				expect(sharedRead.translationStatus).toBe("ready");
-				expect(sharedRead.name).toBe(TRANSLATED_ES_NAME);
-				expect(yield* countEntityTranslations(movie.id)).toBe(1);
-			}),
+			const { client: clientB } = yield* createAuthenticatedClient();
+			yield* setUserLanguage(clientB, "es");
+			const sharedRead = yield* getEntity(clientB, movie.id);
+			expect(sharedRead.translationStatus).toBe("ready");
+			expect(sharedRead.name).toBe(TRANSLATED_ES_NAME);
+			expect(yield* countEntityTranslations(movie.id)).toBe(1);
+		}),
 	);
 
-	it.scopedLive("negative-caches when the provider has no translation and does not refetch", () =>
+	it.live("negative-caches when the provider has no translation and does not refetch", () =>
 		Effect.gen(function* () {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
@@ -176,7 +174,7 @@ describe("entity translation via client-declared interest", () => {
 			}),
 	);
 
-	it.scopedLive(
+	it.live(
 		"enqueues only population (never an all-null overlay) when interest hits an unpopulated entity",
 		() =>
 			Effect.gen(function* () {

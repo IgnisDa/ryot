@@ -67,7 +67,7 @@ describe("Definitions E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const [schemas, workspaces] = yield* Effect.all([
 				client.call((c) => c.definitions.listEntities({})),
-				client.call((c) => c.definitions.listWorkspaces({ urlParams: { includeDisabled: true } })),
+				client.call((c) => c.definitions.listWorkspaces({ query: { includeDisabled: true } })),
 			]);
 			const selected = workspaces.filter((workspace) =>
 				["media", "fitness"].includes(workspace.slug),

@@ -95,10 +95,10 @@ describe("Relationship root sources", () => {
 				const [first, second] = result.data.items;
 				assertPresent(first, "Expected first relationship row");
 				assertPresent(second, "Expected second relationship row");
-				const firstCreatedAt = DateTime.unsafeMake(
+				const firstCreatedAt = DateTime.makeUnsafe(
 					String(requireQueryEngineFieldValue(first, "createdAt").value),
 				);
-				const secondCreatedAt = DateTime.unsafeMake(
+				const secondCreatedAt = DateTime.makeUnsafe(
 					String(requireQueryEngineFieldValue(second, "createdAt").value),
 				);
 				expect(DateTime.toEpochMillis(firstCreatedAt)).toBeGreaterThanOrEqual(

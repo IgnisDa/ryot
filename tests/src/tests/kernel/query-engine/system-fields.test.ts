@@ -23,7 +23,7 @@ const setEntityPopulatedAt = (entityId: string, isoDate: string) =>
 		(c) =>
 			c.testSupport.setEntityPopulatedAt({
 				payload: { populatedAt: isoDate },
-				path: { entityId: EntityId.make(entityId) },
+				params: { entityId: EntityId.make(entityId) },
 			}),
 		adminHeaders,
 	);

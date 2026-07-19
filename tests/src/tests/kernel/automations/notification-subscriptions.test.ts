@@ -80,14 +80,14 @@ describe("notification subscription catalog and rules", () => {
 
 			const inaccessible = yield* Effect.flip(
 				other.client.call((c) =>
-					c.automations.getRule({ path: { ruleId: AutomationRuleId.make(reviewRule.id) } }),
+					c.automations.getRule({ params: { ruleId: AutomationRuleId.make(reviewRule.id) } }),
 				),
 			);
 			assertTaggedError(inaccessible, "NotFound");
 			const nonexistent = yield* Effect.flip(
 				owner.client.call((c) =>
 					c.automations.getRule({
-						path: { ruleId: AutomationRuleId.make(`missing-${crypto.randomUUID()}`) },
+						params: { ruleId: AutomationRuleId.make(`missing-${crypto.randomUUID()}`) },
 					}),
 				),
 			);
