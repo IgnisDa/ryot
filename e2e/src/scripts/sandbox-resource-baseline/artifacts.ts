@@ -2,11 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { TestSupportSandboxRuntimeMetrics } from "@ryot-app/contract/modules/test-support/schemas";
 import { Data, Effect, Schema } from "effect";
 
+import { CadenceGateResult, CadenceStatistics } from "./cadence";
 import { ScenarioDefinition } from "./scenarios";
-import { ScenarioStatistics } from "./statistics";
 
 export class ArtifactWriteError extends Data.TaggedError("ArtifactWriteError")<{
 	readonly path: string;
@@ -14,161 +13,291 @@ export class ArtifactWriteError extends Data.TaggedError("ArtifactWriteError")<{
 }> {}
 
 export const ScenarioOutcome = Schema.Literals(["completed", "failed", "aborted", "skipped"]);
+export type ScenarioOutcome = typeof ScenarioOutcome.Type;
 export const RequestOutcome = Schema.Literals(["completed", "failed", "timeout", "aborted"]);
 
-/** Execution and trace IDs stay in the raw run only; artifacts carry a truncated digest. */
+/** Execution, job and external IDs stay in the raw run only; artifacts carry a truncated digest. */
 export const identifierDigest = (value: string) =>
 	createHash("sha256").update(value).digest("hex").slice(0, 16);
 
+const NullableNumber = Schema.NullOr(Schema.Finite);
+
 export const ScenarioRequest = Schema.Struct({
+	wave: Schema.Int,
 	index: Schema.Int,
 	outcome: RequestOutcome,
 	latencyMs: Schema.Finite,
 	startedAtMs: Schema.Finite,
 	terminalAtMs: Schema.Finite,
+	queueWaitMs: NullableNumber,
+	executionMs: NullableNumber,
+	attempts: Schema.NullOr(Schema.Int),
 	failureCode: Schema.NullOr(Schema.String),
 	failureStage: Schema.NullOr(Schema.String),
+	identityDigest: Schema.NullOr(Schema.String),
 	responseByteLength: Schema.NullOr(Schema.Int),
-	executionIdDigest: Schema.NullOr(Schema.String),
 });
 export type ScenarioRequest = typeof ScenarioRequest.Type;
 
-export const HostSample = Schema.Record(Schema.String, Schema.Unknown);
+export const AppPoint = Schema.Struct({
+	t: Schema.Finite,
+	workers: Schema.Int,
+	bunRss: Schema.Finite,
+	denoRss: Schema.Finite,
+	bunHeapUsed: Schema.Finite,
+	bunExternal: Schema.Finite,
+	bunHeapTotal: Schema.Finite,
+	activeExecutions: Schema.Int,
+	cgroupCurrent: NullableNumber,
+	bunArrayBuffers: Schema.Finite,
+	executingImportBodies: Schema.Int,
+});
+export type AppPoint = typeof AppPoint.Type;
+
+export const HostPoint = Schema.Struct({
+	t: Schema.Finite,
+	ioSomeAvg10: NullableNumber,
+	memAvailable: NullableNumber,
+	cpuSomeAvg10: NullableNumber,
+	memorySomeAvg10: NullableNumber,
+	memoryFullAvg10: NullableNumber,
+	ryotMemoryCurrent: NullableNumber,
+	otelMemoryCurrent: NullableNumber,
+	redisMemoryCurrent: NullableNumber,
+	postgresMemoryCurrent: NullableNumber,
+});
+export type HostPoint = typeof HostPoint.Type;
+
+export const MetricValues = Schema.Record(Schema.String, NullableNumber);
+export type MetricValues = typeof MetricValues.Type;
+
+export const WorkerLifecycle = Schema.Struct({
+	spawned: Schema.Int,
+	completed: Schema.Int,
+	sampledWorkerCount: Schema.Int,
+	lifetimePeakUnobserved: Schema.Int,
+	sampledPeakRssBytes: Schema.Array(Schema.Finite),
+	lifetimePeakRssBytes: Schema.Array(Schema.Finite),
+});
+
+export const PhaseSummary = Schema.Struct({
+	executions: Schema.Int,
+	replayedSegments: Schema.Int,
+	maxConcurrentAnyPhase: Schema.Int,
+	populationAutomationOverlapMs: Schema.Finite,
+	phases: Schema.Array(
+		Schema.Struct({
+			count: Schema.Int,
+			failed: Schema.Int,
+			phase: Schema.String,
+			maxConcurrent: Schema.Int,
+			durationMs: Schema.Struct({ p50: Schema.Finite, p95: Schema.Finite, max: Schema.Finite }),
+		}),
+	),
+});
+export type PhaseSummary = typeof PhaseSummary.Type;
+
+export const ImportAccounting = Schema.Struct({
+	terminal: Schema.Int,
+	submitted: Schema.Int,
+	completed: Schema.Int,
+	maxLogicalPending: Schema.Int,
+	failedByStage: Schema.Record(Schema.String, Schema.Int),
+});
+export type ImportAccounting = typeof ImportAccounting.Type;
+
+export const WaveSummary = Schema.Struct({
+	wave: Schema.Int,
+	failed: Schema.Int,
+	requests: Schema.Int,
+	terminalAtMs: Schema.Finite,
+	submittedAtMs: Schema.Finite,
+	drainedAfterMs: NullableNumber,
+	checkpoints: Schema.Array(
+		Schema.Struct({ afterMs: Schema.Int, label: Schema.String, values: MetricValues }),
+	),
+});
+export type WaveSummary = typeof WaveSummary.Type;
 
 export const ScenarioArtifact = Schema.Struct({
 	runId: Schema.String,
+	metrics: MetricValues,
 	repetition: Schema.Int,
 	outcome: ScenarioOutcome,
+	workers: WorkerLifecycle,
 	scenarioId: Schema.String,
-	startedAtMs: Schema.Finite,
-	terminalAtMs: Schema.Finite,
-	completedAtMs: Schema.Finite,
-	submittedAtMs: Schema.Finite,
-	statistics: ScenarioStatistics,
+	invocationId: Schema.String,
+	schemaVersion: Schema.Literal(2),
+	round: Schema.NullOr(Schema.Int),
 	configuration: ScenarioDefinition,
-	hostSamples: Schema.Array(HostSample),
+	notes: Schema.Array(Schema.String),
+	phases: Schema.NullOr(PhaseSummary),
+	orderInRound: Schema.NullOr(Schema.Int),
 	requests: Schema.Array(ScenarioRequest),
+	profileIds: Schema.Array(Schema.String),
 	stopReason: Schema.NullOr(Schema.String),
-	/** Set when a Group E restart was observed through a lifecycle counter reset. */
-	restartDetectedAfterMs: Schema.NullOr(Schema.Finite),
-	applicationSamples: Schema.Array(TestSupportSandboxRuntimeMetrics),
+	imports: Schema.NullOr(ImportAccounting),
+	waves: Schema.NullOr(Schema.Array(WaveSummary)),
+	series: Schema.Struct({ host: Schema.Array(HostPoint), application: Schema.Array(AppPoint) }),
+	peakReset: Schema.NullOr(Schema.Struct({ verified: Schema.Boolean, supported: Schema.Boolean })),
+	journal: Schema.Struct({
+		lineCount: Schema.Int,
+		truncated: Schema.Boolean,
+		lines: Schema.Array(Schema.String),
+	}),
+	watchdog: Schema.Struct({
+		triggered: Schema.Boolean,
+		triggers: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+	}),
+	containers: Schema.Struct({
+		after: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+		before: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+	}),
+	cadence: Schema.Struct({
+		application: CadenceStatistics,
+		undecodableHostLines: Schema.Int,
+		applicationSampleFailures: Schema.Int,
+		host: Schema.NullOr(CadenceStatistics),
+	}),
+	timeline: Schema.Struct({
+		startedAtMs: Schema.Finite,
+		terminalAtMs: Schema.Finite,
+		submittedAtMs: Schema.Finite,
+		completedAtMs: Schema.Finite,
+		preScenarioAtMs: Schema.Finite,
+	}),
+	effective: Schema.Struct({
+		bunVersion: Schema.String,
+		denoVersion: Schema.String,
+		processMode: Schema.String,
+		workerConcurrency: Schema.Int,
+		imageDigest: Schema.NullOr(Schema.String),
+		benchmarkProfilingEnabled: Schema.Boolean,
+		schedulerDispatchersDisabled: Schema.Boolean,
+	}),
 });
 export type ScenarioArtifact = typeof ScenarioArtifact.Type;
 
-export const ManifestImage = Schema.Struct({
-	tag: Schema.NullOr(Schema.String),
-	digest: Schema.NullOr(Schema.String),
-	ociRevision: Schema.NullOr(Schema.String),
-	architecture: Schema.NullOr(Schema.String),
+export const ManifestInvocation = Schema.Struct({
+	command: Schema.String,
+	invocationId: Schema.String,
+	startedAtUtc: Schema.String,
+	scenarioIds: Schema.Array(Schema.String),
+	stopReason: Schema.NullOr(Schema.String),
+	completedAtUtc: Schema.NullOr(Schema.String),
+	outcome: Schema.Literals(["running", "completed", "stopped", "failed"]),
 });
-
-export const ManifestRuntime = Schema.Struct({
-	bunVersion: Schema.NullOr(Schema.String),
-	denoVersion: Schema.NullOr(Schema.String),
-});
-
-export const ManifestHost = Schema.Struct({
-	cpuCount: Schema.NullOr(Schema.Int),
-	kernel: Schema.NullOr(Schema.String),
-	cpuModel: Schema.NullOr(Schema.String),
-	ramBytes: Schema.NullOr(Schema.Finite),
-	swapBytes: Schema.NullOr(Schema.Finite),
-	diskBytes: Schema.NullOr(Schema.Finite),
-	filesystem: Schema.NullOr(Schema.String),
-	dockerVersion: Schema.NullOr(Schema.String),
-	cgroupVersion: Schema.NullOr(Schema.String),
-});
-
-export const ManifestDeployment = Schema.Struct({
-	redactedComposeSha256: Schema.NullOr(Schema.String),
-	/** Non-secret, resource-relevant settings only; never a complete environment response. */
-	resourceSettings: Schema.Record(Schema.String, Schema.String),
-});
-
-export const ManifestHealth = Schema.Struct({
-	otlpHealthy: Schema.Boolean,
-	watchdogHealthy: Schema.Boolean,
-	hostSamplerHealthy: Schema.Boolean,
-});
-
-/** Facts the driver cannot observe over HTTP; the operator collects them on the VM. */
-export const RunManifestFacts = Schema.Struct({
-	host: ManifestHost,
-	image: ManifestImage,
-	health: ManifestHealth,
-	runtime: ManifestRuntime,
-	deployment: ManifestDeployment,
-});
-export type RunManifestFacts = typeof RunManifestFacts.Type;
-
-export const EMPTY_MANIFEST_FACTS: RunManifestFacts = {
-	runtime: { bunVersion: null, denoVersion: null },
-	deployment: { resourceSettings: {}, redactedComposeSha256: null },
-	image: { tag: null, digest: null, ociRevision: null, architecture: null },
-	health: { otlpHealthy: false, watchdogHealthy: false, hostSamplerHealthy: false },
-	host: {
-		kernel: null,
-		cpuCount: null,
-		cpuModel: null,
-		ramBytes: null,
-		diskBytes: null,
-		swapBytes: null,
-		filesystem: null,
-		dockerVersion: null,
-		cgroupVersion: null,
-	},
-};
+export type ManifestInvocation = typeof ManifestInvocation.Type;
 
 export const RunManifest = Schema.Struct({
-	...RunManifestFacts.fields,
 	runId: Schema.String,
 	startedAtUtc: Schema.String,
-	sampleIntervalMs: Schema.Int,
-	hostSampleIntervalMs: Schema.Int,
+	schemaVersion: Schema.Literal(2),
 	prNumber: Schema.NullOr(Schema.Int),
 	branch: Schema.NullOr(Schema.String),
-	scenarios: Schema.Array(ScenarioDefinition),
+	deviations: Schema.Array(Schema.String),
 	completedAtUtc: Schema.NullOr(Schema.String),
+	invocations: Schema.Array(ManifestInvocation),
+	/** Constituent run IDs whose artifacts this run may merge; always contains `runId`. */
+	constituentRunIds: Schema.Array(Schema.String),
+	host: Schema.Record(Schema.String, Schema.Unknown),
+	teardown: Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
+	preflight: Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
+	watchdogDrill: Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
+	counterbalancedOrders: Schema.Record(Schema.String, Schema.Array(Schema.Array(Schema.Int))),
+	retentionTolerance: Schema.Struct({
+		postGcGrowthRatio: Schema.Finite,
+		slopeBytesPerThousandOperations: Schema.Finite,
+	}),
+	runtime: Schema.Struct({
+		bunVersion: Schema.NullOr(Schema.String),
+		denoVersion: Schema.NullOr(Schema.String),
+		effectVersion: Schema.NullOr(Schema.String),
+	}),
 	commits: Schema.Struct({
 		ciTrigger: Schema.NullOr(Schema.String),
 		implementation: Schema.NullOr(Schema.String),
+		workflowRunUrl: Schema.NullOr(Schema.String),
+	}),
+	profiles: Schema.Struct({
+		rawDeleted: Schema.NullOr(Schema.Boolean),
+		verifiedAtUtc: Schema.NullOr(Schema.String),
+		remainingRawEntries: Schema.NullOr(Schema.Int),
+	}),
+	image: Schema.Struct({
+		tag: Schema.NullOr(Schema.String),
+		digest: Schema.NullOr(Schema.String),
+		ociRevision: Schema.NullOr(Schema.String),
+		architecture: Schema.NullOr(Schema.String),
+	}),
+	deployment: Schema.Struct({
+		otelCollectorImage: Schema.NullOr(Schema.String),
+		redactedComposeSha256: Schema.NullOr(Schema.String),
+		resourceSettings: Schema.Record(Schema.String, Schema.String),
+	}),
+	sampling: Schema.Struct({
+		hostIntervalMs: Schema.Int,
+		applicationIntervalMs: Schema.Int,
+		hostGate: Schema.Record(Schema.String, Schema.Finite),
+		applicationGate: Schema.Record(Schema.String, Schema.Finite),
 	}),
 });
 export type RunManifest = typeof RunManifest.Type;
 
-const ScalingRatio = Schema.Struct({
-	delta: Schema.Finite,
-	metric: Schema.String,
-	baselineValue: Schema.Finite,
-	comparedValue: Schema.Finite,
-	baselineScenarioId: Schema.String,
-	comparedScenarioId: Schema.String,
-	ratio: Schema.NullOr(Schema.Finite),
+export const MetricAggregate = Schema.Struct({
+	n: Schema.Int,
+	p95: NullableNumber,
+	min: NullableNumber,
+	max: NullableNumber,
+	median: NullableNumber,
 });
+export type MetricAggregate = typeof MetricAggregate.Type;
 
-export const RunSummary = Schema.Struct({
-	runId: Schema.String,
-	scalingRatios: Schema.Array(ScalingRatio),
-	scenarios: Schema.Array(
+export const ScenarioAggregate = Schema.Struct({
+	kind: Schema.String,
+	repetitions: Schema.Int,
+	scenarioId: Schema.String,
+	workerConcurrency: Schema.Int,
+	requiredRepetitions: Schema.Int,
+	metrics: Schema.Record(Schema.String, MetricAggregate),
+	outcomes: Schema.Struct({
+		failed: Schema.Int,
+		aborted: Schema.Int,
+		skipped: Schema.Int,
+		completed: Schema.Int,
+	}),
+	repetitionResults: Schema.Array(
 		Schema.Struct({
-			repetitions: Schema.Int,
-			concurrency: Schema.Int,
+			metrics: MetricValues,
+			repetition: Schema.Int,
 			outcome: ScenarioOutcome,
-			requestCount: Schema.Int,
-			failureCount: Schema.Int,
-			successCount: Schema.Int,
-			scenarioId: Schema.String,
-			peakWorkerCount: Schema.Int,
-			replayJournalBytes: Schema.Finite,
-			peakBackendRssBytes: Schema.Finite,
-			peakDenoAggregateRssBytes: Schema.Finite,
 			stopReason: Schema.NullOr(Schema.String),
-			recoveredAfterMs: Schema.NullOr(Schema.Finite),
-			latencyMs: Schema.Struct({ p50: Schema.Finite, p95: Schema.Finite }),
 		}),
 	),
 });
+export type ScenarioAggregate = typeof ScenarioAggregate.Type;
+
+export const ScalingRatio = Schema.Struct({
+	metric: Schema.String,
+	ratio: NullableNumber,
+	baselineMedian: NullableNumber,
+	comparedMedian: NullableNumber,
+	baselineScenarioId: Schema.String,
+	comparedScenarioId: Schema.String,
+	unavailableReason: Schema.NullOr(Schema.String),
+});
+export type ScalingRatio = typeof ScalingRatio.Type;
+
+export const RunSummary = Schema.Struct({
+	runId: Schema.String,
+	schemaVersion: Schema.Literal(2),
+	scalingRatios: Schema.Array(ScalingRatio),
+	scenarios: Schema.Array(ScenarioAggregate),
+	extra: Schema.Record(Schema.String, Schema.Unknown),
+});
 export type RunSummary = typeof RunSummary.Type;
+
+export { CadenceGateResult };
 
 const writeAtomic = (path: string, contents: string) =>
 	Effect.tryPromise({
@@ -187,15 +316,25 @@ export const writeArtifact = <S extends Schema.Top>(schema: S, path: string, val
 		Effect.flatMap((encoded) => writeAtomic(path, `${JSON.stringify(encoded, null, 2)}\n`)),
 	);
 
-export const writeRawRun = (path: string, value: unknown) =>
-	writeAtomic(path, `${JSON.stringify(value, null, 2)}\n`);
+export const writeRawJson = (path: string, value: unknown) =>
+	Effect.tryPromise({
+		catch: (cause) => new ArtifactWriteError({ path, cause }),
+		try: async () => {
+			await mkdir(dirname(path), { mode: 0o700, recursive: true });
+			await writeFile(path, `${JSON.stringify(value)}\n`, { mode: 0o600 });
+		},
+	});
 
 export const writeText = (path: string, contents: string) => writeAtomic(path, contents);
 
 export const artifactPaths = (outputDirectory: string) => ({
-	rawDirectory: join(outputDirectory, "raw"),
 	reportPath: join(outputDirectory, "report.md"),
+	defectsPath: join(outputDirectory, "defects.md"),
 	summaryPath: join(outputDirectory, "summary.json"),
 	manifestPath: join(outputDirectory, "manifest.json"),
 	scenariosDirectory: join(outputDirectory, "scenarios"),
+	profilesSummaryPath: join(outputDirectory, "profiles", "summary.json"),
 });
+
+export const scenarioFileName = (scenarioId: string, repetition: number) =>
+	`${scenarioId}.${repetition}.json`;

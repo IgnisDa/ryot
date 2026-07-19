@@ -1,169 +1,297 @@
-import type { RuntimeSample } from "~/support/benchmark-workload";
 import { describe, expect, it } from "~/support/effect-test";
 
-import { RECOVERY_WINDOW_MS, summarizeScenario } from "./statistics";
+import type { ScenarioRequest } from "./artifacts";
+import type { HostSampleLine } from "./host/samples";
+import {
+	type AppRecord,
+	executionTimings,
+	hostMetrics,
+	repetitionMetrics,
+	requestMetrics,
+	workerLifecycle,
+} from "./statistics";
 
-type SampleOverrides = {
-	timestampMs: number;
-	backendRss: number;
-	denoRss: number;
-	workers?: ReadonlyArray<{ pid: number; rssBytes: number }>;
-	totalSpawned?: number;
-	journalBytes?: number;
-	oomKill?: number;
-	cgroupMemoryCurrent?: number;
-	backendUserCpuMicros?: number | null;
-};
+const MiB = 1_048_576;
 
-const sample = (overrides: SampleOverrides): RuntimeSample => {
-	const workers = overrides.workers ?? [];
+const record = (t: number, overrides: Partial<AppRecord> = {}): AppRecord => ({
+	t,
+	denoRss: 0,
+	workers: [],
+	bunHwm: null,
+	totalSpawned: 0,
+	cgroupPeak: null,
+	cgroupOomKill: 0,
+	replaysFailed: 0,
+	bunUserMicros: 0,
+	bunRss: 400 * MiB,
+	totalCompleted: 0,
+	replaysStarted: 0,
+	bunSystemMicros: 0,
+	executionsTotal: 0,
+	durableRequests: 0,
+	replaysCompleted: 0,
+	activeExecutions: 0,
+	bunHeapUsed: 80 * MiB,
+	bunExternal: 10 * MiB,
+	replayJournalBytes: 0,
+	bunHeapTotal: 120 * MiB,
+	cgroupCurrent: 600 * MiB,
+	bunArrayBuffers: 1 * MiB,
+	executingImportBodies: 0,
+	...overrides,
+});
+
+const request = (
+	index: number,
+	latencyMs: number,
+	outcome: ScenarioRequest["outcome"] = "completed",
+): ScenarioRequest => ({
+	index,
+	outcome,
+	wave: 1,
+	latencyMs,
+	attempts: null,
+	startedAtMs: 0,
+	failureCode: null,
+	queueWaitMs: null,
+	executionMs: null,
+	failureStage: null,
+	identityDigest: null,
+	terminalAtMs: latencyMs,
+	responseByteLength: null,
+});
+
+const hostLine = (
+	startedMs: number,
+	overrides: {
+		ryotId?: string;
+		ryotCpuUsec?: number;
+		peakSinceReset?: number | null;
+		memAvailable?: number;
+		majfault?: number;
+	} = {},
+): HostSampleLine => {
+	const container = (containerId: string, usageUsec: number) => ({
+		containerId,
+		ioStat: null,
+		pidsCurrent: 1,
+		memoryStat: null,
+		memoryEvents: null,
+		memoryPeakBytes: 900 * MiB,
+		memoryCurrentBytes: 500 * MiB,
+		peakSinceResetBytes: overrides.peakSinceReset ?? null,
+		cpuStat: {
+			usageUsec,
+			userUsec: null,
+			systemUsec: null,
+			nrThrottled: null,
+			throttledUsec: null,
+		},
+	});
 	return {
-		totalCompleted: 0,
-		timestampMs: overrides.timestampMs,
-		activeProcessCount: workers.length,
-		backendRssBytes: overrides.backendRss,
-		totalSpawned: overrides.totalSpawned ?? 0,
-		executions: { total: 0, active: 0, maxActive: 0 },
-		workerRssBytes: workers.reduce((total, worker) => total + worker.rssBytes, 0),
-		deno: {
-			userCpuTicks: null,
-			systemCpuTicks: null,
-			rssBytes: overrides.denoRss,
-			processCount: workers.length,
+		startedMs,
+		disk: null,
+		device: "sda",
+		durationMs: 1,
+		kind: "sample",
+		missedSlotsBefore: 0,
+		timestampMs: startedMs,
+		scheduledMs: startedMs,
+		sampler: { rssBytes: 40 * MiB },
+		pressure: { io: null, cpu: null, memory: null },
+		containers: {
+			otel: null,
+			redis: null,
+			postgres: null,
+			ryot: container(overrides.ryotId ?? "ryot-1", overrides.ryotCpuUsec ?? 0),
 		},
-		replays: {
-			totalFailed: 0,
-			totalStarted: 0,
-			totalCompleted: 0,
-			totalJournalBytes: overrides.journalBytes ?? 0,
+		vmstat: {
+			pgscan: 0,
+			pgfault: 0,
+			oomKill: 0,
+			pgsteal: 0,
+			pgscanDirect: 0,
+			pgscanKswapd: 0,
+			workingsetRefaultAnon: 0,
+			workingsetRefaultFile: 0,
+			pgmajfault: overrides.majfault ?? 0,
 		},
-		workers: workers.map((worker) => ({
-			pid: worker.pid,
-			userCpuTicks: null,
-			systemCpuTicks: null,
-			startTimeTicks: null,
-			rssBytes: worker.rssBytes,
-		})),
-		backend: {
-			systemCpuMicros: 0,
-			arrayBuffersBytes: 0,
-			rssBytes: overrides.backendRss,
-			heapTotalBytes: overrides.backendRss,
-			heapUsedBytes: overrides.backendRss / 2,
-			externalBytes: overrides.backendRss / 4,
-			userCpuMicros: overrides.backendUserCpuMicros ?? 0,
-		},
-		cgroup: {
-			pidsCurrent: 10,
-			memoryMaxBytes: null,
-			memoryPeakBytes: 1_000,
-			cpu: { userUsec: 0, usageUsec: 0, systemUsec: 0 },
-			memoryCurrentBytes: overrides.cgroupMemoryCurrent ?? 500,
-			events: { low: 0, max: 0, oom: 0, high: 0, oomKill: overrides.oomKill ?? 0 },
+		meminfo: {
+			dirtyBytes: 0,
+			cachedBytes: 0,
+			swapFreeBytes: 0,
+			memTotalBytes: 0,
+			writebackBytes: 0,
+			swapTotalBytes: 0,
+			sReclaimableBytes: 0,
+			memAvailableBytes: overrides.memAvailable ?? 3_000 * MiB,
 		},
 	};
 };
 
-const preScenarioSample = sample({ denoRss: 0, timestampMs: 0, backendRss: 100 });
-
-describe("summarizeScenario", () => {
-	it("reports peaks, per-worker peaks and counter deltas across the scenario window", () => {
-		const statistics = summarizeScenario({
-			preScenarioSample,
-			terminalAtMs: 400,
-			samples: [
-				sample({
-					denoRss: 300,
-					backendRss: 150,
-					totalSpawned: 1,
-					timestampMs: 100,
-					journalBytes: 40,
-					workers: [{ pid: 1, rssBytes: 300 }],
+describe("repetitionMetrics", () => {
+	it("reports pre, peak, post and baseline-normalized deltas for the scenario window", () => {
+		const pre = record(0, { denoRss: 0 });
+		const metrics = repetitionMetrics({
+			pre,
+			host: [],
+			health: [],
+			requests: [],
+			pressure: [],
+			completedWorkers: [],
+			window: { terminalAtMs: 300, submittedAtMs: 100, completedAtMs: 500 },
+			records: [
+				record(50, { bunRss: 999 * MiB }),
+				record(100, {
+					bunRss: 500 * MiB,
+					denoRss: 150 * MiB,
+					workers: [{ pid: 1, rss: 150 * MiB }],
 				}),
-				sample({
-					denoRss: 900,
-					backendRss: 400,
-					totalSpawned: 2,
-					timestampMs: 200,
-					journalBytes: 90,
+				record(200, {
+					bunRss: 650 * MiB,
+					denoRss: 300 * MiB,
 					workers: [
-						{ pid: 1, rssBytes: 500 },
-						{ pid: 2, rssBytes: 400 },
+						{ pid: 1, rss: 170 * MiB },
+						{ pid: 2, rss: 130 * MiB },
 					],
 				}),
-				sample({
-					denoRss: 450,
-					backendRss: 250,
-					totalSpawned: 2,
-					timestampMs: 300,
-					journalBytes: 90,
-					workers: [{ pid: 2, rssBytes: 450 }],
-				}),
+				record(500, { bunRss: 430 * MiB }),
 			],
 		});
 
-		expect(statistics.sampleCount).toBe(3);
-		expect(statistics.backendRssBytes.peak).toBe(400);
-		expect(statistics.denoAggregateRssBytes.peak).toBe(900);
-		expect(statistics.peakWorkerCount).toBe(2);
-		expect(statistics.workerPeakRssBytes).toEqual([500, 450]);
-		expect(statistics.backendHeapUsedPeakBytes).toBe(200);
-		expect(statistics.counterDeltas.totalSpawned).toBe(2);
-		expect(statistics.counterDeltas.replayJournalBytes).toBe(90);
+		expect(metrics["pre.bunRssBytes"]).toBe(400 * MiB);
+		expect(metrics["peak.bunRssBytes"]).toBe(650 * MiB);
+		expect(metrics["peakDelta.bunRssBytes"]).toBe(250 * MiB);
+		expect(metrics["peakDelta.denoAggregateRssBytes"]).toBe(300 * MiB);
+		expect(metrics["post.bunRssBytes"]).toBe(430 * MiB);
+		expect(metrics["postDelta.bunRssBytes"]).toBe(30 * MiB);
+		expect(metrics["peak.workerCount"]).toBe(2);
+		expect(metrics["recovery.bunRssRecoveredAfterMs"]).toBe(200);
+		expect(metrics["recovery.workersDrainedAfterMs"]).toBe(200);
+	});
+});
+
+describe("workerLifecycle", () => {
+	it("counts workers from lifecycle counters and reports unread lifetime peaks as unobserved", () => {
+		const lifecycle = workerLifecycle({
+			pre: record(0, { totalSpawned: 4, totalCompleted: 4 }),
+			last: record(20, { totalSpawned: 7, totalCompleted: 7 }),
+			records: [record(10, { workers: [{ pid: 7, rss: 120 * MiB }] })],
+			completedWorkers: [
+				{
+					sequence: 1,
+					spawnedAtMs: 0,
+					releasedAtMs: 5,
+					executionKey: "a",
+					lifetimePeakRssBytes: 140 * MiB,
+				},
+				{
+					sequence: 2,
+					spawnedAtMs: 5,
+					releasedAtMs: 8,
+					executionKey: "a",
+					lifetimePeakRssBytes: null,
+				},
+				{
+					sequence: 3,
+					spawnedAtMs: 8,
+					releasedAtMs: 20,
+					executionKey: "b",
+					lifetimePeakRssBytes: 90 * MiB,
+				},
+			],
+		});
+
+		expect(lifecycle).toEqual({
+			spawned: 3,
+			completed: 3,
+			sampledWorkerCount: 1,
+			lifetimePeakUnobserved: 1,
+			sampledPeakRssBytes: [120 * MiB],
+			lifetimePeakRssBytes: [140 * MiB, 90 * MiB],
+		});
+	});
+});
+
+describe("executionTimings", () => {
+	it("measures queue wait to the first attempt and sums every replay attempt", () => {
+		const timings = executionTimings(
+			[
+				{
+					sequence: 1,
+					spawnedAtMs: 1_500,
+					releasedAtMs: 1_900,
+					executionKey: "exec-1",
+					lifetimePeakRssBytes: null,
+				},
+				{
+					sequence: 2,
+					spawnedAtMs: 2_000,
+					releasedAtMs: 2_300,
+					executionKey: "exec-1",
+					lifetimePeakRssBytes: null,
+				},
+				{
+					sequence: 3,
+					spawnedAtMs: 1_100,
+					releasedAtMs: 1_200,
+					executionKey: "other",
+					lifetimePeakRssBytes: null,
+				},
+			],
+			[
+				{ submittedAtMs: 1_000, executionKey: "exec-1" },
+				{ submittedAtMs: 1_000, executionKey: "missing" },
+			],
+		);
+
+		expect(timings.get("exec-1")).toEqual({ attempts: 2, queueWaitMs: 500, executionMs: 700 });
+		expect(timings.has("missing")).toBe(false);
+	});
+});
+
+describe("requestMetrics", () => {
+	it("derives throughput from completed requests over the submission-to-last-terminal window", () => {
+		const metrics = requestMetrics(
+			[request(0, 30_000), request(1, 60_000), request(2, 45_000, "failed")],
+			{ submittedAtMs: 0, terminalAtMs: 60_000, completedAtMs: 90_000 },
+		);
+
+		expect(metrics["requests.throughputPerMinute"]).toBe(2);
+		expect(metrics["requests.failed"]).toBe(1);
+		expect(metrics["requests.latencyMs.p50"]).toBe(45_000);
+	});
+});
+
+describe("hostMetrics", () => {
+	it("drops container counter deltas across a restart and keeps host counter deltas", () => {
+		const restarted = hostMetrics([
+			hostLine(0, { majfault: 10, ryotCpuUsec: 5_000_000 }),
+			hostLine(1_000, {
+				majfault: 25,
+				ryotId: "ryot-2",
+				ryotCpuUsec: 100_000,
+				memAvailable: 2_000 * MiB,
+			}),
+		]);
+		const steady = hostMetrics([
+			hostLine(0, { ryotCpuUsec: 1_000_000 }),
+			hostLine(1_000, { ryotCpuUsec: 3_000_000 }),
+		]);
+
+		expect(restarted["ryot.cgroupCpuMs"]).toBeNull();
+		expect(restarted["host.pgmajfaultDelta"]).toBe(15);
+		expect(restarted["host.memAvailableMinBytes"]).toBe(2_000 * MiB);
+		expect(steady["ryot.cgroupCpuMs"]).toBe(2_000);
 	});
 
-	it("reports recovery time once Bun RSS returns within ten percent of the pre-scenario value", () => {
-		const statistics = summarizeScenario({
-			preScenarioSample,
-			terminalAtMs: 200,
-			samples: [
-				sample({
-					denoRss: 0,
-					backendRss: 500,
-					timestampMs: 100,
-					workers: [{ pid: 1, rssBytes: 10 }],
-				}),
-				sample({ denoRss: 0, backendRss: 400, timestampMs: 300 }),
-				sample({ denoRss: 0, backendRss: 105, timestampMs: 900 }),
-			],
-		});
-
-		expect(statistics.recovery.thresholdBytes).toBeCloseTo(110);
-		expect(statistics.recovery.recoveredAfterMs).toBe(700);
-		expect(statistics.recovery.workersDrainedAfterMs).toBe(100);
-	});
-
-	it("reports null recovery when Bun RSS stays high past the five minute window", () => {
-		const statistics = summarizeScenario({
-			terminalAtMs: 0,
-			preScenarioSample,
-			samples: [
-				sample({ denoRss: 0, backendRss: 900, timestampMs: 1_000 }),
-				sample({ denoRss: 0, backendRss: 100, timestampMs: RECOVERY_WINDOW_MS + 1_000 }),
-			],
-		});
-
-		expect(statistics.recovery.recoveredAfterMs).toBeNull();
-	});
-
-	it("derives cgroup event deltas and CPU deltas from the scenario endpoints", () => {
-		const statistics = summarizeScenario({
-			preScenarioSample,
-			terminalAtMs: 100,
-			samples: [
-				sample({
-					denoRss: 0,
-					oomKill: 1,
-					backendRss: 200,
-					timestampMs: 100,
-					cgroupMemoryCurrent: 4_000,
-					backendUserCpuMicros: 7_500,
-				}),
-			],
-		});
-
-		expect(statistics.cgroup?.eventDeltas.oomKill).toBe(1);
-		expect(statistics.cgroup?.memoryCurrentPeakBytes).toBe(4_000);
-		expect(statistics.cpuDeltas.backendUserMicros).toBe(7_500);
+	it("reports the per-scenario cgroup peak only from the reset descriptor", () => {
+		expect(hostMetrics([hostLine(0)])["ryot.cgroupScenarioPeakBytes"]).toBeNull();
+		expect(
+			hostMetrics([
+				hostLine(0, { peakSinceReset: 700 * MiB }),
+				hostLine(1_000, { peakSinceReset: 800 * MiB }),
+			])["ryot.cgroupScenarioPeakBytes"],
+		).toBe(800 * MiB);
 	});
 });

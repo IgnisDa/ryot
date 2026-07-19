@@ -171,6 +171,7 @@ import { PluginBootDispatcherLive, PluginBootService } from "#modules/scheduler/
 import { PluginCronSchedulerLive, PluginCronService } from "#modules/scheduler/plugin-cron";
 import { SignalSchemasService } from "#modules/signals/service";
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
+import { BenchmarkProfilingService } from "#modules/test-support/benchmark-profiling-service";
 import { OperationalGateService } from "#modules/test-support/operational-gate-service";
 import { TestSupportService } from "#modules/test-support/service";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
@@ -681,6 +682,7 @@ const ServicesLive = Layer.provideMerge(
 const ServicesWithTestSupportLive = Layer.provideMerge(
 	Layer.mergeAll(
 		TestSupportService.layer,
+		BenchmarkProfilingService.layer,
 		OperationalGateService.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
 	),
 	ServicesLive,

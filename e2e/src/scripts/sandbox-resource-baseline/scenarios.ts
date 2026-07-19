@@ -3,52 +3,58 @@ import { Schema } from "effect";
 import { BenchmarkWorkloadContext } from "./workload-sources";
 
 const KiB = 1024;
+const MINUTE_MS = 60_000;
 
-/** Strictly below `SANDBOX_LIMITS.execution.resultBytes` (4 MiB = 4_194_304 bytes). */
-export const LARGE_PAYLOAD_BYTES = 3_900_000;
+export const CONCURRENCY_CANDIDATES = [1, 2, 3, 5] as const;
+export const DEFAULT_WORKER_CONCURRENCY = 2;
 
-export const ScenarioGroup = Schema.Literals(["A", "B", "C", "D", "E", "live"]);
 export const ScenarioKind = Schema.Literals([
 	"idle",
+	"hermetic-matrix",
+	"live-matrix",
+	"live-variance",
+	"profile",
+	"soak",
+]);
+export type ScenarioKind = typeof ScenarioKind.Type;
+
+export const Submission = Schema.Literals([
+	"none",
 	"direct",
 	"import",
 	"live-import",
-	"restart-recovery",
+	"live-search",
+	"live-details",
 ]);
+export type Submission = typeof Submission.Type;
 
 export const LiveSearch = Schema.Struct({
 	query: Schema.String,
 	pageSize: Schema.Int,
 	providerSlug: Schema.String,
-	entitySchemaSlug: Schema.String,
 });
+
+export const LIVE_SEARCH = { pageSize: 20, query: "furious", providerSlug: "music.youtube-music" };
 
 export const ScenarioDefinition = Schema.Struct({
 	id: Schema.String,
+	waves: Schema.Int,
 	kind: ScenarioKind,
-	group: ScenarioGroup,
+	submission: Submission,
 	repetitions: Schema.Int,
-	concurrency: Schema.Int,
+	requestCount: Schema.Int,
 	description: Schema.String,
+	sequential: Schema.Boolean,
 	idleDurationMs: Schema.Int,
-	workload: BenchmarkWorkloadContext,
+	recoveryWindowMs: Schema.Int,
+	workerConcurrency: Schema.Int,
 	liveSearch: Schema.NullOr(LiveSearch),
-	requiresManualRestart: Schema.Boolean,
-	awaitActiveWorkers: Schema.NullOr(Schema.Int),
-	/** Phase 9/10 gates: skip the scenario when the previous scenario ended below this floor. */
-	minimumMemAvailableBytes: Schema.NullOr(Schema.Int),
+	schedulerDispatchersDisabled: Schema.Boolean,
+	recoveryCheckpointsMs: Schema.Array(Schema.Int),
+	workload: Schema.NullOr(BenchmarkWorkloadContext),
+	processClass: Schema.Literals(["fresh-process", "long-lived-process"]),
 });
 export type ScenarioDefinition = typeof ScenarioDefinition.Type;
-
-const baseScenario = {
-	repetitions: 5,
-	concurrency: 1,
-	liveSearch: null,
-	idleDurationMs: 0,
-	awaitActiveWorkers: null,
-	requiresManualRestart: false,
-	minimumMemAvailableBytes: null,
-} as const;
 
 const workload = (overrides: Partial<BenchmarkWorkloadContext> = {}): BenchmarkWorkloadContext => ({
 	seed: 1,
@@ -61,221 +67,221 @@ const workload = (overrides: Partial<BenchmarkWorkloadContext> = {}): BenchmarkW
 	...overrides,
 });
 
-/** Group C's "standard import" as fixed by the plan. */
-const standardImportWorkload = workload({
-	seed: 3,
+export const HERMETIC_MATRIX_WORKLOAD = workload({
+	seed: 61,
+	perCallDelayMs: 25,
+	durableHostCalls: 5,
+});
+
+export const STANDARD_IMPORT_WORKLOAD = workload({
+	seed: 71,
 	perCallDelayMs: 25,
 	suggestionCount: 10,
 	durableHostCalls: 5,
 	relatedEntityCount: 10,
 });
 
-const direct = (
-	id: string,
-	description: string,
-	overrides: Partial<ScenarioDefinition> & { workload: BenchmarkWorkloadContext },
-): ScenarioDefinition => ({
-	id,
-	group: "A",
-	description,
-	kind: "direct",
-	...baseScenario,
-	...overrides,
+const base = {
+	waves: 1,
+	workload: null,
+	requestCount: 0,
+	liveSearch: null,
+	idleDurationMs: 0,
+	sequential: false,
+	submission: "none",
+	recoveryCheckpointsMs: [],
+	processClass: "fresh-process",
+	recoveryWindowMs: 5 * MINUTE_MS,
+	schedulerDispatchersDisabled: true,
+	workerConcurrency: DEFAULT_WORKER_CONCURRENCY,
+} as const;
+
+const idle = (dispatchersDisabled: boolean): ScenarioDefinition => ({
+	...base,
+	kind: "idle",
+	repetitions: 5,
+	recoveryWindowMs: 0,
+	idleDurationMs: 10 * MINUTE_MS,
+	schedulerDispatchersDisabled: dispatchersDisabled,
+	id: dispatchersDisabled ? "idle-dispatchers-disabled" : "idle-dispatchers-enabled",
+	description: `Fresh process idle for ten minutes with dispatchers ${dispatchersDisabled ? "disabled" : "enabled"}`,
 });
 
-export const CANONICAL_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
+export const hermeticScenarioId = (concurrency: number) => `hermetic-c${concurrency}`;
+export const liveScenarioId = (concurrency: number) => `live-c${concurrency}`;
+
+const hermetic = (concurrency: number): ScenarioDefinition => ({
+	...base,
+	repetitions: 5,
+	requestCount: 20,
+	submission: "direct",
+	kind: "hermetic-matrix",
+	workerConcurrency: concurrency,
+	workload: HERMETIC_MATRIX_WORKLOAD,
+	id: hermeticScenarioId(concurrency),
+	description: `Twenty direct executions with five 25 ms durable host calls at worker concurrency ${concurrency}`,
+});
+
+const live = (concurrency: number): ScenarioDefinition => ({
+	...base,
+	repetitions: 3,
+	requestCount: 20,
+	kind: "live-matrix",
+	liveSearch: LIVE_SEARCH,
+	submission: "live-import",
+	workerConcurrency: concurrency,
+	id: liveScenarioId(concurrency),
+	description: `One live YouTube Music search then all twenty imports at worker concurrency ${concurrency}`,
+});
+
+const variance = (submission: "live-search" | "live-details"): ScenarioDefinition => ({
+	...base,
+	submission,
+	repetitions: 1,
+	sequential: true,
+	requestCount: 30,
+	workerConcurrency: 1,
+	kind: "live-variance",
+	liveSearch: LIVE_SEARCH,
+	processClass: "long-lived-process",
+	id: submission === "live-search" ? "ytm-search-variance" : "ytm-details-variance",
+	description: `Thirty unprofiled sequential YouTube Music ${submission === "live-search" ? "searches" : "details executions"}`,
+});
+
+const soak = (input: {
+	readonly id: string;
+	readonly description: string;
+	readonly requestCount: number;
+	readonly sequential: boolean;
+	readonly submission: Submission;
+	readonly workload: BenchmarkWorkloadContext | null;
+}): ScenarioDefinition => ({
+	...base,
+	...input,
+	waves: 10,
+	kind: "soak",
+	repetitions: 1,
+	idleDurationMs: 10 * MINUTE_MS,
+	recoveryWindowMs: 15 * MINUTE_MS,
+	processClass: "long-lived-process",
+	liveSearch: input.submission === "live-details" ? LIVE_SEARCH : null,
+	recoveryCheckpointsMs: [1 * MINUTE_MS, 5 * MINUTE_MS, 15 * MINUTE_MS],
+});
+
+export const IDLE_SCENARIOS = [idle(true), idle(false)];
+export const HERMETIC_SCENARIOS = CONCURRENCY_CANDIDATES.map(hermetic);
+export const LIVE_SCENARIOS = CONCURRENCY_CANDIDATES.map(live);
+export const VARIANCE_SCENARIOS = [variance("live-search"), variance("live-details")];
+
+export const SOAK_SCENARIOS = [
+	soak({
+		requestCount: 10,
+		sequential: true,
+		id: "soak-control",
+		submission: "direct",
+		workload: workload({ seed: 81 }),
+		description: "Ten waves of ten sequential direct executions without host calls",
+	}),
+	soak({
+		requestCount: 20,
+		sequential: false,
+		submission: "import",
+		id: "soak-hermetic-import",
+		workload: STANDARD_IMPORT_WORKLOAD,
+		description: "Ten waves of twenty standard provider imports with unique identities",
+	}),
+	soak({
+		workload: null,
+		requestCount: 20,
+		sequential: false,
+		id: "soak-live-details",
+		submission: "live-details",
+		description: "Ten waves of twenty live YouTube Music details executions in rotating order",
+	}),
+];
+
+export const PROFILE_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
 	{
-		group: "A",
-		kind: "idle",
-		id: "00-idle",
-		...baseScenario,
+		...base,
 		repetitions: 1,
-		workload: workload(),
-		idleDurationMs: 600_000,
-		description: "Idle for ten minutes after startup",
-	},
-	direct("01-direct-no-host", "One direct execution, no host calls, 1 KiB output", {
-		workload: workload({ seed: 11 }),
-	}),
-	direct("02-direct-1-host-call", "One direct execution with 1 durable host call", {
-		workload: workload({ seed: 12, durableHostCalls: 1 }),
-	}),
-	direct("03-direct-5-host-calls", "One direct execution with 5 durable host calls", {
-		workload: workload({ seed: 13, durableHostCalls: 5 }),
-	}),
-	direct("04-direct-10-host-calls", "One direct execution with 10 durable host calls", {
-		workload: workload({ seed: 14, durableHostCalls: 10 }),
-	}),
-	direct("05a-direct-64kib-payload", "One direct execution returning 64 KiB", {
-		workload: workload({ seed: 151, payloadBytes: 64 * KiB }),
-	}),
-	direct("05-direct-1mib-payload", "One direct execution returning 1 MiB", {
-		workload: workload({ seed: 15, payloadBytes: 1024 * KiB }),
-	}),
-	direct("06-direct-large-payload", "One direct execution returning just under 4 MiB", {
-		workload: workload({ seed: 16, payloadBytes: LARGE_PAYLOAD_BYTES }),
-	}),
-	direct("07-concurrency-1", "1 identical five-host-call execution", {
-		group: "B",
-		concurrency: 1,
-		workload: workload({ seed: 21, durableHostCalls: 5 }),
-	}),
-	direct("08-concurrency-2", "2 concurrent five-host-call executions", {
-		group: "B",
-		concurrency: 2,
-		workload: workload({ seed: 22, durableHostCalls: 5 }),
-	}),
-	direct("09-concurrency-5", "5 concurrent five-host-call executions", {
-		group: "B",
-		concurrency: 5,
-		workload: workload({ seed: 23, durableHostCalls: 5 }),
-	}),
-	direct("10-concurrency-20", "20 concurrent five-host-call executions", {
-		group: "B",
-		concurrency: 20,
-		workload: workload({ seed: 24, durableHostCalls: 5 }),
-	}),
-	{
-		...baseScenario,
-		group: "C",
-		kind: "import",
-		id: "11-import-no-related",
-		description: "One provider import with no related entities",
-		workload: workload({ seed: 31, perCallDelayMs: 25, durableHostCalls: 5 }),
+		kind: "profile",
+		requestCount: 1,
+		submission: "direct",
+		workerConcurrency: 1,
+		id: "profile-hermetic-noop",
+		workload: workload({ seed: 91 }),
+		description: "One profiled hermetic execution without host calls",
 	},
 	{
-		...baseScenario,
-		group: "C",
-		kind: "import",
-		id: "12-import-10-related",
-		workload: standardImportWorkload,
-		description: "One provider import with 10 related entities and 10 suggestions",
-	},
-	{
-		...baseScenario,
-		group: "C",
-		kind: "import",
-		id: "13-import-100-related",
-		description: "One provider import with 100 related entities and 100 suggestions",
-		workload: workload({
-			seed: 33,
-			perCallDelayMs: 25,
-			durableHostCalls: 5,
-			suggestionCount: 100,
-			relatedEntityCount: 100,
-		}),
-	},
-	{
-		...baseScenario,
-		group: "C",
-		kind: "import",
-		concurrency: 2,
-		id: "14-import-concurrency-2",
-		workload: standardImportWorkload,
-		description: "2 concurrent standard imports",
-	},
-	{
-		...baseScenario,
-		group: "C",
-		kind: "import",
-		concurrency: 5,
-		id: "15-import-concurrency-5",
-		workload: standardImportWorkload,
-		description: "5 concurrent standard imports",
-	},
-	{
-		...baseScenario,
-		group: "C",
-		kind: "import",
-		concurrency: 20,
-		id: "16-import-concurrency-20",
-		workload: standardImportWorkload,
-		description: "20 concurrent standard imports",
-	},
-	{
-		...baseScenario,
-		group: "D",
-		kind: "import",
-		concurrency: 5,
-		id: "17-typed-failures-5",
-		description: "5 concurrent typed provider failures",
-		workload: workload({ seed: 41, durableHostCalls: 5, terminalOutcome: "typed-failure" }),
-	},
-	direct("18-sandbox-timeouts-5", "5 concurrent sandbox timeouts", {
-		group: "D",
-		concurrency: 5,
-		workload: workload({ seed: 42, terminalOutcome: "timeout" }),
-	}),
-	{
-		...baseScenario,
-		group: "D",
-		kind: "import",
-		concurrency: 20,
-		id: "19-typed-failures-20",
-		description: "20 submitted typed provider failures",
-		workload: workload({ seed: 43, durableHostCalls: 5, terminalOutcome: "typed-failure" }),
-	},
-	{
-		...baseScenario,
-		group: "E",
+		...base,
 		repetitions: 1,
-		concurrency: 20,
-		awaitActiveWorkers: 5,
-		kind: "restart-recovery",
-		id: "20-restart-recovery",
-		requiresManualRestart: true,
-		workload: standardImportWorkload,
-		minimumMemAvailableBytes: 768 * KiB * KiB,
-		description: "20 standard imports interrupted by a Ryot container restart",
+		kind: "profile",
+		requestCount: 1,
+		workerConcurrency: 1,
+		liveSearch: LIVE_SEARCH,
+		id: "profile-ytm-search",
+		submission: "live-search",
+		description: "One profiled YouTube Music search",
 	},
 	{
-		...baseScenario,
-		group: "live",
+		...base,
 		repetitions: 1,
-		concurrency: 1,
-		kind: "live-import",
-		workload: workload({ seed: 51 }),
-		id: "21-live-youtube-music-single",
-		description: "One live YouTube Music import after a fresh database",
-		liveSearch: {
-			pageSize: 20,
-			query: "furious",
-			entitySchemaSlug: "music",
-			providerSlug: "music.youtube-music",
-		},
+		kind: "profile",
+		requestCount: 1,
+		workerConcurrency: 1,
+		liveSearch: LIVE_SEARCH,
+		id: "profile-ytm-details",
+		submission: "live-details",
+		description: "One profiled YouTube Music details execution",
 	},
 	{
-		...baseScenario,
-		group: "live",
+		...base,
 		repetitions: 1,
-		concurrency: 5,
-		kind: "live-import",
-		workload: workload({ seed: 52 }),
-		id: "22-live-youtube-music-five",
-		minimumMemAvailableBytes: 1024 * KiB * KiB,
-		description: "Five concurrent live YouTube Music imports after a fresh database",
-		liveSearch: {
-			pageSize: 20,
-			query: "furious",
-			entitySchemaSlug: "music",
-			providerSlug: "music.youtube-music",
-		},
-	},
-	{
-		...baseScenario,
-		group: "live",
-		repetitions: 1,
-		concurrency: 20,
-		kind: "live-import",
-		workload: workload({ seed: 53 }),
-		id: "23-live-youtube-music-twenty",
-		minimumMemAvailableBytes: 1024 * KiB * KiB,
-		description: "Twenty rapid live YouTube Music imports, run at most once",
-		liveSearch: {
-			pageSize: 20,
-			query: "furious",
-			entitySchemaSlug: "music",
-			providerSlug: "music.youtube-music",
-		},
+		kind: "profile",
+		requestCount: 5,
+		workerConcurrency: 5,
+		liveSearch: LIVE_SEARCH,
+		submission: "live-details",
+		id: "profile-ytm-details-five",
+		description: "Five concurrent details executions with one profiled worker",
 	},
 ];
+
+export const ALL_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
+	...IDLE_SCENARIOS,
+	...HERMETIC_SCENARIOS,
+	...LIVE_SCENARIOS,
+	...VARIANCE_SCENARIOS,
+	...PROFILE_SCENARIOS,
+	...SOAK_SCENARIOS,
+];
+
+export const findScenario = (id: string) => {
+	const scenario = ALL_SCENARIOS.find((candidate) => candidate.id === id);
+	if (scenario === undefined) {
+		throw new Error(`Unknown scenario ${id}`);
+	}
+	return scenario;
+};
+
+/**
+ * Williams design for four conditions: every value appears once in each position and every ordered
+ * adjacent pair appears once across the first four rounds. A fifth round reverses the first.
+ */
+const WILLIAMS_ROWS = [
+	[0, 1, 3, 2],
+	[1, 2, 0, 3],
+	[2, 3, 1, 0],
+	[3, 0, 2, 1],
+] as const;
+
+export const counterbalancedOrder = (values: ReadonlyArray<number>, rounds: number) => {
+	if (values.length !== 4) {
+		throw new Error("The counterbalanced design is defined for exactly four conditions");
+	}
+	return Array.from({ length: rounds }, (_unused, round) => {
+		const row = WILLIAMS_ROWS[round % WILLIAMS_ROWS.length] ?? WILLIAMS_ROWS[0];
+		const ordered = row.map((index) => values[index] ?? 0);
+		return round >= WILLIAMS_ROWS.length ? ordered.toReversed() : ordered;
+	});
+};

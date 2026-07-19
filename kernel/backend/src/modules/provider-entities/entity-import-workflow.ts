@@ -1,13 +1,13 @@
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
-import { Cause, Clock, Effect, Option, Schema } from "effect";
+import { Cause, Clock, Effect, type Exit, Option, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import {
-	recordProviderImportCompleted,
-	recordProviderImportPhase,
-	recordProviderImportSettled,
-	recordProviderImportStarted,
+	recordProviderImportBodyOutcome,
+	recordProviderImportBodySettled,
+	recordProviderImportBodyStarted,
+	recordProviderImportPhaseAttempt,
 	type ProviderImportPhase,
 } from "#lib/infrastructure/runtime-metrics";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
@@ -29,17 +29,28 @@ export const EntityImportWorkflow = Workflow.make("EntityImportWorkflow", {
 	payload: ProviderEntityImportWorkflowPayload satisfies DurableSchema,
 });
 
+const attemptOutcome = (exit: Exit.Exit<unknown, unknown>) => {
+	if (exit._tag === "Success") {
+		return "success";
+	}
+	return Cause.hasInterruptsOnly(exit.cause) ? "interrupted" : "failure";
+};
+
+/** Records one phase attempt; a replayed body records another attempt for the same execution. */
 const measureImportPhase = <A, R>(
 	phase: ProviderImportPhase,
+	executionId: string,
 	effect: Effect.Effect<A, EntityImportError, R>,
 ) =>
-	Effect.flatMap(Clock.currentTimeMillis, (startedAt) =>
+	Effect.flatMap(Clock.currentTimeMillis, (startedAtMs) =>
 		Effect.onExit(effect, (exit) =>
-			Effect.flatMap(Clock.currentTimeMillis, (finishedAt) =>
-				recordProviderImportPhase({
+			Effect.flatMap(Clock.currentTimeMillis, (finishedAtMs) =>
+				recordProviderImportPhaseAttempt({
 					phase,
-					durationMs: Math.max(0, finishedAt - startedAt),
-					outcome: exit._tag === "Success" ? "success" : "failure",
+					executionId,
+					startedAtMs,
+					finishedAtMs,
+					outcome: attemptOutcome(exit),
 				}),
 			),
 		),
@@ -53,6 +64,7 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 	const populationExecutionId = `${executionId}-provider-population`;
 	const importedEntity = yield* measureImportPhase(
 		"population",
+		executionId,
 		engine
 			.execute(ProviderEntityPopulationWorkflow, {
 				executionId: populationExecutionId,
@@ -75,6 +87,7 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 	const operations = yield* EntityImportWorkflowOperations;
 	yield* measureImportPhase(
 		"provider-import-automation",
+		executionId,
 		operations
 			.completeProviderEntityImport(payload, importedEntity, executionId)
 			.pipe(
@@ -98,16 +111,16 @@ export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(functio
 		entitySchemaSlug: payload.entitySchemaSlug,
 		...(payload.entityScope.userId ? { userId: payload.entityScope.userId } : {}),
 	});
-	yield* recordProviderImportStarted;
+	yield* recordProviderImportBodyStarted;
 	return yield* Effect.onExit(runImportPhases(payload, executionId), (exit) =>
 		Effect.andThen(
-			recordProviderImportSettled,
+			recordProviderImportBodySettled,
 			exit._tag === "Success"
-				? recordProviderImportCompleted({ outcome: "success", failureStage: "none" })
+				? recordProviderImportBodyOutcome({ outcome: "success", failureStage: "none" })
 				: Option.match(Cause.findErrorOption(exit.cause), {
 						onNone: () => Effect.void,
 						onSome: (error) =>
-							recordProviderImportCompleted({ outcome: "failure", failureStage: error.stage }),
+							recordProviderImportBodyOutcome({ outcome: "failure", failureStage: error.stage }),
 					}),
 		),
 	);

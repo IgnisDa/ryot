@@ -100,7 +100,6 @@ export const makeAppConfigLayer = (
 		redisUrl: Redacted.make("unused"),
 		frontendUrl: "http://localhost:3000",
 		users: { allowRegistration: true, disableLocalAuth: false },
-		sandbox: { denoDir: "./tmp", workerConcurrency: 2, processMode: "on-demand" },
 		database: { poolMax: 10, connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
 		frontend: {
 			oidcButtonLabel: Option.none(),
@@ -112,6 +111,12 @@ export const makeAppConfigLayer = (
 			batchMaxItems: 200,
 			retryWindowDays: 7,
 			historyRetentionDays: 30,
+		},
+		sandbox: {
+			denoDir: "./tmp",
+			workerConcurrency: 2,
+			processMode: "on-demand",
+			benchmarkProfileDir: Option.none(),
 		},
 		scheduler: {
 			disableDispatchers: false,
