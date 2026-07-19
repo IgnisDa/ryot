@@ -1,8 +1,9 @@
+import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
 import type { LogEntry, SpanEntry } from "@ryot/sandbox-sdk/core";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, Match } from "effect";
 
-import { SANDBOX_LIMITS, utf8ByteLength } from "./limits";
+import { SANDBOX_LIMITS } from "./limits";
 import type { SandboxHostImplementationMap, SandboxRunInput } from "./shared";
 import { sandboxHostFailure } from "./shared";
 
