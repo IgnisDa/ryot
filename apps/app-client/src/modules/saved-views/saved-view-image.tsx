@@ -13,7 +13,7 @@ const StyledImage = styled(Image, {
 	className: { target: "style" },
 });
 
-function MissingImage(props: { className: string }) {
+export function MissingImage(props: { className: string }) {
 	return (
 		<View className={clsx(props.className, "items-center justify-center bg-surface-2")}>
 			<AppIcon className="text-text-subtle" name="image" size={22} />
