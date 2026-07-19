@@ -1,4 +1,4 @@
-import type { RowsResult } from "@ryot/contract/modules/ryotql/language";
+import type { RowsResult, RyotQLResult } from "@ryot/contract/modules/ryotql/language";
 import {
 	and,
 	ascending,
@@ -37,8 +37,8 @@ import {
 } from "~/fixtures";
 import { describe, expect, it } from "~/support/effect-test";
 
-const requireRows = (resultRows: RowsResult | undefined, name: string) => {
-	if (!resultRows) {
+const requireRows = (resultRows: RyotQLResult | undefined, name: string): RowsResult => {
+	if (resultRows?.type !== "rows") {
 		throw new Error(`Expected '${name}' rows`);
 	}
 	return resultRows;
