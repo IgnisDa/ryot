@@ -1647,1421 +1647,1513 @@
       "theme": {
         "Mode": "Dark"
       },
-      "layout": "vertical",
-      "gap": 18,
+      "width": 1040,
+      "height": 1000,
+      "fill": "$--background",
+      "layout": "none",
       "children": [
         {
           "type": "text",
           "id": "udLgK",
+          "x": 24,
+          "y": 18,
           "name": "Label C",
           "fill": "$--text-primary",
-          "content": "Collapsing Chrome (at top)",
-          "fontFamily": "$--font-primary",
-          "fontSize": 20,
-          "fontWeight": "600"
-        },
-        {
-          "type": "frame",
-          "id": "fTtpo",
-          "name": "C / Expanded — Top Of Feed",
-          "clip": true,
-          "width": 393,
-          "height": 852,
-          "fill": "$--background",
-          "layout": "none",
-          "children": [
-            {
-              "type": "frame",
-              "id": "NzlA5",
-              "x": 0,
-              "y": 100,
-              "name": "Body",
-              "width": 393,
-              "layout": "vertical",
-              "gap": 26,
-              "padding": [
-                14,
-                0,
-                0,
-                0
-              ],
-              "children": [
-                {
-                  "id": "ygczL",
-                  "type": "ref",
-                  "ref": "D6hKB",
-                  "name": "Section Header / Continue Watching",
-                  "descendants": {
-                    "AmONi": {
-                      "content": "Continue Watching"
-                    },
-                    "niks2": {
-                      "content": "See all"
-                    }
-                  }
-                },
-                {
-                  "type": "frame",
-                  "id": "UZ4qF",
-                  "name": "Continue Watching Carousel",
-                  "clip": true,
-                  "width": 393,
-                  "gap": 12,
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "children": [
-                    {
-                      "id": "QRARv",
-                      "type": "ref",
-                      "ref": "NkA2K",
-                      "name": "Continue Watching / Blade Runner 2049",
-                      "descendants": {
-                        "DAXqg": {
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1662202120383-7e652499ee66?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTV8&ixlib=rb-4.1.0&q=80&w=1080",
-                            "mode": "fill"
-                          }
-                        },
-                        "hCJ7N": {
-                          "width": 82
-                        },
-                        "P2HBU": {
-                          "content": "Blade Runner 2049"
-                        },
-                        "OPw2p": {
-                          "content": "Film · 68%"
-                        }
-                      }
-                    },
-                    {
-                      "id": "F8tuo",
-                      "type": "ref",
-                      "ref": "NkA2K",
-                      "name": "Continue Watching / Severance",
-                      "descendants": {
-                        "DAXqg": {
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1774770080861-bc2c50829c92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTZ8&ixlib=rb-4.1.0&q=80&w=1080",
-                            "mode": "fill"
-                          }
-                        },
-                        "hCJ7N": {
-                          "width": 44
-                        },
-                        "P2HBU": {
-                          "content": "Severance"
-                        },
-                        "OPw2p": {
-                          "content": "S2 · E5"
-                        }
-                      }
-                    },
-                    {
-                      "id": "f4yN9",
-                      "type": "ref",
-                      "ref": "NkA2K",
-                      "name": "Continue Watching / Dune: Part Two",
-                      "descendants": {
-                        "DAXqg": {
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1617382899403-ff3d42c054fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
-                            "mode": "fill"
-                          }
-                        },
-                        "hCJ7N": {
-                          "width": 26
-                        },
-                        "P2HBU": {
-                          "content": "Dune: Part Two"
-                        },
-                        "OPw2p": {
-                          "content": "Film · 21%"
-                        }
-                      }
-                    },
-                    {
-                      "id": "dOdoS",
-                      "type": "ref",
-                      "ref": "NkA2K",
-                      "name": "Continue Watching / The Bear",
-                      "descendants": {
-                        "DAXqg": {
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1651977560788-98792cd34da0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
-                            "mode": "fill"
-                          }
-                        },
-                        "hCJ7N": {
-                          "width": 58
-                        },
-                        "P2HBU": {
-                          "content": "The Bear"
-                        },
-                        "OPw2p": {
-                          "content": "S3 · E2"
-                        }
-                      }
-                    }
-                  ]
-                },
-                {
-                  "id": "Uh4vd",
-                  "type": "ref",
-                  "ref": "D6hKB",
-                  "name": "Section Header / Up Next",
-                  "descendants": {
-                    "AmONi": {
-                      "content": "Up Next"
-                    },
-                    "niks2": {
-                      "content": "See all"
-                    }
-                  }
-                },
-                {
-                  "type": "frame",
-                  "id": "AvT9g",
-                  "name": "Up Next Rows",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 10,
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "children": [
-                    {
-                      "id": "hiMtZ",
-                      "type": "ref",
-                      "ref": "GfOk2",
-                      "name": "Up Next / Shōgun",
-                      "descendants": {
-                        "pOxtQ": {
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1695068734075-ccfdb009f26c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTh8&ixlib=rb-4.1.0&q=80&w=1080",
-                            "mode": "fill"
-                          }
-                        },
-                        "bXnZ6": {
-                          "content": "Shōgun"
-                        },
-                        "Q9O1f": {
-                          "content": "S1 · E7 — A Dream of a Dream"
-                        },
-                        "jLPaE": {
-                          "content": "Tonight"
-                        }
-                      }
-                    },
-                    {
-                      "id": "w49L9",
-                      "type": "ref",
-                      "ref": "GfOk2",
-                      "name": "Up Next / Arcane",
-                      "descendants": {
-                        "pOxtQ": {
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1657571484151-41be42fa72f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTl8&ixlib=rb-4.1.0&q=80&w=1080",
-                            "mode": "fill"
-                          }
-                        },
-                        "bXnZ6": {
-                          "content": "Arcane"
-                        },
-                        "Q9O1f": {
-                          "content": "S2 · E3 — Finally Got the Name Right"
-                        },
-                        "jLPaE": {
-                          "content": "Queued"
-                        }
-                      }
-                    }
-                  ]
-                },
-                {
-                  "id": "bM9UE",
-                  "type": "ref",
-                  "ref": "D6hKB",
-                  "name": "Section Header / Recently Added",
-                  "descendants": {
-                    "AmONi": {
-                      "content": "Recently Added"
-                    },
-                    "niks2": {
-                      "content": "See all"
-                    }
-                  }
-                },
-                {
-                  "type": "frame",
-                  "id": "DWTaP",
-                  "name": "Recently Added Grid",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 16,
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "Yw6ef",
-                      "name": "Grid Row",
-                      "width": "fill_container",
-                      "gap": 11,
-                      "children": [
-                        {
-                          "id": "LPx4Y",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Interstellar",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1561592547-2694eabef062?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjB8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Interstellar"
-                            },
-                            "XKCVf": {
-                              "content": "Film · 2014"
-                            }
-                          }
-                        },
-                        {
-                          "id": "TzXiY",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Project Hail Mary",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1661827291034-a7afb7dd1601?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Project Hail Mary"
-                            },
-                            "XKCVf": {
-                              "content": "Book · Weir"
-                            }
-                          }
-                        },
-                        {
-                          "id": "P9Yqlx",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Cyberpunk 2077",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1762219214749-427929a1d36f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Cyberpunk 2077"
-                            },
-                            "XKCVf": {
-                              "content": "Game · RPG"
-                            }
-                          }
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "YLxXo",
-                      "name": "Grid Row",
-                      "width": "fill_container",
-                      "gap": 11,
-                      "children": [
-                        {
-                          "id": "R3SXs2",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Oppenheimer",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1632778931175-128809d8facc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjJ8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Oppenheimer"
-                            },
-                            "XKCVf": {
-                              "content": "Film · 2023"
-                            }
-                          }
-                        },
-                        {
-                          "id": "SiTpW",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / The Expanse",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1746931290923-72edfc9e960f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjN8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "The Expanse"
-                            },
-                            "XKCVf": {
-                              "content": "Show · S6"
-                            }
-                          }
-                        },
-                        {
-                          "id": "u19714",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Sandman",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1665059691261-daa5bacdf826?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjR8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Sandman"
-                            },
-                            "XKCVf": {
-                              "content": "Book · Gaiman"
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "gwGrT",
-              "x": 0,
-              "y": 0,
-              "name": "Topbar",
-              "width": 393,
-              "height": 100,
-              "fill": "$--background",
-              "stroke": "$--border",
-              "strokeWidth": {
-                "bottom": 1
-              },
-              "strokeAlignment": "inner",
-              "layout": "vertical",
-              "padding": [
-                44,
-                16,
-                0,
-                16
-              ],
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "MMHv0",
-                  "name": "Topbar Row",
-                  "width": "fill_container",
-                  "height": 56,
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "id": "u1t1ok",
-                      "type": "ref",
-                      "ref": "f9mrR",
-                      "name": "Workspace Switcher"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "Seo2x",
-                      "name": "Account Avatar",
-                      "metadata": {
-                        "type": "unsplash",
-                        "username": "kate_mes7",
-                        "link": "https://unsplash.com/@kate_mes7",
-                        "author": "Екатерина Мещерякова"
-                      },
-                      "clip": true,
-                      "width": 40,
-                      "height": 40,
-                      "fill": {
-                        "type": "image",
-                        "enabled": true,
-                        "url": "https://images.unsplash.com/photo-1592119566710-ec00d20ee9e5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjV8&ixlib=rb-4.1.0&q=80&w=1080",
-                        "mode": "fill"
-                      },
-                      "cornerRadius": "$--radius-pill",
-                      "stroke": "$--border-subtle",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "rectangle",
-              "id": "M9TZC",
-              "x": 0,
-              "y": 672,
-              "name": "Bottom Scrim",
-              "fill": {
-                "type": "gradient",
-                "gradientType": "linear",
-                "enabled": true,
-                "rotation": 180,
-                "size": {
-                  "height": 1
-                },
-                "colors": [
-                  {
-                    "color": "#10111300",
-                    "position": 0
-                  },
-                  {
-                    "color": "#101113E6",
-                    "position": 0.55
-                  },
-                  {
-                    "color": "#101113",
-                    "position": 1
-                  }
-                ]
-              },
-              "width": 393,
-              "height": 180
-            },
-            {
-              "type": "frame",
-              "id": "GvULZ",
-              "x": 16,
-              "y": 762,
-              "name": "Pill Tab Bar",
-              "width": 288,
-              "height": 58,
-              "fill": "$--nav-surface",
-              "cornerRadius": 999,
-              "stroke": "$--nav-border",
-              "strokeWidth": 1,
-              "strokeAlignment": "inner",
-              "effect": [
-                {
-                  "type": "background_blur",
-                  "radius": 18
-                },
-                {
-                  "type": "shadow",
-                  "shadowType": "outer",
-                  "color": "#00000066",
-                  "offset": {
-                    "x": 0,
-                    "y": 8
-                  },
-                  "blur": 24
-                }
-              ],
-              "gap": 2,
-              "padding": [
-                0,
-                6
-              ],
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "uSlCR",
-                  "name": "Tab Home Active",
-                  "height": 42,
-                  "fill": "$--primary",
-                  "cornerRadius": 999,
-                  "gap": 6,
-                  "padding": [
-                    0,
-                    13
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "mhewH",
-                      "name": "Tab Icon",
-                      "width": 18,
-                      "height": 18,
-                      "icon": "house",
-                      "library": "lucide",
-                      "fill": "$--primary-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "q9oU1",
-                      "name": "Tab Label",
-                      "fill": "$--primary-foreground",
-                      "content": "Home",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13.5,
-                      "fontWeight": "600"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "C5SVx",
-                  "name": "Tab Movies",
-                  "width": "fill_container",
-                  "height": 42,
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "peupC",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "film",
-                      "library": "lucide",
-                      "fill": "$--text-muted"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "rxV3k",
-                  "name": "Tab Shows",
-                  "width": "fill_container",
-                  "height": 42,
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "I3U4G",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "film",
-                      "library": "lucide",
-                      "fill": "$--text-muted"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "M8YxVb",
-                  "name": "Tab Books",
-                  "width": "fill_container",
-                  "height": 42,
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "yNXwU",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "film",
-                      "library": "lucide",
-                      "fill": "$--text-muted"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "u2gXd",
-                  "name": "Tab More",
-                  "width": "fill_container",
-                  "height": 42,
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "S7uUFh",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "film",
-                      "library": "lucide",
-                      "fill": "$--text-muted"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": "GCi2W",
-              "type": "ref",
-              "ref": "Z8Bh9",
-              "name": "Navigation / Search FAB / Main",
-              "x": 316,
-              "y": 762
-            },
-            {
-              "id": "J1IAPL",
-              "type": "ref",
-              "ref": "iQfq8",
-              "name": "Navigation / Home Indicator / Main",
-              "x": 132,
-              "y": 838
-            }
-          ]
+          "content": "COLLAPSING CHROME / EXPANDED",
+          "fontFamily": "$--font-mono",
+          "fontSize": 13,
+          "fontWeight": "700",
+          "letterSpacing": 1.1
         },
         {
           "type": "text",
           "id": "yw5Cp",
+          "x": 518,
+          "y": 18,
           "name": "Label C2",
           "fill": "$--text-primary",
-          "content": "Collapsing Chrome (scrolled down)",
-          "fontFamily": "$--font-primary",
-          "fontSize": 20,
-          "fontWeight": "600"
+          "content": "COLLAPSING CHROME / SCROLLED",
+          "fontFamily": "$--font-mono",
+          "fontSize": 13,
+          "fontWeight": "700",
+          "letterSpacing": 1.1
         },
         {
           "type": "frame",
-          "id": "E4d75",
-          "name": "C / Scrolled — Chrome Collapsed",
+          "id": "lzkqa",
+          "x": 8,
+          "y": 52,
+          "name": "iPhone / Expanded",
           "clip": true,
-          "width": 393,
-          "height": 852,
-          "fill": "$--background",
+          "width": 425,
+          "height": 900,
+          "fill": "#111111",
+          "cornerRadius": 44,
+          "stroke": "#474747",
+          "strokeWidth": 2,
+          "strokeAlignment": "inner",
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#00000066",
+            "offset": {
+              "x": 0,
+              "y": 12
+            },
+            "blur": 28
+          },
           "layout": "none",
           "children": [
             {
               "type": "frame",
-              "id": "m3gR5R",
-              "x": 0,
-              "y": -300,
-              "name": "Body",
+              "id": "fTtpo",
+              "x": 16,
+              "y": 24,
+              "name": "C / Expanded — Top Of Feed",
+              "clip": true,
               "width": 393,
-              "layout": "vertical",
-              "gap": 26,
-              "padding": [
-                14,
-                0,
-                0,
-                0
-              ],
+              "height": 852,
+              "fill": "$--background",
+              "layout": "none",
               "children": [
                 {
-                  "id": "p70yz",
-                  "type": "ref",
-                  "ref": "D6hKB",
-                  "name": "Section Header / Continue Watching",
-                  "descendants": {
-                    "AmONi": {
-                      "content": "Continue Watching"
-                    },
-                    "niks2": {
-                      "content": "See all"
-                    }
-                  }
-                },
-                {
                   "type": "frame",
-                  "id": "KfLUx",
-                  "name": "Continue Watching Carousel",
-                  "clip": true,
+                  "id": "NzlA5",
+                  "x": 0,
+                  "y": 100,
+                  "name": "Body",
                   "width": 393,
-                  "gap": 12,
+                  "layout": "vertical",
+                  "gap": 26,
                   "padding": [
+                    14,
                     0,
-                    16
+                    0,
+                    0
                   ],
                   "children": [
                     {
-                      "id": "FWlYt",
+                      "id": "ygczL",
                       "type": "ref",
-                      "ref": "NkA2K",
-                      "name": "Continue Watching / Blade Runner 2049",
+                      "ref": "D6hKB",
+                      "name": "Section Header / Continue Watching",
                       "descendants": {
-                        "DAXqg": {
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1662202120383-7e652499ee66?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTV8&ixlib=rb-4.1.0&q=80&w=1080",
-                            "mode": "fill"
-                          }
+                        "AmONi": {
+                          "content": "Continue Watching"
                         },
-                        "hCJ7N": {
-                          "width": 82
-                        },
-                        "P2HBU": {
-                          "content": "Blade Runner 2049"
-                        },
-                        "OPw2p": {
-                          "content": "Film · 68%"
+                        "niks2": {
+                          "content": "See all"
                         }
                       }
                     },
                     {
-                      "id": "xPwhK",
-                      "type": "ref",
-                      "ref": "NkA2K",
-                      "name": "Continue Watching / Severance",
-                      "descendants": {
-                        "DAXqg": {
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1774770080861-bc2c50829c92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTZ8&ixlib=rb-4.1.0&q=80&w=1080",
-                            "mode": "fill"
+                      "type": "frame",
+                      "id": "UZ4qF",
+                      "name": "Continue Watching Carousel",
+                      "clip": true,
+                      "width": 393,
+                      "gap": 12,
+                      "padding": [
+                        0,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "id": "QRARv",
+                          "type": "ref",
+                          "ref": "NkA2K",
+                          "name": "Continue Watching / Blade Runner 2049",
+                          "descendants": {
+                            "DAXqg": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1662202120383-7e652499ee66?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTV8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "hCJ7N": {
+                              "width": 82
+                            },
+                            "P2HBU": {
+                              "content": "Blade Runner 2049"
+                            },
+                            "OPw2p": {
+                              "content": "Film · 68%"
+                            }
                           }
                         },
-                        "hCJ7N": {
-                          "width": 44
+                        {
+                          "id": "F8tuo",
+                          "type": "ref",
+                          "ref": "NkA2K",
+                          "name": "Continue Watching / Severance",
+                          "descendants": {
+                            "DAXqg": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1774770080861-bc2c50829c92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTZ8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "hCJ7N": {
+                              "width": 44
+                            },
+                            "P2HBU": {
+                              "content": "Severance"
+                            },
+                            "OPw2p": {
+                              "content": "S2 · E5"
+                            }
+                          }
                         },
-                        "P2HBU": {
-                          "content": "Severance"
+                        {
+                          "id": "f4yN9",
+                          "type": "ref",
+                          "ref": "NkA2K",
+                          "name": "Continue Watching / Dune: Part Two",
+                          "descendants": {
+                            "DAXqg": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1617382899403-ff3d42c054fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "hCJ7N": {
+                              "width": 26
+                            },
+                            "P2HBU": {
+                              "content": "Dune: Part Two"
+                            },
+                            "OPw2p": {
+                              "content": "Film · 21%"
+                            }
+                          }
                         },
-                        "OPw2p": {
-                          "content": "S2 · E5"
+                        {
+                          "id": "dOdoS",
+                          "type": "ref",
+                          "ref": "NkA2K",
+                          "name": "Continue Watching / The Bear",
+                          "descendants": {
+                            "DAXqg": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1651977560788-98792cd34da0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "hCJ7N": {
+                              "width": 58
+                            },
+                            "P2HBU": {
+                              "content": "The Bear"
+                            },
+                            "OPw2p": {
+                              "content": "S3 · E2"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "Uh4vd",
+                      "type": "ref",
+                      "ref": "D6hKB",
+                      "name": "Section Header / Up Next",
+                      "descendants": {
+                        "AmONi": {
+                          "content": "Up Next"
+                        },
+                        "niks2": {
+                          "content": "See all"
                         }
                       }
                     },
                     {
-                      "id": "bDEEe",
-                      "type": "ref",
-                      "ref": "NkA2K",
-                      "name": "Continue Watching / Dune: Part Two",
-                      "descendants": {
-                        "DAXqg": {
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1617382899403-ff3d42c054fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
-                            "mode": "fill"
+                      "type": "frame",
+                      "id": "AvT9g",
+                      "name": "Up Next Rows",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 10,
+                      "padding": [
+                        0,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "id": "hiMtZ",
+                          "type": "ref",
+                          "ref": "GfOk2",
+                          "name": "Up Next / Shōgun",
+                          "descendants": {
+                            "pOxtQ": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1695068734075-ccfdb009f26c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTh8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "bXnZ6": {
+                              "content": "Shōgun"
+                            },
+                            "Q9O1f": {
+                              "content": "S1 · E7 — A Dream of a Dream"
+                            },
+                            "jLPaE": {
+                              "content": "Tonight"
+                            }
                           }
                         },
-                        "hCJ7N": {
-                          "width": 26
+                        {
+                          "id": "w49L9",
+                          "type": "ref",
+                          "ref": "GfOk2",
+                          "name": "Up Next / Arcane",
+                          "descendants": {
+                            "pOxtQ": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1657571484151-41be42fa72f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTl8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "bXnZ6": {
+                              "content": "Arcane"
+                            },
+                            "Q9O1f": {
+                              "content": "S2 · E3 — Finally Got the Name Right"
+                            },
+                            "jLPaE": {
+                              "content": "Queued"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "bM9UE",
+                      "type": "ref",
+                      "ref": "D6hKB",
+                      "name": "Section Header / Recently Added",
+                      "descendants": {
+                        "AmONi": {
+                          "content": "Recently Added"
                         },
-                        "P2HBU": {
-                          "content": "Dune: Part Two"
-                        },
-                        "OPw2p": {
-                          "content": "Film · 21%"
+                        "niks2": {
+                          "content": "See all"
                         }
                       }
                     },
                     {
-                      "id": "ypZK1",
-                      "type": "ref",
-                      "ref": "NkA2K",
-                      "name": "Continue Watching / The Bear",
-                      "descendants": {
-                        "DAXqg": {
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1651977560788-98792cd34da0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
-                            "mode": "fill"
-                          }
+                      "type": "frame",
+                      "id": "DWTaP",
+                      "name": "Recently Added Grid",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 16,
+                      "padding": [
+                        0,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "Yw6ef",
+                          "name": "Grid Row",
+                          "width": "fill_container",
+                          "gap": 11,
+                          "children": [
+                            {
+                              "id": "LPx4Y",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Interstellar",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1561592547-2694eabef062?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjB8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Interstellar"
+                                },
+                                "XKCVf": {
+                                  "content": "Film · 2014"
+                                }
+                              }
+                            },
+                            {
+                              "id": "TzXiY",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Project Hail Mary",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1661827291034-a7afb7dd1601?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Project Hail Mary"
+                                },
+                                "XKCVf": {
+                                  "content": "Book · Weir"
+                                }
+                              }
+                            },
+                            {
+                              "id": "P9Yqlx",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Cyberpunk 2077",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1762219214749-427929a1d36f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Cyberpunk 2077"
+                                },
+                                "XKCVf": {
+                                  "content": "Game · RPG"
+                                }
+                              }
+                            }
+                          ]
                         },
-                        "hCJ7N": {
-                          "width": 58
-                        },
-                        "P2HBU": {
-                          "content": "The Bear"
-                        },
-                        "OPw2p": {
-                          "content": "S3 · E2"
+                        {
+                          "type": "frame",
+                          "id": "YLxXo",
+                          "name": "Grid Row",
+                          "width": "fill_container",
+                          "gap": 11,
+                          "children": [
+                            {
+                              "id": "R3SXs2",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Oppenheimer",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1632778931175-128809d8facc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjJ8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Oppenheimer"
+                                },
+                                "XKCVf": {
+                                  "content": "Film · 2023"
+                                }
+                              }
+                            },
+                            {
+                              "id": "SiTpW",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / The Expanse",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1746931290923-72edfc9e960f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjN8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "The Expanse"
+                                },
+                                "XKCVf": {
+                                  "content": "Show · S6"
+                                }
+                              }
+                            },
+                            {
+                              "id": "u19714",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Sandman",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1665059691261-daa5bacdf826?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjR8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Sandman"
+                                },
+                                "XKCVf": {
+                                  "content": "Book · Gaiman"
+                                }
+                              }
+                            }
+                          ]
                         }
-                      }
+                      ]
                     }
                   ]
-                },
-                {
-                  "id": "x8C6Rr",
-                  "type": "ref",
-                  "ref": "D6hKB",
-                  "name": "Section Header / Up Next",
-                  "descendants": {
-                    "AmONi": {
-                      "content": "Up Next"
-                    },
-                    "niks2": {
-                      "content": "See all"
-                    }
-                  }
                 },
                 {
                   "type": "frame",
-                  "id": "gQxhe",
-                  "name": "Up Next Rows",
-                  "width": "fill_container",
+                  "id": "gwGrT",
+                  "x": 0,
+                  "y": 0,
+                  "name": "Topbar",
+                  "width": 393,
+                  "height": 100,
+                  "fill": "$--background",
+                  "stroke": "$--border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
-                  "gap": 10,
                   "padding": [
+                    44,
+                    16,
                     0,
                     16
                   ],
                   "children": [
                     {
-                      "id": "SJWpP",
-                      "type": "ref",
-                      "ref": "GfOk2",
-                      "name": "Up Next / Shōgun",
-                      "descendants": {
-                        "pOxtQ": {
+                      "type": "frame",
+                      "id": "MMHv0",
+                      "name": "Topbar Row",
+                      "width": "fill_container",
+                      "height": 56,
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "u1t1ok",
+                          "type": "ref",
+                          "ref": "f9mrR",
+                          "name": "Workspace Switcher"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Seo2x",
+                          "name": "Account Avatar",
+                          "metadata": {
+                            "type": "unsplash",
+                            "username": "kate_mes7",
+                            "link": "https://unsplash.com/@kate_mes7",
+                            "author": "Екатерина Мещерякова"
+                          },
+                          "clip": true,
+                          "width": 40,
+                          "height": 40,
                           "fill": {
                             "type": "image",
                             "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1695068734075-ccfdb009f26c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTh8&ixlib=rb-4.1.0&q=80&w=1080",
+                            "url": "https://images.unsplash.com/photo-1592119566710-ec00d20ee9e5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjV8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          }
-                        },
-                        "bXnZ6": {
-                          "content": "Shōgun"
-                        },
-                        "Q9O1f": {
-                          "content": "S1 · E7 — A Dream of a Dream"
-                        },
-                        "jLPaE": {
-                          "content": "Tonight"
+                          },
+                          "cornerRadius": "$--radius-pill",
+                          "stroke": "$--border-subtle",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner"
                         }
-                      }
-                    },
-                    {
-                      "id": "XdXjo",
-                      "type": "ref",
-                      "ref": "GfOk2",
-                      "name": "Up Next / Arcane",
-                      "descendants": {
-                        "pOxtQ": {
-                          "fill": {
-                            "type": "image",
-                            "enabled": true,
-                            "url": "https://images.unsplash.com/photo-1657571484151-41be42fa72f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTl8&ixlib=rb-4.1.0&q=80&w=1080",
-                            "mode": "fill"
-                          }
-                        },
-                        "bXnZ6": {
-                          "content": "Arcane"
-                        },
-                        "Q9O1f": {
-                          "content": "S2 · E3 — Finally Got the Name Right"
-                        },
-                        "jLPaE": {
-                          "content": "Queued"
-                        }
-                      }
+                      ]
                     }
                   ]
                 },
                 {
-                  "id": "ubnEs",
-                  "type": "ref",
-                  "ref": "D6hKB",
-                  "name": "Section Header / Recently Added",
-                  "descendants": {
-                    "AmONi": {
-                      "content": "Recently Added"
+                  "type": "rectangle",
+                  "id": "M9TZC",
+                  "x": 0,
+                  "y": 672,
+                  "name": "Bottom Scrim",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 180,
+                    "size": {
+                      "height": 1
                     },
-                    "niks2": {
-                      "content": "See all"
-                    }
-                  }
+                    "colors": [
+                      {
+                        "color": "#10111300",
+                        "position": 0
+                      },
+                      {
+                        "color": "#101113E6",
+                        "position": 0.55
+                      },
+                      {
+                        "color": "#101113",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "width": 393,
+                  "height": 180
                 },
                 {
                   "type": "frame",
-                  "id": "kuAuU",
-                  "name": "Recently Added Grid",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 16,
+                  "id": "GvULZ",
+                  "x": 16,
+                  "y": 762,
+                  "name": "Pill Tab Bar",
+                  "width": 288,
+                  "height": 58,
+                  "fill": "$--nav-surface",
+                  "cornerRadius": 999,
+                  "stroke": "$--nav-border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "effect": [
+                    {
+                      "type": "background_blur",
+                      "radius": 18
+                    },
+                    {
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#00000066",
+                      "offset": {
+                        "x": 0,
+                        "y": 8
+                      },
+                      "blur": 24
+                    }
+                  ],
+                  "gap": 2,
                   "padding": [
                     0,
-                    16
+                    6
                   ],
+                  "alignItems": "center",
                   "children": [
                     {
                       "type": "frame",
-                      "id": "x3S5V",
-                      "name": "Grid Row",
-                      "width": "fill_container",
-                      "gap": 11,
+                      "id": "uSlCR",
+                      "name": "Tab Home Active",
+                      "height": 42,
+                      "fill": "$--primary",
+                      "cornerRadius": 999,
+                      "gap": 6,
+                      "padding": [
+                        0,
+                        13
+                      ],
+                      "alignItems": "center",
                       "children": [
                         {
-                          "id": "KrQiy",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Interstellar",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1561592547-2694eabef062?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjB8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Interstellar"
-                            },
-                            "XKCVf": {
-                              "content": "Film · 2014"
-                            }
-                          }
+                          "type": "icon",
+                          "id": "mhewH",
+                          "name": "Tab Icon",
+                          "width": 18,
+                          "height": 18,
+                          "icon": "house",
+                          "library": "lucide",
+                          "fill": "$--primary-foreground"
                         },
                         {
-                          "id": "uy10Y",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Project Hail Mary",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1661827291034-a7afb7dd1601?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Project Hail Mary"
-                            },
-                            "XKCVf": {
-                              "content": "Book · Weir"
-                            }
-                          }
-                        },
-                        {
-                          "id": "s2fQk",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Cyberpunk 2077",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1762219214749-427929a1d36f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Cyberpunk 2077"
-                            },
-                            "XKCVf": {
-                              "content": "Game · RPG"
-                            }
-                          }
+                          "type": "text",
+                          "id": "q9oU1",
+                          "name": "Tab Label",
+                          "fill": "$--primary-foreground",
+                          "content": "Home",
+                          "fontFamily": "$--font-primary",
+                          "fontSize": 13.5,
+                          "fontWeight": "600"
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "n11TO",
-                      "name": "Grid Row",
+                      "id": "C5SVx",
+                      "name": "Tab Movies",
                       "width": "fill_container",
-                      "gap": 11,
+                      "height": 42,
+                      "cornerRadius": 999,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
                       "children": [
                         {
-                          "id": "M22It",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Oppenheimer",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1632778931175-128809d8facc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjJ8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Oppenheimer"
-                            },
-                            "XKCVf": {
-                              "content": "Film · 2023"
-                            }
-                          }
-                        },
-                        {
-                          "id": "wVxFC",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / The Expanse",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1746931290923-72edfc9e960f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjN8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "The Expanse"
-                            },
-                            "XKCVf": {
-                              "content": "Show · S6"
-                            }
-                          }
-                        },
-                        {
-                          "id": "W3leQX",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Sandman",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1665059691261-daa5bacdf826?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjR8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Sandman"
-                            },
-                            "XKCVf": {
-                              "content": "Book · Gaiman"
-                            }
-                          }
+                          "type": "icon",
+                          "id": "peupC",
+                          "name": "Icon",
+                          "width": 20,
+                          "height": 20,
+                          "icon": "film",
+                          "library": "lucide",
+                          "fill": "$--text-muted"
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "ax5EZ",
-                      "name": "Grid Row",
+                      "id": "rxV3k",
+                      "name": "Tab Shows",
                       "width": "fill_container",
-                      "gap": 11,
+                      "height": 42,
+                      "cornerRadius": 999,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
                       "children": [
                         {
-                          "id": "a7S1z9",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Interstellar",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1561592547-2694eabef062?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjB8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Interstellar"
-                            },
-                            "XKCVf": {
-                              "content": "Film · 2014"
-                            }
-                          }
-                        },
-                        {
-                          "id": "t1RVR",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Project Hail Mary",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1661827291034-a7afb7dd1601?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Project Hail Mary"
-                            },
-                            "XKCVf": {
-                              "content": "Book · Weir"
-                            }
-                          }
-                        },
-                        {
-                          "id": "KCRS1",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Cyberpunk 2077",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1762219214749-427929a1d36f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Cyberpunk 2077"
-                            },
-                            "XKCVf": {
-                              "content": "Game · RPG"
-                            }
-                          }
+                          "type": "icon",
+                          "id": "I3U4G",
+                          "name": "Icon",
+                          "width": 20,
+                          "height": 20,
+                          "icon": "film",
+                          "library": "lucide",
+                          "fill": "$--text-muted"
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "hp2YE",
-                      "name": "Grid Row",
+                      "id": "M8YxVb",
+                      "name": "Tab Books",
                       "width": "fill_container",
-                      "gap": 11,
+                      "height": 42,
+                      "cornerRadius": 999,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
                       "children": [
                         {
-                          "id": "CAOkE",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Oppenheimer",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1632778931175-128809d8facc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjJ8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Oppenheimer"
-                            },
-                            "XKCVf": {
-                              "content": "Film · 2023"
-                            }
-                          }
-                        },
+                          "type": "icon",
+                          "id": "yNXwU",
+                          "name": "Icon",
+                          "width": 20,
+                          "height": 20,
+                          "icon": "film",
+                          "library": "lucide",
+                          "fill": "$--text-muted"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "u2gXd",
+                      "name": "Tab More",
+                      "width": "fill_container",
+                      "height": 42,
+                      "cornerRadius": 999,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
                         {
-                          "id": "ZWL0j",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / The Expanse",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1746931290923-72edfc9e960f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjN8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "The Expanse"
-                            },
-                            "XKCVf": {
-                              "content": "Show · S6"
-                            }
-                          }
-                        },
-                        {
-                          "id": "E7JqG",
-                          "type": "ref",
-                          "ref": "pEmhD",
-                          "name": "Recently Added / Sandman",
-                          "descendants": {
-                            "pwuIW": {
-                              "fill": {
-                                "type": "image",
-                                "enabled": true,
-                                "url": "https://images.unsplash.com/photo-1665059691261-daa5bacdf826?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjR8&ixlib=rb-4.1.0&q=80&w=1080",
-                                "mode": "fill"
-                              }
-                            },
-                            "J2QAOi": {
-                              "content": "Sandman"
-                            },
-                            "XKCVf": {
-                              "content": "Book · Gaiman"
-                            }
-                          }
+                          "type": "icon",
+                          "id": "S7uUFh",
+                          "name": "Icon",
+                          "width": 20,
+                          "height": 20,
+                          "icon": "film",
+                          "library": "lucide",
+                          "fill": "$--text-muted"
                         }
                       ]
                     }
                   ]
+                },
+                {
+                  "id": "GCi2W",
+                  "type": "ref",
+                  "ref": "Z8Bh9",
+                  "name": "Navigation / Search FAB / Main",
+                  "x": 316,
+                  "y": 762
+                },
+                {
+                  "id": "J1IAPL",
+                  "type": "ref",
+                  "ref": "iQfq8",
+                  "name": "Navigation / Home Indicator / Main",
+                  "x": 132,
+                  "y": 838
                 }
               ]
             },
             {
-              "type": "rectangle",
-              "id": "h47vak",
+              "type": "frame",
+              "id": "TpWdz",
+              "x": 152,
+              "y": 10,
+              "name": "Expanded Dynamic Island",
+              "width": 120,
+              "height": 30,
+              "fill": "#000000",
+              "cornerRadius": 999,
+              "layout": "none"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Ys4ow",
+          "x": 510,
+          "y": 52,
+          "name": "iPhone / Scrolled",
+          "clip": true,
+          "width": 425,
+          "height": 900,
+          "fill": "#111111",
+          "cornerRadius": 44,
+          "stroke": "#474747",
+          "strokeWidth": 2,
+          "strokeAlignment": "inner",
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#00000066",
+            "offset": {
               "x": 0,
-              "y": 0,
-              "name": "Top Scrim",
-              "fill": {
-                "type": "gradient",
-                "gradientType": "linear",
-                "enabled": true,
-                "rotation": 180,
-                "size": {
-                  "height": 1
-                },
-                "colors": [
-                  {
-                    "color": "#101113CC",
-                    "position": 0
-                  },
-                  {
-                    "color": "#1011138C",
-                    "position": 0.5
-                  },
-                  {
-                    "color": "#10111300",
-                    "position": 1
-                  }
-                ]
-              },
-              "width": 393,
-              "height": 150
+              "y": 12
             },
+            "blur": 28
+          },
+          "layout": "none",
+          "children": [
             {
-              "id": "FAUDr",
-              "type": "ref",
-              "ref": "f9mrR",
-              "name": "Workspace Switcher",
+              "type": "frame",
+              "id": "E4d75",
               "x": 16,
-              "y": 52
+              "y": 24,
+              "name": "C / Scrolled — Chrome Collapsed",
+              "clip": true,
+              "width": 393,
+              "height": 852,
+              "fill": "$--background",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "m3gR5R",
+                  "x": 0,
+                  "y": -300,
+                  "name": "Body",
+                  "width": 393,
+                  "layout": "vertical",
+                  "gap": 26,
+                  "padding": [
+                    14,
+                    0,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "p70yz",
+                      "type": "ref",
+                      "ref": "D6hKB",
+                      "name": "Section Header / Continue Watching",
+                      "descendants": {
+                        "AmONi": {
+                          "content": "Continue Watching"
+                        },
+                        "niks2": {
+                          "content": "See all"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "KfLUx",
+                      "name": "Continue Watching Carousel",
+                      "clip": true,
+                      "width": 393,
+                      "gap": 12,
+                      "padding": [
+                        0,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "id": "FWlYt",
+                          "type": "ref",
+                          "ref": "NkA2K",
+                          "name": "Continue Watching / Blade Runner 2049",
+                          "descendants": {
+                            "DAXqg": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1662202120383-7e652499ee66?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTV8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "hCJ7N": {
+                              "width": 82
+                            },
+                            "P2HBU": {
+                              "content": "Blade Runner 2049"
+                            },
+                            "OPw2p": {
+                              "content": "Film · 68%"
+                            }
+                          }
+                        },
+                        {
+                          "id": "xPwhK",
+                          "type": "ref",
+                          "ref": "NkA2K",
+                          "name": "Continue Watching / Severance",
+                          "descendants": {
+                            "DAXqg": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1774770080861-bc2c50829c92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTZ8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "hCJ7N": {
+                              "width": 44
+                            },
+                            "P2HBU": {
+                              "content": "Severance"
+                            },
+                            "OPw2p": {
+                              "content": "S2 · E5"
+                            }
+                          }
+                        },
+                        {
+                          "id": "bDEEe",
+                          "type": "ref",
+                          "ref": "NkA2K",
+                          "name": "Continue Watching / Dune: Part Two",
+                          "descendants": {
+                            "DAXqg": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1617382899403-ff3d42c054fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "hCJ7N": {
+                              "width": 26
+                            },
+                            "P2HBU": {
+                              "content": "Dune: Part Two"
+                            },
+                            "OPw2p": {
+                              "content": "Film · 21%"
+                            }
+                          }
+                        },
+                        {
+                          "id": "ypZK1",
+                          "type": "ref",
+                          "ref": "NkA2K",
+                          "name": "Continue Watching / The Bear",
+                          "descendants": {
+                            "DAXqg": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1651977560788-98792cd34da0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "hCJ7N": {
+                              "width": 58
+                            },
+                            "P2HBU": {
+                              "content": "The Bear"
+                            },
+                            "OPw2p": {
+                              "content": "S3 · E2"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "x8C6Rr",
+                      "type": "ref",
+                      "ref": "D6hKB",
+                      "name": "Section Header / Up Next",
+                      "descendants": {
+                        "AmONi": {
+                          "content": "Up Next"
+                        },
+                        "niks2": {
+                          "content": "See all"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "gQxhe",
+                      "name": "Up Next Rows",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 10,
+                      "padding": [
+                        0,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "id": "SJWpP",
+                          "type": "ref",
+                          "ref": "GfOk2",
+                          "name": "Up Next / Shōgun",
+                          "descendants": {
+                            "pOxtQ": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1695068734075-ccfdb009f26c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTh8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "bXnZ6": {
+                              "content": "Shōgun"
+                            },
+                            "Q9O1f": {
+                              "content": "S1 · E7 — A Dream of a Dream"
+                            },
+                            "jLPaE": {
+                              "content": "Tonight"
+                            }
+                          }
+                        },
+                        {
+                          "id": "XdXjo",
+                          "type": "ref",
+                          "ref": "GfOk2",
+                          "name": "Up Next / Arcane",
+                          "descendants": {
+                            "pOxtQ": {
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1657571484151-41be42fa72f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTl8&ixlib=rb-4.1.0&q=80&w=1080",
+                                "mode": "fill"
+                              }
+                            },
+                            "bXnZ6": {
+                              "content": "Arcane"
+                            },
+                            "Q9O1f": {
+                              "content": "S2 · E3 — Finally Got the Name Right"
+                            },
+                            "jLPaE": {
+                              "content": "Queued"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "ubnEs",
+                      "type": "ref",
+                      "ref": "D6hKB",
+                      "name": "Section Header / Recently Added",
+                      "descendants": {
+                        "AmONi": {
+                          "content": "Recently Added"
+                        },
+                        "niks2": {
+                          "content": "See all"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "kuAuU",
+                      "name": "Recently Added Grid",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 16,
+                      "padding": [
+                        0,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "x3S5V",
+                          "name": "Grid Row",
+                          "width": "fill_container",
+                          "gap": 11,
+                          "children": [
+                            {
+                              "id": "KrQiy",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Interstellar",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1561592547-2694eabef062?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjB8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Interstellar"
+                                },
+                                "XKCVf": {
+                                  "content": "Film · 2014"
+                                }
+                              }
+                            },
+                            {
+                              "id": "uy10Y",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Project Hail Mary",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1661827291034-a7afb7dd1601?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Project Hail Mary"
+                                },
+                                "XKCVf": {
+                                  "content": "Book · Weir"
+                                }
+                              }
+                            },
+                            {
+                              "id": "s2fQk",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Cyberpunk 2077",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1762219214749-427929a1d36f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Cyberpunk 2077"
+                                },
+                                "XKCVf": {
+                                  "content": "Game · RPG"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "n11TO",
+                          "name": "Grid Row",
+                          "width": "fill_container",
+                          "gap": 11,
+                          "children": [
+                            {
+                              "id": "M22It",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Oppenheimer",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1632778931175-128809d8facc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjJ8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Oppenheimer"
+                                },
+                                "XKCVf": {
+                                  "content": "Film · 2023"
+                                }
+                              }
+                            },
+                            {
+                              "id": "wVxFC",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / The Expanse",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1746931290923-72edfc9e960f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjN8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "The Expanse"
+                                },
+                                "XKCVf": {
+                                  "content": "Show · S6"
+                                }
+                              }
+                            },
+                            {
+                              "id": "W3leQX",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Sandman",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1665059691261-daa5bacdf826?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjR8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Sandman"
+                                },
+                                "XKCVf": {
+                                  "content": "Book · Gaiman"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ax5EZ",
+                          "name": "Grid Row",
+                          "width": "fill_container",
+                          "gap": 11,
+                          "children": [
+                            {
+                              "id": "a7S1z9",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Interstellar",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1561592547-2694eabef062?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjB8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Interstellar"
+                                },
+                                "XKCVf": {
+                                  "content": "Film · 2014"
+                                }
+                              }
+                            },
+                            {
+                              "id": "t1RVR",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Project Hail Mary",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1661827291034-a7afb7dd1601?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Project Hail Mary"
+                                },
+                                "XKCVf": {
+                                  "content": "Book · Weir"
+                                }
+                              }
+                            },
+                            {
+                              "id": "KCRS1",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Cyberpunk 2077",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1762219214749-427929a1d36f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Cyberpunk 2077"
+                                },
+                                "XKCVf": {
+                                  "content": "Game · RPG"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "hp2YE",
+                          "name": "Grid Row",
+                          "width": "fill_container",
+                          "gap": 11,
+                          "children": [
+                            {
+                              "id": "CAOkE",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Oppenheimer",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1632778931175-128809d8facc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjJ8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Oppenheimer"
+                                },
+                                "XKCVf": {
+                                  "content": "Film · 2023"
+                                }
+                              }
+                            },
+                            {
+                              "id": "ZWL0j",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / The Expanse",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1746931290923-72edfc9e960f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjN8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "The Expanse"
+                                },
+                                "XKCVf": {
+                                  "content": "Show · S6"
+                                }
+                              }
+                            },
+                            {
+                              "id": "E7JqG",
+                              "type": "ref",
+                              "ref": "pEmhD",
+                              "name": "Recently Added / Sandman",
+                              "descendants": {
+                                "pwuIW": {
+                                  "fill": {
+                                    "type": "image",
+                                    "enabled": true,
+                                    "url": "https://images.unsplash.com/photo-1665059691261-daa5bacdf826?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjR8&ixlib=rb-4.1.0&q=80&w=1080",
+                                    "mode": "fill"
+                                  }
+                                },
+                                "J2QAOi": {
+                                  "content": "Sandman"
+                                },
+                                "XKCVf": {
+                                  "content": "Book · Gaiman"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "h47vak",
+                  "x": 0,
+                  "y": 0,
+                  "name": "Top Scrim",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 180,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#101113CC",
+                        "position": 0
+                      },
+                      {
+                        "color": "#1011138C",
+                        "position": 0.5
+                      },
+                      {
+                        "color": "#10111300",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "width": 393,
+                  "height": 150
+                },
+                {
+                  "id": "FAUDr",
+                  "type": "ref",
+                  "ref": "f9mrR",
+                  "name": "Workspace Switcher",
+                  "x": 16,
+                  "y": 52
+                },
+                {
+                  "type": "frame",
+                  "id": "tbVTw",
+                  "x": 337,
+                  "y": 52,
+                  "name": "Account Avatar",
+                  "metadata": {
+                    "type": "unsplash",
+                    "username": "kate_mes7",
+                    "link": "https://unsplash.com/@kate_mes7",
+                    "author": "Екатерина Мещерякова"
+                  },
+                  "clip": true,
+                  "width": 40,
+                  "height": 40,
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "https://images.unsplash.com/photo-1592119566710-ec00d20ee9e5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjV8&ixlib=rb-4.1.0&q=80&w=1080",
+                    "mode": "fill"
+                  },
+                  "cornerRadius": "$--radius-pill",
+                  "stroke": "$--border-subtle",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#00000073",
+                    "offset": {
+                      "x": 0,
+                      "y": 6
+                    },
+                    "blur": 16
+                  }
+                },
+                {
+                  "type": "rectangle",
+                  "id": "qcnnZ",
+                  "x": 0,
+                  "y": 712,
+                  "name": "Bottom Scrim",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 180,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#10111300",
+                        "position": 0
+                      },
+                      {
+                        "color": "#101113E6",
+                        "position": 0.55
+                      },
+                      {
+                        "color": "#101113",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "width": 393,
+                  "height": 140
+                },
+                {
+                  "id": "c1yhP",
+                  "type": "ref",
+                  "ref": "Z8Bh9",
+                  "name": "Collapsed Nav FAB",
+                  "x": 16,
+                  "y": 762,
+                  "descendants": {
+                    "g9IZN": {
+                      "icon": "house",
+                      "fill": "$--primary"
+                    }
+                  }
+                },
+                {
+                  "id": "xcrdu",
+                  "type": "ref",
+                  "ref": "Z8Bh9",
+                  "name": "Navigation / Search FAB / Main",
+                  "x": 316,
+                  "y": 762
+                },
+                {
+                  "id": "vJeTp",
+                  "type": "ref",
+                  "ref": "iQfq8",
+                  "name": "Navigation / Home Indicator / Main",
+                  "x": 132,
+                  "y": 838
+                }
+              ]
             },
             {
               "type": "frame",
-              "id": "tbVTw",
-              "x": 337,
-              "y": 52,
-              "name": "Account Avatar",
-              "metadata": {
-                "type": "unsplash",
-                "username": "kate_mes7",
-                "link": "https://unsplash.com/@kate_mes7",
-                "author": "Екатерина Мещерякова"
-              },
-              "clip": true,
-              "width": 40,
-              "height": 40,
-              "fill": {
-                "type": "image",
-                "enabled": true,
-                "url": "https://images.unsplash.com/photo-1592119566710-ec00d20ee9e5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjV8&ixlib=rb-4.1.0&q=80&w=1080",
-                "mode": "fill"
-              },
-              "cornerRadius": "$--radius-pill",
-              "stroke": "$--border-subtle",
-              "strokeWidth": 1,
-              "strokeAlignment": "inner",
-              "effect": {
-                "type": "shadow",
-                "shadowType": "outer",
-                "color": "#00000073",
-                "offset": {
-                  "x": 0,
-                  "y": 6
-                },
-                "blur": 16
-              }
-            },
-            {
-              "type": "rectangle",
-              "id": "qcnnZ",
-              "x": 0,
-              "y": 712,
-              "name": "Bottom Scrim",
-              "fill": {
-                "type": "gradient",
-                "gradientType": "linear",
-                "enabled": true,
-                "rotation": 180,
-                "size": {
-                  "height": 1
-                },
-                "colors": [
-                  {
-                    "color": "#10111300",
-                    "position": 0
-                  },
-                  {
-                    "color": "#101113E6",
-                    "position": 0.55
-                  },
-                  {
-                    "color": "#101113",
-                    "position": 1
-                  }
-                ]
-              },
-              "width": 393,
-              "height": 140
-            },
-            {
-              "id": "c1yhP",
-              "type": "ref",
-              "ref": "Z8Bh9",
-              "name": "Collapsed Nav FAB",
-              "x": 16,
-              "y": 762,
-              "descendants": {
-                "g9IZN": {
-                  "icon": "house",
-                  "fill": "$--primary"
-                }
-              }
-            },
-            {
-              "id": "xcrdu",
-              "type": "ref",
-              "ref": "Z8Bh9",
-              "name": "Navigation / Search FAB / Main",
-              "x": 316,
-              "y": 762
-            },
-            {
-              "id": "vJeTp",
-              "type": "ref",
-              "ref": "iQfq8",
-              "name": "Navigation / Home Indicator / Main",
-              "x": 132,
-              "y": 838
+              "id": "ts8Ao",
+              "x": 152,
+              "y": 10,
+              "name": "Scrolled Dynamic Island",
+              "width": 120,
+              "height": 30,
+              "fill": "#000000",
+              "cornerRadius": 999,
+              "layout": "none"
             }
           ]
         }
