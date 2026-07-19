@@ -159,7 +159,7 @@ describe("saved-view display data", () => {
 					downloadUrl: "uploads/local/download?key=cover.jpg",
 				},
 			],
-			"https://server.test",
+			(url) => new URL(url, "https://server.test/api/").toString(),
 		);
 
 		expect(assets).toEqual([{ type: "local", key: "cover.jpg" }]);

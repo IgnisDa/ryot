@@ -16,8 +16,6 @@ import {
 } from "@ryot/contract/modules/uploads/schemas";
 import { DateTime, Option, Result, Schema } from "effect";
 
-import { resolveApiUrl } from "@/modules/server/url";
-
 import { canonicalManagedAssets, managedAssetKey } from "./managed-assets";
 
 const SavedViewScalarValue = Schema.Union([
@@ -117,12 +115,12 @@ export const collectManagedAssets = (
 	return canonicalManagedAssets(assets);
 };
 
-export const resolvedAssetUrls = (response: DownloadResolutionResponse, serverUrl: string) =>
+export const resolvedAssetUrls = (
+	response: DownloadResolutionResponse,
+	resolveUrl: (url: string) => string,
+) =>
 	new Map(
-		response.map(({ asset, downloadUrl }) => [
-			managedAssetKey(asset),
-			resolveApiUrl(serverUrl, downloadUrl),
-		]),
+		response.map(({ asset, downloadUrl }) => [managedAssetKey(asset), resolveUrl(downloadUrl)]),
 	);
 
 export const resolveSavedViewImageUrl = (
