@@ -39,7 +39,7 @@ refresh workflow + infrequent task) as a cron-driven plugin script in `plugins/m
 server start rather than wait for a daily schedule. Keep the trending _read_ path
 query-engine-based; move any residual native read code to a saved view / recipe (or defer to
 step 2's operations). Then delete both native modules and any contract surface they carry (check
-`libs/contract`).
+`packages/contract`).
 
 See the parent PRD "Step 1 — crons" user stories and the Implementation Decisions "Step 1"
 pointer for the full spec.
@@ -48,9 +48,9 @@ pointer for the full spec.
 
 Derived from the plan §1 done criteria and cross-phase invariants:
 
-- [x] `crons` manifest section exists and is documented in `libs/plugin-kit`; the scheduler
+- [x] `crons` manifest section exists and is documented in `packages/plugin-kit`; the scheduler
       dispatches due crons as sandbox executions of the referenced driver
-- [x] `boot` manifest section exists and is documented in `libs/plugin-kit`; the kernel
+- [x] `boot` manifest section exists and is documented in `packages/plugin-kit`; the kernel
       dispatches every boot entry once per server start, non-blocking, and skips dispatch when
       background jobs are disabled
 - [x] `upsertGlobalEntities` / `upsertGlobalRelationships` host functions exist, are batch +

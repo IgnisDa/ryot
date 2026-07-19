@@ -16,7 +16,7 @@ This is Phase 3's first prerequisite (plan Step 0a). Cut the complete sandbox au
 host-function stack over to Effect before adding new capabilities:
 
 - Vendor the host-pinned `effect` version as an approved sandbox dependency through
-  `libs/sandbox-sdk` and the import map / `PackageCacheManager` mechanism in
+  `packages/sandbox-sdk` and the import map / `PackageCacheManager` mechanism in
   `sandbox-runtime/dependencies.ts`. Effect is runtime-provided and never bundled per script.
 - Replace the sandbox SDK's Zod schemas with Effect Schema for manifests, driver input/output,
   and host-function wire contracts; update compiler and runner decoding and remove Zod from the

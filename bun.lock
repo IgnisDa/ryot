@@ -355,7 +355,7 @@
         "vite": "8.0.14",
       },
     },
-    "libs/config": {
+    "packages/config": {
       "name": "@ryot/config",
       "dependencies": {
         "@ryot/contract": "workspace:*",
@@ -367,7 +367,7 @@
         "vitest": "4.1.9",
       },
     },
-    "libs/contract": {
+    "packages/contract": {
       "name": "@ryot/contract",
       "dependencies": {
         "@ryot/query-engine": "workspace:*",
@@ -376,13 +376,13 @@
         "effect": "4.0.0-beta.102",
       },
     },
-    "libs/graphql": {
+    "packages/graphql": {
       "name": "@ryot/graphql",
       "dependencies": {
         "graphql-request": "7.4.0",
       },
     },
-    "libs/plugin-kit": {
+    "packages/plugin-kit": {
       "name": "@ryot/plugin-kit",
       "dependencies": {
         "@ryot/config": "workspace:*",
@@ -396,14 +396,14 @@
         "vitest": "4.1.9",
       },
     },
-    "libs/query-engine": {
+    "packages/query-engine": {
       "name": "@ryot/query-engine",
       "devDependencies": {
         "@ryot/testing": "workspace:*",
         "vitest": "4.1.9",
       },
     },
-    "libs/sandbox-compiler": {
+    "packages/sandbox-compiler": {
       "name": "@ryot/sandbox-compiler",
       "dependencies": {
         "@ryot/sandbox-sdk": "workspace:*",
@@ -419,7 +419,7 @@
         "vitest": "4.1.9",
       },
     },
-    "libs/sandbox-sdk": {
+    "packages/sandbox-sdk": {
       "name": "@ryot/sandbox-sdk",
       "dependencies": {
         "@types/papaparse": "5.5.2",
@@ -435,7 +435,7 @@
         "vitest": "4.1.9",
       },
     },
-    "libs/testing": {
+    "packages/testing": {
       "name": "@ryot/testing",
       "dependencies": {
         "vitest": "4.1.9",
@@ -444,7 +444,7 @@
         "bun-types": "1.3.14",
       },
     },
-    "libs/transactional": {
+    "packages/transactional": {
       "name": "@ryot/transactional",
       "dependencies": {
         "@react-email/components": "1.0.7",
@@ -457,7 +457,7 @@
         "@types/react": "19.2.14",
       },
     },
-    "libs/ts-utils": {
+    "packages/ts-utils": {
       "name": "@ryot/ts-utils",
       "dependencies": {
         "@conform-to/zod": "1.19.0",
@@ -1685,9 +1685,9 @@
 
     "@ryot/browser-extension": ["@ryot/browser-extension@workspace:apps/browser-extension"],
 
-    "@ryot/config": ["@ryot/config@workspace:libs/config"],
+    "@ryot/config": ["@ryot/config@workspace:packages/config"],
 
-    "@ryot/contract": ["@ryot/contract@workspace:libs/contract"],
+    "@ryot/contract": ["@ryot/contract@workspace:packages/contract"],
 
     "@ryot/docs": ["@ryot/docs@workspace:apps/docs"],
 
@@ -1695,25 +1695,25 @@
 
     "@ryot/frontend": ["@ryot/frontend@workspace:apps/frontend"],
 
-    "@ryot/graphql": ["@ryot/graphql@workspace:libs/graphql"],
+    "@ryot/graphql": ["@ryot/graphql@workspace:packages/graphql"],
 
     "@ryot/media-fitness": ["@ryot/media-fitness@workspace:plugins/media"],
 
-    "@ryot/plugin-kit": ["@ryot/plugin-kit@workspace:libs/plugin-kit"],
+    "@ryot/plugin-kit": ["@ryot/plugin-kit@workspace:packages/plugin-kit"],
 
-    "@ryot/query-engine": ["@ryot/query-engine@workspace:libs/query-engine"],
+    "@ryot/query-engine": ["@ryot/query-engine@workspace:packages/query-engine"],
 
-    "@ryot/sandbox-compiler": ["@ryot/sandbox-compiler@workspace:libs/sandbox-compiler"],
+    "@ryot/sandbox-compiler": ["@ryot/sandbox-compiler@workspace:packages/sandbox-compiler"],
 
-    "@ryot/sandbox-sdk": ["@ryot/sandbox-sdk@workspace:libs/sandbox-sdk"],
+    "@ryot/sandbox-sdk": ["@ryot/sandbox-sdk@workspace:packages/sandbox-sdk"],
 
-    "@ryot/testing": ["@ryot/testing@workspace:libs/testing"],
+    "@ryot/testing": ["@ryot/testing@workspace:packages/testing"],
 
     "@ryot/tests": ["@ryot/tests@workspace:tests"],
 
-    "@ryot/transactional": ["@ryot/transactional@workspace:libs/transactional"],
+    "@ryot/transactional": ["@ryot/transactional@workspace:packages/transactional"],
 
-    "@ryot/ts-utils": ["@ryot/ts-utils@workspace:libs/ts-utils"],
+    "@ryot/ts-utils": ["@ryot/ts-utils@workspace:packages/ts-utils"],
 
     "@ryot/website": ["@ryot/website@workspace:apps/website"],
 

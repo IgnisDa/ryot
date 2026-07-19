@@ -13,8 +13,8 @@ namespacing, capability-consent UX, marketplace behavior, or plugin versioning.
 ## 1. Purity gate (do this first — it locks in Phase 3's outcome)
 
 A local check, wired into the app-backend `check`/test flow (there is no CI): a unit test or
-small script that fails when kernel source (`apps/app-backend/src`, `libs/contract/src`,
-`libs/query-engine/src` core — not `recipes/media.ts` if any media recipes survive there,
+small script that fails when kernel source (`apps/app-backend/src`, `packages/contract/src`,
+`packages/query-engine/src` core — not `recipes/media.ts` if any media recipes survive there,
 which should instead move into the media plugin's package **[RECOMMENDED]**) contains
 domain vocabulary. Start the banned list from the plugin manifests themselves (schema slugs,
 script slugs, provider names: `movie`, `anime`, `workout`, `tmdb`, `plex`, …) so it can't
@@ -93,7 +93,7 @@ lookup. Kernel/plugin ownership remains source attribution (`pluginSlug` where e
 Phase 5 package-trust state was introduced.
 
 Task 01 implementation record: the first gate run found `mediaBaseFields` and
-`mediaWithCreatorsBaseFields` authored in `libs/contract/src/schema/core.ts` and consumed by the media
+`mediaWithCreatorsBaseFields` authored in `packages/contract/src/schema/core.ts` and consumed by the media
 plugin. No later purity task owned that production-domain leak, and permanently excepting it would
 contradict kernel purity. With owner approval, Task 01 moved those field definitions verbatim into
 `plugins/media`; the contract retains only generic property-field constructors. This narrow ownership
@@ -263,7 +263,7 @@ correction changes no schema or behavior and is the only domain move included in
   the install-test-plugin fixture, the kernel/plugin split, retuned budgets.
 - Documentation sweep under the single-owner rule (`apps/app-backend/AGENTS.md` Documentation
   Layout): rewrite the sections that describe seeding, builtins, schema tables, automation
-  rules; add plugin authoring docs (`libs/plugin-kit` README: manifest reference, script
+  rules; add plugin authoring docs (`packages/plugin-kit` README: manifest reference, script
   kinds, logical providers, direct entrypoints, execution authority, provider-scoped caches,
   capabilities, determinism rules for workflow scripts, and batch-first guidance);
   update `sandbox-runtime/README.md` (new host functions, grants, workflow primitives);

@@ -146,10 +146,10 @@ subject only to deliberate removal of dead behavior discovered and approved duri
 
 Primary workspace surfaces:
 
-- `libs/sandbox-sdk`
-- `libs/sandbox-compiler`
-- `libs/plugin-kit`
-- `libs/contract`
+- `packages/sandbox-sdk`
+- `packages/sandbox-compiler`
+- `packages/plugin-kit`
+- `packages/contract`
 - `apps/app-backend`
 - `plugins/media`
 - `plugins/fitness`
@@ -449,7 +449,7 @@ Update current-state documentation, including at minimum:
 
 - `apps/app-backend/src/lib/infrastructure/sandbox-runtime/README.md`
 - `apps/app-backend/AGENTS.md`
-- `libs/plugin-kit/README.md`
+- `packages/plugin-kit/README.md`
 - `tests/AGENTS.md`
 - `plugins/media/AGENTS.md`
 - Any affected module-local `AGENTS.md` or README discovered during implementation
@@ -477,12 +477,12 @@ Suggested small-surface waves:
 
 | Wave | Subagent surface                                       | Dependency                                |
 | ---- | ------------------------------------------------------ | ----------------------------------------- |
-| 1    | `libs/plugin-kit` manifest/provider schemas            | Decided provider shape                    |
-| 1    | `libs/contract` provider and sandbox schemas           | Decided provider and authority shapes     |
+| 1    | `packages/plugin-kit` manifest/provider schemas            | Decided provider shape                    |
+| 1    | `packages/contract` provider and sandbox schemas           | Decided provider and authority shapes     |
 | 1    | Drizzle provider/entity tables and generated migration | Decided persistence shape                 |
-| 2    | `libs/sandbox-sdk` direct definitions and type tests   | Wave 1 interfaces stable                  |
+| 2    | `packages/sandbox-sdk` direct definitions and type tests   | Wave 1 interfaces stable                  |
 | 2    | Plugin ingestion/repository provider persistence       | Wave 1 persistence stable                 |
-| 3    | `libs/sandbox-compiler` direct-entrypoint inspection   | SDK shape stable                          |
+| 3    | `packages/sandbox-compiler` direct-entrypoint inspection   | SDK shape stable                          |
 | 3    | Runtime runner and execution service                   | SDK compiled shape and authority stable   |
 | 3    | Plugin resolver provider-operation lookup              | Provider persistence and manifests stable |
 | 4    | Entity import/population modules                       | Resolver APIs stable                      |
@@ -527,13 +527,13 @@ bun turbo --filter=@ryot/tests check
 Package tests:
 
 ```bash
-# Run from libs/sandbox-sdk
+# Run from packages/sandbox-sdk
 bun run test
 
-# Run from libs/sandbox-compiler
+# Run from packages/sandbox-compiler
 bun run test
 
-# Run from libs/plugin-kit
+# Run from packages/plugin-kit
 bun run test
 
 # Run from plugins/media
