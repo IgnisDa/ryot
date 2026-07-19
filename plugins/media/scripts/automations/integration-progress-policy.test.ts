@@ -45,9 +45,11 @@ const createHost = (options: {
 				calls.push("listEvents");
 				return hostSuccess(options.events ?? []);
 			},
-			getPluginConfigValue: () => {
-				calls.push("getPluginConfigValue");
-				return hostSuccess(options.thresholdHours ?? "2");
+			getPluginConfig: (keys) => {
+				calls.push("getPluginConfig");
+				return hostSuccess(
+					Object.fromEntries(keys.map((key) => [key, options.thresholdHours ?? "2"])),
+				);
 			},
 			claimCachedValue: () =>
 				hostSuccess(

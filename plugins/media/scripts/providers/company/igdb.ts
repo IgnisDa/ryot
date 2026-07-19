@@ -17,7 +17,7 @@ export const manifest = defineManifest({
 	slug: "company.igdb",
 	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
+	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_logo_med";

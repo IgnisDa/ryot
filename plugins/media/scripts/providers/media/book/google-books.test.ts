@@ -14,7 +14,8 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: GoogleBooksHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getPluginConfigValue: () => Effect.succeed("google-key"),
+		getPluginConfig: (keys) =>
+			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "google-key"]))),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("book.google-books sandbox script", () => {

@@ -9,7 +9,7 @@ export const manifest = defineManifest({
 	slug: "manga.myanimelist.details",
 	requiredPluginConfigKeys: ["malClientId"],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall", "getPluginConfigValue", "getUserPreferences"],
+	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });

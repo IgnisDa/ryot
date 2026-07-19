@@ -41,6 +41,11 @@ const configFixtureSchema = {
 			description: "Deterministic sandbox plugin config fixture",
 			validation: { required: true },
 		},
+		fixtureLimit: {
+			type: "integer",
+			label: "Fixture limit",
+			description: "Deterministic sandbox plugin config batch fixture",
+		},
 	},
 } as const;
 
@@ -247,27 +252,27 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.live("reads a declared env-backed plugin config value", () =>
+	it.live("reads declared env-backed plugin config values in one batch", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
-			const slug = `get-plugin-config-value-${crypto.randomUUID()}`;
+			const slug = `get-plugin-config-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
-				pluginSlug: configFixturePluginSlug,
-				name: "get-plugin-config-value",
+				name: "get-plugin-config",
 				configSchema: configFixtureSchema,
-				capabilities: ["getPluginConfigValue"],
-				requiredPluginConfigKeys: ["fixtureValue"],
+				capabilities: ["getPluginConfig"],
+				pluginSlug: configFixturePluginSlug,
+				requiredPluginConfigKeys: ["fixtureValue", "fixtureLimit"],
 				source: pluginConfigSandboxSource({
 					slug,
-					key: "fixtureValue",
-					name: "get-plugin-config-value",
+					name: "get-plugin-config",
+					keys: ["fixtureValue", "fixtureLimit"],
 				}),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const value = requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId));
-			expect(value).toBe("sandbox-plugin-config-value");
+			expect(value).toEqual({ fixtureValue: "sandbox-plugin-config-value", fixtureLimit: 17 });
 		}),
 	);
 
@@ -277,16 +282,16 @@ describe("sandbox async flow", () => {
 			const slug = `undeclared-plugin-config-value-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				slug,
-				pluginSlug: configFixturePluginSlug,
-				configSchema: configFixtureSchema,
-				name: "undeclared-plugin-config-value",
-				capabilities: ["getPluginConfigValue"],
 				requiredPluginConfigKeys: [],
+				name: "undeclared-plugin-config",
+				capabilities: ["getPluginConfig"],
+				configSchema: configFixtureSchema,
+				pluginSlug: configFixturePluginSlug,
 				source: pluginConfigSandboxSource({
 					slug,
-					key: "fixtureValue",
+					keys: ["fixtureValue"],
 					requiredPluginConfigKeys: [],
-					name: "undeclared-plugin-config-value",
+					name: "undeclared-plugin-config",
 				}),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
@@ -300,37 +305,37 @@ describe("sandbox async flow", () => {
 		}),
 	);
 
-	it.live("reads timezone only when declared as system config", () =>
+	it.live("reads declared system config in a batch", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
-			const declaredSlug = `declared-system-config-value-${crypto.randomUUID()}`;
+			const declaredSlug = `declared-system-config-${crypto.randomUUID()}`;
 			const declared = yield* installSandboxScriptScoped({
 				slug: declaredSlug,
-				name: "declared-system-config-value",
-				capabilities: ["getSystemConfigValue"],
+				name: "declared-system-config",
+				capabilities: ["getSystemConfig"],
 				requiredSystemConfigKeys: ["timezone"],
 				source: systemConfigSandboxSource({
-					key: "timezone",
+					keys: ["timezone"],
 					slug: declaredSlug,
-					name: "declared-system-config-value",
+					name: "declared-system-config",
 				}),
 			});
 			const declaredJob = yield* enqueueSandboxScript(userId, { scriptId: declared.scriptId });
 			expect(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, declaredJob.jobId)),
-			).toBe("Etc/GMT");
+			).toEqual({ timezone: "Etc/GMT" });
 
-			const undeclaredSlug = `undeclared-system-config-value-${crypto.randomUUID()}`;
+			const undeclaredSlug = `undeclared-system-config-${crypto.randomUUID()}`;
 			const undeclared = yield* installSandboxScriptScoped({
 				slug: undeclaredSlug,
-				name: "undeclared-system-config-value",
-				capabilities: ["getSystemConfigValue"],
 				requiredSystemConfigKeys: [],
+				name: "undeclared-system-config",
+				capabilities: ["getSystemConfig"],
 				source: systemConfigSandboxSource({
-					key: "timezone",
+					keys: ["timezone"],
 					slug: undeclaredSlug,
 					requiredSystemConfigKeys: [],
-					name: "undeclared-system-config-value",
+					name: "undeclared-system-config",
 				}),
 			});
 			const undeclaredJob = yield* enqueueSandboxScript(userId, {

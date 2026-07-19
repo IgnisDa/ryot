@@ -12,7 +12,7 @@ export const manifest = defineManifest({
 	kind: "activity",
 	name: "Resolve imported Hardcover book",
 	slug: "activity.media-import-resolve.book.hardcover",
-	capabilities: ["httpCall", "getPluginConfigValue"],
+	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["hardcoverApiKey"],
 	requiredSystemConfigKeys: [],
 });

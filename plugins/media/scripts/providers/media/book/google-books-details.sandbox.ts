@@ -7,7 +7,7 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Google Books Details",
 	slug: "book.google-books.details",
-	capabilities: ["httpCall", "getPluginConfigValue"],
+	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["googleBooksApiKey"],
 	requiredSystemConfigKeys: [],
 });

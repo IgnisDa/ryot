@@ -9,13 +9,14 @@ import {
 	type UnknownRecord,
 } from "../script-helpers/records";
 
-export type GiantBombHost = SandboxHost<readonly ["httpCall", "getPluginConfigValue"]>;
+export type GiantBombHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 
 export const BASE_URL = "https://www.giantbomb.com/api";
 export const GUID_PATTERN = /^\d+-\d+$/;
 
 export const getApiKey = (host: GiantBombHost) =>
-	host.getPluginConfigValue("giantBombApiKey").pipe(
+	host.getPluginConfig(["giantBombApiKey"]).pipe(
+		Effect.map(({ giantBombApiKey }) => giantBombApiKey),
 		Effect.mapError((error) => new Error(error.message || "Failed to retrieve GiantBomb API key")),
 		Effect.map((value) => {
 			const apiKey = stringValue(value);

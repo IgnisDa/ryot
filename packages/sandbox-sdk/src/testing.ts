@@ -9,20 +9,20 @@ import { Effect, Schema } from "./effect";
 
 type SandboxTestHost<Manifest extends SandboxManifest> = Omit<
 	SandboxHost<Manifest["capabilities"]>,
-	"getPluginConfigValue" | "getSystemConfigValue"
+	"getPluginConfig" | "getSystemConfig"
 > &
-	("getPluginConfigValue" extends Manifest["capabilities"][number]
+	("getPluginConfig" extends Manifest["capabilities"][number]
 		? {
-				readonly getPluginConfigValue: (
-					key: Parameters<SandboxHostMethodMap["getPluginConfigValue"]>[0],
-				) => ReturnType<CoreSandboxHostMethodMap["getPluginConfigValue"]>;
+				readonly getPluginConfig: (
+					keys: Parameters<SandboxHostMethodMap["getPluginConfig"]>[0],
+				) => ReturnType<CoreSandboxHostMethodMap["getPluginConfig"]>;
 			}
 		: object) &
-	("getSystemConfigValue" extends Manifest["capabilities"][number]
+	("getSystemConfig" extends Manifest["capabilities"][number]
 		? {
-				readonly getSystemConfigValue: (
-					key: Parameters<SandboxHostMethodMap["getSystemConfigValue"]>[0],
-				) => ReturnType<CoreSandboxHostMethodMap["getSystemConfigValue"]>;
+				readonly getSystemConfig: (
+					keys: Parameters<SandboxHostMethodMap["getSystemConfig"]>[0],
+				) => ReturnType<CoreSandboxHostMethodMap["getSystemConfig"]>;
 			}
 		: object);
 

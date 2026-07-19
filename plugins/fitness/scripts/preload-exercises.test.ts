@@ -35,7 +35,8 @@ const makeHost = (
 		options: Parameters<PreloadHost["upsertGlobalEntities"]>[1];
 	}> = [];
 	const host = defineSandboxTestHost(manifest, {
-		getPluginConfigValue: () => Effect.succeed(configuredLimit),
+		getPluginConfig: (keys) =>
+			Effect.succeed(Object.fromEntries(keys.map((key) => [key, configuredLimit]))),
 		httpCall: () => Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(dataset) }),
 		getCachedValue: (key) => Effect.succeed(cache.get(key) ?? null),
 		setCachedValue: (key, value) => {

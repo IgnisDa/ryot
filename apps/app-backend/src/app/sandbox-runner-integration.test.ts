@@ -179,7 +179,7 @@ export const manifest = defineManifest({
     "getCachedValue",
     "setCachedValue",
     "claimCachedValue",
-    "getSystemConfigValue",
+    "getSystemConfig",
     "getUserPreferences",
   ],
 });
@@ -208,7 +208,7 @@ export default defineScript({
         body: "payload",
         headers: { Accept: "application/json" },
       });
-    const config = yield* host.getSystemConfigValue("timezone");
+    const config = yield* host.getSystemConfig(["timezone"]);
     const preferences = yield* host.getUserPreferences();
     return { after, before, claim, config, http, preferences };
   }),
@@ -237,7 +237,7 @@ Object.defineProperty(manifest.capabilities, Symbol.iterator, {
 });
 const nativeEncodeComponent = globalThis.encodeURIComponent;
 globalThis.encodeURIComponent = (value) =>
-  value === "getCachedValue" ? "getSystemConfigValue" : nativeEncodeComponent(value);
+  value === "getCachedValue" ? "getSystemConfig" : nativeEncodeComponent(value);
 
 export default defineScript({
 	manifest,
@@ -702,26 +702,26 @@ const startCoreHostBridge = (
 							body !== null && typeof body === "object" ? Reflect.get(body, "args") : undefined;
 						const args: readonly unknown[] = Array.isArray(argsValue) ? argsValue : [];
 						const scriptId = executionScripts.get(executionId) ?? "unknown";
-						const key = `${scriptId}:${String(args[0])}`;
+						const cacheKey = `${scriptId}:${String(args[0])}`;
 						calls.push({ fnName, executionId, args });
 
 						let result: unknown;
 						if (fnName === "getCachedValue") {
 							result = options.getCachedValueResult ?? {
-								data: runCache.has(key) ? runCache.get(key) : null,
+								data: runCache.has(cacheKey) ? runCache.get(cacheKey) : null,
 								success: true,
 							};
 						} else if (fnName === "setCachedValue") {
-							runCache.set(key, args[1]);
+							runCache.set(cacheKey, args[1]);
 							result = { data: null, success: true };
 						} else if (fnName === "claimCachedValue") {
-							if (persistentCache.has(key)) {
+							if (persistentCache.has(cacheKey)) {
 								result = {
 									success: true,
-									data: { claimed: false, value: persistentCache.get(key) ?? null },
+									data: { claimed: false, value: persistentCache.get(cacheKey) ?? null },
 								};
 							} else {
-								persistentCache.set(key, args[1]);
+								persistentCache.set(cacheKey, args[1]);
 								result = { data: { claimed: true }, success: true };
 							}
 						} else if (fnName === "httpCall") {
@@ -737,10 +737,28 @@ const startCoreHostBridge = (
 								},
 								success: true,
 							};
-						} else if (fnName === "getPluginConfigValue") {
-							result = { data: options.pluginConfigValue ?? "plugin-value", success: true };
-						} else if (fnName === "getSystemConfigValue") {
-							result = { data: options.systemConfigValue ?? "Etc/GMT", success: true };
+						} else if (fnName === "getPluginConfig") {
+							const keys = Array.isArray(args[0]) ? args[0] : [];
+							result = {
+								data: Object.fromEntries(
+									keys.map((requestedKey) => [
+										requestedKey,
+										options.pluginConfigValue ?? "plugin-value",
+									]),
+								),
+								success: true,
+							};
+						} else if (fnName === "getSystemConfig") {
+							const keys = Array.isArray(args[0]) ? args[0] : [];
+							result = {
+								data: Object.fromEntries(
+									keys.map((requestedKey) => [
+										requestedKey,
+										options.systemConfigValue ?? "Etc/GMT",
+									]),
+								),
+								success: true,
+							};
 						} else if (fnName === "getUserPreferences") {
 							result = { success: true, data: { isNsfw: false, disableIntegrations: true } };
 						} else if (fnName === "durableCalls") {
@@ -1025,7 +1043,7 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				assert(first !== null && typeof first === "object");
 				expect(Reflect.get(first, "value")).toMatchObject({
 					before: null,
-					config: "Etc/GMT",
+					config: { timezone: "Etc/GMT" },
 					after: { value: 42 },
 					claim: { claimed: true },
 					preferences: { isNsfw: false, disableIntegrations: true },
@@ -1061,7 +1079,7 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				const filteredResult = yield* runInDeno(
 					filtered,
 					{},
-					{ apiBase, apiFunctions: ["getCachedValue", "setCachedValue", "getSystemConfigValue"] },
+					{ apiBase, apiFunctions: ["getCachedValue", "setCachedValue", "getSystemConfig"] },
 				);
 				assert(filteredResult !== null && typeof filteredResult === "object");
 				expect(Reflect.get(filteredResult, "value")).toEqual({

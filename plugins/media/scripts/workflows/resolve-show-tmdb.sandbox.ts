@@ -12,7 +12,7 @@ export const manifest = defineManifest({
 	kind: "activity",
 	name: "Resolve imported TMDB show",
 	slug: "activity.media-import-resolve.show.tmdb",
-	capabilities: ["httpCall", "getPluginConfigValue"],
+	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	requiredSystemConfigKeys: [],
 });

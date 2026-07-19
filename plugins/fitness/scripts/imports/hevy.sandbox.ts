@@ -13,7 +13,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: ["timezone"],
 	slug: "activity.import.hevy",
-	capabilities: ["artifact-read", "scratch", "getSystemConfigValue"],
+	capabilities: ["artifact-read", "scratch", "getSystemConfig"],
 });
 
 export default defineActivity({
@@ -24,7 +24,8 @@ export default defineActivity({
 		Effect.gen(function* () {
 			const text = yield* readImportArtifactText();
 			const timezone = yield* host
-				.getSystemConfigValue("timezone")
+				.getSystemConfig(["timezone"])
+				.pipe(Effect.map(({ timezone: timezoneValue }) => timezoneValue))
 				.pipe(Effect.catch(() => Effect.succeed("Etc/GMT")));
 			const result = adaptHevyCsv(text, typeof timezone === "string" ? timezone : "UTC");
 			return yield* writeImportChunks(result.failures, result.items.map(toWorkoutWriteItem));
