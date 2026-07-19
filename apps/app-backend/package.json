@@ -38,6 +38,8 @@
 	},
 	"devDependencies": {
 		"@effect/vitest": "4.0.0-beta.105",
+		"@ryot/ryotql": "workspace:*",
+		"@ryot/ryotql-recipes": "workspace:*",
 		"@ryot/testing": "workspace:*",
 		"@types/ioredis": "5.0.0",
 		"@types/nodemailer": "8.0.0",
