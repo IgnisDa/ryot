@@ -58,6 +58,7 @@ const savedViewRecordsResponse = {
 					pluginSlug: { kind: "text", value: "media" },
 					isBuiltin: { kind: "boolean", value: false },
 					isDisabled: { kind: "boolean", value: false },
+					entitySchemaSlug: { kind: "text", value: "book" },
 					createdAt: { kind: "date", value: "2026-01-01T01:00:00+02:00" },
 					updatedAt: { kind: "date", value: "2026-01-02T01:00:00+02:00" },
 				},
@@ -105,6 +106,7 @@ describe("saved-view record recipes", () => {
 			"isDisabled",
 			"layouts",
 			"pluginSlug",
+			"entitySchemaSlug",
 		]);
 		expect(query.where).toMatchObject({
 			type: "and",
@@ -140,6 +142,10 @@ describe("saved-view record recipes", () => {
 		const query = buildSavedViewRecordDocument({ slug: "view-one" }).queries.savedView;
 
 		expect(query.output.pagination).toEqual({ limit: 1 });
+		expect(query.output.fields).toContainEqual({
+			key: "entitySchemaSlug",
+			expr: { field: "entitySchemaSlug", tableAlias: "savedView", type: "column" },
+		});
 		expect(query.where).toMatchObject({
 			type: "comparison",
 			right: { value: "view-one" },
@@ -164,17 +170,22 @@ describe("saved-view record recipes", () => {
 					isBuiltin: false,
 					isDisabled: false,
 					pluginSlug: "media",
+					entitySchemaSlug: "book",
 					createdAt: "2025-12-31T23:00:00.000Z",
 					updatedAt: "2026-01-01T23:00:00.000Z",
 				},
 			],
 		});
 
-		const nullableItem = { ...savedViewRecordItem, pluginSlug: { kind: "null", value: null } };
+		const nullableItem = {
+			...savedViewRecordItem,
+			pluginSlug: { kind: "null", value: null },
+			entitySchemaSlug: { kind: "null", value: null },
+		};
 		expect(
 			Result.getOrThrow(decodeSavedViewRecordsResponse(listResponseWithItems([nullableItem])))
 				.items[0],
-		).toMatchObject({ pluginSlug: null });
+		).toMatchObject({ entitySchemaSlug: null, pluginSlug: null });
 	});
 
 	it("decodes a detail record and returns null when it is absent", () => {
@@ -190,6 +201,7 @@ describe("saved-view record recipes", () => {
 			isBuiltin: false,
 			isDisabled: false,
 			pluginSlug: "media",
+			entitySchemaSlug: "book",
 			createdAt: "2025-12-31T23:00:00.000Z",
 			updatedAt: "2026-01-01T23:00:00.000Z",
 		});
@@ -209,6 +221,7 @@ describe("saved-view record recipes", () => {
 			"isDisabled",
 			"layouts",
 			"pluginSlug",
+			"entitySchemaSlug",
 		]) {
 			const item = { ...savedViewRecordItem } as Record<string, unknown>;
 			delete item[field];
@@ -230,6 +243,7 @@ describe("saved-view record recipes", () => {
 			icon: { kind: "date", value: "2026-01-01" },
 			isDisabled: { kind: "text", value: "false" },
 			layouts: { kind: "text", value: "not-json" },
+			entitySchemaSlug: { kind: "number", value: 1 },
 			createdAt: { kind: "text", value: "2026-01-01" },
 		};
 

@@ -190,6 +190,7 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			sortOrder: 0,
 			pluginSlug: null,
 			slug: "collections",
+			entitySchemaSlug: null,
 			name: "All Collections",
 			layouts: collectionLayouts,
 			icon: collectionSchema.icon,

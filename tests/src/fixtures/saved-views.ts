@@ -1,4 +1,5 @@
 import type { ContractPayload } from "@ryot/contract/client";
+import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { castJson, column, jsonPath, literal, table } from "@ryot/ryotql";
 import {
 	buildSavedViewRecordDocument,
@@ -115,6 +116,7 @@ export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): Create
 		icon: "star",
 		layouts: rowsLayouts,
 		name: `Saved View ${crypto.randomUUID()}`,
+		entitySchemaSlug: EntitySchemaSlug.make("book"),
 		...overrides,
 	};
 }
@@ -127,6 +129,7 @@ export function buildUpdatedSavedViewBody(
 		isDisabled: false,
 		layouts: rowsLayouts,
 		name: `Updated View ${crypto.randomUUID()}`,
+		entitySchemaSlug: EntitySchemaSlug.make("book"),
 		...overrides,
 	};
 }

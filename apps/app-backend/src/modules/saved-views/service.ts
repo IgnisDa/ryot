@@ -5,7 +5,7 @@ import type {
 	ReorderSavedViewsBody,
 	UpdateSavedViewBody,
 } from "@ryot/contract/modules/saved-views/schemas";
-import { PluginSlug } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -37,13 +37,15 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			yield* runWithDb(
 				repository.ensureBuiltinViews(
 					userId,
-					views.map(({ slug, name, icon, layouts, sortOrder, pluginSlug }) => ({
+					views.map(({ slug, name, icon, layouts, sortOrder, pluginSlug, entitySchemaSlug }) => ({
 						slug,
 						name,
 						icon,
 						layouts,
 						sortOrder,
 						pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
+						entitySchemaSlug:
+							entitySchemaSlug === null ? null : EntitySchemaSlug.make(entitySchemaSlug),
 					})),
 				),
 			);
@@ -76,6 +78,12 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				return yield* badRequest("A saved view with this name already exists");
 			}
 			yield* validateSavedViewDefinition(payload);
+			if (
+				payload.entitySchemaSlug !== null &&
+				!definitions.getEntitySchema(payload.entitySchemaSlug)
+			) {
+				return yield* badRequest("Entity schema not found");
+			}
 			const created = yield* runWithDb(
 				repository.create(user.id, {
 					slug,
@@ -84,6 +92,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					icon: payload.icon,
 					layouts: payload.layouts,
 					pluginSlug: payload.pluginSlug,
+					entitySchemaSlug: payload.entitySchemaSlug,
 				}),
 			);
 			return created ?? (yield* badRequest("A saved view with this name already exists"));
@@ -100,6 +109,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					payload.name !== current.name ||
 					payload.icon !== current.icon ||
 					(payload.pluginSlug ?? null) !== current.pluginSlug ||
+					payload.entitySchemaSlug !== current.entitySchemaSlug ||
 					!Bun.deepEquals(payload.layouts, current.layouts)
 				) {
 					return yield* badRequest(builtinViewMutationMessage);
@@ -120,6 +130,12 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				return yield* badRequest("Saved view name is required");
 			}
 			yield* validateSavedViewDefinition(payload);
+			if (
+				payload.entitySchemaSlug !== null &&
+				!definitions.getEntitySchema(payload.entitySchemaSlug)
+			) {
+				return yield* badRequest("Entity schema not found");
+			}
 			const updated = yield* runWithDb(
 				repository.updateBySlug(
 					user.id,
@@ -148,6 +164,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				icon: source.icon,
 				layouts: source.layouts,
 				name: `${source.name} (Copy)`,
+				entitySchemaSlug: source.entitySchemaSlug,
 				...(source.pluginSlug ? { pluginSlug: source.pluginSlug } : {}),
 			});
 		});
