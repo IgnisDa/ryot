@@ -78,7 +78,6 @@ const mockRepository = Layer.mock(SavedViewsRepository);
 
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({
-		_tag: "SavedViewsRepository",
 		listBuiltinStates: () => Effect.succeed([]),
 		...overrides,
 	});
@@ -87,7 +86,6 @@ const mockQueryEngine = Layer.mock(QueryEngineService);
 
 const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) =>
 	mockQueryEngine({
-		_tag: "QueryEngineService",
 		validate: () => Effect.void.pipe(Effect.as(undefined)),
 		...overrides,
 	});
@@ -98,14 +96,12 @@ const makeEntitySchemasRepository = (
 	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
 ) =>
 	mockEntitySchemasRepository({
-		_tag: "EntitySchemasRepository",
 		listVisibleBySlugs: () => Effect.succeed([]),
 		...overrides,
 	});
 
 const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) =>
 	Layer.succeed(DefinitionRegistry, {
-		_tag: "DefinitionRegistry",
 		...makeDefinitionRegistry({
 			entitySchemas: [],
 			signalSchemas: [],
@@ -129,7 +125,7 @@ const makeServiceLayer = (
 	entitySchemasRepository = makeEntitySchemasRepository(),
 	definitionRegistry = makeDefinitionRegistryLayer(),
 ) =>
-	SavedViewsService.Default.pipe(
+	SavedViewsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,

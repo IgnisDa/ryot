@@ -1,21 +1,21 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { SavedViewsService } from "./service";
 
 export const SavedViewsRoutesLive = HttpApiBuilder.group(AppContract, "savedViews", (handlers) =>
 	handlers
-		.handle("list", ({ urlParams }) =>
+		.handle("list", ({ query }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* SavedViewsService;
 				return yield* service
 					.list(user, {
-						pluginSlug: urlParams.pluginSlug,
-						includeDisabled: urlParams.includeDisabled,
+						pluginSlug: query.pluginSlug,
+						includeDisabled: query.includeDisabled,
 					})
 					.pipe(dieOnDbError);
 			}),
@@ -27,32 +27,32 @@ export const SavedViewsRoutesLive = HttpApiBuilder.group(AppContract, "savedView
 				return yield* service.create(user, payload).pipe(dieOnDbError);
 			}),
 		)
-		.handle("get", ({ path }) =>
+		.handle("get", ({ params }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* SavedViewsService;
-				return yield* service.get(user, path.viewSlug).pipe(dieOnDbError);
+				return yield* service.get(user, params.viewSlug).pipe(dieOnDbError);
 			}),
 		)
-		.handle("update", ({ path, payload }) =>
+		.handle("update", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* SavedViewsService;
-				return yield* service.update(user, path.viewSlug, payload).pipe(dieOnDbError);
+				return yield* service.update(user, params.viewSlug, payload).pipe(dieOnDbError);
 			}),
 		)
-		.handle("delete", ({ path }) =>
+		.handle("delete", ({ params }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* SavedViewsService;
-				return yield* service.delete(user, path.viewSlug).pipe(dieOnDbError);
+				return yield* service.delete(user, params.viewSlug).pipe(dieOnDbError);
 			}),
 		)
-		.handle("clone", ({ path }) =>
+		.handle("clone", ({ params }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* SavedViewsService;
-				return yield* service.clone(user, path.viewSlug).pipe(dieOnDbError);
+				return yield* service.clone(user, params.viewSlug).pipe(dieOnDbError);
 			}),
 		)
 		.handle("reorder", ({ payload }) =>

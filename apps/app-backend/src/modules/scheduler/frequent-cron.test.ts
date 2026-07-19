@@ -1,9 +1,11 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { Duration, Effect, Layer, Queue, TestClock } from "effect";
+import { Duration, Effect, Layer, Queue, Schema } from "effect";
+import { TestClock } from "effect/testing";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
+import { CronRunPayload } from "./cron-workflow";
 import { FrequentCronSchedulerLive } from "./frequent-cron";
 
 type CapturedRun = { executionId: string; payload: { executionId: string } };
@@ -12,14 +14,21 @@ const makeCapture = () => Queue.unbounded<CapturedRun>();
 
 const makeCapturingEngine = (captured: Queue.Queue<CapturedRun>) =>
 	makeWorkflowEngine({
-		execute: (_workflow, options) =>
-			Queue.offer(captured, options as CapturedRun).pipe(Effect.as(options.executionId)),
+		execute: (_workflow, options) => {
+			if (!Schema.is(CronRunPayload)(options.payload)) {
+				return Effect.die("Unexpected workflow execution");
+			}
+			return Queue.offer(captured, {
+				executionId: options.executionId,
+				payload: { executionId: options.payload.executionId },
+			}).pipe(Effect.as(options.executionId));
+		},
 	});
 
 const schedulerConfig = (frequentCronJobsSchedule: string) =>
 	makeAppConfigLayer({ scheduler: { frequentCronJobsSchedule } });
 
-it.scoped("enqueues a frequent run immediately and on each interval", () =>
+it.effect("enqueues a frequent run immediately and on each interval", () =>
 	Effect.gen(function* () {
 		const captured = yield* makeCapture();
 		const engine = makeCapturingEngine(captured);
@@ -46,7 +55,7 @@ it.scoped("enqueues a frequent run immediately and on each interval", () =>
 	}),
 );
 
-it.scoped("does not enqueue when dispatchers are disabled", () =>
+it.effect("does not enqueue when dispatchers are disabled", () =>
 	Effect.gen(function* () {
 		const captured = yield* makeCapture();
 		const engine = makeCapturingEngine(captured);
@@ -62,7 +71,7 @@ it.scoped("does not enqueue when dispatchers are disabled", () =>
 	}),
 );
 
-it.scoped("falls back to the default 5-minute interval for an unsupported schedule", () =>
+it.effect("falls back to the default 5-minute interval for an unsupported schedule", () =>
 	Effect.gen(function* () {
 		const captured = yield* makeCapture();
 		const engine = makeCapturingEngine(captured);
