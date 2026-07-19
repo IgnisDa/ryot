@@ -17,7 +17,7 @@ export function SavedViewGrid(props: {
 					key={item.entityId}
 					aria-label={`Open ${item.title}`}
 					params={{ entityId: item.entityId }}
-					className="grid w-1/2 content-start gap-2 rounded-lg px-1.5 pb-5 outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-1/3 md:w-1/4 md:px-2.5 lg:w-1/5 xl:w-1/6"
+					className="grid w-1/2 content-start gap-2 rounded-lg px-1.5 pb-5 outline-none focus-visible:ring-2 focus-visible:ring-focus sm:w-1/3 md:w-1/4 md:px-2.5 lg:w-1/5 xl:w-1/6"
 				>
 					{item.image !== undefined && (
 						<ManagedImage

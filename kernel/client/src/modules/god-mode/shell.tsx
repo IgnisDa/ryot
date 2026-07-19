@@ -7,6 +7,8 @@ import type { ServerOrigin } from "#/api/origin";
 import { GodModeContext } from "#/modules/god-mode/context";
 import { GodModeSessionService } from "#/modules/god-mode/session";
 import { AppIcon } from "#/modules/navigation/app-icon";
+import { usePageTitle } from "#/modules/navigation/page-title";
+import { mainContentProps } from "#/modules/navigation/skip-link";
 import type { ClientRuntime } from "#/runtime";
 
 const invalidTokenMessage = "The admin access token is invalid or expired.";
@@ -82,6 +84,7 @@ function GodModeTokenGate(props: {
 	readonly runtime: ClientRuntime;
 	readonly onUnlock: (sessionId: string) => void;
 }) {
+	usePageTitle("God Mode");
 	const sessionService = props.runtime.runSync(GodModeSessionService);
 	const [token, setToken] = useState("");
 	const [error, setError] = useState(props.initialError);
@@ -107,7 +110,10 @@ function GodModeTokenGate(props: {
 	}
 
 	return (
-		<main className="ui-page bg-surface-2 md:grid-cols-[minmax(280px,420px)_minmax(360px,460px)] md:items-center md:justify-center md:gap-[clamp(48px,8vw,112px)] md:px-12">
+		<main
+			{...mainContentProps}
+			className="ui-page bg-surface-2 md:grid-cols-[minmax(280px,420px)_minmax(360px,460px)] md:items-center md:justify-center md:gap-[clamp(48px,8vw,112px)] md:px-12"
+		>
 			<section aria-labelledby="god-mode-title" className="mx-auto w-[min(100%,460px)] md:mx-0">
 				<p className="ui-overline">Server administration</p>
 				<h1 id="god-mode-title" className="ui-heading">
@@ -161,6 +167,7 @@ function GodModeWorkspace({ onLock }: { readonly onLock: () => void }) {
 	const navigate = useNavigate();
 	const { pathname } = useLocation();
 	const active = sections.find((section) => section.path === pathname) ?? sections[0];
+	usePageTitle(active.label);
 
 	return (
 		<div className="flex min-h-screen bg-surface-2 text-text">
@@ -227,7 +234,7 @@ function GodModeWorkspace({ onLock }: { readonly onLock: () => void }) {
 						</button>
 					))}
 				</nav>
-				<main className="p-5 md:p-8">
+				<main {...mainContentProps} className="p-5 md:p-8">
 					<Outlet />
 				</main>
 			</div>

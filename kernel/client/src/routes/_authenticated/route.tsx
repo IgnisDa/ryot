@@ -6,6 +6,8 @@ import { PublicApi } from "#/api/public";
 import { createKernelRyotClient } from "#/api/ryot-client";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
 import { AuthenticatedShell } from "#/modules/navigation/authenticated-shell";
+import { usePageTitle } from "#/modules/navigation/page-title";
+import { mainContentProps } from "#/modules/navigation/skip-link";
 import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogProvider } from "#/modules/plugins/catalog-provider";
@@ -76,8 +78,9 @@ function AuthenticatedLayout() {
 }
 
 function RestoringSession() {
+	usePageTitle("Restoring session");
 	return (
-		<main className="ui-page">
+		<main {...mainContentProps} className="ui-page">
 			<section
 				aria-labelledby="session-title"
 				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
@@ -96,8 +99,9 @@ function RestoringSession() {
 }
 
 function AuthenticatedLoadError() {
+	usePageTitle("Workspaces unavailable");
 	return (
-		<main className="ui-page">
+		<main {...mainContentProps} className="ui-page">
 			<section
 				aria-labelledby="authenticated-load-title"
 				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"

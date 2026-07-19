@@ -13,6 +13,7 @@ import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-c
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 
+import { mainContentProps } from "#/modules/navigation/skip-link";
 import {
 	openPluginBridge,
 	type PluginBridgeNavigationState,
@@ -474,8 +475,11 @@ function PluginFrame(props: {
 	}
 
 	return (
-		<>
-			{frameStatus === "ready" ? null : <PluginNotice status={frameStatus} />}
+		<main
+			{...mainContentProps}
+			className={clsx(frameStatus === "ready" ? "h-full w-full" : "ui-page")}
+		>
+			{frameStatus === "ready" ? null : <PluginNoticePanel status={frameStatus} />}
 			<iframe
 				ref={frame}
 				onLoad={connect}
@@ -485,7 +489,7 @@ function PluginFrame(props: {
 				title={`${props.pluginSlug} plugin`}
 				className={clsx(frameStatus === "ready" ? "h-full w-full border-0" : "hidden")}
 			/>
-		</>
+		</main>
 	);
 }
 
@@ -494,25 +498,34 @@ function PluginNotice(props: {
 	readonly status: Exclude<PluginHostStatus, "ready">;
 }) {
 	return (
-		<main className="ui-page">
-			<section
-				aria-labelledby="plugin-host-title"
-				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
-			>
-				<div>
-					<h1 id="plugin-host-title" className="ui-heading">
-						{props.status === "loading" ? "Loading plugin" : "Plugin unavailable"}
-					</h1>
-					<p role={props.status === "loading" ? "status" : "alert"} className="ui-subtitle">
-						{noticeMessages[props.status]}
-					</p>
-				</div>
-				{props.onReload ? (
-					<Button type="button" onClick={props.onReload}>
-						Reload plugin
-					</Button>
-				) : null}
-			</section>
+		<main {...mainContentProps} className="ui-page">
+			<PluginNoticePanel status={props.status} onReload={props.onReload} />
 		</main>
+	);
+}
+
+function PluginNoticePanel(props: {
+	readonly onReload?: () => void;
+	readonly status: Exclude<PluginHostStatus, "ready">;
+}) {
+	return (
+		<section
+			aria-labelledby="plugin-host-title"
+			className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
+		>
+			<div>
+				<h1 id="plugin-host-title" className="ui-heading">
+					{props.status === "loading" ? "Loading plugin" : "Plugin unavailable"}
+				</h1>
+				<p role={props.status === "loading" ? "status" : "alert"} className="ui-subtitle">
+					{noticeMessages[props.status]}
+				</p>
+			</div>
+			{props.onReload ? (
+				<Button type="button" onClick={props.onReload}>
+					Reload plugin
+				</Button>
+			) : null}
+		</section>
 	);
 }

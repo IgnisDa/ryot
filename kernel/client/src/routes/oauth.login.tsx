@@ -1,7 +1,7 @@
 import { Button } from "@ryot-app/client-ui-sdk";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { decodeServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
@@ -11,6 +11,8 @@ import type { CredentialsValues } from "#/modules/auth/form-values";
 import { CredentialsForm, TwoFactorForm } from "#/modules/auth/forms";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { AuthStatus } from "#/modules/auth/status";
+import { usePageTitle } from "#/modules/navigation/page-title";
+import { mainContentProps } from "#/modules/navigation/skip-link";
 
 const ROUTE_ABORTED = { _tag: "RouteAborted" } as const;
 
@@ -162,7 +164,7 @@ function OAuthLogin() {
 	}
 
 	return (
-		<main className="ui-page">
+		<OAuthLoginFrame>
 			<section
 				aria-labelledby="auth-title"
 				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
@@ -225,6 +227,15 @@ function OAuthLogin() {
 					</>
 				)}
 			</section>
+		</OAuthLoginFrame>
+	);
+}
+
+function OAuthLoginFrame(props: { readonly children: ReactNode }) {
+	usePageTitle("Sign in");
+	return (
+		<main {...mainContentProps} className="ui-page">
+			{props.children}
 		</main>
 	);
 }

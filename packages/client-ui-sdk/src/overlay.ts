@@ -3,10 +3,49 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, type RefObject
 import { useShortcut } from "./shortcut";
 
 const focusable =
-	'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+	'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, iframe, [contenteditable]:not([contenteditable="false"]), audio[controls], video[controls], [tabindex]:not([tabindex="-1"])';
+
+const unreachable = (element: HTMLElement) => {
+	for (let node: HTMLElement | null = element; node !== null; node = node.parentElement) {
+		if (node.hidden || node.hasAttribute("inert")) {
+			return true;
+		}
+		const style = getComputedStyle(node);
+		if (style.display === "none" || style.visibility === "hidden") {
+			return true;
+		}
+	}
+	return false;
+};
 
 export const focusableElements = (container: HTMLElement | null) =>
-	Array.from(container?.querySelectorAll<HTMLElement>(focusable) ?? []);
+	Array.from(container?.querySelectorAll<HTMLElement>(focusable) ?? []).filter(
+		(element) => !unreachable(element),
+	);
+
+export function useInertBackground(ref: RefObject<HTMLElement | null>) {
+	useEffect(() => {
+		const panel = ref.current;
+		if (panel === null || !document.body.contains(panel)) {
+			return undefined;
+		}
+		const background: Element[] = [];
+		for (const child of Array.from(document.body.children)) {
+			if (child.contains(panel)) {
+				break;
+			}
+			if (!child.hasAttribute("inert")) {
+				child.setAttribute("inert", "");
+				background.push(child);
+			}
+		}
+		return () => {
+			for (const child of background) {
+				child.removeAttribute("inert");
+			}
+		};
+	}, [ref]);
+}
 
 export function useFocusTrap(
 	ref: RefObject<HTMLElement | null>,
