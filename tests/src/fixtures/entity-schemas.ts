@@ -13,7 +13,7 @@ import { assertPresent, requirePresent } from "~/support/assertions";
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
-import { createPluginScope, listPluginWorkspaces } from "./plugin-workspaces";
+import { createPluginScope, listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
 import { installTestDefinitions } from "./test-plugin";
 
@@ -131,11 +131,11 @@ export const getEntitySchema = (client: Client, entitySchemaSlug: string) =>
 
 export const findBuiltinEntitySchema = (client: Client) =>
 	Effect.gen(function* () {
-		const { schemas, builtinWorkspace } = yield* listBuiltinEntitySchemas(client);
+		const { schemas, builtinPlugin } = yield* listBuiltinEntitySchemas(client);
 		const firstSchema = schemas[0];
 
 		return {
-			builtinWorkspace,
+			builtinPlugin,
 			schema: requirePresent(firstSchema, "No built-in entity schema found"),
 		};
 	});
@@ -145,18 +145,14 @@ export const findBuiltinSchemaBySlug = (client: Client, slug: string) =>
 		const schemas = yield* listEntitySchemas(client, { slugs: [slug] });
 		const schema = schemas.find((candidate) => candidate.pluginSlug == null);
 		if (schema) {
-			return { schema, builtinWorkspace: null };
+			return { schema, builtinPlugin: null };
 		}
-		const workspaces = yield* listPluginWorkspaces(client, {
-			includeDisabled: true,
-		});
+		const plugins = yield* listInstalledPlugins(client, { includeDisabled: true });
 
-		for (const builtinWorkspace of workspaces) {
-			const workspaceSchema = schemas.find(
-				(candidate) => candidate.pluginSlug === builtinWorkspace.slug,
-			);
-			if (workspaceSchema) {
-				return { builtinWorkspace, schema: workspaceSchema };
+		for (const builtinPlugin of plugins) {
+			const pluginSchema = schemas.find((candidate) => candidate.pluginSlug === builtinPlugin.slug);
+			if (pluginSchema) {
+				return { builtinPlugin, schema: pluginSchema };
 			}
 		}
 
@@ -175,15 +171,13 @@ export const getBuiltinEntitySchemaSlug = (slug: string) =>
 
 export const listBuiltinEntitySchemas = (client: Client) =>
 	Effect.gen(function* () {
-		const workspaces = yield* listPluginWorkspaces(client, {
-			includeDisabled: true,
-		});
-		const builtinWorkspace = workspaces[0];
-		assertPresent(builtinWorkspace, "Built-in plugin workspace not found");
+		const plugins = yield* listInstalledPlugins(client, { includeDisabled: true });
+		const builtinPlugin = plugins[0];
+		assertPresent(builtinPlugin, "Built-in plugin not found");
 		const schemas = yield* listEntitySchemas(client, {
-			pluginSlug: builtinWorkspace.slug,
+			pluginSlug: builtinPlugin.slug,
 		});
-		return { schemas, builtinWorkspace };
+		return { schemas, builtinPlugin };
 	});
 
 export const findBuiltinSchemaWithProviders = (client: Client) =>
@@ -208,9 +202,7 @@ export const enqueueEntityImport = (client: Client, body: EnqueueEntityImportBod
 	Effect.gen(function* () {
 		const result = yield* client.call((c) => c.entityImport.import({ payload: body }));
 
-		return {
-			jobId: requirePresent(result.jobId, "Failed to enqueue entity import"),
-		};
+		return { jobId: requirePresent(result.jobId, "Failed to enqueue entity import") };
 	});
 
 export const pollEntityImportResult = (client: Client, jobId: string) =>

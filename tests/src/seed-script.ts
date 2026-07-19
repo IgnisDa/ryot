@@ -1365,17 +1365,17 @@ async function seedMobilePhones(client: APIClient) {
 
 // ─── Builtin media plugin helpers ──────────────────────────────────────────
 
-async function getBuiltinWorkspace(apiClient: APIClient) {
-	const workspaces = await apiClient.run((c) =>
-		c.definitions.listWorkspaces({ query: { includeDisabled: true } }),
+async function getBuiltinPlugin(apiClient: APIClient) {
+	const plugins = await apiClient.run((c) =>
+		c.definitions.listPlugins({ query: { includeDisabled: true } }),
 	);
 
-	const builtinWorkspace = workspaces[0];
-	if (!builtinWorkspace) {
-		throw new Error("Built-in media plugin workspace not found");
+	const builtinPlugin = plugins[0];
+	if (!builtinPlugin) {
+		throw new Error("Built-in media plugin not found");
 	}
 
-	return { ...builtinWorkspace, id: PluginSlug.make(builtinWorkspace.slug) };
+	return { ...builtinPlugin, id: PluginSlug.make(builtinPlugin.slug) };
 }
 
 async function listMediaEntitySchemas(apiClient: APIClient, pluginSlug: PluginSlug) {
@@ -1574,7 +1574,7 @@ function generateEpisodicProgressFields(slug: MediaEntitySchemaSlug): Record<str
 async function seedMedia(client: APIClient, executingUserId: string) {
 	console.log("\n🎬 Seeding Media Plugin...");
 
-	const builtinPluginScope = await getBuiltinWorkspace(client);
+	const builtinPluginScope = await getBuiltinPlugin(client);
 	console.log(`  Found builtin plugin: ${builtinPluginScope.name} (${builtinPluginScope.id})`);
 
 	const allSchemas = await listMediaEntitySchemas(client, builtinPluginScope.id);

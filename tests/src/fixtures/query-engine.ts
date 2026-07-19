@@ -8,7 +8,7 @@ import { createEntity } from "./entities";
 import { createEntitySchema, makeEntitySchemaSlug } from "./entity-schemas";
 import { createEventSchema } from "./event-schemas";
 import { listEventsForEntity } from "./events";
-import { createPluginScope } from "./plugin-workspaces";
+import { createPluginScope } from "./plugins";
 import { pollUntil } from "./polling";
 import { createRelationshipSchema } from "./relationship-schemas";
 import { createRelationship } from "./relationships";
@@ -67,8 +67,8 @@ export const createQueryEngineEvent = (
 			c.events.create({
 				payload: [
 					{
-						entityId: EntityId.make(input.entityId),
 						properties: input.properties ?? {},
+						entityId: EntityId.make(input.entityId),
 						...(input.occurredAt ? { occurredAt: input.occurredAt } : {}),
 						eventSchemaSlug: EventSchemaSlug.make(input.eventSchemaSlug),
 						...(input.sessionEntityId
