@@ -632,6 +632,8 @@ describe("YouTube Music yank", () => {
 		const claims = new Set<string>();
 		const host = defineSandboxTestHost(youtubeMusicManifest, {
 			httpCall: httpCall({}),
+			log: () => hostSuccess(null),
+			span: () => hostSuccess(null),
 			claimPersistentValue: (key) => {
 				if (claims.has(key)) {
 					return hostSuccess({ value: true, claimed: false });
