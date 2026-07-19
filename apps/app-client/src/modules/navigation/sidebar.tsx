@@ -135,7 +135,7 @@ export function Sidebar(props: {
 							className="min-w-0 flex-1 py-0 font-ui text-xs text-text"
 						/>
 						<View className="rounded border border-border px-1.5 py-0.5">
-							<Text className="font-mono text-xs text-text-subtle">⌘K</Text>
+							<Text className="font-mono text-xs text-text-subtle">⌘+K</Text>
 						</View>
 					</View>
 				)}
