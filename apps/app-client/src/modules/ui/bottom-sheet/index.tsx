@@ -41,12 +41,12 @@ export function BottomSheet(props: {
 							</Text>
 						</BottomSheetDialogTitle>
 						<Pressable
+							className="p-1"
 							accessibilityRole="button"
-							className="p-1 text-text-muted"
 							accessibilityLabel="Close sheet"
 							onPress={() => sheetRef.current?.close()}
 						>
-							<AppIcon name="x" size={17} />
+							<AppIcon className="text-text-muted" name="x" size={17} />
 						</Pressable>
 					</View>
 					{props.children}
