@@ -1,4 +1,5 @@
 import type { OrderBy } from "@ryot/contract/modules/ryotql/language";
+import type { SavedViewSandboxScripts } from "@ryot/contract/modules/saved-views/schemas";
 import { column, descending, castDate, jsonPath, table } from "@ryot/ryotql";
 import {
 	buildSavedViewDocument,
@@ -14,18 +15,31 @@ export const fitnessSavedViews = () => {
 	const inputs: ReadonlyArray<{
 		readonly name: string;
 		readonly slug: string;
+		readonly sandboxScripts: SavedViewSandboxScripts;
 		readonly entitySchemaSlug: "exercise" | "measurement" | "workout" | "workout-template";
 		readonly orderBy?: readonly OrderBy[] | undefined;
 	}> = [
-		{ name: "All Exercises", slug: "all-exercises", entitySchemaSlug: "exercise" },
-		{ name: "All Workouts", slug: "all-workouts", entitySchemaSlug: "workout" },
 		{
+			name: "All Exercises",
+			slug: "all-exercises",
+			entitySchemaSlug: "exercise",
+			sandboxScripts: { search: ["exercise.free-exercise-db.search"] },
+		},
+		{
+			sandboxScripts: {},
+			name: "All Workouts",
+			slug: "all-workouts",
+			entitySchemaSlug: "workout",
+		},
+		{
+			sandboxScripts: {},
 			slug: "all-measurements",
 			name: "All Measurements",
 			entitySchemaSlug: "measurement",
 			orderBy: [descending(castDate(jsonPath(column(entity, "properties"), "recordedAt")))],
 		},
 		{
+			sandboxScripts: {},
 			slug: "all-workout-templates",
 			name: "All Workout Templates",
 			entitySchemaSlug: "workout-template",
@@ -56,6 +70,7 @@ export const fitnessSavedViews = () => {
 			slug: input.slug,
 			icon: schema.icon,
 			pluginSlug: "fitness",
+			sandboxScripts: input.sandboxScripts,
 			layouts: {
 				grid: {
 					...projections.grid.mappings,

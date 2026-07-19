@@ -1,5 +1,5 @@
 {
-	"id": "195f2d5f-aad1-4b07-8d3e-475cf8c0ebd5",
+	"id": "c3741618-a13f-4168-bd14-ca10e9a64f6c",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -2379,6 +2379,13 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
+				},
+				"sandbox_scripts": {
+					"name": "sandbox_scripts",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'{}'::jsonb"
 				},
 				"id": {
 					"name": "id",
