@@ -10,6 +10,7 @@ export const redisKeys = {
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 	uploadIntent: (intentId: string) => `ryot:upload:intent:${intentId}`,
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
+	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
 	importSourcePayload: (runId: string) => `ryot:imports:source-payload:${runId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
@@ -55,6 +56,10 @@ export class RedisService extends Context.Service<RedisService>()("RedisService"
 				Effect.tryPromise(() => client.zadd(key, score, member)).pipe(Effect.asVoid, Effect.orDie),
 			zrem: (key: string, ...members: ReadonlyArray<string>) =>
 				Effect.tryPromise(() => client.zrem(key, ...members)).pipe(Effect.asVoid, Effect.orDie),
+			zrangeByScore: (key: string, max: number, limit: number) =>
+				Effect.tryPromise(() => client.zrangebyscore(key, 0, max, "LIMIT", 0, limit)).pipe(
+					Effect.orDie,
+				),
 			setAndIndex: (key: string, value: string, indexKey: string, score: number, member: string) =>
 				Effect.tryPromise(() =>
 					client.multi().set(key, value).zadd(indexKey, score, member).exec(),
