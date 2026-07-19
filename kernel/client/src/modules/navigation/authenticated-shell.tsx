@@ -1,3 +1,5 @@
+import { Modal, useShortcut } from "@ryot-app/client-ui-sdk";
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import {
 	Outlet,
 	useLocation,
@@ -7,7 +9,16 @@ import {
 } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { motion, useMotionValue, useTransform } from "motion/react";
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+	createContext,
+	useContext,
+	useEffect,
+	useEffectEvent,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { useDesktopEffect, useIsDesktop } from "#/modules/navigation/breakpoint";
@@ -19,6 +30,11 @@ import { impactLight } from "#/modules/navigation/haptics";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
 import { MobileHeader } from "#/modules/navigation/mobile-header";
+import {
+	activeSidebarKey,
+	sidebarSections,
+	type SidebarItem,
+} from "#/modules/navigation/sidebar-sections";
 import {
 	isWorkspaceRoot,
 	resolvePluginRouteWorkspace,
@@ -77,6 +93,7 @@ export const usePluginHeader = () => {
 
 export function AuthenticatedShell(props: {
 	readonly isPro: boolean;
+	readonly navigation: NavigationData;
 	readonly initialRememberedSlug: string | null;
 }) {
 	const router = useRouter();
@@ -90,6 +107,7 @@ export function AuthenticatedShell(props: {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const { backInterceptors, runtime, scope, server } = useRouteContext({ from: "/_authenticated" });
 	const [drawerOpen, setDrawerOpen] = useState(false);
+	const [searchOpen, setSearchOpen] = useState(false);
 	const [pluginHeader, setPluginHeader] = useState<PluginHeaderState | null>(null);
 	const [rememberedSlug, setRememberedSlug] = useState(props.initialRememberedSlug);
 	const settingsActive = isSettingsPath(pathname);
@@ -97,6 +115,11 @@ export function AuthenticatedShell(props: {
 	const routeWorkspace = resolvePluginRouteWorkspace(catalog, routeSlug);
 	const current = resolveRememberedWorkspace(catalog, rememberedSlug);
 	const homeActive = isWorkspaceRoot(pathname, current);
+	const activeKey = useMemo(() => activeSidebarKey(pathname), [pathname]);
+	const sections = useMemo(
+		() => sidebarSections({ data: props.navigation, workspaceSlug: current?.slug }),
+		[current?.slug, props.navigation],
+	);
 	const entry = historyEntry(state);
 	const pluginTitle =
 		pluginHeader?.owner === routeSlug &&
@@ -113,6 +136,25 @@ export function AuthenticatedShell(props: {
 		setRememberedSlug(slug);
 		await navigate({ replace: true, to: "/$pluginSlug", params: { pluginSlug: slug } });
 	};
+	const navigateHome = () =>
+		current === null
+			? undefined
+			: navigate({ to: "/$pluginSlug", params: { pluginSlug: current.slug } });
+	const navigateItem = (item: SidebarItem) => {
+		if (item.kind === "collection") {
+			return navigate({ to: "/e/$entityId", params: { entityId: item.slug } });
+		}
+		return navigate({
+			to: "/v/$viewSlug",
+			params: { viewSlug: item.slug },
+			search: { add: undefined, q: undefined },
+			replace: activeKey?.startsWith("view:") === true,
+		});
+	};
+	const interceptSearchBack = useEffectEvent(() => {
+		setSearchOpen(false);
+		return true;
+	});
 	const header = useMemo<PluginHeaderController>(
 		() => ({
 			publish: (owner, publication) => setPluginHeader({ owner, ...publication }),
@@ -140,11 +182,18 @@ export function AuthenticatedShell(props: {
 		});
 	}, [backInterceptors, drawerOpen]);
 	useEffect(() => {
+		if (!searchOpen) {
+			return undefined;
+		}
+		return backInterceptors.register(interceptSearchBack);
+	}, [backInterceptors, searchOpen]);
+	useEffect(() => {
 		if (settingsActive) {
 			setDrawerOpen(false);
 		}
 	}, [settingsActive]);
 	useDesktopEffect(() => setDrawerOpen(false));
+	useShortcut("Meta+K", () => setSearchOpen(true), { enabled: !searchOpen });
 
 	return (
 		<div data-testid="authenticated-shell" className="flex h-dvh min-h-0 flex-col md:flex-row">
@@ -152,10 +201,15 @@ export function AuthenticatedShell(props: {
 				current={current}
 				catalog={catalog}
 				session={session}
+				sections={sections}
 				isPro={props.isPro}
+				activeKey={activeKey}
 				activeHome={homeActive}
+				onNavigateHome={navigateHome}
+				onNavigateItem={navigateItem}
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
+				onOpenSearch={() => setSearchOpen(true)}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
 			/>
 			<EdgeGesture
@@ -179,9 +233,11 @@ export function AuthenticatedShell(props: {
 			<MobileDrawer
 				current={current}
 				catalog={catalog}
+				sections={sections}
 				session={session}
 				progress={progress}
 				isPro={props.isPro}
+				activeKey={activeKey}
 				drawerId={drawerId}
 				isOpen={drawerOpen}
 				triggerRef={triggerRef}
@@ -190,12 +246,10 @@ export function AuthenticatedShell(props: {
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
 				onClose={() => setDrawerOpen(false)}
+				onOpenSearch={() => setSearchOpen(true)}
+				onNavigateItem={navigateItem}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
-				onNavigateHome={() =>
-					current === null
-						? undefined
-						: navigate({ to: "/$pluginSlug", params: { pluginSlug: current.slug } })
-				}
+				onNavigateHome={navigateHome}
 			/>
 			<RememberedWorkspaceContext value={rememberedSlug}>
 				<PluginHeaderContext value={header}>
@@ -213,6 +267,19 @@ export function AuthenticatedShell(props: {
 					</PluginTitleContext>
 				</PluginHeaderContext>
 			</RememberedWorkspaceContext>
+			{searchOpen && (
+				<Modal
+					label="Command center"
+					closeLabel="Close command center"
+					onClose={() => setSearchOpen(false)}
+					onInterceptBack={interceptSearchBack}
+					containerClassName="items-center justify-center p-4"
+					className="w-full max-w-xl rounded-xl border border-border bg-surface p-5 shadow-card"
+				>
+					<h2 className="font-display text-lg font-semibold text-text">Command center</h2>
+					<p className="mt-2 text-sm text-text-muted">Command center content goes here.</p>
+				</Modal>
+			)}
 		</div>
 	);
 }

@@ -1,3 +1,4 @@
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect, Layer } from "effect";
 
@@ -14,6 +15,7 @@ import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
+import { NavigationService } from "#/modules/navigation/service";
 import { ProviderAddService } from "#/modules/provider-add/service";
 import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";
@@ -45,6 +47,41 @@ export const catalog: PluginClientCatalog = [
 		clientArtifactHash: "artifact-hash",
 	},
 ];
+
+export const navigationData: NavigationData = {
+	savedViews: [
+		{
+			icon: "list",
+			sortOrder: 1,
+			isDisabled: false,
+			name: "Fixture View",
+			slug: "fixture-view",
+			pluginSlug: "fixture",
+		},
+		{
+			sortOrder: 0,
+			icon: "bookmark",
+			pluginSlug: null,
+			isDisabled: false,
+			name: "Global View",
+			slug: "global-view",
+		},
+	],
+	collections: [
+		{
+			sortOrder: 0,
+			pluginSlug: null,
+			icon: "layers-3",
+			isDisabled: false,
+			slug: "collection-1",
+			name: "Fixture Collection",
+		},
+	],
+};
+
+export const NavigationRouteStubs = Layer.succeed(NavigationService, {
+	load: () => Effect.succeed(navigationData),
+});
 
 export const authenticated = {
 	status: "authenticated",
