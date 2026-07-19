@@ -16,27 +16,26 @@ const runItem = {
 	totalItems: 8,
 	failedItems: 1,
 	importedItems: 7,
-	status: "completed",
 	processedItems: 8,
-	errorSummary: "One failed",
+	status: "completed",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 	startedAt: "2026-01-01T01:05:00+02:00",
 	inputSummary: { filename: "items.csv" },
 	finishedAt: "2026-01-01T01:10:00+02:00",
+	failureReason: { code: "input-transformation-failed" },
 };
 const failureItem = {
-	runId: "run-1",
 	itemIndex: 4,
+	runId: "run-1",
 	id: "failure-1",
 	sourceLabel: "Row 5",
-	message: "Invalid item",
 	entitySchemaSlug: "movie",
 	sourceIdentifier: "item-5",
 	eventSchemaSlug: "watched",
-	context: { column: "title" },
 	stage: "input_transformation",
 	createdAt: "2026-01-01T01:06:00+02:00",
+	reason: { code: "input-transformation-failed" },
 };
 const pageInfo = { hasMore: true, limit: 2, nextCursor: "next" };
 const rows = (items: readonly unknown[], limit = 2, type = "rows") => ({
@@ -78,7 +77,7 @@ describe("import-run recipes", () => {
 			"startedAt",
 			"finishedAt",
 			"totalItems",
-			"errorSummary",
+			"failureReason",
 		]);
 		expect(manual.where).toMatchObject({ type: "isNull", expr: { field: "integrationId" } });
 		expect(integration.where).toMatchObject({ right: { value: "integration-1" } });
@@ -102,8 +101,7 @@ describe("import-run recipes", () => {
 			"id",
 			"runId",
 			"stage",
-			"message",
-			"context",
+			"reason",
 			"createdAt",
 			"itemIndex",
 			"sourceLabel",
@@ -135,13 +133,13 @@ describe("import-run recipes", () => {
 								startedAt: null,
 								finishedAt: null,
 								totalItems: null,
-								errorSummary: null,
+								failureReason: null,
 							},
 						]),
 					},
 				}),
 			).items[0],
-		).toMatchObject({ startedAt: null, finishedAt: null, totalItems: null, errorSummary: null });
+		).toMatchObject({ startedAt: null, finishedAt: null, totalItems: null, failureReason: null });
 	});
 
 	it("decodes detail failures, nulls, and an absent run", () => {
@@ -159,7 +157,7 @@ describe("import-run recipes", () => {
 						id: "failure-1",
 						runId: "run-1",
 						itemIndex: 4,
-						context: { column: "title" },
+						reason: { code: "input-transformation-failed" },
 						stage: "input_transformation",
 						createdAt: "2025-12-31T23:06:00.000Z",
 					},
@@ -177,7 +175,6 @@ describe("import-run recipes", () => {
 						failures: rows([
 							{
 								...failureItem,
-								context: null,
 								sourceLabel: null,
 								eventSchemaSlug: null,
 								entitySchemaSlug: null,
@@ -188,7 +185,6 @@ describe("import-run recipes", () => {
 				}),
 			).failures.items[0],
 		).toMatchObject({
-			context: null,
 			sourceLabel: null,
 			eventSchemaSlug: null,
 			entitySchemaSlug: null,
