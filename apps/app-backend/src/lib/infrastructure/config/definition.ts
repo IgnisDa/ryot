@@ -128,12 +128,15 @@ const fileStorage = group(
 	{ label: "File storage", description: "S3-compatible and local file storage" },
 	{
 		localDir: stringField({
+			hidden: true,
 			envKey: "FILE_STORAGE_LOCAL_DIR",
+			defaultValue: "/home/ryot/storage",
 			label: "Local permanent directory",
 			description: "Writable persistent directory for permanent local objects",
 		}),
 		localTempDir: stringField({
-			defaultValue: "/tmp",
+			hidden: true,
+			defaultValue: "/home/ryot/work",
 			label: "Local working directory",
 			envKey: "FILE_STORAGE_LOCAL_TEMP_DIR",
 			description: "Directory used for temporary uploads, imports, and sandbox working files",
