@@ -11,6 +11,7 @@ type ScriptModuleSourceInput = SandboxSourceIdentity & {
 	readonly inputSchema: string;
 	readonly outputSchema: string;
 	readonly declarations?: string;
+	readonly filesystemImport?: boolean;
 	readonly sdkImports?: readonly string[];
 	readonly requiredPluginConfigKeys?: readonly string[];
 	readonly requiredSystemConfigKeys?: readonly string[];
@@ -28,9 +29,12 @@ const scriptModuleSource = (input: ScriptModuleSourceInput) => {
 		coreItems.length > 0
 			? `\nimport { ${coreItems.join(", ")} } from "@ryot/sandbox-sdk/core";`
 			: "";
+	const filesystemImportLine = input.filesystemImport
+		? '\nimport { writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";'
+		: "";
 
 	return `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";${wireImportLine}${coreImportLine}
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";${wireImportLine}${coreImportLine}${filesystemImportLine}
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -177,6 +181,22 @@ export function userPreferencesSandboxSource(input: SandboxSourceIdentity) {
 		outputSchema: "userPreferencesSchema",
 		sdkImports: ["userPreferencesSchema"],
 		run: "(_input, host) => host.getUserPreferences()",
+	});
+}
+
+export function scratchEntryLimitSandboxSource(
+	input: SandboxSourceIdentity & { readonly chunkCount: number },
+) {
+	return scriptModuleSource({
+		...input,
+		filesystemImport: true,
+		capabilities: ["scratch"],
+		inputSchema: "Schema.Struct({})",
+		outputSchema: "Schema.Struct({ chunkFiles: Schema.Array(Schema.String) })",
+		run: `() => writeScratchChunks(Array.from({ length: ${input.chunkCount} }, (_, index) => ({
+    name: \`chunk-\${index}.json\`,
+    contents: "",
+  })))`,
 	});
 }
 

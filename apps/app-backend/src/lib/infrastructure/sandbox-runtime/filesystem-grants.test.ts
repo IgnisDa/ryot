@@ -105,6 +105,42 @@ describe("sandbox scratch quota", () => {
 			}),
 		),
 	);
+
+	it.effect("rejects symbolic links and bounds directory depth", () =>
+		withTempRoot((root) =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const scratch = yield* acquireSandboxScratchDirectory(root);
+				const nested = path.join(scratch, "nested");
+				const cycle = path.join(nested, "cycle");
+				yield* fs.makeDirectory(nested);
+				yield* fs.symlink(scratch, cycle);
+
+				const symlinked = yield* Effect.exit(measureSandboxScratchBytes(scratch));
+				assert(symlinked._tag === "Failure");
+				expect(Cause.findErrorOption(symlinked.cause)).toEqual(
+					Option.some(
+						`Sandbox scratch entry "${cycle}" must be a regular file or directory (found SymbolicLink)`,
+					),
+				);
+				yield* fs.remove(cycle);
+
+				let current = scratch;
+				for (let depth = 0; depth <= SANDBOX_LIMITS.scratch.maxDepth; depth += 1) {
+					current = path.join(current, `level-${depth}`);
+					yield* fs.makeDirectory(current);
+				}
+				const tooDeep = yield* Effect.exit(measureSandboxScratchBytes(scratch));
+				assert(tooDeep._tag === "Failure");
+				expect(Cause.findErrorOption(tooDeep.cause)).toEqual(
+					Option.some(
+						`Sandbox scratch directory exceeds ${SANDBOX_LIMITS.scratch.maxDepth} directory levels`,
+					),
+				);
+			}),
+		),
+	);
 });
 
 describe("sandbox scratch chunk harvest", () => {
@@ -174,6 +210,34 @@ describe("sandbox scratch chunk harvest", () => {
 						'Sandbox scratch manifest entry "../outside.json" escapes the scratch directory',
 					),
 				);
+			}),
+		),
+	);
+
+	it.effect("rejects symlinked chunk sources before copying", () =>
+		withTempRoot((root) =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const scratch = yield* acquireSandboxScratchDirectory(root);
+				const destination = path.join(root, "harvest");
+				const outside = path.join(root, "outside.json");
+				const source = path.join(scratch, "chunk-0.json");
+				yield* fs.writeFileString(outside, "secret");
+				yield* fs.symlink(outside, source);
+
+				const result = yield* Effect.exit(
+					harvestSandboxScratchChunks({
+						destination,
+						scratchDirectory: scratch,
+						chunkFiles: ["chunk-0.json"],
+					}),
+				);
+				assert(result._tag === "Failure");
+				expect(Cause.findErrorOption(result.cause)).toEqual(
+					Option.some(`Sandbox scratch entry "${source}" must not be a symbolic link`),
+				);
+				expect(yield* fs.exists(path.join(destination, "chunk-0.json"))).toBe(false);
 			}),
 		),
 	);
