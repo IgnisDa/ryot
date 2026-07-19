@@ -42,6 +42,12 @@ const isContained = (paths: Path.Path, root: string, target: string) => {
 	);
 };
 
+const rootsOverlap = (paths: Path.Path, first: string, second: string) =>
+	first === second || isContained(paths, first, second) || isContained(paths, second, first);
+
+const isLocalObjectKind = (value: string): value is "permanent" | "temporary" =>
+	value === "permanent" || value === "temporary";
+
 export class LocalStorageService extends Context.Service<LocalStorageService>()(
 	"LocalStorageService",
 	{
@@ -51,16 +57,15 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			const fs = yield* FileSystem.FileSystem;
 			const localDir =
 				config.fileStorage.localDir._tag === "Some" ? config.fileStorage.localDir.value : null;
+			const localTempDir = config.fileStorage.localTempDir;
 			const signingSecret =
 				config.fileStorage.localSigningSecret._tag === "Some"
 					? Redacted.value(config.fileStorage.localSigningSecret.value)
 					: null;
-			const isConfigured =
-				localDir !== null &&
-				localDir.length > 0 &&
-				signingSecret !== null &&
-				signingSecret.length > 0;
-			const signingKey = isConfigured
+			const signingConfigured = signingSecret !== null && signingSecret.length > 0;
+			const permanentConfigured = localDir !== null && localDir.length > 0 && signingConfigured;
+			const temporaryConfigured = localTempDir.length > 0 && signingConfigured;
+			const signingKey = signingConfigured
 				? yield* Effect.tryPromise(() =>
 						crypto.subtle.importKey(
 							"raw",
@@ -71,36 +76,68 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 						),
 					).pipe(Effect.orDie)
 				: null;
-			const storageRoot = isConfigured
-				? yield* Effect.gen(function* () {
-						yield* fs.makeDirectory(localDir, { recursive: true });
-						const root = yield* fs.realPath(localDir);
-						const probe = yield* fs.makeTempDirectory({
-							directory: root,
-							prefix: ".ryot-write-test-",
+			const resolveRoot = (directory: string | null) =>
+				directory === null
+					? Effect.succeed(null)
+					: Effect.gen(function* () {
+							yield* fs.makeDirectory(directory, { recursive: true });
+							const root = yield* fs.realPath(directory);
+							const probe = yield* fs.makeTempDirectory({
+								directory: root,
+								prefix: ".ryot-write-test-",
+							});
+							yield* fs.remove(probe, { recursive: true, force: true });
+							return root;
 						});
-						yield* fs.remove(probe, { recursive: true, force: true });
-						return root;
-					}).pipe(Effect.orDie)
-				: null;
-
-			const requireConfigured = Effect.suspend(() =>
-				isConfigured
-					? Effect.void
-					: Effect.fail(
-							badRequest(
-								"Local file storage is not configured. Set FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET.",
-							),
-						),
+			const permanentRoot = yield* resolveRoot(permanentConfigured ? localDir : null).pipe(
+				Effect.orDie,
 			);
+			const temporaryRoot = yield* resolveRoot(temporaryConfigured ? localTempDir : null).pipe(
+				Effect.orDie,
+			);
+			if (
+				permanentRoot !== null &&
+				temporaryRoot !== null &&
+				rootsOverlap(paths, permanentRoot, temporaryRoot)
+			) {
+				return yield* Effect.fail(
+					badRequest("FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_TEMP_DIR must not overlap."),
+				).pipe(Effect.orDie);
+			}
+			const isConfigured = permanentConfigured || temporaryConfigured;
+
+			const requireConfigured = (kind: "permanent" | "temporary") =>
+				Effect.suspend(() =>
+					(kind === "permanent" ? permanentConfigured : temporaryConfigured)
+						? Effect.void
+						: Effect.fail(
+								badRequest(
+									kind === "permanent"
+										? "Local permanent storage is not configured. Set FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET."
+										: "Local temporary storage is not configured. Set FILE_STORAGE_LOCAL_TEMP_DIR and FILE_STORAGE_LOCAL_SIGNING_SECRET.",
+								),
+							),
+				);
+
+			const resolveKey = (key: string) => {
+				const namespace = key.split("/", 1)[0] ?? "";
+				if (!isLocalObjectKind(namespace)) {
+					return null;
+				}
+				return { kind: namespace, root: namespace === "permanent" ? permanentRoot : temporaryRoot };
+			};
 
 			const resolvePath = (key: string) =>
 				Effect.gen(function* () {
-					yield* requireConfigured;
-					if (!/^permanent\/[A-Za-z0-9_-]+\.[a-z0-9]+$/.test(key)) {
+					const resolved = resolveKey(key);
+					if (!resolved || !/^(?:permanent|temporary)\/[A-Za-z0-9_-]+\.[a-z0-9]+$/.test(key)) {
 						return yield* badRequest("Local object key is invalid");
 					}
-					const root = storageRoot as string;
+					yield* requireConfigured(resolved.kind);
+					if (resolved.root === null) {
+						return yield* badRequest("Local object storage root is not configured");
+					}
+					const root = resolved.root;
 					const target = paths.resolve(root, key);
 					if (!isContained(paths, root, target)) {
 						return yield* badRequest(
@@ -141,7 +178,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				intentId: string,
 				now: number,
 			) {
-				yield* requireConfigured;
+				yield* requireConfigured("temporary");
 				const expiresAt = now + UPLOAD_URL_EXPIRY_SECONDS;
 				const pathname = localUploadPath(intentId);
 				const signature = yield* sign("PUT", pathname, expiresAt);
@@ -157,7 +194,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				url: string,
 				now: number,
 			) {
-				yield* requireConfigured;
+				yield* requireConfigured("temporary");
 				const parsed = yield* Effect.try({
 					try: () => new URL(url, "http://local.invalid"),
 					catch: () => badRequest("Local upload target is malformed"),
@@ -171,7 +208,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 					!expiresValue ||
 					!/^[0-9]+$/.test(expiresValue) ||
 					!Number.isSafeInteger(expiresAt) ||
-					expiresAt < now ||
+					expiresAt <= now ||
 					!signature
 				) {
 					return yield* badRequest("Local upload target is invalid or expired");
@@ -199,7 +236,10 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				contentType: string,
 				now: number,
 			) {
-				yield* requireConfigured;
+				yield* requireConfigured("permanent");
+				if (!key.startsWith("permanent/")) {
+					return yield* badRequest("Local object key is invalid");
+				}
 				yield* resolvePath(key);
 				const expiresAt = now + UPLOAD_URL_EXPIRY_SECONDS;
 				const signature = yield* sign(
@@ -221,7 +261,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				url: string,
 				now: number,
 			) {
-				yield* requireConfigured;
+				yield* requireConfigured("permanent");
 				const parsed = yield* Effect.try({
 					try: () => new URL(url, "http://local.invalid"),
 					catch: () => badRequest("Local download target is malformed"),
@@ -239,7 +279,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 					!expiresValue ||
 					!/^[0-9]+$/.test(expiresValue) ||
 					!Number.isSafeInteger(expiresAt) ||
-					expiresAt < now ||
+					expiresAt <= now ||
 					!signature
 				) {
 					return yield* badRequest("Local download target is invalid or expired");
@@ -267,7 +307,10 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			const existingPath = (key: string) =>
 				Effect.gen(function* () {
 					const target = yield* resolvePath(key);
-					const root = storageRoot as string;
+					const root = resolveKey(key)?.root;
+					if (root === null || root === undefined) {
+						return yield* badRequest("Local object storage root is not configured");
+					}
 					const canonicalTarget = yield* fs
 						.realPath(target)
 						.pipe(Effect.mapError(() => badRequest("Local upload object is missing or invalid")));
@@ -378,6 +421,8 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				verifyUploadTarget,
 				createDownloadTarget,
 				verifyDownloadTarget,
+				isConfiguredForKind: (kind: "permanent" | "temporary") =>
+					kind === "permanent" ? permanentConfigured : temporaryConfigured,
 			};
 		}),
 	},

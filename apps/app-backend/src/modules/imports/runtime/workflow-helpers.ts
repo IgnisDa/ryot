@@ -41,7 +41,7 @@ export class ImportRunArtifacts extends Context.Service<ImportRunArtifacts>()(
 					(cleanupPath) =>
 						!cleanupPath.trim()
 							? Effect.void
-							: resolveSafeImportFilePath(cleanupPath, config.tmpDir).pipe(
+							: resolveSafeImportFilePath(cleanupPath, config.fileStorage.localTempDir).pipe(
 									Effect.mapError(
 										() => new ImportRunError({ message: "Import cleanup path is invalid" }),
 									),
@@ -55,7 +55,7 @@ export class ImportRunArtifacts extends Context.Service<ImportRunArtifacts>()(
 				removeSandboxHarvestDirectories({
 					executionPrefix,
 					harvestRoot: path.join(
-						config.tmpDir,
+						config.fileStorage.localTempDir,
 						`${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`,
 					),
 				}).pipe(

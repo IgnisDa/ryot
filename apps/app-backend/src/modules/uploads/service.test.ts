@@ -55,7 +55,7 @@ const makeS3Layer = (overrides: S3Overrides = {}) =>
 
 type LocalStorageOverrides = Omit<
 	Parameters<typeof mockLocalStorageService>[0],
-	"_tag" | "isConfigured"
+	"_tag" | "isConfigured" | "isConfiguredForKind"
 > & { isConfigured?: Parameters<typeof mockLocalStorageService>[0]["isConfigured"] };
 
 const makeLocalStorageLayer = (overrides: LocalStorageOverrides = {}) =>
@@ -63,6 +63,7 @@ const makeLocalStorageLayer = (overrides: LocalStorageOverrides = {}) =>
 		isConfigured: true,
 		statObject: () => Effect.succeed(defaultFileInfo),
 		resolveObjectPath: () => Effect.succeed("/tmp/object"),
+		isConfiguredForKind: () => true,
 		createDownloadTarget: () => Effect.succeed("uploads/local/download?signature=local"),
 		verifyDownloadTarget: () =>
 			Effect.succeed({ contentType: "image/png", key: "permanent/object.png" }),
@@ -77,8 +78,13 @@ const makeRedisLayer = (overrides: Partial<RedisService["Service"]> = {}) =>
 		RedisService,
 		makeRedisService({
 			client: makeRedisClient(),
+			releaseLease: () => Effect.void,
 			del: () => Effect.succeed(0),
 			claim: () => Effect.succeed(true),
+			renewLease: () => Effect.succeed(true),
+			setAndIndexAndSet: () => Effect.die("unused"),
+			setAndIndexAndDelete: () => Effect.die("unused"),
+			acquireLease: () => Effect.succeed("00000000-0000-0000-0000-000000000000"),
 			...overrides,
 		}),
 	);
@@ -117,7 +123,10 @@ const makeUploadsLayer = (
 		localStorageService?: ReturnType<typeof makeLocalStorageLayer>;
 	} = {},
 ) => {
-	const appConfig = makeAppConfigLayer({ ...options.config, tmpDir: TEST_TMP_DIR });
+	const appConfig = makeAppConfigLayer({
+		...options.config,
+		fileStorage: { ...options.config?.fileStorage, localTempDir: TEST_TMP_DIR },
+	});
 	const fsLayer = options.fsLayer ?? makeFsLayer();
 	const localStorage = LocalStorageService.layer.pipe(
 		Layer.provide(Layer.mergeAll(appConfig, fsLayer, Path.layer)),
@@ -345,6 +354,10 @@ it.effect("cleans up due local and S3 pending intents in a bounded batch", () =>
 			makeUploadsLayer({
 				redisService: makeRedisLayer({
 					get: (key) => Effect.succeed(stored.get(key) ?? null),
+					setAndIndex: (key, value) => {
+						stored.set(key, value);
+						return Effect.void;
+					},
 					zrangeByScore: () => Effect.succeed(["local-intent", "s3-intent"]),
 					zrem: () => Effect.void,
 					del: (...keys) => {
@@ -402,6 +415,159 @@ it.effect("completes a local intent idempotently and removes its expiry index", 
 				}),
 				localStorageService: makeLocalStorageLayer({
 					statObject: () => Effect.succeed(defaultFileInfo),
+				}),
+			}),
+		),
+	);
+});
+
+it.effect("completes, claims, and deletes a local temporary intent", () => {
+	const stored = new Map<string, string>();
+	const deleted: string[] = [];
+
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		const intent = yield* service.createUploadIntent(user, {
+			provider: "local",
+			kind: "temporary",
+			fileName: "report.csv",
+			contentType: "text/csv",
+		});
+		const intentKey = redisKeys.uploadIntent(intent.intentId);
+		const completed = yield* service.completeUploadIntent(user, intent.intentId);
+		if (!("token" in completed)) {
+			throw new Error("Expected a temporary upload token");
+		}
+		const otherUser = { ...user, id: UserId.make("other-user") };
+		const wrongUser = yield* Effect.exit(
+			service.claimTemporaryUpload(completed.token, otherUser.id),
+		);
+		assertExitFails(
+			wrongUser,
+			new BadRequest({ message: "Upload token does not belong to this user" }),
+		);
+		const claimed = yield* service.claimTemporaryUpload(completed.token, user.id);
+		expect(claimed.locator.type).toBe("local");
+		expect(claimed.locator.key).toMatch(/^temporary\/.+\.csv$/);
+		expect(claimed.resolvedPath).toBe("/tmp/object");
+		expect(stored.get(intentKey)).toContain('"state":"claimed"');
+		yield* service.deleteTemporaryUpload(intent.intentId);
+		yield* service.deleteTemporaryUpload(intent.intentId);
+		expect(deleted).toEqual([claimed.locator.key]);
+		expect(stored.has(intentKey)).toBe(false);
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				config: {
+					fileStorage: {
+						localDir: Option.some(TEST_TMP_DIR),
+						localSigningSecret: Option.some(Redacted.make("secret")),
+					},
+				},
+				redisService: makeRedisLayer({
+					setAndIndex: (key, value) => {
+						stored.set(key, value);
+						return Effect.void;
+					},
+					set: (key, value) => {
+						stored.set(key, value);
+						return Effect.void;
+					},
+					setAndIndexAndDelete: (key, value, _indexKey, _score, _member, deleteKey) => {
+						stored.set(key, value);
+						stored.delete(deleteKey);
+						return Effect.void;
+					},
+					setAndIndexAndSet: (
+						key,
+						value,
+						_indexKey,
+						_score,
+						_member,
+						secondaryKey,
+						secondaryValue,
+					) => {
+						stored.set(key, value);
+						stored.set(secondaryKey, secondaryValue);
+						return Effect.void;
+					},
+					get: (key) => Effect.succeed(stored.get(key) ?? null),
+					zrem: () => Effect.void,
+					del: (...keys) => {
+						for (const key of keys) {
+							if (key.startsWith("ryot:upload:intent:")) {
+								stored.delete(key);
+							}
+							if (key.startsWith("ryot:upload:token:")) {
+								stored.delete(key);
+							}
+						}
+						return Effect.succeed(keys.length);
+					},
+				}),
+				localStorageService: makeLocalStorageLayer({
+					createUploadTarget: (createdIntentId) =>
+						Effect.succeed({
+							method: "PUT" as const,
+							expiresAt: 1_700_000_900,
+							uploadUrl: `/uploads/local/${createdIntentId}?expires=1700000900&signature=signature`,
+						}),
+					deleteObject: (key) => {
+						deleted.push(key);
+						return Effect.void;
+					},
+				}),
+			}),
+		),
+	);
+});
+
+it.effect("retries failed cleanup for an expired claimed local upload", () => {
+	const intentId = "expired-claimed-intent";
+	const intentKey = redisKeys.uploadIntent(intentId);
+	const stored = new Map([
+		[
+			intentKey,
+			`{"intentId":"${intentId}","userId":"user-id","provider":"local","kind":"temporary","objectKey":"temporary/object.csv","contentType":"text/csv","state":"claimed","createdAt":1,"expiresAt":0,"claimedAt":1}`,
+		],
+	]);
+	let attempts = 0;
+
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		yield* service.cleanupPendingIntents(1);
+		expect(attempts).toBe(1);
+		expect(stored.has(intentKey)).toBe(true);
+		yield* service.cleanupPendingIntents(1);
+		expect(attempts).toBe(2);
+		expect(stored.has(intentKey)).toBe(false);
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				redisService: makeRedisLayer({
+					get: (key) => Effect.succeed(stored.get(key) ?? null),
+					setAndIndex: (key, value) => {
+						stored.set(key, value);
+						return Effect.void;
+					},
+					zrangeByScore: () => Effect.succeed([intentId]),
+					zrem: () => Effect.void,
+					del: (...keys) => {
+						for (const key of keys) {
+							if (key === intentKey) {
+								stored.delete(key);
+							}
+						}
+						return Effect.succeed(keys.length);
+					},
+				}),
+				localStorageService: makeLocalStorageLayer({
+					deleteObject: () => {
+						attempts += 1;
+						return attempts === 1
+							? Effect.fail(new BadRequest({ message: "temporary" }))
+							: Effect.void;
+					},
 				}),
 			}),
 		),
