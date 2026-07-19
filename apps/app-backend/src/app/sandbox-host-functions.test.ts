@@ -536,8 +536,8 @@ describe("changeUserRelationships", () => {
 
 			expect(Result.getFailure(result)).toMatchObject(
 				Option.some({
-					_tag: "RelationshipNotFound",
-					reason: { code: "entity-not-found", entityIds: ["entity-1", "collection-1"] },
+					message: "entity-not-found",
+					data: { code: "entity-not-found", entityIds: ["entity-1", "collection-1"] },
 				}),
 			);
 			expect(writes).toBe(0);
