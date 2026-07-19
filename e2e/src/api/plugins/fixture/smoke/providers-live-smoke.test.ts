@@ -23,22 +23,30 @@ const RUN_LIVE =
 
 const PROVIDER_SLUG = "pokemon.pokeapi";
 const SAVED_VIEW_SLUG = "all-pokemon";
+const MOVE_PROVIDER_SLUG = "move.pokeapi";
+const MOVE_SAVED_VIEW_SLUG = "all-moves";
+
+const installFixture = (label: string) =>
+	Effect.gen(function* () {
+		const { client } = yield* createAuthenticatedClient();
+		const pluginSlug = PluginSlug.make(`fixture-${label}-${crypto.randomUUID()}`);
+		const pluginPackage = yield* fixtureClientPluginPackage("A", "", pluginSlug);
+		const installation = yield* Effect.acquireRelease(
+			installPrivatePluginPackage({ client, config: {}, pluginPackage }).pipe(
+				Effect.andThen(settledPrivateInstallation(client, pluginSlug)),
+			),
+			() => releasePrivatePlugin(client, pluginSlug),
+		);
+		expect(installation.health).toBe("ready");
+		return { client, pluginSlug };
+	});
 
 describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", () => {
 	it.live(
 		"searches PokeAPI with advanced options and imports a real Pokemon",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
-				const pluginSlug = PluginSlug.make(`fixture-pokeapi-${crypto.randomUUID()}`);
-				const pluginPackage = yield* fixtureClientPluginPackage("A", "", pluginSlug);
-				const installation = yield* Effect.acquireRelease(
-					installPrivatePluginPackage({ client, config: {}, pluginPackage }).pipe(
-						Effect.andThen(settledPrivateInstallation(client, pluginSlug)),
-					),
-					() => releasePrivatePlugin(client, pluginSlug),
-				);
-				expect(installation.health).toBe("ready");
+				const { client, pluginSlug } = yield* installFixture("pokeapi");
 
 				const schemas = yield* listEntitySchemas(client, { pluginSlug, slugs: ["pokemon"] });
 				const schema = schemas[0];
@@ -125,6 +133,131 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					"Height (dm)",
 					"Weight (hg)",
 					"Base Experience",
+				]);
+			}),
+		180_000,
+	);
+
+	it.live(
+		"searches PokeAPI moves with enum options and imports a real move",
+		() =>
+			Effect.gen(function* () {
+				const { client, pluginSlug } = yield* installFixture("pokeapi-move");
+
+				const schemas = yield* listEntitySchemas(client, { pluginSlug, slugs: ["move"] });
+				const schema = schemas[0];
+				assertPresent(schema, "Expected the fixture-owned 'move' entity schema");
+				expect(schema.id).toBe("move");
+				expect(schema.pluginSlug).toBe(pluginSlug);
+				const searchable = yield* executeRyotQLRecipe(
+					client,
+					providerSearchRecipe({ rootEntitySchemaSlug: schema.id }),
+				);
+				const provider = searchable.items.find((row) => row.providerSlug === MOVE_PROVIDER_SLUG);
+				assertPresent(provider, "Expected the fixture PokeAPI provider on the move schema");
+				expect(provider.providerName).toBe("PokeAPI");
+				expect(provider.rootEntitySchemaSlug).toBe(schema.id);
+
+				assertPresent(provider.searchOptionsSchema, "Expected a move search options schema");
+				const damageClass = provider.searchOptionsSchema.fields["damageClass"];
+				assertPresent(damageClass, "Expected a 'damageClass' search option");
+				assertCondition(damageClass.type === "enum", "Expected 'damageClass' to be an enum");
+				assertCondition(
+					damageClass.choices.kind === "static",
+					"Expected static 'damageClass' choices",
+				);
+				expect(damageClass.choices.values.map(({ value }) => value)).toEqual([
+					"physical",
+					"special",
+					"status",
+				]);
+				const generation = provider.searchOptionsSchema.fields["generation"];
+				assertPresent(generation, "Expected a 'generation' search option");
+				assertCondition(generation.type === "enum", "Expected 'generation' to be an enum");
+				expect(provider.searchOptionsSchema.fields["typeNames"]?.type).toBe("enum-array");
+
+				const filtered = yield* searchProviderEntities(client, {
+					page: 1,
+					pageSize: 5,
+					query: "thunderbolt",
+					providerId: provider.providerId,
+					options: { typeNames: ["electric"], damageClass: "special" },
+				});
+				expect(filtered.rootEntitySchemaSlug).toBe(schema.id);
+				const thunderbolt = filtered.items[0];
+				assertPresent(thunderbolt, "Expected 'thunderbolt' in the filtered move results");
+				expect(thunderbolt.title).toBe("Thunderbolt");
+				expect(thunderbolt.externalId).toBe("85");
+				expect(thunderbolt.imageUrl).toBeUndefined();
+				expect(thunderbolt.metadata).toEqual(["#85", "Electric, Special, Power 90"]);
+
+				const unioned = yield* searchProviderEntities(client, {
+					page: 1,
+					pageSize: 20,
+					query: "punch",
+					providerId: provider.providerId,
+					options: { typeNames: ["electric", "fire"] },
+				});
+				expect(unioned.items.map(({ title }) => title)).toEqual(["Fire Punch", "Thunder Punch"]);
+
+				const { jobId } = yield* enqueueProviderEntityImport(client, {
+					externalId: thunderbolt.externalId,
+					providerId: provider.providerId,
+				});
+				const imported = yield* pollProviderEntityImportResult(client, jobId);
+				assertCompleted(imported, "PokeAPI move import");
+				expect(imported.data.name).toBe("Thunderbolt");
+				expect(imported.data.entitySchemaSlug).toBe(schema.id);
+				expect(imported.data.properties).toEqual({
+					pp: 15,
+					power: 90,
+					priority: 0,
+					accuracy: 100,
+					type: "Electric",
+					damageClass: "Special",
+					generation: "Generation I",
+					target: "Selected Pokemon",
+					effect: "Has a chance to paralyze the target.",
+					sourceUrl: "https://pokeapi.co/api/v2/move/thunderbolt",
+				});
+
+				const status = yield* enqueueProviderEntityImport(client, {
+					externalId: "14",
+					providerId: provider.providerId,
+				});
+				const swordsDance = yield* pollProviderEntityImportResult(client, status.jobId);
+				assertCompleted(swordsDance, "PokeAPI status move import");
+				expect(swordsDance.data.name).toBe("Swords Dance");
+				expect(swordsDance.data.properties).toEqual({
+					pp: 20,
+					power: null,
+					priority: 0,
+					accuracy: null,
+					type: "Normal",
+					target: "User",
+					damageClass: "Status",
+					generation: "Generation I",
+					effect: "Raises the user’s Attack by two stages.",
+					sourceUrl: "https://pokeapi.co/api/v2/move/swords-dance",
+				});
+
+				const views = yield* listSavedViews(client, { pluginSlug });
+				const view = views.find(({ slug }) => slug === MOVE_SAVED_VIEW_SLUG);
+				assertPresent(view, "Expected the fixture-owned 'all-moves' saved view");
+				expect(view.name).toBe("All Moves");
+				expect(view.entitySchemaSlug).toBe(schema.id);
+				expect(view.layouts.grid.titleField).toBe("title");
+				expect(view.layouts.grid.imageField).toBeNull();
+				expect(view.layouts.table.imageField).toBeNull();
+				expect(view.layouts.table.columns.map(({ label }) => label)).toEqual([
+					"Name",
+					"Type",
+					"Damage Class",
+					"Power",
+					"Accuracy",
+					"PP",
+					"Priority",
+					"Generation",
 				]);
 			}),
 		180_000,
