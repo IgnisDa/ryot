@@ -4,7 +4,7 @@ import { Context, Effect, FileSystem, Layer, Path, Redacted, Stream } from "effe
 
 import { AppConfig } from "./config/service";
 
-export const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
+const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
 const localUploadPath = (intentId: string) => `/uploads/local/${intentId}`;
 const localDownloadPath = "/uploads/local/download";
 
@@ -104,8 +104,6 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 					badRequest("FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_TEMP_DIR must not overlap."),
 				).pipe(Effect.orDie);
 			}
-			const isConfigured = permanentConfigured || temporaryConfigured;
-
 			const requireConfigured = (kind: "permanent" | "temporary") =>
 				Effect.suspend(() =>
 					(kind === "permanent" ? permanentConfigured : temporaryConfigured)
@@ -414,7 +412,6 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			return {
 				statObject,
 				writeObject,
-				isConfigured,
 				deleteObject,
 				resolveObjectPath,
 				createUploadTarget,

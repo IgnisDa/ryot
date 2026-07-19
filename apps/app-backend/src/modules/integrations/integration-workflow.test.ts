@@ -109,7 +109,6 @@ const makeRedisLayer = () => {
 	return Layer.succeed(
 		RedisService,
 		makeRedisService({
-			claim: () => Effect.succeed(true),
 			get: (key) => Effect.succeed(store.get(key) ?? null),
 			set: (key, value) =>
 				Effect.sync(() => {
