@@ -27,6 +27,7 @@ import {
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { redactIntegrationForClient } from "./client-redaction";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
@@ -157,6 +158,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const engine = yield* WorkflowEngine;
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
+			const pluginRuntime = yield* PluginRuntimeResolver;
 			const providerCatalog = yield* IntegrationProviderCatalog;
 			const redactForClient = (integration: IntegrationRecord) =>
 				redactIntegrationForClient(providerCatalog.findOwned, integration);
@@ -366,6 +368,16 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						},
 					});
 				}
+				if (
+					!(yield* pluginRuntime.isSystemPluginAvailableToUser(
+						integration.userId,
+						integration.pluginSlug,
+					))
+				) {
+					return yield* new IntegrationNotFoundError({
+						reason: { code: "integration-not-found", integrationId },
+					});
+				}
 
 				const run = yield* importsService.createRunForIntegration({
 					userId: integration.userId,
@@ -430,6 +442,13 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				const isPro = yield* proKey.isValidated;
 
 				for (const integration of integrations) {
+					const isSystemPluginAvailableToUser = yield* pluginRuntime.isSystemPluginAvailableToUser(
+						integration.userId,
+						integration.pluginSlug,
+					);
+					if (!isSystemPluginAvailableToUser) {
+						continue;
+					}
 					const disableIntegrations = yield* repository.getUserDisableIntegrations({
 						userId: integration.userId,
 					});

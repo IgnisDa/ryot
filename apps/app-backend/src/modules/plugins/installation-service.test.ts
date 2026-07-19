@@ -79,6 +79,7 @@ const makeLayer = (input?: {
 	readonly hasIntegrationReferences?: boolean;
 	readonly privatePlugins?: Array<StoredPlugin>;
 	readonly created?: Array<Record<string, unknown>>;
+	readonly updated?: Array<Record<string, unknown>>;
 	readonly systemPlugins?: Array<PluginRegistryEntry>;
 	readonly installations?: Array<PluginInstallationState>;
 }) => {
@@ -103,6 +104,12 @@ const makeLayer = (input?: {
 			Effect.sync(() => {
 				input?.created?.push(values);
 				return installationRow({ ...values, pluginId: values.pluginId });
+			}),
+		updateState: (values) =>
+			Effect.sync(() => {
+				input?.updated?.push(values);
+				const current = (input?.installations ?? []).find((row) => row.id === values.id);
+				return current ? { ...current, ...values } : undefined;
 			}),
 	});
 	const workflowReferenceLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -228,6 +235,51 @@ const configuredManifest = privateManifest({
 	},
 });
 
+const nestedConfiguredManifest = privateManifest({
+	configSchema: {
+		unknownKeys: "strict",
+		fields: {
+			credentials: {
+				type: "object",
+				label: "Credentials",
+				description: "Credentials",
+				defaultValue: { username: "default-user", password: "default-password" },
+				properties: {
+					username: { type: "string", label: "Username", description: "Username" },
+					password: {
+						secret: true,
+						type: "string",
+						label: "Password",
+						description: "Password",
+						defaultValue: "schema-password",
+					},
+				},
+			},
+			accounts: {
+				type: "array",
+				label: "Accounts",
+				description: "Accounts",
+				defaultValue: [{ name: "default", token: "default-token" }],
+				items: {
+					type: "object",
+					label: "Account",
+					description: "Account",
+					properties: {
+						name: { type: "string", label: "Name", description: "Name" },
+						token: {
+							secret: true,
+							type: "string",
+							label: "Token",
+							description: "Token",
+							defaultValue: "schema-token",
+						},
+					},
+				},
+			},
+		},
+	},
+});
+
 it.effect("applies config defaults and persists validated config", () => {
 	const created: Array<Record<string, unknown>> = [];
 	return Effect.gen(function* () {
@@ -305,6 +357,182 @@ it.effect("lists system and private installations without secret values", () => 
 						isDisabled: true,
 						pluginId: privatePlugin.id,
 						config: { region: "us", token: "stored-secret" },
+					}),
+				],
+			}),
+		),
+	);
+});
+
+it.effect("patches config while preserving omitted secrets and returning a safe response", () => {
+	const updated: Array<Record<string, unknown>> = [];
+	const privatePlugin = storedPrivatePlugin(configuredManifest);
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const result = yield* service.updateInstallation(userId, privatePlugin.slug, {
+			sortOrder: 7,
+			config: { region: "ca" },
+		});
+
+		expect(updated[0]).toMatchObject({
+			sortOrder: 7,
+			config: { region: "ca", token: "stored-secret" },
+		});
+		expect(result).toMatchObject({
+			sortOrder: 7,
+			config: { region: "ca" },
+			configuredSecrets: ["token"],
+		});
+		expect(result.config).not.toHaveProperty("token");
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				updated,
+				privatePlugins: [privatePlugin],
+				installations: [
+					installationRow({
+						pluginId: privatePlugin.id,
+						config: { region: "us", token: "stored-secret" },
+					}),
+				],
+			}),
+		),
+	);
+});
+
+it.effect(
+	"recursively redacts config values and secret defaults from list and patch output",
+	() => {
+		const privatePlugin = storedPrivatePlugin(nestedConfiguredManifest);
+		const installations = [
+			installationRow({
+				pluginId: privatePlugin.id,
+				config: {
+					credentials: { username: "alice", password: "stored-password" },
+					accounts: [
+						{ name: "first", token: "stored-first" },
+						{ name: "second", token: "stored-second" },
+					],
+				},
+			}),
+		];
+		return Effect.gen(function* () {
+			const service = yield* PluginInstallationService;
+			const listed = (yield* service.listInstallations(userId))[0];
+			const patched = yield* service.updateInstallation(userId, privatePlugin.slug, {
+				config: { credentials: { username: "bob", password: "replacement" } },
+			});
+
+			for (const item of [listed, patched]) {
+				expect(item?.configuredSecrets).toEqual(["accounts[].token", "credentials.password"]);
+				expect(item?.config).toEqual({
+					accounts: [{ name: "first" }, { name: "second" }],
+					credentials: { username: item === listed ? "alice" : "bob" },
+				});
+				const credentials = item?.configSchema.fields["credentials"];
+				const accounts = item?.configSchema.fields["accounts"];
+				expect(credentials?.defaultValue).toEqual({ username: "default-user" });
+				expect(
+					credentials?.type === "object" && credentials.properties["password"],
+				).not.toHaveProperty("defaultValue");
+				expect(accounts?.defaultValue).toEqual([{ name: "default" }]);
+				expect(
+					accounts?.type === "array" &&
+						accounts.items.type === "object" &&
+						accounts.items.properties["token"],
+				).not.toHaveProperty("defaultValue");
+			}
+		}).pipe(Effect.provide(makeLayer({ privatePlugins: [privatePlugin], installations })));
+	},
+);
+
+it.effect("applies defaults after explicit unsets and rejects removing required config", () => {
+	const updated: Array<Record<string, unknown>> = [];
+	const privatePlugin = storedPrivatePlugin(configuredManifest);
+	const installations = [
+		installationRow({
+			pluginId: privatePlugin.id,
+			config: { region: "us", token: "stored-secret" },
+		}),
+	];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const reset = yield* service.updateInstallation(userId, privatePlugin.slug, {
+			unsetConfigKeys: ["region"],
+		});
+		expect(updated[0]).toMatchObject({ config: { region: "eu", token: "stored-secret" } });
+		expect(reset.config).toEqual({ region: "eu" });
+
+		const failure = failureOf(
+			yield* Effect.exit(
+				service.updateInstallation(userId, privatePlugin.slug, { unsetConfigKeys: ["token"] }),
+			),
+		);
+		expect(failure).toMatchObject({
+			_tag: "PluginRequestError",
+			reason: { code: "validation-failed" },
+		});
+		expect(updated).toHaveLength(1);
+	}).pipe(Effect.provide(makeLayer({ updated, installations, privatePlugins: [privatePlugin] })));
+});
+
+it.effect("allows system controls but rejects system config changes", () => {
+	const updated: Array<Record<string, unknown>> = [];
+	const systemPlugin = systemEntry(
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "media" } }),
+	);
+	const installations = [
+		installationRow({ pluginId: systemPlugin.id, pluginScope: "system", pluginSlug: "media" }),
+	];
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		const service = yield* PluginInstallationService;
+		loader.load(systemPlugin);
+
+		expect(
+			yield* service.updateInstallation(userId, "media", { isDisabled: true, sortOrder: 4 }),
+		).toMatchObject({ scope: "system", isDisabled: true, sortOrder: 4, config: {} });
+		expect(
+			failureOf(yield* Effect.exit(service.updateInstallation(userId, "media", { config: {} }))),
+		).toMatchObject({
+			_tag: "PluginConflictError",
+			reason: { code: "system-plugin", pluginSlug: "media" },
+		});
+	}).pipe(Effect.provide(makeLayer({ updated, installations })));
+});
+
+it.effect("hides foreign installations and rejects enabling an unready installation", () => {
+	const privatePlugin = storedPrivatePlugin(configuredManifest);
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		expect(
+			failureOf(
+				yield* Effect.exit(service.updateInstallation(userId, "foreign", { sortOrder: 1 })),
+			),
+		).toMatchObject({
+			_tag: "PluginNotFoundError",
+			reason: { code: "plugin-not-found", pluginSlug: "foreign" },
+		});
+		expect(
+			failureOf(
+				yield* Effect.exit(
+					service.updateInstallation(userId, privatePlugin.slug, { isDisabled: false }),
+				),
+			),
+		).toMatchObject({
+			_tag: "PluginConflictError",
+			reason: { code: "installation-not-ready", health: "needs-configuration" },
+		});
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				privatePlugins: [privatePlugin],
+				installations: [
+					installationRow({
+						isDisabled: true,
+						pluginId: privatePlugin.id,
+						health: "needs-configuration",
+						config: { region: "eu", token: "stored-secret" },
 					}),
 				],
 			}),

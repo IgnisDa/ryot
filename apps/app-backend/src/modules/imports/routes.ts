@@ -10,8 +10,9 @@ export const ImportsRoutesLive = HttpApiBuilder.group(AppContract, "imports", (h
 	handlers
 		.handle("listSources", () =>
 			Effect.gen(function* () {
+				const user = yield* CurrentUser;
 				const service = yield* ImportsService;
-				return yield* service.listImportSources().pipe(dieOnDbError);
+				return yield* service.listImportSources(user).pipe(dieOnDbError);
 			}),
 		)
 		.handle("createRun", ({ payload }) =>

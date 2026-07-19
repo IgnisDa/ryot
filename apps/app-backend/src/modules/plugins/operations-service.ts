@@ -135,6 +135,11 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 					input.headers,
 					operation,
 				);
+				if (!(yield* runtime.isSystemPluginAvailableToUser(scope.userId, input.pluginSlug))) {
+					return yield* new PluginNotFoundError({
+						reason: { code: "operation-not-found", ...operation },
+					});
+				}
 				const script = yield* resolved.script;
 				if (!script) {
 					return yield* new PluginInvocationError({

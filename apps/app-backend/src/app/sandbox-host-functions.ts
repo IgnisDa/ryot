@@ -416,8 +416,10 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							}).pipe(
 								Effect.flatMap((schemas) =>
 									Effect.gen(function* () {
-										const links =
-											yield* pluginRuntime.listSchemaProviders(resolvedEntitySchemaSlugs);
+										const links = yield* pluginRuntime.listSchemaProviders(
+											resolvedEntitySchemaSlugs,
+											"userId" in rawInput.authority ? rawInput.authority.userId : undefined,
+										);
 										const providersBySchema = new Map<
 											string,
 											Array<{ name: string; providerId: string }>
