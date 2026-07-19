@@ -1,0 +1,37 @@
+Ryot has been deployed.
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Image: {{ include "ryot.image" . }}
+
+Database:
+{{- if .Values.postgres.enabled }}
+  Bundled PostgreSQL (StatefulSet {{ include "ryot.postgres.fullname" . }}).
+  DATABASE_URL is wired automatically.
+{{- else if .Values.externalDatabase.existingSecret }}
+  External database from secret "{{ .Values.externalDatabase.existingSecret }}" (key "{{ .Values.externalDatabase.existingSecretKey }}").
+{{- else }}
+  External database from the chart-managed secret "{{ include "ryot.secretName" . }}" (key "database-url").
+{{- end }}
+
+Access the application:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+  Ingress is disabled. Port-forward to reach Ryot locally:
+
+    kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "ryot.fullname" . }} 8000:{{ .Values.service.port }}
+
+  Then open http://127.0.0.1:8000
+{{- end }}
+
+{{- if not .Values.config.frontendUrl }}
+
+WARNING: config.frontendUrl is not set. Set it to the public URL of your
+instance so share links and integrations work correctly.
+{{- end }}
+
+Create your first user via the web registration page. The first registered
+user has admin privileges.

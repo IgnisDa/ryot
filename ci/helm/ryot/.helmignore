@@ -1,0 +1,13 @@
+# Patterns to ignore when building Helm packages.
+.DS_Store
+.git/
+.gitignore
+*.tmproj
+*.bak
+*.swp
+*.orig
+.vscode/
+.idea/
+# helm-unittest sources - not needed in the packaged chart (root-anchored so
+# templates/tests/ runtime hooks are NOT excluded)
+/tests/
