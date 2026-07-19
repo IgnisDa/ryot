@@ -40,6 +40,7 @@ const normalizedPlugin = (
 			entityAutomations: [],
 			signalAutomations: [],
 			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
 		},
 		crons: [
 			{

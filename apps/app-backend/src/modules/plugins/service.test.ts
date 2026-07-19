@@ -68,6 +68,7 @@ const definitionOwnerManifest = (): PluginManifest => {
 			entityAutomations: [],
 			signalAutomations: [],
 			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
 		},
 	};
 };
@@ -84,10 +85,11 @@ const dependentManifest = (entitySchemaSlug: string): PluginManifest => {
 			eventAutomations: [],
 			signalAutomations: [],
 			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
 			entityAutomations: [
 				{
-					operation: "create",
 					entitySchemaSlug,
+					operation: "create",
 					scriptSlug: fixture.scripts[0]?.slug ?? "fixture.automation",
 				},
 			],
@@ -112,6 +114,7 @@ const formatterOwnerManifest = (): PluginManifest => {
 			entityAutomations: [],
 			signalAutomations: [],
 			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
 		},
 	};
 };
@@ -143,6 +146,7 @@ const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginMa
 			entityAutomations: [],
 			signalAutomations: [],
 			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
 		},
 	};
 };

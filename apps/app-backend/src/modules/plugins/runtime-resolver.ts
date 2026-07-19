@@ -63,6 +63,19 @@ export class UnsupportedProviderOperationError extends Data.TaggedError(
 	readonly reason: "inactive_provider" | "unsupported_operation" | "script_unavailable";
 }> {}
 
+export class InvalidProviderEntityImportAutomationError extends Data.TaggedError(
+	"InvalidProviderEntityImportAutomationError",
+)<{
+	readonly pluginSlug: string;
+	readonly scriptSlug: string;
+	readonly reason: "missing_script" | "wrong_script_kind" | "inactive_script";
+}> {}
+
+export type ResolvedProviderEntityImportAutomation = {
+	readonly ruleId: AutomationRuleId;
+	readonly sandboxScriptId: SandboxScriptId;
+};
+
 const bindingId = (binding: BindingAutomation) =>
 	AutomationRuleId.make(
 		[
@@ -73,6 +86,23 @@ const bindingId = (binding: BindingAutomation) =>
 			binding.target.id,
 			binding.operation,
 			binding.scriptSlug,
+		].join(":"),
+	);
+
+const providerEntityImportBindingId = (input: {
+	index: number;
+	pluginSlug: string;
+	scriptSlug: string;
+	entitySchemaSlug: string;
+}) =>
+	AutomationRuleId.make(
+		[
+			"binding",
+			input.pluginSlug,
+			"provider_entity_import",
+			input.entitySchemaSlug,
+			input.scriptSlug,
+			input.index,
 		].join(":"),
 	);
 
@@ -708,6 +738,59 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				return yield* forEachBindings;
 			});
 
+			const listProviderEntityImportAutomations = Effect.fn(
+				"PluginRuntimeResolver.listProviderEntityImportAutomations",
+			)(function* (entitySchemaSlug: EntitySchemaSlug) {
+				const snapshot = loader.getSnapshot();
+				const resolved: ResolvedProviderEntityImportAutomation[] = [];
+				for (const [pluginSlug, plugin] of Object.entries(snapshot.plugins)) {
+					for (const [
+						index,
+						binding,
+					] of plugin.manifest.bindings.providerEntityImportAutomations.entries()) {
+						if (binding.entitySchemaSlug !== entitySchemaSlug) {
+							continue;
+						}
+						const declared = plugin.scripts.find(({ slug }) => slug === binding.scriptSlug);
+						if (!declared) {
+							return yield* new InvalidProviderEntityImportAutomationError({
+								pluginSlug,
+								reason: "missing_script",
+								scriptSlug: binding.scriptSlug,
+							});
+						}
+						if (declared.metadata.kind !== "automation") {
+							return yield* new InvalidProviderEntityImportAutomationError({
+								pluginSlug,
+								reason: "wrong_script_kind",
+								scriptSlug: binding.scriptSlug,
+							});
+						}
+						const script = yield* findActiveScriptInPluginSnapshot(snapshot, {
+							pluginSlug,
+							scriptSlug: binding.scriptSlug,
+						});
+						if (!script) {
+							return yield* new InvalidProviderEntityImportAutomationError({
+								pluginSlug,
+								reason: "inactive_script",
+								scriptSlug: binding.scriptSlug,
+							});
+						}
+						resolved.push({
+							sandboxScriptId: script.id,
+							ruleId: providerEntityImportBindingId({
+								index,
+								pluginSlug,
+								entitySchemaSlug,
+								scriptSlug: binding.scriptSlug,
+							}),
+						});
+					}
+				}
+				return resolved;
+			});
+
 			const findAutomation = Effect.fn("PluginRuntimeResolver.findAutomation")(function* (
 				id: AutomationRuleId,
 			) {
@@ -742,6 +825,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findActivePluginConfigByScriptId,
 				resolveActivePluginUserBootstrap,
 				resolveTrustedUserBootstrapCaller,
+				listProviderEntityImportAutomations,
 			};
 		}),
 	},
