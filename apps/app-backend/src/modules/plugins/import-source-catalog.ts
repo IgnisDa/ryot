@@ -1,5 +1,5 @@
 import type { PluginConfigSchema, PluginImportSource } from "@ryot/plugin-kit/manifest";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { PluginLoader, type PluginRegistrySnapshot } from "./loader";
 import { findActiveWorkflowScriptInSnapshot } from "./runtime-resolver";
@@ -23,10 +23,10 @@ const fromSnapshot = (snapshot: PluginRegistrySnapshot): ReadonlyArray<Registere
 				left.pluginSlug.localeCompare(right.pluginSlug) || left.slug.localeCompare(right.slug),
 		);
 
-export class ImportSourceCatalog extends Effect.Service<ImportSourceCatalog>()(
+export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
 	"ImportSourceCatalog",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const loader = yield* PluginLoader;
 
 			const list = () => fromSnapshot(loader.getSnapshot());
@@ -48,4 +48,6 @@ export class ImportSourceCatalog extends Effect.Service<ImportSourceCatalog>()(
 			return { list, resolve };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

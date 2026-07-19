@@ -1,6 +1,6 @@
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type { PluginIntegrationProvider } from "@ryot/plugin-kit/manifest";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { PluginLoader, PluginLoaderLive, type PluginRegistrySnapshot } from "./loader";
 import { findActiveScriptInPluginSnapshot } from "./runtime-resolver";
@@ -35,10 +35,10 @@ const fromSnapshot = (
 				left.pluginSlug.localeCompare(right.pluginSlug) || left.slug.localeCompare(right.slug),
 		);
 
-export class IntegrationProviderCatalog extends Effect.Service<IntegrationProviderCatalog>()(
+export class IntegrationProviderCatalog extends Context.Service<IntegrationProviderCatalog>()(
 	"IntegrationProviderCatalog",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const loader = yield* PluginLoader;
 
 			const list = () => fromSnapshot(loader.getSnapshot());
@@ -70,8 +70,10 @@ export class IntegrationProviderCatalog extends Effect.Service<IntegrationProvid
 			return { find, list, findOwned, resolveOwned };
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
 
-export const IntegrationProviderCatalogLive = IntegrationProviderCatalog.Default.pipe(
+export const IntegrationProviderCatalogLive = IntegrationProviderCatalog.layer.pipe(
 	Layer.provideMerge(PluginLoaderLive),
 );

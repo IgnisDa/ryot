@@ -37,7 +37,7 @@ const makeLayer = (input: {
 			}),
 		}),
 	};
-	return PluginRepository.Default.pipe(
+	return PluginRepository.layer.pipe(
 		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
 	);
 };
@@ -66,7 +66,7 @@ const makeScriptCleanupLayer = (input: {
 			}),
 		}),
 	};
-	return PluginRepository.Default.pipe(
+	return PluginRepository.layer.pipe(
 		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
 	);
 };
@@ -170,7 +170,7 @@ it.effect(
 				};
 			}),
 		};
-		const layer = PluginRepository.Default.pipe(
+		const layer = PluginRepository.layer.pipe(
 			Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
 		);
 		return Effect.gen(function* () {
@@ -246,7 +246,7 @@ it.effect("lists persisted source-zero and pinned-plugin script hashes as live",
 			}),
 		}),
 	};
-	const layer = PluginRepository.Default.pipe(
+	const layer = PluginRepository.layer.pipe(
 		Layer.provideMerge(Layer.succeed(CurrentDb, Object.assign(Object.create(null), db))),
 	);
 

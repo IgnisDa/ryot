@@ -1,9 +1,8 @@
-import { FileSystem } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot/contract/errors";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import { Effect, Layer, Ref } from "effect";
+import { Effect, Layer, Ref, FileSystem } from "effect";
 import { assert } from "vitest";
 
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
@@ -26,10 +25,10 @@ const withCollector = <A, E, R>(
 		readonly pluginHashes?: ReadonlyArray<string>;
 		readonly pinnedHashes?: ReadonlyArray<string>;
 		readonly repositoryHashes?: ReadonlyArray<string>;
-		readonly repositoryList?: PluginRepository["list"];
+		readonly repositoryList?: PluginRepository["Service"]["list"];
 		readonly persistedLivenessHashes?: ReadonlyArray<string>;
-		readonly lockIngestion?: PluginRepository["lockIngestion"];
-		readonly deleteScripts?: PluginRepository["deleteUnreferencedScripts"];
+		readonly lockIngestion?: PluginRepository["Service"]["lockIngestion"];
+		readonly deleteScripts?: PluginRepository["Service"]["deleteUnreferencedScripts"];
 	},
 ) => {
 	const loader = makePluginLoader(makeDefinitionRegistry());
@@ -56,11 +55,9 @@ const withCollector = <A, E, R>(
 	const loadedPlugin = loader.getSnapshot().plugins["fixture"];
 	assert(loadedPlugin);
 	const loaderLayer = Layer.succeed(PluginLoader, {
-		_tag: "PluginLoader",
 		...loader,
 	});
 	const repositoryLayer = Layer.mock(PluginRepository)({
-		_tag: "PluginRepository",
 		lockIngestion: input.lockIngestion ?? (() => Effect.void),
 		hasIntegrationReferences: () => Effect.succeed(false),
 		deleteUnreferencedScripts: input.deleteScripts ?? (() => Effect.succeed([])),
@@ -86,7 +83,6 @@ const withCollector = <A, E, R>(
 				)),
 	});
 	const referencesLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
-		_tag: "SandboxWorkflowReferenceRepository",
 		listReferences: () =>
 			Effect.succeed(
 				(input.pinnedHashes ?? []).map((contentHash, index) => ({
@@ -98,13 +94,12 @@ const withCollector = <A, E, R>(
 			),
 	});
 	const runtimeLayer = Layer.succeed(PackageCacheManager, {
-		_tag: "PackageCacheManager",
 		directory: input.moduleDirectory,
 		moduleDirectory: input.moduleDirectory,
 		cacheDirectory: `${input.moduleDirectory}/cache`,
 		importMapPath: `${input.moduleDirectory}/import-map.json`,
 	});
-	const collectorLayer = ScriptGarbageCollector.Default.pipe(
+	const collectorLayer = ScriptGarbageCollector.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(loaderLayer, runtimeLayer, repositoryLayer, transactionLayer, referencesLayer),
 		),
@@ -138,7 +133,7 @@ it.effect(
 				const deleted = yield* Ref.make(false);
 				const deleteScripts = (liveHashes: ReadonlySet<string>) =>
 					Ref.update(observedLiveHashes, (values) => [...values, liveHashes]).pipe(
-						Effect.zipRight(Ref.getAndSet(deleted, true)),
+						Effect.andThen(Ref.getAndSet(deleted, true)),
 						Effect.map((alreadyDeleted) =>
 							alreadyDeleted ? [] : [{ id: "old-script", contentHash: oldHash }],
 						),
@@ -180,7 +175,7 @@ it.effect(
 					].sort(),
 				);
 			}),
-		).pipe(Effect.provide(BunContext.layer)),
+		).pipe(Effect.provide(BunServices.layer)),
 );
 
 it.effect("surfaces repository deletion failures", () =>
@@ -205,7 +200,7 @@ it.effect("surfaces repository deletion failures", () =>
 			expect(String(exit)).toContain("script cleanup failed");
 			expect(yield* fs.exists(`${moduleDirectory}/${oldHash}.mjs`)).toBe(false);
 		}),
-	).pipe(Effect.provide(BunContext.layer)),
+	).pipe(Effect.provide(BunServices.layer)),
 );
 
 it.effect("does not delete rows when the module sweep fails", () =>
@@ -234,7 +229,7 @@ it.effect("does not delete rows when the module sweep fails", () =>
 			expect(exit._tag).toBe("Failure");
 			expect(yield* Ref.get(deleteCount)).toBe(0);
 		}),
-	).pipe(Effect.provide(BunContext.layer)),
+	).pipe(Effect.provide(BunServices.layer)),
 );
 
 it.effect("retains every historical script for a plugin with a nonterminal workflow", () =>
@@ -266,7 +261,7 @@ it.effect("retains every historical script for a plugin with a nonterminal workf
 			expect(yield* fs.exists(`${moduleDirectory}/${targetHash}.mjs`)).toBe(true);
 			expect(yield* fs.exists(`${moduleDirectory}/${obsoleteHash}.mjs`)).toBe(false);
 		}),
-	).pipe(Effect.provide(BunContext.layer)),
+	).pipe(Effect.provide(BunServices.layer)),
 );
 
 it.effect("retains persisted source-zero hashes absent from the local kernel set", () =>
@@ -292,5 +287,5 @@ it.effect("retains persisted source-zero hashes absent from the local kernel set
 			expect(yield* fs.exists(`${moduleDirectory}/${localHash}.mjs`)).toBe(true);
 			expect(yield* fs.exists(`${moduleDirectory}/${persistedHash}.mjs`)).toBe(true);
 		}),
-	).pipe(Effect.provide(BunContext.layer)),
+	).pipe(Effect.provide(BunServices.layer)),
 );
