@@ -7,7 +7,6 @@ import { AppIcon } from "@/modules/icons";
 export type SavedViewSearch = {
 	readonly value: string;
 	readonly query: string;
-	readonly resultLabel: string;
 	readonly onClear: () => void;
 	readonly isSearching: boolean;
 	readonly onSubmit: () => void;
@@ -18,7 +17,6 @@ export function SavedViewSearchField(props: {
 	readonly name: string;
 	readonly disabled?: boolean;
 	readonly className?: string;
-	readonly autoFocus?: boolean;
 	readonly showShortcut?: boolean;
 	readonly search: SavedViewSearch;
 	readonly inputRef?: RefObject<TextInput | null>;
@@ -36,7 +34,6 @@ export function SavedViewSearchField(props: {
 				returnKeyType="go"
 				ref={props.inputRef}
 				editable={!props.disabled}
-				autoFocus={props.autoFocus}
 				value={props.search.value}
 				onChangeText={props.search.onChange}
 				placeholder={`Search ${props.name}`}
