@@ -23,6 +23,7 @@ import {
 	type SavedViewOperationToken,
 	type SavedViewRequestFailure,
 	withSavedViewCursor,
+	withSavedViewSearch,
 } from "./controller";
 import type { collectManagedAssets } from "./display-data";
 import { useSavedViewLayout } from "./saved-view-layout-selector";
@@ -61,11 +62,17 @@ export const useSavedViewRecord = (slug: string) => {
 	return { state, refresh: useAtomRefresh(atom) };
 };
 
-export const useSavedViewResult = (record: SavedViewRecord) => {
+export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") => {
 	const scope = useApiScope();
 	const revalidationVersion = useAtomValue(appRevalidationSignal);
 	const [layout] = useSavedViewLayout(record.slug);
-	const identity = scopedRequestKey(scope, record.id, record.updatedAt);
+	const normalizedSearchQuery = searchQuery.trim();
+	const identity = scopedRequestKey(scope, record.id, record.updatedAt, normalizedSearchQuery);
+	const queryDocument = withSavedViewSearch(
+		record.layouts[layout].queryDocument,
+		record.layouts[layout],
+		normalizedSearchQuery,
+	);
 	const [controller, dispatch] = useReducer(savedViewControllerReducer, undefined, () =>
 		createSavedViewControllerState(identity, layout),
 	);
@@ -131,9 +138,9 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 			fetchSavedViewPages({
 				...input,
 				decode: (response) => decodeSavedViewResponse(response, record, input.layout),
-				execute: (queryDocument) =>
+				execute: (requestDocument) =>
 					appClient(scope).request.pipe(
-						Effect.flatMap((client) => client.ryotql.execute({ payload: queryDocument })),
+						Effect.flatMap((client) => client.ryotql.execute({ payload: requestDocument })),
 						retryQueryResponse,
 					),
 			}).pipe(
@@ -171,12 +178,7 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 			!active.failure &&
 			!active.operation
 		) {
-			void executePages({
-				layout,
-				phase: "initial",
-				pagesToLoad: 1,
-				queryDocument: record.layouts[layout].queryDocument,
-			});
+			void executePages({ layout, queryDocument, pagesToLoad: 1, phase: "initial" });
 		}
 	});
 	useEffect(() => {
@@ -194,10 +196,14 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 			return;
 		}
 		void executePages({
-			layout: targetLayout,
 			phase: "refresh",
+			layout: targetLayout,
 			pagesToLoad: target.data.pages.length,
-			queryDocument: record.layouts[targetLayout].queryDocument,
+			queryDocument: withSavedViewSearch(
+				record.layouts[targetLayout].queryDocument,
+				record.layouts[targetLayout],
+				normalizedSearchQuery,
+			),
 		});
 	});
 	useEffect(() => {
@@ -229,12 +235,7 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 			dispatch({ type: "refresh-requested" });
 			return;
 		}
-		void executePages({
-			layout,
-			phase: "initial",
-			pagesToLoad: 1,
-			queryDocument: record.layouts[layout].queryDocument,
-		});
+		void executePages({ layout, queryDocument, pagesToLoad: 1, phase: "initial" });
 	};
 	const loadMore = () => {
 		const current = controllerRef.current;
@@ -252,14 +253,27 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 		}
 		void executePages({
 			layout,
-			phase: "load-more",
 			pagesToLoad: 1,
+			phase: "load-more",
 			initialData: active.data,
-			queryDocument: withSavedViewCursor(record.layouts[layout].queryDocument, cursor),
+			queryDocument: withSavedViewCursor(queryDocument, cursor),
 		});
 	};
 
-	return { state, refresh, loadMore, isLoadingMore };
+	const previousReady = useRef<SavedViewReadyState | undefined>(undefined);
+	if (state.status === "ready") {
+		previousReady.current = state;
+	}
+	const retainedState =
+		previousReady.current?.layout === layout ? previousReady.current : undefined;
+	const visibleState = state.status === "loading" && retainedState ? retainedState : state;
+	return {
+		refresh,
+		loadMore,
+		isLoadingMore,
+		state: visibleState,
+		isSearching: state.status === "loading" && retainedState !== undefined,
+	};
 };
 
 export function SavedViewRuntime(props: {

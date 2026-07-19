@@ -41,6 +41,7 @@ import {
 	type ProviderSearchState,
 } from "./search-controller";
 import { mapProviderEntityLinks, mapProviderSummaries, providerAddError } from "./state";
+import { selectPreferredProvider } from "./use-preferred-provider";
 
 const SEARCH_DEBOUNCE_MS = 350;
 
@@ -177,6 +178,7 @@ function ProviderSearchResults(props: {
 
 export function ProviderSearchPanel(props: {
 	readonly onClose: () => void;
+	readonly initialQuery?: string;
 	readonly onImported: () => void;
 	readonly entitySchemaSlug: EntitySchemaSlug;
 }) {
@@ -194,15 +196,18 @@ export function ProviderSearchPanel(props: {
 	const remembered = useAtomValue(rememberedProviderAtom(providerScope));
 	const setRemembered = useAtomSet(rememberedProviderAtom(providerScope));
 	const available = providers.status === "ready" ? providers.providers : [];
-	const selected =
-		available.find((provider) => provider.providerId === remembered) ?? available.at(0);
+	const selected = selectPreferredProvider(available, remembered);
 
 	const [options, setOptions] = useState<ProviderOptionsState>(() =>
 		createProviderOptionsState(selected),
 	);
 	const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
 	const [importState, setImportState] = useState(createProviderEntityImportState);
-	const [state, dispatch] = useReducer(providerSearchReducer, undefined, createProviderSearchState);
+	const [state, dispatch] = useReducer(
+		providerSearchReducer,
+		props.initialQuery,
+		createProviderSearchState,
+	);
 	const lastRunToken = useRef<number | undefined>(undefined);
 	const optionsRequestId = useRef(0);
 
@@ -434,69 +439,75 @@ export function ProviderSearchPanel(props: {
 				Match.exhaustive,
 			)}
 
-			{selected === undefined || selected.searchOptionsSchema === null ? null : (
+			{selected === undefined ? null : (
 				<View className="gap-3">
-					<Pressable
-						accessibilityRole="button"
-						accessibilityLabel="Advanced options"
-						accessibilityState={{ expanded: advancedOptionsOpen }}
-						onPress={() => setAdvancedOptionsOpen((current) => !current)}
-						className="flex-row items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5"
-					>
-						<View className="flex-row items-center gap-2">
-							<AppIcon name="sliders-horizontal" size={15} className="text-text-muted" />
-							<Text className="font-ui-medium text-sm text-text">Advanced options</Text>
-							{activeOptionCount > 0 ? (
-								<Text className="font-ui text-xs text-text-muted">({activeOptionCount})</Text>
-							) : null}
-						</View>
-						<AppIcon
-							size={16}
-							className="text-text-muted"
-							name={advancedOptionsOpen ? "chevron-up" : "chevron-down"}
-						/>
-					</Pressable>
+					{selected.searchOptionsSchema === null ? null : (
+						<>
+							<Pressable
+								accessibilityRole="button"
+								accessibilityLabel="Advanced options"
+								accessibilityState={{ expanded: advancedOptionsOpen }}
+								onPress={() => setAdvancedOptionsOpen((current) => !current)}
+								className="flex-row items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5"
+							>
+								<View className="flex-row items-center gap-2">
+									<AppIcon name="sliders-horizontal" size={15} className="text-text-muted" />
+									<Text className="font-ui-medium text-sm text-text">Advanced options</Text>
+									{activeOptionCount > 0 ? (
+										<Text className="font-ui text-xs text-text-muted">({activeOptionCount})</Text>
+									) : null}
+								</View>
+								<AppIcon
+									size={16}
+									className="text-text-muted"
+									name={advancedOptionsOpen ? "chevron-up" : "chevron-down"}
+								/>
+							</Pressable>
 
-					{advancedOptionsOpen &&
-						(options.providerId !== selected.providerId ? (
-							<View className="items-center py-2">
-								<ActivityIndicator size="small" accessibilityLabel="Loading filters" />
-							</View>
-						) : (
-							Match.value(options).pipe(
-								Match.when({ status: "none" }, () => null),
-								Match.when({ status: "loading" }, () => (
+							{advancedOptionsOpen &&
+								(options.providerId !== selected.providerId ? (
 									<View className="items-center py-2">
 										<ActivityIndicator size="small" accessibilityLabel="Loading filters" />
 									</View>
-								)),
-								Match.when({ status: "failed" }, () => (
-									<View className="gap-2 rounded-lg bg-surface-2 p-3">
-										<Text className="font-ui text-sm text-text-muted">Could not load filters.</Text>
-										<Pressable
-											accessibilityRole="button"
-											onPress={retryProviderOptions}
-											accessibilityLabel="Retry loading filters"
-											className="self-start rounded-lg border border-border-strong px-3 py-2"
-										>
-											<Text className="font-ui-medium text-sm text-text">Retry</Text>
-										</Pressable>
-									</View>
-								)),
-								Match.when({ status: "ready" }, (ready) => (
-									<ProviderSearchOptionsForm
-										errors={ready.errors}
-										values={ready.values}
-										schema={ready.schema}
-										onChange={(key, value) => {
-											setOptions((current) => updateProviderOption(current, key, value));
-											dispatch({ type: "options-changed" });
-										}}
-									/>
-								)),
-								Match.exhaustive,
-							)
-						))}
+								) : (
+									Match.value(options).pipe(
+										Match.when({ status: "none" }, () => null),
+										Match.when({ status: "loading" }, () => (
+											<View className="items-center py-2">
+												<ActivityIndicator size="small" accessibilityLabel="Loading filters" />
+											</View>
+										)),
+										Match.when({ status: "failed" }, () => (
+											<View className="gap-2 rounded-lg bg-surface-2 p-3">
+												<Text className="font-ui text-sm text-text-muted">
+													Could not load filters.
+												</Text>
+												<Pressable
+													accessibilityRole="button"
+													onPress={retryProviderOptions}
+													accessibilityLabel="Retry loading filters"
+													className="self-start rounded-lg border border-border-strong px-3 py-2"
+												>
+													<Text className="font-ui-medium text-sm text-text">Retry</Text>
+												</Pressable>
+											</View>
+										)),
+										Match.when({ status: "ready" }, (ready) => (
+											<ProviderSearchOptionsForm
+												errors={ready.errors}
+												values={ready.values}
+												schema={ready.schema}
+												onChange={(key, value) => {
+													setOptions((current) => updateProviderOption(current, key, value));
+													dispatch({ type: "options-changed" });
+												}}
+											/>
+										)),
+										Match.exhaustive,
+									)
+								))}
+						</>
+					)}
 
 					{Match.value(state.status).pipe(
 						Match.when("idle", () => null),
