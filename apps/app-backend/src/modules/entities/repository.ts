@@ -237,6 +237,30 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return row ? toListedEntity(row) : null;
 			});
 
+			const getByIdsForUser = Effect.fn("EntitiesRepository.getByIdsForUser")(function* (input: {
+				userId: UserId;
+				entityIds: ReadonlyArray<EntityId>;
+			}) {
+				if (input.entityIds.length === 0) {
+					return [];
+				}
+
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select(entitySelection)
+						.from(schema.entity)
+						.where(
+							and(
+								inArray(schema.entity.id, [...input.entityIds]),
+								entityVisibleToUserClause(input.userId),
+							),
+						),
+				);
+
+				return rows.map(toListedEntity);
+			});
+
 			const getById = Effect.fn("EntitiesRepository.getById")(function* (entityId: EntityId) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -545,6 +569,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				insertEntity,
 				updateEntity,
 				getByIdForUser,
+				getByIdsForUser,
 				findEntitySchemaById,
 				findGlobalEntityById,
 				getEntityScopeForUser,

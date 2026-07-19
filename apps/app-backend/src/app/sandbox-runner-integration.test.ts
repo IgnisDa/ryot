@@ -302,7 +302,7 @@ export const manifest = defineManifest({
   name: "Domain host execution",
   slug: "domain-host-execution",
   capabilities: [
-    "getEntity",
+    "getEntities",
     "listEvents",
     "createEvents",
     "getIntegration",
@@ -326,8 +326,10 @@ export default defineScript({
     eventSchemas: Schema.Array(eventSchemaRecordSchema),
   }),
   run: (_input, host) => Effect.gen(function* () {
-    const entity = yield* host.getEntity("entity-1");
-    const missingResult = yield* Effect.result(host.getEntity("missing"));
+    const entity = yield* host.getEntities(["entity-1"]).pipe(
+      Effect.flatMap(([entity]) => entity ? Effect.succeed(entity) : Effect.fail("Entity not found")),
+    );
+    const missingResult = yield* Effect.result(host.getEntities(["missing"]));
     const integration = yield* host.getIntegration();
     const events = yield* host.listEvents({ entityId: "entity-1" });
     const entitySchema = yield* host.getEntitySchema("movie");
@@ -1544,11 +1546,14 @@ const startDomainHostBridge = () =>
 						const args: readonly unknown[] = Array.isArray(argsValue) ? argsValue : [];
 
 						let result: unknown;
-						if (fnName === "getEntity") {
-							result =
-								args[0] === "missing"
-									? { error: "Entity not found", success: false }
-									: { data: { ...domainEntityRecord, id: args[0] }, success: true };
+						if (fnName === "getEntities") {
+							const ids = Array.isArray(args[0]) ? args[0] : [];
+							result = ids.includes("missing")
+								? { error: "Entity not found", success: false }
+								: {
+										success: true,
+										data: ids.map((id) => Object.assign({}, domainEntityRecord, { id })),
+									};
 						} else if (fnName === "getIntegration") {
 							result = { data: domainIntegrationRecord, success: true };
 						} else if (fnName === "getEntitySchema") {
@@ -1599,8 +1604,8 @@ it("executes typed domain host methods through Deno", () =>
 					missing: "Entity not found",
 					entitySchema: { id: "movie", name: "Movie" },
 					entity: { id: "entity-1", name: "Inception" },
-					eventSchemas: [{ id: "watched", entitySchemaSlug: "movie" }],
 					integration: { id: "integration-1", provider: "plex_yank" },
+					eventSchemas: [{ id: "watched", entitySchemaSlug: "movie" }],
 				});
 				expect(bridge.createdEvents).toHaveLength(1);
 			}).pipe(Effect.provide(SandboxCompiler.layer)),
