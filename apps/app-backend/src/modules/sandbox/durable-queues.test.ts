@@ -73,7 +73,6 @@ esac
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
 		Layer.mock(SandboxRepository)({
-			_tag: "SandboxRepository",
 			isPluginScript: () => Effect.succeed(true),
 			getScript: (scriptId) =>
 				Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
@@ -88,7 +87,6 @@ esac
 				),
 		}),
 		Layer.mock(RuntimeSandboxService)({
-			_tag: "SandboxService",
 			run: (input) =>
 				Effect.sync(() => {
 					executedContent.push(input.compiledCode);
@@ -142,7 +140,6 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 	const executedCacheNamespaces: string[] = [];
 	const executedScriptIsBuiltin: boolean[] = [];
 	const repository = Layer.mock(SandboxRepository)({
-		_tag: "SandboxRepository",
 		isPluginScript: (scriptId) => Effect.succeed(scriptId !== kernelScriptId),
 		getScript: (scriptId) =>
 			Effect.succeed({
@@ -155,7 +152,6 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 			}),
 	});
 	const sandbox = Layer.mock(RuntimeSandboxService)({
-		_tag: "SandboxService",
 		run: (input) =>
 			Effect.sync(() => {
 				executedCode = input.compiledCode;

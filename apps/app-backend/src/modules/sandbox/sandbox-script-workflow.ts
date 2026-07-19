@@ -1,5 +1,3 @@
-import { Activity, DurableClock, Workflow } from "@effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import {
 	ExecutionAuthority,
@@ -16,6 +14,8 @@ import {
 	type WorkflowDurableCallRequest,
 } from "@ryot/sandbox-sdk/workflow";
 import { Cause, Duration, Effect, Schema } from "effect";
+import { Activity, DurableClock, Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import {
@@ -24,6 +24,7 @@ import {
 	type WorkflowJournalEntry,
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
+import { withoutSchemaServices } from "#lib/shared/schema";
 
 import { resolveSandboxExecutionPayload } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
@@ -39,7 +40,7 @@ const SandboxWorkflowPin = Schema.Struct({
 	pluginSlug: Schema.NullOr(Schema.String),
 });
 
-const ObservedWorkflowReplay = Schema.Union(
+const ObservedWorkflowReplay = Schema.Union([
 	Schema.Struct({ output: jsonValueSchema, state: Schema.Literal("completed") }),
 	Schema.Struct({ error: Schema.String, state: Schema.Literal("failed") }),
 	Schema.Struct({
@@ -47,7 +48,7 @@ const ObservedWorkflowReplay = Schema.Union(
 		state: Schema.Literal("pending"),
 		targetScriptId: Schema.optional(SandboxScriptId),
 	}),
-);
+]);
 type ObservedWorkflowReplay = Schema.Schema.Type<typeof ObservedWorkflowReplay>;
 
 export const SandboxScriptWorkflowPayload = Schema.Struct({
@@ -56,18 +57,17 @@ export const SandboxScriptWorkflowPayload = Schema.Struct({
 	executionId: Schema.String,
 	authority: ExecutionAuthority,
 	grants: Schema.optional(SandboxExecutionGrants),
-	resolutionMode: Schema.Literal("active", "exact"),
+	resolutionMode: Schema.Literals(["active", "exact"]),
 	// Effect injects this into child payloads before strict excess-property decoding.
 	"~@effect/workflow/parent": Schema.optional(Schema.Unknown),
-}).annotations({ parseOptions: { onExcessProperty: "error" as const } });
+}).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 export type SandboxScriptWorkflowPayload = Schema.Schema.Type<typeof SandboxScriptWorkflowPayload>;
 
-export const SandboxScriptWorkflow = Workflow.make({
-	error: SandboxRunError,
-	name: "SandboxScriptWorkflow",
-	success: jsonValueSchema,
-	payload: SandboxScriptWorkflowPayload,
+export const SandboxScriptWorkflow = Workflow.make("SandboxScriptWorkflow", {
+	error: withoutSchemaServices(SandboxRunError),
+	success: withoutSchemaServices(jsonValueSchema),
+	payload: withoutSchemaServices(SandboxScriptWorkflowPayload),
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
@@ -128,7 +128,7 @@ const processPinnedSandbox = (payload: SandboxExecutionPayload) =>
 const completedValue = (result: SandboxCompletedResult, label: string) =>
 	result.error
 		? Effect.fail(sandboxFailure(`${label} failed: ${result.error.phase}: ${result.error.message}`))
-		: Schema.decodeUnknown(jsonValueSchema)(
+		: Schema.decodeUnknownEffect(jsonValueSchema)(
 				result.harvest && typeof result.value === "object" && result.value !== null
 					? { ...result.value, chunkFiles: result.harvest.chunkPaths }
 					: result.value,
@@ -228,7 +228,9 @@ const observeWorkflowReplay = (
 		success: ObservedWorkflowReplay,
 		name: `observe-sandbox-workflow-replay-${step}`,
 		execute: Effect.gen(function* () {
-			const envelope = yield* Schema.decodeUnknown(workflowReplayEnvelopeSchema)(replayValue).pipe(
+			const envelope = yield* Schema.decodeUnknownEffect(workflowReplayEnvelopeSchema)(
+				replayValue,
+			).pipe(
 				Effect.mapError((error) =>
 					sandboxFailure(`Workflow replay envelope is invalid: ${unknownToMessage(error)}`),
 				),
@@ -434,9 +436,9 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		Effect.matchCauseEffect({
 			onFailure: (cause) =>
 				Effect.flatMap(WorkflowInstance, (instance) =>
-					instance.suspended && Cause.isInterruptedOnly(cause)
+					instance.suspended && Cause.hasInterruptsOnly(cause)
 						? Effect.failCause(cause)
-						: releaseReference.pipe(Effect.zipRight(Effect.failCause(cause))),
+						: releaseReference.pipe(Effect.andThen(Effect.failCause(cause))),
 				),
 			onSuccess: (output) => releaseReference.pipe(Effect.as(output)),
 		}),

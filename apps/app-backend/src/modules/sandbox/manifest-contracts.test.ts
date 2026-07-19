@@ -31,8 +31,8 @@ const manifests = [
 	},
 ] satisfies SandboxManifest[];
 
-const decodeManifest = Schema.decodeUnknown(SandboxScriptManifest);
-const decodeSdkManifest = SandboxSchema.decodeUnknown(sandboxManifestSchema);
+const decodeManifest = Schema.decodeUnknownEffect(SandboxScriptManifest);
+const decodeSdkManifest = SandboxSchema.decodeUnknownEffect(sandboxManifestSchema);
 
 it.effect("keeps Effect manifest decoding in parity with representative SDK manifests", () =>
 	Effect.gen(function* () {

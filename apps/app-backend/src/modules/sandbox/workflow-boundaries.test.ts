@@ -1,7 +1,6 @@
-import { FileSystem, Path } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, FileSystem, Path } from "effect";
 
 const readModule = (path: string) =>
 	Effect.gen(function* () {
@@ -33,7 +32,7 @@ it.effect("keeps provider population independent of media hierarchy literals", (
 		expect(source).not.toContain("CHILD_ENTITY_SCHEMA_SLUGS");
 		expect(source).not.toContain('"show-season"');
 		expect(source).not.toContain('"podcast"');
-	}).pipe(Effect.provide(BunContext.layer)),
+	}).pipe(Effect.provide(BunServices.layer)),
 );
 
 it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =>
@@ -77,7 +76,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			expect(source).not.toContain("execute(RunSandboxWorkflow");
 		}
 		expect(entityImportWorkflow).toContain("execute(ProviderEntityPopulationWorkflow");
-	}).pipe(Effect.provide(BunContext.layer)),
+	}).pipe(Effect.provide(BunServices.layer)),
 );
 
 it.effect("keeps parent workflows as orchestrations instead of queue pass-through wrappers", () =>
@@ -93,7 +92,7 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 		expect(integrationWorkflow).toContain("mark-integration-run-started");
 		expect(integrationWorkflow).toContain("finalize-integration-run");
 		expect(integrationWorkflow).toContain("runIntegrationImport");
-	}).pipe(Effect.provide(BunContext.layer)),
+	}).pipe(Effect.provide(BunServices.layer)),
 );
 
 it.effect("keeps event workflow and repository primitives behind EventsService", () =>
@@ -112,7 +111,7 @@ it.effect("keeps event workflow and repository primitives behind EventsService",
 
 		expect(collectionsService).not.toContain("EventCreateWorkflow");
 		expect(collectionsAddWorkflow.match(/\.execute\(EventCreateWorkflow,/g)?.length ?? 0).toBe(1);
-	}).pipe(Effect.provide(BunContext.layer)),
+	}).pipe(Effect.provide(BunServices.layer)),
 );
 
 it.effect("keeps provider entity population behind the canonical workflow", () =>
@@ -157,5 +156,5 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		for (const { path, text } of productionSources) {
 			expect(text, path).not.toContain("runProviderEntityPopulationWorkflow");
 		}
-	}).pipe(Effect.provide(BunContext.layer)),
+	}).pipe(Effect.provide(BunServices.layer)),
 );
