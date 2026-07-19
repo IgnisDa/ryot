@@ -149,44 +149,52 @@ const makeWorkflowReplay = (
 		request: WorkflowDurableCallRequest,
 		output: Output,
 	): RuntimeEffect.Effect<Output["Type"], unknown> => {
-		requests.push(request);
 		const value = journal[request.index];
 		return value === undefined
 			? RuntimeEffect.fail(pending as unknown)
 			: Schema.decodeUnknownEffect(output)(value).pipe(RuntimeEffect.mapError((error) => error));
 	};
+	const register = <Output extends Schema.ConstraintDecoder<unknown>>(
+		request: WorkflowDurableCallRequest,
+		output: Output,
+	) => {
+		requests.push(request);
+		return resolve(request, output);
+	};
 
 	return {
-		activity: (name, reference, input) =>
-			Schema.decodeUnknownEffect(jsonValueSchema)(input).pipe(
-				RuntimeEffect.flatMap((jsonInput) =>
-					resolve(
-						{
-							name,
-							index: requests.length,
-							kind: "activity",
-							args: { input: jsonInput, scriptSlug: reference.scriptSlug },
-						},
-						reference.output,
-					),
-				),
-			),
+		activity: (name, reference, input) => {
+			const decoded = Schema.decodeUnknownResult(jsonValueSchema)(input);
+			if (decoded._tag === "Failure") {
+				return RuntimeEffect.fail(decoded.failure);
+			}
+			return register(
+				{
+					name,
+					kind: "activity",
+					index: requests.length,
+					args: { input: decoded.success, scriptSlug: reference.scriptSlug },
+				},
+				reference.output,
+			);
+		},
 		sleep: (name, durationMs) =>
-			resolve({ name, index: requests.length, kind: "sleep", args: { durationMs } }, Schema.Null),
-		child: (name, reference, input) =>
-			Schema.decodeUnknownEffect(jsonValueSchema)(input).pipe(
-				RuntimeEffect.flatMap((jsonInput) =>
-					resolve(
-						{
-							name,
-							index: requests.length,
-							kind: "child",
-							args: { input: jsonInput, workflowSlug: reference.workflowSlug },
-						},
-						reference.output,
-					),
-				),
-			),
+			register({ name, index: requests.length, kind: "sleep", args: { durationMs } }, Schema.Null),
+		child: (name, reference, input) => {
+			const decoded = Schema.decodeUnknownResult(jsonValueSchema)(input);
+			if (decoded._tag === "Failure") {
+				return RuntimeEffect.fail(decoded.failure);
+			}
+			return register(
+				{
+					name,
+					kind: "child",
+					index: requests.length,
+					args: { input: decoded.success, workflowSlug: reference.workflowSlug },
+				},
+				reference.output,
+			);
+		},
 	};
 };
 
@@ -223,6 +231,7 @@ export const defineWorkflow = <
 
 export const Effect = {
 	as: RuntimeEffect.as,
+	all: RuntimeEffect.all,
 	gen: RuntimeEffect.gen,
 	fail: RuntimeEffect.fail,
 	succeed: RuntimeEffect.succeed,
