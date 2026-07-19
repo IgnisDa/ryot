@@ -88,6 +88,10 @@ export const importRunFailureNotice = (
 			label: "Integrations paused",
 			detail: "Integrations are disabled for this account.",
 		})),
+		Match.when({ code: "pro-key-required" }, () => ({
+			label: "Ryot Pro required",
+			detail: "This integration needs Ryot Pro. Add a valid Pro key, then start the import again.",
+		})),
 		Match.when({ code: "queue-unavailable" }, () => stoppedEarly),
 		Match.when({ code: "unexpected-failure" }, () => stoppedEarly),
 		Match.exhaustive,

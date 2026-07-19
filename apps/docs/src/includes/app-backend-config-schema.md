@@ -28,6 +28,7 @@
 | `server.corsOrigins` | `SERVER_CORS_ORIGINS` | Comma-separated list of allowed CORS origins | No | No | — |
 | `server.otlpEndpoint` | `SERVER_OTLP_ENDPOINT` | Base URL for OTLP trace export | No | No | — |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
+| `server.proKey` | `SERVER_PRO_KEY` | The key that can be used to enable Ryot Pro features | No | Yes | — |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
 
 #### OIDC provider

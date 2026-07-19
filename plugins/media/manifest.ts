@@ -323,6 +323,7 @@ const integrationProviders = [
 	},
 	{
 		lot: "sink",
+		requiresProKey: true,
 		slug: "ryot_browser_extension",
 		name: "Ryot browser extension",
 		scriptSlug: "integration.browser-extension",
@@ -371,6 +372,7 @@ const integrationProviders = [
 	},
 	{
 		lot: "yank",
+		requiresProKey: true,
 		slug: "youtube_music",
 		name: "YouTube Music",
 		scriptSlug: "integration.youtube-music",
@@ -435,6 +437,7 @@ const integrationProviders = [
 	},
 	{
 		lot: "push",
+		requiresProKey: true,
 		slug: "jellyfin_push",
 		name: "Jellyfin push",
 		description: "Update watched state in Jellyfin",

@@ -7,10 +7,11 @@ import { integrationLots } from "./types";
 const IntegrationLot = Schema.Literals([...integrationLots]);
 
 export const IntegrationRequestFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("pro-key-required"), provider: Schema.String }),
 	Schema.Struct({ code: Schema.Literal("provider-not-found"), provider: Schema.String }),
+	Schema.Struct({ code: Schema.Literal("queue-unavailable"), operation: Schema.String }),
 	Schema.Struct({ code: Schema.Literal("invalid-provider-settings"), provider: Schema.String }),
 	Schema.Struct({ code: Schema.Literal("integration-not-found"), integrationId: IntegrationId }),
-	Schema.Struct({ code: Schema.Literal("queue-unavailable"), operation: Schema.String }),
 	Schema.Struct({
 		value: Schema.Number,
 		code: Schema.Literal("progress-out-of-range"),
@@ -78,6 +79,7 @@ export const ListedIntegrationProvider = Schema.Struct({
 	pluginSlug: Schema.String,
 	description: Schema.String,
 	isCreatable: Schema.Boolean,
+	requiresProKey: Schema.Boolean,
 });
 
 export type ListedIntegrationProvider = typeof ListedIntegrationProvider.Type;

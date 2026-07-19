@@ -41,6 +41,7 @@ export class ImportNotFoundError extends Schema.TaggedError<ImportNotFoundError>
 ) {}
 
 export const ImportRunFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("pro-key-required") }),
 	Schema.Struct({ code: Schema.Literal("source-fetch-failed") }),
 	Schema.Struct({ code: Schema.Literal("event-policy-failed") }),
 	Schema.Struct({ code: Schema.Literal("integration-disabled") }),

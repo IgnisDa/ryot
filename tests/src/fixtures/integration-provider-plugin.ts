@@ -7,6 +7,7 @@ type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
 
 export const installTestIntegrationProvider = (
 	settingsSchema: PluginManifest["integrationProviders"][number]["settingsSchema"],
+	options: { baseUrl?: string; requiresProKey?: boolean } = {},
 ) => {
 	const suffix = crypto.randomUUID();
 	const pluginSlug = `e2e-integration-plugin-${suffix}`;
@@ -37,6 +38,7 @@ export default defineScript({
 
 	return installTestPluginBundle({
 		pluginSlug,
+		baseUrl: options.baseUrl,
 		files: { [entry]: source },
 		scripts: [
 			{
@@ -57,6 +59,7 @@ export default defineScript({
 				slug: providerSlug,
 				name: "E2E integration provider",
 				description: "E2E dynamically installed integration provider",
+				...(options.requiresProKey !== undefined ? { requiresProKey: options.requiresProKey } : {}),
 			},
 		],
 	}).pipe(Effect.map((plugin) => ({ plugin, providerSlug })));
