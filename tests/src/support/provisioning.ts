@@ -85,6 +85,7 @@ export function buildBackendEnv(input: {
 
 	return {
 		...process.env,
+		TZ: "Etc/GMT",
 		NODE_ENV: "test",
 		DATABASE_POOL_MAX: "100",
 		SERVER_LOG_FILE: logFile,
