@@ -64,7 +64,7 @@ export function getAuthClient(serverUrl: string) {
 	return client;
 }
 
-export const getAuthCookie = (serverUrl: string) => getAuthClient(serverUrl).getCookie();
+export const getAuthCookie = async (serverUrl: string) => getAuthClient(serverUrl).getCookie();
 
 export async function clearAuthStorage() {
 	try {
