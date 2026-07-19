@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use async_graphql::{InputObject, SimpleObject};
 use boilermates::boilermates;
@@ -56,7 +56,7 @@ pub struct PartialMetadataPerson {
 pub struct WatchProvider {
     pub name: String,
     pub image: Option<String>,
-    pub languages: HashSet<String>,
+    pub languages: BTreeSet<String>,
 }
 
 #[derive(
