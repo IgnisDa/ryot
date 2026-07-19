@@ -120,14 +120,23 @@ describe("Workouts E2E", () => {
 				isBuiltin: true,
 				name: "All Workouts",
 				pluginSlug: fitnessPlugin.slug,
-				queryDocument: { source: { schemas: ["workout"] } },
+				queryDocument: {
+					queries: {
+						savedView: {
+							where: {
+								left: { field: "entitySchemaSlug", tableAlias: "entity" },
+								right: { value: "workout" },
+							},
+						},
+					},
+				},
 				displayConfiguration: {
 					grid: {
-						calloutProperty: null,
 						imageProperty: null,
+						calloutProperty: null,
 						titleProperty: createEntityColumnExpression("workout", "name"),
-						primarySubtitleProperty: createEntityPropertyExpression("workout", "startedAt"),
 						secondarySubtitleProperty: createEntityPropertyExpression("workout", "endedAt"),
+						primarySubtitleProperty: createEntityPropertyExpression("workout", "startedAt"),
 					},
 				},
 			});

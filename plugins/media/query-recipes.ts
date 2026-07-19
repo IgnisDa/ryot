@@ -1,6 +1,4 @@
-import { queryEngineEntitySource } from "@ryot/query-engine/documents";
-import { queryEngineExists, type QueryEngineNonEmptyArray } from "@ryot/query-engine/primitives";
-import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
+import type { OrderBy } from "@ryot/contract/modules/ryotql/language";
 import {
 	aggregate,
 	and,
@@ -25,6 +23,7 @@ import {
 	rows,
 	table,
 } from "@ryot/ryotql";
+import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
 
 type Table = ReturnType<typeof table>;
 
@@ -583,32 +582,31 @@ export const buildTrendingMediaQueryDocument = (input: {
 	});
 };
 
-export const buildDefaultMediaSavedViewQueryDocument = <
-	TOrderBy extends QueryEngineNonEmptyArray<unknown> | undefined,
->(input: {
-	readonly orderBy?: TOrderBy;
+export const buildDefaultMediaSavedViewQueryDocument = (input: {
 	readonly page?: number | undefined;
 	readonly limit?: number | undefined;
-	readonly schemas: QueryEngineNonEmptyArray<string>;
+	readonly schemas: readonly [string, ...string[]];
+	readonly orderBy?: readonly OrderBy[] | undefined;
 }) => {
-	const legacyDocument = buildDefaultSavedViewQueryDocument(input);
-	return {
-		...legacyDocument,
-		source: {
-			...legacyDocument.source,
-			where: queryEngineExists(
-				queryEngineEntitySource({
-					where: null,
-					alias: "library",
-					schemas: ["library"],
-					via: {
-						alias: "inLibrary",
-						entityRef: "entity",
-						schema: "in-library",
-						direction: "outgoing" as const,
-					},
-				}),
+	const entity = table("entity", "entity");
+	const library = table("entity", "library");
+	const membership = table("relationship", "inLibrary");
+
+	return buildSavedViewDocument({
+		page: input.page,
+		limit: input.limit,
+		orderBy: input.orderBy,
+		entitySchemaSlugs: input.schemas,
+		where: exists(membership, {
+			where: and(
+				eq(column(membership, "sourceEntityId"), column(entity, "id")),
+				eq(column(membership, "relationshipSchemaSlug"), literal("in-library")),
+				eq(column(library, "entitySchemaSlug"), literal("library")),
+				eq(column(membership, "targetEntityId"), column(library, "id")),
 			),
-		},
-	};
+			joins: [
+				join("inner", library, eq(column(membership, "targetEntityId"), column(library, "id"))),
+			],
+		}),
+	});
 };
