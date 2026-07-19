@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createQueryEngineEvent,
-	executeQueryEngine,
+	executeRyotQL,
 	findBuiltinSchemaBySlug,
 	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
@@ -158,17 +158,23 @@ describe("Relationship includes", () => {
 
 				const fullyWatchedDoc = buildCompletedShowsQueryDocument({ entityId: show.id, limit: 10 });
 
-				const incompleteResult = yield* executeQueryEngine(client, fullyWatchedDoc);
-				expect(incompleteResult.data.items).toHaveLength(0);
+				const incompleteResult = yield* executeRyotQL(client, fullyWatchedDoc);
+				if (incompleteResult.data.shows?.type !== "rows") {
+					throw new Error("Expected completed show rows result");
+				}
+				expect(incompleteResult.data.shows.items).toHaveLength(0);
 
 				yield* createQueryEngineEvent(client, {
 					entityId: firstSeasonEpisodeTwo.id,
-					eventSchemaSlug: episodeCompleteSchema.id,
 					properties: { completionMode: "unknown" },
+					eventSchemaSlug: episodeCompleteSchema.id,
 				});
 
-				const completeResult = yield* executeQueryEngine(client, fullyWatchedDoc);
-				expect(completeResult.data.items).toHaveLength(1);
+				const completeResult = yield* executeRyotQL(client, fullyWatchedDoc);
+				if (completeResult.data.shows?.type !== "rows") {
+					throw new Error("Expected completed show rows result");
+				}
+				expect(completeResult.data.shows.items).toHaveLength(1);
 			}),
 	);
 });
