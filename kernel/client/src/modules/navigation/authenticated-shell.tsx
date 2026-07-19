@@ -212,30 +212,29 @@ export function AuthenticatedShell(props: {
 			? navigate({ to: "/", replace: true })
 			: navigate({ replace: true, to: "/$pluginSlug", params: { pluginSlug: current.slug } }));
 	};
-	const requestLeaveCustomize = () => {
+	const requestLeaveCustomize = useEffectEvent(() => {
 		if (customize.isDirty) {
 			setDiscarding(true);
 			return true;
 		}
 		leaveCustomize();
 		return true;
-	};
+	});
 	// The refresh must be the last load the router starts, and leaving is not synchronous: a pop
 	// settles through the history listener, so invalidating on either side of the call still races
 	// the navigation, which aborts whatever is in flight and leaves the sidebar rendering the order
 	// the user just changed. Waiting for the router to resolve is the only ordering that holds.
-	const saveCustomize = () => {
-		void customize.save().then((saved) => {
-			if (!saved) {
-				return;
-			}
-			const unsubscribe = router.subscribe("onResolved", () => {
-				unsubscribe();
-				void router.invalidate();
-			});
-			leaveCustomize();
+	const commitCustomize = async () => {
+		if (!(await customize.save())) {
+			return;
+		}
+		const unsubscribe = router.subscribe("onResolved", () => {
+			unsubscribe();
+			void router.invalidate();
 		});
+		leaveCustomize();
 	};
+	const saveCustomize = useEffectEvent(() => void commitCustomize());
 	// The edge gesture performs a kernel-owned back directly, so it has to consult the same guard
 	// that `BackInterceptors` gives Android's hardware Back; otherwise one of them loses the draft.
 	const goBack = () => {
@@ -245,11 +244,10 @@ export function AuthenticatedShell(props: {
 		}
 		router.history.back();
 	};
-	const customizeController: CustomizeController = {
-		customize,
-		onSave: saveCustomize,
-		onLeave: requestLeaveCustomize,
-	};
+	const customizeController = useMemo<CustomizeController>(
+		() => ({ customize, onSave: saveCustomize, onLeave: requestLeaveCustomize }),
+		[customize],
+	);
 	const header = useMemo<PluginHeaderController>(
 		() => ({
 			publish: (owner, publication) => setPluginHeader({ owner, ...publication }),
