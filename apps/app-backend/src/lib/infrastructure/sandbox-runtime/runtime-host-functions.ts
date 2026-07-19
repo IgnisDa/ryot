@@ -26,7 +26,6 @@ import {
 } from "./shared";
 import { readSandboxByteLimitedStream } from "./stream-utils";
 
-const httpCallTimeoutMs = 8_000;
 const decoder = new TextDecoder();
 type BunRequestInit = RequestInit & { tls: { rejectUnauthorized: boolean } };
 const insecureRequestInit: BunRequestInit = { tls: { rejectUnauthorized: false } };
@@ -206,7 +205,7 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 						Effect.flatMap((res) =>
 							Effect.map(readSandboxHttpResponseText(res), (text) => [res, text] as const),
 						),
-						Effect.timeout(Duration.millis(httpCallTimeoutMs)),
+						Effect.timeout(Duration.millis(SANDBOX_LIMITS.http.timeoutMs)),
 						Effect.mapError(unknownToMessage),
 					);
 
