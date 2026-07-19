@@ -57,6 +57,35 @@ describe("Saved views lifecycle E2E", () => {
 		}),
 	);
 
+	it.live("persists built-in view state on the materialized view row", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const builtinView = yield* findBuiltinSavedView(client);
+
+			yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 100)));
+			const updatedView = yield* client.call((c) =>
+				c.savedViews.update({
+					params: { viewSlug: builtinView.slug },
+					payload: {
+						isDisabled: true,
+						icon: builtinView.icon,
+						name: builtinView.name,
+						accentColor: builtinView.accentColor,
+						queryDocument: builtinView.queryDocument,
+						displayConfiguration: builtinView.displayConfiguration,
+						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
+					},
+				}),
+			);
+			const fetchedView = yield* getSavedView(client, builtinView.slug);
+
+			expect(updatedView.id).toBe(builtinView.id);
+			expect(fetchedView.createdAt).toBe(builtinView.createdAt);
+			expect(fetchedView.updatedAt).not.toBe(builtinView.updatedAt);
+			expect(fetchedView.isDisabled).toBe(true);
+		}),
+	);
+
 	it.live("supports the full create-get-update-clone-delete lifecycle", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();

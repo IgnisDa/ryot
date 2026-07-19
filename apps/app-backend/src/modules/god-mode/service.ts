@@ -11,6 +11,7 @@ import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { SavedViewsService } from "#modules/saved-views/service";
 import { acquireBootstrapLock, performBootstrap } from "#modules/user-bootstrap/bootstrap";
 import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
 
@@ -69,6 +70,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
 		const repository = yield* GodModeRepository;
+		const savedViews = yield* SavedViewsService;
 		const runInTransaction = yield* TransactionRunner;
 		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
@@ -366,6 +368,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			yield* performBootstrap(userId).pipe(
 				Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
 				Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
+				Effect.provideService(SavedViewsService, savedViews),
 				Effect.provideService(TransactionRunner, runInTransaction),
 				Effect.catch((error) =>
 					internalError(`User bootstrap failed after reset: ${unknownToMessage(error)}`),
