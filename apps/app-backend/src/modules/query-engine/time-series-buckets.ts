@@ -43,7 +43,7 @@ export const countAlignedTimeSeriesBuckets = (input: {
 	const alignedRange = alignDateRangeToBucket(input);
 	let count = 0;
 	let cursor = alignedRange.startAt;
-	while (DateTime.lessThan(cursor, alignedRange.endAt)) {
+	while (DateTime.isLessThan(cursor, alignedRange.endAt)) {
 		count += 1;
 		cursor = addTimeSeriesBucket(cursor, input.bucket);
 	}
