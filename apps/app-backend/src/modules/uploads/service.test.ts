@@ -1,9 +1,9 @@
-import { FileSystem, Multipart } from "@effect/platform";
-import { it, expect } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest } from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Cause, Effect, Exit, Inspectable, Layer, Option } from "effect";
+import { Cause, Effect, Exit, Inspectable, Layer, Option, FileSystem } from "effect";
+import { Multipart } from "effect/unstable/http";
 import Redis from "ioredis";
 
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
@@ -41,14 +41,14 @@ type S3Overrides = Omit<Parameters<typeof mockS3Service>[0], "_tag" | "isConfigu
 };
 
 const makeS3Layer = (overrides: S3Overrides = {}) =>
-	mockS3Service({ _tag: "S3Service", isConfigured: true, ...overrides });
+	mockS3Service({ isConfigured: true, ...overrides });
 
-const makeRedisClient = (): RedisService["client"] =>
+const makeRedisClient = (): RedisService["Service"]["client"] =>
 	Object.assign(Object.create(Redis.prototype), {
 		duplicate: makeRedisClient,
 	});
 
-const makeRedisLayer = (overrides: Partial<RedisService> = {}) =>
+const makeRedisLayer = (overrides: Partial<RedisService["Service"]> = {}) =>
 	Layer.succeed(RedisService, makeRedisService({ client: makeRedisClient(), ...overrides }));
 
 const makeFsLayer = (overrides: Record<string, unknown> = {}) =>
@@ -83,7 +83,7 @@ const makeUploadsLayer = (
 		s3Service?: ReturnType<typeof makeS3Layer>;
 	} = {},
 ) =>
-	UploadsService.Default.pipe(
+	UploadsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				makeAppConfigLayer({ tmpDir: TEST_TMP_DIR }),
@@ -169,11 +169,8 @@ it.effect("dies when S3 is not configured for presigned upload", () =>
 	Effect.gen(function* () {
 		const service = yield* UploadsService;
 		const exit = yield* Effect.exit(service.createPresignedUpload(user, "image/png"));
-		if (Exit.isFailure(exit)) {
-			expect(exit.cause._tag).toBe("Die");
-		} else {
-			throw new Error("Expected failure");
-		}
+		assert(Exit.isFailure(exit));
+		expect(Cause.hasDies(exit.cause)).toBe(true);
 	}).pipe(Effect.provide(makeUploadsLayer({ s3Service: makeS3Layer({ isConfigured: false }) }))),
 );
 
@@ -202,11 +199,8 @@ it.effect("dies when S3 is not configured for presigned download", () =>
 	Effect.gen(function* () {
 		const service = yield* UploadsService;
 		const exit = yield* Effect.exit(service.createPresignedDownload(user, ["uploads/image.png"]));
-		if (Exit.isFailure(exit)) {
-			expect(exit.cause._tag).toBe("Die");
-		} else {
-			throw new Error("Expected failure");
-		}
+		assert(Exit.isFailure(exit));
+		expect(Cause.hasDies(exit.cause)).toBe(true);
 	}).pipe(Effect.provide(makeUploadsLayer({ s3Service: makeS3Layer({ isConfigured: false }) }))),
 );
 
@@ -311,7 +305,7 @@ it.effect("rejects oversized temporary upload files", () => {
 		);
 		expect(Exit.isFailure(exit)).toBe(true);
 		if (Exit.isFailure(exit)) {
-			const failure = Cause.failureOption(exit.cause);
+			const failure = Cause.findErrorOption(exit.cause);
 			expect(Option.isSome(failure)).toBe(true);
 			if (Option.isSome(failure)) {
 				expect(failure.value).toBeInstanceOf(BadRequest);
