@@ -7,7 +7,7 @@ import type {
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export type IntegrationPushHost = SandboxHost<
-	readonly ["httpCall", "getEntities", "getEntitySchema", "listIntegrations", "getUserPreferences"]
+	readonly ["httpCall", "getEntities", "getEntitySchemas", "listIntegrations", "getUserPreferences"]
 >;
 
 const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -55,11 +55,11 @@ export const resolveEntityProviderName = (host: IntegrationPushHost, entity: Ent
 		return Effect.succeed(null);
 	}
 	return host
-		.getEntitySchema(entity.entitySchemaSlug)
+		.getEntitySchemas([entity.entitySchemaSlug])
 		.pipe(
 			Effect.map(
-				(schema) =>
-					schema.providers.find((provider) => provider.providerId === entity.providerId)?.name ??
+				([schema]) =>
+					schema?.providers.find((provider) => provider.providerId === entity.providerId)?.name ??
 					null,
 			),
 		);

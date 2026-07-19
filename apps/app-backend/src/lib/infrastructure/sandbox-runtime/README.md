@@ -85,13 +85,13 @@ Deno receives the import map and runs with `--cached-only`, `--no-npm`, `--no-re
 
 Host functions are bridge handlers exposed only when listed in the compiled module's manifest `capabilities`. The backend intersects those declarations with its implementation registry, and the runner intersects the approved names with the compiled definition's manifest before constructing the script host.
 
-| Scope                   | Functions                                                                                                                                                                                                             |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime                 | `httpCall`, `log`, `span`                                                                                                                                                                                             |
-| Script                  | `getPluginConfigValue`, `getSystemConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                                                |
-| User                    | `changeUserRelationships`, `createEvents`, `ensureUserEntities`, `executeQueryEngine`, `getEntities`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
-| Automation subscription | `emitSignal`, `sendNotification`                                                                                                                                                                                      |
-| System cron / boot      | `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                                                                                   |
+| Scope                   | Functions                                                                                                                                                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime                 | `httpCall`, `log`, `span`                                                                                                                                                                                              |
+| Script                  | `getPluginConfigValue`, `getSystemConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                                                 |
+| User                    | `changeUserRelationships`, `createEvents`, `ensureUserEntities`, `executeQueryEngine`, `getEntities`, `getEntitySchemas`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
+| Automation subscription | `emitSignal`, `sendNotification`                                                                                                                                                                                       |
+| System cron / boot      | `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                                                                                    |
 
 Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions. `claimCachedValue` atomically writes a cached value only when the key does not already exist.
 
