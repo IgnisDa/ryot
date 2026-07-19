@@ -206,7 +206,7 @@ export const bundleBuiltInScript = (
 			});
 			builder.onResolve({ filter: /^[^.]/, namespace: "sandbox-built-in" }, ({ path }) =>
 				bundledSdkImports.has(path)
-					? { path: sdkEntries[path] ?? path }
+					? { path: sdkEntries[path] ?? path, namespace: "file" }
 					: { path, namespace: "sandbox-built-in" },
 			);
 			builder.onLoad({ filter: /.*/, namespace: "sandbox-built-in" }, ({ path }) => {
