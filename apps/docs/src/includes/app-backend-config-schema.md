@@ -55,12 +55,6 @@
 | `sandbox.jobIdSecret` | `SANDBOX_JOB_ID_SECRET` | Secret used to sign sandbox job identifiers | No | Yes | `changeme` |
 | `sandbox.workerConcurrency` | `SANDBOX_WORKER_CONCURRENCY` | Maximum number of concurrent sandbox jobs | No | No | `5` |
 
-### Frontend display settings
-
-| App Config Key | Variable | Description | Required | Sensitive | Default |
-|---|---|---|---|---|---|
-| `frontend.oidcButtonLabel` | `FRONTEND_OIDC_BUTTON_LABEL` | Label for the OIDC sign-in button | No | No | — |
-
 ### PostgreSQL connection settings
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
@@ -69,6 +63,12 @@
 | `database.poolMax` | `DATABASE_POOL_MAX` | Maximum number of PostgreSQL connections held in the pool | No | No | `10` |
 | `database.workflowPoolMax` | `DATABASE_WORKFLOW_POOL_MAX` | Maximum number of PostgreSQL connections held in the dedicated workflow engine pool | No | No | `10` |
 | `database.connectionTimeoutMs` | `DATABASE_CONNECTION_TIMEOUT_MS` | Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool | No | No | `10000` |
+
+### Frontend display settings
+
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `frontend.oidcButtonLabel` | `FRONTEND_OIDC_BUTTON_LABEL` | Label for the OIDC sign-in button | No | No | — |
 
 ### Scheduler settings
 
