@@ -2,15 +2,15 @@
 
 ## Tasks
 
-**Overall Progress:** 0 of 16 tasks completed
+**Overall Progress:** 1 of 16 tasks completed
 
-**Current Task:** [Task 01](./01-establish-performance-baselines.md) (todo)
+**Current Task:** [Task 02](./02-build-universal-durable-tracer.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                         | Status |
 | --- | -------------------------------------------------------------------------------------------- | ------ |
-| 01  | [Establish Sandbox Performance Baselines](./01-establish-performance-baselines.md)           | todo   |
+| 01  | [Establish Sandbox Performance Baselines](./01-establish-performance-baselines.md)           | done   |
 | 02  | [Build the Universal Durable Tracer](./02-build-universal-durable-tracer.md)                 | todo   |
 | 03  | [Make Youtubei and Approved Dependencies Replay-Safe](./03-make-youtubei-replay-safe.md)     | todo   |
 | 04  | [Make Sandbox Artifacts Replay-Safe](./04-make-artifacts-replay-safe.md)                     | todo   |
