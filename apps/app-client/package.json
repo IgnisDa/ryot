@@ -16,6 +16,7 @@
 		"@effect/atom-react": "4.0.0-beta.102",
 		"@expo-google-fonts/lora": "^0.4.2",
 		"@expo-google-fonts/outfit": "^0.4.3",
+		"@ryot/app-backend": "workspace:*",
 		"@ryot/contract": "workspace:*",
 		"@ryot/query-engine": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
