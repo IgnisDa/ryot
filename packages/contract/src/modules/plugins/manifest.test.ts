@@ -181,6 +181,13 @@ const scripts = [
 		requiredSystemConfigKeys: [],
 		capabilities: ["emitSignal"],
 		entry: "scripts/test.sandbox.ts",
+		inputProjection: {
+			signal: { properties: [] },
+			providerEntityImport: true,
+			event: { properties: [], compareProperties: [] },
+			entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+			relationship: { properties: [], compareProperties: [], parentEntityProperties: [] },
+		},
 	},
 	{
 		capabilities: [],

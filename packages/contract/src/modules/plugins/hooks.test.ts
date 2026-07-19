@@ -27,6 +27,16 @@ const script = {
 	requiredSystemConfigKeys: [],
 	capabilities: ["executeRyotql"],
 	entry: "backend/policy.sandbox.ts",
+	inputProjection: {
+		event: { properties: [] },
+		entity: { properties: [] },
+		relationship: { properties: [] },
+	},
+} as const;
+const afterInputProjection = {
+	event: { properties: [], compareProperties: [] },
+	entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+	relationship: { properties: [], compareProperties: [], parentEntityProperties: [] },
 } as const;
 const authored = {
 	boot: [],
@@ -158,7 +168,7 @@ describe("lifecycle hook declarations", () => {
 	it("rejects missing, wrong-kind, and wrong-stage script definitions", () => {
 		for (const scripts of [
 			[],
-			[{ ...script, automationType: "automation" }],
+			[{ ...script, automationType: "automation", inputProjection: afterInputProjection }],
 			[{ ...script, automationType: undefined }],
 			[{ ...script, kind: "script", automationType: undefined }],
 		]) {
@@ -170,6 +180,17 @@ describe("lifecycle hook declarations", () => {
 				hooks: [{ ...hook, stage: "after", delivery: "required" }],
 			}),
 		).toThrow();
+	});
+
+	it("requires hook resources to be covered by the matching script projection", () => {
+		for (const inputProjection of [undefined, {}, { entity: undefined }]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({
+					...manifest,
+					scripts: [{ ...script, inputProjection }],
+				}),
+			).toThrow();
+		}
 	});
 
 	it("restricts before-only fields and disallows deferred policy retries", () => {
@@ -187,8 +208,8 @@ describe("lifecycle hook declarations", () => {
 		}
 		const after = {
 			...manifest,
-			scripts: [{ ...script, automationType: "automation" }],
 			hooks: [{ ...hook, stage: "after", delivery: "async" }],
+			scripts: [{ ...script, automationType: "automation", inputProjection: afterInputProjection }],
 		};
 		expect(Schema.decodeUnknownSync(PluginManifest)(after).hooks).toHaveLength(1);
 		for (const addition of [
@@ -235,8 +256,8 @@ describe("lifecycle hook declarations", () => {
 	it("restricts batch frequency and execution scope to after hooks with mutation targets", () => {
 		const after = {
 			...manifest,
-			scripts: [{ ...script, automationType: "automation" }],
 			hooks: [{ ...hook, stage: "after", delivery: "async" }],
+			scripts: [{ ...script, automationType: "automation", inputProjection: afterInputProjection }],
 		};
 		for (const addition of [
 			{ frequency: "item" },
@@ -260,11 +281,18 @@ describe("lifecycle hook declarations", () => {
 		const nonBatchable = [
 			{
 				...after,
-				scripts: [{ ...script, automationType: "automation", capabilities: ["sendNotification"] }],
 				hooks: [
 					{
 						...after.hooks[0],
 						targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "changed" }],
+					},
+				],
+				scripts: [
+					{
+						...script,
+						automationType: "automation",
+						capabilities: ["sendNotification"],
+						inputProjection: { signal: { properties: [] } },
 					},
 				],
 				signalSchemas: [
@@ -280,6 +308,13 @@ describe("lifecycle hook declarations", () => {
 			},
 			{
 				...after,
+				scripts: [
+					{
+						...script,
+						automationType: "automation",
+						inputProjection: { providerEntityImport: true },
+					},
+				],
 				hooks: [
 					{
 						...after.hooks[0],
@@ -315,7 +350,14 @@ describe("lifecycle hook declarations", () => {
 			const after = {
 				...manifest,
 				hooks: [{ ...hook, stage: "after", delivery: "required" }],
-				scripts: [{ ...script, capabilities: [capability], automationType: "automation" }],
+				scripts: [
+					{
+						...script,
+						capabilities: [capability],
+						automationType: "automation",
+						inputProjection: afterInputProjection,
+					},
+				],
 			};
 			expect(Schema.decodeUnknownSync(PluginManifest)(after).hooks).toHaveLength(1);
 			expect(() =>
@@ -364,7 +406,14 @@ describe("lifecycle hook declarations", () => {
 			...manifest,
 			hooks: [notification],
 			signalSchemas: [signal],
-			scripts: [{ ...script, automationType: "automation", capabilities: ["sendNotification"] }],
+			scripts: [
+				{
+					...script,
+					automationType: "automation",
+					capabilities: ["sendNotification"],
+					inputProjection: { signal: { properties: [] } },
+				},
+			],
 		};
 		expect(
 			Schema.decodeUnknownSync(PluginManifest)(candidate).signalSchemas[0]?.notificationHookSlug,
@@ -381,7 +430,13 @@ describe("lifecycle hook declarations", () => {
 	it("accepts provider completion only as an after fact for a declared entity schema", () => {
 		const after = {
 			...manifest,
-			scripts: [{ ...script, automationType: "automation" }],
+			scripts: [
+				{
+					...script,
+					automationType: "automation",
+					inputProjection: { providerEntityImport: true },
+				},
+			],
 			hooks: [
 				{
 					...hook,

@@ -239,7 +239,7 @@ const withEntities = <E>(
 							expect(trigger.category).toBe("change");
 							return options.warnings ?? [];
 						}).pipe(Effect.mapError((error) => new DbError({ message: String(error) }))),
-					executePolicy: ({ runId, payload }) =>
+					executePolicy: ({ runId, acceptedPatches }) =>
 						Effect.gen(function* () {
 							options.policyCalls?.push(runId);
 							expect(Option.isNone(yield* Effect.serviceOption(client.transactionService))).toBe(
@@ -253,7 +253,12 @@ const withEntities = <E>(
 							expect(requests.length).toBeGreaterThan(0);
 							const index = Number(runId.split("-")[1]);
 							if (index === 1) {
-								expect(payload.draft).toMatchObject({ name: "First" });
+								expect(acceptedPatches).toEqual([
+									{
+										resource: "entity",
+										draft: { name: "First", properties: { remove: [], set: { title: "first" } } },
+									},
+								]);
 							}
 							const output = options.policies?.[index];
 							assert(output);
@@ -302,6 +307,14 @@ const withEntities = <E>(
 		);
 	}).pipe(Effect.provide(services.pipe(Layer.provideMerge(makeConfigProviderLayer()))));
 };
+
+const proposal = (name: string, properties: { title: string }) => ({
+	action: "transform" as const,
+	patch: {
+		resource: "entity" as const,
+		draft: { name, properties: { remove: [], set: properties } },
+	},
+});
 
 describe("EntitiesService committed lifecycle", () => {
 	it.effect("normalizes numeric properties before persisting the entity and change snapshot", () =>
@@ -757,23 +770,6 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	}
 
-	const proposal = (name: string, properties: { title: string }) => ({
-		action: "transform" as const,
-		payload: {
-			resource: "entity" as const,
-			category: "request" as const,
-			operation: "create" as const,
-			draft: {
-				name,
-				properties,
-				externalId: null,
-				providerId: null,
-				populatedAt: null,
-				entitySchemaSlug: slug,
-			},
-		},
-	});
-
 	it.effect("chains transforms in order then validates the final draft", () =>
 		withEntities(
 			Effect.gen(function* () {
@@ -789,30 +785,16 @@ describe("EntitiesService committed lifecycle", () => {
 		),
 	);
 
-	it.effect("rejects a transform that changes provider identity", () =>
+	it.effect("applies only the fields exposed by a strict entity patch", () =>
 		withEntities(
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* Database;
-				expect(yield* service.create(createInput("identity")).pipe(Effect.flip)).toMatchObject({
-					reason: { code: "invalid-policy-transform" },
+				expect((yield* service.create(createInput("identity"))).entity).toMatchObject({
+					name: "Changed",
+					properties: { title: "changed" },
 				});
-				expect(yield* db.select().from(tables.entity)).toEqual([]);
 			}),
-			{
-				policies: [
-					{
-						action: "transform",
-						payload: {
-							...proposal("Wrong", { title: "wrong" }).payload,
-							draft: {
-								...proposal("Wrong", { title: "wrong" }).payload.draft,
-								externalId: "changed",
-							},
-						},
-					},
-				],
-			},
+			{ policies: [proposal("Changed", { title: "changed" })] },
 		),
 	);
 
@@ -830,12 +812,9 @@ describe("EntitiesService committed lifecycle", () => {
 				policies: [
 					{
 						action: "transform",
-						payload: {
-							...proposal("Wrong", { title: "wrong" }).payload,
-							draft: {
-								...proposal("Wrong", { title: "wrong" }).payload.draft,
-								properties: { title: 42 },
-							},
+						patch: {
+							resource: "entity",
+							draft: { properties: { remove: [], set: { title: 42 } } },
 						},
 					},
 				],

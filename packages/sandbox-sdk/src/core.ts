@@ -1,3 +1,7 @@
+import {
+	AutomationAfterInputProjection,
+	AutomationPolicyInputProjection,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
@@ -655,11 +659,13 @@ export const sandboxManifestSchema = Schema.Union([
 		...sandboxManifestBaseFields,
 		kind: Schema.Literal("automation"),
 		automationType: Schema.Literal("automation"),
+		inputProjection: AutomationAfterInputProjection,
 	}),
 	strictStruct({
 		...sandboxManifestBaseFields,
 		kind: Schema.Literal("automation"),
 		automationType: Schema.Literal("policy"),
+		inputProjection: AutomationPolicyInputProjection,
 		capabilities: Schema.Array(Schema.Literals([...POLICY_SAFE_SANDBOX_CAPABILITIES])),
 	}),
 	strictStruct({

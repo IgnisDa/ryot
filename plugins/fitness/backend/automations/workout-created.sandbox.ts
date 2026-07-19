@@ -10,6 +10,9 @@ export const manifest = defineManifest({
 	capabilities: ["emitSignal"],
 	name: "Workout Created Detector",
 	slug: "automation.workout-created",
+	inputProjection: {
+		entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+	},
 });
 
 export default defineAutomation({

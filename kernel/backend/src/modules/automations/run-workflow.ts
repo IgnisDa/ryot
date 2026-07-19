@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationPolicyOutput,
-	AutomationRequestPayload,
+	AutomationPolicyPatch,
 	AutomationRunAttempt,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
@@ -37,8 +37,8 @@ export type AutomationRunWorkflowResult = typeof AutomationRunWorkflowResult.Typ
 
 export const AutomationRunWorkflowPayload = Schema.Struct({
 	runId: AutomationRunId,
+	acceptedPatches: Schema.Array(AutomationPolicyPatch),
 	attemptNumber: AutomationRunAttempt.fields.attemptNumber,
-	policyPayload: Schema.optional(AutomationRequestPayload),
 });
 export type AutomationRunWorkflowPayload = typeof AutomationRunWorkflowPayload.Type;
 

@@ -9,7 +9,7 @@ const providerManifest = () => {
 	const manifest = fixtureManifest();
 	const script = manifest.scripts[0];
 	assert(script);
-	const { automationType: _automationType, ...common } = script;
+	const { automationType: _automationType, inputProjection: _inputProjection, ...common } = script;
 	const details = {
 		...common,
 		name: "Fixture details",

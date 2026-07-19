@@ -47,12 +47,25 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 		};
 	}
 	if (script.kind === "automation") {
+		if (script.automationType === "policy") {
+			return {
+				slug: script.slug,
+				name: script.name,
+				kind: script.kind,
+				capabilities: script.capabilities,
+				automationType: script.automationType,
+				inputProjection: script.inputProjection,
+				requiredPluginConfigKeys: script.requiredPluginConfigKeys,
+				requiredSystemConfigKeys: script.requiredSystemConfigKeys,
+			};
+		}
 		return {
 			slug: script.slug,
 			name: script.name,
 			kind: script.kind,
 			capabilities: script.capabilities,
 			automationType: script.automationType,
+			inputProjection: script.inputProjection,
 			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
 			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
 		};

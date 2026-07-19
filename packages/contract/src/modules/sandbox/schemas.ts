@@ -11,7 +11,11 @@ import {
 } from "../../schema/brands";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
-import { AutomationInvocationFields } from "../automations/lifecycle";
+import {
+	AutomationAfterInputProjection,
+	AutomationInvocationFields,
+	AutomationPolicyInputProjection,
+} from "../automations/lifecycle";
 import { SANDBOX_HOST_CAPABILITIES } from "./wire";
 
 export const ProviderInformation = Schema.Struct({
@@ -46,7 +50,18 @@ const SandboxScriptManifestFields = {
 export const SandboxScriptManifest = Schema.Union([
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("script") }),
 	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("operation") }),
-	Schema.Struct({ ...SandboxScriptManifestFields, kind: Schema.Literal("automation") }),
+	Schema.Struct({
+		...SandboxScriptManifestFields,
+		kind: Schema.Literal("automation"),
+		automationType: Schema.Literal("automation"),
+		inputProjection: AutomationAfterInputProjection,
+	}),
+	Schema.Struct({
+		...SandboxScriptManifestFields,
+		kind: Schema.Literal("automation"),
+		automationType: Schema.Literal("policy"),
+		inputProjection: AutomationPolicyInputProjection,
+	}),
 	Schema.Struct({
 		...SandboxScriptManifestFields,
 		capabilities: Schema.Tuple([]),

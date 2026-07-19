@@ -13,6 +13,11 @@ export const manifest = defineManifest({
 	name: "Ensure media library membership",
 	slug: "automation.ensure-library-membership",
 	capabilities: ["executeRyotql", "changeUserRelationships"],
+	inputProjection: {
+		providerEntityImport: true,
+		entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+		event: { compareProperties: [], properties: ["entityId", "entitySchemaSlug"] },
+	},
 });
 
 const libraryMemberEntitySchemaSlugs = new Set<string>(mediaLibraryMemberEntitySchemaSlugs);

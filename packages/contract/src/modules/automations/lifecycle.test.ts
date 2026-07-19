@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import {
 	AutomationCausation,
+	AutomationAfterInputProjection,
 	AutomationInput,
+	AutomationPolicyInputProjection,
 	AutomationPolicyInput,
 	AutomationRun,
 	AutomationRunAttempt,
@@ -290,6 +292,137 @@ describe("lifecycle payload boundaries", () => {
 		}
 	});
 
+	it("validates explicit input projections", () => {
+		const projection = {
+			providerEntityImport: true,
+			signal: { properties: ["message"] },
+			entity: {
+				properties: ["title", "status"],
+				parentEntityProperties: ["season"],
+				compareProperties: [
+					{ equality: "json", property: "status" },
+					{ property: "tags", equality: "unordered-array" },
+				],
+			},
+		};
+		expect(Schema.decodeUnknownSync(AutomationAfterInputProjection)(projection)).toEqual(
+			projection,
+		);
+		expect(() => Schema.decodeUnknownSync(AutomationPolicyInputProjection)(projection)).toThrow();
+		expect(
+			Schema.decodeUnknownSync(AutomationAfterInputProjection)({
+				event: {
+					properties: [" title "],
+					compareProperties: [{ equality: "json", property: " status " }],
+				},
+			}),
+		).toEqual({
+			event: {
+				properties: ["title"],
+				compareProperties: [{ equality: "json", property: "status" }],
+			},
+		});
+		expect(
+			Schema.decodeUnknownSync(AutomationPolicyInputProjection)({
+				event: { properties: [] },
+				entity: { properties: ["title"] },
+				relationship: { properties: ["role"] },
+			}),
+		).toMatchObject({ entity: { properties: ["title"] } });
+		for (const invalid of [
+			{ event: { properties: ["   "], compareProperties: [] } },
+			{},
+			{ providerEntityImport: false },
+			{ signal: { properties: ["message", "message"] } },
+			{
+				event: {
+					properties: [],
+					compareProperties: [
+						{ equality: "json", property: "status" },
+						{ property: "status", equality: "unordered-array" },
+					],
+				},
+			},
+		]) {
+			expect(() => Schema.decodeUnknownSync(AutomationAfterInputProjection)(invalid)).toThrow();
+		}
+	});
+
+	it("requires changed properties only on projected update invocations", () => {
+		const before = {
+			...drafts[0]?.draft,
+			id: "entity-1",
+			createdAt: timestamp,
+			updatedAt: timestamp,
+		};
+		const payload = {
+			before,
+			category: "change",
+			resource: "entity",
+			operation: "update",
+			changedProperties: ["count"],
+			after: { ...before, properties: { count: 2 } },
+		};
+		const input = {
+			automation: {
+				payload,
+				causation,
+				runId: "run-1",
+				occurredAt: timestamp,
+				triggerId: "trigger-1",
+				hookSlug: "item.changed",
+				executionUserId: "user-1",
+			},
+		};
+		expect(Schema.decodeUnknownSync(AutomationInput)(input)).toEqual(input);
+		expect(() =>
+			Schema.decodeUnknownSync(AutomationInput)({
+				...input,
+				automation: { ...input.automation, payload: { ...payload, changedProperties: undefined } },
+			}),
+		).toThrow();
+		expect(
+			Schema.decodeUnknownSync(AutomationTriggerPayload)({
+				after: payload.after,
+				before: payload.before,
+				category: payload.category,
+				resource: payload.resource,
+				operation: payload.operation,
+			}),
+		).toMatchObject({ operation: "update" });
+		expect(() => Schema.decodeUnknownSync(AutomationTriggerPayload)(payload)).toThrow();
+		const projectedRequest = {
+			before,
+			resource: "entity",
+			category: "request",
+			operation: "update",
+			changedProperties: ["count"],
+			draft: { ...drafts[0]?.draft, properties: { projected: true } },
+		};
+		expect(
+			Schema.decodeUnknownSync(AutomationPolicyInput)({
+				automation: { ...input.automation, payload: projectedRequest },
+			}),
+		).toMatchObject({ automation: { payload: { changedProperties: ["count"] } } });
+		expect(() =>
+			Schema.decodeUnknownSync(AutomationPolicyInput)({
+				automation: {
+					...input.automation,
+					payload: { ...projectedRequest, changedProperties: undefined },
+				},
+			}),
+		).toThrow();
+		expect(
+			Schema.decodeUnknownSync(AutomationInput)({
+				...input,
+				automation: {
+					...input.automation,
+					payload: { items: [payload], category: "change", operation: "batch", resource: "entity" },
+				},
+			}),
+		).toMatchObject({ automation: { payload: { items: [{ changedProperties: ["count"] }] } } });
+	});
+
 	it.each(drafts)(
 		"requires operation-specific $resource drafts and snapshots",
 		({ draft, resource }) => {
@@ -519,17 +652,30 @@ describe("lifecycle payload boundaries", () => {
 		).toThrow();
 	});
 
-	it("uses explicit policy rejection and full validated transform proposals", () => {
+	it("uses explicit policy rejection and strict resource-tagged patches", () => {
 		const transform = {
 			action: "transform",
-			payload: {
+			patch: {
 				resource: "event",
-				category: "request",
-				operation: "create",
-				draft: drafts[1]?.draft,
+				draft: { sessionEntityId: null, properties: { remove: ["stale"], set: { progress: 100 } } },
 			},
 		};
 		expect(Schema.decodeUnknownSync(AutomationPolicyOutput)(transform)).toEqual(transform);
+		expect(
+			Schema.decodeUnknownSync(AutomationPolicyOutput)({
+				action: "transform",
+				patch: { resource: "entity", draft: { name: "Updated" } },
+			}),
+		).toMatchObject({ patch: { resource: "entity" } });
+		expect(
+			Schema.decodeUnknownSync(AutomationPolicyOutput)({
+				action: "transform",
+				patch: {
+					resource: "relationship",
+					draft: { properties: { remove: [], set: { role: "owner" } } },
+				},
+			}),
+		).toMatchObject({ patch: { resource: "relationship" } });
 		expect(
 			Schema.decodeUnknownSync(AutomationPolicyOutput)({
 				action: "reject",
@@ -539,6 +685,28 @@ describe("lifecycle payload boundaries", () => {
 		for (const old of [
 			{ action: "skip", reason: "Invalid progress" },
 			{ action: "replace", body: { properties: {} } },
+			{ action: "transform" },
+			{ action: "transform", patch: { draft: {}, resource: "event" } },
+			{ action: "transform", patch: { resource: "event", draft: { occurredAt: timestamp } } },
+			{ action: "transform", patch: { resource: "entity", draft: { externalId: "not-allowed" } } },
+			{ action: "transform", patch: { resource: "entity", draft: { providerId: null } } },
+			{ action: "transform", patch: { resource: "entity", draft: { populatedAt: null } } },
+			{
+				action: "transform",
+				patch: { resource: "entity", draft: { properties: { set: {}, remove: [] } } },
+			},
+			{
+				action: "transform",
+				patch: { resource: "entity", draft: { properties: { set: {}, remove: ["tag", "tag"] } } },
+			},
+			{
+				action: "transform",
+				patch: {
+					resource: "entity",
+					draft: { properties: { remove: ["tag"], set: { tag: true } } },
+				},
+			},
+			{ action: "transform", patch: { resource: "signal", draft: { properties: {} } } },
 		]) {
 			expect(() => Schema.decodeUnknownSync(AutomationPolicyOutput)(old)).toThrow();
 		}

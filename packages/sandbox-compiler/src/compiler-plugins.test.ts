@@ -70,6 +70,7 @@ export const manifest = defineManifest({
 	slug: "automation",
 	kind: "automation",
 	automationType: "automation",
+	inputProjection: { event: { compareProperties: [], properties: [] } },
 	capabilities: [],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
@@ -117,6 +118,9 @@ export default defineWorkflow({
 			"operation",
 			"workflow",
 		]);
+		expect(compiled[0]?.compiled.manifest).toMatchObject({
+			inputProjection: { event: { properties: [], compareProperties: [] } },
+		});
 		const workflowBundle = compiled.find(({ entry }) => entry === "workflow.sandbox.ts");
 		expect(workflowBundle).toBeDefined();
 		const javascript = workflowBundle?.compiled.javascript ?? "";

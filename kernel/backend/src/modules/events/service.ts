@@ -9,7 +9,6 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
 import type { EventId, UserId } from "@ryot-app/contract/schema/brands";
-import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, Context, DateTime, Effect, Layer, Option, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -53,7 +52,6 @@ export type PreparedEventDelete = {
 	readonly [preparedEventDelete]: Extract<PreparedEventMutationData, { operation: "delete" }>;
 };
 
-const same = (left: unknown, right: unknown) => stableStringify(left) === stableStringify(right);
 const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 	Effect.gen(function* () {
 		const database = yield* Database;
@@ -163,7 +161,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			yield* Effect.gen(function* () {
 				for (const policy of planned.plan.policies) {
 					const output = yield* execution
-						.executePolicy({ runId: policy.runId, payload: planned.request })
+						.executePolicy({ runId: policy.runId, acceptedPatches: [] })
 						.pipe(
 							Effect.catchTag("AutomationPolicyExecutionError", (error) =>
 								Effect.fail(
@@ -176,7 +174,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 							message: `Event policy rejected mutation: ${policy.runId}`,
 						});
 					}
-					if (output.action === "transform" && !same(output.payload, planned.request)) {
+					if (output.action === "transform") {
 						return yield* new DbError({
 							message: `Event policy cannot transform a reference or delete mutation: ${policy.runId}`,
 						});
