@@ -1,6 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { Redirect, router } from "expo-router";
+import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 
 import { systemConfigAtom } from "@/api/atoms";
@@ -26,7 +27,14 @@ export default function Auth() {
 
 	const config = useAtomValue(systemConfigAtom);
 	const { data: session, isPending } = client.useSession();
+	const [hasResolvedSession, setHasResolvedSession] = useState(!isPending);
 	const refreshConfig = useAtomRefresh(systemConfigAtom);
+
+	useEffect(() => {
+		if (!isPending) {
+			setHasResolvedSession(true);
+		}
+	}, [isPending]);
 
 	async function handleChangeServer() {
 		await client.signOut().catch(() => undefined);
@@ -38,7 +46,7 @@ export default function Auth() {
 	if (!serverUrl) {
 		return <Redirect href={getGateHref("/onboarding", redirectTo)} />;
 	}
-	if (isPending) {
+	if (isPending && !hasResolvedSession) {
 		return <AuthLoading />;
 	}
 	if (session) {
