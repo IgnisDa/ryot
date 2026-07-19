@@ -26,7 +26,7 @@ Remove verified dead global-plugin assumptions, obsolete backup version 1 code, 
 ## User stories addressed
 
 - User story 1
-- User story 60
+- User story 58
 
 ## Implementor Notes
 

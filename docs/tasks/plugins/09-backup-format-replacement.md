@@ -6,7 +6,7 @@
 
 ## What to build
 
-Replace the existing backup archive with format version 2 as defined in the parent plan's Backup And Restore section. Do not retain a version 1 reader, writer, fixture, compatibility dispatcher, or migration path. Preserve the existing archive's deterministic streaming, integrity, ZIP-security, asset, size-limit, and clean-account properties while adding portable private plugin packages and installation-aware provenance.
+Replace the currently implemented and documented backup archive directly with format version 2 as defined in the parent plan's Backup And Restore section. This project is undeployed, so do not retain a version 1 reader, writer, fixture, compatibility dispatcher, migration path, or documentation. Preserve the existing archive's deterministic streaming, integrity, ZIP-security, asset, size-limit, and clean-account properties while adding portable private plugin packages and installation-aware provenance.
 
 Export includes exact private source packages owned by the user, non-secret installation config, configured-secret redaction pointers, system plugin requirements, and portable plugin keys used by every definition-backed record. Restore validates and compiles private packages before opening the domain write transaction, creates inactive installation identities, remaps all qualified provenance, skips plugin bootstrap, and activates only installations whose restored configuration is complete.
 
@@ -25,9 +25,11 @@ Export includes exact private source packages owned by the user, non-secret inst
 - [ ] Installations with complete config return to archived disablement intent; installations missing redacted required secrets enter needs-configuration health.
 - [ ] Failure rolls back domain rows and installation state according to existing restore guarantees and cleans newly staged assets.
 - [ ] A new version 2 golden fixture and focused archive, export, restore, cleanliness, workflow, and service tests replace version 1 coverage.
+- [ ] Product documentation and backup module guidance describe only version 2 behavior and contain no obsolete version 1 guarantees or terminology.
 
 ## User stories addressed
 
+- User story 42
 - User story 43
 - User story 44
 - User story 45
@@ -36,7 +38,6 @@ Export includes exact private source packages owned by the user, non-secret inst
 - User story 48
 - User story 49
 - User story 50
-- User story 51
 
 ## Implementor Notes
 
