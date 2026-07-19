@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
-import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";

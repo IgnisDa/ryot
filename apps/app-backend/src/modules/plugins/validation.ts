@@ -2,7 +2,7 @@ import {
 	PluginManifest,
 	type PluginManifest as PluginManifestValue,
 	type PluginScript,
-} from "@ryot/plugin-kit/manifest";
+} from "@ryot/contract/modules/plugins/manifest";
 import { Cron, Data, Effect, Result, Schema } from "effect";
 
 import {

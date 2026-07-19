@@ -1,3 +1,4 @@
+import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import {
 	type AppBooleanProperty,
 	type AppEnumProperty,
@@ -290,16 +291,6 @@ type PluginFields<F extends ConfigFields> =
 	Extract<F[keyof F], ConfigGroupDefinition | { readonly envKey: string }> extends never
 		? F
 		: never;
-
-const normalizeEnvironmentSegment = (value: string) =>
-	value
-		.replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-		.replace(/[^a-zA-Z0-9]+/g, "_")
-		.replace(/^_+|_+$/g, "")
-		.toUpperCase();
-
-export const pluginConfigEnvironmentKey = (pluginSlug: string, key: string) =>
-	`RYOT_PLUGIN_${normalizeEnvironmentSegment(pluginSlug)}_${normalizeEnvironmentSegment(key)}`;
 
 export const definePluginConfig = <const F extends ConfigFields>(
 	pluginSlug: string,

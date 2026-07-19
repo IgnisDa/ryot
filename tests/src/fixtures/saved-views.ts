@@ -29,9 +29,9 @@ import {
 } from "./view-language";
 
 type CardDisplayConfiguration = DisplayConfiguration["grid"];
+type DisplayColumn = DisplayConfiguration["table"]["columns"][number];
 
-export type DisplayColumnInput = {
-	label: string;
+export type DisplayColumnInput = Pick<DisplayColumn, "label"> & {
 	property?: string[];
 	expression?: ExpressionInput;
 };
@@ -40,11 +40,16 @@ export type CardDisplayConfigurationInput = {
 	[K in keyof CardDisplayConfiguration]?: ExpressionInput | null;
 };
 
-export type DisplayConfigurationInput = {
+export type DisplayConfigurationInput = Omit<
+	DisplayConfiguration,
+	"grid" | "list" | "entityIdProperty" | "table"
+> & {
 	grid: CardDisplayConfigurationInput;
 	list: CardDisplayConfigurationInput;
 	entityIdProperty?: ExpressionInput | null;
-	table: { columns: ReadonlyArray<DisplayColumnInput> };
+	table: Omit<DisplayConfiguration["table"], "columns"> & {
+		columns: ReadonlyArray<DisplayColumnInput>;
+	};
 };
 
 type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
