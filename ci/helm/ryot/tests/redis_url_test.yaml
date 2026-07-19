@@ -1,0 +1,76 @@
+suite: REDIS_URL creation
+release:
+  name: ryot
+  namespace: default
+tests:
+  - it: composes the URL against the bundled Redis service without auth
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REDIS_URL
+            value: "redis://ryot-redis:6379"
+
+  - it: composes the URL against bundled Redis with a password
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      redis.auth.password: redis-password
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REDIS_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: ryot-redis
+                key: redis-password
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REDIS_URL
+            value: "redis://:$(REDIS_PASSWORD)@ryot-redis:6379"
+
+  - it: sources an external Redis URL from the chart secret
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      redis.enabled: false
+      externalRedis.url: redis://redis.example.com:6379
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REDIS_URL
+            valueFrom:
+              secretKeyRef:
+                name: ryot
+                key: redis-url
+
+  - it: sources an external Redis URL from an existing secret
+    templates:
+      - templates/deployment.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      redis.enabled: false
+      externalRedis.existingSecret: redis-connection
+      externalRedis.existingSecretKey: connection-string
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: REDIS_URL
+            valueFrom:
+              secretKeyRef:
+                name: redis-connection
+                key: connection-string
