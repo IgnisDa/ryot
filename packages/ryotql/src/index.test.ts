@@ -44,6 +44,7 @@ import {
 	subtract,
 	sum,
 	table,
+	timeSeries,
 } from "./index";
 
 describe("RyotQL builders", () => {
@@ -269,6 +270,52 @@ describe("RyotQL builders", () => {
 				groupBy: [difficulty],
 				measures: [countIdentifier],
 				orderBy: [{ key: "count", direction: "desc" }],
+			},
+		});
+	});
+
+	it("builds time-series outputs with generic query options", () => {
+		const event = table("event", "event");
+		const entity = table("entity", "entity");
+		const occurredAt = column(event, "occurredAt");
+		const query = timeSeries(event, {
+			bucket: "day",
+			time: occurredAt,
+			endAt: "2026-01-03T00:00:00.000Z",
+			startAt: "2026-01-01T00:00:00.000Z",
+			measure: { function: "sum", expr: literal(1) },
+			where: eq(column(event, "eventSchemaSlug"), literal("completion")),
+			joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
+		});
+
+		expect(query).toEqual({
+			from: { table: "event", alias: "event" },
+			where: {
+				operator: "eq",
+				type: "comparison",
+				right: { type: "literal", value: "completion" },
+				left: { type: "column", tableAlias: "event", field: "eventSchemaSlug" },
+			},
+			joins: [
+				{
+					type: "inner",
+					table: { table: "entity", alias: "entity" },
+					on: {
+						operator: "eq",
+						type: "comparison",
+						right: { type: "column", tableAlias: "entity", field: "id" },
+						left: { type: "column", tableAlias: "event", field: "entityId" },
+					},
+				},
+			],
+			output: {
+				type: "timeSeries",
+				measure: { aggregation: { function: "sum", expr: { type: "literal", value: 1 } } },
+				time: {
+					bucket: "day",
+					expr: occurredAt,
+					range: { endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+				},
 			},
 		});
 	});
