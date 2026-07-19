@@ -1,3 +1,5 @@
+import { buildReportSql } from "./shared";
+
 export const buildIntegrationMigrationSql = () => `
 DO $$
 DECLARE
@@ -56,8 +58,6 @@ BEGIN
 	IF invalid_required_field_ids IS NOT NULL THEN
 		RAISE EXCEPTION 'Legacy integrations with missing required provider-specific fields: %', invalid_required_field_ids;
 	END IF;
-
-	RAISE NOTICE 'old_integration -> integration: migration started (% seconds elapsed)', 0.0;
 
 	INSERT INTO "integration" (
 		"id",
@@ -168,8 +168,6 @@ BEGIN
 	ON CONFLICT ("id") DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'old_integration -> integration: % row(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("old_integration -> integration", [{ message: "row(s) migrated", count: "rows_inserted" }])}
 END $$;
 `;

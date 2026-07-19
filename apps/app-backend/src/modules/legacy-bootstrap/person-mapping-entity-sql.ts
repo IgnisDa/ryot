@@ -1,4 +1,8 @@
-import { type ResolvedEntityMigrationTarget, buildEntityTargetValuesSql } from "./shared";
+import {
+	type ResolvedEntityMigrationTarget,
+	buildEntityTargetValuesSql,
+	buildReportSql,
+} from "./shared";
 
 type EntityMigrationInput = {
 	kind: "person" | "company";
@@ -80,8 +84,6 @@ DECLARE
 	rows_inserted int := 0;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	RAISE NOTICE '${kindNotice} -> entity: migration started (% seconds elapsed)', 0.0;
-
 	LOOP
 		WITH person_targets (source, entity_schema_slug, provider_id) AS (
 			VALUES ${buildEntityTargetValuesSql(targets)}
@@ -147,9 +149,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	RAISE NOTICE '${kindNotice} -> entity: % row(s) migrated total (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql(`${kindNotice} -> entity`, [{ message: "row(s) migrated total", count: "rows_inserted" }])}
 END $$;
 `;
 };

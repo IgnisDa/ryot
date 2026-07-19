@@ -1,5 +1,9 @@
 import { legacyPersonCompanyPredicateSql } from "./person-mapping-entity-sql";
-import { type ResolvedRelationshipTarget, buildRelationshipTargetValuesSql } from "./shared";
+import {
+	type ResolvedRelationshipTarget,
+	buildRelationshipTargetValuesSql,
+	buildReportSql,
+} from "./shared";
 
 // Provider cast/crew credits between provider entities are rebuilt by V2 on population and are not
 // migrated. Only user-authored credits (an endpoint owned by a user) are migrated; both endpoints
@@ -24,8 +28,6 @@ DECLARE
 	rows_inserted int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	RAISE NOTICE '${kindNotice} -> relationship: migration started (% seconds elapsed)', 0.0;
-
 	IF EXISTS (
 		WITH relationship_targets (lot, relationship_schema_slug) AS (
 			VALUES ${buildRelationshipTargetValuesSql(targets)}
@@ -133,9 +135,7 @@ BEGIN
 	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
-	RAISE NOTICE '${kindNotice} -> relationship: % user-authored row(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql(`${kindNotice} -> relationship`, [{ message: "user-authored row(s) migrated", count: "rows_inserted" }])}
 END $$;
 `;
 };
@@ -148,8 +148,6 @@ DECLARE
 	rows_inserted int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	RAISE NOTICE 'group_person -> relationship: migration started (% seconds elapsed)', 0.0;
-
 	IF EXISTS (
 		WITH relationship_targets (lot, relationship_schema_slug) AS (
 			VALUES ${buildRelationshipTargetValuesSql(targets)}
@@ -238,8 +236,6 @@ BEGIN
 	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 
-	RAISE NOTICE 'group_person -> relationship: % user-authored row(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("group_person -> relationship", [{ message: "user-authored row(s) migrated", count: "rows_inserted" }])}
 END $$;
 `;
