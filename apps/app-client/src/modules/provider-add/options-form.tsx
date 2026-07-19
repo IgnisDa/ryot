@@ -162,8 +162,14 @@ function SearchableMultiSelect(props: {
 				onRequestClose={close}
 				accessibilityViewIsModal
 			>
-				<View className="flex-1 items-center justify-center bg-overlay p-4">
-					<View className="max-h-[80%] w-full max-w-xl rounded-xl border border-border bg-surface p-4 shadow-card">
+				<View className="flex-1 items-center justify-center p-4">
+					<Pressable
+						onPress={close}
+						accessibilityRole="button"
+						accessibilityLabel="Close options"
+						className="absolute inset-0 bg-overlay"
+					/>
+					<View className="h-[80%] max-h-[80%] w-full max-w-xl rounded-xl border border-border bg-surface p-4 shadow-card md:h-auto">
 						<View className="mb-3 flex-row items-center justify-between">
 							<Text className="font-ui-semibold text-base text-text">{props.label}</Text>
 							<Pressable
