@@ -21,6 +21,7 @@ import {
 	GodModeRouteStubs,
 	SavedViewRouteStubs,
 	ProviderAddRouteStubs,
+	CustomizeRouteStubs,
 	NavigationRouteStubs,
 	theme,
 	server,
@@ -67,6 +68,7 @@ const mountView = (
 			events.layer,
 			Layer.succeed(PluginCatalogService, { load }),
 			NavigationRouteStubs,
+			CustomizeRouteStubs,
 			Layer.succeed(PluginOperationsService, { invoke }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 		).pipe(
