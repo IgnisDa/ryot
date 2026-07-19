@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { backupArchiveDownloadOperation, pruneBackupDownloadCache } from "@/api/backups";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
+import { useTrackEvent } from "@/modules/analytics/state";
 import { DestructiveActionSheet } from "@/modules/ui/destructive-action-sheet";
 import { RUN_LIST_POLL_MS, useRunPolling } from "@/modules/ui/run/use-run-polling";
 import { SearchParamModalHost, useSearchParamModal } from "@/modules/ui/search-param-modal";
@@ -31,6 +32,7 @@ export function BackupsScreen() {
 	const runsAtom = backupRunsAtom(scope);
 	const result = useAtomValue(runsAtom);
 	const refresh = useAtomRefresh(runsAtom);
+	const trackEvent = useTrackEvent();
 	const createExport = useAtomSet(createBackupExportAtom(scope), { mode: "promiseExit" });
 	const deleteRun = useAtomSet(deleteBackupRunAtom(scope), { mode: "promiseExit" });
 	const downloadArchive = backupArchiveDownloadOperation(scope);
@@ -71,7 +73,9 @@ export function BackupsScreen() {
 		setIsCreating(false);
 		if (Exit.isFailure(exit)) {
 			setCreateCause(exit.cause);
+			return;
 		}
+		trackEvent("Create Backup");
 	}
 
 	async function confirmDelete(run: BackupRun) {
