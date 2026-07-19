@@ -1643,7 +1643,7 @@
       "id": "d7wLO",
       "x": 3371,
       "y": 30,
-      "name": "Collapsing Chrome / Topbar Search",
+      "name": "Navigation",
       "theme": {
         "Mode": "Dark"
       },
@@ -6768,10 +6768,10 @@
                   "type": "frame",
                   "id": "N7SYF",
                   "x": 0,
-                  "y": 323,
+                  "y": 387,
                   "name": "Switcher Sheet B",
                   "width": 393,
-                  "height": 529,
+                  "height": 465,
                   "fill": "$--card",
                   "cornerRadius": [
                     22,
@@ -6828,41 +6828,6 @@
                           "fontFamily": "$--font-primary",
                           "fontSize": 18,
                           "fontWeight": "600"
-                        },
-                        {
-                          "type": "frame",
-                          "id": "QoS9d",
-                          "name": "Manage Chip",
-                          "fill": "$--secondary",
-                          "cornerRadius": "$--radius-pill",
-                          "gap": 6,
-                          "padding": [
-                            7,
-                            12
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "icon",
-                              "id": "nQObT",
-                              "name": "Manage Icon",
-                              "width": 14,
-                              "height": 14,
-                              "icon": "settings-2",
-                              "library": "lucide",
-                              "fill": "$--accent-text"
-                            },
-                            {
-                              "type": "text",
-                              "id": "I40LK",
-                              "name": "Manage Label",
-                              "fill": "$--accent-text",
-                              "content": "Manage",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13,
-                              "fontWeight": "600"
-                            }
-                          ]
                         }
                       ]
                     },
@@ -7173,155 +7138,270 @@
                     },
                     {
                       "type": "frame",
-                      "id": "Keglc",
-                      "name": "Saved Views List",
+                      "id": "w83JY8",
+                      "name": "Saved View Rails",
+                      "clip": true,
                       "width": "fill_container",
                       "layout": "vertical",
-                      "gap": 6,
+                      "gap": 8,
                       "children": [
                         {
                           "type": "frame",
-                          "id": "Yt4Uw",
-                          "name": "Saved / Sci-Fi Watchlist",
+                          "id": "GyB6u",
+                          "name": "Rail 1",
+                          "clip": true,
                           "width": "fill_container",
-                          "height": 44,
-                          "fill": "$--secondary",
-                          "cornerRadius": "$--radius-md",
-                          "padding": [
-                            0,
-                            12
-                          ],
-                          "justifyContent": "space_between",
+                          "height": 36,
+                          "gap": 8,
                           "alignItems": "center",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "ELjEq",
-                              "name": "Sci-Fi Watchlist Left",
-                              "gap": 10,
+                              "id": "HNgBR",
+                              "name": "Chip / Sci-Fi Watchlist",
+                              "height": 36,
+                              "fill": "$--secondary",
+                              "cornerRadius": "$--radius-pill",
+                              "stroke": "$--border",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "gap": 7,
+                              "padding": [
+                                0,
+                                13
+                              ],
                               "alignItems": "center",
                               "children": [
                                 {
                                   "type": "icon",
-                                  "id": "H74hGY",
+                                  "id": "H2kDSy",
                                   "name": "Sci-Fi Watchlist Icon",
-                                  "width": 16,
-                                  "height": 16,
+                                  "width": 15,
+                                  "height": 15,
                                   "icon": "rocket",
                                   "library": "lucide",
                                   "fill": "$--text-muted"
                                 },
                                 {
                                   "type": "text",
-                                  "id": "W2vyz8",
+                                  "id": "ijWNz",
                                   "name": "Sci-Fi Watchlist Label",
                                   "fill": "$--text-primary",
                                   "content": "Sci-Fi Watchlist",
                                   "fontFamily": "$--font-primary",
-                                  "fontSize": 14.5,
+                                  "fontSize": 13.5,
                                   "fontWeight": "500"
                                 }
                               ]
                             },
                             {
-                              "type": "text",
-                              "id": "oWo92",
-                              "name": "Sci-Fi Watchlist Count",
-                              "fill": "$--text-subtle",
-                              "content": "24",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13,
-                              "fontWeight": "500"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "u2zTx",
-                          "name": "Saved / 2024 Rewatch",
-                          "width": "fill_container",
-                          "height": 44,
-                          "fill": "$--secondary",
-                          "cornerRadius": "$--radius-md",
-                          "padding": [
-                            0,
-                            12
-                          ],
-                          "justifyContent": "space_between",
-                          "alignItems": "center",
-                          "children": [
-                            {
                               "type": "frame",
-                              "id": "BbLaS",
-                              "name": "2024 Rewatch Left",
-                              "gap": 10,
+                              "id": "MEcKo",
+                              "name": "Chip / 2024 Rewatch",
+                              "height": 36,
+                              "fill": "$--secondary",
+                              "cornerRadius": "$--radius-pill",
+                              "stroke": "$--border",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "gap": 7,
+                              "padding": [
+                                0,
+                                13
+                              ],
                               "alignItems": "center",
                               "children": [
                                 {
                                   "type": "icon",
-                                  "id": "vxM1L",
+                                  "id": "ebrP0",
                                   "name": "2024 Rewatch Icon",
-                                  "width": 16,
-                                  "height": 16,
+                                  "width": 15,
+                                  "height": 15,
                                   "icon": "rotate-ccw",
                                   "library": "lucide",
                                   "fill": "$--text-muted"
                                 },
                                 {
                                   "type": "text",
-                                  "id": "W6tlBR",
+                                  "id": "VNbyH",
                                   "name": "2024 Rewatch Label",
                                   "fill": "$--text-primary",
                                   "content": "2024 Rewatch",
                                   "fontFamily": "$--font-primary",
-                                  "fontSize": 14.5,
+                                  "fontSize": 13.5,
                                   "fontWeight": "500"
                                 }
                               ]
                             },
                             {
-                              "type": "text",
-                              "id": "eAZba",
-                              "name": "2024 Rewatch Count",
-                              "fill": "$--text-subtle",
-                              "content": "11",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13,
-                              "fontWeight": "500"
+                              "type": "frame",
+                              "id": "Ea11d",
+                              "name": "Chip / Backlog",
+                              "height": 36,
+                              "fill": "$--secondary",
+                              "cornerRadius": "$--radius-pill",
+                              "stroke": "$--border",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "gap": 7,
+                              "padding": [
+                                0,
+                                13
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "d1Fwwb",
+                                  "name": "Backlog Icon",
+                                  "width": 15,
+                                  "height": 15,
+                                  "icon": "clock",
+                                  "library": "lucide",
+                                  "fill": "$--text-muted"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "KaMTg",
+                                  "name": "Backlog Label",
+                                  "fill": "$--text-primary",
+                                  "content": "Backlog",
+                                  "fontFamily": "$--font-primary",
+                                  "fontSize": 13.5,
+                                  "fontWeight": "500"
+                                }
+                              ]
                             }
                           ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "pFooB",
-                      "name": "See All Row",
-                      "width": "fill_container",
-                      "height": 36,
-                      "gap": 6,
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "dUOHc",
-                          "name": "See All Label",
-                          "fill": "$--accent-text",
-                          "content": "See all 12 saved views",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 14,
-                          "fontWeight": "600"
                         },
                         {
-                          "type": "icon",
-                          "id": "PvTsy",
-                          "name": "See All Chevron",
-                          "width": 15,
-                          "height": 15,
-                          "icon": "chevron-right",
-                          "library": "lucide",
-                          "fill": "$--accent-text"
+                          "type": "frame",
+                          "id": "zHoIJ",
+                          "name": "Rail 2",
+                          "clip": true,
+                          "width": "fill_container",
+                          "height": 36,
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "TuJzp",
+                              "name": "Chip / Owned on Vinyl",
+                              "height": 36,
+                              "fill": "$--secondary",
+                              "cornerRadius": "$--radius-pill",
+                              "stroke": "$--border",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "gap": 7,
+                              "padding": [
+                                0,
+                                13
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "WXGHs",
+                                  "name": "Owned on Vinyl Icon",
+                                  "width": 15,
+                                  "height": 15,
+                                  "icon": "disc-3",
+                                  "library": "lucide",
+                                  "fill": "$--text-muted"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "t1wXcp",
+                                  "name": "Owned on Vinyl Label",
+                                  "fill": "$--text-primary",
+                                  "content": "Owned on Vinyl",
+                                  "fontFamily": "$--font-primary",
+                                  "fontSize": 13.5,
+                                  "fontWeight": "500"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "K7JXY",
+                              "name": "Chip / Comfort Shows",
+                              "height": 36,
+                              "fill": "$--secondary",
+                              "cornerRadius": "$--radius-pill",
+                              "stroke": "$--border",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "gap": 7,
+                              "padding": [
+                                0,
+                                13
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "vmPmB",
+                                  "name": "Comfort Shows Icon",
+                                  "width": 15,
+                                  "height": 15,
+                                  "icon": "tv",
+                                  "library": "lucide",
+                                  "fill": "$--text-muted"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "UaUNs",
+                                  "name": "Comfort Shows Label",
+                                  "fill": "$--text-primary",
+                                  "content": "Comfort Shows",
+                                  "fontFamily": "$--font-primary",
+                                  "fontSize": 13.5,
+                                  "fontWeight": "500"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "d5rH3",
+                              "name": "Chip / Top Rated",
+                              "height": 36,
+                              "fill": "$--secondary",
+                              "cornerRadius": "$--radius-pill",
+                              "stroke": "$--border",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "gap": 7,
+                              "padding": [
+                                0,
+                                13
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "R4J4XL",
+                                  "name": "Top Rated Icon",
+                                  "width": 15,
+                                  "height": 15,
+                                  "icon": "star",
+                                  "library": "lucide",
+                                  "fill": "$--text-muted"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "FnHpt",
+                                  "name": "Top Rated Label",
+                                  "fill": "$--text-primary",
+                                  "content": "Top Rated",
+                                  "fontFamily": "$--font-primary",
+                                  "fontSize": 13.5,
+                                  "fontWeight": "500"
+                                }
+                              ]
+                            }
+                          ]
                         }
                       ]
                     }
