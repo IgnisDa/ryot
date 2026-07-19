@@ -7,6 +7,7 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { AuthUserBootstrap } from "#modules/auth/service";
 import { generateUserAvatar } from "#modules/auth/user-avatar";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { SavedViewsService } from "#modules/saved-views/service";
 
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
@@ -63,6 +64,8 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	}
 	const savedViews = yield* SavedViewsService;
 	const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
+	const pluginInstallations = yield* PluginInstallationService;
+	yield* pluginInstallations.provisionSystemInstallations(user);
 	yield* pluginBootstrap.dispatchAll(user);
 	yield* mapDatabaseErrors(
 		database.transaction((transaction) =>
@@ -92,12 +95,14 @@ export const AuthUserBootstrapLive = Layer.effect(
 		const database = yield* Database;
 		const savedViews = yield* SavedViewsService;
 		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
+		const pluginInstallations = yield* PluginInstallationService;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
 
 		return {
 			run: (userId: string) =>
 				bootstrapNewUser(userId).pipe(
 					Effect.provideService(Database, database),
+					Effect.provideService(PluginInstallationService, pluginInstallations),
 					Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
 					Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
 					Effect.provideService(SavedViewsService, savedViews),

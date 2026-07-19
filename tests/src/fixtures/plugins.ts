@@ -28,7 +28,7 @@ export const findBuiltinPluginBySlug = (client: Client, slug: string) =>
 export const updatePluginState = (
 	client: Client,
 	pluginSlug: string,
-	payload: { config?: Record<string, unknown>; isDisabled?: boolean; sortOrder?: number },
+	payload: { isDisabled?: boolean; sortOrder?: number },
 ) =>
 	client.call((c) =>
 		c.definitions.updatePluginState({

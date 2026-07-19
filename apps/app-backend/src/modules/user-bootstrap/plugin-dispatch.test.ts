@@ -7,6 +7,10 @@ import { assert } from "vitest";
 
 import { databaseLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
+import {
+	PluginInstallationRepository,
+	type PluginInstallationState,
+} from "#modules/plugins/installation-repository";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
 import type { PluginRegistryEntry } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -74,16 +78,31 @@ loader.load(
 	]),
 );
 loader.load(
-	normalizedPlugin("untrusted", [
-		{ slug: "ignored", scriptSlug: "bootstrap.ignored", description: "Ignored" },
+	normalizedPlugin("fitness", [
+		{ slug: "only", scriptSlug: "bootstrap.only", description: "Only" },
 	]),
 );
+
+const systemInstallation = (pluginSlug: string): PluginInstallationState => ({
+	config: {},
+	pluginSlug,
+	sortOrder: 0,
+	health: "ready",
+	isDisabled: false,
+	healthReason: null,
+	pluginScope: "system",
+	pluginId: `${pluginSlug}-id`,
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	id: `${pluginSlug}-installation`,
+	userId: UserId.make("user-1"),
+});
 
 type ActiveScript = NonNullable<
 	Effect.Success<ReturnType<PluginRuntimeResolver["Service"]["findActiveScript"]>>
 >;
 
-const layer = Layer.mergeAll(
+const baseLayer = Layer.mergeAll(
 	databaseLayer,
 	Layer.succeed(PluginLoader, {
 		...loader,
@@ -123,8 +142,16 @@ const layer = Layer.mergeAll(
 	}),
 );
 
+const layerFor = (installed: Array<PluginInstallationState>) =>
+	Layer.mergeAll(
+		Layer.mock(PluginInstallationRepository)({
+			listSystemForUser: () => Effect.succeed(installed),
+		}),
+		baseLayer,
+	);
+
 it.effect(
-	"dispatches sorted trusted entries with bound user authority and deterministic ids",
+	"dispatches sorted installed entries with bound user authority and deterministic ids",
 	() => {
 		const payloads: SandboxExecutionPayload[] = [];
 		return Effect.gen(function* () {
@@ -139,6 +166,12 @@ it.effect(
 			expect(payloads).toEqual([
 				{
 					context: {},
+					scriptId: "bootstrap.only-id",
+					authority: { type: "user", userId: "user-1" },
+					executionId: userBootstrapExecutionId("user-1", "fitness", "only"),
+				},
+				{
+					context: {},
 					scriptId: "bootstrap.first-id",
 					authority: { type: "user", userId: "user-1" },
 					executionId: userBootstrapExecutionId("user-1", "media", "first"),
@@ -150,9 +183,39 @@ it.effect(
 					executionId: userBootstrapExecutionId("user-1", "media", "second"),
 				},
 			]);
-		}).pipe(Effect.provide(layer));
+		}).pipe(Effect.provide(layerFor([systemInstallation("media"), systemInstallation("fitness")])));
 	},
 );
+
+it.effect("dispatches nothing for a user with no system installations", () => {
+	const payloads: SandboxExecutionPayload[] = [];
+	return Effect.gen(function* () {
+		const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+			Effect.sync(() => {
+				payloads.push(payload);
+				return { error: null };
+			}),
+		);
+		yield* dispatcher.dispatchAll(UserId.make("user-1"));
+
+		expect(payloads).toEqual([]);
+	}).pipe(Effect.provide(layerFor([])));
+});
+
+it.effect("skips snapshot plugins the user has no installation for", () => {
+	const executed: string[] = [];
+	return Effect.gen(function* () {
+		const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+			Effect.sync(() => {
+				executed.push(payload.scriptId);
+				return { error: null };
+			}),
+		);
+		yield* dispatcher.dispatchAll(UserId.make("user-1"));
+
+		expect(executed).toEqual(["bootstrap.only-id"]);
+	}).pipe(Effect.provide(layerFor([systemInstallation("fitness")])));
+});
 
 it.effect("propagates a sandbox result error and reruns the same deterministic identity", () => {
 	const executionIds: string[] = [];
@@ -170,5 +233,5 @@ it.effect("propagates a sandbox result error and reruns the same deterministic i
 
 		yield* dispatcher.dispatchAll(UserId.make("user-1"));
 		expect(executionIds[0]).toBe(executionIds[1]);
-	}).pipe(Effect.provide(layer));
+	}).pipe(Effect.provide(layerFor([systemInstallation("media")])));
 });

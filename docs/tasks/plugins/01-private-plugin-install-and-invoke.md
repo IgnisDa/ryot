@@ -68,7 +68,11 @@ Keep plugin ID, installation ID, and script content identity separate. Route han
 - Slug shadowing is checked in one direction only. Private install rejects an existing system slug, but
   system ingestion does not reject a slug already used by a private plugin. Because operation
   resolution is system-first, a later system plugin would silently shadow an owner's private operation
-  and misattribute its installation state. Task 02 owns system provisioning and should close this.
+  and misattribute its installation state. Reassigned from Task 02 to Task 08: closing it by rejecting
+  system ingestion would contradict user story 37, which requires a shipped plugin to stay authoritative
+  and forbids user code from blocking startup or upgrades. Task 08 already owns the correct resolution --
+  the system plugin wins and the conflicting private installation becomes `incompatible` with a safe
+  diagnostic reason.
 - `PluginRepository.hasIntegrationReferences` still matches `integration.plugin_slug` across all users.
   Unreachable while private plugins cannot declare integration providers; Task 06 must make it
   owner-scoped when it lifts that restriction, otherwise one user's integration could block another's

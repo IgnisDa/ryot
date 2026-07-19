@@ -94,9 +94,10 @@ describe("Delete user", () => {
 			const { client: observerClient } = yield* createAuthenticatedClient();
 			const plugin = yield* findBuiltinPluginBySlug(userClient, "media");
 			const configuredPlugin = yield* updatePluginState(userClient, plugin.slug, {
-				config: { fixture: true },
+				sortOrder: 41,
+				isDisabled: true,
 			});
-			expect(configuredPlugin.config).toEqual({ fixture: true });
+			expect(configuredPlugin).toMatchObject({ isDisabled: true, sortOrder: 41 });
 			const apiKey = yield* createApiKey(cookies);
 
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
@@ -133,12 +134,7 @@ describe("Delete user", () => {
 			assertTaggedError(revokedApiKey, "AuthUnauthorized");
 
 			const deleted = yield* pollUserLifecycleOperation(accepted.id);
-			expect(deleted).toMatchObject({
-				failure: null,
-				kind: "delete",
-				status: "completed",
-				userId,
-			});
+			expect(deleted).toMatchObject({ userId, failure: null, kind: "delete", status: "completed" });
 
 			const listed = yield* client.call(
 				(c) => c.godMode.listUsers({ query: { limit: 50, offset: 0, search: email } }),
