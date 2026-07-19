@@ -159,7 +159,7 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.listEventSchemas(input, ...args),
 		defaultFailure(
 			"listEventSchemas",
-			"listEventSchemas expects a non-empty entitySchemaSlug string",
+			"listEventSchemas expects an array of non-empty entitySchemaSlug strings",
 		),
 	),
 	listEvents: bindHostFunction(
