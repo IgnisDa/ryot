@@ -34,11 +34,11 @@ Operational gate exercises production-size workflow, Redis, sandbox, and databas
 
 ## Harness
 
-`global-setup.ts` provisions containers and one shared backend, then provides `backendUrl` to workers. `src/support/backend.ts` reads it through Vitest `inject`; worker modules cannot import global setup state directly. `test-setup.ts` registers custom equality testers.
+`global-setup.ts` provisions containers and one shared backend, then provides `backendUrl` to workers. `src/support/backend.ts` reads it through Vitest `inject`; worker modules cannot import global setup state directly.
 
 Up to three files share backend concurrently. Tests and hooks have 180-second limits, and hanging-process reporter identifies leaked handles.
 
-Effect-native fixtures return effects rather than promises. Scoped network and SSE fixtures use `Effect.acquireRelease`, so `it.scopedLive` closes resources automatically. Wrap raw promise boundaries with `Effect.promise` inside Effect test bodies.
+Effect-native fixtures return effects rather than promises. Scoped network and SSE fixtures use `Effect.acquireRelease`, and `it.live` supplies per-test Scope without TestClock so resources close automatically. Wrap raw promise boundaries with `Effect.promise` inside Effect test bodies.
 
 `pollUntil` retries an Effect check until it returns non-null. Every spawned backend writes to unique `SERVER_LOG_FILE` under OS temp directory; startup output prints path for diagnosis.
 
