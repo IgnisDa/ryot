@@ -1,21 +1,25 @@
-import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Result, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	and,
 	ascending,
-	castDate,
 	castNumber,
 	castText,
 	column,
 	conditional,
+	count,
+	countDistinct,
 	defineRecipe,
+	descending,
 	eq,
-	eventIsAfter,
-	eventOrderDescending,
 	executeRyotqlRecipe,
+	first,
 	gt,
+	isNotNull,
 	join,
 	jsonPath,
 	literal,
+	neq,
 	selectedField,
 	selectedOptionalRow,
 	selectedRows,
@@ -31,15 +35,14 @@ import {
 	EpisodicLifecycleStateSchema,
 	episodicCoverageExpressions,
 	episodicLifecycleExpressions,
-	eventSlugIsOneOf,
 	latestAggregateSignalExpressions,
 	latestEpisodeLifecycleExpressions,
 	latestParentCompletionExpressions,
-	lifecycleEventSlugs,
 	orderExpressionsAreAfter,
 	relationshipConnects,
 	type EpisodicKindConfig,
 	type EventOrderExpressions,
+	type Predicate,
 	type podcastEpisodicKindConfig,
 	type ScalarExpression,
 	type showEpisodicKindConfig,
@@ -84,28 +87,9 @@ export const AggregateLifecycleSignalSchema = Schema.Struct({
 
 export type AggregateLifecycleSignal = Schema.Schema.Type<typeof AggregateLifecycleSignalSchema>;
 
-export const CurrentCycleChildEventSchema = Schema.Struct({
-	id: Schema.String,
-	entityId: Schema.String,
-	createdAt: Schema.String,
-	occurredAt: Schema.String,
-	consumedOn: Schema.NullOr(Schema.String),
-	eventSchemaSlug: Schema.Literals(["progress", "complete"]),
-});
-
-export type CurrentCycleChildEvent = Schema.Schema.Type<typeof CurrentCycleChildEventSchema>;
-
 export const CoverageClosingEventSchema = EventOrderTupleSchema;
 
 export type CoverageClosingEvent = Schema.Schema.Type<typeof CoverageClosingEventSchema>;
-
-export const EpisodicCoverageReplaySchema = Schema.Struct({
-	coverageComplete: Schema.Boolean,
-	agreedConsumedOn: Schema.NullOr(Schema.String),
-	coverageClosingEvent: Schema.NullOr(CoverageClosingEventSchema),
-});
-
-export type EpisodicCoverageReplay = Schema.Schema.Type<typeof EpisodicCoverageReplaySchema>;
 
 export const EpisodicLifecycleSnapshotSchema = Schema.Struct({
 	parentEntityId: Schema.String,
@@ -113,7 +97,6 @@ export const EpisodicLifecycleSnapshotSchema = Schema.Struct({
 	state: EpisodicLifecycleStateSchema,
 	agreedConsumedOn: Schema.NullOr(Schema.String),
 	productionStatus: Schema.NullOr(Schema.String),
-	requiredEpisodeIds: Schema.Array(Schema.String),
 	boundaryCompleteEventId: Schema.NullOr(Schema.String),
 	latestSignal: Schema.NullOr(AggregateLifecycleSignalSchema),
 	boundaryCompleteEvent: Schema.NullOr(EventOrderTupleSchema),
@@ -121,9 +104,6 @@ export const EpisodicLifecycleSnapshotSchema = Schema.Struct({
 });
 
 export type EpisodicLifecycleSnapshot = Schema.Schema.Type<typeof EpisodicLifecycleSnapshotSchema>;
-
-const eventOrderAscending = (event: TableReference) =>
-	eventOrderDescending(event).map(({ expr }) => ascending(expr));
 
 const episodeRelationshipQuery = (
 	config: EpisodicKindConfig,
@@ -489,179 +469,168 @@ export const episodicCoverageRecipe = defineRecipe(
 
 export type EpisodicCoverageResult = Recipe.Success<typeof episodicCoverageRecipe>;
 
-export const requiredEpisodeIdsRecipe = defineRecipe(
-	(input: {
-		readonly parentEntityId: string;
-		readonly after?: string | undefined;
-		readonly limit?: number | undefined;
-		readonly config: EpisodicKindConfig;
-	}) => {
-		const parent = table("entity", "requiredParent");
-		const episode = table("entity", "requiredEpisode");
-		const query = episodeRelationshipQuery(input.config, parent, episode, "required");
-		return {
-			map: ({ episodes }) =>
-				Result.succeed({
-					pageInfo: episodes.pageInfo,
-					items: episodes.items.map(({ entityId }) => entityId),
-				}),
-			queries: {
-				episodes: selectedRows(episode, {
-					after: input.after,
-					limit: input.limit ?? 100,
-					orderBy: [ascending(column(episode, "id"))],
-					selection: { entityId: selectedField(column(episode, "id"), Schema.String) },
-					where: and(entitySchemaIs(parent, input.config.parentSchemaSlug), query.where),
-					joins: [
-						join("inner", parent, eq(column(parent, "id"), literal(input.parentEntityId))),
-						...query.joins,
-					],
-				}),
-			},
-		};
-	},
-);
+const eventOrderExpressions = (event: TableReference): EventOrderExpressions => ({
+	id: column(event, "id"),
+	createdAt: column(event, "createdAt"),
+	occurredAt: column(event, "occurredAt"),
+});
 
-export type RequiredEpisodeIdsResult = Recipe.Success<typeof requiredEpisodeIdsRecipe>;
+const eventOrderAscending = (event: TableReference) =>
+	[
+		ascending(column(event, "occurredAt")),
+		ascending(column(event, "createdAt")),
+		ascending(column(event, "id")),
+	] as const;
 
-const fixedBoundaryPredicate = (event: TableReference, boundary: EventOrderTuple | null) =>
-	boundary === null
-		? eq(literal(true), literal(true))
-		: eventIsAfter(event, {
-				id: literal(boundary.id),
-				createdAt: castDate(literal(boundary.createdAt)),
-				occurredAt: castDate(literal(boundary.occurredAt)),
-			});
+const eventOrderDescendingExpressions = (event: EventOrderExpressions) =>
+	[descending(event.occurredAt), descending(event.createdAt), descending(event.id)] as const;
 
-export const currentCycleChildEventsRecipe = defineRecipe(
-	(input: {
-		readonly parentEntityId: string;
-		readonly after?: string | undefined;
-		readonly limit?: number | undefined;
-		readonly config: EpisodicKindConfig;
-		readonly boundary: EventOrderTuple | null;
-	}) => {
-		const event = table("event", "currentCycleEvent");
-		const parent = table("entity", "currentCycleParent");
-		const episode = table("entity", "currentCycleEpisode");
-		const query = episodeRelationshipQuery(input.config, parent, episode, "currentCycle");
-		return {
-			map: ({ events }) => Result.succeed(events),
-			queries: {
-				events: selectedRows(event, {
-					after: input.after,
-					limit: input.limit ?? 100,
-					orderBy: eventOrderAscending(event),
-					joins: [
-						join("inner", parent, eq(column(parent, "id"), literal(input.parentEntityId))),
-						join("inner", episode, eq(column(event, "entityId"), column(episode, "id"))),
-						...query.joins,
-					],
-					where: and(
-						entitySchemaIs(parent, input.config.parentSchemaSlug),
-						query.where,
-						eq(column(event, "sessionEntityId"), column(parent, "id")),
-						eventSlugIsOneOf(event, lifecycleEventSlugs),
-						fixedBoundaryPredicate(event, input.boundary),
-					),
-					selection: {
-						id: selectedField(column(event, "id"), Schema.String),
-						entityId: selectedField(column(event, "entityId"), Schema.String),
-						createdAt: selectedField(column(event, "createdAt"), Schema.String),
-						occurredAt: selectedField(column(event, "occurredAt"), Schema.String),
-						eventSchemaSlug: selectedField(
-							column(event, "eventSchemaSlug"),
-							Schema.Literals(["progress", "complete"]),
-						),
-						consumedOn: selectedField(
-							castText(jsonPath(column(event, "properties"), "consumedOn")),
-							Schema.NullOr(Schema.String),
-						),
-					},
-				}),
-			},
-		};
-	},
-);
+const currentCoverageCompletionExpressions = (
+	episode: TableReference,
+	parent: TableReference,
+	alias: string,
+) => {
+	const boundary = latestParentCompletionExpressions(parent, `${alias}Boundary`);
+	const progress = table("event", `${alias}Progress`);
+	const progressOrder = eventOrderExpressions(progress);
+	const progressWhere = and(
+		eq(column(progress, "entityId"), column(episode, "id")),
+		eq(column(progress, "sessionEntityId"), column(parent, "id")),
+		eq(column(progress, "eventSchemaSlug"), literal("progress")),
+	);
+	const latestProgress = {
+		id: first(progress, {
+			where: progressWhere,
+			select: column(progress, "id"),
+			orderBy: eventOrderDescendingExpressions(progressOrder),
+		}),
+		createdAt: first(progress, {
+			where: progressWhere,
+			select: column(progress, "createdAt"),
+			orderBy: eventOrderDescendingExpressions(progressOrder),
+		}),
+		occurredAt: first(progress, {
+			where: progressWhere,
+			select: column(progress, "occurredAt"),
+			orderBy: eventOrderDescendingExpressions(progressOrder),
+		}),
+	};
+	const completion = table("event", `${alias}Completion`);
+	const completionOrder = eventOrderExpressions(completion);
+	const completionWhere = and(
+		eq(column(completion, "entityId"), column(episode, "id")),
+		eq(column(completion, "sessionEntityId"), column(parent, "id")),
+		eq(column(completion, "eventSchemaSlug"), literal("complete")),
+		orderExpressionsAreAfter(completionOrder, boundary),
+		orderExpressionsAreAfter(completionOrder, latestProgress),
+	);
+	const completionField = (field: string) =>
+		first(completion, {
+			where: completionWhere,
+			select: column(completion, field),
+			orderBy: eventOrderAscending(completion),
+		});
 
-export type CurrentCycleChildEventsResult = Recipe.Success<typeof currentCycleChildEventsRecipe>;
+	return {
+		id: completionField("id"),
+		createdAt: completionField("createdAt"),
+		occurredAt: completionField("occurredAt"),
+		consumedOn: first(completion, {
+			where: completionWhere,
+			orderBy: eventOrderAscending(completion),
+			select: castText(jsonPath(column(completion, "properties"), "consumedOn")),
+		}),
+	};
+};
 
-export const replayCurrentCycleCoverage = (
-	requiredEpisodeIds: readonly string[],
-	events: readonly CurrentCycleChildEvent[],
-): EpisodicCoverageReplay => {
-	let coverageComplete = false;
-	let agreedConsumedOn: string | null = null;
-	const required = new Set(requiredEpisodeIds);
-	let coverageClosingEvent: CoverageClosingEvent | null = null;
-	const latestComplete = new Map<string, CurrentCycleChildEvent>();
-
-	for (const event of events) {
-		if (!required.has(event.entityId)) {
-			continue;
-		}
-		if (event.eventSchemaSlug === "complete") {
-			latestComplete.set(event.entityId, event);
-		} else {
-			latestComplete.delete(event.entityId);
-		}
-
-		const nextCoverageComplete =
-			required.size > 0 && [...required].every((entityId) => latestComplete.has(entityId));
-		if (!coverageComplete && nextCoverageComplete) {
-			coverageClosingEvent = {
-				id: event.id,
-				createdAt: event.createdAt,
-				occurredAt: event.occurredAt,
-			};
-			const consumedOnValues = [...required].map(
-				(entityId) => latestComplete.get(entityId)?.consumedOn ?? null,
-			);
-			const firstConsumedOn = consumedOnValues[0] ?? null;
-			agreedConsumedOn =
-				firstConsumedOn !== null &&
-				firstConsumedOn.length > 0 &&
-				consumedOnValues.every((value) => value === firstConsumedOn)
-					? firstConsumedOn
-					: null;
-		}
-		coverageComplete = nextCoverageComplete;
-	}
-
-	return { agreedConsumedOn, coverageComplete, coverageClosingEvent };
+const aggregateCoverageCompletionExpressions = (
+	config: EpisodicKindConfig,
+	parent: TableReference,
+	coverageComplete: Predicate,
+	alias: string,
+) => {
+	const episode = table("entity", `${alias}Episode`);
+	const episodeQuery = episodeRelationshipQuery(config, parent, episode, alias);
+	const completion = currentCoverageCompletionExpressions(episode, parent, `${alias}Episode`);
+	const completedEpisode = and(episodeQuery.where, isNotNull(completion.id));
+	const closingField = (field: ScalarExpression) =>
+		first(episode, {
+			select: field,
+			where: completedEpisode,
+			joins: episodeQuery.joins,
+			orderBy: eventOrderDescendingExpressions(completion),
+		});
+	const requiredCount = count(episode, episodeQuery);
+	const nonemptyConsumedOn = and(
+		completedEpisode,
+		isNotNull(completion.consumedOn),
+		neq(completion.consumedOn, literal("")),
+	);
+	const matchingConsumedOnCount = count(episode, {
+		joins: episodeQuery.joins,
+		where: nonemptyConsumedOn,
+	});
+	const distinctConsumedOnCount = countDistinct(episode, completion.consumedOn, {
+		joins: episodeQuery.joins,
+		where: nonemptyConsumedOn,
+	});
+	const agreedConsumedOn = first(episode, {
+		joins: episodeQuery.joins,
+		where: nonemptyConsumedOn,
+		select: completion.consumedOn,
+		orderBy: [ascending(column(episode, "id"))],
+	});
+	return {
+		agreedConsumedOn: conditional(
+			and(
+				coverageComplete,
+				eq(matchingConsumedOnCount, requiredCount),
+				eq(distinctConsumedOnCount, literal(1)),
+			),
+			agreedConsumedOn,
+			literal(null),
+		),
+		closingEvent: {
+			id: conditional(coverageComplete, closingField(completion.id), literal(null)),
+			createdAt: conditional(coverageComplete, closingField(completion.createdAt), literal(null)),
+			occurredAt: conditional(coverageComplete, closingField(completion.occurredAt), literal(null)),
+		},
+	};
 };
 
 export const episodicLifecycleSnapshotRecipe = defineRecipe(
-	(input: {
-		readonly parentEntityId: string;
-		readonly config: EpisodicKindConfig;
-		readonly requiredEpisodeIds: readonly string[];
-		readonly childEvents: readonly CurrentCycleChildEvent[];
-	}) => {
+	(input: { readonly parentEntityId: string; readonly config: EpisodicKindConfig }) => {
 		const parent = table("entity", "lifecycleSnapshotParent");
 		const expressions = episodicLifecycleExpressions(input.config, parent, "lifecycleSnapshot");
+		const completion = aggregateCoverageCompletionExpressions(
+			input.config,
+			parent,
+			expressions.coverageComplete,
+			"lifecycleSnapshotCompletion",
+		);
 		return {
 			map: ({ parent: parentResult }) => {
 				if (!parentResult) {
 					return Result.succeed(null);
 				}
-				const replay = replayCurrentCycleCoverage(input.requiredEpisodeIds, input.childEvents);
-				const validReplay = parentResult.coverageStructureValid
-					? replay
-					: { agreedConsumedOn: null, coverageComplete: false, coverageClosingEvent: null };
 				const boundaryCompleteEvent = eventOrderFromNullableFields({
 					id: parentResult.boundaryId,
 					createdAt: parentResult.boundaryCreatedAt,
 					occurredAt: parentResult.boundaryOccurredAt,
 				});
+				const coverageClosingEvent = eventOrderFromNullableFields({
+					id: parentResult.closingId,
+					createdAt: parentResult.closingCreatedAt,
+					occurredAt: parentResult.closingOccurredAt,
+				});
 				return Result.succeed({
-					...validReplay,
+					coverageClosingEvent,
 					boundaryCompleteEvent,
 					state: parentResult.state,
 					parentEntityId: parentResult.parentEntityId,
+					agreedConsumedOn: parentResult.agreedConsumedOn,
 					coverageComplete: parentResult.coverageComplete,
 					productionStatus: parentResult.productionStatus,
-					requiredEpisodeIds: [...input.requiredEpisodeIds],
 					boundaryCompleteEventId: boundaryCompleteEvent?.id ?? null,
 					latestSignal: signalFromNullableFields(input.parentEntityId, parentResult),
 				});
@@ -677,8 +646,21 @@ export const episodicLifecycleSnapshotRecipe = defineRecipe(
 						...signalSelection(expressions.latestSignal),
 						parentEntityId: selectedField(column(parent, "id"), Schema.String),
 						state: selectedField(expressions.state, EpisodicLifecycleStateSchema),
+						closingId: selectedField(completion.closingEvent.id, Schema.NullOr(Schema.String)),
+						agreedConsumedOn: selectedField(
+							completion.agreedConsumedOn,
+							Schema.NullOr(Schema.String),
+						),
 						boundaryId: selectedField(
 							expressions.boundaryCompleteEvent.id,
+							Schema.NullOr(Schema.String),
+						),
+						closingCreatedAt: selectedField(
+							completion.closingEvent.createdAt,
+							Schema.NullOr(Schema.String),
+						),
+						closingOccurredAt: selectedField(
+							completion.closingEvent.occurredAt,
 							Schema.NullOr(Schema.String),
 						),
 						boundaryCreatedAt: selectedField(
@@ -712,61 +694,7 @@ export type EpisodicLifecycleSnapshotResult = Recipe.Success<
 	typeof episodicLifecycleSnapshotRecipe
 >;
 
-const nextPageCursor = (pageInfo: {
-	readonly hasMore: boolean;
-	readonly nextCursor: string | null;
-}) => {
-	if (!pageInfo.hasMore) {
-		return null;
-	}
-	if (pageInfo.nextCursor === null) {
-		throw new Error("RyotQL page reports more lifecycle rows without a next cursor");
-	}
-	return pageInfo.nextCursor;
-};
-
 export const readEpisodicLifecycleSnapshot = <Error, Requirements>(
-	input: {
-		readonly parentEntityId: string;
-		readonly config: EpisodicKindConfig;
-		readonly pageSize?: number | undefined;
-	},
+	input: { readonly parentEntityId: string; readonly config: EpisodicKindConfig },
 	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, Error, Requirements>,
-) =>
-	Effect.gen(function* () {
-		const boundary = yield* executeRyotqlRecipe(
-			executeRyotql,
-			latestParentCompletionBoundaryRecipe(input),
-		);
-		const requiredEpisodeIds: string[] = [];
-		let requiredAfter: string | undefined;
-		do {
-			const page = yield* executeRyotqlRecipe(
-				executeRyotql,
-				requiredEpisodeIdsRecipe({ ...input, after: requiredAfter, limit: input.pageSize }),
-			);
-			requiredEpisodeIds.push(...page.items);
-			requiredAfter = nextPageCursor(page.pageInfo) ?? undefined;
-		} while (requiredAfter !== undefined);
-
-		const childEvents: CurrentCycleChildEvent[] = [];
-		let eventAfter: string | undefined;
-		do {
-			const page = yield* executeRyotqlRecipe(
-				executeRyotql,
-				currentCycleChildEventsRecipe({
-					...input,
-					boundary,
-					after: eventAfter,
-					limit: input.pageSize,
-				}),
-			);
-			childEvents.push(...page.items);
-			eventAfter = nextPageCursor(page.pageInfo) ?? undefined;
-		} while (eventAfter !== undefined);
-
-		return yield* executeRyotqlRecipe(
-			executeRyotql,
-			episodicLifecycleSnapshotRecipe({ ...input, childEvents, requiredEpisodeIds }),
-		);
-	});
+) => executeRyotqlRecipe(executeRyotql, episodicLifecycleSnapshotRecipe(input));
