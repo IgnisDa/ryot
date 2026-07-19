@@ -2,7 +2,8 @@ FROM oven/bun:1.3.14-debian AS base
 WORKDIR /app
 
 FROM base AS prepare
-RUN bun install --global turbo@2.9.16
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --global turbo@2.9.16
 COPY . .
 RUN turbo prune @ryot/app-client @ryot/app-backend --docker
 
@@ -12,7 +13,8 @@ COPY --from=prepare /app/out/json/ .
 # under Docker BuildKit for some tarballs (for example, expo-modules-core).
 # Keep --ignore-scripts because removing it makes the backend build fail while
 # resolving msgpackr-extract during the Bun bundle step.
-RUN bun install --backend=copyfile --ignore-scripts
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --backend=copyfile --ignore-scripts
 COPY --from=prepare /app/out/full/ .
 COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 
@@ -26,7 +28,8 @@ FROM base AS sandbox-compiler-runtime
 COPY --from=prepare /app/out/json/ .
 COPY --from=prepare /app/out/full/packages/sandbox-compiler ./packages/sandbox-compiler
 COPY --from=prepare /app/out/full/packages/sandbox-sdk ./packages/sandbox-sdk
-RUN bun install --filter @ryot/sandbox-compiler --production --frozen-lockfile \
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --filter @ryot/sandbox-compiler --production --frozen-lockfile \
     --backend=copyfile --linker=hoisted --ignore-scripts
 
 FROM base AS runner
