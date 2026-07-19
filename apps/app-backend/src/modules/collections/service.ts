@@ -22,7 +22,6 @@ import {
 	parseAppSchemaProperties,
 	parseLabeledPropertySchemaInput,
 } from "#lib/property-schema/property-schema-runtime";
-import { withoutSchemaServices } from "#lib/shared/schema";
 import { requireText } from "#lib/shared/validation";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
@@ -216,7 +215,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				if (rawMembershipSchema !== undefined && rawMembershipSchema !== null) {
 					const membershipSchema = yield* decodeStoredSchema(
 						rawMembershipSchema,
-						withoutSchemaServices(AppSchema),
+						AppSchema,
 						"Invalid membershipPropertiesSchema stored in collection",
 					).pipe(Effect.orDie);
 
