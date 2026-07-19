@@ -36,6 +36,22 @@ it("exposes only approved entity fields", () => {
 	);
 });
 
+it("exposes only approved event fields", () => {
+	expect(new Set(Object.keys(getCatalogTable("event")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"userId",
+			"entityId",
+			"createdAt",
+			"updatedAt",
+			"properties",
+			"occurredAt",
+			"eventSchemaSlug",
+			"sessionEntityId",
+		]),
+	);
+});
+
 it("rejects unknown fields and tables", () => {
 	const entity = table("entity", "entity");
 	expect(

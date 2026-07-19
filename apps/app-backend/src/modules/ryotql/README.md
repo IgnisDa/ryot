@@ -4,14 +4,16 @@ RyotQL is the focused read API at `POST /ryotql/execute`. It is independent from
 
 ## Current Capabilities
 
-- Authenticated user execution against the `entity` table.
+- Authenticated user execution against the `entity` and `event` tables.
 - Multiple independent named rows queries in one repeatable-read, read-only transaction.
 - Entity field selection, typed JSON expressions, predicates, inner and left joins, ordering, and pagination.
 - Localized entity names and properties with translation status as a normal catalog field.
-- User visibility for every entity table occurrence: a caller can read their own rows and global rows.
+- User visibility for every entity and event table occurrence: a caller can read their own rows and global rows.
 - Runtime field kinds: `text`, `date`, `number`, `boolean`, `json`, and `null`.
 
 The entity catalog currently exposes `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `translationStatus`, and `entitySchemaSlug`. Other physical columns are not queryable.
+
+The event catalog exposes `id`, `userId`, `entityId`, `createdAt`, `updatedAt`, `properties`, `occurredAt`, `eventSchemaSlug`, and `sessionEntityId`.
 
 ## Document Shape
 
@@ -94,6 +96,32 @@ Comparisons support `eq`, `neq`, `gt`, `gte`, `lt`, and `lte`. Null comparisons 
 
 Schema discriminators are ordinary `entitySchemaSlug` comparisons. Use `eq` for one slug and `inArray` for several. Unknown slugs return no rows and do not trigger definition lookup.
 
+## Event Queries
+
+Events are ordinary `event` table rows. Use an explicit join to `entity` when a query needs attached entity fields or `entitySchemaSlug` filtering. Event and entity visibility is applied to each table before the join, so predicates cannot expose another user's rows.
+
+```ts
+const event = table("event", "event");
+const entity = table("entity", "entity");
+
+document({
+	events: rows(event, {
+		orderBy: [descending(column(event, "occurredAt"))],
+		joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
+		fields: [
+			field("occurredAt", column(event, "occurredAt")),
+			field("entityName", column(entity, "name")),
+		],
+		where: and(
+			eq(column(event, "eventSchemaSlug"), literal("review")),
+			eq(column(entity, "entitySchemaSlug"), literal("book")),
+		),
+	}),
+});
+```
+
+Event JSON properties use the same generic JSON paths and safe casts as entity properties. `sessionEntityId` is nullable and reconstructs with the `null` kind when absent; event timestamps reconstruct with the `date` kind.
+
 ## Localization And Derived Fields
 
 Catalog fields resolve through one backend-owned interface. Most fields map directly to physical columns. `name`, `properties`, and `translationStatus` are resolved fields whose SQL depends on the authenticated user's language. RyotQL documents use them as ordinary columns and cannot provide custom field resolvers.
@@ -109,4 +137,4 @@ For a user with a non-canonical language preference, `name` uses the translated 
 - 100 rows per page.
 - 30-second transaction-local statement timeout.
 
-Correlated queries, includes, aggregates, time series, plugin execution, and application tables other than `entity` are not available yet.
+Correlated queries, includes, aggregates, time series, plugin execution, and application tables other than `entity` and `event` are not available yet.
