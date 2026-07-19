@@ -44,7 +44,7 @@ const runGate = (deps: SessionGateDeps, userId: string) =>
 		},
 	}).pipe(Effect.result);
 
-const extractError = (either: Result.Result<void, APIError>): APIError => {
+const extractError = (either: Result.Result<void, APIError>) => {
 	expect(either._tag).toBe("Failure");
 	if (either._tag === "Failure") {
 		return either.failure;

@@ -26,7 +26,7 @@ const makeRegistry = (
 	hasInterest: () => false,
 });
 
-const decode = (frames: ReadonlyArray<Uint8Array>): string =>
+const decode = (frames: ReadonlyArray<Uint8Array>) =>
 	frames.map((bytes) => new TextDecoder().decode(bytes)).join("");
 
 describe("interest event stream", () => {
