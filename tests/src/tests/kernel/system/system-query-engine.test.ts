@@ -396,7 +396,7 @@ export const manifest = defineManifest({
   requiredSystemConfigKeys: [],
 });
 
-const query = Schema.decodeUnknownSync(jsonValueSchema)(JSON.parse(${JSON.stringify(
+const query = Schema.decodeSync(jsonValueSchema)(JSON.parse(${JSON.stringify(
 	JSON.stringify(documents[name]),
 )}));
 
@@ -405,9 +405,9 @@ export default defineActivity({
   input: Schema.Unknown,
   output: Schema.Unknown,
   run: (_input, host) => host.executeQueryEngine(query).pipe(
-    Effect.flatMap(Schema.decodeUnknown(jsonValueSchema)),
+    Effect.flatMap(Schema.decodeUnknownEffect(jsonValueSchema)),
     Effect.map((value) => ({ ok: true, value, error: null })),
-    Effect.catchAll((error) => Effect.succeed({
+    Effect.catch((error) => Effect.succeed({
       ok: false,
       value: null,
       error: typeof error === "object" && error !== null && "message" in error
