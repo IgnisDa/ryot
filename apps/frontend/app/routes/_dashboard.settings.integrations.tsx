@@ -482,6 +482,7 @@ const PROVIDER_CONFIGS: Record<IntegrationProvider, ProviderConfig> = {
 				notRequired: true,
 				label: "Username",
 				name: "plexSinkUsername",
+				description: "Must exactly match Account.title in Plex webhooks",
 			},
 		],
 	},
