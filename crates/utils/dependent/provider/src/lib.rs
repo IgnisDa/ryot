@@ -156,6 +156,7 @@ pub async fn details_from_provider(
     Ok(results)
 }
 
+#[tracing::instrument(skip_all, fields(isbn))]
 pub async fn get_identifier_from_book_isbn(
     isbn: &str,
     hardcover_service: &HardcoverService,
@@ -165,11 +166,14 @@ pub async fn get_identifier_from_book_isbn(
     if let Some(id) = hardcover_service.id_from_isbn(isbn).await {
         return Some((id, MediaSource::Hardcover));
     }
+    tracing::warn!("Hardcover returned no result for ISBN");
     if let Some(id) = google_books_service.id_from_isbn(isbn).await {
         return Some((id, MediaSource::GoogleBooks));
     }
+    tracing::warn!("Google Books returned no result for ISBN");
     if let Some(id) = open_library_service.id_from_isbn(isbn).await {
         return Some((id, MediaSource::Openlibrary));
     }
+    tracing::warn!("OpenLibrary returned no result for ISBN");
     None
 }
