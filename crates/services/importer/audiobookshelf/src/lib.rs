@@ -1,6 +1,6 @@
 use std::{result::Result as StdResult, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use application_utils::get_podcast_episode_number_by_name;
 use common_utils::{get_http_client_with_tls_config, ryot_log};
 use data_encoding::BASE64;
@@ -120,18 +120,18 @@ async fn process_item(
                     _ => {
                         return Err(ImportFailedItem {
                             identifier: title,
+                            lot: Some(MediaLot::Book),
                             step: ImportFailStep::InputTransformation,
                             error: Some("No Google Books ID found".to_string()),
-                            ..Default::default()
                         });
                     }
                 },
                 _ => {
                     return Err(ImportFailedItem {
                         identifier: title,
+                        lot: Some(MediaLot::Book),
                         error: Some("No ISBN found".to_string()),
                         step: ImportFailStep::InputTransformation,
-                        ..Default::default()
                     });
                 }
             }
@@ -142,9 +142,9 @@ async fn process_item(
                 .await
                 .map_err(|e| ImportFailedItem {
                     identifier: title.clone(),
-                    error: Some(e.to_string()),
+                    error: Some(format!("item_id={}: {e:#}", item.id)),
+                    lot: Some(MediaLot::Podcast),
                     step: ImportFailStep::ItemDetailsFromSource,
-                    ..Default::default()
                 })?;
             match item_details.media.and_then(|m| m.episodes) {
                 Some(episodes) => {
@@ -153,14 +153,19 @@ async fn process_item(
                     let mut to_return = vec![];
                     for episode in episodes {
                         ryot_log!(debug, "Importing episode {:?}", episode.title);
+                        let episode_id = episode.id.clone();
                         let episode_details =
                             get_item_details(client, url, &item.id, Some(episode.id.unwrap()))
                                 .await
                                 .map_err(|e| ImportFailedItem {
                                     identifier: title.clone(),
-                                    error: Some(e.to_string()),
+                                    error: Some(format!(
+                                        "item_id={},episode_id={}: {e:#}",
+                                        item.id,
+                                        episode_id.as_deref().unwrap_or("?"),
+                                    )),
+                                    lot: Some(MediaLot::Podcast),
                                     step: ImportFailStep::ItemDetailsFromSource,
-                                    ..Default::default()
                                 })?;
                         if let Some(true) =
                             episode_details.user_media_progress.map(|u| u.is_finished)
@@ -178,9 +183,9 @@ async fn process_item(
                             .await
                             .map_err(|e| ImportFailedItem {
                                 identifier: title.clone(),
-                                error: Some(e.to_string()),
-                                step: ImportFailStep::ItemDetailsFromSource,
-                                ..Default::default()
+                                error: Some(format!("item_id={}: {e:#}", item.id)),
+                                lot: Some(MediaLot::Podcast),
+                                step: ImportFailStep::DatabaseCommit,
                             })?;
                             if let Some(pe) = podcast.podcast_specifics.and_then(|p| {
                                 get_podcast_episode_number_by_name(&p, &episode.title)
@@ -196,7 +201,10 @@ async fn process_item(
                         identifier: title,
                         lot: Some(MediaLot::Podcast),
                         step: ImportFailStep::ItemDetailsFromSource,
-                        error: Some("No episodes found for podcast".to_string()),
+                        error: Some(format!(
+                            "item_id={}: No episodes found for podcast",
+                            item.id
+                        )),
                     });
                 }
             }
@@ -205,8 +213,11 @@ async fn process_item(
             return Err(ImportFailedItem {
                 identifier: title,
                 step: ImportFailStep::InputTransformation,
-                error: Some("No ASIN, ISBN or iTunes ID found".to_string()),
-                ..Default::default()
+                lot: None,
+                error: Some(format!(
+                    "item_id={}: No ASIN, ISBN or iTunes ID found",
+                    item.id
+                )),
             });
         };
     let mut seen_history = vec![];
@@ -244,12 +255,20 @@ async fn get_item_details(
     if let Some(episode) = episode {
         query["episode"] = serde_json::json!(episode);
     }
-    let item = client
-        .get(format!("{url}/items/{id}"))
+    let request_url = format!("{url}/items/{id}");
+    let response = client
+        .get(&request_url)
         .query(&query)
         .send()
-        .await?
-        .json::<audiobookshelf_models::Item>()
-        .await?;
+        .await
+        .with_context(|| format!("Network error requesting audiobookshelf API at {request_url}"))?;
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    if !status.is_success() {
+        anyhow::bail!("Audiobookshelf returned HTTP {status} (url: {request_url}): {body}");
+    }
+    let item = serde_json::from_str::<audiobookshelf_models::Item>(&body).with_context(|| {
+        format!("Failed to parse JSON from Audiobookshelf response for {request_url}")
+    })?;
     Ok(item)
 }
