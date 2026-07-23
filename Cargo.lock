@@ -2342,6 +2342,7 @@ dependencies = [
  "anilist-provider",
  "anyhow",
  "audible-provider",
+ "common-utils",
  "config-definition",
  "enum-models",
  "giant-bomb-provider",

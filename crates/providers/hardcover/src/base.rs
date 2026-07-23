@@ -1,5 +1,5 @@
 use anyhow::Result;
-use common_utils::get_base_http_client;
+use common_utils::{get_base_http_client, ryot_log};
 use reqwest::{
     Client,
     header::{AUTHORIZATION, HeaderValue},
@@ -32,14 +32,14 @@ impl HardcoverService {
             {
                 Ok(r) => r,
                 Err(e) => {
-                    tracing::warn!(error = %e, "Hardcover ISBN request failed");
+                    ryot_log!(warn, error = %e, "Hardcover ISBN request failed");
                     return None;
                 }
             };
             let rsp: Response<Editions> = match rsp.json().await {
                 Ok(r) => r,
                 Err(e) => {
-                    tracing::warn!(error = %e, "Hardcover ISBN response parse failed");
+                    ryot_log!(warn, error = %e, "Hardcover ISBN response parse failed");
                     return None;
                 }
             };
