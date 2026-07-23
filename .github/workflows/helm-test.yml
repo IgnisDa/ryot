@@ -3,7 +3,7 @@ name: Helm Test
 on:
   pull_request:
     paths:
-      - "helm/**"
+      - "ci/helm/**"
       - ".github/workflows/helm-test.yml"
   workflow_dispatch:
 
@@ -34,7 +34,7 @@ jobs:
         # --wait blocks until the Deployment and StatefulSet are Ready, so the
         # subsequent `helm test` runs against a live, healthy release.
         run: |
-          helm install ryot helm/ryot \
+          helm install ryot ci/helm/ryot \
             --namespace ryot --create-namespace \
             --set secret.adminAccessToken.value=ci-admin-token \
             --set postgres.auth.password=ci-postgres-password \

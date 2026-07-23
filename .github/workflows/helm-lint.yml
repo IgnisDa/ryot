@@ -3,7 +3,7 @@ name: Helm Lint
 on:
   pull_request:
     paths:
-      - "helm/**"
+      - "ci/helm/**"
       - ".github/workflows/helm-lint.yml"
   workflow_dispatch:
 
@@ -30,13 +30,13 @@ jobs:
         # Provide the minimum required values so the guardrails pass and lint
         # exercises a real render.
         run: |
-          helm lint helm/ryot \
+          helm lint ci/helm/ryot \
             --set secret.adminAccessToken.value=ci-admin-token \
             --set postgres.auth.password=ci-postgres-password
 
       - name: helm template (render sanity)
         run: |
-          helm template ryot helm/ryot \
+          helm template ryot ci/helm/ryot \
             --set secret.adminAccessToken.value=ci-admin-token \
             --set postgres.auth.password=ci-postgres-password \
             > /dev/null

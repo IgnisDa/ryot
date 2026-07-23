@@ -38,7 +38,7 @@ jobs:
         run: |
           VERSION="${TAG#v}"
           echo "Releasing chart version: $VERSION"
-          yq -i ".version = \"$VERSION\"" helm/ryot/Chart.yaml
+          yq -i ".version = \"$VERSION\"" ci/helm/ryot/Chart.yaml
 
       - name: Warn on chart/appVersion major mismatch
         env:
@@ -46,7 +46,7 @@ jobs:
         run: |
           VERSION="${TAG#v}"
           CHART_MAJOR="${VERSION%%.*}"
-          APP_VERSION="$(yq '.appVersion' helm/ryot/Chart.yaml)"
+          APP_VERSION="$(yq '.appVersion' ci/helm/ryot/Chart.yaml)"
           APP_MAJOR="${APP_VERSION#v}"
           APP_MAJOR="${APP_MAJOR%%.*}"
           if [ "$CHART_MAJOR" != "$APP_MAJOR" ]; then
@@ -58,6 +58,6 @@ jobs:
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1
         with:
-          charts_dir: helm
+          charts_dir: ci/helm
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

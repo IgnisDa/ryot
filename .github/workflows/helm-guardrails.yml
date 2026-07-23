@@ -3,7 +3,7 @@ name: Helm Guardrails
 on:
   pull_request:
     paths:
-      - "helm/**"
+      - "ci/helm/**"
       - ".github/workflows/helm-guardrails.yml"
   workflow_dispatch:
 
@@ -32,4 +32,4 @@ jobs:
       - name: Run helm-unittest (guardrails + rendering + DATABASE_URL)
         # Asserts every validation guardrail fails as expected, that the happy
         # paths render, and that DATABASE_URL is composed correctly in all modes.
-        run: helm unittest --strict helm/ryot
+        run: helm unittest --strict ci/helm/ryot

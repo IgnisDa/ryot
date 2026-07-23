@@ -201,7 +201,7 @@ from-secret / mixed).
 
 ```bash
 helm plugin install https://github.com/helm-unittest/helm-unittest
-helm unittest helm/ryot
+helm unittest ci/helm/ryot
 ```
 
 ### Runtime tests (helm test)

@@ -3,7 +3,7 @@ name: Helm Docs
 on:
   pull_request:
     paths:
-      - "helm/**"
+      - "ci/helm/**"
       - ".github/workflows/helm-docs.yml"
   workflow_dispatch:
 
@@ -36,16 +36,16 @@ jobs:
           helm-docs --version
 
       - name: Generate VALUES.md
-        # Writes helm/ryot/VALUES.md from the annotations in values.yaml and
+        # Writes ci/helm/ryot/VALUES.md from the annotations in values.yaml and
         # leaves the hand-written README.md untouched.
-        run: helm-docs --chart-search-root helm --output-file VALUES.md
+        run: helm-docs --chart-search-root ci/helm --output-file VALUES.md
 
       - name: Commit regenerated docs
         run: |
-          if [ -n "$(git status --porcelain helm/ryot/VALUES.md)" ]; then
+          if [ -n "$(git status --porcelain ci/helm/ryot/VALUES.md)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add helm/ryot/VALUES.md
+            git add ci/helm/ryot/VALUES.md
             git commit -m "docs(helm): regenerate VALUES.md [skip ci]"
             git push
           else
