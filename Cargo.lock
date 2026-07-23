@@ -3374,7 +3374,6 @@ dependencies = [
  "reqwest 0.12.25",
  "rust_decimal",
  "serde",
- "tracing",
  "traits",
 ]
 

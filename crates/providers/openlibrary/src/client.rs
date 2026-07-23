@@ -35,25 +35,14 @@ impl OpenlibraryService {
     }
 
     pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
-        let resp = match self
-            .client
+        self.client
             .get(format!("{URL}/isbn/{isbn}.json"))
             .send()
             .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::warn!(error = %e, "OpenLibrary ISBN request failed");
-                return None;
-            }
-        };
-        let data: MetadataDetailsBook = match resp.json().await {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::warn!(error = %e, "OpenLibrary ISBN response parse failed");
-                return None;
-            }
-        };
-        Some(get_key(&data.key))
+            .ok()?
+            .json::<MetadataDetailsBook>()
+            .await
+            .ok()
+            .map(|data| get_key(&data.key))
     }
 }

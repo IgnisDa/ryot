@@ -224,26 +224,14 @@ impl GoogleBooksService {
 
     /// Get a book's ID from its ISBN
     pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {
-        let resp = match self
+        let resp = self
             .client
             .get(URL)
             .query(&[("q", &format!("isbn:{}", isbn))])
             .send()
             .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::warn!(error = %e, "Google Books ISBN request failed");
-                return None;
-            }
-        };
-        let search: SearchResponse = match resp.json().await {
-            Ok(r) => r,
-            Err(e) => {
-                tracing::warn!(error = %e, "Google Books ISBN response parse failed");
-                return None;
-            }
-        };
+            .ok()?;
+        let search: SearchResponse = resp.json().await.ok()?;
         Some(search.items?.first()?.id.clone())
     }
 }
