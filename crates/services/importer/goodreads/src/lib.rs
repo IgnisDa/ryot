@@ -152,7 +152,11 @@ async fn process_book_record(
     ];
     if let Some(w) = record.date_read {
         let is_year_first = w.split('/').next().is_some_and(|s| s.len() == 4);
-        let format = if is_year_first { "%Y/%m/%d" } else { "%-m/%-d/%y" };
+        let format = if is_year_first {
+            "%Y/%m/%d"
+        } else {
+            "%-m/%-d/%y"
+        };
         if let Ok(w) = NaiveDate::parse_from_str(&w, format) {
             seen_history.first_mut().unwrap().ended_on = Some(convert_naive_to_utc(w));
         }
