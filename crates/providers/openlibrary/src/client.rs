@@ -1,5 +1,5 @@
 use anyhow::Result;
-use common_utils::{get_base_http_client, ryot_log};
+use common_utils::get_base_http_client;
 
 use crate::{
     models::{MetadataDetailsBook, OpenlibraryService},
@@ -43,14 +43,14 @@ impl OpenlibraryService {
         {
             Ok(r) => r,
             Err(e) => {
-                ryot_log!(warn, error = %e, "OpenLibrary ISBN request failed");
+                tracing::warn!(error = %e, "OpenLibrary ISBN request failed");
                 return None;
             }
         };
         let data: MetadataDetailsBook = match resp.json().await {
             Ok(r) => r,
             Err(e) => {
-                ryot_log!(warn, error = %e, "OpenLibrary ISBN response parse failed");
+                tracing::warn!(error = %e, "OpenLibrary ISBN response parse failed");
                 return None;
             }
         };

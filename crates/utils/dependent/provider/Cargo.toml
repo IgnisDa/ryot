@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-common-utils = { workspace = true }
 rust_decimal = { workspace = true }
 tracing = { workspace = true }
 

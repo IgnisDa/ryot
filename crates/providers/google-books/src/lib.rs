@@ -1,9 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use common_models::{EntityAssets, SearchDetails};
-use common_utils::{
-    PAGE_SIZE, compute_next_page, convert_date_to_year, get_base_http_client, ryot_log,
-};
+use common_utils::{PAGE_SIZE, compute_next_page, convert_date_to_year, get_base_http_client};
 use convert_case::{Case, Casing};
 use dependent_models::MetadataSearchSourceSpecifics;
 use dependent_models::SearchResults;
@@ -235,14 +233,14 @@ impl GoogleBooksService {
         {
             Ok(r) => r,
             Err(e) => {
-                ryot_log!(warn, error = %e, "Google Books ISBN request failed");
+                tracing::warn!(error = %e, "Google Books ISBN request failed");
                 return None;
             }
         };
         let search: SearchResponse = match resp.json().await {
             Ok(r) => r,
             Err(e) => {
-                ryot_log!(warn, error = %e, "Google Books ISBN response parse failed");
+                tracing::warn!(error = %e, "Google Books ISBN response parse failed");
                 return None;
             }
         };

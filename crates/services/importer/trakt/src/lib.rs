@@ -128,9 +128,12 @@ pub async fn import(input: DeployTraktImportInput, client_id: &str) -> Result<Im
 
             for list in lists.iter_mut() {
                 if let Some(trakt_id) = list.ids.trakt {
-                    let items: Vec<ListItemResponse> =
-                        fetch_json(&client, &format!("{}/lists/{}/items", url, trakt_id), None)
-                            .await?;
+                    let items: Vec<ListItemResponse> = fetch_json(
+                        &client,
+                        &format!("{}/lists/{}/items", url, trakt_id),
+                        None,
+                    )
+                    .await?;
                     list.items = items;
                 }
             }

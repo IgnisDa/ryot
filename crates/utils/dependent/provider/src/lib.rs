@@ -3,7 +3,6 @@ use std::sync::Arc;
 use anilist_provider::{AnilistAnimeService, AnilistMangaService, NonMediaAnilistService};
 use anyhow::{Result, anyhow, bail};
 use audible_provider::AudibleService;
-use common_utils::ryot_log;
 use enum_models::{MediaLot, MediaSource};
 use giant_bomb_provider::GiantBombService;
 use google_books_provider::GoogleBooksService;
@@ -167,14 +166,14 @@ pub async fn get_identifier_from_book_isbn(
     if let Some(id) = hardcover_service.id_from_isbn(isbn).await {
         return Some((id, MediaSource::Hardcover));
     }
-    ryot_log!(warn, "Hardcover returned no result for ISBN");
+    tracing::warn!("Hardcover returned no result for ISBN");
     if let Some(id) = google_books_service.id_from_isbn(isbn).await {
         return Some((id, MediaSource::GoogleBooks));
     }
-    ryot_log!(warn, "Google Books returned no result for ISBN");
+    tracing::warn!("Google Books returned no result for ISBN");
     if let Some(id) = open_library_service.id_from_isbn(isbn).await {
         return Some((id, MediaSource::Openlibrary));
     }
-    ryot_log!(warn, "OpenLibrary returned no result for ISBN");
+    tracing::warn!("OpenLibrary returned no result for ISBN");
     None
 }
