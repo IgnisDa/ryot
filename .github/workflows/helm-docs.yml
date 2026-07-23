@@ -1,7 +1,9 @@
 name: Helm Docs
 
 on:
-  pull_request:
+  push:
+    branches:
+      - main
     paths:
       - "ci/helm/**"
       - ".github/workflows/helm-docs.yml"
@@ -11,22 +13,18 @@ permissions:
   contents: read
 
 concurrency:
-  # Avoid overlapping auto-commits on rapid pushes to the same PR.
-  group: helm-docs-${{ github.event.pull_request.number || github.ref }}
+  # Avoid overlapping auto-commits on rapid merges to main.
+  group: helm-docs-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   generate:
     runs-on: ubuntu-latest
     permissions:
-      # This job pushes the regenerated VALUES.md back to the PR branch.
+      # This job pushes the regenerated VALUES.md back to main.
       contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Check out the PR branch itself so the regenerated docs can be
-          # pushed back to it.
-          ref: ${{ github.head_ref }}
 
       - name: Install helm-docs
         env:
