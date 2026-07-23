@@ -65,7 +65,7 @@ pub async fn import(
                 open_library_service,
             )
         })
-        .buffer_unordered(5)
+        .buffer_unordered(3)
         .collect()
         .await;
 
@@ -104,7 +104,20 @@ async fn process_book_record(
 
     ryot_log!(debug, "Details for {} ({idx}/{total})", record.title);
 
-    let isbn = record.isbn13[2..record.isbn13.len() - 1].to_owned();
+    let isbn = record
+        .isbn13
+        .trim()
+        .trim_start_matches('=')
+        .trim_matches('"')
+        .to_owned();
+    if !isbn.is_empty() && !isbn.chars().all(|c| c.is_ascii_digit()) {
+        return Err(ImportFailedItem {
+            lot: Some(lot),
+            identifier: record.title,
+            step: ImportFailStep::InputTransformation,
+            error: Some(format!("Invalid ISBN format: {}", record.isbn13)),
+        });
+    }
     if isbn.is_empty() {
         return Err(ImportFailedItem {
             lot: Some(lot),
@@ -138,8 +151,15 @@ async fn process_book_record(
         record.read_count
     ];
     if let Some(w) = record.date_read {
-        let w = NaiveDate::parse_from_str(&w, "%Y/%m/%d").unwrap();
-        seen_history.first_mut().unwrap().ended_on = Some(convert_naive_to_utc(w));
+        let is_year_first = w.split('/').next().is_some_and(|s| s.len() == 4);
+        let format = if is_year_first {
+            "%Y/%m/%d"
+        } else {
+            "%-m/%-d/%y"
+        };
+        if let Ok(w) = NaiveDate::parse_from_str(&w, format) {
+            seen_history.first_mut().unwrap().ended_on = Some(convert_naive_to_utc(w));
+        }
     }
 
     let mut collections = vec![];

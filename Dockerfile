@@ -47,4 +47,8 @@ COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/node_modules .
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/package.json ./package.json
 COPY --from=frontend-builder --chown=ryot:ryot /app/apps/frontend/build ./build
 COPY --from=artifact --chown=ryot:ryot /artifact/backend /usr/local/bin/backend
+RUN ldd /usr/local/bin/backend 2>&1 \
+    | tee /tmp/backend-ldd \
+    && ! grep -q "not found" /tmp/backend-ldd \
+    && rm /tmp/backend-ldd
 CMD ["/usr/local/bin/run-container.sh"]
