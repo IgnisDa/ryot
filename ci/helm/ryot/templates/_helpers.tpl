@@ -64,10 +64,12 @@ Name of the chart-managed application Secret (admin token, pro key, inline DB ur
 {{- end }}
 
 {{/*
-Name of the bundled Postgres resources.
+Name of the bundled Postgres resources. The base name is truncated to 54
+characters so the "-postgres" suffix keeps the result within the 63-character
+Kubernetes name limit.
 */}}
 {{- define "ryot.postgres.fullname" -}}
-{{ include "ryot.fullname" . }}-postgres
+{{ include "ryot.fullname" . | trunc 54 | trimSuffix "-" }}-postgres
 {{- end }}
 
 {{- define "ryot.postgres.selectorLabels" -}}
@@ -318,6 +320,21 @@ Validation: fail fast on missing or inconsistent required configuration.
 {{- include "ryot.assertSecretRef" (dict "field" "externalDatabase.database" "cfg" $db.database "required" true) -}}
 {{- include "ryot.assertSecretRef" (dict "field" "externalDatabase.username" "cfg" $db.username "required" true) -}}
 {{- include "ryot.assertSecretRef" (dict "field" "externalDatabase.password" "cfg" $db.password "required" true) -}}
+{{- end -}}
+{{- end -}}
+{{- /* Dynamic secret env: reject chart-managed names. These are rendered
+after the chart's own env entries, and Kubernetes lets the last duplicate
+declaration win, so allowing them would silently override chart-managed
+values. */ -}}
+{{- $reserved := list "SERVER_ADMIN_ACCESS_TOKEN" "SERVER_PRO_KEY" "DATABASE_URL" "POSTGRES_USER" "POSTGRES_DB" "POSTGRES_PASSWORD" "RYOT_DB_HOST" "RYOT_DB_PORT" "RYOT_DB_NAME" "RYOT_DB_USER" "RYOT_DB_PASSWORD" -}}
+{{- range $key, $_ := .Values.secretEnv -}}
+{{- if has $key $reserved -}}
+{{- fail (printf "secretEnv.%s: this env var is chart-managed and cannot be set via secretEnv" $key) -}}
+{{- end -}}
+{{- end -}}
+{{- range $key, $_ := .Values.secretEnvFrom -}}
+{{- if has $key $reserved -}}
+{{- fail (printf "secretEnvFrom.%s: this env var is chart-managed and cannot be set via secretEnvFrom" $key) -}}
 {{- end -}}
 {{- end -}}
 {{- /* Ingress */ -}}

@@ -1,6 +1,6 @@
 apiVersion: v2
 name: ryot
-description: The only self hosted tracker you will ever need - track movies, shows, video games, books, and more.
+description: The only self-hosted tracker you will ever need - track movies, shows, video games, books, and more.
 type: application
 version: 0.1.0
 appVersion: "v10"

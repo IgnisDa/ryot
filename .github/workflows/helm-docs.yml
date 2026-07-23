@@ -24,7 +24,7 @@ jobs:
       # This job pushes the regenerated VALUES.md back to main.
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
       - name: Install helm-docs
         env:

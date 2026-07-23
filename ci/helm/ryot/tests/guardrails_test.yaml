@@ -156,6 +156,38 @@ tests:
       - failedTemplate:
           errorPattern: "externalDatabase.host.existingSecretKey is required when externalDatabase.host.existingSecret is set"
 
+  # ---- dynamic secret env: chart-managed names are reserved ----
+  - it: fails when secretEnv uses a chart-managed env name
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      secretEnv:
+        DATABASE_URL: postgres://sneaky:override@evil:5432/db
+    asserts:
+      - failedTemplate:
+          errorPattern: "secretEnv.DATABASE_URL: this env var is chart-managed"
+
+  - it: fails when secretEnvFrom uses a chart-managed env name
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      secretEnvFrom:
+        SERVER_ADMIN_ACCESS_TOKEN:
+          existingSecret: other
+          key: token
+    asserts:
+      - failedTemplate:
+          errorPattern: "secretEnvFrom.SERVER_ADMIN_ACCESS_TOKEN: this env var is chart-managed"
+
+  - it: allows non-reserved names in secretEnv
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      secretEnv:
+        SERVER_SMTP_PASSWORD: hunter2
+    asserts:
+      - notFailedTemplate: {}
+
   # ---- ingress ----
   - it: fails when ingress enabled with empty hosts
     set:

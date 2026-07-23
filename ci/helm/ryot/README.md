@@ -1,6 +1,6 @@
 # Ryot Helm Chart
 
-Deploys [Ryot](https://github.com/IgnisDa/ryot) - "The only self hosted tracker
+Deploys [Ryot](https://github.com/IgnisDa/ryot) - "The only self-hosted tracker
 you will ever need" - on Kubernetes, with an optional bundled PostgreSQL
 database.
 
@@ -90,8 +90,10 @@ order of precedence:
 3. **Individual components** - used when `url` and `existingSecret` are both
    empty. The chart composes `DATABASE_URL` at runtime. Each component may be
    inline (`value`) or pulled from a secret (`existingSecret` + `existingSecretKey`).
-   Inline `password` is written to the chart-managed Secret; the others are
-   passed as plain env values.
+   Any component referencing an existing secret is read via `secretKeyRef` and
+   never appears in plaintext in the manifest. For inline values, `password` is
+   written to the chart-managed Secret; the other inline components (host,
+   port, database, username) are passed as plain env values.
 
    ```yaml
    postgres:

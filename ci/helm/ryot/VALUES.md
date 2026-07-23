@@ -2,7 +2,7 @@
 
 ![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v10](https://img.shields.io/badge/AppVersion-v10-informational?style=flat-square)
 
-The only self hosted tracker you will ever need - track movies, shows, video games, books, and more.
+The only self-hosted tracker you will ever need - track movies, shows, video games, books, and more.
 
 **Homepage:** <https://ryot.io>
 
