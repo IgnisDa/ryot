@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   # Avoid overlapping auto-commits on rapid pushes to the same PR.
@@ -18,6 +18,9 @@ concurrency:
 jobs:
   generate:
     runs-on: ubuntu-latest
+    permissions:
+      # This job pushes the regenerated VALUES.md back to the PR branch.
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
