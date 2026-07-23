@@ -65,7 +65,7 @@ pub async fn import(
                 open_library_service,
             )
         })
-        .buffer_unordered(5)
+        .buffer_unordered(3)
         .collect()
         .await;
 
