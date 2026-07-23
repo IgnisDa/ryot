@@ -102,14 +102,12 @@ are required to deploy to Fly.
 
 ## Kubernetes (Helm)
 
-A Helm chart is published to a GitHub Pages Helm repository. It deploys the
-Ryot container with an optional bundled PostgreSQL database, and supports
-bringing your own database instead.
+A Helm chart is published to GitHub Container Registry as an OCI artifact
+(requires Helm 3.8+). It deploys the Ryot container with an optional bundled
+PostgreSQL database, and supports bringing your own database instead.
 
 ```bash
-helm repo add ryot https://ignisda.github.io/ryot
-helm repo update
-helm install ryot ryot/ryot \
+helm install ryot oci://ghcr.io/ignisda/charts/ryot \
   --set secret.adminAccessToken.value="$(openssl rand -hex 16)" \
   --set postgres.auth.password="$(openssl rand -hex 16)" \
   --set config.frontendUrl="https://ryot.your-domain.com"

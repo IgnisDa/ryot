@@ -4,18 +4,20 @@ Deploys [Ryot](https://github.com/IgnisDa/ryot) - "The only self hosted tracker
 you will ever need" - on Kubernetes, with an optional bundled PostgreSQL
 database.
 
-## Install from the Helm repo
+## Install from GHCR (OCI)
 
-The chart is published to a GitHub Pages Helm repo:
+The chart is published to GitHub Container Registry as an OCI artifact
+(requires Helm 3.8+):
 
 ```bash
-helm repo add ryot https://ignisda.github.io/ryot
-helm repo update
-helm install ryot ryot/ryot \
+helm install ryot oci://ghcr.io/ignisda/charts/ryot \
+  --version x.y.z \
   --set secret.adminAccessToken.value="$(openssl rand -hex 16)" \
   --set postgres.auth.password="$(openssl rand -hex 16)" \
   --set config.frontendUrl="https://ryot.your-domain.com"
 ```
+
+Omitting `--version` installs the latest published chart version.
 
 ## TL;DR (from a checkout)
 
@@ -28,10 +30,9 @@ helm install ryot ./ci/helm/ryot \
 
 ## Releases
 
-Each published GitHub release packages the chart and pushes it to the `gh-pages`
-Helm repo (above) via
-[chart-releaser](https://helm.sh/docs/howto/chart_releaser_action/). The release
-tag drives the chart version (a leading `v` is stripped).
+Each published GitHub release packages the chart and pushes it to
+`oci://ghcr.io/ignisda/charts/ryot`. The release tag drives the chart version
+(a leading `v` is stripped).
 
 ## What gets deployed
 

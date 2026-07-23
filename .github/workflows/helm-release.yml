@@ -5,7 +5,7 @@ on:
     types: [published]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   # Serialize releases; never cancel an in-progress publish (queue instead).
@@ -15,20 +15,17 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The chart is pushed to GHCR as an OCI artifact.
+      packages: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Helm
         uses: azure/setup-helm@v5
         with:
           version: v3.21.2
-
-      - name: Configure Git
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Set chart version from the release tag
         # The git release number drives the chart version. Helm requires a
@@ -38,13 +35,11 @@ jobs:
         run: |
           VERSION="${TAG#v}"
           echo "Releasing chart version: $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           yq -i ".version = \"$VERSION\"" ci/helm/ryot/Chart.yaml
 
       - name: Warn on chart/appVersion major mismatch
-        env:
-          TAG: ${{ github.event.release.tag_name }}
         run: |
-          VERSION="${TAG#v}"
           CHART_MAJOR="${VERSION%%.*}"
           APP_VERSION="$(yq '.appVersion' ci/helm/ryot/Chart.yaml)"
           APP_MAJOR="${APP_VERSION#v}"
@@ -55,9 +50,12 @@ jobs:
             echo "Chart major ($CHART_MAJOR) matches appVersion major ($APP_MAJOR)."
           fi
 
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1
-        with:
-          charts_dir: ci/helm
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Package and push chart
+        run: |
+          helm package ci/helm/ryot
+          helm push "ryot-${VERSION}.tgz" oci://ghcr.io/ignisda/charts
