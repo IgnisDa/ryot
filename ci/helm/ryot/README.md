@@ -20,7 +20,7 @@ helm install ryot ryot/ryot \
 ## TL;DR (from a checkout)
 
 ```bash
-helm install ryot ./helm/ryot \
+helm install ryot ./ci/helm/ryot \
   --set secret.adminAccessToken.value="$(openssl rand -hex 16)" \
   --set config.frontendUrl="https://ryot.your-domain.com" \
   --set postgres.auth.password="$(openssl rand -hex 16)"
