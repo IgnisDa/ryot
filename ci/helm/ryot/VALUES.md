@@ -10,7 +10,7 @@ The only self-hosted tracker you will ever need - track movies, shows, video gam
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| Nigel |  | https://github.com/NigelVanHattum |
+| Nigel |  |  |
 
 ## Source Code
 
@@ -31,7 +31,7 @@ The only self-hosted tracker you will ever need - track movies, shows, video gam
 | externalDatabase.database.value | string | `""` |  |
 | externalDatabase.existingSecret | string | `""` | Reference an existing secret holding the connection string instead. Takes precedence over components. |
 | externalDatabase.existingSecretKey | string | `"database-url"` | Key inside the existing secret that holds the connection string. |
-| externalDatabase.host | object | `{"existingSecret":"","existingSecretKey":"host","value":""}` | -- Option 2: individual components (used only when url and existingSecret      are both empty) ---- |
+| externalDatabase.host | object | `{"existingSecret":"","existingSecretKey":"host","value":""}` | -- Option 2: individual components (used only when url and existingSecret      are both empty) ---- NOTE: all connection values (here and postgres.auth.*) are embedded into the composed DATABASE_URL, so they must be URL-safe. Percent-encode any reserved characters (e.g. @ : / ? # []) or provide a pre-encoded full `url` instead. |
 | externalDatabase.password.existingSecret | string | `""` |  |
 | externalDatabase.password.existingSecretKey | string | `"password"` |  |
 | externalDatabase.password.value | string | `""` |  |
