@@ -1,0 +1,251 @@
+# Default values for the Ryot chart.
+# This is a YAML-formatted file. Declare variables to be passed into the templates.
+
+# -- Number of Ryot replicas. Ryot is stateless (state lives in Postgres), but
+# leave at 1 unless you know your setup supports multiple replicas.
+replicaCount: 1
+
+image:
+  repository: ghcr.io/ignisda/ryot
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# -- Image pull secrets for private registries.
+imagePullSecrets: []
+
+# -- Override the chart name.
+nameOverride: ""
+# -- Override the full release name.
+fullnameOverride: ""
+
+# =====================================================================
+# Non-sensitive application configuration (rendered into a ConfigMap).
+# =====================================================================
+config:
+  timezone: "GMT"
+  # -- Public URL the frontend is served on (FRONTEND_URL). Used for share
+  # links etc. Example: https://ryot.your-domain.com
+  frontendUrl: ""
+  # -- Disable anonymous Umami telemetry (DISABLE_TELEMETRY).
+  disableTelemetry: false
+  # -- Allow new users to register via the web UI (USERS_ALLOW_REGISTRATION).
+  usersAllowRegistration: true
+  # -- Extra NON-sensitive environment variables, added to the ConfigMap.
+  # Use this only for options that are safe in plaintext, e.g. DISABLE_TELEMETRY
+  # or feature flags from https://docs.ryot.io/configuration.html
+  # Provider access tokens and client IDs/secrets are sensitive - put them in
+  # `secretEnv` / `secretEnvFrom` below, NOT here.
+  # Example:
+  #   SOME_NON_SENSITIVE_FLAG: "true"
+  extraEnv: {}
+
+# =====================================================================
+# Sensitive application configuration (rendered into a Secret unless an
+# existing secret is referenced). 
+# =====================================================================
+secret:
+  # SERVER_ADMIN_ACCESS_TOKEN - REQUIRED. Long random string.
+  adminAccessToken:
+    # -- Inline value. Used when existingSecret is empty.
+    value: ""
+    # -- Reference an existing secret instead of storing the value here.
+    existingSecret: ""
+    # -- Key inside the existing secret that holds the admin access token.
+    existingSecretKey: SERVER_ADMIN_ACCESS_TOKEN
+  # SERVER_PRO_KEY - OPTIONAL. Enables the Pro version.
+  proKey:
+    # -- Inline value. Used when existingSecret is empty. Leave empty for community version.
+    value: ""
+    # -- Reference an existing secret instead of storing the value here.
+    existingSecret: ""
+    # -- Key inside the existing secret that holds the pro key.
+    existingSecretKey: SERVER_PRO_KEY
+
+# =====================================================================
+# Dynamic sensitive environment variables (e.g. provider access tokens and
+# client IDs/secrets - TMDB, Twitch, Trakt, MyAnimeList, etc.).
+#
+# `secretEnv` holds INLINE values; they are written into the chart-managed
+# Secret (one key per env var) and injected via secretKeyRef. The map key is
+# used verbatim as the environment variable name.
+#
+# `secretEnvFrom` maps an env var name to a key inside an EXISTING secret you
+# manage yourself - nothing sensitive is stored in values for these.
+# =====================================================================
+# Example:
+#   secretEnv:
+#     MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN: "xxxx"
+#     VIDEO_GAMES_TWITCH_CLIENT_ID: "xxxx"
+#     VIDEO_GAMES_TWITCH_CLIENT_SECRET: "xxxx"
+secretEnv: {}
+
+# Example:
+#   secretEnvFrom:
+#     VIDEO_GAMES_TWITCH_CLIENT_SECRET:
+#       existingSecret: ryot-providers
+#       key: twitch-client-secret
+#     ANIME_AND_MANGA_MAL_CLIENT_ID:
+#       existingSecret: ryot-providers
+#       key: mal-client-id
+secretEnvFrom: {}
+
+# =====================================================================
+# Bundled PostgreSQL (optional). When enabled, the chart deploys a
+# single-node Postgres StatefulSet and wires DATABASE_URL automatically.
+# Set postgres.enabled=false to use your own database (see externalDatabase).
+# =====================================================================
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "18-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    # -- Database user (POSTGRES_USER).
+    username: postgres
+    # -- Database name (POSTGRES_DB).
+    database: postgres
+    # -- Database password (POSTGRES_PASSWORD). REQUIRED unless existingSecret
+    # is set. No default is provided on purpose. Keep it URL-safe (it is embedded
+    # in the DATABASE_URL connection string).
+    password: ""
+    # -- Reference an existing secret holding the Postgres password instead of
+    # storing it here.
+    existingSecret: ""
+    # -- Key inside the existing secret that holds the Postgres password.
+    existingSecretPasswordKey: postgres-password
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    # -- Size of the Postgres data volume.
+    size: 8Gi
+    # -- StorageClass for the data volume. Empty uses the cluster default.
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    # -- Mount path for the data volume. Mirrors the official Ryot compose file
+    # which mounts the Postgres parent data directory for the v18 image.
+    mountPath: /var/lib/postgresql
+  # -- Pod-level security context for the Postgres pod. Left empty so the
+  # official image manages ownership via its entrypoint.
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# =====================================================================
+# External database (used only when postgres.enabled=false).
+#
+# Two ways to point Ryot at your own database (in order of precedence):
+#
+#   1. Full connection string  -> set `url` (inline) or `existingSecret`
+#      (references a secret holding the whole DATABASE_URL).
+#   2. Individual components    -> leave `url`/`existingSecret` empty and fill
+#      `host` / `port` / `database` / `username` / `password`. The chart then
+#      composes DATABASE_URL at runtime. Every component may be given inline
+#      (`value`) OR pulled from a secret (`existingSecret` + `existingSecretKey`).
+#      Inline `password` is stored in the chart-managed Secret; other inline
+#      components are passed as plain env values.
+# =====================================================================
+externalDatabase:
+  # ---- Option 1: full connection string ----
+  # -- Full connection string, e.g. postgres://user:pass@host:5432/dbname
+  # Stored in a chart-managed Secret when set. Takes precedence over components.
+  url: ""
+  # -- Reference an existing secret holding the connection string instead.
+  # Takes precedence over components.
+  existingSecret: ""
+  # -- Key inside the existing secret that holds the connection string.
+  existingSecretKey: database-url
+
+  # ---- Option 2: individual components (used only when url and existingSecret
+  #      are both empty) ----
+  # NOTE: all connection values (here and postgres.auth.*) are embedded into the
+  # composed DATABASE_URL, so they must be URL-safe. Percent-encode any reserved
+  # characters (e.g. @ : / ? # []) or provide a pre-encoded full `url` instead.
+  host:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: host
+  port:
+    value: "5432"
+    existingSecret: ""
+    existingSecretKey: port
+  database:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: database
+  username:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: username
+  password:
+    value: ""
+    existingSecret: ""
+    existingSecretKey: password
+
+service:
+  type: ClusterIP
+  # -- Service port. Ryot's internal Caddy proxy listens on 8000.
+  port: 8000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: ryot.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: ryot-tls
+  #    hosts:
+  #      - ryot.your-domain.com
+
+# -- Liveness probe. Ryot exposes /health on the service port.
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 6
+
+# -- Readiness probe.
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 15
+  timeoutSeconds: 10
+  failureThreshold: 6
+
+# -- Pod-level security context for the Ryot pod.
+podSecurityContext: {}
+
+# -- Container security context. The image already runs as the unprivileged
+# user 1001 (ryot).
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+
+resources: {}
+#  limits:
+#    cpu: 1
+#    memory: 1Gi
+#  requests:
+#    cpu: 250m
+#    memory: 512Mi
+
+podAnnotations: {}
+podLabels: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -100,6 +100,25 @@ are required to deploy to Fly.
    fly secrets set FILE_STORAGE_S3_URL='https://play.min.io:9000'
    ```
 
+## Kubernetes (Helm)
+
+A Helm chart is published to GitHub Container Registry as an OCI artifact
+(requires Helm 3.8+). It deploys the Ryot container with an optional bundled
+PostgreSQL database, and supports bringing your own database instead.
+
+```bash
+helm install ryot oci://ghcr.io/ignisda/charts/ryot \
+  --set secret.adminAccessToken.value="$(openssl rand -hex 16)" \
+  --set postgres.auth.password="$(openssl rand -hex 16)" \
+  --set config.frontendUrl="https://ryot.your-domain.com"
+```
+
+See the chart's
+<a :href="`${variables.filePath}/ci/helm/ryot/README.md`" target="_blank">README</a>
+for details on database modes, ingress and secrets, and
+<a :href="`${variables.filePath}/ci/helm/ryot/VALUES.md`" target="_blank">VALUES.md</a>
+for the full list of configurable values.
+
 ## Cosmos
 
 [![Static Badge](https://img.shields.io/badge/Cosmos-Install%20Server-violet)](https://cosmos-cloud.io/proxy#cosmos-ui/market-listing/cosmos-cloud/Ryot)
