@@ -1,4 +1,4 @@
-use std::{result::Result as StdResult, sync::Arc};
+use std::{collections::HashSet, result::Result as StdResult, sync::Arc};
 
 use anyhow::{Context, Result};
 use application_utils::get_podcast_episode_number_by_name;
@@ -28,6 +28,7 @@ struct ImportServices<'a> {
     hardcover_service: &'a HardcoverService,
     google_books_service: &'a GoogleBooksService,
     open_library_service: &'a OpenlibraryService,
+    finished_podcast_episodes: &'a HashSet<(String, String)>,
 }
 
 pub async fn import(
@@ -48,11 +49,26 @@ pub async fn import(
         input.allow_insecure_connections.unwrap_or(false),
     );
 
+    let me = client
+        .get(format!("{url}/me"))
+        .send()
+        .await?
+        .json::<audiobookshelf_models::MeResponse>()
+        .await
+        .unwrap();
+    let finished_podcast_episodes = me
+        .media_progress
+        .into_iter()
+        .filter(|progress| progress.is_finished)
+        .filter_map(|progress| Some((progress.library_item_id?, progress.episode_id?)))
+        .collect::<HashSet<_>>();
+
     let services = ImportServices {
         ss,
         hardcover_service,
         google_books_service,
         open_library_service,
+        finished_podcast_episodes: &finished_podcast_episodes,
     };
 
     let libraries_resp = client
@@ -138,7 +154,7 @@ async fn process_item(
         } else if let Some(asin) = metadata.asin.clone() {
             (asin, MediaLot::AudioBook, MediaSource::Audible, None)
         } else if let Some(itunes_id) = metadata.itunes_id.clone() {
-            let item_details = get_item_details(client, url, &item.id, None)
+            let item_details = get_item_details(client, url, &item.id)
                 .await
                 .map_err(|e| ImportFailedItem {
                     identifier: title.clone(),
@@ -152,46 +168,38 @@ async fn process_item(
                     let source = MediaSource::Itunes;
                     let mut to_return = vec![];
                     for episode in episodes {
-                        ryot_log!(debug, "Importing episode {:?}", episode.title);
-                        let episode_id = episode.id.clone();
-                        let episode_details =
-                            get_item_details(client, url, &item.id, Some(episode.id.unwrap()))
-                                .await
-                                .map_err(|e| ImportFailedItem {
-                                    identifier: title.clone(),
-                                    error: Some(format!(
-                                        "item_id={},episode_id={}: {e:#}",
-                                        item.id,
-                                        episode_id.as_deref().unwrap_or("?"),
-                                    )),
-                                    lot: Some(MediaLot::Podcast),
-                                    step: ImportFailStep::ItemDetailsFromSource,
-                                })?;
-                        if let Some(true) =
-                            episode_details.user_media_progress.map(|u| u.is_finished)
+                        let Some(episode_id) = episode.id.clone() else {
+                            continue;
+                        };
+                        if !services
+                            .finished_podcast_episodes
+                            .contains(&(item.id.clone(), episode_id))
                         {
-                            let (podcast, _) = commit_metadata(
-                                PartialMetadataWithoutId {
-                                    lot,
-                                    source,
-                                    identifier: itunes_id.clone(),
-                                    ..Default::default()
-                                },
-                                services.ss,
-                                Some(true),
-                            )
-                            .await
-                            .map_err(|e| ImportFailedItem {
-                                identifier: title.clone(),
-                                error: Some(format!("item_id={}: {e:#}", item.id)),
-                                lot: Some(MediaLot::Podcast),
-                                step: ImportFailStep::DatabaseCommit,
-                            })?;
-                            if let Some(pe) = podcast.podcast_specifics.and_then(|p| {
-                                get_podcast_episode_number_by_name(&p, &episode.title)
-                            }) {
-                                to_return.push(pe);
-                            }
+                            continue;
+                        }
+                        ryot_log!(debug, "Importing episode {:?}", episode.title);
+                        let (podcast, _) = commit_metadata(
+                            PartialMetadataWithoutId {
+                                lot,
+                                source,
+                                identifier: itunes_id.clone(),
+                                ..Default::default()
+                            },
+                            services.ss,
+                            Some(true),
+                        )
+                        .await
+                        .map_err(|e| ImportFailedItem {
+                            identifier: title.clone(),
+                            error: Some(format!("item_id={}: {e:#}", item.id)),
+                            lot: Some(MediaLot::Podcast),
+                            step: ImportFailStep::DatabaseCommit,
+                        })?;
+                        if let Some(pe) = podcast
+                            .podcast_specifics
+                            .and_then(|p| get_podcast_episode_number_by_name(&p, &episode.title))
+                        {
+                            to_return.push(pe);
                         }
                     }
                     (itunes_id, lot, source, Some(to_return))
@@ -249,12 +257,8 @@ async fn get_item_details(
     client: &Client,
     url: &str,
     id: &str,
-    episode: Option<String>,
 ) -> Result<audiobookshelf_models::Item> {
-    let mut query = serde_json::json!({ "expanded": "1", "include": "progress" });
-    if let Some(episode) = episode {
-        query["episode"] = serde_json::json!(episode);
-    }
+    let query = serde_json::json!({ "expanded": "1" });
     let request_url = format!("{url}/items/{id}");
     let response = client
         .get(&request_url)

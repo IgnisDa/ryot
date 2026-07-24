@@ -76,6 +76,20 @@ pub mod audiobookshelf {
     pub struct ListResponse {
         pub results: Vec<Item>,
     }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct MediaProgress {
+        pub is_finished: bool,
+        pub episode_id: Option<String>,
+        pub library_item_id: Option<String>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct MeResponse {
+        pub media_progress: Vec<MediaProgress>,
+    }
 }
 
 pub mod plex {
