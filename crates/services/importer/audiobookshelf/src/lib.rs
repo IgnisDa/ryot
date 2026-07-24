@@ -1,8 +1,8 @@
-use std::{collections::HashSet, result::Result as StdResult, sync::Arc};
+use std::{collections::HashSet, result::Result as StdResult, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
 use application_utils::get_podcast_episode_number_by_name;
-use common_utils::{get_http_client_with_tls_config, ryot_log};
+use common_utils::{USER_AGENT_STR, ryot_log, sleep_for_n_seconds};
 use data_encoding::BASE64;
 use dependent_entity_utils::commit_metadata;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
@@ -18,8 +18,8 @@ use media_models::{
 };
 use openlibrary_provider::OpenlibraryService;
 use reqwest::{
-    Client,
-    header::{AUTHORIZATION, HeaderValue},
+    Client, ClientBuilder,
+    header::{AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT},
 };
 use supporting_service::SupportingService;
 
@@ -41,11 +41,8 @@ pub async fn import(
     let mut completed = vec![];
     let mut failed = vec![];
     let url = format!("{}/api", input.api_url);
-    let client = get_http_client_with_tls_config(
-        Some(vec![(
-            AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {}", input.api_key)).unwrap(),
-        )]),
+    let client = build_client(
+        &input.api_key,
         input.allow_insecure_connections.unwrap_or(false),
     );
 
@@ -96,7 +93,7 @@ pub async fn import(
 
         let results: Vec<_> = stream::iter(finished_items.results.into_iter().enumerate())
             .map(|(idx, item)| process_item(idx, item, len, &client, &url, &services))
-            .buffer_unordered(5)
+            .buffer_unordered(1)
             .collect()
             .await;
 
@@ -154,14 +151,15 @@ async fn process_item(
         } else if let Some(asin) = metadata.asin.clone() {
             (asin, MediaLot::AudioBook, MediaSource::Audible, None)
         } else if let Some(itunes_id) = metadata.itunes_id.clone() {
-            let item_details = get_item_details(client, url, &item.id)
-                .await
-                .map_err(|e| ImportFailedItem {
-                    identifier: title.clone(),
-                    error: Some(format!("item_id={}: {e:#}", item.id)),
-                    lot: Some(MediaLot::Podcast),
-                    step: ImportFailStep::ItemDetailsFromSource,
-                })?;
+            let item_details =
+                get_item_details(client, url, &item.id)
+                    .await
+                    .map_err(|e| ImportFailedItem {
+                        identifier: title.clone(),
+                        error: Some(format!("item_id={}: {e:#}", item.id)),
+                        lot: Some(MediaLot::Podcast),
+                        step: ImportFailStep::ItemDetailsFromSource,
+                    })?;
             match item_details.media.and_then(|m| m.episodes) {
                 Some(episodes) => {
                     let lot = MediaLot::Podcast;
@@ -253,6 +251,8 @@ async fn process_item(
     }))
 }
 
+const MAX_ITEM_DETAILS_ATTEMPTS: u32 = 3;
+
 async fn get_item_details(
     client: &Client,
     url: &str,
@@ -260,9 +260,38 @@ async fn get_item_details(
 ) -> Result<audiobookshelf_models::Item> {
     let query = serde_json::json!({ "expanded": "1" });
     let request_url = format!("{url}/items/{id}");
+    let mut last_error = None;
+    for attempt in 0..MAX_ITEM_DETAILS_ATTEMPTS {
+        match fetch_item_details(client, &request_url, &query).await {
+            Ok(item) => return Ok(item),
+            Err(error) => {
+                last_error = Some(error);
+                if attempt + 1 < MAX_ITEM_DETAILS_ATTEMPTS {
+                    let sleep_time = u64::pow(2, attempt + 1);
+                    ryot_log!(
+                        debug,
+                        "Attempt {}/{} failed for {}, retrying in {}s",
+                        attempt + 1,
+                        MAX_ITEM_DETAILS_ATTEMPTS,
+                        request_url,
+                        sleep_time
+                    );
+                    sleep_for_n_seconds(sleep_time).await;
+                }
+            }
+        }
+    }
+    Err(last_error.unwrap())
+}
+
+async fn fetch_item_details(
+    client: &Client,
+    request_url: &str,
+    query: &serde_json::Value,
+) -> Result<audiobookshelf_models::Item> {
     let response = client
-        .get(&request_url)
-        .query(&query)
+        .get(request_url)
+        .query(query)
         .send()
         .await
         .with_context(|| format!("Network error requesting audiobookshelf API at {request_url}"))?;
@@ -271,8 +300,23 @@ async fn get_item_details(
     if !status.is_success() {
         anyhow::bail!("Audiobookshelf returned HTTP {status} (url: {request_url}): {body}");
     }
-    let item = serde_json::from_str::<audiobookshelf_models::Item>(&body).with_context(|| {
+    serde_json::from_str::<audiobookshelf_models::Item>(&body).with_context(|| {
         format!("Failed to parse JSON from Audiobookshelf response for {request_url}")
-    })?;
-    Ok(item)
+    })
+}
+
+// Longer timeout than the shared client since podcast item lookups can be slow.
+fn build_client(bearer_token: &str, danger_accept_invalid_certs: bool) -> Client {
+    let mut headers = HeaderMap::new();
+    headers.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
+    headers.insert(
+        AUTHORIZATION,
+        HeaderValue::from_str(&format!("Bearer {bearer_token}")).unwrap(),
+    );
+    ClientBuilder::new()
+        .default_headers(headers)
+        .timeout(Duration::from_secs(60))
+        .danger_accept_invalid_certs(danger_accept_invalid_certs)
+        .build()
+        .unwrap()
 }
