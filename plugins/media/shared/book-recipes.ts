@@ -1,10 +1,11 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { selectedField } from "@ryot-app/plugin-kit/ryotql";
 
-import { propertyBoolean, propertyNumber } from "./entity-selections";
+import { propertyBoolean } from "./entity-selections";
 import {
 	mediaEntityCountMeasure,
 	mediaFlatRecipes,
+	mediaNumberSelection,
 	mediaUnlinkedCreatorsOverviewQueries,
 } from "./media-recipes";
 
@@ -13,12 +14,10 @@ export const bookRecipes = mediaFlatRecipes({
 	alias: "book",
 	groupSlug: "book-group",
 	measure: mediaEntityCountMeasure("pages"),
+	presentationFields: mediaNumberSelection("pages"),
 	extraOverviewQueries: mediaUnlinkedCreatorsOverviewQueries,
-	presentationFields: (entity) => ({
-		pages: selectedField(propertyNumber(entity, "pages"), Schema.NullOr(Schema.Number)),
-	}),
 	summaryFields: (entity) => ({
-		pages: selectedField(propertyNumber(entity, "pages"), Schema.NullOr(Schema.Number)),
+		...mediaNumberSelection("pages")(entity),
 		isCompilation: selectedField(
 			propertyBoolean(entity, "isCompilation"),
 			Schema.NullOr(Schema.Boolean),

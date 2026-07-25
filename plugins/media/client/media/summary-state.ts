@@ -178,18 +178,25 @@ export const mediaProductionStatusFact = (media: {
 export const mediaCountLabel = (count: number, singular: string) =>
 	`${count} ${count === 1 ? singular : `${singular}s`}`;
 
-export const mediaCountFact = (count: number | null, singular: string) =>
+export const mediaCountFact = (
+	count: number | null,
+	singular: string,
+	icon: string,
+): MediaSummaryFact | undefined =>
 	count === null
 		? undefined
-		: { value: String(count), label: count === 1 ? singular : `${singular}s` };
+		: { icon, value: String(count), label: count === 1 ? singular : `${singular}s` };
 
-export const mediaRuntimeFact = (runtime: number | null, label: string) =>
-	runtime === null
+export const mediaCountLabels = (count: number | null, singular: string) =>
+	count === null ? [] : [mediaCountLabel(count, singular)];
+
+export const mediaDurationFact = (duration: number | null, label: string) =>
+	duration === null
 		? undefined
-		: { label, icon: "clock", value: mediaActivityDurationLabel(runtime) };
+		: { label, icon: "clock", value: mediaActivityDurationLabel(duration) };
 
-export const mediaRuntimeLabels = (runtime: number | null) =>
-	runtime === null ? [] : [mediaActivityDurationLabel(runtime)];
+export const mediaDurationLabels = (duration: number | null) =>
+	duration === null ? [] : [mediaActivityDurationLabel(duration)];
 
 export const mediaCollectionsLabel = ({ items, pageInfo }: MediaCollectionList) => {
 	if (items.length === 0) {

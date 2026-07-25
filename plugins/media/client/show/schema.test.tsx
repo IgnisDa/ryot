@@ -58,22 +58,13 @@ afterEach(() => {
 });
 
 describe("show schema", () => {
-	it("lists the rating, production status and the provider's season and episode counts", () => {
+	it("lists the provider's season and episode counts", () => {
 		expect(showSummaryFacts(decodeShowSummary())).toEqual([
-			expect.objectContaining({ label: "TMDB rating" }),
-			{ value: "Ended", icon: "clapperboard", label: "Production status" },
 			{ value: "1", label: "Season", icon: "layers-3" },
 			{ value: "4", icon: "tv", label: "Episodes" },
 		]);
 		expect(
-			showSummaryFacts(
-				decodeShowSummary({
-					totalSeasons: null,
-					totalEpisodes: null,
-					providerRating: null,
-					productionStatus: null,
-				}),
-			),
+			showSummaryFacts(decodeShowSummary({ totalSeasons: null, totalEpisodes: null })),
 		).toEqual([]);
 	});
 

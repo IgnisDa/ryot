@@ -75,17 +75,11 @@ afterEach(() => {
 });
 
 describe("podcast schema", () => {
-	it("lists the rating, the published episode count and the production status", () => {
+	it("lists the published episode count", () => {
 		expect(podcastSummaryFacts(decodePodcastSummary())).toEqual([
-			expect.objectContaining({ label: "Listen Notes rating" }),
 			{ value: "412", icon: "podcast", label: "Episodes" },
-			{ value: "Ended", icon: "clapperboard", label: "Production status" },
 		]);
-		expect(
-			podcastSummaryFacts(
-				decodePodcastSummary({ totalEpisodes: null, providerRating: null, productionStatus: null }),
-			),
-		).toEqual([]);
+		expect(podcastSummaryFacts(decodePodcastSummary({ totalEpisodes: null }))).toEqual([]);
 	});
 
 	it("titles the credits as hosts and networks and offers no where to watch", () => {

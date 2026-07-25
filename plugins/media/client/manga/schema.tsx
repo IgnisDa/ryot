@@ -8,12 +8,7 @@ import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { decimalLabel, mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
-import {
-	mediaCountLabel,
-	mediaProductionStatusFact,
-	mediaRatingFact,
-	type MediaSummaryFact,
-} from "../media/summary-state";
+import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
 
 type MangaSummary = MediaSummaryOf<typeof mangaRecipes>;
 
@@ -26,18 +21,12 @@ type MangaProgressPosition = Pick<
 
 export const mangaSummaryFacts = (manga: MangaSummary): readonly MediaSummaryFact[] =>
 	[
-		mediaRatingFact(manga),
-		manga.chapters === null
-			? undefined
-			: { icon: "book-open", label: "Chapters", value: `${manga.chapters}` },
-		manga.volumes === null
-			? undefined
-			: { icon: "layers", label: "Volumes", value: `${manga.volumes}` },
-		mediaProductionStatusFact(manga),
+		mediaCountFact(manga.chapters, "Chapter", "book-open"),
+		mediaCountFact(manga.volumes, "Volume", "layers"),
 	].filter((fact) => fact !== undefined);
 
 export const mangaPresentationFacts = (manga: MangaPresentation) =>
-	manga.chapters === null ? [] : [mediaCountLabel(manga.chapters, "chapter")];
+	mediaCountLabels(manga.chapters, "chapter");
 
 export const mangaProgressLabel = (
 	percent: string | undefined,
@@ -60,7 +49,6 @@ export const mangaProgressLabel = (
 
 export const mangaSchema = defineFlatMediaSchema({
 	aspect: "poster",
-	progressVerb: "read",
 	recipes: mangaRecipes,
 	facts: mangaSummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,

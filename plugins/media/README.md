@@ -8,8 +8,8 @@ schema; saved views do not declare sandbox scripts.
 ## Client
 
 The plugin client supplies a workspace home and `show`, `anime`, `movie`, `music`, `book`, `manga`,
-`podcast`, `audiobook`, and `video-game` entity renderers. Entity links use `PluginLink` so the kernel resolves
-canonical entity routes.
+`podcast`, `audiobook`, `comic-book`, `visual-novel`, and `video-game` entity renderers. Entity links
+use `PluginLink` so the kernel resolves canonical entity routes.
 
 `client/media/` owns everything the screens share and carries no schema copy.
 
@@ -36,13 +36,14 @@ credits arrive as `unlinkedCreators`, the way Book's and Audiobook's do. They al
 and episode artwork is square `cover` rather than show's `aspect-video` `still` - so the podcast hero
 uses art height at both widths.
 
-Movie, Music, Book, Manga, Anime, Audiobook, and Video Game are flat, non-episodic schemas. Each is one
-`mediaFlatRecipes` config in `shared/<slug>-recipes.ts` - the fields its entity schema declares and a
-measure for activity totals - and one `defineFlatMediaSchema` descriptor in
-`client/<slug>/schema.tsx` holding its copy, facts, artwork aspect, and hero height. The factories
-build the summary, overview, activity, and presentation recipes, queries, screen, and row and card
-presentations. A schema needing a query beyond the shared overview set adds it through
-`extraOverviewQueries` on its config rather than re-wrapping the recipe. Measures come from
+Movie, Music, Book, Manga, Anime, Audiobook, Comic Book, Visual Novel, and Video Game are flat,
+non-episodic schemas. Each is one `mediaFlatRecipes` config in `shared/<slug>-recipes.ts` - the fields
+its entity schema declares and a measure for activity totals - and one `defineFlatMediaSchema`
+descriptor in `client/<slug>/schema.tsx` holding its copy, facts, artwork aspect, and hero height. The
+detail screen places the provider rating before the descriptor's facts and the production status after
+them. The factories build the summary, overview, activity, and presentation recipes, queries, screen,
+and row and card presentations. A schema needing a query beyond the shared overview set adds it
+through `extraOverviewQueries` on its config rather than re-wrapping the recipe. Measures come from
 `mediaTimeSpentMeasure`, with an optional entity fallback, or `mediaEntityCountMeasure`. Every flat
 summary recipe returns `{ summary, entitySchemaSlug }`, and every activity recipe returns
 `{ completionCount, consumedAmount, unknownAmountCount, truncated, events }`.
@@ -105,6 +106,15 @@ Audiobook measures time like Movie, falling back to `runtime` when a completion 
 spent. Audible emits Author and Narrator person credits, `unlinkedCreators` for contributors without
 an ASIN, and no company credits, so the companies rail stays hidden. It ships square covers and no
 backdrops, so the hero uses art height at both widths. The group section names the audiobook series.
+
+Comic Book measures pages like Book, and the group section names the comic book series. Metron emits
+person credits and no company credits or `unlinkedCreators`, so the companies rail stays hidden and
+no creators query is issued. It ships covers only, so the hero uses art height at both widths.
+
+Visual Novel measures time, falling back to `lengthMinutes` when a completion records no time spent,
+and reads with the "read" verb. It has no group. VNDB developers are stored as person credits with the
+`Developer` role, so the people rail is titled "Developers". Its screenshots appear only in the
+overview gallery, not as a backdrop, so the hero uses art height at both widths.
 
 Video Game measures `timeSpent` alone, with no fallback: `timeToBeat` is a community estimate of the
 game, not a record of your play, so a completion with no recorded time stays unknown and the total

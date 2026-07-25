@@ -1,18 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { videoGameRecipes } from "../../shared/video-game-recipes";
-import { decodeFlatActivity } from "../../tests/client/flat-media/activity-fixture";
 import {
 	decodeFlatOverview,
 	FLAT_OVERVIEW_INPUT,
 } from "../../tests/client/flat-media/overview-fixture";
+import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
+import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
-import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
-import { mapMediaOverview } from "../media/overview-state";
 import { videoGamePresentationFacts, videoGameSchema, videoGameSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
@@ -32,80 +31,26 @@ const videoGameSummary = (overrides: Record<string, unknown> = {}) =>
 	});
 
 const renderBody = (overrides: Record<string, unknown> = {}) =>
-	mountRyotClient(
-		noopAdapter,
-		<videoGameSchema.ScreenBody
-			compact
-			safeAreaTop={0}
-			settled={undefined}
-			refresh={() => undefined}
-			refreshOverview={() => undefined}
-			state={{ status: "ready", summary: videoGameSummary(overrides) }}
-			overview={mapMediaOverview(
-				readyQueryResult(decodeFlatOverview(videoGameRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT))),
-			)}
-			activity={
-				<videoGameSchema.Activity
-					compact
-					refresh={() => undefined}
-					state={videoGameSchema.mapActivity(readyQueryResult(decodeFlatActivity()))}
-				/>
-			}
-		/>,
+	renderFlatScreenBody(
+		videoGameSchema,
+		videoGameSummary(overrides),
+		decodeFlatOverview(videoGameRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
 	);
 
-const presentationData = (timeToBeatNormally: number | null) => {
-	const decoded = videoGameRecipes
-		.presentationRecipe(["media-1"])
-		.decode({
-			data: {
-				rows: rowsResult(
-					[
-						{
-							images: null,
-							id: "media-1",
-							publishDate: null,
-							publishYear: 2022,
-							timeToBeatNormally,
-							name: "Elden Ring",
-							progressPercent: 42,
-							state: "in_progress",
-							schemaSlug: "video-game",
-							populationStatus: "ready",
-							translationStatus: "none",
-							productionStatus: "Released",
-						},
-					],
-					{ limit: 100, hasMore: false, nextCursor: null },
-				),
-			},
-		});
-	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
-		throw new Error("Expected decoded presentation data");
-	}
-	return { ...decoded.success[0], batchAssets: [] };
-};
+const presentationData = (timeToBeatNormally: number | null) =>
+	decodeFlatPresentation(videoGameRecipes, { timeToBeatNormally, schemaSlug: "video-game" });
 
 afterEach(() => {
 	document.body.innerHTML = "";
 });
 
 describe("video game schema", () => {
-	it("lists the rating, time to beat and production status and drops the unrecorded ones", () => {
+	it("lists the time to beat and drops it when unrecorded", () => {
 		expect(videoGameSummaryFacts(videoGameSummary())).toEqual([
-			expect.objectContaining({ label: "TMDB rating" }),
 			{ value: "15h", icon: "hourglass", label: "Time to beat" },
-			{ value: "Released", icon: "clapperboard", label: "Production status" },
 		]);
-		expect(
-			videoGameSummaryFacts(
-				videoGameSummary({ timeToBeat: null, providerRating: null, productionStatus: null }),
-			),
-		).toEqual([]);
-		expect(videoGameSummaryFacts(videoGameSummary({ timeToBeat: { hastily: 600 } }))).toEqual([
-			expect.objectContaining({ label: "TMDB rating" }),
-			expect.objectContaining({ label: "Production status" }),
-		]);
+		expect(videoGameSummaryFacts(videoGameSummary({ timeToBeat: null }))).toEqual([]);
+		expect(videoGameSummaryFacts(videoGameSummary({ timeToBeat: { hastily: 600 } }))).toEqual([]);
 	});
 
 	it("titles the credits for games and names the group a collection", () => {

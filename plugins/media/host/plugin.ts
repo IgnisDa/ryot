@@ -484,6 +484,8 @@ const schemaClients = [
 	"manga",
 	"podcast",
 	"audiobook",
+	"comic-book",
+	"visual-novel",
 	"video-game",
 ].map(schemaClient);
 
@@ -599,10 +601,8 @@ export const mediaPlugin = definePlugin({
 			person: { listPresentation: "media-row", gridPresentation: "media-card" },
 			company: { listPresentation: "media-row", gridPresentation: "media-card" },
 			"book-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"comic-book": { listPresentation: "media-row", gridPresentation: "media-card" },
 			"music-group": { listPresentation: "media-row", gridPresentation: "media-card" },
 			"movie-group": { listPresentation: "media-row", gridPresentation: "media-card" },
-			"visual-novel": { listPresentation: "media-row", gridPresentation: "media-card" },
 			"audiobook-group": { listPresentation: "media-row", gridPresentation: "media-card" },
 			"comic-book-group": { listPresentation: "media-row", gridPresentation: "media-card" },
 			"video-game-group": { listPresentation: "media-row", gridPresentation: "media-card" },
