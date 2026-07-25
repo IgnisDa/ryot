@@ -59,6 +59,10 @@
 			"types": "./src/provider.ts",
 			"default": "./src/provider.ts"
 		},
+		"./query-engine": {
+			"types": "./src/query-engine.ts",
+			"default": "./src/query-engine.ts"
+		},
 		"./wire": {
 			"types": "./src/wire.ts",
 			"default": "./src/wire.ts"

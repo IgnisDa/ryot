@@ -6,6 +6,12 @@ import {
 import type { EventRecord, EventSchemaRecord, SandboxHost } from "@ryot/sandbox-sdk/core";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
+import {
+	buildEntityReadQuery,
+	buildEventReadQuery,
+	queryEngineEntityRows,
+	queryEngineEventRows,
+} from "@ryot/sandbox-sdk/query-engine";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 export const manifest = defineManifest({
@@ -14,7 +20,7 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 	name: "Auto-Complete on Full Progress",
 	slug: "trigger.auto-complete-on-full-progress",
-	capabilities: ["getEntities", "listEvents", "createEvents", "listEventSchemas"],
+	capabilities: ["executeQueryEngine", "createEvents", "listEventSchemas"],
 });
 
 type Properties = Readonly<Record<string, JsonValue>>;
@@ -126,17 +132,24 @@ const getCompleteSchema = (host: AutomationHost, entitySchemaSlug: string) =>
 			),
 		);
 
-const fetchEntity = (host: AutomationHost, entityId: string) =>
+const fetchEntity = (host: AutomationHost, entityId: string, entitySchemaSlug: string) =>
 	host
-		.getEntities([entityId])
+		.executeQueryEngine(
+			buildEntityReadQuery({ entityIds: [entityId], entitySchemaSlugs: [entitySchemaSlug] }),
+		)
 		.pipe(
+			Effect.map(queryEngineEntityRows),
 			Effect.flatMap(([entity]) =>
 				entity ? Effect.succeed(entity) : Effect.fail({ message: "Entity not found" }),
 			),
 		);
 
-const getProgressEvents = (host: AutomationHost, entityId: string) =>
-	host.listEvents({ entityId, eventSchemaSlug: "progress" });
+const getProgressEvents = (host: AutomationHost, entityId: string, entitySchemaSlug: string) =>
+	host
+		.executeQueryEngine(
+			buildEventReadQuery({ entityId, entitySchemaSlug, eventSchemaSlug: "progress" }),
+		)
+		.pipe(Effect.map(queryEngineEventRows));
 
 const getInheritedCompletionProperties = (
 	automation: AutomationContext,
@@ -189,7 +202,7 @@ export default defineAutomation({
 		const entityId = event.subject.id;
 		const entitySchemaSlug = event.subject.entitySchemaSlug;
 		return Effect.gen(function* () {
-			const entity = yield* fetchEntity(host, entityId);
+			const entity = yield* fetchEntity(host, entityId, entitySchemaSlug);
 			const isEpisodic = entitySchemaSlug === "anime" || entitySchemaSlug === "manga";
 			if (!isEpisodic) {
 				const completeSchema = yield* getCompleteSchema(host, entity.entitySchemaSlug);
@@ -199,7 +212,10 @@ export default defineAutomation({
 			}
 
 			const [completeSchema, progressEvents] = yield* Effect.all(
-				[getCompleteSchema(host, entity.entitySchemaSlug), getProgressEvents(host, entityId)],
+				[
+					getCompleteSchema(host, entity.entitySchemaSlug),
+					getProgressEvents(host, entityId, entitySchemaSlug),
+				],
 				{ concurrency: "unbounded" },
 			);
 			if (!completeSchema) {

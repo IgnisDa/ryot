@@ -2,6 +2,7 @@ import { defineAutomationPolicy, type AutomationPolicyInput } from "@ryot/sandbo
 import type { EventRecord, SandboxHost } from "@ryot/sandbox-sdk/core";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
+import { buildEventReadQuery, queryEngineEventRows } from "@ryot/sandbox-sdk/query-engine";
 import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 const SUBITEM_KEYS = ["animeEpisode", "mangaVolume", "mangaChapter"] as const;
@@ -9,11 +10,11 @@ const DEFAULT_THRESHOLD_SECONDS = 7200;
 
 export const manifest = defineManifest({
 	kind: "automation",
+	requiredSystemConfigKeys: [],
 	name: "Integration Progress Policy",
 	slug: "trigger.integration-progress-policy",
 	requiredPluginConfigKeys: ["progressUpdateThresholdHours"],
-	requiredSystemConfigKeys: [],
-	capabilities: ["listEvents", "getIntegration", "claimCachedValue", "getPluginConfig"],
+	capabilities: ["executeQueryEngine", "getIntegration", "claimCachedValue", "getPluginConfig"],
 });
 
 type Draft = AutomationPolicyInput["automation"]["source"]["draft"];
@@ -89,16 +90,25 @@ const getThresholdSeconds = (host: AutomationHost) =>
 	);
 
 const getMatchingEvents = (host: AutomationHost, draft: Draft, properties: Properties) =>
-	host.listEvents({ entityId: draft.entityId, eventSchemaSlug: "progress" }).pipe(
-		Effect.map((events) =>
-			[...events]
-				.filter((event) => {
-					const eventProperties = jsonObject(event.properties);
-					return eventProperties !== null && hasSameIdentity(eventProperties, properties);
-				})
-				.sort(sortLatestFirst),
-		),
-	);
+	host
+		.executeQueryEngine(
+			buildEventReadQuery({
+				entityId: draft.entityId,
+				eventSchemaSlug: "progress",
+				entitySchemaSlug: draft.entitySchemaSlug,
+			}),
+		)
+		.pipe(
+			Effect.map(queryEngineEventRows),
+			Effect.map((events) =>
+				[...events]
+					.filter((event) => {
+						const eventProperties = jsonObject(event.properties);
+						return eventProperties !== null && hasSameIdentity(eventProperties, properties);
+					})
+					.sort(sortLatestFirst),
+			),
+		);
 
 export default defineAutomationPolicy({
 	manifest,

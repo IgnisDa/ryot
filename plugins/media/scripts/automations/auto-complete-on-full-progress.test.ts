@@ -12,6 +12,7 @@ import {
 	eventRecord,
 	execution,
 	hostSuccess,
+	queryEngineRows,
 } from "./automation-test-utils";
 
 const completeSchema = {
@@ -27,12 +28,18 @@ const createHost = (options: {
 	events?: ReturnType<typeof eventRecord>[];
 }) => {
 	const created: (readonly CreateEventItem[])[] = [];
+	let queryIndex = 0;
 	return {
 		created,
 		host: defineSandboxTestHost(manifest, {
-			getEntities: () =>
-				hostSuccess([entityRecord({ properties: options.entityProperties ?? {} })]),
-			listEvents: () => hostSuccess(options.events ?? []),
+			executeQueryEngine: () =>
+				hostSuccess(
+					queryEngineRows(
+						queryIndex++ === 0
+							? [entityRecord({ properties: options.entityProperties ?? {} })]
+							: (options.events ?? []),
+					),
+				),
 			listEventSchemas: () => hostSuccess([completeSchema]),
 			createEvents: (items) => {
 				created.push(items);

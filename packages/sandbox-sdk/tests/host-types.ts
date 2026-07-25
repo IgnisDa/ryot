@@ -118,8 +118,6 @@ const allDomainManifest = defineManifest({
 	requiredSystemConfigKeys: [],
 	slug: "all-domain-capabilities",
 	capabilities: [
-		"getEntities",
-		"listEvents",
 		"createEvents",
 		"getIntegration",
 		"getEntitySchemas",
@@ -138,13 +136,7 @@ defineScript({
 	output: Schema.Boolean,
 	run: (_input, host) =>
 		Effect.gen(function* () {
-			const entity = (yield* host.getEntities(["entity-1"]))[0];
-			if (!entity) {
-				return false;
-			}
-			const properties: JsonValue = entity.properties;
 			const integration = yield* host.getIntegration();
-			const externalId: string | null = entity.externalId;
 			const [entitySchema] = yield* host.getEntitySchemas(["schema-1"]);
 			if (!entitySchema) {
 				return false;
@@ -152,8 +144,6 @@ defineScript({
 			const lot: "push" | "sink" | "yank" = integration.lot;
 			const provider: string = integration.provider;
 			const setting: JsonValue | undefined = integration.providerSpecifics["customSetting"];
-			const events = yield* host.listEvents({ entityId: "entity-1" });
-			const occurredAt: string = events[0]?.occurredAt ?? "";
 			yield* host.listEventSchemas(["schema-1"]);
 			yield* host.listIntegrations({ provider: "plugin_defined_provider" });
 			const providers: ReadonlyArray<{ readonly name: string; readonly providerId: string }> =
@@ -207,9 +197,6 @@ defineScript({
 			const deleted: number | undefined = reconciled?.deleted;
 			const query = yield* host.executeQueryEngine({ source: { type: "entities" } });
 			const queryResult: Expect<Equal<typeof query, unknown>> = true;
-			const entityArg: Expect<
-				Equal<Parameters<typeof host.getEntities>[0], ReadonlyArray<string>>
-			> = true;
 			const entitySchemasArg: Expect<
 				Equal<Parameters<typeof host.getEntitySchemas>[0], ReadonlyArray<string>>
 			> = true;
@@ -218,10 +205,6 @@ defineScript({
 			void deleted;
 			void inserted;
 			void providers;
-			void entityArg;
-			void properties;
-			void externalId;
-			void occurredAt;
 			void queryResult;
 			void changedCount;
 			void ensuredEntityId;

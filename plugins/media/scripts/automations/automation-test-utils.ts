@@ -132,6 +132,16 @@ export const hostSuccess = <Data>(data: Data) => Effect.succeed(data);
 
 export const hostFailure = (message = "not found") => Effect.fail({ message });
 
+export const queryEngineRows = (records: readonly Record<string, unknown>[]) => ({
+	data: {
+		items: records.map((record) =>
+			Object.fromEntries(
+				Object.entries(record).map(([key, value]) => [key, { kind: "json", value }]),
+			),
+		),
+	},
+});
+
 export const httpSuccess = (body: JsonValue) =>
 	hostSuccess({
 		status: 200,
