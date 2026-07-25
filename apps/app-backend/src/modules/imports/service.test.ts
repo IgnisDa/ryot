@@ -1,6 +1,7 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { SandboxRunError } from "@ryot/contract/errors";
 import type { ListedImportRun } from "@ryot/contract/modules/imports/schemas";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
@@ -30,7 +31,7 @@ import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ImportRunFailuresService } from "./failure-service";
 import { ImportsRepository } from "./repository";
 import { ImportsService, type CreateImportRunInput } from "./service";
-import { ImportWorkflowPinning } from "./workflow-pinning";
+import { ImportWorkflowPinning, type ImportWorkflowPinningValue } from "./workflow-pinning";
 
 const now = "2026-07-16T00:00:00.000Z";
 const configSchema = {
@@ -110,10 +111,14 @@ const makeImportSourceCatalog = (
 			Effect.succeed(registered ? { source: registered, script: importWorkflowScript } : null),
 	});
 
-const importWorkflowPinningLayer = Layer.succeed(ImportWorkflowPinning, {
-	preRegister: () => Effect.succeed({ registrationStatus: "registered" as const }),
-	release: () => Effect.void,
-});
+const makeImportWorkflowPinning = (overrides: Partial<ImportWorkflowPinningValue> = {}) =>
+	Layer.succeed(ImportWorkflowPinning, {
+		release: () => Effect.void,
+		preRegister: () => Effect.succeed({ registrationStatus: "registered" as const }),
+		...overrides,
+	});
+
+const importWorkflowPinningLayer = makeImportWorkflowPinning();
 
 const makeServiceLayer = (
 	repository = makeImportsRepository(),
@@ -166,6 +171,21 @@ const goodreadsSource = (
 	configContext: { kind: "environment", pluginSlug: "media", configSchema },
 	inputSchema: { unknownKeys: "strict", fields: { uploadToken: uploadProperty(["csv"]) } },
 	...overrides,
+});
+
+const payloadSource = goodreadsSource({
+	inputSchema: {
+		unknownKeys: "strict",
+		fields: {
+			apiKey: {
+				secret: true,
+				type: "string",
+				label: "API key",
+				description: "API key",
+				validation: { required: true },
+			},
+		},
+	},
 });
 
 it.effect("delegates import run CRUD through the canonical service methods", () => {
@@ -535,20 +555,6 @@ it.effect("stores decoded payload credentials without exposing them in the input
 	const executed: unknown[] = [];
 	const stored: string[] = [];
 	let createdInput: CreateImportRunInput | undefined;
-	const source = goodreadsSource({
-		inputSchema: {
-			unknownKeys: "strict",
-			fields: {
-				apiKey: {
-					secret: true,
-					type: "string",
-					label: "API key",
-					description: "API key",
-					validation: { required: true },
-				},
-			},
-		},
-	});
 	const layer = makeServiceLayer(
 		makeImportsRepository({
 			createRun: (input) =>
@@ -558,7 +564,7 @@ it.effect("stores decoded payload credentials without exposing them in the input
 				}),
 		}),
 		Layer.mergeAll(
-			makeImportSourceCatalog(source),
+			makeImportSourceCatalog(payloadSource),
 			mockUploadsService({}),
 			Layer.succeed(
 				WorkflowEngine,
@@ -597,24 +603,10 @@ it.effect("stores decoded payload credentials without exposing them in the input
 
 it.effect("deletes pending source state when workflow dispatch fails", () => {
 	const deletedKeys: string[][] = [];
-	const source = goodreadsSource({
-		inputSchema: {
-			unknownKeys: "strict",
-			fields: {
-				apiKey: {
-					secret: true,
-					type: "string",
-					label: "API key",
-					description: "API key",
-					validation: { required: true },
-				},
-			},
-		},
-	});
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
 		Layer.mergeAll(
-			makeImportSourceCatalog(source),
+			makeImportSourceCatalog(payloadSource),
 			mockUploadsService({}),
 			Layer.succeed(
 				WorkflowEngine,
@@ -680,5 +672,163 @@ it.effect("records the resolving installation on the run and its durable source 
 			workflowScriptId: "accepted-import-script",
 			pluginInstallationId: "private-installation",
 		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rolls back uploads, source state, and the pin when file dispatch fails", () => {
+	const released: string[] = [];
+	const deletedKeys: string[][] = [];
+	const deletedIntentIds: string[] = [];
+	const updates: Array<Record<string, unknown>> = [];
+	let deletedRun: unknown;
+	const layer = makeServiceLayer(
+		makeImportsRepository({
+			updateRun: (input) => Effect.sync(() => void updates.push(input)),
+			deleteRunById: (input) => Effect.sync(() => void (deletedRun = input)),
+		}),
+		Layer.mergeAll(
+			makeImportSourceCatalog(goodreadsSource()),
+			mockUploadsService({
+				claimTemporaryUpload: () =>
+					Effect.succeed({
+						leaseExpiresAt: now,
+						intentId: "intent-goodreads",
+						fileName: "goodreads-export.csv",
+						resolvedPath: "/tmp/goodreads-export.csv",
+						locator: { type: "local" as const, key: "temporary/goodreads-export.csv" },
+					}),
+				deleteTemporaryUpload: (intentId) =>
+					Effect.sync(() => void deletedIntentIds.push(intentId)),
+			}),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({ execute: () => Effect.fail("dispatch failed") }),
+			),
+		),
+		makeImportWorkflowPinning({
+			release: (executionId) => Effect.sync(() => void released.push(executionId)),
+		}),
+		makeRedisService({
+			set: () => Effect.void,
+			del: (...keys) =>
+				Effect.sync(() => {
+					deletedKeys.push([...keys]);
+					return keys.length;
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const error = yield* Effect.flip(
+			(yield* ImportsService).startImportRun(user, {
+				source: "goodreads",
+				uploadToken: "tok_goodreads",
+			}),
+		);
+
+		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
+		expect(released).toEqual(["run-1-import"]);
+		expect(deletedIntentIds).toEqual(["intent-goodreads"]);
+		expect(deletedKeys).toEqual([[redisKeys.importSourceState("run-1")]]);
+		expect(deletedRun).toBeUndefined();
+		expect(updates.at(-1)).toMatchObject({
+			runId: "run-1",
+			status: "failed",
+			failureReason: { code: "queue-unavailable", operation: "workflow" },
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("cleans up claimed uploads without releasing a pin that never registered", () => {
+	const released: string[] = [];
+	const deletedIntentIds: string[] = [];
+	const updates: Array<Record<string, unknown>> = [];
+	const layer = makeServiceLayer(
+		makeImportsRepository({
+			updateRun: (input) => Effect.sync(() => void updates.push(input)),
+		}),
+		Layer.mergeAll(
+			makeImportSourceCatalog(goodreadsSource()),
+			mockUploadsService({
+				claimTemporaryUpload: () =>
+					Effect.succeed({
+						leaseExpiresAt: now,
+						intentId: "intent-goodreads",
+						fileName: "goodreads-export.csv",
+						resolvedPath: "/tmp/goodreads-export.csv",
+						locator: { type: "local" as const, key: "temporary/goodreads-export.csv" },
+					}),
+				deleteTemporaryUpload: (intentId) =>
+					Effect.sync(() => void deletedIntentIds.push(intentId)),
+			}),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({ execute: () => Effect.die("must not start") }),
+			),
+		),
+		makeImportWorkflowPinning({
+			preRegister: () => new SandboxRunError({ message: "pin unavailable" }),
+			release: (executionId) => Effect.sync(() => void released.push(executionId)),
+		}),
+		makeRedisService({
+			set: () => Effect.die("must not store source state"),
+			del: () => Effect.die("must not delete source state"),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const error = yield* Effect.flip(
+			(yield* ImportsService).startImportRun(user, {
+				source: "goodreads",
+				uploadToken: "tok_goodreads",
+			}),
+		);
+
+		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
+		expect(released).toEqual([]);
+		expect(deletedIntentIds).toEqual(["intent-goodreads"]);
+		expect(updates.at(-1)).toMatchObject({
+			runId: "run-1",
+			status: "failed",
+			failureReason: { code: "queue-unavailable", operation: "workflow-pin" },
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("leaves an already-registered pin in place while rolling back source state", () => {
+	const released: string[] = [];
+	const deletedKeys: string[][] = [];
+	const layer = makeServiceLayer(
+		makeImportsRepository(),
+		Layer.mergeAll(
+			makeImportSourceCatalog(payloadSource),
+			mockUploadsService({}),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({ execute: () => Effect.fail("dispatch failed") }),
+			),
+		),
+		makeImportWorkflowPinning({
+			preRegister: () => Effect.succeed({ registrationStatus: "already-registered" as const }),
+			release: (executionId) => Effect.sync(() => void released.push(executionId)),
+		}),
+		makeRedisService({
+			set: () => Effect.void,
+			del: (...keys) =>
+				Effect.sync(() => {
+					deletedKeys.push([...keys]);
+					return keys.length;
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const error = yield* Effect.flip(
+			(yield* ImportsService).startImportRun(user, { apiKey: "secret", source: "goodreads" }),
+		);
+
+		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
+		expect(released).toEqual([]);
+		expect(deletedKeys).toEqual([[redisKeys.importSourceState("run-1")]]);
 	}).pipe(Effect.provide(layer));
 });
