@@ -2,14 +2,34 @@ import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
+	AccessClass,
 	getNativeOAuthCallbackUri,
 	getNativeOAuthLogoutCallbackUri,
 	isLoopbackOrigin,
 	NativeOAuthApplicationId,
+	NativeOAuthClientId,
+	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_NATIVE_APPLICATION_IDS,
 	OAUTH_NATIVE_CALLBACK_URIS,
 	OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
+	OAUTH_WEB_CLIENT_IDS,
+	WebOAuthClientId,
 } from "./oauth";
+
+describe("OAuth access and client classes", () => {
+	it.each(["standard", "demo"])("accepts the %s access class", (accessClass) => {
+		expect(Schema.decodeUnknownSync(AccessClass)(accessClass)).toBe(accessClass);
+	});
+
+	it("distinguishes web clients from the native client", () => {
+		expect(OAUTH_WEB_CLIENT_IDS).toEqual(["ryot-web", OAUTH_DEMO_WEB_CLIENT_ID]);
+		expect(Schema.decodeUnknownSync(WebOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID)).toBe(
+			OAUTH_DEMO_WEB_CLIENT_ID,
+		);
+		expect(() => Schema.decodeUnknownSync(WebOAuthClientId)("ryot-native")).toThrow();
+		expect(() => Schema.decodeUnknownSync(NativeOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID)).toThrow();
+	});
+});
 
 describe("NativeOAuthApplicationId", () => {
 	it("defines the exact native application IDs", () => {

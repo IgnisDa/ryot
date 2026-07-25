@@ -111,6 +111,7 @@ function LanguageField(props: {
 }
 
 export function PreferencesForm(props: {
+	disabled?: boolean;
 	preferences: UserPreferences;
 	onSave: (payload: UpdateUserPreferencesBody) => Promise<UserPreferences>;
 }) {
@@ -157,8 +158,8 @@ export function PreferencesForm(props: {
 							{(field) => (
 								<PreferenceRow
 									checked={field.value}
-									disabled={isSubmitting}
 									title="Show NSFW content"
+									disabled={props.disabled === true || isSubmitting}
 									detail="Allow providers to include adult metadata and results."
 									onChange={(value) => {
 										field.handleChange(value);
@@ -172,8 +173,8 @@ export function PreferencesForm(props: {
 							{(field) => (
 								<PreferenceRow
 									checked={field.value}
-									disabled={isSubmitting}
 									title="Disable integrations"
+									disabled={props.disabled === true || isSubmitting}
 									detail="Pause all external integration processing for your account."
 									onChange={(value) => {
 										field.handleChange(value);
@@ -195,7 +196,7 @@ export function PreferencesForm(props: {
 								{(field) => (
 									<LanguageField
 										value={field.value}
-										disabled={isSubmitting}
+										disabled={props.disabled === true || isSubmitting}
 										onChange={(value) => {
 											field.handleChange(value);
 											changed();
@@ -218,7 +219,7 @@ export function PreferencesForm(props: {
 							type="submit"
 							variant="primary"
 							className="min-w-32"
-							disabled={!isDirty || isSubmitting}
+							disabled={props.disabled === true || !isDirty || isSubmitting}
 						>
 							{isSubmitting ? "Saving..." : "Save changes"}
 						</Button>

@@ -4,6 +4,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
+import type { AuthService } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
@@ -15,6 +16,7 @@ import { getRouter } from "#/router";
 import {
 	theme,
 	catalog,
+	authenticated,
 	ServerStub,
 	makeAuthStub,
 	OAuthRouteStubs,
@@ -39,7 +41,11 @@ type SavedPlan = Parameters<CustomizeSidebarService["Service"]["save"]>[1];
 const mountView = (
 	initialEntry: string,
 	saves: SavedPlan[] = [],
-	options: { readonly catalog?: typeof catalog; readonly storage?: ClientStorage["Service"] } = {},
+	options: {
+		readonly auth?: Layer.Layer<AuthService>;
+		readonly catalog?: typeof catalog;
+		readonly storage?: ClientStorage["Service"];
+	} = {},
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -49,7 +55,7 @@ const mountView = (
 			IntegrationRouteStubs,
 			NotificationChannelRouteStubs,
 			NotificationChannelRouteStubs,
-			makeAuthStub(),
+			options.auth ?? makeAuthStub(),
 			GodModeRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
@@ -108,6 +114,37 @@ const openPanel = async () => {
 };
 
 describe("customize sidebar route", () => {
+	it("opens read-only for demo sessions", async () => {
+		const restore = stubMatchMedia(true);
+		const saves: SavedPlan[] = [];
+		try {
+			const view = mountView("/customize-sidebar", saves, {
+				auth: makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+			});
+			const panel = await openPanel();
+
+			expect(
+				panel.getByText("This operation is unavailable while using the shared demo account."),
+			).not.toBeNull();
+			expect(
+				panel
+					.getByRole("switch", { name: "Show Fixture View in sidebar" })
+					.hasAttribute("disabled"),
+			).toBe(true);
+			expect(
+				panel.getByRole("button", { name: "Reorder Fixture View" }).hasAttribute("disabled"),
+			).toBe(true);
+			expect(
+				panel.getByRole("button", { name: "Save sidebar changes" }).hasAttribute("disabled"),
+			).toBe(true);
+			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
+			expect(saves).toEqual([]);
+			expect(view.router.state.location.pathname).toBe("/customize-sidebar");
+		} finally {
+			restore();
+		}
+	});
+
 	it("turns the desktop sidebar into the customize panel and drops the nav and account footer", async () => {
 		const restore = stubMatchMedia(true);
 		try {

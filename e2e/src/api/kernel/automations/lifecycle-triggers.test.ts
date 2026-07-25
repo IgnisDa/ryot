@@ -324,6 +324,7 @@ const installLifecyclePlugin = () =>
 		operations: [
 			{
 				auth: "user",
+				demoAccess: "allowed",
 				slug: slugs.replayOperation,
 				scriptSlug: slugs.replayOperation,
 				description: "Replays one lifecycle event workflow",

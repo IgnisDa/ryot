@@ -1,12 +1,13 @@
 import { expect, it } from "@effect/vitest";
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
-import type { PluginOperationAuth } from "@ryot-app/contract/modules/plugins/manifest";
+import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
+import type { PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
+import type { AccessClass } from "@ryot-app/contract/oauth";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
@@ -34,13 +35,15 @@ const SOURCE_HASH = "source-hash";
 const USER_ONE = UserId.make("user-1");
 const USER_TWO = UserId.make("user-2");
 
-type AvailableOperation = {
+type AvailableOperation = (
+	| Pick<Extract<PluginOperation, { auth: "user" }>, "auth" | "demoAccess">
+	| Pick<Extract<PluginOperation, { auth: "integration" }>, "auth">
+) & {
 	readonly ownerId: UserId;
 	readonly pluginSlug: string;
 	readonly scriptId?: string;
 	readonly installationId: string;
 	readonly scope: "system" | "user";
-	readonly auth: PluginOperationAuth;
 };
 
 const makeActiveScript = (id: string) => ({
@@ -67,12 +70,21 @@ const makeActiveScript = (id: string) => ({
 
 const resolvedOperation = (available: AvailableOperation) => ({
 	script: makeActiveScript(available.scriptId ?? `${available.installationId}-script`),
-	operation: {
-		auth: available.auth,
-		slug: OPERATION_SLUG,
-		scriptSlug: DRIVER_REF,
-		description: "Fixture operation",
-	},
+	operation:
+		available.auth === "user"
+			? {
+					auth: available.auth,
+					slug: OPERATION_SLUG,
+					scriptSlug: DRIVER_REF,
+					demoAccess: available.demoAccess,
+					description: "Fixture operation",
+				}
+			: {
+					auth: available.auth,
+					slug: OPERATION_SLUG,
+					scriptSlug: DRIVER_REF,
+					description: "Fixture operation",
+				},
 	plugin: {
 		isDisabled: false,
 		scope: available.scope,
@@ -106,6 +118,7 @@ const makeLayer = (input: {
 	sandboxError?: string;
 	sandboxValue?: unknown;
 	currentUserId?: UserId;
+	accessClass?: AccessClass;
 	captured?: Array<unknown>;
 	activeSourceHash?: string;
 	integration?: IntegrationRecord | null;
@@ -135,14 +148,21 @@ const makeLayer = (input: {
 					Layer.mock(AuthService)({
 						// oxlint-disable-next-line no-unsafe-type-assertion -- the better-auth client is never touched by these tests
 						auth: {} as AuthService["Service"]["auth"],
-						currentUser: () =>
+						resolveRequestCredential: () =>
 							input.currentUserId
 								? Effect.succeed({
-										image: null,
-										name: "User",
-										id: input.currentUserId,
-										email: "user@example.com",
-										preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+										authorization: {
+											userId: input.currentUserId,
+											accessClass: input.accessClass ?? "standard",
+											credential: { kind: "api-key", keyId: "test-key" },
+										},
+										user: {
+											image: null,
+											name: "User",
+											id: input.currentUserId,
+											email: "user@example.com",
+											preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+										},
 									})
 								: Effect.fail(
 										new AuthUnauthorized({ reason: { code: "authentication-required" } }),
@@ -188,6 +208,7 @@ const systemUserOperation = {
 	auth: "user",
 	scope: "system",
 	ownerId: USER_ONE,
+	demoAccess: "allowed",
 	pluginSlug: SYSTEM_SLUG,
 	installationId: "install-fixture-user-1",
 } satisfies AvailableOperation;
@@ -283,6 +304,7 @@ it.effect("returns NotFound for a slug that exists only in another user's regist
 						auth: "user",
 						scope: "user",
 						ownerId: USER_ONE,
+						demoAccess: "allowed",
 						pluginSlug: PRIVATE_SLUG,
 						installationId: "install-private-user-1",
 					},
@@ -312,6 +334,7 @@ it.effect("dispatches a private operation with the owning user's subject", () =>
 						auth: "user",
 						scope: "user",
 						ownerId: USER_ONE,
+						demoAccess: "allowed",
 						pluginSlug: PRIVATE_SLUG,
 						installationId: "install-private-user-1",
 					},
@@ -321,7 +344,7 @@ it.effect("dispatches a private operation with the owning user's subject", () =>
 	);
 });
 
-it.effect("dispatches authenticated user operations without system subject", () => {
+it.effect("preserves user operation access for standard credentials", () => {
 	const events: string[] = [];
 	const captured: Array<unknown> = [];
 	return Effect.gen(function* () {
@@ -333,6 +356,91 @@ it.effect("dispatches authenticated user operations without system subject", () 
 	}).pipe(
 		Effect.provide(
 			makeLayer({ events, captured, currentUserId: USER_ONE, available: [systemUserOperation] }),
+		),
+	);
+});
+
+it.effect("dispatches a demo-accessible system user operation for demo credentials", () => {
+	const events: string[] = [];
+	return Effect.gen(function* () {
+		expect(yield* invoke({ pluginSlug: SYSTEM_SLUG })).toBe("ok");
+		expect(events).toEqual(["dispatch"]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				events,
+				accessClass: "demo",
+				currentUserId: USER_ONE,
+				available: [systemUserOperation],
+			}),
+		),
+	);
+});
+
+it.effect("rejects a protected system user operation for demo credentials", () => {
+	const events: string[] = [];
+	return Effect.gen(function* () {
+		expectError(yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG })), DemoOperationProtected);
+		expect(events).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				events,
+				accessClass: "demo",
+				currentUserId: USER_ONE,
+				available: [{ ...systemUserOperation, demoAccess: "protected" }],
+			}),
+		),
+	);
+});
+
+it.effect("rejects private user operations for demo credentials regardless of the manifest", () =>
+	Effect.forEach(["allowed", "protected"] as const, (demoAccess) => {
+		const events: string[] = [];
+		return Effect.gen(function* () {
+			expectError(yield* Effect.exit(invoke({ pluginSlug: PRIVATE_SLUG })), DemoOperationProtected);
+			expect(events).toEqual([]);
+		}).pipe(
+			Effect.provide(
+				makeLayer({
+					events,
+					accessClass: "demo",
+					currentUserId: USER_ONE,
+					available: [
+						{
+							demoAccess,
+							auth: "user",
+							scope: "user",
+							ownerId: USER_ONE,
+							pluginSlug: PRIVATE_SLUG,
+							installationId: "install-private-user-1",
+						},
+					],
+				}),
+			),
+		);
+	}),
+);
+
+it.effect("preserves integration operation access for demo credentials", () => {
+	const events: string[] = [];
+	return Effect.gen(function* () {
+		expect(yield* invoke({ pluginSlug: SYSTEM_SLUG, payload: { integrationId: "int-1" } })).toBe(
+			"ok",
+		);
+		expect(events).toEqual(["dispatch"]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				events,
+				accessClass: "demo",
+				currentUserId: USER_ONE,
+				available: [systemIntegrationOperation],
+				integration: makeIntegration({
+					userId: USER_ONE,
+					pluginInstallationId: "install-fixture-user-1",
+				}),
+			}),
 		),
 	);
 });

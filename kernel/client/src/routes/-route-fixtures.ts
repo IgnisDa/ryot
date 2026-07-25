@@ -22,7 +22,7 @@ import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
-import { AuthService } from "#/modules/auth/service";
+import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ClientPageSessions } from "#/modules/client-pages/sessions";
 import { EntitiesService } from "#/modules/entities/service";
@@ -108,8 +108,9 @@ export const CustomizeRouteStubs = makeCustomizeStub();
 
 export const authenticated = {
 	status: "authenticated",
+	accessClass: "standard",
 	user: { image: null, id: "user-1", name: "Test User", email: "user@ryot.example" },
-} as const;
+} as const satisfies SettledAuthSession;
 
 export const unauthenticated = { status: "missing" } as const;
 
@@ -126,7 +127,7 @@ export const makeUserSettingsStub = (overrides: Partial<UserSettingsApi["Service
 
 export const makeAuthStub = (
 	overrides: Partial<AuthService["Service"]> = {},
-	session: typeof authenticated | typeof unauthenticated = authenticated,
+	session: SettledAuthSession = authenticated,
 ) =>
 	Layer.succeed(AuthService, {
 		changeServer: () => Effect.void,
@@ -145,12 +146,14 @@ export const makeOAuthRouteStubs = (
 	tokenOverrides: Partial<OAuthTokenService["Service"]> = {},
 	hostedOverrides: Partial<HostedAuthService["Service"]> = {},
 	runtimeOverrides: Partial<RuntimeOAuthClientService["Service"]> = {},
+	launcherOverrides: Partial<OAuthLauncher["Service"]> = {},
 ) =>
 	Layer.mergeAll(
 		Layer.succeed(HostedAuthService, {
 			resetPassword: () => Effect.void,
 			signInWithOidc: () => Effect.void,
 			verifyTwoFactor: () => Effect.void,
+			signInDemo: () => Effect.succeed({ mode: "demo" } as const),
 			submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
 			...hostedOverrides,
 		}),
@@ -209,6 +212,7 @@ export const makeOAuthRouteStubs = (
 						},
 					},
 				} as const),
+			...launcherOverrides,
 		}),
 	);
 

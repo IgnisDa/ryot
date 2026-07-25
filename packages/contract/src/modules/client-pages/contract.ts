@@ -2,7 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { LogRouteTemplate } from "../../http-annotations";
+import { DemoAccessPolicy, LogRouteTemplate } from "../../http-annotations";
 import {
 	ClientPageSessionNotFound,
 	ClientPagePreparationError,
@@ -45,7 +45,9 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 			payload: CreateClientRendererBody,
 			success: ClientRendererRecord.pipe(HttpApiSchema.status(201)),
 			error: [ClientRendererBadRequest.pipe(HttpApiSchema.status(400))],
-		}).annotate(OpenApi.Description, "Creates an owned client renderer draft"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Creates an owned client renderer draft"),
 	)
 	.add(
 		HttpApiEndpoint.get("listRenderers", "/client-renderers", {
@@ -65,7 +67,9 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 			success: ClientRendererRecord,
 			params: { rendererId: Schema.String },
 			payload: ReplaceClientRendererDraftBody,
-		}).annotate(OpenApi.Description, "Replaces a client renderer draft"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Replaces a client renderer draft"),
 	)
 	.add(
 		HttpApiEndpoint.post("publishRenderer", "/client-renderers/:rendererId/publish", {
@@ -73,28 +77,36 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 			payload: PublishClientRendererBody,
 			params: { rendererId: Schema.String },
 			success: PublishClientRendererResponse,
-		}).annotate(OpenApi.Description, "Publishes a client renderer draft"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Publishes a client renderer draft"),
 	)
 	.add(
 		HttpApiEndpoint.delete("deleteRenderer", "/client-renderers/:rendererId", {
 			error: rendererErrors,
 			success: ClientRendererRecord,
 			params: { rendererId: Schema.String },
-		}).annotate(OpenApi.Description, "Deletes an owned client renderer"),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Deletes an owned client renderer"),
 	)
 	.add(
 		HttpApiEndpoint.post("prepare", "/client-pages/prepare", {
 			success: PreparedClientPage,
 			payload: PrepareClientPageBody,
 			error: [...rendererErrors, ClientPagePreparationError.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Resolves and prepares a client page target"),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Resolves and prepares a client page target"),
 	)
 	.add(
 		HttpApiEndpoint.post("createSession", "/client-pages/sessions", {
 			payload: CreateClientPageSessionBody,
 			error: [ClientPageStalePreparation.pipe(HttpApiSchema.status(409))],
 			success: CreateClientPageSessionResponse.pipe(HttpApiSchema.status(201)),
-		}).annotate(OpenApi.Description, "Creates an authenticated client page session"),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Creates an authenticated client page session"),
 	)
 	.add(
 		HttpApiEndpoint.post("renewSession", "/client-pages/sessions/:sessionId/renew", {
@@ -104,13 +116,17 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 				ClientPageStalePreparation.pipe(HttpApiSchema.status(409)),
 				ClientPageSessionNotFound.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Renews a client page session"),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Renews a client page session"),
 	)
 	.add(
 		HttpApiEndpoint.delete("revokeSession", "/client-pages/sessions/:sessionId", {
 			success: Schema.Void,
 			params: { sessionId: Schema.String },
 			error: [ClientPageSessionNotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Revokes a client page session"),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Revokes a client page session"),
 	)
 	.middleware(AuthMiddleware);
