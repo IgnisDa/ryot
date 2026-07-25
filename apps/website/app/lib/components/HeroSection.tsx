@@ -16,7 +16,7 @@ const Image = (props: ImageProps) => (
 	/>
 );
 
-const demoLink = "https://demo.ryot.io/_s/acl_QQ7Bb9JvtOrj";
+const demoLink = "https://demo.ryot.io/demo";
 
 export const HeroSection = () => {
 	return (
