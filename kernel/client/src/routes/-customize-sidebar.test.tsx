@@ -26,6 +26,7 @@ import {
 	SavedViewRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	IntegrationRouteStubs,
 } from "#/routes/-route-fixtures";
 
 type SavedPlan = Parameters<CustomizeSidebarService["Service"]["save"]>[1];
@@ -35,6 +36,7 @@ const mountView = (initialEntry: string, saves: SavedPlan[] = []) => {
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
+			IntegrationRouteStubs,
 			makeAuthStub(),
 			GodModeRouteStubs,
 			ServerStub,

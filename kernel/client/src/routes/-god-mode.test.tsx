@@ -32,6 +32,7 @@ import {
 	SavedViewRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	IntegrationRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const makeView = (
@@ -46,6 +47,7 @@ const makeView = (
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
+			IntegrationRouteStubs,
 			makeAuthStub({ settledSession: () => Effect.die("OAuth guard must not run") }),
 			SavedViewRouteStubs,
 			makePublicApiStub(),
