@@ -132,7 +132,9 @@ describe("music.youtube-music sandbox script", () => {
 					],
 				}),
 		};
-		const host = {} as YoutubeMusicHost;
+		const host: YoutubeMusicHost = {
+			httpCall: () => Effect.die("Unexpected YouTube Music host call"),
+		};
 		return Effect.runPromise(
 			runHistory(
 				{ authCookie: "cookie", timezone: "UTC" },

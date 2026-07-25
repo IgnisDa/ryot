@@ -22,13 +22,18 @@ type ApprovedDependencyRuntime = <A>(operation: () => Promise<A>) => Promise<A>;
 
 const approvedDependencyRuntimeKey = Symbol.for("@ryot/sandbox-sdk/approved-dependency-runtime");
 
+const isApprovedDependencyRuntime = (value: unknown): value is ApprovedDependencyRuntime =>
+	typeof value === "function";
+
 const asRecord = (value: unknown): Record<string, unknown> | undefined =>
-	value !== null && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+	value !== null && typeof value === "object"
+		? Object.fromEntries(Object.entries(value))
+		: undefined;
 
 const withApprovedDependencyRuntime = <A>(operation: () => Promise<A>) => {
 	const runtime = Reflect.get(globalThis, approvedDependencyRuntimeKey);
-	if (typeof runtime === "function") {
-		return (runtime as ApprovedDependencyRuntime)(operation);
+	if (isApprovedDependencyRuntime(runtime)) {
+		return runtime(operation);
 	}
 	return operation();
 };
@@ -138,7 +143,7 @@ const wrapClient = <Client extends object>(client: Client): Client =>
 			const value = Reflect.get(target, property, target);
 			if (typeof value === "function") {
 				return (...args: readonly unknown[]) =>
-					withApprovedDependencyRuntime(async () => value.apply(target, args));
+					withApprovedDependencyRuntime(() => Promise.resolve(value.apply(target, args)));
 			}
 			if (value !== null && typeof value === "object") {
 				return wrapClient(value);

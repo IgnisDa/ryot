@@ -45,7 +45,10 @@ it.effect("materializes immutable content-addressed input grants", () =>
 			expect(grants.artifactOwnerExecutionId).toBe("workflow-1");
 			expect(grants.artifactPath).toBe(grants.namedArtifactPaths?.["history"]);
 			expect(grants.artifactPath).not.toBe(first);
-			expect(yield* fs.readFileString(grants.artifactPath as string)).toBe("same content");
+			if (grants.artifactPath === undefined) {
+				throw new Error("Artifact path was not materialized");
+			}
+			expect(yield* fs.readFileString(grants.artifactPath)).toBe("same content");
 		}),
 	),
 );
@@ -66,7 +69,10 @@ it.effect("keeps opaque output handles while any workflow reference remains", ()
 			expect(first).toEqual(second);
 			expect(first[0]).not.toContain(root);
 			const [stored] = yield* store.resolveOutputs("workflow-1", first);
-			expect(yield* fs.readFileString(stored as string)).toBe('{"items":[]}');
+			if (stored === undefined) {
+				throw new Error("Output handle did not resolve");
+			}
+			expect(yield* fs.readFileString(stored)).toBe('{"items":[]}');
 			expect((yield* Effect.exit(store.resolveOutputs("workflow-2", first)))._tag).toBe("Failure");
 			expect(
 				yield* Effect.gen(function* () {
