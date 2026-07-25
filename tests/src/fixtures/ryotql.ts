@@ -1,5 +1,10 @@
 import type { ContractPayload, ContractSuccess } from "@ryot/contract/client";
-import type { FieldValue, RowItem } from "@ryot/contract/modules/ryotql/language";
+import type {
+	FieldValue,
+	RowItem,
+	RowsResult,
+	RyotQLResult,
+} from "@ryot/contract/modules/ryotql/language";
 import { Effect } from "effect";
 
 import { requireString } from "~/support/assertions";
@@ -11,6 +16,13 @@ export type RyotQLResponse = ContractSuccess<"ryotql", "execute">;
 
 export const executeRyotQL = (client: Client, document: RyotQLPayload) =>
 	client.call((contract) => contract.ryotql.execute({ payload: document }));
+
+export const requireRows = (result: RyotQLResult | undefined, key: string): RowsResult => {
+	if (result?.type !== "rows") {
+		throw new Error(`Expected '${key}' rows`);
+	}
+	return result;
+};
 
 export const requireRyotQLFieldValue = (item: RowItem, key: string): FieldValue => {
 	const field = item[key];
