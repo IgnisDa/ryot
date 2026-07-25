@@ -1,9 +1,10 @@
+import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
 
 import type { LogEntry, SpanEntry } from "../src/core.js";
 import { defineManifest, defineScript } from "../src/driver.js";
-import { type JsonValue, type SandboxHostError, jsonValueSchema } from "../src/wire.js";
+import { type SandboxHostError, jsonValueSchema } from "../src/wire.js";
 import type { Equal, Expect } from "./type-assertions.js";
 
 const allCapabilitiesManifest = defineManifest({

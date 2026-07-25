@@ -1,5 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { SandboxCompilationFailure } from "@ryot/contract/modules/sandbox/schemas";
+import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
 import { CompilerWorkerResponse } from "@ryot/sandbox-compiler/protocol";
 import { sandboxManifestSchema } from "@ryot/sandbox-sdk/core";
 import {
@@ -18,7 +19,7 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
-import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
+import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 
 const processFailure = (code: string, message: string) =>
 	new SandboxCompilationFailure({

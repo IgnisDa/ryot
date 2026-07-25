@@ -68,13 +68,10 @@ export const NavigationView = Schema.Struct({
 });
 export type NavigationView = typeof NavigationView.Type;
 
-export const NavigationCollection = NavigationView;
-export type NavigationCollection = typeof NavigationCollection.Type;
-
 export const NavigationData = Schema.Struct({
 	savedViews: Schema.Array(NavigationView),
+	collections: Schema.Array(NavigationView),
 	workspaces: Schema.Array(NavigationWorkspace),
-	collections: Schema.Array(NavigationCollection),
 });
 export type NavigationData = typeof NavigationData.Type;
 
@@ -90,9 +87,9 @@ export const buildNavigationDocument = () => {
 	return document({
 		workspaces: rows(plugin, {
 			limit: 100,
-			joins: [join("left", state, eq(column(plugin, "slug"), column(state, "pluginSlug")))],
 			where: eq(column(plugin, "status"), literal("active")),
 			orderBy: [ascending(column(plugin, "ingestedAt")), ascending(column(plugin, "slug"))],
+			joins: [join("left", state, eq(column(plugin, "slug"), column(state, "pluginSlug")))],
 			fields: [
 				field("slug", column(plugin, "slug")),
 				field("name", castText(jsonPath(metadata, "name"))),
