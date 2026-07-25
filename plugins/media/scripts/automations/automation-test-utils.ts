@@ -15,7 +15,7 @@ import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
 
-export const execution = { metadata: {}, sandboxScriptId: "script-test" };
+export const execution = { metadata: {}, startedAt: timestamp, sandboxScriptId: "script-test" };
 
 export const eventAutomationContext = (
 	overrides: Partial<AutomationEventSnapshot> = {},
@@ -23,16 +23,16 @@ export const eventAutomationContext = (
 ): AutomationInput => ({
 	automation: {
 		operation: "create",
+		occurredAt: timestamp,
 		origin: { kind: "api" },
 		ruleId: "automation-rule-1",
-		occurredAt: timestamp,
 		occurrenceId: "occurrence-1",
 		...(ruleMetadata === undefined ? {} : { ruleMetadata }),
 		source: {
 			kind: "event",
 			after: {
-				properties: {},
 				id: "event-1",
+				properties: {},
 				occurredAt: timestamp,
 				eventSchemaSlug: "event-schema-1",
 				subject: { id: "entity-1", name: "Entity", entitySchemaSlug: "movie" },
@@ -72,11 +72,11 @@ export const entityRecord = (overrides: Partial<EntityRecord> = {}): EntityRecor
 	id: "entity-1",
 	properties: {},
 	name: "Entity",
+	providerId: null,
 	externalId: null,
 	populatedAt: null,
 	createdAt: timestamp,
 	updatedAt: timestamp,
-	providerId: null,
 	entitySchemaSlug: "entity-schema-1",
 	...overrides,
 });
@@ -89,9 +89,9 @@ export const entitySchemaRecord = (
 	name: "Entity",
 	slug: "entity",
 	isBuiltin: true,
+	pluginSlug: "media",
 	propertiesSchema: {},
 	id: "entity-schema-1",
-	pluginSlug: "media",
 	accentColor: "#000000",
 	...overrides,
 });
