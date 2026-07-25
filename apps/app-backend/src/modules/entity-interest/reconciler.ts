@@ -1,6 +1,6 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import type { EntityUpdatedReason } from "@ryot/contract/modules/entity-interest/messages";
-import { EntityId } from "@ryot/contract/schema/brands";
+import type { EntityId } from "@ryot/contract/schema/brands";
 import { entityInterestRecipe, type EntityInterestResult } from "@ryot/ryotql-recipes/entities";
 import { Context, Effect, Layer, Result } from "effect";
 
@@ -91,7 +91,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 				}
 				return {
 					terminal,
-					reconciledEntityIds: entityIds.map((entityId) => EntityId.make(entityId)),
+					reconciledEntityIds: rows.map(({ id }) => id),
 				} satisfies ReconciliationResult;
 			});
 

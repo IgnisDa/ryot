@@ -24,8 +24,8 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 
 			const requestTranslations = Effect.fn("EntityInterestProgression.requestTranslations")(
 				function* (entityId: EntityId) {
-					const streamIds = yield* store.listInterestedStreams(entityId);
-					const metadata = yield* store.getStreamMetadata(streamIds);
+					const sessionIds = yield* store.listInterestedSessions(entityId);
+					const metadata = yield* store.getSessionMetadata(sessionIds);
 					const languages = Array.from(
 						new Set(
 							metadata.flatMap(({ preferredLanguage }) =>

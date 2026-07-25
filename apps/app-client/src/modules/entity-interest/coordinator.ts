@@ -1,193 +1,269 @@
 import {
 	MAX_INTEREST_ENTITY_IDS,
-	type EntityUpdatedFrame,
+	type EntityInterestClientMessage,
+	type EntityInterestEntityUpdatedMessage,
 } from "@ryot/contract/modules/entity-interest/messages";
-import { Cause, Context, Effect, Exit, Fiber, FiberSet, Layer } from "effect";
+import { Context, Duration, Effect, FiberSet, Layer } from "effect";
 
-type DeclareInterest = (
-	streamId: string,
-	entityIds: readonly string[],
-) => Effect.Effect<readonly EntityUpdatedFrame[], unknown>;
+export type EntityInterestPriority = "foreground" | "visible" | "prefetch";
 
-type UpdateListener = (frame: EntityUpdatedFrame) => void;
+type SendMessage = (message: EntityInterestClientMessage) => Effect.Effect<void>;
+type UpdateListener = (message: EntityInterestEntityUpdatedMessage) => void;
 
-type DeclarationFailure = (
-	error: unknown,
-	attempt: number,
-	retryDelayMs: number,
-) => Effect.Effect<void>;
+type Interest = {
+	readonly entityIds: Set<string>;
+	readonly priority: EntityInterestPriority;
+};
+
+type ActiveCommand = {
+	readonly revision: number;
+	readonly entityIds: Set<string>;
+};
+
+type SocketSession = {
+	revision: number;
+	readonly send: SendMessage;
+	appliedEntityIds: Set<string>;
+	active: ActiveCommand | undefined;
+};
+
+type SelectionOverflow = {
+	readonly omittedCount: number;
+	readonly counts: Readonly<Record<EntityInterestPriority, number>>;
+};
 
 type EntityInterestCoordinatorOptions = {
-	readonly declareInterest: DeclareInterest;
-	readonly onDeclarationFailure?: DeclarationFailure;
+	readonly onSelectionOverflow?: (overflow: SelectionOverflow) => void;
 };
 
-type ActiveDeclaration = {
-	fiber: Fiber.Fiber<void> | undefined;
-};
+const INTEREST_BATCH_WINDOW = Duration.millis(100);
+const INTEREST_REMOVAL_GRACE = Duration.seconds(2);
+const priorities = ["foreground", "visible", "prefetch"] as const;
+
+const sameSet = (left: ReadonlySet<string>, right: ReadonlySet<string>) =>
+	left.size === right.size && [...left].every((entityId) => right.has(entityId));
 
 export class EntityInterestCoordinator extends Context.Service<
 	EntityInterestCoordinator,
 	{
-		readonly disconnect: (streamId: string) => Effect.Effect<void>;
+		readonly connect: (send: SendMessage) => Effect.Effect<void>;
 		readonly removeInterest: (owner: string) => Effect.Effect<void>;
-		readonly receive: (frame: EntityUpdatedFrame) => Effect.Effect<void>;
-		readonly setConnection: (streamId: string | undefined) => Effect.Effect<void>;
+		readonly disconnect: (send: SendMessage) => Effect.Effect<void>;
+		readonly acknowledge: (send: SendMessage, revision: number) => Effect.Effect<void>;
+		readonly receive: (message: EntityInterestEntityUpdatedMessage) => Effect.Effect<void>;
 		readonly setInterest: (
 			owner: string,
 			entityIds: readonly string[],
+			priority: EntityInterestPriority,
 			listener: UpdateListener,
 		) => Effect.Effect<void>;
 	}
 >()("ryot/app-client/entity-interest/EntityInterestCoordinator") {
-	static readonly make = (options: EntityInterestCoordinatorOptions) =>
+	static readonly make = (options: EntityInterestCoordinatorOptions = {}) =>
 		Effect.gen(function* () {
 			let dirty = false;
 			let disposed = false;
-			let streamId: string | undefined;
-			let active: ActiveDeclaration | undefined;
-			const interests = new Map<string, Set<string>>();
+			let batchToken: object | undefined;
+			let session: SocketSession | undefined;
+			let selectedEntityIds = new Set<string>();
+			const effectiveEntityIds = new Set<string>();
+			const interests = new Map<string, Interest>();
+			const removalTokens = new Map<string, object>();
 			const ownersByEntity = new Map<string, Set<string>>();
 			const listenersByOwner = new Map<string, UpdateListener>();
 			const runFork = yield* FiberSet.makeRuntime<never, void, never>();
 
-			const currentEntityIds = () => {
-				const entityIds = new Set<string>();
+			const sendNext = () => {
+				if (disposed || !dirty || batchToken || !session || session.active) {
+					return;
+				}
+				dirty = false;
+				const entityIds = new Set(effectiveEntityIds);
+				const add = [...entityIds].filter((entityId) => !session?.appliedEntityIds.has(entityId));
+				const remove = [...session.appliedEntityIds].filter((entityId) => !entityIds.has(entityId));
+				if (add.length === 0 && remove.length === 0) {
+					return;
+				}
+				const revision = session.revision + 1;
+				session.active = { entityIds, revision };
+				runFork(session.send({ revision, type: "update", add: add.sort(), remove: remove.sort() }));
+			};
+
+			const requestBatch = () => {
+				dirty = true;
+				if (batchToken) {
+					return;
+				}
+				const token = {};
+				batchToken = token;
+				runFork(
+					Effect.sleep(INTEREST_BATCH_WINDOW).pipe(
+						Effect.andThen(
+							Effect.sync(() => {
+								if (batchToken !== token) {
+									return;
+								}
+								batchToken = undefined;
+								sendNext();
+							}),
+						),
+					),
+				);
+			};
+
+			const requestImmediate = () => {
+				dirty = true;
+				batchToken = undefined;
+				sendNext();
+			};
+
+			const selectEntityIds = () => {
+				const priorityByEntity = new Map<string, EntityInterestPriority>();
 				for (const interest of interests.values()) {
-					for (const entityId of interest) {
-						entityIds.add(entityId);
-						if (entityIds.size === MAX_INTEREST_ENTITY_IDS) {
-							return [...entityIds];
+					for (const entityId of interest.entityIds) {
+						const current = priorityByEntity.get(entityId);
+						if (!current || priorities.indexOf(interest.priority) < priorities.indexOf(current)) {
+							priorityByEntity.set(entityId, interest.priority);
 						}
 					}
 				}
-				return [...entityIds];
+				const grouped = {
+					visible: [] as string[],
+					prefetch: [] as string[],
+					foreground: [] as string[],
+				};
+				for (const [entityId, priority] of priorityByEntity) {
+					grouped[priority].push(entityId);
+				}
+				for (const priority of priorities) {
+					grouped[priority].sort();
+				}
+				const all = priorities.flatMap((priority) => grouped[priority]);
+				if (all.length > MAX_INTEREST_ENTITY_IDS) {
+					(options.onSelectionOverflow ?? reportSelectionOverflow)({
+						omittedCount: all.length - MAX_INTEREST_ENTITY_IDS,
+						counts: {
+							visible: grouped.visible.length,
+							prefetch: grouped.prefetch.length,
+							foreground: grouped.foreground.length,
+						},
+					});
+				}
+				return new Set(all.slice(0, MAX_INTEREST_ENTITY_IDS));
 			};
 
-			const emit = (frame: EntityUpdatedFrame) => {
-				if (disposed) {
+			const refreshSelection = () => {
+				const nextSelected = selectEntityIds();
+				if (sameSet(selectedEntityIds, nextSelected)) {
 					return;
 				}
-				const owners = ownersByEntity.get(frame.entityId);
-				if (!owners) {
+				selectedEntityIds = nextSelected;
+				let added = false;
+				for (const entityId of nextSelected) {
+					removalTokens.delete(entityId);
+					if (!effectiveEntityIds.has(entityId)) {
+						if (effectiveEntityIds.size === MAX_INTEREST_ENTITY_IDS) {
+							const omitted = [...effectiveEntityIds].find((current) => !nextSelected.has(current));
+							if (omitted) {
+								removalTokens.delete(omitted);
+								effectiveEntityIds.delete(omitted);
+							}
+						}
+						effectiveEntityIds.add(entityId);
+						added = true;
+					}
+				}
+				for (const entityId of effectiveEntityIds) {
+					if (nextSelected.has(entityId) || removalTokens.has(entityId)) {
+						continue;
+					}
+					const token = {};
+					removalTokens.set(entityId, token);
+					runFork(
+						Effect.sleep(INTEREST_REMOVAL_GRACE).pipe(
+							Effect.andThen(
+								Effect.sync(() => {
+									if (removalTokens.get(entityId) !== token || selectedEntityIds.has(entityId)) {
+										return;
+									}
+									removalTokens.delete(entityId);
+									effectiveEntityIds.delete(entityId);
+									requestImmediate();
+								}),
+							),
+						),
+					);
+				}
+				if (added) {
+					requestBatch();
+				}
+			};
+
+			const emit = (message: EntityInterestEntityUpdatedMessage) => {
+				if (disposed || !session) {
 					return;
 				}
-				for (const owner of owners) {
-					listenersByOwner.get(owner)?.(frame);
+				for (const owner of ownersByEntity.get(message.entityId) ?? []) {
+					listenersByOwner.get(owner)?.(message);
 				}
 			};
 
 			const removeOwnerFromEntityIndex = (owner: string, entityIds: ReadonlySet<string>) => {
 				for (const entityId of entityIds) {
 					const owners = ownersByEntity.get(entityId);
-					if (!owners) {
-						continue;
-					}
-					owners.delete(owner);
-					if (owners.size === 0) {
+					owners?.delete(owner);
+					if (owners?.size === 0) {
 						ownersByEntity.delete(entityId);
 					}
 				}
 			};
 
-			let startDeclaration: () => void;
-			const flush = (work: ActiveDeclaration) =>
-				Effect.gen(function* () {
-					let failures = 0;
-					while (dirty) {
-						if (disposed || !streamId || active !== work) {
-							return;
-						}
-						dirty = false;
-						const connection = streamId;
-						const result = yield* Effect.exit(
-							options.declareInterest(connection, currentEntityIds()),
-						);
-						// The coordinator can be disposed while the declaration Effect is suspended.
-						// oxlint-disable-next-line typescript/no-unnecessary-condition
-						if (disposed || active !== work || streamId !== connection) {
-							return;
-						}
-						if (Exit.isSuccess(result)) {
-							failures = 0;
-							for (const frame of result.value) {
-								emit(frame);
-							}
-							continue;
-						}
-						if (Cause.hasInterruptsOnly(result.cause)) {
-							return;
-						}
-						dirty = true;
-						failures += 1;
-						const retryDelayMs = Math.min(1_000 * 2 ** (failures - 1), 30_000);
-						if (options.onDeclarationFailure) {
-							yield* options.onDeclarationFailure(
-								Cause.squash(result.cause),
-								failures,
-								retryDelayMs,
-							);
-						}
-						yield* Effect.sleep(retryDelayMs);
+			const connect = Effect.fn("EntityInterestCoordinator.connect")(function* (send: SendMessage) {
+				if (disposed) {
+					return;
+				}
+				batchToken = undefined;
+				dirty = false;
+				session = {
+					send,
+					revision: 0,
+					appliedEntityIds: new Set(),
+					active: { revision: 1, entityIds: new Set(effectiveEntityIds) },
+				};
+				yield* send({
+					revision: 1,
+					type: "replace",
+					entityIds: [...effectiveEntityIds].sort(),
+				});
+			});
+
+			const disconnect = (send: SendMessage) =>
+				Effect.sync(() => {
+					if (session?.send === send) {
+						session = undefined;
 					}
-				}).pipe(
-					Effect.ensuring(
-						Effect.sync(() => {
-							if (active === work) {
-								active = undefined;
-								startDeclaration();
-							}
-						}),
-					),
-				);
+				});
 
-			startDeclaration = () => {
-				if (disposed || active || !dirty || !streamId) {
-					return;
-				}
-				const work: ActiveDeclaration = { fiber: undefined };
-				active = work;
-				const fiber = runFork(flush(work));
-				if (active === work) {
-					work.fiber = fiber;
-				}
-			};
+			const acknowledge = (send: SendMessage, revision: number) =>
+				Effect.sync(() => {
+					if (!session || session.send !== send) {
+						return;
+					}
+					if (!session.active || session.active.revision !== revision) {
+						throw new Error("Entity interest acknowledgement revision mismatch");
+					}
+					session.revision = revision;
+					session.appliedEntityIds = session.active.entityIds;
+					session.active = undefined;
+					sendNext();
+				});
 
-			const requestDeclaration = () => {
-				if (!disposed) {
-					dirty = true;
-					startDeclaration();
-				}
-			};
-
-			const setConnection = Effect.fn("EntityInterestCoordinator.setConnection")(function* (
-				nextStreamId: string | undefined,
-			) {
-				if (disposed || streamId === nextStreamId) {
-					return;
-				}
-				const previous = active;
-				active = undefined;
-				streamId = nextStreamId;
-				if (nextStreamId) {
-					requestDeclaration();
-				} else {
-					dirty = false;
-				}
-				if (previous?.fiber) {
-					yield* Fiber.interrupt(previous.fiber);
-				}
-			});
-
-			const disconnect = Effect.fn("EntityInterestCoordinator.disconnect")(function* (
-				endedStreamId: string,
-			) {
-				if (streamId === endedStreamId) {
-					yield* setConnection(undefined);
-				}
-			});
-
-			const setInterest = (owner: string, entityIds: readonly string[], listener: UpdateListener) =>
+			const setInterest = (
+				owner: string,
+				entityIds: readonly string[],
+				priority: EntityInterestPriority,
+				listener: UpdateListener,
+			) =>
 				Effect.sync(() => {
 					if (disposed) {
 						return;
@@ -195,19 +271,19 @@ export class EntityInterestCoordinator extends Context.Service<
 					const next = new Set(entityIds);
 					const current = interests.get(owner);
 					listenersByOwner.set(owner, listener);
-					if (current && current.size === next.size && [...current].every((id) => next.has(id))) {
+					if (current?.priority === priority && sameSet(current.entityIds, next)) {
 						return;
 					}
 					if (current) {
-						removeOwnerFromEntityIndex(owner, current);
+						removeOwnerFromEntityIndex(owner, current.entityIds);
 					}
-					interests.set(owner, next);
+					interests.set(owner, { priority, entityIds: next });
 					for (const entityId of next) {
 						const owners = ownersByEntity.get(entityId) ?? new Set<string>();
 						owners.add(owner);
 						ownersByEntity.set(entityId, owners);
 					}
-					requestDeclaration();
+					refreshSelection();
 				});
 
 			const removeInterest = (owner: string) =>
@@ -216,42 +292,44 @@ export class EntityInterestCoordinator extends Context.Service<
 						return;
 					}
 					const current = interests.get(owner);
-					if (current) {
-						removeOwnerFromEntityIndex(owner, current);
-						interests.delete(owner);
-						listenersByOwner.delete(owner);
-						requestDeclaration();
+					if (!current) {
+						return;
 					}
+					removeOwnerFromEntityIndex(owner, current.entityIds);
+					interests.delete(owner);
+					listenersByOwner.delete(owner);
+					refreshSelection();
 				});
 
-			const receive = (frame: EntityUpdatedFrame) =>
-				Effect.sync(() => {
-					if (!disposed && streamId) {
-						emit(frame);
-					}
-				});
+			const receive = (message: EntityInterestEntityUpdatedMessage) =>
+				Effect.sync(() => emit(message));
 
 			yield* Effect.addFinalizer(() =>
 				Effect.sync(() => {
 					disposed = true;
-					dirty = false;
-					streamId = undefined;
-					active = undefined;
+					session = undefined;
 					interests.clear();
+					removalTokens.clear();
 					ownersByEntity.clear();
+					effectiveEntityIds.clear();
 					listenersByOwner.clear();
 				}),
 			);
 
 			return EntityInterestCoordinator.of({
 				receive,
+				connect,
 				disconnect,
 				setInterest,
-				setConnection,
+				acknowledge,
 				removeInterest,
 			});
 		});
 
-	static readonly layer = (options: EntityInterestCoordinatorOptions) =>
+	static readonly layer = (options: EntityInterestCoordinatorOptions = {}) =>
 		Layer.effect(this, this.make(options));
 }
+
+const reportSelectionOverflow = (overflow: SelectionOverflow) => {
+	globalThis.console.warn("entity interest selection omitted IDs", overflow);
+};

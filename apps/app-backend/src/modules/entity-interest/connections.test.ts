@@ -1,61 +1,66 @@
 import { expect, it } from "@effect/vitest";
 import { NotFound } from "@ryot/contract/errors";
+import { EntityId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 
-import { LocalStreamConnections, type LocalStreamEnqueue } from "./connections";
+import { LocalInterestSessions, type LocalInterestSessionEnqueue } from "./connections";
 
-it.effect("routes frames only to a connected local stream", () =>
+const message = {
+	type: "entity-updated",
+	entityId: EntityId.make("entity-1"),
+	reason: "populated",
+} as const;
+
+it.effect("routes updates only to a local interest session", () =>
 	Effect.gen(function* () {
-		const connections = yield* LocalStreamConnections;
-		const frames: unknown[] = [];
-		const frame = { entityId: "entity-1", reason: "populated" } as const;
-		const enqueue: LocalStreamEnqueue = (received) => frames.push(received);
+		const sessions = yield* LocalInterestSessions;
+		const messages: unknown[] = [];
+		const enqueue: LocalInterestSessionEnqueue = (received) => messages.push(received);
 
-		yield* connections.add("stream-1", enqueue);
-		yield* connections.enqueue("stream-1", frame);
-		yield* connections.remove("stream-1", enqueue);
-		yield* connections.enqueue("stream-1", frame);
+		yield* sessions.add("session-1", enqueue);
+		yield* sessions.enqueue("session-1", message);
+		yield* sessions.enqueue("remote-session", message);
+		yield* sessions.remove("session-1", enqueue);
+		yield* sessions.enqueue("session-1", message);
 
-		expect(frames).toEqual([frame]);
-	}).pipe(Effect.provide(LocalStreamConnections.layer)),
+		expect(messages).toEqual([message]);
+	}).pipe(Effect.provide(LocalInterestSessions.layer)),
 );
 
-it.effect("rejects a duplicate local claim and preserves the original callback", () =>
+it.effect("claims a session once and preserves the original callback", () =>
 	Effect.gen(function* () {
-		const connections = yield* LocalStreamConnections;
-		const firstFrames: unknown[] = [];
-		const secondFrames: unknown[] = [];
-		const frame = { entityId: "entity-1", reason: "populated" } as const;
-		const first: LocalStreamEnqueue = (received) => firstFrames.push(received);
-		const second: LocalStreamEnqueue = (received) => secondFrames.push(received);
+		const sessions = yield* LocalInterestSessions;
+		const firstMessages: unknown[] = [];
+		const secondMessages: unknown[] = [];
+		const first: LocalInterestSessionEnqueue = (received) => firstMessages.push(received);
+		const second: LocalInterestSessionEnqueue = (received) => secondMessages.push(received);
 
-		yield* connections.add("stream-1", first);
-		const duplicate = yield* Effect.exit(connections.add("stream-1", second));
-		yield* connections.enqueue("stream-1", frame);
+		yield* sessions.add("session-1", first);
+		const duplicate = yield* Effect.exit(sessions.add("session-1", second));
+		yield* sessions.enqueue("session-1", message);
 
-		assertExitFails(duplicate, new NotFound({ message: "Unknown stream" }));
-		expect(firstFrames).toEqual([frame]);
-		expect(secondFrames).toEqual([]);
-	}).pipe(Effect.provide(LocalStreamConnections.layer)),
+		assertExitFails(duplicate, new NotFound({ message: "Unknown session" }));
+		expect(firstMessages).toEqual([message]);
+		expect(secondMessages).toEqual([]);
+	}).pipe(Effect.provide(LocalInterestSessions.layer)),
 );
 
-const first: LocalStreamEnqueue = () => undefined;
+const first: LocalInterestSessionEnqueue = () => undefined;
 
-it.effect("does not remove a replacement connection from a stale release", () =>
+it.effect("does not remove a replacement callback from a stale release", () =>
 	Effect.gen(function* () {
-		const connections = yield* LocalStreamConnections;
-		const frames: unknown[] = [];
-		const frame = { entityId: "entity-1", reason: "populated" } as const;
-		const second: LocalStreamEnqueue = (received) => frames.push(received);
+		const sessions = yield* LocalInterestSessions;
+		const messages: unknown[] = [];
+		const second: LocalInterestSessionEnqueue = (received) => messages.push(received);
 
-		yield* connections.add("stream-1", first);
-		yield* connections.remove("stream-1", first);
-		yield* connections.add("stream-1", second);
-		yield* connections.remove("stream-1", first);
-		yield* connections.enqueue("stream-1", frame);
+		yield* sessions.add("session-1", first);
+		yield* sessions.remove("session-1", first);
+		yield* sessions.add("session-1", second);
+		yield* sessions.remove("session-1", first);
+		yield* sessions.enqueue("session-1", message);
 
-		expect(frames).toEqual([frame]);
-	}).pipe(Effect.provide(LocalStreamConnections.layer)),
+		expect(messages).toEqual([message]);
+	}).pipe(Effect.provide(LocalInterestSessions.layer)),
 );
