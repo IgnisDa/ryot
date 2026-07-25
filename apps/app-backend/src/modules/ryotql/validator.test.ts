@@ -94,6 +94,60 @@ it("exposes only approved relationship fields", () => {
 	);
 });
 
+it("exposes only approved application-table fields", () => {
+	expect(new Set(Object.keys(getCatalogTable("plugin")?.fields ?? {}))).toEqual(
+		new Set(["slug", "status", "version", "manifest", "ingestedAt"]),
+	);
+	expect(new Set(Object.keys(getCatalogTable("pluginState")?.fields ?? {}))).toEqual(
+		new Set(["id", "pluginSlug", "sortOrder", "isDisabled", "createdAt", "updatedAt"]),
+	);
+	expect(new Set(Object.keys(getCatalogTable("savedView")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"slug",
+			"name",
+			"icon",
+			"accentColor",
+			"sortOrder",
+			"isBuiltin",
+			"isDisabled",
+			"pluginSlug",
+			"queryDocument",
+			"displayConfiguration",
+			"createdAt",
+			"updatedAt",
+		]),
+	);
+});
+
+it("rejects hidden application-table fields", () => {
+	for (const [tableName, fieldName] of [
+		["plugin", "sourceHash"],
+		["plugin", "compiledHashes"],
+		["pluginState", "config"],
+		["pluginState", "userId"],
+		["savedView", "userId"],
+	] as const) {
+		const source = table(tableName, "source");
+		const catalogName = getCatalogTable(tableName)?.name;
+		expect(
+			validateRyotQLDocument(
+				document({ rows: rows(source, { fields: [field("value", column(source, fieldName))] }) }),
+			),
+		).toBe(`Query 'rows': Unknown field '${fieldName}' on table '${catalogName}'`);
+		expect(
+			validateRyotQLDocument(
+				document({
+					rows: rows(source, {
+						fields: [],
+						where: eq(column(source, fieldName), literal("hidden")),
+					}),
+				}),
+			),
+		).toBe(`Query 'rows': Unknown field '${fieldName}' on table '${catalogName}'`);
+	}
+});
+
 it("rejects unknown fields and tables", () => {
 	const entity = table("entity", "entity");
 	expect(

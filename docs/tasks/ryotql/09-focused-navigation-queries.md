@@ -2,7 +2,7 @@
 
 **Parent Plan:** [RyotQL](./README.md)
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -12,17 +12,17 @@ Plugin metadata is global and joins to the current user's policy-filtered plugin
 
 ## Acceptance criteria
 
-- [ ] Plugin, plugin-state, and saved-view catalog entries expose exactly the approved initial fields and visibility policies
-- [ ] Plugin source hashes, compiled hashes, plugin-state configuration, and omitted ownership columns cannot be selected or filtered
-- [ ] A policy-filtered plugin-state left join preserves plugins that have no state row and does not leak another user's state
-- [ ] The shared navigation recipe contains independent focused workspaces, saved views, and collections named queries
-- [ ] The RyotQL service executes all navigation queries sequentially in one read-only transaction and returns the agreed data envelope
-- [ ] Workspace navigation uses one RyotQL request and no longer consumes the broad plugin and saved-view list payloads
-- [ ] Navigation result mapping preserves visible workspaces, ordering, disabled state, saved views, collections, loading behavior, and error behavior
-- [ ] Contract, catalog, recipe, backend, client, and navigation tests cover missing state rows, empty sections, disabled values, ordering, and user isolation
-- [ ] Superseded read endpoint consumers are removed, while explicit plugin-state and saved-view commands remain unchanged
-- [ ] Existing RyotQL slices and the complete legacy query-engine suite remain green
-- [ ] The RyotQL guide documents application-table queries and named-query execution
+- [x] Plugin, plugin-state, and saved-view catalog entries expose exactly the approved initial fields and visibility policies
+- [x] Plugin source hashes, compiled hashes, plugin-state configuration, and omitted ownership columns cannot be selected or filtered
+- [x] A policy-filtered plugin-state left join preserves plugins that have no state row and does not leak another user's state
+- [x] The shared navigation recipe contains independent focused workspaces, saved views, and collections named queries
+- [x] The RyotQL service executes all navigation queries sequentially in one read-only transaction and returns the agreed data envelope
+- [x] Workspace navigation uses one RyotQL request and no longer consumes the broad plugin and saved-view list payloads
+- [x] Navigation result mapping preserves visible workspaces, ordering, disabled state, saved views, collections, loading behavior, and error behavior
+- [x] Contract, catalog, recipe, backend, client, and navigation tests cover missing state rows, empty sections, disabled values, ordering, and user isolation
+- [x] Superseded read endpoint consumers are removed, while explicit plugin-state and saved-view commands remain unchanged
+- [x] Existing RyotQL slices and the complete legacy query-engine suite remain green
+- [x] The RyotQL guide documents application-table queries and named-query execution
 
 ## User stories addressed
 
