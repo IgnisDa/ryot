@@ -63,7 +63,7 @@ describe("property schema DSL", () => {
 		}),
 	);
 
-	it.effect("applies defaults, rounding, and rule-driven required validation", () =>
+	it.effect("applies defaults, normalization, and rule-driven required validation", () =>
 		Effect.gen(function* () {
 			const schema = yield* parseLabeledPropertySchemaInput(
 				{
@@ -80,7 +80,7 @@ describe("property schema DSL", () => {
 							label: "Progress Percent",
 							description: "Progress Percent",
 							validation: { exclusiveMaximum: 100, minimum: 0 },
-							transform: { round: { mode: "half_up", scale: 2 } },
+							normalize: { round: { scale: 2 } },
 						},
 					},
 					rules: [

@@ -322,16 +322,22 @@ describe("parseAppSchemaPropertiesSafe - number property", () => {
 		expect(parse({ n: field }, { n: 99.999 }).success).toBe(true);
 	});
 
-	it("applies half-up rounding at the specified scale", () => {
-		const field = num({ transform: { round: { mode: "half_up", scale: 2 } } });
+	it("applies half-up normalization at the specified scale", () => {
+		const field = num({ normalize: { round: { scale: 2 } } });
 		const result = parse({ n: field }, { n: 25.555 });
 		expect(result).toMatchObject({ success: true, data: { n: 25.56 } });
 	});
 
-	it("rounds down correctly at the specified scale", () => {
-		const field = num({ transform: { round: { mode: "half_up", scale: 1 } } });
+	it("applies normalization at scale 1", () => {
+		const field = num({ normalize: { round: { scale: 1 } } });
 		const result = parse({ n: field }, { n: 2.44 });
 		expect(result).toMatchObject({ success: true, data: { n: 2.4 } });
+	});
+
+	it("normalizes before maximum validation", () => {
+		const field = num({ normalize: { round: { scale: 2 } }, validation: { maximum: 100 } });
+		const result = parse({ n: field }, { n: 100.004 });
+		expect(result).toMatchObject({ success: true, data: { n: 100 } });
 	});
 });
 
