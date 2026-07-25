@@ -193,11 +193,12 @@ describe("settings navigation", () => {
 		}
 	});
 
-	it("hides the global mobile shell header on settings routes while keeping the desktop sidebar", async () => {
+	it("frames a compact settings route with its own bar and no drawer", async () => {
 		mountView("/settings/preferences");
 		await screen.findByTestId("settings-sidebar");
-		expect(screen.getByTestId("desktop-sidebar")).toBeTruthy();
-		expect(screen.queryByTestId("mobile-header")).toBeNull();
+		expect(screen.getByTestId("screen-frame-bar")).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Go back" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Open navigation" })).toBeNull();
 		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
 	});
 
@@ -207,7 +208,8 @@ describe("settings navigation", () => {
 			mountView("/settings/account");
 			const heading = await screen.findByRole("heading", { level: 1, name: "Account" });
 
-			expect(heading.closest("header")).toBeNull();
+			expect(screen.queryByTestId("screen-frame-bar")).toBeNull();
+			expect(heading.closest('[data-testid="screen-frame-bar"]')).toBeNull();
 			expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
 		} finally {
 			restore();

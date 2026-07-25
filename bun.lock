@@ -343,6 +343,7 @@
       "name": "@ryot-app/client-sdk",
       "dependencies": {
         "@effect/atom-react": "4.0.0-beta.107",
+        "@ryot-app/client-ui-sdk": "workspace:*",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "effect": "4.0.0-rc.111",

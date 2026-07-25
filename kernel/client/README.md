@@ -35,6 +35,36 @@ gesture data never crosses the bridge.
 `compact` travels on the same message, because media queries inside the iframe see the content area
 rather than the window. One definition of compact, in the resolver.
 
+A plugin screen draws its own bar, so its leading control needs the same arrangement the back
+control already has: the plugin posts `open-drawer` and the kernel opens it. That message is
+SDK-internal and never reaches `ryot.navigation`, because opening kernel chrome is not a capability
+a plugin may call. The consequence is that closing the drawer can only return focus to the iframe
+element rather than to the exact button, since the button is in another document.
+
+## The Mobile Screen Frame
+
+`ScreenFrame` in `@ryot-app/client-ui-sdk` is the only mobile header implementation. The kernel
+mounts it through `AppScreen`, and the plugin SDK mounts the same component through
+`PluginScreenFrame`, so the two documents cannot drift: the plugin compiler already scans the UI
+SDK for Tailwind classes and inlines `theme.css` and `palette.css` into every artifact.
+
+The bar is `sticky`, transparent at rest, and turns opaque when a zero-height sentinel passes
+underneath it. That is one `IntersectionObserver` and a CSS transition rather than scroll-linked
+progress, because `animation-timeline: scroll()` is unavailable on the iOS baseline and a per-frame
+scroll listener would be needed in both documents. The frame never creates a scroll container; it
+sticks against the one its caller already owns, which is why the plugin's per-screen scroll div and
+the kernel's `<main>` both work unchanged.
+
+The safe-area inset reaches the plugin as a discrete `safeAreaTop` on init and a `viewport` message
+on change, measured in the kernel from a probe element. `env(safe-area-inset-top)` is zero inside an
+iframe, and `/e/:entityId` resolves to a plugin-owned renderer, so a hero that bleeds behind the
+status bar has to be drawn with a number the plugin was told.
+
+A screen names itself once, through the `title` it passes the frame. `AppScreen` turns that into the
+`<h1>` and the document title; `PluginScreenFrame` turns it into the `<h1>` and the published
+`header` message, which the plugin route feeds to `usePageTitle`. A plugin screen may render no
+frame at all — it then owns its own affordances and must still call `usePluginTitle`.
+
 The location message also carries the history `index` and `key`. They are the plugin screen stack's
 only means of telling push from pop from replace, so a navigation path that cannot supply them must
 not exist. `historyEntry` is the one place allowed to touch TanStack's `__TSR_*` state fields.
@@ -255,13 +285,12 @@ A run that has not reached a terminal status is polled rather than subscribed: `
 only while the document is visible, at `RUN_LIST_POLL_MS` on a list and the faster `RUN_POLL_MS` on
 a single run. Polling stops the moment the run completes or fails, so a settled screen is quiet.
 
-`SettingsFrame` renders two different pages. Below the desktop breakpoint it keeps a bordered
-header carrying the back control, because settings routes opt out of the shell's own
-`MobileHeader`. On desktop the settings sidebar is the navigation, so the frame drops the header
-entirely and the title scrolls with the content inside a `max-w-2xl` column. The branch is taken
-with `useIsDesktop` rather than an `md:` class pair: two headings differing only by a visibility
-utility are both in the accessibility tree, and a name that resolves to two `<h1>` elements is
-ambiguous to a screen reader and to every query that looks one up by name.
+`SettingsFrame` is a thin `AppScreen`, so settings gets the same bar every other mobile screen
+gets, with its title collapsing into it. On desktop the settings sidebar is the navigation and the
+frame draws no bar at all, leaving the title to scroll inside a `max-w-2xl` column. The branch is
+taken in JavaScript rather than with an `md:` class pair: two headings differing only by a
+visibility utility are both in the accessibility tree, and a name that resolves to two `<h1>`
+elements is ambiguous to a screen reader and to every query that looks one up by name.
 
 ## Secure Storage
 

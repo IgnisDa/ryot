@@ -18,6 +18,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	type RefObject,
 } from "react";
 
 import { AuthService } from "#/modules/auth/service";
@@ -44,7 +45,7 @@ import {
 import { impactLight } from "#/modules/navigation/haptics";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
-import { MobileHeader } from "#/modules/navigation/mobile-header";
+import { useSafeAreaTop } from "#/modules/navigation/safe-area";
 import {
 	activeSidebarKey,
 	sidebarSections,
@@ -73,6 +74,25 @@ const PluginHeaderContext = createContext<PluginHeaderController | undefined>(un
 const PluginTitleContext = createContext<string | null | undefined>(undefined);
 
 const EdgeContext = createContext<EdgeResolution | undefined>(undefined);
+
+export type ShellChrome = {
+	readonly drawerId: string;
+	readonly onBack: () => void;
+	readonly safeAreaTop: number;
+	readonly isDrawerOpen: boolean;
+	readonly onOpenDrawer: () => void;
+	readonly triggerRef: RefObject<HTMLElement | null>;
+};
+
+const ShellChromeContext = createContext<ShellChrome | undefined>(undefined);
+
+export const useShellChrome = () => {
+	const chrome = useContext(ShellChromeContext);
+	if (chrome === undefined) {
+		throw new Error("useShellChrome must be used inside AuthenticatedShell");
+	}
+	return chrome;
+};
 
 export type CustomizeController = {
 	readonly onSave: () => void;
@@ -127,15 +147,16 @@ export function AuthenticatedShell(props: {
 	readonly navigation: NavigationData;
 	readonly initialRememberedSlug: string | null;
 }) {
-	const router = useRouter();
 	const drawerId = useId();
+	const router = useRouter();
 	const navigate = useNavigate();
-	const { pathname, search, state } = useLocation();
 	const isDesktop = useIsDesktop();
+	const safeAreaTop = useSafeAreaTop();
 	const { catalog } = usePluginCatalog();
 	const progress = useMotionValue(0);
+	const { pathname, search, state } = useLocation();
 	const contentShift = useTransform(progress, [0, 1], [0, CONTENT_SHIFT]);
-	const triggerRef = useRef<HTMLButtonElement>(null);
+	const triggerRef = useRef<HTMLElement>(null);
 	const { backInterceptors, runtime, scope, server } = useRouteContext({ from: "/_authenticated" });
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [searchOpen, setSearchOpen] = useState(false);
@@ -237,13 +258,13 @@ export function AuthenticatedShell(props: {
 	const saveCustomize = useEffectEvent(() => void commitCustomize());
 	// The edge gesture performs a kernel-owned back directly, so it has to consult the same guard
 	// that `BackInterceptors` gives Android's hardware Back; otherwise one of them loses the draft.
-	const goBack = () => {
+	const goBack = useEffectEvent(() => {
 		if (customizeActive) {
 			requestLeaveCustomize();
 			return;
 		}
 		router.history.back();
-	};
+	});
 	const customizeController = useMemo<CustomizeController>(
 		() => ({ customize, onSave: saveCustomize, onLeave: requestLeaveCustomize }),
 		[customize],
@@ -255,6 +276,17 @@ export function AuthenticatedShell(props: {
 				setPluginHeader((currentHeader) => (currentHeader?.owner === owner ? null : currentHeader)),
 		}),
 		[],
+	);
+	const shellChrome = useMemo<ShellChrome>(
+		() => ({
+			drawerId,
+			triggerRef,
+			safeAreaTop,
+			onBack: goBack,
+			isDrawerOpen: drawerOpen,
+			onOpenDrawer: () => setDrawerOpen(true),
+		}),
+		[drawerId, drawerOpen, safeAreaTop],
 	);
 
 	const edge = resolveEdge({
@@ -332,17 +364,6 @@ export function AuthenticatedShell(props: {
 				isOpen={drawerOpen}
 				onOpenChange={(open) => setDrawerOpen(open)}
 			/>
-			{workspaceChrome && (
-				<MobileHeader
-					onBack={goBack}
-					drawerId={drawerId}
-					isOpen={drawerOpen}
-					intent={edge.intent}
-					triggerRef={triggerRef}
-					onOpen={() => setDrawerOpen(true)}
-					title={pluginTitle ?? current?.name ?? "No workspace"}
-				/>
-			)}
 			<MobileDrawer
 				current={current}
 				catalog={catalog}
@@ -370,14 +391,16 @@ export function AuthenticatedShell(props: {
 					<PluginHeaderContext value={header}>
 						<PluginTitleContext value={pluginTitle}>
 							<EdgeContext value={edge}>
-								<motion.div
-									inert={drawerOpen}
-									style={{ x: contentShift }}
-									data-testid="shell-content"
-									className="min-h-0 min-w-0 flex-1 overflow-hidden"
-								>
-									<Outlet />
-								</motion.div>
+								<ShellChromeContext value={shellChrome}>
+									<motion.div
+										inert={drawerOpen}
+										style={{ x: contentShift }}
+										data-testid="shell-content"
+										className="min-h-0 min-w-0 flex-1 overflow-hidden"
+									>
+										<Outlet />
+									</motion.div>
+								</ShellChromeContext>
 							</EdgeContext>
 						</PluginTitleContext>
 					</PluginHeaderContext>

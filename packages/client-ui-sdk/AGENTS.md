@@ -7,6 +7,8 @@ Rationale for these rules lives in `README.md`.
 - Keep source scannable by Tailwind: the client plugin compiler treats this package's `.ts`/`.tsx` files as an extra scan source.
 - Style components with base Tailwind and theme tokens only. The kernel's `ui-*` utilities are not available in a plugin document.
 - Keep a focusable text input at 16px or larger on the touch layout (`text-base`, with a smaller `md:` size when the design wants one).
+- Keep `ScreenFrame` free of a scroll container: it sticks against the scroller its caller owns and takes that element as `scrollRootRef`. Drive its collapse from the sentinel's one `IntersectionObserver`, never a scroll listener, and take the safe-area inset as the `safeAreaTop` number rather than reading `env()`.
+- Guard `ScreenFrame`'s transitions with `motion-reduce:` in the component itself. A plugin document receives only `theme.css` and `palette.css`, never the kernel's reduced-motion base layer.
 - Add a runtime dependency only when the behaviour is genuinely shared, and prefer the root export; a new subpath must also be registered in the plugin compiler's trusted-module list.
 - Keep the `AppSchema` form on the `./schema-form` subpath and never re-export it from the root barrel.
 - Take the schema form's upload transport as a `SchemaFileUpload` prop; this package must never import a client SDK or know about servers, auth, or scopes.
