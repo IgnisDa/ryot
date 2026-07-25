@@ -29,6 +29,15 @@ export type CatalogVisibility =
 						readonly type: "discriminator";
 						readonly ownership: "entitySchemaSlugs" | "relationshipSchemaSlugs";
 				  };
+	  }
+	| {
+			readonly user: {
+				readonly column: string;
+				readonly type: "parentOwned";
+				readonly parentTable: string;
+				readonly parentColumn: string;
+				readonly parentOwnerColumn: string;
+			};
 	  };
 
 export type RyotQLExecutionScope =
@@ -251,14 +260,66 @@ const integration: CatalogTable = {
 	},
 };
 
+const importRun: CatalogTable = {
+	name: "import_run",
+	primaryKey: "id",
+	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
+	fields: {
+		id: physicalField("id", "text"),
+		source: physicalField("source", "text"),
+		status: physicalField("status", "text"),
+		progress: physicalField("progress", "number"),
+		totalItems: physicalField("total_items", "number"),
+		failedItems: physicalField("failed_items", "number"),
+		importedItems: physicalField("imported_items", "number"),
+		processedItems: physicalField("processed_items", "number"),
+		errorSummary: physicalField("error_summary", "text"),
+		inputSummary: physicalField("input_summary", "json"),
+		integrationId: physicalField("integration_id", "text"),
+		startedAt: physicalField("started_at", "date"),
+		finishedAt: physicalField("finished_at", "date"),
+		createdAt: physicalField("created_at", "date"),
+		updatedAt: physicalField("updated_at", "date"),
+	},
+};
+
+const importRunFailure: CatalogTable = {
+	name: "import_run_failure",
+	primaryKey: "id",
+	visibility: {
+		user: {
+			type: "parentOwned",
+			column: "run_id",
+			parentTable: "import_run",
+			parentColumn: "id",
+			parentOwnerColumn: "user_id",
+		},
+	},
+	fields: {
+		id: physicalField("id", "text"),
+		runId: physicalField("run_id", "text"),
+		stage: physicalField("stage", "text"),
+		message: physicalField("message", "text"),
+		context: physicalField("context", "json"),
+		itemIndex: physicalField("item_index", "number"),
+		sourceLabel: physicalField("source_label", "text"),
+		sourceIdentifier: physicalField("source_identifier", "text"),
+		eventSchemaSlug: physicalField("event_schema_slug", "text"),
+		entitySchemaSlug: physicalField("entity_schema_slug", "text"),
+		createdAt: physicalField("created_at", "date"),
+	},
+};
+
 const tables: Readonly<Record<string, CatalogTable>> = {
 	event,
 	entity,
 	plugin,
+	importRun,
 	savedView,
 	integration,
 	pluginState,
 	relationship,
+	importRunFailure,
 	notificationChannel,
 };
 
