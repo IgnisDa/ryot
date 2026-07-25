@@ -185,7 +185,7 @@ describe("radarr-push sandbox script", () => {
 		const host = createHost({
 			entity: movieEntity,
 			integrations: [radarrIntegration],
-			httpCall: () => httpFailure("already exists", 409),
+			httpCall: () => httpFailure("already exists"),
 		});
 		return Effect.runPromise(
 			definition
