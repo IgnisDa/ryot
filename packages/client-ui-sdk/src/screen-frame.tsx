@@ -157,7 +157,7 @@ export function ScreenFrame({
 					<h1 className="sr-only">{title}</h1>
 				)}
 				{collapsible && <div ref={setSentinel} aria-hidden="true" className="h-px" />}
-				<div className="px-4">{children}</div>
+				<div className={clsx("px-4", !hasTitleBlock && "pt-4")}>{children}</div>
 			</div>
 		</>
 	);
