@@ -2,8 +2,8 @@
 // TODO: delete this file eventually
 import { faker } from "@faker-js/faker";
 import {
-	type ContractPayload,
-	type ContractSuccess,
+	ContractPayload,
+	ContractSuccess,
 	runContract,
 	type ContractProgram,
 } from "@ryot/contract/client";
