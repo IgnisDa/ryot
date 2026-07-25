@@ -1,7 +1,9 @@
 export interface SandboxRunnerLimits {
 	readonly resultBytes: number;
 	readonly hostCallCount: number;
+	readonly hostCallLimitMessage: string;
 	readonly httpCallCount: number;
+	readonly httpCallLimitMessage: string;
 	readonly logEntryBytes: number;
 	readonly logEntryCount: number;
 	readonly logTotalBytes: number;
@@ -409,6 +411,11 @@ export const validateLimits = (limits: unknown): limits is SandboxRunnerLimits =
 		}
 	}
 	return (
-		typeof limits["logTruncationMarker"] === "string" && limits["logTruncationMarker"].length > 0
+		typeof limits["hostCallLimitMessage"] === "string" &&
+		limits["hostCallLimitMessage"].length > 0 &&
+		typeof limits["httpCallLimitMessage"] === "string" &&
+		limits["httpCallLimitMessage"].length > 0 &&
+		typeof limits["logTruncationMarker"] === "string" &&
+		limits["logTruncationMarker"].length > 0
 	);
 };
