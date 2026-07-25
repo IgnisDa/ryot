@@ -193,7 +193,7 @@ The runner-side name validation (runner-source.sandbox.ts:120-132) does not help
 
 **P2 — per-execution module re-hashing.** `materializeSandboxCompiledModule` (compiled-modules.ts:43-51) does `exists` + `readFile` + SHA-256 of up to 1 MiB on every execution of an immutable, chmod-444, content-addressed file.
 
-- [ ] Memoize verified hashes for the process lifetime; GC already coordinates via the ingestion lock.
+- [x] Memoize successful canonical-module verification for the process lifetime by module path. Cache hits retain an existence check and lazily evict entries when GC removes the canonical file.
 
 **P3 — workflow replay is O(N) subprocess spawns.** This is the big one. Each durable step ends the replay and re-runs the whole script in a **fresh Deno process** (sandbox-script-workflow.ts:393-427). A 200-chunk media import = 201 spawns, 201 module materializations, 201 bridge sessions, 201 durable workflow records.
 

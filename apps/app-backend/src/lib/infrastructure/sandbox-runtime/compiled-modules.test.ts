@@ -50,7 +50,7 @@ it.effect("materializes exact compiled bytes at a deterministic read-only path",
 	),
 );
 
-it.effect("reuses a verified compiled module without republishing it", () =>
+it.effect("reuses a verified compiled module without re-reading it", () =>
 	withModuleDirectory((fs, moduleDirectory) =>
 		Effect.gen(function* () {
 			const javascript = "export default 2;\n";
@@ -61,15 +61,52 @@ it.effect("reuses a verified compiled module without republishing it", () =>
 				javascript,
 			);
 			const firstInfo = yield* fs.stat(firstPath);
+			let canonicalReads = 0;
+			const fsWithReadTracking = {
+				...fs,
+				readFile: (...args: Parameters<typeof fs.readFile>) => {
+					if (args[0] === firstPath) {
+						canonicalReads += 1;
+					}
+					return fs.readFile(...args);
+				},
+			};
 			const secondPath = yield* materializeSandboxCompiledModule(
+				{ moduleDirectory },
+				contentHash,
+				javascript,
+			).pipe(Effect.provideService(FileSystem.FileSystem, fsWithReadTracking));
+
+			expect(secondPath).toBe(firstPath);
+			expect(canonicalReads).toBe(0);
+			expect((yield* fs.stat(secondPath)).ino).toEqual(firstInfo.ino);
+			expect(yield* fs.readDirectory(moduleDirectory)).toEqual([`${contentHash}.mjs`]);
+		}),
+	),
+);
+
+it.effect("re-materializes a module after garbage collection removes its canonical path", () =>
+	withModuleDirectory((fs, moduleDirectory) =>
+		Effect.gen(function* () {
+			const javascript = "export default 6;\n";
+			const contentHash = hash(javascript);
+			const modulePath = yield* materializeSandboxCompiledModule(
 				{ moduleDirectory },
 				contentHash,
 				javascript,
 			);
 
-			expect(secondPath).toBe(firstPath);
-			expect((yield* fs.stat(secondPath)).ino).toEqual(firstInfo.ino);
-			expect(yield* fs.readDirectory(moduleDirectory)).toEqual([`${contentHash}.mjs`]);
+			yield* garbageCollectSandboxCompiledModules({ moduleDirectory }, new Set());
+			expect(yield* fs.exists(modulePath)).toBe(false);
+
+			const rematerializedPath = yield* materializeSandboxCompiledModule(
+				{ moduleDirectory },
+				contentHash,
+				javascript,
+			);
+
+			expect(rematerializedPath).toBe(modulePath);
+			expect(yield* fs.readFileString(rematerializedPath)).toBe(javascript);
 		}),
 	),
 );
@@ -174,6 +211,15 @@ it.effect("rejects a corrupt immutable destination without overwriting it", () =
 			);
 			expect(yield* fs.readFileString(modulePath)).toBe("corrupt");
 			expect(yield* fs.readDirectory(moduleDirectory)).toEqual([`${contentHash}.mjs`]);
+
+			yield* fs.remove(modulePath);
+			const rematerializedPath = yield* materializeSandboxCompiledModule(
+				{ moduleDirectory },
+				contentHash,
+				javascript,
+			);
+			expect(rematerializedPath).toBe(modulePath);
+			expect(yield* fs.readFileString(rematerializedPath)).toBe(javascript);
 		}),
 	),
 );
