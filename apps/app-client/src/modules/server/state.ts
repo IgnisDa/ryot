@@ -1,61 +1,8 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { Effect, Layer, Schema } from "effect";
-import { KeyValueStore } from "effect/unstable/persistence";
-import { Atom } from "effect/unstable/reactivity";
-import { Platform } from "react-native";
-import { createMMKV } from "react-native-mmkv";
 
-import { CLOUD_URL } from "@/modules/server/url";
-
-const workspaceKey = "workspace";
-const serverUrlKey = "server-url";
-const workspaceSchema = Schema.String;
-const serverUrlSchema = Schema.NullOr(Schema.String);
-
-export const serverStorageLayer =
-	Platform.OS === "web"
-		? KeyValueStore.layerStorage(() => localStorage)
-		: Layer.sync(KeyValueStore.KeyValueStore, () => {
-				const storage = createMMKV();
-				return KeyValueStore.makeStringOnly({
-					size: Effect.sync(() => storage.length),
-					clear: Effect.sync(() => storage.clearAll()),
-					remove: (key) => Effect.sync(() => void storage.remove(key)),
-					set: (key, value) => Effect.sync(() => storage.set(key, value)),
-					get: (key) => Effect.sync(() => storage.getString(key)),
-				});
-			});
-
-const storageRuntime = Atom.runtime(serverStorageLayer);
-
-export const serverUrlAtom = Atom.kvs({
-	key: serverUrlKey,
-	runtime: storageRuntime,
-	schema: serverUrlSchema,
-	defaultValue: () => null,
-});
-
-export const workspaceAtom = Atom.kvs({
-	key: workspaceKey,
-	runtime: storageRuntime,
-	schema: workspaceSchema,
-	defaultValue: () => "media",
-});
+import { serverUrlAtom, workspaceAtom } from "@/api/atoms";
 
 export const useServerUrl = () => useAtomValue(serverUrlAtom);
 export const useWorkspace = () => useAtomValue(workspaceAtom);
 export const useSetServerUrl = () => useAtomSet(serverUrlAtom);
 export const useSetWorkspace = () => useAtomSet(workspaceAtom);
-const decodeServerUrl = Schema.decodeEffect(
-	Schema.fromJsonString(Schema.toCodecJson(serverUrlSchema)),
-);
-export const serverUrlReader = Effect.map(KeyValueStore.KeyValueStore, (store) => {
-	return () =>
-		store.get(serverUrlKey).pipe(
-			Effect.flatMap((serverUrl) =>
-				serverUrl === undefined ? Effect.succeed(undefined) : decodeServerUrl(serverUrl),
-			),
-			Effect.orDie,
-			Effect.map((serverUrl) => serverUrl ?? CLOUD_URL),
-		);
-});

@@ -1,59 +1,9 @@
-import { expoClient } from "@better-auth/expo/client";
-import { genericOAuthClient, twoFactorClient } from "better-auth/client/plugins";
-import { createAuthClient } from "better-auth/react";
-import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
-
+import { getAuthClient } from "@/modules/auth/storage";
 import { useServerUrl } from "@/modules/server/state";
 import { CLOUD_URL } from "@/modules/server/url";
 
-const STORAGE_PREFIX = "ryot";
-const COOKIE_KEY = `${STORAGE_PREFIX}_cookie`;
-const SESSION_KEY = `${STORAGE_PREFIX}_session_data`;
-
-const storage =
-	Platform.OS === "web"
-		? {
-				setItem: (key: string, value: string) => localStorage.setItem(key, value),
-				getItem: (key: string) =>
-					typeof localStorage === "undefined" ? null : localStorage.getItem(key),
-			}
-		: SecureStore;
-
-const createClient = (baseURL: string) =>
-	createAuthClient({
-		baseURL,
-		plugins: [
-			expoClient({ scheme: "ryot", storage, storagePrefix: STORAGE_PREFIX }),
-			genericOAuthClient(),
-			twoFactorClient(),
-		],
-	});
-
-type AuthClient = ReturnType<typeof createClient>;
-
-const clients = new Map<string, AuthClient>();
-
-function getAuthClient(serverUrl: string) {
-	const existing = clients.get(serverUrl);
-	if (existing) {
-		return existing;
-	}
-
-	const client = createClient(serverUrl);
-	clients.set(serverUrl, client);
-	return client;
-}
-
-export const getAuthCookie = (serverUrl: string) => getAuthClient(serverUrl).getCookie();
+export { clearAuthStorage } from "@/modules/auth/storage";
 
 export function useAuthClient() {
 	return getAuthClient(useServerUrl() ?? CLOUD_URL);
-}
-
-export async function clearAuthStorage() {
-	await Promise.all([
-		Promise.resolve(storage.setItem(COOKIE_KEY, "{}")),
-		Promise.resolve(storage.setItem(SESSION_KEY, "null")),
-	]);
 }
