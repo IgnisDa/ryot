@@ -18,6 +18,7 @@ import { Activity, DurableClock, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
 import {
 	hashWorkflowCallArgs,
 	projectWorkflowJournal,
@@ -130,7 +131,7 @@ const completedValue = (result: SandboxCompletedResult, label: string) =>
 			);
 
 export const sandboxWorkflowChildExecutionId = (executionId: string, name: string, step: number) =>
-	`${executionId}-child-${name}-${step}`;
+	`${executionId}-child-${sanitizeSandboxExecutionSegment(name)}-${step}`;
 
 const nondeterminismMessage = (
 	index: number,
