@@ -3,6 +3,7 @@
 	"compilerOptions": {
 		"strict": true,
 		"outDir": "dist",
+		"jsx": "react-jsx",
 		"module": "esnext",
 		"types": ["bun-types"],
 		"lib": ["ESNext", "DOM"],
