@@ -4,10 +4,52 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/pro
 import { Effect } from "effect";
 
 import { archiveError, type BackupArchiveError } from "./error";
-import { isV2JsonObject, type V2Event, type V2Relationship } from "./schemas";
+import {
+	isV2JsonObject,
+	type V2ArchiveRecords,
+	type V2Event,
+	type V2Relationship,
+} from "./schemas";
 
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
+
+export const collectV2ReferencedPluginKeys = (records: V2ArchiveRecords) => {
+	const referenced = new Set<string>();
+	const add = (key: string | null) => {
+		if (key !== null) {
+			referenced.add(key);
+		}
+	};
+	for (const installation of records.installations) {
+		add(installation.packageKey);
+	}
+	for (const integration of records.integrations) {
+		add(integration.packageKey);
+	}
+	for (const entity of records.entities) {
+		add(entity.entitySchemaPluginKey);
+		add(entity.provider?.pluginKey ?? null);
+	}
+	for (const entity of records.entityDependencies) {
+		add(entity.entitySchemaPluginKey);
+		add(entity.provider?.pluginKey ?? null);
+		if (entity.identity.kind !== "unmanaged") {
+			add(entity.identity.pluginKey);
+		}
+	}
+	for (const relationship of records.relationships) {
+		add(relationship.relationshipSchemaPluginKey);
+	}
+	for (const view of records.savedViews) {
+		add(view.pluginKey);
+		add(view.entitySchemaPluginKey);
+	}
+	for (const subscription of records.notificationSubscriptions) {
+		add(subscription.signalSchemaPluginKey);
+	}
+	return referenced;
+};
 
 const collectPropertyEntityIds = (
 	definition: AppPropertyDefinition,

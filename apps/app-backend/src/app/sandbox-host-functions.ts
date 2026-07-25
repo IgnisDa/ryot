@@ -200,6 +200,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						Effect.provideService(Database, database),
 						Effect.provideService(DefinitionRegistry, definitions),
 						Effect.provideService(EntitiesRepository, entitiesRepository),
+						Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 						Effect.provideService(RelationshipsRepository, relationshipsRepository),
 					);
 				}).pipe(Effect.provideService(Database, database)),
@@ -394,7 +395,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>
 			requireSandboxCapabilityInput(rawInput, "getEntitySchemas").pipe(
-				Effect.andThen(
+				Effect.flatMap((input) =>
 					requireUniqueNonEmptyStrings(
 						entitySchemaSlugs,
 						"getEntitySchemas expects non-empty entitySchemaSlugs",
@@ -404,49 +405,54 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								return Effect.succeed([]);
 							}
 
-							return Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
-								const definition = definitions.getEntitySchema(entitySchemaSlug);
-								if (!definition) {
-									return Effect.fail("Entity schema not found");
-								}
-								if (!definition.pluginSlug) {
-									return Effect.fail("Entity schema plugin not found");
-								}
-								return Effect.succeed({
-									definition,
-									entitySchemaSlug,
-									pluginSlug: definition.pluginSlug,
-								});
-							}).pipe(
-								Effect.flatMap((schemas) =>
-									Effect.gen(function* () {
-										const links = yield* pluginRuntime.listSchemaProviders(
-											resolvedEntitySchemaSlugs,
-											"userId" in rawInput.authority ? rawInput.authority.userId : undefined,
-										);
-										const providersBySchema = new Map<
-											string,
-											Array<{ name: string; providerId: string }>
-										>();
-										for (const { entitySchemaSlug, provider } of links) {
-											const providers = providersBySchema.get(entitySchemaSlug) ?? [];
-											providers.push({ name: provider.name, providerId: provider.id });
-											providersBySchema.set(entitySchemaSlug, providers);
-										}
+							return pluginRuntime
+								.getEffectiveDefinitions(UserId.make(input.authority.userId))
+								.pipe(
+									Effect.flatMap((effectiveDefinitions) =>
+										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
+											const definition = effectiveDefinitions.entitySchemas[entitySchemaSlug];
+											if (!definition) {
+												return Effect.fail("Entity schema not found");
+											}
+											if (!definition.pluginSlug) {
+												return Effect.fail("Entity schema plugin not found");
+											}
+											return Effect.succeed({
+												definition,
+												entitySchemaSlug,
+												pluginSlug: definition.pluginSlug,
+											});
+										}),
+									),
+									Effect.flatMap((schemas) =>
+										Effect.gen(function* () {
+											const links = yield* pluginRuntime.listSchemaProviders(
+												resolvedEntitySchemaSlugs,
+												"userId" in rawInput.authority ? rawInput.authority.userId : undefined,
+											);
+											const providersBySchema = new Map<
+												string,
+												Array<{ name: string; providerId: string }>
+											>();
+											for (const { entitySchemaSlug, provider } of links) {
+												const providers = providersBySchema.get(entitySchemaSlug) ?? [];
+												providers.push({ name: provider.name, providerId: provider.id });
+												providersBySchema.set(entitySchemaSlug, providers);
+											}
 
-										return schemas.map(({ definition, entitySchemaSlug, pluginSlug }) => ({
-											icon: definition.icon,
-											id: entitySchemaSlug,
-											isBuiltin: true,
-											name: definition.name,
-											pluginSlug,
-											propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
-											providers: providersBySchema.get(entitySchemaSlug) ?? [],
-											slug: definition.slug,
-										}));
-									}).pipe(Effect.mapError(unknownToMessage)),
-								),
-							);
+											return schemas.map(({ definition, entitySchemaSlug, pluginSlug }) => ({
+												pluginSlug,
+												isBuiltin: true,
+												id: entitySchemaSlug,
+												icon: definition.icon,
+												name: definition.name,
+												slug: definition.slug,
+												providers: providersBySchema.get(entitySchemaSlug) ?? [],
+												propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
+											}));
+										}).pipe(Effect.mapError(unknownToMessage)),
+									),
+								);
 						}),
 					),
 				),
@@ -486,7 +492,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			),
 		listEventSchemas: (rawInput, entitySchemaSlugs) =>
 			requireSandboxCapabilityInput(rawInput, "listEventSchemas").pipe(
-				Effect.andThen(
+				Effect.flatMap((input) =>
 					requireUniqueNonEmptyStrings(
 						entitySchemaSlugs,
 						"listEventSchemas expects non-empty entitySchemaSlugs",
@@ -496,23 +502,30 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								return Effect.succeed([]);
 							}
 
-							return Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
-								const entitySchema = definitions.getEntitySchema(entitySchemaSlug);
-								return entitySchema
-									? Effect.succeed(
-											Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
-												entitySchemaSlug,
-												id: eventSchema.slug,
-												slug: eventSchema.slug,
-												name: eventSchema.name,
-												propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
-											})),
-										)
-									: Effect.fail("Entity schema not found");
-							}).pipe(Effect.map((schemas) => schemas.flat()));
+							return pluginRuntime
+								.getEffectiveDefinitions(UserId.make(input.authority.userId))
+								.pipe(
+									Effect.flatMap((effectiveDefinitions) =>
+										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
+											const entitySchema = effectiveDefinitions.entitySchemas[entitySchemaSlug];
+											return entitySchema
+												? Effect.succeed(
+														Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
+															entitySchemaSlug,
+															id: eventSchema.slug,
+															slug: eventSchema.slug,
+															name: eventSchema.name,
+															propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
+														})),
+													)
+												: Effect.fail("Entity schema not found");
+										}).pipe(Effect.map((schemas) => schemas.flat())),
+									),
+								);
 						}),
 					),
 				),
+				Effect.provideService(Database, database),
 				sandboxHostEffect,
 			),
 		listIntegrations: (rawInput, rawOptions) =>

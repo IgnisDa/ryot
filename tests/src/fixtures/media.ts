@@ -22,7 +22,12 @@ import {
 } from "@ryot/ryotql";
 import { DateTime, Effect } from "effect";
 
-import { assertPresent, requirePresent, requireString } from "~/support/assertions";
+import {
+	assertPresent,
+	requireObjectRecord,
+	requirePresent,
+	requireString,
+} from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
@@ -121,9 +126,10 @@ export const queryInLibraryRelationship = (
 	);
 };
 
-export const getGlobalEntityByProvenance = (
+const getEntityByProvenance = (
 	client: Client,
 	input: { externalId: string; providerId: string; entitySchemaSlug: string },
+	globalOnly: boolean,
 ) =>
 	Effect.gen(function* () {
 		const entity = table("entity", "entity");
@@ -141,7 +147,7 @@ export const getGlobalEntityByProvenance = (
 						eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
 						eq(column(entity, "externalId"), literal(input.externalId)),
 						eq(column(entity, "providerId"), literal(input.providerId)),
-						isNull(column(entity, "userId")),
+						...(globalOnly ? [isNull(column(entity, "userId"))] : []),
 					),
 				}),
 			}),
@@ -149,7 +155,7 @@ export const getGlobalEntityByProvenance = (
 		const entities = requireRows(result.data.entities, "entities");
 		const entityRow = requirePresent(
 			entities.items[0],
-			`Missing global entity for external id '${input.externalId}'`,
+			`Missing ${globalOnly ? "global" : "visible"} entity for external id '${input.externalId}'`,
 		);
 		const populatedAt = requireRyotQLValue(entityRow, "populatedAt");
 		return {
@@ -161,6 +167,16 @@ export const getGlobalEntityByProvenance = (
 					: requireString(populatedAt, "Expected 'populatedAt' to contain text"),
 		};
 	});
+
+export const getGlobalEntityByProvenance = (
+	client: Client,
+	input: { externalId: string; providerId: string; entitySchemaSlug: string },
+) => getEntityByProvenance(client, input, true);
+
+export const getVisibleEntityByProvenance = (
+	client: Client,
+	input: { externalId: string; providerId: string; entitySchemaSlug: string },
+) => getEntityByProvenance(client, input, false);
 
 export const waitForEntityPopulated = (
 	client: Client,
@@ -186,27 +202,36 @@ export const getRelationshipBySchemaSlug = (
 			schemas,
 			input.relationshipSchemaSlug,
 		);
-		const relationships = yield* getBackendClient().call(
-			(c) =>
-				c.testSupport.listGlobalRelationships({
-					payload: {
-						type: "anchored",
-						direction: "outgoing",
-						anchorEntityId: EntityId.make(input.sourceEntityId),
-						relationshipSchemaSlug: RelationshipSchemaSlug.make(relationshipSchema.id),
-					},
+		const relationshipTable = table("relationship", "relationship");
+		const result = yield* executeRyotQL(
+			client,
+			document({
+				relationships: rows(relationshipTable, {
+					limit: 1,
+					fields: [
+						field("properties", column(relationshipTable, "properties")),
+						field("sourceEntityId", column(relationshipTable, "sourceEntityId")),
+						field("targetEntityId", column(relationshipTable, "targetEntityId")),
+					],
+					where: and(
+						eq(column(relationshipTable, "sourceEntityId"), literal(input.sourceEntityId)),
+						eq(column(relationshipTable, "targetEntityId"), literal(input.targetEntityId)),
+						eq(column(relationshipTable, "relationshipSchemaSlug"), literal(relationshipSchema.id)),
+					),
 				}),
-			adminHeaders,
+			}),
 		);
-
 		const relationship = requirePresent(
-			relationships.find((item) => item.targetEntityId === input.targetEntityId),
+			requireRows(result.data.relationships, "relationships").items[0],
 			`Missing relationship '${input.relationshipSchemaSlug}' for '${input.sourceEntityId}' -> '${input.targetEntityId}'`,
 		);
 		return {
-			properties: relationship.properties,
-			sourceEntityId: String(relationship.sourceEntityId),
-			targetEntityId: String(relationship.targetEntityId),
+			sourceEntityId: requireRyotQLText(relationship, "sourceEntityId"),
+			targetEntityId: requireRyotQLText(relationship, "targetEntityId"),
+			properties: requireObjectRecord(
+				requireRyotQLValue(relationship, "properties"),
+				"Expected relationship properties to be an object",
+			),
 		};
 	});
 

@@ -97,6 +97,7 @@ export const installTestImportPlugin = Effect.suspend(() => {
 	const entry = "scripts/import.sandbox.ts";
 	const validateEntry = "scripts/validate-archive.sandbox.ts";
 	return installTestPluginBundle({
+		scope: "system",
 		files: {
 			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
 			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
@@ -260,6 +261,7 @@ export default defineScript({
 
 export const installTestHarvestHandleImportPlugin = Effect.suspend(() =>
 	installTestPluginBundle({
+		scope: "system",
 		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-harvest-handle-import" }],
 		files: {
 			"scripts/import.sandbox.ts": FIXTURE_HANDLE_IMPORT_WORKFLOW_SOURCE,
@@ -347,6 +349,7 @@ export const installTestImportPinningPlugin = Effect.suspend(() => {
 	const entry = `scripts/${workflowSlug}.sandbox.ts`;
 
 	return installTestPluginBundle({
+		scope: "system",
 		workflows: [{ slug: workflowSlug, scriptSlug }],
 		files: { [entry]: testImportPinningWorkflowSource(scriptSlug) },
 		scripts: [

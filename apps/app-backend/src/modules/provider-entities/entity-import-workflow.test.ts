@@ -31,6 +31,7 @@ import {
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -123,6 +124,28 @@ const mediaSuggestionSchema = {
 	propertiesSchema: { fields: {} },
 	id: RelationshipSchemaSlug.make("media-suggestion-schema-id"),
 };
+
+const effectiveRelationshipSchemas = Object.fromEntries(
+	[
+		"cast-member-schema-id",
+		"media-suggestion-schema-id",
+		"rel-schema-1",
+		"rel-season-episode",
+		"rel-show-season",
+		"relationship-schema-id",
+		"show-season-to-show-episode",
+		"show-to-show-season",
+	].map((slug) => [
+		slug,
+		{
+			slug,
+			name: "Relationship",
+			sourceEntitySchemaSlug: null,
+			targetEntitySchemaSlug: null,
+			propertiesSchema: { fields: {} },
+		},
+	]),
+);
 
 const baseEntitySchema = {
 	slug: "book",
@@ -256,7 +279,21 @@ const makeTestLayer = (options: TestLayerOptions) => {
 	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
 
 	const relationshipsServiceLayer = RelationshipsService.layer.pipe(
-		Layer.provide(Layer.mergeAll(options.databaseLayer ?? databaseLayer, relationshipsRepository)),
+		Layer.provide(
+			Layer.mergeAll(
+				options.databaseLayer ?? databaseLayer,
+				relationshipsRepository,
+				Layer.mock(PluginRuntimeResolver)({
+					getEffectiveDefinitions: () =>
+						Effect.succeed({
+							savedViews: {},
+							entitySchemas: {},
+							signalSchemas: {},
+							relationshipSchemas: effectiveRelationshipSchemas,
+						}),
+				}),
+			),
+		),
 	);
 
 	return Layer.mergeAll(

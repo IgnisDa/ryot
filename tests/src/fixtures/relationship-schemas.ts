@@ -28,7 +28,7 @@ export function requireRelationshipSchemaBySlug<T extends { slug: string }>(
 	return requirePresent(schema, `Relationship schema '${slug}' not found`);
 }
 
-export const createRelationshipSchema = (_client: Client, body: CreateRelationshipSchemaOptions) =>
+export const createRelationshipSchema = (client: Client, body: CreateRelationshipSchemaOptions) =>
 	Effect.gen(function* () {
 		const schema = {
 			name: body.name,
@@ -38,6 +38,7 @@ export const createRelationshipSchema = (_client: Client, body: CreateRelationsh
 			targetEntitySchemaSlug: body.targetEntitySchemaSlug ?? null,
 		};
 		yield* installTestDefinitions({
+			client,
 			relationshipSchemas: [schema],
 			pluginSlug: `e2e-relationship-${crypto.randomUUID()}`,
 		});

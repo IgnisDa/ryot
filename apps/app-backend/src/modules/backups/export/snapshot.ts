@@ -22,6 +22,7 @@ import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
 import {
 	collectV2EmbeddedEntityIds,
+	collectV2ReferencedPluginKeys,
 	redactV2SchemaSecrets,
 	rewriteV2AssetLocatorForArchive,
 	rewriteV2ManagedAssetLocators,
@@ -39,6 +40,7 @@ import type {
 } from "../archive-v2/schemas";
 import { decodeV2JsonObject, isV2JsonObject, V2_CODECS } from "../archive-v2/schemas";
 import { encodeNdjson, IncrementalSha256 } from "../archive-v2/streaming";
+import { isDefaultSystemInstallation } from "../installation-state";
 
 type BackupPropertyRecord = {
 	readonly propertiesSchema: AppSchema;
@@ -222,7 +224,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				if (!profile) {
 					return yield* badRequest("Backup user does not exist");
 				}
-				const storedInstallations = yield* installations.listForUser(userId);
+				const allStoredInstallations = yield* installations.listForUser(userId);
 				const systemPlugins = yield* plugins.listPortablePluginMetadata();
 				const privatePlugins = yield* plugins.listPrivateForUser(userId);
 				const installedPlugins = [
@@ -240,6 +242,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						relationshipSchemaSlugs: plugin.manifest.relationshipSchemas.map(({ slug }) => slug),
 					})),
 				];
+				const installedPluginIds = new Set(installedPlugins.map(({ id }) => id));
+				const storedInstallations = allStoredInstallations.filter(({ pluginId }) =>
+					installedPluginIds.has(pluginId),
+				);
 				const pluginKeyById = new Map(
 					installedPlugins.map((plugin) => [
 						plugin.id,
@@ -362,20 +368,31 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							signalSchemaPluginKey: pluginId ? (pluginKeyById.get(pluginId) ?? "") : null,
 						};
 					});
-				const installationRecords: V2Installation[] = storedInstallations.map((state) => {
-					const plugin = installedPlugins.find(({ id }) => id === state.pluginId);
-					return {
-						id: state.id,
-						configuredSecretPaths: [],
-						sortOrder: state.sortOrder,
-						disabledIntent: state.isDisabled,
-						createdAt: state.createdAt.toISOString(),
-						updatedAt: state.updatedAt.toISOString(),
-						config: plugin?.scope === "system" ? {} : decodeV2JsonObject(state.config),
-						packageKey: pluginKeyById.get(state.pluginId) ?? "",
-						lifecycleIntent: installationLifecycleIntent(state.health, state.isDisabled),
-					};
-				});
+				const referencedInstallationIds = new Set([
+					...storedIntegrations.map(({ pluginInstallationId }) => pluginInstallationId),
+					...storedViews.flatMap(({ pluginInstallationId }) =>
+						pluginInstallationId ? [pluginInstallationId] : [],
+					),
+				]);
+				const installationRecords: V2Installation[] = storedInstallations
+					.filter(
+						(state) =>
+							!isDefaultSystemInstallation(state) || referencedInstallationIds.has(state.id),
+					)
+					.map((state) => {
+						const plugin = installedPlugins.find(({ id }) => id === state.pluginId);
+						return {
+							id: state.id,
+							configuredSecretPaths: [],
+							sortOrder: state.sortOrder,
+							disabledIntent: state.isDisabled,
+							createdAt: state.createdAt.toISOString(),
+							updatedAt: state.updatedAt.toISOString(),
+							packageKey: pluginKeyById.get(state.pluginId) ?? "",
+							config: plugin?.scope === "system" ? {} : decodeV2JsonObject(state.config),
+							lifecycleIntent: installationLifecycleIntent(state.health, state.isDisabled),
+						};
+					});
 				const installationById = new Map(storedInstallations.map((state) => [state.id, state]));
 				const integrationRecords: V2Integration[] = storedIntegrations.map((integration) => ({
 					id: integration.id,
@@ -802,33 +819,33 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 									: subscription.metadata,
 						});
 					}
+					const records = {
+						entityDependencies,
+						profile: data.profile,
+						notificationSubscriptions,
+						entities: exportedEntities,
+						savedViews: data.savedViews,
+						integrations: restoredIntegrations,
+						privatePlugins: data.privatePlugins,
+						relationships: exportedRelationships,
+						installations: exportedInstallations,
+					} satisfies V2ArchiveRecords;
+					const referencedPluginKeys = collectV2ReferencedPluginKeys(records);
 					const requiredPlugins = data.installedPlugins
 						.filter(
 							(plugin) =>
 								plugin.scope === "system" &&
-								data.installations.some(
-									(state) =>
-										state.packageKey ===
-										archivePluginKey(plugin.scope, plugin.slug, plugin.sourceHash),
+								referencedPluginKeys.has(
+									archivePluginKey(plugin.scope, plugin.slug, plugin.sourceHash),
 								),
 						)
 						.map(({ slug, sourceHash, version }) => ({ slug, sourceHash, version }));
 					return {
+						records,
 						managedAssets,
 						requiredPlugins,
 						redactions: [...new Set(redactions)].sort(),
 						events: { path: eventsPath, count: eventCount, ...eventsHash.digest() },
-						records: {
-							entityDependencies,
-							profile: data.profile,
-							notificationSubscriptions,
-							entities: exportedEntities,
-							savedViews: data.savedViews,
-							integrations: restoredIntegrations,
-							privatePlugins: data.privatePlugins,
-							relationships: exportedRelationships,
-							installations: exportedInstallations,
-						} satisfies V2ArchiveRecords,
 					};
 				},
 			);

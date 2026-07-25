@@ -287,11 +287,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										reason: { code: "boot-configured", pluginSlug },
 									});
 								}
-								if (yield* workflowReferences.hasReferences(plugin.id)) {
-									return yield* new PluginConflictError({
-										reason: { code: "workflow-referenced", pluginSlug },
-									});
-								}
 								if (yield* repository.hasIntegrationReferences({ pluginId: plugin.id })) {
 									return yield* new PluginConflictError({
 										reason: { code: "integration-referenced", pluginSlug },
@@ -313,6 +308,11 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 								if (yield* repository.hasDefinitionReferences(plugin.id)) {
 									return yield* new PluginConflictError({
 										reason: { code: "entity-referenced", pluginSlug },
+									});
+								}
+								if (yield* workflowReferences.hasReferences(plugin.id)) {
+									return yield* new PluginConflictError({
+										reason: { code: "workflow-referenced", pluginSlug },
 									});
 								}
 								const remaining = installed.filter((candidate) => candidate.slug !== slug);

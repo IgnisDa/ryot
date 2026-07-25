@@ -93,6 +93,13 @@ export const TestSupportTriggerPluginCronBody = strictStruct({
 
 export type TestSupportTriggerPluginCronBody = typeof TestSupportTriggerPluginCronBody.Type;
 
+export const TestSupportTriggerPluginBootBody = strictStruct({
+	pluginSlug: PluginSlug,
+	bootSlug: Schema.String,
+});
+
+export type TestSupportTriggerPluginBootBody = typeof TestSupportTriggerPluginBootBody.Type;
+
 export const TestSupportPluginCronResult = Schema.Union([
 	Schema.Struct({
 		pluginSlug: PluginSlug,

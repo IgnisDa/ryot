@@ -1,3 +1,8 @@
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	RelationshipSchemaSlug,
+} from "@ryot/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
@@ -5,11 +10,8 @@ import {
 	type Client,
 	createAuthenticatedClient,
 	createEntity,
-	createEntitySchema,
-	createEventSchema,
 	createPluginScope,
 	createRelationship,
-	createRelationshipSchema,
 	deleteUserAndWait,
 	enqueueProviderEntityImport,
 	executeRyotQL,
@@ -23,6 +25,7 @@ import {
 	getSavedView,
 	insertRelationshipRow,
 	installTestPluginBundle,
+	literalSandboxSource,
 	listEventSchemas,
 	listEventsForEntity,
 	listNotificationSubscriptionStates,
@@ -36,6 +39,7 @@ import {
 	restoreBackup,
 	setNotificationRuleActive,
 	updatePluginState,
+	uninstallTestPlugin,
 } from "~/fixtures";
 import {
 	assertCompleted,
@@ -98,7 +102,6 @@ const getRelationship = (client: Client, relationshipId: string) =>
 describe("backup export and restore round trip", () => {
 	it.live("restores portable user state into a clean account exactly once", () =>
 		Effect.gen(function* () {
-			const setup = yield* createAuthenticatedClient();
 			const suffix = crypto.randomUUID();
 			const pluginSlug = createPluginScope(`backup-round-trip-${suffix}`);
 			const entitySchemaSlug = `backup-entity-${suffix}`;
@@ -140,51 +143,96 @@ describe("backup export and restore round trip", () => {
 					},
 				},
 			};
-			const entitySchema = yield* createEntitySchema(setup.client, {
-				pluginSlug,
-				slug: entitySchemaSlug,
-				name: "Backup Round Trip Entity",
-				propertiesSchema: entityPropertiesSchema,
-			});
-			const eventSchema = yield* createEventSchema(setup.client, {
-				entitySchemaSlug: entitySchema.schemaId,
-				name: "Backup Round Trip Event",
-				slug: eventSchemaSlug,
-				propertiesSchema: {
-					fields: {
-						sequence: { type: "integer", label: "Sequence", description: "Event sequence" },
-						labels: {
-							type: "array",
-							label: "Labels",
-							description: "Event labels",
-							items: { type: "string", label: "Label", description: "Label" },
-						},
-						context: {
-							type: "object",
-							label: "Context",
-							description: "Event context",
-							properties: { note: { type: "string", label: "Note", description: "Context note" } },
+			const eventPropertiesSchema = {
+				fields: {
+					sequence: { type: "integer" as const, label: "Sequence", description: "Event sequence" },
+					labels: {
+						label: "Labels",
+						type: "array" as const,
+						description: "Event labels",
+						items: { type: "string" as const, label: "Label", description: "Label" },
+					},
+					context: {
+						label: "Context",
+						type: "object" as const,
+						description: "Event context",
+						properties: {
+							note: { type: "string" as const, label: "Note", description: "Context note" },
 						},
 					},
 				},
-			});
-			const relationshipSchema = yield* createRelationshipSchema(setup.client, {
-				slug: relationshipSchemaSlug,
-				name: "Backup Round Trip Relationship",
-				sourceEntitySchemaSlug: entitySchema.schemaId,
-				targetEntitySchemaSlug: entitySchema.schemaId,
-				propertiesSchema: {
-					fields: {
-						weight: { type: "integer", label: "Weight", description: "Relationship weight" },
-						labels: {
-							type: "array",
-							label: "Labels",
-							description: "Relationship labels",
-							items: { type: "string", label: "Label", description: "Label" },
-						},
+			};
+			const relationshipPropertiesSchema = {
+				fields: {
+					weight: { type: "integer" as const, label: "Weight", description: "Relationship weight" },
+					labels: {
+						label: "Labels",
+						type: "array" as const,
+						description: "Relationship labels",
+						items: { type: "string" as const, label: "Label", description: "Label" },
 					},
 				},
-			});
+			};
+			const scriptSlug = `${pluginSlug}.fixture`;
+			const entry = "scripts/fixture.sandbox.ts";
+			yield* Effect.acquireRelease(
+				installTestPluginBundle({
+					pluginSlug,
+					scope: "system",
+					files: {
+						[entry]: literalSandboxSource({
+							value: true,
+							slug: scriptSlug,
+							name: "Backup round trip fixture",
+						}),
+					},
+					scripts: [
+						{
+							entry,
+							kind: "script",
+							slug: scriptSlug,
+							capabilities: [],
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
+							name: "Backup round trip fixture",
+						},
+					],
+					entitySchemas: [
+						{
+							icon: "book",
+							slug: entitySchemaSlug,
+							name: "Backup Round Trip Entity",
+							propertiesSchema: entityPropertiesSchema,
+							eventSchemas: [
+								{
+									slug: eventSchemaSlug,
+									name: "Backup Round Trip Event",
+									propertiesSchema: eventPropertiesSchema,
+								},
+							],
+						},
+					],
+					relationshipSchemas: [
+						{
+							slug: relationshipSchemaSlug,
+							name: "Backup Round Trip Relationship",
+							sourceEntitySchemaSlug: entitySchemaSlug,
+							targetEntitySchemaSlug: entitySchemaSlug,
+							propertiesSchema: relationshipPropertiesSchema,
+						},
+					],
+				}),
+				uninstallTestPlugin,
+			);
+			const entitySchema = { schemaId: EntitySchemaSlug.make(entitySchemaSlug) };
+			const eventSchema = {
+				propertiesSchema: eventPropertiesSchema,
+				id: EventSchemaSlug.make(eventSchemaSlug),
+			};
+			const relationshipSchema = {
+				propertiesSchema: relationshipPropertiesSchema,
+				id: RelationshipSchemaSlug.make(relationshipSchemaSlug),
+			};
 			const source = yield* createAuthenticatedClient();
 			const target = yield* createAuthenticatedClient();
 			const sourceLibraryId = yield* getLibraryId(source.client);
@@ -400,6 +448,7 @@ describe("backup export and restore round trip", () => {
 				});
 				return installTestPluginBundle({
 					pluginSlug,
+					scope: "system",
 					files: { [detailsEntry]: scriptSource },
 					scripts: [
 						{
