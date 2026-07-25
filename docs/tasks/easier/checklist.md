@@ -93,7 +93,7 @@
   - Owner: D16 Legacy bootstrap
   - Scope: One SQL fragment from `episodic-sub-entity-mapping.ts`
 
-- [ ] **22. Remove obsolete transactional template pipeline** [M/M/W]
+- [x] **22. Remove obsolete transactional template pipeline** [M/M/W]
   - Owner: W18 Transactional email
   - Scope: Remove static build/copy pipeline
 
