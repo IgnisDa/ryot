@@ -11,9 +11,10 @@ import { describe, expect, it } from "~/support/effect-test";
 describe("user settings", () => {
 	it.live("reads and updates the current user's preferences", () =>
 		Effect.gen(function* () {
-			const { client, email } = yield* createAuthenticatedClient();
+			const { client, email, userId } = yield* createAuthenticatedClient();
 			const initial = yield* getUserSettings(client);
 
+			expect(initial.id).toBe(userId);
 			expect(initial.email).toBe(email);
 			expect(initial.name).toBe("Test User");
 			expect(initial.preferences).toEqual({
