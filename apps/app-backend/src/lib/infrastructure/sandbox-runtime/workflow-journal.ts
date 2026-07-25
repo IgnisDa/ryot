@@ -1,6 +1,7 @@
+import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
 import { hostFailure, hostSuccess } from "@ryot/sandbox-sdk/wire";
 import {
-	type WorkflowReplayJournalEntry as WorkflowJournalEntry,
+	type WorkflowReplayJournalEntry,
 	workflowReplayJournalEntrySchema,
 } from "@ryot/sandbox-sdk/workflow";
 import { sha256Base64Url } from "@ryot/ts-utils/crypto";
@@ -8,13 +9,11 @@ import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, Schema } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
+import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { type BoundHostFunction, isJsonValue } from "#lib/infrastructure/sandbox-runtime/shared";
 
 const projectionTtlSeconds = 24 * 60 * 60;
 const highWaterField = "high-water";
-
-export type { WorkflowJournalEntry };
 
 type WorkflowJournalBridgeRedis = {
 	readonly client: {
@@ -47,7 +46,7 @@ export const hashWorkflowCallArgs = (args: unknown) => sha256Base64Url(stableStr
 export const projectWorkflowJournalWithRedis = (
 	redis: WorkflowJournalProjectionRedis,
 	executionId: string,
-	journal: ReadonlyArray<WorkflowJournalEntry>,
+	journal: ReadonlyArray<WorkflowReplayJournalEntry>,
 ) =>
 	Effect.gen(function* () {
 		const key = redisKeys.sandboxWorkflowJournal(executionId);
@@ -79,7 +78,7 @@ export const projectWorkflowJournalWithRedis = (
 
 export const projectWorkflowJournal = (
 	executionId: string,
-	journal: ReadonlyArray<WorkflowJournalEntry>,
+	journal: ReadonlyArray<WorkflowReplayJournalEntry>,
 ) =>
 	Effect.gen(function* () {
 		const redis = yield* RedisService;
@@ -110,7 +109,7 @@ export const makeWorkflowReplayJournalHostFunction =
 			const fields = Array.from({ length: highWater }, (_, index) => String(index));
 			const rawEntries =
 				fields.length === 0 ? [] : yield* Effect.promise(() => redis.client.hmget(key, ...fields));
-			const entries: WorkflowJournalEntry[] = [];
+			const entries: WorkflowReplayJournalEntry[] = [];
 			let encodedBytes = 2;
 			for (let index = 0; index < rawEntries.length; index += 1) {
 				const raw = rawEntries[index];

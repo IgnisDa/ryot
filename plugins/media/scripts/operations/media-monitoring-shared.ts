@@ -1,5 +1,5 @@
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import type { RyotQLDocument } from "@ryot/sandbox-sdk/ryotql";
 
 import {
 	buildMediaMonitoringTargetsDocument,

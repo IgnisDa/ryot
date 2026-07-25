@@ -1,5 +1,6 @@
 import { BunHttpServer } from "@effect/platform-bun";
 import { badRequest, internalError, unknownToMessage } from "@ryot/contract/errors";
+import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
 import { hostFailure } from "@ryot/sandbox-sdk/wire";
 import {
 	Clock,
@@ -22,12 +23,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { sandboxDenoDirConfig } from "../config/definition";
 import { ensureSandboxRuntimeDependencies } from "./dependencies";
 import type { SandboxProcessGrants } from "./filesystem-grants";
-import {
-	consumeSandboxHostCall,
-	SANDBOX_LIMITS,
-	type SandboxHostCallBudget,
-	utf8ByteLength,
-} from "./limits";
+import { consumeSandboxHostCall, SANDBOX_LIMITS, type SandboxHostCallBudget } from "./limits";
 import { sandboxRunnerSource } from "./runner.generated";
 import type { BoundHostFunction } from "./shared";
 import { readSandboxByteLimitedText } from "./stream-utils";
