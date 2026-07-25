@@ -3,6 +3,8 @@ import { describe, expect, it } from "~/support/effect-test";
 import {
 	benchmarkBookDetailsSource,
 	benchmarkScriptSource,
+	DECODE_EXTERNAL_ID_SOURCE,
+	DETERMINISTIC_PAYLOAD_SOURCE,
 	decodeBenchmarkExternalId,
 	deterministicPayload,
 	encodeBenchmarkExternalId,
@@ -50,10 +52,36 @@ describe("benchmark external id", () => {
 	});
 });
 
+const evaluateSandboxSource = <A>(source: string, expression: string) => {
+	const javascript = new Bun.Transpiler({ loader: "ts" }).transformSync(source);
+	return Function(`${javascript}; return ${expression};`)() as A;
+};
+
 describe("generated sandbox sources", () => {
-	it("embeds one payload generator so the host and sandbox cannot drift", () => {
+	it("embeds a payload generator that agrees with the host implementation", () => {
 		const source = benchmarkScriptSource({ name: "Bench", slug: "bench.script" });
-		expect(source).toContain(deterministicPayload.toString());
+		const embedded = evaluateSandboxSource<(seed: number, bytes: number) => string>(
+			DETERMINISTIC_PAYLOAD_SOURCE,
+			"deterministicPayload",
+		);
+		expect(source).toContain(DETERMINISTIC_PAYLOAD_SOURCE);
+		for (const [seed, bytes] of [
+			[1, 64],
+			[42, 4096],
+			[7, 1],
+		]) {
+			expect(embedded(seed ?? 0, bytes ?? 0)).toBe(deterministicPayload(seed ?? 0, bytes ?? 0));
+		}
+	});
+
+	it("embeds an external-id decoder that agrees with the host implementation", () => {
+		const embedded = evaluateSandboxSource<typeof decodeBenchmarkExternalId>(
+			DECODE_EXTERNAL_ID_SOURCE,
+			"decodeBenchmarkExternalId",
+		);
+		const encoded = encodeBenchmarkExternalId({ ...workload, nonce: "run-9-1" });
+		expect(embedded(encoded)).toEqual(decodeBenchmarkExternalId(encoded));
+		expect(embedded("not-a-benchmark-id")).toBeNull();
 	});
 
 	it("wires the configured relationship slugs into the details provider", () => {
@@ -67,6 +95,6 @@ describe("generated sandbox sources", () => {
 		});
 		expect(source).toContain('"media-suggestion"');
 		expect(source).toContain('"person-to-book"');
-		expect(source).toContain(decodeBenchmarkExternalId.toString());
+		expect(source).toContain(DECODE_EXTERNAL_ID_SOURCE);
 	});
 });
