@@ -17,7 +17,7 @@ import {
 	executeQueryEngine,
 	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
-	findBuiltinWorkspaceBySlug,
+	findBuiltinPluginBySlug,
 	getEntity,
 	getQueryEngineFieldOrThrow,
 	requireQueryEngineIncludeValue,
@@ -56,15 +56,15 @@ describe("Workout Templates E2E", () => {
 	it.live("links the built-in workout-template schema to the fitness plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
+			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
 			const schemas = yield* listEntitySchemas(client, {
-				pluginSlug: fitnessWorkspace.slug,
+				pluginSlug: fitnessPlugin.slug,
 			});
 			const workoutTemplateSchema = schemas.find((schema) => schema.slug === "workout-template");
 
 			expect(workoutTemplateSchema).toBeDefined();
 			expect(workoutTemplateSchema?.name).toBe("Workout Template");
-			expect(workoutTemplateSchema?.pluginSlug).toBe(fitnessWorkspace.slug);
+			expect(workoutTemplateSchema?.pluginSlug).toBe(fitnessPlugin.slug);
 			expect(workoutTemplateSchema?.isBuiltin).toBe(true);
 		}),
 	);
@@ -156,16 +156,16 @@ describe("Workout Templates E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const fitnessWorkspace = yield* findBuiltinWorkspaceBySlug(client, "fitness");
+				const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
 				const views = yield* listSavedViews(client, {
-					pluginSlug: fitnessWorkspace.slug,
+					pluginSlug: fitnessPlugin.slug,
 				});
 				const allWorkoutTemplatesView = views.find((view) => view.name === "All Workout Templates");
 
 				expect(allWorkoutTemplatesView).toBeDefined();
 				expect(allWorkoutTemplatesView).toMatchObject({
 					isBuiltin: true,
-					pluginSlug: fitnessWorkspace.slug,
+					pluginSlug: fitnessPlugin.slug,
 					name: "All Workout Templates",
 					queryDocument: {
 						source: { schemas: ["workout-template"] },

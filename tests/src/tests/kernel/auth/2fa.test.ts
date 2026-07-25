@@ -11,7 +11,7 @@ import { assertTaggedError, requireNonEmptyArray, requirePresent } from "~/suppo
 import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";
 
-const workspaceListQuery = { includeDisabled: false };
+const pluginListQuery = { includeDisabled: false };
 
 describe("Two-factor sign-in flow", () => {
 	it.live("allows a 2FA-enabled user to sign in with a backup code", () =>
@@ -29,7 +29,7 @@ describe("Two-factor sign-in flow", () => {
 				"Two-factor setup did not return any backup codes",
 			);
 
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Cookie: twoFactorCookies,
 			});
 
@@ -42,7 +42,7 @@ describe("Two-factor sign-in flow", () => {
 			expect(signIn.data).toHaveProperty("twoFactorRedirect", true);
 
 			const unauthorizedError = yield* Effect.flip(
-				client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					Cookie: signInCookies,
 				}),
 			);
@@ -52,7 +52,7 @@ describe("Two-factor sign-in flow", () => {
 				verifyBackupCodeForSession({ code: backupCode, cookies: signInCookies, baseUrl }),
 			);
 			expect(verification.error).toBeNull();
-			yield* client.call((c) => c.definitions.listWorkspaces({ query: workspaceListQuery }), {
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 				Cookie: verification.cookies,
 			});
 

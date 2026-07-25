@@ -79,7 +79,7 @@ const makeState = (
 	...overrides,
 });
 
-it.effect("lists plugin workspaces with user state overlaid", () => {
+it.effect("lists plugins with user state overlaid", () => {
 	const layer = makeServiceLayer(
 		makeRepository({
 			listPluginStates: () =>
@@ -93,8 +93,8 @@ it.effect("lists plugin workspaces with user state overlaid", () => {
 	return Effect.gen(function* () {
 		const service = yield* DefinitionsService;
 
-		const visible = yield* service.listWorkspaces(user, false);
-		const all = yield* service.listWorkspaces(user, true);
+		const visible = yield* service.listPlugins(user, false);
+		const all = yield* service.listPlugins(user, true);
 
 		expect(visible.map(({ slug }) => slug)).toEqual(["fixture"]);
 		expect(visible[0]).toMatchObject({
@@ -126,7 +126,7 @@ it.effect("updates state while preserving omitted overlay values", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* DefinitionsService;
-		const workspace = yield* service.updateWorkspaceState(user, PluginSlug.make("fixture"), {
+		const plugin = yield* service.updatePluginState(user, PluginSlug.make("fixture"), {
 			isDisabled: true,
 		});
 
@@ -137,7 +137,7 @@ it.effect("updates state while preserving omitted overlay values", () => {
 			pluginSlug: "fixture",
 			config: { unit: "minutes" },
 		});
-		expect(workspace).toMatchObject({
+		expect(plugin).toMatchObject({
 			sortOrder: 4,
 			slug: "fixture",
 			name: "Fixture",
@@ -153,7 +153,7 @@ it.effect("returns not found when updating an unknown plugin", () => {
 	return Effect.gen(function* () {
 		const service = yield* DefinitionsService;
 		const exit = yield* Effect.exit(
-			service.updateWorkspaceState(user, PluginSlug.make("unknown"), { isDisabled: true }),
+			service.updatePluginState(user, PluginSlug.make("unknown"), { isDisabled: true }),
 		);
 
 		assertExitFails(exit, new NotFound({ message: "Plugin not found" }));
