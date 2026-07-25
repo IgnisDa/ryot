@@ -8,6 +8,8 @@ import {
 	USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
 } from "@ryot/sandbox-sdk/core";
 
+export { jsonByteLength, utf8ByteLength };
+
 const KiB = 1024;
 const MiB = 1024 * KiB;
 

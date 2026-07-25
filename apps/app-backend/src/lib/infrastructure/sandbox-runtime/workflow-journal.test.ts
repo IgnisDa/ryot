@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { workflowReplayJournalEntrySchema } from "@ryot/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 

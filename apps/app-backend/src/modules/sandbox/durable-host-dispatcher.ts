@@ -1,9 +1,8 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { httpCallArgsSchema, sandboxHostContracts } from "@ryot/sandbox-sdk/core";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
+import { type JsonValue, jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import {
 	type WorkflowDurableCallRequest,
 	type WorkflowDurableResult,

@@ -12,13 +12,12 @@ import type {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { SubscriptionRunId } from "@ryot/contract/schema/brands";
-import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
 import { sha256Base64Url } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
-import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
+import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 import {
 	PluginRuntimeResolver,
