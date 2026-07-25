@@ -29,7 +29,7 @@
   - Owner: D11 Entity translation
   - Scope: Single `INSERT ... ON CONFLICT DO UPDATE RETURNING`
 
-- [ ] **7. Atomic saved-view reorder** [M/S-M/M]
+- [x] **7. Atomic saved-view reorder** [M/S-M/M]
   - Owner: D25 Saved views
   - Scope: One `reorderBySlugs` operation per transaction
 

@@ -265,6 +265,32 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				return row ? toListedSavedView(row) : null;
 			});
 
+			const reorderBySlugs = Effect.fn("SavedViewsRepository.reorderBySlugs")(function* (
+				userId: UserId,
+				pluginInstallationId: string | null,
+				viewSlugs: ReadonlyArray<string>,
+			) {
+				const db = yield* Database;
+				const ordering = sql.join(
+					viewSlugs.map((slug, sortOrder) => sql`when ${slug} then ${sortOrder}::integer`),
+					sql` `,
+				);
+				const rows = yield* mapDatabaseErrors(
+					db
+						.update(schema.savedView)
+						.set({ sortOrder: sql`case ${schema.savedView.slug} ${ordering} end` })
+						.where(
+							and(
+								eq(schema.savedView.userId, userId),
+								inArray(schema.savedView.slug, viewSlugs),
+								withSavedViewScope(pluginInstallationId ?? undefined),
+							),
+						)
+						.returning({ slug: schema.savedView.slug }),
+				);
+				return rows.length;
+			});
+
 			const updateBuiltinStateBySlug = Effect.fn("SavedViewsRepository.updateBuiltinStateBySlug")(
 				function* (userId: UserId, viewSlug: string, isDisabled: boolean, sortOrder: number) {
 					const db = yield* Database;
@@ -402,15 +428,16 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				create,
 				findBySlug,
 				listByUser,
-				hasCustomInstallationReferences,
 				updateBySlug,
 				deleteBySlug,
 				listForBackup,
+				reorderBySlugs,
 				restoreCustomView,
 				ensureBuiltinViews,
 				restoreBuiltinViews,
 				updateBuiltinStateBySlug,
 				deleteGeneratedByInstallation,
+				hasCustomInstallationReferences,
 			};
 		}),
 	},

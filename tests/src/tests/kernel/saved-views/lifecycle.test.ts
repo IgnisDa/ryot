@@ -16,7 +16,7 @@ import {
 	type Client,
 	updateSavedView,
 } from "~/fixtures";
-import { assertTaggedError } from "~/support/assertions";
+import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const missingViewSlug = "non-existent-view-slug";
@@ -414,6 +414,43 @@ describe("Saved views lifecycle E2E", () => {
 			expect(fetchedView.pluginSlug).toBeNull();
 			expect(topLevelViews.map((v) => v.id)).toContain(movedView.id);
 			expect(pluginViews.map((v) => v.id)).not.toContain(movedView.id);
+		}),
+	);
+
+	it.live("reorders built-in and custom top-level views without altering their definitions", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const builtinView = requirePresent(
+				(yield* listSavedViews(client, { includeDisabled: true })).find(
+					(view) => view.isBuiltin && view.pluginSlug === null,
+				),
+				"Top-level built-in saved view not found",
+			);
+			const customView = yield* createSavedView(client, {
+				name: `Mixed Scope View ${crypto.randomUUID()}`,
+			});
+
+			const reordered = yield* reorderSavedViews(client, {
+				viewSlugs: [customView.slug, builtinView.slug],
+			});
+			const topLevelViews = yield* listSavedViews(client, { includeDisabled: true });
+			const reorderedBuiltin = yield* getSavedView(client, builtinView.slug);
+
+			expect(reordered.viewSlugs.slice(0, 2)).toEqual([customView.slug, builtinView.slug]);
+			expect(
+				topLevelViews
+					.filter((view) => view.pluginSlug === null)
+					.map((view) => view.slug)
+					.slice(0, 2),
+			).toEqual([customView.slug, builtinView.slug]);
+			expect(reorderedBuiltin).toMatchObject({
+				isBuiltin: true,
+				name: builtinView.name,
+				icon: builtinView.icon,
+				layouts: builtinView.layouts,
+				isDisabled: builtinView.isDisabled,
+				entitySchemaSlug: builtinView.entitySchemaSlug,
+			});
 		}),
 	);
 
