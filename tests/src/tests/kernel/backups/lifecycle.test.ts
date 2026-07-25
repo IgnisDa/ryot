@@ -106,11 +106,10 @@ describe("backup lifecycle", () => {
 
 	it.live("round-trips a schema-declared managed asset into a clean account", () =>
 		Effect.gen(function* () {
-			const source = yield* createAuthenticatedClient();
-			const other = yield* createAuthenticatedClient();
+			const setup = yield* createAuthenticatedClient();
 			const pluginSlug = createPluginScope(`backup-assets-${crypto.randomUUID()}`);
 			const schemaSlug = `backup-asset-${crypto.randomUUID()}`;
-			const { schemaId } = yield* createEntitySchema(source.client, {
+			const { schemaId } = yield* createEntitySchema(setup.client, {
 				pluginSlug,
 				slug: schemaSlug,
 				name: "Backup Asset Fixture",
@@ -125,6 +124,8 @@ describe("backup lifecycle", () => {
 					},
 				},
 			});
+			const source = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
 			const assetBytes = new TextEncoder().encode(
 				`backup managed asset ${crypto.randomUUID()}\nsecond line\n`,
 			);

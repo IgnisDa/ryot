@@ -16,6 +16,7 @@ type EventRow = Pick<
 	| "updatedAt"
 	| "occurredAt"
 	| "properties"
+	| "eventSchemaPluginId"
 	| "eventSchemaSlug"
 	| "sessionEntityId"
 > & {
@@ -41,6 +42,7 @@ type RestoreEventInput = Pick<
 	| "updatedAt"
 	| "occurredAt"
 	| "properties"
+	| "eventSchemaPluginId"
 	| "eventSchemaSlug"
 	| "sessionEntityId"
 >;
@@ -57,17 +59,18 @@ const createdEventSelection = {
 	properties: schema.event.properties,
 	eventSchemaSlug: schema.event.eventSchemaSlug,
 	sessionEntityId: schema.event.sessionEntityId,
+	eventSchemaPluginId: schema.event.eventSchemaPluginId,
 };
 
 const toListedEvent = (row: EventRow): ListedEvent => ({
-	id: EventId.make(row.id),
-	entityId: EntityId.make(row.entityId),
 	properties: row.properties,
-	eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
+	id: EventId.make(row.id),
 	eventSchemaName: row.eventSchemaName,
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	occurredAt: row.occurredAt.toISOString(),
+	entityId: EntityId.make(row.entityId),
+	eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
 	sessionEntityId: row.sessionEntityId ? EntityId.make(row.sessionEntityId) : undefined,
 });
 
