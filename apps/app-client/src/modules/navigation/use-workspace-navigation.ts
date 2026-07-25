@@ -8,8 +8,8 @@ import { Cause, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { router, useGlobalSearchParams, usePathname } from "expo-router";
 
-import { navigationAtom } from "@/api/atoms";
 import { useAuthClient } from "@/modules/auth/client";
+import { navigationAtom } from "@/modules/navigation/atoms";
 import { useSetWorkspace, useWorkspace } from "@/modules/server/state";
 
 import {
