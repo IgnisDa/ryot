@@ -7,10 +7,8 @@ import { Context, Effect, Layer } from "effect";
 import type { Headers as PlatformHeaders } from "effect/unstable/http";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { AuthService } from "#modules/auth/service";
-import { executeSandboxExecution } from "#modules/sandbox/durable-queues";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { PluginRuntimeResolver } from "./runtime-resolver";
 
@@ -42,29 +40,25 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 		const auth = yield* AuthService;
 		const runWithDb = yield* DbRunner;
 		const runtime = yield* PluginRuntimeResolver;
-		const sandbox = yield* RuntimeSandboxService;
-		const sandboxRepository = yield* SandboxRepository;
+		const sandbox = yield* SandboxExecutionService;
 		const integrationScopeResolver = yield* IntegrationOperationScopeResolver;
 
 		const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: DispatchInput) {
 			const executionId = `plugin-operation-${input.pluginSlug}-${input.operationSlug}-${generateId()}`;
-			const result = yield* executeSandboxExecution({
+			const result = yield* sandbox.executeScript({
 				executionId,
-				context: input.payload,
+				input: input.payload,
 				scriptId: input.scriptId,
 				authority: {
 					type: "user",
 					userId: input.userId,
 					...(input.integrationId ? { integrationId: input.integrationId } : {}),
 				},
-			}).pipe(
-				Effect.provideService(DbRunner, runWithDb),
-				Effect.provideService(RuntimeSandboxService, sandbox),
-				Effect.provideService(SandboxRepository, sandboxRepository),
-				Effect.catchTag("TimeoutError", (error) => new SandboxRunError({ message: error.message })),
-			);
+			});
 			if (result.error) {
-				return yield* new SandboxRunError({ message: result.error.message });
+				return yield* new SandboxRunError({
+					message: `${result.error.phase}: ${result.error.message}`,
+				});
 			}
 			return result.value;
 		});

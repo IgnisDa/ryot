@@ -63,7 +63,7 @@ it.effect("keeps sandbox submission and queue execution at their allowed boundar
 		expect(durableQueues).toContain("Effect.flatMap(processSandboxExecutionQueue)");
 		expect(eventCreateCore).not.toContain("SandboxSubmissionWorkflow");
 		expect(eventCreateWorkflow).not.toContain("SandboxSubmissionWorkflow");
-		expect(subscriptionWorkflow).toContain("processSandboxExecutionQueue");
+		expect(subscriptionWorkflow).toContain("SandboxExecutionService");
 		expect(sandboxScriptWorkflow).toContain("processSandboxExecutionQueue(payload)");
 		expect(sandboxWorkflow).toContain("processSandboxExecutionQueue(payload)");
 		expect(durableQueues).toContain('Effect.timeout("1 minute")');

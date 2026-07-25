@@ -64,17 +64,13 @@ describe("requireSandboxCapabilityInput", () => {
 		).toThrow("upsertGlobalEntities is available only to provider-associated scripts");
 	});
 
-	it("limits system query access to activity metadata", () => {
+	it("limits system query access to approved metadata kinds", () => {
 		const input = makeRunInput({ type: "system" }, null, { kind: "activity" });
 		expect(Effect.runSync(requireSandboxCapabilityInput(input, "executeQueryEngine"))).toBe(input);
-		expect(() =>
-			Effect.runSync(
-				requireSandboxCapabilityInput(
-					makeRunInput({ type: "system" }, null, { kind: "script" }),
-					"executeQueryEngine",
-				),
-			),
-		).toThrow("executeQueryEngine is not available to this system execution");
+		const script = makeRunInput({ type: "system" }, null, { kind: "script" });
+		expect(Effect.runSync(requireSandboxCapabilityInput(script, "executeQueryEngine"))).toBe(
+			script,
+		);
 	});
 
 	it("restricts automation capabilities to trusted automation executions", () => {

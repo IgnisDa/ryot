@@ -114,6 +114,40 @@ it.effect("executes an installed script as the explicit user", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("returns a failure-bearing result when universal script execution fails", () => {
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
+	const layer = makeServiceLayer(
+		makeRepository(),
+		makePluginRuntime(),
+		Layer.succeed(
+			WorkflowEngine,
+			makeWorkflowEngine({
+				execute: (_workflow, options) => {
+					capturedOptions = options;
+					return Effect.fail(new SandboxRunError({ message: "script failed" }));
+				},
+			}),
+		),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SandboxExecutionService;
+		const result = yield* service.executeScript({
+			input: {},
+			executionId: "script-execution",
+			scriptId,
+			authority: { type: "user", userId: executingUserId },
+		});
+		expect(result).toEqual({
+			logs: [],
+			value: null,
+			status: "completed",
+			error: { phase: "execute", message: "script failed" },
+		});
+		expect(capturedOptions?.payload).toMatchObject({ resultMode: "execution" });
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("rejects inactive plugin scripts before starting the workflow", () => {
 	let executionCount = 0;
 	const layer = makeServiceLayer(

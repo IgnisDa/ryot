@@ -574,14 +574,12 @@ export const mediaPlugin = definePlugin({
 	],
 	crons: [
 		{
-			lot: "workflow",
 			slug: "media-monitoring",
 			schedule: { tier: "infrequent" },
-			workflowSlug: "media-monitoring-sweep",
+			scriptSlug: "workflow.media-monitoring-sweep",
 			description: "Refresh monitored provider-backed media",
 		},
 		{
-			lot: "script",
 			slug: "media-trending",
 			scriptSlug: "media-trending",
 			schedule: { tier: "infrequent" },

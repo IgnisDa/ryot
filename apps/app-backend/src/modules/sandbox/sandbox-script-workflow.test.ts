@@ -342,6 +342,7 @@ fi
 		executionId,
 		scriptId: historicalScriptId,
 		resolutionMode: "active" as const,
+		resultMode: "execution" as const,
 		authority: { type: "system" as const },
 	};
 
@@ -351,7 +352,13 @@ fi
 				Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 			),
 		);
-		expect(result).toEqual({ content: "pinned-v1", journal: [{ kernel: "recorded" }] });
+		expect(result).toEqual({
+			logs: [],
+			error: null,
+			status: "completed",
+			timing: { totalMs: 1, executionMs: 1 },
+			value: { content: "pinned-v1", journal: [{ kernel: "recorded" }] },
+		});
 		expect(activeId).toBe(replacementScriptId);
 		expect(kernelCallerScriptId).toBe(historicalScriptId);
 		expect(executedContent).toEqual([historicalContent, historicalContent]);
