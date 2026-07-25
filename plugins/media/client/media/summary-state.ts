@@ -6,6 +6,7 @@ import type {
 	MediaLifecycleState,
 } from "../../shared/lifecycle-expressions";
 import type { MediaSummarySelection } from "../../shared/media-recipes";
+import { mediaActivityDurationLabel } from "./activity-timeline";
 import {
 	collectManagedAssetLocators,
 	mediaImageAssets,
@@ -181,6 +182,14 @@ export const mediaCountFact = (count: number | null, singular: string) =>
 	count === null
 		? undefined
 		: { value: String(count), label: count === 1 ? singular : `${singular}s` };
+
+export const mediaRuntimeFact = (runtime: number | null, label: string) =>
+	runtime === null
+		? undefined
+		: { label, icon: "clock", value: mediaActivityDurationLabel(runtime) };
+
+export const mediaRuntimeLabels = (runtime: number | null) =>
+	runtime === null ? [] : [mediaActivityDurationLabel(runtime)];
 
 export const mediaCollectionsLabel = ({ items, pageInfo }: MediaCollectionList) => {
 	if (items.length === 0) {

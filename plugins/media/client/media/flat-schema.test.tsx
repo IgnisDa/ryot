@@ -62,6 +62,11 @@ const resolvingAdapter: Partial<RyotClientAdapter> = {
 		),
 };
 
+const UNLINKED_CREATORS = [
+	{ role: "Author", name: "Ann Author" },
+	{ name: "Pan Press", role: "Publisher" },
+];
+
 const overviewOf = (input: Parameters<typeof decodeFlatOverview>[1] = {}) =>
 	decodeFlatOverview(fixtureOverviewRecipe, input);
 
@@ -336,6 +341,34 @@ describe("flat media overview", () => {
 		const noGroup = renderBody(readyState(), { overview: overviewOf({ group: [] }) });
 		expect(noGroup.container.textContent).not.toContain("Part of");
 		noGroup.unmount();
+	});
+
+	it("lists unlinked people in the people rail and unlinked publishers with the companies", () => {
+		const overview = overviewOf({ unlinkedCreators: UNLINKED_CREATORS });
+		const { unmount, container } = renderBody(readyState(), { overview });
+
+		expect(container.textContent).toContain(flatPersonRow.name);
+		expect(container.querySelector('[aria-label="Open Ann Author"]')).toBeNull();
+		expect(container.querySelector('[aria-label="Open Pan Press"]')).toBeNull();
+		const sections = Array.from(container.querySelectorAll("section"));
+		expect(
+			sections.find((section) => section.textContent.startsWith("People"))?.textContent,
+		).toContain("Ann Author");
+		expect(
+			sections.find((section) => section.textContent.startsWith("Companies"))?.textContent,
+		).toContain("Pan Press");
+		unmount();
+	});
+
+	it("keeps an overview holding only unlinked creators", () => {
+		const bare = { group: [], people: [], companies: [], recommendations: [] };
+		const onlyUnlinked = overviewOf({ ...bare, unlinkedCreators: UNLINKED_CREATORS });
+
+		expect(fixtureSchema.overviewIsEmpty(onlyUnlinked)).toBe(false);
+		expect(fixtureSchema.overviewIsEmpty(overviewOf(bare))).toBe(true);
+		const { unmount, container } = renderBody(readyState(), { overview: onlyUnlinked });
+		expect(container.textContent).toContain("Ann Author");
+		unmount();
 	});
 
 	it("reports an overview with neither relations nor group members as empty", () => {

@@ -3,6 +3,7 @@ import {
 	and,
 	ascending,
 	castBoolean,
+	coalesce,
 	column,
 	conditional,
 	count,
@@ -13,6 +14,7 @@ import {
 	first,
 	inArray,
 	isNotNull,
+	isNull,
 	IsoDateString,
 	join,
 	jsonPath,
@@ -142,6 +144,10 @@ export type MediaSummarySelection = ReturnType<typeof mediaSummarySelection>;
 
 export const mediaWatchProviderSelection = (entity: Table) => ({
 	watchProviders: selectedField(propertyJson(entity, "watchProviders"), WatchProviderListSchema),
+});
+
+export const mediaRuntimeSelection = (entity: Table) => ({
+	runtime: selectedField(propertyNumber(entity, "runtime"), Schema.NullOr(Schema.Number)),
 });
 
 export const creditSelection = (credit: Table, relationship: Table) => ({
@@ -339,6 +345,24 @@ export type MediaFlatMeasure = (event: Table) => {
 	readonly amount: ScalarExpression;
 	readonly isUnknown: Predicate;
 };
+
+export const mediaTimeSpentMeasure =
+	(fallback?: (entity: Table) => ScalarExpression) => (event: Table, entity: Table) => {
+		const timeSpent = propertyNumber(event, "timeSpent");
+		if (fallback === undefined) {
+			return { amount: timeSpent, isUnknown: isNull(timeSpent) };
+		}
+		const amount = fallback(entity);
+		return {
+			amount: coalesce(timeSpent, amount),
+			isUnknown: and(isNull(timeSpent), isNull(amount)),
+		};
+	};
+
+export const mediaEntityCountMeasure = (property: string) => (_event: Table, entity: Table) => ({
+	amount: propertyNumber(entity, property),
+	isUnknown: isNull(propertyNumber(entity, property)),
+});
 
 export const mediaFlatConsumptionTotals = (input: {
 	readonly entity: Table;
@@ -553,6 +577,16 @@ export const mediaUnlinkedCreatorsQuery = (id: string) => {
 			),
 		},
 	});
+};
+
+export const mediaUnlinkedCreatorsOverviewQueries = (input: { readonly entityId: string }) => ({
+	creators: mediaUnlinkedCreatorsQuery(input.entityId),
+});
+
+export type MediaUnlinkedCreatorsOverview = {
+	readonly creators?:
+		| SelectedQuerySuccess<ReturnType<typeof mediaUnlinkedCreatorsQuery>>
+		| undefined;
 };
 
 const MEDIA_FLAT_PRESENTATION_LIMIT = 100;
