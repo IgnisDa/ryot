@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import {
 	genericImportAdapterManifestSchema,
@@ -10,15 +9,15 @@ import { adaptOpenScaleCsv } from "../../import-adapters/open-scale";
 import { readImportArtifactText, writeImportChunks } from "./shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
+	slug: "import.open-scale",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	name: "Parse OpenScale import",
-	slug: "activity.import.open-scale",
 	capabilities: ["artifact-read", "scratch"],
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: Schema.Struct({}),
 	output: genericImportAdapterManifestSchema,
