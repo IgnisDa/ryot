@@ -59,9 +59,9 @@ const runtimeModules = SANDBOX_APPROVED_DEPENDENCIES.map((dependency) =>
 		? {
 				...dependency,
 				...legacyYoutubeiRuntime,
-				runtimeSource: null,
 				resolveFromSdk: true,
 				sourceImport: legacyYoutubeiRuntime.packageImport,
+				runtimeSource: 'export * from "@ryot/sandbox-sdk/youtubei";',
 			}
 		: {
 				...dependency,
@@ -161,6 +161,7 @@ const buildRuntimeModule = (
 	outputDirectory: string,
 	runtimeFile: string,
 	runtimeSource: string | null,
+	runtimeSourceResolveDir?: string,
 ) =>
 	Effect.tryPromise({
 		try: () =>
@@ -185,8 +186,18 @@ const buildRuntimeModule = (
 									builder.onLoad({ filter: /.*/, namespace: "sandbox-runtime-dependency" }, () => ({
 										loader: "js",
 										contents: runtimeSource,
-										resolveDir: entrypoint.slice(0, entrypoint.lastIndexOf("/")),
+										resolveDir:
+											runtimeSourceResolveDir ?? entrypoint.slice(0, entrypoint.lastIndexOf("/")),
 									}));
+									builder.onResolve({ filter: /^@ryot\/sandbox-sdk\/effect$/ }, () => ({
+										external: true,
+										path: "@ryot/sandbox-sdk/effect",
+									}));
+									if (runtimeFile.startsWith("youtubei-")) {
+										builder.onResolve({ filter: /^youtubei\.js\/web$/ }, () => ({
+											path: entrypoint,
+										}));
+									}
 								},
 							},
 						]
@@ -346,7 +357,13 @@ export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
 					yield* Effect.forEach(
 						entries,
 						({ entrypoint, runtimeFile, runtimeSource }) =>
-							buildRuntimeModule(entrypoint, temporaryDirectory, runtimeFile, runtimeSource),
+							buildRuntimeModule(
+								entrypoint,
+								temporaryDirectory,
+								runtimeFile,
+								runtimeSource,
+								runtimeSource ? from : undefined,
+							),
 						{ discard: true },
 					);
 					yield* fs.writeFileString(
