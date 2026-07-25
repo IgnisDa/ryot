@@ -1,4 +1,5 @@
 import { OverlayScope, useFocusTrap, useScrollLock } from "@ryot-app/client-ui-sdk";
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -34,6 +35,7 @@ type MobileDrawerProps = {
 	readonly onOpenSearch: () => void;
 	readonly sections: SidebarSections;
 	readonly session: AuthSessionStore;
+	readonly navigation: NavigationData;
 	readonly catalog: PluginClientCatalog;
 	readonly progress: MotionValue<number>;
 	readonly current: PluginClientCatalogEntry | null;
@@ -112,6 +114,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 							sections={props.sections}
 							showSearchShortcut={false}
 							activeKey={props.activeKey}
+							navigation={props.navigation}
 							activeHome={props.activeHome}
 							key={props.isOpen ? "open" : "closed"}
 							onCustomize={() => closeThen(props.onCustomize)}

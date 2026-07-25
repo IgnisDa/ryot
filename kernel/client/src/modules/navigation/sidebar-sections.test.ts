@@ -5,6 +5,7 @@ import {
 	activeSidebarKey,
 	sidebarItemKey,
 	sidebarSections,
+	workspacePickerSummary,
 	workspaceSummary,
 } from "#/modules/navigation/sidebar-sections";
 
@@ -70,6 +71,43 @@ describe("sidebar sections", () => {
 
 		expect(sections.views.map(sidebarItemKey)).toEqual(["home"]);
 		expect(workspaceSummary(sections)).toBe("1 view");
+	});
+
+	it("formats a workspace picker summary from enabled views in sort order", () => {
+		const data: NavigationData = {
+			savedViews: [
+				view({ name: "Fourth", slug: "fourth", sortOrder: 4, pluginSlug: "media" }),
+				view({
+					sortOrder: 0,
+					name: "Disabled",
+					slug: "disabled",
+					isDisabled: true,
+					pluginSlug: "media",
+				}),
+				view({ name: "Second", slug: "second", sortOrder: 2, pluginSlug: "media" }),
+				view({ name: "Other", slug: "other", sortOrder: 1, pluginSlug: "fitness" }),
+				view({ name: "First", slug: "first", sortOrder: 1, pluginSlug: "media" }),
+			],
+			collections: [],
+		};
+
+		expect(workspacePickerSummary(data, "media")).toBe("First, Second, Fourth");
+		expect(workspacePickerSummary(data, "fitness")).toBe("Other");
+	});
+
+	it("adds the remaining count and handles empty workspaces", () => {
+		const data: NavigationData = {
+			savedViews: [
+				view({ name: "First", slug: "first", sortOrder: 0, pluginSlug: "media" }),
+				view({ name: "Second", slug: "second", sortOrder: 1, pluginSlug: "media" }),
+				view({ name: "Third", slug: "third", sortOrder: 2, pluginSlug: "media" }),
+				view({ name: "Fourth", slug: "fourth", sortOrder: 3, pluginSlug: "media" }),
+			],
+			collections: [],
+		};
+
+		expect(workspacePickerSummary(data, "media")).toBe("First, Second, Third +1");
+		expect(workspacePickerSummary(data, "fitness")).toBe("Custom workspace · 0 views");
 	});
 
 	it.each([

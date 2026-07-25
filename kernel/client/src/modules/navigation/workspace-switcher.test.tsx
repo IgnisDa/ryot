@@ -1,3 +1,4 @@
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -23,6 +24,17 @@ const workspace = (
 	installationId: "installation-media",
 	clientArtifactHash: "artifact-media",
 	...overrides,
+});
+
+const navigation: NavigationData = { savedViews: [], collections: [] };
+
+const view = (name: string, sortOrder: number): NavigationData["savedViews"][number] => ({
+	name,
+	sortOrder,
+	icon: "list",
+	pluginSlug: null,
+	isDisabled: false,
+	slug: name.toLowerCase(),
 });
 
 describe("workspace switcher", () => {
@@ -65,6 +77,7 @@ describe("workspace switcher", () => {
 				summary="2 views"
 				current={current}
 				catalog={catalog}
+				navigation={navigation}
 				onSelect={() => undefined}
 			/>,
 		);
@@ -88,6 +101,41 @@ describe("workspace switcher", () => {
 		).toBeNull();
 	});
 
+	it("renders sorted workspace view summaries and keeps the trigger summary", () => {
+		const current = workspace();
+		const fitness = workspace({
+			name: "Fitness",
+			slug: "fitness",
+			sortOrder: 1,
+			installationId: "installation-fitness",
+		});
+		render(
+			<WorkspaceSwitcher
+				current={current}
+				summary="3 views"
+				onSelect={() => undefined}
+				catalog={[current, fitness]}
+				navigation={{
+					collections: [],
+					savedViews: [
+						{ ...view("Fourth", 4), pluginSlug: "media" },
+						{ ...view("Disabled", 0), isDisabled: true, pluginSlug: "media" },
+						{ ...view("Second", 2), pluginSlug: "media" },
+						{ ...view("First", 1), pluginSlug: "media" },
+						{ ...view("Third", 3), pluginSlug: "media" },
+					],
+				}}
+			/>,
+		);
+
+		expect(screen.getByText("3 views")).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+
+		const menu = screen.getByRole("menu", { name: "Workspaces" });
+		expect(within(menu).getByText("First, Second, Third +1")).toBeTruthy();
+		expect(within(menu).getByText("Custom workspace · 0 views")).toBeTruthy();
+	});
+
 	it("focuses the current workspace on open and exposes its selection", async () => {
 		const current = workspace();
 		render(
@@ -95,6 +143,7 @@ describe("workspace switcher", () => {
 				current={current}
 				summary="2 views"
 				catalog={[current]}
+				navigation={navigation}
 				onSelect={() => undefined}
 			/>,
 		);
@@ -112,6 +161,7 @@ describe("workspace switcher", () => {
 			<WorkspaceSwitcher
 				showShortcut
 				current={current}
+				navigation={navigation}
 				summary="2 views"
 				catalog={[current]}
 				onSelect={() => undefined}
@@ -136,6 +186,7 @@ describe("workspace switcher", () => {
 				current={current}
 				summary="2 views"
 				catalog={[current]}
+				navigation={navigation}
 				onSelect={() => undefined}
 			/>,
 		);
@@ -158,6 +209,7 @@ describe("workspace switcher", () => {
 				current={current}
 				summary="2 views"
 				catalog={[current]}
+				navigation={navigation}
 				onSelect={() => undefined}
 			/>,
 		);
@@ -183,6 +235,7 @@ describe("workspace switcher", () => {
 					summary="2 views"
 					current={current}
 					catalog={[current]}
+					navigation={navigation}
 					onSelect={() => undefined}
 				/>
 				<button type="button">Outside</button>
@@ -212,6 +265,7 @@ describe("workspace switcher", () => {
 				summary="2 views"
 				current={current}
 				catalog={[current]}
+				navigation={navigation}
 				onSelect={(slug) => {
 					selections.push(slug);
 				}}
@@ -234,6 +288,7 @@ describe("workspace switcher", () => {
 			<WorkspaceSwitcher
 				current={current}
 				summary="2 views"
+				navigation={navigation}
 				catalog={[
 					current,
 					workspace({ name: "Fitness", slug: "fitness", installationId: "installation-fitness" }),
@@ -264,6 +319,7 @@ describe("workspace switcher", () => {
 				current={current}
 				summary="2 views"
 				catalog={[current]}
+				navigation={navigation}
 				onSelect={() => undefined}
 			/>,
 		);
@@ -282,6 +338,7 @@ describe("workspace switcher", () => {
 			<WorkspaceSwitcher
 				summary="2 views"
 				current={current}
+				navigation={navigation}
 				onSelect={() => undefined}
 				catalog={[
 					current,
@@ -328,6 +385,7 @@ describe("workspace switcher", () => {
 					summary="2 views"
 					current={current}
 					catalog={[current]}
+					navigation={navigation}
 					onSelect={() => undefined}
 				/>
 				<button type="button">After switcher</button>
@@ -353,6 +411,7 @@ describe("workspace switcher", () => {
 				current={current}
 				summary="2 views"
 				catalog={[current]}
+				navigation={navigation}
 				onSelect={() => undefined}
 			/>,
 		);
@@ -370,6 +429,7 @@ describe("workspace switcher", () => {
 				current={current}
 				summary="2 views"
 				catalog={[current]}
+				navigation={navigation}
 				onSelect={() => undefined}
 				onCustomize={() => events.push(screen.queryByRole("menu") === null ? "closed" : "open")}
 			/>,
@@ -388,6 +448,7 @@ describe("workspace switcher", () => {
 				current={current}
 				summary="2 views"
 				catalog={[current]}
+				navigation={navigation}
 				onSelect={() => undefined}
 				onCustomize={() => undefined}
 			/>,
