@@ -1,5 +1,6 @@
 import { ScreenBarButton, ScreenFrame } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { Match } from "effect";
 import type { ReactNode } from "react";
 
 import { usePluginChrome, usePluginScreenSurface, usePluginTitle } from "./routing";
@@ -33,6 +34,24 @@ export function PluginScreenFrame({
 }: PluginScreenFrameProps) {
 	const chrome = usePluginChrome();
 	const { scrollRootRef } = usePluginScreenSurface();
+	const leading = Match.value(chrome.leading).pipe(
+		Match.when("back", () => (
+			<ScreenBarButton className={control} onClick={chrome.back} label={backLabel ?? "Go back"}>
+				<AppIcon size={22} name="chevron-left" />
+			</ScreenBarButton>
+		)),
+		Match.when("drawer", () => (
+			<ScreenBarButton
+				className={control}
+				onClick={chrome.openDrawer}
+				label={menuLabel ?? "Open navigation"}
+			>
+				<AppIcon name="menu" size={22} />
+			</ScreenBarButton>
+		)),
+		Match.when("none", () => null),
+		Match.exhaustive,
+	);
 	usePluginTitle(title);
 
 	return (
@@ -40,6 +59,7 @@ export function PluginScreenFrame({
 			meta={meta}
 			hero={hero}
 			title={title}
+			leading={leading}
 			actions={actions}
 			searchRow={searchRow}
 			titleIcon={titleIcon}
@@ -47,21 +67,6 @@ export function PluginScreenFrame({
 			compact={chrome.compact}
 			scrollRootRef={scrollRootRef}
 			safeAreaTop={chrome.safeAreaTop}
-			leading={
-				chrome.edgeBack ? (
-					<ScreenBarButton className={control} onClick={chrome.back} label={backLabel ?? "Go back"}>
-						<AppIcon size={22} name="chevron-left" />
-					</ScreenBarButton>
-				) : (
-					<ScreenBarButton
-						className={control}
-						onClick={chrome.openDrawer}
-						label={menuLabel ?? "Open navigation"}
-					>
-						<AppIcon name="menu" size={22} />
-					</ScreenBarButton>
-				)
-			}
 		>
 			<main>{children}</main>
 		</ScreenFrame>

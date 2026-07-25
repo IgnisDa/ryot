@@ -12,38 +12,55 @@ const resolve = (input: Partial<Parameters<typeof resolveEdge>[0]> = {}) =>
 		atRoot: false,
 		canGoBack: true,
 		isDesktop: false,
-		hasPluginDocument: true,
+		hasPluginBackScreen: true,
 		pathname: "/media/search",
 		...input,
 	});
 
 describe("resolveEdge", () => {
-	it("opens the drawer at a workspace root even when history can be popped", () => {
-		expect(resolve({ atRoot: true, pathname: "/media" })).toEqual({
-			compact: true,
-			owner: "kernel",
-			intent: "drawer",
-		});
-	});
-
-	it("gives the plugin document the back gesture on a plugin child route", () => {
-		expect(resolve()).toEqual({ compact: true, owner: "plugin", intent: "back" });
-	});
-
-	it("keeps back in the kernel on a settings route, where no plugin document exists", () => {
-		expect(resolve({ pathname: "/settings/account", hasPluginDocument: false })).toEqual({
-			compact: true,
-			intent: "back",
-			owner: "kernel",
-		});
-	});
-
-	it("keeps back in the kernel on desktop, where the edge gesture is not offered", () => {
-		expect(resolve({ isDesktop: true })).toEqual({
-			intent: "back",
-			compact: false,
-			owner: "kernel",
-		});
+	it.each([
+		{
+			input: {},
+			name: "plugin child ready",
+			expected: { compact: true, owner: "plugin", intent: "back" },
+		},
+		{
+			input: { pathname: "/e/entity-1" },
+			expected: { compact: true, owner: "plugin", intent: "back" },
+			name: "plugin to entity in the same document with generic readiness",
+		},
+		{
+			name: "saved view to entity without plugin readiness",
+			expected: { compact: true, owner: "kernel", intent: "back" },
+			input: { pathname: "/e/entity-1", hasPluginBackScreen: false },
+		},
+		{
+			name: "cross-plugin navigation without readiness",
+			expected: { compact: true, owner: "kernel", intent: "back" },
+			input: { pathname: "/fitness/workouts", hasPluginBackScreen: false },
+		},
+		{
+			name: "direct entity entry with no history",
+			expected: { compact: true, owner: "kernel", intent: "drawer" },
+			input: { pathname: "/e/entity-1", canGoBack: false, hasPluginBackScreen: false },
+		},
+		{
+			name: "workspace root",
+			input: { atRoot: true, pathname: "/media" },
+			expected: { compact: true, owner: "kernel", intent: "drawer" },
+		},
+		{
+			input: { isDesktop: true },
+			name: "desktop child with no interactive edge",
+			expected: { compact: false, owner: "kernel", intent: "back" },
+		},
+		{
+			input: { hasPluginBackScreen: false },
+			name: "plugin child with a blocked artifact",
+			expected: { compact: true, owner: "kernel", intent: "back" },
+		},
+	] as const)("resolves $name", ({ expected, input }) => {
+		expect(resolve(input)).toEqual(expected);
 	});
 
 	it("reports a compact viewport even where the kernel keeps the edge", () => {
@@ -51,16 +68,8 @@ describe("resolveEdge", () => {
 		expect(resolve({ isDesktop: true, atRoot: true, pathname: "/media" }).compact).toBe(false);
 	});
 
-	it("falls through to the drawer when a child route has nothing to pop", () => {
-		expect(resolve({ canGoBack: false })).toEqual({
-			compact: true,
-			owner: "kernel",
-			intent: "drawer",
-		});
-	});
-
 	it("keeps back in the kernel on the customize route, which owns its own back control", () => {
-		expect(resolve({ pathname: "/customize-sidebar", hasPluginDocument: false })).toEqual({
+		expect(resolve({ pathname: "/customize-sidebar", hasPluginBackScreen: false })).toEqual({
 			compact: true,
 			intent: "back",
 			owner: "kernel",
@@ -69,12 +78,14 @@ describe("resolveEdge", () => {
 
 	it("offers no drawer on the customize route even with nothing to pop", () => {
 		expect(
-			resolve({ pathname: "/customize-sidebar", canGoBack: false, hasPluginDocument: false }),
+			resolve({ pathname: "/customize-sidebar", canGoBack: false, hasPluginBackScreen: false }),
 		).toEqual({ compact: true, intent: "none", owner: "kernel" });
 	});
 
 	it("binds nothing on a settings route with no history", () => {
-		expect(resolve({ pathname: "/settings", canGoBack: false, hasPluginDocument: false })).toEqual({
+		expect(
+			resolve({ pathname: "/settings", canGoBack: false, hasPluginBackScreen: false }),
+		).toEqual({
 			compact: true,
 			intent: "none",
 			owner: "kernel",

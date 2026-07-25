@@ -10,6 +10,7 @@ import {
 	type PluginBridgeReady,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
+	type PluginBridgeScreenState,
 	type PluginClientArtifactMetadata,
 	type PluginThemeSnapshot,
 	type RyotClientErrorReason,
@@ -19,7 +20,7 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Match, Result, Schema } from "effect";
 
 import { createRyotClient, RyotClientError, type RyotNavigationTarget } from "./index";
-import type { PluginNavigationController } from "./navigation/store";
+import type { PluginNavigationController, PluginNavigationSnapshot } from "./navigation/store";
 
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
@@ -247,15 +248,35 @@ export const createPluginRuntime = (
 				return;
 			}
 			Match.value(decoded.success).pipe(
-				Match.when({ type: "location" }, ({ compact, edgeBack, index, key, location }) => {
+				Match.when({ type: "location" }, ({ compact, edgeBack, index, key, leading, location }) => {
+					let accepted: PluginNavigationSnapshot;
 					try {
-						navigationStore.setLocation({
+						accepted = navigationStore.setLocation({
+							leading,
 							compact,
 							edgeBack,
 							entry: { index, key, location },
 						});
 					} catch {
 						finish("failed", "protocol", true);
+						return;
+					}
+					if (state !== "ready" && state !== "active") {
+						return;
+					}
+					const acceptedEntry = accepted.entry;
+					if (acceptedEntry === undefined) {
+						finish("failed", "protocol", true);
+						return;
+					}
+					if (
+						!post({
+							type: "screen-state",
+							key: acceptedEntry.key,
+							index: acceptedEntry.index,
+							hasPreviousScreen: accepted.screens.length > 1,
+						} satisfies PluginBridgeScreenState)
+					) {
 						return;
 					}
 					hasLocation = true;

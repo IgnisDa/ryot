@@ -78,6 +78,14 @@ const headersIn = (messages: readonly unknown[]) =>
 			"type" in message &&
 			message.type === "header",
 	);
+const screenStatesIn = (messages: readonly unknown[]) =>
+	messages.filter(
+		(message) =>
+			typeof message === "object" &&
+			message !== null &&
+			"type" in message &&
+			message.type === "screen-state",
+	);
 
 const delay = () => new Promise((resolve) => setTimeout(resolve, 0));
 const activate = (channel: MessageChannel) => {
@@ -87,6 +95,7 @@ const activate = (channel: MessageChannel) => {
 		compact: false,
 		edgeBack: false,
 		type: "location",
+		leading: "drawer",
 		location: routeLocation("/"),
 	});
 };
@@ -110,6 +119,7 @@ describe("plugin runtime", () => {
 			compact: true,
 			edgeBack: false,
 			type: "location",
+			leading: "drawer",
 			location: routeLocation("/"),
 		});
 		await delay();
@@ -118,6 +128,8 @@ describe("plugin runtime", () => {
 		expect(snapshots[0]).toMatchObject({
 			compact: true,
 			safeAreaTop: 0,
+			edgeBack: false,
+			leading: "drawer",
 			entry: { index: 0, key: "k0" },
 			screens: [{ key: "k0", location: { kind: "route", path: "/" } }],
 		});
@@ -133,6 +145,7 @@ describe("plugin runtime", () => {
 			location,
 			key: "k0",
 			compact: false,
+			leading: "none",
 			edgeBack: false,
 			type: "location",
 		});
@@ -157,6 +170,7 @@ describe("plugin runtime", () => {
 			key: "k3",
 			compact: true,
 			edgeBack: true,
+			leading: "back",
 			type: "location",
 			location: routeLocation("/items/1"),
 		});
@@ -174,6 +188,45 @@ describe("plugin runtime", () => {
 		});
 		expect(messages).toContainEqual({ index: 3, key: "k3", header: null, type: "header" });
 		expect(messages).toContainEqual({ type: "open-drawer" });
+	});
+
+	it("reports screen state from each reconciled stack", async () => {
+		const { channel, messages } = openRuntime();
+		const sendLocation = (index: number, key: string) =>
+			channel.port1.postMessage({
+				key,
+				index,
+				compact: true,
+				type: "location",
+				edgeBack: index > 0,
+				leading: index > 0 ? "back" : "drawer",
+				location: routeLocation(`/items/${index}`),
+			});
+
+		sendLocation(0, "k0");
+		sendLocation(1, "k1");
+		sendLocation(2, "k2");
+		sendLocation(1, "k1");
+		sendLocation(7, "k7");
+		await delay();
+
+		expect(screenStatesIn(messages)).toEqual([
+			{ index: 0, key: "k0", type: "screen-state", hasPreviousScreen: false },
+			{ index: 1, key: "k1", type: "screen-state", hasPreviousScreen: true },
+			{ index: 2, key: "k2", type: "screen-state", hasPreviousScreen: true },
+			{ index: 1, key: "k1", type: "screen-state", hasPreviousScreen: true },
+			{ index: 7, key: "k7", type: "screen-state", hasPreviousScreen: false },
+		]);
+	});
+
+	it("does not report screen state after teardown starts", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		runtime.navigation.subscribe(() => runtime.dispose());
+
+		activate(channel);
+		await delay();
+
+		expect(screenStatesIn(messages)).toEqual([]);
 	});
 
 	it("tracks the safe-area inset from init and from a viewport message", async () => {
@@ -651,6 +704,7 @@ describe("plugin runtime", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
+			leading: "drawer",
 			location: routeLocation("/"),
 		});
 		await delay();

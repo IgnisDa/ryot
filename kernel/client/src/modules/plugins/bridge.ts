@@ -19,6 +19,7 @@ import {
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeRyotQLResult,
+	type PluginBridgeScreenState,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
 	type PluginRyotQLOutcome,
@@ -35,6 +36,7 @@ type PluginBridgeTarget = {
 };
 
 export type PluginBridgeNavigationState = Omit<PluginBridgeLocation, "type">;
+export type PluginScreenReadiness = Omit<PluginBridgeScreenState, "type">;
 
 export type PluginBridgeSession = {
 	readonly close: () => void;
@@ -63,6 +65,7 @@ type PluginBridgeOptions = {
 	readonly navigation: PluginBridgeNavigationState;
 	readonly onHeader: (request: PluginBridgeHeader) => void;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
+	readonly onScreenState: (state: PluginScreenReadiness) => void;
 	readonly onRyotQL: (
 		request: PluginRyotQLRequest,
 		signal: AbortSignal,
@@ -281,6 +284,11 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				Match.value(decoded.success).pipe(
 					Match.when({ type: "navigate-back" }, () => options.onNavigateBack()),
 					Match.when({ type: "open-drawer" }, () => options.onOpenDrawer()),
+					Match.when({ type: "screen-state" }, ({ hasPreviousScreen, index, key }) => {
+						if (index === navigation.index && key === navigation.key) {
+							options.onScreenState({ hasPreviousScreen, index, key });
+						}
+					}),
 					Match.when({ type: "header" }, (request) => options.onHeader(request)),
 					Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
 					Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),

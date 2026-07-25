@@ -16,6 +16,7 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { EntitiesService } from "#/modules/entities/service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import { ImportsService } from "#/modules/imports/service";
@@ -214,6 +215,13 @@ export const GodModeRouteStubs = Layer.mergeAll(
 	GodModeApiStub,
 	GodModeService.layer.pipe(Layer.provide(GodModeSessionStub), Layer.provide(GodModeApiStub)),
 );
+
+export const makeEntityRouteStub = (
+	loadRouteProvenance: EntitiesService["Service"]["loadRouteProvenance"] = () =>
+		Effect.die("not used"),
+) => Layer.succeed(EntitiesService, { loadRouteProvenance });
+
+export const EntityRouteStubs = makeEntityRouteStub();
 
 export const SavedViewRouteStubs = Layer.mergeAll(
 	Layer.succeed(ManagedAssetsService, {
