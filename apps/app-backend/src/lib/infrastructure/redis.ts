@@ -8,7 +8,6 @@ export const redisKeys = {
 	pluginRegistryChannel: "ryot:plugins:registry",
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
-	sandboxSession: (executionId: string) => `ryot:sandbox:session:${executionId}`,
 	importSourcePayload: (runId: string) => `ryot:imports:source-payload:${runId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,

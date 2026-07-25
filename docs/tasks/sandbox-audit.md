@@ -164,8 +164,8 @@ The runner-side name validation (runner-source.sandbox.ts:120-132) does not help
 **B6 — harvest paths leak into scripts.** `completedValue` (sandbox-script-workflow.ts:128-131) merges `chunkFiles: result.harvest.chunkPaths` — absolute host paths under `config.tmpDir` — into the activity result handed back to a sandbox script.
 
 - [x] Return opaque handles the kernel resolves when granting the next execution. Workflow-scoped
-  Redis handles replace harvested host paths; kernel resolution validates trusted parent provenance,
-  and public sandbox results omit harvest metadata.
+      Redis handles replace harvested host paths; kernel resolution validates trusted parent provenance,
+      and public sandbox results omit harvest metadata.
 
 **B7 — `removedCount` was fabricated.** Module GC previously reported every candidate as removed regardless of whether `fs.remove` succeeded.
 
@@ -189,7 +189,7 @@ The runner-side name validation (runner-source.sandbox.ts:120-132) does not help
 
 **P1 — Redis round-trip per host call.** runtime.ts:319 reads `redisKeys.sandboxSession` on **every** RPC. I grepped: that key is written and read only inside runtime.ts. The bridge binds `127.0.0.1:0` in-process, so only this process's children can reach it, and `activeSessions` (an in-process `Map`) already holds everything needed. A 200-host-call execution pays 200 unnecessary Redis GETs.
 
-- [ ] Move `token`/`expiresAt` into `ActiveExecutionSession` and delete the Redis key entirely.
+- [x] Move `token`/`expiresAt` into `ActiveExecutionSession` and delete the Redis key entirely.
 
 **P2 — per-execution module re-hashing.** `materializeSandboxCompiledModule` (compiled-modules.ts:43-51) does `exists` + `readFile` + SHA-256 of up to 1 MiB on every execution of an immutable, chmod-444, content-addressed file.
 
@@ -217,7 +217,7 @@ Confirmed by grep, non-test usage only:
 | - [x] `RunSandboxWorkflowPayload`             | sandbox-submission-workflow.ts             | Removed redundant alias; `SandboxSubmissionWorkflow` uses `SandboxExecutionPayload` directly.                                              |
 | - [ ] runner `for(;;)` + console save/restore | runner-source.sandbox.ts:509-602           | Processes are strictly single-use (pool invalidated service.ts:340-343; dedicated killed by scope). Multi-payload handling is unreachable. |
 | - [ ] `Object.hasOwn` + null check            | runtime.ts:353-360                         | Two guards for one condition.                                                                                                              |
-| - [ ] `parseSandboxSession`                   | runtime.ts:100                             | Wrapper that only calls `decodeSandboxSession`. Moot if P1 lands.                                                                          |
+| - [x] `parseSandboxSession`                   | runtime.ts:100                             | Wrapper that only calls `decodeSandboxSession`. Moot if P1 lands.                                                                          |
 | - [ ] `killProcess`                           | runtime.ts:173                             | Wrapper over `killProcessHandle`.                                                                                                          |
 | - [ ] `hashBytes`                             | compiled-modules.ts:12                     | Alias for `sha256Hex`.                                                                                                                     |
 | - [ ] `SandboxScratchManifest`                | filesystem-grants.ts:106                   | Alias for `sandboxScratchManifestSchema`.                                                                                                  |
@@ -247,7 +247,7 @@ You asked for recommendations rather than questions, so:
 1. [ ] **Capability table vs. current sets.** Adopt the table first.
 2. [x] **Narrow sandbox submission.** Remove the redundant workflow hop from workflow-owned callers before touching replay performance; retain only top-level submission bridge.
 3. [ ] **Batched durable calls (P3).** Allow independent pending requests to execute as parallel durable steps.
-4. [ ] **Drop the Redis session store (P1).** The data is process-local by construction.
+4. [x] **Drop the Redis session store (P1).** The data is process-local by construction.
 5. [x] **Host-function batching.** Batch config and metadata functions now.
 6. [x] **Collapse reads into `executeQueryEngine`.** Entity/event data reads use query documents; schema functions remain metadata-only.
 7. [x] **Fix B1 and B2.** Bound retry and harden symlink handling regardless of larger refactor sequencing.
