@@ -375,19 +375,7 @@ Exporting a dependency also emitted `origin`, which `V2EntityDependency` does no
 
 **Validation:** Transactional check, backend type check, Rust notification compile, CI workflow inspection.
 
-### 23. Make Checks Verification-Only
-
-**Owner:** W19 Test and monorepo orchestration
-
-**Evidence:** Backend `check` runs `oxfmt --write` and `oxlint --fix` at `apps/app-backend/package.json:12`. Shared testing does the same at `packages/testing/package.json:12`.
-
-**Current complexity:** A verification command mutates source, mixing validation and repair and making clean-tree assertions unreliable.
-
-**Proposal and scope:** Use `oxfmt --check` and non-fixing lint flags. Add a separate fix command only if needed.
-
-**Risks:** Developers relying on implicit repair need an explicit command.
-
-**Validation:** Run both checks and assert `git status --short` remains empty on a clean tree.
+###
 
 ### 24. Remove Website-Local Admin Result Protocol
 
@@ -411,21 +399,21 @@ Colocated tests are included unless the boundary explicitly assigns them elsewhe
 
 ### Application And Infrastructure
 
-| ID  | Subsystem and exact boundary                                                                                                   | Interfaces, callers, tests                                                         | Status                                        |
-| --- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | --------------------------------------------- |
-| A01 | Bootstrap/server: `B/src/main.ts`, `src/boot/{layers,server,cron-workflow-definitions,kernel-workflow-references}.ts`                        | `AppLive`, `MigrationOnlyLive`, `ServerLive`; all route/workflow layers; boot tests | skip                    |
-| A02 | Sandbox runtime wiring: `B/src/lib/infrastructure/sandbox-runtime/{automation-host-functions,host-functions,durable-host-dispatcher}.ts` | SDK hosts; sandbox workflows; matching tests                                        | skip, D24 authoritative |
-| I01 | Config/process: `B/src/lib/infrastructure/config/**`, `observability.ts`, `pro-key.ts`, `unkey.ts`, `server-run.ts`            | `AppConfig`, Pro key, telemetry; main/system/server; tests                         | **recommend**                                 |
-| I02 | DB runtime: `db/{service,advisory-locks,user-write-lock,migrate}.ts`                                                           | `Database`, `PgClientLive`, migrations; repositories; tests                        | skip                                          |
-| I03 | DB schema/generated migration: `db/schema/**`, `B/src/drizzle/**`, `drizzle.config.ts`                                         | Drizzle tables; repositories; generated SQL                                        | skip, index removal needs production evidence |
-| I04 | Redis: `B/src/lib/infrastructure/redis.ts`                                                                                     | `RedisService`, keys/codecs; imports/uploads/interest/sandbox; test                | skip                                          |
-| I05 | Workflow engine: `B/src/lib/infrastructure/workflow.ts`                                                                        | workflow and persisted queue layers; durable callers; test                         | skip                                          |
-| I06 | Storage/admission: `local-storage.ts`, `s3.ts`, `provider-http-admission.ts`                                                   | local/S3/admission services; uploads/plugins; tests                                | **recommend**                                 |
-| I07 | Sandbox process runtime: `sandbox-runtime/**` excluding generated/source runner files                                          | process, bridge, journal, artifacts, grants; sandbox callers/tests                 | **recommend**                                 |
-| I08 | Generated runner: runner source/utilities/generated plus compile/prepare/smoke scripts                                         | generator, Deno runtime, integration test                                          | skip                                          |
-| I09 | Property validation: `B/src/lib/property-schema/**`                                                                            | parsers/issues; domain/plugin callers; tests                                       | skip, no demonstrated material gain           |
-| I10 | Shared/test primitives: `B/src/lib/{shared,test-utils}/**`                                                                     | IDs, ordering, assertions, test layers                                             | skip                                          |
-| T01 | Backend tooling: remaining `B/scripts/**`                                                                                      | purity, layer wiring, runtime analysis, development; tests                         | skip                                          |
+| ID  | Subsystem and exact boundary                                                                                                             | Interfaces, callers, tests                                                          | Status                                        |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------- |
+| A01 | Bootstrap/server: `B/src/main.ts`, `src/boot/{layers,server,cron-workflow-definitions,kernel-workflow-references}.ts`                    | `AppLive`, `MigrationOnlyLive`, `ServerLive`; all route/workflow layers; boot tests | skip                                          |
+| A02 | Sandbox runtime wiring: `B/src/lib/infrastructure/sandbox-runtime/{automation-host-functions,host-functions,durable-host-dispatcher}.ts` | SDK hosts; sandbox workflows; matching tests                                        | skip, D24 authoritative                       |
+| I01 | Config/process: `B/src/lib/infrastructure/config/**`, `observability.ts`, `pro-key.ts`, `unkey.ts`, `server-run.ts`                      | `AppConfig`, Pro key, telemetry; main/system/server; tests                          | **recommend**                                 |
+| I02 | DB runtime: `db/{service,advisory-locks,user-write-lock,migrate}.ts`                                                                     | `Database`, `PgClientLive`, migrations; repositories; tests                         | skip                                          |
+| I03 | DB schema/generated migration: `db/schema/**`, `B/src/drizzle/**`, `drizzle.config.ts`                                                   | Drizzle tables; repositories; generated SQL                                         | skip, index removal needs production evidence |
+| I04 | Redis: `B/src/lib/infrastructure/redis.ts`                                                                                               | `RedisService`, keys/codecs; imports/uploads/interest/sandbox; test                 | skip                                          |
+| I05 | Workflow engine: `B/src/lib/infrastructure/workflow.ts`                                                                                  | workflow and persisted queue layers; durable callers; test                          | skip                                          |
+| I06 | Storage/admission: `local-storage.ts`, `s3.ts`, `provider-http-admission.ts`                                                             | local/S3/admission services; uploads/plugins; tests                                 | **recommend**                                 |
+| I07 | Sandbox process runtime: `sandbox-runtime/**` excluding generated/source runner files                                                    | process, bridge, journal, artifacts, grants; sandbox callers/tests                  | **recommend**                                 |
+| I08 | Generated runner: runner source/utilities/generated plus compile/prepare/smoke scripts                                                   | generator, Deno runtime, integration test                                           | skip                                          |
+| I09 | Property validation: `B/src/lib/property-schema/**`                                                                                      | parsers/issues; domain/plugin callers; tests                                        | skip, no demonstrated material gain           |
+| I10 | Shared/test primitives: `B/src/lib/{shared,test-utils}/**`                                                                               | IDs, ordering, assertions, test layers                                              | skip                                          |
+| T01 | Backend tooling: remaining `B/scripts/**`                                                                                                | purity, layer wiring, runtime analysis, development; tests                          | skip                                          |
 
 ### Backend Domains
 
