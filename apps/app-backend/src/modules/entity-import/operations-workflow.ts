@@ -1,22 +1,20 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
-import { PersistedQueue } from "effect/unstable/persistence";
 import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { processSandboxExecution } from "#modules/sandbox/durable-queues";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
-import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import type { EntityImportPayload } from "./schemas";
 
 const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const resolveScript = runWithDb(pluginRuntime.resolveDetailsScript(payload.providerId)).pipe(
 			Effect.map(({ id }) => id),
@@ -24,13 +22,13 @@ const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: 
 		);
 		const scriptId = yield* Activity.make({
 			error: SandboxRunError,
+			execute: resolveScript,
 			success: SandboxScriptId,
 			name: `resolve-provider-details-script-${executionId}`,
-			execute: resolveScript,
 		});
-		return yield* processSandboxExecution({
+		return yield* sandbox.executeScript({
 			scriptId,
-			context: { externalId: payload.externalId },
+			input: { externalId: payload.externalId },
 			executionId: `${executionId}-sandbox-details`,
 			authority: payload.userId ? { type: "user", userId: payload.userId } : { type: "system" },
 		});
@@ -52,18 +50,14 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 	EntityImportWorkflowOperations,
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const repository = yield* SandboxRepository;
+		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
-		const pluginScriptResolver = yield* SandboxPluginScriptResolver;
-		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
 		return {
 			processSandbox: (payload, executionId) =>
 				processSandboxEntityDetails(payload, executionId).pipe(
 					Effect.provideService(DbRunner, runWithDb),
-					Effect.provideService(SandboxRepository, repository),
 					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
-					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
-					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+					Effect.provideService(SandboxExecutionService, sandbox),
 				),
 		} satisfies EntityImportWorkflowOperationsValue;
 	}),

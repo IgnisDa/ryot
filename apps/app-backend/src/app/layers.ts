@@ -477,9 +477,9 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 			),
 			ServicesWithTestSupportLive,
 		),
-		EntityImportWorkflowOperationsLive,
+		Layer.provide(EntityImportWorkflowOperationsLive, SandboxExecutionServiceLive),
 		Layer.provide(SubscriptionExecutionWorkflowOperationsLive, ServicesWithTestSupportLive),
-		TranslateEntityWorkflowOperationsLive,
+		Layer.provide(TranslateEntityWorkflowOperationsLive, SandboxExecutionServiceLive),
 	),
 	ApplicationInfrastructureLive,
 );
