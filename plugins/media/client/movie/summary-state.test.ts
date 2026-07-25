@@ -60,7 +60,7 @@ describe("movie summary state", () => {
 
 		expect(mapMovieSummary(readyQueryResult(value))).toMatchObject({
 			status: "ready",
-			movie: { id: "movie-1", name: "Fight Club" },
+			summary: { id: "movie-1", name: "Fight Club" },
 		});
 	});
 

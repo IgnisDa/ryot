@@ -254,6 +254,18 @@ export const mediaActivityDurationLabel = (minutes: number) => {
 	return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
 };
 
+const paddedUnit = (value: number) => String(value).padStart(2, "0");
+
+export const mediaTrackLengthLabel = (seconds: number) => {
+	const total = Math.max(Math.round(seconds), 0);
+	const rest = total % 60;
+	const hours = Math.floor(total / 3600);
+	const minutes = Math.floor(total / 60) % 60;
+	return hours === 0
+		? `${minutes}:${paddedUnit(rest)}`
+		: `${hours}:${paddedUnit(minutes)}:${paddedUnit(rest)}`;
+};
+
 export const mediaActivityDateLabel = (row: ActivityAnchor) => formatLocalDateLabel(row.occurredAt);
 
 export const mediaActivityRatingLabel = (rating: number) => `${decimalLabel(rating)} / 100`;

@@ -58,6 +58,7 @@ import {
 	mediaCollectionEventsQuery,
 	mediaOverviewQueries,
 	mediaSummarySelection,
+	mediaWatchProviderSelection,
 	requestedSchemaQuery,
 } from "./media-recipes";
 
@@ -186,6 +187,7 @@ export const showSummaryRecipe = defineRecipe(
 					joins: [join("left", provider, eq(column(entity, "providerId"), column(provider, "id")))],
 					selection: {
 						...mediaSummarySelection(entity, provider),
+						...mediaWatchProviderSelection(entity),
 						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
 						totalSeasons: selectedField(
 							propertyNumber(entity, "totalSeasons"),

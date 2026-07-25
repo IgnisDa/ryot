@@ -7,22 +7,40 @@ schema; saved views do not declare sandbox scripts.
 
 ## Client
 
-The plugin client supplies a workspace home and `show` and `movie` entity renderers. The Show screen
-uses five client-owned RyotQL recipes for summary, overview, seasons, episodes, and activity; the
-Movie screen uses three, for summary, overview, and activity. Entity links use `PluginLink` so the
-kernel resolves canonical entity routes.
+The plugin client supplies a workspace home and `show`, `movie`, and `music` entity renderers. The
+Show screen uses five client-owned RyotQL recipes for summary, overview, seasons, episodes, and
+activity; the Movie and Music screens use three each, for summary, overview, and activity. Entity
+links use `PluginLink` so the kernel resolves canonical entity routes.
 
-`client/media/` owns everything both screens share: the primitives, hero, tab bar, summary header,
+`client/media/` owns everything the screens share: the primitives, hero, tab bar, summary header,
 overview sections, image gallery, managed-asset wrappers, and the activity timeline engine. It is
 schema-agnostic, so screen-specific copy - lifecycle labels, beat wording, row labels - stays in
-`client/show/` and `client/movie/` and is passed in. `shared/media-recipes.ts` is the query-side
-counterpart: `shared/show-recipes.ts` and `shared/movie-recipes.ts` compose their own recipes over
-its selections rather than parameterizing one recipe, so each result type keeps its exact field set.
+`client/show/`, `client/movie/`, and `client/music/` and is passed in. `shared/media-recipes.ts` is
+the query-side counterpart: `shared/show-recipes.ts`, `shared/movie-recipes.ts`, and
+`shared/music-recipes.ts` compose their own recipes over its selections rather than parameterizing
+one recipe, so each result type keeps its exact field set.
 
-The Movie overview adds a "Part of" section listing the movie's `movie-group` and the other films in
-it. The relationship is authoritative from the group side, so the subject movie is excluded from its
-own rail, the section is hidden when the group is absent or has no other members, and the siblings'
-cover locators join the overview's managed-asset set so their tiles resolve real artwork.
+Movie and Music are flat, non-episodic schemas, so they compose one flat-media engine -
+`detail-screen.tsx`, `entity-presentation.tsx`, `activity-tab.tsx`, `flat-activity-state.ts`, and
+`group-section.tsx` - instead of each restating a screen. A schema supplies a descriptor of its
+recipes, copy, facts, lifecycle labels, tabs, hero height, artwork aspect, and optional
+watch-provider selector, and keeps a thin named seam over the generic so its own tests mount its
+behaviour rather than the engine's.
+
+A schema selects only fields its own entity schema declares. `watchProviders` exists on `movie` and
+`show` alone, so it lives in `mediaWatchProviderSelection`, and `MediaOverview` renders "Where to
+watch" only for a screen that passes that field; Music passes none.
+
+Movie and Music overviews add a "Part of" section listing the entity's group - a `movie-group`
+collection or a `music-group` album - and the other members of it. The relationship is authoritative
+from the group side, so the subject entity is excluded from its own rail, the section is hidden when
+the group is absent or has no other members, and the siblings' cover locators join the overview's
+managed-asset set so their tiles resolve real artwork.
+
+Album covers are square and posters are 2:3, so artwork aspect is a descriptor input. Track length
+renders as `m:ss` from `duration`, which music stores in seconds; activity totals stay in minutes, so
+the Music activity recipe divides by 60 when summing and the total rounds once. Music providers ship
+only cover art, so the Music hero uses art height at both widths.
 
 Layout uses only the `compact` value from `useRyotViewport()`, not responsive Tailwind variants,
 because iframe media queries measure the content frame rather than the kernel viewport. Hero art fills
@@ -36,11 +54,11 @@ locators and adapts remote images, which load directly.
 
 Detail queries declare entity interest only for loaded recipe results: the subject entity and, for
 Show, the selected season are foreground, while displayed related entities - collections, credits,
-recommendations, and movie-group siblings - are visible. Activity declares entity IDs referenced by
+recommendations, and group siblings - are visible. Activity declares entity IDs referenced by
 events, not event IDs. Update hints refresh active queries without promising general realtime updates
 for unloaded data or arbitrary mutations.
 
-Both overviews read watch providers from their summary recipe and show only the viewer's region,
+The Show and Movie overviews read watch providers from their summary recipe and show only the viewer's region,
 derived from `Intl`. The section is hidden when that region is unknown or does not carry the title,
 because a global list answers no question the reader asked. Providers are grouped by offer kind in
 contract order and named alphabetically within a group. TMDB sources this data from JustWatch, which

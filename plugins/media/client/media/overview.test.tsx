@@ -38,18 +38,22 @@ const overviewScreen = (input: {
 	readonly media?: ReturnType<typeof decodeShowSummary>;
 	readonly overview: MediaOverviewState<Overview>;
 	readonly refreshOverview?: () => void;
-}) => (
-	<MediaOverview
-		compact
-		safeAreaTop={0}
-		overview={input.overview}
-		relations={relationsRender}
-		isEmpty={mediaRelationsAreEmpty}
-		media={input.media ?? decodeShowSummary()}
-		refreshOverview={input.refreshOverview ?? (() => undefined)}
-		loadingDetail="Fetching the cast, companies and recommendations for this show."
-	/>
-);
+}) => {
+	const media = input.media ?? decodeShowSummary();
+	return (
+		<MediaOverview
+			compact
+			media={media}
+			safeAreaTop={0}
+			watchProviders={media}
+			overview={input.overview}
+			relations={relationsRender}
+			isEmpty={mediaRelationsAreEmpty}
+			refreshOverview={input.refreshOverview ?? (() => undefined)}
+			loadingDetail="Fetching the cast, companies and recommendations for this show."
+		/>
+	);
+};
 
 afterEach(() => {
 	document.body.innerHTML = "";

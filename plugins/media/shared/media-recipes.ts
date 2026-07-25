@@ -3,22 +3,28 @@ import {
 	and,
 	ascending,
 	castBoolean,
+	coalesce,
 	column,
+	count,
 	descending,
 	eq,
 	eventOrderDescending,
 	first,
 	inArray,
+	isNull,
 	IsoDateString,
 	join,
 	jsonPath,
 	literal,
+	neq,
 	selectedField,
 	selectedInclude,
 	selectedOptionalRow,
 	selectedRows,
+	sum,
 	table,
 	type SelectedQuery,
+	type SelectedSelection,
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, EntitySchemaSlug, EventId } from "@ryot-app/plugin-kit/schema";
 
@@ -34,6 +40,11 @@ import {
 	propertyText,
 	type Table,
 } from "./entity-selections";
+import {
+	MediaLifecycleStateSchema,
+	type Predicate,
+	type ScalarExpression,
+} from "./lifecycle-expressions";
 import { MediaImageListSchema, MediaImageSchema } from "./media-image";
 import { WatchProviderListSchema } from "./watch-provider";
 
@@ -99,7 +110,6 @@ export const mediaSummarySelection = (entity: Table, provider: Table) => ({
 	providerName: selectedField(column(provider, "name"), Schema.NullOr(Schema.String)),
 	description: selectedField(propertyText(entity, "description"), Schema.NullOr(Schema.String)),
 	publishDate: selectedField(propertyText(entity, "publishDate"), Schema.NullOr(Schema.String)),
-	watchProviders: selectedField(propertyJson(entity, "watchProviders"), WatchProviderListSchema),
 	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Number)),
 	genres: selectedField(propertyJson(entity, "genres"), Schema.NullOr(Schema.Array(Schema.String))),
 	images: selectedField(
@@ -125,6 +135,10 @@ export const mediaSummarySelection = (entity: Table, provider: Table) => ({
 });
 
 export type MediaSummarySelection = ReturnType<typeof mediaSummarySelection>;
+
+export const mediaWatchProviderSelection = (entity: Table) => ({
+	watchProviders: selectedField(propertyJson(entity, "watchProviders"), WatchProviderListSchema),
+});
 
 export const creditSelection = (credit: Table, relationship: Table) => ({
 	id: selectedField(column(credit, "id"), EntityId),
@@ -240,6 +254,120 @@ export type MediaOverviewRows = {
 	>;
 };
 
+export const mediaGroupQuery = (input: {
+	readonly limit: number;
+	readonly entityId: string;
+	readonly groupSlug: string;
+	readonly memberSlug: string;
+	readonly relationshipSlug: string;
+	readonly aliases: { readonly group: string; readonly relationship: string };
+}) => {
+	const group = table("entity", input.aliases.group);
+	const groupRelationship = table("relationship", input.aliases.relationship);
+	const member = table("entity", "groupMember");
+	const membership = table("relationship", "groupMembership");
+	return selectedOptionalRow(group, {
+		orderBy: [ascending(column(group, "id"))],
+		joins: [
+			join(
+				"inner",
+				groupRelationship,
+				eq(column(groupRelationship, "sourceEntityId"), column(group, "id")),
+			),
+		],
+		selection: {
+			id: selectedField(column(group, "id"), EntityId),
+			name: selectedField(column(group, "name"), Schema.String),
+			...entitySyncSelection(group),
+		},
+		where: and(
+			entitySchema(group, input.groupSlug),
+			eq(column(groupRelationship, "targetEntityId"), literal(input.entityId)),
+			eq(column(groupRelationship, "relationshipSchemaSlug"), literal(input.relationshipSlug)),
+		),
+		include: {
+			members: selectedInclude(member, {
+				limit: input.limit,
+				joins: [
+					join("inner", membership, eq(column(membership, "targetEntityId"), column(member, "id"))),
+				],
+				orderBy: [
+					ascending(propertyNumber(membership, "order")),
+					ascending(column(member, "name")),
+					ascending(column(member, "id")),
+				],
+				selection: {
+					id: selectedField(column(member, "id"), EntityId),
+					name: selectedField(column(member, "name"), Schema.String),
+					images: selectedField(propertyJson(member, "images"), MediaImageListSchema),
+					...entitySyncSelection(member),
+				},
+				where: and(
+					entitySchema(member, input.memberSlug),
+					neq(column(member, "id"), literal(input.entityId)),
+					eq(column(membership, "sourceEntityId"), column(group, "id")),
+					eq(column(membership, "relationshipSchemaSlug"), literal(input.relationshipSlug)),
+				),
+			}),
+		},
+	});
+};
+
+export const mediaFlatPresentationSelection = <Duration extends SelectedSelection>(
+	entity: Table,
+	lifecycle: { readonly state: ScalarExpression; readonly progressPercent: ScalarExpression },
+	duration: Duration,
+) => ({
+	...entityIdentitySelection(entity),
+	state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
+	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
+	...duration,
+	progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Number)),
+	publishDate: selectedField(propertyText(entity, "publishDate"), Schema.NullOr(Schema.String)),
+	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Number)),
+	productionStatus: selectedField(
+		propertyText(entity, "productionStatus"),
+		Schema.NullOr(Schema.String),
+	),
+});
+
+export const mediaFlatConsumptionTotals = (input: {
+	readonly entity: Table;
+	readonly duration: { readonly minutes: ScalarExpression; readonly isUnknown: Predicate };
+}) => {
+	const { entity, duration } = input;
+	const completion = table("event", "mediaCompletionEvent");
+	const minutes = table("event", "mediaMinutesEvent");
+	const unknown = table("event", "mediaUnknownDurationEvent");
+	const isCompletionOf = (event: Table) =>
+		and(
+			eq(column(event, "entityId"), column(entity, "id")),
+			eq(column(event, "eventSchemaSlug"), literal("complete")),
+		);
+	return {
+		completionCount: selectedField(
+			count(completion, { where: isCompletionOf(completion) }),
+			Schema.Number,
+		),
+		consumedMinutes: selectedField(
+			sum(minutes, coalesce(propertyNumber(minutes, "timeSpent"), duration.minutes), {
+				where: isCompletionOf(minutes),
+			}),
+			Schema.NullOr(Schema.Number),
+		),
+		unknownDurationCount: selectedField(
+			count(unknown, {
+				where: and(
+					isCompletionOf(unknown),
+					isNull(propertyNumber(unknown, "timeSpent")),
+					duration.isUnknown,
+				),
+			}),
+			Schema.Number,
+		),
+	};
+};
+
 export const mediaActivityParentSlugs = [
 	"backlog",
 	"on_hold",
@@ -305,6 +433,37 @@ export const mediaCollectionEventsQuery = (input: {
 	});
 };
 
+export const mediaFlatActivityParentSlugs = [...mediaActivityParentSlugs, "progress"] as const;
+
+export const mediaFlatActivityEventsQuery = (input: {
+	readonly limit: number;
+	readonly alias: string;
+	readonly entityId: string;
+}) => {
+	const event = table("event", input.alias);
+	return selectedRows(event, {
+		limit: input.limit,
+		orderBy: eventOrderDescending(event),
+		where: and(
+			eq(column(event, "entityId"), literal(input.entityId)),
+			eventSchemaIsOneOf(event, mediaFlatActivityParentSlugs),
+		),
+		selection: {
+			...mediaActivityEventSelection(event),
+			startedOn: selectedField(propertyText(event, "startedOn"), Schema.NullOr(IsoDateString)),
+			completedOn: selectedField(propertyText(event, "completedOn"), Schema.NullOr(IsoDateString)),
+			progressPercent: selectedField(
+				propertyNumber(event, "progressPercent"),
+				Schema.NullOr(Schema.Number),
+			),
+			eventSchemaSlug: selectedField(
+				column(event, "eventSchemaSlug"),
+				Schema.Literals(mediaFlatActivityParentSlugs),
+			),
+		},
+	});
+};
+
 export const compareMediaActivityDescending = (
 	left: { readonly id: string; readonly createdAt: string; readonly occurredAt: string },
 	right: { readonly id: string; readonly createdAt: string; readonly occurredAt: string },
@@ -312,3 +471,46 @@ export const compareMediaActivityDescending = (
 	right.occurredAt.localeCompare(left.occurredAt) ||
 	right.createdAt.localeCompare(left.createdAt) ||
 	right.id.localeCompare(left.id);
+
+type MediaActivityOrdered = {
+	readonly id: string;
+	readonly createdAt: string;
+	readonly occurredAt: string;
+};
+
+export const mergeMediaActivityEvents = <
+	Parent extends MediaActivityOrdered,
+	Collection extends MediaActivityOrdered & {
+		readonly collectionId: string;
+		readonly collectionName: string;
+	},
+>(input: {
+	readonly parentEvents: readonly Parent[];
+	readonly collectionEvents: readonly Collection[];
+}) =>
+	[
+		...input.parentEvents.map((row) => ({ ...row, kind: "media" as const })),
+		...input.collectionEvents.map(({ collectionId, collectionName, ...row }) => ({
+			...row,
+			text: null,
+			rating: null,
+			timeSpent: null,
+			isSpoiler: null,
+			consumedOn: null,
+			progressPercent: null,
+			kind: "collection" as const,
+			collection: { id: collectionId, name: collectionName },
+		})),
+	].sort(compareMediaActivityDescending);
+
+type MediaFlatActivityParentRow = SelectedQuerySuccess<
+	ReturnType<typeof mediaFlatActivityEventsQuery>
+>["items"][number];
+
+type MediaActivityCollectionRow = SelectedQuerySuccess<
+	ReturnType<typeof mediaCollectionEventsQuery>
+>["items"][number];
+
+export type MediaFlatActivityEvent = ReturnType<
+	typeof mergeMediaActivityEvents<MediaFlatActivityParentRow, MediaActivityCollectionRow>
+>[number];
