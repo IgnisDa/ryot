@@ -298,7 +298,7 @@ across executing users. Removing per-user script ownership exposed that contradi
 Decision 19. Task 07 therefore makes the intended user boundary explicit. The later provider split
 refined the second partition key to `providerId` for provider-associated scripts and `scriptId`
 otherwise. The existing lifecycle distinction remains: `getCachedValue`/`setCachedValue` also
-include `serverRunId` and reset across backend restarts, while `claimCachedValue` uses the
+include `serverRunId` and reset across backend restarts, while `claimPersistentValue` uses the
 persistent user/script partition. Userless kernel executions use their own partition. This is the
 security-preserving interpretation of the decided per-executing-user isolation rule, not a
 continuation of isolation that depended on script ownership.

@@ -1,5 +1,5 @@
 import {
-	claimCachedValueResultSchema,
+	claimPersistentValueResultSchema,
 	changeUserRelationshipsArgsSchema,
 	ensureUserEntitiesArgsSchema,
 	httpCallArgsSchema,
@@ -70,7 +70,7 @@ describe("shared value contracts", () => {
 			}),
 		).toEqual({ error: "HTTP 429", data: { status: 429 }, success: false });
 		expect(
-			decode(claimCachedValueResultSchema)({
+			decode(claimPersistentValueResultSchema)({
 				success: true,
 				data: { claimed: false, value: { owner: "other" } },
 			}),

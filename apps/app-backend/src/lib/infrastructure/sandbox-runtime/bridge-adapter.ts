@@ -242,19 +242,19 @@ export const bindSandboxHostFunctions = (
 			return invalidArguments("setCachedValue", error, message);
 		},
 	),
-	claimCachedValue: bindHostFunction(
-		coreSandboxHostContracts.claimCachedValue,
-		(...args) => implementations.claimCachedValue(input, ...args),
+	claimPersistentValue: bindHostFunction(
+		coreSandboxHostContracts.claimPersistentValue,
+		(...args) => implementations.claimPersistentValue(input, ...args),
 		(error) => {
 			const segment = parseIssues(error)[0]?.path?.[0];
 			const position = segment === undefined ? undefined : pathKey(segment);
-			let message = "claimCachedValue expects a positive integer ttlSeconds";
+			let message = "claimPersistentValue expects a positive integer ttlSeconds";
 			if (position === 0) {
-				message = "claimCachedValue expects a non-empty key string";
+				message = "claimPersistentValue expects a non-empty key string";
 			} else if (position === 1) {
-				message = "claimCachedValue value must be JSON-serializable";
+				message = "claimPersistentValue value must be JSON-serializable";
 			}
-			return invalidArguments("claimCachedValue", error, message);
+			return invalidArguments("claimPersistentValue", error, message);
 		},
 	),
 	getPluginConfig: bindHostFunction(

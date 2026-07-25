@@ -22,10 +22,10 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"httpCall",
 	"getCachedValue",
 	"setCachedValue",
-	"claimCachedValue",
 	"getPluginConfig",
 	"getSystemConfig",
 	"getUserPreferences",
+	"claimPersistentValue",
 ] as const;
 
 export const coreSandboxHostCapabilitySchema = Schema.Literals([...CORE_SANDBOX_HOST_CAPABILITIES]);
@@ -73,7 +73,7 @@ export const cacheClaimSchema = Schema.Union([
 	strictStruct({ claimed: Schema.Literal(true) }),
 	strictStruct({ claimed: Schema.Literal(false), value: Schema.NullOr(jsonValueSchema) }),
 ]);
-export const claimCachedValueArgsSchema = Schema.Tuple([
+export const claimPersistentValueArgsSchema = Schema.Tuple([
 	cacheKeySchema,
 	jsonValueSchema,
 	cacheTtlSecondsSchema,
@@ -81,7 +81,7 @@ export const claimCachedValueArgsSchema = Schema.Tuple([
 export const configKeysSchema = Schema.Array(nonEmptyString);
 export const getPluginConfigArgsSchema = Schema.Tuple([configKeysSchema]);
 export const getSystemConfigArgsSchema = Schema.Tuple([configKeysSchema]);
-export const claimCachedValueResultSchema = hostResultSchema(cacheClaimSchema);
+export const claimPersistentValueResultSchema = hostResultSchema(cacheClaimSchema);
 export const configValuesSchema = Schema.Record(Schema.String, jsonValueSchema);
 export const getPluginConfigResultSchema = hostResultSchema(configValuesSchema);
 export const getSystemConfigResultSchema = hostResultSchema(configValuesSchema);
@@ -127,10 +127,10 @@ export const coreSandboxHostContracts = {
 		success: setCachedValueDataSchema,
 		result: setCachedValueResultSchema,
 	},
-	claimCachedValue: {
+	claimPersistentValue: {
 		success: cacheClaimSchema,
-		args: claimCachedValueArgsSchema,
-		result: claimCachedValueResultSchema,
+		args: claimPersistentValueArgsSchema,
+		result: claimPersistentValueResultSchema,
 	},
 	getPluginConfig: {
 		success: configValuesSchema,
