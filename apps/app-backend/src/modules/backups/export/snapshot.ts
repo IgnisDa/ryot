@@ -225,6 +225,7 @@ const toV2Entity = Effect.fn(function* (
 	return {
 		id: entity.id,
 		name: entity.name,
+		origin: entity.origin,
 		externalId: entity.externalId,
 		createdAt: entity.createdAt.toISOString(),
 		updatedAt: entity.updatedAt.toISOString(),

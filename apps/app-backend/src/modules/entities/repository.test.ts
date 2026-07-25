@@ -132,6 +132,7 @@ it.effect("keeps kernel and plugin entities with the same natural key separate",
 		scope: "global" as const,
 		externalId: "external-1",
 		properties: { status: "active" },
+		origin: { kind: "api" as const },
 		providerId: SandboxProviderId.make("provider-1"),
 		entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
 	};
@@ -145,6 +146,7 @@ it.effect("keeps kernel and plugin entities with the same natural key separate",
 			null,
 			"plugin-1",
 		]);
+		expect(rows.map(({ origin }) => origin)).toEqual([{ kind: "api" }, { kind: "api" }]);
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 
@@ -222,6 +224,7 @@ it.effect("restores an entity with its archived identity and timestamps", () => 
 		populatedAt: null,
 		properties: { exact: true },
 		userId: UserId.make("user-id"),
+		origin: { kind: "api" as const },
 		id: EntityId.make("archived-id"),
 		createdAt: new Date("2024-01-01T00:00:00.000Z"),
 		updatedAt: new Date("2025-01-01T00:00:00.000Z"),
@@ -232,6 +235,45 @@ it.effect("restores an entity with its archived identity and timestamps", () => 
 		const repository = yield* EntitiesRepository;
 		expect(yield* repository.restoreEntity(input)).toBe(input.id);
 		expect(persisted).toEqual(input);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("lists portable entity provenance", () => {
+	const row = {
+		name: "Entity",
+		id: "entity-id",
+		properties: {},
+		externalId: null,
+		pluginSlug: null,
+		populatedAt: null,
+		providerSlug: null,
+		providerPluginId: null,
+		entitySchemaSlug: "entity",
+		entitySchemaPluginId: null,
+		origin: { kind: "bootstrap" as const },
+		createdAt: new Date("2024-01-01T00:00:00.000Z"),
+		updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+	};
+	const query = { where: () => query, leftJoin: () => query, orderBy: () => Effect.succeed([row]) };
+	const db = { select: () => ({ from: () => query }) };
+
+	return Effect.gen(function* () {
+		const repository = yield* EntitiesRepository;
+		expect(yield* repository.listUserEntitiesForBackup(UserId.make("user-id"))).toEqual([
+			{
+				id: row.id,
+				name: row.name,
+				provider: null,
+				origin: row.origin,
+				createdAt: row.createdAt,
+				updatedAt: row.updatedAt,
+				properties: row.properties,
+				externalId: row.externalId,
+				populatedAt: row.populatedAt,
+				entitySchemaSlug: row.entitySchemaSlug,
+				entitySchemaPluginId: row.entitySchemaPluginId,
+			},
+		]);
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 

@@ -1,4 +1,5 @@
 import { DbError } from "@ryot/contract/errors";
+import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -24,6 +25,7 @@ import {
 export type InsertEntityInputBase = {
 	name: string;
 	entitySchemaSlug: EntitySchemaSlug;
+	origin?: AutomationOrigin | null | undefined;
 	entitySchemaPluginId?: string | null | undefined;
 } & (
 	| {
@@ -66,6 +68,7 @@ export type PortableEntityRecord = Pick<
 	| "populatedAt"
 	| "entitySchemaPluginId"
 	| "entitySchemaSlug"
+	| "origin"
 > & {
 	readonly provider: {
 		readonly pluginId: string;
@@ -87,11 +90,13 @@ type RestoreEntityInput = Pick<
 	| "providerId"
 	| "entitySchemaPluginId"
 	| "entitySchemaSlug"
+	| "origin"
 >;
 
 const portableEntitySelection = {
 	id: schema.entity.id,
 	name: schema.entity.name,
+	origin: schema.entity.origin,
 	pluginSlug: schema.plugin.slug,
 	providerPluginId: schema.plugin.id,
 	createdAt: schema.entity.createdAt,
@@ -654,6 +659,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					const values = {
 						userId: null,
 						name: input.name,
+						origin: input.origin ?? null,
 						properties: input.properties,
 						externalId: externalId ?? null,
 						providerId: providerId ?? null,
@@ -713,6 +719,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				const values = {
 					name: input.name,
 					userId: input.userId,
+					origin: input.origin ?? null,
 					properties: input.properties,
 					externalId: externalId ?? null,
 					providerId: providerId ?? null,

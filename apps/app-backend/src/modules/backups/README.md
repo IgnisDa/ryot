@@ -88,6 +88,11 @@ installation. Integrations missing required secrets are restored disabled. Sourc
 user-authored data and may contain credentials; only manifest config and integration settings fields
 can be redacted.
 
+User-bootstrap entity creation persists its origin on the entity and in the archive. A restore target
+is clean only when every existing entity has bootstrap origin. Archived bootstrap entities are matched
+to those destination rows by entity schema and plugin ownership; the restore does not depend on a
+specific plugin, schema slug, entity name, or initial properties.
+
 ## Error fidelity
 
 Both workflows persist structured failure data for the run row. Expected archive and restore

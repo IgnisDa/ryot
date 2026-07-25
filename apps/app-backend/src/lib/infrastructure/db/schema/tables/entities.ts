@@ -1,3 +1,4 @@
+import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import { index, jsonb, snakeCase, text, timestamp, unique, uniqueIndex } from "drizzle-orm/pg-core";
@@ -11,6 +12,7 @@ export const entity = snakeCase.table(
 		externalId: text(),
 		name: text().notNull(),
 		entitySchemaSlug: text().notNull(),
+		origin: jsonb().$type<AutomationOrigin | null>(),
 		populatedAt: timestamp({ withTimezone: true }),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),

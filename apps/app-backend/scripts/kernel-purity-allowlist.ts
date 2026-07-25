@@ -15,11 +15,4 @@ export const kernelPurityAllowlist = [
 		path: "apps/app-backend/src/modules/plugins/boot-sources.ts",
 		reason: "First-party trusted package wiring is intentionally explicit at boot",
 	})),
-	...(["library", "media"] as const).map((term) => ({
-		term,
-		kind: "permanent" as const,
-		category: "v2-backup-bootstrap" as const,
-		path: "apps/app-backend/src/modules/backups/archive-v2/schemas.ts",
-		reason: "The backup bootstrap identity must retain its exact wire vocabulary",
-	})),
 ] satisfies ReadonlyArray<PurityAllowlistEntry>;
