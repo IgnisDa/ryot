@@ -4,18 +4,10 @@ import {
 	createEntitySchemaExpression,
 	type DisplayConfiguration,
 } from "@ryot/contract/display-configuration";
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import { PluginSlug } from "@ryot/contract/schema/brands";
-import {
-	buildQueryEngineAggregateDocument,
-	buildQueryEngineEntityRowsDocument,
-	buildQueryEngineTimeSeriesDocument,
-	queryEngineEntitySource,
-} from "@ryot/query-engine/documents";
-import {
-	queryEngineField,
-	queryEngineOrder,
-	queryEngineSystemRef,
-} from "@ryot/query-engine/primitives";
+import { aggregate, column, document, eq, literal, measure, table, timeSeries } from "@ryot/ryotql";
+import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -52,33 +44,33 @@ export type DisplayConfigurationInput = Omit<
 	};
 };
 
+export type SavedViewQueryDocument = RyotQLDocument;
 type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
 type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
-export type SavedViewQueryDocument = CreateSavedViewBody["queryDocument"];
 
-export const rowsDocument: SavedViewQueryDocument = buildQueryEngineEntityRowsDocument({
-	alias: "book",
-	limit: 20,
-	schemas: ["book"],
-	fields: [queryEngineField("name", queryEngineSystemRef("book", "name"))],
-	orderBy: [queryEngineOrder("asc", queryEngineSystemRef("book", "name"))],
+export const rowsDocument: SavedViewQueryDocument = buildSavedViewDocument({
+	entitySchemaSlugs: ["book"],
 });
 
-export const aggregateDocument: SavedViewQueryDocument = buildQueryEngineAggregateDocument({
-	source: queryEngineEntitySource({ alias: "book", schemas: ["book"], where: null }),
-	groupBy: [],
-	measures: [{ key: "total", aggregation: { function: "count" } }],
+const book = table("entity", "book");
+
+export const aggregateDocument: SavedViewQueryDocument = document({
+	savedView: aggregate(book, {
+		measures: [measure("total", { function: "count" })],
+		where: eq(column(book, "entitySchemaSlug"), literal("book")),
+	}),
 });
 
-export const timeSeriesDocument: SavedViewQueryDocument = buildQueryEngineTimeSeriesDocument({
-	source: queryEngineEntitySource({ alias: "book", schemas: ["book"], where: null }),
-	measure: { aggregation: { function: "count" } },
-	time: {
+export const timeSeriesDocument: SavedViewQueryDocument = document({
+	savedView: timeSeries(book, {
 		bucket: "month",
-		expr: queryEngineSystemRef("book", "createdAt"),
-		range: { startAt: "2020-01-01T00:00:00.000Z", endAt: "2020-07-01T00:00:00.000Z" },
-	},
+		measure: { function: "count" },
+		endAt: "2020-07-01T00:00:00.000Z",
+		startAt: "2020-01-01T00:00:00.000Z",
+		time: column(book, "createdAt"),
+		where: eq(column(book, "entitySchemaSlug"), literal("book")),
+	}),
 });
 
 type CreateSavedViewInput = Partial<Omit<CreateSavedViewBody, "displayConfiguration">> & {
@@ -122,9 +114,9 @@ const normalizeCardDisplayConfiguration = (
 const normalizeTableDisplayConfiguration = (input: {
 	columns: ReadonlyArray<DisplayColumnInput>;
 }): DisplayConfiguration["table"] => ({
-	columns: input.columns.map((column) => ({
-		label: column.label,
-		expression: toRequiredExpression(column.expression ?? column.property ?? []),
+	columns: input.columns.map((displayColumn) => ({
+		label: displayColumn.label,
+		expression: toRequiredExpression(displayColumn.expression ?? displayColumn.property ?? []),
 	})),
 });
 
@@ -161,17 +153,17 @@ const defaultDisplayConfiguration = {
 		calloutProperty: null,
 		primarySubtitleProperty: null,
 		secondarySubtitleProperty: null,
+		imageProperty: [entityImageField("book")],
 		eyebrowProperty: createEntitySchemaExpression("name"),
 		titleProperty: [entityField("book", "name")],
-		imageProperty: [entityImageField("book")],
 	},
 	list: {
 		calloutProperty: null,
 		primarySubtitleProperty: null,
 		secondarySubtitleProperty: null,
+		imageProperty: [entityImageField("book")],
 		eyebrowProperty: createEntitySchemaExpression("name"),
 		titleProperty: [entityField("book", "name")],
-		imageProperty: [entityImageField("book")],
 	},
 } satisfies DisplayConfigurationInput;
 
@@ -292,10 +284,7 @@ export const updateSavedView = (
 	overrides: UpdateSavedViewInput = {},
 ) =>
 	client.call((c) =>
-		c.savedViews.update({
-			params: { viewSlug },
-			payload: buildUpdatedSavedViewBody(overrides),
-		}),
+		c.savedViews.update({ params: { viewSlug }, payload: buildUpdatedSavedViewBody(overrides) }),
 	);
 
 export const updateSavedViewWithQueryDocument = (

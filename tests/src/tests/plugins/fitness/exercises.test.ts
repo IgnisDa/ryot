@@ -105,14 +105,20 @@ describe("Exercises E2E", () => {
 				isBuiltin: true,
 				name: "All Exercises",
 				pluginSlug: fitnessPlugin.slug,
-				queryDocument: { source: { schemas: ["exercise"] } },
+				queryDocument: {
+					queries: {
+						savedView: {
+							where: {
+								right: { value: "exercise" },
+								left: { field: "entitySchemaSlug", tableAlias: "entity" },
+							},
+						},
+					},
+				},
 				displayConfiguration: {
 					table: {
 						columns: [
-							{
-								label: "Name",
-								expression: createEntityColumnExpression("exercise", "name"),
-							},
+							{ label: "Name", expression: createEntityColumnExpression("exercise", "name") },
 							{
 								label: "Level",
 								expression: createTransformExpression(

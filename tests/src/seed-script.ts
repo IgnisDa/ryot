@@ -18,12 +18,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { buildQueryEngineEntityRowsDocument } from "@ryot/query-engine/documents";
-import {
-	queryEngineField,
-	queryEngineOrder,
-	queryEngineSystemRef,
-} from "@ryot/query-engine/primitives";
+import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 
@@ -475,22 +470,59 @@ const parseReference = (reference: string): SavedViewQueryEngineRef => {
 };
 
 function savedViewQueryDocument(scope: readonly string[]): SavedViewQueryDocument {
-	const [first, ...rest] = scope;
-
+	const [first] = scope;
 	if (!first) {
 		throw new Error("Saved view query document requires at least one schema");
 	}
 
-	const schemas = [first, ...rest] as [string, ...string[]];
-	const nameRef = queryEngineSystemRef(first, "name");
-	return buildQueryEngineEntityRowsDocument({
-		alias: first,
+	return buildSavedViewDocument({
+		entitySchemaSlugs: scope as [string, ...string[]],
 		limit: 20,
-		schemas,
-		fields: [queryEngineField("name", nameRef)],
-		orderBy: [queryEngineOrder("asc", nameRef)],
 	});
 }
+
+const savedViewEntitySchemaSlugs = (document: SavedViewQueryDocument) => {
+	const slugs = new Set<string>();
+	const visit = (value: unknown) => {
+		if (!value || typeof value !== "object") {
+			return;
+		}
+		if (Array.isArray(value)) {
+			value.forEach(visit);
+			return;
+		}
+		const record = value as Record<string, unknown>;
+		const left = record.left as Record<string, unknown> | undefined;
+		const right = record.right as Record<string, unknown> | undefined;
+		const addSchemaSlug = (expr: Record<string, unknown> | undefined, literal: unknown) => {
+			if (
+				expr?.type === "column" &&
+				expr.field === "entitySchemaSlug" &&
+				typeof literal === "string"
+			) {
+				slugs.add(literal);
+			}
+		};
+		if (right?.type === "literal") {
+			addSchemaSlug(left, right.value);
+		}
+		if (left?.type === "literal") {
+			addSchemaSlug(right, left.value);
+		}
+		const expression = record.expr as Record<string, unknown> | undefined;
+		if (Array.isArray(record.values)) {
+			for (const item of record.values) {
+				const literal = item as Record<string, unknown>;
+				if (literal?.type === "literal") {
+					addSchemaSlug(expression, literal.value);
+				}
+			}
+		}
+		Object.values(record).forEach(visit);
+	};
+	visit(document);
+	return [...slugs];
+};
 
 async function createSavedView(
 	apiClient: APIClient,
@@ -501,12 +533,7 @@ async function createSavedView(
 	displayConfiguration: SavedViewDisplayConfigInput,
 	pluginSlug?: PluginSlug,
 ) {
-	const sourceSchemas =
-		queryDocument.source.type === "entities"
-			? queryDocument.source.schemas
-			: queryDocument.source.type === "events"
-				? queryDocument.source.entity.schemas
-				: queryDocument.source.sourceEntity.schemas;
+	const sourceSchemas = savedViewEntitySchemaSlugs(queryDocument);
 	const toExpression = (
 		input: string[] | SavedViewExpression | null,
 	): SavedViewExpression | null => {

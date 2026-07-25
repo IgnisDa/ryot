@@ -109,7 +109,6 @@ describe("definition registry", () => {
 				source.savedViews,
 				(view) =>
 					validateDisplayConfiguration({
-						doc: view.queryDocument,
 						displayConfig: view.displayConfiguration,
 						loadSchemas: (slugs) =>
 							Effect.sync(() =>

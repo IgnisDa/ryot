@@ -2,11 +2,8 @@ import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
 } from "@ryot/contract/display-configuration";
-import {
-	buildQueryEngineAggregateDocument,
-	queryEngineEntitySource,
-} from "@ryot/query-engine/documents";
-import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
+import { aggregate, column, document, eq, literal, measure, table } from "@ryot/ryotql";
+import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
 import {
@@ -26,37 +23,39 @@ import {
 } from "~/fixtures";
 import { describe, expect, it } from "~/support/effect-test";
 
-const rowsDocument: SavedViewQueryDocument = buildDefaultSavedViewQueryDocument({
-	schemas: ["book"],
+const rowsDocument: SavedViewQueryDocument = buildSavedViewDocument({
+	entitySchemaSlugs: ["book"],
 });
 
-const aggregateDocument: SavedViewQueryDocument = buildQueryEngineAggregateDocument({
-	source: queryEngineEntitySource({ alias: "book", schemas: ["book"], where: null }),
-	groupBy: [],
-	measures: [{ key: "total", aggregation: { function: "count" } }],
+const book = table("entity", "book");
+const aggregateDocument: SavedViewQueryDocument = document({
+	savedView: aggregate(book, {
+		measures: [measure("total", { function: "count" })],
+		where: eq(column(book, "entitySchemaSlug"), literal("book")),
+	}),
 });
 
 const buildSchemaRowsDocument = (slug: string): SavedViewQueryDocument =>
-	buildDefaultSavedViewQueryDocument({ schemas: [slug] });
+	buildSavedViewDocument({ entitySchemaSlugs: [slug] });
 
 const buildSchemaDisplayConfiguration = (slug: string) => ({
 	entityIdProperty: createEntityColumnExpression(slug, "id"),
 	table: { columns: [{ label: "Name", expression: [entityField(slug, "name")] }] },
 	grid: {
 		imageProperty: null,
-		titleProperty: [entityField(slug, "name")],
-		eyebrowProperty: createEntitySchemaExpression("name"),
 		calloutProperty: null,
 		primarySubtitleProperty: null,
 		secondarySubtitleProperty: null,
+		eyebrowProperty: createEntitySchemaExpression("name"),
+		titleProperty: [entityField(slug, "name")],
 	},
 	list: {
 		imageProperty: null,
-		titleProperty: [entityField(slug, "name")],
-		eyebrowProperty: createEntitySchemaExpression("name"),
 		calloutProperty: null,
 		primarySubtitleProperty: null,
 		secondarySubtitleProperty: null,
+		eyebrowProperty: createEntitySchemaExpression("name"),
+		titleProperty: [entityField(slug, "name")],
 	},
 });
 
@@ -94,7 +93,7 @@ describe("saved views management", () => {
 				isBuiltin: true,
 				name: "Collections",
 				queryDocument: {
-					source: { type: "entities", alias: "entity", schemas: ["collection"] },
+					queries: { collections: { from: { table: "entity", alias: "collection" } } },
 				},
 			});
 		}),
