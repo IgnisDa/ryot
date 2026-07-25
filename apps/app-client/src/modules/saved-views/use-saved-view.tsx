@@ -17,9 +17,12 @@ import {
 	createSavedViewControllerState,
 	fetchSavedViewPages,
 	isSavedViewLoadingMore,
+	isSavedViewLayoutChanging,
 	isSavedViewRequestActiveFor,
+	isSavedViewSearching,
 	savedViewControllerReducer,
 	savedViewControllerResult,
+	savedViewControllerQueryDocument,
 	type SavedViewOperationToken,
 	withSavedViewCursor,
 	withSavedViewSearch,
@@ -30,7 +33,6 @@ import {
 	savedViewReadyState,
 	type SavedViewManagedAssetsState,
 	type SavedViewNormalizedState,
-	type SavedViewReadyState,
 } from "./state";
 import type { SavedViewLayout } from "./storage";
 
@@ -157,12 +159,14 @@ export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") =>
 	};
 
 	const effectiveController =
-		controller.identity === identity && controller.activeLayout === layout
+		controller.identity === identity
 			? controller
 			: createSavedViewControllerState(identity, layout);
 	const runtime = effectiveController.layouts[layout];
 	const state = savedViewControllerResult(effectiveController);
 	const isLoadingMore = isSavedViewLoadingMore(effectiveController);
+	const visibleQueryDocument =
+		savedViewControllerQueryDocument(effectiveController) ?? queryDocument;
 
 	const loadInitial = useEffectEvent(() => {
 		const current = controllerRef.current;
@@ -256,20 +260,14 @@ export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") =>
 		});
 	};
 
-	const previousReady = useRef<SavedViewReadyState | undefined>(undefined);
-	if (state.status === "ready") {
-		previousReady.current = state;
-	}
-	const retainedState =
-		previousReady.current?.layout === layout ? previousReady.current : undefined;
-	const visibleState = state.status === "loading" && retainedState ? retainedState : state;
 	return {
+		state,
 		refresh,
 		loadMore,
 		isLoadingMore,
-		queryDocument,
-		state: visibleState,
-		isSearching: state.status === "loading" && retainedState !== undefined,
+		queryDocument: visibleQueryDocument,
+		isSearching: isSavedViewSearching(effectiveController),
+		isLayoutChanging: isSavedViewLayoutChanging(effectiveController),
 	};
 };
 
