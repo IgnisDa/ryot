@@ -103,7 +103,10 @@ export const selectSandboxHostFunctions = (
 	>,
 ) => {
 	const selectedApiFunctions: Record<string, BoundHostFunction> = {};
-	if (input.workflowExecutionId || isWorkflowSandboxMetadata(input.metadata)) {
+	if (
+		(input.workflowExecutionId || isWorkflowSandboxMetadata(input.metadata)) &&
+		sandboxMetadataKind(input.metadata) !== "activity"
+	) {
 		const durableCalls = boundApiFunctions["durableCalls"];
 		if (durableCalls) {
 			selectedApiFunctions["durableCalls"] = durableCalls;
