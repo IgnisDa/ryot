@@ -1,20 +1,19 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { resolveEpisodes } from "../../operations/resolve-episodes";
 import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../../operations/schemas";
 
 export const manifest = defineManifest({
-	kind: "activity",
-	name: "Resolve imported episodes",
+	kind: "script",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	slug: "import.resolve-episodes",
+	name: "Resolve imported episodes",
 	capabilities: ["executeQueryEngine"],
-	slug: "activity.import.resolve-episodes",
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: ResolveEpisodesInput,
 	output: ResolveEpisodesOutput,

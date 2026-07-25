@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import {
@@ -9,15 +8,15 @@ import {
 import { resolve } from "../providers/media/book/hardcover";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
+	requiredSystemConfigKeys: [],
 	name: "Resolve imported Hardcover book",
-	slug: "activity.media-import-resolve.book.hardcover",
+	slug: "media-import-resolve.book.hardcover",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["hardcoverApiKey"],
-	requiredSystemConfigKeys: [],
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: MediaImportResolutionActivityInput,
 	output: MediaImportResolutionActivityResult,

@@ -34,17 +34,17 @@ export const manifest = defineManifest({
 const BATCH_SIZE = 25;
 
 const mediaImportResolutionActivitySlugByProvider = {
-	"show.tmdb": "activity.media-import-resolve.show.tmdb",
-	"movie.tmdb": "activity.media-import-resolve.movie.tmdb",
-	"book.hardcover": "activity.media-import-resolve.book.hardcover",
-	"book.openlibrary": "activity.media-import-resolve.book.openlibrary",
-	"book.google-books": "activity.media-import-resolve.book.google-books",
+	"show.tmdb": "media-import-resolve.show.tmdb",
+	"movie.tmdb": "media-import-resolve.movie.tmdb",
+	"book.hardcover": "media-import-resolve.book.hardcover",
+	"book.openlibrary": "media-import-resolve.book.openlibrary",
+	"book.google-books": "media-import-resolve.book.google-books",
 } as const;
 
 export const mediaImportParser = (source: string) => ({
+	scriptSlug: `import.${source}`,
 	output: MediaImportAdapterBatch,
 	input: MediaImportDispatchParserInput,
-	scriptSlug: `activity.import.${source}`,
 });
 
 const integrationAdapter = (scriptSlug: string) => ({
@@ -76,12 +76,12 @@ const population = {
 const episodes = {
 	input: ResolveEpisodesInput,
 	output: ResolveEpisodesOutput,
-	scriptSlug: "activity.import.resolve-episodes",
+	scriptSlug: "import.resolve-episodes",
 };
 
 const chunkWriter = {
 	input: MediaImportWriteChunkInput,
-	scriptSlug: "activity.import.write-chunks",
+	scriptSlug: "import.write-chunks",
 	output: genericImportWorkflowManifestSchema,
 };
 

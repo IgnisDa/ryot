@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import {
@@ -9,15 +8,15 @@ import {
 import { resolve } from "../providers/media/book/google-books";
 
 export const manifest = defineManifest({
-	kind: "activity",
-	name: "Resolve imported Google Books book",
-	slug: "activity.media-import-resolve.book.google-books",
-	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["googleBooksApiKey"],
+	kind: "script",
 	requiredSystemConfigKeys: [],
+	name: "Resolve imported Google Books book",
+	capabilities: ["httpCall", "getPluginConfig"],
+	slug: "media-import-resolve.book.google-books",
+	requiredPluginConfigKeys: ["googleBooksApiKey"],
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: MediaImportResolutionActivityInput,
 	output: MediaImportResolutionActivityResult,

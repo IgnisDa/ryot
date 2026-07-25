@@ -130,7 +130,7 @@ export const manifest = defineManifest({
 const writeChunk = {
   input: Schema.Struct({}),
   output: genericImportWorkflowManifestSchema,
-  scriptSlug: "activity.e2e-write-harvest-chunk",
+  scriptSlug: "import.e2e-write-harvest-chunk",
 };
 
 const kernelImport = {
@@ -155,23 +155,22 @@ export default defineWorkflow({
 });
 `;
 
-const FIXTURE_HANDLE_IMPORT_ACTIVITY_SOURCE = `
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+const FIXTURE_HANDLE_IMPORT_CHUNK_SOURCE = `
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
 import { genericImportAdapterManifestSchema } from "@ryot/sandbox-sdk/imports";
 
 export const manifest = defineManifest({
-  kind: "activity",
+  kind: "script",
   capabilities: ["scratch"],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
   name: "E2E write harvest chunk",
-  slug: "activity.e2e-write-harvest-chunk",
+  slug: "import.e2e-write-harvest-chunk",
 });
 
-export default defineActivity({
+export default defineScript({
   manifest,
   input: Schema.Struct({}),
   output: genericImportAdapterManifestSchema,
@@ -205,11 +204,21 @@ export default defineActivity({
 
 export const installTestHarvestHandleImportPlugin = Effect.suspend(() =>
 	installTestPluginBundle({
+		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-harvest-handle-import" }],
 		files: {
 			"scripts/import.sandbox.ts": FIXTURE_HANDLE_IMPORT_WORKFLOW_SOURCE,
-			"scripts/write-chunk.sandbox.ts": FIXTURE_HANDLE_IMPORT_ACTIVITY_SOURCE,
+			"scripts/write-chunk.sandbox.ts": FIXTURE_HANDLE_IMPORT_CHUNK_SOURCE,
 		},
-		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-harvest-handle-import" }],
+		importSources: [
+			{
+				input: "payload",
+				workflowSlug: "import",
+				requiredPluginConfigKeys: [],
+				name: "E2E harvest handle import",
+				slug: FIXTURE_HANDLE_IMPORT_SOURCE,
+				description: "Import fixture for opaque harvest handles",
+			},
+		],
 		scripts: [
 			{
 				kind: "workflow",
@@ -221,23 +230,13 @@ export const installTestHarvestHandleImportPlugin = Effect.suspend(() =>
 				slug: "workflow.e2e-harvest-handle-import",
 			},
 			{
-				kind: "activity",
+				kind: "script",
 				capabilities: ["scratch"],
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
 				name: "E2E write harvest chunk",
+				slug: "import.e2e-write-harvest-chunk",
 				entry: "scripts/write-chunk.sandbox.ts",
-				slug: "activity.e2e-write-harvest-chunk",
-			},
-		],
-		importSources: [
-			{
-				input: "payload",
-				workflowSlug: "import",
-				requiredPluginConfigKeys: [],
-				name: "E2E harvest handle import",
-				slug: FIXTURE_HANDLE_IMPORT_SOURCE,
-				description: "Import fixture for opaque harvest handles",
 			},
 		],
 	}),

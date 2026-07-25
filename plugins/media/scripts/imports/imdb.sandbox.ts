@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { batchMediaImportResult } from "../../imports/helpers";
@@ -8,14 +7,15 @@ import { MediaImportAdapterBatch, MediaImportParserInput } from "../../imports/s
 import { readImportArtifactText } from "./shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
+	slug: "import.imdb",
 	name: "Parse IMDb import",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	slug: "activity.import.imdb",
 	capabilities: ["artifact-read"],
 });
-export default defineActivity({
+
+export default defineScript({
 	manifest,
 	input: MediaImportParserInput,
 	output: MediaImportAdapterBatch,

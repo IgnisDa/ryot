@@ -1,4 +1,4 @@
-import type { ActivityManifest, SandboxManifest } from "@ryot/sandbox-sdk/core";
+import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
 
 import { manifest as manifest0 } from "./scripts/automations/auto-complete-on-full-progress.sandbox";
 import { manifest as manifest1 } from "./scripts/automations/integration-progress-policy.sandbox";
@@ -194,7 +194,7 @@ const providerScript = <const Manifest extends SandboxManifest>(
 	providerOperation: ProviderOperation,
 ) => ({ ...directScript(manifest, entry), providerSlug, providerOperation });
 
-const providerActivity = <const Manifest extends ActivityManifest>(
+const providerResolutionScript = <const Manifest extends SandboxManifest>(
 	manifest: Manifest,
 	entry: string,
 	providerSlug: string,
@@ -984,21 +984,29 @@ export const mediaScripts = [
 	directScript(manifest137, "scripts/workflows/media-import-resolution.sandbox.ts"),
 	directScript(manifest175, "scripts/workflows/media-monitoring-sweep.sandbox.ts"),
 	directScript(manifest176, "scripts/workflows/media-monitoring-targets.sandbox.ts"),
-	providerActivity(
+	providerResolutionScript(
 		manifest138,
 		"scripts/workflows/resolve-book-google-books.sandbox.ts",
 		"book.google-books",
 	),
-	providerActivity(
+	providerResolutionScript(
 		manifest139,
 		"scripts/workflows/resolve-book-hardcover.sandbox.ts",
 		"book.hardcover",
 	),
-	providerActivity(
+	providerResolutionScript(
 		manifest140,
 		"scripts/workflows/resolve-book-openlibrary.sandbox.ts",
 		"book.openlibrary",
 	),
-	providerActivity(manifest141, "scripts/workflows/resolve-movie-tmdb.sandbox.ts", "movie.tmdb"),
-	providerActivity(manifest142, "scripts/workflows/resolve-show-tmdb.sandbox.ts", "show.tmdb"),
+	providerResolutionScript(
+		manifest141,
+		"scripts/workflows/resolve-movie-tmdb.sandbox.ts",
+		"movie.tmdb",
+	),
+	providerResolutionScript(
+		manifest142,
+		"scripts/workflows/resolve-show-tmdb.sandbox.ts",
+		"show.tmdb",
+	),
 ] as const;

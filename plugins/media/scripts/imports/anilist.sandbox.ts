@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { adaptAnilistExport } from "../../imports/anilist";
@@ -8,14 +7,15 @@ import { MediaImportAdapterBatch, MediaImportParserInput } from "../../imports/s
 import { readImportArtifactText } from "./shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
+	slug: "import.anilist",
 	name: "Parse AniList import",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: ["timezone"],
-	slug: "activity.import.anilist",
 	capabilities: ["artifact-read", "getSystemConfig"],
 });
-export default defineActivity({
+
+export default defineScript({
 	manifest,
 	input: MediaImportParserInput,
 	output: MediaImportAdapterBatch,

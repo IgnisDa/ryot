@@ -1,5 +1,4 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { batchMediaImportResult } from "../../imports/helpers";
@@ -7,15 +6,15 @@ import { MediaImportAdapterBatch, TraktImportParserInput } from "../../imports/s
 import { adaptTraktData } from "../../imports/trakt";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
+	slug: "import.trakt",
 	name: "Fetch Trakt import",
-	slug: "activity.import.trakt",
-	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["traktClientId"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["traktClientId"],
+	capabilities: ["httpCall", "getPluginConfig"],
 });
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: TraktImportParserInput,
 	output: MediaImportAdapterBatch,
