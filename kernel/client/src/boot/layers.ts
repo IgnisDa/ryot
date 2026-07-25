@@ -9,6 +9,7 @@ import { PublicApi } from "#/api/public";
 import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
+import { UserSettingsApi } from "#/api/user-settings";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
@@ -43,6 +44,7 @@ const InfrastructureLive = Layer.mergeAll(
 	PluginsApi.layer,
 	GodModeApi.layer,
 	SavedViewsApi.layer,
+	UserSettingsApi.layer,
 	ProviderEntitiesApi.layer,
 ).pipe(Layer.provide(TransportLive));
 
