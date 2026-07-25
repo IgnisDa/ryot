@@ -10,7 +10,7 @@ import {
 	harvestSandboxScratchChunks,
 	measureSandboxScratchBytes,
 	removeSandboxHarvestDirectories,
-	sandboxArtifactGrantPath,
+	sandboxArtifactGrant,
 	sandboxGrantPathError,
 } from "./filesystem-grants";
 import { SANDBOX_LIMITS, sandboxScratchQuotaError } from "./limits";
@@ -29,11 +29,14 @@ const withTempRoot = <A, E>(
 
 describe("sandbox filesystem grant gating", () => {
 	vitestIt("treats the capability as the gate and the dispatched path as its parameter", () => {
-		expect(sandboxArtifactGrantPath(["artifact-read"], "/tmp/root/export.zip")).toBe(
+		expect(sandboxArtifactGrant(["artifact-read"], "/tmp/root/export.zip")).toBe(
 			"/tmp/root/export.zip",
 		);
-		expect(sandboxArtifactGrantPath(["artifact-read"], undefined)).toBeUndefined();
-		expect(sandboxArtifactGrantPath(["httpCall"], "/tmp/root/export.zip")).toBeUndefined();
+		expect(sandboxArtifactGrant(["artifact-read"], undefined)).toBeUndefined();
+		expect(sandboxArtifactGrant(["httpCall"], "/tmp/root/export.zip")).toBeUndefined();
+		expect(sandboxArtifactGrant(["artifact-read"], { history: "/tmp/root/history" })).toEqual({
+			history: "/tmp/root/history",
+		});
 	});
 
 	vitestIt("never binds a host function for a filesystem grant capability", () => {
