@@ -375,12 +375,12 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(yield* html.getAttribute("data-theme")).toBeNull();
 		yield* returnToFixture("dark");
 
-		const navigationFrame = Option.getOrThrow(yield* frame.elementHandle());
-		const navigationArtifact = yield* readArtifactSession(frame, apiUrl);
-		const navigationBridgeSession = yield* waitForFreshBridgeSession(
-			bridgeObservations,
-			initialBridgeSession,
-		);
+		expect(yield* sameFrame()).toBe(true);
+		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), initialArtifact);
+		expectCurrentBridgeSession(bridgeObservations, initialBridgeSession);
+		const navigationFrame = shellFrame;
+		const navigationArtifact = initialArtifact;
+		const navigationBridgeSession = initialBridgeSession;
 
 		yield* fixture.getByRole("link", { name: "Item 1 details" }).click();
 		yield* page.waitForURL(`${frontendUrl}/fixture/details/item-1?tab=stats`);
