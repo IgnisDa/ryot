@@ -39,11 +39,11 @@ export function AuthUnavailable(props: { onRetry?: () => void; onChangeServer: (
 				</Text>
 				{props.onRetry && (
 					<Pressable accessibilityRole="button" onPress={props.onRetry}>
-						<Text className="font-ui-medium text-accent-text">Try again</Text>
+						<Text className="font-ui-medium text-base text-accent-text">Try again</Text>
 					</Pressable>
 				)}
 				<Pressable accessibilityRole="button" onPress={props.onChangeServer}>
-					<Text className="font-ui-medium text-text-muted">Change server</Text>
+					<Text className="font-ui-medium text-base text-text-muted">Change server</Text>
 				</Pressable>
 			</View>
 		</View>
