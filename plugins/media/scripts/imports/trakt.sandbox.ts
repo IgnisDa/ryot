@@ -24,7 +24,7 @@ export default defineScript({
 			if (typeof clientId !== "string" || !clientId) {
 				throw new Error("Trakt importer is not configured. Set RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID.");
 			}
-			const result = yield* adaptTraktData(input.username, clientId, host);
+			const result = yield* adaptTraktData(input, clientId, host);
 			return batchMediaImportResult(result, input.start, input.limit);
 		}),
 });
