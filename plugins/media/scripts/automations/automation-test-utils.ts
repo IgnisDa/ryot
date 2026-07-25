@@ -132,13 +132,51 @@ export const hostSuccess = <Data>(data: Data) => Effect.succeed(data);
 
 export const hostFailure = (message = "not found") => Effect.fail({ message });
 
-export const queryEngineRows = (records: readonly Record<string, unknown>[]) => ({
+const ryotqlField = (key: string, value: unknown) => {
+	const textValue = typeof value === "string" ? value : (JSON.stringify(value) ?? "");
+	if (value === null) {
+		return { kind: "null" as const, value };
+	}
+	if (key === "createdAt" || key === "updatedAt" || key === "occurredAt") {
+		return { kind: "date" as const, value: textValue };
+	}
+	if (key === "properties") {
+		return { kind: "json" as const, value };
+	}
+	if (typeof value === "boolean") {
+		return { kind: "boolean" as const, value };
+	}
+	if (typeof value === "number") {
+		return { kind: "number" as const, value };
+	}
+	return { kind: "text" as const, value: textValue };
+};
+
+export const ryotqlRows = (queryName: string, records: readonly Record<string, unknown>[]) => ({
 	data: {
-		items: records.map((record) =>
-			Object.fromEntries(
-				Object.entries(record).map(([key, value]) => [key, { kind: "json", value }]),
-			),
-		),
+		[queryName]: {
+			type: "rows" as const,
+			pageInfo: { hasMore: false, limit: 100, page: 1, total: records.length },
+			items: records.map((record) => {
+				const values =
+					queryName === "events"
+						? {
+								id: record.id,
+								entityId: record.entityId,
+								updatedAt: record.updatedAt,
+								createdAt: record.createdAt,
+								occurredAt: record.occurredAt,
+								properties: record.properties,
+								eventSchemaSlug: record.eventSchemaSlug,
+								entitySchemaSlug: record.entitySchemaSlug,
+								sessionEntityId: record.sessionEntityId ?? null,
+							}
+						: record;
+				return Object.fromEntries(
+					Object.entries(values).map(([key, value]) => [key, ryotqlField(key, value)]),
+				);
+			}),
+		},
 	},
 });
 

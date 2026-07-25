@@ -13,7 +13,7 @@ import {
 	httpFailure,
 	httpSuccess,
 	integrationRecord,
-	queryEngineRows,
+	ryotqlRows,
 	toRecord,
 } from "./automation-test-utils";
 import definition, { manifest } from "./radarr-push.sandbox";
@@ -73,8 +73,8 @@ const createHost = (options: {
 		httpCall: options.httpCall,
 		getEntitySchemas: () => hostSuccess([schema]),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
-		executeQueryEngine: () =>
-			options.entity ? hostSuccess(queryEngineRows([options.entity])) : hostFailure(),
+		executeRyotql: () =>
+			options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure(),
 		getUserPreferences: () =>
 			hostSuccess({ isNsfw: false, disableIntegrations: options.disableIntegrations ?? false }),
 	});

@@ -8,18 +8,6 @@ import {
 	buildWorkoutTemplateListQueryDocument,
 } from "@ryot/fitness-plugin/query-recipes";
 import {
-	buildCollectionMediaSuggestionsQueryDocument,
-	buildCompletedPodcastsQueryDocument,
-	buildCompletedShowsQueryDocument,
-	buildDefaultMediaSavedViewQueryDocument,
-	buildInProgressPodcastsQueryDocument,
-	buildInProgressShowsQueryDocument,
-	buildPersonalMediaSuggestionsQueryDocument,
-	buildPodcastDetailQueryDocument,
-	buildShowDetailQueryDocument,
-	buildTrendingMediaQueryDocument,
-} from "@ryot/media-plugin/query-recipes";
-import {
 	buildAllCollectionsQueryDocument,
 	buildDefaultSavedViewQueryDocument,
 	buildEntityDetailQueryDocument,
@@ -42,22 +30,6 @@ describe("shared query-engine recipes", () => {
 			}),
 			buildAllCollectionsQueryDocument({}),
 			buildDefaultSavedViewQueryDocument({ schemas: ["book"] }),
-			buildDefaultMediaSavedViewQueryDocument({ schemas: ["book"] }),
-			buildShowDetailQueryDocument({ entityId: "show", seasonLimit: 10, episodeLimit: 10 }),
-			buildInProgressShowsQueryDocument({}),
-			buildCompletedShowsQueryDocument({}),
-			buildPodcastDetailQueryDocument({ entityId: "podcast", episodeLimit: 10 }),
-			buildInProgressPodcastsQueryDocument({}),
-			buildCompletedPodcastsQueryDocument({}),
-			buildPersonalMediaSuggestionsQueryDocument({ entitySchemaSlug: "book" }),
-			buildCollectionMediaSuggestionsQueryDocument({
-				entitySchemaSlug: "book",
-				collectionId: "collection",
-			}),
-			buildTrendingMediaQueryDocument({
-				entitySchemaSlug: "book",
-				fetchedAt: "2026-01-01T00:00:00.000Z",
-			}),
 			buildExerciseListQueryDocument({}),
 			buildWorkoutListQueryDocument({}),
 			buildMeasurementListQueryDocument({}),
