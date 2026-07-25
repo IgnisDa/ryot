@@ -64,12 +64,12 @@ export const mediaSavedViews = () => {
 		if (!schema) {
 			throw new Error(`Missing media entity schema: ${view.entitySchemaSlug}`);
 		}
-		const itemId = column(entity, "id");
+		const entityId = column(entity, "id");
 		const expressions = buildViewExpressions(view.entitySchemaSlug, schema.name);
 		const projections = buildSavedViewLayoutProjections({
-			table: { itemId, ...expressions.table },
-			grid: { itemId, card: expressions.grid },
-			list: { itemId, card: expressions.list },
+			table: { entityId, ...expressions.table },
+			grid: { entityId, card: expressions.grid },
+			list: { entityId, card: expressions.list },
 		});
 		return {
 			sortOrder,

@@ -36,7 +36,7 @@ describe("saved views validation", () => {
 	it.live("rejects a display field that is missing from the root projection", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const body = withGridLayout(rowsDocument, { itemIdField: "missing" });
+			const body = withGridLayout(rowsDocument, { entityIdField: "missing" });
 
 			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
@@ -55,18 +55,18 @@ describe("saved views validation", () => {
 					page: 1,
 					limit: 2,
 					fields: [
-						field("itemId", column(book, "id")),
+						field("entityId", column(book, "id")),
 						field("numericId", literal(1)),
 						...rowsFields.slice(1),
 					],
 				}),
 			});
-			const body = withGridLayout(queryDocument, { itemIdField: "numericId" });
+			const body = withGridLayout(queryDocument, { entityIdField: "numericId" });
 
 			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
 			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Grid layout: itemIdField must resolve to text");
+			expect(error.message).toBe("Grid layout: entityIdField must resolve to text");
 		}),
 	);
 
