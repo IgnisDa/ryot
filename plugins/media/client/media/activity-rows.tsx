@@ -12,7 +12,7 @@ import {
 import { MediaFact } from "./primitives";
 
 export type MediaActivityRowRender<Row extends MediaActivityRowBase> = {
-	readonly segmentNoun?: string;
+	readonly segmentNoun: string;
 	readonly rowBody: (row: Row) => ReactNode;
 	readonly rowLabel: (row: Row) => string;
 	readonly markerTone: Record<Row["type"], string>;
@@ -175,8 +175,6 @@ function MediaActivityWatchSeparator(props: { readonly label: string }) {
 	);
 }
 
-const DEFAULT_SEGMENT_NOUN = "Watch";
-
 const segmentSeparatorLabel = <Row extends MediaActivityRowBase>(input: {
 	readonly noun: string;
 	readonly index: number;
@@ -193,7 +191,7 @@ export function MediaActivityTimelineView<Row extends MediaActivityRowBase>(prop
 		return <MediaActivityRows render={props.render} rows={props.timeline.rows} />;
 	}
 	const { open, completed } = props.timeline;
-	const noun = props.render.segmentNoun ?? DEFAULT_SEGMENT_NOUN;
+	const noun = props.render.segmentNoun;
 	return (
 		<div className="flex flex-col gap-5">
 			{open === undefined ? null : (

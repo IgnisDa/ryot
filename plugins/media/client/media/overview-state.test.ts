@@ -36,11 +36,10 @@ describe("media overview state", () => {
 	});
 
 	it("keeps error copy free of decoder and transport internals", () => {
-		expect(mediaOverviewError({ status: "malformed" }).detail).not.toContain("RyotQL");
-		expect(mediaOverviewError({ status: "transport-error" })).toEqual({
+		expect(mediaOverviewError({ status: "malformed" }, "Credits").detail).not.toContain("RyotQL");
+		expect(mediaOverviewError({ status: "transport-error" }, "Credits")).toEqual({
 			title: "Unable to load these details",
-			detail:
-				"The cast, companies and recommendations could not be loaded. Check your connection and try again.",
+			detail: "Credits could not be loaded. Check your connection and try again.",
 		});
 	});
 

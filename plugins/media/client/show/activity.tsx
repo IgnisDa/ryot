@@ -99,6 +99,7 @@ function ShowActivityWatchBody(props: { readonly row: ShowActivityWatchRow }) {
 }
 
 const showActivityRender: MediaActivityRowRender<ShowActivityRow> = {
+	segmentNoun: "Watch",
 	markerTone: MARKER_TONE,
 	rowLabel: showActivityRowLabel,
 	rowSource: (row) => (row.type === "watch" || row.type === "progress" ? row.source : undefined),

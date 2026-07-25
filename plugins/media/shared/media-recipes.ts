@@ -1,17 +1,18 @@
-import { Schema } from "@ryot-app/plugin-kit/effect";
+import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
 	castBoolean,
-	coalesce,
 	column,
+	conditional,
 	count,
+	defineRecipe,
 	descending,
 	eq,
 	eventOrderDescending,
 	first,
 	inArray,
-	isNull,
+	isNotNull,
 	IsoDateString,
 	join,
 	jsonPath,
@@ -42,6 +43,7 @@ import {
 } from "./entity-selections";
 import {
 	MediaLifecycleStateSchema,
+	mediaLifecycleExpressions,
 	type Predicate,
 	type ScalarExpression,
 } from "./lifecycle-expressions";
@@ -331,14 +333,19 @@ export const mediaFlatPresentationSelection = <Duration extends SelectedSelectio
 	),
 });
 
+export type MediaFlatMeasure = (event: Table) => {
+	readonly amount: ScalarExpression;
+	readonly isUnknown: Predicate;
+};
+
 export const mediaFlatConsumptionTotals = (input: {
 	readonly entity: Table;
-	readonly duration: { readonly minutes: ScalarExpression; readonly isUnknown: Predicate };
+	readonly measure: MediaFlatMeasure;
 }) => {
-	const { entity, duration } = input;
+	const { entity, measure } = input;
 	const completion = table("event", "mediaCompletionEvent");
-	const minutes = table("event", "mediaMinutesEvent");
-	const unknown = table("event", "mediaUnknownDurationEvent");
+	const amount = table("event", "mediaAmountEvent");
+	const unknown = table("event", "mediaUnknownAmountEvent");
 	const isCompletionOf = (event: Table) =>
 		and(
 			eq(column(event, "entityId"), column(entity, "id")),
@@ -349,21 +356,18 @@ export const mediaFlatConsumptionTotals = (input: {
 			count(completion, { where: isCompletionOf(completion) }),
 			Schema.Number,
 		),
-		consumedMinutes: selectedField(
-			sum(minutes, coalesce(propertyNumber(minutes, "timeSpent"), duration.minutes), {
-				where: isCompletionOf(minutes),
-			}),
-			Schema.NullOr(Schema.Number),
-		),
-		unknownDurationCount: selectedField(
-			count(unknown, {
-				where: and(
-					isCompletionOf(unknown),
-					isNull(propertyNumber(unknown, "timeSpent")),
-					duration.isUnknown,
-				),
-			}),
+		unknownAmountCount: selectedField(
+			count(unknown, { where: and(isCompletionOf(unknown), measure(unknown).isUnknown) }),
 			Schema.Number,
+		),
+		consumedAmount: selectedField(
+			sum(
+				amount,
+				// Referencing the event row keeps the aggregate inside the subquery when a measure reads only the entity.
+				conditional(isNotNull(column(amount, "id")), measure(amount).amount, literal(null)),
+				{ where: isCompletionOf(amount) },
+			),
+			Schema.NullOr(Schema.Number),
 		),
 	};
 };
@@ -514,3 +518,158 @@ type MediaActivityCollectionRow = SelectedQuerySuccess<
 export type MediaFlatActivityEvent = ReturnType<
 	typeof mergeMediaActivityEvents<MediaFlatActivityParentRow, MediaActivityCollectionRow>
 >[number];
+
+export const mediaUnlinkedCreatorsQuery = (id: string) => {
+	const entity = table("entity", "creatorsEntity");
+	return selectedOptionalRow(entity, {
+		where: entityId(entity, id),
+		orderBy: [ascending(column(entity, "id"))],
+		selection: {
+			unlinkedCreators: selectedField(
+				propertyJson(entity, "unlinkedCreators"),
+				Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String, role: Schema.String }))),
+			),
+		},
+	});
+};
+
+const MEDIA_FLAT_PRESENTATION_LIMIT = 100;
+
+export const mediaFlatRecipes = <
+	const SummaryFields extends SelectedSelection,
+	const PresentationFields extends SelectedSelection,
+>(config: {
+	readonly slug: string;
+	readonly alias: string;
+	readonly groupSlug: string;
+	readonly measure: (event: Table, entity: Table) => ReturnType<MediaFlatMeasure>;
+	readonly summaryFields: (entity: Table) => SummaryFields;
+	readonly presentationFields: (entity: Table) => PresentationFields;
+}) => {
+	const summaryRecipe = defineRecipe(
+		(input: { readonly entityId: string; readonly collectionLimit: number }) => {
+			const entity = table("entity", "entity");
+			const provider = table("sandboxProvider", "provider");
+			const lifecycle = mediaLifecycleExpressions(entity, `${config.alias}SummaryLifecycle`);
+			return {
+				map: ({ summary, requested }) =>
+					Result.succeed({
+						summary: summary ?? null,
+						entitySchemaSlug: requested?.schemaSlug ?? null,
+					}),
+				queries: {
+					requested: requestedSchemaQuery(input.entityId),
+					summary: selectedOptionalRow(entity, {
+						orderBy: [ascending(column(entity, "id"))],
+						include: { collections: collectionMembershipInclude(input.collectionLimit) },
+						where: and(entitySchema(entity, config.slug), entityId(entity, input.entityId)),
+						joins: [
+							join("left", provider, eq(column(entity, "providerId"), column(provider, "id"))),
+						],
+						selection: {
+							...mediaSummarySelection(entity, provider),
+							state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
+							progressPercent: selectedField(
+								lifecycle.progressPercent,
+								Schema.NullOr(Schema.Number),
+							),
+							...config.summaryFields(entity),
+						},
+					}),
+				},
+			};
+		},
+	);
+
+	const overviewQueries = (input: {
+		readonly entityId: string;
+		readonly groupLimit: number;
+		readonly peopleLimit: number;
+		readonly companyLimit: number;
+		readonly recommendationLimit: number;
+	}) => ({
+		...mediaOverviewQueries({ ...input, slug: config.slug }),
+		group: mediaGroupQuery({
+			memberSlug: config.slug,
+			limit: input.groupLimit,
+			entityId: input.entityId,
+			groupSlug: config.groupSlug,
+			relationshipSlug: `${config.groupSlug}-to-${config.slug}`,
+			aliases: { group: `${config.alias}Group`, relationship: `${config.alias}GroupRelationship` },
+		}),
+	});
+
+	const overviewRecipe = defineRecipe((input: Parameters<typeof overviewQueries>[0]) => ({
+		queries: overviewQueries(input),
+	}));
+
+	const activityRecipe = defineRecipe(
+		(input: {
+			readonly entityId: string;
+			readonly eventLimit: number;
+			readonly collectionEventLimit: number;
+		}) => {
+			const entity = table("entity", `${config.alias}ActivityEntity`);
+			return {
+				map: ({ totals, events, collectionEvents }) =>
+					Result.succeed({
+						completionCount: totals?.completionCount ?? 0,
+						consumedAmount: totals?.consumedAmount ?? null,
+						unknownAmountCount: totals?.unknownAmountCount ?? 0,
+						truncated: events.pageInfo.hasMore || collectionEvents.pageInfo.hasMore,
+						events: mergeMediaActivityEvents({
+							parentEvents: events.items,
+							collectionEvents: collectionEvents.items,
+						}),
+					}),
+				queries: {
+					collectionEvents: mediaCollectionEventsQuery({
+						entityId: input.entityId,
+						limit: input.collectionEventLimit,
+					}),
+					events: mediaFlatActivityEventsQuery({
+						limit: input.eventLimit,
+						entityId: input.entityId,
+						alias: `${config.alias}Event`,
+					}),
+					totals: selectedOptionalRow(entity, {
+						orderBy: [ascending(column(entity, "id"))],
+						where: and(entitySchema(entity, config.slug), entityId(entity, input.entityId)),
+						selection: mediaFlatConsumptionTotals({
+							entity,
+							measure: (event) => config.measure(event, entity),
+						}),
+					}),
+				},
+			};
+		},
+	);
+
+	const presentationRecipe = defineRecipe((entityIds: readonly string[]) => {
+		const entity = table("entity", `${config.alias}PresentationEntity`);
+		const lifecycle = mediaLifecycleExpressions(entity, `${config.alias}PresentationLifecycle`);
+		return {
+			map: ({ rows }) => Result.succeed(rows.items),
+			queries: {
+				rows: selectedRows(entity, {
+					limit: MEDIA_FLAT_PRESENTATION_LIMIT,
+					orderBy: [ascending(column(entity, "id"))],
+					selection: mediaFlatPresentationSelection(
+						entity,
+						lifecycle,
+						config.presentationFields(entity),
+					),
+					where: and(
+						entitySchema(entity, config.slug),
+						inArray(
+							column(entity, "id"),
+							entityIds.map((requestedId) => literal(requestedId)),
+						),
+					),
+				}),
+			},
+		};
+	});
+
+	return { summaryRecipe, overviewRecipe, activityRecipe, overviewQueries, presentationRecipe };
+};

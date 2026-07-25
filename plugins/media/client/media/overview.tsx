@@ -15,10 +15,12 @@ import {
 	mediaPersonAsset,
 	mediaRecommendationAsset,
 	mediaRolesLabel,
+	mediaUnlinkedCredits,
 	type MediaCompany,
 	type MediaOverviewState,
 	type MediaPerson,
 	type MediaRecommendation,
+	type MediaUnlinkedCreator,
 } from "./overview-state";
 import { MediaExternalLink, MediaLinkButton, MediaOverviewSection } from "./primitives";
 import { mediaGalleryAssets, type MediaSummaryFields } from "./summary-state";
@@ -38,6 +40,12 @@ const CREDIT_COLUMN_CLASS = "min-w-0 flex-1 border-t-0 pt-0";
 const COMPANY_COLUMN_CLASS = "w-72 shrink-0 border-t-0 pt-0";
 
 export type MediaOverviewSubject = Pick<MediaSummaryFields, "name" | "images">;
+
+export type MediaCreditCopy = {
+	readonly people: string;
+	readonly notice: string;
+	readonly companies: string;
+};
 
 export type MediaOverviewRelationsRender<Overview> = (input: {
 	readonly compact: boolean;
@@ -158,17 +166,20 @@ export function MediaWatchProvidersSection(props: {
 }
 
 export function MediaPeopleSection(props: {
+	readonly title: string;
 	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly onViewAll: () => void;
 	readonly people: readonly MediaPerson[];
+	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
 }) {
-	if (props.people.length === 0) {
+	const unlinked = props.unlinked ?? [];
+	if (props.people.length === 0 && unlinked.length === 0) {
 		return null;
 	}
 	return (
 		<MediaOverviewSection
-			title="Cast & crew"
+			title={props.title}
 			divided={props.divided}
 			compact={props.compact}
 			sync={mediaSyncCounts(props.people, mediaPersonAsset)}
@@ -214,24 +225,49 @@ export function MediaPeopleSection(props: {
 						</PluginLink>
 					);
 				})}
+				{unlinked.map((creator) => (
+					<div
+						key={`${creator.role}:${creator.name}`}
+						className={clsx("flex flex-col gap-2.5", props.compact ? "w-24" : "w-28")}
+					>
+						<ManagedAssetImage
+							state="ready"
+							shape="circle"
+							asset={undefined}
+							monogram={creator.name}
+							className="aspect-square w-full"
+						/>
+						<div className="flex flex-col gap-1">
+							<p className="line-clamp-2 text-center font-ui font-medium text-[13px] leading-4.5 text-text">
+								{creator.name}
+							</p>
+							<p className="line-clamp-1 text-center font-ui text-[11px] leading-3.75 text-text-subtle">
+								{creator.role}
+							</p>
+						</div>
+					</div>
+				))}
 			</MediaRail>
 		</MediaOverviewSection>
 	);
 }
 
 export function MediaCompaniesSection(props: {
+	readonly title: string;
 	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly companies: readonly MediaCompany[];
+	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
 }) {
-	if (props.companies.length === 0) {
+	const unlinked = props.unlinked ?? [];
+	if (props.companies.length === 0 && unlinked.length === 0) {
 		return null;
 	}
 	return (
 		<MediaOverviewSection
+			title={props.title}
 			divided={props.divided}
 			compact={props.compact}
-			title="Production companies"
 			sync={mediaSyncCounts(props.companies, mediaCompanyAsset)}
 			className={props.compact ? undefined : COMPANY_COLUMN_CLASS}
 		>
@@ -264,6 +300,24 @@ export function MediaCompaniesSection(props: {
 						</PluginLink>
 					);
 				})}
+				{unlinked.map((creator) => (
+					<div className="flex items-center gap-3" key={`${creator.role}:${creator.name}`}>
+						<ManagedAssetImage
+							state="ready"
+							asset={undefined}
+							monogram={creator.name}
+							className="h-9 w-9 shrink-0"
+						/>
+						<div className="flex min-w-0 flex-1 flex-col">
+							<p className="line-clamp-1 font-ui font-medium text-[13px] leading-4.5 text-text">
+								{creator.name}
+							</p>
+							<p className="line-clamp-1 font-ui text-[11px] leading-3.75 text-text-subtle">
+								{creator.role}
+							</p>
+						</div>
+					</div>
+				))}
 			</div>
 		</MediaOverviewSection>
 	);
@@ -313,19 +367,16 @@ export function MediaRecommendationsSection(props: {
 
 function MediaOverviewNotice(props: {
 	readonly title: string;
+	readonly status: string;
 	readonly detail: string;
 	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly onRetry?: () => void;
 }) {
 	return (
-		<MediaOverviewSection
-			divided={props.divided}
-			compact={props.compact}
-			title="Cast, companies and recommendations"
-		>
+		<MediaOverviewSection title={props.title} divided={props.divided} compact={props.compact}>
 			<div className="flex flex-col items-start gap-2">
-				<p className="font-ui text-[13px] text-text-muted">{props.title}</p>
+				<p className="font-ui text-[13px] text-text-muted">{props.status}</p>
 				<p className="max-w-xl font-ui text-[13px] text-text-subtle">{props.detail}</p>
 				{props.onRetry === undefined ? null : (
 					<MediaLinkButton label="Try again" onClick={props.onRetry} />
@@ -338,12 +389,16 @@ function MediaOverviewNotice(props: {
 export function MediaOverviewRelations(props: {
 	readonly compact: boolean;
 	readonly divided: boolean;
+	readonly copy: MediaCreditCopy;
 	readonly trailing?: ReactNode;
 	readonly onViewAllPeople: () => void;
 	readonly overview: MediaOverviewRows;
+	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
 }) {
 	const { people, companies, recommendations } = props.overview;
-	const hasCredits = people.items.length > 0 || companies.items.length > 0;
+	const unlinked = mediaUnlinkedCredits(props.unlinked ?? []);
+	const hasPeople = people.items.length > 0 || unlinked.people.length > 0;
+	const hasCredits = hasPeople || companies.items.length > 0 || unlinked.companies.length > 0;
 	return (
 		<>
 			<div
@@ -358,12 +413,16 @@ export function MediaOverviewRelations(props: {
 					people={people.items}
 					compact={props.compact}
 					divided={props.divided}
+					title={props.copy.people}
+					unlinked={unlinked.people}
 					onViewAll={props.onViewAllPeople}
 				/>
 				<MediaCompaniesSection
 					compact={props.compact}
 					companies={companies.items}
-					divided={props.divided || people.items.length > 0}
+					title={props.copy.companies}
+					unlinked={unlinked.companies}
+					divided={props.divided || hasPeople}
 				/>
 			</div>
 			<MediaRecommendationsSection
@@ -379,6 +438,7 @@ export function MediaOverviewRelations(props: {
 function MediaOverviewBody<Overview>(props: {
 	readonly compact: boolean;
 	readonly divided: boolean;
+	readonly noticeTitle: string;
 	readonly refresh: () => void;
 	readonly loadingDetail: string;
 	readonly state: MediaOverviewState<Overview>;
@@ -390,18 +450,22 @@ function MediaOverviewBody<Overview>(props: {
 			<MediaOverviewNotice
 				divided={props.divided}
 				compact={props.compact}
-				title="Loading details..."
+				title={props.noticeTitle}
+				status="Loading details..."
 				detail={props.loadingDetail}
 			/>
 		);
 	}
 	if (state.status === "transport-error" || state.status === "malformed") {
+		const error = mediaOverviewError(state, props.noticeTitle);
 		return (
 			<MediaOverviewNotice
+				status={error.title}
+				detail={error.detail}
 				divided={props.divided}
 				compact={props.compact}
 				onRetry={props.refresh}
-				{...mediaOverviewError(state)}
+				title={props.noticeTitle}
 			/>
 		);
 	}
@@ -414,6 +478,7 @@ function MediaOverviewBody<Overview>(props: {
 
 export function MediaOverview<Overview>(props: {
 	readonly compact: boolean;
+	readonly noticeTitle: string;
 	readonly safeAreaTop: number;
 	readonly loadingDetail: string;
 	readonly refreshStatus?: ReactNode;
@@ -443,6 +508,7 @@ export function MediaOverview<Overview>(props: {
 				compact={props.compact}
 				relations={props.relations}
 				divided={gallery.length > 0}
+				noticeTitle={props.noticeTitle}
 				refresh={props.refreshOverview}
 				loadingDetail={props.loadingDetail}
 			/>

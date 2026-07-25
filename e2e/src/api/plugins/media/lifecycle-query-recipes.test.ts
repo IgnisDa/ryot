@@ -840,8 +840,8 @@ const readMovieSummary = (client: Client, entityId: string) =>
 			client,
 			movieSummaryRecipe({ entityId, collectionLimit: 1 }),
 		);
-		assertPresent(result.movie, "Expected a movie summary row");
-		return result.movie;
+		assertPresent(result.summary, "Expected a movie summary row");
+		return result.summary;
 	});
 
 describe("Media flat lifecycle query recipes", () => {
