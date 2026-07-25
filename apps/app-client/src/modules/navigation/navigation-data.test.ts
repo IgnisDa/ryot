@@ -36,7 +36,7 @@ describe("getNavigationItems", () => {
 });
 
 describe("getNavigationHref", () => {
-	it("creates workspace-scoped routes for views and collections", () => {
+	it("creates a workspace-scoped home route and standalone view and collection routes", () => {
 		const items = getNavigationItems();
 
 		expect(getNavigationHref("media", items.views[0])).toEqual({
@@ -44,12 +44,12 @@ describe("getNavigationHref", () => {
 			params: { workspace: "media" },
 		});
 		expect(getNavigationHref("media", items.views[1])).toEqual({
-			pathname: "/[workspace]/views/[viewSlug]",
-			params: { viewSlug: "movies", workspace: "media" },
+			pathname: "/v/[viewSlug]",
+			params: { viewSlug: "movies" },
 		});
 		expect(getNavigationHref("media", items.collections[0])).toEqual({
-			pathname: "/[workspace]/collections/[collectionSlug]",
-			params: { collectionSlug: "sci-fi-essentials", workspace: "media" },
+			pathname: "/e/[entityId]",
+			params: { entityId: "sci-fi-essentials" },
 		});
 	});
 });
@@ -57,9 +57,9 @@ describe("getNavigationHref", () => {
 describe("getActiveNavigationKey", () => {
 	it.each([
 		["/media", "home"],
-		["/media/views/movies", "view:movies"],
-		["/media/collections/backlog", "collection:backlog"],
+		["/e/sci-fi-essentials", "collection:sci-fi-essentials"],
 		["/media/settings", "settings"],
+		["/v/movies", "view:movies"],
 	])("resolves %s to %s", (pathname, expected) => {
 		expect(getActiveNavigationKey(pathname)).toBe(expected);
 	});
