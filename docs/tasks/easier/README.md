@@ -75,6 +75,8 @@ Best first slices: ranks 4-7 are narrow and migration-free. Then implement rank 
 
 **Validation:** Real multipart Plex request through `/_i/:id`, JSON Kodi and extension callers, malformed boundary cases, payload-size limits, workflow replay.
 
+**Implemented.** The webhook endpoint declares one text payload per entry in `integrationWebhookContentTypes` (`application/json` and `multipart/form-data`, the only transports the shipped sinks receive); anything else is rejected with `415` before the module runs. The route forwards the unparsed body together with the request's own `content-type` header, and `IntegrationRunJobData.webhook` replaces the independently optional `rawBody`/`contentType` pair with one envelope that is present exactly for sink deliveries. `IntegrationWebhookPayload` and the JSON re-encode in `handleWebhook` are removed, so Plex multipart boundaries reach `integration.plex-sink` intact. No header other than `content-type` is forwarded.
+
 ### 3. Deterministic Frequent-Cron IDs
 
 **Owner:** D26 Scheduler

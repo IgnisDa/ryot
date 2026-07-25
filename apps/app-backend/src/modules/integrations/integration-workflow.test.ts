@@ -208,9 +208,11 @@ const captureChildExecute = (
 const sinkPayload = {
 	userId: UserId.make("user_1"),
 	runId: ImportRunId.make("run_1"),
-	contentType: "application/json",
 	integrationId: IntegrationId.make("int_1"),
-	rawBody: JSON.stringify({ lot: "movie", progress: 30, identifier: "603" }),
+	webhook: {
+		contentType: "application/json",
+		rawBody: JSON.stringify({ lot: "movie", progress: 30, identifier: "603" }),
+	},
 };
 
 const yankPayload = {
@@ -261,6 +263,7 @@ it.effect("persists the sink adapter result and dispatches the normalized child"
 					source: "test-provider",
 					sourcePayload: {
 						integrationId: "int_1",
+						integrationContext: sinkPayload.webhook,
 						integrationScriptSlug: "integration.test-provider",
 					},
 				},
