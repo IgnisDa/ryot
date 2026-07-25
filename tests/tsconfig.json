@@ -1,10 +1,6 @@
 {
-	"extends": "../tsconfig.options.json",
+	"$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
 	"compilerOptions": {
-		"composite": false,
-		"declaration": false,
-		"declarationMap": false,
-		"emitDeclarationOnly": false,
 		"strict": true,
 		"noEmit": true,
 		"outDir": "dist",
@@ -14,7 +10,6 @@
 		"types": ["bun-types"],
 		"esModuleInterop": true,
 		"lib": ["ESNext", "DOM"],
-		"moduleResolution": "bundler",
 		"paths": { "~/*": ["./src/*"] },
 		"noUncheckedIndexedAccess": true,
 		"forceConsistentCasingInFileNames": true,
