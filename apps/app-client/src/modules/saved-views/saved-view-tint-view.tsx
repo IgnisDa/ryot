@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { getColors } from "react-native-image-colors";
 import Animated, { FadeIn, ReduceMotion } from "react-native-reanimated";
 
+import { resolveAssetUrl } from "@/modules/ui/managed-assets";
+
 import type { SavedViewImage } from "./display-data";
-import { resolveSavedViewImageUrl } from "./display-data";
 import {
 	SAVED_VIEW_COLOR_FALLBACK,
 	deriveSavedViewTint,
@@ -17,7 +18,10 @@ export function useSavedViewTint(props: {
 	image: SavedViewImage;
 	managedUrls: ReadonlyMap<string, string>;
 }) {
-	const url = resolveSavedViewImageUrl(props.image, props.managedUrls);
+	const url =
+		props.image.type === "asset"
+			? resolveAssetUrl(props.image.locator, props.managedUrls)
+			: undefined;
 	const currentUrl = useRef(url);
 	const failedUrl = useRef<string | undefined>(undefined);
 	const [gradientStops, setGradientStops] = useState<readonly [string, string, string]>();
