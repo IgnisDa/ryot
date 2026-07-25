@@ -39,7 +39,7 @@ Iterate until the user approves the breakdown.
 
 ### 3. Create the task files
 
-For each approved slice, create a task markdown file in `docs/tasks/{plan-name}/` where `{plan-name}` is the plan directory name.
+For each approved slice, create a task markdown file in `docs/tasks/{plan-name}/` where `{plan-name}` is a single lowercase word with no spaces, hyphens, or underscores. Choose it as the concise name for the plan, such as `ryotql`.
 
 Task files should be named `{NN}-{task-title}.md` where:
 
