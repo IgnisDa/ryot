@@ -27,7 +27,9 @@ type CastExpression = Extract<ScalarExpression, { type: "cast" }>;
 type FirstExpression = Extract<ScalarExpression, { type: "first" }>;
 type AggregateExpression = Extract<ScalarExpression, { type: "aggregate" }>;
 type ArithmeticExpression = Extract<ScalarExpression, { type: "arithmetic" }>;
+type ConditionalExpression = Extract<ScalarExpression, { type: "conditional" }>;
 type JsonPathExpression = Extract<ScalarExpression, { type: "jsonPath" }>;
+type TransformExpression = Extract<ScalarExpression, { type: "transform" }>;
 type ComparisonPredicate = Extract<Predicate, { type: "comparison" }>;
 type CorrelatedQueryInput = {
 	readonly where?: Predicate | undefined;
@@ -89,6 +91,40 @@ export const coalesce = (
 	values: [first, ...rest],
 });
 
+export const concat = (
+	first: ScalarExpression,
+	...rest: readonly ScalarExpression[]
+): Extract<ScalarExpression, { type: "concat" }> => ({
+	type: "concat",
+	values: [first, ...rest],
+});
+
+export const conditional = (
+	condition: Predicate,
+	whenTrue: ScalarExpression,
+	whenFalse: ScalarExpression,
+): ConditionalExpression => ({ condition, type: "conditional", whenFalse, whenTrue });
+
+export const transform = (
+	name: TransformExpression["name"],
+	expr: ScalarExpression,
+): TransformExpression => ({ expr, name, type: "transform" });
+
+export const kebabCase = (expr: ScalarExpression) => transform("kebabCase", expr);
+export const titleCase = (expr: ScalarExpression) => transform("titleCase", expr);
+
+export const floor = (expr: ScalarExpression): Extract<ScalarExpression, { type: "floor" }> => ({
+	expr,
+	type: "floor",
+});
+export const integer = (
+	expr: ScalarExpression,
+): Extract<ScalarExpression, { type: "integer" }> => ({ expr, type: "integer" });
+export const round = (expr: ScalarExpression): Extract<ScalarExpression, { type: "round" }> => ({
+	expr,
+	type: "round",
+});
+
 const arithmetic = (
 	operator: ArithmeticExpression["operator"],
 	left: ScalarExpression,
@@ -135,7 +171,10 @@ export const contains = (left: ScalarExpression, right: ScalarExpression): Predi
 });
 
 export const isNull = (expr: ScalarExpression): Predicate => ({ expr, type: "isNull" });
-export const isNotNull = (expr: ScalarExpression): Predicate => ({ expr, type: "isNotNull" });
+export const isNotNull = (expr: ScalarExpression): Extract<Predicate, { type: "isNotNull" }> => ({
+	expr,
+	type: "isNotNull",
+});
 export const not = (predicate: Predicate): Predicate => ({ predicate, type: "not" });
 export const and = (...predicates: readonly Predicate[]): Predicate => ({
 	type: "and",
