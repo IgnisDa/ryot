@@ -3,13 +3,9 @@ import type * as SqlConnection from "effect/unstable/sql/SqlConnection";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { encodePersistentClaimEnvelope } from "#lib/infrastructure/sandbox-runtime/runtime-host-functions";
-import { PluginLoader } from "#modules/plugins/loader";
-import { findActiveScriptInPluginSnapshot } from "#modules/plugins/runtime-resolver";
 
 import { buildReportSql, withReservedConnection } from "./shared";
 
-const pluginSlug = "media";
-const scriptSlug = "trigger.integration-progress-policy";
 const reportPhase = "application_cache -> integration progress persistent cache";
 
 const consumedOnByLegacyProvider = new Map([
@@ -118,9 +114,12 @@ const numberFingerprintPart = (key: string, value: string | null) => {
 	return `${key}=${String(parsed)}`;
 };
 
-export const migrateIntegrationProgressCache = (cacheRows: ReadonlyArray<LegacyProgressCacheRow>) =>
+export const migrateIntegrationProgressCache = (input: {
+	cacheRows: ReadonlyArray<LegacyProgressCacheRow>;
+	installationIdsByUserId: ReadonlyMap<string, string>;
+	scriptId: string;
+}) =>
 	Effect.gen(function* () {
-		const loader = yield* PluginLoader;
 		const redis = yield* RedisService;
 		const claimsByIdentity = new Map<
 			string,
@@ -129,7 +128,14 @@ export const migrateIntegrationProgressCache = (cacheRows: ReadonlyArray<LegacyP
 		let unresolvedRows = 0;
 		let unsupportedProviderRows = 0;
 
-		for (const row of cacheRows) {
+		for (const row of input.cacheRows) {
+			if (!input.installationIdsByUserId.has(row.userId)) {
+				return yield* Effect.die(
+					new Error(
+						`Missing resolved media installation for integration progress cache owner: ${row.userId}`,
+					),
+				);
+			}
 			if (!row.validValue) {
 				return yield* Effect.die(
 					new Error(`Invalid legacy integration progress cache value: ${row.cacheId}`),
@@ -168,18 +174,9 @@ export const migrateIntegrationProgressCache = (cacheRows: ReadonlyArray<LegacyP
 		}
 
 		const duplicateRows =
-			cacheRows.length - unsupportedProviderRows - unresolvedRows - claimsByIdentity.size;
+			input.cacheRows.length - unsupportedProviderRows - unresolvedRows - claimsByIdentity.size;
 		let keysCreated = 0;
 		if (claimsByIdentity.size > 0) {
-			const script = yield* findActiveScriptInPluginSnapshot(loader.getSnapshot(), {
-				pluginSlug,
-				scriptSlug,
-			});
-			if (!script) {
-				return yield* Effect.die(
-					new Error(`Active sandbox script not found: ${pluginSlug}/${scriptSlug}`),
-				);
-			}
 			const persistentClaimEnvelope = yield* encodePersistentClaimEnvelope({
 				value: true,
 				owner: null,
@@ -192,7 +189,7 @@ export const migrateIntegrationProgressCache = (cacheRows: ReadonlyArray<LegacyP
 					if (ttlSeconds <= 0) {
 						return Effect.void;
 					}
-					const key = redisKeys.sandboxCache(userId, script.id, fingerprint);
+					const key = redisKeys.sandboxCache(userId, input.scriptId, fingerprint);
 					return Effect.tryPromise(() =>
 						redis.client.set(key, persistentClaimEnvelope, "EX", ttlSeconds, "NX"),
 					).pipe(
@@ -233,7 +230,7 @@ export const migrateIntegrationProgressCache = (cacheRows: ReadonlyArray<LegacyP
 			connection.executeRaw(
 				`DO $$ DECLARE
 					started_at timestamptz := clock_timestamp();
-					cache_rows int := ${cacheRows.length};
+					cache_rows int := ${input.cacheRows.length};
 					resolved_claims int := ${claimsByIdentity.size};
 					duplicate_rows int := ${duplicateRows};
 					keys_created int := ${keysCreated};

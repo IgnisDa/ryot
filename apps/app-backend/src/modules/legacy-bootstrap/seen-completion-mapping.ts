@@ -1,8 +1,8 @@
 // Backfills whole-entity `complete` events for episodic media. Show and podcast coverage replays
 // child progress/completion in lifecycle order; anime and manga retain their positional pass model.
-import { buildReportSql } from "./shared";
+import { buildReportSql, quoteSqlString } from "./shared";
 
-export const buildSeenEpisodicCompletionMigrationSql = () => `
+export const buildSeenEpisodicCompletionMigrationSql = (mediaPluginId: string) => `
 DO $$
 DECLARE
 	entity_rec record;
@@ -218,6 +218,7 @@ BEGIN
 					"user_id",
 					"entity_id",
 					"event_schema_slug",
+					"event_schema_plugin_id",
 					"session_entity_id",
 					"properties",
 					"created_at",
@@ -228,6 +229,7 @@ BEGIN
 					entity_rec.user_id,
 					entity_rec.entity_id,
 					'complete',
+					${quoteSqlString(mediaPluginId)},
 					entity_rec.entity_id,
 					jsonb_strip_nulls(jsonb_build_object(
 						'completionMode', 'custom_timestamps',
@@ -320,6 +322,7 @@ BEGIN
 					"user_id",
 					"entity_id",
 					"event_schema_slug",
+					"event_schema_plugin_id",
 					"properties",
 					"created_at",
 					"occurred_at"
@@ -332,6 +335,7 @@ BEGIN
 					entity_rec.user_id,
 					entity_rec.entity_id,
 					'complete',
+					${quoteSqlString(mediaPluginId)},
 					jsonb_strip_nulls(jsonb_build_object(
 						'completionMode', 'custom_timestamps',
 						'completedOn', to_char(
