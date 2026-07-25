@@ -5,29 +5,27 @@ import {
 	type EntityUpdatedReason,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot/contract/modules/entity-interest/messages";
-import type { RowItem } from "@ryot/contract/modules/query-engine/language";
+import type { RowItem } from "@ryot/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	SandboxProviderId,
 	type UserId,
 } from "@ryot/contract/schema/brands";
-import { buildEntityInterestQueryDocument } from "@ryot/query-engine/recipes/app";
+import { buildEntityInterestDocument } from "@ryot/ryotql-recipes/entities";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 import { TranslationsService } from "#modules/entity-translation/service";
-import { loadVisibleEntitySchemaSlugs } from "#modules/query-engine/executor/schema-loaders";
 import {
 	getOptionalIsoStringField,
 	getOptionalStringField,
 	requireFieldValue,
-	requireRowsResponse,
+	requireRowsResult,
 	requireStringField,
-} from "#modules/query-engine/response-helpers";
-import { QueryEngineService } from "#modules/query-engine/service";
-import { MAX_ROOT_PAGE_SIZE } from "#modules/query-engine/validator/shared";
+} from "#modules/ryotql/response-helpers";
+import { RyotQLService } from "#modules/ryotql/service";
+import { MAX_ROOT_PAGE_SIZE } from "#modules/ryotql/validator";
 
 import { StreamRegistry } from "./registry";
 
@@ -43,7 +41,6 @@ type TerminalUpdate = { readonly entityId: EntityId; readonly reason: EntityUpda
 
 type InterestRow = {
 	readonly id: EntityId;
-	readonly schemaSlug: string;
 	readonly properties: unknown;
 	readonly externalId: string | null;
 	readonly populatedAt: string | null;
@@ -59,7 +56,6 @@ const toInterestRow = Effect.fn("toInterestRow")(function* (row: RowItem) {
 	).pipe(Effect.orDie);
 	return {
 		translationStatus,
-		schemaSlug: yield* requireStringField(row, "schemaSlug"),
 		id: EntityId.make(yield* requireStringField(row, "id")),
 		externalId: yield* getOptionalStringField(row, "externalId"),
 		properties: (yield* requireFieldValue(row, "properties")).value,
@@ -73,8 +69,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 	"InterestReconciler",
 	{
 		make: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
-			const queryEngine = yield* QueryEngineService;
+			const ryotql = yield* RyotQLService;
 			const translations = yield* TranslationsService;
 			const populationTrigger = yield* EntityPopulationTrigger;
 
@@ -109,8 +104,8 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 								externalId: row.externalId,
 								properties: row.properties,
 								providerId: row.providerId,
-								entitySchemaSlug: row.schemaSlug,
 								language: user.preferences.language,
+								entitySchemaSlug: row.entitySchemaSlug,
 							});
 						}
 						return null;
@@ -129,26 +124,16 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 				if (entityIds.length === 0) {
 					return [] as TerminalUpdate[];
 				}
-				const slugs = yield* runWithDb(loadVisibleEntitySchemaSlugs(user.id));
-				const [firstSlug, ...restSlugs] = slugs;
-				if (firstSlug === undefined) {
-					return [] as TerminalUpdate[];
-				}
-				const schemas: [string, ...string[]] = [firstSlug, ...restSlugs];
-
 				const terminal: TerminalUpdate[] = [];
 				for (const ids of chunk(entityIds, MAX_ROOT_PAGE_SIZE)) {
 					const [firstId, ...restIds] = ids;
 					if (firstId === undefined) {
 						continue;
 					}
-					const doc = buildEntityInterestQueryDocument({
-						entityIds: [firstId, ...restIds],
-						entitySchemaSlugs: schemas,
-					});
-					const response = yield* queryEngine.execute(user, doc);
-					const rows = yield* requireRowsResponse(response);
-					for (const item of rows.data.items) {
+					const doc = buildEntityInterestDocument({ entityIds: [firstId, ...restIds] });
+					const response = yield* ryotql.execute(user, doc);
+					const rows = yield* requireRowsResult(response, "entities");
+					for (const item of rows.items) {
 						const result = yield* handleRow(user, yield* toInterestRow(item));
 						if (result) {
 							terminal.push(result);

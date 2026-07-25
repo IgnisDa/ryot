@@ -14,7 +14,7 @@ Clients must ignore SSE comment lines, buffer early completions, and deduplicate
 
 Interest is registered before reconciliation so a workflow completing during query cannot publish into a gap. A newer declaration can replace interest while an older reconciliation is running, so terminal results are filtered against current set before return.
 
-Reconciliation reads visible entities through query engine in sequential chunks of 100. Declarations are truncated to 500 IDs, bounding request to five query transactions.
+Reconciliation reads visible entities through RyotQL in sequential chunks of 100. Declarations are truncated to 500 IDs, bounding request to five query transactions.
 
 Rows follow strict order:
 
@@ -41,4 +41,4 @@ Registry state is process-local. Declaration must reach process holding SSE conn
 
 Registry uses one duplicated Redis subscriber connection per process because ioredis subscriber mode cannot issue ordinary commands. Malformed messages are dropped rather than terminating subscriber. Stream heartbeat is merged with push stream so disconnect tears down both.
 
-Population and translation workflows publish only after durable state change. Query engine supplies visibility, localization, and translation status; Redis carries completion messages but does not own message vocabulary.
+Population and translation workflows publish only after durable state change. RyotQL supplies visibility, localization, and translation status; Redis carries completion messages but does not own message vocabulary.
