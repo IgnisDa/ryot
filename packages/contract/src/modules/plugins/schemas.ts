@@ -1,7 +1,9 @@
 import { Schema } from "effect";
 
+import { PluginManifest } from "./manifest";
+
 export const InstallPluginBody = Schema.Struct({
-	manifest: Schema.Unknown,
+	manifest: PluginManifest,
 	files: Schema.Record(Schema.String, Schema.String),
 });
 

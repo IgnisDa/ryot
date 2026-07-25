@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import type { ContractPayload } from "@ryot/contract/client";
 import type { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
-import type { PluginProviderInformation } from "@ryot/plugin-kit/manifest";
 import type {
 	ProviderDetailsResult,
 	ProviderResolveResult,
@@ -17,8 +17,12 @@ import {
 	installTestPluginBundle,
 	reinstallTestPluginScript,
 	type InstalledTestPlugin,
+	type TestPluginScript,
 	uninstallTestPlugin,
 } from "./test-plugin";
+
+type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
+type PluginProviderInformation = PluginManifest["providers"][number]["information"];
 
 export type InstalledTestProvider = Omit<InstalledTestPlugin, "scriptId" | "slug"> & {
 	providerId: SandboxProviderId;
@@ -195,19 +199,7 @@ export function fakeProviderTranslations(
 	return translations;
 }
 
-const providerMetadataBySource = new Map<
-	string,
-	{
-		name: string;
-		slug: string;
-		kind: "provider";
-		providerSlug: string;
-		providerOperation: "details" | "search" | "resolve" | "translate";
-		capabilities: ReadonlyArray<string>;
-		requiredPluginConfigKeys: ReadonlyArray<string>;
-		requiredSystemConfigKeys: ReadonlyArray<string>;
-	}
->();
+const providerMetadataBySource = new Map<string, Extract<TestPluginScript, { kind: "provider" }>>();
 
 export function providerSandboxSource(input: {
 	readonly name: string;

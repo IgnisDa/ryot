@@ -1,4 +1,5 @@
-import { configFromAppSchema, pluginConfigEnvironmentKey } from "@ryot/config";
+import { configFromAppSchema } from "@ryot/config";
+import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect, Option } from "effect";

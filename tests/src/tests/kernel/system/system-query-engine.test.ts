@@ -1,3 +1,4 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import { EntitySchemaSlug, PluginSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -32,6 +33,8 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+
+type PluginScript = ContractPayload<"plugins", "install">["manifest"]["scripts"][number];
 
 const suffix = crypto.randomUUID();
 const pluginSlug = `e2e-system-query-${suffix}`;
@@ -645,16 +648,19 @@ describe("system-authority query engine", () => {
 							requiredSystemConfigKeys: [],
 							name: "System query workflow",
 						},
-						...cases.map((name) => ({
-							providerSlug,
-							kind: "script" as const,
-							slug: activitySlug(name),
-							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
-							name: `System query ${name}`,
-							entry: activityEntries[name],
-							capabilities: ["executeQueryEngine", "setCachedValue"],
-						})),
+						...cases.map(
+							(name) =>
+								({
+									providerSlug,
+									kind: "script" as const,
+									slug: activitySlug(name),
+									requiredPluginConfigKeys: [],
+									requiredSystemConfigKeys: [],
+									name: `System query ${name}`,
+									entry: activityEntries[name],
+									capabilities: ["executeQueryEngine", "setCachedValue"],
+								}) satisfies PluginScript,
+						),
 						{
 							providerSlug,
 							kind: "script",
@@ -664,7 +670,7 @@ describe("system-authority query engine", () => {
 							requiredSystemConfigKeys: [],
 							name: "System query result collector",
 							capabilities: ["executeQueryEngine", "getCachedValue", "upsertGlobalEntities"],
-						},
+						} satisfies PluginScript,
 					],
 					entitySchemas: [
 						{

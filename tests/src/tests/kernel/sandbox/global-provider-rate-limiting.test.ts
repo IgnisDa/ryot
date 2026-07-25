@@ -1,7 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 
+import type { ContractPayload } from "@ryot/contract/client";
 import { PluginSlug, type SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import type { PluginHttpRateLimit } from "@ryot/plugin-kit/manifest";
 import { Duration, Effect } from "effect";
 import getPort from "get-port";
 
@@ -22,6 +22,11 @@ import {
 } from "~/fixtures";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+
+type PluginHttpRateLimit = ContractPayload<
+	"plugins",
+	"install"
+>["manifest"]["httpRateLimits"][number];
 import {
 	type FakeHttpServer,
 	startFakeHttpServer,

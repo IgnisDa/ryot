@@ -25,7 +25,6 @@
 		"@ryot/contract": "workspace:*",
 		"@ryot/fitness-plugin": "workspace:*",
 		"@ryot/media-plugin": "workspace:*",
-		"@ryot/plugin-kit": "workspace:*",
 		"@ryot/query-engine": "workspace:*",
 		"@ryot/sandbox-compiler": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",

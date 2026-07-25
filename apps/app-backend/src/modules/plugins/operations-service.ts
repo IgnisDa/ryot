@@ -1,7 +1,7 @@
 import type { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
 import { notFound, SandboxRunError } from "@ryot/contract/errors";
+import type { PluginOperationAuth } from "@ryot/contract/modules/plugins/manifest";
 import type { IntegrationId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import type { PluginOperationAuth } from "@ryot/plugin-kit/manifest";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer } from "effect";
 import type { Headers as PlatformHeaders } from "effect/unstable/http";

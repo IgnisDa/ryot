@@ -1,6 +1,6 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
+import { PluginHttpRateLimit } from "@ryot/contract/modules/plugins/manifest";
 import { UserId } from "@ryot/contract/schema/brands";
-import { PluginHttpRateLimit } from "@ryot/plugin-kit/manifest";
 import { createEventItemSchema } from "@ryot/sandbox-sdk/core";
 import {
 	type WorkflowDurableResult,

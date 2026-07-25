@@ -1,8 +1,8 @@
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import type {
 	ProviderInformation,
 	SandboxScriptMetadata,
 } from "@ryot/contract/modules/sandbox/schemas";
-import type { PluginManifest } from "@ryot/plugin-kit/manifest";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
