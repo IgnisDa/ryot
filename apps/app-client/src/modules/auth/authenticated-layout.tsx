@@ -1,4 +1,5 @@
-import { Redirect, Stack, useUnstableGlobalHref } from "expo-router";
+import { Redirect, useUnstableGlobalHref } from "expo-router";
+import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 
 import { ApiScopeProvider } from "@/api/scope";
@@ -7,7 +8,7 @@ import { EntityInterestProvider } from "@/modules/entity-interest/provider";
 import { getGateHref, getSafeRedirectTo } from "@/modules/navigation/redirect";
 import { useServerUrl } from "@/modules/server/state";
 
-export default function AppLayout() {
+export function AuthenticatedLayout(props: { children: ReactNode }) {
 	const client = useAuthClient();
 	const serverUrl = useServerUrl();
 	const currentHref = useUnstableGlobalHref();
@@ -30,9 +31,7 @@ export default function AppLayout() {
 
 	return (
 		<ApiScopeProvider serverUrl={serverUrl} userId={session.user.id}>
-			<EntityInterestProvider>
-				<Stack screenOptions={{ headerShown: false }} />
-			</EntityInterestProvider>
+			<EntityInterestProvider>{props.children}</EntityInterestProvider>
 		</ApiScopeProvider>
 	);
 }
