@@ -39,7 +39,6 @@ export class RedisService extends Context.Service<RedisService>()("RedisService"
 		return {
 			client,
 			get: (key: string) => Effect.tryPromise(() => client.get(key)).pipe(Effect.orDie),
-			getdel: (key: string) => Effect.tryPromise(() => client.getdel(key)).pipe(Effect.orDie),
 			del: (...keys: ReadonlyArray<string>) =>
 				Effect.tryPromise(() => client.del(...keys)).pipe(Effect.orDie),
 			publish: (channel: string, message: string) =>
@@ -48,11 +47,6 @@ export class RedisService extends Context.Service<RedisService>()("RedisService"
 				Effect.tryPromise(() =>
 					ttlSeconds ? client.set(key, value, "EX", ttlSeconds) : client.set(key, value),
 				).pipe(Effect.asVoid, Effect.orDie),
-			claim: (key: string, ttlSeconds: number) =>
-				Effect.tryPromise(() => client.set(key, "1", "EX", ttlSeconds, "NX")).pipe(
-					Effect.map((result) => result !== null),
-					Effect.orDie,
-				),
 			acquireLease: (key: string, ttlSeconds: number) =>
 				Effect.gen(function* () {
 					const owner = crypto.randomUUID();
@@ -83,8 +77,6 @@ export class RedisService extends Context.Service<RedisService>()("RedisService"
 					Effect.map((result) => result === 1),
 					Effect.orDie,
 				),
-			zadd: (key: string, score: number, member: string) =>
-				Effect.tryPromise(() => client.zadd(key, score, member)).pipe(Effect.asVoid, Effect.orDie),
 			zrem: (key: string, ...members: ReadonlyArray<string>) =>
 				Effect.tryPromise(() => client.zrem(key, ...members)).pipe(Effect.asVoid, Effect.orDie),
 			zrangeByScore: (key: string, max: number, limit: number) =>

@@ -1,6 +1,11 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { type BadRequest, badRequest } from "@ryot/contract/errors";
-import type { UploadIntentInput } from "@ryot/contract/modules/uploads/schemas";
+import {
+	ManagedAssetLocator,
+	UploadKind,
+	UploadProvider,
+	type UploadIntentInput,
+} from "@ryot/contract/modules/uploads/schemas";
 import {
 	UPLOAD_MAX_FILE_BYTES,
 	type UploadContentType,
@@ -22,21 +27,20 @@ const CLEANUP_LEASE_SECONDS = 60;
 
 const UploadIntentMetadata = Schema.Struct({
 	userId: UserId,
+	kind: UploadKind,
 	intentId: Schema.String,
 	objectKey: Schema.String,
 	createdAt: Schema.Finite,
 	expiresAt: Schema.Finite,
+	provider: UploadProvider,
 	contentType: Schema.String,
 	claimedAt: Schema.optional(Schema.Finite),
 	cleaningAt: Schema.optional(Schema.Finite),
-	provider: Schema.Literals(["local", "s3"]),
-	kind: Schema.Literals(["temporary", "permanent"]),
 	state: Schema.Literals(["pending", "completed", "claimed", "cleaning"]),
 	completion: Schema.optional(
 		Schema.Union([
+			ManagedAssetLocator,
 			Schema.Struct({ expiresAt: Schema.Finite, token: Schema.String }),
-			Schema.Struct({ key: Schema.String, type: Schema.Literal("s3") }),
-			Schema.Struct({ key: Schema.String, type: Schema.Literal("local") }),
 		]),
 	),
 });
@@ -584,7 +588,6 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 		return {
 			putLocalIntent,
 			resolveDownloads,
-			removeUploadIntent,
 			createUploadIntent,
 			completeUploadIntent,
 			resolveLocalDownload,
