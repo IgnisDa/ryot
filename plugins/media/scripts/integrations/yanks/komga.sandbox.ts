@@ -1,13 +1,12 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 import type { ImportEntityRef } from "../../../imports/schemas";
 import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
-import { baseUrl, requestJson, specifics } from "../shared";
+import { baseUrl, executionStartedAt, requestJson, specifics } from "../shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
 	name: "Komga yank",
 	slug: "integration.komga",
 	requiredPluginConfigKeys: [],
@@ -77,12 +76,13 @@ const mangaRef = (
 
 export { mangaRef as extractMangaRef };
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: Input,
 	output: MediaIntegrationAdapterResult,
-	run: (_input, host) =>
+	run: (_input, host, execution) =>
 		Effect.gen(function* () {
+			const occurredAt = yield* executionStartedAt(execution);
 			const integration = yield* host.getCurrentIntegration();
 			const settings = specifics(integration.providerSpecifics);
 			const apiKey = typeof settings?.["apiKey"] === "string" ? settings["apiKey"] : "";
@@ -131,7 +131,7 @@ export default defineActivity({
 						collectionMemberships: [],
 						events: [
 							{
-								occurredAt: new Date().toISOString(),
+								occurredAt,
 								eventSchemaSlug: "progress",
 								properties: { progressPercent: percent, consumedOn: "komga" },
 							},

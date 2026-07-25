@@ -70,6 +70,11 @@ it("declares the complete media-owned source", () => {
 		}),
 	]);
 	expect(
+		mediaPlugin.scripts
+			.filter(({ slug }) => slug.startsWith("integration."))
+			.every(({ kind }) => kind === "script"),
+	).toBe(true);
+	expect(
 		mediaPlugin.providers
 			.filter(({ slug }) => slug === "movie.tmdb" || slug === "show.tmdb")
 			.every(({ operations }) => !("trending" in operations)),
@@ -155,8 +160,8 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.scripts).toContainEqual(
 		expect.objectContaining({
 			kind: "script",
-			capabilities: ["executeQueryEngine"],
 			slug: "media-monitoring-targets",
+			capabilities: ["executeQueryEngine"],
 		}),
 	);
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);

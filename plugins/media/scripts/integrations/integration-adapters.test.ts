@@ -37,6 +37,7 @@ describe("Kodi sink", () => {
 					show_season_number: 2,
 					show_episode_number: 7,
 				}),
+				"2026-01-01T00:00:00.000Z",
 			),
 		);
 		expect(result.failures).toEqual([]);
@@ -50,10 +51,13 @@ describe("Kodi sink", () => {
 				},
 			],
 		});
+		expect(result.entityGroups[0]?.events[0]?.occurredAt).toBe("2026-01-01T00:00:00.000Z");
 	});
 
 	it("returns an input_transformation failure for malformed payloads", () => {
-		const result = Effect.runSync(parseKodi(JSON.stringify("not-json")));
+		const result = Effect.runSync(
+			parseKodi(JSON.stringify("not-json"), "2026-01-01T00:00:00.000Z"),
+		);
 		expect(result.entityGroups).toEqual([]);
 		expect(result.failures).toEqual([
 			{
@@ -74,6 +78,7 @@ describe("Kodi sink", () => {
 					show_episode_number: 7.5,
 					show_season_number: Number.NaN,
 				}),
+				"2026-01-01T00:00:00.000Z",
 			),
 		);
 		expect(result.entityGroups).toEqual([]);

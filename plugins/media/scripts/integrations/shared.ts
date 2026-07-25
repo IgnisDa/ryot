@@ -1,4 +1,4 @@
-import type { CoreSandboxHostMethodMap } from "@ryot/sandbox-sdk/core";
+import type { CoreSandboxHostMethodMap, ExecutionMetadata } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 import type {
@@ -9,10 +9,16 @@ import type {
 
 export const SinkInput = Schema.Struct({ rawBody: Schema.String, contentType: Schema.String });
 
+export const executionStartedAt = (execution: ExecutionMetadata) =>
+	execution.startedAt
+		? Effect.succeed(execution.startedAt)
+		: Effect.fail({ message: "Sandbox execution startedAt metadata is required" });
+
 export const emptyResult = (): MediaIntegrationAdapterResult => ({
 	failures: [],
 	entityGroups: [],
 });
+
 export const failureResult = (
 	message: string,
 	stage: MediaIntegrationAdapterResult["failures"][number]["stage"] = "input_transformation",
@@ -20,9 +26,10 @@ export const failureResult = (
 	entityGroups: [],
 	failures: [{ message, stage, itemIndex: 0 }],
 });
+
 export const progressResult = (input: {
 	consumedOn: string;
-	occurredAt?: string;
+	occurredAt: string;
 	progressPercent: number;
 	entityRef: ImportEntityRef;
 	unresolvedEpisode?: UnresolvedEpisodeRef;
@@ -31,19 +38,20 @@ export const progressResult = (input: {
 	entityGroups: [
 		{
 			itemIndex: 0,
-			entityRef: input.entityRef,
 			collectionMemberships: [],
+			entityRef: input.entityRef,
 			events: [
 				{
 					eventSchemaSlug: "progress",
-					occurredAt: input.occurredAt ?? new Date().toISOString(),
-					properties: { consumedOn: input.consumedOn, progressPercent: input.progressPercent },
+					occurredAt: input.occurredAt,
 					...(input.unresolvedEpisode ? { unresolvedEpisode: input.unresolvedEpisode } : {}),
+					properties: { consumedOn: input.consumedOn, progressPercent: input.progressPercent },
 				},
 			],
 		},
 	],
 });
+
 export const showEpisodeRef = (season?: number, episode?: number) => {
 	if (season === undefined || episode === undefined) {
 		return undefined;
@@ -52,6 +60,7 @@ export const showEpisodeRef = (season?: number, episode?: number) => {
 		? ({ type: "show", seasonNumber: season, episodeNumber: episode } as const)
 		: undefined;
 };
+
 export const progressPercent = (position?: number, duration?: number) => {
 	if (
 		position === undefined ||
@@ -63,8 +72,10 @@ export const progressPercent = (position?: number, duration?: number) => {
 	}
 	return Math.max(0, Math.min(100, Math.round((position / duration) * 10_000) / 100));
 };
+
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
+
 export const jsonRecord = (value: string) => {
 	const parsed: unknown = JSON.parse(value);
 	if (!isRecord(parsed)) {
@@ -72,6 +83,7 @@ export const jsonRecord = (value: string) => {
 	}
 	return parsed;
 };
+
 const nested = (input: unknown, keys: string[]) => {
 	const pending = [input];
 	while (pending.length) {
@@ -91,6 +103,7 @@ const nested = (input: unknown, keys: string[]) => {
 	}
 	return undefined;
 };
+
 export const nestedString = (input: unknown, keys: string[]) => {
 	const value = nested(input, keys);
 	if (typeof value === "string") {
@@ -101,6 +114,7 @@ export const nestedString = (input: unknown, keys: string[]) => {
 	}
 	return undefined;
 };
+
 export const nestedNumber = (input: unknown, keys: string[]) => {
 	const value = nested(input, keys);
 	let number = Number.NaN;
@@ -112,7 +126,9 @@ export const nestedNumber = (input: unknown, keys: string[]) => {
 	}
 	return Number.isFinite(number) ? number : undefined;
 };
+
 export const specifics = (value: unknown) => (isRecord(value) ? value : null);
+
 export const requestJson = (
 	host: { readonly httpCall: CoreSandboxHostMethodMap["httpCall"] },
 	method: string,
@@ -127,5 +143,6 @@ export const requestJson = (
 			}),
 		),
 	);
+
 export const baseUrl = (value: unknown) =>
 	typeof value === "string" ? value.trim().replace(/\/$/, "") : "";

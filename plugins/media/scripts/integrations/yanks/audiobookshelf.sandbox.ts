@@ -1,14 +1,13 @@
-import { defineActivity } from "@ryot/sandbox-sdk/activity";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 
 import type { ImportEntityRef } from "../../../imports/schemas";
 import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
 import { sourceFetchFailure } from "../../../imports/source-helpers";
-import { baseUrl, requestJson, specifics } from "../shared";
+import { baseUrl, executionStartedAt, requestJson, specifics } from "../shared";
 
 export const manifest = defineManifest({
-	kind: "activity",
+	kind: "script",
 	name: "Audiobookshelf yank",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
@@ -126,12 +125,13 @@ const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
 	return null;
 };
 
-export default defineActivity({
+export default defineScript({
 	manifest,
 	input: Input,
 	output: MediaIntegrationAdapterResult,
-	run: (_input, host) =>
+	run: (_input, host, execution) =>
 		Effect.gen(function* () {
+			const importedAt = yield* executionStartedAt(execution);
 			const integration = yield* host.getCurrentIntegration();
 			const settings = specifics(integration.providerSpecifics);
 			const token = typeof settings?.["token"] === "string" ? settings["token"] : "";
@@ -143,7 +143,6 @@ export default defineActivity({
 			);
 			const failures: Array<MediaIntegrationAdapterResult["failures"][number]> = [];
 			const entityGroups: Array<MediaIntegrationAdapterResult["entityGroups"][number]> = [];
-			const importedAt = new Date().toISOString();
 			let itemIndex = 0;
 			for (const library of libraries.libraries ?? []) {
 				const filter = library.mediaType === "book" ? "&filter=progress.ZmluaXNoZWQ=" : "";
@@ -176,11 +175,11 @@ export default defineActivity({
 									: "Audiobookshelf item has no Audible, ISBN, or iTunes identifier";
 						}
 						failures.push({
-							itemIndex: currentIndex,
-							stage: "input_transformation",
 							message,
-							sourceLabel: item.media?.metadata?.title ?? item.name,
+							itemIndex: currentIndex,
 							sourceIdentifier: item.id,
+							stage: "input_transformation",
+							sourceLabel: item.media?.metadata?.title ?? item.name,
 						});
 						continue;
 					}
@@ -205,8 +204,8 @@ export default defineActivity({
 							failures.push(
 								sourceFetchFailure({
 									itemIndex: currentIndex,
-									sourceLabel: ref.sourceLabel,
 									sourceIdentifier: item.id,
+									sourceLabel: ref.sourceLabel,
 									message: "Failed to fetch Audiobookshelf podcast details",
 								}),
 							);
@@ -215,10 +214,10 @@ export default defineActivity({
 						if (details && (details.media?.episodes ?? []).length === 0) {
 							failures.push({
 								itemIndex: currentIndex,
+								sourceIdentifier: item.id,
+								sourceLabel: ref.sourceLabel,
 								stage: "input_transformation",
 								message: "Audiobookshelf podcast has no episodes",
-								sourceLabel: ref.sourceLabel,
-								sourceIdentifier: item.id,
 							});
 						}
 						for (const episode of details?.media?.episodes ?? []) {
@@ -233,8 +232,8 @@ export default defineActivity({
 									failures.push(
 										sourceFetchFailure({
 											itemIndex: currentIndex,
-											sourceLabel: ref.sourceLabel,
 											sourceIdentifier: item.id,
+											sourceLabel: ref.sourceLabel,
 											message: "Failed to fetch Audiobookshelf podcast episode progress",
 										}),
 									);
@@ -262,18 +261,18 @@ export default defineActivity({
 						if (details && (details.media?.episodes ?? []).length > 0 && events.length === 0) {
 							failures.push({
 								itemIndex: currentIndex,
+								sourceIdentifier: item.id,
+								sourceLabel: ref.sourceLabel,
 								stage: "input_transformation",
 								message:
 									"Audiobookshelf podcast has no finished episodes with importable episode numbers",
-								sourceLabel: ref.sourceLabel,
-								sourceIdentifier: item.id,
 							});
 						}
 					}
 					if (events.length) {
 						entityGroups.push({
-							entityRef: ref,
 							events,
+							entityRef: ref,
 							itemIndex: currentIndex,
 							collectionMemberships: library.name?.trim()
 								? [{ collectionName: library.name.trim() }]

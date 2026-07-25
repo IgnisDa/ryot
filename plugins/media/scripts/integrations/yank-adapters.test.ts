@@ -527,14 +527,17 @@ describe("Komga yank", () => {
 
 describe("YouTube Music yank", () => {
 	it("returns a zone-local date and a positive sub-day TTL for a valid timezone", () => {
-		const { localDate, ttlSeconds } = deduplicateWindow("America/New_York");
+		const { localDate, ttlSeconds } = deduplicateWindow(
+			"America/New_York",
+			"2026-01-01T00:00:00.000Z",
+		);
 		expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 		expect(ttlSeconds).toBeGreaterThan(0);
 		expect(ttlSeconds).toBeLessThanOrEqual(86_400);
 	});
 
 	it("falls back to a full-day TTL for an unknown timezone", () => {
-		const { localDate, ttlSeconds } = deduplicateWindow("Not/AZone");
+		const { localDate, ttlSeconds } = deduplicateWindow("Not/AZone", "2026-01-01T00:00:00.000Z");
 		expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 		expect(ttlSeconds).toBe(86_400);
 	});
