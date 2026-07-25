@@ -1,10 +1,15 @@
 {
-	"extends": "./.wxt/tsconfig.json",
+	"extends": ["../../tsconfig.options.json", "./.wxt/tsconfig.json"],
 	"compilerOptions": {
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"emitDeclarationOnly": false,
 		"strict": true,
 		"noEmit": true,
 		"outDir": "dist",
 		"jsx": "react-jsx",
+		"lib": ["ESNext", "DOM"],
 		"allowImportingTsExtensions": true
 	}
 }
