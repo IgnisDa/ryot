@@ -11,8 +11,8 @@ const SANDBOX_RUNTIME_DEPENDENCY_FORMAT = 1 as const;
 export const SANDBOX_APPROVED_DEPENDENCIES = [
 	{
 		name: "effect",
-		version: "4.0.0-beta.102",
-		runtimeFile: "effect-4.0.0-beta.102.mjs",
+		version: "4.0.0-beta.105",
+		runtimeFile: "effect-4.0.0-beta.105.mjs",
 		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[0],
 	},
 	{

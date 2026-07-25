@@ -9,7 +9,8 @@ import {
 	type AppStringProperty,
 	isAppPropertyRequired,
 } from "@ryot/contract/schema/property-schema";
-import { Config, Effect, Option, Redacted, Schema, SchemaIssue } from "effect";
+import type { Option } from "effect";
+import { Config, Effect, Redacted, Schema, SchemaIssue } from "effect";
 
 const ConfigValueType: unique symbol = Symbol.for("@ryot/config/ConfigValue");
 
@@ -182,7 +183,7 @@ const primitiveConfig = (field: AppPropertyDefinition, envKey: string): Config.C
 					: Effect.fail(
 							new Config.ConfigError(
 								new Schema.SchemaError(
-									new SchemaIssue.InvalidValue(Option.some(value), {
+									new SchemaIssue.InvalidValue({
 										message: `${envKey} must be one of: ${field.options.join(", ")}`,
 									}),
 								),

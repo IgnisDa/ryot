@@ -150,7 +150,7 @@ describe("property schema DSL", () => {
 			if (!strictResult.success) {
 				expect(strictResult.issues).toContainEqual({
 					path: ["strictMeta", "extra"],
-					message: "Unexpected key with value true",
+					message: "Expected no excess property",
 				});
 			}
 

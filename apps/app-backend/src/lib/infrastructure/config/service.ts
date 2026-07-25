@@ -31,9 +31,7 @@ const mapLogLevel = (config: SystemConfigValue) => {
 };
 
 const configError = (message: string) =>
-	new Config.ConfigError(
-		new Schema.SchemaError(new SchemaIssue.InvalidValue(Option.none(), { message })),
-	);
+	new Config.ConfigError(new Schema.SchemaError(new SchemaIssue.InvalidValue({ message })));
 
 const isNonEmpty = (opt: Option.Option<string>): opt is Option.Some<string> =>
 	Option.isSome(opt) && opt.value.length > 0;

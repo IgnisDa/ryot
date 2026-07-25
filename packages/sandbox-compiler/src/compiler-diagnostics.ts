@@ -24,7 +24,7 @@ export const SandboxCompilerDiagnostic = Schema.Struct({
 
 export type SandboxCompilerDiagnostic = Schema.Schema.Type<typeof SandboxCompilerDiagnostic>;
 
-export class SandboxCompilerFailure extends Schema.TaggedErrorClass<SandboxCompilerFailure>()(
+export class SandboxCompilerFailure extends Schema.TaggedError<SandboxCompilerFailure>()(
 	"SandboxCompilerFailure",
 	{ message: Schema.String, diagnostics: Schema.Array(SandboxCompilerDiagnostic) },
 ) {}
