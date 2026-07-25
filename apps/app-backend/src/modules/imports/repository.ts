@@ -4,13 +4,18 @@ import type {
 	ListedImportRun,
 } from "@ryot/contract/modules/imports/schemas";
 import type { ImportRunFailureStage, ImportRunSource } from "@ryot/contract/modules/imports/types";
+import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
 import { ImportRunId, type IntegrationId, type UserId } from "@ryot/contract/schema/brands";
 import type { RunStatus } from "@ryot/contract/schema/run-status";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import {
+	Database,
+	isUniqueConstraintError,
+	mapDatabaseErrors,
+} from "#lib/infrastructure/db/service";
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;
 
@@ -39,6 +44,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			pluginInstallationId: string;
 			integrationId?: IntegrationId | null;
 			inputSummary: Record<string, unknown>;
+			integrationLot?: IntegrationLot | null;
 		}) {
 			const db = yield* Database;
 			const [row] = yield* mapDatabaseErrors(
@@ -49,6 +55,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						source: input.source,
 						inputSummary: input.inputSummary,
 						integrationId: input.integrationId ?? null,
+						integrationLot: input.integrationLot ?? null,
 						pluginInstallationId: input.pluginInstallationId,
 					})
 					.returning(),
@@ -57,6 +64,22 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				return yield* new DbError({ message: "Import run insert returned no row" });
 			}
 			return normalizeRun(row);
+		});
+
+		const createRunForIntegrationIfIdle = Effect.fn(
+			"ImportsRepository.createRunForIntegrationIfIdle",
+		)(function* (input: {
+			userId: UserId;
+			source: ImportRunSource;
+			integrationId: IntegrationId;
+			pluginInstallationId: string;
+			inputSummary: Record<string, unknown>;
+		}) {
+			return yield* createRun({ ...input, integrationLot: "yank" }).pipe(
+				Effect.catchIf(isUniqueConstraintError("import_run_integration_active_unique"), () =>
+					Effect.succeed(null),
+				),
+			);
 		});
 
 		const getRunById = Effect.fn("ImportsRepository.getRunById")(function* (input: {
@@ -75,25 +98,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			);
 			return row ? normalizeRun(row) : null;
 		});
-
-		const hasActiveRunForIntegration = Effect.fn("ImportsRepository.hasActiveRunForIntegration")(
-			function* (input: { integrationId: IntegrationId }) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.select({ id: schema.importRun.id })
-						.from(schema.importRun)
-						.where(
-							and(
-								eq(schema.importRun.integrationId, input.integrationId),
-								inArray(schema.importRun.status, ["pending", "running"]),
-							),
-						)
-						.limit(1),
-				);
-				return row !== undefined;
-			},
-		);
 
 		const listRecentStatusesByIntegrationId = Effect.fn(
 			"ImportsRepository.listRecentStatusesByIntegrationId",
@@ -207,7 +211,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			getRunById,
 			deleteRunById,
 			createFailure,
-			hasActiveRunForIntegration,
+			createRunForIntegrationIfIdle,
 			listRecentStatusesByIntegrationId,
 		};
 	}),

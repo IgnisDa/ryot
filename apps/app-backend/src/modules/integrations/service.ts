@@ -384,6 +384,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				}
 
 				const run = yield* importsService.createRunForIntegration({
+					integrationLot: "sink",
 					userId: integration.userId,
 					source: integration.provider,
 					integrationId: integration.id,
@@ -472,20 +473,16 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						continue;
 					}
 
-					const hasActiveRun = yield* importsService.hasActiveRunForIntegration({
-						integrationId: integration.id,
-					});
-					if (hasActiveRun) {
-						continue;
-					}
-
-					const run = yield* importsService.createRunForIntegration({
+					const run = yield* importsService.createRunForIntegrationIfIdle({
 						userId: integration.userId,
 						source: integration.provider,
 						integrationId: integration.id,
 						pluginInstallationId: integration.pluginInstallationId,
 						inputSummary: buildIntegrationInputSummary(integration),
 					});
+					if (!run) {
+						continue;
+					}
 
 					runs.push({ runId: run.id, userId: integration.userId, integrationId: integration.id });
 				}

@@ -2,7 +2,7 @@
 
 ## High-Impact Items (Start with these)
 
-- [ ] **1. Atomic integration-run admission** [H/M/M]
+- [x] **1. Atomic integration-run admission** [H/M/M]
   - Owner: D15 Integrations
   - Scope: Add `createRunForIntegrationIfIdle` with partial unique index
   - Prereq: Resolve duplicate active rows first
