@@ -1,6 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
 import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";
-import { createRyotQuery, useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
@@ -11,8 +10,9 @@ import type {
 	MediaUnlinkedCreatorsOverview,
 } from "../../shared/media-recipes";
 import { MediaActivityReviewDetail, type MediaActivityRowRender } from "./activity-rows";
-import { MediaActivity, MediaActivityRecord, type MediaActivityState } from "./activity-tab";
-import { decimalLabel, mediaActivitySpanLabel } from "./activity-timeline";
+import { defineMediaActivityTab, MediaActivityRecord } from "./activity-tab";
+import { decimalLabel, mediaActivitySpanLabel, mediaCollectionRowLabel } from "./activity-timeline";
+import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
 	MediaDetailScreen,
@@ -52,15 +52,14 @@ import {
 	mediaUnlinkedCreators,
 	type MediaOverviewState,
 } from "./overview-state";
-import { MediaRefreshStatus } from "./primitives";
-import { classifyRyotQueryResult } from "./query-state";
-import type { MediaSummaryValue } from "./summary-header";
 import {
 	mediaFlatLifecycleLabel,
 	mediaReleaseLabel,
+	mediaSummaryHeaderDetail,
 	mediaSummaryStateMapper,
 	type MediaSummaryFact,
 	type MediaSummaryState,
+	type MediaSummaryValue,
 } from "./summary-state";
 import type { MediaTab } from "./tabs";
 
@@ -68,7 +67,6 @@ const GROUP_LIMIT = 20;
 const PEOPLE_LIMIT = 12;
 const COMPANY_LIMIT = 6;
 const RECOMMENDATION_LIMIT = 12;
-const SUMMARY_COLLECTION_LIMIT = 6;
 const ACTIVITY_EVENT_LIMIT = 60;
 const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
 
@@ -108,8 +106,6 @@ export type MediaFlatActivityResult<Extra = unknown> = {
 	readonly consumedAmount: number | null;
 	readonly events: readonly MediaFlatActivityEvent<Extra>[];
 };
-
-type EntityInput = { readonly entityId: string };
 
 export type MediaFlatSchemaDescriptor<
 	Summary extends FlatSummary,
@@ -206,66 +202,35 @@ export const defineFlatMediaSchema = <
 ) => {
 	const { nouns, recipes, activityCopy } = descriptor;
 
-	const summaryQuery = createRyotQuery<EntityInput, FlatSummaryResult<Summary>>(
-		({ input, client, signal }) =>
-			client.data.query(
-				recipes.summaryRecipe({ ...input, collectionLimit: SUMMARY_COLLECTION_LIMIT }),
-				{ signal },
-			),
-		{
-			entityInterest: ({ data, input }) => ({
-				foreground: [input.entityId],
-				visible: data?.summary?.collections.items.map(({ id }) => id) ?? [],
+	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
+
+	const overviewQuery = createMediaEntityQuery(
+		(input) =>
+			recipes.overviewRecipe({
+				groupLimit: GROUP_LIMIT,
+				entityId: input.entityId,
+				peopleLimit: PEOPLE_LIMIT,
+				companyLimit: COMPANY_LIMIT,
+				recommendationLimit: RECOMMENDATION_LIMIT,
 			}),
-		},
+		(data) =>
+			[
+				...data.people.items,
+				...data.companies.items,
+				...data.recommendations.items,
+				...(data.group?.members.items ?? []),
+			].map(({ id }) => id),
 	);
 
-	const overviewQuery = createRyotQuery<EntityInput, Overview>(
-		({ input, client, signal }) =>
-			client.data.query(
-				recipes.overviewRecipe({
-					groupLimit: GROUP_LIMIT,
-					entityId: input.entityId,
-					peopleLimit: PEOPLE_LIMIT,
-					companyLimit: COMPANY_LIMIT,
-					recommendationLimit: RECOMMENDATION_LIMIT,
-				}),
-				{ signal },
-			),
-		{
-			entityInterest: ({ data, input }) => ({
-				foreground: [input.entityId],
-				visible: data
-					? [
-							...data.people.items,
-							...data.companies.items,
-							...data.recommendations.items,
-							...(data.group?.members.items ?? []),
-						].map(({ id }) => id)
-					: [],
+	const activityQuery = createMediaEntityQuery(
+		(input) =>
+			recipes.activityRecipe({
+				entityId: input.entityId,
+				eventLimit: ACTIVITY_EVENT_LIMIT,
+				collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
 			}),
-		},
-	);
-
-	const activityQuery = createRyotQuery<EntityInput, MediaFlatActivityResult<Extra>>(
-		({ input, client, signal }) =>
-			client.data.query(
-				recipes.activityRecipe({
-					entityId: input.entityId,
-					eventLimit: ACTIVITY_EVENT_LIMIT,
-					collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
-				}),
-				{ signal },
-			),
-		{
-			entityInterest: ({ data, input }) => ({
-				foreground: [input.entityId],
-				visible:
-					data?.events.flatMap((event) =>
-						event.kind === "collection" ? [event.collection.id] : [],
-					) ?? [],
-			}),
-		},
+		(data) =>
+			data.events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
 	);
 
 	const summaryState = mediaSummaryStateMapper<FlatSummaryResult<Summary>, Summary>({
@@ -282,25 +247,12 @@ export const defineFlatMediaSchema = <
 			amount: { total: result.consumedAmount ?? 0, missing: result.unknownAmountCount },
 		});
 
-	const mapActivity = (
-		result: RyotQueryResult<MediaFlatActivityResult<Extra>>,
-	): MediaActivityState<MediaFlatSchemaActivityView<Extra>> => {
-		const state = classifyRyotQueryResult(result);
-		if (state.status !== "ready") {
-			return state;
-		}
-		const view = activityView(state.value);
-		return view === undefined ? { status: "empty" } : { view, status: "ready" };
-	};
-
 	const activityRowLabel = (row: MediaFlatSchemaRow<Extra>): string => {
 		if (row.type === "completion") {
 			return activityCopy.rowLabels.completion;
 		}
 		if (row.type === "collection") {
-			return row.change === "added"
-				? `Added to the ${row.name} collection`
-				: `Removed from the ${row.name} collection`;
+			return mediaCollectionRowLabel(row);
 		}
 		if (row.type === "beat") {
 			return row.beat === "backlog" ? "Added to backlog" : activityCopy.beats[row.beat];
@@ -352,31 +304,19 @@ export const defineFlatMediaSchema = <
 		);
 	}
 
-	function Activity(props: {
-		readonly compact: boolean;
-		readonly refresh: () => void;
-		readonly state: MediaActivityState<MediaFlatSchemaActivityView<Extra>>;
-	}) {
-		return (
-			<MediaActivity
-				copy={activityCopy}
-				state={props.state}
-				Record={ActivityRecord}
-				compact={props.compact}
-				refresh={props.refresh}
-			/>
-		);
-	}
+	const { Activity, ActivityTab, mapActivity } = defineMediaActivityTab({
+		view: activityView,
+		copy: activityCopy,
+		query: activityQuery,
+		Record: ActivityRecord,
+		emptyAction: "log-activity",
+	});
 
-	function ActivityTab(props: { readonly compact: boolean; readonly entityId: string }) {
-		const result = useRyotQuery(activityQuery, { entityId: props.entityId });
-		return (
-			<>
-				<MediaRefreshStatus result={result} />
-				<Activity compact={props.compact} refresh={result.refetch} state={mapActivity(result)} />
-			</>
-		);
-	}
+	const header = mediaSummaryHeaderDetail({
+		lifecycleLabel,
+		facts: descriptor.facts,
+		progress: summaryProgress,
+	});
 
 	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
 		compact,
@@ -392,6 +332,7 @@ export const defineFlatMediaSchema = <
 				divided={divided}
 				overview={overview}
 				unlinked={unlinked}
+				aspect={descriptor.aspect}
 				copy={descriptor.creditCopy}
 				onViewAllPeople={() => console.log(`TODO: open all ${nouns.singular} credits`)}
 				trailing={
@@ -425,16 +366,15 @@ export const defineFlatMediaSchema = <
 		return (
 			<MediaDetailBody
 				tabs={TABS}
+				header={header}
 				state={props.state}
 				overviewTab="overview"
 				compact={props.compact}
 				settled={props.settled}
 				refresh={props.refresh}
 				typeLabel={nouns.title}
-				facts={descriptor.facts}
 				overview={props.overview}
-				progress={summaryProgress}
-				lifecycleLabel={lifecycleLabel}
+				loading={summaryState.loading}
 				safeAreaTop={props.safeAreaTop}
 				overviewIsEmpty={overviewIsEmpty}
 				overviewRelations={overviewRelations}
@@ -447,10 +387,7 @@ export const defineFlatMediaSchema = <
 				overviewRefreshStatus={props.overviewRefreshStatus}
 				summaryUnavailable={summaryState.summaryUnavailable}
 				overviewLoadingDetail={descriptor.overviewLoadingDetail}
-				loading={{
-					title: `Loading ${nouns.singular}...`,
-					detail: `Fetching the latest details for this ${nouns.singular}.`,
-				}}
+				artwork={{ purpose: "cover", aspect: descriptor.aspect }}
 			/>
 		);
 	}

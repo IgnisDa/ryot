@@ -5,8 +5,12 @@ import type {
 	EpisodicLifecycleState,
 	MediaLifecycleState,
 } from "../../shared/lifecycle-expressions";
-import type { MediaSummarySelection } from "../../shared/media-recipes";
+import type {
+	MediaEntitySummarySelection,
+	MediaSummarySelection,
+} from "../../shared/media-recipes";
 import { mediaActivityDurationLabel } from "./activity-timeline";
+import type { MediaArtworkAspect } from "./entity-presentation";
 import {
 	collectManagedAssetLocators,
 	mediaImageAssets,
@@ -16,6 +20,8 @@ import {
 	type MediaImages,
 } from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
+
+export type MediaEntitySummaryFields = SelectedRow<MediaEntitySummarySelection>;
 
 export type MediaSummaryFields = SelectedRow<MediaSummarySelection>;
 
@@ -36,12 +42,42 @@ export type MediaCollectionList = {
 	readonly pageInfo: { readonly hasMore: boolean };
 };
 
+export type MediaEntitySummaryValue = MediaEntitySummaryFields & {
+	readonly collections: MediaCollectionList;
+};
+
+export type MediaSummaryValue = MediaSummaryFields & { readonly collections: MediaCollectionList };
+
 export type MediaSummaryFact = {
 	readonly icon: string;
 	readonly label: string;
 	readonly value: string;
 	readonly suffix?: string | undefined;
 	readonly iconClass?: string;
+};
+
+export type MediaSummaryArtwork = {
+	readonly purpose: MediaImagePurposes[number];
+	readonly aspect: MediaArtworkAspect;
+	readonly fit?: "cover" | "contain" | undefined;
+};
+
+export type MediaSummaryLink = { readonly label: string; readonly href: string };
+
+export type MediaStatusRailConfig = {
+	readonly logActivity: boolean;
+	readonly ownership?: { readonly owned: boolean | null } | undefined;
+	readonly status?:
+		| { readonly label: string; readonly progress: { readonly percent: number } | undefined }
+		| undefined;
+};
+
+export type MediaSummaryHeaderDetail = {
+	readonly chips: readonly string[];
+	readonly rail: MediaStatusRailConfig;
+	readonly links: readonly MediaSummaryLink[];
+	readonly facts: readonly MediaSummaryFact[];
+	readonly identityDetail: string | undefined;
 };
 
 const MEDIA_GALLERY_LIMIT = 10;
@@ -52,8 +88,10 @@ type MediaImaged = { readonly images: MediaImages };
 
 const DEFAULT_BACKDROP_PURPOSES: MediaImagePurposes = ["backdrop"];
 
-export const mediaPosterAsset = (media: MediaImaged) =>
-	preferredMediaImageAsset(media.images, "cover");
+export const mediaPosterAsset = (
+	media: MediaImaged,
+	purpose: MediaImagePurposes[number] = "cover",
+) => preferredMediaImageAsset(media.images, purpose);
 
 export const mediaBackdropAsset = (
 	media: MediaImaged,
@@ -108,6 +146,10 @@ export const mediaSummaryStateMapper = <
 	readonly singular: string;
 	readonly select: (value: Data) => Summary | null;
 }) => ({
+	loading: {
+		title: `Loading ${input.singular}...`,
+		detail: `Fetching the latest details for this ${input.singular}.`,
+	},
 	summaryUnavailable: (reason: MediaSummaryUnavailableReason) => ({
 		title: `${input.title} unavailable`,
 		detail:
@@ -206,3 +248,28 @@ export const mediaCollectionsLabel = ({ items, pageInfo }: MediaCollectionList) 
 		? `${items.length}+ collections`
 		: mediaCountLabel(items.length, "collection");
 };
+
+/** The media header: rating first and production status last around the descriptor's facts, genres as chips. */
+export const mediaSummaryHeaderDetail =
+	<Summary extends MediaSummaryValue>(input: {
+		readonly lifecycleLabel: (summary: Summary) => string;
+		readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
+		readonly progress?:
+			| ((summary: Summary) => { readonly percent: number } | undefined)
+			| undefined;
+	}) =>
+	(summary: Summary): MediaSummaryHeaderDetail => ({
+		links: [],
+		chips: summary.genres ?? [],
+		identityDetail: mediaReleaseLabel(summary),
+		facts: [
+			mediaRatingFact(summary),
+			...input.facts(summary),
+			mediaProductionStatusFact(summary),
+		].filter((fact) => fact !== undefined),
+		rail: {
+			logActivity: true,
+			ownership: { owned: summary.owned },
+			status: { progress: input.progress?.(summary), label: input.lifecycleLabel(summary) },
+		},
+	});

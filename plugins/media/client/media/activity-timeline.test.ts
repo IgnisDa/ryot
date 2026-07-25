@@ -4,8 +4,18 @@ import {
 	mediaActivityCountFigure,
 	mediaActivityDurationLabel,
 	mediaActivityError,
+	mediaActivityRowsView,
 	mediaTrackLengthLabel,
 } from "./activity-timeline";
+
+const flatRows = { isWatching: () => false, isCompletion: () => false };
+
+const row = (key: string, occurredAt: string) => ({
+	key,
+	occurredAt,
+	type: "review",
+	dateKey: occurredAt.slice(0, 10),
+});
 
 describe("media activity timeline labels", () => {
 	it("formats recorded durations without padding empty units", () => {
@@ -31,5 +41,31 @@ describe("media activity timeline labels", () => {
 	it("separates transport failures from malformed activity", () => {
 		expect(mediaActivityError({ status: "transport-error" }).detail).toContain("your connection");
 		expect(mediaActivityError({ status: "malformed" }).detail).toContain("could not be displayed");
+	});
+});
+
+describe("media activity rows view", () => {
+	it("has no view when nothing was recorded", () => {
+		expect(mediaActivityRowsView([], flatRows, false)).toBeUndefined();
+	});
+
+	it("orders rows newest first and spans them fully when nothing was cut off", () => {
+		const older = row("older", "2024-02-01T12:00:00.000Z");
+		const newer = row("newer", "2024-02-03T12:00:00.000Z");
+
+		expect(mediaActivityRowsView([older, newer], flatRows, false)).toEqual({
+			timeline: { layout: "flat", rows: [newer, older] },
+			span: { days: 3, bound: "full", latest: newer.occurredAt, earliest: older.occurredAt },
+		});
+	});
+
+	it("keeps only the latest instant when the loaded rows are partial", () => {
+		const older = row("older", "2024-02-01T12:00:00.000Z");
+		const newer = row("newer", "2024-02-03T12:00:00.000Z");
+
+		expect(mediaActivityRowsView([older, newer], flatRows, true)?.span).toEqual({
+			bound: "partial",
+			latest: newer.occurredAt,
+		});
 	});
 });

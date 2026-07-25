@@ -23,6 +23,7 @@ const relationsRender: MediaOverviewRelationsRender<MediaOverviewRows> = ({
 }) => (
 	<MediaOverviewRelations
 		compact
+		aspect="poster"
 		divided={divided}
 		overview={overview}
 		onViewAllPeople={() => undefined}

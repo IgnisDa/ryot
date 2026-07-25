@@ -13,6 +13,7 @@ import { defineEpisodicMediaSchema } from "../media/episodic-schema";
 import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT } from "../media/hero";
 import { mediaWatchProvidersTrailing } from "../media/overview";
 import { mediaCountFact, mediaCountLabel, type MediaSummaryFact } from "../media/summary-state";
+import { mediaSchemaAspects } from "../schema-aspects";
 import { ShowEpisodesTab } from "./episodes";
 import {
 	isSpecialsSeason,
@@ -100,12 +101,12 @@ export const showPresentationDetail = (show: ShowPresentation) => {
 };
 
 export const showSchema = defineEpisodicMediaSchema({
-	aspect: "poster",
 	typeLabel: "TV Show",
 	recipes: showRecipes,
 	facts: showSummaryFacts,
 	EpisodesTab: ShowEpisodesTab,
 	coverage: showActivityCoverage,
+	aspect: mediaSchemaAspects.show,
 	episodeOrigin: showEpisodeOriginLabel,
 	presentationFacts: showPresentationFacts,
 	presentationDetail: showPresentationDetail,

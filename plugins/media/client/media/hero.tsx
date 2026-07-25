@@ -35,9 +35,12 @@ export function MediaHero(props: {
 	readonly compact: boolean;
 	readonly media: { readonly images: MediaImages };
 	readonly backdropPurposes?: MediaImagePurposes | undefined;
+	readonly posterPurpose?: MediaImagePurposes[number] | undefined;
 }) {
 	const url = useManagedAssetUrl(mediaBackdropAsset(props.media, props.backdropPurposes));
-	const { gradientStops } = useImageTint(useManagedAssetUrl(mediaPosterAsset(props.media)));
+	const { gradientStops } = useImageTint(
+		useManagedAssetUrl(mediaPosterAsset(props.media, props.posterPurpose)),
+	);
 	return (
 		<div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
 			<ImageTintOverlay direction="vertical" gradientStops={gradientStops} />

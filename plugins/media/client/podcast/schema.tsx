@@ -12,6 +12,7 @@ import {
 import { defineEpisodicMediaSchema } from "../media/episodic-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
 import { mediaCountFact, mediaCountLabel, type MediaSummaryFact } from "../media/summary-state";
+import { mediaSchemaAspects } from "../schema-aspects";
 import { PodcastEpisodesTab, podcastEpisodeOriginLabel } from "./episodes";
 
 type PodcastSummary = MediaSummaryOf<typeof podcastRecipes>;
@@ -68,12 +69,12 @@ export const podcastPresentationDetail = (podcast: PodcastPresentation) => {
 };
 
 export const podcastSchema = defineEpisodicMediaSchema({
-	aspect: "square",
 	typeLabel: "Podcast",
 	recipes: podcastRecipes,
 	facts: podcastSummaryFacts,
 	EpisodesTab: PodcastEpisodesTab,
 	coverage: podcastActivityCoverage,
+	aspect: mediaSchemaAspects.podcast,
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	episodeOrigin: podcastEpisodeOriginLabel,
 	presentationFacts: podcastPresentationFacts,

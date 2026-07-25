@@ -1,3 +1,4 @@
+import { useRyotQuery, type RyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
@@ -8,12 +9,13 @@ import {
 	type MediaActivityRowRender,
 } from "./activity-rows";
 import {
+	mapMediaActivity,
 	mediaActivityError,
 	type MediaActivityRowBase,
+	type MediaActivityState,
 	type MediaActivityTimeline,
 } from "./activity-timeline";
-import { MediaLinkButton, MediaStatusMessage } from "./primitives";
-import type { MappedRyotQueryState } from "./query-state";
+import { MediaLinkButton, MediaRefreshStatus, MediaStatusMessage } from "./primitives";
 
 export type MediaActivityCopy = {
 	readonly recordLabel: string;
@@ -21,9 +23,7 @@ export type MediaActivityCopy = {
 	readonly loadingDetail: string;
 };
 
-export type MediaActivityState<View> = MappedRyotQueryState<
-	{ readonly status: "empty" } | { readonly status: "ready"; readonly view: View }
->;
+export type MediaActivityEmptyAction = "log-activity" | "write-review";
 
 function MediaActivityFooter(props: { readonly partial: boolean }) {
 	return (
@@ -41,15 +41,25 @@ function MediaActivityFooter(props: { readonly partial: boolean }) {
 	);
 }
 
-function MediaActivityEmpty(props: { readonly detail: string }) {
+function MediaActivityEmpty(props: {
+	readonly detail: string;
+	readonly action: MediaActivityEmptyAction;
+}) {
 	return (
 		<div className="flex min-h-96 flex-col items-center justify-center gap-3 px-6">
 			<p className="text-center font-ui font-medium text-base text-text">No activity yet</p>
 			<p className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</p>
-			<MediaLinkButton
-				label="Log activity"
-				onClick={() => console.log("TODO: open activity form")}
-			/>
+			{props.action === "log-activity" ? (
+				<MediaLinkButton
+					label="Log activity"
+					onClick={() => console.log("TODO: open activity form")}
+				/>
+			) : (
+				<MediaLinkButton
+					label="Write review"
+					onClick={() => console.log("TODO: open review form")}
+				/>
+			)}
 		</div>
 	);
 }
@@ -92,6 +102,7 @@ export function MediaActivity<View>(props: {
 	readonly refresh: () => void;
 	readonly copy: MediaActivityCopy;
 	readonly state: MediaActivityState<View>;
+	readonly emptyAction: MediaActivityEmptyAction;
 	readonly Record: (input: { readonly compact: boolean; readonly view: View }) => ReactNode;
 }) {
 	const { state } = props;
@@ -102,7 +113,47 @@ export function MediaActivity<View>(props: {
 		return <MediaStatusMessage {...mediaActivityError(state)} onRetry={props.refresh} />;
 	}
 	if (state.status === "empty") {
-		return <MediaActivityEmpty detail={props.copy.emptyDetail} />;
+		return <MediaActivityEmpty action={props.emptyAction} detail={props.copy.emptyDetail} />;
 	}
 	return <props.Record view={state.view} compact={props.compact} />;
 }
+
+/** The activity state mapper, its screen, and the tab that loads it for one entity. */
+export const defineMediaActivityTab = <Result, View>(input: {
+	readonly copy: MediaActivityCopy;
+	readonly emptyAction: MediaActivityEmptyAction;
+	readonly view: (result: Result) => View | undefined;
+	readonly query: RyotQuery<{ readonly entityId: string }, Result>;
+	readonly Record: (props: { readonly compact: boolean; readonly view: View }) => ReactNode;
+}) => {
+	const mapActivity = (result: RyotQueryResult<Result>) => mapMediaActivity(result, input.view);
+
+	function Activity(props: {
+		readonly compact: boolean;
+		readonly refresh: () => void;
+		readonly state: MediaActivityState<View>;
+	}) {
+		return (
+			<MediaActivity
+				copy={input.copy}
+				state={props.state}
+				Record={input.Record}
+				compact={props.compact}
+				refresh={props.refresh}
+				emptyAction={input.emptyAction}
+			/>
+		);
+	}
+
+	function ActivityTab(props: { readonly compact: boolean; readonly entityId: string }) {
+		const result = useRyotQuery(input.query, { entityId: props.entityId });
+		return (
+			<>
+				<MediaRefreshStatus result={result} />
+				<Activity compact={props.compact} refresh={result.refetch} state={mapActivity(result)} />
+			</>
+		);
+	}
+
+	return { Activity, ActivityTab, mapActivity };
+};
