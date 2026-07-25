@@ -11,6 +11,7 @@
         "Mode": "Light"
       },
       "width": 1000,
+      "height": 1800,
       "fill": "$--background",
       "stroke": "$--border",
       "strokeWidth": 1,
@@ -412,8 +413,9 @@
                 {
                   "type": "frame",
                   "id": "kJ9ZF",
-                  "name": "Button Primary Instance",
+                  "name": "Control / Button / Primary",
                   "context": "button",
+                  "reusable": true,
                   "height": 39,
                   "fill": "$--accent",
                   "cornerRadius": "$--radius-pill",
@@ -442,7 +444,7 @@
                           "geometry": "M16 0l-11 11-5-5",
                           "width": 11.333333333333334,
                           "height": 7.791666666666667,
-                          "stroke": "#2C1A09",
+                          "stroke": "$--primary-foreground",
                           "strokeWidth": 1.4166666666666667,
                           "strokeLinejoin": "round",
                           "strokeLinecap": "round"
@@ -462,7 +464,7 @@
                         {
                           "type": "text",
                           "id": "vcXLC",
-                          "fill": "#000000",
+                          "fill": "$--primary-foreground",
                           "content": "Mark watched",
                           "lineHeight": 1,
                           "textAlign": "center",
@@ -477,8 +479,9 @@
                 {
                   "type": "frame",
                   "id": "Y8GA3",
-                  "name": "Button Outline Instance",
+                  "name": "Control / Button / Outline",
                   "context": "button",
+                  "reusable": true,
                   "height": 39,
                   "fill": "$--surface-2",
                   "cornerRadius": "$--radius-pill",
@@ -510,7 +513,7 @@
                           "geometry": "M7 0l0 14m-7-7l14 0",
                           "width": 9.916666666666668,
                           "height": 9.916666666666668,
-                          "stroke": "#EEECE7",
+                          "stroke": "$--text-primary",
                           "strokeWidth": 1.4166666666666667,
                           "strokeLinecap": "round"
                         }
@@ -544,8 +547,9 @@
                 {
                   "type": "frame",
                   "id": "cs9qz",
-                  "name": "Input Text Instance",
+                  "name": "Control / Input",
                   "context": "input",
+                  "reusable": true,
                   "clip": true,
                   "width": 240,
                   "height": 43,
@@ -577,8 +581,9 @@
                 {
                   "type": "frame",
                   "id": "J3UTE",
-                  "name": "Watching Chip Instance",
+                  "name": "Control / Status Chip / Watching",
                   "context": "span",
+                  "reusable": true,
                   "width": 80.98,
                   "height": 24,
                   "fill": "$--accent-soft",
@@ -615,8 +620,9 @@
                 {
                   "type": "frame",
                   "id": "w38tSl",
-                  "name": "Completed Chip Instance",
+                  "name": "Control / Status Chip / Completed",
                   "context": "span",
+                  "reusable": true,
                   "width": 88.75,
                   "height": 24,
                   "fill": "$--color-success",
@@ -683,8 +689,9 @@
                 {
                   "type": "frame",
                   "id": "C8IzA",
-                  "name": "List Row Instance",
+                  "name": "Media / List Row / Reference",
                   "context": "div",
+                  "reusable": true,
                   "width": 420,
                   "fill": "$--card",
                   "cornerRadius": "$--radius-md",
@@ -799,8 +806,9 @@
                 {
                   "type": "frame",
                   "id": "sxshe",
-                  "name": "Poster Card Instance",
+                  "name": "Media / Poster Card / Reference",
                   "context": "div",
+                  "reusable": true,
                   "width": 120,
                   "height": 244.13,
                   "layout": "vertical",
@@ -893,8 +901,9 @@
                 {
                   "type": "frame",
                   "id": "J6fW5",
-                  "name": "Bottom Sheet Instance",
+                  "name": "Overlay / Bottom Sheet",
                   "context": "div",
+                  "reusable": true,
                   "width": 248,
                   "height": 251,
                   "fill": "$--card",
@@ -925,7 +934,7 @@
                       "context": "div",
                       "width": 214,
                       "height": 49.5,
-                      "stroke": "#2a2c31",
+                      "stroke": "$--sheet-divider",
                       "strokeWidth": {
                         "bottom": 1
                       },
@@ -957,7 +966,7 @@
                               "geometry": "M16 0l-11 11-5-5",
                               "width": 13.333333333333334,
                               "height": 9.166666666666668,
-                              "stroke": "#A3A09A",
+                              "stroke": "$--text-muted",
                               "strokeWidth": 1.6666666666666667,
                               "strokeLinecap": "round"
                             }
@@ -985,7 +994,7 @@
                       "context": "div",
                       "width": 214,
                       "height": 49.5,
-                      "stroke": "#2a2c31",
+                      "stroke": "$--sheet-divider",
                       "strokeWidth": {
                         "bottom": 1
                       },
@@ -1017,7 +1026,7 @@
                               "geometry": "M7 0l0 14m-7-7l14 0",
                               "width": 11.666666666666668,
                               "height": 11.666666666666668,
-                              "stroke": "#A3A09A",
+                              "stroke": "$--text-muted",
                               "strokeWidth": 1.6666666666666667,
                               "strokeLinecap": "round"
                             }
@@ -1045,7 +1054,7 @@
                       "context": "div",
                       "width": 214,
                       "height": 49.5,
-                      "stroke": "#2a2c31",
+                      "stroke": "$--sheet-divider",
                       "strokeWidth": {
                         "bottom": 1
                       },
@@ -1077,7 +1086,7 @@
                               "geometry": "M0 10l0 8c0 1.10457 0.89543 2 2 2l12 0c1.10457 0 2-0.89543 2-2l0-8m-4-6l-4-4-4 4m4-4l0 13",
                               "width": 13.333333333333334,
                               "height": 16.666666666666668,
-                              "stroke": "#A3A09A",
+                              "stroke": "$--text-muted",
                               "strokeWidth": 1.6666666666666667,
                               "strokeLinejoin": "round",
                               "strokeLinecap": "round"
@@ -1131,7 +1140,7 @@
                               "geometry": "M0 2l18 0m-13 0l0-2 8 0 0 2m3 0l-1 14-12 0-1-14",
                               "width": 15,
                               "height": 13.333333333333334,
-                              "stroke": "#A3A09A",
+                              "stroke": "$--text-muted",
                               "strokeWidth": 1.6666666666666667,
                               "strokeLinecap": "round"
                             }
@@ -1153,6 +1162,439 @@
                   ]
                 }
               ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "l00KrC",
+          "name": "Canonical Components Section",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "children": [
+            {
+              "type": "text",
+              "id": "wqJQx",
+              "name": "Canonical Components Label",
+              "fill": "$--text-subtle",
+              "content": "CANONICAL COMPONENTS",
+              "fontFamily": "$--font-mono",
+              "fontSize": 12,
+              "fontWeight": "700",
+              "letterSpacing": 1.1
+            },
+            {
+              "type": "text",
+              "id": "GnA3W",
+              "name": "Canonical Components Description",
+              "fill": "$--text-muted",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Reusable definitions used by mobile screen instances. Change source components here; references stay synchronized.",
+              "fontFamily": "$--font-body",
+              "fontSize": 15,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "D6hKB",
+              "name": "Layout / Section Header",
+              "reusable": true,
+              "width": "fill_container",
+              "padding": [
+                0,
+                16
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "AmONi",
+                  "name": "Section Title",
+                  "fill": "$--text-primary",
+                  "content": "Continue Watching",
+                  "fontFamily": "$--font-primary",
+                  "fontSize": 18,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "niks2",
+                  "name": "Section Action",
+                  "fill": "$--accent-text",
+                  "content": "See all",
+                  "fontFamily": "$--font-primary",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "NkA2K",
+              "name": "Media / Continue Watching Card",
+              "reusable": true,
+              "width": 120,
+              "layout": "vertical",
+              "gap": 7,
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 10,
+                  "id": "DAXqg",
+                  "name": "Poster Image",
+                  "metadata": {
+                    "type": "unsplash",
+                    "username": "reythh",
+                    "link": "https://unsplash.com/@reythh",
+                    "author": "Andrei Stan"
+                  },
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "https://images.unsplash.com/photo-1662202120383-7e652499ee66?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTV8&ixlib=rb-4.1.0&q=80&w=1080",
+                    "mode": "fill"
+                  },
+                  "width": "fill_container",
+                  "height": 172
+                },
+                {
+                  "type": "frame",
+                  "id": "bZV6u",
+                  "name": "Progress Track",
+                  "width": "fill_container",
+                  "height": 3,
+                  "fill": "$--border-subtle",
+                  "cornerRadius": 999,
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 999,
+                      "id": "hCJ7N",
+                      "name": "Progress Fill",
+                      "fill": "$--primary",
+                      "width": 82,
+                      "height": 3
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "P2HBU",
+                  "name": "Media Title",
+                  "fill": "$--text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Blade Runner 2049",
+                  "fontFamily": "$--font-primary",
+                  "fontSize": 13.5,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "OPw2p",
+                  "name": "Media Meta",
+                  "fill": "$--text-subtle",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Film · 68%",
+                  "fontFamily": "$--font-primary",
+                  "fontSize": 11.5,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "GfOk2",
+              "name": "Media / List Row",
+              "reusable": true,
+              "width": "fill_container",
+              "fill": "$--card",
+              "cornerRadius": "$--radius-lg",
+              "stroke": "$--border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "gap": 12,
+              "padding": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 7,
+                  "id": "pOxtQ",
+                  "name": "Row Thumbnail",
+                  "metadata": {
+                    "type": "unsplash",
+                    "username": "_pourya_",
+                    "link": "https://unsplash.com/@_pourya_",
+                    "author": "Pourya Gohari"
+                  },
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "https://images.unsplash.com/photo-1695068734075-ccfdb009f26c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTh8&ixlib=rb-4.1.0&q=80&w=1080",
+                    "mode": "fill"
+                  },
+                  "width": 44,
+                  "height": 60
+                },
+                {
+                  "type": "frame",
+                  "id": "U6orV",
+                  "name": "Row Text",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "bXnZ6",
+                      "name": "Row Title",
+                      "fill": "$--text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Shōgun",
+                      "fontFamily": "$--font-primary",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Q9O1f",
+                      "name": "Row Meta",
+                      "fill": "$--text-subtle",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "S1 · E7 — A Dream of a Dream",
+                      "fontFamily": "$--font-primary",
+                      "fontSize": 12.5,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "eXnQD",
+                  "name": "Row Status Chip",
+                  "fill": "$--accent-soft",
+                  "cornerRadius": "$--radius-pill",
+                  "padding": [
+                    4,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "jLPaE",
+                      "name": "Row Status Label",
+                      "fill": "$--accent-text",
+                      "content": "Tonight",
+                      "fontFamily": "$--font-primary",
+                      "fontSize": 11.5,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "pEmhD",
+              "name": "Media / Poster Tile",
+              "reusable": true,
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 7,
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 10,
+                  "id": "pwuIW",
+                  "name": "Tile Poster",
+                  "metadata": {
+                    "type": "unsplash",
+                    "username": "dmjdenise",
+                    "link": "https://unsplash.com/@dmjdenise",
+                    "author": "Denise Jans"
+                  },
+                  "fill": {
+                    "type": "image",
+                    "enabled": true,
+                    "url": "https://images.unsplash.com/photo-1561592547-2694eabef062?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjB8&ixlib=rb-4.1.0&q=80&w=1080",
+                    "mode": "fill"
+                  },
+                  "width": "fill_container",
+                  "height": 150
+                },
+                {
+                  "type": "text",
+                  "id": "J2QAOi",
+                  "name": "Tile Title",
+                  "fill": "$--text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Interstellar",
+                  "fontFamily": "$--font-primary",
+                  "fontSize": 13.5,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "XKCVf",
+                  "name": "Tile Meta",
+                  "fill": "$--text-subtle",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Film · 2014",
+                  "fontFamily": "$--font-primary",
+                  "fontSize": 11.5,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hNz0F",
+              "name": "Control / Filter Chip",
+              "reusable": true,
+              "fill": "$--accent-soft",
+              "cornerRadius": "$--radius-pill",
+              "padding": [
+                4,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "KMzMR",
+                  "name": "Chip Label",
+                  "fill": "$--accent-text",
+                  "content": "Tonight",
+                  "fontFamily": "$--font-primary",
+                  "fontSize": 11.5,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "df303",
+              "name": "Navigation / Tab Item",
+              "reusable": true,
+              "height": 42,
+              "fill": "$--primary",
+              "cornerRadius": 999,
+              "gap": 6,
+              "padding": [
+                0,
+                13
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "VMRfA",
+                  "name": "Tab Icon",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "house",
+                  "library": "lucide",
+                  "fill": "$--primary-foreground"
+                },
+                {
+                  "type": "text",
+                  "id": "xaEEl",
+                  "name": "Tab Label",
+                  "fill": "$--primary-foreground",
+                  "content": "Home",
+                  "fontFamily": "$--font-primary",
+                  "fontSize": 13.5,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "W0hEjl",
+              "name": "Navigation / Tab Item Inactive",
+              "reusable": true,
+              "width": "fill_container",
+              "height": 42,
+              "cornerRadius": 999,
+              "layout": "vertical",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "vlofh",
+                  "name": "Icon",
+                  "width": 20,
+                  "height": 20,
+                  "icon": "film",
+                  "library": "lucide",
+                  "fill": "$--text-muted"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Z8Bh9",
+              "name": "Navigation / Search FAB",
+              "reusable": true,
+              "width": 58,
+              "height": 58,
+              "fill": "$--nav-surface",
+              "cornerRadius": 999,
+              "stroke": "$--nav-border",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "effect": [
+                {
+                  "type": "background_blur",
+                  "radius": 18
+                },
+                {
+                  "type": "shadow",
+                  "shadowType": "outer",
+                  "color": "#00000066",
+                  "offset": {
+                    "x": 0,
+                    "y": 8
+                  },
+                  "blur": 24
+                }
+              ],
+              "layout": "vertical",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "g9IZN",
+                  "name": "Search Icon",
+                  "width": 22,
+                  "height": 22,
+                  "icon": "search",
+                  "library": "lucide",
+                  "fill": "$--text-primary"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "iQfq8",
+              "name": "Navigation / Home Indicator",
+              "reusable": true,
+              "width": 130,
+              "height": 5,
+              "fill": "$--nav-indicator",
+              "cornerRadius": 999
             }
           ]
         }
@@ -1207,38 +1649,18 @@
               ],
               "children": [
                 {
-                  "type": "frame",
-                  "id": "yQDDH",
-                  "name": "Header Continue Watching",
-                  "width": "fill_container",
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "YY6OH",
-                      "name": "Title",
-                      "fill": "$--text-primary",
-                      "content": "Continue Watching",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 18,
-                      "fontWeight": "600"
+                  "id": "HiVN7",
+                  "type": "ref",
+                  "ref": "D6hKB",
+                  "name": "Section Header / Continue Watching",
+                  "descendants": {
+                    "AmONi": {
+                      "content": "Continue Watching"
                     },
-                    {
-                      "type": "text",
-                      "id": "XC5LD",
-                      "name": "See all",
-                      "fill": "$--accent-text",
-                      "content": "See all",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13,
-                      "fontWeight": "600"
+                    "niks2": {
+                      "content": "See all"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -1253,336 +1675,120 @@
                   ],
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "ckCrT",
-                      "name": "Card Blade Runner 2049",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "DNeBX",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "reythh",
-                            "link": "https://unsplash.com/@reythh",
-                            "author": "Andrei Stan"
-                          },
+                      "id": "mYtsx",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / Blade Runner 2049",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1662202120383-7e652499ee66?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTV8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "IMBgF",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "fvxcm",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 82,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 82
                         },
-                        {
-                          "type": "text",
-                          "id": "zvpoK",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Blade Runner 2049",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "Blade Runner 2049"
                         },
-                        {
-                          "type": "text",
-                          "id": "iqPmC",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Film · 68%",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "Film · 68%"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "csegN",
-                      "name": "Card Severance",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "X0VcPy",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "samuelwu",
-                            "link": "https://unsplash.com/@samuelwu",
-                            "author": "Yue WU"
-                          },
+                      "id": "o7vp1",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / Severance",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1774770080861-bc2c50829c92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTZ8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "qYEXk",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "kWjbJ",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 44,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 44
                         },
-                        {
-                          "type": "text",
-                          "id": "FD5NB",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Severance",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "Severance"
                         },
-                        {
-                          "type": "text",
-                          "id": "OWUZv",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "S2 · E5",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "S2 · E5"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "u2Duv",
-                      "name": "Card Dune: Part Two",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "n4MlF",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "coralville",
-                            "link": "https://unsplash.com/@coralville",
-                            "author": "Mohammad Marjani"
-                          },
+                      "id": "V2CUTV",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / Dune: Part Two",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1617382899403-ff3d42c054fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "a99ap",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "rVrPe",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 26,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 26
                         },
-                        {
-                          "type": "text",
-                          "id": "q5fqNb",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Dune: Part Two",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "Dune: Part Two"
                         },
-                        {
-                          "type": "text",
-                          "id": "U9sEc",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Film · 21%",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "Film · 21%"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "BnatD",
-                      "name": "Card The Bear",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "IJnPa",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "unsplashbydan",
-                            "link": "https://unsplash.com/@unsplashbydan",
-                            "author": "Daniel"
-                          },
+                      "id": "OLuXd",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / The Bear",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1651977560788-98792cd34da0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "dI0zf",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "V9pCFi",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 58,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 58
                         },
-                        {
-                          "type": "text",
-                          "id": "C66IhQ",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "The Bear",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "The Bear"
                         },
-                        {
-                          "type": "text",
-                          "id": "etdIi",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "S3 · E2",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "S3 · E2"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "rL8P4",
-                  "name": "Header Up Next",
-                  "width": "fill_container",
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "IfDSa",
-                      "name": "Title",
-                      "fill": "$--text-primary",
-                      "content": "Up Next",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 18,
-                      "fontWeight": "600"
+                  "id": "XbBwa",
+                  "type": "ref",
+                  "ref": "D6hKB",
+                  "name": "Section Header / Up Next",
+                  "descendants": {
+                    "AmONi": {
+                      "content": "Up Next"
                     },
-                    {
-                      "type": "text",
-                      "id": "HlY13",
-                      "name": "See all",
-                      "fill": "$--accent-text",
-                      "content": "See all",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13,
-                      "fontWeight": "600"
+                    "niks2": {
+                      "content": "See all"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -1597,228 +1803,70 @@
                   ],
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "ofAyU",
-                      "name": "Row Shōgun",
-                      "width": "fill_container",
-                      "fill": "$--card",
-                      "cornerRadius": "$--radius-lg",
-                      "stroke": "$--border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 12,
-                      "padding": 10,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 7,
-                          "id": "R7lctd",
-                          "name": "Thumb",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "_pourya_",
-                            "link": "https://unsplash.com/@_pourya_",
-                            "author": "Pourya Gohari"
-                          },
+                      "id": "vREeN",
+                      "type": "ref",
+                      "ref": "GfOk2",
+                      "name": "Up Next / Shōgun",
+                      "descendants": {
+                        "pOxtQ": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1695068734075-ccfdb009f26c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTh8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": 44,
-                          "height": 60
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "UsRCn",
-                          "name": "Text",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 2,
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "o2KC33",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Shōgun",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 15,
-                              "fontWeight": "600"
-                            },
-                            {
-                              "type": "text",
-                              "id": "T9M0yh",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "S1 · E7 — A Dream of a Dream",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 12.5,
-                              "fontWeight": "normal"
-                            }
-                          ]
+                        "bXnZ6": {
+                          "content": "Shōgun"
                         },
-                        {
-                          "type": "frame",
-                          "id": "dsEEV",
-                          "name": "Chip",
-                          "fill": "$--accent-soft",
-                          "cornerRadius": "$--radius-pill",
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "ZO7gI",
-                              "name": "Chip Label",
-                              "fill": "$--accent-text",
-                              "content": "Tonight",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "600"
-                            }
-                          ]
+                        "Q9O1f": {
+                          "content": "S1 · E7 — A Dream of a Dream"
+                        },
+                        "jLPaE": {
+                          "content": "Tonight"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "rxb5i",
-                      "name": "Row Arcane",
-                      "width": "fill_container",
-                      "fill": "$--card",
-                      "cornerRadius": "$--radius-lg",
-                      "stroke": "$--border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 12,
-                      "padding": 10,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 7,
-                          "id": "lMYFr",
-                          "name": "Thumb",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "leslie_outofdoors",
-                            "link": "https://unsplash.com/@leslie_outofdoors",
-                            "author": "Leslie Cross"
-                          },
+                      "id": "BpRqt",
+                      "type": "ref",
+                      "ref": "GfOk2",
+                      "name": "Up Next / Arcane",
+                      "descendants": {
+                        "pOxtQ": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1657571484151-41be42fa72f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTl8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": 44,
-                          "height": 60
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "RWoH7",
-                          "name": "Text",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 2,
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "j94F5K",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Arcane",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 15,
-                              "fontWeight": "600"
-                            },
-                            {
-                              "type": "text",
-                              "id": "LssT4",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "S2 · E3 — Finally Got the Name Right",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 12.5,
-                              "fontWeight": "normal"
-                            }
-                          ]
+                        "bXnZ6": {
+                          "content": "Arcane"
                         },
-                        {
-                          "type": "frame",
-                          "id": "H6wni",
-                          "name": "Chip",
-                          "fill": "$--accent-soft",
-                          "cornerRadius": "$--radius-pill",
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "p9LWT",
-                              "name": "Chip Label",
-                              "fill": "$--accent-text",
-                              "content": "Queued",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "600"
-                            }
-                          ]
+                        "Q9O1f": {
+                          "content": "S2 · E3 — Finally Got the Name Right"
+                        },
+                        "jLPaE": {
+                          "content": "Queued"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "z7taN",
-                  "name": "Header Recently Added",
-                  "width": "fill_container",
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "Q2K82X",
-                      "name": "Title",
-                      "fill": "$--text-primary",
-                      "content": "Recently Added",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 18,
-                      "fontWeight": "600"
+                  "id": "CYBDv",
+                  "type": "ref",
+                  "ref": "D6hKB",
+                  "name": "Section Header / Recently Added",
+                  "descendants": {
+                    "AmONi": {
+                      "content": "Recently Added"
                     },
-                    {
-                      "type": "text",
-                      "id": "F0KwH6",
-                      "name": "See all",
-                      "fill": "$--accent-text",
-                      "content": "See all",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13,
-                      "fontWeight": "600"
+                    "niks2": {
+                      "content": "See all"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -1840,166 +1888,70 @@
                       "gap": 11,
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "iqSLL",
-                          "name": "Card Interstellar",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "VXlEV",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "dmjdenise",
-                                "link": "https://unsplash.com/@dmjdenise",
-                                "author": "Denise Jans"
-                              },
+                          "id": "HlNn3",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Interstellar",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1561592547-2694eabef062?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjB8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "vTHNR",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Interstellar",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Interstellar"
                             },
-                            {
-                              "type": "text",
-                              "id": "ecApq",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Film · 2014",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Film · 2014"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "JBiEs",
-                          "name": "Card Project Hail Mary",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "vjyp3",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "sfkopstein",
-                                "link": "https://unsplash.com/@sfkopstein",
-                                "author": "shraga kopstein"
-                              },
+                          "id": "mnV10",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Project Hail Mary",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1661827291034-a7afb7dd1601?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "Vk6Xz",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Project Hail Mary",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Project Hail Mary"
                             },
-                            {
-                              "type": "text",
-                              "id": "hypsN",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Book · Weir",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Book · Weir"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "KoeRq",
-                          "name": "Card Cyberpunk 2077",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "u9RDd",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "branden_skeli",
-                                "link": "https://unsplash.com/@branden_skeli",
-                                "author": "Branden Skeli"
-                              },
+                          "id": "g90TxU",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Cyberpunk 2077",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1762219214749-427929a1d36f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "RqmFt",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Cyberpunk 2077",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Cyberpunk 2077"
                             },
-                            {
-                              "type": "text",
-                              "id": "ClSTB",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Game · RPG",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Game · RPG"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -2011,166 +1963,70 @@
                       "gap": 11,
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "KJku5",
-                          "name": "Card Oppenheimer",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "NOtHV",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "weekendtripcreator",
-                                "link": "https://unsplash.com/@weekendtripcreator",
-                                "author": "Lisha Riabinina"
-                              },
+                          "id": "g7dFj",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Oppenheimer",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1632778931175-128809d8facc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjJ8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "G9CdaQ",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Oppenheimer",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Oppenheimer"
                             },
-                            {
-                              "type": "text",
-                              "id": "ujJmB",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Film · 2023",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Film · 2023"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "d5hhxB",
-                          "name": "Card The Expanse",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "Y2Li0S",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "qdalstudio",
-                                "link": "https://unsplash.com/@qdalstudio",
-                                "author": "Qdal Studio"
-                              },
+                          "id": "gxnml",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / The Expanse",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1746931290923-72edfc9e960f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjN8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "pC411",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "The Expanse",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "The Expanse"
                             },
-                            {
-                              "type": "text",
-                              "id": "kp0uD",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Show · S6",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Show · S6"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "pHdXc",
-                          "name": "Card Sandman",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "Udd1Y",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "blakecheekk",
-                                "link": "https://unsplash.com/@blakecheekk",
-                                "author": "Blake Cheek"
-                              },
+                          "id": "GljSw",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Sandman",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1665059691261-daa5bacdf826?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjR8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "sVgu9",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Sandman",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Sandman"
                             },
-                            {
-                              "type": "text",
-                              "id": "QEp4A",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Book · Gaiman",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Book · Gaiman"
                             }
-                          ]
+                          }
                         }
                       ]
                     }
@@ -2370,12 +2226,13 @@
               "id": "psfP4",
               "x": 16,
               "y": 762,
-              "name": "Pill Tab Bar",
+              "name": "Navigation / Pill Tab Bar",
+              "reusable": true,
               "width": 288,
               "height": 58,
-              "fill": "#1C1E22D9",
+              "fill": "$--nav-surface",
               "cornerRadius": 999,
-              "stroke": "#FFFFFF1F",
+              "stroke": "$--nav-border",
               "strokeWidth": 1,
               "strokeAlignment": "inner",
               "effect": [
@@ -2402,190 +2259,60 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "frame",
-                  "id": "vkj6R",
+                  "id": "N6ey7X",
+                  "type": "ref",
+                  "ref": "df303",
                   "name": "Tab Home Active",
-                  "height": 42,
-                  "fill": "$--primary",
-                  "cornerRadius": 999,
-                  "gap": 6,
-                  "padding": [
-                    0,
-                    13
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "qWtx9",
-                      "name": "Icon",
-                      "width": 18,
-                      "height": 18,
-                      "icon": "house",
-                      "library": "lucide",
-                      "fill": "$--primary-foreground"
+                  "descendants": {
+                    "VMRfA": {
+                      "icon": "house"
                     },
-                    {
-                      "type": "text",
-                      "id": "vXYWz",
-                      "name": "Label",
-                      "fill": "$--primary-foreground",
-                      "content": "Home",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13.5,
-                      "fontWeight": "600"
+                    "xaEEl": {
+                      "content": "Home"
                     }
-                  ]
+                  }
                 },
                 {
-                  "type": "frame",
-                  "id": "lCpAU",
-                  "name": "Tab Movies",
-                  "width": "fill_container",
-                  "height": 42,
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "E0Nb5",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "film",
-                      "library": "lucide",
-                      "fill": "$--text-muted"
-                    }
-                  ]
+                  "id": "CYG5w",
+                  "type": "ref",
+                  "ref": "W0hEjl",
+                  "name": "Tab Movies"
                 },
                 {
-                  "type": "frame",
-                  "id": "XYeGu",
-                  "name": "Tab Shows",
-                  "width": "fill_container",
-                  "height": 42,
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "zXXGN",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "tv",
-                      "library": "lucide",
-                      "fill": "$--text-muted"
-                    }
-                  ]
+                  "id": "ikoQF",
+                  "type": "ref",
+                  "ref": "W0hEjl",
+                  "name": "Tab Shows"
                 },
                 {
-                  "type": "frame",
-                  "id": "r8stba",
-                  "name": "Tab Books",
-                  "width": "fill_container",
-                  "height": 42,
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "Neaza",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "book-open",
-                      "library": "lucide",
-                      "fill": "$--text-muted"
-                    }
-                  ]
+                  "id": "aa4Wb",
+                  "type": "ref",
+                  "ref": "W0hEjl",
+                  "name": "Tab Books"
                 },
                 {
-                  "type": "frame",
-                  "id": "urxH6",
-                  "name": "Tab More",
-                  "width": "fill_container",
-                  "height": 42,
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "YGKba",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "ellipsis",
-                      "library": "lucide",
-                      "fill": "$--text-muted"
-                    }
-                  ]
+                  "id": "RWRNX",
+                  "type": "ref",
+                  "ref": "W0hEjl",
+                  "name": "Tab More"
                 }
               ]
             },
             {
-              "type": "frame",
-              "id": "SUaoz",
+              "id": "X8OfD",
+              "type": "ref",
+              "ref": "Z8Bh9",
+              "name": "Navigation / Search FAB / Main",
               "x": 316,
-              "y": 762,
-              "name": "Search FAB",
-              "width": 58,
-              "height": 58,
-              "fill": "#1C1E22D9",
-              "cornerRadius": 999,
-              "stroke": "#FFFFFF1F",
-              "strokeWidth": 1,
-              "strokeAlignment": "inner",
-              "effect": [
-                {
-                  "type": "background_blur",
-                  "radius": 18
-                },
-                {
-                  "type": "shadow",
-                  "shadowType": "outer",
-                  "color": "#00000066",
-                  "offset": {
-                    "x": 0,
-                    "y": 8
-                  },
-                  "blur": 24
-                }
-              ],
-              "layout": "vertical",
-              "justifyContent": "center",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "icon",
-                  "id": "vQT2n",
-                  "name": "Icon",
-                  "width": 22,
-                  "height": 22,
-                  "icon": "search",
-                  "library": "lucide",
-                  "fill": "$--text-primary"
-                }
-              ]
+              "y": 762
             },
             {
-              "type": "frame",
-              "id": "mKMsX",
+              "id": "oUfsT",
+              "type": "ref",
+              "ref": "iQfq8",
+              "name": "Navigation / Home Indicator / Main",
               "x": 132,
-              "y": 838,
-              "name": "Home Indicator",
-              "width": 130,
-              "height": 5,
-              "fill": "#FFFFFF33",
-              "cornerRadius": 999
+              "y": 838
             }
           ]
         },
@@ -2626,38 +2353,18 @@
               ],
               "children": [
                 {
-                  "type": "frame",
-                  "id": "cO6wc",
-                  "name": "Header Continue Watching",
-                  "width": "fill_container",
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "umKZ5",
-                      "name": "Title",
-                      "fill": "$--text-primary",
-                      "content": "Continue Watching",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 18,
-                      "fontWeight": "600"
+                  "id": "ue3G8",
+                  "type": "ref",
+                  "ref": "D6hKB",
+                  "name": "Section Header / Continue Watching",
+                  "descendants": {
+                    "AmONi": {
+                      "content": "Continue Watching"
                     },
-                    {
-                      "type": "text",
-                      "id": "q8DCFK",
-                      "name": "See all",
-                      "fill": "$--accent-text",
-                      "content": "See all",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13,
-                      "fontWeight": "600"
+                    "niks2": {
+                      "content": "See all"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -2672,336 +2379,120 @@
                   ],
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "mDYun",
-                      "name": "Card Blade Runner 2049",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "KTKje",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "reythh",
-                            "link": "https://unsplash.com/@reythh",
-                            "author": "Andrei Stan"
-                          },
+                      "id": "h1kKHd",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / Blade Runner 2049",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1662202120383-7e652499ee66?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTV8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "vGDwv",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "qeOj2",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 82,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 82
                         },
-                        {
-                          "type": "text",
-                          "id": "Wib2z",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Blade Runner 2049",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "Blade Runner 2049"
                         },
-                        {
-                          "type": "text",
-                          "id": "rdqD5",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Film · 68%",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "Film · 68%"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "GjMPa",
-                      "name": "Card Severance",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "FWwvk",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "samuelwu",
-                            "link": "https://unsplash.com/@samuelwu",
-                            "author": "Yue WU"
-                          },
+                      "id": "FWEyj",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / Severance",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1774770080861-bc2c50829c92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTZ8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "WFoot",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "gpUvH",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 44,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 44
                         },
-                        {
-                          "type": "text",
-                          "id": "NRYCM",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Severance",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "Severance"
                         },
-                        {
-                          "type": "text",
-                          "id": "KGahg",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "S2 · E5",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "S2 · E5"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "Lj3Kq",
-                      "name": "Card Dune: Part Two",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "MADCF",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "coralville",
-                            "link": "https://unsplash.com/@coralville",
-                            "author": "Mohammad Marjani"
-                          },
+                      "id": "b6Zx3",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / Dune: Part Two",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1617382899403-ff3d42c054fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "snVRQ",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "a6FnX4",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 26,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 26
                         },
-                        {
-                          "type": "text",
-                          "id": "X2k0El",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Dune: Part Two",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "Dune: Part Two"
                         },
-                        {
-                          "type": "text",
-                          "id": "zpwcv",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Film · 21%",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "Film · 21%"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "IMP3R",
-                      "name": "Card The Bear",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "uRpTN",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "unsplashbydan",
-                            "link": "https://unsplash.com/@unsplashbydan",
-                            "author": "Daniel"
-                          },
+                      "id": "mka0T",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / The Bear",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1651977560788-98792cd34da0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "JGBTw",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "e1g3F",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 58,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 58
                         },
-                        {
-                          "type": "text",
-                          "id": "tdUrL",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "The Bear",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "The Bear"
                         },
-                        {
-                          "type": "text",
-                          "id": "ThkKD",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "S3 · E2",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "S3 · E2"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "hKFc4",
-                  "name": "Header Up Next",
-                  "width": "fill_container",
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "OApC2",
-                      "name": "Title",
-                      "fill": "$--text-primary",
-                      "content": "Up Next",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 18,
-                      "fontWeight": "600"
+                  "id": "yTml7",
+                  "type": "ref",
+                  "ref": "D6hKB",
+                  "name": "Section Header / Up Next",
+                  "descendants": {
+                    "AmONi": {
+                      "content": "Up Next"
                     },
-                    {
-                      "type": "text",
-                      "id": "VeHbV",
-                      "name": "See all",
-                      "fill": "$--accent-text",
-                      "content": "See all",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13,
-                      "fontWeight": "600"
+                    "niks2": {
+                      "content": "See all"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -3016,228 +2507,70 @@
                   ],
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "BIGQW",
-                      "name": "Row Shōgun",
-                      "width": "fill_container",
-                      "fill": "$--card",
-                      "cornerRadius": "$--radius-lg",
-                      "stroke": "$--border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 12,
-                      "padding": 10,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 7,
-                          "id": "WuKTt",
-                          "name": "Thumb",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "_pourya_",
-                            "link": "https://unsplash.com/@_pourya_",
-                            "author": "Pourya Gohari"
-                          },
+                      "id": "NnBQW",
+                      "type": "ref",
+                      "ref": "GfOk2",
+                      "name": "Up Next / Shōgun",
+                      "descendants": {
+                        "pOxtQ": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1695068734075-ccfdb009f26c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTh8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": 44,
-                          "height": 60
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "Mlm02",
-                          "name": "Text",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 2,
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "FLe9c",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Shōgun",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 15,
-                              "fontWeight": "600"
-                            },
-                            {
-                              "type": "text",
-                              "id": "tYc0N",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "S1 · E7 — A Dream of a Dream",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 12.5,
-                              "fontWeight": "normal"
-                            }
-                          ]
+                        "bXnZ6": {
+                          "content": "Shōgun"
                         },
-                        {
-                          "type": "frame",
-                          "id": "KRNoM",
-                          "name": "Chip",
-                          "fill": "$--accent-soft",
-                          "cornerRadius": "$--radius-pill",
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "G5LXo",
-                              "name": "Chip Label",
-                              "fill": "$--accent-text",
-                              "content": "Tonight",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "600"
-                            }
-                          ]
+                        "Q9O1f": {
+                          "content": "S1 · E7 — A Dream of a Dream"
+                        },
+                        "jLPaE": {
+                          "content": "Tonight"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "qg8kq",
-                      "name": "Row Arcane",
-                      "width": "fill_container",
-                      "fill": "$--card",
-                      "cornerRadius": "$--radius-lg",
-                      "stroke": "$--border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 12,
-                      "padding": 10,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 7,
-                          "id": "KGjX9",
-                          "name": "Thumb",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "leslie_outofdoors",
-                            "link": "https://unsplash.com/@leslie_outofdoors",
-                            "author": "Leslie Cross"
-                          },
+                      "id": "UHhG8",
+                      "type": "ref",
+                      "ref": "GfOk2",
+                      "name": "Up Next / Arcane",
+                      "descendants": {
+                        "pOxtQ": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1657571484151-41be42fa72f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTl8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": 44,
-                          "height": 60
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "GB5Ty",
-                          "name": "Text",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 2,
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "n3RZHz",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Arcane",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 15,
-                              "fontWeight": "600"
-                            },
-                            {
-                              "type": "text",
-                              "id": "kihvl",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "S2 · E3 — Finally Got the Name Right",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 12.5,
-                              "fontWeight": "normal"
-                            }
-                          ]
+                        "bXnZ6": {
+                          "content": "Arcane"
                         },
-                        {
-                          "type": "frame",
-                          "id": "anTpG",
-                          "name": "Chip",
-                          "fill": "$--accent-soft",
-                          "cornerRadius": "$--radius-pill",
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "u1SjB",
-                              "name": "Chip Label",
-                              "fill": "$--accent-text",
-                              "content": "Queued",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "600"
-                            }
-                          ]
+                        "Q9O1f": {
+                          "content": "S2 · E3 — Finally Got the Name Right"
+                        },
+                        "jLPaE": {
+                          "content": "Queued"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "jpxWM",
-                  "name": "Header Recently Added",
-                  "width": "fill_container",
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "ZSxNt",
-                      "name": "Title",
-                      "fill": "$--text-primary",
-                      "content": "Recently Added",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 18,
-                      "fontWeight": "600"
+                  "id": "tRj5S",
+                  "type": "ref",
+                  "ref": "D6hKB",
+                  "name": "Section Header / Recently Added",
+                  "descendants": {
+                    "AmONi": {
+                      "content": "Recently Added"
                     },
-                    {
-                      "type": "text",
-                      "id": "FVSma",
-                      "name": "See all",
-                      "fill": "$--accent-text",
-                      "content": "See all",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13,
-                      "fontWeight": "600"
+                    "niks2": {
+                      "content": "See all"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -3259,166 +2592,70 @@
                       "gap": 11,
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "OSHZc",
-                          "name": "Card Interstellar",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "Ck4Xz",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "dmjdenise",
-                                "link": "https://unsplash.com/@dmjdenise",
-                                "author": "Denise Jans"
-                              },
+                          "id": "F1ruJn",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Interstellar",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1561592547-2694eabef062?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjB8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "kwYrz",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Interstellar",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Interstellar"
                             },
-                            {
-                              "type": "text",
-                              "id": "s9oko",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Film · 2014",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Film · 2014"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "n4t0e9",
-                          "name": "Card Project Hail Mary",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "be8vM",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "sfkopstein",
-                                "link": "https://unsplash.com/@sfkopstein",
-                                "author": "shraga kopstein"
-                              },
+                          "id": "jnXXW",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Project Hail Mary",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1661827291034-a7afb7dd1601?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "JR61a",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Project Hail Mary",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Project Hail Mary"
                             },
-                            {
-                              "type": "text",
-                              "id": "S3imG7",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Book · Weir",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Book · Weir"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "r6yCPr",
-                          "name": "Card Cyberpunk 2077",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "j9JFe",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "branden_skeli",
-                                "link": "https://unsplash.com/@branden_skeli",
-                                "author": "Branden Skeli"
-                              },
+                          "id": "A0411z",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Cyberpunk 2077",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1762219214749-427929a1d36f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "moatA",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Cyberpunk 2077",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Cyberpunk 2077"
                             },
-                            {
-                              "type": "text",
-                              "id": "ykYzK",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Game · RPG",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Game · RPG"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -3430,166 +2667,70 @@
                       "gap": 11,
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "q0Exg",
-                          "name": "Card Oppenheimer",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "E0s8fh",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "weekendtripcreator",
-                                "link": "https://unsplash.com/@weekendtripcreator",
-                                "author": "Lisha Riabinina"
-                              },
+                          "id": "cTJl9",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Oppenheimer",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1632778931175-128809d8facc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjJ8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "Y9Fsww",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Oppenheimer",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Oppenheimer"
                             },
-                            {
-                              "type": "text",
-                              "id": "e1GQ5",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Film · 2023",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Film · 2023"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "bTw2D",
-                          "name": "Card The Expanse",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "MPSWi",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "qdalstudio",
-                                "link": "https://unsplash.com/@qdalstudio",
-                                "author": "Qdal Studio"
-                              },
+                          "id": "z19K8i",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / The Expanse",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1746931290923-72edfc9e960f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjN8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "gN2Qg",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "The Expanse",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "The Expanse"
                             },
-                            {
-                              "type": "text",
-                              "id": "YeYZE",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Show · S6",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Show · S6"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "a21Tes",
-                          "name": "Card Sandman",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "DXKBb",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "blakecheekk",
-                                "link": "https://unsplash.com/@blakecheekk",
-                                "author": "Blake Cheek"
-                              },
+                          "id": "rmBDK",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Sandman",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1665059691261-daa5bacdf826?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjR8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "Kx5q6",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Sandman",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Sandman"
                             },
-                            {
-                              "type": "text",
-                              "id": "WHcam",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Book · Gaiman",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Book · Gaiman"
                             }
-                          ]
+                          }
                         }
                       ]
                     }
@@ -3758,7 +2899,7 @@
               "x": 0,
               "y": 0,
               "name": "Dim Overlay",
-              "fill": "#08090BB8",
+              "fill": "$--overlay",
               "width": 393,
               "height": 852
             },
@@ -4270,9 +3411,9 @@
               "name": "Pill Tab Bar",
               "width": 288,
               "height": 58,
-              "fill": "#1C1E22D9",
+              "fill": "$--nav-surface",
               "cornerRadius": 999,
-              "stroke": "#FFFFFF1F",
+              "stroke": "$--nav-border",
               "strokeWidth": 1,
               "strokeAlignment": "inner",
               "effect": [
@@ -4299,191 +3440,61 @@
               "alignItems": "center",
               "children": [
                 {
-                  "type": "frame",
-                  "id": "WGPvO",
+                  "id": "s8p6U",
+                  "type": "ref",
+                  "ref": "df303",
                   "name": "Tab Home Active",
-                  "height": 42,
-                  "fill": "$--primary",
-                  "cornerRadius": 999,
-                  "gap": 6,
-                  "padding": [
-                    0,
-                    13
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "GAqlO",
-                      "name": "Icon",
-                      "width": 18,
-                      "height": 18,
-                      "icon": "house",
-                      "library": "lucide",
-                      "fill": "$--primary-foreground"
+                  "descendants": {
+                    "VMRfA": {
+                      "icon": "house"
                     },
-                    {
-                      "type": "text",
-                      "id": "B9DPl",
-                      "name": "Label",
-                      "fill": "$--primary-foreground",
-                      "content": "Home",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13.5,
-                      "fontWeight": "600"
+                    "xaEEl": {
+                      "content": "Home"
                     }
-                  ]
+                  }
                 },
                 {
-                  "type": "frame",
-                  "id": "q48b5",
-                  "name": "Tab Movies",
-                  "width": "fill_container",
-                  "height": 42,
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "t3GC72",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "film",
-                      "library": "lucide",
-                      "fill": "$--text-muted"
-                    }
-                  ]
+                  "id": "I0u5Y6",
+                  "type": "ref",
+                  "ref": "W0hEjl",
+                  "name": "Tab Movies"
                 },
                 {
-                  "type": "frame",
-                  "id": "qOR4I",
-                  "name": "Tab Shows",
-                  "width": "fill_container",
-                  "height": 42,
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "A6i3p",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "tv",
-                      "library": "lucide",
-                      "fill": "$--text-muted"
-                    }
-                  ]
+                  "id": "FLYfO",
+                  "type": "ref",
+                  "ref": "W0hEjl",
+                  "name": "Tab Shows"
                 },
                 {
-                  "type": "frame",
-                  "id": "e9WgX",
-                  "name": "Tab Books",
-                  "width": "fill_container",
-                  "height": 42,
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "D7GJv",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "book-open",
-                      "library": "lucide",
-                      "fill": "$--text-muted"
-                    }
-                  ]
+                  "id": "v7Gsn",
+                  "type": "ref",
+                  "ref": "W0hEjl",
+                  "name": "Tab Books"
                 },
                 {
-                  "type": "frame",
-                  "id": "ljAf0",
+                  "id": "JwUNi",
+                  "type": "ref",
+                  "ref": "W0hEjl",
                   "name": "Tab More",
-                  "width": "fill_container",
-                  "height": 42,
-                  "fill": "$--accent-soft",
-                  "cornerRadius": 999,
-                  "layout": "vertical",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "VyM8r",
-                      "name": "Icon",
-                      "width": 20,
-                      "height": 20,
-                      "icon": "ellipsis",
-                      "library": "lucide",
-                      "fill": "$--accent-text"
-                    }
-                  ]
+                  "fill": "$--accent-soft"
                 }
               ]
             },
             {
-              "type": "frame",
-              "id": "QULtQ",
+              "id": "NbGvq",
+              "type": "ref",
+              "ref": "Z8Bh9",
+              "name": "Navigation / Search FAB / Overflow",
               "x": 316,
-              "y": 762,
-              "name": "Search FAB",
-              "width": 58,
-              "height": 58,
-              "fill": "#1C1E22D9",
-              "cornerRadius": 999,
-              "stroke": "#FFFFFF1F",
-              "strokeWidth": 1,
-              "strokeAlignment": "inner",
-              "effect": [
-                {
-                  "type": "background_blur",
-                  "radius": 18
-                },
-                {
-                  "type": "shadow",
-                  "shadowType": "outer",
-                  "color": "#00000066",
-                  "offset": {
-                    "x": 0,
-                    "y": 8
-                  },
-                  "blur": 24
-                }
-              ],
-              "layout": "vertical",
-              "justifyContent": "center",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "icon",
-                  "id": "VofGf",
-                  "name": "Icon",
-                  "width": 22,
-                  "height": 22,
-                  "icon": "search",
-                  "library": "lucide",
-                  "fill": "$--text-primary"
-                }
-              ]
+              "y": 762
             },
             {
-              "type": "frame",
-              "id": "bvZ3k",
+              "id": "MCNbS",
+              "type": "ref",
+              "ref": "iQfq8",
+              "name": "Navigation / Home Indicator / Overflow",
               "x": 132,
-              "y": 838,
-              "name": "Home Indicator",
-              "width": 130,
-              "height": 5,
-              "fill": "#FFFFFF33",
-              "cornerRadius": 999
+              "y": 838
             }
           ]
         }
@@ -4538,38 +3549,18 @@
               ],
               "children": [
                 {
-                  "type": "frame",
-                  "id": "UuCHH",
-                  "name": "Header Continue Watching",
-                  "width": "fill_container",
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "I87tRS",
-                      "name": "Title",
-                      "fill": "$--text-primary",
-                      "content": "Continue Watching",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 18,
-                      "fontWeight": "600"
+                  "id": "E3CuHX",
+                  "type": "ref",
+                  "ref": "D6hKB",
+                  "name": "Section Header / Continue Watching",
+                  "descendants": {
+                    "AmONi": {
+                      "content": "Continue Watching"
                     },
-                    {
-                      "type": "text",
-                      "id": "njbKC",
-                      "name": "See all",
-                      "fill": "$--accent-text",
-                      "content": "See all",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13,
-                      "fontWeight": "600"
+                    "niks2": {
+                      "content": "See all"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -4584,336 +3575,120 @@
                   ],
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "H7IW5",
-                      "name": "Card Blade Runner 2049",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "NlO93",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "reythh",
-                            "link": "https://unsplash.com/@reythh",
-                            "author": "Andrei Stan"
-                          },
+                      "id": "t5z9m",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / Blade Runner 2049",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1662202120383-7e652499ee66?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTV8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "O7iNkU",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "YHn92",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 82,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 82
                         },
-                        {
-                          "type": "text",
-                          "id": "EKNDb",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Blade Runner 2049",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "Blade Runner 2049"
                         },
-                        {
-                          "type": "text",
-                          "id": "hbiSa",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Film · 68%",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "Film · 68%"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "faBl9",
-                      "name": "Card Severance",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "LAWp7",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "samuelwu",
-                            "link": "https://unsplash.com/@samuelwu",
-                            "author": "Yue WU"
-                          },
+                      "id": "lPUyL",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / Severance",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1774770080861-bc2c50829c92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTZ8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "BO841",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "U5dyJk",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 44,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 44
                         },
-                        {
-                          "type": "text",
-                          "id": "aW3Is",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Severance",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "Severance"
                         },
-                        {
-                          "type": "text",
-                          "id": "VOVJ9",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "S2 · E5",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "S2 · E5"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "m5vJLf",
-                      "name": "Card Dune: Part Two",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "tHFdE",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "coralville",
-                            "link": "https://unsplash.com/@coralville",
-                            "author": "Mohammad Marjani"
-                          },
+                      "id": "P4lgc",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / Dune: Part Two",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1617382899403-ff3d42c054fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "W2IG8",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "My8L7",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 26,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 26
                         },
-                        {
-                          "type": "text",
-                          "id": "sbk90",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Dune: Part Two",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "Dune: Part Two"
                         },
-                        {
-                          "type": "text",
-                          "id": "tIZi3",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Film · 21%",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "Film · 21%"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "cXRZ3",
-                      "name": "Card The Bear",
-                      "width": 120,
-                      "layout": "vertical",
-                      "gap": 7,
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 10,
-                          "id": "hG8p9",
-                          "name": "Poster",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "unsplashbydan",
-                            "link": "https://unsplash.com/@unsplashbydan",
-                            "author": "Daniel"
-                          },
+                      "id": "gQMAP",
+                      "type": "ref",
+                      "ref": "NkA2K",
+                      "name": "Continue Watching / The Bear",
+                      "descendants": {
+                        "DAXqg": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1651977560788-98792cd34da0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTd8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": "fill_container",
-                          "height": 172
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "AQl6V",
-                          "name": "Progress Track",
-                          "width": "fill_container",
-                          "height": 3,
-                          "fill": "$--border-subtle",
-                          "cornerRadius": 999,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 999,
-                              "id": "Sk85p",
-                              "name": "Progress Fill",
-                              "fill": "$--primary",
-                              "width": 58,
-                              "height": 3
-                            }
-                          ]
+                        "hCJ7N": {
+                          "width": 58
                         },
-                        {
-                          "type": "text",
-                          "id": "Yavra",
-                          "name": "Title",
-                          "fill": "$--text-primary",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "The Bear",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 13.5,
-                          "fontWeight": "600"
+                        "P2HBU": {
+                          "content": "The Bear"
                         },
-                        {
-                          "type": "text",
-                          "id": "A0zbDi",
-                          "name": "Meta",
-                          "fill": "$--text-subtle",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "S3 · E2",
-                          "fontFamily": "$--font-primary",
-                          "fontSize": 11.5,
-                          "fontWeight": "normal"
+                        "OPw2p": {
+                          "content": "S3 · E2"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "KpnkN",
-                  "name": "Header Up Next",
-                  "width": "fill_container",
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "eQTrX",
-                      "name": "Title",
-                      "fill": "$--text-primary",
-                      "content": "Up Next",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 18,
-                      "fontWeight": "600"
+                  "id": "VpJBs",
+                  "type": "ref",
+                  "ref": "D6hKB",
+                  "name": "Section Header / Up Next",
+                  "descendants": {
+                    "AmONi": {
+                      "content": "Up Next"
                     },
-                    {
-                      "type": "text",
-                      "id": "kEJdz",
-                      "name": "See all",
-                      "fill": "$--accent-text",
-                      "content": "See all",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13,
-                      "fontWeight": "600"
+                    "niks2": {
+                      "content": "See all"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -4928,228 +3703,70 @@
                   ],
                   "children": [
                     {
-                      "type": "frame",
-                      "id": "b6CJ49",
-                      "name": "Row Shōgun",
-                      "width": "fill_container",
-                      "fill": "$--card",
-                      "cornerRadius": "$--radius-lg",
-                      "stroke": "$--border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 12,
-                      "padding": 10,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 7,
-                          "id": "t4924x",
-                          "name": "Thumb",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "_pourya_",
-                            "link": "https://unsplash.com/@_pourya_",
-                            "author": "Pourya Gohari"
-                          },
+                      "id": "a23RZ",
+                      "type": "ref",
+                      "ref": "GfOk2",
+                      "name": "Up Next / Shōgun",
+                      "descendants": {
+                        "pOxtQ": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1695068734075-ccfdb009f26c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTh8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": 44,
-                          "height": 60
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "qFDwU",
-                          "name": "Text",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 2,
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "w8GEu",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Shōgun",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 15,
-                              "fontWeight": "600"
-                            },
-                            {
-                              "type": "text",
-                              "id": "eVYet",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "S1 · E7 — A Dream of a Dream",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 12.5,
-                              "fontWeight": "normal"
-                            }
-                          ]
+                        "bXnZ6": {
+                          "content": "Shōgun"
                         },
-                        {
-                          "type": "frame",
-                          "id": "u5uYI7",
-                          "name": "Chip",
-                          "fill": "$--accent-soft",
-                          "cornerRadius": "$--radius-pill",
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "nASb5",
-                              "name": "Chip Label",
-                              "fill": "$--accent-text",
-                              "content": "Tonight",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "600"
-                            }
-                          ]
+                        "Q9O1f": {
+                          "content": "S1 · E7 — A Dream of a Dream"
+                        },
+                        "jLPaE": {
+                          "content": "Tonight"
                         }
-                      ]
+                      }
                     },
                     {
-                      "type": "frame",
-                      "id": "l7xul3",
-                      "name": "Row Arcane",
-                      "width": "fill_container",
-                      "fill": "$--card",
-                      "cornerRadius": "$--radius-lg",
-                      "stroke": "$--border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "gap": 12,
-                      "padding": 10,
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "rectangle",
-                          "cornerRadius": 7,
-                          "id": "QVrDm",
-                          "name": "Thumb",
-                          "metadata": {
-                            "type": "unsplash",
-                            "username": "leslie_outofdoors",
-                            "link": "https://unsplash.com/@leslie_outofdoors",
-                            "author": "Leslie Cross"
-                          },
+                      "id": "s6mXF",
+                      "type": "ref",
+                      "ref": "GfOk2",
+                      "name": "Up Next / Arcane",
+                      "descendants": {
+                        "pOxtQ": {
                           "fill": {
                             "type": "image",
                             "enabled": true,
                             "url": "https://images.unsplash.com/photo-1657571484151-41be42fa72f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMTl8&ixlib=rb-4.1.0&q=80&w=1080",
                             "mode": "fill"
-                          },
-                          "width": 44,
-                          "height": 60
+                          }
                         },
-                        {
-                          "type": "frame",
-                          "id": "tQmIN",
-                          "name": "Text",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 2,
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "DTrRB",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Arcane",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 15,
-                              "fontWeight": "600"
-                            },
-                            {
-                              "type": "text",
-                              "id": "qduun",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "S2 · E3 — Finally Got the Name Right",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 12.5,
-                              "fontWeight": "normal"
-                            }
-                          ]
+                        "bXnZ6": {
+                          "content": "Arcane"
                         },
-                        {
-                          "type": "frame",
-                          "id": "dMMsX",
-                          "name": "Chip",
-                          "fill": "$--accent-soft",
-                          "cornerRadius": "$--radius-pill",
-                          "padding": [
-                            4,
-                            10
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "GaYxH",
-                              "name": "Chip Label",
-                              "fill": "$--accent-text",
-                              "content": "Queued",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "600"
-                            }
-                          ]
+                        "Q9O1f": {
+                          "content": "S2 · E3 — Finally Got the Name Right"
+                        },
+                        "jLPaE": {
+                          "content": "Queued"
                         }
-                      ]
+                      }
                     }
                   ]
                 },
                 {
-                  "type": "frame",
-                  "id": "lVBvc",
-                  "name": "Header Recently Added",
-                  "width": "fill_container",
-                  "padding": [
-                    0,
-                    16
-                  ],
-                  "justifyContent": "space_between",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "U4l9Wg",
-                      "name": "Title",
-                      "fill": "$--text-primary",
-                      "content": "Recently Added",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 18,
-                      "fontWeight": "600"
+                  "id": "tt7bi",
+                  "type": "ref",
+                  "ref": "D6hKB",
+                  "name": "Section Header / Recently Added",
+                  "descendants": {
+                    "AmONi": {
+                      "content": "Recently Added"
                     },
-                    {
-                      "type": "text",
-                      "id": "VUWzt",
-                      "name": "See all",
-                      "fill": "$--accent-text",
-                      "content": "See all",
-                      "fontFamily": "$--font-primary",
-                      "fontSize": 13,
-                      "fontWeight": "600"
+                    "niks2": {
+                      "content": "See all"
                     }
-                  ]
+                  }
                 },
                 {
                   "type": "frame",
@@ -5171,166 +3788,70 @@
                       "gap": 11,
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "KhaYO",
-                          "name": "Card Interstellar",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "BGZUc",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "dmjdenise",
-                                "link": "https://unsplash.com/@dmjdenise",
-                                "author": "Denise Jans"
-                              },
+                          "id": "niPLn",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Interstellar",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1561592547-2694eabef062?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjB8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "bFIzp",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Interstellar",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Interstellar"
                             },
-                            {
-                              "type": "text",
-                              "id": "I76iLG",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Film · 2014",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Film · 2014"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "x5jQKg",
-                          "name": "Card Project Hail Mary",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "bNziT",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "sfkopstein",
-                                "link": "https://unsplash.com/@sfkopstein",
-                                "author": "shraga kopstein"
-                              },
+                          "id": "Fwk9Y",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Project Hail Mary",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1661827291034-a7afb7dd1601?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "qHjDH",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Project Hail Mary",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Project Hail Mary"
                             },
-                            {
-                              "type": "text",
-                              "id": "TYBHQ",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Book · Weir",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Book · Weir"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "LIJld",
-                          "name": "Card Cyberpunk 2077",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "P8tWS",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "branden_skeli",
-                                "link": "https://unsplash.com/@branden_skeli",
-                                "author": "Branden Skeli"
-                              },
+                          "id": "v0Tu5g",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Cyberpunk 2077",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1762219214749-427929a1d36f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjF8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "PhTol",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Cyberpunk 2077",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Cyberpunk 2077"
                             },
-                            {
-                              "type": "text",
-                              "id": "CBJJt",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Game · RPG",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Game · RPG"
                             }
-                          ]
+                          }
                         }
                       ]
                     },
@@ -5342,166 +3863,70 @@
                       "gap": 11,
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "l2G4nM",
-                          "name": "Card Oppenheimer",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "PX2Ny",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "weekendtripcreator",
-                                "link": "https://unsplash.com/@weekendtripcreator",
-                                "author": "Lisha Riabinina"
-                              },
+                          "id": "lFnjf",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Oppenheimer",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1632778931175-128809d8facc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjJ8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "EEXY7",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Oppenheimer",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Oppenheimer"
                             },
-                            {
-                              "type": "text",
-                              "id": "E6eDu",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Film · 2023",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Film · 2023"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "Qzdl9",
-                          "name": "Card The Expanse",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "DXVHI",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "qdalstudio",
-                                "link": "https://unsplash.com/@qdalstudio",
-                                "author": "Qdal Studio"
-                              },
+                          "id": "fAiO5",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / The Expanse",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1746931290923-72edfc9e960f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjN8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "LwyO4",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "The Expanse",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "The Expanse"
                             },
-                            {
-                              "type": "text",
-                              "id": "p6BrD",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Show · S6",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Show · S6"
                             }
-                          ]
+                          }
                         },
                         {
-                          "type": "frame",
-                          "id": "K3a5dj",
-                          "name": "Card Sandman",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 7,
-                          "children": [
-                            {
-                              "type": "rectangle",
-                              "cornerRadius": 10,
-                              "id": "GQAqO",
-                              "name": "Poster",
-                              "metadata": {
-                                "type": "unsplash",
-                                "username": "blakecheekk",
-                                "link": "https://unsplash.com/@blakecheekk",
-                                "author": "Blake Cheek"
-                              },
+                          "id": "rQKXA",
+                          "type": "ref",
+                          "ref": "pEmhD",
+                          "name": "Recently Added / Sandman",
+                          "descendants": {
+                            "pwuIW": {
                               "fill": {
                                 "type": "image",
                                 "enabled": true,
                                 "url": "https://images.unsplash.com/photo-1665059691261-daa5bacdf826?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w4NDM0ODN8MHwxfHJhbmRvbXx8fHx8fHx8fDE3ODU4MzgzMjR8&ixlib=rb-4.1.0&q=80&w=1080",
                                 "mode": "fill"
-                              },
-                              "width": "fill_container",
-                              "height": 150
+                              }
                             },
-                            {
-                              "type": "text",
-                              "id": "ptVoS",
-                              "name": "Title",
-                              "fill": "$--text-primary",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Sandman",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 13.5,
-                              "fontWeight": "600"
+                            "J2QAOi": {
+                              "content": "Sandman"
                             },
-                            {
-                              "type": "text",
-                              "id": "u2jjB",
-                              "name": "Meta",
-                              "fill": "$--text-subtle",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "Book · Gaiman",
-                              "fontFamily": "$--font-primary",
-                              "fontSize": 11.5,
-                              "fontWeight": "normal"
+                            "XKCVf": {
+                              "content": "Book · Gaiman"
                             }
-                          ]
+                          }
                         }
                       ]
                     }
@@ -5859,7 +4284,7 @@
               "name": "Bottom Tab Bar",
               "width": 393,
               "height": 84,
-              "fill": "#18191CF2",
+              "fill": "$--nav-surface",
               "stroke": "$--border",
               "strokeWidth": {
                 "top": 1
@@ -6010,7 +4435,7 @@
               "name": "Home Indicator",
               "width": 130,
               "height": 5,
-              "fill": "#FFFFFF33",
+              "fill": "$--nav-indicator",
               "cornerRadius": 999
             }
           ]
@@ -6801,6 +5226,91 @@
     "--radius-lg": {
       "type": "number",
       "value": 12
+    },
+    "--nav-surface": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#FFFDF9E6",
+          "theme": {
+            "Mode": "Light"
+          }
+        },
+        {
+          "value": "#1C1E22D9",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--nav-border": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#241F181F",
+          "theme": {
+            "Mode": "Light"
+          }
+        },
+        {
+          "value": "#FFFFFF1F",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--nav-indicator": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#241F1826",
+          "theme": {
+            "Mode": "Light"
+          }
+        },
+        {
+          "value": "#FFFFFF33",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--overlay": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#241F1866",
+          "theme": {
+            "Mode": "Light"
+          }
+        },
+        {
+          "value": "#08090BB8",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
+    },
+    "--sheet-divider": {
+      "type": "color",
+      "value": [
+        {
+          "value": "#E6DED1",
+          "theme": {
+            "Mode": "Light"
+          }
+        },
+        {
+          "value": "#2A2C31",
+          "theme": {
+            "Mode": "Dark"
+          }
+        }
+      ]
     }
   },
   "fileToken": "a9769fe4-5e4f-485a-9e0a-bc2a845e7a87"
