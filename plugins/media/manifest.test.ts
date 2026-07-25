@@ -41,6 +41,27 @@ it("routes person and company providers through provider scripts", () => {
 	}
 });
 
+it("routes media-group providers through provider scripts", () => {
+	const providerSlugs = new Set(
+		mediaPlugin.providers.filter(({ slug }) => slug.includes("-group.")).map(({ slug }) => slug),
+	);
+	const providerScripts = mediaPlugin.scripts.flatMap((script) =>
+		script.kind === "provider" && providerSlugs.has(script.providerSlug) ? [script] : [],
+	);
+
+	expect(providerScripts).toHaveLength(23);
+	expect(new Set(providerScripts.map(({ providerSlug }) => providerSlug))).toEqual(providerSlugs);
+
+	for (const provider of mediaPlugin.providers.filter(({ slug }) => providerSlugs.has(slug))) {
+		expect(
+			providerScripts
+				.filter(({ providerSlug }) => providerSlug === provider.slug)
+				.map(({ providerOperation }) => providerOperation)
+				.sort(),
+		).toEqual(Object.keys(provider.operations).sort());
+	}
+});
+
 it("declares the complete media-owned source", () => {
 	expect(() => Schema.decodeUnknownSync(PluginManifest)(mediaPlugin)).not.toThrow();
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
