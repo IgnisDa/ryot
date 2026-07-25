@@ -40,17 +40,17 @@ describe("Saved views lifecycle E2E", () => {
 		}),
 	);
 
-	it.live("seeds the Collections built-in view against the collection schema", () =>
+	it.live("seeds the All Collections built-in view against the collection schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const views = yield* listSavedViews(client);
-			const collectionsView = views.find((view) => view.name === "Collections");
+			const collectionsView = views.find((view) => view.name === "All Collections");
 			expect(collectionsView).toBeDefined();
 			expect(collectionsView).toMatchObject({
 				icon: "folders",
 				isBuiltin: true,
-				name: "Collections",
 				accentColor: "#F59E0B",
+				name: "All Collections",
 			});
 			expect(collectionsView?.queryDocument).toMatchObject({
 				queries: {
