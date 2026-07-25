@@ -382,7 +382,7 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 			assets: ReadonlyArray<{ key: string; type: "local" | "s3" }>,
 		) {
 			const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
-			return yield* Effect.forEach(assets, (asset) =>
+			const resolved = yield* Effect.forEach(assets, (asset) =>
 				Effect.gen(function* () {
 					const downloadUrl =
 						asset.type === "local"
@@ -408,8 +408,9 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 								})
 							: yield* s3Service.presignDownload(asset.key, UPLOAD_URL_EXPIRY_SECONDS);
 					return { asset, downloadUrl };
-				}),
+				}).pipe(Effect.catchTag("BadRequest", () => Effect.succeed(null))),
 			);
+			return resolved.filter((result) => result !== null);
 		});
 
 		const resolveLocalDownload = Effect.fn("UploadsService.resolveLocalDownload")(function* (
