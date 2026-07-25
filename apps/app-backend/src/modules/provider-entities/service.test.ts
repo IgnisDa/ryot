@@ -18,6 +18,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { EntityImportService } from "./service";
 
 const user: CurrentUserValue = {
+	image: null,
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),

@@ -30,7 +30,7 @@ export * from "./test-plugin";
 export * from "./saved-views";
 export * from "./plugins";
 export * from "./translations";
-export * from "./user-preferences";
+export * from "./user-settings";
 export * from "./user-state";
 export * from "./workouts";
 export * from "./workout-templates";
