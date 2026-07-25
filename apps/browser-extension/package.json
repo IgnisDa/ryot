@@ -11,8 +11,8 @@
 	},
 	"dependencies": {
 		"@ryot/contract": "workspace:*",
+		"@ryot/media-plugin": "workspace:*",
 		"@ryot/plugin-kit": "workspace:*",
-		"@ryot/media-fitness": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@tailwindcss/vite": "4.1.18",
 		"effect": "4.0.0-beta.102",

@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/media-fitness",
+	"name": "@ryot/media-plugin",
 	"private": true,
 	"exports": {
 		".": {
