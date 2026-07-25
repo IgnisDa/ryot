@@ -71,8 +71,9 @@ const RedisLive = Layer.unwrap(
 
 const RedisPersistedQueueStoreLive = PersistedQueue.layerStoreRedis({
 	prefix: "ryot:pq:",
-	// Below the 1s default so a trigger chain's queue hops don't compound.
-	pollInterval: Duration.millis(250),
+	// Sandbox replays are the only persisted-queue workload, so keep their handoff latency below the
+	// workflow's interactive budget without increasing SQL workflow polling.
+	pollInterval: Duration.millis(25),
 }).pipe(Layer.provide(RedisLive));
 
 export const PersistedQueueLive = PersistedQueue.layer.pipe(
