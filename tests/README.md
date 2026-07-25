@@ -71,7 +71,7 @@ Entity, event, and relationship definitions install as scriptless plugins throug
 
 ## Capacity
 
-Shared harness keeps `maxWorkers=3`, `SANDBOX_WORKER_CONCURRENCY=32`, and app/workflow pool maxima at 100. Test PostgreSQL allows 400 connections. Production defaults remain five sandbox workers and ten connections per pool.
+Shared harness keeps `maxWorkers=3`, fixed sandbox limits, and app/workflow pool maxima at 100. Test PostgreSQL allows 400 connections. Sandbox worker concurrency is fixed at five and production uses ten connections per pool.
 
 Keep production Effect Cluster expiry settings in harness so recovery regressions remain visible. Last full-suite evidence peaked at 120 total database connections; full-size operational gate recorded no app-pool waits.
 

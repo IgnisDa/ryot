@@ -99,8 +99,6 @@ export const makeAppConfigLayer = (
 		},
 		sandbox: {
 			denoDir: "/tmp",
-			timeoutMs: 5_000,
-			workerConcurrency: 5,
 			jobIdSecret: Redacted.make("test-secret"),
 		},
 		fileStorage: {

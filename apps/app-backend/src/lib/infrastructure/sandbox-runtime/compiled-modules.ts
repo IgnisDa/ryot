@@ -129,8 +129,17 @@ export const garbageCollectSandboxCompiledModules = (
 			return match?.[1] && !liveContentHashes.has(match[1]) ? [entry] : [];
 		});
 
-		yield* Effect.forEach(candidates, (entry) =>
-			fs.remove(path.join(runtime.moduleDirectory, entry), { force: true }),
+		const removals = yield* Effect.forEach(candidates, (entry) =>
+			fs.remove(path.join(runtime.moduleDirectory, entry), { force: false }).pipe(
+				Effect.as(1),
+				Effect.catchIf(
+					(error) => hasSystemErrorReason(error, "NotFound"),
+					() => Effect.succeed(0),
+				),
+			),
 		);
-		return { candidateCount: candidates.length, removedCount: candidates.length };
+		return {
+			candidateCount: candidates.length,
+			removedCount: removals.reduce((total, removed) => total + removed, 0),
+		};
 	});

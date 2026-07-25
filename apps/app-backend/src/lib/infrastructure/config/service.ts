@@ -1,6 +1,7 @@
 import type { LogLevel } from "effect";
 import { Config, Context, Effect, Layer, Option, Redacted, Schema, SchemaIssue } from "effect";
 
+import { SANDBOX_LIMITS } from "../sandbox-runtime/limits";
 import { SystemConfigSource, type SystemConfigValue } from "./system";
 
 const logLevels: Record<string, LogLevel.LogLevel> = {
@@ -103,20 +104,20 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 		// The cluster SQL runner permanently reserves one workflow-pool connection,
 		// even when advisory shard locks are disabled.
 		const usableWorkflowConnections = config.database.workflowPoolMax - 1;
-		if (config.sandbox.workerConcurrency > usableWorkflowConnections) {
+		if (SANDBOX_LIMITS.workerConcurrency > usableWorkflowConnections) {
 			return yield* Effect.fail(
 				configError(
-					`SANDBOX_WORKER_CONCURRENCY (${config.sandbox.workerConcurrency}) exceeds the usable workflow-pool connections (${usableWorkflowConnections}). The cluster SQL runner permanently reserves one connection of DATABASE_WORKFLOW_POOL_MAX (${config.database.workflowPoolMax}), so usable connections = DATABASE_WORKFLOW_POOL_MAX - 1; a higher sandbox worker concurrency starves the workflow engine. Raise DATABASE_WORKFLOW_POOL_MAX or lower SANDBOX_WORKER_CONCURRENCY.`,
+					`SANDBOX_LIMITS.workerConcurrency (${SANDBOX_LIMITS.workerConcurrency}) exceeds the usable workflow-pool connections (${usableWorkflowConnections}). The cluster SQL runner permanently reserves one connection of DATABASE_WORKFLOW_POOL_MAX (${config.database.workflowPoolMax}), so usable connections = DATABASE_WORKFLOW_POOL_MAX - 1; the configured workflow pool cannot support the fixed sandbox worker limit. Raise DATABASE_WORKFLOW_POOL_MAX.`,
 				),
 			);
 		}
 
 		// The +2 accounts for the two always-on DurableQueue workers, concurrency 1 each.
-		if (config.sandbox.workerConcurrency + 2 >= usableWorkflowConnections) {
+		if (SANDBOX_LIMITS.workerConcurrency + 2 >= usableWorkflowConnections) {
 			yield* Effect.logWarning("workflow pool connection headroom exhausted").pipe(
 				Effect.annotateLogs({
 					usableWorkflowConnections,
-					sandboxWorkerConcurrency: config.sandbox.workerConcurrency,
+					sandboxWorkerConcurrency: SANDBOX_LIMITS.workerConcurrency,
 				}),
 			);
 		}
