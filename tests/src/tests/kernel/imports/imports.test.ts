@@ -13,7 +13,7 @@ import {
 	postBackendJson,
 	type InstalledTestPlugin,
 	uninstallTestPluginStrict,
-	uploadTemporaryFile,
+	uploadImportFile,
 } from "~/fixtures";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
@@ -43,7 +43,7 @@ describe("Plugin Import Public Boundary", () => {
 	it.live("runs an installed source absent from the central contract to terminal success", () =>
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
-			const archiveUploadToken = yield* uploadTemporaryFile(
+			const archiveUploadToken = yield* uploadImportFile(
 				cookies,
 				"name,value\nfixture,1\n",
 				"fixture-archive.csv",
@@ -130,8 +130,8 @@ describe("Plugin Import Public Boundary", () => {
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
 			const [archiveUploadToken, undeclaredUploadToken] = yield* Effect.all([
-				uploadTemporaryFile(cookies, "fixture", "fixture.csv", "text/csv"),
-				uploadTemporaryFile(cookies, "other", "other.csv", "text/csv"),
+				uploadImportFile(cookies, "fixture", "fixture.csv", "text/csv"),
+				uploadImportFile(cookies, "other", "other.csv", "text/csv"),
 			]);
 			const error = yield* Effect.flip(
 				client.call((c) =>
@@ -148,7 +148,7 @@ describe("Plugin Import Public Boundary", () => {
 	it.live("rejects internal dispatch and artifact path fields before claiming uploads", () =>
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
-			const archiveUploadToken = yield* uploadTemporaryFile(
+			const archiveUploadToken = yield* uploadImportFile(
 				cookies,
 				"fixture",
 				"fixture.csv",
@@ -203,7 +203,7 @@ describe("Plugin Import Public Boundary", () => {
 	it.live("rejects an invalid named artifact extension", () =>
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
-			const archiveUploadToken = yield* uploadTemporaryFile(
+			const archiveUploadToken = yield* uploadImportFile(
 				cookies,
 				"fixture",
 				"fixture.json",
@@ -224,7 +224,7 @@ describe("Plugin Import Public Boundary", () => {
 	it.live("rejects an unknown source before claiming uploads or starting a workflow", () =>
 		Effect.gen(function* () {
 			const { client, cookies } = yield* createAuthenticatedClient();
-			const archiveUploadToken = yield* uploadTemporaryFile(
+			const archiveUploadToken = yield* uploadImportFile(
 				cookies,
 				"fixture",
 				"fixture.csv",
@@ -266,7 +266,7 @@ describe("Plugin Import Public Boundary", () => {
 			yield* uninstallWhenReleased(fixtureImportPlugin);
 
 			const { client, cookies } = yield* createAuthenticatedClient();
-			const archiveUploadToken = yield* uploadTemporaryFile(
+			const archiveUploadToken = yield* uploadImportFile(
 				cookies,
 				"fixture",
 				"fixture.csv",
