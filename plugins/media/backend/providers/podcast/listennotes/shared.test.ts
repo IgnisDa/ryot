@@ -176,7 +176,7 @@ describe("podcast.listennotes sandbox script", () => {
 						providerRating: 62,
 						publishDate: "2020-01-01",
 						description: "A great show.",
-						unlinkedCreators: [{ role: "Publishing", name: "Acme Media" }],
+						unlinkedCreators: [{ role: "Publisher", name: "Acme Media" }],
 						sourceUrl: "https://www.listennotes.com/podcasts/My Podcast-pod-1",
 						images: [{ type: "remote", purpose: "cover", url: "https://img/cover.jpg" }],
 					});

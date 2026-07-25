@@ -26,7 +26,6 @@ import {
 import { savedViewRecipe, type SavedViewTableMapping } from "@ryot-app/ryotql-recipes/saved-views";
 import { Result, Schema } from "effect";
 
-import { podcastEpisodicKindConfig } from "../backend/contracts/lifecycle-recipes";
 import {
 	entityId,
 	entityIdentitySelection,
@@ -41,6 +40,7 @@ import {
 	EpisodicLifecycleStateSchema,
 	episodeLifecycleStateExpression,
 	episodicLifecycleExpressions,
+	podcastEpisodicKindConfig,
 	showEpisodicKindConfig,
 	type EpisodicLifecycleState,
 } from "../shared/lifecycle-expressions";

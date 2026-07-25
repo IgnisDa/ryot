@@ -47,7 +47,7 @@ const emptyOverviewResponse = {
 const readyResponse = {
 	data: {
 		requested: rows([{ schemaSlug: "show" }]),
-		show: rows([
+		summary: rows([
 			{
 				owned: null,
 				id: "show-1",
@@ -56,6 +56,8 @@ const readyResponse = {
 				publishYear: 2025,
 				state: "complete",
 				publishDate: null,
+				storedEpisodes: 12,
+				watchedEpisodes: 3,
 				isInLibrary: false,
 				isMonitored: false,
 				schemaSlug: "show",
@@ -63,6 +65,7 @@ const readyResponse = {
 				providerName: "TMDB",
 				providerRating: null,
 				watchProviders: null,
+				inProgressEpisodes: 0,
 				populationStatus: "ready",
 				translationStatus: "none",
 				genres: ["Drama", "Mystery"],
@@ -81,7 +84,7 @@ const readyResponse = {
 const responseWithImages = (images: readonly Record<string, unknown>[]) => ({
 	data: {
 		requested: rows([{ schemaSlug: "show" }]),
-		show: rows([{ ...readyResponse.data.show.items[0], images }]),
+		summary: rows([{ ...readyResponse.data.summary.items[0], images }]),
 	},
 });
 
@@ -277,7 +280,7 @@ afterEach(async () => {
 describe("ShowScreen", () => {
 	it("queries the live entity after same-document entity navigation", async () => {
 		const { channel, messages } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
+		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
 		channel.port1.postMessage({
 			index: 1,
 			key: "show-2",
@@ -287,22 +290,22 @@ describe("ShowScreen", () => {
 			type: "location",
 			location: { search: "", kind: "entity", entityId: "show-2", entitySchemaSlug: "show" },
 		});
-		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(2));
-		expect(JSON.stringify(queryRequestsFor(messages, "show")[1]?.document)).toContain("show-2");
+		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(2));
+		expect(JSON.stringify(queryRequestsFor(messages, "summary")[1]?.document)).toContain("show-2");
 	});
 
 	it("renders pending status while the summary and overview queries are in flight", async () => {
 		const { messages, container } = openShow();
 
-		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
+		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
 		await waitFor(() => expect(queryRequestsFor(messages, "people")).toHaveLength(1));
 		expect(container?.textContent).toContain("Loading show...");
 	});
 
 	it("renders an error and retries through the query result", async () => {
 		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "show").requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "summary").requestId, {
 			outcome: "failure",
 			reason: "query-failed",
 		});
@@ -315,8 +318,8 @@ describe("ShowScreen", () => {
 			throw new Error("Expected the Show retry button");
 		}
 		fireEvent.click(retry);
-		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(2));
-		reply(channel, queryRequestFor(messages, "show", 1).requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(2));
+		reply(channel, queryRequestFor(messages, "summary", 1).requestId, {
 			outcome: "success",
 			response: readyResponse,
 		});
@@ -326,10 +329,10 @@ describe("ShowScreen", () => {
 
 	it("renders the missing state", async () => {
 		const missing = openShow();
-		await waitFor(() => expect(queryRequestsFor(missing.messages, "show")).toHaveLength(1));
-		reply(missing.channel, queryRequestFor(missing.messages, "show").requestId, {
+		await waitFor(() => expect(queryRequestsFor(missing.messages, "summary")).toHaveLength(1));
+		reply(missing.channel, queryRequestFor(missing.messages, "summary").requestId, {
 			outcome: "success",
-			response: { data: { show: rows([]), requested: rows([]) } },
+			response: { data: { summary: rows([]), requested: rows([]) } },
 		});
 		await waitFor(() =>
 			expect(missing.container?.textContent).toContain("This entity no longer exists."),
@@ -338,10 +341,10 @@ describe("ShowScreen", () => {
 
 	it("renders the wrong-schema state", async () => {
 		const wrongSchema = openShow();
-		await waitFor(() => expect(queryRequestsFor(wrongSchema.messages, "show")).toHaveLength(1));
-		reply(wrongSchema.channel, queryRequestFor(wrongSchema.messages, "show").requestId, {
+		await waitFor(() => expect(queryRequestsFor(wrongSchema.messages, "summary")).toHaveLength(1));
+		reply(wrongSchema.channel, queryRequestFor(wrongSchema.messages, "summary").requestId, {
 			outcome: "success",
-			response: { data: { show: rows([]), requested: rows([{ schemaSlug: "movie" }]) } },
+			response: { data: { summary: rows([]), requested: rows([{ schemaSlug: "movie" }]) } },
 		});
 		await waitFor(() =>
 			expect(wrongSchema.container?.textContent).toContain(
@@ -352,8 +355,8 @@ describe("ShowScreen", () => {
 
 	it("renders seeded summary fields and publishes the Show title", async () => {
 		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "show").requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "summary").requestId, {
 			outcome: "success",
 			response: readyResponse,
 		});
@@ -389,8 +392,8 @@ describe("ShowScreen", () => {
 
 	it("renders a managed cover placeholder before resolving its signed URL", async () => {
 		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "show").requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "summary").requestId, {
 			outcome: "success",
 			response: responseWithImages([
 				{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
@@ -419,8 +422,8 @@ describe("ShowScreen", () => {
 
 	it("shows an unavailable managed cover after the initial asset request fails", async () => {
 		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "show").requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "summary").requestId, {
 			outcome: "success",
 			response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
 		});
@@ -438,8 +441,8 @@ describe("ShowScreen", () => {
 	it("refreshes one minute before expiry and keeps the stale URL after failure", async () => {
 		const clock = openTestClock();
 		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "show").requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "summary").requestId, {
 			outcome: "success",
 			response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
 		});
@@ -471,8 +474,8 @@ describe("ShowScreen", () => {
 
 	it("cancels a managed cover request when its screen unmounts", async () => {
 		const { channel, messages } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "show").requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "summary").requestId, {
 			outcome: "success",
 			response: responseWithImages([{ type: "local", purpose: "cover", key: "managed-cover" }]),
 		});
@@ -497,21 +500,23 @@ describe("ShowScreen", () => {
 
 	it("omits absent optional fields", async () => {
 		const { channel, messages, container } = openShow();
-		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
-		reply(channel, queryRequestFor(messages, "show").requestId, {
+		await waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1));
+		reply(channel, queryRequestFor(messages, "summary").requestId, {
 			outcome: "success",
 			response: {
 				data: {
 					requested: rows([{ schemaSlug: "show" }]),
-					show: rows([
+					summary: rows([
 						{
 							owned: null,
 							id: "show-1",
 							genres: null,
 							images: null,
+							storedEpisodes: 0,
 							publishYear: null,
 							description: null,
 							publishDate: null,
+							watchedEpisodes: 0,
 							state: "untracked",
 							totalSeasons: null,
 							providerName: null,
@@ -522,6 +527,7 @@ describe("ShowScreen", () => {
 							totalEpisodes: null,
 							providerRating: null,
 							watchProviders: null,
+							inProgressEpisodes: 0,
 							productionStatus: null,
 							populationStatus: "none",
 							translationStatus: "none",

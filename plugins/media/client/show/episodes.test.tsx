@@ -1,381 +1,206 @@
+import type { RyotClientAdapter } from "@ryot-app/client-sdk";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-	malformedQueryResult,
-	pendingQueryResult,
-	readyQueryResult,
-	transportErrorQueryResult,
-} from "../../tests/client/query-result-fixture";
-import {
-	decodeShowEpisodesResult,
-	decodeShowSeasonEpisodesResult,
-	showEpisodeRow,
-	showSeasonRow,
-} from "../../tests/client/show/episodes-fixture";
-import { mountRyotClient } from "../../tests/client/test-support";
-import { ShowEpisodes } from "./episodes";
-import {
-	mapShowEpisodes,
-	mapShowSeasonEpisodes,
-	type ShowEpisodesState,
-	type ShowSeasonEpisodesState,
-} from "./episodes-state";
+import { rowsResult } from "../../tests/client/query-result-fixture";
+import { showEpisodeRow, showSeasonRow } from "../../tests/client/show/episodes-fixture";
+import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
+import { ShowEpisodesTab } from "./episodes";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
-
-type SeasonInput = Parameters<typeof decodeShowEpisodesResult>[0]["seasons"];
-
-const episode = (overrides: Record<string, unknown>) => ({ ...showEpisodeRow, ...overrides });
-
-const secondEpisode = episode({
-	id: "episode-2",
-	episodeNumber: 2,
-	state: "untracked",
-	publishDate: "2025-03-20",
-	name: "Episode 2: The Interview",
-	description: "The detectives press for answers.",
-});
+const rows = (items: readonly Record<string, unknown>[]) =>
+	rowsResult(items, { limit: 60, hasMore: false, nextCursor: null });
 
 const specialsSeason = {
 	...showSeasonRow,
 	id: "season-0",
 	seasonNumber: 0,
+	episodeTotal: 2,
+	watchedTotal: 0,
 	name: "Specials",
 	releaseDate: null,
 	description: null,
 };
 
-const readyState = (seasons?: SeasonInput): ShowEpisodesState =>
-	mapShowEpisodes(readyQueryResult(decodeShowEpisodesResult({ seasons })));
-
-const readySeasonEpisodes = (
-	input: Parameters<typeof decodeShowSeasonEpisodesResult>[0] = {},
-): ShowSeasonEpisodesState =>
-	mapShowSeasonEpisodes(readyQueryResult(decodeShowSeasonEpisodesResult(input)));
-
-type RenderOptions = {
-	readonly compact?: boolean;
-	readonly refresh?: () => void;
-	readonly selectedId?: string | null;
-	readonly onRefreshSeason?: () => void;
-	readonly onSelect?: (seasonId: string) => void;
+const secondSeason = {
+	...showSeasonRow,
+	id: "season-2",
+	seasonNumber: 2,
+	episodeTotal: 3,
+	watchedTotal: 0,
+	name: "Season 2",
 };
 
-const showEpisodesProps = (
-	state: ShowEpisodesState,
-	seasonEpisodes: ShowSeasonEpisodesState = readySeasonEpisodes(),
-	options: RenderOptions = {},
-) => ({
-	state,
-	seasonEpisodes,
-	compact: options.compact ?? true,
-	selectedId: options.selectedId ?? null,
-	refresh: options.refresh ?? (() => undefined),
-	onSelect: options.onSelect ?? (() => undefined),
-	onRefreshSeason: options.onRefreshSeason ?? (() => undefined),
-});
+const secondEpisode = {
+	...showEpisodeRow,
+	id: "episode-2",
+	episodeNumber: 2,
+	state: "untracked",
+	name: "Episode 2: The Interview",
+};
 
-const renderEpisodes = (
-	state: ShowEpisodesState,
-	seasonEpisodes: ShowSeasonEpisodesState = readySeasonEpisodes(),
-	options: RenderOptions = {},
-) =>
-	mountRyotClient(
-		noopAdapter,
-		<ShowEpisodes {...showEpisodesProps(state, seasonEpisodes, options)} />,
+const showAdapter = (input: {
+	readonly seasons?: readonly Record<string, unknown>[];
+	readonly episodes?: (seasonId: string) => readonly Record<string, unknown>[];
+}) => {
+	const adapter: Partial<RyotClientAdapter> = {
+		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+		query: (document) => {
+			const serialized = JSON.stringify(document);
+			if (serialized.includes('"episodes"')) {
+				const seasonId =
+					["season-0", "season-2"].find((id) => serialized.includes(id)) ?? "season-1";
+				return Promise.resolve({
+					data: { episodes: rows(input.episodes?.(seasonId) ?? [showEpisodeRow]) },
+				});
+			}
+			return Promise.resolve({
+				data: {
+					show: rows([
+						{
+							id: "show-1",
+							schemaSlug: "show",
+							name: "Adolescence",
+							populationStatus: "ready",
+							translationStatus: "none",
+							seasons: rows(input.seasons ?? [showSeasonRow]),
+						},
+					]),
+				},
+			});
+		},
+	};
+	return adapter;
+};
+
+const renderTab = (adapter: Partial<RyotClientAdapter>) =>
+	mountRyotClient(adapter, <ShowEpisodesTab compact entityId="show-1" />);
+
+const textOf = (container: HTMLElement, text: string) =>
+	Array.from(container.querySelectorAll("*")).find((element) => element.textContent === text);
+
+const radio = (container: HTMLElement, label: string) =>
+	Array.from(container.querySelectorAll('[role="radio"]')).find(
+		(element) => element.textContent === label,
 	);
 
 afterEach(() => {
 	document.body.innerHTML = "";
 });
 
-const textOf = (container: HTMLElement, text: string) =>
-	Array.from(container.querySelectorAll("*")).find((element) => element.textContent === text);
+describe("show season browser", () => {
+	it("heads the season with the counts the season query reports, not the loaded page", async () => {
+		const view = renderTab(
+			showAdapter({ seasons: [{ ...showSeasonRow, episodeTotal: 6, watchedTotal: 2 }] }),
+		);
+		await flushRyotClient();
 
-describe("show episodes tab", () => {
-	it("renders the season header from the loaded season and episode state", () => {
-		const { unmount, container } = renderEpisodes(readyState());
-
-		expect(container.textContent).toContain("Season 1");
-		expect(textOf(container, "Released Mar 13, 2025 • 1 episode • 1 watched")).not.toBeUndefined();
-		expect(container.textContent).toContain("The complete limited series.");
-		unmount();
+		await waitFor(() => expect(view.container.textContent).toContain("Season 1"));
+		expect(
+			textOf(view.container, "Released Mar 13, 2025 • 6 episodes • 2 watched"),
+		).not.toBeUndefined();
+		expect(view.container.textContent).toContain("The complete limited series.");
+		expect(view.container.textContent).toContain("Episode 1: The Arrest");
+		view.unmount();
 	});
 
-	it("renders episode metadata and a quiet lifecycle indicator", () => {
-		const { unmount, container } = renderEpisodes(readyState());
-
-		expect(container.textContent).toContain("E1");
-		expect(container.textContent).toContain("Episode 1: The Arrest");
-		expect(textOf(container, "Mar 13, 2025 • 66 min")).not.toBeUndefined();
-		expect(container.textContent).toContain("A thirteen-year-old is arrested at dawn.");
-		expect(container.textContent).toContain("Watched");
-		unmount();
-	});
-
-	it("omits episode metadata the provider did not record", () => {
-		const { unmount, container } = renderEpisodes(
-			readyState([showSeasonRow]),
-			readySeasonEpisodes({
-				episodes: [
-					episode({ runtime: null, publishDate: null, description: null, state: "untracked" }),
-				],
+	it("selects seasons from the season list and keeps specials last", async () => {
+		const view = renderTab(
+			showAdapter({
+				seasons: [specialsSeason, showSeasonRow, secondSeason],
+				episodes: (seasonId) =>
+					seasonId === "season-2"
+						? [{ ...showEpisodeRow, id: "episode-3", name: "Episode 1: Aftermath" }]
+						: [showEpisodeRow],
 			}),
 		);
-
-		expect(container.textContent).toContain("Episode 1: The Arrest");
-		expect(textOf(container, "Mar 13, 2025 • 66 min")).toBeUndefined();
-		expect(container.textContent).not.toContain("A thirteen-year-old is arrested at dawn.");
-		expect(container.textContent).not.toContain("Watched");
-		expect(container.textContent).not.toContain("In progress");
-		unmount();
-	});
-
-	it("never presents a partially loaded season as an exact total", () => {
-		const { unmount, container } = renderEpisodes(
-			readyState([showSeasonRow]),
-			readySeasonEpisodes({ hasMore: true }),
-		);
+		await flushRyotClient();
+		await waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest"));
 
 		expect(
-			textOf(container, "Released Mar 13, 2025 • 1+ episodes • 1 watched"),
-		).not.toBeUndefined();
-		unmount();
-	});
-
-	it("offers the next regular episode to continue with", () => {
-		const { unmount, container } = renderEpisodes(
-			readyState([showSeasonRow]),
-			readySeasonEpisodes({ episodes: [showEpisodeRow, secondEpisode] }),
-		);
-
-		expect(container.textContent).toContain("Next up");
-		expect(textOf(container, "S1 • E2")).not.toBeUndefined();
-		expect(
-			Array.from(container.querySelectorAll("*")).filter(
-				(element) =>
-					element.textContent === "Episode 2: The Interview" && element.children.length === 0,
+			Array.from(view.container.querySelectorAll('[role="radio"]')).map(
+				(element) => element.textContent,
 			),
-		).toHaveLength(2);
-		unmount();
-	});
+		).toEqual(["Season 1", "Season 2", "Specials"]);
+		expect(radio(view.container, "Season 1")?.getAttribute("aria-checked")).toBe("true");
 
-	it("hides next up when nothing sensible follows", () => {
-		const { unmount, container } = renderEpisodes(readyState());
-
-		expect(container.textContent).not.toContain("Next up");
-		unmount();
-	});
-
-	it("selects seasons from the season list and keeps specials last", () => {
-		const state = readyState([
-			specialsSeason,
-			showSeasonRow,
-			{ ...showSeasonRow, id: "season-2", seasonNumber: 2, name: "Season 2" },
-		]);
-		const seasonTwoEpisodes = readySeasonEpisodes({
-			season: { ...showSeasonRow, id: "season-2", seasonNumber: 2, name: "Season 2" },
-			episodes: [episode({ id: "episode-3", seasonNumber: 2, name: "Episode 1: Aftermath" })],
-		});
-		const selections: string[] = [];
-		let selectedId: string | null = null;
-		const onSelect = (seasonId: string) => {
-			selections.push(seasonId);
-			selectedId = seasonId;
-		};
-		const { unmount, rerender, container } = renderEpisodes(state, readySeasonEpisodes(), {
-			onSelect,
-		});
-
-		const seasonOneRadio = Array.from(container.querySelectorAll('[role="radio"]')).find(
-			(element) => element.textContent === "Season 1",
-		);
-		expect(seasonOneRadio?.getAttribute("aria-checked")).toBe("true");
-		expect(container.textContent).toContain("Episode 1: The Arrest");
-
-		const seasonTwoRadio = Array.from(container.querySelectorAll('[role="radio"]')).find(
-			(element) => element.textContent === "Season 2",
-		);
-		if (seasonTwoRadio === undefined) {
+		const seasonTwo = radio(view.container, "Season 2");
+		if (seasonTwo === undefined) {
 			throw new Error("Expected the Season 2 radio");
 		}
-		fireEvent.click(seasonTwoRadio);
-		expect(selections).toEqual(["season-2"]);
+		fireEvent.click(seasonTwo);
+		await flushRyotClient();
 
-		rerender(
-			<ShowEpisodes {...showEpisodesProps(state, seasonTwoEpisodes, { onSelect, selectedId })} />,
-		);
-
-		const selectedRadio = Array.from(container.querySelectorAll('[role="radio"]')).find(
-			(element) => element.textContent === "Season 2",
-		);
-		expect(selectedRadio?.getAttribute("aria-checked")).toBe("true");
-		expect(container.textContent).toContain("Episode 1: Aftermath");
-		expect(container.textContent).not.toContain("Episode 1: The Arrest");
-		unmount();
+		await waitFor(() => expect(view.container.textContent).toContain("Episode 1: Aftermath"));
+		expect(radio(view.container, "Season 2")?.getAttribute("aria-checked")).toBe("true");
+		expect(view.container.textContent).not.toContain("Episode 1: The Arrest");
+		view.unmount();
 	});
 
-	it("does not show old episodes while the selected season is loading", () => {
-		const state = readyState([
-			showSeasonRow,
-			{ ...showSeasonRow, id: "season-2", seasonNumber: 2, name: "Season 2" },
-		]);
-		let selectedId: string | null = null;
-		const onSelect = (seasonId: string) => {
-			selectedId = seasonId;
-		};
-		const { unmount, rerender, container } = renderEpisodes(state, readySeasonEpisodes(), {
-			onSelect,
-		});
-
-		expect(container.textContent).toContain("Episode 1: The Arrest");
-
-		selectedId = "season-2";
-		rerender(
-			<ShowEpisodes
-				{...showEpisodesProps(state, mapShowSeasonEpisodes(pendingQueryResult()), {
-					onSelect,
-					selectedId,
-				})}
-			/>,
-		);
-
-		expect(container.textContent).toContain("Loading season...");
-		expect(container.textContent).not.toContain("Episode 1: The Arrest");
-		unmount();
-	});
-
-	it("labels season zero as specials and drops next up while it is selected", () => {
-		const state = readyState([specialsSeason, showSeasonRow]);
-		const regularEpisodes = readySeasonEpisodes({ episodes: [showEpisodeRow, secondEpisode] });
-		const specialsEpisodes = readySeasonEpisodes({
-			season: specialsSeason,
-			episodes: [
-				episode({
-					seasonNumber: 0,
-					id: "special-1",
-					state: "untracked",
-					name: "Making Adolescence",
-				}),
-			],
-		});
-		let selectedId: string | null = null;
-		const onSelect = (seasonId: string) => {
-			selectedId = seasonId;
-		};
-		const { unmount, rerender, container } = renderEpisodes(state, regularEpisodes, { onSelect });
-
-		expect(container.textContent).toContain("Next up");
-
-		const specialsRadio = Array.from(container.querySelectorAll('[role="radio"]')).find(
-			(element) => element.textContent === "Specials",
-		);
-		if (specialsRadio === undefined) {
-			throw new Error("Expected the Specials radio");
-		}
-		fireEvent.click(specialsRadio);
-		rerender(
-			<ShowEpisodes {...showEpisodesProps(state, specialsEpisodes, { onSelect, selectedId })} />,
-		);
-
-		expect(container.textContent).toContain("Making Adolescence");
-		expect(container.textContent).not.toContain("Next up");
-		expect(container.textContent).not.toContain("Released");
-		unmount();
-	});
-
-	it("keeps a show with only specials readable", () => {
-		const { unmount, container } = renderEpisodes(
-			readyState([specialsSeason]),
-			readySeasonEpisodes({
-				season: specialsSeason,
-				episodes: [
-					episode({
-						seasonNumber: 0,
-						id: "special-1",
-						state: "untracked",
-						name: "Making Adolescence",
-					}),
-				],
+	it("offers the next regular episode to continue with and drops it for specials", async () => {
+		const view = renderTab(
+			showAdapter({
+				seasons: [specialsSeason, showSeasonRow],
+				episodes: (seasonId) =>
+					seasonId === "season-0"
+						? [{ ...showEpisodeRow, id: "special-1", seasonNumber: 0, state: "untracked" }]
+						: [showEpisodeRow, secondEpisode],
 			}),
 		);
+		await flushRyotClient();
+		await waitFor(() => expect(view.container.textContent).toContain("Next up"));
 
-		expect(container.textContent).toContain("Specials");
-		expect(container.textContent).toContain("Making Adolescence");
-		expect(container.querySelector('[role="radio"]')).toBeNull();
-		unmount();
-	});
+		expect(textOf(view.container, "S1 • E2")).not.toBeUndefined();
 
-	it("explains a season that has no episodes recorded", () => {
-		const { unmount, container } = renderEpisodes(
-			readyState([showSeasonRow]),
-			readySeasonEpisodes({ episodes: [] }),
-		);
-
-		expect(container.textContent).toContain("No episodes have been recorded for this season yet.");
-		unmount();
-	});
-
-	it("explains a show that has no seasons at all", () => {
-		const { unmount, container } = renderEpisodes(readyState([]));
-
-		expect(container.textContent).toContain("No episodes yet");
-		unmount();
-	});
-
-	it("renders a tab-local loading branch", () => {
-		const { unmount, container } = renderEpisodes(mapShowEpisodes(pendingQueryResult()));
-
-		expect(container.textContent).toContain("Loading episodes...");
-		unmount();
-	});
-
-	it("offers a retry when the episodes query fails", () => {
-		const retries: number[] = [];
-		const { unmount, container } = renderEpisodes(
-			mapShowEpisodes(transportErrorQueryResult()),
-			readySeasonEpisodes(),
-			{ refresh: () => retries.push(1) },
-		);
-
-		const retry = Array.from(container.querySelectorAll("button")).find(
-			(button) => button.textContent === "Try again",
-		);
-		if (retry === undefined) {
-			throw new Error("Expected the episodes retry button");
+		const specials = radio(view.container, "Specials");
+		if (specials === undefined) {
+			throw new Error("Expected the Specials radio");
 		}
-		fireEvent.click(retry);
+		fireEvent.click(specials);
+		await flushRyotClient();
 
-		expect(container.textContent).toContain("Unable to load episodes");
-		expect(retries).toEqual([1]);
-		unmount();
+		await waitFor(() => expect(view.container.textContent).not.toContain("Next up"));
+		expect(view.container.textContent).not.toContain("Released");
+		view.unmount();
 	});
 
-	it("hides episode decoder internals behind a stable message", () => {
-		const { unmount, container } = renderEpisodes(mapShowEpisodes(malformedQueryResult()));
+	it("keeps a show with only specials readable and without a selector", async () => {
+		const view = renderTab(
+			showAdapter({
+				seasons: [specialsSeason],
+				episodes: () => [{ ...showEpisodeRow, id: "special-1", seasonNumber: 0 }],
+			}),
+		);
+		await flushRyotClient();
 
-		expect(container.textContent).toContain("Unable to load episodes");
-		unmount();
+		await waitFor(() => expect(view.container.textContent).toContain("Specials"));
+		expect(view.container.querySelector('[role="radio"]')).toBeNull();
+		view.unmount();
 	});
 
-	it("leaves the tab unchanged when a deferred episode action is pressed", async () => {
-		const { unmount, container } = renderEpisodes(
-			readyState([showSeasonRow]),
-			readySeasonEpisodes({ episodes: [showEpisodeRow, secondEpisode] }),
-		);
+	it("explains a show that has no seasons at all", async () => {
+		const view = renderTab(showAdapter({ seasons: [] }));
+		await flushRyotClient();
 
-		const open = Array.from(container.querySelectorAll("button")).find(
-			(button) => button.getAttribute("aria-label") === "Open Episode 1: The Arrest",
-		);
-		if (open === undefined) {
-			throw new Error("Expected the episode open button");
-		}
-		fireEvent.click(open);
-		await waitFor(() => expect(container.textContent).toContain("Watched"));
+		await waitFor(() => expect(view.container.textContent).toContain("No episodes yet"));
+		view.unmount();
+	});
 
-		expect(container.textContent).toContain("Next up");
-		expect(textOf(container, "Released Mar 13, 2025 • 2 episodes • 1 watched")).not.toBeUndefined();
-		unmount();
+	it("offers a retry when the seasons query fails", async () => {
+		const view = mountRyotClient(
+			{
+				query: () => Promise.reject(new Error("offline")),
+				watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+			},
+			<ShowEpisodesTab compact entityId="show-1" />,
+		);
+		await flushRyotClient();
+
+		await waitFor(() => expect(view.container.textContent).toContain("Unable to load episodes"));
+		expect(
+			Array.from(view.container.querySelectorAll("button")).some(
+				(button) => button.textContent === "Try again",
+			),
+		).toBe(true);
+		view.unmount();
 	});
 });

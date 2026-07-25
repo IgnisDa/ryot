@@ -76,6 +76,13 @@ export const showEpisodicKindConfig = {
 	seasonEpisodeRelationshipSlug: "show-season-to-show-episode",
 } as const satisfies EpisodicKindConfig;
 
+export const podcastEpisodicKindConfig = {
+	kind: "podcast",
+	parentSchemaSlug: "podcast",
+	episodeSchemaSlug: "podcast-episode",
+	parentEpisodeRelationshipSlug: "podcast-to-podcast-episode",
+} as const satisfies EpisodicKindConfig;
+
 export type EventOrderExpressions = {
 	readonly id: ScalarExpression;
 	readonly createdAt: ScalarExpression;

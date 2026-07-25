@@ -40,6 +40,7 @@ import {
 	relationshipConnects,
 	type EpisodicKindConfig,
 	type EventOrderExpressions,
+	type podcastEpisodicKindConfig,
 	type ScalarExpression,
 	type showEpisodicKindConfig,
 	type TableReference,
@@ -120,13 +121,6 @@ export const EpisodicLifecycleSnapshotSchema = Schema.Struct({
 });
 
 export type EpisodicLifecycleSnapshot = Schema.Schema.Type<typeof EpisodicLifecycleSnapshotSchema>;
-
-export const podcastEpisodicKindConfig = {
-	kind: "podcast",
-	parentSchemaSlug: "podcast",
-	episodeSchemaSlug: "podcast-episode",
-	parentEpisodeRelationshipSlug: "podcast-to-podcast-episode",
-} as const satisfies EpisodicKindConfig;
 
 const eventOrderAscending = (event: TableReference) =>
 	eventOrderDescending(event).map(({ expr }) => ascending(expr));
