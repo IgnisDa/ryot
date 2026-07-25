@@ -97,6 +97,23 @@ above covers query, provider, write, workflow, Redis, database, and sandbox path
 that unrelated timeout. This waiver does not claim a production-size throughput result and does not
 remove the final Phase 1 operational gate.
 
+### Synthetic tracer comparison (2026-08-06)
+
+Task 02 reran the same warm hermetic harness after adding the universal durable synthetic tracer. The
+controlled endpoint still added two sequential 25-ms delays. Three warm-ups preceded 15 measured
+runs on the same Apple M4, 16-GiB host and Bun 1.3.14 configuration used for the baseline.
+
+| Workload                            | Submission-to-terminal p50 / p95 | Ryot orchestration p50 / p95 | Sandbox execution p50 / p95 | Executions / body replays / module loads | Workflow / Redis observation        |
+| ----------------------------------- | -------------------------------: | ---------------------------: | --------------------------: | ---------------------------------------: | ----------------------------------- |
+| Standard controlled HTTP provider   |                     253 / 471 ms |                 203 / 421 ms |                103 / 154 ms |                                1 / 1 / 1 | 0 projections; high-water 0         |
+| Durable controlled HTTP provider    |                   858 / 1,352 ms |               808 / 1,302 ms |                         n/a |                                3 / 3 / 3 | 1 projection key; high-water 2      |
+
+The durable p95 was `2.87x` and `881 ms` above its same-run standard comparator. The interactive
+provider guardrail requires both greater than `3x` and more than `1 second`, so it did not trigger.
+The three executions are the expected initial replay, replay after the first durable HTTP boundary,
+and terminal replay after the second boundary. Catalog migration remains blocked until the Youtubei
+tracer in Task 03 passes its replay and benchmark gates.
+
 ## 1. Establish the Two Tracers
 
 Build the runtime against two deliberately small reference paths before migrating the catalog.

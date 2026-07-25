@@ -7,13 +7,14 @@ import {
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import {
+	type WorkflowDurableResult,
 	type WorkflowReplayEnvelope,
 	workflowDurableCallRequestSchema,
 	workflowReplayEnvelopeSchema,
 	type WorkflowDurableCallRequest,
 } from "@ryot/sandbox-sdk/workflow";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { Cause, Duration, Effect, Schema } from "effect";
+import { Cause, Clock, DateTime, Duration, Effect, Schema } from "effect";
 import { Activity, DurableClock, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -21,12 +22,18 @@ import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
 import { SandboxHarvestHandleStore } from "#lib/infrastructure/sandbox-runtime/harvest-handles";
 import {
+	jsonByteLength,
+	SANDBOX_LIMITS,
+	WORKFLOW_SANDBOX_LIMITS,
+} from "#lib/infrastructure/sandbox-runtime/limits";
+import {
 	hashWorkflowCallArgs,
 	projectWorkflowJournal,
 	type WorkflowJournalEntry,
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 
+import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { processSandboxExecutionQueue, resolveSandboxExecutionPayload } from "./durable-queues";
 import type { SandboxExecutionResult } from "./execution-result";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
@@ -34,16 +41,19 @@ import { SandboxRepository } from "./repository";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
 export const SANDBOX_WORKFLOW_MAX_STEPS = 1_000;
+const SANDBOX_WORKFLOW_MAX_PROJECTION_RETRIES = 3;
 
 const SandboxWorkflowPin = Schema.Struct({
+	startedAt: Schema.String,
 	scriptId: SandboxScriptId,
 	contentHash: Schema.String,
 	pluginSlug: Schema.NullOr(Schema.String),
 });
 
 const ObservedWorkflowReplay = Schema.Union([
-	Schema.Struct({ output: jsonValueSchema, state: Schema.Literal("completed") }),
+	Schema.Struct({ state: Schema.Literal("projection-stale") }),
 	Schema.Struct({ error: Schema.String, state: Schema.Literal("failed") }),
+	Schema.Struct({ output: jsonValueSchema, state: Schema.Literal("completed") }),
 	Schema.Struct({
 		state: Schema.Literal("pending"),
 		requests: Schema.Array(
@@ -61,6 +71,7 @@ export const SandboxScriptWorkflowPayload = Schema.Struct({
 	scriptId: SandboxScriptId,
 	executionId: Schema.String,
 	authority: ExecutionAuthority,
+	startedAt: Schema.optional(Schema.String),
 	grants: Schema.optional(SandboxExecutionGrants),
 	resolutionMode: Schema.Literals(["active", "exact"]),
 });
@@ -181,6 +192,14 @@ export const validateWorkflowReplayEnvelope = (
 		}
 	}
 
+	if (
+		envelope.state === "pending" &&
+		envelope.journalLength !== undefined &&
+		envelope.journalLength < journal.length &&
+		envelope.requests.length > envelope.journalLength
+	) {
+		return Effect.succeed({ state: "projection-stale" as const });
+	}
 	if (envelope.requests.length < journal.length) {
 		const entry = journal[envelope.requests.length];
 		return Effect.fail(
@@ -246,8 +265,12 @@ const observeWorkflowReplay = (
 						repository.resolveWorkflowCallScript(workflowScriptId, request),
 					);
 					if (
+						request.kind !== "host" &&
 						request.kind !== "sleep" &&
-						!(request.kind === "child" && request.args.workflowSlug.startsWith("kernel:")) &&
+						!(
+							(request.kind === "child" || request.kind === "workflow-child") &&
+							request.args.workflowSlug.startsWith("kernel:")
+						) &&
 						targetScriptId === null
 					) {
 						return yield* sandboxFailure(
@@ -281,6 +304,10 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 		});
 		return null;
 	}
+	if (request.kind === "host") {
+		const dispatcher = yield* SandboxDurableHostDispatcher;
+		return yield* dispatcher.dispatch(request, payload, executionId, requestIndex);
+	}
 
 	if (request.kind === "activity") {
 		return yield* performSandboxWorkflowActivity(
@@ -292,13 +319,24 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 			processSandbox,
 		);
 	}
-	return yield* performSandboxWorkflowChild(
-		request,
-		targetScriptId,
-		payload,
-		executionId,
-		requestIndex,
+	const child = yield* Effect.exit(
+		performSandboxWorkflowChild(request, targetScriptId, payload, executionId, requestIndex),
 	);
+	if (request.kind === "child") {
+		return child._tag === "Success" ? child.value : yield* Effect.failCause(child.cause);
+	}
+	if (
+		child._tag === "Failure" &&
+		(Cause.hasDies(child.cause) || Cause.hasInterrupts(child.cause))
+	) {
+		return yield* Effect.failCause(child.cause);
+	}
+	return child._tag === "Success"
+		? ({ state: "success", value: child.value } satisfies WorkflowDurableResult)
+		: ({
+				state: "failure",
+				error: { message: unknownToMessage(child.cause) },
+			} satisfies WorkflowDurableResult);
 });
 
 export const performSandboxWorkflowActivity = Effect.fn("performSandboxWorkflowActivity")(
@@ -328,7 +366,7 @@ export const performSandboxWorkflowActivity = Effect.fn("performSandboxWorkflowA
 );
 
 export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChild")(function* (
-	request: Extract<WorkflowDurableCallRequest, { readonly kind: "child" }>,
+	request: Extract<WorkflowDurableCallRequest, { readonly kind: "child" | "workflow-child" }>,
 	targetScriptId: SandboxScriptId | undefined,
 	payload: SandboxScriptWorkflowPayload,
 	executionId: string,
@@ -378,13 +416,14 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		error: SandboxRunError,
 		success: SandboxWorkflowPin,
 		name: "pin-sandbox-workflow-script",
-		execute: establishSandboxWorkflowPin(payload, executionId).pipe(
-			Effect.map(({ scriptId, contentHash, pluginSlug }) => ({
-				scriptId,
-				pluginSlug,
-				contentHash,
-			})),
-		),
+		execute: Effect.gen(function* () {
+			const startedAt = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
+			const { scriptId, contentHash, pluginSlug } = yield* establishSandboxWorkflowPin(
+				payload,
+				executionId,
+			);
+			return { scriptId, startedAt, pluginSlug, contentHash };
+		}),
 	});
 
 	const releaseReference = Activity.make({
@@ -403,17 +442,28 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 
 	return yield* Effect.gen(function* () {
 		const journal: WorkflowJournalEntry[] = [];
+		let journalBytes = 2;
+		let projectionRetries = 0;
 		for (let step = 0; journal.length <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {
 			yield* projectWorkflowJournal(executionId, journal);
 			const replayExecutionId = `${executionId}-replay-${step}`;
 			const replay = yield* processReplay({
 				context: payload.input,
 				scriptId: pin.scriptId,
+				startedAt: pin.startedAt,
 				authority: payload.authority,
 				executionId: replayExecutionId,
 				workflowExecutionId: executionId,
 				...(payload.grants ? { grants: payload.grants } : {}),
 			});
+			yield* Effect.forEach(
+				replay.logs,
+				(message) =>
+					Effect.logInfo(message).pipe(
+						Effect.annotateLogs({ replayStep: step, sandboxWorkflowExecutionId: executionId }),
+					),
+				{ discard: true },
+			);
 			if (replay.error) {
 				return yield* sandboxFailure(
 					`Workflow replay ${step} failed: ${replay.error.phase}: ${replay.error.message}`,
@@ -426,6 +476,15 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			if (observed.state === "completed") {
 				return observed.output;
 			}
+			if (observed.state === "projection-stale") {
+				projectionRetries += 1;
+				if (projectionRetries > SANDBOX_WORKFLOW_MAX_PROJECTION_RETRIES) {
+					return yield* sandboxFailure(
+						`Sandbox workflow projection remained stale after ${SANDBOX_WORKFLOW_MAX_PROJECTION_RETRIES} retries`,
+					);
+				}
+				continue;
+			}
 			if (journal.length + observed.requests.length > SANDBOX_WORKFLOW_MAX_STEPS) {
 				break;
 			}
@@ -435,12 +494,12 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 					performSandboxWorkflowRequest(
 						request,
 						targetScriptId,
-						{ ...payload, scriptId: pin.scriptId },
+						{ ...payload, scriptId: pin.scriptId, startedAt: pin.startedAt },
 						executionId,
 						request.index,
 						processReplay,
 					),
-				{ concurrency: "unbounded" },
+				{ concurrency: SANDBOX_LIMITS.bridge.concurrentHostCalls },
 			);
 			for (let index = 0; index < observed.requests.length; index += 1) {
 				const observedRequest = observed.requests[index];
@@ -450,7 +509,28 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 						"Sandbox workflow durable batch returned incomplete results",
 					);
 				}
-				journal.push({ value, request: observedRequest.request });
+				const journalValue = yield* Schema.decodeUnknownEffect(jsonValueSchema)(value).pipe(
+					Effect.mapError((error) =>
+						sandboxFailure(
+							`Sandbox workflow durable result is invalid: ${unknownToMessage(error)}`,
+						),
+					),
+				);
+				const entryBytes = jsonByteLength({
+					value: journalValue,
+					request: observedRequest.request,
+				});
+				if (
+					entryBytes === null ||
+					journalBytes + entryBytes + (journal.length === 0 ? 0 : 1) >
+						WORKFLOW_SANDBOX_LIMITS.journalBytes
+				) {
+					return yield* sandboxFailure(
+						`Sandbox workflow durable journal exceeds ${WORKFLOW_SANDBOX_LIMITS.journalBytes} UTF-8 bytes`,
+					);
+				}
+				journalBytes += entryBytes + (journal.length === 0 ? 0 : 1);
+				journal.push({ value: journalValue, request: observedRequest.request });
 			}
 		}
 

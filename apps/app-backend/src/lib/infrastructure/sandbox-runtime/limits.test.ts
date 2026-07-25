@@ -32,7 +32,12 @@ describe("sandbox limits", () => {
 			observability: { entryBytes: 8_192, entryCount: 500, totalBytes: 262_144 },
 			http: { requestBytes: 1_048_576, responseBytes: 10_485_760, timeoutMs: 8_000 },
 			userRelationshipWrites: { batches: 50, changesTotal: 500, changesPerBatch: 100 },
-			bridge: { concurrentHostCalls: 4, requestBytes: 1_048_576, responseBytes: 10_485_760 },
+			bridge: {
+				concurrentHostCalls: 4,
+				requestBytes: 1_048_576,
+				responseBytes: 10_485_760,
+				durableResponseBytes: 105_906_176,
+			},
 			globalWrites: {
 				entityItems: 500,
 				relationshipGroups: 50,
@@ -120,6 +125,7 @@ describe("sandbox limits", () => {
 	it("applies the distinct workflow execution profile without changing activity limits", () => {
 		expect(WORKFLOW_SANDBOX_LIMITS).toEqual({
 			timeoutMs: 30_000,
+			journalBytes: 104_857_600,
 			hostCalls: { http: 0, total: 1_000 },
 			execution: { contextBytes: 65_536, resultBytes: 4_194_304 },
 		});
