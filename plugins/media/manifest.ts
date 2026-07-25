@@ -627,7 +627,6 @@ export const mediaPlugin = definePlugin({
 		name: "Media",
 		slug: "media",
 		version: "1.0.0",
-		accentColor: "#5B7FFF",
 		description:
 			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
 	},

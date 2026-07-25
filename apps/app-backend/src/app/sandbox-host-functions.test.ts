@@ -622,7 +622,6 @@ const runEnsureUserEntities = (options: {
 						eventSchemas: {},
 						slug: "workspace",
 						name: "Workspace",
-						accentColor: "blue",
 						mergeIdentityProperties: [],
 						propertiesSchema: { fields: {} },
 						pluginSlug: options.schemaPluginSlug ?? "media",

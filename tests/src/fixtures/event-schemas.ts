@@ -49,7 +49,6 @@ export const createEventSchema = (client: Client, body: CreateEventSchemaOptions
 					icon: entitySchema.icon,
 					name: entitySchema.name,
 					slug: entitySchema.slug,
-					accentColor: entitySchema.accentColor,
 					propertiesSchema: entitySchema.propertiesSchema,
 					eventSchemas: [
 						...entitySchema.eventSchemas.filter((schema) => schema.slug !== body.slug),

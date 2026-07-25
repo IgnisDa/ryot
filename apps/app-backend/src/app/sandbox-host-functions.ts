@@ -433,7 +433,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 											}
 
 											return schemas.map(({ definition, entitySchemaSlug, pluginSlug }) => ({
-												accentColor: definition.accentColor,
 												icon: definition.icon,
 												id: entitySchemaSlug,
 												isBuiltin: true,

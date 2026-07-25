@@ -22,7 +22,6 @@ export const savedView = pgTable(
 		slug: text().notNull(),
 		name: text().notNull(),
 		icon: text().notNull(),
-		accentColor: text().notNull(),
 		sortOrder: integer().notNull().default(0),
 		isBuiltin: boolean().notNull().default(false),
 		isDisabled: boolean().notNull().default(false),

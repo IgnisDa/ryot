@@ -43,7 +43,6 @@ const registry = makeDefinitionRegistry({
 			name: "Book",
 			pluginSlug: "test",
 			slug: entitySchemaSlug,
-			accentColor: "#000000",
 			propertiesSchema: { fields: {} },
 			eventSchemas: [
 				{
