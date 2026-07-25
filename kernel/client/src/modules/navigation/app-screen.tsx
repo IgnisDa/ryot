@@ -1,9 +1,9 @@
 import { ScreenFrame } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useRef, type ReactNode } from "react";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { useEdge, useShellChrome } from "#/modules/navigation/authenticated-shell";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";

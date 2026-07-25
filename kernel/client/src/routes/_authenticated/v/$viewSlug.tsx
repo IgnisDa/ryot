@@ -8,6 +8,7 @@ import {
 	SegmentedControl,
 	useShortcut,
 } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { SavedViewLayoutName } from "@ryot-app/contract/modules/saved-views/schemas";
 import type {
 	SavedViewCardResultItem,
@@ -19,7 +20,6 @@ import { Effect } from "effect";
 import { type ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 
 import { collectManagedAssets, ManagedAssetsService } from "#/modules/assets/managed-assets";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { AppScreen } from "#/modules/navigation/app-screen";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";

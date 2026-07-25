@@ -1,5 +1,6 @@
 import { useRyot } from "@ryot-app/client-sdk/react";
 import { Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import type { ImportRunDetail } from "@ryot-app/ryotql-recipes/import-runs";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
@@ -16,7 +17,6 @@ import {
 } from "#/modules/imports/run-presentation";
 import { IMPORT_FAILURES_PAGE_SIZE, ImportsService } from "#/modules/imports/service";
 import { importSourceNames } from "#/modules/imports/source-selection";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
 import {

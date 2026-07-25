@@ -1,8 +1,8 @@
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useState, useSyncExternalStore } from "react";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { Avatar } from "#/modules/navigation/avatar";
 import { SettingsSection } from "#/modules/settings/settings-section";
 

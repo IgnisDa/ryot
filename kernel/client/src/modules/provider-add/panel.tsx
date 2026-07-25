@@ -1,4 +1,5 @@
 import { Button, Chip, RadioGroup, StatusMessage, useFieldEscape } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import {
 	initialSchemaFormValues,
 	SchemaForm,
@@ -21,7 +22,6 @@ import clsx from "clsx";
 import { Match } from "effect";
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
 import {
 	createProviderEntityImportState,
 	type ProviderEntityImportEntry,

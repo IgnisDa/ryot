@@ -42,6 +42,7 @@
 		"@types/react-dom": "^19.2.0",
 		"clsx": "2.1.1",
 		"effect": "4.0.0-rc.111",
+		"lucide-react": "^1.37.0",
 		"postcss": "^8.5.26",
 		"postcss-value-parser": "^4.2.0",
 		"react": "^19.2.0",

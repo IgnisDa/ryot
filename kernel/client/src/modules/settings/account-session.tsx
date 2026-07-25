@@ -1,11 +1,11 @@
 import { StatusMessage } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 
 import type { ServerOrigin } from "#/api/origin";
 import { AuthService } from "#/modules/auth/service";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { SettingsSection } from "#/modules/settings/settings-section";
 import type { ClientRuntime } from "#/runtime";
 

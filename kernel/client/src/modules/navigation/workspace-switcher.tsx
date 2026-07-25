@@ -1,4 +1,5 @@
 import { OverlayScope, useDismissOnOutside, useShortcut } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -6,7 +7,6 @@ import type {
 import clsx from "clsx";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { visibleWorkspaces } from "#/modules/navigation/workspace-state";
 
 type WorkspaceSwitcherProps = {
