@@ -197,6 +197,19 @@ describe("settings navigation", () => {
 		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
 	});
 
+	it("frames a desktop settings page with the title in content and no back control", async () => {
+		const restore = stubDesktopMatchMedia();
+		try {
+			mountView("/settings/account");
+			const heading = await screen.findByRole("heading", { level: 1, name: "Account" });
+
+			expect(heading.closest("header")).toBeNull();
+			expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
+		} finally {
+			restore();
+		}
+	});
+
 	it("returns to the previous entry when back is used after navigating into a detail route", async () => {
 		const view = mountView(["/fixture", "/settings"]);
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
