@@ -14,6 +14,7 @@ import { databaseLayer, type MockOverrides } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { SavedViewsRepository } from "./repository";
 import { SavedViewsService } from "./service";
@@ -54,13 +55,14 @@ const layouts = {
 	},
 } satisfies SavedViewLayouts;
 
-const baseView: ListedSavedView = {
+const baseView: ListedSavedView & { readonly pluginInstallationId: string | null } = {
 	layouts,
 	icon: "book",
 	sortOrder: 0,
 	slug: "my-view",
 	name: "My View",
 	pluginSlug: null,
+	pluginInstallationId: null,
 	isBuiltin: false,
 	isDisabled: false,
 	entitySchemaSlug: null,
@@ -190,7 +192,7 @@ it.effect("preserves omitted layouts when updating a non-built-in view", () => {
 					const updated = {
 						...baseView,
 						...data,
-						pluginSlug: data.pluginSlug ?? null,
+						pluginSlug: data.pluginInstallationId ? PluginSlug.make("private-plugin") : null,
 						sortOrder: data.sortOrder ?? baseView.sortOrder,
 					};
 					stored = updated;
@@ -274,7 +276,7 @@ it.effect("updates and reorders while preserving each layout set", () => {
 						...baseView,
 						...data,
 						slug,
-						pluginSlug: data.pluginSlug ?? null,
+						pluginSlug: data.pluginInstallationId ? PluginSlug.make("plugin-a") : null,
 						sortOrder: data.sortOrder ?? baseView.sortOrder,
 					};
 				}),
@@ -320,7 +322,7 @@ it.effect("reorders only saved views in the requested scope", () => {
 						...baseView,
 						...data,
 						slug,
-						pluginSlug: data.pluginSlug ?? null,
+						pluginSlug: data.pluginInstallationId ? PluginSlug.make("plugin-a") : null,
 						sortOrder: data.sortOrder ?? baseView.sortOrder,
 					};
 				}),
@@ -413,12 +415,24 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 							return {
 								...baseView,
 								...data,
-								pluginSlug: data.pluginSlug ?? null,
+								pluginSlug: data.pluginInstallationId ? PluginSlug.make("private-plugin") : null,
 								sortOrder: data.sortOrder ?? baseView.sortOrder,
 							};
 						}),
 				}),
 				Layer.mock(PluginRuntimeResolver)({
+					listPluginsAvailableToUser: () =>
+						Effect.succeed([
+							{
+								id: pluginId,
+								config: {},
+								scope: "user",
+								manifest: fixtureManifest(),
+								compiledHashes: {},
+								slug: "private-plugin",
+								installationId,
+							},
+						]),
 					getEffectiveDefinitions: (_userId, includeUnavailable) => {
 						includeUnavailableCalls.push(includeUnavailable ?? false);
 						return Effect.succeed(definitions);
@@ -453,6 +467,7 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 		yield* service.update(user, baseView.slug, {
 			...createBody,
 			isDisabled: false,
+			pluginSlug: PluginSlug.make("private-plugin"),
 			entitySchemaSlug: EntitySchemaSlug.make("book"),
 		});
 		expect(installedViews).toMatchObject([
@@ -460,7 +475,11 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 		]);
 		expect(includeUnavailableCalls).toContain(true);
 		expect(updatedViews).toMatchObject([
-			{ entitySchemaSlug: "book", entitySchemaPluginId: pluginId },
+			{
+				entitySchemaSlug: "book",
+				entitySchemaPluginId: pluginId,
+				pluginInstallationId: installationId,
+			},
 		]);
 	}).pipe(Effect.provide(layer));
 });

@@ -12,7 +12,7 @@ type PluginRelationshipSchema = ContractPayload<
 	"install"
 >["manifest"]["relationshipSchemas"][number];
 
-export type CreateRelationshipSchemaOptions = Pick<PluginRelationshipSchema, "name" | "slug"> &
+type CreateRelationshipSchemaOptions = Pick<PluginRelationshipSchema, "name" | "slug"> &
 	Partial<
 		Pick<
 			PluginRelationshipSchema,

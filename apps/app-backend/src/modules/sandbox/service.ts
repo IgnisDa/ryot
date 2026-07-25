@@ -163,13 +163,20 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 
 			const resolveWorkflowScript = Effect.fn("SandboxExecutionService.resolveWorkflowScript")(
 				function* (
-					input: { userId: UserId; pluginId: string; executionId: string; workflowSlug: string },
+					input: {
+						userId: UserId;
+						pluginId: string;
+						executionId: string;
+						workflowSlug: string;
+						pluginInstallationId: string;
+					},
 					resolution: ReturnType<
 						SandboxPluginScriptResolverValue["findWorkflowScriptAvailableToUser"]
 					> = pluginScriptResolver.findWorkflowScriptAvailableToUser(
 						input.userId,
 						input.pluginId,
 						input.workflowSlug,
+						input.pluginInstallationId,
 					),
 				) {
 					return yield* Activity.make({
@@ -284,19 +291,22 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 			const enqueuePluginWorkflow = Effect.fn("SandboxExecutionService.enqueuePluginWorkflow")(
 				function* (input: {
 					input: JsonValue;
-					pluginSlug: string;
+					pluginId: string;
 					executionId: string;
 					workflowSlug: string;
 					executingUserId: UserId;
+					pluginInstallationId: string;
 				}) {
 					const contextError = sandboxContextError(input.input);
 					if (contextError) {
 						return yield* new SandboxRunError({ message: contextError });
 					}
-					const script = yield* pluginScriptResolver.findActiveWorkflowScript({
-						pluginSlug: input.pluginSlug,
-						workflowSlug: input.workflowSlug,
-					});
+					const script = yield* pluginScriptResolver.findWorkflowScriptAvailableToUser(
+						input.executingUserId,
+						input.pluginId,
+						input.workflowSlug,
+						input.pluginInstallationId,
+					);
 					if (!script) {
 						return yield* notFound(sandboxScriptNotFoundError);
 					}
@@ -307,7 +317,11 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						resolutionMode: "active" as const,
 						authority: { type: "user" as const, userId: input.executingUserId },
 					};
-					const pin = yield* establishSandboxWorkflowPin(payload, input.executionId).pipe(
+					const pin = yield* establishSandboxWorkflowPin(
+						payload,
+						input.executionId,
+						input.pluginId,
+					).pipe(
 						Effect.provideService(SandboxRepository, repository),
 						Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
 						Effect.provideService(SandboxWorkflowReferenceRepository, workflowReferences),

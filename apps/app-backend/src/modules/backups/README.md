@@ -83,9 +83,10 @@ statement; per-event reference rewriting and property validation stay per-event.
 Restore persists private packages and installation identities without lifecycle dispatch. The rows
 remain unavailable until commit. Complete installations become ready with their archived disabled
 intent; installations missing redacted required secrets become `needs-configuration`. Integration
-rows retain installation-qualified provenance, and integrations missing required secrets are restored
-disabled. Source files are user-authored data and may contain credentials; only manifest config and
-integration settings fields can be redacted.
+rows and plugin-scoped custom saved views retain package-key provenance that restores to the exact
+installation. Integrations missing required secrets are restored disabled. Source files are
+user-authored data and may contain credentials; only manifest config and integration settings fields
+can be redacted.
 
 ## Error fidelity
 

@@ -89,7 +89,9 @@ const makeLayer = (input?: {
 	readonly removedGenerated?: Array<string>;
 	readonly hasDefinitionReferences?: boolean;
 	readonly hasIntegrationReferences?: boolean;
+	readonly hasSavedViewReferences?: boolean;
 	readonly integrationFences?: Array<unknown>;
+	readonly savedViewFences?: Array<unknown>;
 	readonly privatePlugins?: Array<StoredPlugin>;
 	readonly created?: Array<Record<string, unknown>>;
 	readonly updated?: Array<Record<string, unknown>>;
@@ -163,6 +165,11 @@ const makeLayer = (input?: {
 	});
 	const definitionMaterializerLayer = Layer.succeed(PluginDefinitionMaterializer, {
 		materialize: (owner) => input?.materialize?.(owner) ?? Effect.void,
+		hasCustomSavedViewReferences: (ownerId, installationId) =>
+			Effect.sync(() => {
+				input?.savedViewFences?.push({ installationId, userId: ownerId });
+				return input?.hasSavedViewReferences ?? false;
+			}),
 		removeGenerated: (installationId) =>
 			Effect.sync(() => void input?.removedGenerated?.push(installationId)),
 	});
@@ -766,6 +773,33 @@ it.effect("keeps a referenced private plugin installed", () => {
 				deactivated,
 				installations,
 				hasWorkflowReferences: true,
+				privatePlugins: [privatePlugin],
+			}),
+		),
+	);
+});
+
+it.effect("keeps a private plugin with custom views installed", () => {
+	const deactivated: Array<string> = [];
+	const savedViewFences: Array<unknown> = [];
+	const privatePlugin = storedPrivatePlugin(privateManifest());
+	const installations = [installationRow({ pluginId: privatePlugin.id })];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const failure = failureOf(
+			yield* Effect.exit(service.uninstallPlugin(userId, privatePlugin.slug)),
+		);
+		assert(failure instanceof PluginConflictError);
+		expect(failure.reason.code).toBe("saved-view-referenced");
+		expect(savedViewFences).toEqual([{ installationId: installations[0]?.id, userId }]);
+		expect(deactivated).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				deactivated,
+				installations,
+				savedViewFences,
+				hasSavedViewReferences: true,
 				privatePlugins: [privatePlugin],
 			}),
 		),

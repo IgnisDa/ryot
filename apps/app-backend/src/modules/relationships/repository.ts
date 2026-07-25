@@ -51,6 +51,7 @@ type RestoreRelationshipInput = Pick<
 
 export type GlobalRelationshipListInput = {
 	relationshipSchemaSlug: RelationshipSchemaSlug;
+	relationshipSchemaPluginId?: string | null | undefined;
 } & (
 	| { type: "self" }
 	| {
@@ -98,14 +99,10 @@ const toSavedRelationship = (row: RelationshipRow) => ({
 	wasInserted: row.wasInserted,
 });
 
-const relationshipSchemaPluginWhere = (pluginId: string | null | undefined) => {
-	if (pluginId === undefined) {
-		return undefined;
-	}
-	return pluginId === null
+const relationshipSchemaPluginWhere = (pluginId: string | null | undefined) =>
+	pluginId == null
 		? isNull(schema.relationship.relationshipSchemaPluginId)
 		: eq(schema.relationship.relationshipSchemaPluginId, pluginId);
-};
 
 const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
 	input.scope === "user"
@@ -125,13 +122,14 @@ const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
 			);
 
 const globalRelationshipConflictColumns = [
+	schema.relationship.userId,
 	schema.relationship.sourceEntityId,
 	schema.relationship.targetEntityId,
 	schema.relationship.relationshipSchemaSlug,
+	schema.relationship.relationshipSchemaPluginId,
 ];
 
 const globalRelationshipConflictDoNothingTarget = {
-	where: isNull(schema.relationship.userId),
 	target: globalRelationshipConflictColumns,
 };
 
@@ -141,6 +139,7 @@ const userRelationshipConflictTarget = {
 		schema.relationship.sourceEntityId,
 		schema.relationship.targetEntityId,
 		schema.relationship.relationshipSchemaSlug,
+		schema.relationship.relationshipSchemaPluginId,
 	],
 };
 
@@ -154,6 +153,7 @@ const globalRelationshipWhere = (input: GlobalRelationshipListInput) =>
 		? and(
 				isNull(schema.relationship.userId),
 				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
+				relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
 				eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId),
 			)
 		: and(
@@ -165,12 +165,13 @@ const globalRelationshipWhere = (input: GlobalRelationshipListInput) =>
 					input.anchorEntityId,
 				),
 				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
+				relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
 			);
 
 const globalRelationshipLockKey = (input: GlobalRelationshipListInput) =>
 	input.type === "self"
-		? `self:${input.relationshipSchemaSlug}`
-		: `anchored:${input.direction}:${input.anchorEntityId}:${input.relationshipSchemaSlug}`;
+		? `self:${input.relationshipSchemaSlug}:${input.relationshipSchemaPluginId ?? "kernel"}`
+		: `anchored:${input.direction}:${input.anchorEntityId}:${input.relationshipSchemaSlug}:${input.relationshipSchemaPluginId ?? "kernel"}`;
 
 export class RelationshipsRepository extends Context.Service<RelationshipsRepository>()(
 	"RelationshipsRepository",
@@ -208,6 +209,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				sourceEntityId: EntityId;
 				targetEntityId: EntityId;
 				relationshipSchemaSlug: RelationshipSchemaSlug;
+				relationshipSchemaPluginId?: string | null | undefined;
 			}) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(

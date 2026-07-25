@@ -105,10 +105,11 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					yield* sandbox
 						.enqueuePluginWorkflow({
 							executionId,
-							pluginSlug: input.pluginSlug,
+							pluginId: installation.id,
 							input: { items: packedItems },
 							workflowSlug: input.workflowSlug,
 							executingUserId: input.executingUserId,
+							pluginInstallationId: installation.installationId,
 						})
 						.pipe(
 							Effect.catchTag(

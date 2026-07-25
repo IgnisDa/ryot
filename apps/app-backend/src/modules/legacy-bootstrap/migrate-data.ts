@@ -92,7 +92,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const gate = yield* legacyBootstrapGate;
 	const startedAtMs = yield* Clock.currentTimeMillis;
 	if (!gate) {
-		return;
+		return yield* Effect.void;
 	}
 
 	let reportSequence = yield* withReservedConnection(getLatestReportSequence);
@@ -551,4 +551,5 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	yield* Effect.logInfo("legacy data migration finished").pipe(
 		Effect.annotateLogs({ elapsedSeconds }),
 	);
+	return yield* Effect.void;
 });
