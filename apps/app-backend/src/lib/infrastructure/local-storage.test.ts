@@ -10,8 +10,9 @@ import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 import { LocalStorageService } from "./local-storage";
 
-const ROOT = "/tmp/ryot-local-storage-test";
 const key = "permanent/object.txt";
+const ROOT = "/tmp/ryot-local-storage-test";
+const TEMP_ROOT = "/tmp/ryot-local-storage-temp-test";
 
 const makeLayer = () => {
 	const platform = BunServices.layer;
@@ -20,6 +21,7 @@ const makeLayer = () => {
 			Layer.mergeAll(
 				makeAppConfigLayer({
 					fileStorage: {
+						localTempDir: TEMP_ROOT,
 						localDir: Option.some(ROOT),
 						localSigningSecret: Option.some(Redacted.make("local-test-secret")),
 					},
@@ -86,6 +88,22 @@ it.effect("streams local objects through a staged file and deletes them idempote
 		expect(Number(info.size)).toBe(body.byteLength);
 		yield* localStorage.deleteObject(key);
 		yield* localStorage.deleteObject(key);
+	}).pipe(Effect.provide(makeLayer())),
+);
+
+it.effect("keeps temporary objects beneath the local working directory", () =>
+	Effect.gen(function* () {
+		const temporaryKey = "temporary/object.csv";
+		const localStorage = yield* LocalStorageService;
+		const body = new TextEncoder().encode("temporary data");
+		yield* localStorage.writeObject(temporaryKey, Stream.make(body), String(body.byteLength));
+		expect(yield* localStorage.resolveObjectPath(temporaryKey)).toMatch(
+			/\/temporary\/object\.csv$/,
+		);
+		yield* localStorage.deleteObject(temporaryKey);
+		expect(yield* Effect.exit(localStorage.statObject(temporaryKey))).toMatchObject({
+			_tag: "Failure",
+		});
 	}).pipe(Effect.provide(makeLayer())),
 );
 
