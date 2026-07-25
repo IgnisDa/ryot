@@ -417,7 +417,22 @@ export const PluginEventAutomation = strictStruct({
 	position: Schema.optional(Schema.Number),
 	kind: Schema.Literals(["policy", "subscription"]),
 	metadata: Schema.optional(
-		strictStruct({ inheritedProperties: Schema.optional(Schema.Array(Schema.String)) }),
+		strictStruct({
+			batchMode: Schema.optional(Schema.Literal("subject")),
+			inheritedProperties: Schema.optional(Schema.Array(Schema.String)),
+			origins: Schema.optional(
+				Schema.Array(
+					Schema.Literals([
+						"api",
+						"import",
+						"bootstrap",
+						"automation",
+						"integration",
+						"provider_refresh",
+					]),
+				),
+			),
+		}),
 	),
 });
 
