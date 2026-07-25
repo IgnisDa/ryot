@@ -267,6 +267,59 @@ it.effect("selects integrations with useful output kinds", () => {
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });
 
+it.effect("selects notification subscription states with useful output kinds", () => {
+	const statements: string[] = [];
+	const state = table("notificationSubscriptionState", "state");
+	const document = {
+		queries: {
+			states: rows(state, {
+				fields: [
+					field("id", column(state, "id")),
+					field("signalSchemaSlug", column(state, "signalSchemaSlug")),
+					field("isActive", column(state, "isActive")),
+					field("createdAt", column(state, "createdAt")),
+					field("updatedAt", column(state, "updatedAt")),
+				],
+			}),
+		},
+	};
+	const resultRows = [
+		{
+			f2v: true,
+			f0k: "text",
+			f1k: "text",
+			f3k: "date",
+			f4k: "date",
+			f0v: "rule-1",
+			totalCount: 1,
+			f2k: "boolean",
+			rowPresent: true,
+			f1v: "review.created",
+			f3v: new Date("2026-08-01T10:00:00.000Z"),
+			f4v: new Date("2026-08-07T12:00:00.000Z"),
+		},
+	];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		expect(response.data["states"]).toEqual({
+			type: "rows",
+			pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+			items: [
+				{
+					id: { kind: "text", value: "rule-1" },
+					isActive: { kind: "boolean", value: true },
+					signalSchemaSlug: { kind: "text", value: "review.created" },
+					createdAt: { kind: "date", value: "2026-08-01T10:00:00.000Z" },
+					updatedAt: { kind: "date", value: "2026-08-07T12:00:00.000Z" },
+				},
+			],
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
 it.effect("authorizes notification channels in every query occurrence", () => {
 	const statements: string[] = [];
 	const root = table("notificationChannel", "root");
@@ -338,6 +391,44 @@ it.effect("authorizes integrations in every query occurrence", () => {
 
 		const statement = statements[2];
 		expect(statement?.match(/SELECT \* FROM integration WHERE user_id =/g)).toHaveLength(7);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("authorizes notification subscription states in every query occurrence", () => {
+	const statements: string[] = [];
+	const root = table("notificationSubscriptionState", "root");
+	const joined = table("notificationSubscriptionState", "joined");
+	const included = table("notificationSubscriptionState", "included");
+	const correlated = table("notificationSubscriptionState", "correlated");
+	const document = {
+		queries: {
+			states: rows(root, {
+				fields: [],
+				joins: [join("left", joined, eq(column(root, "id"), column(joined, "id")))],
+				where: exists(correlated, {
+					where: eq(column(correlated, "id"), column(root, "id")),
+				}),
+				include: [
+					include(included, {
+						limit: 1,
+						key: "related",
+						fields: [field("id", column(included, "id"))],
+						orderBy: [ascending(column(included, "createdAt"))],
+						where: eq(column(included, "id"), column(root, "id")),
+					}),
+				],
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", null, document);
+
+		const statement = statements[2];
+		expect(
+			statement?.match(/SELECT \* FROM notification_subscription_state WHERE user_id =/g),
+		).toHaveLength(7);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
