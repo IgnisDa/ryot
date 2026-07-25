@@ -1,8 +1,10 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot-app/contract/errors";
 import { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
+import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { generateId } from "better-auth";
 import {
+	Cause,
 	Clock,
 	Context,
 	Deferred,
@@ -18,6 +20,12 @@ import {
 
 import { AppConfig } from "../config/service";
 import { RedisService } from "../redis";
+import {
+	recordSandboxExecution,
+	sandboxMetricKind,
+	type SandboxExecutionOutcome,
+	type SandboxProcessOutcome,
+} from "../runtime-metrics";
 import { ServerRun } from "../server-run";
 import { SandboxArtifactStore } from "./artifacts";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
@@ -166,251 +174,297 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		};
 
 		const runSandbox = (input: SandboxRunInput) =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const context = input.context ?? {};
-					const contextError = sandboxContextError(context);
-					if (contextError) {
-						return yield* new SandboxRunError({ message: contextError });
-					}
-
-					const collector = makeSandboxObservabilityCollector();
-					const executionApiFunctions = {
-						...apiFunctions,
-						...makeObservabilitySandboxApiFunctions(collector),
-					};
-					const boundApiFunctions: Readonly<Record<string, BoundHostFunction>> = {
-						...bindSandboxHostFunctions(executionApiFunctions, input),
-						replayJournal: makeWorkflowReplayJournalHostFunction(input.workflowExecutionId, redis),
-					};
-					const selectedApiFunctions = selectSandboxHostFunctions(boundApiFunctions, input);
-					const declaredCapabilities = input.principal.metadata.capabilities ?? [];
-					const artifactPath = sandboxArtifactGrant(
-						declaredCapabilities,
-						input.grants?.artifactPath,
-					);
-					const namedArtifactPaths = sandboxArtifactGrant(
-						declaredCapabilities,
-						input.grants?.namedArtifactPaths,
-					);
-					if (artifactPath !== undefined) {
-						const pathError = sandboxGrantPathError(
-							path,
-							"Sandbox artifact grant path",
-							artifactPath,
-							localTempRoot,
-						);
-						if (pathError) {
-							return yield* new SandboxRunError({ message: pathError });
+			Effect.flatMap(Clock.currentTimeMillis, (executionStartedAt) => {
+				const kind = sandboxMetricKind(input.principal.metadata);
+				let terminal: {
+					readonly durationMs: number;
+					readonly responseBytes: number;
+					readonly outcome: SandboxExecutionOutcome;
+				} | null = null;
+				return Effect.scoped(
+					Effect.gen(function* () {
+						const context = input.context ?? {};
+						const contextError = sandboxContextError(context);
+						if (contextError) {
+							return yield* new SandboxRunError({ message: contextError });
 						}
-					}
-					for (const [key, artifact] of Object.entries(namedArtifactPaths ?? {})) {
-						const pathError = sandboxGrantPathError(
-							path,
-							`Sandbox named artifact grant path "${key}"`,
-							artifact,
-							localTempRoot,
-						);
-						if (pathError) {
-							return yield* new SandboxRunError({ message: pathError });
-						}
-					}
 
-					// Acquired before the process and bridge finalizers so LIFO teardown removes the scratch
-					// directory last, after the script's process is dead.
-					const scratchDirectory = declaresSandboxFilesystemGrant(declaredCapabilities, "scratch")
-						? yield* acquireSandboxScratchDirectory(localTempRoot)
-						: undefined;
-
-					const token = generateId();
-					const modulePath = yield* acquireSandboxCompiledModule(
-						processes.runtimePaths,
-						input.principal.contentHash,
-						input.compiledCode,
-					);
-					const moduleUrl = (yield* path.toFileUrl(modulePath)).href;
-					const requestLine = `${encodeSandboxRunnerRequest({
-						token,
-						context,
-						moduleUrl,
-						limits: SANDBOX_RUNNER_LIMITS,
-						executionId: input.executionId,
-						scriptId: input.principal.scriptId,
-						metadata: input.principal.metadata,
-						compiledFormat: input.compiledFormat,
-						apiBase: `http://127.0.0.1:${bridge.port}`,
-						apiFunctions: Object.keys(selectedApiFunctions),
-						startedAt: input.startedAt ?? "1970-01-01T00:00:00.000Z",
-						...(input.workflowExecutionId
-							? { workflowExecutionId: input.workflowExecutionId }
-							: {}),
-						...(artifactPath !== undefined ||
-						namedArtifactPaths !== undefined ||
-						scratchDirectory !== undefined
-							? { filesystem: { artifactPath, scratchDirectory, namedArtifactPaths } }
-							: {}),
-					})}\n`;
-					const requestError = sandboxRunnerRequestError(requestLine);
-					if (requestError) {
-						return yield* new SandboxRunError({ message: requestError });
-					}
-
-					const grants: SandboxProcessGrants = {
-						...(artifactPath !== undefined ? { artifactPath } : {}),
-						...(scratchDirectory !== undefined ? { scratchDirectory } : {}),
-						...(namedArtifactPaths !== undefined ? { namedArtifactPaths } : {}),
-					};
-					const dedicated =
-						artifactPath !== undefined ||
-						namedArtifactPaths !== undefined ||
-						scratchDirectory !== undefined;
-					const worker = dedicated
-						? yield* processes.spawnDedicated(grants)
-						: yield* processes.acquire;
-					recordSandboxExecutionStarted();
-					yield* Effect.addFinalizer(() => Effect.sync(recordSandboxExecutionFinished));
-					if (!dedicated) {
-						yield* Effect.addFinalizer(() => processes.release(worker).pipe(Effect.orDie));
-					}
-					yield* Queue.poll(worker.responseQueue).pipe(Effect.asVoid);
-
-					const timeoutMs = SANDBOX_LIMITS.execution.timeoutMs;
-					const now = yield* Clock.currentTimeMillis;
-					const parentSpan = yield* Effect.currentSpan;
-					yield* bridge.addSession(input.executionId, {
-						token,
-						parentSpan,
-						apiFunctions: selectedApiFunctions,
-						hostCallLimit: SANDBOX_LIMITS.hostCalls.total,
-						expiresAt: now + timeoutMs + sessionTtlBufferMs,
-					});
-
-					yield* Queue.offer(worker.stdinQueue, encoder.encode(requestLine));
-
-					const withProcessStderr = (message: string) =>
-						`${message}${formatSandboxStderr(worker.stderrTail.snapshot())}`;
-					const processFailure = (message: string) =>
-						Deferred.await(worker.stderrClosed).pipe(
-							Effect.ignore,
-							Effect.andThen(
-								Effect.fail(new SandboxRunError({ message: withProcessStderr(message) })),
+						const collector = makeSandboxObservabilityCollector();
+						const executionApiFunctions = {
+							...apiFunctions,
+							...makeObservabilitySandboxApiFunctions(collector),
+						};
+						const boundApiFunctions: Readonly<Record<string, BoundHostFunction>> = {
+							...bindSandboxHostFunctions(executionApiFunctions, input),
+							replayJournal: makeWorkflowReplayJournalHostFunction(
+								input.workflowExecutionId,
+								redis,
 							),
+						};
+						const selectedApiFunctions = selectSandboxHostFunctions(boundApiFunctions, input);
+						const declaredCapabilities = input.principal.metadata.capabilities ?? [];
+						const artifactPath = sandboxArtifactGrant(
+							declaredCapabilities,
+							input.grants?.artifactPath,
 						);
-					const processExit = worker.process.exitCode.pipe(
-						Effect.flatMap((exitCode) =>
-							processFailure(
-								`Sandbox process exited with code ${Number(exitCode)} before returning a response`,
-							),
-						),
-						Effect.catchIf(
-							(error) => !(error instanceof SandboxRunError),
-							() => processFailure("Sandbox process exited before returning a response"),
-						),
-					);
-
-					const responseLine = yield* Effect.raceFirst(
-						Queue.take(worker.responseQueue),
-						Effect.raceFirst(
-							processExit,
-							Effect.sleep(Duration.millis(timeoutMs)).pipe(
-								Effect.andThen(
-									Effect.fail(
-										new TimeoutError({
-											message: withProcessStderr(`Sandbox timed out after ${timeoutMs}ms`),
-										}),
-									),
-								),
-							),
-						),
-					);
-
-					const raw = yield* Effect.try({
-						try: () => decodeSandboxRunnerResponse(responseLine),
-						catch: () => new SandboxRunError({ message: invalidResponseMessage }),
-					});
-
-					// Deno offers no preventive filesystem quota, so the ceiling is measured once the run is
-					// over and before anything is harvested out of the directory.
-					if (scratchDirectory !== undefined) {
-						const quotaError = sandboxScratchQuotaError(
-							yield* measureSandboxScratchBytes(scratchDirectory),
+						const namedArtifactPaths = sandboxArtifactGrant(
+							declaredCapabilities,
+							input.grants?.namedArtifactPaths,
 						);
-						if (quotaError) {
-							return yield* new SandboxRunError({ message: quotaError });
-						}
-					}
-
-					const completedOutput =
-						isObjectRecord(raw.value) && raw.value["state"] === "completed"
-							? raw.value["output"]
-							: raw.value;
-					const manifest =
-						scratchDirectory !== undefined && raw.success
-							? decodeSandboxScratchManifest(completedOutput)
-							: Option.none();
-					const harvest = Option.isSome(manifest)
-						? {
-								chunkFiles: manifest.value.chunkFiles,
-								directory: path.join(
-									harvestRoot,
-									sanitizeSandboxExecutionSegment(input.executionId),
-								),
+						if (artifactPath !== undefined) {
+							const pathError = sandboxGrantPathError(
+								path,
+								"Sandbox artifact grant path",
+								artifactPath,
+								localTempRoot,
+							);
+							if (pathError) {
+								return yield* new SandboxRunError({ message: pathError });
 							}
-						: null;
-					const chunkPaths =
-						harvest && scratchDirectory !== undefined
-							? yield* harvestSandboxScratchChunks({
-									scratchDirectory,
-									chunkFiles: harvest.chunkFiles,
-									destination: harvest.directory,
-								}).pipe(
-									Effect.mapError(
-										(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+						}
+						for (const [key, artifact] of Object.entries(namedArtifactPaths ?? {})) {
+							const pathError = sandboxGrantPathError(
+								path,
+								`Sandbox named artifact grant path "${key}"`,
+								artifact,
+								localTempRoot,
+							);
+							if (pathError) {
+								return yield* new SandboxRunError({ message: pathError });
+							}
+						}
+
+						// Acquired before the process and bridge finalizers so LIFO teardown removes the scratch
+						// directory last, after the script's process is dead.
+						const scratchDirectory = declaresSandboxFilesystemGrant(declaredCapabilities, "scratch")
+							? yield* acquireSandboxScratchDirectory(localTempRoot)
+							: undefined;
+
+						const token = generateId();
+						const modulePath = yield* acquireSandboxCompiledModule(
+							processes.runtimePaths,
+							input.principal.contentHash,
+							input.compiledCode,
+						);
+						const moduleUrl = (yield* path.toFileUrl(modulePath)).href;
+						const requestLine = `${encodeSandboxRunnerRequest({
+							token,
+							context,
+							moduleUrl,
+							limits: SANDBOX_RUNNER_LIMITS,
+							executionId: input.executionId,
+							scriptId: input.principal.scriptId,
+							metadata: input.principal.metadata,
+							compiledFormat: input.compiledFormat,
+							apiBase: `http://127.0.0.1:${bridge.port}`,
+							apiFunctions: Object.keys(selectedApiFunctions),
+							startedAt: input.startedAt ?? "1970-01-01T00:00:00.000Z",
+							...(input.workflowExecutionId
+								? { workflowExecutionId: input.workflowExecutionId }
+								: {}),
+							...(artifactPath !== undefined ||
+							namedArtifactPaths !== undefined ||
+							scratchDirectory !== undefined
+								? { filesystem: { artifactPath, scratchDirectory, namedArtifactPaths } }
+								: {}),
+						})}\n`;
+						const requestError = sandboxRunnerRequestError(requestLine);
+						if (requestError) {
+							return yield* new SandboxRunError({ message: requestError });
+						}
+
+						const grants: SandboxProcessGrants = {
+							...(artifactPath !== undefined ? { artifactPath } : {}),
+							...(scratchDirectory !== undefined ? { scratchDirectory } : {}),
+							...(namedArtifactPaths !== undefined ? { namedArtifactPaths } : {}),
+						};
+						const dedicated =
+							artifactPath !== undefined ||
+							namedArtifactPaths !== undefined ||
+							scratchDirectory !== undefined;
+						let workerOutcome: SandboxProcessOutcome = "failure";
+						const worker = dedicated
+							? yield* processes.spawnDedicated(() => workerOutcome, grants)
+							: yield* processes.acquire;
+						recordSandboxExecutionStarted();
+						yield* Effect.addFinalizer(() => Effect.sync(recordSandboxExecutionFinished));
+						if (!dedicated) {
+							yield* Effect.addFinalizer(() =>
+								Effect.suspend(() => processes.release(worker, workerOutcome)).pipe(Effect.orDie),
+							);
+						}
+						yield* Queue.poll(worker.responseQueue).pipe(Effect.asVoid);
+
+						const timeoutMs = SANDBOX_LIMITS.execution.timeoutMs;
+						const now = yield* Clock.currentTimeMillis;
+						const parentSpan = yield* Effect.currentSpan;
+						yield* bridge.addSession(input.executionId, {
+							token,
+							parentSpan,
+							apiFunctions: selectedApiFunctions,
+							hostCallLimit: SANDBOX_LIMITS.hostCalls.total,
+							expiresAt: now + timeoutMs + sessionTtlBufferMs,
+						});
+
+						yield* Queue.offer(worker.stdinQueue, encoder.encode(requestLine));
+
+						const withProcessStderr = (message: string) =>
+							`${message}${formatSandboxStderr(worker.stderrTail.snapshot())}`;
+						const processFailure = (message: string) =>
+							Deferred.await(worker.stderrClosed).pipe(
+								Effect.ignore,
+								Effect.andThen(
+									Effect.fail(new SandboxRunError({ message: withProcessStderr(message) })),
+								),
+							);
+						const processExit = worker.process.exitCode.pipe(
+							Effect.flatMap((exitCode) =>
+								processFailure(
+									`Sandbox process exited with code ${Number(exitCode)} before returning a response`,
+								),
+							),
+							Effect.catchIf(
+								(error) => !(error instanceof SandboxRunError),
+								() => processFailure("Sandbox process exited before returning a response"),
+							),
+						);
+
+						const responseLine = yield* Effect.raceFirst(
+							Queue.take(worker.responseQueue),
+							Effect.raceFirst(
+								processExit,
+								Effect.sleep(Duration.millis(timeoutMs)).pipe(
+									Effect.andThen(
+										Effect.fail(
+											new TimeoutError({
+												message: withProcessStderr(`Sandbox timed out after ${timeoutMs}ms`),
+											}),
+										),
 									),
-								)
-							: [];
-					const chunkHandles =
-						harvest && input.workflowExecutionId
-							? yield* artifacts.materializeOutputs(
-									input.grants?.artifactOwnerExecutionId ?? input.workflowExecutionId,
-									chunkPaths,
-								)
-							: [];
-					if (harvest) {
-						yield* fs.remove(harvest.directory, { force: true, recursive: true });
-					}
+								),
+							),
+						);
 
-					const executionMs = raw.timing?.executionMs;
-					const finishedAt = yield* Clock.currentTimeMillis;
-					const error = raw.success
-						? null
-						: (raw.error ?? { phase: "load", message: "Sandbox runner failed without an error" });
-					const totalMs = Math.max(1, Math.round(finishedAt - now));
-					const consoleLogs = "logs" in raw && Array.isArray(raw.logs) ? raw.logs : [];
-					const logs = mergeSandboxExecutionLogs(consoleLogs, collector);
+						const raw = yield* Effect.try({
+							try: () => decodeSandboxRunnerResponse(responseLine),
+							catch: () => new SandboxRunError({ message: invalidResponseMessage }),
+						});
 
-					return {
-						logs,
-						error,
-						success: raw.success,
-						executionId: input.executionId,
-						value: raw.success ? (raw.value ?? null) : null,
-						harvest: harvest && input.workflowExecutionId ? { chunkHandles } : null,
-						timing: { totalMs, executionMs: typeof executionMs === "number" ? executionMs : 0 },
-					};
-				}),
-			).pipe(
-				Effect.withSpan("sandbox.execution", {
-					attributes: { executionId: input.executionId, scriptId: input.principal.scriptId },
-				}),
-				Effect.mapError((error) =>
-					error instanceof TimeoutError || error instanceof SandboxRunError
-						? error
-						: new SandboxRunError({ message: unknownToMessage(error) }),
-				),
-				Effect.provideService(Path.Path, path),
-				Effect.provideService(FileSystem.FileSystem, fs),
-			);
+						// Deno offers no preventive filesystem quota, so the ceiling is measured once the run is
+						// over and before anything is harvested out of the directory.
+						if (scratchDirectory !== undefined) {
+							const quotaError = sandboxScratchQuotaError(
+								yield* measureSandboxScratchBytes(scratchDirectory),
+							);
+							if (quotaError) {
+								return yield* new SandboxRunError({ message: quotaError });
+							}
+						}
+
+						const completedOutput =
+							isObjectRecord(raw.value) && raw.value["state"] === "completed"
+								? raw.value["output"]
+								: raw.value;
+						const manifest =
+							scratchDirectory !== undefined && raw.success
+								? decodeSandboxScratchManifest(completedOutput)
+								: Option.none();
+						const harvest = Option.isSome(manifest)
+							? {
+									chunkFiles: manifest.value.chunkFiles,
+									directory: path.join(
+										harvestRoot,
+										sanitizeSandboxExecutionSegment(input.executionId),
+									),
+								}
+							: null;
+						const chunkPaths =
+							harvest && scratchDirectory !== undefined
+								? yield* harvestSandboxScratchChunks({
+										scratchDirectory,
+										chunkFiles: harvest.chunkFiles,
+										destination: harvest.directory,
+									}).pipe(
+										Effect.mapError(
+											(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+										),
+									)
+								: [];
+						const chunkHandles =
+							harvest && input.workflowExecutionId
+								? yield* artifacts.materializeOutputs(
+										input.grants?.artifactOwnerExecutionId ?? input.workflowExecutionId,
+										chunkPaths,
+									)
+								: [];
+						if (harvest) {
+							yield* fs.remove(harvest.directory, { force: true, recursive: true });
+						}
+
+						const executionMs = raw.timing?.executionMs;
+						const finishedAt = yield* Clock.currentTimeMillis;
+						const error = raw.success
+							? null
+							: (raw.error ?? { phase: "load", message: "Sandbox runner failed without an error" });
+						const totalMs = Math.max(1, Math.round(finishedAt - now));
+						const consoleLogs = "logs" in raw && Array.isArray(raw.logs) ? raw.logs : [];
+						const logs = mergeSandboxExecutionLogs(consoleLogs, collector);
+						workerOutcome = raw.success ? "success" : "failure";
+						terminal = {
+							durationMs: totalMs,
+							outcome: workerOutcome,
+							responseBytes: utf8ByteLength(responseLine),
+						};
+
+						return {
+							logs,
+							error,
+							success: raw.success,
+							executionId: input.executionId,
+							value: raw.success ? (raw.value ?? null) : null,
+							harvest: harvest && input.workflowExecutionId ? { chunkHandles } : null,
+							timing: { totalMs, executionMs: typeof executionMs === "number" ? executionMs : 0 },
+						};
+					}),
+				).pipe(
+					Effect.withSpan("sandbox.execution", {
+						attributes: {
+							sandboxKind: kind,
+							executionId: input.executionId,
+							scriptId: input.principal.scriptId,
+							...(input.workflowExecutionId
+								? { workflowExecutionId: input.workflowExecutionId }
+								: {}),
+						},
+					}),
+					Effect.mapError((error) =>
+						error instanceof TimeoutError || error instanceof SandboxRunError
+							? error
+							: new SandboxRunError({ message: unknownToMessage(error) }),
+					),
+					Effect.onExit((exit) =>
+						Effect.gen(function* () {
+							const observed = terminal;
+							if (observed !== null) {
+								return yield* recordSandboxExecution({ kind, ...observed });
+							}
+							const failure =
+								exit._tag === "Failure" ? Cause.findErrorOption(exit.cause) : Option.none();
+							return yield* recordSandboxExecution({
+								kind,
+								responseBytes: 0,
+								durationMs: Math.max(1, (yield* Clock.currentTimeMillis) - executionStartedAt),
+								outcome:
+									Option.isSome(failure) && failure.value instanceof TimeoutError
+										? "timeout"
+										: "failure",
+							});
+						}),
+					),
+					Effect.provideService(Path.Path, path),
+					Effect.provideService(FileSystem.FileSystem, fs),
+				);
+			});
 
 		return { run: runSandbox };
 	}),
