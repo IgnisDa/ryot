@@ -31,6 +31,9 @@ type CorrelatedQueryInput = {
 	readonly joins?: readonly Join[] | undefined;
 };
 
+const isNonEmpty = <T>(values: readonly T[] | undefined): values is readonly [T, ...T[]] =>
+	values !== undefined && values.length > 0;
+
 export const table = (tableName: string, alias: string): TableReference => ({
 	alias,
 	table: tableName,
@@ -158,9 +161,7 @@ const correlatedQuery = (
 ): CorrelatedQuerySet => ({
 	from,
 	...(input.where ? { where: input.where } : {}),
-	...(input.joins && input.joins.length > 0
-		? { joins: [...input.joins] as [Join, ...Join[]] }
-		: {}),
+	...(isNonEmpty(input.joins) ? { joins: [...input.joins] } : {}),
 });
 
 export const exists = (
@@ -241,12 +242,8 @@ export const include = (
 	fields: [...input.fields],
 	...(input.where ? { where: input.where } : {}),
 	orderBy: [...input.orderBy] as [OrderBy, ...OrderBy[]],
-	...(input.joins && input.joins.length > 0
-		? { joins: [...input.joins] as [Join, ...Join[]] }
-		: {}),
-	...(input.include && input.include.length > 0
-		? { include: [...input.include] as [Include, ...Include[]] }
-		: {}),
+	...(isNonEmpty(input.joins) ? { joins: [...input.joins] } : {}),
+	...(isNonEmpty(input.include) ? { include: [...input.include] } : {}),
 });
 
 export const rows = (
@@ -263,16 +260,12 @@ export const rows = (
 ): NamedQuery & { readonly output: RowsOutput } => ({
 	from,
 	...(input.where ? { where: input.where } : {}),
-	...(input.joins && input.joins.length > 0
-		? { joins: [...input.joins] as [Join, ...Join[]] }
-		: {}),
+	...(isNonEmpty(input.joins) ? { joins: [...input.joins] } : {}),
 	output: {
 		type: "rows",
 		fields: [...input.fields],
 		pagination: { page: input.page ?? 1, limit: input.limit ?? 20 },
-		...(input.include && input.include.length > 0
-			? { include: [...input.include] as [Include, ...Include[]] }
-			: {}),
+		...(isNonEmpty(input.include) ? { include: [...input.include] } : {}),
 		orderBy: input.orderBy ? [...input.orderBy] : [ascending(column(from, "id"))],
 	},
 });
@@ -290,9 +283,7 @@ export const aggregate = (
 ): NamedQuery & { readonly output: AggregateOutput } => ({
 	from,
 	...(input.where ? { where: input.where } : {}),
-	...(input.joins && input.joins.length > 0
-		? { joins: [...input.joins] as [Join, ...Join[]] }
-		: {}),
+	...(isNonEmpty(input.joins) ? { joins: [...input.joins] } : {}),
 	output: {
 		type: "aggregate",
 		measures: [...input.measures] as [AggregateMeasure, ...AggregateMeasure[]],
