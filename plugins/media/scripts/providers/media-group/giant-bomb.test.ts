@@ -88,7 +88,7 @@ describe("video-game-group.giant-bomb sandbox script", () => {
 						parts: 2,
 						description: "Series.\n\n<p>d</p>",
 						sourceUrl: "https://www.giantbomb.com/zelda/",
-						images: [{ type: "remote", url: "https://img/f.jpg" }],
+						images: [{ type: "remote", url: "https://img/f.jpg", purpose: "cover" }],
 					});
 				}),
 			),

@@ -152,7 +152,7 @@ describe("podcast.listennotes sandbox script", () => {
 								episodeNumber: 1,
 								publishDate: "2020-01-01",
 								description: "First episode.",
-								images: [{ type: "remote", url: "https://img/ep1.jpg" }],
+								images: [{ type: "remote", url: "https://img/ep1.jpg", purpose: "cover" }],
 							},
 						},
 					]);
@@ -178,7 +178,7 @@ describe("podcast.listennotes sandbox script", () => {
 						providerRating: 62,
 						publishDate: "2020-01-01",
 						description: "A great show.",
-						images: [{ type: "remote", url: "https://img/cover.jpg" }],
+						images: [{ type: "remote", url: "https://img/cover.jpg", purpose: "cover" }],
 						unlinkedCreators: [{ role: "Publishing", name: "Acme Media" }],
 						sourceUrl: "https://www.listennotes.com/podcasts/My Podcast-pod-1",
 					});

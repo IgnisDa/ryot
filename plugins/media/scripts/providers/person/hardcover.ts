@@ -177,7 +177,9 @@ query GetHardcoverAuthorDetails($id: Int!) {
 							website,
 							alternateNames,
 							sourceUrl: slug ? `https://hardcover.app/authors/${slug}` : null,
-							images: image ? [{ type: "remote" as const, url: image }] : [],
+							images: image
+								? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
+								: [],
 							description: typeof authorData["bio"] === "string" ? authorData["bio"] : null,
 							birthDate:
 								typeof authorData["born_date"] === "string" ? authorData["born_date"] : null,

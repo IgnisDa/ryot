@@ -167,7 +167,12 @@ describe("movie.tvdb sandbox script", () => {
 							name: "Movie",
 							image: "http://a",
 							image_url: "http://a",
-							artworks: [{ image: "http://b" }, { image: "http://a" }, { image: "http://c" }],
+							artworks: [
+								{ image: "http://b" },
+								{ image: "http://a" },
+								{ image: "http://c", type: "backdrop" },
+								{ image: "http://d", type: "poster" },
+							],
 						},
 					}),
 		);
@@ -176,9 +181,10 @@ describe("movie.tvdb sandbox script", () => {
 				Effect.map((result) => {
 					expect(result.properties).toMatchObject({
 						images: [
-							{ type: "remote", url: "http://a" },
-							{ type: "remote", url: "http://b" },
-							{ type: "remote", url: "http://c" },
+							{ type: "remote", url: "http://a", purpose: "cover" },
+							{ type: "remote", url: "http://b", purpose: "artwork" },
+							{ type: "remote", url: "http://c", purpose: "backdrop" },
+							{ type: "remote", url: "http://d", purpose: "cover" },
 						],
 					});
 					return undefined;
@@ -211,7 +217,7 @@ describe("movie.tvdb sandbox script", () => {
 						name: "Nombre",
 						properties: {
 							description: "Descripción",
-							images: [{ type: "remote", url: "http://poster-es" }],
+							images: [{ type: "remote", url: "http://poster-es", purpose: "cover" }],
 						},
 					});
 					return undefined;

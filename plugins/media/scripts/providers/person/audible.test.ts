@@ -57,7 +57,7 @@ describe("person.audible sandbox script", () => {
 					alternateNames: [],
 					description: "Bio text.",
 					sourceUrl: "https://www.audible.com/author/a1",
-					images: [{ type: "remote", url: "https://img/author.jpg" }],
+					images: [{ type: "remote", url: "https://img/author.jpg", purpose: "profile" }],
 				});
 				return undefined;
 			}),
