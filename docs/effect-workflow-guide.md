@@ -254,7 +254,7 @@ plugin-owned relationship mutations.
 |---|---|---|
 | `DurableClock.sleep({ name, duration, inMemoryThreshold? })` | Durable delays. | Sleeps `&le; inMemoryThreshold` (**default 60s**) run as a plain in-process `Activity.make` — they don't touch durable clock storage at all (`DurableClock.ts:91-96,108`). Tests force the durable path with `inMemoryThreshold: Duration.zero`. |
 | `DurableDeferred.make(name, { success?, error? })` + `.await`/`.token`/`.succeed`/`.fail` | Human-in-the-loop / wait-for-webhook. A workflow can hand out an opaque `Token` and suspend; an external, non-workflow caller (e.g. an HTTP handler) resolves it later. | `token`/`await` need `WorkflowInstance` (called from inside the workflow); `tokenFromExecutionId`/`tokenFromPayload` work from outside; `succeed`/`fail`/`done` only need `WorkflowEngine`, so they're callable from a plain route handler. |
-| `DurableQueue.make({ name, payload, idempotencyKey, success?, error? })` + `.process`/`.worker` | Fan work out to an out-of-band worker pool and suspend until it's done. | Built directly on `@effect/experimental/PersistedQueue` (`DurableQueue.ts:4`) plus a per-item `DurableDeferred`. **Calling `DurableQueue.process(...)` bare, directly in a workflow body, is the correct, intended usage** — it's a first-class durable primitive in its own right, not a bare side effect. This is the idiom used everywhere in this codebase for sandbox script dispatch (`SandboxExecutionQueue`), and it's correct every time it appears. |
+| `DurableQueue.make({ name, payload, idempotencyKey, success?, error? })` + `.process`/`.worker` | Fan work out to an out-of-band worker pool and suspend until it's done. | Built on Effect's unstable persistence queue layer plus a per-item `DurableDeferred`. **Calling `DurableQueue.process(...)` bare, directly in a workflow body, is the correct, intended usage** — it's a first-class durable primitive in its own right, not a bare side effect. This is the idiom used everywhere in this codebase for sandbox script dispatch (`SandboxExecutionQueue`), and it's correct every time it appears. |
 | `DurableRateLimiter.rateLimit({ name, algorithm?, window, limit, key })` | Durably sleep out an imposed rate-limit delay instead of busy-waiting. | Returns an `Activity`; built on `@effect/experimental`'s `RateLimiter` + `DurableClock.sleep` internally. |
 | `WorkflowProxy` / `WorkflowProxyServer` | Expose workflows as RPC or `HttpApi` endpoints automatically. | Generates three endpoints per workflow: base (blocking execute), `${name}Discard`, `${name}Resume`. |
 
@@ -287,7 +287,7 @@ const ApprovalWorkflowLive = ApprovalWorkflow.toLayer((_payload) =>
 const resolveApproval = (token: DurableDeferred.Token, approvedBy: string) =>
   DurableDeferred.succeed(ApprovalReceived, { token, value: { approvedBy } });
 
-// DurableQueue — this is the package's own doc-comment example (DurableQueue.ts:36-83)
+// DurableQueue example
 const ApiQueue = DurableQueue.make({
   name: "ApiQueue",
   payload: { id: Schema.String },

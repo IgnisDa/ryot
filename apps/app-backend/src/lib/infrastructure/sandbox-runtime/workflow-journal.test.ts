@@ -17,14 +17,12 @@ const workflowInput: SandboxRunInput = {
 	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
-	scriptIsBuiltin: false,
 	allowedHostFunctions: [],
 	scriptId: "workflow-script",
 	authority: { type: "system" },
 	workflowExecutionId: "parent",
 	metadata: { kind: "workflow" },
 	executionId: "parent-replay-3",
-	cacheNamespace: "workflow-script",
 };
 
 const request = (index: number, name: string, input: JsonValue = { index }) => ({

@@ -130,17 +130,14 @@ esac
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("executes the exact queued row and distinguishes plugin from kernel scripts", () => {
+it.effect("executes the exact queued row and preserves provider identity", () => {
 	const queuedScriptId = SandboxScriptId.make("queued-script-id");
 	const kernelScriptId = SandboxScriptId.make("kernel-script-id");
 	let executedCode: string | undefined;
 	const executedScriptIds: string[] = [];
 	const executedProviderIds: Array<string | null> = [];
 	const executedHashes: string[] = [];
-	const executedCacheNamespaces: string[] = [];
-	const executedScriptIsBuiltin: boolean[] = [];
 	const repository = Layer.mock(SandboxRepository)({
-		isPluginScript: (scriptId) => Effect.succeed(scriptId !== kernelScriptId),
 		getScript: (scriptId) =>
 			Effect.succeed({
 				id: scriptId,
@@ -158,8 +155,6 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 				executedHashes.push(input.contentHash);
 				executedScriptIds.push(input.scriptId);
 				executedProviderIds.push(input.providerId);
-				executedCacheNamespaces.push(input.cacheNamespace);
-				executedScriptIsBuiltin.push(input.scriptIsBuiltin);
 				return {
 					logs: [],
 					error: null,
@@ -191,8 +186,6 @@ it.effect("executes the exact queued row and distinguishes plugin from kernel sc
 		expect(executedScriptIds).toEqual([queuedScriptId, kernelScriptId]);
 		expect(executedProviderIds).toEqual(["provider-id", null]);
 		expect(executedHashes).toEqual(["queued-hash", "kernel-hash"]);
-		expect(executedCacheNamespaces).toEqual(["provider-id", kernelScriptId]);
-		expect(executedScriptIsBuiltin).toEqual([false, true]);
 		expect(result.value).toBe("queued-result");
 	}).pipe(Effect.provide(layer));
 });

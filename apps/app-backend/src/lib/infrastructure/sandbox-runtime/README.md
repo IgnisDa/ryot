@@ -111,7 +111,7 @@ declared, readable, or configured.
 
 Automation functions require declared capabilities and trusted execution context. `emitSignal` is available to subscription runs and trusted system automation scripts; system automation derives origin from its server-provided automation context. `sendNotification` remains subscription-only and requires its user principal.
 
-Cache keys are isolated per `(executing user, providerId)`. The dispatched `cacheNamespace` is the script's logical `providerId`, falling back to its `scriptId` only for a standalone script that belongs to no provider. Every script of one provider therefore shares that provider's cache, and executing the same script for two users produces disjoint entries even when both use the same script cache key; script ownership is not part of the cache key. `getCachedValue` and `setCachedValue` are refreshed after a backend restart, while `claimPersistentValue` remains persistent across restarts.
+Cache keys are isolated per `(executing user, providerId)`. Cache host functions derive their namespace from the script's logical `providerId`, falling back to its `scriptId` only for a standalone script that belongs to no provider. Every script of one provider therefore shares that provider's cache, and executing the same script for two users produces disjoint entries even when both use the same script cache key; script ownership is not part of the cache key. `getCachedValue` and `setCachedValue` are refreshed after a backend restart, while `claimPersistentValue` remains persistent across restarts.
 
 ### Adding A Host Function
 

@@ -232,19 +232,12 @@ request body containing the manifest and a relative-path-to-source-text file map
 matches the plugin compiler's existing `Record<string, string>` input, lets tests assemble
 plugins in memory, and avoids adding archive extraction machinery and its path-safety surface.
 
-- E2e fixture: replace `seedBuiltinProviderScript`/`promoteSandboxScript`/
-  `cleanupBuiltinProviderScript` (`tests/src/fixtures/sandbox-provider.ts`) with
-  `installTestPlugin` — assemble a tiny in-memory plugin source (manifest + one provider
-  script built from the same `fakeProvider*` builders), install through the real endpoint,
-  uninstall in cleanup. Delete the `testSupport.promoteSandboxScript` /
-  `deleteSandboxScript` god-mode endpoints. Every provider-driven e2e test now exercises the
-  real loader implicitly.
-- Replace every Phase 1 use of the temporary `testSupport` in-memory definition installer with
-  test plugin source installed through `installTestPlugin`, then delete that installer endpoint
-  and its registry mutation helper. Phase 2 is not complete while any fixture references the
-  temporary seam.
-- Keep the fixture's script-fault-injection ability (`patchSandboxScript`) working — port it
-  to reinstall-with-modified-source, which is more honest anyway.
+- E2e fixture: `installTestPlugin` assembles a tiny in-memory plugin source, installs it through
+  the real endpoint, and uninstalls it during cleanup. Every provider-driven e2e test exercises
+  the real loader implicitly.
+- Provider fixtures use installed plugin source rather than in-memory registry mutation, so no
+  test-only installation seam remains.
+- Fault injection reinstalls the test plugin with modified source.
 
 ## 7. New kernel tests (this phase's own coverage)
 
@@ -343,8 +336,7 @@ logical provider IDs while atomically activating newly compiled operation script
 2. `automation_rule` and `entity_schema_sandbox_script` tables are gone; lifecycle dispatch
    is registry-driven; automation e2e behavior suites (auto-complete, progress policy,
    notification delivery) green with assertions unchanged.
-3. Full e2e suite green using the new install fixture; `promoteSandboxScript` gone from
-   `tests/` and contract.
+3. Full e2e suite green using the real-loader install fixture.
 4. Hot-install e2e passes: install fake plugin → search/import through it → uninstall.
 5. Boot ingests both first-party plugins; a deliberately corrupted plugin source fails boot
    with a structured error (unit/integration test).

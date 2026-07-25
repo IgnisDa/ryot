@@ -12,11 +12,9 @@ Read `docs/plans/plugin-system/00-overview.md` and
 `docs/plans/plugin-system/02-phase-2-plugin-contract-and-loader.md` in full before writing any
 code. They are the authoritative spec; this task file only frames the slice. Honor the plan
 markers (`[DECIDED]`/`[RECOMMENDED]`/`[IMPLEMENTER-DECIDES]`) as described in the parent PRD.
-Per `AGENTS.md`, launch an `explore` subagent first — the existing provider fixture
-(`tests/src/fixtures/sandbox-provider.ts`: `seedBuiltinProviderScript`, `promoteSandboxScript`,
-`cleanupBuiltinProviderScript`, `patchSandboxScript`) and its `fakeProvider*` builders, the
-Phase 1 temporary `testSupport` in-memory definition installer, the god-mode contract group,
-and admin-scoping conventions in the contract. Depends on task 03 (boot cutover).
+Per `AGENTS.md`, launch an `explore` subagent first — inspect the existing provider fixture,
+its `fakeProvider*` builders, the real-loader install path, and admin-scoping conventions in the
+contract. Depends on task 03 (boot cutover).
 
 ## What to build
 
@@ -31,15 +29,9 @@ replacing every test-only injection seam:
    referenced by boot config.
 2. **`installTestPlugin` fixture** — assemble a tiny in-memory plugin source (manifest + one
    provider script built from the same `fakeProvider*` builders), install through the real
-   endpoint, uninstall in cleanup. Replace `seedBuiltinProviderScript` /
-   `cleanupBuiltinProviderScript` so every provider-driven e2e test exercises the real loader
-   implicitly.
-3. **Remove the seams**: delete the `testSupport.promoteSandboxScript` / `deleteSandboxScript`
-   god-mode endpoints, and replace every Phase 1 use of the temporary `testSupport` in-memory
-   definition installer with test plugin source installed via `installTestPlugin`, then delete
-   that installer endpoint and its registry-mutation helper. Phase 2 is not complete while any
-   fixture references the temporary seam. Port the fixture's driver-fault-injection ability
-   (`patchSandboxScript`) to reinstall-with-modified-source.
+   endpoint, and uninstall in cleanup. Every provider-driven e2e test exercises the real loader.
+3. **Use the real loader everywhere**: provider fixtures install plugin source instead of mutating
+   an in-memory registry. Reinstall modified source when tests need fault injection.
 
 Full spec: plan §6 (install surface, fixture, seam removal) and §7 (hot-install e2e). Do not
 restate or re-derive it.
@@ -52,12 +44,8 @@ restate or re-derive it.
       §6, §7)
 - [x] Hot-install e2e passes: install a fake plugin → search/import through it → uninstall
       (done criterion 4)
-- [x] `promoteSandboxScript`/`deleteSandboxScript` and the Phase 1 temporary `testSupport`
-      definition installer + its registry-mutation helper are gone from `tests/` and the
-      contract; no fixture references the temporary seam (done criterion 3)
-- [x] `installTestPlugin` replaces the provider fixture and `patchSandboxScript` is ported to
-      reinstall-with-modified-source; the full e2e suite is green using the new fixture (done
-      criterion 3)
+- [x] `installTestPlugin` replaces the provider fixture and modified-source reinstall supports
+      fault injection; the full e2e suite is green using the real loader (done criterion 3)
 - [x] A deliberately corrupted plugin source fails ingestion/boot with a structured error, under
       unit/integration test (done criterion 5)
 - [x] `[IMPLEMENTER-DECIDES]` bundle-format choice is recorded in the plan; backend `check` +
