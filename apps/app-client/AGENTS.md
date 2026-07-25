@@ -7,5 +7,6 @@ Ryot is a self-hosted personal tracker. Keep the UI warm, calm, compact, scannab
 - Prefer `className` for static layout, spacing, sizing, opacity, borders, and colors. Use inline `style` only for dynamic runtime values, safe-area insets, animation output, or native-only props that Tailwind cannot express.
 - Use a single `props` parameter, not destructured arguments.
 - Use the shared API/query hooks and client wrappers for fetching; avoid raw `fetch` and `useEffect` for loading data.
+- When working on client behavior that integrates with the backend, consult the relevant end-to-end and integration tests under `tests/src/tests/`, along with supporting fixtures in `tests/src/fixtures/` and `tests/src/support/`, to follow established API, authentication, data setup, and async-operation patterns. Reuse those patterns where applicable.
 - Keep route and navigation logic in the existing Expo Router and navigation helpers.
 - All text inputs must be submittable via Enter. Last field: `onSubmitEditing` + `returnKeyType="go"`. Intermediate fields: `returnKeyType="next"` with focus forwarding.
