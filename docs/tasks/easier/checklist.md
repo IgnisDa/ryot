@@ -56,7 +56,7 @@
   - Owner: D14 Imports
   - Scope: Single post-admission dispatch operation
 
-- [ ] **13. Single-own RyotQL kind inference** [M/M/M]
+- [x] **13. Single-own RyotQL kind inference** [M/M/M]
   - Owner: D22 Backend RyotQL
   - Scope: One resolver-neutral kind function
 
