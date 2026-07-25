@@ -45,9 +45,13 @@ const ObservedWorkflowReplay = Schema.Union([
 	Schema.Struct({ output: jsonValueSchema, state: Schema.Literal("completed") }),
 	Schema.Struct({ error: Schema.String, state: Schema.Literal("failed") }),
 	Schema.Struct({
-		request: workflowDurableCallRequestSchema,
 		state: Schema.Literal("pending"),
-		targetScriptId: Schema.optional(SandboxScriptId),
+		requests: Schema.Array(
+			Schema.Struct({
+				request: workflowDurableCallRequestSchema,
+				targetScriptId: Schema.optional(SandboxScriptId),
+			}),
+		),
 	}),
 ]);
 type ObservedWorkflowReplay = Schema.Schema.Type<typeof ObservedWorkflowReplay>;
@@ -135,8 +139,11 @@ const completedValue = (result: SandboxExecutionResult, label: string) =>
 				),
 			);
 
-export const sandboxWorkflowChildExecutionId = (executionId: string, name: string, step: number) =>
-	`${executionId}-child-${sanitizeSandboxExecutionSegment(name)}-${step}`;
+export const sandboxWorkflowChildExecutionId = (
+	executionId: string,
+	name: string,
+	requestIndex: number,
+) => `${executionId}-child-${sanitizeSandboxExecutionSegment(name)}-${requestIndex}`;
 
 const nondeterminismMessage = (
 	index: number,
@@ -182,21 +189,16 @@ export const validateWorkflowReplayEnvelope = (
 			),
 		);
 	}
-	if (envelope.requests.length > journal.length + 1) {
-		return Effect.fail(
-			sandboxFailure(
-				`SandboxWorkflowNondeterminism: replay crossed more than one unrecorded durable call`,
-			),
-		);
-	}
-
 	if (envelope.state === "pending") {
-		const request = envelope.requests[journal.length];
-		return request && envelope.requests.length === journal.length + 1
-			? Effect.succeed({ request, state: "pending" as const })
+		const requests = envelope.requests.slice(journal.length);
+		return requests.length > 0
+			? Effect.succeed({
+					state: "pending" as const,
+					requests: requests.map((request) => ({ request })),
+				})
 			: Effect.fail(
 					sandboxFailure(
-						"SandboxWorkflowNondeterminism: pending replay did not end at its first missing call",
+						"SandboxWorkflowNondeterminism: pending replay did not include an unrecorded durable call",
 					),
 				);
 	}
@@ -238,22 +240,24 @@ const observeWorkflowReplay = (
 			}
 			const runWithDb = yield* DbRunner;
 			const repository = yield* SandboxRepository;
-			const targetScriptId = yield* runWithDb(
-				repository.resolveWorkflowCallScript(workflowScriptId, validated.request),
+			const requests = yield* Effect.forEach(validated.requests, ({ request }) =>
+				Effect.gen(function* () {
+					const targetScriptId = yield* runWithDb(
+						repository.resolveWorkflowCallScript(workflowScriptId, request),
+					);
+					if (
+						request.kind !== "sleep" &&
+						!(request.kind === "child" && request.args.workflowSlug.startsWith("kernel:")) &&
+						targetScriptId === null
+					) {
+						return yield* sandboxFailure(
+							`Workflow ${request.kind} reference could not be resolved`,
+						);
+					}
+					return { request, ...(targetScriptId ? { targetScriptId } : {}) };
+				}),
 			);
-			if (
-				validated.request.kind !== "sleep" &&
-				!(
-					validated.request.kind === "child" &&
-					validated.request.args.workflowSlug.startsWith("kernel:")
-				) &&
-				targetScriptId === null
-			) {
-				return yield* sandboxFailure(
-					`Workflow ${validated.request.kind} reference could not be resolved`,
-				);
-			}
-			return { ...validated, ...(targetScriptId ? { targetScriptId } : {}) };
+			return { requests, state: "pending" as const };
 		}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
 	});
 
@@ -264,15 +268,15 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 	targetScriptId: SandboxScriptId | undefined,
 	payload: SandboxScriptWorkflowPayload,
 	executionId: string,
-	step: number,
+	requestIndex: number,
 	processSandbox: (
 		payload: SandboxExecutionPayload,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, R>,
 ) {
 	if (request.kind === "sleep") {
 		yield* DurableClock.sleep({
-			name: `sandbox-workflow-sleep-${step}`,
 			inMemoryThreshold: Duration.millis(1),
+			name: `sandbox-workflow-sleep-${requestIndex}`,
 			duration: Duration.millis(request.args.durationMs),
 		});
 		return null;
@@ -284,11 +288,17 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 			targetScriptId,
 			payload,
 			executionId,
-			step,
+			requestIndex,
 			processSandbox,
 		);
 	}
-	return yield* performSandboxWorkflowChild(request, targetScriptId, payload, executionId, step);
+	return yield* performSandboxWorkflowChild(
+		request,
+		targetScriptId,
+		payload,
+		executionId,
+		requestIndex,
+	);
 });
 
 export const performSandboxWorkflowActivity = Effect.fn("performSandboxWorkflowActivity")(
@@ -297,7 +307,7 @@ export const performSandboxWorkflowActivity = Effect.fn("performSandboxWorkflowA
 		targetScriptId: SandboxScriptId | undefined,
 		payload: SandboxScriptWorkflowPayload,
 		executionId: string,
-		step: number,
+		requestIndex: number,
 		processSandbox: (
 			payload: SandboxExecutionPayload,
 		) => Effect.Effect<SandboxExecutionResult, SandboxRunError, R>,
@@ -310,8 +320,8 @@ export const performSandboxWorkflowActivity = Effect.fn("performSandboxWorkflowA
 			context: request.args.input,
 			authority: payload.authority,
 			workflowExecutionId: executionId,
-			executionId: `${executionId}-activity-${step}`,
 			...(payload.grants ? { grants: payload.grants } : {}),
+			executionId: `${executionId}-activity-${requestIndex}`,
 		});
 		return yield* completedValue(result, `Workflow activity '${request.name}'`);
 	},
@@ -322,9 +332,9 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	targetScriptId: SandboxScriptId | undefined,
 	payload: SandboxScriptWorkflowPayload,
 	executionId: string,
-	step: number,
+	requestIndex: number,
 ) {
-	const childExecutionId = sandboxWorkflowChildExecutionId(executionId, request.name, step);
+	const childExecutionId = sandboxWorkflowChildExecutionId(executionId, request.name, requestIndex);
 	if (request.args.workflowSlug.startsWith("kernel:")) {
 		const references = yield* KernelWorkflowReferences;
 		return yield* references
@@ -393,7 +403,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 
 	return yield* Effect.gen(function* () {
 		const journal: WorkflowJournalEntry[] = [];
-		for (let step = 0; step <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {
+		for (let step = 0; journal.length <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {
 			yield* projectWorkflowJournal(executionId, journal);
 			const replayExecutionId = `${executionId}-replay-${step}`;
 			const replay = yield* processReplay({
@@ -416,18 +426,32 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			if (observed.state === "completed") {
 				return observed.output;
 			}
-			if (step === SANDBOX_WORKFLOW_MAX_STEPS) {
+			if (journal.length + observed.requests.length > SANDBOX_WORKFLOW_MAX_STEPS) {
 				break;
 			}
-			const value = yield* performSandboxWorkflowRequest(
-				observed.request,
-				observed.targetScriptId,
-				{ ...payload, scriptId: pin.scriptId },
-				executionId,
-				step,
-				processReplay,
+			const values = yield* Effect.forEach(
+				observed.requests,
+				({ request, targetScriptId }) =>
+					performSandboxWorkflowRequest(
+						request,
+						targetScriptId,
+						{ ...payload, scriptId: pin.scriptId },
+						executionId,
+						request.index,
+						processReplay,
+					),
+				{ concurrency: "unbounded" },
 			);
-			journal.push({ value, request: observed.request });
+			for (let index = 0; index < observed.requests.length; index += 1) {
+				const observedRequest = observed.requests[index];
+				const value = values[index];
+				if (!observedRequest || value === undefined) {
+					return yield* sandboxFailure(
+						"Sandbox workflow durable batch returned incomplete results",
+					);
+				}
+				journal.push({ value, request: observedRequest.request });
+			}
 		}
 
 		return yield* sandboxFailure(
