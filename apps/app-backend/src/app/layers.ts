@@ -89,6 +89,7 @@ import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
+import { RyotQLService } from "#modules/ryotql/service";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -219,6 +220,7 @@ const ApplicationInfrastructureLive = CoreInfrastructureServicesLive.pipe(
 );
 
 const QueryEngineServiceLive = QueryEngineService.layer;
+const RyotQLServiceLive = RyotQLService.layer;
 const NotificationSubscriptionsServiceLive = NotificationSubscriptionsService.layer.pipe(
 	Layer.provide(AutomationsService.layer),
 );
@@ -318,6 +320,7 @@ const ContentServicesLive = Layer.mergeAll(
 	SavedViewsServiceLive,
 	DefinitionsService.layer,
 	QueryEngineServiceLive,
+	RyotQLServiceLive,
 	AutomationsService.layer,
 	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,

@@ -1,4 +1,4 @@
-import type { QueryResponse } from "@ryot/contract/modules/query-engine/language";
+import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -74,18 +74,20 @@ const savedViews = [
 ] satisfies Parameters<typeof buildNavigationData>[0]["savedViews"];
 
 const collectionsResponse = {
-	type: "rows",
 	data: {
-		pageInfo: { hasMore: false, limit: 100, page: 1, total: 2 },
-		items: [
-			{
-				id: { kind: "text", value: "collection-1" },
-				name: { kind: "text", value: "Sci-Fi Essentials" },
-			},
-			{ id: { kind: "number", value: 2 }, name: { kind: "text", value: "Malformed" } },
-		],
+		collections: {
+			type: "rows",
+			pageInfo: { hasMore: false, limit: 100, page: 1, total: 2 },
+			items: [
+				{
+					id: { kind: "text", value: "collection-1" },
+					name: { kind: "text", value: "Sci-Fi Essentials" },
+				},
+				{ id: { kind: "number", value: 2 }, name: { kind: "text", value: "Malformed" } },
+			],
+		},
 	},
-} satisfies QueryResponse;
+} satisfies RyotQLResponse;
 
 const data = buildNavigationData({ collections: collectionsResponse, plugins, savedViews });
 

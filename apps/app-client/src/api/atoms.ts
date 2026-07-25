@@ -1,5 +1,5 @@
 import { makeContractClient } from "@ryot/contract/client";
-import { buildAllCollectionsQueryDocument } from "@ryot/query-engine/recipes/app";
+import { buildAllCollectionsDocument } from "@ryot/ryotql-recipes/collections";
 import { Effect } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { Atom } from "effect/unstable/reactivity";
@@ -10,8 +10,8 @@ import { serverStorageLayer, serverUrlSchema, workspaceSchema } from "@/modules/
 const publicApiRuntime = Atom.runtime(FetchHttpClient.layer);
 const storageRuntime = Atom.runtime(serverStorageLayer);
 
-export const collectionsAtom = appQueryClient.query("queryEngine", "execute", {
-	payload: buildAllCollectionsQueryDocument({ limit: 100 }),
+export const collectionsAtom = appQueryClient.query("ryotql", "execute", {
+	payload: buildAllCollectionsDocument({ limit: 100 }),
 });
 
 export const connectToServerAtom = publicApiRuntime.fn((serverUrl: string) =>

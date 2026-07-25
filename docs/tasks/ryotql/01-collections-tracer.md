@@ -2,7 +2,7 @@
 
 **Parent Plan:** [RyotQL](./README.md)
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -12,16 +12,16 @@ This slice establishes the permanent named-query request and `{ data: ... }` res
 
 ## Acceptance criteria
 
-- [ ] The RyotQL SDK and recipes packages exist independently from the legacy query-engine package and follow the dependency boundaries in the parent PRD
-- [ ] The new authenticated contract operation accepts a strict named-query document and returns the agreed named data envelope
-- [ ] The backend validates the complete document, opens one read-only transaction, applies the authenticated user's entity visibility, and executes each named query as one SQL statement
-- [ ] The entity catalog exposes only the initial public fields and resolves physical fields through the uniform catalog interface
-- [ ] Basic rows queries support field projection, equality and membership predicates needed by collections, ordering, pagination, runtime field kinds, and the retained safety limits
-- [ ] Pagination reports the real total for empty pages beyond the result set and uses a stable primary-key tie breaker with nulls last
-- [ ] The shared collections recipe builds a RyotQL document and the application collections consumer uses the RyotQL endpoint
-- [ ] Contract, SDK, backend, recipe, client, and end-to-end collection tests cover the complete path
-- [ ] The legacy query engine, its collection-independent consumers, and its test suite remain operational
-- [ ] A separate RyotQL guide documents only the capabilities delivered so far without modifying the legacy guide
+- [x] The RyotQL SDK and recipes packages exist independently from the legacy query-engine package and follow the dependency boundaries in the parent PRD
+- [x] The new authenticated contract operation accepts a strict named-query document and returns the agreed named data envelope
+- [x] The backend validates the complete document, opens one read-only transaction, applies the authenticated user's entity visibility, and executes each named query as one SQL statement
+- [x] The entity catalog exposes only the initial public fields and resolves physical fields through the uniform catalog interface
+- [x] Basic rows queries support field projection, equality and membership predicates needed by collections, ordering, pagination, runtime field kinds, and the retained safety limits
+- [x] Pagination reports the real total for empty pages beyond the result set and uses a stable primary-key tie breaker with nulls last
+- [x] The shared collections recipe builds a RyotQL document and the application collections consumer uses the RyotQL endpoint
+- [x] Contract, SDK, backend, recipe, client, and end-to-end collection tests cover the complete path
+- [x] The legacy query engine, its collection-independent consumers, and its test suite remain operational
+- [x] A separate RyotQL guide documents only the capabilities delivered so far without modifying the legacy guide
 
 ## User stories addressed
 
