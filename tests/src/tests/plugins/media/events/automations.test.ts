@@ -15,6 +15,8 @@ import { describe, expect, it } from "~/support/effect-test";
 
 const isoAt = (day: number) => `2024-01-${String(day).padStart(2, "0")}T00:00:00.000Z`;
 
+const isoMinuteAt = (minute: number) => new Date(Date.UTC(2024, 0, 1, 0, minute)).toISOString();
+
 describe("Event automations", () => {
 	it.live("logging 100% progress creates a completion event via the built-in subscription", () =>
 		Effect.gen(function* () {
@@ -159,6 +161,36 @@ describe("Event automations", () => {
 
 			const events = yield* listEventsForEntity(client, entityId);
 			expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
+		}),
+	);
+
+	it.live("logging more than 100 anime episodes creates a completion event", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
+				client,
+				{ entitySchemaSlug: "anime", properties: { images: [], episodes: 101 } },
+			);
+
+			yield* client.call((c) =>
+				c.events.create({
+					payload: Array.from({ length: 101 }, (_, index) => ({
+						entityId,
+						occurredAt: isoMinuteAt(index),
+						eventSchemaSlug: progressEventSchemaSlug,
+						properties: { progressPercent: 100, animeEpisode: index + 1 },
+					})),
+				}),
+			);
+
+			const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
+
+			expect(completeEvent.properties).toMatchObject({
+				completionMode: "custom_timestamps",
+				completedOn: isoMinuteAt(100).replace(".000Z", "+00:00"),
+			});
+			expect(completeEvent.occurredAt).toBe(isoMinuteAt(100));
 		}),
 	);
 
