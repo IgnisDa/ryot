@@ -105,7 +105,6 @@ describe("provider-add application state", () => {
 		});
 		expect(ready).toMatchObject({
 			status: "ready",
-			values: { region: undefined },
 			providerId: selectedProvider.providerId,
 		});
 

@@ -1,6 +1,11 @@
+import { createErrorVisibility } from "@tanstack/react-form";
 import clsx from "clsx";
-import type { ComponentProps, PropsWithChildren, ReactNode } from "react";
+import type { ComponentProps, PropsWithChildren, ReactNode, Ref } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
+
+export const standardFormErrorVisibility = createErrorVisibility(
+	({ fieldState, state }) => fieldState.meta.isBlurred || state.submissionAttempts > 0,
+);
 
 export function FormCard(props: PropsWithChildren) {
 	return (
@@ -29,12 +34,17 @@ export function FormMessage(props: { children: ReactNode }) {
 }
 
 export function FormTextInput(
-	props: ComponentProps<typeof TextInput> & { density?: "compact" | "default"; invalid?: boolean },
+	props: ComponentProps<typeof TextInput> & {
+		invalid?: boolean;
+		inputRef?: Ref<TextInput>;
+		density?: "compact" | "default";
+	},
 ) {
-	const { density = "default", invalid, ...inputProps } = props;
+	const { density = "default", inputRef, invalid, ...inputProps } = props;
 	return (
 		<TextInput
 			{...inputProps}
+			ref={inputRef}
 			aria-invalid={invalid}
 			className={clsx(
 				"rounded-lg border border-border bg-raised font-ui text-text",
@@ -55,7 +65,7 @@ export function FormSubmitButton(props: {
 	pendingLabel?: string;
 	density?: "compact" | "default";
 }) {
-	const disabled = props.disabled || props.pending;
+	const disabled = (props.disabled ?? false) || (props.pending ?? false);
 	const density = props.density ?? "default";
 	return (
 		<Pressable

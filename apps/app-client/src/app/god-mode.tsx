@@ -124,8 +124,8 @@ export default function GodMode() {
 				>
 					<TokenForm
 						error={tokenError}
+						onEdit={() => setTokenError(null)}
 						onSubmit={handleSubmit}
-						onChange={() => setTokenError(null)}
 					/>
 				</ScrollView>
 			) : (
