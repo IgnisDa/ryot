@@ -19,6 +19,10 @@ type CreateSavedViewInput = {
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
 
+type BuiltinSavedViewInput = Omit<CreateSavedViewInput, "userId"> & {
+	readonly sortOrder: number;
+};
+
 type UpdateSavedViewData = {
 	readonly icon: string;
 	readonly name: string;
@@ -34,12 +38,12 @@ const toListedSavedView = (row: SavedViewRow) => ({
 	slug: row.slug,
 	name: row.name,
 	icon: row.icon,
-	isBuiltin: false,
+	isBuiltin: row.isBuiltin,
 	sortOrder: row.sortOrder,
 	isDisabled: row.isDisabled,
 	accentColor: row.accentColor,
-	id: SavedViewId.make(row.id),
 	queryDocument: row.queryDocument,
+	id: SavedViewId.make(row.id),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	displayConfiguration: row.displayConfiguration,
@@ -174,17 +178,20 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				return row ? toListedSavedView(row) : null;
 			});
 
-			const updateDisabledBySlug = Effect.fn("SavedViewsRepository.updateDisabledBySlug")(
-				function* (userId: UserId, viewSlug: string, isDisabled: boolean, sortOrder?: number) {
+			const updateBuiltinStateBySlug = Effect.fn("SavedViewsRepository.updateBuiltinStateBySlug")(
+				function* (userId: UserId, viewSlug: string, isDisabled: boolean, sortOrder: number) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
 							.update(schema.savedView)
-							.set({
-								isDisabled,
-								...(sortOrder === undefined ? {} : { sortOrder }),
-							})
-							.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
+							.set({ isDisabled, sortOrder })
+							.where(
+								and(
+									eq(schema.savedView.slug, viewSlug),
+									eq(schema.savedView.userId, userId),
+									eq(schema.savedView.isBuiltin, true),
+								),
+							)
 							.returning(),
 					);
 
@@ -254,44 +261,32 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				return rows.map(toListedSavedView);
 			});
 
-			const listBuiltinStates = Effect.fn(function* (userId: UserId) {
+			const ensureBuiltinViews = Effect.fn("SavedViewsRepository.ensureBuiltinViews")(function* (
+				userId: UserId,
+				views: ReadonlyArray<BuiltinSavedViewInput>,
+			) {
 				const db = yield* CurrentDb;
-				return yield* dbEffect(() =>
-					db.select().from(schema.savedViewState).where(eq(schema.savedViewState.userId, userId)),
-				);
-			});
-
-			const upsertBuiltinState = Effect.fn(function* (input: {
-				userId: UserId;
-				sortOrder: number;
-				isDisabled: boolean;
-				savedViewSlug: string;
-			}) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				if (views.length === 0) {
+					return;
+				}
+				yield* dbEffect(() =>
 					db
-						.insert(schema.savedViewState)
-						.values(input)
-						.onConflictDoUpdate({
-							target: [schema.savedViewState.userId, schema.savedViewState.savedViewSlug],
-							set: { sortOrder: input.sortOrder, isDisabled: input.isDisabled },
-						})
-						.returning(),
+						.insert(schema.savedView)
+						.values(views.map((view) => ({ ...view, isBuiltin: true, userId })))
+						.onConflictDoNothing({ target: [schema.savedView.userId, schema.savedView.slug] }),
 				);
-				return row;
 			});
 
 			return {
 				create,
+				findBySlug,
 				listByUser,
 				listInOrder,
-				findBySlug,
 				countBySlugs,
 				updateBySlug,
 				deleteBySlug,
-				listBuiltinStates,
-				upsertBuiltinState,
-				updateDisabledBySlug,
+				ensureBuiltinViews,
+				updateBuiltinStateBySlug,
 			};
 		}),
 	},

@@ -24,6 +24,7 @@ export const savedView = pgTable(
 		icon: text().notNull(),
 		accentColor: text().notNull(),
 		sortOrder: integer().notNull().default(0),
+		isBuiltin: boolean().notNull().default(false),
 		isDisabled: boolean().notNull().default(false),
 		queryDocument: jsonb().$type<QueryDocument>().notNull(),
 		displayConfiguration: jsonb().$type<DisplayConfiguration>().notNull(),
@@ -43,26 +44,5 @@ export const savedView = pgTable(
 		index("saved_view_user_id_idx").on(table.userId),
 		index("saved_view_plugin_slug_idx").on(table.pluginSlug),
 		unique("saved_view_user_slug_unique").on(table.userId, table.slug),
-	],
-);
-
-export const savedViewState = pgTable(
-	"saved_view_state",
-	{
-		savedViewSlug: text().notNull(),
-		sortOrder: integer().notNull().default(0),
-		isDisabled: boolean().notNull().default(false),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		userId: text()
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
-	},
-	(table) => [
-		index("saved_view_state_user_id_idx").on(table.userId),
-		unique("saved_view_state_user_slug_unique").on(table.userId, table.savedViewSlug),
 	],
 );
