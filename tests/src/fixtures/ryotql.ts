@@ -40,5 +40,13 @@ export const requireRyotQLTextField = (item: RowItem, key: string) => {
 	return requireString(field.value, `Expected '${key}' to contain text`);
 };
 
+export const requireRyotQLDateField = (item: RowItem, key: string) => {
+	const field = requireRyotQLFieldValue(item, key);
+	if (field.kind !== "date") {
+		throw new Error(`Expected date field '${key}'`);
+	}
+	return requireString(field.value, `Expected '${key}' to contain a date`);
+};
+
 export const executeRyotQLError = (client: Client, document: RyotQLPayload) =>
 	Effect.flip(executeRyotQL(client, document));

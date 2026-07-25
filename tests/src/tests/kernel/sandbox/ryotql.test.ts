@@ -52,7 +52,7 @@ describe("sandbox RyotQL reads", () => {
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
-				context: { ids: [first.id, second.id], entitySchemaSlug: schemaId },
+				context: { ids: [first.id, second.id] },
 			});
 
 			const result = yield* pollSandboxResult(userId, jobId);
@@ -69,7 +69,7 @@ describe("sandbox RyotQL reads", () => {
 
 			const { jobId: emptyJobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
-				context: { ids: [], entitySchemaSlug: schemaId },
+				context: { ids: [] },
 			});
 			const emptyResult = yield* pollSandboxResult(userId, emptyJobId);
 			assertCompleted(emptyResult, "empty query entities sandbox job");
