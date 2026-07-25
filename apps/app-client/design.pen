@@ -5723,15 +5723,54 @@
                       ]
                     },
                     {
-                      "type": "text",
-                      "id": "UaE3f",
-                      "name": "Saved Views Caption",
-                      "fill": "$--text-subtle",
-                      "content": "SAVED VIEWS",
-                      "fontFamily": "$--font-mono",
-                      "fontSize": 11,
-                      "fontWeight": "700",
-                      "letterSpacing": 1.1
+                      "type": "frame",
+                      "id": "T1DiGj",
+                      "name": "Saved Views Caption Row",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Awzg5",
+                          "name": "Saved Views Caption",
+                          "fill": "$--text-subtle",
+                          "content": "SAVED VIEWS",
+                          "fontFamily": "$--font-mono",
+                          "fontSize": 11,
+                          "fontWeight": "700",
+                          "letterSpacing": 1.1
+                        },
+                        {
+                          "type": "frame",
+                          "id": "G3sSR",
+                          "name": "New View Action",
+                          "gap": 5,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "L7YeY",
+                              "name": "Action Icon",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "plus",
+                              "library": "lucide",
+                              "fill": "$--accent-text"
+                            },
+                            {
+                              "type": "text",
+                              "id": "yMYTt",
+                              "name": "Action Label",
+                              "fill": "$--accent-text",
+                              "content": "New view",
+                              "fontFamily": "$--font-primary",
+                              "fontSize": 12.5,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        }
+                      ]
                     },
                     {
                       "type": "frame",
@@ -9300,7 +9339,7 @@
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "T24pTW",
+                                  "id": "fCgTW",
                                   "name": "COLLECTIONS Header",
                                   "width": "fill_container",
                                   "padding": [
@@ -9311,24 +9350,43 @@
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "text",
-                                      "id": "I5gxPp",
-                                      "name": "Group Label",
-                                      "fill": "$--text-subtle",
-                                      "content": "COLLECTIONS",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal",
-                                      "letterSpacing": 1.1
+                                      "type": "frame",
+                                      "id": "Nwl81",
+                                      "name": "Header Left",
+                                      "gap": 6,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "LrTDN",
+                                          "name": "Group Label",
+                                          "fill": "$--text-subtle",
+                                          "content": "COLLECTIONS",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal",
+                                          "letterSpacing": 1.1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "QX6E1",
+                                          "name": "Collections Count",
+                                          "fill": "$--text-subtle",
+                                          "content": "9",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     },
                                     {
                                       "type": "text",
-                                      "id": "KyFss",
-                                      "name": "Collections Count",
-                                      "fill": "$--text-subtle",
-                                      "content": "9",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
+                                      "id": "q0dqO",
+                                      "name": "New Action",
+                                      "fill": "$--accent-text",
+                                      "content": "New",
+                                      "fontFamily": "$--font-body",
+                                      "fontSize": 11,
                                       "fontWeight": "normal"
                                     }
                                   ]
@@ -9515,7 +9573,7 @@
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "RWjVB",
+                                  "id": "ZwXQk",
                                   "name": "SAVED VIEWS Header",
                                   "width": "fill_container",
                                   "padding": [
@@ -9526,24 +9584,43 @@
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "text",
-                                      "id": "S6knkZ",
-                                      "name": "Group Label",
-                                      "fill": "$--text-subtle",
-                                      "content": "SAVED VIEWS",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal",
-                                      "letterSpacing": 1.1
+                                      "type": "frame",
+                                      "id": "w0doBc",
+                                      "name": "Header Left",
+                                      "gap": 6,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "PZzSn",
+                                          "name": "Group Label",
+                                          "fill": "$--text-subtle",
+                                          "content": "SAVED VIEWS",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal",
+                                          "letterSpacing": 1.1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "jYkMM",
+                                          "name": "Saved Count",
+                                          "fill": "$--text-subtle",
+                                          "content": "6",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     },
                                     {
                                       "type": "text",
-                                      "id": "T1tTG",
-                                      "name": "Saved Count",
-                                      "fill": "$--text-subtle",
-                                      "content": "6",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
+                                      "id": "Winkg",
+                                      "name": "New Action",
+                                      "fill": "$--accent-text",
+                                      "content": "New",
+                                      "fontFamily": "$--font-body",
+                                      "fontSize": 11,
                                       "fontWeight": "normal"
                                     }
                                   ]
@@ -10412,7 +10489,7 @@
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "Z483c",
+                                  "id": "ZtbAu",
                                   "name": "COLLECTIONS Header",
                                   "width": "fill_container",
                                   "padding": [
@@ -10423,24 +10500,43 @@
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "text",
-                                      "id": "BNRH8",
-                                      "name": "Group Label",
-                                      "fill": "$--text-subtle",
-                                      "content": "COLLECTIONS",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal",
-                                      "letterSpacing": 1.1
+                                      "type": "frame",
+                                      "id": "H9SF3",
+                                      "name": "Header Left",
+                                      "gap": 6,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "Q4lnN",
+                                          "name": "Group Label",
+                                          "fill": "$--text-subtle",
+                                          "content": "COLLECTIONS",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal",
+                                          "letterSpacing": 1.1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "G5NeMK",
+                                          "name": "Collections Count",
+                                          "fill": "$--text-subtle",
+                                          "content": "9",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     },
                                     {
                                       "type": "text",
-                                      "id": "KJq2u",
-                                      "name": "Collections Count",
-                                      "fill": "$--text-subtle",
-                                      "content": "9",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
+                                      "id": "MJWpZ",
+                                      "name": "New Action",
+                                      "fill": "$--accent-text",
+                                      "content": "New",
+                                      "fontFamily": "$--font-body",
+                                      "fontSize": 11,
                                       "fontWeight": "normal"
                                     }
                                   ]
@@ -10627,7 +10723,7 @@
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "S4wvtx",
+                                  "id": "vw8RG",
                                   "name": "SAVED VIEWS Header",
                                   "width": "fill_container",
                                   "padding": [
@@ -10638,24 +10734,43 @@
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "text",
-                                      "id": "x4uGm",
-                                      "name": "Group Label",
-                                      "fill": "$--text-subtle",
-                                      "content": "SAVED VIEWS",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal",
-                                      "letterSpacing": 1.1
+                                      "type": "frame",
+                                      "id": "rAgFq",
+                                      "name": "Header Left",
+                                      "gap": 6,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "F84BW",
+                                          "name": "Group Label",
+                                          "fill": "$--text-subtle",
+                                          "content": "SAVED VIEWS",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal",
+                                          "letterSpacing": 1.1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "U8soIl",
+                                          "name": "Saved Count",
+                                          "fill": "$--text-subtle",
+                                          "content": "6",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     },
                                     {
                                       "type": "text",
-                                      "id": "CGKFJ",
-                                      "name": "Saved Count",
-                                      "fill": "$--text-subtle",
-                                      "content": "6",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
+                                      "id": "QEXOx",
+                                      "name": "New Action",
+                                      "fill": "$--accent-text",
+                                      "content": "New",
+                                      "fontFamily": "$--font-body",
+                                      "fontSize": 11,
                                       "fontWeight": "normal"
                                     }
                                   ]
@@ -11775,7 +11890,7 @@
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "h52Yg",
+                                  "id": "oAYHH",
                                   "name": "COLLECTIONS Header",
                                   "width": "fill_container",
                                   "padding": [
@@ -11786,24 +11901,43 @@
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "text",
-                                      "id": "s0PNX",
-                                      "name": "Group Label",
-                                      "fill": "$--text-subtle",
-                                      "content": "COLLECTIONS",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal",
-                                      "letterSpacing": 1.1
+                                      "type": "frame",
+                                      "id": "fMfFi",
+                                      "name": "Header Left",
+                                      "gap": 6,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "XGaiK",
+                                          "name": "Group Label",
+                                          "fill": "$--text-subtle",
+                                          "content": "COLLECTIONS",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal",
+                                          "letterSpacing": 1.1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "e64b6A",
+                                          "name": "Collections Count",
+                                          "fill": "$--text-subtle",
+                                          "content": "9",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     },
                                     {
                                       "type": "text",
-                                      "id": "R1mIz9",
-                                      "name": "Collections Count",
-                                      "fill": "$--text-subtle",
-                                      "content": "9",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
+                                      "id": "GK5Nm",
+                                      "name": "New Action",
+                                      "fill": "$--accent-text",
+                                      "content": "New",
+                                      "fontFamily": "$--font-body",
+                                      "fontSize": 11,
                                       "fontWeight": "normal"
                                     }
                                   ]
@@ -11990,7 +12124,7 @@
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "DItuJ",
+                                  "id": "OYPav",
                                   "name": "SAVED VIEWS Header",
                                   "width": "fill_container",
                                   "padding": [
@@ -12001,24 +12135,43 @@
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "text",
-                                      "id": "MoH0f",
-                                      "name": "Group Label",
-                                      "fill": "$--text-subtle",
-                                      "content": "SAVED VIEWS",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal",
-                                      "letterSpacing": 1.1
+                                      "type": "frame",
+                                      "id": "rHToQ",
+                                      "name": "Header Left",
+                                      "gap": 6,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "kQU10",
+                                          "name": "Group Label",
+                                          "fill": "$--text-subtle",
+                                          "content": "SAVED VIEWS",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal",
+                                          "letterSpacing": 1.1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "DB8Bn",
+                                          "name": "Saved Count",
+                                          "fill": "$--text-subtle",
+                                          "content": "6",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     },
                                     {
                                       "type": "text",
-                                      "id": "OYFgE",
-                                      "name": "Saved Count",
-                                      "fill": "$--text-subtle",
-                                      "content": "6",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
+                                      "id": "L2hwu",
+                                      "name": "New Action",
+                                      "fill": "$--accent-text",
+                                      "content": "New",
+                                      "fontFamily": "$--font-body",
+                                      "fontSize": 11,
                                       "fontWeight": "normal"
                                     }
                                   ]
@@ -12981,7 +13134,7 @@
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "HeqmA",
+                                  "id": "M3Dt3",
                                   "name": "COLLECTIONS Header",
                                   "width": "fill_container",
                                   "padding": [
@@ -12992,25 +13145,34 @@
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "text",
-                                      "id": "E4eem",
-                                      "name": "Group Label",
-                                      "fill": "$--text-subtle",
-                                      "content": "COLLECTIONS",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal",
-                                      "letterSpacing": 1.1
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "lErSf",
-                                      "name": "Collections Count",
-                                      "fill": "$--text-subtle",
-                                      "content": "0",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal"
+                                      "type": "frame",
+                                      "id": "w3ibxJ",
+                                      "name": "Header Left",
+                                      "gap": 6,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "ypIXg",
+                                          "name": "Group Label",
+                                          "fill": "$--text-subtle",
+                                          "content": "COLLECTIONS",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal",
+                                          "letterSpacing": 1.1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "UNWRL",
+                                          "name": "Collections Count",
+                                          "fill": "$--text-subtle",
+                                          "content": "0",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     }
                                   ]
                                 },
@@ -13084,7 +13246,7 @@
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "DBrjR",
+                                  "id": "Randl",
                                   "name": "SAVED VIEWS Header",
                                   "width": "fill_container",
                                   "padding": [
@@ -13095,25 +13257,34 @@
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "type": "text",
-                                      "id": "yigC7",
-                                      "name": "Group Label",
-                                      "fill": "$--text-subtle",
-                                      "content": "SAVED VIEWS",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal",
-                                      "letterSpacing": 1.1
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "yVWJI",
-                                      "name": "Saved Count",
-                                      "fill": "$--text-subtle",
-                                      "content": "0",
-                                      "fontFamily": "$--font-mono",
-                                      "fontSize": 10,
-                                      "fontWeight": "normal"
+                                      "type": "frame",
+                                      "id": "mvi27",
+                                      "name": "Header Left",
+                                      "gap": 6,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "U7kMRO",
+                                          "name": "Group Label",
+                                          "fill": "$--text-subtle",
+                                          "content": "SAVED VIEWS",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal",
+                                          "letterSpacing": 1.1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "kgijM",
+                                          "name": "Saved Count",
+                                          "fill": "$--text-subtle",
+                                          "content": "0",
+                                          "fontFamily": "$--font-mono",
+                                          "fontSize": 10,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     }
                                   ]
                                 },
