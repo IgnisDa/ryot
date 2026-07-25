@@ -46,6 +46,10 @@ type AppPropertyValidationBase = {
 	readonly required?: true | undefined;
 };
 
+type AppObjectPropertyValidation = AppPropertyValidationBase & {
+	readonly asset?: true | undefined;
+};
+
 export type AppArrayPropertyValidation = AppPropertyValidationBase & {
 	readonly maxItems?: number | undefined;
 	readonly minItems?: number | undefined;
@@ -122,7 +126,7 @@ export type AppArrayProperty = AppPropertyBase<AppArrayPropertyValidation> & {
 	readonly defaultValue?: ReadonlyArray<unknown> | undefined;
 };
 
-export type AppObjectProperty = AppPropertyBase<AppPropertyValidationBase> & {
+export type AppObjectProperty = AppPropertyBase<AppObjectPropertyValidation> & {
 	readonly type: "object";
 	readonly properties: AppSchemaFields;
 	readonly unknownKeys?: AppSchemaUnknownKeysPolicy | undefined;
@@ -187,6 +191,11 @@ export class PropertyValidationError extends Schema.TaggedErrorClass<PropertyVal
 const AppSchemaUnknownKeysPolicy = Schema.Literals(["strip", "strict", "passthrough"]);
 
 const requiredValidationSchema = strictStruct({ required: Schema.optional(Schema.Literal(true)) });
+
+const objectValidationSchema = strictStruct({
+	asset: Schema.optional(Schema.Literal(true)),
+	required: Schema.optional(Schema.Literal(true)),
+});
 
 const hasValidNumericBounds = (value: {
 	readonly maximum?: number | undefined;
@@ -354,7 +363,7 @@ const AppPropertyDefinition: Schema.Codec<AppPropertyDefinition, unknown> = Sche
 		strictStruct({
 			...propertyBaseFields,
 			type: Schema.Literal("object"),
-			validation: Schema.optional(requiredValidationSchema),
+			validation: Schema.optional(objectValidationSchema),
 			unknownKeys: Schema.optional(AppSchemaUnknownKeysPolicy),
 			properties: Schema.Record(Schema.String, AppPropertyDefinition),
 			defaultValue: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),

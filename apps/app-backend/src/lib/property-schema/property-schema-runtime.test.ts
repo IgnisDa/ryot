@@ -1,3 +1,4 @@
+import { imagesField, videosField } from "@ryot/contract/schema/core";
 import type {
 	AppArrayProperty,
 	AppBooleanProperty,
@@ -155,6 +156,44 @@ describe("parseAppSchemaPropertiesSafe - non-object input", () => {
 		if (!result.success) {
 			expect(result.issues[0]?.message).toContain("Event");
 		}
+	});
+});
+
+describe("parseAppSchemaPropertiesSafe - managed assets", () => {
+	it("accepts the local, S3, and remote asset variants", () => {
+		const result = parse(
+			{ images: imagesField("Images"), videos: videosField("Videos") },
+			{
+				videos: [{ type: "local", key: "permanent/video.mp4" }],
+				images: [
+					{ type: "local", key: "permanent/image.jpg" },
+					{ type: "s3", key: "permanent/image.jpg" },
+					{ type: "remote", url: "https://example.com/image.jpg" },
+				],
+			},
+		);
+
+		expect(result).toMatchObject({ success: true });
+	});
+
+	it("rejects an asset provider outside the canonical union", () => {
+		const result = parse(
+			{ images: imagesField("Images") },
+			{ images: [{ type: "unknown", key: "permanent/image.jpg" }] },
+		);
+
+		expect(result.success).toBe(false);
+	});
+
+	it("requires the locator field for each asset variant", () => {
+		const fields = { images: imagesField("Images") };
+		expect(parse(fields, { images: [{ type: "local" }] }).success).toBe(false);
+		expect(parse(fields, { images: [{ type: "remote" }] }).success).toBe(false);
+		expect(
+			parse(fields, {
+				images: [{ type: "remote", url: "https://example.com/image.jpg", key: "key" }],
+			}).success,
+		).toBe(false);
 	});
 });
 
