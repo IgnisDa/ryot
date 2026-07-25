@@ -4,9 +4,9 @@ Pre-requisite: Please read [Durable Sandbox - Overview](../../plans/durable-sand
 
 ## Tasks
 
-**Overall Progress:** 7 of 16 tasks completed
+**Overall Progress:** 9 of 16 tasks completed
 
-**Current Task:** [Task 08](./08-migrate-media-automations-and-operations.md) (todo)
+**Current Task:** [Task 10](./10-migrate-books-and-serial-media-providers.md) (todo)
 
 ### Task List
 
@@ -19,8 +19,8 @@ Pre-requisite: Please read [Durable Sandbox - Overview](../../plans/durable-sand
 | 05  | [Complete Durable Host Dispatch and Write Safety](./05-complete-durable-host-dispatch.md)    | done   |
 | 06  | [Migrate Media Imports and Named Workflows](./06-migrate-media-imports-and-workflows.md)     | done   |
 | 07  | [Migrate Media Integration Scripts](./07-migrate-media-integrations.md)                      | done   |
-| 08  | [Migrate Media Automations and Operations](./08-migrate-media-automations-and-operations.md) | todo   |
-| 09  | [Migrate the Fitness Plugin](./09-migrate-fitness-plugin.md)                                 | todo   |
+| 08  | [Migrate Media Automations and Operations](./08-migrate-media-automations-and-operations.md) | done   |
+| 09  | [Migrate the Fitness Plugin](./09-migrate-fitness-plugin.md)                                 | done   |
 | 10  | [Migrate Books and Serial Media Providers](./10-migrate-books-and-serial-media-providers.md) | todo   |
 | 11  | [Migrate Screen, Music, and Game Providers](./11-migrate-screen-music-game-providers.md)     | todo   |
 | 12  | [Migrate Person and Company Providers](./12-migrate-person-company-providers.md)             | todo   |

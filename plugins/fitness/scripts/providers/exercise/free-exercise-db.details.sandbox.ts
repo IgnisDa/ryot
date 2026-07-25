@@ -15,5 +15,5 @@ export const manifest = defineManifest({
 export default defineProvider({
 	manifest,
 	operation: "details",
-	run: (input, host) => getExerciseDetails(input, host),
+	run: (input, host, execution) => getExerciseDetails(input, host, execution),
 });

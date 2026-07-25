@@ -5,7 +5,7 @@ import { assert, expect, it } from "vitest";
 
 import workflow from "./import.sandbox";
 
-it("orchestrates the source activity and kernel chunk consumer", async () => {
+it("orchestrates the source script and kernel chunk consumer", async () => {
 	const journal: JsonValue[] = [];
 	const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
 	const replay = (): Promise<JsonValue> =>
@@ -43,7 +43,7 @@ it("orchestrates the source activity and kernel chunk consumer", async () => {
 	expect(requests).toEqual([
 		expect.objectContaining({
 			kind: "activity",
-			args: expect.objectContaining({ scriptSlug: "activity.import.strong-app" }),
+			args: expect.objectContaining({ scriptSlug: "import.strong-app" }),
 		}),
 		expect.objectContaining({
 			kind: "child",
