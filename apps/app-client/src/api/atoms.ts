@@ -1,5 +1,6 @@
 import { makeContractClient } from "@ryot/contract/client";
 import { buildNavigationDocument } from "@ryot/ryotql-recipes/navigation";
+import { buildSavedViewRecordsDocument } from "@ryot/ryotql-recipes/saved-view-records";
 import { Effect, Schema } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { Atom } from "effect/unstable/reactivity";
@@ -23,8 +24,8 @@ export const navigationAtom = appQueryClient.query("ryotql", "execute", {
 	payload: buildNavigationDocument(),
 });
 
-export const savedViewsAtom = appQueryClient.query("savedViews", "list", {
-	query: { includeDisabled: true },
+export const savedViewsAtom = appQueryClient.query("ryotql", "execute", {
+	payload: buildSavedViewRecordsDocument({ includeDisabled: true, limit: 10, page: 1 }),
 });
 
 export const serverUrlAtom = Atom.kvs({
