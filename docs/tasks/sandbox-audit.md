@@ -181,7 +181,7 @@ The runner-side name validation (runner-source.sandbox.ts:120-132) does not help
 
 **B10 — stderr is black-holed.** runtime.ts:253-258 drains Deno stderr into `Effect.void`. Permission denials, V8 OOM, and module-resolution failures all vanish; the operator sees only "Sandbox timed out".
 
-- [ ] Ring-buffer the last N stderr lines and attach them to timeout and kill failures.
+- [x] Ring-buffer the last 20 stderr lines (64 KiB cap), fail fast on unexpected process exit, and attach diagnostics to timeout and process-termination failures.
 
 ---
 
