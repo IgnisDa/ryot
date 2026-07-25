@@ -13,7 +13,13 @@ import type {
 } from "@ryot/contract/modules/ryotql/language";
 import { DateTime, Duration, Option } from "effect";
 
-import { getCatalogTable, resolveCatalogField, type CatalogTable } from "./catalog";
+import {
+	canAccessCatalogTable,
+	getCatalogTable,
+	resolveCatalogField,
+	type CatalogTable,
+	type RyotQLExecutionScope,
+} from "./catalog";
 
 export const MAX_QUERY_JOINS = 8;
 export const MAX_INCLUDE_DEPTH = 3;
@@ -34,43 +40,60 @@ const validateExpression = (
 	expr: ScalarExpression,
 	scope: AliasScope,
 	correlatedDepth: number,
+	executionScope: Pick<RyotQLExecutionScope, "type">,
 ): string | null => {
 	if (expr.type === "literal") {
 		return null;
 	}
 	if (expr.type === "cast") {
-		return validateExpression(expr.expr, scope, correlatedDepth);
+		return validateExpression(expr.expr, scope, correlatedDepth, executionScope);
 	}
 	if (expr.type === "coalesce") {
 		return (
-			expr.values.map((value) => validateExpression(value, scope, correlatedDepth)).find(Boolean) ??
-			null
+			expr.values
+				.map((value) => validateExpression(value, scope, correlatedDepth, executionScope))
+				.find(Boolean) ?? null
 		);
 	}
 	if (expr.type === "arithmetic") {
 		return (
-			validateExpression(expr.left, scope, correlatedDepth) ??
-			validateExpression(expr.right, scope, correlatedDepth)
+			validateExpression(expr.left, scope, correlatedDepth, executionScope) ??
+			validateExpression(expr.right, scope, correlatedDepth, executionScope)
 		);
 	}
 	if (expr.type === "exists" || expr.type === "aggregate" || expr.type === "first") {
 		if (correlatedDepth >= MAX_CORRELATED_DEPTH) {
 			return `Correlated query depth must not exceed ${MAX_CORRELATED_DEPTH}`;
 		}
-		const nested = validateQuerySet(expr.query, scope, correlatedDepth + 1);
+		const nested = validateQuerySet(expr.query, scope, correlatedDepth + 1, executionScope);
 		if (nested.error || !nested.scope) {
 			return nested.error;
 		}
 		if (expr.type === "aggregate" && expr.aggregation.function !== "count") {
-			return validateExpression(expr.aggregation.expr, nested.scope, correlatedDepth + 1);
+			return validateExpression(
+				expr.aggregation.expr,
+				nested.scope,
+				correlatedDepth + 1,
+				executionScope,
+			);
 		}
 		if (expr.type === "first") {
-			const selectionError = validateExpression(expr.select, nested.scope, correlatedDepth + 1);
+			const selectionError = validateExpression(
+				expr.select,
+				nested.scope,
+				correlatedDepth + 1,
+				executionScope,
+			);
 			if (selectionError) {
 				return selectionError;
 			}
 			for (const order of expr.orderBy) {
-				const orderError = validateExpression(order.expr, nested.scope, correlatedDepth + 1);
+				const orderError = validateExpression(
+					order.expr,
+					nested.scope,
+					correlatedDepth + 1,
+					executionScope,
+				);
 				if (orderError) {
 					return orderError;
 				}
@@ -82,7 +105,7 @@ const validateExpression = (
 		return null;
 	}
 	if (expr.type === "jsonPath") {
-		const expressionError = validateExpression(expr.expr, scope, correlatedDepth);
+		const expressionError = validateExpression(expr.expr, scope, correlatedDepth, executionScope);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -147,14 +170,15 @@ const validatePredicate = (
 	predicate: Predicate,
 	scope: AliasScope,
 	correlatedDepth: number,
+	executionScope: Pick<RyotQLExecutionScope, "type">,
 ): string | null => {
 	if (predicate.type === "exists") {
-		return validateExpression(predicate, scope, correlatedDepth);
+		return validateExpression(predicate, scope, correlatedDepth, executionScope);
 	}
 	if (predicate.type === "comparison") {
 		const expressionError =
-			validateExpression(predicate.left, scope, correlatedDepth) ??
-			validateExpression(predicate.right, scope, correlatedDepth);
+			validateExpression(predicate.left, scope, correlatedDepth, executionScope) ??
+			validateExpression(predicate.right, scope, correlatedDepth, executionScope);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -170,20 +194,20 @@ const validatePredicate = (
 	if (predicate.type === "and" || predicate.type === "or") {
 		return (
 			predicate.predicates
-				.map((value) => validatePredicate(value, scope, correlatedDepth))
+				.map((value) => validatePredicate(value, scope, correlatedDepth, executionScope))
 				.find(Boolean) ?? null
 		);
 	}
 	if (predicate.type === "not") {
-		return validatePredicate(predicate.predicate, scope, correlatedDepth);
+		return validatePredicate(predicate.predicate, scope, correlatedDepth, executionScope);
 	}
 	if (predicate.type === "isNull" || predicate.type === "isNotNull") {
-		return validateExpression(predicate.expr, scope, correlatedDepth);
+		return validateExpression(predicate.expr, scope, correlatedDepth, executionScope);
 	}
 	if (predicate.type === "contains") {
 		const expressionError =
-			validateExpression(predicate.left, scope, correlatedDepth) ??
-			validateExpression(predicate.right, scope, correlatedDepth);
+			validateExpression(predicate.left, scope, correlatedDepth, executionScope) ??
+			validateExpression(predicate.right, scope, correlatedDepth, executionScope);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -194,9 +218,9 @@ const validatePredicate = (
 			: "Containment operands must both be text or JSON";
 	}
 	const expressionError =
-		validateExpression(predicate.expr, scope, correlatedDepth) ??
+		validateExpression(predicate.expr, scope, correlatedDepth, executionScope) ??
 		predicate.values
-			.map((value) => validateExpression(value, scope, correlatedDepth))
+			.map((value) => validateExpression(value, scope, correlatedDepth, executionScope))
 			.find(Boolean) ??
 		null;
 	if (expressionError) {
@@ -210,7 +234,11 @@ const validatePredicate = (
 		: "Membership values must have compatible types";
 };
 
-const addTable = (scope: Map<string, CatalogTable>, reference: TableReference): string | null => {
+const addTable = (
+	scope: Map<string, CatalogTable>,
+	reference: TableReference,
+	executionScope: Pick<RyotQLExecutionScope, "type">,
+): string | null => {
 	const aliasError = requiredNameError(reference.alias, "Table alias");
 	if (aliasError) {
 		return aliasError;
@@ -221,6 +249,9 @@ const addTable = (scope: Map<string, CatalogTable>, reference: TableReference): 
 	const table = getCatalogTable(reference.table);
 	if (!table) {
 		return `Unknown table '${reference.table}'`;
+	}
+	if (!canAccessCatalogTable(table, executionScope)) {
+		return `Table '${reference.table}' is not available to plugin execution`;
 	}
 	scope.set(reference.alias, table);
 	return null;
@@ -239,27 +270,34 @@ const expressionScope = (query: CorrelatedQuerySet, ancestors: AliasScope) => {
 	return scope;
 };
 
-const validateQuerySet = (query: QuerySet, ancestors: AliasScope, correlatedDepth: number) => {
+const validateQuerySet = (
+	query: QuerySet,
+	ancestors: AliasScope,
+	correlatedDepth: number,
+	executionScope: Pick<RyotQLExecutionScope, "type"> = { type: "user" },
+) => {
 	const joins = query.joins ?? [];
 	if (joins.length > MAX_QUERY_JOINS) {
 		return { error: `A query may contain at most ${MAX_QUERY_JOINS} joins`, scope: null };
 	}
 	const scope = new Map(ancestors);
-	const rootError = addTable(scope, query.from);
+	const rootError = addTable(scope, query.from, executionScope);
 	if (rootError) {
 		return { error: rootError, scope: null };
 	}
 	for (const join of joins) {
-		const tableError = addTable(scope, join.table);
+		const tableError = addTable(scope, join.table, executionScope);
 		if (tableError) {
 			return { error: tableError, scope: null };
 		}
-		const onError = validatePredicate(join.on, scope, correlatedDepth);
+		const onError = validatePredicate(join.on, scope, correlatedDepth, executionScope);
 		if (onError) {
 			return { error: onError, scope: null };
 		}
 	}
-	const whereError = query.where ? validatePredicate(query.where, scope, correlatedDepth) : null;
+	const whereError = query.where
+		? validatePredicate(query.where, scope, correlatedDepth, executionScope)
+		: null;
 	return whereError ? { error: whereError, scope: null } : { error: null, scope };
 };
 
@@ -269,6 +307,7 @@ const validateSelections = (
 	include: readonly Include[],
 	scope: AliasScope,
 	depth: number,
+	executionScope: Pick<RyotQLExecutionScope, "type">,
 ): string | null => {
 	const keys = new Set<string>();
 	for (const field of fields) {
@@ -280,7 +319,7 @@ const validateSelections = (
 			return `Duplicate output field key '${field.key}'`;
 		}
 		keys.add(field.key);
-		const fieldError = validateExpression(field.expr, scope, 0);
+		const fieldError = validateExpression(field.expr, scope, 0, executionScope);
 		if (fieldError) {
 			return fieldError;
 		}
@@ -300,7 +339,7 @@ const validateSelections = (
 		if (nested.limit > MAX_INCLUDE_LIMIT) {
 			return `Include limit must not exceed ${MAX_INCLUDE_LIMIT}`;
 		}
-		const nestedQuerySet = validateQuerySet(nested, scope, 0);
+		const nestedQuerySet = validateQuerySet(nested, scope, 0, executionScope);
 		if (nestedQuerySet.error || !nestedQuerySet.scope) {
 			return `Include '${nested.key}': ${nestedQuerySet.error}`;
 		}
@@ -310,13 +349,14 @@ const validateSelections = (
 			nested.include ?? [],
 			nestedQuerySet.scope,
 			depth + 1,
+			executionScope,
 		);
 		if (nestedError) {
 			return `Include '${nested.key}': ${nestedError}`;
 		}
 	}
 	for (const order of orderBy) {
-		const expressionError = validateExpression(order.expr, scope, 0);
+		const expressionError = validateExpression(order.expr, scope, 0, executionScope);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -327,7 +367,11 @@ const validateSelections = (
 	return null;
 };
 
-const validateAggregateOutput = (output: AggregateOutput, scope: AliasScope): string | null => {
+const validateAggregateOutput = (
+	output: AggregateOutput,
+	scope: AliasScope,
+	executionScope: Pick<RyotQLExecutionScope, "type">,
+): string | null => {
 	const outputKeys = new Set<string>();
 	for (const group of output.groupBy ?? []) {
 		const keyError = requiredNameError(group.key, "Aggregate output key");
@@ -338,7 +382,7 @@ const validateAggregateOutput = (output: AggregateOutput, scope: AliasScope): st
 			return `Duplicate aggregate output key '${group.key}'`;
 		}
 		outputKeys.add(group.key);
-		const expressionError = validateExpression(group.expr, scope, 0);
+		const expressionError = validateExpression(group.expr, scope, 0, executionScope);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -356,7 +400,12 @@ const validateAggregateOutput = (output: AggregateOutput, scope: AliasScope): st
 		outputKeys.add(measure.key);
 		measureKeys.add(measure.key);
 		if (measure.aggregation.function !== "count") {
-			const expressionError = validateExpression(measure.aggregation.expr, scope, 0);
+			const expressionError = validateExpression(
+				measure.aggregation.expr,
+				scope,
+				0,
+				executionScope,
+			);
 			if (expressionError) {
 				return expressionError;
 			}
@@ -431,7 +480,11 @@ const countTimeSeriesBuckets = (output: TimeSeriesOutput) => {
 	return { count, endAt, startAt };
 };
 
-const validateTimeSeriesOutput = (output: TimeSeriesOutput, scope: AliasScope): string | null => {
+const validateTimeSeriesOutput = (
+	output: TimeSeriesOutput,
+	scope: AliasScope,
+	executionScope: Pick<RyotQLExecutionScope, "type">,
+): string | null => {
 	const range = countTimeSeriesBuckets(output);
 	if (Option.isNone(range.startAt) || Option.isNone(range.endAt)) {
 		return "Time-series range startAt and endAt must be valid dates";
@@ -442,7 +495,7 @@ const validateTimeSeriesOutput = (output: TimeSeriesOutput, scope: AliasScope): 
 	if (range.count !== null && range.count > MAX_TIME_SERIES_BUCKETS) {
 		return `Time-series bucket count exceeds maximum of ${MAX_TIME_SERIES_BUCKETS}`;
 	}
-	const timeError = validateExpression(output.time.expr, scope, 0);
+	const timeError = validateExpression(output.time.expr, scope, 0, executionScope);
 	if (timeError) {
 		return timeError;
 	}
@@ -454,19 +507,22 @@ const validateTimeSeriesOutput = (output: TimeSeriesOutput, scope: AliasScope): 
 	}
 	return output.measure.aggregation.function === "count"
 		? null
-		: validateExpression(output.measure.aggregation.expr, scope, 0);
+		: validateExpression(output.measure.aggregation.expr, scope, 0, executionScope);
 };
 
-const validateNamedQuery = (query: NamedQuery): string | null => {
-	const querySet = validateQuerySet(query, new Map(), 0);
+const validateNamedQuery = (
+	query: NamedQuery,
+	executionScope: Pick<RyotQLExecutionScope, "type">,
+): string | null => {
+	const querySet = validateQuerySet(query, new Map(), 0, executionScope);
 	if (querySet.error || !querySet.scope) {
 		return querySet.error;
 	}
 	if (query.output.type === "aggregate") {
-		return validateAggregateOutput(query.output, querySet.scope);
+		return validateAggregateOutput(query.output, querySet.scope, executionScope);
 	}
 	if (query.output.type === "timeSeries") {
-		return validateTimeSeriesOutput(query.output, querySet.scope);
+		return validateTimeSeriesOutput(query.output, querySet.scope, executionScope);
 	}
 	if (query.output.pagination.limit > MAX_ROOT_PAGE_SIZE) {
 		return `Rows limit must not exceed ${MAX_ROOT_PAGE_SIZE}`;
@@ -477,10 +533,14 @@ const validateNamedQuery = (query: NamedQuery): string | null => {
 		query.output.include ?? [],
 		querySet.scope,
 		0,
+		executionScope,
 	);
 };
 
-export const validateRyotQLDocument = (document: RyotQLDocument): string | null => {
+export const validateRyotQLDocument = (
+	document: RyotQLDocument,
+	executionScope: Pick<RyotQLExecutionScope, "type"> = { type: "user" },
+): string | null => {
 	const queries = Object.entries(document.queries);
 	if (queries.length === 0) {
 		return "A RyotQL document must contain at least one named query";
@@ -493,7 +553,7 @@ export const validateRyotQLDocument = (document: RyotQLDocument): string | null 
 		if (nameError) {
 			return nameError;
 		}
-		const queryError = validateNamedQuery(query);
+		const queryError = validateNamedQuery(query, executionScope);
 		if (queryError) {
 			return `Query '${name}': ${queryError}`;
 		}

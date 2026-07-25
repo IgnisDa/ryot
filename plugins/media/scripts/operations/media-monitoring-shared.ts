@@ -1,15 +1,18 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import type { RyotQLDocument } from "@ryot/sandbox-sdk/ryotql";
 
-import { buildMediaMonitoringTargetsQuery, mediaMonitoringRows } from "../../media-monitoring";
+import {
+	buildMediaMonitoringTargetsDocument,
+	decodeMediaMonitoringTargets,
+} from "../../media-monitoring-ryotql";
 import type { MediaMonitoringResult } from "../../operations/schemas";
 
 export const queryMediaMonitoringTargets = (
 	entityIds: readonly string[],
-	executeQueryEngine: (document: JsonValue) => Effect.Effect<unknown, unknown>,
+	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, unknown>,
 ) =>
-	executeQueryEngine(buildMediaMonitoringTargetsQuery(entityIds)).pipe(
-		Effect.map(mediaMonitoringRows),
+	executeRyotql(buildMediaMonitoringTargetsDocument(entityIds)).pipe(
+		Effect.map(decodeMediaMonitoringTargets),
 	);
 
 export const alignedMediaMonitoringResults = (

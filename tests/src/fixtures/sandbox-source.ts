@@ -1,4 +1,4 @@
-import type { SandboxHostCapability } from "@ryot/sandbox-sdk/core";
+import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
 import type { JsonPrimitive, JsonValue } from "@ryot/sandbox-sdk/wire";
 
 type SandboxSourceIdentity = {

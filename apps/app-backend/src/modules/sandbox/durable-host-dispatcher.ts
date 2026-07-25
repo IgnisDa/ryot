@@ -1,10 +1,7 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
+import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
-import {
-	httpCallArgsSchema,
-	sandboxHostContracts,
-	type SandboxHostCapability,
-} from "@ryot/sandbox-sdk/core";
+import { httpCallArgsSchema, sandboxHostContracts } from "@ryot/sandbox-sdk/core";
 import { type JsonValue, jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import {
 	type WorkflowDurableCallRequest,
@@ -55,6 +52,7 @@ export const SANDBOX_DURABLE_HOST_DISPATCH = {
 	log: "diagnostic",
 	span: "diagnostic",
 	httpCall: "activity",
+	executeRyotql: "activity",
 	getCachedValue: "activity",
 	setCachedValue: "activity",
 	getPluginConfig: "activity",

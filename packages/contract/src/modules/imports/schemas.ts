@@ -1,7 +1,7 @@
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Schema } from "effect";
 
 import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "../../schema/brands";
+import { jsonValueSchema } from "../sandbox/wire";
 import { importRunFailureStages, importRunStatuses } from "./types";
 
 const ImportRunStatus = Schema.Literals([...importRunStatuses]);

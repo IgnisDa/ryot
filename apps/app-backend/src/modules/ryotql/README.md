@@ -4,7 +4,7 @@ RyotQL is the focused read API at `POST /ryotql/execute`. It is independent from
 
 ## Current Capabilities
 
-- Authenticated user execution against the `entity`, `event`, `relationship`, `plugin`, `pluginState`, and `savedView` tables.
+- Authenticated user execution against the `entity`, `event`, `relationship`, `plugin`, `pluginState`, and `savedView` tables, plus capability-gated pinned-plugin execution against owned entity, event, and relationship data.
 - Multiple independent named rows, aggregate, or time-series queries in one repeatable-read, read-only transaction.
 - Field selection, typed JSON expressions, predicates, arithmetic, correlated scalar expressions, inner and left joins, ordering, pagination, and correlated row includes.
 - Localized entity names and properties with translation status as a normal catalog field.
@@ -95,6 +95,16 @@ document({
 	}),
 });
 ```
+
+## Execution Scopes
+
+`POST /ryotql/execute` always runs as the authenticated user. User execution can read that user's rows and permitted global rows; plugin state and saved views remain user-only. Query documents cannot contain a user ID, plugin slug, execution scope, or grant that changes this authority.
+
+Sandbox scripts declare the separate `executeRyotql` capability. User and subscription executions retain their trusted user authority. A system execution is accepted only for a persisted pinned plugin script, and the backend derives its plugin slug and owned discriminator definitions from that script's installed plugin metadata.
+
+Plugin execution can read only global entities whose `entitySchemaSlug` is owned by the plugin. It can read event and relationship rows across users only when their discriminator definition is owned by the plugin. The `plugin`, `pluginState`, and `savedView` tables are denied. These policies apply independently to every root, join, include, and correlated query before document predicates.
+
+Sandbox code imports builders, generic entity and event read recipes, field-value schemas, and strict named-response helpers from `@ryot/sandbox-sdk/ryotql`. The helpers accept only the RyotQL `{ data: { [queryName]: result } }` envelope; they do not accept legacy query-engine arrays or result envelopes. The legacy `executeQueryEngine` capability remains available to scripts that have not migrated.
 
 ## Expressions And JSON
 
@@ -298,5 +308,3 @@ document({
 - 3 include levels.
 - 3 correlated query levels.
 - 30-second transaction-local statement timeout.
-
-Plugin execution is not available yet.

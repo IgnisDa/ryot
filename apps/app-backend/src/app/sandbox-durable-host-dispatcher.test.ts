@@ -38,6 +38,7 @@ const implementations: SandboxHostImplementations["Service"] = {
 	},
 	additional: {
 		createEvents: unused,
+		executeRyotql: unused,
 		getPluginConfig: unused,
 		getSystemConfig: unused,
 		getEntitySchemas: unused,
