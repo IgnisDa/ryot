@@ -13,7 +13,7 @@ describe("media query recipes", () => {
 			episodeLimit: 12,
 			entityId: "show-id",
 		});
-		const seasons = doc.output.include?.[0];
+		const seasons = doc.output.include[0];
 		const episodes = seasons && "include" in seasons ? seasons.include[0] : undefined;
 
 		expect(doc.source.where).toMatchObject({ operator: "eq", type: "comparison" });
