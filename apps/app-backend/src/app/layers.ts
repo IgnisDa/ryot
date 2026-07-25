@@ -8,6 +8,7 @@ import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/infrastruct
 import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
+import { SandboxHarvestHandleStore } from "#lib/infrastructure/sandbox-runtime/harvest-handles";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { makeRuntimeSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/runtime-host-functions";
@@ -118,12 +119,15 @@ import { ServerLive } from "./server";
 
 const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer);
 
-const BaseInfrastructureServicesLive = Layer.mergeAll(
-	DbService.layer,
-	RedisService.layer,
-	ServerRun.layer,
-	S3Service.layer,
-	FetchHttpClient.layer,
+const BaseInfrastructureServicesLive = Layer.provideMerge(
+	SandboxHarvestHandleStore.layer,
+	Layer.mergeAll(
+		DbService.layer,
+		RedisService.layer,
+		ServerRun.layer,
+		S3Service.layer,
+		FetchHttpClient.layer,
+	),
 );
 
 const BaseInfrastructureLive = Layer.provide(BaseInfrastructureServicesLive, ConfigLive);

@@ -1,8 +1,5 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import {
-	SandboxCompletedResult,
-	SandboxExecutionPayload,
-} from "@ryot/contract/modules/sandbox/schemas";
+import { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect, Layer, Schedule } from "effect";
 import { Activity, DurableQueue } from "effect/unstable/workflow";
@@ -11,13 +8,14 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 
+import { SandboxExecutionResult } from "./execution-result";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 
 export const SandboxExecutionQueue = DurableQueue.make({
 	error: SandboxRunError,
 	name: "SandboxExecutionQueue",
-	success: SandboxCompletedResult,
+	success: SandboxExecutionResult,
 	payload: SandboxExecutionPayload,
 	idempotencyKey: ({ executionId }) => executionId,
 });
@@ -90,9 +88,10 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	}
 	const scriptIsBuiltin = !(yield* runWithDb(repository.isPluginScript(payload.scriptId)));
 	const workflowExecutionId =
-		script.metadata.kind === "workflow"
+		payload.workflowExecutionId ??
+		(script.metadata.kind === "workflow"
 			? /^(.*)-replay-\d+$/.exec(payload.executionId)?.[1]
-			: undefined;
+			: undefined);
 
 	const result = yield* sandbox.run({
 		scriptIsBuiltin,

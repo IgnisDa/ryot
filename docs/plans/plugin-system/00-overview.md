@@ -115,10 +115,12 @@ These were settled in design discussion with the project owner. All are **[DECID
     (`--allow-net=127.0.0.1:<bridgePort>` in
     `apps/app-backend/src/lib/infrastructure/sandbox-runtime/runtime.ts`). The scratch directory
     is also the **return path for output too large for `execution.resultBytes`**: the script
-    writes chunk files and returns a small manifest, and the kernel harvests those files at
-    execution end before cleaning up. The reader is always the kernel, never a second sandbox
-    execution, so the grant stays per-execution. The quota is 5 MiB, enforced after the execution
-    because Deno offers no preventive filesystem quota.
+     writes chunk files and returns a small scratch-local manifest. The kernel harvests those files at
+     execution end, stores opaque workflow-scoped handles, and resolves handles only at trusted kernel
+     consumers before cleaning up. Host paths never cross into workflow scripts or public sandbox
+     results. The reader is always the kernel, never a second sandbox execution, so the grant stays
+     per-execution. The quota is 5 MiB, enforced after the execution because Deno offers no preventive
+     filesystem quota.
 11. **The sandbox authoring, schema, and typed bridge APIs are Effect-only.** Effect is available
     inside the sandbox as a runtime-provided (vendored) approved dependency with a single pinned
     version matching the host — never bundled per script. Effect Schema defines sandbox manifests,

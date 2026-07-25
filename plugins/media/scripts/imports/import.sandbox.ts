@@ -1,6 +1,6 @@
 import {
-	genericImportAdapterManifestSchema,
 	genericImportKernelInputSchema,
+	genericImportWorkflowManifestSchema,
 	genericImportWorkflowInputSchema,
 	genericImportWorkflowResultSchema,
 } from "@ryot/sandbox-sdk/imports";
@@ -26,31 +26,31 @@ export const manifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
 	name: "Media import",
-	slug: "workflow.media-import",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	slug: "workflow.media-import",
 });
 
 const BATCH_SIZE = 25;
 
 const mediaImportResolutionActivitySlugByProvider = {
-	"book.google-books": "activity.media-import-resolve.book.google-books",
+	"show.tmdb": "activity.media-import-resolve.show.tmdb",
+	"movie.tmdb": "activity.media-import-resolve.movie.tmdb",
 	"book.hardcover": "activity.media-import-resolve.book.hardcover",
 	"book.openlibrary": "activity.media-import-resolve.book.openlibrary",
-	"movie.tmdb": "activity.media-import-resolve.movie.tmdb",
-	"show.tmdb": "activity.media-import-resolve.show.tmdb",
+	"book.google-books": "activity.media-import-resolve.book.google-books",
 } as const;
 
 export const mediaImportParser = (source: string) => ({
-	input: MediaImportDispatchParserInput,
 	output: MediaImportAdapterBatch,
+	input: MediaImportDispatchParserInput,
 	scriptSlug: `activity.import.${source}`,
 });
 
 const integrationAdapter = (scriptSlug: string) => ({
+	scriptSlug,
 	input: Schema.Unknown,
 	output: MediaIntegrationAdapterResult,
-	scriptSlug,
 });
 
 type FinalizedEntityGroup = (typeof MediaImportWriteChunkInput.Type)["entityGroups"][number];
@@ -62,15 +62,15 @@ const unresolvedEpisodeMessage = (episode: UnresolvedEpisodeRef) =>
 		: `Could not resolve podcast episode ${episode.episodeNumber}`;
 
 const resolution = {
+	workflowSlug: "media-import-resolution",
 	input: MediaImportResolutionWorkflowInput,
 	output: MediaImportResolutionWorkflowOutput,
-	workflowSlug: "media-import-resolution",
 };
 
 const population = {
+	workflowSlug: "media-import-population",
 	input: MediaImportPopulationWorkflowInput,
 	output: MediaImportPopulationWorkflowOutput,
-	workflowSlug: "media-import-population",
 };
 
 const episodes = {
@@ -81,8 +81,8 @@ const episodes = {
 
 const chunkWriter = {
 	input: MediaImportWriteChunkInput,
-	output: genericImportAdapterManifestSchema,
 	scriptSlug: "activity.import.write-chunks",
+	output: genericImportWorkflowManifestSchema,
 };
 
 const kernelImport = {
@@ -112,17 +112,14 @@ export default defineWorkflow({
 				limit: number;
 				apiKey?: string;
 				apiUrl?: string;
-				collection?: string;
 				password?: string;
-				profileName?: string;
 				username?: string;
+				collection?: string;
+				profileName?: string;
 				hasAnimeFile?: boolean;
 				hasMangaFile?: boolean;
 				allowInsecureConnections?: boolean;
-			} = {
-				start: 0,
-				limit: BATCH_SIZE,
-			};
+			} = { start: 0, limit: BATCH_SIZE };
 			if (input.source === "igdb") {
 				const collection = input.sourcePayload?.["collection"];
 				if (typeof collection !== "string" || !collection.trim()) {
@@ -189,7 +186,7 @@ export default defineWorkflow({
 			let failRun = false;
 			let failureCount = 0;
 			let writeItemCount = 0;
-			const chunkFiles: string[] = [];
+			const chunkHandles: string[] = [];
 
 			for (;;) {
 				const batchIndex = start / BATCH_SIZE;
@@ -379,7 +376,7 @@ export default defineWorkflow({
 					populationResults: populationOutput.results,
 					failures: [...batch.failures, ...episodeFailures],
 				});
-				chunkFiles.push(...chunk.chunkFiles);
+				chunkHandles.push(...chunk.chunkHandles);
 				totalItems += chunk.totalItems;
 				failureCount += chunk.failureCount;
 				writeItemCount += chunk.writeItemCount;
@@ -397,10 +394,10 @@ export default defineWorkflow({
 
 			return yield* replay.child("write-import", kernelImport, {
 				totalItems,
-				chunkFiles,
-				runId: input.runId,
+				chunkHandles,
 				failureCount,
 				writeItemCount,
+				runId: input.runId,
 				...(failRun ? { failRun: true } : {}),
 				...(isIntegration ? { integrationId } : {}),
 			});
