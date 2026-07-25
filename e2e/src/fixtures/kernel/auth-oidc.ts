@@ -1,3 +1,4 @@
+import { Data, Effect } from "effect";
 import { Events, OAuth2Server } from "oauth2-mock-server";
 
 import { requirePresent } from "~/support/assertions";
@@ -16,10 +17,20 @@ export type MockOidcServer = {
 	setNextClaims: (claims: Record<string, unknown>) => void;
 };
 
-export async function startMockOidcServer(): Promise<MockOidcServer> {
+class OidcFixtureError extends Data.TaggedError("OidcFixtureError")<{
+	readonly cause: unknown;
+}> {}
+
+const attempt = <A>(run: () => Promise<A>) =>
+	Effect.tryPromise({
+		try: run,
+		catch: (cause) => new OidcFixtureError({ cause }),
+	});
+
+export const startMockOidcServer = Effect.gen(function* () {
 	const server = new OAuth2Server();
-	await server.issuer.keys.generate("RS256");
-	await server.start(0, "127.0.0.1");
+	yield* attempt(() => server.issuer.keys.generate("RS256"));
+	yield* attempt(() => server.start(0, "127.0.0.1"));
 
 	const claimsByCode = new Map<string, Record<string, unknown>>();
 	let nextClaims: Record<string, unknown> | undefined;
@@ -43,75 +54,86 @@ export async function startMockOidcServer(): Promise<MockOidcServer> {
 	return {
 		server,
 		issuerUrl: requirePresent(server.issuer.url, "Mock OIDC server failed to expose an issuer URL"),
-		setNextClaims: (claims) => {
+		setNextClaims: (claims: Record<string, unknown>) => {
 			nextClaims = claims;
 		},
 	};
-}
+});
 
-export async function stopMockOidcServer(mockOidcServer?: MockOidcServer) {
-	if (mockOidcServer?.server.listening) {
-		await mockOidcServer.server.stop();
-	}
-}
+export const stopMockOidcServer = (mockOidcServer?: MockOidcServer) =>
+	mockOidcServer?.server.listening ? attempt(() => mockOidcServer.server.stop()) : Effect.void;
 
-export async function performOidcSignIn(
+export const performOidcSignIn = (
 	mockOidcServer: MockOidcServer,
 	username: string,
 	apiUrl: string,
 	claims?: Record<string, unknown>,
-): Promise<{ pending: PendingOAuth; response: Response }> {
-	const pending = await prepareOAuth(apiUrl);
-	const step1Response = await fetch(`${apiUrl}/auth/sign-in/social`, {
-		method: "POST",
-		redirect: "manual",
-		headers: { "Content-Type": "application/json", Origin: pending.frontendOrigin },
-		body: JSON.stringify({
-			provider: "oidc",
-			callbackURL: `${pending.frontendOrigin}/oauth/login`,
-		}),
-	});
-	const step1Data: { url?: string; redirect?: boolean } = await step1Response.json();
-	const authorizeUrl = requirePresent(
-		step1Data.url,
-		`oidcSignIn step 1 failed: url=${step1Data.url}, cookie=${step1Response.headers.get("set-cookie")}`,
-	);
-	const stateCookieHeader = requirePresent(
-		step1Response.headers.get("set-cookie"),
-		`oidcSignIn step 1 failed: url=${authorizeUrl}, cookie=${step1Response.headers.get("set-cookie")}`,
-	);
-	const [stateCookie] = stateCookieHeader.split(";");
+): Effect.Effect<{ pending: PendingOAuth; response: Response }, OidcFixtureError> =>
+	Effect.gen(function* () {
+		const pending = yield* attempt(() => prepareOAuth(apiUrl));
+		const step1Response = yield* attempt(() =>
+			fetch(`${apiUrl}/auth/sign-in/social`, {
+				method: "POST",
+				redirect: "manual",
+				headers: { "Content-Type": "application/json", Origin: pending.frontendOrigin },
+				body: JSON.stringify({
+					provider: "oidc",
+					callbackURL: `${pending.frontendOrigin}/oauth/login`,
+				}),
+			}),
+		);
+		const step1Data: { url?: string; redirect?: boolean } = yield* attempt(() =>
+			step1Response.json(),
+		);
+		const authorizeUrl = requirePresent(
+			step1Data.url,
+			`oidcSignIn step 1 failed: url=${step1Data.url}, cookie=${step1Response.headers.get("set-cookie")}`,
+		);
+		const stateCookieHeader = requirePresent(
+			step1Response.headers.get("set-cookie"),
+			`oidcSignIn step 1 failed: url=${authorizeUrl}, cookie=${step1Response.headers.get("set-cookie")}`,
+		);
+		const [stateCookie] = stateCookieHeader.split(";");
 
-	mockOidcServer.setNextClaims({
-		sub: username,
-		name: username,
-		email: `${username}@example.com`,
-		...claims,
-	});
-	const step2Response = await fetch(authorizeUrl, { redirect: "manual" });
-	const callbackUrl = requirePresent(
-		step2Response.headers.get("location"),
-		"oidcSignIn step 2 failed: no location header",
-	);
+		mockOidcServer.setNextClaims({
+			sub: username,
+			name: username,
+			email: `${username}@example.com`,
+			...claims,
+		});
+		const step2Response = yield* attempt(() => fetch(authorizeUrl, { redirect: "manual" }));
+		const callbackUrl = requirePresent(
+			step2Response.headers.get("location"),
+			"oidcSignIn step 2 failed: no location header",
+		);
 
-	const cookieValue = stateCookie ?? "";
-	const response = await fetch(callbackUrl, {
-		redirect: "manual",
-		headers: { accept: "text/html", Cookie: cookieValue },
+		const cookieValue = stateCookie ?? "";
+		const response = yield* attempt(() =>
+			fetch(callbackUrl, {
+				redirect: "manual",
+				headers: { accept: "text/html", Cookie: cookieValue },
+			}),
+		);
+		return { pending, response };
 	});
-	return { pending, response };
-}
 
-export async function oidcSignIn(
+export const oidcSignIn = (
 	mockOidcServer: MockOidcServer,
 	username: string,
 	apiUrl: string,
 	claims?: Record<string, unknown>,
-): Promise<string> {
-	const { pending, response } = await performOidcSignIn(mockOidcServer, username, apiUrl, claims);
-	const sessionCookie = requirePresent(
-		responseCookie(response),
-		"OIDC callback did not establish a hosted session",
-	);
-	return exchangeOAuthCallback(await continueOAuthAuthorization(pending, sessionCookie), pending);
-}
+): Effect.Effect<string, OidcFixtureError> =>
+	Effect.gen(function* () {
+		const { pending, response } = yield* performOidcSignIn(
+			mockOidcServer,
+			username,
+			apiUrl,
+			claims,
+		);
+		const sessionCookie = requirePresent(
+			responseCookie(response),
+			"OIDC callback did not establish a hosted session",
+		);
+		const authorization = yield* attempt(() => continueOAuthAuthorization(pending, sessionCookie));
+		return yield* attempt(() => exchangeOAuthCallback(authorization, pending));
+	});

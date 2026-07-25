@@ -1,41 +1,39 @@
 import { Effect } from "effect";
+import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createTestUser } from "~/fixtures/kernel";
-import { signInThroughHostedOAuth, withBrowser } from "~/support/browser";
+import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
 it.live("opens the desktop workspace switcher with its keyboard shortcut", () =>
 	Effect.gen(function* () {
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		const { email, password } = yield* createTestUser();
-		yield* withBrowser({ viewport: { width: 1280, height: 900 } }, ({ page }) =>
-			Effect.gen(function* () {
-				yield* signInThroughHostedOAuth(page, email, password);
-				yield* Effect.promise(async () => {
-					const sidebar = page.getByTestId("desktop-sidebar");
-					const shortcut = "Mod+Shift+Space";
-					const trigger = sidebar.getByRole("button", { name: /workspace,/ });
-					expect(await trigger.getAttribute("aria-keyshortcuts")).toBe(shortcut);
-					expect(await sidebar.getByText(shortcut, { exact: true }).isVisible()).toBe(true);
+		yield* signInThroughHostedOAuth(page, email, password);
 
-					const primaryModifier = await page.evaluate(() =>
-						/Mac|iPhone|iPad/.test(navigator.platform) ? "Meta" : "Control",
-					);
-					await page.keyboard.press(`${primaryModifier}+Shift+Space`);
+		const sidebar = page.getByTestId("desktop-sidebar");
+		const shortcut = "Mod+Shift+Space";
+		const trigger = sidebar.getByRole("button", { name: /workspace,/ });
+		expect(yield* trigger.getAttribute("aria-keyshortcuts")).toBe(shortcut);
+		expect(yield* sidebar.getByText(shortcut, { exact: true }).isVisible()).toBe(true);
 
-					const menu = sidebar.getByRole("menu", { name: "Workspaces" });
-					await menu.waitFor({ state: "visible" });
-					const currentWorkspace = menu.getByRole("menuitemradio", { checked: true });
-					expect(
-						await currentWorkspace.evaluate((element) => document.activeElement === element),
-					).toBe(true);
-
-					await page.keyboard.press(`${primaryModifier}+Shift+Space`);
-					expect(await menu.isVisible()).toBe(true);
-
-					await page.keyboard.press("Escape");
-					await menu.waitFor({ state: "hidden" });
-				});
-			}),
+		const primaryModifier = yield* page.evaluate(() =>
+			/Mac|iPhone|iPad/.test(navigator.platform) ? "Meta" : "Control",
 		);
-	}),
+		yield* page.keyboard.press(`${primaryModifier}+Shift+Space`);
+
+		const menu = sidebar.getByRole("menu", { name: "Workspaces" });
+		yield* menu.waitFor({ state: "visible" });
+		const currentWorkspace = menu.getByRole("menuitemradio", { checked: true });
+		expect(yield* currentWorkspace.evaluate((element) => document.activeElement === element)).toBe(
+			true,
+		);
+
+		yield* page.keyboard.press(`${primaryModifier}+Shift+Space`);
+		expect(yield* menu.isVisible()).toBe(true);
+
+		yield* page.keyboard.press("Escape");
+		yield* menu.waitFor({ state: "hidden" });
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
