@@ -9,7 +9,9 @@ import type {
 	RyotQLDocument,
 	ScalarExpression,
 	TableReference,
+	TimeSeriesOutput,
 } from "@ryot/contract/modules/ryotql/language";
+import { DateTime, Duration, Option } from "effect";
 
 import { getCatalogTable, resolveCatalogField, type CatalogTable } from "./catalog";
 
@@ -19,6 +21,7 @@ export const MAX_INCLUDE_LIMIT = 100;
 export const MAX_ROOT_PAGE_SIZE = 100;
 export const MAX_CORRELATED_DEPTH = 3;
 export const MAX_DOCUMENT_QUERIES = 10;
+export const MAX_TIME_SERIES_BUCKETS = 1000;
 export const MAX_GROUPED_AGGREGATE_LIMIT = 1000;
 
 type AliasScope = ReadonlyMap<string, CatalogTable>;
@@ -384,6 +387,76 @@ const validateAggregateOutput = (output: AggregateOutput, scope: AliasScope): st
 	return null;
 };
 
+const addTimeSeriesBucket = (
+	value: DateTime.DateTime,
+	bucket: TimeSeriesOutput["time"]["bucket"],
+) => {
+	if (bucket === "hour") {
+		return DateTime.addDuration(value, Duration.hours(1));
+	}
+	if (bucket === "day") {
+		return DateTime.addDuration(value, Duration.days(1));
+	}
+	if (bucket === "week") {
+		return DateTime.addDuration(value, Duration.days(7));
+	}
+	return DateTime.add(value, { months: 1 });
+};
+
+const countTimeSeriesBuckets = (output: TimeSeriesOutput) => {
+	const startAt = DateTime.make(output.time.range.startAt);
+	const endAt = DateTime.make(output.time.range.endAt);
+	if (Option.isNone(startAt) || Option.isNone(endAt)) {
+		return { count: null, endAt, startAt };
+	}
+	if (!DateTime.isLessThan(startAt.value, endAt.value)) {
+		return { count: null, endAt, startAt };
+	}
+	let count = 0;
+	let cursor: DateTime.DateTime = DateTime.startOf(startAt.value, output.time.bucket, {
+		weekStartsOn: 1,
+	});
+	const alignedEnd = addTimeSeriesBucket(
+		DateTime.startOf(
+			DateTime.subtractDuration(endAt.value, Duration.millis(1)),
+			output.time.bucket,
+			{ weekStartsOn: 1 },
+		),
+		output.time.bucket,
+	);
+	while (DateTime.isLessThan(cursor, alignedEnd) && count <= MAX_TIME_SERIES_BUCKETS) {
+		count += 1;
+		cursor = addTimeSeriesBucket(cursor, output.time.bucket);
+	}
+	return { count, endAt, startAt };
+};
+
+const validateTimeSeriesOutput = (output: TimeSeriesOutput, scope: AliasScope): string | null => {
+	const range = countTimeSeriesBuckets(output);
+	if (Option.isNone(range.startAt) || Option.isNone(range.endAt)) {
+		return "Time-series range startAt and endAt must be valid dates";
+	}
+	if (!DateTime.isLessThan(range.startAt.value, range.endAt.value)) {
+		return "Time-series range startAt must be before endAt";
+	}
+	if (range.count !== null && range.count > MAX_TIME_SERIES_BUCKETS) {
+		return `Time-series bucket count exceeds maximum of ${MAX_TIME_SERIES_BUCKETS}`;
+	}
+	const timeError = validateExpression(output.time.expr, scope, 0);
+	if (timeError) {
+		return timeError;
+	}
+	const validTimeExpression =
+		(output.time.expr.type === "column" && expressionKind(output.time.expr, scope) === "date") ||
+		(output.time.expr.type === "cast" && output.time.expr.target === "date");
+	if (!validTimeExpression) {
+		return "Time-series time expressions require a date field or explicit date cast";
+	}
+	return output.measure.aggregation.function === "count"
+		? null
+		: validateExpression(output.measure.aggregation.expr, scope, 0);
+};
+
 const validateNamedQuery = (query: NamedQuery): string | null => {
 	const querySet = validateQuerySet(query, new Map(), 0);
 	if (querySet.error || !querySet.scope) {
@@ -391,6 +464,9 @@ const validateNamedQuery = (query: NamedQuery): string | null => {
 	}
 	if (query.output.type === "aggregate") {
 		return validateAggregateOutput(query.output, querySet.scope);
+	}
+	if (query.output.type === "timeSeries") {
+		return validateTimeSeriesOutput(query.output, querySet.scope);
 	}
 	if (query.output.pagination.limit > MAX_ROOT_PAGE_SIZE) {
 		return `Rows limit must not exceed ${MAX_ROOT_PAGE_SIZE}`;

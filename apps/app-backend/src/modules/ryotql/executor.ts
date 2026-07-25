@@ -14,9 +14,11 @@ import type {
 	RowsResult,
 	RowsOutput,
 	ScalarExpression,
+	TimeSeriesOutput,
+	TimeSeriesResult,
 } from "@ryot/contract/modules/ryotql/language";
 import { sql } from "drizzle-orm";
-import { Effect } from "effect";
+import { DateTime, Effect, Option } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
@@ -31,6 +33,7 @@ type SqlFragment = ReturnType<typeof sql>;
 type CompileScope = ReadonlyMap<string, CompileTable>;
 type RowsQuery = NamedQuery & { readonly output: RowsOutput };
 type AggregateQuery = NamedQuery & { readonly output: AggregateOutput };
+type TimeSeriesQuery = NamedQuery & { readonly output: TimeSeriesOutput };
 type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | CorrelatedQuerySet | Include;
 type CompileTable = {
 	readonly alias: string;
@@ -421,17 +424,26 @@ const buildScope = (
 	return scope;
 };
 
-const querySetSql = (query: QuerySet, userId: string, scope: CompileScope): SqlFragment => {
+const querySetSql = (
+	query: QuerySet,
+	userId: string,
+	scope: CompileScope,
+	additionalConditions: readonly SqlFragment[] = [],
+): SqlFragment => {
 	const root = requireCompileTable(scope, query.from.alias);
 	const joins = (query.joins ?? []).map((join) => {
 		const joined = requireCompileTable(scope, join.table.alias);
 		const joinType = join.type === "inner" ? sql`INNER JOIN` : sql`LEFT JOIN`;
 		return sql`${joinType} ${authorizedTable(joined.table, userId)} ${sql.raw(joined.alias)} ON ${compilePredicate(join.on, scope)}`;
 	});
+	const conditions = [
+		...(query.where ? [compilePredicate(query.where, scope)] : []),
+		...additionalConditions,
+	];
 	return sql`
 		FROM ${authorizedTable(root.table, userId)} ${sql.raw(root.alias)}
 		${sql.join(joins, sql` `)}
-		${query.where ? sql`WHERE ${compilePredicate(query.where, scope)}` : sql``}
+		${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
 	`;
 };
 
@@ -679,6 +691,58 @@ const compileAggregateQuery = (query: AggregateQuery, userId: string, language: 
 	`;
 };
 
+const TIME_SERIES_BUCKET_STEPS: Record<TimeSeriesOutput["time"]["bucket"], string> = {
+	day: "1 day",
+	hour: "1 hour",
+	week: "7 days",
+	month: "1 month",
+};
+
+const timeSeriesBucketStart = (bucket: TimeSeriesOutput["time"]["bucket"], value: SqlFragment) =>
+	sql`date_trunc(${bucket}, ${value} AT TIME ZONE 'UTC')`;
+
+const canonicalTimeSeriesBoundary = (value: string) => {
+	const parsed = DateTime.make(value);
+	if (Option.isNone(parsed)) {
+		throw new Error("RyotQL compiler received an invalid time-series boundary after validation");
+	}
+	return DateTime.formatIso(parsed.value);
+};
+
+const compileTimeSeriesQuery = (
+	query: TimeSeriesQuery,
+	userId: string,
+	language: string | null,
+) => {
+	const scope = buildScope(query, userId, language, "");
+	const time = compileExpression(query.output.time.expr, scope);
+	const measure = compileAggregation(query.output.measure.aggregation, scope);
+	const endAt = canonicalTimeSeriesBoundary(query.output.time.range.endAt);
+	const startAt = canonicalTimeSeriesBoundary(query.output.time.range.startAt);
+	const { bucket } = query.output.time;
+	const step = sql.raw(`interval '${TIME_SERIES_BUCKET_STEPS[bucket]}'`);
+	const gridStart = timeSeriesBucketStart(bucket, sql`${startAt}::timestamptz`);
+	const gridStop = timeSeriesBucketStart(
+		bucket,
+		sql`(${endAt}::timestamptz - interval '1 microsecond')`,
+	);
+	const range = sql`(${time} >= ${startAt}::timestamptz AND ${time} < ${endAt}::timestamptz)`;
+	return sql`
+		WITH "timeSeriesAggregate" AS (
+			SELECT ${timeSeriesBucketStart(bucket, time)} AS "bucketStart", ${measure} AS "value"
+			${querySetSql(query, userId, scope, [range])}
+			GROUP BY 1
+		)
+		SELECT
+			("timeSeriesGrid"."bucketStart" AT TIME ZONE 'UTC') AS "startAt",
+			(("timeSeriesGrid"."bucketStart" + ${step}) AT TIME ZONE 'UTC') AS "endAt",
+			COALESCE("timeSeriesAggregate"."value", 0) AS "value"
+		FROM generate_series(${gridStart}, ${gridStop}, ${step}) AS "timeSeriesGrid"("bucketStart")
+		LEFT JOIN "timeSeriesAggregate" ON "timeSeriesAggregate"."bucketStart" = "timeSeriesGrid"."bucketStart"
+		ORDER BY "timeSeriesGrid"."bucketStart"
+	`;
+};
+
 const normalizeValue = (value: unknown, kind: FieldValue["kind"]) => {
 	if (kind !== "date") {
 		return value;
@@ -773,6 +837,24 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 	} satisfies AggregateResult;
 });
 
+const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(function* (
+	userId: string,
+	language: string | null,
+	query: TimeSeriesQuery,
+) {
+	const db = yield* CurrentDb;
+	const raw = yield* dbEffect(() => db.execute(compileTimeSeriesQuery(query, userId, language)));
+	const buckets = (raw.rows as readonly Record<string, unknown>[]).map((row) => {
+		const startAt = normalizeValue(row["startAt"], "date");
+		const endAt = normalizeValue(row["endAt"], "date");
+		if (typeof startAt !== "string" || typeof endAt !== "string") {
+			throw new Error("RyotQL received an invalid time-series bucket boundary");
+		}
+		return { startAt, endAt, value: Number(row["value"]) };
+	});
+	return { buckets, type: "timeSeries" } satisfies TimeSeriesResult;
+});
+
 export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* (
 	userId: string,
 	language: string | null,
@@ -780,6 +862,9 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 ) {
 	if (query.output.type === "aggregate") {
 		return yield* executeAggregateQuery(userId, language, { ...query, output: query.output });
+	}
+	if (query.output.type === "timeSeries") {
+		return yield* executeTimeSeriesQuery(userId, language, { ...query, output: query.output });
 	}
 	const db = yield* CurrentDb;
 	const rowsQuery = { ...query, output: query.output };
