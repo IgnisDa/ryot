@@ -12,6 +12,7 @@ import {
 	eq,
 	field,
 	gte,
+	include,
 	inArray,
 	join,
 	jsonPath,
@@ -45,7 +46,7 @@ const makeServiceLayer = (
 		execute: (query: Parameters<typeof dialect.sqlToQuery>[0]) => {
 			const statement = dialect.sqlToQuery(query).sql;
 			statements.push(statement);
-			if (!statement.includes('WITH "queryRows"')) {
+			if (!statement.includes('"queryRows" AS (')) {
 				return Promise.resolve({ rows: [] });
 			}
 			return Promise.resolve({
@@ -70,7 +71,7 @@ it.effect("executes named queries sequentially in one configured transaction", (
 		expect(Object.keys(response.data)).toEqual(["first", "second"]);
 		expect(statements[0]).toBe("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
 		expect(statements[1]).toContain("set_config('statement_timeout'");
-		expect(statements.filter((statement) => statement.includes('WITH "queryRows"'))).toHaveLength(
+		expect(statements.filter((statement) => statement.includes('"queryRows" AS ('))).toHaveLength(
 			2,
 		);
 		expect(statements[2]).toMatch(/user_id = \$\d+ OR user_id IS NULL/);
@@ -137,7 +138,7 @@ it.effect("collates text predicates and authorizes every joined table occurrence
 		const statement = statements[2];
 		expect(statement).toContain("LEFT JOIN (SELECT * FROM entity");
 		expect(statement).toContain('COLLATE "C" IN');
-		expect(statement?.match(/SELECT \* FROM entity WHERE/g)).toHaveLength(2);
+		expect(statement?.match(/SELECT \* FROM entity WHERE/g)).toHaveLength(4);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -217,7 +218,7 @@ it.effect("pushes typed JSON expressions into one rows statement", () => {
 		expect(statement).toContain("pg_input_is_valid");
 		expect(statement).toContain(" ILIKE ");
 		expect(statement).toContain(" @> ");
-		expect(statements.filter((value) => value.includes('WITH "queryRows"'))).toHaveLength(1);
+		expect(statements.filter((value) => value.includes('"queryRows" AS ('))).toHaveLength(1);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -257,6 +258,100 @@ it.effect("resolves localized fields and emits translation-status SQL only when 
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
+it.effect("compiles and reconstructs nested correlated includes in one statement", () => {
+	const statements: string[] = [];
+	const course = table("entity", "course");
+	const module = table("entity", "module");
+	const completion = table("event", "completion");
+	const courseModule = table("relationship", "courseModule");
+	const completions = include(completion, {
+		limit: 1,
+		key: "completions",
+		orderBy: [{ direction: "desc", expr: column(completion, "occurredAt") }],
+		fields: [field("occurredAt", column(completion, "occurredAt"))],
+		where: eq(column(completion, "entityId"), column(module, "id")),
+	});
+	const modules = include(courseModule, {
+		limit: 1,
+		key: "modules",
+		include: [completions],
+		orderBy: [{ direction: "asc", expr: column(module, "name") }],
+		where: eq(column(courseModule, "sourceEntityId"), column(course, "id")),
+		joins: [
+			join("inner", module, eq(column(courseModule, "targetEntityId"), column(module, "id"))),
+		],
+		fields: [
+			field("name", column(module, "name")),
+			field("active", literal(true)),
+			field("metadata", literal({ position: 1 })),
+			field("optional", literal(null)),
+		],
+	});
+	const document = {
+		queries: {
+			courses: rows(course, {
+				include: [modules],
+				fields: [field("name", column(course, "name"))],
+			}),
+		},
+	};
+	const resultRows = [
+		{
+			f0k: "text",
+			f0v: "Course",
+			totalCount: 1,
+			rowPresent: true,
+			i0: {
+				hasMore: true,
+				items: [
+					[
+						"Module",
+						"text",
+						true,
+						"boolean",
+						{ position: 1 },
+						"json",
+						null,
+						"null",
+						{ hasMore: false, items: [["2026-08-07T12:00:00+00:00", "date"]] },
+					],
+				],
+			},
+		},
+	];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		expect(statements.filter((value) => value.includes('"queryRows" AS ('))).toHaveLength(1);
+		expect(statements[2]?.match(/SELECT \* FROM relationship WHERE/g)).toHaveLength(1);
+		expect(statements[2]?.match(/SELECT \* FROM event WHERE/g)).toHaveLength(1);
+		expect(statements[2]).toContain("ROW_NUMBER() OVER");
+		expect(statements[2]?.split('), "queryRows" AS (')[0]).not.toContain("jsonb_build_object");
+		expect(response.data["courses"]?.items).toEqual([
+			{
+				name: { kind: "text", value: "Course" },
+				modules: {
+					pageInfo: { limit: 1, hasMore: true },
+					items: [
+						{
+							name: { kind: "text", value: "Module" },
+							optional: { kind: "null", value: null },
+							active: { kind: "boolean", value: true },
+							metadata: { kind: "json", value: { position: 1 } },
+							completions: {
+								pageInfo: { limit: 1, hasMore: false },
+								items: [{ occurredAt: { kind: "date", value: "2026-08-07T12:00:00.000Z" } }],
+							},
+						},
+					],
+				},
+			},
+		]);
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
 it.effect("maps statement timeouts to a bad request", () => {
 	const statements: string[] = [];
 	const dialect = new PgDialect();
@@ -264,7 +359,7 @@ it.effect("maps statement timeouts to a bad request", () => {
 		execute: (query: Parameters<typeof dialect.sqlToQuery>[0]) => {
 			const statement = dialect.sqlToQuery(query).sql;
 			statements.push(statement);
-			return statement.includes('WITH "queryRows"')
+			return statement.includes('"queryRows" AS (')
 				? Promise.reject(new DbError({ code: "57014", message: "statement timeout" }))
 				: Promise.resolve({ rows: [] });
 		},

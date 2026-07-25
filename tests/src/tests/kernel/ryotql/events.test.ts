@@ -24,6 +24,7 @@ import {
 	createQueryEngineEvent,
 	createQueryEnginePluginSchema,
 	executeRyotQL,
+	requireRyotQLFieldValue,
 	type Client,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
@@ -108,10 +109,9 @@ describe("RyotQL event queries", () => {
 
 			const events = requireRows(result.data["events"], "events");
 			expect(events.items).toHaveLength(2);
-			expect(events.items.map((item) => item["entityName"]?.value)).toEqual([
-				"RyotQLEventBook Entity",
-				"RyotQLEventMovie Entity",
-			]);
+			expect(events.items.map((item) => requireRyotQLFieldValue(item, "entityName").value)).toEqual(
+				["RyotQLEventMovie Entity", "RyotQLEventBook Entity"],
+			);
 			expect(events.items[0]).toMatchObject({
 				createdAt: { kind: "date" },
 				updatedAt: { kind: "date" },
@@ -155,9 +155,13 @@ describe("RyotQL event queries", () => {
 			const firstPage = requireRows(result.data["firstPage"], "firstPage");
 			const secondPage = requireRows(result.data["secondPage"], "secondPage");
 			expect(firstPage.pageInfo).toEqual({ page: 1, limit: 2, total: 3, hasMore: true });
-			expect(firstPage.items.map((item) => item["rating"]?.value)).toEqual([5, 4]);
+			expect(firstPage.items.map((item) => requireRyotQLFieldValue(item, "rating").value)).toEqual([
+				5, 4,
+			]);
 			expect(secondPage.pageInfo).toEqual({ page: 2, limit: 2, total: 3, hasMore: false });
-			expect(secondPage.items.map((item) => item["rating"]?.value)).toEqual([3]);
+			expect(secondPage.items.map((item) => requireRyotQLFieldValue(item, "rating").value)).toEqual(
+				[3],
+			);
 		}),
 	);
 
@@ -202,9 +206,9 @@ describe("RyotQL event queries", () => {
 			);
 
 			const visibleEvents = requireRows(result.data["visibleEvents"], "visibleEvents");
-			expect(visibleEvents.items.map((item) => item["eventSchemaSlug"]?.value)).toEqual([
-				own.eventSchemaSlug,
-			]);
+			expect(
+				visibleEvents.items.map((item) => requireRyotQLFieldValue(item, "eventSchemaSlug").value),
+			).toEqual([own.eventSchemaSlug]);
 			const crafted = requireRows(result.data["craftedJoin"], "craftedJoin").items[0];
 			assertPresent(crafted, "Expected the caller's event row");
 			expect(crafted["hiddenName"]).toEqual({ kind: "null", value: null });
