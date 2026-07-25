@@ -1,22 +1,22 @@
 import type { ContractPayload } from "@ryot/contract/client";
 import { EntityId } from "@ryot/contract/schema/brands";
 import {
-	buildQueryEngineRowsDocument,
-	queryEngineRelationshipSource,
-} from "@ryot/query-engine/documents";
-import {
-	queryEngineComparison,
-	queryEngineField,
-	queryEngineLiteral,
-	queryEngineOrder,
-	queryEngineSystemRef,
-	type QueryEngineNonEmptyArray,
-} from "@ryot/query-engine/primitives";
-import { buildEventHistoryQueryDocument } from "@ryot/query-engine/recipes/app";
+	and,
+	ascending,
+	column,
+	document,
+	eq,
+	field,
+	join,
+	literal,
+	rows,
+	table,
+} from "@ryot/ryotql";
+import { buildEventHistoryDocument } from "@ryot/ryotql-recipes/events";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
-import { executeQueryEngine } from "./query-engine-core";
+import { executeRyotQL } from "./ryotql";
 
 type MergeUserStateBody = ContractPayload<"userState", "mergeUserState">;
 
@@ -35,15 +35,15 @@ export const clearEntityUserState = (client: Client, entityId: string) =>
 export const queryUserEntityStateCounts = (input: {
 	client: Client;
 	entityId: string;
-	eventSchemaSlugs: QueryEngineNonEmptyArray<string>;
-	entitySchemaSlugs: QueryEngineNonEmptyArray<string>;
-	relationships: QueryEngineNonEmptyArray<RelationshipRoot>;
+	eventSchemaSlugs: readonly [string, ...string[]];
+	entitySchemaSlugs: readonly [string, ...string[]];
+	relationships: readonly [RelationshipRoot, ...RelationshipRoot[]];
 }) =>
 	Effect.gen(function* () {
 		const [entityEvents, sessionEvents, ...relationships] = yield* Effect.all([
-			executeQueryEngine(
+			executeRyotQL(
 				input.client,
-				buildEventHistoryQueryDocument({
+				buildEventHistoryDocument({
 					page: 1,
 					limit: 1,
 					entityId: input.entityId,
@@ -51,9 +51,9 @@ export const queryUserEntityStateCounts = (input: {
 					entitySchemaSlugs: input.entitySchemaSlugs,
 				}),
 			),
-			executeQueryEngine(
+			executeRyotQL(
 				input.client,
-				buildEventHistoryQueryDocument({
+				buildEventHistoryDocument({
 					page: 1,
 					limit: 1,
 					sessionEntityId: input.entityId,
@@ -62,32 +62,55 @@ export const queryUserEntityStateCounts = (input: {
 				}),
 			),
 			...input.relationships.map((relationship) =>
-				executeQueryEngine(
+				executeRyotQL(
 					input.client,
-					buildQueryEngineRowsDocument({
-						limit: 1,
-						fields: [queryEngineField("id", queryEngineSystemRef("relationship", "id"))],
-						orderBy: [queryEngineOrder("asc", queryEngineSystemRef("relationship", "id"))],
-						source: queryEngineRelationshipSource({
-							alias: "relationship",
-							schemas: [relationship.schema],
-							targetEntity: { alias: "target", schemas: [relationship.targetSchema] },
-							sourceEntity: { alias: "source", schemas: [relationship.sourceSchema] },
-							where: queryEngineComparison(
-								"eq",
-								queryEngineSystemRef("source", "id"),
-								queryEngineLiteral(input.entityId),
-							),
-						}),
+					document({
+						relationships: (() => {
+							const relationshipTable = table("relationship", "relationship");
+							const source = table("entity", "source");
+							const target = table("entity", "target");
+							return rows(relationshipTable, {
+								limit: 1,
+								fields: [field("id", column(relationshipTable, "id"))],
+								orderBy: [ascending(column(relationshipTable, "id"))],
+								where: and(
+									eq(
+										column(relationshipTable, "relationshipSchemaSlug"),
+										literal(relationship.schema),
+									),
+									eq(column(source, "id"), literal(input.entityId)),
+									eq(column(source, "entitySchemaSlug"), literal(relationship.sourceSchema)),
+									eq(column(target, "entitySchemaSlug"), literal(relationship.targetSchema)),
+								),
+								joins: [
+									join(
+										"inner",
+										source,
+										eq(column(relationshipTable, "sourceEntityId"), column(source, "id")),
+									),
+									join(
+										"inner",
+										target,
+										eq(column(relationshipTable, "targetEntityId"), column(target, "id")),
+									),
+								],
+							});
+						})(),
 					}),
 				),
 			),
 		]);
 
 		return {
-			eventCount: entityEvents.data.pageInfo.total + sessionEvents.data.pageInfo.total,
+			eventCount:
+				(entityEvents.data.events?.type === "rows" ? entityEvents.data.events.pageInfo.total : 0) +
+				(sessionEvents.data.events?.type === "rows" ? sessionEvents.data.events.pageInfo.total : 0),
 			relationshipCount: relationships.reduce(
-				(count, result) => count + result.data.pageInfo.total,
+				(count, result) =>
+					count +
+					(result.data.relationships?.type === "rows"
+						? result.data.relationships.pageInfo.total
+						: 0),
 				0,
 			),
 		};

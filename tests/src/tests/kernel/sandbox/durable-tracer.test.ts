@@ -21,7 +21,7 @@ const operationSource = (input: { readonly name: string; readonly slug: string }
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineOperation } from "@ryot/sandbox-sdk/operation";
-import { buildEntityReadQuery, queryEngineEntityRows } from "@ryot/sandbox-sdk/query-engine";
+import { buildEntityReadDocument, ryotqlRows } from "@ryot/sandbox-sdk/ryotql";
 
 export const manifest = defineManifest({
   kind: "operation",
@@ -36,7 +36,7 @@ export const manifest = defineManifest({
     "createEvents",
     "getCachedValue",
     "getUserPreferences",
-    "executeQueryEngine",
+    "executeRyotql",
     "claimPersistentValue",
   ],
 });
@@ -54,10 +54,10 @@ export default defineOperation({
   run: (input, host, execution) => Effect.gen(function* () {
     yield* host.log([{ level: "info", message: "durable tracer started" }]);
     const preferences = yield* host.getUserPreferences();
-    const rows = queryEngineEntityRows(yield* host.executeQueryEngine(buildEntityReadQuery({
+    const rows = ryotqlRows(yield* host.executeRyotql(buildEntityReadDocument({
       entityIds: [input.entityId],
       entitySchemaSlugs: [input.entitySchemaSlug],
-    })));
+    })), "entities").items;
     const claim = yield* host.claimPersistentValue(
       "durable-tracer-" + input.entityId,
       { executionId: execution.sandboxScriptId },
@@ -171,7 +171,7 @@ describe("universal durable sandbox tracer", () => {
 								"createEvents",
 								"getCachedValue",
 								"getUserPreferences",
-								"executeQueryEngine",
+								"executeRyotql",
 								"claimPersistentValue",
 							],
 						},

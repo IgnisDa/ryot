@@ -29,9 +29,9 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createEventSchema,
-	createQueryEngineEntity,
-	createQueryEngineEvent,
-	createQueryEnginePluginSchema,
+	createEntityFixture,
+	createEventFixture,
+	createPluginEntitySchema,
 	createRelationship,
 	createRelationshipSchema,
 	executeRyotQL,
@@ -68,11 +68,11 @@ describe("RyotQL relationship rows and includes", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
+				const { schemaId: courseSchemaId, slug: courseSlug } = yield* createPluginEntitySchema(
 					client,
 					{ schemaName: "RyotQLRelationshipCourse" },
 				);
-				const { schemaId: memberSchemaId, slug: memberSlug } = yield* createQueryEnginePluginSchema(
+				const { schemaId: memberSchemaId, slug: memberSlug } = yield* createPluginEntitySchema(
 					client,
 					{ schemaName: "RyotQLRelationshipMember" },
 				);
@@ -86,7 +86,7 @@ describe("RyotQL relationship rows and includes", () => {
 						fields: { role: { type: "string", label: "Role", description: "Member role" } },
 					},
 				});
-				const course = yield* createQueryEngineEntity(client, {
+				const course = yield* createEntityFixture(client, {
 					name: "Relationship Course",
 					entitySchemaSlug: courseSchemaId,
 				});
@@ -98,7 +98,7 @@ describe("RyotQL relationship rows and includes", () => {
 						] as const
 					).map(([name, role]) =>
 						Effect.gen(function* () {
-							const member = yield* createQueryEngineEntity(client, {
+							const member = yield* createEntityFixture(client, {
 								name,
 								entitySchemaSlug: memberSchemaId,
 							});
@@ -207,17 +207,17 @@ describe("RyotQL relationship rows and includes", () => {
 	it.live("returns filtered nested relationship and event includes with per-parent limits", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
+			const { schemaId: courseSchemaId, slug: courseSlug } = yield* createPluginEntitySchema(
 				client,
 				{ schemaName: "RyotQLIncludeCourse" },
 			);
-			const { schemaId: moduleSchemaId } = yield* createQueryEnginePluginSchema(client, {
+			const { schemaId: moduleSchemaId } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLIncludeModule",
 				propertiesSchema: {
 					fields: { position: { type: "integer", label: "Position", description: "Module order" } },
 				},
 			});
-			const { schemaId: lessonSchemaId } = yield* createQueryEnginePluginSchema(client, {
+			const { schemaId: lessonSchemaId } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLIncludeLesson",
 				propertiesSchema: {
 					fields: { position: { type: "integer", label: "Position", description: "Lesson order" } },
@@ -250,30 +250,30 @@ describe("RyotQL relationship rows and includes", () => {
 				},
 			});
 
-			const course = yield* createQueryEngineEntity(client, {
+			const course = yield* createEntityFixture(client, {
 				name: "Course With Modules",
 				entitySchemaSlug: courseSchemaId,
 			});
-			yield* createQueryEngineEntity(client, {
+			yield* createEntityFixture(client, {
 				name: "Empty Course",
 				entitySchemaSlug: courseSchemaId,
 			});
-			const moduleOne = yield* createQueryEngineEntity(client, {
+			const moduleOne = yield* createEntityFixture(client, {
 				name: "Module One",
 				properties: { position: 1 },
 				entitySchemaSlug: moduleSchemaId,
 			});
-			const moduleTwo = yield* createQueryEngineEntity(client, {
+			const moduleTwo = yield* createEntityFixture(client, {
 				name: "Module Two",
 				properties: { position: 2 },
 				entitySchemaSlug: moduleSchemaId,
 			});
-			const lessonOne = yield* createQueryEngineEntity(client, {
+			const lessonOne = yield* createEntityFixture(client, {
 				name: "Lesson One",
 				properties: { position: 1 },
 				entitySchemaSlug: lessonSchemaId,
 			});
-			const lessonTwo = yield* createQueryEngineEntity(client, {
+			const lessonTwo = yield* createEntityFixture(client, {
 				name: "Lesson Two",
 				properties: { position: 2 },
 				entitySchemaSlug: lessonSchemaId,
@@ -297,7 +297,7 @@ describe("RyotQL relationship rows and includes", () => {
 					relationshipSchemaSlug: moduleLessonSchema.id,
 				});
 			}
-			yield* createQueryEngineEvent(client, {
+			yield* createEventFixture(client, {
 				entityId: lessonTwo.id,
 				properties: { score: 9 },
 				eventSchemaSlug: completionSchema.id,
@@ -410,10 +410,10 @@ describe("RyotQL relationship rows and includes", () => {
 				createAuthenticatedClient(),
 				createAuthenticatedClient(),
 			]);
-			const ownSchema = yield* createQueryEnginePluginSchema(userA.client, {
+			const ownSchema = yield* createPluginEntitySchema(userA.client, {
 				schemaName: "RyotQLVisibleRelationship",
 			});
-			const otherSchema = yield* createQueryEnginePluginSchema(userB.client, {
+			const otherSchema = yield* createPluginEntitySchema(userB.client, {
 				schemaName: "RyotQLHiddenRelationship",
 			});
 			const ownRelationshipSlug = `ryotql-visible-${crypto.randomUUID()}`;
@@ -430,19 +430,19 @@ describe("RyotQL relationship rows and includes", () => {
 				targetEntitySchemaSlug: otherSchema.schemaId,
 				sourceEntitySchemaSlug: otherSchema.schemaId,
 			});
-			const ownSource = yield* createQueryEngineEntity(userA.client, {
+			const ownSource = yield* createEntityFixture(userA.client, {
 				name: "Visible Source",
 				entitySchemaSlug: ownSchema.schemaId,
 			});
-			const ownTarget = yield* createQueryEngineEntity(userA.client, {
+			const ownTarget = yield* createEntityFixture(userA.client, {
 				name: "Visible Target",
 				entitySchemaSlug: ownSchema.schemaId,
 			});
-			const otherSource = yield* createQueryEngineEntity(userB.client, {
+			const otherSource = yield* createEntityFixture(userB.client, {
 				name: "Hidden Source",
 				entitySchemaSlug: otherSchema.schemaId,
 			});
-			const otherTarget = yield* createQueryEngineEntity(userB.client, {
+			const otherTarget = yield* createEntityFixture(userB.client, {
 				name: "Hidden Target",
 				entitySchemaSlug: otherSchema.schemaId,
 			});

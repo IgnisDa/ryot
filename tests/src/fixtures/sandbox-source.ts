@@ -13,7 +13,7 @@ type ScriptModuleSourceInput = SandboxSourceIdentity & {
 	readonly declarations?: string;
 	readonly filesystemImport?: boolean;
 	readonly sdkImports?: readonly string[];
-	readonly queryEngineImports?: readonly string[];
+	readonly ryotqlImports?: readonly string[];
 	readonly requiredPluginConfigKeys?: readonly string[];
 	readonly requiredSystemConfigKeys?: readonly string[];
 	readonly capabilities: readonly SandboxHostCapability[];
@@ -30,16 +30,16 @@ const scriptModuleSource = (input: ScriptModuleSourceInput) => {
 		coreItems.length > 0
 			? `\nimport { ${coreItems.join(", ")} } from "@ryot/sandbox-sdk/core";`
 			: "";
-	const queryEngineImportLine =
-		input.queryEngineImports && input.queryEngineImports.length > 0
-			? `\nimport { ${input.queryEngineImports.join(", ")} } from "@ryot/sandbox-sdk/query-engine";`
+	const ryotqlImportLine =
+		input.ryotqlImports && input.ryotqlImports.length > 0
+			? `\nimport { ${input.ryotqlImports.join(", ")} } from "@ryot/sandbox-sdk/ryotql";`
 			: "";
 	const filesystemImportLine = input.filesystemImport
 		? '\nimport { writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";'
 		: "";
 
 	return `
- import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";${wireImportLine}${coreImportLine}${queryEngineImportLine}${filesystemImportLine}
+ import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";${wireImportLine}${coreImportLine}${ryotqlImportLine}${filesystemImportLine}
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
@@ -161,21 +161,52 @@ export function httpCallFailureSandboxSource(
 	});
 }
 
-export function queryEngineSandboxSource(
-	input: SandboxSourceIdentity & { readonly query: JsonValue },
+export function ryotqlSandboxSource(
+	input: SandboxSourceIdentity & { readonly query: JsonValue; readonly queryName: string },
 ) {
 	return scriptModuleSource({
 		...input,
 		inputSchema: "Schema.Struct({})",
-		sdkImports: ["jsonValueSchema"],
-		outputSchema: "queryItemsSchema",
-		capabilities: ["executeQueryEngine"],
-		declarations: `const queryItemsSchema = Schema.Array(Schema.Unknown);
-const queryResponseSchema = Schema.Struct({ data: Schema.Struct({ items: queryItemsSchema }) });
-const query = Schema.decodeSync(jsonValueSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
+		sdkImports: ["ryotqlDocumentSchema"],
+		outputSchema: "Schema.Array(Schema.Unknown)",
+		capabilities: ["executeRyotql"],
+		declarations: `const queryName = ${JSON.stringify(input.queryName)};
+const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
 		run: `(_input, host) => Effect.gen(function* () {
-    const result = yield* host.executeQueryEngine(query);
-    return (yield* Schema.decodeUnknownEffect(queryResponseSchema)(result)).data.items;
+    const result = yield* host.executeRyotql(query);
+    return ryotqlRows(result, queryName).items;
+  })`,
+		ryotqlImports: ["ryotqlRows"],
+	});
+}
+
+export function systemRyotqlProbeSandboxSource(
+	input: SandboxSourceIdentity & {
+		readonly entitySchemaSlug: string;
+		readonly query: JsonValue;
+		readonly queryName: string;
+	},
+) {
+	return scriptModuleSource({
+		...input,
+		capabilities: ["executeRyotql", "upsertGlobalEntities"],
+		sdkImports: ["ryotqlDocumentSchema"],
+		ryotqlImports: ["ryotqlRows"],
+		inputSchema: "Schema.Struct({})",
+		outputSchema: "Schema.Struct({ count: Schema.Number })",
+		declarations: `const queryName = ${JSON.stringify(input.queryName)};
+const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
+		run: `(_input, host) => Effect.gen(function* () {
+    const result = yield* host.executeRyotql(query);
+    const rows = ryotqlRows(result, queryName).items;
+    yield* host.upsertGlobalEntities([{
+      entitySchemaSlug: ${JSON.stringify(input.entitySchemaSlug)},
+      externalId: "system-ryotql-probe",
+      name: "RyotQL system probe",
+      populatedAt: null,
+      properties: { rowCount: rows.length },
+    }]);
+    return { count: rows.length };
   })`,
 	});
 }
@@ -184,32 +215,41 @@ export function entityRowsSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
 		sdkImports: ["entityRecordSchema"],
-		capabilities: ["executeQueryEngine"],
+		capabilities: ["executeRyotql"],
 		outputSchema: "Schema.Array(entityRecordSchema)",
-		queryEngineImports: ["buildEntityReadQuery", "queryEngineEntityRows"],
+		ryotqlImports: ["buildEntityReadDocument", "ryotqlRows"],
+		declarations: `const unwrapRows = (response: unknown) => ryotqlRows(response, "entities").items.map((row) =>
+  Schema.decodeUnknownSync(entityRecordSchema)(Object.fromEntries(Object.entries(row).map(([key, field]) => [key,
+    typeof field === "object" && field !== null && "value" in field ? field.value : null,
+  ])))
+);`,
 		inputSchema:
 			"Schema.Struct({ ids: Schema.Array(Schema.String), entitySchemaSlug: Schema.String })",
 		run: `(input, host) => input.ids.length === 0
     ? Effect.succeed([])
-    : host.executeQueryEngine(buildEntityReadQuery({
+	    : host.executeRyotql(buildEntityReadDocument({
 				entityIds: input.ids as [string, ...string[]],
-        entitySchemaSlugs: [input.entitySchemaSlug],
-      })).pipe(Effect.map(queryEngineEntityRows))`,
+				entitySchemaSlugs: [input.entitySchemaSlug],
+	      })).pipe(Effect.map(unwrapRows))`,
 	});
 }
 
 export function eventRowsSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		capabilities: ["executeQueryEngine"],
-		sdkImports: ["eventRecordSchema"],
-		queryEngineImports: ["buildEventReadQuery", "queryEngineEventRows"],
-		outputSchema: "Schema.Array(eventRecordSchema)",
-		run: `(input, host) => host.executeQueryEngine(buildEventReadQuery({
+		capabilities: ["executeRyotql"],
+		ryotqlImports: ["buildEventReadDocument", "ryotqlRows"],
+		declarations: `const unwrapRows = (response: unknown) => ryotqlRows(response, "events").items.map((row) =>
+  Object.fromEntries(Object.entries(row).map(([key, field]) => [key,
+    typeof field === "object" && field !== null && "value" in field ? field.value : null,
+  ]))
+);`,
+		outputSchema: "Schema.Array(Schema.Unknown)",
+		run: `(input, host) => host.executeRyotql(buildEventReadDocument({
         entityId: input.entityId,
         entitySchemaSlug: input.entitySchemaSlug,
         eventSchemaSlug: input.eventSchemaSlug,
-      })).pipe(Effect.map(queryEngineEventRows))`,
+	      })).pipe(Effect.map(unwrapRows))`,
 		inputSchema:
 			"Schema.Struct({ entityId: Schema.String, entitySchemaSlug: Schema.String, eventSchemaSlug: Schema.String })",
 	});

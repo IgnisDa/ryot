@@ -30,8 +30,8 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createQueryEngineEntity,
-	createQueryEnginePluginSchema,
+	createEntityFixture,
+	createPluginEntitySchema,
 	executeRyotQL,
 	requireRyotQLFieldValue,
 } from "~/fixtures";
@@ -44,8 +44,8 @@ const requireRows = (resultRows: RyotQLResult | undefined, name: string): RowsRe
 	return resultRows;
 };
 
-const createSchema = (client: Parameters<typeof createQueryEnginePluginSchema>[0], name: string) =>
-	createQueryEnginePluginSchema(client, {
+const createSchema = (client: Parameters<typeof createPluginEntitySchema>[0], name: string) =>
+	createPluginEntitySchema(client, {
 		schemaName: name,
 		propertiesSchema: { fields: {}, unknownKeys: "passthrough" },
 	});
@@ -60,7 +60,7 @@ describe("RyotQL typed JSON entity queries", () => {
 				createSchema(client, "RyotQLCourse"),
 			]);
 			yield* Effect.all([
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Book Alpha",
 					entitySchemaSlug: book.schemaId,
 					properties: {
@@ -75,7 +75,7 @@ describe("RyotQL typed JSON entity queries", () => {
 						},
 					},
 				}),
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Book Beta",
 					entitySchemaSlug: book.schemaId,
 					properties: {
@@ -88,12 +88,12 @@ describe("RyotQL typed JSON entity queries", () => {
 						},
 					},
 				}),
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Movie Gamma",
 					entitySchemaSlug: movie.schemaId,
 					properties: { director: "Director G", details: { score: 4.6 } },
 				}),
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Course Advanced",
 					entitySchemaSlug: course.schemaId,
 					properties: {
@@ -102,7 +102,7 @@ describe("RyotQL typed JSON entity queries", () => {
 						details: { durationMinutes: 90, startsAt: "2026-09-01T09:00:00.000Z" },
 					},
 				}),
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Course Decoy",
 					entitySchemaSlug: course.schemaId,
 					properties: {
@@ -232,7 +232,7 @@ describe("RyotQL typed JSON entity queries", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const schemaDefinition = yield* createSchema(client, "RyotQLSafeCasts");
 			yield* Effect.all([
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Cast Invalid",
 					entitySchemaSlug: schemaDefinition.schemaId,
 					properties: {
@@ -243,7 +243,7 @@ describe("RyotQL typed JSON entity queries", () => {
 						date: "not-a-date",
 					},
 				}),
-				createQueryEngineEntity(client, {
+				createEntityFixture(client, {
 					name: "Cast Valid",
 					entitySchemaSlug: schemaDefinition.schemaId,
 					properties: {

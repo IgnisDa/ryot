@@ -23,7 +23,6 @@ const upsertGlobalEntities = () => Effect.void;
 const runId = SubscriptionRunId.make("run-1");
 const emitSignal = () => Effect.succeed(null);
 const sendNotification = () => Effect.succeed(null);
-const executeQueryEngine = () => Effect.succeed(null);
 const changeUserRelationships = () => Effect.succeed([]);
 const ensureUserEntities = () => Effect.succeed([]);
 const getUserPreferences = () => Effect.succeed(null);
@@ -152,30 +151,30 @@ it.effect("returns context failures through the Effect error channel", () => {
 });
 
 it("exposes automation capabilities only to trusted automation executions", () => {
-	const bound = { emitSignal, executeQueryEngine, sendNotification };
+	const bound = { emitSignal, sendNotification };
 	const direct = selectSandboxHostFunctions(bound, {
 		metadata: { kind: "script" },
 		authority: { type: "user", userId },
-		allowedHostFunctions: ["emitSignal", "executeQueryEngine", "sendNotification"],
+		allowedHostFunctions: ["emitSignal", "sendNotification"],
 	});
 	const subscription = selectSandboxHostFunctions(bound, runInput);
 	const system = selectSandboxHostFunctions(bound, {
 		authority: { type: "system" },
 		metadata: { kind: "automation" },
-		allowedHostFunctions: ["emitSignal", "executeQueryEngine", "sendNotification"],
+		allowedHostFunctions: ["emitSignal", "sendNotification"],
 	});
 
-	expect(direct).toEqual({ executeQueryEngine });
+	expect(direct).toEqual({});
 	expect(system).toEqual({ emitSignal });
 	expect(subscription).toEqual({ emitSignal, sendNotification });
 });
 
 it("exposes global writes only to system runs with explicit capabilities", () => {
-	const bound = { executeQueryEngine, upsertGlobalEntities };
+	const bound = { upsertGlobalEntities };
 	const user = selectSandboxHostFunctions(bound, {
 		metadata: { kind: "script" },
 		authority: { type: "user", userId },
-		allowedHostFunctions: ["executeQueryEngine", "upsertGlobalEntities"],
+		allowedHostFunctions: ["upsertGlobalEntities"],
 	});
 	const subscription = selectSandboxHostFunctions(bound, {
 		authority: runInput.authority,
@@ -193,33 +192,33 @@ it("exposes global writes only to system runs with explicit capabilities", () =>
 		allowedHostFunctions: ["upsertGlobalEntities"],
 	});
 
-	expect(user).toEqual({ executeQueryEngine });
+	expect(user).toEqual({});
 	expect(subscription).toEqual({});
 	expect(system).toEqual({ upsertGlobalEntities });
 	expect(providerSystem).toEqual({});
 });
 
 it("filters user-context and user-only capabilities by authority", () => {
-	const bound = { ensureUserEntities, executeQueryEngine, getUserPreferences };
+	const bound = { ensureUserEntities, getUserPreferences };
 	const user = selectSandboxHostFunctions(bound, {
 		metadata: { kind: "operation" },
 		authority: { type: "user", userId },
-		allowedHostFunctions: ["ensureUserEntities", "executeQueryEngine", "getUserPreferences"],
+		allowedHostFunctions: ["ensureUserEntities", "getUserPreferences"],
 	});
 	const subscription = selectSandboxHostFunctions(bound, {
 		metadata: { kind: "automation" },
 		authority: runInput.authority,
-		allowedHostFunctions: ["ensureUserEntities", "executeQueryEngine", "getUserPreferences"],
+		allowedHostFunctions: ["ensureUserEntities", "getUserPreferences"],
 	});
 	const system = selectSandboxHostFunctions(bound, {
 		metadata: { kind: "script" },
 		authority: { type: "system" },
-		allowedHostFunctions: ["ensureUserEntities", "executeQueryEngine", "getUserPreferences"],
+		allowedHostFunctions: ["ensureUserEntities", "getUserPreferences"],
 	});
 
-	expect(user).toEqual({ ensureUserEntities, executeQueryEngine, getUserPreferences });
-	expect(subscription).toEqual({ executeQueryEngine, getUserPreferences });
-	expect(system).toEqual({ executeQueryEngine });
+	expect(user).toEqual({ ensureUserEntities, getUserPreferences });
+	expect(subscription).toEqual({ getUserPreferences });
+	expect(system).toEqual({});
 });
 
 it("exposes declared user relationship changes only to user-bound authority", () => {

@@ -55,10 +55,6 @@
 			"types": "./src/provider.ts",
 			"default": "./src/provider.ts"
 		},
-		"./query-engine": {
-			"types": "./src/query-engine.ts",
-			"default": "./src/query-engine.ts"
-		},
 		"./ryotql": {
 			"types": "./src/ryotql.ts",
 			"default": "./src/ryotql.ts"
@@ -82,7 +78,6 @@
 	},
 	"dependencies": {
 		"@ryot/contract": "workspace:*",
-		"@ryot/query-engine": "workspace:*",
 		"@ryot/ryotql": "workspace:*",
 		"@ryot/ryotql-recipes": "workspace:*",
 		"@types/papaparse": "5.5.2",
