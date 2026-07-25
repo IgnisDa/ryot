@@ -310,6 +310,12 @@ that session while cumulative host-call and `httpCall` budgets continue counting
 Session removal interrupts active and queued calls; permit release remains safe across success,
 failure, defects, timeout, and cancellation.
 
+Registration is scoped and owns its own removal: `addSession` installs the session and its finalizer
+in one uninterruptible acquisition, so an interruption immediately after registration cannot leave a
+session behind. Registering the same execution identifier again closes the session it replaces, and a
+finalizer removes only the exact instance its scope installed, so a late finalizer cannot evict a
+newer registration. Expiry eviction during a request is identity-aware for the same reason.
+
 ## Liveness And Garbage Collection
 
 Compiled database rows and materialized `<contentHash>.mjs` files use the same liveness set. Live
