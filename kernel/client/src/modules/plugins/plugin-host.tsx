@@ -213,7 +213,10 @@ function PluginFrame(props: {
 	) => Promise<PluginOperationDispatchOutcome>;
 }) {
 	const { compact, edgeBack, index, key, location } = props.navigation;
-	const { path, search } = location;
+	const routePath = location.kind === "route" ? location.path : undefined;
+	const entityId = location.kind === "entity" ? location.entityId : undefined;
+	const routeSearch = location.kind === "route" ? location.search : undefined;
+	const entitySchemaSlug = location.kind === "entity" ? location.entitySchemaSlug : undefined;
 	const latest = useRef(props);
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
@@ -388,8 +391,8 @@ function PluginFrame(props: {
 
 	useEffect(() => {
 		window.clearTimeout(backSettle.current);
-		bridge.current?.sendLocation({ compact, edgeBack, index, key, location: { path, search } });
-	}, [compact, edgeBack, index, key, path, search]);
+		bridge.current?.sendLocation(latest.current.navigation);
+	}, [compact, edgeBack, entityId, entitySchemaSlug, index, key, routePath, routeSearch]);
 
 	useEffect(
 		() =>

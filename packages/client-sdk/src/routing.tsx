@@ -1,4 +1,5 @@
 import type { PluginLogicalLocation } from "@ryot-app/contract/modules/plugins/client";
+import { Match } from "effect";
 import {
 	Fragment,
 	createContext,
@@ -111,7 +112,12 @@ export const usePluginLocation = () => useRouterContext().location;
 
 export const usePluginParams = () => useRouterContext().params;
 
-export const usePluginSearch = () => new URLSearchParams(useRouterContext().location.search);
+export const usePluginSearch = () =>
+	Match.value(useRouterContext().location).pipe(
+		Match.when({ kind: "route" }, ({ search }) => new URLSearchParams(search)),
+		Match.when({ kind: "entity" }, () => new URLSearchParams()),
+		Match.exhaustive,
+	);
 
 type PluginLinkProps = {
 	readonly to: string;
@@ -161,6 +167,12 @@ const DefaultNotFound = () => (
 	</main>
 );
 
+const EntityRendererUnavailable = () => (
+	<main>
+		<h1>Entity renderer unavailable</h1>
+	</main>
+);
+
 const decodeSegment = (segment: string) => {
 	try {
 		return decodeURIComponent(segment);
@@ -198,16 +210,21 @@ const matchRoute = (routes: readonly PluginRouteDefinition[], path: string) => {
 export const createPluginRouteResolver = (
 	definition: PluginRouterDefinition,
 ): ResolvePluginScreen => {
-	return (location) => {
-		if (location.path === "/") {
-			return { params: {}, component: definition.home.component };
-		}
-		const matched = matchRoute(definition.routes ?? [], location.path);
-		if (matched === undefined) {
-			return { params: {}, component: definition.notFound ?? DefaultNotFound };
-		}
-		return { params: matched.params, component: matched.route.component };
-	};
+	return (location) =>
+		Match.value(location).pipe(
+			Match.when({ kind: "route" }, (route) => {
+				if (route.path === "/") {
+					return { params: {}, component: definition.home.component };
+				}
+				const matched = matchRoute(definition.routes ?? [], route.path);
+				if (matched === undefined) {
+					return { params: {}, component: definition.notFound ?? DefaultNotFound };
+				}
+				return { params: matched.params, component: matched.route.component };
+			}),
+			Match.when({ kind: "entity" }, () => ({ params: {}, component: EntityRendererUnavailable })),
+			Match.exhaustive,
+		);
 };
 
 const screenBase: CSSProperties = {

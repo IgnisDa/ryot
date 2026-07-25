@@ -1,6 +1,7 @@
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Schema } from "effect";
 
+import { EntityId, EntitySchemaSlug } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { RyotQLDocument, RyotQLResponse } from "../ryotql/language";
@@ -151,10 +152,23 @@ export const PluginBridgeReady = strictStruct(pluginBridgeIdentityFields);
 
 export type PluginBridgeReady = Schema.Schema.Type<typeof PluginBridgeReady>;
 
-export const PluginLogicalLocation = strictStruct({
+export const PluginRouteLocation = strictStruct({
 	path: Schema.String,
 	search: Schema.String,
+	kind: Schema.Literal("route"),
 });
+
+export type PluginRouteLocation = Schema.Schema.Type<typeof PluginRouteLocation>;
+
+export const PluginEntityLocation = strictStruct({
+	entityId: EntityId,
+	entitySchemaSlug: EntitySchemaSlug,
+	kind: Schema.Literal("entity"),
+});
+
+export type PluginEntityLocation = Schema.Schema.Type<typeof PluginEntityLocation>;
+
+export const PluginLogicalLocation = Schema.Union([PluginRouteLocation, PluginEntityLocation]);
 
 export type PluginLogicalLocation = Schema.Schema.Type<typeof PluginLogicalLocation>;
 
@@ -178,7 +192,7 @@ export const PluginBridgeOpenDrawer = strictStruct({ type: Schema.Literal("open-
 export type PluginBridgeOpenDrawer = Schema.Schema.Type<typeof PluginBridgeOpenDrawer>;
 
 export const PluginBridgeNavigate = strictStruct({
-	location: PluginLogicalLocation,
+	location: PluginRouteLocation,
 	type: Schema.Literal("navigate"),
 	mode: Schema.Literals(["push", "replace"]),
 });

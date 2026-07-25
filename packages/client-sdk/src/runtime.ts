@@ -202,7 +202,7 @@ export const createPluginRuntime = (
 			!post({
 				mode,
 				type: "navigate",
-				location: { path: to.path, search },
+				location: { kind: "route", path: to.path, search },
 			} satisfies PluginBridgeNavigate)
 		) {
 			throw new RyotClientError(terminalReason ?? "transport");
