@@ -28,7 +28,6 @@ it("routes person and company providers through provider scripts", () => {
 		script.kind === "provider" && providerSlugs.has(script.providerSlug) ? [script] : [],
 	);
 
-	expect(providerScripts.every(({ kind }) => kind === "provider")).toBe(true);
 	expect(new Set(providerScripts.map(({ providerSlug }) => providerSlug))).toEqual(providerSlugs);
 
 	for (const provider of mediaPlugin.providers.filter(({ slug }) => providerSlugs.has(slug))) {
