@@ -11,6 +11,8 @@ import { mapShowSummary, type ShowSummaryState } from "./show-summary-state";
 
 const NO_MANAGED_URLS: ReadonlyMap<string, string> = new Map();
 
+const clamps = () =>
+	screen.getAllByText("A four-part limited series.").map((node) => node.props.numberOfLines);
 const readyState = (overrides: Record<string, unknown> = {}): ShowSummaryState =>
 	mapShowSummary(
 		AsyncResult.success(
@@ -76,7 +78,7 @@ describe("show screen content", () => {
 		await renderContent(readyState());
 
 		expect(screen.getByText("Adolescence")).toBeOnTheScreen();
-		expect(screen.getByText("TV Show • 2025")).toBeOnTheScreen();
+		expect(screen.getByText("TV Show • TMDB • 2025")).toBeOnTheScreen();
 		expect(screen.getAllByText("TMDB")).toHaveLength(2);
 		expect(screen.getByText("Drama")).toBeOnTheScreen();
 		expect(screen.getByText("TMDB rating")).toBeOnTheScreen();
@@ -88,7 +90,7 @@ describe("show screen content", () => {
 		expect(screen.getByText("4")).toBeOnTheScreen();
 		expect(screen.getByText("1 season")).toBeOnTheScreen();
 		expect(screen.getByText("4 episodes")).toBeOnTheScreen();
-		expect(screen.getByText("A four-part limited series.")).toBeOnTheScreen();
+		expect(screen.getAllByText("A four-part limited series.")).toHaveLength(2);
 		expect(screen.getByText("show-1")).toBeOnTheScreen();
 	});
 
@@ -99,7 +101,7 @@ describe("show screen content", () => {
 		expect(screen.getByText("Ownership")).toBeOnTheScreen();
 		expect(screen.getByText("Not recorded")).toBeOnTheScreen();
 		expect(screen.getByText("Collections")).toBeOnTheScreen();
-		expect(screen.getByText("Completed")).toBeOnTheScreen();
+		expect(screen.getByText("1 collection")).toBeOnTheScreen();
 		expect(screen.getByText("Your status")).toBeOnTheScreen();
 		expect(screen.getByText("Complete")).toBeOnTheScreen();
 		expect(screen.getByRole("button", { name: "Manage" })).toBeOnTheScreen();
@@ -110,8 +112,8 @@ describe("show screen content", () => {
 			readyState({ collections: { pageInfo: { hasMore: false, limit: 6 }, items: [] } }),
 		);
 
-		expect(screen.getByText("This show is not in any collection.")).toBeOnTheScreen();
-		expect(screen.queryByText("Completed")).not.toBeOnTheScreen();
+		expect(screen.getByText("Not in any collection")).toBeOnTheScreen();
+		expect(screen.queryByText("1 collection")).not.toBeOnTheScreen();
 	});
 
 	it("omits summary values that the provider did not record", async () => {
@@ -150,5 +152,20 @@ describe("show screen content", () => {
 		expect(screen.getByRole("tab", { name: "Overview" })).toBeSelected();
 		expect(screen.getByRole("tab", { name: "Episodes" })).not.toBeSelected();
 		expect(monitoring).not.toBeChecked();
+	});
+
+	it("expands and re-clamps every description slot from one toggle", async () => {
+		const user = userEvent.setup();
+		await renderContent(readyState());
+
+		expect(clamps()).toEqual([3, 3]);
+
+		await user.press(screen.getAllByRole("button", { name: "More" })[0]);
+
+		expect(clamps()).toEqual([undefined, undefined]);
+
+		await user.press(screen.getAllByRole("button", { name: "Less" })[1]);
+
+		expect(clamps()).toEqual([3, 3]);
 	});
 });
