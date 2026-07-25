@@ -223,6 +223,11 @@ Search `furious` with `pageSize=20`, each run from a freshly reset database:
 Every failed live import failed in population with a PostgreSQL deadlock (`defects.md` §3). No
 throttling or provider drift was observed.
 
+Follow-up on 2026-09-14 added canonical entity and relationship mutation locks, bounded whole-
+transaction `40P01` retry, retained PostgreSQL deadlock diagnostics, and a hermetic shared-graph
+regression gate. Three 5-import and three 20-import overlap runs completed all 75 imports with no
+PostgreSQL deadlocks. The table above remains the historical baseline result.
+
 A live import costs fewer spawns and replays than the hermetic standard import, but each worker is
 three times larger and the durable journal carries far more data.
 
@@ -262,5 +267,5 @@ three times larger and the durable journal carries far more data.
   population, since both rise together in these scenarios.
 - Payload-size scaling and whether large results amplify backend memory.
 - Overlap between import phases outside the sandbox queue.
-- The cause and commit of the large-result workflow suspension, and of the concurrent population
-  deadlock.
+- The cause and commit of the large-result workflow suspension. The concurrent population deadlock
+  was resolved in the 2026-09-14 follow-up recorded in `defects.md` §3.

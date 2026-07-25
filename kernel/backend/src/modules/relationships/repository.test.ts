@@ -314,6 +314,35 @@ it.effect("lists and deletes user relationships without touching global rows", (
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 
+it.effect("locks relationship identities in canonical order", () => {
+	const keys: string[] = [];
+	const db = {
+		execute: (statement: RenderableSql) => {
+			keys.push(String(dialect.sqlToQuery(statement).params[0]));
+			return Effect.void;
+		},
+	};
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		const common = {
+			scope: "global" as const,
+			sourceEntityId: EntityId.make("source"),
+			relationshipSchemaSlug: RelationshipSchemaSlug.make("credits"),
+		};
+		yield* repository.lockRelationshipMutations([
+			{ ...common, targetEntityId: EntityId.make("zeta") },
+			{ ...common, targetEntityId: EntityId.make("alpha") },
+			{ ...common, targetEntityId: EntityId.make("zeta") },
+		]);
+
+		expect(keys).toEqual([
+			'["relationship","global","global","kernel","credits","source","alpha"]',
+			'["relationship","global","global","kernel","credits","source","zeta"]',
+		]);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
 it.effect("deletes by exact relationship and user ids", () => {
 	const { db, state } = makeDb([
 		{

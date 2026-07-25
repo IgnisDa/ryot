@@ -54,6 +54,14 @@ export function mapDatabaseErrors<A, E, R>(effect: Effect.Effect<A, E, R>) {
 	);
 }
 
+export const retryOnDeadlock = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	effect.pipe(
+		Effect.retry({
+			times: 2,
+			while: (error) => error instanceof DbError && error.code === "40P01",
+		}),
+	);
+
 export const setLocalStatementTimeout = (timeoutMs: number) =>
 	Effect.gen(function* () {
 		const database = yield* Database;

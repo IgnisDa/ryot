@@ -430,6 +430,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					).pipe(
 						Effect.provideService(Database, database),
 						Effect.provideService(DefinitionRegistry, definitions),
+						Effect.provideService(EntitiesRepository, entitiesRepository),
 						Effect.provideService(RelationshipsRepository, relationshipsRepository),
 					);
 				}),

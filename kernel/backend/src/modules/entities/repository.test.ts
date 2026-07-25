@@ -205,6 +205,72 @@ it.effect("locks and counts the complete global provenance scope", () => {
 	}).pipe(Effect.provide(makeLayer(db)));
 });
 
+it.effect("locks provider entity identities in canonical order", () => {
+	const dialect = new PgDialect();
+	const keys: string[] = [];
+	const db = {
+		execute: (statement: Parameters<typeof dialect.sqlToQuery>[0]) => {
+			const query = dialect.sqlToQuery(statement);
+			keys.push(String(query.params[0]));
+			return Effect.void;
+		},
+	};
+
+	return Effect.gen(function* () {
+		const repository = yield* EntitiesRepository;
+		const common = {
+			scope: "global" as const,
+			providerId: SandboxProviderId.make("provider-1"),
+			entitySchemaSlug: EntitySchemaSlug.make("person"),
+		};
+		yield* repository.lockProviderEntityMutations([
+			{ ...common, externalId: "zeta" },
+			{ ...common, externalId: "alpha" },
+			{ ...common, externalId: "zeta" },
+		]);
+
+		expect(keys).toEqual([
+			'["provider-entity","global","global","person","provider-1","alpha"]',
+			'["provider-entity","global","global","person","provider-1","zeta"]',
+		]);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("locks unique entity references in canonical order", () => {
+	const dialect = new PgDialect();
+	let predicateParams: unknown[] = [];
+	let ordered = false;
+	let lockStrength: string | undefined;
+	const query = {
+		orderBy: (_column: unknown) => {
+			ordered = true;
+			return query;
+		},
+		for: (strength: string) => {
+			lockStrength = strength;
+			return Effect.succeed([]);
+		},
+		where: (condition: { getSQL: () => Parameters<typeof dialect.sqlToQuery>[0] }) => {
+			predicateParams = dialect.sqlToQuery(condition.getSQL()).params;
+			return query;
+		},
+	};
+	const db = { select: () => ({ from: () => query }) };
+
+	return Effect.gen(function* () {
+		const repository = yield* EntitiesRepository;
+		yield* repository.lockEntityReferencesByIds([
+			EntityId.make("zeta"),
+			EntityId.make("alpha"),
+			EntityId.make("zeta"),
+		]);
+
+		expect(predicateParams).toEqual(["alpha", "zeta"]);
+		expect(ordered).toBe(true);
+		expect(lockStrength).toBe("key share");
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
 it.effect("restores an entity with its archived identity and timestamps", () => {
 	let persisted: Record<string, unknown> | undefined;
 	const db = {

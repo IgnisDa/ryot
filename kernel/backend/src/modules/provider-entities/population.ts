@@ -1,4 +1,4 @@
-import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	EntitySchemaSlug,
@@ -12,6 +12,7 @@ import { DateTime, Effect, Schema } from "effect";
 
 import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import {
 	RelationshipMutationOutcomes,
@@ -48,6 +49,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 ) {
 	const entities = yield* EntitiesService;
+	const entitiesRepository = yield* EntitiesRepository;
 
 	const childSchemaSlugs = new Set(
 		input.childEntities.map(({ entitySchemaSlug }) => entitySchemaSlug),
@@ -102,33 +104,50 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 		return relationshipSchema;
 	});
 
-	const processedChildren: ProcessedChildEntity[] = [];
-	for (const childEntity of input.childEntities) {
+	const orderedChildEntities = input.childEntities
+		.map((childEntity, index) => ({ index, childEntity }))
+		.sort((left, right) => left.childEntity.externalId.localeCompare(right.childEntity.externalId));
+	if (childEntitySchema) {
+		yield* entitiesRepository.lockProviderEntityMutations(
+			orderedChildEntities.map(({ childEntity }) => ({
+				providerId: input.providerId,
+				externalId: childEntity.externalId,
+				entitySchemaSlug: childEntitySchema.id,
+				...(input.scope === "user"
+					? { userId: input.userId, scope: "user" as const }
+					: { scope: "global" as const }),
+			})),
+		);
+	}
+
+	const processedChildrenByIndex: Array<ProcessedChildEntity | undefined> = Array.from({
+		length: input.childEntities.length,
+	});
+	for (const { index, childEntity } of orderedChildEntities) {
 		if (!childEntitySchema) {
 			return yield* Effect.die("Validated child schema is missing");
 		}
 
 		const populatedAt = yield* DateTime.nowAsDate;
-		const saved = yield* entities
-			.upsert({
-				populatedAt,
-				name: childEntity.name,
-				providerId: input.providerId,
-				externalId: childEntity.externalId,
-				properties: childEntity.properties,
-				entitySchemaSlug: childEntitySchema.id,
-				updateExisting: input.syncExisting ?? false,
-				...(input.scope === "user"
-					? { userId: input.userId, scope: "user" as const }
-					: { scope: "global" as const }),
-			})
-			.pipe(mapDbErrorToSandbox);
-		processedChildren.push({
+		const saved = yield* entities.upsert({
+			populatedAt,
+			name: childEntity.name,
+			providerId: input.providerId,
+			externalId: childEntity.externalId,
+			properties: childEntity.properties,
+			entitySchemaSlug: childEntitySchema.id,
+			updateExisting: input.syncExisting ?? false,
+			...(input.scope === "user"
+				? { userId: input.userId, scope: "user" as const }
+				: { scope: "global" as const }),
+		});
+		processedChildrenByIndex[index] = {
 			entity: saved.entity,
 			entityOutcome: saved.outcome,
 			entitySchemaSlug: childEntitySchema.id,
-		});
+		};
 	}
+	const processedChildren = processedChildrenByIndex.flatMap((child) => (child ? [child] : []));
 
 	let relationshipOutcomes: RelationshipMutationOutcome[] = [];
 	const relationshipSchema = yield* findChildRelationshipSchema(childEntitySchema?.id);

@@ -1,4 +1,4 @@
-import { SandboxRunError, dieOnDbError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	EntitySchemaSlug,
 	RelationshipSchemaSlug,
@@ -13,7 +13,7 @@ import { Effect } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import type { DefinitionSnapshot } from "#modules/definition-registry/service";
-import { EntitiesRepository } from "#modules/entities/repository";
+import { EntitiesRepository, providerEntityMutationLockKey } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
@@ -54,7 +54,6 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		});
 	}
 
-	const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
 	const uniqueRelatedEntities = new Map<string, ProviderDetailsRelatedEntity>();
 	for (const relatedEntity of input.group.entities) {
 		uniqueRelatedEntities.set(
@@ -63,18 +62,18 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		);
 	}
 
+	const resolvedRelatedEntities = [];
 	for (const relatedEntity of uniqueRelatedEntities.values()) {
 		const availableProvider =
 			input.scope === "user"
-				? yield* pluginRuntime
-						.findProviderAvailableToUserBySlug(input.userId, relatedEntity.providerSlug)
-						.pipe(mapDbErrorToSandbox)
+				? yield* pluginRuntime.findProviderAvailableToUserBySlug(
+						input.userId,
+						relatedEntity.providerSlug,
+					)
 				: null;
 		const persistedSchemaProvider =
 			input.scope === "global"
-				? yield* repository
-						.findEntitySchemaProviderBySlug(relatedEntity.providerSlug)
-						.pipe(mapDbErrorToSandbox)
+				? yield* repository.findEntitySchemaProviderBySlug(relatedEntity.providerSlug)
 				: null;
 		const schemaProvider = availableProvider
 			? ({
@@ -85,18 +84,6 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		if (!schemaProvider) {
 			continue;
 		}
-		const entity = yield* entities
-			.create({
-				properties: {},
-				name: relatedEntity.name,
-				externalId: relatedEntity.externalId,
-				providerId: schemaProvider.providerId,
-				entitySchemaSlug: schemaProvider.entitySchemaSlug,
-				...(input.scope === "user"
-					? { userId: input.userId, scope: "user" as const }
-					: { populatedAt: null, scope: "global" as const }),
-			})
-			.pipe(mapDbErrorToSandbox);
 
 		const sourceSchemaId =
 			input.group.direction === "outgoing"
@@ -129,7 +116,37 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 			propertiesSchema: relationshipSchema.propertiesSchema,
 			properties: relatedEntity.relationshipProperties ?? {},
 		}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+		const lockInput = {
+			externalId: relatedEntity.externalId,
+			providerId: schemaProvider.providerId,
+			entitySchemaSlug: schemaProvider.entitySchemaSlug,
+			...(input.scope === "user"
+				? { userId: input.userId, scope: "user" as const }
+				: { scope: "global" as const }),
+		};
+		resolvedRelatedEntities.push({ lockInput, properties, relatedEntity, schemaProvider });
+	}
+	resolvedRelatedEntities.sort((left, right) =>
+		providerEntityMutationLockKey(left.lockInput).localeCompare(
+			providerEntityMutationLockKey(right.lockInput),
+		),
+	);
+	yield* repository.lockProviderEntityMutations(
+		resolvedRelatedEntities.map(({ lockInput }) => lockInput),
+	);
 
+	const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
+	for (const { properties, relatedEntity, schemaProvider } of resolvedRelatedEntities) {
+		const entity = yield* entities.create({
+			properties: {},
+			name: relatedEntity.name,
+			externalId: relatedEntity.externalId,
+			providerId: schemaProvider.providerId,
+			entitySchemaSlug: schemaProvider.entitySchemaSlug,
+			...(input.scope === "user"
+				? { userId: input.userId, scope: "user" as const }
+				: { populatedAt: null, scope: "global" as const }),
+		});
 		entries.push({ properties, entityId: entity.id });
 	}
 
@@ -161,4 +178,4 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 			? { userId: input.userId, scope: "user" as const }
 			: { scope: "global" as const }),
 	});
-}, dieOnDbError);
+});
