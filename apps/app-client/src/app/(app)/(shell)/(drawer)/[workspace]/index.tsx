@@ -7,6 +7,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { Pressable, Text, View } from "react-native";
 
 import { navigationAtom } from "@/modules/navigation/atoms";
+import { WorkspaceHomeFrame } from "@/modules/navigation/workspace-home-frame";
 import { notificationChannelsAtom } from "@/modules/notifications/atoms";
 import { createSavedViewAtom, savedViewsAtom } from "@/modules/saved-views/atoms";
 
@@ -52,124 +53,130 @@ export default function AppHome() {
 	}
 
 	return (
-		<View className="w-full items-center">
-			<View className="w-full max-w-2xl gap-5">
-				<Text className="font-display-semibold text-3xl text-text">You're in.</Text>
-				<View className="gap-3 rounded-xl border border-border bg-surface p-5">
-					<Text className="font-ui-semibold text-base text-text">RyotQL saved-view records</Text>
-					<Pressable
-						accessibilityRole="button"
-						onPress={() => void handleCreateSavedView()}
-						disabled={!savedViewTemplate || createSavedViewResult.waiting}
-						className={clsx(
-							"self-start rounded-lg bg-accent px-4 py-2",
-							(!savedViewTemplate || createSavedViewResult.waiting) && "opacity-50",
+		<WorkspaceHomeFrame>
+			<View className="w-full items-center">
+				<View className="w-full max-w-2xl gap-5">
+					<Text className="font-display-semibold text-3xl text-text">You're in.</Text>
+					<View className="gap-3 rounded-xl border border-border bg-surface p-5">
+						<Text className="font-ui-semibold text-base text-text">RyotQL saved-view records</Text>
+						<Pressable
+							accessibilityRole="button"
+							onPress={() => void handleCreateSavedView()}
+							disabled={!savedViewTemplate || createSavedViewResult.waiting}
+							className={clsx(
+								"self-start rounded-lg bg-accent px-4 py-2",
+								(!savedViewTemplate || createSavedViewResult.waiting) && "opacity-50",
+							)}
+						>
+							<Text className="font-ui-medium text-sm text-accent-ink">
+								{createSavedViewResult.waiting ? "Creating..." : "Create random saved view"}
+							</Text>
+						</Pressable>
+						{AsyncResult.isFailure(createSavedViewResult) && (
+							<Text selectable className="font-mono text-sm text-danger">
+								{Cause.pretty(createSavedViewResult.cause)}
+							</Text>
 						)}
-					>
-						<Text className="font-ui-medium text-sm text-accent-ink">
-							{createSavedViewResult.waiting ? "Creating..." : "Create random saved view"}
-						</Text>
-					</Pressable>
-					{AsyncResult.isFailure(createSavedViewResult) && (
-						<Text selectable className="font-mono text-sm text-danger">
-							{Cause.pretty(createSavedViewResult.cause)}
-						</Text>
-					)}
-					{AsyncResult.builder(savedViews)
-						.onInitial(() => <Text className="font-ui text-base text-text-muted">Loading...</Text>)
-						.onFailure((cause) => (
-							<Text selectable className="font-mono text-sm text-danger">
-								{JSON.stringify({ error: Cause.pretty(cause) }, null, 2)}
-							</Text>
-						))
-						.onSuccess(() => {
-							if (!decodedSavedViews) {
-								return null;
-							}
-							if (Result.isFailure(decodedSavedViews)) {
+						{AsyncResult.builder(savedViews)
+							.onInitial(() => (
+								<Text className="font-ui text-base text-text-muted">Loading...</Text>
+							))
+							.onFailure((cause) => (
+								<Text selectable className="font-mono text-sm text-danger">
+									{JSON.stringify({ error: Cause.pretty(cause) }, null, 2)}
+								</Text>
+							))
+							.onSuccess(() => {
+								if (!decodedSavedViews) {
+									return null;
+								}
+								if (Result.isFailure(decodedSavedViews)) {
+									return (
+										<Text selectable className="font-mono text-sm text-danger">
+											{JSON.stringify({ error: String(decodedSavedViews.failure) }, null, 2)}
+										</Text>
+									);
+								}
+
 								return (
-									<Text selectable className="font-mono text-sm text-danger">
-										{JSON.stringify({ error: String(decodedSavedViews.failure) }, null, 2)}
-									</Text>
+									<View className="gap-2">
+										<Text className="font-ui text-sm text-text-muted">
+											Showing {decodedSavedViews.success.items.length} of{" "}
+											{decodedSavedViews.success.pageInfo.total} saved views
+										</Text>
+										<Text selectable className="font-mono text-sm text-text">
+											{JSON.stringify(
+												decodedSavedViews.success.items.map((savedView) => ({
+													id: savedView.id,
+													icon: savedView.icon,
+													name: savedView.name,
+													slug: savedView.slug,
+													isDisabled: savedView.isDisabled,
+												})),
+												null,
+												2,
+											)}
+										</Text>
+									</View>
 								);
-							}
+							})
+							.render()}
+					</View>
 
-							return (
-								<View className="gap-2">
-									<Text className="font-ui text-sm text-text-muted">
-										Showing {decodedSavedViews.success.items.length} of{" "}
-										{decodedSavedViews.success.pageInfo.total} saved views
-									</Text>
-									<Text selectable className="font-mono text-sm text-text">
-										{JSON.stringify(
-											decodedSavedViews.success.items.map((savedView) => ({
-												id: savedView.id,
-												icon: savedView.icon,
-												name: savedView.name,
-												slug: savedView.slug,
-												isDisabled: savedView.isDisabled,
-											})),
-											null,
-											2,
-										)}
-									</Text>
-								</View>
-							);
-						})
-						.render()}
-				</View>
+					<View className="gap-3 rounded-xl border border-border bg-surface p-5">
+						<Text className="font-ui-semibold text-base text-text">
+							RyotQL notification-channel summary
+						</Text>
+						{AsyncResult.builder(notificationChannels)
+							.onInitial(() => (
+								<Text className="font-ui text-base text-text-muted">Loading...</Text>
+							))
+							.onFailure((cause) => (
+								<Text selectable className="font-mono text-sm text-danger">
+									{JSON.stringify({ error: Cause.pretty(cause) }, null, 2)}
+								</Text>
+							))
+							.onSuccess(() => {
+								if (!decodedNotificationChannels) {
+									return null;
+								}
+								if (Result.isFailure(decodedNotificationChannels)) {
+									return (
+										<Text selectable className="font-mono text-sm text-danger">
+											{JSON.stringify(
+												{ error: String(decodedNotificationChannels.failure) },
+												null,
+												2,
+											)}
+										</Text>
+									);
+								}
 
-				<View className="gap-3 rounded-xl border border-border bg-surface p-5">
-					<Text className="font-ui-semibold text-base text-text">
-						RyotQL notification-channel summary
-					</Text>
-					{AsyncResult.builder(notificationChannels)
-						.onInitial(() => <Text className="font-ui text-base text-text-muted">Loading...</Text>)
-						.onFailure((cause) => (
-							<Text selectable className="font-mono text-sm text-danger">
-								{JSON.stringify({ error: Cause.pretty(cause) }, null, 2)}
-							</Text>
-						))
-						.onSuccess(() => {
-							if (!decodedNotificationChannels) {
-								return null;
-							}
-							if (Result.isFailure(decodedNotificationChannels)) {
 								return (
-									<Text selectable className="font-mono text-sm text-danger">
-										{JSON.stringify(
-											{ error: String(decodedNotificationChannels.failure) },
-											null,
-											2,
-										)}
-									</Text>
+									<View className="gap-2">
+										<Text className="font-ui text-sm text-text-muted">
+											Showing {decodedNotificationChannels.success.items.length} of{" "}
+											{decodedNotificationChannels.success.pageInfo.total} notification channels
+										</Text>
+										<Text selectable className="font-mono text-sm text-text">
+											{JSON.stringify(
+												decodedNotificationChannels.success.items.map((channel) => ({
+													id: channel.id,
+													channel: channel.channel,
+													isDisabled: channel.isDisabled,
+													description: channel.description,
+												})),
+												null,
+												2,
+											)}
+										</Text>
+									</View>
 								);
-							}
-
-							return (
-								<View className="gap-2">
-									<Text className="font-ui text-sm text-text-muted">
-										Showing {decodedNotificationChannels.success.items.length} of{" "}
-										{decodedNotificationChannels.success.pageInfo.total} notification channels
-									</Text>
-									<Text selectable className="font-mono text-sm text-text">
-										{JSON.stringify(
-											decodedNotificationChannels.success.items.map((channel) => ({
-												id: channel.id,
-												channel: channel.channel,
-												isDisabled: channel.isDisabled,
-												description: channel.description,
-											})),
-											null,
-											2,
-										)}
-									</Text>
-								</View>
-							);
-						})
-						.render()}
+							})
+							.render()}
+					</View>
 				</View>
 			</View>
-		</View>
+		</WorkspaceHomeFrame>
 	);
 }

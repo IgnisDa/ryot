@@ -10,6 +10,7 @@ import {
 	Building2,
 	Check,
 	ChevronDown,
+	ChevronLeft,
 	ChevronRight,
 	Circle,
 	CircleCheck,
@@ -51,6 +52,7 @@ import {
 	Ruler,
 	Search,
 	Settings,
+	SlidersHorizontal,
 	Sparkles,
 	SquarePlay,
 	Star,
@@ -135,6 +137,7 @@ const rawIconRegistry: Record<string, LucideIcon> = {
 	"heart-pulse": HeartPulse,
 	clapperboard: Clapperboard,
 	"chevron-down": ChevronDown,
+	"chevron-left": ChevronLeft,
 	"circle-check": CircleCheck,
 	"monitor-play": MonitorPlay,
 	"arrow-up-down": ArrowUpDown,
@@ -143,6 +146,7 @@ const rawIconRegistry: Record<string, LucideIcon> = {
 	"grip-vertical": GripVertical,
 	"clipboard-list": ClipboardList,
 	"more-horizontal": MoreHorizontal,
+	"sliders-horizontal": SlidersHorizontal,
 };
 
 export const iconRegistry = Object.fromEntries(
