@@ -20,6 +20,7 @@ import { trimToNull } from "#lib/shared/validation";
 import { toWorkflowRunResult } from "#lib/shared/workflow-result";
 
 import { resolveSandboxExecutionPayload } from "./durable-queues";
+import { SandboxExecutionResult } from "./execution-result";
 import {
 	SandboxPluginScriptResolver,
 	type SandboxPluginScriptResolverValue,
@@ -30,8 +31,6 @@ import {
 	establishSandboxWorkflowPin,
 	SandboxScriptWorkflow,
 } from "./sandbox-script-workflow";
-import { SandboxSubmissionWorkflow } from "./sandbox-submission-workflow";
-import { toSandboxRunResult } from "./sandbox-workflow-live";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
 const sandboxJobNotFoundError = "Sandbox job not found";
@@ -50,12 +49,17 @@ const toPluginWorkflowResult = (result: Workflow.Result<JsonValue, SandboxRunErr
 		onSuccess: (output) => ({ output }),
 	});
 
-const toDurableSandboxRunResult = (
-	result: Workflow.Result<JsonValue, SandboxRunError> | undefined,
-) =>
+const toSandboxRunResult = (result: Workflow.Result<JsonValue, SandboxRunError> | undefined) =>
 	toWorkflowRunResult(result, {
 		onFailure: String,
-		onSuccess: (value) => ({ value, logs: [], error: null }),
+		onSuccess: (value) => {
+			const {
+				harvest: _harvest,
+				status: _status,
+				...completed
+			} = Schema.decodeUnknownSync(SandboxExecutionResult)(value);
+			return completed;
+		},
 	});
 
 export class SandboxExecutionService extends Context.Service<SandboxExecutionService>()(
@@ -84,6 +88,9 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				if (contextError) {
 					return yield* badRequest(contextError);
 				}
+				const input = yield* Schema.decodeUnknownEffect(jsonValueSchema)(context).pipe(
+					Effect.mapError(() => badRequest("Sandbox definition context must be JSON")),
+				);
 				const script = yield* runWithDb(repository.getScript(payload.scriptId));
 				if (!script) {
 					return yield* notFound(sandboxScriptNotFoundError);
@@ -103,33 +110,18 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
 					Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)),
 				);
-				if (script.metadata.kind === "provider") {
-					const input = yield* Schema.decodeUnknownEffect(jsonValueSchema)(context).pipe(
-						Effect.mapError(() => badRequest("Sandbox definition context must be JSON")),
-					);
-					yield* engine
-						.execute(SandboxScriptWorkflow, {
-							executionId,
-							discard: true,
-							payload: {
-								input,
-								executionId,
-								resolutionMode: "exact",
-								scriptId: resolvedPayload.scriptId,
-								authority: resolvedPayload.authority,
-							},
-						})
-						.pipe(Effect.orDie);
-					return {
-						executionId,
-						jobId: createWorkflowJobId(jobIdSecret, executionId, executingUserId),
-					};
-				}
 				yield* engine
-					.execute(SandboxSubmissionWorkflow, {
+					.execute(SandboxScriptWorkflow, {
 						executionId,
 						discard: true,
-						payload: resolvedPayload,
+						payload: {
+							input,
+							executionId,
+							resultMode: "execution",
+							resolutionMode: "exact",
+							scriptId: resolvedPayload.scriptId,
+							authority: resolvedPayload.authority,
+						},
 					})
 					.pipe(Effect.orDie);
 
@@ -153,52 +145,9 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					return yield* notFound(sandboxJobNotFoundError);
 				}
 
-				const submission = yield* engine.poll(SandboxSubmissionWorkflow, executionId);
-				return Option.isSome(submission)
-					? toSandboxRunResult(submission.value)
-					: toDurableSandboxRunResult(
-							Option.getOrUndefined(yield* engine.poll(SandboxScriptWorkflow, executionId)),
-						);
-			});
-
-			const enqueueDurable = Effect.fn("SandboxExecutionService.enqueueDurable")(function* (
-				executingUserId: UserId,
-				payload: EnqueueSandboxBody,
-			) {
-				const scriptId = trimToNull(payload.scriptId);
-				if (!scriptId) {
-					return yield* notFound(sandboxScriptNotFoundError);
-				}
-				const context = payload.context ?? {};
-				const contextError = sandboxContextError(context, undefined, true);
-				if (contextError) {
-					return yield* badRequest(contextError);
-				}
-				const input = yield* Schema.decodeUnknownEffect(jsonValueSchema)(context).pipe(
-					Effect.mapError(() => badRequest("Sandbox definition context must be JSON")),
+				return toSandboxRunResult(
+					Option.getOrUndefined(yield* engine.poll(SandboxScriptWorkflow, executionId)),
 				);
-				const script = yield* runWithDb(repository.getScript(payload.scriptId));
-				if (!script) {
-					return yield* notFound(sandboxScriptNotFoundError);
-				}
-				const executionId = generateId();
-				yield* engine
-					.execute(SandboxScriptWorkflow, {
-						discard: true,
-						executionId,
-						payload: {
-							input,
-							executionId,
-							scriptId: script.id,
-							resolutionMode: "exact",
-							authority: { type: "user", userId: executingUserId },
-						},
-					})
-					.pipe(Effect.orDie);
-				return {
-					executionId,
-					jobId: createWorkflowJobId(jobIdSecret, executionId, executingUserId),
-				};
 			});
 
 			const getStoredScript = Effect.fn("SandboxExecutionService.getStoredScript")(function* (
@@ -251,7 +200,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					authority: ExecutionAuthority;
 					grants?: SandboxExecutionGrants;
 				}) {
-					const contextError = sandboxContextError(input.input, { kind: "workflow" });
+					const contextError = sandboxContextError(input.input);
 					if (contextError) {
 						return yield* new SandboxRunError({ message: contextError });
 					}
@@ -277,7 +226,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				grants?: SandboxExecutionGrants;
 			}) {
 				return yield* Effect.gen(function* () {
-					const contextError = sandboxContextError(input.input, undefined, true);
+					const contextError = sandboxContextError(input.input);
 					if (contextError) {
 						return yield* new SandboxRunError({ message: contextError });
 					}
@@ -340,7 +289,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					workflowSlug: string;
 					executingUserId: UserId;
 				}) {
-					const contextError = sandboxContextError(input.input, { kind: "workflow" });
+					const contextError = sandboxContextError(input.input);
 					if (contextError) {
 						return yield* new SandboxRunError({ message: contextError });
 					}
@@ -401,7 +350,6 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				enqueue,
 				getResult,
 				executeScript,
-				enqueueDurable,
 				executeWorkflow,
 				getStoredScript,
 				enqueuePluginWorkflow,

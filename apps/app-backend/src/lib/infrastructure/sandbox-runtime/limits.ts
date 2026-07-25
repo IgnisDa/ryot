@@ -15,8 +15,9 @@ const MiB = 1024 * KiB;
 
 export const SANDBOX_LIMITS = {
 	workerConcurrency: 5,
+	journalBytes: 100 * MiB,
 	compiler: SANDBOX_COMPILER_LIMITS,
-	hostCalls: { http: 50, total: 200 },
+	hostCalls: { http: 50, total: 1_000 },
 	globalWrites: GLOBAL_WRITE_SANDBOX_LIMITS,
 	diagnostics: { stderrBytes: 64 * KiB, stderrLines: 20 },
 	userRelationshipWrites: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
@@ -32,19 +33,12 @@ export const SANDBOX_LIMITS = {
 		durableResponseBytes: 101 * MiB,
 	},
 	execution: {
-		resultBytes: MiB,
 		denoHeapMiB: 256,
-		timeoutMs: 10_000,
+		timeoutMs: 30_000,
+		resultBytes: 4 * MiB,
 		requestBytes: 2 * MiB,
-		contextBytes: 256 * KiB,
+		contextBytes: 64 * KiB,
 	},
-} as const;
-
-export const WORKFLOW_SANDBOX_LIMITS = {
-	timeoutMs: 30_000,
-	journalBytes: 100 * MiB,
-	hostCalls: { http: 0, total: 1_000 },
-	execution: { contextBytes: 64 * KiB, resultBytes: 4 * MiB },
 } as const;
 
 export const SANDBOX_LOG_TRUNCATION_MARKER = "[sandbox logs truncated]";
@@ -55,40 +49,20 @@ export const sandboxHostCallLimitMessage = (limit: number) =>
 export const sandboxHttpCallLimitMessage = (limit: number) =>
 	`Sandbox execution exceeds ${limit} httpCall calls`;
 
-const makeSandboxRunnerLimits = (workflow: boolean) => ({
+export const SANDBOX_RUNNER_LIMITS = {
 	httpCallCount: SANDBOX_LIMITS.hostCalls.http,
 	logEntryBytes: SANDBOX_LIMITS.logs.entryBytes,
 	logEntryCount: SANDBOX_LIMITS.logs.entryCount,
 	logTotalBytes: SANDBOX_LIMITS.logs.totalBytes,
+	hostCallCount: SANDBOX_LIMITS.hostCalls.total,
+	resultBytes: SANDBOX_LIMITS.execution.resultBytes,
 	logTruncationMarker: SANDBOX_LOG_TRUNCATION_MARKER,
 	bridgeRequestBytes: SANDBOX_LIMITS.bridge.requestBytes,
 	bridgeResponseBytes: SANDBOX_LIMITS.bridge.responseBytes,
 	durableBridgeResponseBytes: SANDBOX_LIMITS.bridge.durableResponseBytes,
 	httpCallLimitMessage: sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http),
-	hostCallLimitMessage: sandboxHostCallLimitMessage(
-		workflow ? WORKFLOW_SANDBOX_LIMITS.hostCalls.total : SANDBOX_LIMITS.hostCalls.total,
-	),
-	hostCallCount: workflow
-		? WORKFLOW_SANDBOX_LIMITS.hostCalls.total
-		: SANDBOX_LIMITS.hostCalls.total,
-	resultBytes: workflow
-		? WORKFLOW_SANDBOX_LIMITS.execution.resultBytes
-		: SANDBOX_LIMITS.execution.resultBytes,
-});
-
-export const SANDBOX_RUNNER_LIMITS = makeSandboxRunnerLimits(false);
-export const WORKFLOW_SANDBOX_RUNNER_LIMITS = makeSandboxRunnerLimits(true);
-
-export const isWorkflowSandboxMetadata = (metadata: unknown) =>
-	typeof metadata === "object" &&
-	metadata !== null &&
-	"kind" in metadata &&
-	metadata.kind === "workflow";
-
-export const sandboxRunnerLimits = (metadata: unknown, durable = false) =>
-	durable || isWorkflowSandboxMetadata(metadata)
-		? WORKFLOW_SANDBOX_RUNNER_LIMITS
-		: SANDBOX_RUNNER_LIMITS;
+	hostCallLimitMessage: sandboxHostCallLimitMessage(SANDBOX_LIMITS.hostCalls.total),
+};
 
 export type SandboxHostCallBudget = { http: number; total: number };
 
@@ -155,16 +129,13 @@ export const sandboxWorkflowJournalByteError = (
 	entryBytes: number,
 	entryCount: number,
 ) =>
-	journalBytes + entryBytes + (entryCount === 0 ? 0 : 1) > WORKFLOW_SANDBOX_LIMITS.journalBytes
-		? `Sandbox workflow durable journal exceeds ${WORKFLOW_SANDBOX_LIMITS.journalBytes} UTF-8 bytes`
+	journalBytes + entryBytes + (entryCount === 0 ? 0 : 1) > SANDBOX_LIMITS.journalBytes
+		? `Sandbox workflow durable journal exceeds ${SANDBOX_LIMITS.journalBytes} UTF-8 bytes`
 		: null;
 
-export const sandboxContextError = (context: unknown, metadata?: unknown, durable = false) => {
+export const sandboxContextError = (context: unknown) => {
 	const bytes = jsonByteLength(context);
-	const limit =
-		durable || isWorkflowSandboxMetadata(metadata)
-			? WORKFLOW_SANDBOX_LIMITS.execution.contextBytes
-			: SANDBOX_LIMITS.execution.contextBytes;
+	const limit = SANDBOX_LIMITS.execution.contextBytes;
 	return bytes === null || bytes > limit
 		? `Sandbox definition context must be JSON and no larger than ${limit} UTF-8 bytes`
 		: null;
