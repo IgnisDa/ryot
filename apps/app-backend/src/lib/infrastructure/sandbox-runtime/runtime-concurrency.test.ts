@@ -1,10 +1,10 @@
 import { it } from "@effect/vitest";
+import { hostSuccess } from "@ryot/sandbox-sdk/wire";
 import { Clock, Deferred, Effect, Fiber, Queue, Ref, Semaphore } from "effect";
 import { describe, expect } from "vitest";
 
 import { SANDBOX_LIMITS } from "./limits";
 import { BridgeService, withSandboxHostCallPermit } from "./runtime";
-import { apiSuccess } from "./shared";
 
 const addSession = Effect.fn("test.addSession")(function* (
 	bridge: BridgeService["Service"],
@@ -50,11 +50,11 @@ describe("sandbox bridge host-call concurrency", () => {
 					Effect.tap((value) => Ref.update(maximum, (current) => Math.max(current, value))),
 					Effect.tap(() => Queue.offer(started, undefined)),
 					Effect.andThen(Queue.take(release)),
-					Effect.as(apiSuccess(null)),
+					Effect.as(hostSuccess(null)),
 					Effect.ensuring(Ref.update(active, (value) => value - 1)),
 				);
 			yield* addSession(bridge, "first", host);
-			yield* addSession(bridge, "second", () => Effect.succeed(apiSuccess(null)));
+			yield* addSession(bridge, "second", () => Effect.succeed(hostSuccess(null)));
 
 			const calls = yield* Effect.forEach(
 				Array.from({ length: SANDBOX_LIMITS.bridge.concurrentHostCalls + 1 }),
@@ -88,7 +88,7 @@ describe("sandbox bridge host-call concurrency", () => {
 				yield* addSession(bridge, "removed", () =>
 					Queue.offer(started, undefined).pipe(
 						Effect.andThen(Deferred.await(release)),
-						Effect.as(apiSuccess(null)),
+						Effect.as(hostSuccess(null)),
 					),
 				);
 
@@ -114,8 +114,8 @@ describe("sandbox bridge host-call concurrency", () => {
 	it.effect("checks in-memory session expiry and authorization", () =>
 		Effect.gen(function* () {
 			const bridge = yield* BridgeService;
-			yield* addSession(bridge, "active", () => Effect.succeed(apiSuccess(null)));
-			yield* addSession(bridge, "expired", () => Effect.succeed(apiSuccess(null)), -1);
+			yield* addSession(bridge, "active", () => Effect.succeed(hostSuccess(null)));
+			yield* addSession(bridge, "expired", () => Effect.succeed(hostSuccess(null)), -1);
 
 			const missing = yield* call(bridge, "missing");
 			expect(missing.status).toBe(404);
