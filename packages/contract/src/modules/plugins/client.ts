@@ -172,6 +172,13 @@ export const PluginLogicalLocation = Schema.Union([PluginRouteLocation, PluginEn
 
 export type PluginLogicalLocation = Schema.Schema.Type<typeof PluginLogicalLocation>;
 
+export const PluginNavigationTarget = Schema.Union([
+	PluginRouteLocation,
+	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
+]);
+
+export type PluginNavigationTarget = Schema.Schema.Type<typeof PluginNavigationTarget>;
+
 export const PluginLeadingIntent = Schema.Literals(["back", "drawer", "none"]);
 
 export type PluginLeadingIntent = Schema.Schema.Type<typeof PluginLeadingIntent>;
@@ -197,7 +204,7 @@ export const PluginBridgeOpenDrawer = strictStruct({ type: Schema.Literal("open-
 export type PluginBridgeOpenDrawer = Schema.Schema.Type<typeof PluginBridgeOpenDrawer>;
 
 export const PluginBridgeNavigate = strictStruct({
-	location: PluginRouteLocation,
+	target: PluginNavigationTarget,
 	type: Schema.Literal("navigate"),
 	mode: Schema.Literals(["push", "replace"]),
 });

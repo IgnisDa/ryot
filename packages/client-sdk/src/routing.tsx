@@ -21,6 +21,7 @@ import {
 	type RefObject,
 } from "react";
 
+import type { RyotNavigationTarget } from "./index";
 import { applyProgress, prefersReducedMotion, settleProgress } from "./navigation/animator";
 import { EDGE_SWIPE_WIDTH, dragProgress, shouldCommit, shouldEngage } from "./navigation/gesture";
 import {
@@ -123,21 +124,22 @@ export const usePluginSearch = () =>
 	);
 
 type PluginLinkProps = {
-	readonly to: string;
-	readonly search?: Record<string, string>;
+	readonly to: RyotNavigationTarget;
 } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "download" | "href" | "target">;
 
-export const PluginLink = ({
-	to,
-	search,
-	onClick,
-	children,
-	onAuxClick,
-	...rest
-}: PluginLinkProps) => {
+const navigationTargetHref = (target: RyotNavigationTarget) =>
+	Match.value(target).pipe(
+		Match.when({ kind: "route" }, ({ path, search }) => {
+			const searchString = search === undefined ? "" : new URLSearchParams(search).toString();
+			return searchString ? `${path}?${searchString}` : path;
+		}),
+		Match.when({ kind: "entity" }, ({ entityId }) => `/e/${encodeURIComponent(entityId)}`),
+		Match.exhaustive,
+	);
+
+export const PluginLink = ({ to, onClick, children, onAuxClick, ...rest }: PluginLinkProps) => {
 	const client = useRyot();
-	const searchString = search ? new URLSearchParams(search).toString() : "";
-	const href = searchString ? `${to}?${searchString}` : to;
+	const href = navigationTargetHref(to);
 
 	const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
 		onClick?.(event);
@@ -148,7 +150,7 @@ export const PluginLink = ({
 		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
 			return;
 		}
-		client.navigation.push(search ? { path: to, search } : { path: to });
+		client.navigation.push(to);
 	};
 	const handleAuxClick = (event: MouseEvent<HTMLAnchorElement>) => {
 		onAuxClick?.(event);

@@ -5,8 +5,9 @@ import {
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 } from "@ryot-app/contract/modules/plugins/client";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
-import { Schema } from "effect";
+import { Match, Schema } from "effect";
 import { useState, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
@@ -15,7 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-import { createRyotClient } from "./index";
+import { createRyotClient, type RyotNavigationTarget } from "./index";
 import { createPluginNavigationStore } from "./navigation/store";
 import { PluginScreenFrame } from "./plugin-screen";
 import { RyotProvider, useRyot } from "./react";
@@ -56,13 +57,16 @@ const Home = () => {
 			<button type="button" onClick={() => setGreetings((count) => count + 1)}>
 				Greet
 			</button>
-			<PluginLink to="/items/item-1" search={{ tab: "stats" }}>
+			<PluginLink to={{ kind: "route", path: "/items/item-1", search: { tab: "stats" } }}>
 				Item 1
 			</PluginLink>
-			<button type="button" onClick={() => navigation.push({ path: "/items/item-2" })}>
+			<button
+				type="button"
+				onClick={() => navigation.push({ kind: "route", path: "/items/item-2" })}
+			>
 				Push item 2
 			</button>
-			<button type="button" onClick={() => navigation.replace({ path: "/" })}>
+			<button type="button" onClick={() => navigation.replace({ kind: "route", path: "/" })}>
 				Replace home
 			</button>
 		</div>
@@ -139,16 +143,20 @@ const openChannel = (
 			entry: { index: position, location, key: options.key ?? `k${position}` },
 		});
 	};
-	const navigate = (
-		mode: "push" | "replace",
-		to: { path: string; search?: Record<string, string> },
-	) => {
-		const search = to.search ? new URLSearchParams(to.search).toString() : "";
-		messages.push({
-			mode,
-			type: "navigate",
-			location: { kind: "route", path: to.path, search },
-		});
+	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
+		const target: PluginBridgeNavigate["target"] = Match.value(to).pipe(
+			Match.when({ kind: "route" }, ({ path, search }) => ({
+				path,
+				kind: "route" as const,
+				search: search === undefined ? "" : new URLSearchParams(search).toString(),
+			})),
+			Match.when({ kind: "entity" }, ({ entityId }) => ({
+				kind: "entity" as const,
+				entityId: EntityId.make(entityId),
+			})),
+			Match.exhaustive,
+		);
+		messages.push({ mode, target, type: "navigate" });
 	};
 
 	return {
@@ -330,6 +338,7 @@ describe("PluginRouter", () => {
 		if (!link) {
 			throw new Error("expected a rendered plugin link");
 		}
+		expect(link.getAttribute("href")).toBe("/items/item-1?tab=stats");
 		act(() => {
 			link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
 		});
@@ -339,10 +348,42 @@ describe("PluginRouter", () => {
 				{
 					mode: "push",
 					type: "navigate",
-					location: { kind: "route", path: "/items/item-1", search: "tab=stats" },
+					target: { kind: "route", path: "/items/item-1", search: "tab=stats" },
 				} satisfies PluginBridgeNavigate,
 			]),
 		);
+	});
+
+	it("derives an encoded entity href and dispatches an entity target", () => {
+		const channel = openChannel();
+		const container = document.createElement("div");
+		document.body.append(container);
+		const root = createRoot(container);
+		roots.push(root);
+		act(() => {
+			root.render(
+				<RyotProvider client={channel.client}>
+					<PluginLink to={{ kind: "entity", entityId: "entity/1" }}>Entity 1</PluginLink>
+				</RyotProvider>,
+			);
+		});
+
+		const link = container.querySelector("a");
+		if (!link) {
+			throw new Error("expected a rendered plugin link");
+		}
+		expect(link.getAttribute("href")).toBe("/e/entity%2F1");
+		act(() => {
+			link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+		});
+
+		expect(channel.messages).toEqual([
+			{
+				mode: "push",
+				type: "navigate",
+				target: { kind: "entity", entityId: EntityId.make("entity/1") },
+			} satisfies PluginBridgeNavigate,
+		]);
 	});
 
 	it("composes click handlers and lets consumers cancel navigation", () => {
@@ -356,7 +397,7 @@ describe("PluginRouter", () => {
 			root.render(
 				<RyotProvider client={channel.client}>
 					<PluginLink
-						to="/items/item-1"
+						to={{ kind: "route", path: "/items/item-1" }}
 						onClick={(event) => {
 							clicks += 1;
 							event.preventDefault();
@@ -426,12 +467,12 @@ describe("PluginRouter", () => {
 				{
 					mode: "push",
 					type: "navigate",
-					location: { kind: "route", path: "/items/item-2", search: "" },
+					target: { kind: "route", path: "/items/item-2", search: "" },
 				} satisfies PluginBridgeNavigate,
 				{
 					mode: "replace",
 					type: "navigate",
-					location: { kind: "route", path: "/", search: "" },
+					target: { kind: "route", path: "/", search: "" },
 				} satisfies PluginBridgeNavigate,
 			]),
 		);
