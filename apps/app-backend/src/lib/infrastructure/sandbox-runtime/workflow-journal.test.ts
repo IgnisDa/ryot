@@ -167,6 +167,67 @@ it.effect("rebuilds a deleted Redis projection from the durable journal", () => 
 	});
 });
 
+it.effect("projects only journal entries beyond the stored high-water mark", () => {
+	const first = request(0, "first");
+	const second = request(1, "second");
+	const fields = new Map<string, string>([
+		["0", journalEntry(first.name, hash(first.args), { result: 1 })],
+		["high-water", "1"],
+	]);
+	const hsetnxFields: string[] = [];
+	let pipelineCalls = 0;
+	const client = {
+		expire: () => Promise.resolve(1),
+		hget: (_key: string, field: string) => Promise.resolve(fields.get(field) ?? null),
+		pipeline: () => {
+			pipelineCalls += 1;
+			const writes: Array<() => void> = [];
+			return {
+				expire: () => undefined,
+				hset: (_key: string, field: string, value: string) =>
+					writes.push(() => fields.set(field, value)),
+				hsetnx: (_key: string, field: string, value: string) => {
+					hsetnxFields.push(field);
+					writes.push(() => {
+						if (!fields.has(field)) {
+							fields.set(field, value);
+						}
+					});
+				},
+				exec: () => {
+					writes.forEach((write) => write());
+					return Promise.resolve([]);
+				},
+			};
+		},
+	};
+	const journal = [
+		{ request: first, value: { result: 1 } },
+		{ request: second, value: { result: 2 } },
+	];
+
+	return Effect.gen(function* () {
+		yield* projectWorkflowJournalWithRedis({ client }, "incremental", journal);
+		expect(hsetnxFields).toEqual(["1"]);
+		expect(pipelineCalls).toBe(1);
+		expect(fields.get("0")).toBeTruthy();
+		expect(fields.get("1")).toBeTruthy();
+		expect(fields.get("high-water")).toBe("2");
+
+		yield* projectWorkflowJournalWithRedis({ client }, "incremental", journal);
+		expect(hsetnxFields).toEqual(["1"]);
+		expect(pipelineCalls).toBe(1);
+
+		fields.set("high-water", "invalid");
+		fields.delete("0");
+		fields.delete("1");
+		hsetnxFields.length = 0;
+		yield* projectWorkflowJournalWithRedis({ client }, "incremental", journal);
+		expect(hsetnxFields).toEqual(["0", "1"]);
+		expect(fields.get("high-water")).toBe("2");
+	});
+});
+
 it.effect("hides an ahead projection until durable memos rebuild the journal after restart", () => {
 	const first = request(0, "first");
 	const second = request(1, "second");
