@@ -15,7 +15,7 @@ import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import { SandboxHarvestHandleStore } from "#lib/infrastructure/sandbox-runtime/harvest-handles";
+import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { makeWorkflowDurableCallsHostFunction } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -67,7 +67,8 @@ const makeProjectionRedis = () =>
 const controlledWorkflowDependencies = Layer.mergeAll(
 	transactionLayer,
 	Layer.succeed(RedisService, makeProjectionRedis()),
-	Layer.mock(SandboxHarvestHandleStore)({
+	Layer.mock(SandboxArtifactStore)({
+		retain: () => Effect.void,
 		release: () => Effect.void,
 	}),
 	Layer.mock(SandboxPluginScriptResolver)({
@@ -126,7 +127,11 @@ it.effect("propagates trusted grants and journals harvested chunk handles", () =
 					error: null,
 					status: "completed" as const,
 					harvest: { chunkHandles: ["harvest-handle-0"] },
-					value: { count: 2, chunkFiles: ["chunk-0.json"] },
+					value: {
+						requests: [],
+						state: "completed" as const,
+						output: { count: 2, chunkFiles: ["chunk-0.json"] },
+					},
 				});
 			},
 		);
@@ -233,7 +238,10 @@ fi
 		Layer.succeed(WorkflowEngine, engine),
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(RedisService, makeRedisService({ client: redisClient })),
-		Layer.mock(SandboxHarvestHandleStore)({ release: () => Effect.void }),
+		Layer.mock(SandboxArtifactStore)({
+			retain: () => Effect.void,
+			release: () => Effect.void,
+		}),
 		Layer.mock(SandboxRepository)({
 			isPluginScript: () =>
 				Effect.sync(() => {
@@ -449,6 +457,8 @@ it.effect("reconstructs a completed host write after interruption without repeat
 	};
 	const activityExits = new Map<string, Exit.Exit<unknown, unknown>>();
 	let suspendAfterWrite = true;
+	let artifactReleases = 0;
+	let artifactRetains = 0;
 	let writes = 0;
 	const makeEngine = (instance: WorkflowInstance["Service"]) =>
 		makeWorkflowActivityEngine(instance, {
@@ -474,7 +484,10 @@ it.effect("reconstructs a completed host write after interruption without repeat
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.succeed(WorkflowEngine, makeEngine(instance)),
 			Layer.succeed(RedisService, makeProjectionRedis()),
-			Layer.mock(SandboxHarvestHandleStore)({ release: () => Effect.void }),
+			Layer.mock(SandboxArtifactStore)({
+				retain: () => Effect.sync(() => artifactRetains++).pipe(Effect.asVoid),
+				release: () => Effect.sync(() => artifactReleases++).pipe(Effect.asVoid),
+			}),
 			Layer.mock(SandboxPluginScriptResolver)({ findActiveScriptById: () => Effect.die("unused") }),
 			Layer.mock(KernelWorkflowReferences)({ execute: () => Effect.die("unused") }),
 			Layer.mock(SandboxRepository)({
@@ -530,6 +543,8 @@ it.effect("reconstructs a completed host write after interruption without repeat
 		).pipe(Effect.provide(dependencies(firstInstance)));
 		expect(first._tag).toBe("Suspended");
 		expect(writes).toBe(1);
+		expect(artifactRetains).toBe(1);
+		expect(artifactReleases).toBe(0);
 
 		const secondInstance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
 		expect(
@@ -538,6 +553,8 @@ it.effect("reconstructs a completed host write after interruption without repeat
 			),
 		).toEqual({ completed: true });
 		expect(writes).toBe(1);
+		expect(artifactRetains).toBe(1);
+		expect(artifactReleases).toBe(1);
 	});
 });
 
@@ -836,6 +853,8 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 	let capturedWorkflow: unknown;
 	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
 	const engine = makeWorkflowEngine({
+		activityExecute: (activity) =>
+			Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
 		execute: (workflow, options) =>
 			Effect.sync(() => {
 				capturedWorkflow = workflow;
@@ -867,9 +886,23 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 		expect(capturedWorkflow).toBe(SandboxScriptWorkflow);
 		expect(capturedOptions).toMatchObject({
 			executionId: "parent-child-events-import-v1-2",
-			payload: { scriptId: "child-script", resolutionMode: "exact" },
+			payload: {
+				grants: { artifactOwnerExecutionId: "parent" },
+				scriptId: "child-script",
+				resolutionMode: "exact",
+			},
 		});
 	}).pipe(
+		Effect.provide(
+			Layer.mock(SandboxArtifactStore)({
+				retain: () => Effect.void,
+				release: () => Effect.void,
+			}),
+		),
+		Effect.provideService(
+			WorkflowInstance,
+			WorkflowInstance.initial(SandboxScriptWorkflow, "parent"),
+		),
 		Effect.provideService(WorkflowEngine, engine),
 		Effect.provideService(KernelWorkflowReferences, {
 			execute: () => Effect.die("unused"),
@@ -921,9 +954,22 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 			},
 		]);
 	}).pipe(
+		Effect.provide(
+			Layer.mock(SandboxArtifactStore)({
+				retain: () => Effect.void,
+			}),
+		),
+		Effect.provideService(
+			WorkflowInstance,
+			WorkflowInstance.initial(SandboxScriptWorkflow, "parent"),
+		),
 		Effect.provideService(
 			WorkflowEngine,
-			makeWorkflowEngine({ execute: () => Effect.die("unused") }),
+			makeWorkflowEngine({
+				activityExecute: (activity) =>
+					Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
+				execute: () => Effect.die("unused"),
+			}),
 		),
 		Effect.provideService(KernelWorkflowReferences, {
 			execute: (workflowSlug, input, authority, executionId, parentExecutionId, callerScriptId) =>

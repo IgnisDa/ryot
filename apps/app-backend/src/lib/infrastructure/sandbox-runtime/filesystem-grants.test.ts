@@ -9,7 +9,6 @@ import {
 	decodeSandboxScratchManifest,
 	harvestSandboxScratchChunks,
 	measureSandboxScratchBytes,
-	removeSandboxHarvestDirectories,
 	sandboxArtifactGrant,
 	sandboxGrantPathError,
 } from "./filesystem-grants";
@@ -245,6 +244,31 @@ describe("sandbox scratch chunk harvest", () => {
 		),
 	);
 
+	it.effect("rejects duplicate manifest entries before publishing chunks", () =>
+		withTempRoot((root) =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const scratch = yield* acquireSandboxScratchDirectory(root);
+				const destination = path.join(root, "harvest");
+				yield* fs.writeFileString(path.join(scratch, "chunk-0.json"), "[]");
+
+				const result = yield* Effect.exit(
+					harvestSandboxScratchChunks({
+						destination,
+						scratchDirectory: scratch,
+						chunkFiles: ["chunk-0.json", "chunk-0.json"],
+					}),
+				);
+				assert(result._tag === "Failure");
+				expect(Cause.findErrorOption(result.cause)).toEqual(
+					Option.some('Sandbox scratch manifest contains duplicate chunk file "chunk-0.json"'),
+				);
+				expect(yield* fs.exists(destination)).toBe(false);
+			}),
+		),
+	);
+
 	vitestIt("harvests only when the returned value carries a chunk manifest", () => {
 		expect(decodeSandboxScratchManifest({ chunkFiles: ["chunk-0.json"], groups: 12 })).toEqual(
 			Option.some({ chunkFiles: ["chunk-0.json"] }),
@@ -252,28 +276,6 @@ describe("sandbox scratch chunk harvest", () => {
 		expect(Option.isNone(decodeSandboxScratchManifest({ groups: 12 }))).toBe(true);
 		expect(Option.isNone(decodeSandboxScratchManifest(null))).toBe(true);
 	});
-
-	it.effect("removes only harvested directories owned by one execution prefix", () =>
-		withTempRoot((root) =>
-			Effect.gen(function* () {
-				const path = yield* Path.Path;
-				const fs = yield* FileSystem.FileSystem;
-				const harvestRoot = path.join(root, "harvest");
-				const owned = path.join(harvestRoot, "import-1-activity-parse-0");
-				const sibling = path.join(harvestRoot, "import-2-activity-parse-0");
-				yield* fs.makeDirectory(owned, { recursive: true });
-				yield* fs.makeDirectory(sibling, { recursive: true });
-
-				yield* removeSandboxHarvestDirectories({
-					harvestRoot,
-					executionPrefix: "import-1-activity-",
-				});
-
-				expect(yield* fs.exists(owned)).toBe(false);
-				expect(yield* fs.exists(sibling)).toBe(true);
-			}),
-		),
-	);
 });
 
 describe("sandbox scratch cleanup", () => {
