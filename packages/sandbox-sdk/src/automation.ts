@@ -34,10 +34,12 @@ export const automationEntitySnapshotSchema = strictStruct({
 });
 export const automationEventSnapshotSchema = strictStruct({
 	id: Schema.String,
+	createdAt: Schema.String,
 	occurredAt: Schema.String,
 	properties: propertiesSchema,
 	subject: entityReferenceSchema,
 	eventSchemaSlug: Schema.String,
+	sessionEntityId: Schema.optional(Schema.String),
 });
 export const automationRelationshipSnapshotSchema = strictStruct({
 	id: Schema.String,

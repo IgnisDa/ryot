@@ -44,9 +44,35 @@ Provider imports run `automation.media-library-membership-on-import` after provi
 
 Shows and podcasts record progress on `show-episode` and `podcast-episode`, not parent entities. Anime and manga store episode, volume, or chapter position on their own progress, dropped, and on-hold events. Complete events always represent whole entity and carry no episode fields.
 
+Show-season completion is derived from its episodes and is not writable as a season event.
+
 ### Current State
 
-State is derived, never stored. Latest event of each type is ordered by `occurredAt`, then `createdAt`, then `id`. Event type is current when its latest event is newer than every competing lifecycle type.
+State is derived from append-only history, never stored. All comparisons use descending `occurredAt`, `createdAt`, then `id` order so imported historical activity enters its correct chronological interval.
+
+Shows and podcasts have exactly one current state:
+
+- `untracked`: no parent or regular-episode lifecycle signal exists.
+- `backlog`: the latest aggregate signal is a parent backlog event.
+- `in_progress`: the latest signal is regular-episode progress or completion, but current-cycle coverage is incomplete.
+- `on_hold`: the latest aggregate signal is a parent on-hold event.
+- `dropped`: the latest aggregate signal is a parent dropped event.
+- `caught_up`: the latest signal is regular-episode activity and current-cycle coverage is complete.
+- `complete`: the latest aggregate signal is an authoritative parent completion.
+
+Reviews do not participate in lifecycle state. Parent backlog, on-hold, dropped, and complete events interrupt episode-derived activity. A later regular-episode progress or completion resumes activity without an event-type priority.
+
+An episode has one `untracked`, `in_progress`, or `complete` state from its latest progress or completion event. A progress event after completion therefore makes the episode `in_progress`.
+
+### Aggregate Sessions and Cycles
+
+The episodic session policy assigns `sessionEntityId` to the aggregate. Parent events use their own ID. Regular show-episode events use the show ID, podcast-episode events use the podcast ID, and season-zero special events have no parent session. Missing or ambiguous episode parents reject the event. Caller-supplied session values are always replaced.
+
+The active consumption cycle starts strictly after the latest parent completion in the total event order. Child events at or before that boundary cannot contribute to current coverage. A later regular-episode event starts a new cycle without a persisted cycle entity or mutable state.
+
+Show coverage considers only seasons with `seasonNumber > 0`. Coverage requires at least one regular season, at least one episode in every regular season, at least one required episode overall, and every required episode's latest current-cycle event to be complete. Season zero neither satisfies nor blocks parent coverage, and special activity affects only that episode.
+
+Podcast coverage has the same cycle rules and requires at least one connected episode whose latest current-cycle event is complete. Required episodes come from current relationships without populated, publish-date, or release-date filters.
 
 `dropped` and `on_hold` interrupt progress. Later progress resumes it. Progress after completion starts another consumption cycle; repeated completions are valid.
 
@@ -67,6 +93,10 @@ No preceding progress event is required for direct completion.
 - Coverage walks chronological progress and resets after full pass, allowing repeated completions for rewatches.
 
 `consumedOn` is inherited through server-owned automation metadata.
+
+Full show or podcast coverage first produces `caught_up`. It becomes `complete` automatically only when production status is `Ended`, `Canceled`, or `Cancelled`, matched case-insensitively. Unknown and continuing statuses remain caught up. A transition to a terminal status also evaluates existing caught-up coverage.
+
+Automatic episodic parent completion runs only after a child completion or parent production-status transition. Relationship and season-number changes update derived coverage immediately but do not create a completion by themselves. The parent completion timestamp comes from the latest false-to-true coverage transition in the active cycle; repeated completion while already covered does not move it. A common nonempty `consumedOn` is copied only when every required episode completion agrees.
 
 ### Integration Progress Policy
 

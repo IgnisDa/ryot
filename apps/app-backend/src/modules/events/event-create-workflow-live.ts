@@ -59,6 +59,7 @@ const CreatedEvent = Schema.Struct({
 	subjectName: Schema.String,
 	eventSchemaSlug: EventSchemaSlug,
 	entitySchemaSlug: EntitySchemaSlug,
+	sessionEntityId: Schema.optional(EntityId),
 	properties: Schema.Record(Schema.String, Schema.Unknown),
 });
 
@@ -183,6 +184,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 				properties: createdEvent.properties,
 				entitySchemaSlug: prepared.entitySchemaSlug,
 				eventSchemaSlug: createdEvent.eventSchemaSlug,
+				...(createdEvent.sessionEntityId ? { sessionEntityId: createdEvent.sessionEntityId } : {}),
 			} satisfies CreatedEvent;
 		}),
 	});
@@ -207,9 +209,11 @@ const dispatchLifecycleOccurrence = Effect.fn("dispatchEventLifecycleOccurrence"
 			kind: "event",
 			after: {
 				id: event.id,
+				createdAt: event.createdAt,
 				properties: event.properties,
 				occurredAt: event.occurredAt,
 				eventSchemaSlug: event.eventSchemaSlug,
+				...(event.sessionEntityId ? { sessionEntityId: event.sessionEntityId } : {}),
 				subject: {
 					id: event.entityId,
 					name: event.subjectName,
