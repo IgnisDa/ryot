@@ -1,5 +1,9 @@
 import { Browser } from "@capacitor/browser";
-import { OAuthCallbackQuery } from "@ryot-app/contract/oauth";
+import {
+	OAuthCallbackQuery,
+	OAUTH_NATIVE_CLIENT_ID,
+	OAUTH_WEB_CLIENT_IDS,
+} from "@ryot-app/contract/oauth";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect, Schema } from "effect";
 
@@ -63,7 +67,7 @@ export const Route = createFileRoute("/auth_/callback")({
 				}
 				const pending = yield* tokens.completeAuthorization(
 					origin,
-					client.clientId,
+					client.nativeApplicationId === null ? OAUTH_WEB_CLIENT_IDS : [OAUTH_NATIVE_CLIENT_ID],
 					client.callbackUri,
 					search.state,
 					search.code,
