@@ -542,7 +542,7 @@ function PluginChromeFrame(props: {
 	return (
 		<div
 			ref={scrollRootRef}
-			className="h-full overflow-y-auto bg-bg pb-[max(32px,env(safe-area-inset-bottom))] md:px-8 md:pt-8"
+			className="h-full overflow-y-auto bg-bg pb-[max(32px,env(safe-area-inset-bottom))]"
 		>
 			<ScreenFrame
 				title={props.title}
@@ -550,7 +550,6 @@ function PluginChromeFrame(props: {
 				leading={props.leading}
 				scrollRootRef={scrollRootRef}
 				safeAreaTop={props.safeAreaTop}
-				contentClassName="px-4 md:px-0"
 			>
 				{props.children}
 			</ScreenFrame>

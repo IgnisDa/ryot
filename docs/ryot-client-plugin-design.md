@@ -691,6 +691,13 @@ This is not the slot injection §4 forbids. Nothing is injected into kernel inte
 renders its own chrome inside its own document, which is also why plugin-owned header actions and a
 floating action button become possible rather than deferred.
 
+A plugin screen passes the frame no class names. Every gutter and gap inside the scroller is the
+frame's, chosen from the `compact` boolean the kernel sends, because a `md:` utility inside the
+iframe measures the iframe: at a 1000px window the kernel resolves `compact: false` while the plugin
+document measures 720px, and a padding pair spelled for the kernel's breakpoint would draw the
+mobile gutter under the desktop header. The per-screen scroll div owns the bottom inset, so a screen
+that renders no frame at all still ends with room under its last row.
+
 A screen names itself once, through the `title` it passes the frame, and that one string becomes
 both the `<h1>` and the published `header` message. `usePluginTitle` does the publishing and is
 exported separately so a screen that renders no frame can still name itself. A title is published
