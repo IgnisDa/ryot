@@ -21,7 +21,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	slug: "integration.plex-sink",
-	capabilities: ["getIntegration"],
+	capabilities: ["getCurrentIntegration"],
 });
 
 const multipartPayload = (rawBody: string, contentType: string) => {
@@ -59,7 +59,7 @@ export default defineActivity({
 	input: SinkInput,
 	output: MediaIntegrationAdapterResult,
 	run: (input, host) =>
-		host.getIntegration().pipe(
+		host.getCurrentIntegration().pipe(
 			Effect.flatMap((integration) =>
 				Effect.try(() => {
 					const payload = jsonRecord(multipartPayload(input.rawBody, input.contentType));

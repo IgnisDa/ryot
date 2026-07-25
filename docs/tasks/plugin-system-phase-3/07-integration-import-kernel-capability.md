@@ -46,7 +46,7 @@ in this task. Tasks 08–10 consume what this builds.
    always the kernel, never a second sandbox execution.
 7. **Approved sandbox dependencies** `fflate`, `papaparse`, `fast-xml-parser` through the Step 0a
    vendoring mechanism.
-8. **Credential scoping**: `getIntegration` resolves the integration from trusted execution state,
+8. **Credential scoping**: `getCurrentIntegration` resolves the integration from trusted execution state,
    not from an arbitrary id supplied by the script.
 
 Do **not** build `putRunBlobs`, `getRunBlobs`, `recordImportFailures`, or `reportImportProgress` —
@@ -95,7 +95,7 @@ both new manifest sections, `secret` redaction, and credential scoping.
 - [x] The kernel harvests scratch chunk files into run-scoped storage before cleanup
 - [x] `fflate`, `papaparse`, and `fast-xml-parser` are approved sandbox dependencies, resolved
       through the import map and not bundled per script
-- [x] `getIntegration` is scoped to the executing integration
+- [x] `getCurrentIntegration` is scoped to the executing integration
 - [x] None of the four withdrawn host functions is introduced
 - [x] The branch stays shippable: backend `check` + unit tests, the full e2e suite, and the
       `app-client` check all pass (cross-phase invariant 1)

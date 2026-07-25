@@ -269,7 +269,7 @@ duration)` (durable timer), and `child(name, workflowRef, input)` (composes anot
     today (Decision 10; plan §4).
 30. As the owner, I want the sink normalization + yank connectors + import-source adapters moved
     into the plugin that owns their domain (bounded network via `httpCall` with integration
-    credentials through a `getIntegration` scoped to the executing integration) and the native
+     credentials through a `getCurrentIntegration` scoped to the executing integration) and the native
     provider-specific code deleted from `modules/integrations` and `modules/imports`, leaving the
     frameworks, so that the kernel integrations/imports modules contain zero provider-specific code
     (Decision 14; plan §4).
@@ -510,7 +510,7 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
 - **Pattern discovery before writing.** Per `AGENTS.md`, launch an `explore` subagent to find
   existing patterns to replicate — the existing host-function contract/validation/implementation
   triplet, the sandbox-runtime host-call bridge and flag assembly in `runtime.ts`, the existing
-  Effect durable workflow machinery, the scheduler module, the `getIntegration` credential path,
+   Effect durable workflow machinery, the scheduler module, the `getCurrentIntegration` credential path,
   and the Phase 2 loader/fixture — before writing new code; `explore` is for discovery only.
 - **Task 12 is the mandatory final cleanup task** (following the `codebase-cleanup` skill): a
   final pass over the touched files and directly affected modules to remove dead, duplicated, or

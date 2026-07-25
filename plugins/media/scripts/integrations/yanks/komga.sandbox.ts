@@ -12,7 +12,7 @@ export const manifest = defineManifest({
 	slug: "integration.komga",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall", "getIntegration"],
+	capabilities: ["httpCall", "getCurrentIntegration"],
 });
 
 const Input = Schema.Struct({});
@@ -83,7 +83,7 @@ export default defineActivity({
 	output: MediaIntegrationAdapterResult,
 	run: (_input, host) =>
 		Effect.gen(function* () {
-			const integration = yield* host.getIntegration();
+			const integration = yield* host.getCurrentIntegration();
 			const settings = specifics(integration.providerSpecifics);
 			const apiKey = typeof settings?.["apiKey"] === "string" ? settings["apiKey"] : "";
 			const url = baseUrl(settings?.["baseUrl"]);

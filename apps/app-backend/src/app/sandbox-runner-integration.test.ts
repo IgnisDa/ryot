@@ -302,10 +302,10 @@ export const manifest = defineManifest({
   slug: "domain-host-execution",
   capabilities: [
     "createEvents",
-    "getIntegration",
     "getEntitySchemas",
     "listEventSchemas",
     "executeQueryEngine",
+    "getCurrentIntegration",
   ],
 });
 
@@ -320,7 +320,7 @@ export default defineScript({
     entitySchemas: Schema.Array(entitySchemaRecordSchema),
   }),
   run: (_input, host) => Effect.gen(function* () {
-    const integration = yield* host.getIntegration();
+    const integration = yield* host.getCurrentIntegration();
     const entitySchemas = yield* host.getEntitySchemas(["movie"]);
     const eventSchemas = yield* host.listEventSchemas(["movie"]);
     const created = yield* host.createEvents([
@@ -1528,7 +1528,7 @@ const startDomainHostBridge = () =>
 						const args: readonly unknown[] = Array.isArray(argsValue) ? argsValue : [];
 
 						let result: unknown;
-						if (fnName === "getIntegration") {
+						if (fnName === "getCurrentIntegration") {
 							result = { data: domainIntegrationRecord, success: true };
 						} else if (fnName === "getEntitySchemas") {
 							result = { data: [domainEntitySchemaRecord], success: true };

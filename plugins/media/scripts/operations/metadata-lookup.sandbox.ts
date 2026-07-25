@@ -27,23 +27,15 @@ import {
 export const manifest = defineManifest({
 	kind: "operation",
 	name: "Metadata Lookup",
+	requiredSystemConfigKeys: [],
 	slug: "operation.metadata-lookup",
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall", "getIntegration", "getPluginConfig", "getUserPreferences"],
+	capabilities: ["httpCall", "getCurrentIntegration", "getPluginConfig", "getUserPreferences"],
 });
 
 const searchProviders = [
-	{
-		script: movieTmdbSearch,
-		entitySchemaSlug: "movie",
-		providerSlug: movieTmdbManifest.slug,
-	},
-	{
-		script: showTmdbSearch,
-		entitySchemaSlug: "show",
-		providerSlug: showTmdbManifest.slug,
-	},
+	{ script: movieTmdbSearch, entitySchemaSlug: "movie", providerSlug: movieTmdbManifest.slug },
+	{ script: showTmdbSearch, entitySchemaSlug: "show", providerSlug: showTmdbManifest.slug },
 ] as const;
 
 const notFound = { notFound: true, status: "notFound" } as const satisfies MetadataLookupResult;
@@ -59,7 +51,7 @@ export default defineOperation({
 				return yield* Effect.fail(new Error("title is required"));
 			}
 
-			const integration = yield* host.getIntegration();
+			const integration = yield* host.getCurrentIntegration();
 			if (integration.provider !== "ryot_browser_extension") {
 				return yield* Effect.fail(new Error("Integration is not a browser extension integration"));
 			}
