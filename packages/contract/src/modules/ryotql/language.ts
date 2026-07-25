@@ -228,6 +228,18 @@ export const OrderBy = strictStruct({
 }).annotate({ identifier: "RyotQLOrderBy" });
 export type OrderBy = typeof OrderBy.Type;
 
+export const AggregateMeasure = strictStruct({
+	key: Schema.String,
+	aggregation: AggregationSpec,
+}).annotate({ identifier: "RyotQLAggregateMeasure" });
+export type AggregateMeasure = typeof AggregateMeasure.Type;
+
+export const AggregateOrderBy = strictStruct({
+	key: Schema.String,
+	direction: Schema.Literals(["asc", "desc"]),
+}).annotate({ identifier: "RyotQLAggregateOrderBy" });
+export type AggregateOrderBy = typeof AggregateOrderBy.Type;
+
 export type Include = {
 	readonly key: string;
 	readonly limit: number;
@@ -266,10 +278,19 @@ export const RowsOutput = strictStruct({
 }).annotate({ identifier: "RyotQLRowsOutput" });
 export type RowsOutput = typeof RowsOutput.Type;
 
+export const AggregateOutput = strictStruct({
+	type: Schema.Literal("aggregate"),
+	measures: Schema.NonEmptyArray(AggregateMeasure),
+	groupBy: Schema.optional(Schema.Array(FieldSelection)),
+	orderBy: Schema.optional(Schema.NonEmptyArray(AggregateOrderBy)),
+	limit: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
+}).annotate({ identifier: "RyotQLAggregateOutput" });
+export type AggregateOutput = typeof AggregateOutput.Type;
+
 export const NamedQuery = strictStruct({
-	output: RowsOutput,
 	from: TableReference,
 	where: Schema.optional(Predicate),
+	output: Schema.Union([RowsOutput, AggregateOutput]),
 	joins: Schema.optional(Schema.NonEmptyArray(Join)),
 }).annotate({ identifier: "RyotQLNamedQuery" });
 export type NamedQuery = typeof NamedQuery.Type;
@@ -320,7 +341,19 @@ export const RowsResult = strictStruct({
 }).annotate({ identifier: "RyotQLRowsResult" });
 export type RowsResult = typeof RowsResult.Type;
 
+export const AggregateResult = strictStruct({
+	type: Schema.Literal("aggregate"),
+	pageInfo: Schema.optional(IncludePageInfo),
+	items: Schema.Array(Schema.Record(Schema.String, FieldValue)),
+}).annotate({ identifier: "RyotQLAggregateResult" });
+export type AggregateResult = typeof AggregateResult.Type;
+
+export const RyotQLResult = Schema.Union([RowsResult, AggregateResult]).annotate({
+	identifier: "RyotQLResult",
+});
+export type RyotQLResult = typeof RyotQLResult.Type;
+
 export const RyotQLResponse = strictStruct({
-	data: Schema.Record(Schema.String, RowsResult),
+	data: Schema.Record(Schema.String, RyotQLResult),
 }).annotate({ identifier: "RyotQLResponse" });
 export type RyotQLResponse = typeof RyotQLResponse.Type;

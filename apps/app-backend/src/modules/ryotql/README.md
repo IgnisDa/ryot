@@ -5,7 +5,7 @@ RyotQL is the focused read API at `POST /ryotql/execute`. It is independent from
 ## Current Capabilities
 
 - Authenticated user execution against the `entity`, `event`, and `relationship` tables.
-- Multiple independent named rows queries in one repeatable-read, read-only transaction.
+- Multiple independent named rows or aggregate queries in one repeatable-read, read-only transaction.
 - Field selection, typed JSON expressions, predicates, arithmetic, correlated scalar expressions, inner and left joins, ordering, pagination, and correlated row includes.
 - Localized entity names and properties with translation status as a normal catalog field.
 - User visibility for every table occurrence: a caller can read their own rows and global rows.
@@ -19,7 +19,7 @@ The relationship catalog exposes `id`, `userId`, `sourceEntityId`, `targetEntity
 
 ## Document Shape
 
-Every document contains a non-empty `queries` object. Each entry is independent and has an explicit root table and alias, an optional predicate and joins, and one rows output.
+Every document contains a non-empty `queries` object. Each entry is independent and has an explicit root table and alias, an optional predicate and joins, and one rows or aggregate output.
 
 ```json
 {
@@ -217,14 +217,38 @@ rows(course, {
 
 `add`, `subtract`, `multiply`, and `divide` operate on safe numeric values. Invalid operands and division by zero return null. `coalesce` returns the first non-null value and preserves the selected branch's runtime field kind, including values selected by `first`.
 
+## Aggregate Outputs
+
+Root aggregate outputs run over the same generic table, joins, predicates, localized field resolvers, and authorized relations as rows. Measures support count, count distinct, sum, average, minimum, and maximum. Count operations return zero for an empty input; the other measures return null. Ordinary SQL join multiplicity applies, so use count distinct when multiplied rows must count once.
+
+Ungrouped aggregates return one item without `pageInfo`. Grouped aggregates require at least one group field, an explicit limit, and non-empty ordering by measure key. They return `{ limit, hasMore }`, support at most 1000 groups, and do not support aggregate pagination or ordering by arbitrary expressions. Group values retain their runtime `text`, `date`, `number`, `boolean`, `json`, or `null` kind. Both aggregate ordering directions place null measures last.
+
+```ts
+const lesson = table("entity", "lesson");
+const duration = castNumber(jsonPath(column(lesson, "properties"), "durationMinutes"));
+
+document({
+	durationsBySchema: aggregate(lesson, {
+		limit: 100,
+		orderBy: [measureDescending("count")],
+		groupBy: [field("schema", column(lesson, "entitySchemaSlug"))],
+		measures: [
+			measure("count", { function: "count" }),
+			measure("totalDuration", { expr: duration, function: "sum" }),
+		],
+	}),
+});
+```
+
 ## Limits
 
 - 10 named queries per document.
 - 8 joins per named query.
 - 100 rows per page.
 - 100 rows per include.
+- 1000 grouped aggregate rows.
 - 3 include levels.
 - 3 correlated query levels.
 - 30-second transaction-local statement timeout.
 
-Root aggregate outputs, time series, plugin execution, and application tables other than `entity`, `event`, and `relationship` are not available yet.
+Time series, plugin execution, and application tables other than `entity`, `event`, and `relationship` are not available yet.
