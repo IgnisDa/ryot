@@ -13,8 +13,8 @@ following process:
    (`https://api.unkey.com`) using the `@unkey/api` SDK
 2. **Response Check**: Unkey responds with whether the key is valid and optionally an
    expiry date
-3. **Expiry Validation**: If the key has an expiry date (monthly and yearly subscriptions), Ryot checks it against the time
-   the server process started
+3. **Expiry Validation**: If the key has an expiry date (monthly and yearly subscriptions), Ryot
+   checks it against the current time, each time it performs an uncached verification
 4. **Result Caching**: The verification result is cached in-process to avoid repeated API
    calls
 
@@ -34,6 +34,7 @@ Ryot gracefully falls back to the community version in these scenarios:
 | No `SERVER_PRO_KEY` provided      | Community version                             |
 | Invalid key                       | Community version (with warning log)          |
 | Expired subscription              | Community version (with warning log)          |
+| Unreadable expiry date            | Community version (with warning log)          |
 | Network error during verification | Community version (verification fails safely) |
 | Unkey API unavailable             | Community version (verification fails safely) |
 
