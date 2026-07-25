@@ -2,6 +2,7 @@ import { useGoBack } from "@/modules/navigation/use-go-back";
 import { ManagedAssets } from "@/modules/ui/managed-asset-host";
 
 import { ShowBackdrop } from "./show-backdrop";
+import { ShowHero } from "./show-hero";
 import { ShowScreenContent } from "./show-screen-content";
 import { ShowScreenFrame } from "./show-screen-frame";
 import { showManagedAssets } from "./show-summary-state";
@@ -24,9 +25,12 @@ export function ShowScreen(props: { readonly entityId: string }) {
 							<ShowTint show={state.show} managedUrls={resolution.urls} />
 						) : null
 					}
-					backdrop={
+					artwork={
 						state.status === "ready" ? (
-							<ShowBackdrop show={state.show} managedUrls={resolution.urls} />
+							<>
+								<ShowHero show={state.show} managedUrls={resolution.urls} />
+								<ShowBackdrop show={state.show} managedUrls={resolution.urls} />
+							</>
 						) : null
 					}
 				>
