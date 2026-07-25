@@ -224,7 +224,6 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 	},
 );
 
-/** @effect-expect-leaking Database */
 export class RelationshipsService extends Context.Service<RelationshipsService>()(
 	"RelationshipsService",
 	{

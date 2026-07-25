@@ -7,7 +7,6 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 export type PluginStateRow = typeof schema.pluginState.$inferSelect;
 
-/** @effect-expect-leaking Database */
 export class DefinitionsRepository extends Context.Service<DefinitionsRepository>()(
 	"DefinitionsRepository",
 	{
