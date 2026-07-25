@@ -249,17 +249,10 @@ export const DisplayConfiguration = strictStruct({
 });
 export type DisplayConfiguration = typeof DisplayConfiguration.Type;
 
-export const createLiteralExpression = (value: unknown) =>
-	({
-		value,
-		type: "literal",
-	}) as const;
+export const createLiteralExpression = (value: unknown) => ({ value, type: "literal" }) as const;
 
 export const createEntityColumnExpression = (slug: string, column: string) =>
-	({
-		type: "reference",
-		reference: { type: "entity", slug, path: [column] },
-	}) as const;
+	({ type: "reference", reference: { type: "entity", slug, path: [column] } }) as const;
 
 export const createEntityPropertyExpression = (slug: string, property: string) =>
 	({
@@ -274,10 +267,7 @@ export const createEntityPropertyPathExpression = (slug: string, path: ReadonlyA
 	}) as const;
 
 export const createEntitySchemaExpression = (column: string) =>
-	({
-		type: "reference",
-		reference: { type: "entity-schema", path: [column] },
-	}) as const;
+	({ type: "reference", reference: { type: "entity-schema", path: [column] } }) as const;
 
 export const createEventAggregateExpression = (
 	eventSchemaSlug: string,
@@ -292,18 +282,10 @@ export const createEventAggregateExpression = (
 export const createTransformExpression = (
 	name: typeof ViewTransformName.Type,
 	expression: QueryExpression,
-) =>
-	({
-		type: "transform",
-		name,
-		expression,
-	}) as const;
+) => ({ name, expression, type: "transform" }) as const;
 
 export const createConcatExpression = (values: ReadonlyArray<QueryExpression>) =>
-	({
-		values,
-		type: "concat",
-	}) as const;
+	({ values, type: "concat" }) as const;
 
 export const createIsNotNullExpression = (expression: QueryExpression) => ({
 	expression,
@@ -314,8 +296,4 @@ export const createConditionalExpression = (input: {
 	condition: QueryFilter;
 	whenTrue: QueryExpression;
 	whenFalse: QueryExpression;
-}) =>
-	({
-		type: "conditional",
-		...input,
-	}) as const;
+}) => ({ type: "conditional", ...input }) as const;
