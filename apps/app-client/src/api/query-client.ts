@@ -3,6 +3,8 @@ import { Atom } from "effect/unstable/reactivity";
 import * as Network from "expo-network";
 import { AppState } from "react-native";
 
+import { AppQueryApi } from "@/api/app-api";
+
 const revalidationSignal = Atom.readable((get) => {
 	let version = 0;
 	let wasConnected: boolean | undefined;
@@ -30,7 +32,7 @@ const revalidationSignal = Atom.readable((get) => {
 	return version;
 });
 
-export function withQueryDefaults<A, E>(query: Atom.Atom<AsyncResult.AsyncResult<A, E>>) {
+function withQueryDefaults<A, E>(query: Atom.Atom<AsyncResult.AsyncResult<A, E>>) {
 	return query.pipe(
 		Atom.swr({
 			staleTime: 0,
@@ -41,3 +43,11 @@ export function withQueryDefaults<A, E>(query: Atom.Atom<AsyncResult.AsyncResult
 		Atom.setIdleTTL("5 minutes"),
 	);
 }
+
+const query = new Proxy(AppQueryApi.query, {
+	apply(target, thisArg, argumentsList) {
+		return withQueryDefaults(Reflect.apply(target, thisArg, argumentsList));
+	},
+});
+
+export const appQueryClient = { query };
