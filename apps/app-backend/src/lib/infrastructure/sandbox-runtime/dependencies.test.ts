@@ -79,7 +79,11 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				);
 				expect(module.length).toBeGreaterThan(0);
 				expect(module).not.toContain("npm:");
-				expect(module).not.toContain("@ryot/sandbox-sdk");
+				if (dependency.name === "youtubei") {
+					expect(module).toContain('@ryot/sandbox-sdk/effect"');
+				} else {
+					expect(module).not.toContain("@ryot/sandbox-sdk");
+				}
 				expect((yield* fs.stat(modulePath)).mode & 0o222).toBe(0);
 			}
 

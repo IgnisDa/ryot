@@ -62,6 +62,7 @@ const filesystemKey = Symbol.for("@ryot/sandbox-sdk/filesystem");
 const generatorFunction = Object.getPrototypeOf(function* () {}).constructor as Function;
 const asyncFunction = Object.getPrototypeOf(async function () {}).constructor as Function;
 const stringIncludes = String.prototype.includes.call.bind(String.prototype.includes);
+const approvedDependencyRuntimeKey = Symbol.for("@ryot/sandbox-sdk/approved-dependency-runtime");
 const asyncGeneratorFunction = Object.getPrototypeOf(async function* () {}).constructor as Function;
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
@@ -73,12 +74,12 @@ const hostResultSchema = Schema.Union([
 		data: Schema.optional(Schema.Unknown),
 	}),
 	strictStruct({
+		success: Schema.Literal(true),
 		data: Schema.Unknown.pipe(
 			Schema.check(
 				Schema.makeFilter((value) => value !== undefined || "Host result data is required"),
 			),
 		),
-		success: Schema.Literal(true),
 	}),
 ]);
 const decodeHostResult = Schema.decodeUnknownEffect(hostResultSchema);
@@ -168,6 +169,104 @@ const disableCodeGeneration = () => {
 		});
 	}
 };
+
+const makeApprovedDependencyRuntime = () => {
+	let startedAt = "1970-01-01T00:00:00.000Z";
+	let randomState = 2_166_136_261;
+	let active = 0;
+	let restoreGlobals: Array<() => void> | undefined;
+	const configure = (payload: SandboxRunnerPayload) => {
+		startedAt = payload.startedAt;
+		randomState = 2_166_136_261;
+		const seed = payload.workflowExecutionId ?? payload.executionId;
+		for (let index = 0; index < seed.length; index += 1) {
+			randomState = Math.imul(randomState ^ seed.charCodeAt(index), 16_777_619) >>> 0;
+		}
+	};
+	const nextRandom = () => {
+		randomState = Math.imul(randomState ^ (randomState >>> 13), 1_664_525) + 1_013_904_223;
+		return (randomState >>> 0) / 4_294_967_296;
+	};
+	const deterministicDate = function (...args: unknown[]) {
+		if (!new.target) {
+			return new nativeDate(startedAt).toString();
+		}
+		return reflectConstruct(nativeDate, args.length === 0 ? [startedAt] : args, deterministicDate);
+	} as unknown as DateConstructor;
+	setPrototypeOf(deterministicDate.prototype, nativeDate.prototype);
+	defineProperty(deterministicDate, "now", {
+		value: () => nativeDate.parse(startedAt),
+	});
+	defineProperty(deterministicDate, "UTC", { value: nativeDate.UTC });
+	defineProperty(deterministicDate, "parse", { value: nativeDate.parse });
+
+	const restore = (target: object, name: PropertyKey, value: unknown) => {
+		const descriptor = getOwnPropertyDescriptor(target, name);
+		defineProperty(target, name, {
+			value,
+			configurable: true,
+			enumerable: descriptor?.enumerable ?? false,
+		});
+		return () => {
+			if (descriptor) {
+				defineProperty(target, name, descriptor);
+			} else {
+				deleteProperty(target, name);
+			}
+		};
+	};
+	const withGlobals = async <A>(operation: () => Promise<A>) => {
+		if (active === 0) {
+			restoreGlobals = [
+				restore(globalThis, "Date", deterministicDate),
+				restore(Math, "random", nextRandom),
+				restore(crypto, "randomUUID", () => {
+					const bytes = new Uint8Array(16);
+					for (let index = 0; index < bytes.length; index += 1) {
+						bytes[index] = Math.floor(nextRandom() * 256);
+					}
+					bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
+					bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+					return [...bytes]
+						.map(
+							(value, index) =>
+								(index === 4 || index === 6 || index === 8 || index === 10 ? "-" : "") +
+								value.toString(16).padStart(2, "0"),
+						)
+						.join("");
+				}),
+				restore(crypto, "getRandomValues", (value: ArrayBufferView) => {
+					const bytes = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+					for (let index = 0; index < bytes.length; index += 1) {
+						bytes[index] = Math.floor(nextRandom() * 256);
+					}
+					return value;
+				}),
+			];
+		}
+		active += 1;
+		try {
+			return await operation();
+		} finally {
+			active -= 1;
+			if (active === 0) {
+				for (let index = (restoreGlobals?.length ?? 0) - 1; index >= 0; index -= 1) {
+					restoreGlobals?.[index]?.();
+				}
+				restoreGlobals = undefined;
+			}
+		}
+	};
+	return { configure, withGlobals };
+};
+
+const approvedDependencyRuntime = makeApprovedDependencyRuntime();
+defineProperty(globalThis, approvedDependencyRuntimeKey, {
+	writable: false,
+	enumerable: false,
+	configurable: false,
+	value: approvedDependencyRuntime.withGlobals,
+});
 
 const installWorkflowDeterminismGuard = () => {
 	const restore: Array<() => void> = [];
@@ -821,6 +920,7 @@ void (async () => {
 			disableCodeGeneration();
 
 			phase = "load";
+			approvedDependencyRuntime.configure(payload);
 			const restoreWorkflowGlobals =
 				typeof payload.workflowExecutionId === "string" ||
 				(isRecord(payload.metadata) && payload.metadata.kind === "workflow")
