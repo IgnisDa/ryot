@@ -22,7 +22,13 @@ const installEchoOperationPlugin = (client: Client) => {
 		pluginSlug,
 		configSchema: { fields: {}, unknownKeys: "strict" },
 		operations: [
-			{ scriptSlug, auth: "user", slug: "echo", description: "Uppercases every requested title" },
+			{
+				scriptSlug,
+				auth: "user",
+				slug: "echo",
+				demoAccess: "allowed",
+				description: "Uppercases every requested title",
+			},
 		],
 		scripts: [
 			{
