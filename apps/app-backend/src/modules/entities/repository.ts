@@ -497,35 +497,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					: null;
 			});
 
-			const findEntityByExternalIdForUser = Effect.fn(
-				"EntitiesRepository.findEntityByExternalIdForUser",
-			)(function* (input: {
-				userId: UserId;
-				externalId: string;
-				entitySchemaSlug: EntitySchemaSlug;
-				providerId: SandboxProviderId;
-				entitySchemaPluginId: string | null;
-			}) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.select(entitySelection)
-						.from(schema.entity)
-						.where(
-							and(
-								entityVisibleToUserClause(input.userId),
-								eq(schema.entity.externalId, input.externalId),
-								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-								eq(schema.entity.providerId, input.providerId),
-								entitySchemaPluginWhere(input.entitySchemaPluginId),
-							),
-						)
-						.limit(1),
-				);
-
-				return row ? toListedEntity(row) : null;
-			});
-
 			const findGlobalEntityByExternalId = Effect.fn(
 				"EntitiesRepository.findGlobalEntityByExternalId",
 			)(function* (input: {
@@ -851,7 +822,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				listMatchCandidatesBySchema,
 				getEntitySchemaScopeForUser,
 				findGlobalEntityByExternalId,
-				findEntityByExternalIdForUser,
 				findEntitySchemaProviderBySlug,
 				findUserEntityWithoutProvenance,
 				lockGlobalEntityProvenanceScope,
