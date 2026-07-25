@@ -39,12 +39,11 @@ const navigation = (workspaces = [workspace("media"), workspace("fitness")]) =>
 	}) satisfies NavigationData;
 const map = (
 	result: AsyncResult.AsyncResult<NavigationData, unknown>,
-	options: { routeWorkspace?: string; selectedWorkspace?: string; pathname?: string } = {},
+	options: { selectedWorkspace?: string; pathname?: string } = {},
 ) =>
 	mapNavigationState({
 		result,
 		pathname: options.pathname ?? "/media",
-		routeWorkspace: options.routeWorkspace,
 		selectedWorkspace: options.selectedWorkspace ?? "media",
 	});
 
@@ -74,18 +73,16 @@ describe("navigation application state", () => {
 		});
 	});
 
-	it("uses route and selected workspace fallbacks", () => {
-		const selected = map(AsyncResult.success(navigation()), {
-			routeWorkspace: "missing",
-			selectedWorkspace: "fitness",
+	it("falls back to the first workspace when the persisted slug is unknown", () => {
+		expect(map(AsyncResult.success(navigation()), { selectedWorkspace: "fitness" })).toMatchObject({
+			status: "ready",
+			workspace: { slug: "fitness" },
 		});
-		const route = map(AsyncResult.success(navigation()), {
-			pathname: "/v/movies",
-			routeWorkspace: "media",
+		expect(map(AsyncResult.success(navigation()), { selectedWorkspace: "missing" })).toMatchObject({
+			status: "ready",
+			workspace: { slug: "media" },
 		});
-
-		expect(selected).toMatchObject({ status: "ready", workspace: { slug: "fitness" } });
-		expect(route).toMatchObject({
+		expect(map(AsyncResult.success(navigation()), { pathname: "/v/movies" })).toMatchObject({
 			status: "ready",
 			activeKey: "view:movies",
 			workspace: { slug: "media" },

@@ -1,5 +1,5 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { router, useGlobalSearchParams, usePathname } from "expo-router";
+import { router, usePathname } from "expo-router";
 
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
@@ -41,11 +41,8 @@ export function useWorkspaceNavigation(): WorkspaceNavigation {
 	const resetSavedViewSession = useAtomSet(savedViewSessionAtom(scope));
 	const selectedWorkspace = useAtomValue(workspaceAtom);
 	const navigationResult = useAtomValue(navigationAtom(scope));
-	const params = useGlobalSearchParams<{ workspace?: string }>();
-	const routeWorkspace = Array.isArray(params.workspace) ? params.workspace[0] : params.workspace;
 	const state = mapNavigationState({
 		pathname,
-		routeWorkspace,
 		selectedWorkspace,
 		result: navigationResult,
 	});
@@ -64,9 +61,9 @@ export function useWorkspaceNavigation(): WorkspaceNavigation {
 		accountImage: session?.user.image ?? null,
 		accountEmail: session?.user.email ?? "Email unavailable",
 		accountName: session?.user.name ?? session?.user.email ?? "Account",
-		openSettings: () => router.navigate(getSettingsHref(state.workspace.slug)),
+		openSettings: () => router.navigate(getSettingsHref()),
 		navigate: (item) => {
-			const href = getNavigationHref(state.workspace.slug, item);
+			const href = getNavigationHref(item);
 			const mode = getNavigationMode(state.activeKey, item);
 			if (mode === "dismissTo") {
 				router.dismissTo(href);
@@ -90,7 +87,7 @@ export function useWorkspaceNavigation(): WorkspaceNavigation {
 			if (router.canDismiss()) {
 				router.dismissAll();
 			}
-			router.replace(getWorkspaceHref(slug));
+			router.replace(getWorkspaceHref());
 		},
 	};
 }
