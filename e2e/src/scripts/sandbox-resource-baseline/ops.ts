@@ -287,6 +287,68 @@ export const makeRemote = (serverIp: string) => {
 					`rm -rf ${remoteDirectory} && docker exec ${ryot} rm -rf ${BENCHMARK_ENVIRONMENT.containerProfileRoot}/${token}`,
 				);
 			}),
+		/**
+		 * Reads what the deployment actually is, rather than what it was asked to be: the image the
+		 * Ryot container was created from, its digest and architecture, the collector image, the
+		 * enforced limits, and a hash of the generated compose with every secret value removed.
+		 */
+		deploymentProvenance: Effect.gen(function* () {
+			const [ryot, otel] = yield* Effect.all([containerId("ryot"), containerId("otel")]);
+			const read = (command: string) => Effect.map(run(command), (output) => output.trim());
+			const inspect = (id: string, template: string) =>
+				read(`docker inspect ${id} --format ${shellQuote(template)}`);
+			const imageId = yield* inspect(ryot, "{{.Image}}");
+			const [tag, repoDigests, architecture, revision, source, created] = yield* Effect.all([
+				inspect(ryot, "{{.Config.Image}}"),
+				read(`docker image inspect ${imageId} --format '{{join .RepoDigests ","}}'`),
+				read(`docker image inspect ${imageId} --format '{{.Os}}/{{.Architecture}}'`),
+				read(
+					`docker image inspect ${imageId} --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'`,
+				),
+				read(
+					`docker image inspect ${imageId} --format '{{index .Config.Labels "org.opencontainers.image.source"}}'`,
+				),
+				read(`docker image inspect ${imageId} --format '{{.Created}}'`),
+			]);
+			const [otelImage, ryotMemory, otelMemory, ryotCpus, ryotPids] = yield* Effect.all([
+				inspect(otel, "{{.Config.Image}}"),
+				inspect(ryot, "{{.HostConfig.Memory}}"),
+				inspect(otel, "{{.HostConfig.Memory}}"),
+				inspect(ryot, "{{.HostConfig.NanoCpus}}"),
+				inspect(ryot, "{{.HostConfig.PidsLimit}}"),
+			]);
+			const [cpuCount, memTotal, kernel] = yield* Effect.all([
+				read("nproc"),
+				read("awk '/MemTotal/ {print $2 * 1024}' /proc/meminfo"),
+				read("uname -r"),
+			]);
+			const composeSha256 = yield* read(
+				`sed -E 's/(PASSWORD|TOKEN|SECRET|KEY)([A-Za-z_]*)(: | - |=)\\S+/\\1\\2\\3REDACTED/gI; s#://[^@/]*@#://REDACTED@#g' ${BENCHMARK_ENVIRONMENT.serviceDirectory}/docker-compose.yml | sha256sum | cut -d' ' -f1`,
+			);
+			const digest = repoDigests.split(",").find((entry) => entry.includes("@")) ?? null;
+			return {
+				composeSha256,
+				otelCollectorImage: otelImage,
+				image: {
+					architecture,
+					tag: tag === "" ? null : tag,
+					ociRevision: revision === "" ? null : revision,
+					digest: digest === null ? null : (digest.split("@")[1] ?? null),
+				},
+				resourceSettings: {
+					kernel,
+					imageId,
+					imageCreated: created,
+					hostCpuCount: cpuCount,
+					ryotNanoCpus: ryotCpus,
+					ryotPidsLimit: ryotPids,
+					hostMemTotalBytes: memTotal,
+					ryotMemoryLimitBytes: ryotMemory,
+					otelMemoryLimitBytes: otelMemory,
+					imageSource: source === "" ? "unknown" : source,
+				} satisfies Record<string, string>,
+			};
+		}),
 	};
 };
 
