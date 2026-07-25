@@ -6,6 +6,7 @@ import { BackupsApi } from "#/api/backups";
 import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
+import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
 import { PublicApi } from "#/api/public";
@@ -54,6 +55,7 @@ const InfrastructureLive = Layer.mergeAll(
 	UserSettingsApi.layer,
 	IntegrationsApi.layer,
 	ProviderEntitiesApi.layer,
+	PluginInstallationsApi.layer,
 ).pipe(Layer.provide(TransportLive));
 
 const ServerLive = ServerService.layer.pipe(

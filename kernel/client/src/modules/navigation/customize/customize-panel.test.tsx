@@ -18,7 +18,15 @@ const item = (slug: string, pluginSlug: string | null, isDisabled = false) => ({
 	name: slug.toUpperCase(),
 });
 
+const workspace = (slug: string, isDisabled = false) => ({
+	slug,
+	isDisabled,
+	icon: "puzzle",
+	name: `${slug.toUpperCase()} WORKSPACE`,
+});
+
 const draft: CustomizeDraft = {
+	workspaces: [workspace("media"), workspace("fitness", true)],
 	savedViews: [item("recent", null)],
 	views: [item("shows", "media"), item("movies", "media", true)],
 };
@@ -42,6 +50,7 @@ describe("CustomizePanel", () => {
 	it("counts the pinned Home row in the Views heading", () => {
 		render(<Harness />);
 
+		expect(screen.getByText("Workspaces · 1 of 2 shown")).toBeDefined();
 		expect(screen.getByText("Views · 2 of 3 shown")).toBeDefined();
 		expect(screen.getByText("Saved Views · 1 of 1 shown")).toBeDefined();
 	});
@@ -75,6 +84,36 @@ describe("CustomizePanel", () => {
 		expect(screen.getByRole("list", { name: "Views" }).textContent).toMatch(/MOVIES.*SHOWS/);
 	});
 
+	it("shows disabled workspaces and reorders them with the keyboard", () => {
+		render(<Harness />);
+
+		expect(
+			screen.getByRole("switch", { name: "Show FITNESS WORKSPACE in sidebar" }).ariaChecked,
+		).toBe("false");
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder MEDIA WORKSPACE" }), {
+			key: "ArrowDown",
+		});
+
+		expect(screen.getByRole("list", { name: "Workspaces" }).textContent).toMatch(
+			/FITNESS WORKSPACE.*MEDIA WORKSPACE/,
+		);
+	});
+
+	it("disables the switch for the final enabled workspace", () => {
+		render(<Harness />);
+
+		expect(
+			screen
+				.getByRole("switch", { name: "Show MEDIA WORKSPACE in sidebar" })
+				.hasAttribute("disabled"),
+		).toBe(true);
+		expect(
+			screen
+				.getByRole("switch", { name: "Show FITNESS WORKSPACE in sidebar" })
+				.hasAttribute("disabled"),
+		).toBe(false);
+	});
+
 	it("explains that collections are not customizable", () => {
 		render(<Harness />);
 
@@ -86,7 +125,7 @@ describe("CustomizePanel", () => {
 	});
 
 	it("shows the saved views empty state while keeping the pinned Home row", () => {
-		render(<Harness initial={{ views: [], savedViews: [] }} />);
+		render(<Harness initial={{ workspaces: [], views: [], savedViews: [] }} />);
 
 		expect(screen.getByText("No saved views yet.")).toBeDefined();
 		expect(screen.getByText("Views · 1 of 1 shown")).toBeDefined();

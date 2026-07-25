@@ -216,6 +216,7 @@ export function AuthenticatedShell(props: {
 		return true;
 	});
 	const customize = useCustomizeDraft({
+		catalog,
 		data: props.navigation,
 		active: customizeActive,
 		workspaceSlug: current?.slug,
@@ -249,10 +250,31 @@ export function AuthenticatedShell(props: {
 		if (!(await customize.save())) {
 			return;
 		}
+		const currentDraft = customize.draft.workspaces.find(({ slug }) => slug === current?.slug);
+		const nextWorkspace = customize.draft.workspaces.find(({ isDisabled }) => !isDisabled);
 		const unsubscribe = router.subscribe("onResolved", () => {
 			unsubscribe();
 			void router.invalidate();
 		});
+		if (currentDraft?.isDisabled !== false) {
+			setDiscarding(false);
+			if (nextWorkspace === undefined) {
+				await navigate({ to: "/", replace: true });
+				return;
+			}
+			await runtime.runPromise(
+				Effect.flatMap(ClientStorage, (storage) =>
+					storage.setLastWorkspace(scope, nextWorkspace.slug),
+				),
+			);
+			setRememberedSlug(nextWorkspace.slug);
+			await navigate({
+				replace: true,
+				to: "/$pluginSlug",
+				params: { pluginSlug: nextWorkspace.slug },
+			});
+			return;
+		}
 		leaveCustomize();
 	};
 	const saveCustomize = useEffectEvent(() => void commitCustomize());
@@ -383,7 +405,7 @@ export function AuthenticatedShell(props: {
 				onSelectWorkspace={selectWorkspace}
 				onClose={() => setDrawerOpen(false)}
 				onOpenSearch={() => setSearchOpen(true)}
-				onCustomize={() => openCustomize("views")}
+				onCustomize={() => openCustomize("workspaces")}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
 			/>
 			<RememberedWorkspaceContext value={rememberedSlug}>
