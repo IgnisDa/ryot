@@ -1,6 +1,13 @@
 import clsx from "clsx";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { BackHandler, Platform, Pressable, useWindowDimensions, View } from "react-native";
+import {
+	BackHandler,
+	PanResponder,
+	Platform,
+	Pressable,
+	useWindowDimensions,
+	View,
+} from "react-native";
 import Animated, {
 	ReduceMotion,
 	useAnimatedStyle,
@@ -14,11 +21,12 @@ import { Sidebar } from "./sidebar";
 import type { ReadyWorkspaceNavigation } from "./use-workspace-navigation";
 import { WorkspaceSheet } from "./workspace-sheets";
 
+const EDGE_SWIPE_WIDTH = 24;
 const DRAWER_MAX_WIDTH = 320;
 const DRAWER_WIDTH_RATIO = 0.82;
-const DRAWER_TIMING = { duration: 240, reduceMotion: ReduceMotion.System };
-const DRAWER_WEB_HIDDEN = Platform.OS === "web" ? "md:hidden" : null;
 const WEB_SIDEBAR_BREAKPOINT = 768;
+const DRAWER_WEB_HIDDEN = Platform.OS === "web" ? "md:hidden" : null;
+const DRAWER_TIMING = { duration: 240, reduceMotion: ReduceMotion.System };
 
 function getDrawerWidth(screenWidth: number) {
 	return Math.min(DRAWER_MAX_WIDTH, Math.round(screenWidth * DRAWER_WIDTH_RATIO));
@@ -49,6 +57,26 @@ export function WorkspaceDrawer(props: {
 	const drawerWidth = getDrawerWidth(width);
 	const [isOpen, setIsOpen] = useState(false);
 	const [sheet, setSheet] = useState<"workspace" | null>(null);
+	const edgeSwipe = useMemo(
+		() =>
+			PanResponder.create({
+				onMoveShouldSetPanResponder: (_event, gesture) =>
+					gesture.dx > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+				onPanResponderMove: (_event, gesture) => {
+					progress.value = Math.min(1, Math.max(0, gesture.dx / drawerWidth));
+				},
+				onPanResponderTerminate: () => {
+					setIsOpen(false);
+					progress.value = withTiming(0, DRAWER_TIMING);
+				},
+				onPanResponderRelease: (_event, gesture) => {
+					const shouldOpen = gesture.dx > drawerWidth / 3 || gesture.vx > 0.5;
+					setIsOpen(shouldOpen);
+					progress.value = withTiming(shouldOpen ? 1 : 0, DRAWER_TIMING);
+				},
+			}),
+		[drawerWidth, progress],
+	);
 
 	const scrimStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
 	const contentStyle = useAnimatedStyle(() => ({
@@ -110,6 +138,13 @@ export function WorkspaceDrawer(props: {
 				<Animated.View className="flex-1" style={contentStyle}>
 					{props.children}
 				</Animated.View>
+				{Platform.OS !== "web" && props.navigation.activeKey === "home" && !isOpen && (
+					<View
+						style={{ width: EDGE_SWIPE_WIDTH }}
+						className="absolute inset-y-0 left-0 z-20"
+						{...edgeSwipe.panHandlers}
+					/>
+				)}
 				<Animated.View
 					style={scrimStyle}
 					pointerEvents={isOpen ? "auto" : "none"}
