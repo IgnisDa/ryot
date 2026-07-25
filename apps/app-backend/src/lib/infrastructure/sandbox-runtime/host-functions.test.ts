@@ -30,7 +30,7 @@ import {
 	makeAdditionalSandboxApiFunctions,
 	normalizePreferences,
 	toSandboxCreateEventsResult,
-} from "./sandbox-host-functions";
+} from "./host-functions";
 
 describe("normalizePreferences", () => {
 	it("normalizes missing and non-boolean preference values", () => {

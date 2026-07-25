@@ -2,7 +2,7 @@ import { BunServices, BunRuntime } from "@effect/platform-bun";
 import { renderConfigReference } from "@ryot/config";
 import { Config, ConfigProvider, Effect, Layer, FileSystem, Path } from "effect";
 
-import { AppLive, MigrationOnlyLive } from "./app/layers";
+import { AppLive, MigrationOnlyLive } from "./boot/layers";
 import { appConfigDefinition } from "./lib/infrastructure/config/definition";
 import { bootPluginSources } from "./modules/plugins/boot-sources";
 
