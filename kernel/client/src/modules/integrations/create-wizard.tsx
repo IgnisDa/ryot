@@ -1,5 +1,5 @@
 import { useRyot } from "@ryot-app/client-sdk/react";
-import { Button, FieldMessage, Modal, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { Button, FieldMessage, StatusMessage } from "@ryot-app/client-ui-sdk";
 import {
 	useSchemaForm,
 	type SchemaFileUpload,
@@ -13,40 +13,57 @@ import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 
 import { IntegrationsApi } from "#/api/integrations";
 import {
-	IntegrationCatalogPicker,
-	type CatalogPickerState,
-} from "#/modules/integrations/catalog-picker";
-import {
 	createIntegrationBody,
 	initialIntegrationFormValues,
 } from "#/modules/integrations/payload";
 import {
-	findProviderBySlug,
 	integrationLotDetail,
 	integrationLotLabel,
+	integrationProviderChooseLabel,
+	integrationProviderEntry,
 } from "#/modules/integrations/provider-selection";
-import { schemaReviewRows } from "#/modules/integrations/review-rows";
 import {
 	integrationSaveFailure,
 	type IntegrationSaveFailure,
 } from "#/modules/integrations/save-failure";
 import { IntegrationSettingsForm } from "#/modules/integrations/settings-form";
+import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
+import { findBySlug } from "#/modules/ui/catalog/selection";
+import { schemaReviewRows } from "#/modules/ui/review-rows";
+import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
 	wizardReducer,
 	wizardStepLabel,
-} from "#/modules/integrations/wizard-state";
-import { AppIcon } from "#/modules/navigation/app-icon";
+	type WizardStepHeadings,
+} from "#/modules/ui/wizard/wizard-state";
 
 export const INTEGRATION_WIZARD_TITLE = "Connect a service";
 
+export type IntegrationProviderPickerState = CatalogPickerState<ListedIntegrationProvider>;
+
 const UPLOAD_FAILURE_MESSAGE = "Could not upload this file. Try again.";
+
+const stepHeadings = {
+	pick: "Choose a service",
+	review: "Review and connect",
+	configure: "Provide the details",
+} as const satisfies WizardStepHeadings;
+
+const pickerCopy = {
+	emptyTitle: "No services yet",
+	loadingLabel: "Loading services",
+	errorTitle: "Unable to load services",
+	loadingDetail: "Loading the services you can connect...",
+	errorDetail: "The list of services could not be loaded. Check the server and try again.",
+	emptyDetail: "Once a plugin on this server contributes an integration, it shows up here.",
+};
 
 type CreateWizardProps = {
 	readonly onClose: () => void;
 	readonly onCreated: () => void;
 	readonly onRetryProviders: () => void;
-	readonly providers: CatalogPickerState;
+	readonly providers: IntegrationProviderPickerState;
 };
 
 function SettingsStep(props: {
@@ -160,8 +177,8 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const [pending, setPending] = useState(false);
 	const [failure, setFailure] = useState<IntegrationSaveFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
-	const listed = props.providers.status === "ready" ? props.providers.providers : [];
-	const provider = findProviderBySlug(listed, state.slug);
+	const listed = props.providers.status === "ready" ? props.providers.sources : [];
+	const provider = findBySlug(listed, state.slug);
 
 	useEffect(() => () => controller.current.abort(), []);
 
@@ -243,10 +260,13 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 						{providerFailure}
 					</StatusMessage>
 				)}
-				<IntegrationCatalogPicker
+				<CatalogPicker
+					copy={pickerCopy}
 					state={props.providers}
 					onChoose={chooseProvider}
+					toEntry={integrationProviderEntry}
 					onRetry={props.onRetryProviders}
+					chooseLabel={integrationProviderChooseLabel}
 				/>
 			</>
 		)),
@@ -282,32 +302,13 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	);
 
 	return (
-		<Modal
+		<WizardShell
 			onClose={props.onClose}
-			closeLabel="Close"
-			label={INTEGRATION_WIZARD_TITLE}
-			containerClassName="md:items-center md:justify-center md:p-6"
-			className="flex w-full flex-1 flex-col overflow-hidden bg-bg pt-[env(safe-area-inset-top)] md:max-h-[85%] md:max-w-2xl md:flex-initial md:rounded-xl md:border md:border-border md:bg-surface md:shadow-card md:pt-0"
+			title={INTEGRATION_WIZARD_TITLE}
+			closeLabel="Close the integration wizard"
+			stepLabel={wizardStepLabel(state.step, stepHeadings)}
 		>
-			<div className="flex shrink-0 flex-col gap-1 border-b border-border px-4 py-3">
-				<div className="flex items-center justify-between gap-3">
-					<h2 className="font-display text-xl font-semibold text-text">
-						{INTEGRATION_WIZARD_TITLE}
-					</h2>
-					<button
-						type="button"
-						className="p-1 text-text-muted"
-						onClick={props.onClose}
-						aria-label="Close the integration wizard"
-					>
-						<AppIcon size={20} name="x" />
-					</button>
-				</div>
-				<p className="text-xs text-text-subtle">{wizardStepLabel(state.step)}</p>
-			</div>
-			<div className="min-h-0 flex-1 overflow-y-auto">
-				<div className="flex flex-col gap-4 p-4">{stepBody}</div>
-			</div>
-		</Modal>
+			{stepBody}
+		</WizardShell>
 	);
 }

@@ -1,34 +1,42 @@
 import { Button, TextField } from "@ryot-app/client-ui-sdk";
-import type { ListedIntegrationProvider } from "@ryot-app/contract/modules/integrations/schemas";
 import clsx from "clsx";
 import { useState } from "react";
 
+import { AppIcon } from "#/modules/navigation/app-icon";
 import {
 	availableCatalogEntries,
-	groupIntegrationProviders,
-	integrationProviderChooseLabel,
+	groupCatalogEntries,
 	type CatalogEntry,
-} from "#/modules/integrations/provider-selection";
-import { StatusState } from "#/modules/integrations/status-state";
-import { AppIcon } from "#/modules/navigation/app-icon";
+} from "#/modules/ui/catalog/selection";
+import { StatusState } from "#/modules/ui/status-state";
 
-export type CatalogPickerState =
+export type CatalogPickerState<Source> =
 	| { readonly status: "empty" }
 	| { readonly status: "failed" }
 	| { readonly status: "loading" }
-	| { readonly status: "ready"; readonly providers: readonly ListedIntegrationProvider[] };
+	| { readonly status: "ready"; readonly sources: readonly Source[] };
+
+export type CatalogPickerCopy = {
+	readonly emptyTitle: string;
+	readonly errorTitle: string;
+	readonly emptyDetail: string;
+	readonly errorDetail: string;
+	readonly loadingLabel: string;
+	readonly loadingDetail: string;
+};
 
 function CatalogOption(props: {
 	readonly isFirst: boolean;
 	readonly entry: CatalogEntry;
 	readonly onChoose: () => void;
+	readonly chooseLabel: (entry: CatalogEntry) => string;
 }) {
 	return (
 		<button
 			type="button"
 			onClick={props.onChoose}
 			disabled={!props.entry.isAvailable}
-			aria-label={integrationProviderChooseLabel(props.entry)}
+			aria-label={props.chooseLabel(props.entry)}
 			className={clsx(
 				"flex w-full items-center gap-3 border-b border-border py-3 text-left",
 				props.isFirst && "border-t",
@@ -52,10 +60,15 @@ function CatalogOption(props: {
 	);
 }
 
-export function IntegrationCatalogPicker(props: {
+export function CatalogPicker<
+	Source extends { name: string; pluginSlug: string; description: string },
+>(props: {
 	readonly onRetry: () => void;
-	readonly state: CatalogPickerState;
+	readonly copy: CatalogPickerCopy;
 	readonly onChoose: (slug: string) => void;
+	readonly state: CatalogPickerState<Source>;
+	readonly toEntry: (source: Source) => CatalogEntry;
+	readonly chooseLabel: (entry: CatalogEntry) => string;
 }) {
 	const [query, setQuery] = useState("");
 
@@ -63,8 +76,8 @@ export function IntegrationCatalogPicker(props: {
 		return (
 			<StatusState
 				className="py-12"
-				detail="Loading the services you can connect..."
-				icon={<span role="status" aria-label="Loading services" />}
+				detail={props.copy.loadingDetail}
+				icon={<span role="status" aria-label={props.copy.loadingLabel} />}
 			/>
 		);
 	}
@@ -73,8 +86,8 @@ export function IntegrationCatalogPicker(props: {
 			<StatusState
 				className="py-10"
 				detailTone="danger"
-				title="Unable to load services"
-				detail="The list of services could not be loaded. Check the server and try again."
+				title={props.copy.errorTitle}
+				detail={props.copy.errorDetail}
 				action={
 					<Button type="button" variant="secondary" onClick={props.onRetry}>
 						Try again
@@ -87,14 +100,14 @@ export function IntegrationCatalogPicker(props: {
 		return (
 			<StatusState
 				className="py-12"
-				title="No services yet"
+				title={props.copy.emptyTitle}
+				detail={props.copy.emptyDetail}
 				icon={<AppIcon size={36} name="inbox" className="text-text-subtle" />}
-				detail="Once a plugin on this server contributes an integration, it shows up here."
 			/>
 		);
 	}
 
-	const groups = groupIntegrationProviders(props.state.providers, query);
+	const groups = groupCatalogEntries(props.state.sources, query, props.toEntry);
 	const available = availableCatalogEntries(groups);
 	const chooseOnly = () => {
 		const only = available.length === 1 ? available.at(0) : undefined;
@@ -142,6 +155,7 @@ export function IntegrationCatalogPicker(props: {
 									entry={entry}
 									key={entry.slug}
 									isFirst={index === 0}
+									chooseLabel={props.chooseLabel}
 									onChoose={() => props.onChoose(entry.slug)}
 								/>
 							))}

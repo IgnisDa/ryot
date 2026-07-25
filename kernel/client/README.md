@@ -225,6 +225,24 @@ The connected server is shown only on native. On the web `ServerService.selected
 `window.location.origin`, so there is no origin to choose and nothing to change; on native the
 origin is a stored selection, and clearing it is part of signing out rather than a separate action.
 
+Import data and Integrations are two views of the same machinery, so everything neither of them
+owns alone lives in `modules/ui/`: the plugin-service catalog (`ui/catalog`), the three-step
+pick-configure-review wizard (`ui/wizard`), the run status vocabulary and progress bar (`ui/run`),
+the schema-form review rows and icon set, and the shared empty/error `StatusState`. `modules/ui`
+holds no feature knowledge — a catalog is grouped and searched over `CatalogEntry`, and each feature
+supplies its own `toEntry`, choose label, and step headings. Import-run vocabulary itself is
+`modules/imports`, because a run's counts, failure reasons, and outcome label mean the same thing
+whether a person started it or an integration did; the integration detail screen reads them from
+there rather than keeping a second copy.
+
+`SettingsFrame` is the only owner of a settings route's `<h1>`. A detail screen passes its title and
+`meta` to the frame and renders no heading of its own, on either breakpoint — two headings resolving
+to one name are both in the accessibility tree, whatever CSS hides.
+
+A run that has not reached a terminal status is polled rather than subscribed: `useRunPolling` ticks
+only while the document is visible, at `RUN_LIST_POLL_MS` on a list and the faster `RUN_POLL_MS` on
+a single run. Polling stops the moment the run completes or fails, so a settled screen is quiet.
+
 `SettingsFrame` renders two different pages. Below the desktop breakpoint it keeps a bordered
 header carrying the back control, because settings routes opt out of the shell's own
 `MobileHeader`. On desktop the settings sidebar is the navigation, so the frame drops the header
