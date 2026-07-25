@@ -235,6 +235,18 @@ supplies its own `toEntry`, choose label, and step headings. Import-run vocabula
 whether a person started it or an integration did; the integration detail screen reads them from
 there rather than keeping a second copy.
 
+Backups is the third view of that machinery and shares all of it, but its archive cannot travel
+the same road. The download endpoint is authenticated and returns a byte stream, and a bearer token
+cannot ride on an `<a href>`, so `BackupsApi.downloadArchive` is the one request that takes the
+header from `AuthenticatedApi.authorization` and fetches the endpoint itself; the bytes then reach
+the user through a synthetic anchor. Every other backup operation is an ordinary contract call.
+
+A backup or restore holds the whole account, so only one may be in flight: while a run is live the
+list renders it as a card and refuses to start another, and the restore wizard states its
+preconditions before it will run at all. Deleting a run removes the record and, for an export, the
+stored archive — never anything in the account, which is why the confirmation says so in both
+wordings rather than one generic sentence.
+
 `SettingsFrame` is the only owner of a settings route's `<h1>`. A detail screen passes its title and
 `meta` to the frame and renders no heading of its own, on either breakpoint — two headings resolving
 to one name are both in the accessibility tree, whatever CSS hides.

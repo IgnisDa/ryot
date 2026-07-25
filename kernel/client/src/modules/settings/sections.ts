@@ -12,6 +12,7 @@ export const settingsSections = [
 		label: "Import data",
 		path: "/settings/import-data",
 	},
+	{ icon: "archive", slug: "backups", label: "Backups", path: "/settings/backups" },
 	{ slug: "account", label: "Account", icon: "user", path: "/settings/account" },
 ] as const;
 

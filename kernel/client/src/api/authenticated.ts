@@ -16,12 +16,25 @@ export type AuthenticatedApiService = {
 		scope: ApiScope,
 		program: ContractProgram<A, E>,
 	) => Effect.Effect<A, AuthenticatedApiError>;
+	readonly authorization: (
+		scope: ApiScope,
+	) => Effect.Effect<Record<string, string>, AuthenticatedApiError>;
 };
 
 export const makeAuthenticatedApi = (
 	tokens: OAuthTokenService["Service"],
 	runtimeClient: RuntimeOAuthClientService["Service"],
 ): AuthenticatedApiService => ({
+	authorization: (scope: ApiScope) =>
+		Effect.gen(function* () {
+			const { clientId } = yield* runtimeClient.forServer(scope.serverUrl);
+			const token = yield* tokens.accessToken(scope.serverUrl, clientId);
+			const headers: Record<string, string> = {};
+			if (token !== null) {
+				headers.Authorization = `Bearer ${token}`;
+			}
+			return headers;
+		}).pipe(Effect.mapError((cause) => new AuthenticatedApiError({ cause }))),
 	run: <A, E>(scope: ApiScope, program: ContractProgram<A, E>) =>
 		Effect.gen(function* () {
 			const { clientId } = yield* runtimeClient

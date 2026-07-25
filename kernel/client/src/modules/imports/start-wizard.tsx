@@ -1,10 +1,8 @@
-import { useRyot } from "@ryot-app/client-sdk/react";
 import { StatusMessage } from "@ryot-app/client-ui-sdk";
 import {
 	initialSchemaFormValues,
 	toSchemaFormPayload,
 	useSchemaForm,
-	type SchemaFileUpload,
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
 import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
@@ -19,10 +17,12 @@ import { importSourceChooseLabel, importSourceEntry } from "#/modules/imports/so
 import { importStartFailure, type ImportStartFailure } from "#/modules/imports/start-failure";
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
 import { findBySlug } from "#/modules/ui/catalog/selection";
+import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
 	wizardReducer,
+	WIZARD_STEPS,
 	wizardStepLabel,
 	type WizardStepHeadings,
 } from "#/modules/ui/wizard/wizard-state";
@@ -30,8 +30,6 @@ import {
 export const IMPORT_WIZARD_TITLE = "Start an import";
 
 export type ImportSourcePickerState = CatalogPickerState<ListedImportSource>;
-
-const UPLOAD_FAILURE_MESSAGE = "Could not upload this file. Try again.";
 
 const stepHeadings = {
 	pick: "Choose a service",
@@ -54,7 +52,7 @@ export function ImportStartWizard(props: {
 	readonly onRetrySources: () => void;
 	readonly sources: ImportSourcePickerState;
 }) {
-	const ryot = useRyot();
+	const uploadFile = useSchemaFileUpload();
 	const { runtime, scope } = useRouteContext({ from: "/_authenticated" });
 	const controller = useRef(new AbortController());
 	const [pending, setPending] = useState(false);
@@ -65,15 +63,6 @@ export function ImportStartWizard(props: {
 	const schema = source?.inputSchema;
 
 	useEffect(() => () => controller.current.abort(), []);
-
-	const uploadFile: SchemaFileUpload = async (request) => {
-		try {
-			const uploaded = await ryot.uploads.uploadTemporary(request);
-			return { kind: "uploaded", token: uploaded.token };
-		} catch {
-			return { kind: "failed", message: UPLOAD_FAILURE_MESSAGE };
-		}
-	};
 
 	const startRun = useEffectEvent(async (values: SchemaFormValues) => {
 		if (source === undefined) {
@@ -192,7 +181,7 @@ export function ImportStartWizard(props: {
 			onClose={props.onClose}
 			title={IMPORT_WIZARD_TITLE}
 			closeLabel="Close the import wizard"
-			stepLabel={wizardStepLabel(state.step, stepHeadings)}
+			stepLabel={wizardStepLabel(state.step, WIZARD_STEPS, stepHeadings)}
 		>
 			{stepBody}
 		</WizardShell>
