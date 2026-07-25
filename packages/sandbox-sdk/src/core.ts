@@ -597,7 +597,7 @@ export const sandboxHostCapabilitySchema = Schema.Literals([...SANDBOX_HOST_CAPA
 export type SandboxHostCapability = Schema.Schema.Type<typeof sandboxHostCapabilitySchema>;
 
 export type SandboxCapabilityAuthority = "user" | "subscription" | "system";
-export type SandboxCapabilitySystemKind = "activity" | "script";
+export type SandboxCapabilitySystemKind = "activity" | "automation" | "script";
 export type SandboxCapabilityRequirement = {
 	readonly authorities: readonly SandboxCapabilityAuthority[];
 	readonly bridge: boolean;
@@ -606,101 +606,45 @@ export type SandboxCapabilityRequirement = {
 };
 
 export const SANDBOX_CAPABILITY_REQUIREMENTS = {
-	log: {
-		authorities: ["user", "subscription", "system"] as const,
+	scratch: { bridge: false, authorities: [] },
+	"artifact-read": { bridge: false, authorities: [] },
+	ensureUserEntities: { bridge: true, authorities: ["user"] as const },
+	sendNotification: { bridge: true, authorities: ["subscription"] as const },
+	createEvents: { bridge: true, authorities: ["user", "subscription"] as const },
+	log: { bridge: true, authorities: ["user", "subscription", "system"] as const },
+	span: { bridge: true, authorities: ["user", "subscription", "system"] as const },
+	listIntegrations: { bridge: true, authorities: ["user", "subscription"] as const },
+	listEventSchemas: { bridge: true, authorities: ["user", "subscription"] as const },
+	getEntitySchemas: { bridge: true, authorities: ["user", "subscription"] as const },
+	httpCall: { bridge: true, authorities: ["user", "subscription", "system"] as const },
+	getUserPreferences: { bridge: true, authorities: ["user", "subscription"] as const },
+	getCurrentIntegration: { bridge: true, authorities: ["user", "subscription"] as const },
+	changeUserRelationships: { bridge: true, authorities: ["user", "subscription"] as const },
+	getCachedValue: { bridge: true, authorities: ["user", "subscription", "system"] as const },
+	setCachedValue: { bridge: true, authorities: ["user", "subscription", "system"] as const },
+	getPluginConfig: { bridge: true, authorities: ["user", "subscription", "system"] as const },
+	getSystemConfig: { bridge: true, authorities: ["user", "subscription", "system"] as const },
+	claimPersistentValue: { bridge: true, authorities: ["user", "subscription", "system"] as const },
+	upsertGlobalRelationships: {
 		bridge: true,
-	},
-	span: {
-		authorities: ["user", "subscription", "system"] as const,
-		bridge: true,
-	},
-	httpCall: {
-		authorities: ["user", "subscription", "system"] as const,
-		bridge: true,
-	},
-	getCachedValue: {
-		authorities: ["user", "subscription", "system"] as const,
-		bridge: true,
-	},
-	setCachedValue: {
-		authorities: ["user", "subscription", "system"] as const,
-		bridge: true,
-	},
-	getPluginConfig: {
-		authorities: ["user", "subscription", "system"] as const,
-		bridge: true,
-	},
-	getSystemConfig: {
-		authorities: ["user", "subscription", "system"] as const,
-		bridge: true,
-	},
-	getUserPreferences: {
-		authorities: ["user", "subscription"] as const,
-		bridge: true,
-	},
-	claimPersistentValue: {
-		authorities: ["user", "subscription", "system"] as const,
-		bridge: true,
-	},
-	createEvents: {
-		authorities: ["user", "subscription"] as const,
-		bridge: true,
-	},
-	getEntitySchemas: {
-		authorities: ["user", "subscription"] as const,
-		bridge: true,
-	},
-	listEventSchemas: {
-		authorities: ["user", "subscription"] as const,
-		bridge: true,
-	},
-	listIntegrations: {
-		authorities: ["user", "subscription"] as const,
-		bridge: true,
+		authorities: ["system"] as const,
+		systemKinds: ["script"] as const,
 	},
 	executeQueryEngine: {
-		authorities: ["user", "subscription", "system"],
 		bridge: true,
 		systemKinds: ["activity"] as const,
-	},
-	ensureUserEntities: {
-		authorities: ["user"] as const,
-		bridge: true,
-	},
-	upsertGlobalEntities: {
-		authorities: ["system"] as const,
-		bridge: true,
-		requiresProvider: true,
-		systemKinds: ["script"] as const,
-	},
-	getCurrentIntegration: {
-		authorities: ["user", "subscription"] as const,
-		bridge: true,
-	},
-	changeUserRelationships: {
-		authorities: ["user", "subscription"] as const,
-		bridge: true,
-	},
-	upsertGlobalRelationships: {
-		authorities: ["system"] as const,
-		bridge: true,
-		systemKinds: ["script"] as const,
+		authorities: ["user", "subscription", "system"],
 	},
 	emitSignal: {
-		authorities: ["subscription"] as const,
 		bridge: true,
+		systemKinds: ["automation"] as const,
+		authorities: ["subscription", "system"] as const,
 	},
-	sendNotification: {
-		authorities: ["subscription"] as const,
+	upsertGlobalEntities: {
 		bridge: true,
-	},
-	scratch: {
-		authorities: [],
-		bridge: false,
-	},
-	"artifact-read": {
-		authorities: [],
-		bridge: false,
+		requiresProvider: true,
+		authorities: ["system"] as const,
+		systemKinds: ["script"] as const,
 	},
 } satisfies Record<SandboxHostCapability, SandboxCapabilityRequirement>;
 
@@ -758,6 +702,7 @@ export const executionMetadataSchema = strictStruct({
 });
 
 export type ExecutionMetadata = Schema.Schema.Type<typeof executionMetadataSchema>;
+
 // Filesystem grants are per-execution Deno permissions, never callable host functions, so they are
 // excluded from the host surface a script sees.
 export type SandboxHost<Capabilities extends readonly SandboxHostCapability[]> = Readonly<

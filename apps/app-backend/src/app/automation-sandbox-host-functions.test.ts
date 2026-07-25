@@ -153,7 +153,7 @@ it.effect("returns context failures through the Effect error channel", () => {
 	}).pipe(Effect.provide(Layer.mergeAll(signals, notifications)));
 });
 
-it("exposes automation capabilities only to subscriptions", () => {
+it("exposes automation capabilities only to trusted automation executions", () => {
 	const bound = { emitSignal, executeQueryEngine, sendNotification };
 	const direct = selectSandboxHostFunctions(bound, {
 		metadata: { kind: "script" },
@@ -168,7 +168,7 @@ it("exposes automation capabilities only to subscriptions", () => {
 	});
 
 	expect(direct).toEqual({ executeQueryEngine });
-	expect(system).toEqual({});
+	expect(system).toEqual({ emitSignal });
 	expect(subscription).toEqual({ emitSignal, sendNotification });
 });
 
