@@ -1,9 +1,9 @@
-import { ConfigProvider, Effect, Exit } from "effect";
+import { Effect, Exit, Layer } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
 import type { AppConfigValue } from "#lib/infrastructure/config/service";
 import { AppConfig, validateSystemConfig } from "#lib/infrastructure/config/service";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
+import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 
 type Overrides = Parameters<typeof makeAppConfigLayer>[0];
 
@@ -18,15 +18,17 @@ const validate = (overrides?: Overrides) =>
 const loadSystemConfig = (logLevel?: string) =>
 	Effect.runSyncExit(
 		AppConfig.pipe(
-			Effect.provide(AppConfig.layer),
-			Effect.provideService(
-				ConfigProvider.ConfigProvider,
-				ConfigProvider.fromUnknown({
-					REDIS_URL: "unused",
-					DATABASE_URL: "unused",
-					SERVER_ADMIN_ACCESS_TOKEN: "unused",
-					...(logLevel === undefined ? {} : { SERVER_LOG_LEVEL: logLevel }),
-				}),
+			Effect.provide(
+				AppConfig.layer.pipe(
+					Layer.provide(
+						makeConfigProviderLayer({
+							REDIS_URL: "unused",
+							DATABASE_URL: "unused",
+							SERVER_ADMIN_ACCESS_TOKEN: "unused",
+							...(logLevel === undefined ? {} : { SERVER_LOG_LEVEL: logLevel }),
+						}),
+					),
+				),
 			),
 		),
 	);
