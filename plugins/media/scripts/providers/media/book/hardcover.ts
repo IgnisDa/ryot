@@ -135,17 +135,10 @@ query {
 				const image = stringValue(asRecord(doc["image"])?.["url"]);
 				return [
 					{
+						title,
 						externalId,
-						titleProperty: { kind: "text" as const, value: title },
-						calloutProperty: { kind: "null" as const, value: null },
-						secondarySubtitleProperty: { kind: "null" as const, value: null },
-						imageProperty: image
-							? { kind: "image" as const, value: { type: "remote" as const, url: image } }
-							: { kind: "null" as const, value: null },
-						primarySubtitleProperty:
-							releaseYear === null
-								? { kind: "null" as const, value: null }
-								: { kind: "number" as const, value: releaseYear },
+						...(image === null ? {} : { imageUrl: image }),
+						...(releaseYear === null ? {} : { metadata: [releaseYear] as const }),
 					},
 				];
 			});

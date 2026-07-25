@@ -32,16 +32,7 @@ describe("music-group.music-brainz sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(search, { query: "album", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
-					expect(result.items).toEqual([
-						{
-							externalId: "g1",
-							calloutProperty: { kind: "null", value: null },
-							imageProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "Album One" },
-							primarySubtitleProperty: { kind: "null", value: null },
-							secondarySubtitleProperty: { kind: "null", value: null },
-						},
-					]);
+					expect(result.items).toEqual([{ externalId: "g1", title: "Album One" }]);
 					expect(result.details).toEqual({ totalItems: 1, nextPage: null });
 				}),
 			),

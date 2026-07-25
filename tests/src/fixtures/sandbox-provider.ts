@@ -200,25 +200,15 @@ export const replaceSandboxScriptCompiledRepresentation = (
 	return reinstallTestPluginScript(targetScriptId, source, metadata).pipe(Effect.asVoid);
 };
 
-type FakeSearchItem = { title: string; externalId: string; subtitle?: number | null };
+type FakeSearchItem = Pick<
+	ProviderSearchResult["items"][number],
+	"externalId" | "metadata" | "title"
+>;
 
 export function fakeProviderSearchResult(
 	items: ReadonlyArray<FakeSearchItem>,
 ): ProviderSearchResult {
-	return {
-		items: items.map((item) => ({
-			externalId: item.externalId,
-			titleProperty: { kind: "text", value: item.title },
-			...(item.subtitle === undefined
-				? {}
-				: {
-						primarySubtitleProperty:
-							item.subtitle === null
-								? { kind: "null", value: null }
-								: { kind: "number", value: item.subtitle },
-					}),
-		})),
-	};
+	return { items };
 }
 
 export function fakeProviderDetailsResult(

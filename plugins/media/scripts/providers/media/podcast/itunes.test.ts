@@ -48,15 +48,10 @@ describe("podcast.itunes sandbox script", () => {
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
+							metadata: [2021],
 							externalId: "111",
-							calloutProperty: { kind: "null", value: null },
-							titleProperty: { kind: "text", value: "First Show" },
-							primarySubtitleProperty: { kind: "number", value: 2021 },
-							secondarySubtitleProperty: { kind: "null", value: null },
-							imageProperty: {
-								kind: "image",
-								value: { type: "remote", url: "https://img/600.jpg" },
-							},
+							title: "First Show",
+							imageUrl: "https://img/600.jpg",
 						},
 					]);
 					expect(result.details).toEqual({ totalItems: 2, nextPage: 2 });

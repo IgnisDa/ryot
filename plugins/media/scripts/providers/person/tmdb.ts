@@ -69,14 +69,9 @@ export const search = defineProvider({
 							const image = getImageUrl(person["profile_path"]);
 							return [
 								{
+									title: name,
 									externalId: String(Math.trunc(id)),
-									titleProperty: { kind: "text" as const, value: name },
-									calloutProperty: { kind: "null" as const, value: null },
-									primarySubtitleProperty: { kind: "null" as const, value: null },
-									secondarySubtitleProperty: { kind: "null" as const, value: null },
-									imageProperty: image
-										? { kind: "image" as const, value: { type: "remote" as const, url: image } }
-										: { kind: "null" as const, value: null },
+									...(image === null ? {} : { imageUrl: image }),
 								},
 							];
 						})
