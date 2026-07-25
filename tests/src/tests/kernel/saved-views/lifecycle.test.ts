@@ -44,7 +44,7 @@ describe("Saved views lifecycle E2E", () => {
 				isBuiltin: true,
 				name: "All Collections",
 			});
-			expect(collectionsView?.queryDocument).toMatchObject({
+			expect(collectionsView?.layouts.grid.queryDocument).toMatchObject({
 				queries: {
 					collections: {
 						where: {
@@ -70,8 +70,7 @@ describe("Saved views lifecycle E2E", () => {
 						isDisabled: true,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						queryDocument: builtinView.queryDocument,
-						displayConfiguration: builtinView.displayConfiguration,
+						layouts: builtinView.layouts,
 						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
 					},
 				}),
@@ -101,6 +100,7 @@ describe("Saved views lifecycle E2E", () => {
 			expect(clonedView.id).not.toBe(createdView.id);
 			expect(clonedView.name).toBe("Lifecycle View (Copy)");
 			expect(clonedView.isBuiltin).toBe(false);
+			expect(clonedView.layouts).toEqual(createdView.layouts);
 			const updatedClone = yield* updateSavedView(client, clonedView.slug, {
 				name: "Lifecycle View Revised",
 			});
@@ -125,6 +125,7 @@ describe("Saved views lifecycle E2E", () => {
 			const clonedView = yield* cloneSavedView(client, builtinView.slug);
 			expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
 			expect(clonedView.isBuiltin).toBe(false);
+			expect(clonedView.layouts).toEqual(builtinView.layouts);
 			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
 			const refreshedBuiltin = yield* getSavedView(client, builtinView.slug);
 			const remaining = yield* listSavedViews(client);
@@ -171,8 +172,7 @@ describe("Saved views lifecycle E2E", () => {
 						isDisabled: true,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						queryDocument: builtinView.queryDocument,
-						displayConfiguration: builtinView.displayConfiguration,
+						layouts: builtinView.layouts,
 						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
 					},
 				}),
@@ -186,8 +186,7 @@ describe("Saved views lifecycle E2E", () => {
 						isDisabled: false,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						queryDocument: builtinView.queryDocument,
-						displayConfiguration: builtinView.displayConfiguration,
+						layouts: builtinView.layouts,
 						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
 					},
 				}),

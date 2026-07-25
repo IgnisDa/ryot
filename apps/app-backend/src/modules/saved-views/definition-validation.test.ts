@@ -1,7 +1,7 @@
 import { it } from "@effect/vitest";
 import { BadRequest } from "@ryot/contract/errors";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import type { SavedViewDisplayConfiguration } from "@ryot/contract/modules/saved-views/schemas";
+import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
 import {
 	ascending,
 	castJson,
@@ -34,110 +34,113 @@ const queryDocument = document({
 	}),
 }) satisfies RyotQLDocument;
 
-const displayConfiguration = {
-	entityIdField: "id",
-	table: { imageField: "image", columns: [{ label: "Name", field: "name" }] },
-	grid: {
-		titleField: "name",
-		calloutField: null,
-		overlineField: null,
-		imageField: "image",
-		primaryMetadataField: null,
-		secondaryMetadataField: null,
-	},
-	list: {
-		titleField: "name",
-		calloutField: null,
-		imageField: "image",
-		overlineField: null,
-		primaryMetadataField: null,
-		secondaryMetadataField: null,
-	},
-} satisfies SavedViewDisplayConfiguration;
+const cardLayout = {
+	queryDocument,
+	itemIdField: "id",
+	titleField: "name",
+	calloutField: null,
+	imageField: "image",
+	overlineField: null,
+	primaryMetadataField: null,
+	secondaryMetadataField: null,
+} as const;
 
-it.effect("accepts a valid saved view definition", () =>
+const layouts = {
+	grid: cardLayout,
+	list: cardLayout,
+	table: {
+		queryDocument,
+		itemIdField: "id",
+		imageField: "image",
+		columns: [{ label: "Name", field: "name" }],
+	},
+} satisfies SavedViewLayouts;
+
+it.effect("accepts three independently valid layouts", () =>
 	Effect.gen(function* () {
-		expect(getSavedViewValidationError({ queryDocument, displayConfiguration })).toBeNull();
-		yield* validateSavedViewDefinition({ queryDocument, displayConfiguration });
+		expect(getSavedViewValidationError({ layouts })).toBeNull();
+		yield* validateSavedViewDefinition({ layouts });
 	}),
 );
 
-it.effect("rejects a non-text entity ID expression", () =>
+it.effect("prefixes validation failures with the layout name", () =>
 	Effect.gen(function* () {
-		const exit = yield* Effect.exit(
-			validateSavedViewDefinition({
-				queryDocument,
-				displayConfiguration: { ...displayConfiguration, entityIdField: "count" },
-			}),
-		);
-		expect(
-			getSavedViewValidationError({
-				queryDocument,
-				displayConfiguration: { ...displayConfiguration, entityIdField: "count" },
-			}),
-		).toBe("Saved view entityIdField must resolve to text");
+		const invalid = { ...layouts, list: { ...layouts.list, itemIdField: "count" } };
+		const exit = yield* Effect.exit(validateSavedViewDefinition({ layouts: invalid }));
 
+		expect(getSavedViewValidationError({ layouts: invalid })).toBe(
+			"List layout: itemIdField must resolve to text",
+		);
 		assertExitFails(
 			exit,
-			new BadRequest({ message: "Saved view entityIdField must resolve to text" }),
+			new BadRequest({ message: "List layout: itemIdField must resolve to text" }),
 		);
 	}),
 );
 
-it.effect("rejects non-text titles and non-JSON image expressions", () =>
-	Effect.sync(() => {
-		const invalidConfigurations = [
-			{
-				expected: "Saved view grid titleField must resolve to text",
-				value: {
-					...displayConfiguration,
-					grid: { ...displayConfiguration.grid, titleField: "count" },
-				},
-			},
-			{
-				expected: "Saved view list titleField must resolve to text",
-				value: {
-					...displayConfiguration,
-					list: { ...displayConfiguration.list, titleField: "count" },
-				},
-			},
-			{
-				expected: "Saved view grid imageField must resolve to JSON AssetLocator",
-				value: {
-					...displayConfiguration,
-					grid: { ...displayConfiguration.grid, imageField: "name" },
-				},
-			},
-			{
-				expected: "Saved view list imageField must resolve to JSON AssetLocator",
-				value: {
-					...displayConfiguration,
-					list: { ...displayConfiguration.list, imageField: "name" },
-				},
-			},
-			{
-				expected: "Saved view table imageField must resolve to JSON AssetLocator",
-				value: {
-					...displayConfiguration,
-					table: { ...displayConfiguration.table, imageField: "name" },
-				},
-			},
-			{
-				expected: "Saved view grid imageField must resolve to JSON AssetLocator",
-				value: {
-					...displayConfiguration,
-					grid: { ...displayConfiguration.grid, imageField: "imageUrl" },
-				},
-			},
-		] satisfies ReadonlyArray<{
-			readonly expected: string;
-			readonly value: SavedViewDisplayConfiguration;
-		}>;
+it("validates mappings against only their layout projection", () => {
+	const tableDocument = document({
+		savedView: rows(book, {
+			fields: [field("id", column(book, "id")), field("tableName", column(book, "name"))],
+		}),
+	});
+	const invalid = {
+		...layouts,
+		table: {
+			...layouts.table,
+			queryDocument: tableDocument,
+			columns: [{ label: "Name", field: "name" }],
+		},
+	} satisfies SavedViewLayouts;
 
-		for (const { expected, value } of invalidConfigurations) {
-			expect(getSavedViewValidationError({ queryDocument, displayConfiguration: value })).toBe(
-				expected,
-			);
-		}
-	}),
-);
+	expect(getSavedViewValidationError({ layouts: invalid })).toBe(
+		"Table layout: mapping field 'image' is not in its root projection",
+	);
+});
+
+it("enforces card title text, explicit JSON image casts, and nonempty table columns", () => {
+	const cases: ReadonlyArray<{ expected: string; layouts: SavedViewLayouts }> = [
+		{
+			expected: "Grid layout: titleField must resolve to text",
+			layouts: { ...layouts, grid: { ...layouts.grid, titleField: "count" } },
+		},
+		{
+			expected: "List layout: imageField must use an explicit JSON cast for AssetLocator",
+			layouts: { ...layouts, list: { ...layouts.list, imageField: "imageUrl" } },
+		},
+	];
+
+	for (const value of cases) {
+		expect(getSavedViewValidationError({ layouts: value.layouts })).toBe(value.expected);
+	}
+});
+
+it("enforces the document rules independently for every layout", () => {
+	const secondQuery = {
+		...queryDocument,
+		queries: { ...queryDocument.queries, second: queryDocument.queries.savedView },
+	};
+	const pageTwo = {
+		...queryDocument,
+		queries: {
+			savedView: {
+				...queryDocument.queries.savedView,
+				output: {
+					...queryDocument.queries.savedView.output,
+					pagination: { page: 2, limit: 20 },
+				},
+			},
+		},
+	} satisfies RyotQLDocument;
+
+	expect(
+		getSavedViewValidationError({
+			layouts: { ...layouts, grid: { ...layouts.grid, queryDocument: secondQuery } },
+		}),
+	).toBe("Grid layout: must contain exactly one named query");
+	expect(
+		getSavedViewValidationError({
+			layouts: { ...layouts, list: { ...layouts.list, queryDocument: pageTwo } },
+		}),
+	).toBe("List layout: query pagination page must be 1");
+});
