@@ -1,4 +1,4 @@
-import { Cause, Exit, Match, Option } from "effect";
+import { Cause, Exit, Option } from "effect";
 import type { Workflow } from "effect/unstable/workflow";
 
 export type WorkflowRunResult<Completed extends object> =
@@ -22,19 +22,18 @@ export const toWorkflowRunResult = <
 		return { status: "pending" };
 	}
 
-	return Match.value(result).pipe(
-		Match.tag("Suspended", () => ({ status: "pending" as const })),
-		Match.orElse(({ exit }) =>
-			Exit.match(exit, {
-				onFailure: (cause) => ({
-					status: "failed" as const,
-					error: Option.match(Cause.findErrorOption(cause), {
-						onSome: (error) => options.onFailure?.(error) ?? error.message,
-						onNone: () => `${options.failurePrefix ?? ""}${Cause.pretty(cause).slice(0, 500)}`,
-					}),
-				}),
-				onSuccess: (value) => ({ status: "completed" as const, ...options.onSuccess(value) }),
+	if (result._tag === "Suspended") {
+		return { status: "pending" };
+	}
+
+	return Exit.match(result.exit, {
+		onFailure: (cause) => ({
+			status: "failed" as const,
+			error: Option.match(Cause.findErrorOption(cause), {
+				onSome: (error) => options.onFailure?.(error) ?? error.message,
+				onNone: () => `${options.failurePrefix ?? ""}${Cause.pretty(cause).slice(0, 500)}`,
 			}),
-		),
-	) as WorkflowRunResult<Completed>;
+		}),
+		onSuccess: (value) => ({ status: "completed" as const, ...options.onSuccess(value) }),
+	});
 };
