@@ -1,4 +1,19 @@
 import { NotificationChannelId } from "@ryot/contract/schema/brands";
+import {
+	ascending,
+	column,
+	document,
+	eq,
+	exists,
+	field,
+	inArray,
+	include,
+	join,
+	literal,
+	rows,
+	table,
+} from "@ryot/ryotql";
+import { buildNotificationChannelsDocument } from "@ryot/ryotql-recipes/notification-channels";
 import { Effect } from "effect";
 
 import {
@@ -6,17 +21,20 @@ import {
 	createEntity,
 	createNotificationChannel,
 	deleteNotificationChannel,
+	executeRyotQL,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
 	listNotificationChannels,
 	pollSignal,
 	pollTerminalSubscriptionRuns,
 	pollUntil,
+	requireRows,
+	requireRyotQLFieldValue,
 	startFakeAppriseServer,
 	testNotificationChannels,
 	updateNotificationChannel,
 } from "~/fixtures";
-import { assertTaggedError, requirePresent } from "~/support/assertions";
+import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
 
@@ -112,6 +130,115 @@ describe("notification channel CRUD", () => {
 	);
 });
 
+describe("notification channel RyotQL authorization", () => {
+	it.live("hides another user's channels from roots, joins, includes, and correlated queries", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
+			const { id: ownerChannelId } = yield* createNotificationChannel(owner.client, {
+				channel: "push_safer",
+				channelSpecifics: { key: "owner-secret", kind: "push_safer" },
+			});
+			const { id: otherChannelId } = yield* createNotificationChannel(other.client, {
+				channel: "push_safer",
+				channelSpecifics: { key: "other-secret", kind: "push_safer" },
+			});
+
+			const joinRoot = table("notificationChannel", "joinRoot");
+			const directRoot = table("notificationChannel", "directRoot");
+			const includeRoot = table("notificationChannel", "includeRoot");
+			const joinedChannel = table("notificationChannel", "joinedChannel");
+			const correlatedRoot = table("notificationChannel", "correlatedRoot");
+			const includedChannel = table("notificationChannel", "includedChannel");
+			const correlatedChannel = table("notificationChannel", "correlatedChannel");
+			const result = yield* executeRyotQL(
+				owner.client,
+				document({
+					directRoot: rows(directRoot, {
+						limit: 100,
+						fields: [field("id", column(directRoot, "id"))],
+						where: inArray(column(directRoot, "id"), [
+							literal(ownerChannelId),
+							literal(otherChannelId),
+						]),
+					}),
+					craftedJoin: rows(joinRoot, {
+						limit: 100,
+						where: eq(column(joinRoot, "id"), literal(ownerChannelId)),
+						joins: [
+							join("left", joinedChannel, eq(column(joinedChannel, "id"), literal(otherChannelId))),
+						],
+						fields: [
+							field("id", column(joinRoot, "id")),
+							field("otherDescription", column(joinedChannel, "description")),
+						],
+					}),
+					craftedInclude: rows(includeRoot, {
+						limit: 100,
+						where: eq(column(includeRoot, "id"), literal(ownerChannelId)),
+						fields: [field("id", column(includeRoot, "id"))],
+						include: [
+							include(includedChannel, {
+								limit: 100,
+								key: "otherChannels",
+								orderBy: [ascending(column(includedChannel, "id"))],
+								fields: [field("id", column(includedChannel, "id"))],
+								where: eq(column(includedChannel, "id"), literal(otherChannelId)),
+							}),
+						],
+					}),
+					correlated: rows(correlatedRoot, {
+						limit: 100,
+						where: eq(column(correlatedRoot, "id"), literal(ownerChannelId)),
+						fields: [
+							field("id", column(correlatedRoot, "id")),
+							field(
+								"hasOtherChannel",
+								exists(correlatedChannel, {
+									where: eq(column(correlatedChannel, "id"), literal(otherChannelId)),
+								}),
+							),
+						],
+					}),
+				}),
+			);
+
+			const directRows = requireRows(result.data.directRoot, "directRoot");
+			expect(directRows.items.map((item) => requireRyotQLFieldValue(item, "id").value)).toEqual([
+				ownerChannelId,
+			]);
+
+			const joinedRow = requirePresent(
+				requireRows(result.data.craftedJoin, "craftedJoin").items[0],
+				"Expected crafted join row",
+			);
+			expect(requireRyotQLFieldValue(joinedRow, "otherDescription")).toEqual({
+				kind: "null",
+				value: null,
+			});
+
+			const includedRow = requirePresent(
+				requireRows(result.data.craftedInclude, "craftedInclude").items[0],
+				"Expected crafted include row",
+			);
+			const otherChannels = requireObjectRecord(
+				includedRow["otherChannels"],
+				"Expected other channels include",
+			);
+			expect(otherChannels["items"]).toEqual([]);
+
+			const correlatedRow = requirePresent(
+				requireRows(result.data.correlated, "correlated").items[0],
+				"Expected correlated row",
+			);
+			expect(requireRyotQLFieldValue(correlatedRow, "hasOtherChannel")).toEqual({
+				value: false,
+				kind: "boolean",
+			});
+		}),
+	);
+});
+
 describe("notification delivery", () => {
 	it.live("delivers to enabled channels in the background and skips disabled ones", () =>
 		Effect.gen(function* () {
@@ -183,7 +310,9 @@ describe("notification delivery", () => {
 			expect(config.notifications.smtpEnabled).toBe(false);
 
 			const error = yield* Effect.flip(
-				getBackendClient().call((c) => c.notifications.listChannels()),
+				getBackendClient().call((c) =>
+					c.ryotql.execute({ payload: buildNotificationChannelsDocument({ limit: 100, page: 1 }) }),
+				),
 			);
 			assertTaggedError(error, "Unauthorized");
 		}),

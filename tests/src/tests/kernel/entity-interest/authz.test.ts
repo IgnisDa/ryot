@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	findBuiltinSchemaBySlug,
+	getEntity,
 	openInterestStreamScoped,
 	postBackendJson,
 	seedMediaEntity,
@@ -39,9 +40,7 @@ describe("interest authorization", () => {
 				streamB.expectNoEntityUpdated(privateEntity.id, { windowMs: 4000 }),
 			);
 
-			const entity = yield* authA.client.call((contract) =>
-				contract.entities.get({ params: { entityId: privateEntity.id } }),
-			);
+			const entity = yield* getEntity(authA.client, privateEntity.id);
 			expect(entity.populatedAt).toBeNull();
 		}),
 	);

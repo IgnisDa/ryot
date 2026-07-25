@@ -1,31 +1,19 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
-import {
-	TranslationStatus,
-	type EntityDetail,
-	type ListedEntity,
-} from "@ryot/contract/modules/entities/schemas";
-import type { RowItem } from "@ryot/contract/modules/ryotql/language";
-import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import type { UserId } from "@ryot/contract/schema/brands";
-import { buildEntityDetailDocument } from "@ryot/ryotql-recipes/entities";
+import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
+import type {
+	EntityId,
+	EntitySchemaSlug,
+	SandboxProviderId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { generateId } from "better-auth";
-import { Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Context, DateTime, Effect, Layer } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { requireText, trimToNull } from "#lib/shared/validation";
-import {
-	getOptionalIsoStringField,
-	getOptionalStringField,
-	requireFieldValue,
-	requireIsoStringField,
-	requireRowsResult,
-	requireStringField,
-} from "#modules/ryotql/response-helpers";
-import { RyotQLService } from "#modules/ryotql/service";
+import { requireText } from "#lib/shared/validation";
 
 import { LifecycleDispatch } from "./lifecycle-dispatch";
 import type { EntityMutationSnapshot } from "./mutation-outcomes";
@@ -112,26 +100,9 @@ const toMutationSnapshot = (entity: ListedEntity): EntityMutationSnapshot => ({
 	entitySchemaSlug: entity.entitySchemaSlug,
 });
 
-const toListedEntity = Effect.fn("toListedEntityFromRyotQL")(function* (row: RowItem) {
-	const providerId = yield* getOptionalStringField(row, "providerId");
-
-	return {
-		name: yield* requireStringField(row, "name"),
-		createdAt: yield* requireIsoStringField(row, "createdAt"),
-		updatedAt: yield* requireIsoStringField(row, "updatedAt"),
-		id: EntityId.make(yield* requireStringField(row, "id")),
-		externalId: yield* getOptionalStringField(row, "externalId"),
-		properties: (yield* requireFieldValue(row, "properties")).value,
-		populatedAt: yield* getOptionalIsoStringField(row, "populatedAt"),
-		providerId: providerId ? SandboxProviderId.make(providerId) : null,
-		entitySchemaSlug: EntitySchemaSlug.make(yield* requireStringField(row, "entitySchemaSlug")),
-	};
-});
-
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const ryotql = yield* RyotQLService;
 		const repository = yield* EntitiesRepository;
 		const lifecycleDispatch = yield* LifecycleDispatch;
 
@@ -448,41 +419,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			);
 		});
 
-		const getById = Effect.fn("EntitiesService.getById")(function* (
-			user: CurrentUserValue,
-			entityIdInput: EntityId,
-		) {
-			const trimmedEntityId = trimToNull(entityIdInput);
-			if (!trimmedEntityId) {
-				return yield* badRequest("Entity id is required");
-			}
-
-			const entityId = EntityId.make(trimmedEntityId);
-			const scope = yield* runWithDb(
-				repository.getEntityScopeForUser({ userId: user.id, entityId }),
-			);
-			if (!scope) {
-				return yield* notFound(entityNotFoundError);
-			}
-
-			const response = yield* ryotql.execute(
-				user,
-				buildEntityDetailDocument({ entityId, entitySchemaSlug: scope.entitySchemaSlug }),
-			);
-			const rows = yield* requireRowsResult(response, "entity");
-			const row = rows.items[0];
-			if (!row) {
-				return yield* notFound(entityNotFoundError);
-			}
-
-			const entity = yield* toListedEntity(row);
-			const translationStatus = yield* Schema.decodeUnknownEffect(TranslationStatus)(
-				yield* requireStringField(row, "translationStatus"),
-			).pipe(Effect.orDie);
-
-			return { ...entity, translationStatus } satisfies EntityDetail;
-		});
-
 		const getByIdAnyScope = Effect.fn("EntitiesService.getByIdAnyScope")(function* (
 			entityId: EntityId,
 		) {
@@ -503,7 +439,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			create,
 			update,
 			upsert,
-			getById,
 			deleteByIds,
 			createGlobal,
 			getByIdAnyScope,

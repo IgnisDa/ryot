@@ -59,6 +59,7 @@ BEGIN
 		"id",
 		"user_id",
 		"platform",
+		"description",
 		"platform_specifics",
 		"is_disabled",
 		"created_at",
@@ -68,6 +69,17 @@ BEGIN
 		op.id,
 		op.user_id,
 		op.lot,
+		CASE op.lot
+			WHEN 'apprise' THEN 'Apprise configured'
+			WHEN 'discord' THEN 'Discord configured'
+			WHEN 'email' THEN 'Email configured'
+			WHEN 'gotify' THEN 'Gotify configured'
+			WHEN 'ntfy' THEN 'ntfy configured'
+			WHEN 'push_bullet' THEN 'PushBullet configured'
+			WHEN 'push_over' THEN 'PushOver configured'
+			WHEN 'push_safer' THEN 'PushSafer configured'
+			WHEN 'telegram' THEN 'Telegram configured'
+		END,
 		CASE op.lot
 			WHEN 'apprise' THEN jsonb_build_object(
 				'kind', 'apprise',
