@@ -8,10 +8,7 @@ import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, Schema } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import {
-	utf8ByteLength,
-	WORKFLOW_SANDBOX_LIMITS,
-} from "#lib/infrastructure/sandbox-runtime/limits";
+import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
 import { type BoundHostFunction, isJsonValue } from "#lib/infrastructure/sandbox-runtime/shared";
 
 const projectionTtlSeconds = 24 * 60 * 60;
@@ -89,16 +86,16 @@ export const projectWorkflowJournal = (
 		yield* projectWorkflowJournalWithRedis(redis, executionId, journal);
 	});
 
-export const makeWorkflowDurableCallsHostFunction =
+export const makeWorkflowReplayJournalHostFunction =
 	(workflowExecutionId: string | undefined, redis: WorkflowJournalBridgeRedis) =>
 	(args: Parameters<BoundHostFunction>[0]) =>
 		Effect.gen(function* () {
 			const decoded = decodeBootstrapArgs(args);
 			if (decoded._tag === "Failure") {
-				return hostFailure("durableCalls does not accept arguments");
+				return hostFailure("replayJournal does not accept arguments");
 			}
 			if (!workflowExecutionId) {
-				return hostFailure("durableCalls is available only to workflow executions");
+				return hostFailure("replayJournal is available only to workflow executions");
 			}
 			const key = redisKeys.sandboxWorkflowJournal(workflowExecutionId);
 			const rawHighWater = yield* Effect.promise(() => redis.client.hget(key, highWaterField));
@@ -106,7 +103,7 @@ export const makeWorkflowDurableCallsHostFunction =
 			if (
 				!Number.isSafeInteger(highWater) ||
 				highWater < 0 ||
-				highWater > WORKFLOW_SANDBOX_LIMITS.hostCalls.total
+				highWater > SANDBOX_LIMITS.hostCalls.total
 			) {
 				return hostFailure("Sandbox workflow journal high-water mark is corrupt");
 			}
@@ -121,7 +118,7 @@ export const makeWorkflowDurableCallsHostFunction =
 					return hostFailure(`Sandbox workflow journal[${index}] is missing`);
 				}
 				encodedBytes += utf8ByteLength(raw) + (index === 0 ? 0 : 1);
-				if (encodedBytes > WORKFLOW_SANDBOX_LIMITS.journalBytes) {
+				if (encodedBytes > SANDBOX_LIMITS.journalBytes) {
 					return hostFailure("Sandbox workflow journal projection exceeds its byte limit");
 				}
 

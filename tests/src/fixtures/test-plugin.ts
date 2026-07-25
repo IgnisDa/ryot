@@ -46,7 +46,6 @@ type TestPluginScriptBase = {
 export type TestPluginScript =
 	| (TestPluginScriptBase & { kind: "operation" })
 	| (TestPluginScriptBase & { kind: "automation" })
-	| (TestPluginScriptBase & { kind: "activity"; providerSlug?: string })
 	| (TestPluginScriptBase & { kind: "workflow" })
 	| (TestPluginScriptBase & { kind: "script"; providerSlug?: string })
 	| (TestPluginScriptBase & {

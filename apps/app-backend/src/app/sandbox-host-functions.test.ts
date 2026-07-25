@@ -281,7 +281,7 @@ describe("executeQueryEngine", () => {
 	it.effect("derives system scope from the persisted plugin script identity", () =>
 		Effect.gen(function* () {
 			const execution = yield* runExecuteQueryEngine(
-				{ ...runInput({ type: "system" }), metadata: { kind: "activity" } },
+				{ ...runInput({ type: "system" }), metadata: { kind: "script" } },
 				systemQueryCaller,
 			);
 
@@ -295,7 +295,7 @@ describe("executeQueryEngine", () => {
 	it.effect("rejects system access when persisted identity is not a pinned plugin script", () =>
 		Effect.gen(function* () {
 			const execution = yield* runExecuteQueryEngine(
-				{ ...runInput({ type: "system" }), metadata: { kind: "activity" } },
+				{ ...runInput({ type: "system" }), metadata: { kind: "script" } },
 				null,
 			);
 
@@ -333,11 +333,6 @@ describe("executeQueryEngine", () => {
 			authority: { type: "system" },
 			allowedHostFunctions: ["executeQueryEngine"],
 		});
-		const systemActivity = selectSandboxHostFunctions(bound, {
-			authority: { type: "system" },
-			metadata: { kind: "activity" },
-			allowedHostFunctions: ["executeQueryEngine"],
-		});
 		const user = selectSandboxHostFunctions(bound, {
 			metadata: { kind: "operation" },
 			allowedHostFunctions: ["executeQueryEngine"],
@@ -345,7 +340,6 @@ describe("executeQueryEngine", () => {
 		});
 
 		expect(systemScript).toEqual({ executeQueryEngine });
-		expect(systemActivity).toEqual({ executeQueryEngine });
 		expect(user).toEqual({ executeQueryEngine });
 	});
 });
@@ -387,9 +381,7 @@ const runChangeUserRelationships = (
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(IntegrationsRepository)({}),
 				repository,
-				Layer.succeed(DefinitionRegistry, {
-					...makeDefinitionRegistry(),
-				}),
+				Layer.succeed(DefinitionRegistry, { ...makeDefinitionRegistry() }),
 				Layer.mock(EntitiesRepository)({ getEntityScopeForUser }),
 			),
 		),

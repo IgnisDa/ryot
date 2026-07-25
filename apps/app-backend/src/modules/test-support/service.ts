@@ -210,10 +210,8 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 						.del(redisKeys.sandboxWorkflowJournal(executionId))
 						.pipe(Effect.map((deleted) => ({ deleted: deleted > 0 }))),
 				enqueueSandbox: (input: TestSupportEnqueueSandboxBody) => {
-					const { durable, executingUserId, ...payload } = input;
-					return durable
-						? sandbox.enqueueDurable(executingUserId, payload)
-						: sandbox.enqueue(executingUserId, payload);
+					const { executingUserId, ...payload } = input;
+					return sandbox.enqueue(executingUserId, payload);
 				},
 				getBuiltinEntitySchema: (slug: string) =>
 					Effect.succeed(definitions.getEntitySchema(slug)).pipe(

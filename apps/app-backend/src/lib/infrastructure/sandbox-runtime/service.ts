@@ -44,12 +44,10 @@ import {
 import { SandboxHostImplementations } from "./host-implementations";
 import {
 	sandboxContextError,
-	isWorkflowSandboxMetadata,
 	sandboxRunnerRequestError,
-	sandboxRunnerLimits,
 	sandboxScratchQuotaError,
 	SANDBOX_LIMITS,
-	WORKFLOW_SANDBOX_LIMITS,
+	SANDBOX_RUNNER_LIMITS,
 } from "./limits";
 import {
 	makeObservabilitySandboxApiFunctions,
@@ -65,7 +63,7 @@ import {
 	recordSandboxExecutionStarted,
 } from "./runtime";
 import { sandboxMetadataKind, type BoundHostFunction, type SandboxRunInput } from "./shared";
-import { makeWorkflowDurableCallsHostFunction } from "./workflow-journal";
+import { makeWorkflowReplayJournalHostFunction } from "./workflow-journal";
 
 const sessionTtlBufferMs = 2_000;
 const encoder = new TextEncoder();
@@ -103,13 +101,10 @@ export const selectSandboxHostFunctions = (
 	>,
 ) => {
 	const selectedApiFunctions: Record<string, BoundHostFunction> = {};
-	if (
-		(input.workflowExecutionId || isWorkflowSandboxMetadata(input.metadata)) &&
-		sandboxMetadataKind(input.metadata) !== "activity"
-	) {
-		const durableCalls = boundApiFunctions["durableCalls"];
-		if (durableCalls) {
-			selectedApiFunctions["durableCalls"] = durableCalls;
+	if (input.workflowExecutionId || sandboxMetadataKind(input.metadata) === "workflow") {
+		const replayJournal = boundApiFunctions["replayJournal"];
+		if (replayJournal) {
+			selectedApiFunctions["replayJournal"] = replayJournal;
 		}
 		for (const key of input.allowedHostFunctions) {
 			if (key !== "log" && key !== "span") {
@@ -125,7 +120,7 @@ export const selectSandboxHostFunctions = (
 	for (const key of input.allowedHostFunctions) {
 		// `artifact-read` and `scratch` are per-execution Deno permission grants honoured at spawn
 		// time, never bridge-callable syscalls, so they must never resolve to a bound host function.
-		if (key === "durableCalls" || isSandboxFilesystemGrantCapability(key)) {
+		if (key === "replayJournal" || isSandboxFilesystemGrantCapability(key)) {
 			continue;
 		}
 		const fn = boundApiFunctions[key];
@@ -199,8 +194,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 			Effect.scoped(
 				Effect.gen(function* () {
 					const context = input.context ?? {};
-					const workflow = input.workflowExecutionId !== undefined;
-					const contextError = sandboxContextError(context, input.metadata, workflow);
+					const contextError = sandboxContextError(context);
 					if (contextError) {
 						return yield* new SandboxRunError({ message: contextError });
 					}
@@ -212,7 +206,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 					};
 					const boundApiFunctions: Readonly<Record<string, BoundHostFunction>> = {
 						...bindSandboxHostFunctions(executionApiFunctions, input),
-						durableCalls: makeWorkflowDurableCallsHostFunction(input.workflowExecutionId, redis),
+						replayJournal: makeWorkflowReplayJournalHostFunction(input.workflowExecutionId, redis),
 					};
 					const selectedApiFunctions = selectSandboxHostFunctions(boundApiFunctions, input);
 					const artifactPath = sandboxArtifactGrant(
@@ -267,13 +261,13 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						context,
 						moduleUrl,
 						scriptId: input.scriptId,
+						limits: SANDBOX_RUNNER_LIMITS,
 						metadata: input.metadata ?? {},
 						executionId: input.executionId,
 						compiledFormat: input.compiledFormat,
 						apiBase: `http://127.0.0.1:${bridge.port}`,
 						apiFunctions: Object.keys(selectedApiFunctions),
 						startedAt: input.startedAt ?? "1970-01-01T00:00:00.000Z",
-						limits: sandboxRunnerLimits(input.metadata, workflow),
 						...(input.workflowExecutionId
 							? { workflowExecutionId: input.workflowExecutionId }
 							: {}),
@@ -311,19 +305,15 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 					}
 					yield* Queue.poll(worker.responseQueue).pipe(Effect.asVoid);
 
-					const timeoutMs = workflow
-						? Math.max(SANDBOX_LIMITS.execution.timeoutMs, WORKFLOW_SANDBOX_LIMITS.timeoutMs)
-						: SANDBOX_LIMITS.execution.timeoutMs;
+					const timeoutMs = SANDBOX_LIMITS.execution.timeoutMs;
 					const now = yield* Clock.currentTimeMillis;
 					const parentSpan = yield* Effect.currentSpan;
 					yield* bridge.addSession(input.executionId, {
 						token,
 						parentSpan,
 						apiFunctions: selectedApiFunctions,
+						hostCallLimit: SANDBOX_LIMITS.hostCalls.total,
 						expiresAt: now + timeoutMs + sessionTtlBufferMs,
-						hostCallLimit: workflow
-							? WORKFLOW_SANDBOX_LIMITS.hostCalls.total
-							: SANDBOX_LIMITS.hostCalls.total,
 					});
 					yield* Effect.addFinalizer(() =>
 						bridge.removeSession(input.executionId).pipe(Effect.orDie),

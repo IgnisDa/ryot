@@ -175,16 +175,6 @@ const manifest = definePlugin({
 			requiredSystemConfigKeys: [],
 			entry: "scripts/workflow.sandbox.ts",
 		},
-		{
-			kind: "activity",
-			name: "Test activity",
-			slug: "activity.test",
-			providerSlug: "provider.test",
-			capabilities: ["httpCall"],
-			requiredPluginConfigKeys: [],
-			requiredSystemConfigKeys: [],
-			entry: "scripts/activity.sandbox.ts",
-		},
 	],
 });
 
@@ -402,22 +392,6 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
 				workflows: [...manifest.workflows, { ...workflow }],
-			}),
-		).toThrow();
-	});
-
-	it("accepts capable activities without treating them as workflows", () => {
-		const activity = Schema.decodeUnknownSync(PluginManifest)(manifest).scripts[6];
-		assert(activity);
-		expect(activity).toMatchObject({
-			kind: "activity",
-			capabilities: ["httpCall"],
-			providerSlug: "provider.test",
-		});
-		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				workflows: [{ slug: "invalid", scriptSlug: activity.slug }],
 			}),
 		).toThrow();
 	});
