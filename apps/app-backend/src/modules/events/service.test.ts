@@ -1,6 +1,7 @@
 import { assert, expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -16,7 +17,7 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { QueryEngineService } from "#modules/query-engine/service";
+import { RyotQLService } from "#modules/ryotql/service";
 
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
@@ -43,7 +44,7 @@ const eventSchemaScope = {
 	slug: "finished",
 	name: "Finished",
 	id: EventSchemaSlug.make("event-schema-1"),
-	entitySchemaSlug: EntitySchemaSlug.make("entity-schema-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("book"),
 	propertiesSchema: {
 		fields: {
 			rating: {
@@ -74,25 +75,21 @@ const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsReposito
 		...overrides,
 	});
 
-const mockQueryEngine = Layer.mock(QueryEngineService);
+const mockRyotQL = Layer.mock(RyotQLService);
 
-const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) =>
-	mockQueryEngine({
-		validate: () => Effect.void.pipe(Effect.as(undefined)),
-		...overrides,
-	});
+const makeRyotQL = (overrides: MockOverrides<typeof mockRyotQL> = {}) => mockRyotQL(overrides);
 
 const makeServiceLayer = (input: {
-	queryEngine?: ReturnType<typeof makeQueryEngine>;
-	eventsRepository?: ReturnType<typeof makeEventsRepository>;
+	ryotql?: ReturnType<typeof makeRyotQL>;
 	workflowEngine?: WorkflowEngine["Service"];
+	eventsRepository?: ReturnType<typeof makeEventsRepository>;
 	entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
 	eventSchemasRepository?: ReturnType<typeof makeEventSchemasRepository>;
 }) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
 		Layer.succeed(WorkflowEngine, input.workflowEngine ?? makeWorkflowEngine()),
-		input.queryEngine ?? makeQueryEngine(),
+		input.ryotql ?? makeRyotQL(),
 		input.entitiesRepository ?? makeEntitiesRepository(),
 		input.eventSchemasRepository ?? makeEventSchemasRepository(),
 		input.eventsRepository ?? makeEventsRepository(),
@@ -164,33 +161,35 @@ it.effect("lists events for an accessible entity", () => {
 	];
 
 	const layer = makeEventsServiceLayer({
-		queryEngine: makeQueryEngine({
-			execute: () =>
-				Effect.succeed({
-					type: "rows" as const,
-					data: {
-						pageInfo: { page: 1, limit: 100, total: 1, hasMore: false },
-						items: [
-							{
-								id: { kind: "text" as const, value: "event-1" },
-								createdAt: { kind: "date" as const, value: now },
-								updatedAt: { kind: "date" as const, value: now },
-								occurredAt: { kind: "date" as const, value: now },
-								entityId: { kind: "text" as const, value: "entity-1" },
-								sessionEntityId: { kind: "null" as const, value: null },
-								properties: { kind: "json" as const, value: { rating: 5 } },
-								eventSchemaName: { kind: "text" as const, value: "Finished" },
-								eventSchemaSlug: { kind: "text" as const, value: "finished" },
-							},
-						],
-					},
-				}),
-		}),
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () => Effect.succeed(entityScope),
 		}),
 		eventSchemasRepository: makeEventSchemasRepository({
 			listByEntitySchemaForUser: () => Effect.succeed([eventSchemaScope]),
+		}),
+		ryotql: makeRyotQL({
+			execute: () =>
+				Effect.succeed({
+					data: {
+						events: {
+							type: "rows" as const,
+							pageInfo: { page: 1, limit: 100, total: 1, hasMore: false },
+							items: [
+								{
+									id: { kind: "text" as const, value: "event-1" },
+									createdAt: { kind: "date" as const, value: now },
+									updatedAt: { kind: "date" as const, value: now },
+									occurredAt: { kind: "date" as const, value: now },
+									entityId: { kind: "text" as const, value: "entity-1" },
+									sessionEntityId: { kind: "null" as const, value: null },
+									entitySchemaSlug: { kind: "text" as const, value: "book" },
+									properties: { kind: "json" as const, value: { rating: 5 } },
+									eventSchemaSlug: { kind: "text" as const, value: "finished" },
+								},
+							],
+						},
+					},
+				}),
 		}),
 	});
 
@@ -199,6 +198,82 @@ it.effect("lists events for an accessible entity", () => {
 		const result = yield* service.listForUser(user.id, { entityId: EntityId.make("entity-1") });
 
 		expect(result).toEqual(events);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("lists all RyotQL pages for a session scope", () => {
+	const pages: number[] = [];
+	const documents: RyotQLDocument[] = [];
+	const row = (id: string, occurredAt: string) => ({
+		id: { kind: "text" as const, value: id },
+		createdAt: { kind: "date" as const, value: now },
+		updatedAt: { kind: "date" as const, value: now },
+		entityId: { kind: "text" as const, value: "entity-1" },
+		occurredAt: { kind: "date" as const, value: occurredAt },
+		entitySchemaSlug: { kind: "text" as const, value: "book" },
+		properties: { kind: "json" as const, value: { rating: 5 } },
+		eventSchemaSlug: { kind: "text" as const, value: "finished" },
+		sessionEntityId: { kind: "text" as const, value: "session-entity-1" },
+	});
+	const layer = makeEventsServiceLayer({
+		entitiesRepository: makeEntitiesRepository({
+			getEntityScopeForUser: () => Effect.succeed(entityScope),
+		}),
+		eventSchemasRepository: makeEventSchemasRepository({
+			getScopeForUser: () => Effect.succeed(eventSchemaScope),
+		}),
+		eventsRepository: makeEventsRepository({
+			listQueryScopesForUser: () =>
+				Effect.succeed([{ eventSchemaSlug: "finished", entitySchemaSlug: "book" }]),
+		}),
+		ryotql: makeRyotQL({
+			execute: (_user, document) =>
+				Effect.sync(() => {
+					const query = document.queries["events"];
+					if (!query) {
+						throw new Error("Expected events query");
+					}
+					const page = query.output.pagination.page;
+					pages.push(page);
+					documents.push(document);
+					return {
+						data: {
+							events: {
+								type: "rows" as const,
+								pageInfo: { page, limit: 100, total: 2, hasMore: page === 1 },
+								items: [
+									page === 1
+										? row("event-1", "2026-06-15T00:00:00.000Z")
+										: row("event-2", "2026-06-14T00:00:00.000Z"),
+								],
+							},
+						},
+					};
+				}),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* EventsService;
+		const result = yield* service.listForUser(user.id, {
+			sessionEntityId: EntityId.make("session-entity-1"),
+		});
+
+		expect(pages).toEqual([1, 2]);
+		expect(result.map((event) => event.id)).toEqual(["event-1", "event-2"]);
+		expect(result.map((event) => event.eventSchemaName)).toEqual(["Finished", "Finished"]);
+		expect(documents[0]?.queries["events"]?.where).toEqual(
+			expect.objectContaining({
+				type: "and",
+				predicates: expect.arrayContaining([
+					expect.objectContaining({
+						type: "comparison",
+						left: expect.objectContaining({ field: "sessionEntityId" }),
+						right: expect.objectContaining({ value: "session-entity-1" }),
+					}),
+				]),
+			}),
+		);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -225,9 +300,9 @@ it.effect("routes per-event deletes and reference moves through the repository",
 
 		const updated = yield* service.update({
 			eventId,
+			userId: user.id,
 			mergeFrom: EntityId.make("from"),
 			mergeInto: EntityId.make("into"),
-			userId: user.id,
 		});
 		const deleted = yield* service.delete({ eventId, userId: user.id });
 
@@ -256,13 +331,13 @@ it.effect("awaits API event creation and returns the workflow outcomes", () => {
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
 		const result = yield* service.create({
-			userId: user.id,
 			source: "api",
+			userId: user.id,
 			payload: [
 				{
 					properties: { rating: 5 },
-					entityId: EntityId.make("entity-1"),
 					occurredAt: "2026-01-01T00:00:00.000Z",
+					entityId: EntityId.make("entity-1"),
 					eventSchemaSlug: EventSchemaSlug.make("event-schema-1"),
 				},
 			],
@@ -280,8 +355,8 @@ it.effect("awaits API event creation and returns the workflow outcomes", () => {
 				payload: [
 					{
 						properties: { rating: 5 },
-						entityId: EntityId.make("entity-1"),
 						occurredAt: "2026-01-01T00:00:00.000Z",
+						entityId: EntityId.make("entity-1"),
 						eventSchemaSlug: EventSchemaSlug.make("event-schema-1"),
 					},
 				],
