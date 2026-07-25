@@ -52,8 +52,7 @@ describe("sandbox capability authorization", () => {
 					}),
 				adminHeaders,
 			);
-
-			assert(result.status === "executed", "Expected denied capability cron to execute");
+			assert(result.status === "failed", "Expected denied capability cron to fail");
 			expect(result.result).toMatchObject({
 				status: "completed",
 				error: { phase: "execute", message: expect.stringContaining("getUserPreferences") },
