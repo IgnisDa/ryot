@@ -1,19 +1,12 @@
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
-import {
-	showActivityRecipe,
-	showOverviewRecipe,
-	showPresentationRecipe,
-	showSeasonEpisodesRecipe,
-	showSeasonsRecipe,
-	showSummaryRecipe,
-} from "./show-recipes";
+import { showRecipes, showSeasonEpisodesRecipe, showSeasonsRecipe } from "./show-recipes";
 
 const showRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
 
-const ACTIVITY_RECIPE = showActivityRecipe({
+const ACTIVITY_RECIPE = showRecipes.activityRecipe({
 	timeZone: "UTC",
 	coverageLimit: 50,
 	watchDayLimit: 500,
@@ -117,7 +110,7 @@ const decodeActivity = (
 		},
 	});
 
-const OVERVIEW_RECIPE = showOverviewRecipe({
+const OVERVIEW_RECIPE = showRecipes.overviewRecipe({
 	peopleLimit: 12,
 	companyLimit: 6,
 	entityId: "show-1",
@@ -172,7 +165,7 @@ const SHOW_SUMMARY_ROW = {
 };
 describe("media show query recipes", () => {
 	it("builds one presentation query for all requested show IDs", () => {
-		const recipe = showPresentationRecipe(["show-2", "show-1", "show-2"]);
+		const recipe = showRecipes.presentationRecipe(["show-2", "show-1", "show-2"]);
 		const shows = recipe.document.queries["rows"];
 		if (shows?.output.type !== "rows" || shows.where?.type !== "and") {
 			throw new Error("Expected filtered presentation rows query");
@@ -203,7 +196,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes stored show presentation progress and rejects malformed artwork", () => {
-		const recipe = showPresentationRecipe(["show-1"]);
+		const recipe = showRecipes.presentationRecipe(["show-1"]);
 		const row = {
 			id: "show-1",
 			storedSeasons: 2,
@@ -326,7 +319,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("selects the show summary alongside the requested entity schema", () => {
-		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
 		const summary = recipe.document.queries["summary"];
 		const requested = recipe.document.queries["requested"];
 		if (summary?.output.type !== "rows" || requested?.output.type !== "rows") {
@@ -366,7 +359,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes a show summary with collections and asset locators", () => {
-		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
 
 		expect(
 			recipe.decode({
@@ -398,7 +391,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes a missing show as an absent summary and absent schema", () => {
-		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "missing" });
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "missing" });
 
 		expect(
 			recipe.decode({ data: { summary: showRows([]), requested: showRows([]) } }),
@@ -406,7 +399,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes a non-show entity as an absent summary with its schema slug", () => {
-		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "book-1" });
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "book-1" });
 
 		expect(
 			recipe.decode({
@@ -416,7 +409,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes omitted optional show properties as null", () => {
-		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
 
 		expect(
 			recipe.decode({
@@ -454,7 +447,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes each country's watch providers, offer kinds and link", () => {
-		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
 
 		expect(
 			recipe.decode({
@@ -487,7 +480,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("rejects a watch provider offer kind outside the media contract", () => {
-		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
 
 		expect(
 			recipe.decode({
@@ -511,7 +504,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("rejects a show summary whose lifecycle state is not a media state", () => {
-		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
 
 		expect(
 			recipe.decode({
@@ -524,7 +517,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("rejects a show summary whose image locators are malformed", () => {
-		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
 
 		expect(
 			recipe.decode({
@@ -537,7 +530,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("rejects a show summary whose image purpose is outside the media contract", () => {
-		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
 
 		expect(
 			recipe.decode({
@@ -555,7 +548,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("decodes images without a recorded purpose", () => {
-		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
 
 		expect(
 			recipe.decode({
@@ -570,7 +563,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("reads show credits from the relationship side that points at the show", () => {
-		const recipe = showOverviewRecipe({
+		const recipe = showRecipes.overviewRecipe({
 			peopleLimit: 12,
 			companyLimit: 6,
 			entityId: "show-1",
@@ -637,7 +630,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("orders credits by relationship order before a stable name tiebreaker", () => {
-		const recipe = showOverviewRecipe({
+		const recipe = showRecipes.overviewRecipe({
 			peopleLimit: 12,
 			companyLimit: 6,
 			entityId: "show-1",
@@ -658,7 +651,7 @@ describe("media show query recipes", () => {
 	});
 
 	it("reads recommendations from the outgoing suggestion side of the show", () => {
-		const recipe = showOverviewRecipe({
+		const recipe = showRecipes.overviewRecipe({
 			peopleLimit: 12,
 			companyLimit: 6,
 			entityId: "show-1",

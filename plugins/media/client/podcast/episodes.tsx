@@ -1,11 +1,10 @@
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
+import type { Recipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
 
-import {
-	podcastEpisodesRecipe,
-	type PodcastEpisodesResult,
-	type PodcastSummaryResult,
-} from "../../shared/podcast-recipes";
+import type { MediaSummaryOf } from "../../shared/media-recipes";
+import type { podcastRecipes } from "../../shared/podcast-recipes";
+import { podcastEpisodesRecipe } from "../../shared/podcast-recipes";
 import {
 	MediaEpisodePages,
 	type MediaEpisodePageInput,
@@ -21,9 +20,9 @@ import { mediaCountLabel } from "../media/summary-state";
 
 export const PODCAST_EPISODE_PAGE_LIMIT = 40;
 
-type PodcastSummary = NonNullable<PodcastSummaryResult["summary"]>;
+type PodcastSummary = MediaSummaryOf<typeof podcastRecipes>;
 
-export type PodcastEpisode = PodcastEpisodesResult["items"][number];
+export type PodcastEpisode = Recipe.Success<typeof podcastEpisodesRecipe>["items"][number];
 
 export const podcastEpisodeOriginLabel = (episode: { readonly episodeNumber: number }) =>
 	`Ep ${episode.episodeNumber}`;

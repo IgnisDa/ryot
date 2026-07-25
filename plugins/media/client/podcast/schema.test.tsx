@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { podcastPresentationRecipe } from "../../shared/podcast-recipes";
+import { podcastRecipes } from "../../shared/podcast-recipes";
 import {
 	decodePodcastActivity,
 	decodePodcastOverview,
@@ -37,15 +37,17 @@ const presentationRow = {
 };
 
 const presentationData = (overrides: Record<string, unknown> = {}) => {
-	const decoded = podcastPresentationRecipe(["podcast-1"]).decode({
-		data: {
-			rows: rowsResult([{ ...presentationRow, ...overrides }], {
-				limit: 100,
-				hasMore: false,
-				nextCursor: null,
-			}),
-		},
-	});
+	const decoded = podcastRecipes
+		.presentationRecipe(["podcast-1"])
+		.decode({
+			data: {
+				rows: rowsResult([{ ...presentationRow, ...overrides }], {
+					limit: 100,
+					hasMore: false,
+					nextCursor: null,
+				}),
+			},
+		});
 	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
 		throw new Error("Expected decoded presentation data");
 	}

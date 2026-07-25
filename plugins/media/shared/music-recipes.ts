@@ -1,20 +1,12 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import {
-	and,
-	coalesce,
-	divide,
-	isNull,
-	literal,
-	selectedField,
-	type Recipe,
-} from "@ryot-app/plugin-kit/ryotql";
+import { and, coalesce, divide, isNull, literal, selectedField } from "@ryot-app/plugin-kit/ryotql";
 
 import { propertyBoolean, propertyNumber } from "./entity-selections";
 import { mediaFlatRecipes } from "./media-recipes";
 
 const SECONDS_PER_MINUTE = 60;
 
-const musicRecipes = mediaFlatRecipes({
+export const musicRecipes = mediaFlatRecipes({
 	slug: "music",
 	alias: "music",
 	groupSlug: "music-group",
@@ -39,16 +31,3 @@ const musicRecipes = mediaFlatRecipes({
 		),
 	}),
 });
-
-export const {
-	summaryRecipe: musicSummaryRecipe,
-	overviewRecipe: musicOverviewRecipe,
-	activityRecipe: musicActivityRecipe,
-	presentationRecipe: musicPresentationRecipe,
-} = musicRecipes;
-
-export type MusicActivityEvent = MusicActivityResult["events"][number];
-export type MusicSummaryResult = Recipe.Success<typeof musicSummaryRecipe>;
-export type MusicActivityResult = Recipe.Success<typeof musicActivityRecipe>;
-export type MusicOverviewResult = Recipe.Success<typeof musicOverviewRecipe>;
-export type MusicPresentationData = Recipe.Success<typeof musicPresentationRecipe>[number];

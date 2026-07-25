@@ -1,12 +1,7 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-	mangaActivityRecipe,
-	mangaOverviewRecipe,
-	mangaPresentationRecipe,
-	mangaSummaryRecipe,
-} from "../../shared/manga-recipes";
+import { mangaRecipes } from "../../shared/manga-recipes";
 import {
 	decodeFlatOverview,
 	FLAT_OVERVIEW_INPUT,
@@ -46,7 +41,7 @@ const PROGRESS_EVENT = {
 };
 
 const mangaSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(mangaSummaryRecipe(FLAT_SUMMARY_INPUT), {
+	decodeFlatSummary(mangaRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
 		volumes: 12,
 		chapters: 120,
 		...overrides,
@@ -54,44 +49,48 @@ const mangaSummary = (overrides: Record<string, unknown> = {}) =>
 
 const mangaActivity = (events: readonly Record<string, unknown>[] = [PROGRESS_EVENT]) =>
 	Result.getOrThrow(
-		mangaActivityRecipe({ eventLimit: 60, entityId: "manga-1", collectionEventLimit: 60 }).decode({
-			data: {
-				events: rowsResult(events, { limit: 60, hasMore: false, nextCursor: null }),
-				collectionEvents: rowsResult([], { limit: 60, hasMore: false, nextCursor: null }),
-				totals: rowsResult([{ completionCount: 1, consumedAmount: 120, unknownAmountCount: 0 }], {
-					limit: 1,
-					hasMore: false,
-					nextCursor: null,
-				}),
-			},
-		}),
+		mangaRecipes
+			.activityRecipe({ eventLimit: 60, entityId: "manga-1", collectionEventLimit: 60 })
+			.decode({
+				data: {
+					events: rowsResult(events, { limit: 60, hasMore: false, nextCursor: null }),
+					collectionEvents: rowsResult([], { limit: 60, hasMore: false, nextCursor: null }),
+					totals: rowsResult([{ completionCount: 1, consumedAmount: 120, unknownAmountCount: 0 }], {
+						limit: 1,
+						hasMore: false,
+						nextCursor: null,
+					}),
+				},
+			}),
 	);
 
 const presentationData = (overrides: Record<string, unknown> = {}) => {
-	const decoded = mangaPresentationRecipe(["manga-1"]).decode({
-		data: {
-			rows: rowsResult(
-				[
-					{
-						images: null,
-						chapters: 120,
-						id: "manga-1",
-						publishDate: null,
-						publishYear: 1997,
-						name: "One Piece",
-						schemaSlug: "manga",
-						progressPercent: 62,
-						state: "in_progress",
-						productionStatus: null,
-						populationStatus: "ready",
-						translationStatus: "none",
-						...overrides,
-					},
-				],
-				{ limit: 100, hasMore: false, nextCursor: null },
-			),
-		},
-	});
+	const decoded = mangaRecipes
+		.presentationRecipe(["manga-1"])
+		.decode({
+			data: {
+				rows: rowsResult(
+					[
+						{
+							images: null,
+							chapters: 120,
+							id: "manga-1",
+							publishDate: null,
+							publishYear: 1997,
+							name: "One Piece",
+							schemaSlug: "manga",
+							progressPercent: 62,
+							state: "in_progress",
+							productionStatus: null,
+							populationStatus: "ready",
+							translationStatus: "none",
+							...overrides,
+						},
+					],
+					{ limit: 100, hasMore: false, nextCursor: null },
+				),
+			},
+		});
 	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
 		throw new Error("Expected decoded presentation data");
 	}
@@ -110,7 +109,7 @@ const renderBody = () =>
 			refreshOverview={() => undefined}
 			state={{ status: "ready", summary: mangaSummary() }}
 			overview={mapMediaOverview(
-				readyQueryResult(decodeFlatOverview(mangaOverviewRecipe(FLAT_OVERVIEW_INPUT))),
+				readyQueryResult(decodeFlatOverview(mangaRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT))),
 			)}
 		/>,
 	);
