@@ -95,7 +95,7 @@ describe("Plugin Import Public Boundary", () => {
 		}),
 	);
 
-	it.live("resolves opaque harvest handles at kernel chunk consumption", () =>
+	it.live("resolves workflow-lifetime opaque harvest handles", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			yield* Effect.acquireRelease(installTestHarvestHandleImportPlugin, (installed) =>
@@ -107,13 +107,13 @@ describe("Plugin Import Public Boundary", () => {
 			);
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
 
+			expect(completed.errorSummary).toBe("harvest handle fixture failure");
 			expect(completed).toMatchObject({
 				failedItems: 1,
 				status: "failed",
 				processedItems: 1,
 				source: FIXTURE_HANDLE_IMPORT_SOURCE,
 			});
-			expect(completed.errorSummary).toBe("harvest handle fixture failure");
 		}),
 	);
 

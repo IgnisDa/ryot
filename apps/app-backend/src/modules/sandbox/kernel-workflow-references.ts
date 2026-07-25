@@ -20,6 +20,7 @@ export class KernelWorkflowReferences extends Context.Service<
 			executionId: string,
 			parentExecutionId: string,
 			callerScriptId: SandboxScriptId,
+			artifactOwnerExecutionId?: string,
 		) => Effect.Effect<JsonValue, SandboxRunError, WorkflowEngine>;
 	}
 >()("KernelWorkflowReferences") {}
