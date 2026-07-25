@@ -88,6 +88,23 @@ it("declares the complete media-owned source", () => {
 	]);
 	expect(mediaPlugin.configSchema.fields.tmdbAccessToken?.secret).toBe(true);
 	expect(mediaPlugin.configSchema.fields.progressUpdateThresholdHours?.defaultValue).toBe(2);
+	expect(mediaPlugin.httpRateLimits).toEqual([
+		{
+			requests: 90,
+			key: "anilist",
+			intervalMs: 60_000,
+			origins: ["https://graphql.anilist.co"],
+		},
+		{
+			requests: 1,
+			intervalMs: 1_000,
+			key: "musicbrainz",
+			origins: ["https://musicbrainz.org"],
+		},
+	]);
+	expect(mediaPlugin.httpRateLimits.flatMap(({ origins }) => origins)).not.toContain(
+		"https://coverartarchive.org",
+	);
 	expect(mediaPlugin.providers).toHaveLength(51);
 	expect(mediaPlugin.scripts).toHaveLength(179);
 	expect(mediaPlugin.integrationProviders).toHaveLength(13);

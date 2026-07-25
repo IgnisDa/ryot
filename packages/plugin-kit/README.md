@@ -20,6 +20,7 @@ Sandbox slugs use lowercase letters and numbers separated by `.`, `_`, or `-`; `
 | `userBootstrap`        | Per-user bootstrap dispatches for trusted boot-configured plugins.                                                             |
 | `crons`                | Scheduled sandbox script dispatches.                                                                                           |
 | `importSources`        | Payload, single-file, or named-file import inputs mapped to workflows.                                                         |
+| `httpRateLimits`       | Deployment-global static request limits keyed by normalized external HTTP(S) origins.                                          |
 | `integrationProviders` | `push`, `sink`, or `yank` integration definitions and settings schemas. `sink` and `yank` map to scripts; `push` does not.     |
 | `entitySchemas`        | Entity definitions, nested event schemas, optional user-state restrictions, and optional merge identity properties.            |
 | `relationshipSchemas`  | Typed source/target relationship definitions. A null endpoint is unconstrained.                                                |
@@ -31,6 +32,39 @@ Script, provider, workflow, user-bootstrap, import-source, and integration-provi
 in the scopes enforced by `PluginManifest`. Every referenced script, workflow, provider, and config
 key must exist. Active plugins additionally share global script, provider, import-source, and
 integration-provider slug namespaces. Entity and relationship schema evolution is additive.
+
+## HTTP Rate Limits
+
+Every manifest includes `httpRateLimits`, using `[]` when it declares no constrained origin. Each
+entry has this strict shape; extra fields are rejected:
+
+```ts
+httpRateLimits: [
+	{
+		requests: 90,
+		intervalMs: 60_000,
+		key: "anilist",
+		origins: ["https://graphql.anilist.co"],
+	},
+];
+```
+
+`key` is a non-empty lowercase sandbox slug. `requests` and `intervalMs` are positive safe integers.
+`origins` must be non-empty and contain only HTTP(S) URL origins: no path, query, fragment,
+credentials, or wildcard hostname. Origins are normalized by the URL parser. Keys and normalized
+origins must each be unique within one manifest.
+
+Declarations are deployment-global, not scoped to a plugin script, provider row, user, credential,
+or operation. At installation and reingestion, the complete active manifest set is validated:
+identical canonical declarations from multiple plugins coexist, while declarations that share a key
+or origin but differ in any field reject the prospective snapshot. A committed live manifest update
+affects subsequent reservations, including calls from already-running workflows. Matching is by the
+normalized origin of each `httpCall` URL; scripts neither select nor name policies at call sites.
+
+The policy is an evenly spaced global schedule with no configurable burst, fairness, priority, or
+reserved capacity guarantee. Unmatched origins remain unrestricted by this limiter. For matched
+traffic only, a generic HTTP `429` uses `Retry-After` when valid, otherwise the declaration interval,
+then durably retries. Other failures are returned without an automatic retry.
 
 ## Script Kinds And Entrypoints
 

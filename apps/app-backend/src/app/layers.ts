@@ -7,6 +7,7 @@ import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/infrastruct
 import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/infrastructure/db/service";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
+import { ProviderHttpAdmissionService } from "#lib/infrastructure/provider-http-admission";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
@@ -75,6 +76,7 @@ import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notificati
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { FirstPartyPluginBootstrap } from "#modules/plugins/boot";
+import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
@@ -468,7 +470,14 @@ const MigrationBootstrapServicesLive = Layer.provide(
 
 export const RuntimeDependenciesLive = Layer.provideMerge(
 	Layer.mergeAll(
-		Layer.provide(SandboxDurableHostDispatcherLive, SandboxHostImplementationsLive),
+		Layer.provide(
+			SandboxDurableHostDispatcherLive,
+			Layer.mergeAll(
+				SandboxHostImplementationsLive,
+				PluginHttpRateLimitAuthority.layer,
+				ProviderHttpAdmissionService.layer,
+			),
+		),
 		Layer.provide(SandboxDurableHostServiceWorkflowLive, SandboxHostImplementationsLive),
 		Layer.provideMerge(
 			Layer.mergeAll(
