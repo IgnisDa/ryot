@@ -1,8 +1,8 @@
 ## Tasks
 
-**Overall Progress:** 5 of 15 tasks completed
+**Overall Progress:** 6 of 15 tasks completed
 
-**Current Task:** [Task 06](./06-correlated-query-expressions.md) (todo)
+**Current Task:** [Task 07](./07-aggregate-outputs.md) (todo)
 
 ### Task List
 
@@ -13,7 +13,7 @@
 | 03  | [Localized Entity Reads](./03-localized-entity-reads.md)                   | completed |
 | 04  | [Event History Migration](./04-event-history-migration.md)                 | completed |
 | 05  | [Relationship Rows And Includes](./05-relationship-rows-and-includes.md)   | completed |
-| 06  | [Correlated Query Expressions](./06-correlated-query-expressions.md)       | todo      |
+| 06  | [Correlated Query Expressions](./06-correlated-query-expressions.md)       | completed |
 | 07  | [Aggregate Outputs](./07-aggregate-outputs.md)                             | todo      |
 | 08  | [Time-Series Outputs](./08-time-series-outputs.md)                         | todo      |
 | 09  | [Focused Navigation Queries](./09-focused-navigation-queries.md)           | todo      |

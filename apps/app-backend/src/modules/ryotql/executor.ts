@@ -1,4 +1,5 @@
 import type {
+	CorrelatedQuerySet,
 	FieldValue,
 	Include,
 	IncludeResult,
@@ -22,9 +23,10 @@ import {
 
 type SqlFragment = ReturnType<typeof sql>;
 type CompileScope = ReadonlyMap<string, CompileTable>;
-type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | Include;
+type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | CorrelatedQuerySet | Include;
 type CompileTable = {
 	readonly alias: string;
+	readonly userId: string;
 	readonly table: CatalogTable;
 	readonly language: string | null;
 };
@@ -47,6 +49,27 @@ const requireCompileTable = (scope: CompileScope, alias: string) => {
 	return table;
 };
 
+const scopeLanguage = (scope: CompileScope) => scope.values().next().value?.language ?? null;
+const scopeUserId = (scope: CompileScope) => scope.values().next().value?.userId ?? "";
+
+const expressionScope = (query: CorrelatedQuerySet, ancestors: CompileScope) => {
+	const language = scopeLanguage(ancestors);
+	const userId = scopeUserId(ancestors);
+	const scope = new Map(ancestors);
+	for (const [index, reference] of [
+		query.from,
+		...(query.joins ?? []).map((join) => join.table),
+	].entries()) {
+		scope.set(reference.alias, {
+			userId,
+			language,
+			alias: `kind${ancestors.size}_t${index}`,
+			table: requireTable(reference.table),
+		});
+	}
+	return scope;
+};
+
 const expressionKind = (expr: ScalarExpression, scope: CompileScope): CatalogFieldKind | "null" => {
 	if (expr.type === "literal") {
 		if (expr.value === null) {
@@ -66,6 +89,15 @@ const expressionKind = (expr: ScalarExpression, scope: CompileScope): CatalogFie
 	if (expr.type === "cast") {
 		return expr.target;
 	}
+	if (expr.type === "exists") {
+		return "boolean";
+	}
+	if (expr.type === "arithmetic" || expr.type === "aggregate") {
+		return "number";
+	}
+	if (expr.type === "first") {
+		return expressionKind(expr.select, expressionScope(expr.query, scope));
+	}
 	if (expr.type === "jsonPath") {
 		return "json";
 	}
@@ -84,7 +116,7 @@ const expressionKind = (expr: ScalarExpression, scope: CompileScope): CatalogFie
 };
 
 const compileLiteral = (expr: Extract<ScalarExpression, { type: "literal" }>): SqlFragment => {
-	if (expr.value === null || expr.value === undefined) {
+	if (expr.value === null) {
 		return sql`NULL`;
 	}
 	if (typeof expr.value === "boolean") {
@@ -147,6 +179,22 @@ const compileCast = (
 	if (expr.target === "json") {
 		return compileJsonValue(expr.expr, scope);
 	}
+	if (expr.expr.type === "first" && sourceKind === "json") {
+		const first = expr.expr;
+		return compileFirst(first, scope, (childScope) =>
+			compileCast({ expr: first.select, target: expr.target, type: "cast" }, childScope),
+		);
+	}
+	if (expr.expr.type === "coalesce" && sourceKind === "json") {
+		const branches = expr.expr.values.map(
+			(value) =>
+				sql`WHEN ${compileJsonValue(value, scope)} IS NOT NULL THEN ${compileCast(
+					{ expr: value, target: expr.target, type: "cast" },
+					scope,
+				)}`,
+		);
+		return sql`CASE ${sql.join(branches, sql` `)} ELSE ${typedNull(expr.target)} END`;
+	}
 	const source = compileExpression(expr.expr, scope);
 	if (sourceKind === expr.target) {
 		return source;
@@ -174,12 +222,42 @@ const compileCast = (
 	return typedNull(expr.target);
 };
 
+const compileArithmetic = (
+	expr: Extract<ScalarExpression, { type: "arithmetic" }>,
+	scope: CompileScope,
+) => {
+	const left = compileCast({ expr: expr.left, target: "number", type: "cast" }, scope);
+	const right = compileCast({ expr: expr.right, target: "number", type: "cast" }, scope);
+	if (expr.operator === "divide") {
+		return sql`((${left}) / NULLIF((${right}), 0))`;
+	}
+	let operator = sql`-`;
+	if (expr.operator === "add") {
+		operator = sql`+`;
+	} else if (expr.operator === "multiply") {
+		operator = sql`*`;
+	}
+	return sql`((${left}) ${operator} (${right}))`;
+};
+
 const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
 	if (expr.type === "literal") {
 		return compileLiteral(expr);
 	}
 	if (expr.type === "cast") {
 		return compileCast(expr, scope);
+	}
+	if (expr.type === "exists") {
+		return compileExists(expr, scope);
+	}
+	if (expr.type === "arithmetic") {
+		return compileArithmetic(expr, scope);
+	}
+	if (expr.type === "aggregate") {
+		return compileAggregate(expr, scope);
+	}
+	if (expr.type === "first") {
+		return compileFirst(expr, scope, (childScope) => compileExpression(expr.select, childScope));
 	}
 	if (expr.type === "jsonPath") {
 		return sql`NULLIF(jsonb_extract_path(${compileJsonValue(expr.expr, scope)}, ${sql.join(
@@ -219,6 +297,9 @@ const compileComparableExpression = (
 };
 
 const compilePredicate = (predicate: Predicate, scope: CompileScope): SqlFragment => {
+	if (predicate.type === "exists") {
+		return compileExists(predicate, scope);
+	}
 	if (predicate.type === "comparison") {
 		const operators = {
 			eq: sql`=`,
@@ -301,6 +382,9 @@ const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment =>
 		});
 		return sql`CASE ${sql.join(cases, sql` `)} ELSE 'null' END`;
 	}
+	if (expr.type === "first") {
+		return sql`COALESCE(${compileFirst(expr, scope, (childScope) => outputKind(expr.select, childScope))}, 'null')`;
+	}
 	const kind = expressionKind(expr, scope);
 	if (kind === "null") {
 		return sql`'null'`;
@@ -310,15 +394,17 @@ const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment =>
 
 const buildScope = (
 	query: QuerySet,
+	userId: string,
 	language: string | null,
 	prefix: string,
 	ancestors: CompileScope = new Map(),
 ) => {
 	const root = requireTable(query.from.table);
 	const scope = new Map(ancestors);
-	scope.set(query.from.alias, { language, alias: `${prefix}t0`, table: root });
+	scope.set(query.from.alias, { userId, language, alias: `${prefix}t0`, table: root });
 	(query.joins ?? []).forEach((join, index) => {
 		scope.set(join.table.alias, {
+			userId,
 			language,
 			alias: `${prefix}t${index + 1}`,
 			table: requireTable(join.table.table),
@@ -373,6 +459,77 @@ const expressionOrderSql = (
 		sql`, `,
 	);
 
+const appendPrimaryKeyOrders = (
+	query: QuerySet,
+	requested: readonly { readonly expr: ScalarExpression; readonly direction: "asc" | "desc" }[],
+) => [
+	...requested,
+	...[...(query.joins ?? []).map((join) => join.table), query.from].flatMap((reference) => {
+		const table = requireTable(reference.table);
+		return requested.some((order) => isPrimaryKeyOrder(order.expr, reference.alias, table))
+			? []
+			: [
+					{
+						direction: "asc" as const,
+						expr: { field: table.primaryKey, type: "column" as const, tableAlias: reference.alias },
+					},
+				];
+	}),
+];
+
+const correlatedScope = (query: CorrelatedQuerySet, ancestors: CompileScope) =>
+	buildScope(
+		query,
+		scopeUserId(ancestors),
+		scopeLanguage(ancestors),
+		`c${ancestors.size}_`,
+		ancestors,
+	);
+
+const compileExists = (
+	expr: Extract<ScalarExpression, { type: "exists" }>,
+	ancestors: CompileScope,
+) => {
+	const scope = correlatedScope(expr.query, ancestors);
+	return sql`EXISTS (SELECT 1 ${querySetSql(expr.query, scopeUserId(ancestors), scope)})`;
+};
+
+const compileFirst = (
+	expr: Extract<ScalarExpression, { type: "first" }>,
+	ancestors: CompileScope,
+	select: (scope: CompileScope) => SqlFragment,
+) => {
+	const scope = correlatedScope(expr.query, ancestors);
+	const orders = appendPrimaryKeyOrders(expr.query, expr.orderBy);
+	return sql`(SELECT ${select(scope)} ${querySetSql(expr.query, scopeUserId(ancestors), scope)} ORDER BY ${expressionOrderSql(orders, scope)} LIMIT 1)`;
+};
+
+const compileAggregate = (
+	expr: Extract<ScalarExpression, { type: "aggregate" }>,
+	ancestors: CompileScope,
+) => {
+	const scope = correlatedScope(expr.query, ancestors);
+	const aggregation = expr.aggregation;
+	let value: SqlFragment;
+	if (aggregation.function === "count") {
+		value = sql`COUNT(*)::double precision`;
+	} else if (aggregation.function === "countDistinct") {
+		value = sql`COUNT(DISTINCT ${compileExpression(aggregation.expr, scope)})::double precision`;
+	} else {
+		const operand = compileCast({ expr: aggregation.expr, target: "number", type: "cast" }, scope);
+		if (aggregation.function === "sum") {
+			value = sql`SUM(${operand})`;
+		} else if (aggregation.function === "average") {
+			value = sql`AVG(${operand})`;
+		} else if (aggregation.function === "minimum") {
+			value = sql`MIN(${operand})`;
+		} else {
+			value = sql`MAX(${operand})`;
+		}
+	}
+	return sql`(SELECT ${value} ${querySetSql(expr.query, scopeUserId(ancestors), scope)})`;
+};
+
 const compileInclude = (
 	include: Include,
 	userId: string,
@@ -380,7 +537,7 @@ const compileInclude = (
 	ancestors: CompileScope,
 	path: readonly number[],
 ): SqlFragment => {
-	const scope = buildScope(include, language, `i${path.join("_")}`, ancestors);
+	const scope = buildScope(include, userId, language, `i${path.join("_")}`, ancestors);
 	const orderMetadata = include.orderBy.map((order) => ({
 		direction: order.direction,
 		kind: expressionKind(order.expr, scope),
@@ -427,23 +584,8 @@ const compileRowsQuery = (
 	userId: string,
 	language: string | null,
 ): SqlFragment => {
-	const scope = buildScope(query, language, "");
-	const requestedOrder = query.output.orderBy;
-	const tieBreakers = [
-		...(query.joins ?? []).map((join) => ({ alias: join.table.alias, table: join.table.table })),
-		{ alias: query.from.alias, table: query.from.table },
-	].flatMap(({ alias, table: tableName }) => {
-		const table = requireTable(tableName);
-		return requestedOrder.some((order) => isPrimaryKeyOrder(order.expr, alias, table))
-			? []
-			: [
-					{
-						direction: "asc" as const,
-						expr: { field: table.primaryKey, type: "column" as const, tableAlias: alias },
-					},
-				];
-	});
-	const orders = [...requestedOrder, ...tieBreakers];
+	const scope = buildScope(query, userId, language, "");
+	const orders = appendPrimaryKeyOrders(query, query.output.orderBy);
 	const orderMetadata = orders.map((order) => ({
 		direction: order.direction,
 		kind: expressionKind(order.expr, scope),

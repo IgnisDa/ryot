@@ -2,7 +2,7 @@
 
 **Parent Plan:** [RyotQL](./README.md)
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -12,17 +12,17 @@ Correlated query sets use the same tables, joins, visibility, predicates, field 
 
 ## Acceptance criteria
 
-- [ ] SDK and contract support correlated existence, first-value, and aggregate expressions over generic query sets
-- [ ] Correlated query validation permits valid ancestor references and rejects sibling, unknown, duplicate, and forward aliases
-- [ ] Every correlated table occurrence receives the same execution-scope visibility as a root or join
-- [ ] `exists` returns a boolean based on the authorized correlated relation
-- [ ] `first` supports predicates, deterministic ordering, scalar selection, and null for empty results
-- [ ] Correlated count, count distinct, sum, average, minimum, and maximum expressions follow the agreed empty-set and null behavior
-- [ ] Arithmetic and coalesce preserve safe casts, division-by-zero nulls, and runtime field kinds
-- [ ] Course completion, descendant count, latest completion, first module, fallback, and ratio scenarios pass end to end
-- [ ] Correlated-depth validation and statement timeout behavior remain enforced
-- [ ] Existing RyotQL slices and the complete legacy query-engine suite remain green
-- [ ] The RyotQL guide documents correlated query sets and scalar semantics
+- [x] SDK and contract support correlated existence, first-value, and aggregate expressions over generic query sets
+- [x] Correlated query validation permits valid ancestor references and rejects sibling, unknown, duplicate, and forward aliases
+- [x] Every correlated table occurrence receives the same execution-scope visibility as a root or join
+- [x] `exists` returns a boolean based on the authorized correlated relation
+- [x] `first` supports predicates, deterministic ordering, scalar selection, and null for empty results
+- [x] Correlated count, count distinct, sum, average, minimum, and maximum expressions follow the agreed empty-set and null behavior
+- [x] Arithmetic and coalesce preserve safe casts, division-by-zero nulls, and runtime field kinds
+- [x] Course completion, descendant count, latest completion, first module, fallback, and ratio scenarios pass end to end
+- [x] Correlated-depth validation and statement timeout behavior remain enforced
+- [x] Existing RyotQL slices and the complete legacy query-engine suite remain green
+- [x] The RyotQL guide documents correlated query sets and scalar semantics
 
 ## User stories addressed
 

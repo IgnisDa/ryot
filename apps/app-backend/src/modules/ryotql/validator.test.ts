@@ -1,18 +1,23 @@
 import { expect, it } from "@effect/vitest";
 import {
 	and,
+	ascending,
 	castDate,
 	castNumber,
 	column,
 	contains,
+	count,
 	document,
 	eq,
+	exists,
 	field,
+	first,
 	include,
 	join,
 	jsonPath,
 	literal,
 	rows,
+	sum,
 	table,
 } from "@ryot/ryotql";
 
@@ -27,6 +32,13 @@ const nested = (depth: number): ReturnType<typeof include> => {
 		key: `child${depth}`,
 		...(depth < 4 ? { include: [nested(depth + 1)] } : {}),
 		orderBy: [{ direction: "asc", expr: column(child, "id") }],
+	});
+};
+
+const nestedExists = (depth: number, maximum: number): ReturnType<typeof exists> => {
+	const child = table("entity", `correlated${depth}`);
+	return exists(child, {
+		where: depth < maximum ? nestedExists(depth + 1, maximum) : undefined,
 	});
 };
 
@@ -330,4 +342,96 @@ it("validates include correlation, lexical scopes, keys, limits, and depth", () 
 	).toBe(
 		"Query 'courses': Include 'child1': Include 'child2': Include 'child3': Include depth must not exceed 3",
 	);
+});
+
+it("validates correlated expression scopes and ordering", () => {
+	const course = table("entity", "course");
+	const event = table("event", "event");
+	const relationship = table("relationship", "relationship");
+	const related = {
+		where: eq(column(event, "entityId"), column(course, "id")),
+	};
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					where: exists(event, related),
+					fields: [
+						field("count", count(event, related)),
+						field("total", sum(event, jsonPath(column(event, "properties"), "score"), related)),
+						field(
+							"first",
+							first(event, {
+								...related,
+								select: column(event, "occurredAt"),
+								orderBy: [ascending(column(event, "occurredAt"))],
+							}),
+						),
+					],
+				}),
+			}),
+		),
+	).toBeNull();
+
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [field("duplicate", count(table("event", "course")))],
+				}),
+			}),
+		),
+	).toBe("Query 'courses': Duplicate table alias 'course'");
+
+	const future = table("event", "future");
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [
+						field(
+							"forward",
+							count(event, {
+								joins: [
+									join("inner", relationship, eq(column(relationship, "id"), column(future, "id"))),
+									join("inner", future, eq(column(event, "id"), column(future, "id"))),
+								],
+							}),
+						),
+					],
+				}),
+			}),
+		),
+	).toBe("Query 'courses': Unknown table alias 'future'");
+
+	const sibling = table("event", "sibling");
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [
+						field(
+							"unknown",
+							count(event, { where: eq(column(event, "id"), column(sibling, "id")) }),
+						),
+					],
+				}),
+			}),
+		),
+	).toBe("Query 'courses': Unknown table alias 'sibling'");
+});
+
+it("enforces the correlated expression depth limit", () => {
+	const root = table("entity", "root");
+
+	expect(
+		validateRyotQLDocument(
+			document({ root: rows(root, { fields: [], where: nestedExists(1, 3) }) }),
+		),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({ root: rows(root, { fields: [], where: nestedExists(1, 4) }) }),
+		),
+	).toBe("Query 'root': Correlated query depth must not exceed 3");
 });
