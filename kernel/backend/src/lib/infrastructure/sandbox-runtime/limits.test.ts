@@ -21,7 +21,6 @@ import {
 describe("sandbox limits", () => {
 	it("keeps every agreed resource limit in one production value", () => {
 		expect(SANDBOX_LIMITS).toEqual({
-			workerConcurrency: 5,
 			journalBytes: 104_857_600,
 			hostCalls: { http: 50, total: 1_000 },
 			diagnostics: { stderrLines: 20, stderrBytes: 65_536 },

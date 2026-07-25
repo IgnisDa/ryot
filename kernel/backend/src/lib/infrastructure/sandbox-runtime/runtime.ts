@@ -657,7 +657,7 @@ export class SandboxProcessManager extends Context.Service<SandboxProcessManager
 				config.sandbox.processMode === "warm"
 					? yield* Pool.make({
 							acquire: spawnTracked(false),
-							size: SANDBOX_LIMITS.workerConcurrency + 2,
+							size: config.sandbox.workerConcurrency + 2,
 						})
 					: undefined;
 			const acquire = pool === undefined ? spawnTracked(false) : Pool.get(pool);
