@@ -32,7 +32,7 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 			expect((yield* ensureSandboxRuntimeDependencies(root)).directory).toBe(runtime.directory);
 			expect(yield* fs.exists(runtime.cacheDirectory)).toBe(true);
 			expect(SANDBOX_APPROVED_DEPENDENCIES).toMatchObject([
-				{ name: "effect", version: "4.0.0-beta.102" },
+				{ name: "effect", version: "4.0.0-beta.105" },
 				{ name: "cheerio", version: "1.2.0" },
 				{ name: "youtubei", version: "17.2.0" },
 				{ name: "fflate", version: "0.8.3" },
@@ -44,7 +44,7 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 			expect(importMap).not.toContain('"npm:');
 			expect((yield* fs.readDirectory(runtime.directory)).sort()).toEqual([
 				"cheerio-1.2.0.mjs",
-				"effect-4.0.0-beta.102.mjs",
+				"effect-4.0.0-beta.105.mjs",
 				"fast-xml-parser-5.8.0.mjs",
 				"fflate-0.8.3.mjs",
 				"import-map.json",
@@ -58,11 +58,11 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				),
 			)(importMap);
 			expect(parsedImportMap.imports["@ryot/sandbox-sdk/effect"]).toBe(
-				"./effect-4.0.0-beta.102.mjs",
+				"./effect-4.0.0-beta.105.mjs",
 			);
 			expect(
 				Object.values(parsedImportMap.imports).filter(
-					(file) => file === "./effect-4.0.0-beta.102.mjs",
+					(file) => file === "./effect-4.0.0-beta.105.mjs",
 				),
 			).toHaveLength(1);
 

@@ -84,7 +84,7 @@ const HttpNetworkAttempt = Schema.Struct({
 	result: workflowDurableResultSchema,
 });
 
-class HttpAdmissionCoordinationError extends Schema.TaggedErrorClass<HttpAdmissionCoordinationError>()(
+class HttpAdmissionCoordinationError extends Schema.TaggedError<HttpAdmissionCoordinationError>()(
 	"HttpAdmissionCoordinationError",
 	{ stage: Schema.String },
 ) {}
