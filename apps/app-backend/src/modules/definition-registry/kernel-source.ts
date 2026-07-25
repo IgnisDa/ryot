@@ -95,21 +95,24 @@ const collectionSchema = {
 const collection = table("entity", "collection");
 const collectionProjection = buildSavedViewProjection({
 	entityId: column(collection, "id"),
-	table: [{ label: "Name", expression: column(collection, "name") }],
+	table: {
+		image: null,
+		columns: [{ label: "Name", expression: column(collection, "name") }],
+	},
 	grid: {
 		image: null,
 		callout: null,
-		primarySubtitle: null,
-		secondarySubtitle: null,
-		eyebrow: literal(collectionSchema.name),
+		primaryMetadata: null,
+		secondaryMetadata: null,
+		overline: literal(collectionSchema.name),
 		title: column(collection, "name"),
 	},
 	list: {
 		image: null,
 		callout: null,
-		primarySubtitle: null,
-		secondarySubtitle: null,
-		eyebrow: literal(collectionSchema.name),
+		primaryMetadata: null,
+		secondaryMetadata: null,
+		overline: literal(collectionSchema.name),
 		title: column(collection, "name"),
 	},
 });
