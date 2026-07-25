@@ -1,7 +1,9 @@
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import type { EntityRouteProvenance } from "@ryot-app/ryotql-recipes/entities";
 import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { describe, expect, it } from "vitest";
 
-import { resolveRouteTarget } from "#/modules/plugins/route-resolver";
+import { resolveEntityRouteTarget, resolveRouteTarget } from "#/modules/plugins/route-resolver";
 
 const installation = {
 	sortOrder: 0,
@@ -16,6 +18,13 @@ const installation = {
 	installationId: "installation-1",
 	clientArtifactHash: "artifact-hash",
 } satisfies PluginClientCatalogEntry;
+
+const routeProvenance = (
+	entitySchemaPluginId: string | null,
+): NonNullable<EntityRouteProvenance> => ({
+	entitySchemaPluginId,
+	entitySchemaSlug: EntitySchemaSlug.make("book"),
+});
 
 describe("plugin route resolver", () => {
 	it("resolves an installed plugin slug to its home", () => {
@@ -64,6 +73,55 @@ describe("plugin route resolver", () => {
 		expect(resolveRouteTarget([{ ...installation, slug: "oauth" }], "oauth")).toEqual({
 			owner: "kernel",
 			surface: { kind: "not-found" },
+		});
+	});
+});
+
+describe("entity route resolver", () => {
+	it("resolves a missing entity", () => {
+		expect(resolveEntityRouteTarget([installation], "entity-1", null)).toEqual({
+			kind: "missing",
+		});
+	});
+
+	it("resolves a kernel-owned entity as unsupported", () => {
+		expect(resolveEntityRouteTarget([installation], "entity-1", routeProvenance(null))).toEqual({
+			kind: "unsupported",
+			owner: "kernel",
+		});
+	});
+
+	it("resolves a plugin-owned entity without an installation", () => {
+		expect(
+			resolveEntityRouteTarget([installation], "entity-1", routeProvenance("missing-plugin")),
+		).toEqual({ kind: "installation-missing" });
+	});
+
+	it("selects an installation by exact plugin ID", () => {
+		const misleading = { ...installation, pluginId: "other-plugin", slug: "book" };
+		const target = { ...installation, slug: "other" };
+
+		expect(
+			resolveEntityRouteTarget([misleading, target], "entity-1", routeProvenance("plugin-1")),
+		).toEqual({
+			kind: "plugin",
+			entityId: "entity-1",
+			entitySchemaSlug: "book",
+			installation: target,
+		});
+	});
+
+	it.each([
+		["disabled", { isDisabled: true }],
+		["incompatible", { health: "incompatible" as const }],
+	])("resolves a %s installation", (_state, changes) => {
+		const candidate = { ...installation, ...changes };
+
+		expect(resolveEntityRouteTarget([candidate], "entity-1", routeProvenance("plugin-1"))).toEqual({
+			kind: "plugin",
+			entityId: "entity-1",
+			entitySchemaSlug: "book",
+			installation: candidate,
 		});
 	});
 });
