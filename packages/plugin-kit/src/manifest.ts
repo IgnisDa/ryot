@@ -3,7 +3,7 @@ import { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk/core";
-import { Schema } from "effect";
+import { Result, Schema, SchemaGetter } from "effect";
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" } });
@@ -113,6 +113,68 @@ const sandboxManifestSlug = Schema.String.pipe(
 		Schema.makeFilter((value) =>
 			/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value) ? true : "Expected a sandbox manifest slug",
 		),
+	),
+);
+
+const normalizeHttpOrigin = (value: string) => {
+	const parsed = Result.try(() => new URL(value));
+	if (Result.isFailure(parsed)) {
+		return null;
+	}
+	const url = parsed.success;
+	if (
+		(url.protocol !== "http:" && url.protocol !== "https:") ||
+		url.href !== `${url.origin}/` ||
+		url.hostname.includes("*")
+	) {
+		return null;
+	}
+	return url.origin;
+};
+
+const httpOrigin = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((value) =>
+			normalizeHttpOrigin(value) === null ? "Expected an HTTP(S) URL origin" : true,
+		),
+	),
+	Schema.decode({
+		decode: SchemaGetter.transform((value) => normalizeHttpOrigin(value) ?? value),
+		encode: SchemaGetter.transform((value) => normalizeHttpOrigin(value) ?? value),
+	}),
+);
+const safePositiveInteger = Schema.Number.pipe(
+	Schema.check(
+		Schema.makeFilter((value) =>
+			Number.isSafeInteger(value) && value > 0 ? true : "Expected a safe positive integer",
+		),
+	),
+);
+
+export const PluginHttpRateLimit = strictStruct({
+	key: sandboxManifestSlug,
+	requests: safePositiveInteger,
+	intervalMs: safePositiveInteger,
+	origins: Schema.Array(httpOrigin).pipe(
+		Schema.check(
+			Schema.makeFilter((origins) =>
+				origins.length > 0 ? true : "Expected at least one HTTP(S) URL origin",
+			),
+		),
+	),
+});
+
+export type PluginHttpRateLimit = Schema.Schema.Type<typeof PluginHttpRateLimit>;
+
+const PluginHttpRateLimits = Schema.Array(PluginHttpRateLimit).pipe(
+	Schema.check(
+		Schema.makeFilter((declarations) => {
+			const keys = declarations.map(({ key }) => key);
+			const origins = declarations.flatMap((declaration) => declaration.origins);
+			return new Set(keys).size === keys.length && new Set(origins).size === origins.length
+				? true
+				: "Expected unique HTTP rate limit keys and origins";
+		}, strictParseOptions),
 	),
 );
 
@@ -396,6 +458,7 @@ const PluginManifestFields = strictStruct({
 	signalSchemas: Schema.Array(PluginSignalSchema),
 	importSources: Schema.Array(PluginImportSource),
 	userBootstrap: Schema.Array(PluginUserBootstrap),
+	httpRateLimits: PluginHttpRateLimits,
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
 });

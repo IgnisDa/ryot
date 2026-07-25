@@ -4,6 +4,7 @@ import { sandboxHostContracts } from "@ryot/sandbox-sdk/core";
 
 import {
 	SANDBOX_DURABLE_HOST_DISPATCH,
+	sandboxDurableHttpRequestUrl,
 	sandboxDurableHostDispatchStrategy,
 	SandboxDurableHostServiceWorkflow,
 } from "./durable-host-dispatcher";
@@ -21,6 +22,25 @@ it("classifies every bridge host capability exactly once", () => {
 		sendNotification: "notification-workflow",
 	});
 	expect(sandboxDurableHostDispatchStrategy("scratch")).toBeNull();
+});
+
+it("extracts only schema-valid durable HTTP request URLs", () => {
+	expect(
+		sandboxDurableHttpRequestUrl({
+			index: 0,
+			kind: "host",
+			name: "httpCall",
+			args: { capability: "httpCall", args: ["GET", "https://sensitive.test/path"] },
+		}),
+	).toBe("https://sensitive.test/path");
+	expect(
+		sandboxDurableHttpRequestUrl({
+			index: 0,
+			kind: "host",
+			name: "httpCall",
+			args: { capability: "httpCall", args: ["GET"] },
+		}),
+	).toBeNull();
 });
 
 it("derives service workflow identity from the parent and call index", () => {
