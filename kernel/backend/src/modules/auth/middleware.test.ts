@@ -57,15 +57,24 @@ it("gates Better Auth user-owned mutations without blocking unrelated auth route
 	expect(isLifecycleProtectedAuthPath("/revoke-other-sessions")).toBe(true);
 	expect(isLifecycleProtectedAuthPath("/sign-in/email")).toBe(false);
 	expect(isLifecycleProtectedAuthPath("/get-session")).toBe(false);
+	expect(isLifecycleProtectedAuthPath("/list-accounts")).toBe(false);
+	expect(isLifecycleProtectedAuthPath("/api-key/list")).toBe(false);
 });
 
 it("protects demo hosted-session mutations and non-demo OAuth authorization", () => {
 	for (const path of [
+		"/account-info",
 		"/api-key/create",
+		"/api-key/get",
+		"/api-key/list",
 		"/api-key/update",
 		"/api-key/delete",
 		"/change-email",
 		"/change-password",
+		"/get-access-token",
+		"/list-accounts",
+		"/list-sessions",
+		"/refresh-token",
 		"/set-password",
 		"/update-user",
 		"/delete-user",
@@ -74,6 +83,7 @@ it("protects demo hosted-session mutations and non-demo OAuth authorization", ()
 		"/unlink-account",
 		"/two-factor/enable",
 		"/two-factor/disable",
+		"/two-factor/get-totp-uri",
 		"/two-factor/generate-backup-codes",
 		"/revoke-session",
 		"/revoke-sessions",
