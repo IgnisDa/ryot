@@ -18,7 +18,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { castText, column, coalesce, jsonPath, literal, table } from "@ryot/ryotql";
+import { column, coalesce, jsonPath, literal, table } from "@ryot/ryotql";
 import { buildSavedViewDocument, buildSavedViewProjection } from "@ryot/ryotql-recipes/saved-views";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
@@ -381,7 +381,7 @@ async function createEvents(apiClient: APIClient, events: EventPayload[]): Promi
 const seedEntity = table("entity", "entity");
 const seedProperties = column(seedEntity, "properties");
 const seedProperty = (property: string) => jsonPath(seedProperties, property);
-const seedImage = () => castText(jsonPath(seedProperties, "images", 0, "url"));
+const seedImage = () => jsonPath(seedProperties, "images", 0);
 const seedName = () => column(seedEntity, "name");
 const seedCreatedAt = () => column(seedEntity, "createdAt");
 type SeedTableColumn = Parameters<typeof buildSavedViewProjection>[0]["table"]["columns"][number];
@@ -1404,11 +1404,11 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 		`  Found ${schemas.length} media entity schemas to seed (of ${allSchemas.length} total)`,
 	);
 
+	type MediaEventSchemas = Awaited<ReturnType<typeof getMediaLifecycleEventSchemas>>;
 	let totalEntities = 0;
 	let totalEvents = 0;
 	const allEntities: SeedEntity[] = [];
 
-	type MediaEventSchemas = Awaited<ReturnType<typeof getMediaLifecycleEventSchemas>>;
 	type WorkItem = {
 		externalId: string;
 		providerId: SandboxProviderId;
