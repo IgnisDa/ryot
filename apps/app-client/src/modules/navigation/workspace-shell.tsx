@@ -18,6 +18,7 @@ import {
 	getCurrentWorkspace,
 	getNavigationHref,
 	getNavigationItems,
+	getWorkspaceSummary,
 	type NavigationData,
 	type NavigationItem,
 	type NavigationItems,
@@ -91,7 +92,11 @@ function EmptyNavigationSection(props: { message: string }) {
 	return <Text className="px-2 py-1 font-ui text-xs text-text-subtle">{props.message}</Text>;
 }
 
-function WorkspaceTrigger(props: { workspace: NavigationWorkspace; onPress: () => void }) {
+function WorkspaceTrigger(props: {
+	summary: string;
+	onPress: () => void;
+	workspace: NavigationWorkspace;
+}) {
 	const workspace = props.workspace;
 	return (
 		<Pressable
@@ -105,7 +110,7 @@ function WorkspaceTrigger(props: { workspace: NavigationWorkspace; onPress: () =
 			</View>
 			<View className="min-w-0 flex-1">
 				<Text className="font-ui-medium text-sm text-text">{workspace.name}</Text>
-				<Text className="font-ui text-[11px] text-text-muted">{workspace.description}</Text>
+				<Text className="font-ui text-[11px] text-text-muted">{props.summary}</Text>
 			</View>
 			<View className="text-text-subtle">
 				<NavigationIcon name="chevron-down" size={15} />
@@ -145,7 +150,11 @@ function Sidebar(props: {
 				showsVerticalScrollIndicator={false}
 				contentContainerClassName="gap-2 px-3 pb-5 pt-[18px]"
 			>
-				<WorkspaceTrigger onPress={props.onWorkspaceOpen} workspace={props.workspace} />
+				<WorkspaceTrigger
+					workspace={props.workspace}
+					onPress={props.onWorkspaceOpen}
+					summary={getWorkspaceSummary(items)}
+				/>
 				<View className="h-8 flex-row items-center gap-2 rounded-md border border-border bg-bg px-2.5 text-text-muted">
 					<NavigationIcon name="search" size={15} />
 					<TextInput
