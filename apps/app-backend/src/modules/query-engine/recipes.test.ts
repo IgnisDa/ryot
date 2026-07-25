@@ -20,6 +20,7 @@ import {
 	buildTrendingMediaQueryDocument,
 } from "@ryot/media-plugin/query-recipes";
 import {
+	buildAllCollectionsQueryDocument,
 	buildDefaultSavedViewQueryDocument,
 	buildEntityDetailQueryDocument,
 	buildEntityInterestQueryDocument,
@@ -39,6 +40,7 @@ describe("shared query-engine recipes", () => {
 				eventSchemaSlugs: ["complete"],
 				entitySchemaSlugs: ["book"],
 			}),
+			buildAllCollectionsQueryDocument({}),
 			buildDefaultSavedViewQueryDocument({ schemas: ["book"] }),
 			buildDefaultMediaSavedViewQueryDocument({ schemas: ["book"] }),
 			buildShowDetailQueryDocument({ entityId: "show", seasonLimit: 10, episodeLimit: 10 }),

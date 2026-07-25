@@ -157,3 +157,13 @@ export const buildDefaultSavedViewQueryDocument = <
 		orderBy: input.orderBy,
 		fields: queryEngineIdentityFields(entityAlias),
 	});
+
+export const buildAllCollectionsQueryDocument = (
+	input: { page?: number | undefined; limit?: number | undefined } = {},
+) =>
+	buildDefaultSavedViewQueryDocument({
+		page: input.page,
+		limit: input.limit,
+		orderBy: undefined,
+		schemas: ["collection"],
+	});
