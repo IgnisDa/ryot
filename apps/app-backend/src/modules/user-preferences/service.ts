@@ -18,7 +18,7 @@ export class UserPreferencesService extends Context.Service<UserPreferencesServi
 				body: UpdateUserPreferencesBody,
 			) {
 				const next: UserPreferences = {
-					isNsfw: body.isNsfw ?? user.preferences.isNsfw,
+					allowNsfw: body.allowNsfw ?? user.preferences.allowNsfw,
 					language: body.language !== undefined ? body.language : user.preferences.language,
 					disableIntegrations: body.disableIntegrations ?? user.preferences.disableIntegrations,
 				};

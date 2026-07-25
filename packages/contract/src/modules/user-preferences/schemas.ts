@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 
 export const UserPreferences = Schema.Struct({
-	isNsfw: Schema.Boolean,
+	allowNsfw: Schema.Boolean,
 	disableIntegrations: Schema.Boolean,
 	language: Schema.NullOr(Schema.String),
 });
@@ -9,7 +9,7 @@ export const UserPreferences = Schema.Struct({
 export type UserPreferences = typeof UserPreferences.Type;
 
 export const UpdateUserPreferencesBody = Schema.Struct({
-	isNsfw: Schema.optional(Schema.Boolean),
+	allowNsfw: Schema.optional(Schema.Boolean),
 	disableIntegrations: Schema.optional(Schema.Boolean),
 	language: Schema.optional(Schema.NullOr(Schema.String)),
 });

@@ -2,7 +2,7 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { getUserIsNsfw } from "../../script-helpers/host";
+import { getUserAllowNsfw } from "../../script-helpers/host";
 import {
 	type UnknownRecord,
 	asRecord,
@@ -37,8 +37,8 @@ export const search = defineProvider({
 		getTmdbAccessToken(host)
 			.pipe(
 				Effect.flatMap((token) =>
-					getUserIsNsfw(host).pipe(
-						Effect.flatMap((showNsfw) =>
+					getUserAllowNsfw(host).pipe(
+						Effect.flatMap((allowNsfw) =>
 							tmdbGet(
 								host,
 								"/search/person",
@@ -46,7 +46,7 @@ export const search = defineProvider({
 									language: "en-US",
 									query: input.query,
 									page: String(input.page),
-									include_adult: showNsfw ? "true" : "false",
+									include_adult: allowNsfw ? "true" : "false",
 								},
 								token,
 							),

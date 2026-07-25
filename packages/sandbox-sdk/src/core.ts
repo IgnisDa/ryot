@@ -92,7 +92,7 @@ export const configValuesSchema = Schema.Record(Schema.String, jsonValueSchema);
 export const getPluginConfigResultSchema = hostResultSchema(configValuesSchema);
 export const getSystemConfigResultSchema = hostResultSchema(configValuesSchema);
 export const userPreferencesSchema = strictStruct({
-	isNsfw: Schema.Boolean,
+	allowNsfw: Schema.Boolean,
 	disableIntegrations: Schema.Boolean,
 });
 export const getUserPreferencesArgsSchema = Schema.Tuple([]);

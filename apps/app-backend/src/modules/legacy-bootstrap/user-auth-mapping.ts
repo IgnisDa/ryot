@@ -140,7 +140,7 @@ BEGIN
 			ELSE NULL
 		END,
 		jsonb_build_object(
-			'isNsfw', COALESCE((legacy_users.preferences -> 'general' ->> 'display_nsfw')::boolean, false),
+			'allowNsfw', COALESCE((legacy_users.preferences -> 'general' ->> 'display_nsfw')::boolean, true),
 			'disableIntegrations', COALESCE(
 				(legacy_users.preferences -> 'general' ->> 'disable_integrations')::boolean,
 				false

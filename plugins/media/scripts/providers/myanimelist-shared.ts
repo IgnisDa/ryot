@@ -6,7 +6,7 @@ import type {
 	ProviderSearchResult,
 } from "@ryot/sandbox-sdk/provider";
 
-import { getUserIsNsfw } from "../script-helpers/host";
+import { getUserAllowNsfw } from "../script-helpers/host";
 import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
 
 export type MyAnimeListHost = SandboxHost<
@@ -132,15 +132,15 @@ export const searchMal = (
 	input: ProviderSearchInput,
 	options: { readonly path: "anime" | "manga" },
 ): Effect.Effect<ProviderSearchResult, unknown> =>
-	Effect.all([getMalClientId(host), getUserIsNsfw(host)], { concurrency: "unbounded" }).pipe(
-		Effect.flatMap(([clientId, showNsfw]) => {
+	Effect.all([getMalClientId(host), getUserAllowNsfw(host)], { concurrency: "unbounded" }).pipe(
+		Effect.flatMap(([clientId, allowNsfw]) => {
 			const params = new URLSearchParams({
 				q: input.query,
 				fields: "start_date,main_picture",
 				offset: String((input.page - 1) * input.pageSize),
 				limit: String(input.pageSize),
 			});
-			if (showNsfw) {
+			if (allowNsfw) {
 				params.set("nsfw", "true");
 			}
 			return malGet(host, clientId, `/${options.path}`, params, `${options.path} search`).pipe(

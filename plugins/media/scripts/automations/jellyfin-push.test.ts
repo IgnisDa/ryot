@@ -77,7 +77,7 @@ const createHost = (options: {
 		executeRyotql: () =>
 			options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure(),
 		getUserPreferences: () =>
-			hostSuccess({ isNsfw: false, disableIntegrations: options.disableIntegrations ?? false }),
+			hostSuccess({ allowNsfw: false, disableIntegrations: options.disableIntegrations ?? false }),
 	});
 
 describe("jellyfin-push sandbox script", () => {
