@@ -1,4 +1,8 @@
-import type { MediaFlatActivityEvent } from "../../shared/media-recipes";
+import type {
+	MediaFlatActivityCollectionEvent,
+	MediaFlatActivityEvent,
+	MediaFlatActivityMediaEvent,
+} from "../../shared/media-recipes";
 import {
 	activitySpan,
 	anchorOf,
@@ -18,30 +22,27 @@ import {
 	type MediaActivityTimeline,
 } from "./activity-timeline";
 
-type FlatParentEvent = Extract<MediaFlatActivityEvent, { kind: "media" }>;
-
-type FlatCollectionEvent = Extract<MediaFlatActivityEvent, { kind: "collection" }>;
-
 export type MediaFlatActivityBeat = Exclude<
-	FlatParentEvent["eventSchemaSlug"],
+	MediaFlatActivityMediaEvent["eventSchemaSlug"],
 	"review" | "complete" | "progress"
 >;
 
-type MediaFlatActivityProgressRow = ActivityAnchor & {
+type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
 	readonly type: "progress";
+	readonly extra: Extra;
 	readonly source: string | undefined;
 	readonly percent: number | undefined;
 };
 
-export type MediaFlatActivityRow<Subject> =
+export type MediaFlatActivityRow<Subject, Extra = unknown> =
 	| MediaActivityCollectionRow
 	| MediaActivityCompletionRow
-	| MediaFlatActivityProgressRow
 	| MediaActivityReviewRow<Subject>
+	| MediaFlatActivityProgressRow<Extra>
 	| MediaActivityBeatRow<MediaFlatActivityBeat>;
 
-export type MediaFlatActivityTimeline<Subject> = MediaActivityTimeline<
-	MediaFlatActivityRow<Subject>
+export type MediaFlatActivityTimeline<Subject, Extra = unknown> = MediaActivityTimeline<
+	MediaFlatActivityRow<Subject, Extra>
 >;
 
 export type MediaFlatActivitySummary = {
@@ -50,15 +51,15 @@ export type MediaFlatActivitySummary = {
 	readonly amount: { readonly total: number; readonly missing: number };
 };
 
-export type MediaFlatActivityView<Subject> = {
+export type MediaFlatActivityView<Subject, Extra = unknown> = {
 	readonly summary: MediaFlatActivitySummary;
-	readonly timeline: MediaFlatActivityTimeline<Subject>;
+	readonly timeline: MediaFlatActivityTimeline<Subject, Extra>;
 };
 
-const parentRow = <Subject>(
-	event: FlatParentEvent,
+const parentRow = <Subject, Extra>(
+	event: MediaFlatActivityMediaEvent<Extra>,
 	subject: Subject,
-): MediaFlatActivityRow<Subject> => {
+): MediaFlatActivityRow<Subject, Extra> => {
 	if (event.eventSchemaSlug === "complete") {
 		return mediaCompletionRow(event);
 	}
@@ -68,6 +69,7 @@ const parentRow = <Subject>(
 	if (event.eventSchemaSlug === "progress") {
 		return {
 			...anchorOf(event, "progress"),
+			extra: event,
 			type: "progress",
 			source: optionalText(event.consumedOn),
 			percent: event.progressPercent ?? undefined,
@@ -76,24 +78,27 @@ const parentRow = <Subject>(
 	return mediaBeatRow(event, event.eventSchemaSlug);
 };
 
-const collectionRow = <Subject>(event: FlatCollectionEvent): MediaFlatActivityRow<Subject> =>
-	mediaCollectionRow(event);
+const collectionRow = <Subject, Extra>(
+	event: MediaFlatActivityCollectionEvent,
+): MediaFlatActivityRow<Subject, Extra> => mediaCollectionRow(event);
 
 const mediaFlatActivityPredicates = {
 	isWatching: (row: MediaFlatActivityRow<unknown>) => row.type === "progress",
 	isCompletion: (row: MediaFlatActivityRow<unknown>) => row.type === "completion",
 };
 
-export const mediaFlatActivityView = <Subject>(input: {
+export const mediaFlatActivityView = <Subject, Extra>(input: {
 	readonly subject: Subject;
 	readonly truncated: boolean;
 	readonly completions: number;
 	readonly amount: { readonly total: number; readonly missing: number };
-	readonly events: readonly MediaFlatActivityEvent[];
-}): MediaFlatActivityView<Subject> | undefined => {
+	readonly events: readonly MediaFlatActivityEvent<Extra>[];
+}): MediaFlatActivityView<Subject, Extra> | undefined => {
 	const rows = input.events
 		.map((event) =>
-			event.kind === "media" ? parentRow(event, input.subject) : collectionRow<Subject>(event),
+			event.kind === "media"
+				? parentRow<Subject, Extra>(event, input.subject)
+				: collectionRow<Subject, Extra>(event),
 		)
 		.sort(
 			(left, right) =>

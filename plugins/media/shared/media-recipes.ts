@@ -25,6 +25,7 @@ import {
 	sum,
 	table,
 	type SelectedQuery,
+	type SelectedRow,
 	type SelectedSelection,
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, EntitySchemaSlug, EventId } from "@ryot-app/plugin-kit/schema";
@@ -439,32 +440,39 @@ export const mediaCollectionEventsQuery = (input: {
 
 export const mediaFlatActivityParentSlugs = [...mediaActivityParentSlugs, "progress"] as const;
 
-export const mediaFlatActivityEventsQuery = (input: {
+const mediaFlatActivityEventSelection = (event: Table) => ({
+	...mediaActivityEventSelection(event),
+	startedOn: selectedField(propertyText(event, "startedOn"), Schema.NullOr(IsoDateString)),
+	completedOn: selectedField(propertyText(event, "completedOn"), Schema.NullOr(IsoDateString)),
+	progressPercent: selectedField(
+		propertyNumber(event, "progressPercent"),
+		Schema.NullOr(Schema.Number),
+	),
+	eventSchemaSlug: selectedField(
+		column(event, "eventSchemaSlug"),
+		Schema.Literals(mediaFlatActivityParentSlugs),
+	),
+});
+
+export const mediaFlatActivityEventsQuery = <
+	const Extra extends SelectedSelection = Record<never, never>,
+>(input: {
 	readonly limit: number;
 	readonly alias: string;
 	readonly entityId: string;
+	readonly eventFields?: ((event: Table) => Extra) | undefined;
 }) => {
 	const event = table("event", input.alias);
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+	const extra: Extra = input.eventFields === undefined ? ({} as Extra) : input.eventFields(event);
 	return selectedRows(event, {
 		limit: input.limit,
 		orderBy: eventOrderDescending(event),
+		selection: { ...mediaFlatActivityEventSelection(event), ...extra },
 		where: and(
 			eq(column(event, "entityId"), literal(input.entityId)),
 			eventSchemaIsOneOf(event, mediaFlatActivityParentSlugs),
 		),
-		selection: {
-			...mediaActivityEventSelection(event),
-			startedOn: selectedField(propertyText(event, "startedOn"), Schema.NullOr(IsoDateString)),
-			completedOn: selectedField(propertyText(event, "completedOn"), Schema.NullOr(IsoDateString)),
-			progressPercent: selectedField(
-				propertyNumber(event, "progressPercent"),
-				Schema.NullOr(Schema.Number),
-			),
-			eventSchemaSlug: selectedField(
-				column(event, "eventSchemaSlug"),
-				Schema.Literals(mediaFlatActivityParentSlugs),
-			),
-		},
 	});
 };
 
@@ -507,17 +515,30 @@ export const mergeMediaActivityEvents = <
 		})),
 	].sort(compareMediaActivityDescending);
 
-type MediaFlatActivityParentRow = SelectedQuerySuccess<
-	ReturnType<typeof mediaFlatActivityEventsQuery>
->["items"][number];
+type MediaFlatActivityParentRow = SelectedRow<ReturnType<typeof mediaFlatActivityEventSelection>>;
 
 type MediaActivityCollectionRow = SelectedQuerySuccess<
 	ReturnType<typeof mediaCollectionEventsQuery>
 >["items"][number];
 
-export type MediaFlatActivityEvent = ReturnType<
+type MergedFlatActivityEvent = ReturnType<
 	typeof mergeMediaActivityEvents<MediaFlatActivityParentRow, MediaActivityCollectionRow>
 >[number];
+
+export type MediaFlatActivityMediaEvent<Extra = unknown> = Extract<
+	MergedFlatActivityEvent,
+	{ readonly kind: "media" }
+> &
+	Extra;
+
+export type MediaFlatActivityCollectionEvent = Extract<
+	MergedFlatActivityEvent,
+	{ readonly kind: "collection" }
+>;
+
+export type MediaFlatActivityEvent<Extra = unknown> =
+	| MediaFlatActivityMediaEvent<Extra>
+	| MediaFlatActivityCollectionEvent;
 
 export const mediaUnlinkedCreatorsQuery = (id: string) => {
 	const entity = table("entity", "creatorsEntity");
@@ -538,13 +559,15 @@ const MEDIA_FLAT_PRESENTATION_LIMIT = 100;
 export const mediaFlatRecipes = <
 	const SummaryFields extends SelectedSelection,
 	const PresentationFields extends SelectedSelection,
+	const ActivityEventFields extends SelectedSelection = Record<never, never>,
 >(config: {
 	readonly slug: string;
 	readonly alias: string;
-	readonly groupSlug: string;
+	readonly groupSlug?: string;
 	readonly measure: (event: Table, entity: Table) => ReturnType<MediaFlatMeasure>;
 	readonly summaryFields: (entity: Table) => SummaryFields;
 	readonly presentationFields: (entity: Table) => PresentationFields;
+	readonly activityEventFields?: (event: Table) => ActivityEventFields;
 }) => {
 	const summaryRecipe = defineRecipe(
 		(input: { readonly entityId: string; readonly collectionLimit: number }) => {
@@ -587,17 +610,26 @@ export const mediaFlatRecipes = <
 		readonly peopleLimit: number;
 		readonly companyLimit: number;
 		readonly recommendationLimit: number;
-	}) => ({
-		...mediaOverviewQueries({ ...input, slug: config.slug }),
-		group: mediaGroupQuery({
-			memberSlug: config.slug,
-			limit: input.groupLimit,
-			entityId: input.entityId,
-			groupSlug: config.groupSlug,
-			relationshipSlug: `${config.groupSlug}-to-${config.slug}`,
-			aliases: { group: `${config.alias}Group`, relationship: `${config.alias}GroupRelationship` },
-		}),
-	});
+	}) => {
+		const { groupSlug } = config;
+		const credits = mediaOverviewQueries({ ...input, slug: config.slug });
+		return groupSlug === undefined
+			? credits
+			: {
+					...credits,
+					group: mediaGroupQuery({
+						groupSlug,
+						memberSlug: config.slug,
+						limit: input.groupLimit,
+						entityId: input.entityId,
+						relationshipSlug: `${groupSlug}-to-${config.slug}`,
+						aliases: {
+							group: `${config.alias}Group`,
+							relationship: `${config.alias}GroupRelationship`,
+						},
+					}),
+				};
+	};
 
 	const overviewRecipe = defineRecipe((input: Parameters<typeof overviewQueries>[0]) => ({
 		queries: overviewQueries(input),
@@ -631,6 +663,7 @@ export const mediaFlatRecipes = <
 						limit: input.eventLimit,
 						entityId: input.entityId,
 						alias: `${config.alias}Event`,
+						eventFields: config.activityEventFields,
 					}),
 					totals: selectedOptionalRow(entity, {
 						orderBy: [ascending(column(entity, "id"))],
