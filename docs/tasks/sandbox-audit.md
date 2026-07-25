@@ -114,7 +114,7 @@ const CAPABILITY_REQUIREMENTS = {
 } satisfies Record<SandboxHostCapability, CapabilityRequirement>;
 ```
 
-- [ ] Adopt the declarative capability table. Make `selectSandboxHostFunctions` filter it and derive `require*SandboxRunInput` narrowing from the same table.
+- [x] Adopt the declarative capability table. `selectSandboxHostFunctions` filters it and `requireSandboxCapabilityInput` derives runtime narrowing from the same table. `emitSignal` is subscription-only.
 
 `selectSandboxHostFunctions` becomes a filter over the table (~10 lines). `require*SandboxRunInput` derives its narrowing from the same table instead of restating it. `satisfies Record<SandboxHostCapability, …>` makes a missing entry a compile error, so a new host function _cannot_ ship ungated — which today it silently can, since anything absent from all five sets defaults to allowed.
 
@@ -122,7 +122,7 @@ const CAPABILITY_REQUIREMENTS = {
 
 **Doc drift:** README:106 says automation functions require "the server-only subscription-run marker", but service.ts:133 grants `emitSignal` to `system` authority too.
 
-- [ ] Align README automation capability documentation with actual `emitSignal` authority rules.
+- [x] Align README automation capability documentation with actual `emitSignal` authority rules.
 
 ---
 
@@ -151,7 +151,7 @@ The runner-side name validation (runner-source.sandbox.ts:120-132) does not help
 
 **B3 — `emitSignal` origin under system authority. Verify.** automation-sandbox-host-functions.ts:33-49: for non-subscription authority the origin is decoded from `rawInput.context`. For a plugin workflow's `activity()` call, the context _is_ `request.args.input` (sandbox-script-workflow.ts:310) — script-controlled. If any system-authority script can hold `emitSignal`, it can forge signal origin attribution.
 
-- [ ] Verify `emitSignal` origin handling. Restrict it to `subscription` only, or resolve origin from trusted execution state rather than context.
+- [x] Restrict `emitSignal` to subscription executions and derive origin from trusted subscription execution state.
 
 **B4 — `httpCall` discards non-2xx bodies. Medium.** service.ts:590-604 skips the body read for non-2xx and fails with bare `HTTP ${status}`. Every provider script loses API error detail (rate-limit reasons, validation messages) — exactly the payload a provider script needs to react correctly.
 
@@ -226,7 +226,7 @@ Confirmed by grep, non-test usage only:
 
 ## 7. Duplication
 
-- [ ] **Metadata-kind checks.** Replace duplicated checks with one `sandboxMetadataKind(metadata)` returning the kind.
+- [x] **Metadata-kind checks.** Replace duplicated checks with one `sandboxMetadataKind(metadata)` returning the kind.
 - [ ] **Byte-limited stream readers.** Consolidate `readSandboxHttpResponseText` and `readSandboxBridgeRequestBody` into one helper.
 - [ ] **Budget accounting, twice.** Generate budget messages from one shared source while keeping both counters.
 - [ ] **Grant path helpers.** Replace `sandboxArtifactGrantPath` and `sandboxNamedArtifactGrantPaths` with one generic.
@@ -252,4 +252,7 @@ You asked for recommendations rather than questions, so:
 
 ---
 
-One claim above remains unverified from source: **B3** depends on whether any system-authority script can actually hold `emitSignal` in practice. B2 now rejects symlink entries in kernel-owned measurement and harvest paths regardless of Deno's `Deno.symlink` permission behavior.
+`emitSignal` no longer accepts system-authority execution context. It uses the trusted subscription
+run origin, so script-controlled system context cannot forge signal attribution. B2 still rejects
+symlink entries in kernel-owned measurement and harvest paths regardless of Deno's `Deno.symlink`
+permission behavior.

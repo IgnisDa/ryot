@@ -594,6 +594,115 @@ export const SANDBOX_HOST_CAPABILITIES = [
 ] as const;
 export const sandboxHostCapabilitySchema = Schema.Literals([...SANDBOX_HOST_CAPABILITIES]);
 export type SandboxHostCapability = Schema.Schema.Type<typeof sandboxHostCapabilitySchema>;
+
+export type SandboxCapabilityAuthority = "user" | "subscription" | "system";
+export type SandboxCapabilitySystemKind = "activity" | "script";
+export type SandboxCapabilityRequirement = {
+	readonly authorities: readonly SandboxCapabilityAuthority[];
+	readonly bridge: boolean;
+	readonly requiresProvider?: boolean;
+	readonly systemKinds?: readonly SandboxCapabilitySystemKind[];
+};
+
+export const SANDBOX_CAPABILITY_REQUIREMENTS = {
+	log: {
+		authorities: ["user", "subscription", "system"] as const,
+		bridge: true,
+	},
+	span: {
+		authorities: ["user", "subscription", "system"] as const,
+		bridge: true,
+	},
+	httpCall: {
+		authorities: ["user", "subscription", "system"] as const,
+		bridge: true,
+	},
+	getCachedValue: {
+		authorities: ["user", "subscription", "system"] as const,
+		bridge: true,
+	},
+	setCachedValue: {
+		authorities: ["user", "subscription", "system"] as const,
+		bridge: true,
+	},
+	getPluginConfig: {
+		authorities: ["user", "subscription", "system"] as const,
+		bridge: true,
+	},
+	getSystemConfig: {
+		authorities: ["user", "subscription", "system"] as const,
+		bridge: true,
+	},
+	getUserPreferences: {
+		authorities: ["user", "subscription"] as const,
+		bridge: true,
+	},
+	claimPersistentValue: {
+		authorities: ["user", "subscription", "system"] as const,
+		bridge: true,
+	},
+	createEvents: {
+		authorities: ["user", "subscription"] as const,
+		bridge: true,
+	},
+	getEntitySchemas: {
+		authorities: ["user", "subscription"] as const,
+		bridge: true,
+	},
+	listEventSchemas: {
+		authorities: ["user", "subscription"] as const,
+		bridge: true,
+	},
+	listIntegrations: {
+		authorities: ["user", "subscription"] as const,
+		bridge: true,
+	},
+	executeQueryEngine: {
+		authorities: ["user", "subscription", "system"],
+		bridge: true,
+		systemKinds: ["activity"] as const,
+	},
+	ensureUserEntities: {
+		authorities: ["user"] as const,
+		bridge: true,
+	},
+	upsertGlobalEntities: {
+		authorities: ["system"] as const,
+		bridge: true,
+		requiresProvider: true,
+		systemKinds: ["script"] as const,
+	},
+	getCurrentIntegration: {
+		authorities: ["user", "subscription"] as const,
+		bridge: true,
+	},
+	changeUserRelationships: {
+		authorities: ["user", "subscription"] as const,
+		bridge: true,
+	},
+	upsertGlobalRelationships: {
+		authorities: ["system"] as const,
+		bridge: true,
+		systemKinds: ["script"] as const,
+	},
+	emitSignal: {
+		authorities: ["subscription"] as const,
+		bridge: true,
+	},
+	sendNotification: {
+		authorities: ["subscription"] as const,
+		bridge: true,
+	},
+	scratch: {
+		authorities: [],
+		bridge: false,
+	},
+	"artifact-read": {
+		authorities: [],
+		bridge: false,
+	},
+} satisfies Record<SandboxHostCapability, SandboxCapabilityRequirement>;
+
 export type SandboxHostMethodMap = Omit<
 	CoreSandboxHostMethodMap,
 	"getPluginConfig" | "getSystemConfig"

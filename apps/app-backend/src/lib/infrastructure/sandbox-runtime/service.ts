@@ -1,8 +1,9 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
 import {
-	AUTOMATION_SANDBOX_HOST_CAPABILITIES,
-	SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES,
+	SANDBOX_CAPABILITY_REQUIREMENTS,
+	type SandboxCapabilityRequirement,
+	type SandboxHostCapability,
 } from "@ryot/sandbox-sdk/core";
 import { generateId } from "better-auth";
 import {
@@ -60,17 +61,36 @@ import {
 	recordSandboxExecutionFinished,
 	recordSandboxExecutionStarted,
 } from "./runtime";
-import type { BoundHostFunction, SandboxRunInput } from "./shared";
+import { sandboxMetadataKind, type BoundHostFunction, type SandboxRunInput } from "./shared";
 import { makeWorkflowDurableCallsHostFunction } from "./workflow-journal";
 
 const sessionTtlBufferMs = 2_000;
 const encoder = new TextEncoder();
 const invalidResponseMessage = "Invalid JSON response from Deno process";
-const userAuthorityHostFunctions = new Set<string>(["ensureUserEntities"]);
-const systemActivityHostFunctions = new Set<string>(["executeQueryEngine"]);
-const userBoundHostFunctions = new Set<string>(["changeUserRelationships"]);
-const automationHostFunctions = new Set<string>(AUTOMATION_SANDBOX_HOST_CAPABILITIES);
-const systemCronHostFunctions = new Set<string>(SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES);
+const isSandboxCapabilityKey = (key: string): key is SandboxHostCapability =>
+	Object.hasOwn(SANDBOX_CAPABILITY_REQUIREMENTS, key);
+
+const sandboxCapabilityRequirement = (
+	capability: SandboxHostCapability,
+): SandboxCapabilityRequirement => SANDBOX_CAPABILITY_REQUIREMENTS[capability];
+
+const isSandboxCapabilityAllowed = (
+	key: string,
+	input: Pick<SandboxRunInput, "authority" | "metadata">,
+) => {
+	if (!isSandboxCapabilityKey(key)) {
+		return false;
+	}
+	const requirement = sandboxCapabilityRequirement(key);
+	if (!requirement.bridge || !requirement.authorities.includes(input.authority.type)) {
+		return false;
+	}
+	return (
+		input.authority.type !== "system" ||
+		requirement.systemKinds === undefined ||
+		requirement.systemKinds.some((kind) => kind === sandboxMetadataKind(input.metadata))
+	);
+};
 
 export const selectSandboxHostFunctions = (
 	boundApiFunctions: Readonly<Record<string, BoundHostFunction>>,
@@ -81,18 +101,6 @@ export const selectSandboxHostFunctions = (
 		const durableCalls = boundApiFunctions["durableCalls"];
 		return durableCalls ? { durableCalls } : selectedApiFunctions;
 	}
-	const isSystemScript =
-		input.authority.type === "system" &&
-		typeof input.metadata === "object" &&
-		input.metadata !== null &&
-		"kind" in input.metadata &&
-		input.metadata.kind === "script";
-	const isSystemActivity =
-		input.authority.type === "system" &&
-		typeof input.metadata === "object" &&
-		input.metadata !== null &&
-		"kind" in input.metadata &&
-		input.metadata.kind === "activity";
 	for (const key of input.allowedHostFunctions) {
 		// `artifact-read` and `scratch` are per-execution Deno permission grants honoured at spawn
 		// time, never bridge-callable syscalls, so they must never resolve to a bound host function.
@@ -100,18 +108,7 @@ export const selectSandboxHostFunctions = (
 			continue;
 		}
 		const fn = boundApiFunctions[key];
-		if (
-			fn &&
-			(!automationHostFunctions.has(key) ||
-				input.authority.type === "subscription" ||
-				(input.authority.type === "system" && key === "emitSignal")) &&
-			(!systemCronHostFunctions.has(key) || isSystemScript) &&
-			(input.authority.type !== "system" ||
-				!systemActivityHostFunctions.has(key) ||
-				isSystemActivity) &&
-			(!userAuthorityHostFunctions.has(key) || input.authority.type === "user") &&
-			(!userBoundHostFunctions.has(key) || input.authority.type !== "system")
-		) {
+		if (fn && isSandboxCapabilityAllowed(key, input)) {
 			selectedApiFunctions[key] = fn;
 		}
 	}
