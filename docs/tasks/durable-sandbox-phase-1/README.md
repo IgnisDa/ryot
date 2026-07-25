@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 4 of 16 tasks completed
+**Overall Progress:** 5 of 16 tasks completed
 
-**Current Task:** [Task 05](./05-complete-durable-host-dispatch.md) (todo)
+**Current Task:** [Task 06](./06-migrate-media-imports-and-workflows.md) (todo)
 
 ### Task List
 
@@ -14,7 +14,7 @@
 | 02  | [Build the Universal Durable Tracer](./02-build-universal-durable-tracer.md)                 | done   |
 | 03  | [Make Youtubei and Approved Dependencies Replay-Safe](./03-make-youtubei-replay-safe.md)     | done   |
 | 04  | [Make Sandbox Artifacts Replay-Safe](./04-make-artifacts-replay-safe.md)                     | done   |
-| 05  | [Complete Durable Host Dispatch and Write Safety](./05-complete-durable-host-dispatch.md)    | todo   |
+| 05  | [Complete Durable Host Dispatch and Write Safety](./05-complete-durable-host-dispatch.md)    | done   |
 | 06  | [Migrate Media Imports and Named Workflows](./06-migrate-media-imports-and-workflows.md)     | todo   |
 | 07  | [Migrate Media Integration Scripts](./07-migrate-media-integrations.md)                      | todo   |
 | 08  | [Migrate Media Automations and Operations](./08-migrate-media-automations-and-operations.md) | todo   |

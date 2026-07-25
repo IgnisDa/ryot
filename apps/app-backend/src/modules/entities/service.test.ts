@@ -242,6 +242,73 @@ it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatc
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect(
+	"dispatches ensured entity lifecycle work after persistence with durable identity",
+	() => {
+		const dispatched: unknown[] = [];
+		const repository = makeEntitiesRepository({
+			lockUserEntityEnsureScopes: () => Effect.void,
+			findUserEntityWithoutProvenance: () => Effect.succeed(null),
+			getEntitySchemaScopeForUser: () =>
+				Effect.succeed({
+					slug: "workout",
+					userId: user.id,
+					isBuiltin: true,
+					propertiesSchema: { fields: {} },
+					id: EntitySchemaSlug.make("workout"),
+				}),
+			insertEntity: () =>
+				Effect.succeed({
+					wasInserted: true,
+					entity: {
+						createdAt: now,
+						updatedAt: now,
+						properties: {},
+						name: "Workout",
+						externalId: null,
+						providerId: null,
+						populatedAt: null,
+						id: EntityId.make("workout-1"),
+						entitySchemaSlug: EntitySchemaSlug.make("workout"),
+					},
+				}),
+		});
+		const layer = Layer.mergeAll(
+			EntitiesService.layer.pipe(
+				Layer.provide(
+					Layer.mergeAll(
+						dbRunnerLayer,
+						makeQueryEngine(),
+						repository,
+						Layer.succeed(LifecycleDispatch, {
+							dispatch: (input) => Effect.sync(() => dispatched.push(input)).pipe(Effect.asVoid),
+						}),
+					),
+				),
+			),
+			transactionLayer,
+		);
+
+		return Effect.gen(function* () {
+			const service = yield* EntitiesService;
+			expect(
+				yield* service.ensureUserEntities(
+					user.id,
+					[{ name: "Workout", properties: {}, entitySchemaSlug: EntitySchemaSlug.make("workout") }],
+					{ occurredAt: now, executionId: "sandbox-host-2" },
+				),
+			).toEqual([{ entityId: "workout-1", wasInserted: true }]);
+			expect(dispatched).toMatchObject([
+				{
+					occurredAt: now,
+					recordId: "workout-1",
+					occurrenceId: "sandbox-host-2-ensure-user-entity-0",
+				},
+			]);
+		}).pipe(Effect.provide(layer));
+	},
+);
+
 it.effect("returns the translationStatus sourced from the query-engine computed field", () => {
 	const { layer } = setupGetById(makeEntityRow({ translationStatus: field("text", "ready") }));
 
