@@ -206,3 +206,32 @@ it.effect("enforces the document rules independently for every layout", () => {
 		);
 	});
 });
+
+it.effect("reports semantic query errors as an unstructured query diagnostic", () => {
+	const invalid = {
+		...layouts,
+		list: {
+			...layouts.list,
+			queryDocument: document({
+				savedView: rows(book, {
+					fields: [
+						field("id", column(book, "id")),
+						field("name", column(book, "name")),
+						field("image", castJson(jsonPath(column(book, "missingColumn"), "images", 0))),
+					],
+				}),
+			}),
+		},
+	} satisfies SavedViewLayouts;
+
+	return Effect.exit(validateSavedViewDefinition({ layouts: invalid })).pipe(
+		Effect.map((exit) =>
+			assertExitFails(
+				exit,
+				new SavedViewBadRequest({
+					reason: { layout: "list", issue: "query-invalid", code: "invalid-definition" },
+				}),
+			),
+		),
+	);
+});

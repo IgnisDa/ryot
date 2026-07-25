@@ -14,7 +14,8 @@ import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
 import {
 	type DefinitionSnapshot,
-	getSavedViewValidationError,
+	formatSavedViewValidationIssue,
+	validateSavedViewLayouts,
 } from "#modules/definition-registry/service";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
@@ -807,9 +808,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (!getEntitySchema(view.entitySchemaSlug ?? "") && view.entitySchemaSlug) {
 						return yield* badRequest("Backup saved view references an unavailable entity schema");
 					}
-					const validationError = getSavedViewValidationError(view);
-					if (validationError) {
-						return yield* badRequest(validationError);
+					const validationIssue = validateSavedViewLayouts(view);
+					if (validationIssue) {
+						return yield* badRequest(formatSavedViewValidationIssue(validationIssue));
 					}
 					const pluginInstallationId = view.pluginKey
 						? installationIdByKey.get(view.pluginKey)
