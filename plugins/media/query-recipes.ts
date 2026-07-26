@@ -118,16 +118,13 @@ const showEpisodeInclude = (season: Table, episodeLimit: number) => {
 	});
 };
 
-const showSeasonInclude = (input: {
-	readonly seasonLimit: number;
-	readonly episodeLimit?: number;
-}) => {
+const showSeasonInclude = (seasonLimit: number) => {
 	const season = table("entity", "season");
 	const seasonNumber = propertyNumber(season, "seasonNumber");
 	const seasonRelationship = table("relationship", "seasonRelationship");
 
 	return selectedInclude(season, {
-		limit: input.seasonLimit,
+		limit: seasonLimit,
 		orderBy: [ascending(seasonNumber)],
 		selection: {
 			...entityIdentitySelection(season),
@@ -147,10 +144,6 @@ const showSeasonInclude = (input: {
 				eq(column(seasonRelationship, "targetEntityId"), column(season, "id")),
 			),
 		],
-		include:
-			input.episodeLimit === undefined
-				? undefined
-				: { episodes: showEpisodeInclude(season, input.episodeLimit) },
 	});
 };
 
@@ -191,42 +184,13 @@ const withEntityFilter = (
 	predicate: ReturnType<typeof and>,
 ) => (entityIdInput === undefined ? predicate : and(entityId(entity, entityIdInput), predicate));
 
-export const showDetailRecipe = defineRecipe(
-	(input: {
-		readonly entityId: string;
-		readonly seasonLimit: number;
-		readonly episodeLimit: number;
-	}) => {
-		const entity = table("entity", "entity");
-		const lifecycle = episodicLifecycleExpressions(
-			showEpisodicKindConfig,
-			entity,
-			"showDetailLifecycle",
-		);
-		return {
-			queries: {
-				show: selectedOptionalRow(entity, {
-					include: { seasons: showSeasonInclude(input) },
-					selection: {
-						...entityIdentitySelection(entity),
-						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
-					},
-					orderBy: [ascending(column(entity, "id"))],
-					where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
-				}),
-			},
-			map: ({ show }) => Result.succeed(show ?? null),
-		};
-	},
-);
-
 export const showSeasonsRecipe = defineRecipe(
 	(input: { readonly entityId: string; readonly seasonLimit: number }) => {
 		const entity = table("entity", "entity");
 		return {
 			queries: {
 				show: selectedOptionalRow(entity, {
-					include: { seasons: showSeasonInclude(input) },
+					include: { seasons: showSeasonInclude(input.seasonLimit) },
 					selection: entityIdentitySelection(entity),
 					orderBy: [ascending(column(entity, "id"))],
 					where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
@@ -1001,7 +965,6 @@ export const defaultMediaSavedViewRecipe = (input: {
 };
 
 export type ShowActivityEvent = ShowActivityResult["events"][number];
-export type ShowDetailResult = Recipe.Success<typeof showDetailRecipe>;
 export type ShowSeasonsResult = Recipe.Success<typeof showSeasonsRecipe>;
 export type ShowSummaryResult = Recipe.Success<typeof showSummaryRecipe>;
 export type ShowActivityResult = Recipe.Success<typeof showActivityRecipe>;

@@ -144,29 +144,27 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 
 export const decodeShowActivity = (input: ActivityRows = {}) => {
 	const hasMore = input.truncated === true;
-	const decoded = showActivityFixtureRecipe.decode({
-		data: {
-			parentEvents: activityRows(
-				input.parentEvents ?? [showBacklogEventRow, showCompletionEventRow, showReviewEventRow],
-				hasMore,
-			),
-			episodeProgress: progressRows(
-				input.episodeProgress ?? [episodeProgressRow, specialProgressRow],
-			),
-			episodeEvents: activityRows(
-				input.episodeEvents ?? [
-					episodeCompletionEventRow,
-					episodeReviewEventRow,
-					laterEpisodeCompletionEventRow,
-				],
-				false,
-			),
-		},
-	});
-	if (Result.isFailure(decoded)) {
-		throw new Error("Expected a decoded show activity result");
-	}
-	return decoded.success;
+	return Result.getOrThrow(
+		showActivityFixtureRecipe.decode({
+			data: {
+				parentEvents: activityRows(
+					input.parentEvents ?? [showBacklogEventRow, showCompletionEventRow, showReviewEventRow],
+					hasMore,
+				),
+				episodeProgress: progressRows(
+					input.episodeProgress ?? [episodeProgressRow, specialProgressRow],
+				),
+				episodeEvents: activityRows(
+					input.episodeEvents ?? [
+						episodeCompletionEventRow,
+						episodeReviewEventRow,
+						laterEpisodeCompletionEventRow,
+					],
+					false,
+				),
+			},
+		}),
+	);
 };
 
 export const emptyShowActivity = () =>

@@ -10,8 +10,7 @@ import { ShowScreenContent } from "./show-screen-content";
 import { ShowScreenFrame } from "./show-screen-frame";
 import { showBackdropAsset, showManagedAssets } from "./show-summary-state";
 import { ShowTint } from "./show-tint";
-import { useShowOverview } from "./use-show-overview";
-import { useShowSummary } from "./use-show-summary";
+import { useShowOverview, useShowSummary } from "./use-show-query";
 
 export function ShowScreen(props: { readonly entityId: string }) {
 	const goBack = useGoBack();

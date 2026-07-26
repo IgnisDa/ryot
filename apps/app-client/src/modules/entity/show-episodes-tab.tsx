@@ -4,8 +4,7 @@ import { ManagedAssetHost } from "@/modules/ui/managed-asset-host";
 
 import { ShowEpisodes } from "./show-episodes";
 import { selectedShowSeason, showEpisodesManagedAssets } from "./show-episodes-state";
-import { useShowEpisodes } from "./use-show-episodes";
-import { useShowSeasonEpisodes } from "./use-show-season-episodes";
+import { useShowEpisodes, useShowSeasonEpisodes } from "./use-show-query";
 
 export function ShowEpisodesTab(props: { readonly entityId: string }) {
 	const [selectedId, setSelectedId] = useState<string | null>(null);

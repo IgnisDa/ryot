@@ -4,8 +4,9 @@ import {
 	podcastDetailRecipe,
 	podcastsByLifecycleStateRecipe,
 	showActivityRecipe,
-	showDetailRecipe,
 	showOverviewRecipe,
+	showSeasonEpisodesRecipe,
+	showSeasonsRecipe,
 	showSummaryRecipe,
 	trendingMediaRecipe,
 } from "@ryot/media-plugin/query-recipes";
@@ -238,7 +239,7 @@ const ACTIVITY_LIMITS = {
 } as const;
 
 describe("Media RyotQL query recipe results", () => {
-	it.live("reconstructs show details with nested state and independent limits", () =>
+	it.live("loads seasons and selected season episodes with independent limits", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema: showSchema } = yield* findBuiltinSchemaBySlug(client, "show");
@@ -401,7 +402,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const showRow = yield* executeRyotQLRecipe(
 				client,
-				showDetailRecipe({ seasonLimit: 2, episodeLimit: 1, entityId: show.id }),
+				showSeasonsRecipe({ seasonLimit: 2, entityId: show.id }),
 			);
 			assertPresent(showRow, "Expected show row");
 			const seasons = showRow.seasons;
@@ -411,8 +412,18 @@ describe("Media RyotQL query recipe results", () => {
 			const secondSeasonResult = seasons.items[1];
 			assertPresent(firstSeasonResult, "Expected first season");
 			assertPresent(secondSeasonResult, "Expected second season");
-			const firstEpisodes = firstSeasonResult.episodes;
-			const secondEpisodes = secondSeasonResult.episodes;
+			const firstSeason = yield* executeRyotQLRecipe(
+				client,
+				showSeasonEpisodesRecipe({ episodeLimit: 1, seasonId: firstSeasonResult.id }),
+			);
+			const secondSeason = yield* executeRyotQLRecipe(
+				client,
+				showSeasonEpisodesRecipe({ episodeLimit: 1, seasonId: secondSeasonResult.id }),
+			);
+			assertPresent(firstSeason, "Expected first season episodes");
+			assertPresent(secondSeason, "Expected second season episodes");
+			const firstEpisodes = firstSeason.episodes;
+			const secondEpisodes = secondSeason.episodes;
 			expect(firstEpisodes.items).toHaveLength(1);
 			expect(secondEpisodes.items).toHaveLength(1);
 			const firstEpisodeResult = firstEpisodes.items[0];
@@ -441,7 +452,6 @@ describe("Media RyotQL query recipe results", () => {
 			expect(firstEpisodeResult).not.toHaveProperty("isComplete");
 			expect(secondSeasonEpisodeResult).not.toHaveProperty("hasProgress");
 			expect(secondSeasonEpisodeResult).not.toHaveProperty("isComplete");
-			expect(showRow.state).toBe("in_progress");
 		}),
 	);
 
