@@ -372,6 +372,104 @@ it.effect("cleans up due local and S3 pending intents in a bounded batch", () =>
 	);
 });
 
+it.effect("keeps duplicate cleanup dispatches idempotent", () => {
+	const intentId = "duplicate-cleanup-intent";
+	const intentKey = redisKeys.uploadIntent(intentId);
+	const stored = new Map([
+		[
+			intentKey,
+			JSON.stringify({
+				intentId,
+				createdAt: 1,
+				expiresAt: 0,
+				state: "pending",
+				kind: "temporary",
+				userId: "user-id",
+				provider: "local",
+				contentType: "text/csv",
+				objectKey: "temporary/duplicate.csv",
+			}),
+		],
+	]);
+	const deleted: string[] = [];
+
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		yield* service.cleanupPendingIntents(1);
+		yield* service.cleanupPendingIntents(1);
+		expect(deleted).toEqual(["temporary/duplicate.csv"]);
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				redisService: makeRedisLayer({
+					get: (key) => Effect.succeed(stored.get(key) ?? null),
+					setAndIndex: (key, value) => {
+						stored.set(key, value);
+						return Effect.void;
+					},
+					zrangeByScore: () => Effect.succeed([intentId]),
+					zrem: () => Effect.void,
+					del: (...keys) => {
+						for (const key of keys) {
+							stored.delete(key);
+						}
+						return Effect.succeed(keys.length);
+					},
+				}),
+				localStorageService: makeLocalStorageLayer({
+					deleteObject: (key) => {
+						deleted.push(key);
+						return Effect.void;
+					},
+				}),
+			}),
+		),
+	);
+});
+
+it.effect("does not clean an intent while its processing lease is held", () => {
+	const intentId = "claimed-during-cleanup-intent";
+	const intentKey = redisKeys.uploadIntent(intentId);
+	const stored = new Map([
+		[
+			intentKey,
+			JSON.stringify({
+				intentId,
+				createdAt: 1,
+				expiresAt: 0,
+				userId: "user-id",
+				provider: "local",
+				kind: "temporary",
+				state: "completed",
+				contentType: "text/csv",
+				objectKey: "temporary/claimed.csv",
+				completion: { expiresAt: 0, token: "token" },
+			}),
+		],
+	]);
+
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		yield* service.cleanupPendingIntents(1);
+		expect(stored.has(intentKey)).toBe(true);
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				redisService: makeRedisLayer({
+					zrangeByScore: () => Effect.succeed([intentId]),
+					get: (key) => Effect.succeed(stored.get(key) ?? null),
+					acquireLease: (key) =>
+						Effect.succeed(
+							key === redisKeys.uploadIntentCleanupLock(intentId)
+								? "00000000-0000-0000-0000-000000000000"
+								: null,
+						),
+				}),
+			}),
+		),
+	);
+});
+
 it.effect("completes a local intent idempotently and removes its expiry index", () => {
 	const intentId = "intent-id";
 	const intentKey = redisKeys.uploadIntent(intentId);

@@ -2,6 +2,7 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 } from "@ryot/contract/display-configuration";
+import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import {
 	buildWorkoutDetailQueryDocument,
 	buildWorkoutTemplateDetailQueryDocument,
@@ -31,28 +32,25 @@ import { describe, expect, it } from "~/support/effect-test";
 
 type WorkoutTemplateProperties = {
 	comment?: string;
-	images?: Array<{ type: "s3"; key: string } | { type: "remote"; url: string }>;
-	videos?: Array<{ type: "s3"; key: string } | { type: "remote"; url: string }>;
+	images?: AssetLocator[];
+	videos?: AssetLocator[];
+	supersets?: Array<{ color: string; exercises: number[] }>;
 	exercises: Array<{
+		notes?: string[];
 		exerciseId: string;
 		exerciseOrder: number;
-		notes?: string[];
-		images?: Array<{ type: "s3"; key: string } | { type: "remote"; url: string }>;
-		videos?: Array<{ type: "s3"; key: string } | { type: "remote"; url: string }>;
+		images?: AssetLocator[];
+		videos?: AssetLocator[];
 		sets: Array<{
-			setOrder: number;
-			setLot: "normal" | "warm_up" | "drop" | "failure";
 			note?: string;
+			setOrder: number;
+			rpe?: number | null;
 			reps?: number | null;
 			weight?: number | null;
 			distance?: number | null;
 			duration?: number | null;
-			rpe?: number | null;
+			setLot: "normal" | "warm_up" | "drop" | "failure";
 		}>;
-	}>;
-	supersets?: Array<{
-		color: string;
-		exercises: number[];
 	}>;
 };
 

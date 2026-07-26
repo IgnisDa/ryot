@@ -1,4 +1,3 @@
-import { RemoteImageUrl } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -16,8 +15,6 @@ import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("query engine field resolution", () => {
-	const imageUrl = RemoteImageUrl.make("https://example.com/image.png");
-
 	it.live("coalesces cross-schema property values per row", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
@@ -77,7 +74,7 @@ describe("query engine field resolution", () => {
 		}),
 	);
 
-	it.live("returns the first image from the images property as json", () =>
+	it.live("returns local and remote images from the images property as json", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
@@ -100,8 +97,8 @@ describe("query engine field resolution", () => {
 										type: "enum",
 										label: "Type",
 										description: "Type",
-										options: ["s3", "remote"],
 										validation: { required: true },
+										options: ["local", "s3", "remote"],
 									},
 								},
 							},
@@ -112,7 +109,12 @@ describe("query engine field resolution", () => {
 			yield* createEntity(client, {
 				name: "Image Entity",
 				entitySchemaSlug: schemaId,
-				properties: { images: [{ type: "remote", url: imageUrl }] },
+				properties: {
+					images: [
+						{ type: "local", key: "permanent/query-image.jpg" },
+						{ type: "remote", url: "https://example.com/image.png" },
+					],
+				},
 			});
 
 			const result = yield* executeQueryEngine(
@@ -120,15 +122,22 @@ describe("query engine field resolution", () => {
 				buildEntityRowsQueryDocument({
 					alias: "item",
 					schemas: [slug],
-					fields: [{ key: "image", expr: propertyRef("item", slug, "images", "0") }],
+					fields: [
+						{ key: "localImage", expr: propertyRef("item", slug, "images", "0") },
+						{ key: "remoteImage", expr: propertyRef("item", slug, "images", "1") },
+					],
 				}),
 			);
 
 			const imageRow = result.data.items[0];
 			assertPresent(imageRow, "Missing image row");
-			expect(requireQueryEngineFieldValue(imageRow, "image")).toEqual({
+			expect(requireQueryEngineFieldValue(imageRow, "localImage")).toEqual({
 				kind: "json",
-				value: { type: "remote", url: imageUrl },
+				value: { type: "local", key: "permanent/query-image.jpg" },
+			});
+			expect(requireQueryEngineFieldValue(imageRow, "remoteImage")).toEqual({
+				kind: "json",
+				value: { type: "remote", url: "https://example.com/image.png" },
 			});
 		}),
 	);
