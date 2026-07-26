@@ -20,7 +20,7 @@ tests:
           value: ryot-test-http
       - equal:
           path: spec.containers[0].image
-          value: ghcr.io/ignisda/ryot:v10
+          value: curlimages/curl:8.17.0
       - equal:
           path: spec.restartPolicy
           value: Never
