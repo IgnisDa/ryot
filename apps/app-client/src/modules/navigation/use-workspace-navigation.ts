@@ -9,7 +9,7 @@ import { navigationAtom, scopedWorkspaceAtom } from "@/modules/navigation/atoms"
 import { useServerUrl } from "@/modules/server/state";
 import { CLOUD_URL } from "@/modules/server/url";
 
-import { getNavigationHref, type NavigationItem } from "./navigation-data";
+import { getNavigationHref, getWorkspaceHref, type NavigationItem } from "./navigation-data";
 import {
 	mapNavigationState,
 	type NavigationFailure,
@@ -82,7 +82,7 @@ export function useWorkspaceNavigation(): WorkspaceNavigation {
 				return;
 			}
 			setWorkspace(slug);
-			router.replace({ pathname: "/[workspace]", params: { workspace: slug } });
+			router.replace(getWorkspaceHref(slug));
 		},
 	};
 }
