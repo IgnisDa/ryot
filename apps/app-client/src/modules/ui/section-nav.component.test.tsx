@@ -5,7 +5,7 @@ import { SectionNavList } from "./section-nav";
 import type { SectionNavItem } from "./sections";
 
 const sections = [
-	{ icon: "house", slug: "general", label: "General", href: "/settings/general" },
+	{ icon: "house", slug: "preferences", label: "Preferences", href: "/settings/preferences" },
 	{ icon: "users", slug: "account", label: "Account", href: "/settings/account" },
 	{ icon: "archive", slug: "backups", label: "Backups", href: "/settings/backups" },
 ] as const satisfies readonly SectionNavItem[];
@@ -23,7 +23,7 @@ describe("section navigation list", () => {
 			/>,
 		);
 
-		expect(screen.getByRole("button", { name: "General" })).not.toBeSelected();
+		expect(screen.getByRole("button", { name: "Preferences" })).not.toBeSelected();
 		expect(screen.getByRole("button", { name: "Account" })).toBeSelected();
 
 		await user.press(screen.getByRole("button", { name: "Backups" }));
