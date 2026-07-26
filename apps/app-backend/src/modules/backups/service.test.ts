@@ -5,7 +5,7 @@ import { Effect, Layer, Stream } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
-import { UploadsService } from "#modules/uploads/service";
+import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { BackupAccountCleanliness } from "./restore/account-cleanliness";
 import { BackupsRepository } from "./runs/repository";
@@ -33,7 +33,7 @@ const completedRun = {
 	expiresAt: "2099-08-24T12:00:00.000Z",
 };
 
-const mockUploads = Layer.mock(UploadsService);
+const mockUploads = Layer.mock(ObjectStorageService);
 const mockRepository = Layer.mock(BackupsRepository);
 
 const makeLayer = (input: {
@@ -72,13 +72,18 @@ it.effect("enforces run ownership through the repository scope", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("rejects download and deletion while a run is active", () => {
-	const running = { ...completedRun, status: "running" as const, progress: 50, expiresAt: null };
+it.effect("rejects download and deletion while a run is pending or running", () => {
+	let status: "pending" | "running" = "pending";
 	const layer = makeLayer({
-		repository: { getRunById: () => Effect.succeed(running) },
+		repository: {
+			getRunById: () => Effect.succeed({ ...completedRun, status, progress: 50, expiresAt: null }),
+		},
 	});
 	return Effect.gen(function* () {
 		const service = yield* BackupsService;
+		expect((yield* service.downloadRun(user, runId).pipe(Effect.flip))._tag).toBe("Conflict");
+		expect((yield* service.deleteRun(user, runId).pipe(Effect.flip))._tag).toBe("Conflict");
+		status = "running";
 		expect((yield* service.downloadRun(user, runId).pipe(Effect.flip))._tag).toBe("Conflict");
 		expect((yield* service.deleteRun(user, runId).pipe(Effect.flip))._tag).toBe("Conflict");
 	}).pipe(Effect.provide(layer));

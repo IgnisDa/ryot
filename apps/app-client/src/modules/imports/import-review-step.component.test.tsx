@@ -2,7 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import { render, screen, userEvent } from "@testing-library/react-native";
 import { useEffect, useState } from "react";
 
-import type { SchemaFileUpload } from "@/modules/ui/schema-form/file-upload";
+import type { SchemaFileUpload } from "@/modules/ui/schema-form/file/file-upload";
 import {
 	MASKED_REVIEW_VALUE,
 	UPLOADED_REVIEW_VALUE,

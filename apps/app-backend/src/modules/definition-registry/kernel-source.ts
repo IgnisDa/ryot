@@ -41,6 +41,7 @@ const collectionSchema = {
 						label: "Entity ID",
 						type: "string" as const,
 						validation: { required: true as const },
+						reference: { kind: "entity-id" as const },
 						description: `ID of the entity ${operation === "Add" ? "added to" : "removed from"} the collection`,
 					},
 					entitySchemaSlug: {
@@ -53,6 +54,7 @@ const collectionSchema = {
 						type: "string" as const,
 						label: "Relationship ID",
 						validation: { required: true as const },
+						reference: { kind: "relationship-id" as const },
 						description:
 							operation === "Add"
 								? "ID of the membership relationship"

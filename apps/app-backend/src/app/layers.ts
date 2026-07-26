@@ -17,6 +17,7 @@ import { makeRuntimeSandboxApiFunctions } from "#lib/infrastructure/sandbox-runt
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
+import { LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
 import { AuthRepository } from "#modules/auth/repository";
 import { AuthService } from "#modules/auth/service";
 import { LifecycleDispatchLive } from "#modules/automations/lifecycle-dispatch";
@@ -127,10 +128,18 @@ import {
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
 import { OperationalGateService } from "#modules/test-support/operational-gate-service";
 import { TestSupportService } from "#modules/test-support/service";
-import { UploadsRepository } from "#modules/uploads/repository";
-import { UploadsService } from "#modules/uploads/service";
+import { UploadIntentsService } from "#modules/uploads/intents/service";
+import { ManagedAssetsRepository } from "#modules/uploads/managed-assets/repository";
+import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
+import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 import { AuthUserBootstrapLive } from "#modules/user-bootstrap/bootstrap";
 import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
+import { UserLifecycleRepository } from "#modules/user-lifecycle/repository";
+import { UserLifecycleService } from "#modules/user-lifecycle/service";
+import {
+	UserLifecycleWorkflowDefinitionsLive,
+	UserLifecycleWorkflowOperationsLive,
+} from "#modules/user-lifecycle/workflow";
 import { UserSettingsService } from "#modules/user-settings/service";
 import { UserStateService } from "#modules/user-state/service";
 
@@ -184,7 +193,8 @@ const PlatformRepositoriesLive = Layer.mergeAll(
 	SavedViewsRepository.layer,
 	DefinitionsRepository.layer,
 	PluginRepository.layer,
-	UploadsRepository.layer,
+	ManagedAssetsRepository.layer,
+	UserLifecycleRepository.layer,
 );
 
 const SandboxPluginScriptResolverLive = Layer.provideMerge(
@@ -241,17 +251,23 @@ const ApplicationInfrastructureLive = CoreInfrastructureServicesLive.pipe(
 );
 
 const RyotQLServiceLive = RyotQLService.layer;
-const BackupExportSnapshotLive = BackupExportSnapshot.layer.pipe(
-	Layer.provide(UploadsService.layer),
+const ObjectStorageServiceLive = ObjectStorageService.layer;
+const UserLifecycleGuardLive = LifecycleWriteGuard.layer;
+const ManagedAssetsServiceLive = ManagedAssetsService.layer.pipe(
+	Layer.provideMerge(Layer.mergeAll(ObjectStorageServiceLive, UserLifecycleGuardLive)),
 );
+const UploadServicesLive = UploadIntentsService.layer.pipe(
+	Layer.provideMerge(ManagedAssetsServiceLive),
+);
+const BackupExportSnapshotLive = BackupExportSnapshot.layer.pipe(Layer.provide(UploadServicesLive));
 const BackupAccountCleanlinessLive = BackupAccountCleanliness.layer.pipe(
-	Layer.provide(UploadsService.layer),
+	Layer.provide(UploadServicesLive),
 );
 const BackupServicesLive = Layer.mergeAll(
 	BackupRestoreWriter.layer,
 	BackupExportSnapshotLive,
 	BackupAccountCleanlinessLive,
-	BackupsService.layer.pipe(Layer.provide([BackupAccountCleanlinessLive, UploadsService.layer])),
+	BackupsService.layer.pipe(Layer.provide([BackupAccountCleanlinessLive, UploadServicesLive])),
 );
 const NotificationSubscriptionsServiceLive = NotificationSubscriptionsService.layer.pipe(
 	Layer.provide(AutomationsService.layer),
@@ -277,12 +293,23 @@ const AuthUserBootstrapProvidedLive = AuthUserBootstrapLive.pipe(
 
 const AuthAndBootstrapServicesLive = Layer.mergeAll(
 	BootstrapServicesLive,
+	UserLifecycleGuardLive,
 	AuthService.layer.pipe(Layer.provide(AuthUserBootstrapProvidedLive)),
 );
-const AuthDependentServicesLive = Layer.mergeAll(
-	UserSettingsService.layer,
-	GodModeService.layer,
-).pipe(Layer.provideMerge(AuthAndBootstrapServicesLive));
+const UserLifecycleServiceLive = UserLifecycleService.layer.pipe(
+	Layer.provideMerge(AuthAndBootstrapServicesLive),
+);
+const UserSettingsServiceLive = UserSettingsService.layer.pipe(
+	Layer.provideMerge(AuthAndBootstrapServicesLive),
+);
+const AuthDependentServicesBaseLive = Layer.mergeAll(
+	UserSettingsServiceLive,
+	UserLifecycleServiceLive,
+);
+const GodModeServiceLive = GodModeService.layer.pipe(
+	Layer.provideMerge(AuthDependentServicesBaseLive),
+);
+const AuthDependentServicesLive = Layer.mergeAll(AuthDependentServicesBaseLive, GodModeServiceLive);
 
 const InterestReconcilerLive = InterestReconciler.layer.pipe(
 	Layer.provide([RyotQLServiceLive, EntityPopulationTriggerLive, TranslationsService.layer]),
@@ -392,7 +419,7 @@ const UserStateServiceLive = UserStateService.layer.pipe(
 const ImportsServiceLive = ImportsService.layer.pipe(
 	Layer.provideMerge(
 		Layer.mergeAll(
-			UploadsService.layer,
+			UploadServicesLive,
 			ImportSourceCatalogLive,
 			ImportRunFailuresService.layer,
 			ImportWorkflowPinningLive,
@@ -456,6 +483,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	ProcessGenericImportChunksWorkflowDefinitionsLive,
 	ExportBackupWorkflowDefinitionsLive,
 	RestoreBackupWorkflowDefinitionsLive,
+	UserLifecycleWorkflowDefinitionsLive,
 	Layer.provide(IntegrationWorkflowDefinitionsLive, IntegrationProviderCatalogLive),
 	Layer.provide(SandboxWorkflowDefinitionsLive, KernelWorkflowReferencesLive),
 	TranslateEntityWorkflowDefinitionsLive,
@@ -521,6 +549,10 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 		Layer.provide(
 			Layer.mergeAll(ExportBackupWorkflowOperationsLive, RestoreBackupWorkflowOperationsLive),
 			ServicesWithTestSupportLive,
+		),
+		Layer.provide(
+			UserLifecycleWorkflowOperationsLive,
+			Layer.mergeAll(ServicesWithTestSupportLive, ObjectStorageServiceLive),
 		),
 	),
 	ApplicationInfrastructureLive,

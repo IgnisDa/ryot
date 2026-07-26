@@ -10,20 +10,65 @@ import {
 	defaultUserPreferences,
 	normalizeUserPreferences,
 } from "@ryot/contract/auth-middleware";
-import { rateLimited, unauthorized, unknownToDbError } from "@ryot/contract/errors";
+import {
+	badRequest,
+	internalError,
+	rateLimited,
+	unauthorized,
+	unknownToDbError,
+} from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { genericOAuth, twoFactor } from "better-auth/plugins";
-import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { eq } from "drizzle-orm";
+import { Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect";
 import { HttpMiddleware, HttpServerError, HttpServerRequest } from "effect/unstable/http";
 import type Redis from "ioredis";
 
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
+import * as authSchema from "#lib/infrastructure/db/schema/tables/auth";
 import { Database } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
+import { isUserLifecycleActive, LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { gateSessionCreation } from "./session-gate";
+
+const RESET_LINK_TIMEOUT_MS = 10_000;
+
+const lifecycleProtectedAuthPaths = new Set([
+	"/api-key/create",
+	"/api-key/delete",
+	"/api-key/update",
+	"/change-email",
+	"/change-password",
+	"/link-social",
+	"/set-password",
+	"/two-factor/disable",
+	"/two-factor/enable",
+	"/two-factor/generate-backup-codes",
+	"/unlink-account",
+	"/update-user",
+]);
+
+export const isLifecycleProtectedAuthPath = (path: string) => lifecycleProtectedAuthPaths.has(path);
+
+const parseResetLinkMessage = (message: string) => {
+	const parsed = Result.try(() => JSON.parse(message));
+	if (Result.isFailure(parsed)) {
+		return null;
+	}
+	const value = parsed.success;
+	if (value !== null && typeof value === "object") {
+		const email = Reflect.get(value, "email");
+		const resetUrl = Reflect.get(value, "resetUrl");
+		if (typeof email === "string" && typeof resetUrl === "string") {
+			return { email, resetUrl };
+		}
+	}
+	return null;
+};
 
 const stripSearchAndHash = (url: string) => {
 	const queryIndex = url.indexOf("?");
@@ -44,9 +89,9 @@ export class AuthUserBootstrap extends Context.Service<
 >()("AuthUserBootstrap") {}
 
 const makeAuthInstance = (args: {
-	readonly db: Database["Service"];
 	readonly redis: Redis;
 	readonly config: AppConfigValue;
+	readonly db: Database["Service"];
 	readonly runtime: Context.Context<Database | RedisService>;
 	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, unknown>;
 }) => {
@@ -63,13 +108,13 @@ const makeAuthInstance = (args: {
 
 	const database = effectPostgresAuthAdapter({ db: args.db, context: args.runtime });
 	const auth = betterAuth({
+		database,
 		appName: "Ryot",
 		basePath: "/api/auth",
 		baseURL: args.config.frontendUrl,
 		account: { accountLinking: { enabled: false } },
 		secondaryStorage: redisStorage({ client: args.redis }),
 		secret: Redacted.value(args.config.server.adminAccessToken),
-		database,
 		disabledPaths: args.config.users.disableLocalAuth ? ["/sign-in/email"] : [],
 		trustedOrigins: [
 			"ryot://",
@@ -83,6 +128,32 @@ const makeAuthInstance = (args: {
 				bootstrapCompletedAt: { type: "date", required: false, input: false },
 				preferences: { type: "json", required: true, defaultValue: defaultUserPreferences },
 			},
+		},
+		hooks: {
+			before: createAuthMiddleware((ctx) =>
+				Effect.runPromiseWith(args.runtime)(
+					Effect.gen(function* () {
+						if (!isLifecycleProtectedAuthPath(ctx.path)) {
+							return undefined;
+						}
+						const session = yield* Effect.promise(() =>
+							getSessionFromCtx(ctx, { disableCookieCache: true }),
+						);
+						if (!session) {
+							return undefined;
+						}
+						if (yield* isUserLifecycleActive(UserId.make(session.user.id))) {
+							return yield* Effect.fail(
+								APIError.from("FORBIDDEN", {
+									code: "USER_LIFECYCLE_ACTIVE",
+									message: "This user is temporarily unavailable.",
+								}),
+							);
+						}
+						return undefined;
+					}),
+				),
+			),
 		},
 		emailAndPassword: {
 			enabled: true,
@@ -184,16 +255,21 @@ const makeAuthInstance = (args: {
 		],
 	});
 
-	return { auth, database };
+	return auth;
 };
 
-type AuthInstance = ReturnType<typeof makeAuthInstance>["auth"];
+type AuthInstance = ReturnType<typeof makeAuthInstance>;
 type AuthContextValue = Awaited<AuthInstance["$context"]>;
+type AuthUserRecord = Pick<
+	typeof authSchema.user.$inferSelect,
+	"id" | "name" | "email" | "image" | "disabledAt" | "preferences"
+>;
 export type AuthUserInput = {
 	id: string;
 	name: string;
 	email: string;
 	emailVerified: boolean;
+	disabledAt?: Date | null;
 	preferences: Record<string, unknown>;
 };
 
@@ -202,6 +278,44 @@ const isAPIError = (
 ): error is { body?: { code?: string; details?: { tryAgainIn?: number } } } =>
 	typeof error === "object" && error !== null && "body" in error;
 
+export const resolveCurrentUser = (
+	headers: Headers,
+	getSession: (options: {
+		headers: Headers;
+		query: { disableCookieCache: true };
+	}) => Promise<{ user: { id: string } } | null>,
+	findUserById: (userId: string) => Effect.Effect<AuthUserRecord | null, unknown>,
+) =>
+	Effect.tryPromise({
+		try: () => getSession({ headers, query: { disableCookieCache: true } }),
+		catch: (error) => {
+			if (isAPIError(error) && error.body?.code === "RATE_LIMITED") {
+				const tryAgainIn = error.body.details?.tryAgainIn;
+				return rateLimited(`Please try again in ${tryAgainIn}ms.`);
+			}
+			return unauthorized();
+		},
+	}).pipe(
+		Effect.flatMap((session) => {
+			if (!session) {
+				return Effect.fail(unauthorized());
+			}
+			return findUserById(session.user.id).pipe(Effect.mapError(() => unauthorized()));
+		}),
+		Effect.flatMap((user) => {
+			if (!user || user.disabledAt) {
+				return Effect.fail(unauthorized());
+			}
+			return Effect.succeed({
+				name: user.name,
+				email: user.email,
+				image: user.image,
+				id: UserId.make(user.id),
+				preferences: normalizeUserPreferences(user.preferences),
+			});
+		}),
+	);
+
 export class AuthService extends Context.Service<AuthService>()("AuthService", {
 	make: Effect.gen(function* () {
 		const db = yield* Database;
@@ -209,43 +323,92 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const redis = yield* RedisService;
 		const userBootstrap = yield* AuthUserBootstrap;
 		const runtime = yield* Effect.context<Database | RedisService>();
-		const authInstance = makeAuthInstance({
+		const auth = makeAuthInstance({
 			db,
 			config,
 			runtime,
 			redis: redis.client,
 			bootstrapNewUser: userBootstrap.run,
 		});
-		const { auth, database } = authInstance;
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
 			Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context.then(operation) });
+		const requestPasswordResetLink = Effect.fn("AuthService.requestPasswordResetLink")(function* (
+			email: string,
+		) {
+			const correlationId = crypto.randomUUID();
+			const pendingKey = redisKeys.godModePendingReset(email);
+			const channel = redisKeys.godModeResetChannel(correlationId);
+			const stored = yield* Effect.tryPromise(() =>
+				redis.client.set(pendingKey, correlationId, "EX", 60, "NX"),
+			).pipe(Effect.orDie);
+			if (stored !== "OK") {
+				return yield* badRequest(
+					"A password reset link is already being generated for this user. Please try again shortly.",
+				);
+			}
+
+			const resetResult = yield* Effect.acquireUseRelease(
+				Effect.sync(() => redis.client.duplicate()),
+				(subscriber) =>
+					Effect.callback<{ email: string; resetUrl: string }>((resume) => {
+						let settled = false;
+						const settle = (value: { email: string; resetUrl: string }) => {
+							if (settled) {
+								return;
+							}
+							settled = true;
+							subscriber.off("message", onMessage);
+							resume(Effect.succeed(value));
+						};
+						const onMessage = (_channel: string, message: string) => {
+							if (_channel !== channel) {
+								return;
+							}
+							const value = parseResetLinkMessage(message);
+							if (value !== null) {
+								settle(value);
+							}
+						};
+						subscriber.on("message", onMessage);
+						void subscriber
+							.subscribe(channel)
+							.then(() => auth.api.requestPasswordReset({ body: { email } }))
+							.catch(() => undefined);
+						return Effect.sync(() => subscriber.off("message", onMessage));
+					}).pipe(
+						Effect.timeoutOrElse({
+							duration: RESET_LINK_TIMEOUT_MS,
+							orElse: () => Effect.succeed(null),
+						}),
+					),
+				(subscriber, _exit) =>
+					Effect.all(
+						[
+							Effect.tryPromise(() =>
+								redis.client.eval(
+									"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+									1,
+									pendingKey,
+									correlationId,
+								),
+							).pipe(Effect.catch(() => Effect.void)),
+							Effect.tryPromise(() => subscriber.unsubscribe(channel)).pipe(
+								Effect.catch(() => Effect.void),
+							),
+							Effect.tryPromise(() => subscriber.quit()).pipe(Effect.catch(() => Effect.void)),
+						],
+						{ discard: true },
+					),
+			);
+			if (!resetResult?.resetUrl) {
+				return yield* internalError("Reset link capture timed out - please try again");
+			}
+			return resetResult;
+		});
 
 		return {
 			auth,
-			transaction: <A, E>(
-				callback: (operations: {
-					createAuthUser: (
-						user: AuthUserInput,
-					) => Effect.Effect<unknown, ReturnType<typeof unknownToDbError>>;
-				}) => Effect.Effect<A, E, Database>,
-			) =>
-				Effect.andThen(
-					Effect.promise(() => auth.$context),
-					database.transaction((adapter, transactionDb) =>
-						callback({
-							createAuthUser: (user) =>
-								Effect.tryPromise({
-									catch: unknownToDbError,
-									try: () =>
-										adapter.create({
-											model: "user",
-											forceAllowId: true,
-											data: { ...user, email: user.email.toLowerCase() },
-										}),
-								}),
-						}).pipe(Effect.provideService(Database, transactionDb)),
-					),
-				),
+			requestPasswordResetLink,
 			deleteUserSessions: (userId: UserId) =>
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.deleteUserSessions(userId),
@@ -309,31 +472,23 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 					Effect.asVoid,
 				),
 			currentUser: (headers: Headers) =>
-				Effect.tryPromise({
-					try: () => auth.api.getSession({ headers }),
-					catch: (error) => {
-						if (isAPIError(error) && error.body?.code === "RATE_LIMITED") {
-							const tryAgainIn = error.body.details?.tryAgainIn;
-							return rateLimited(`Please try again in ${tryAgainIn}ms.`);
-						}
-						return unauthorized();
-					},
-				}).pipe(
-					Effect.flatMap((session) => {
-						if (!session) {
-							return Effect.fail(unauthorized());
-						}
-						if (session.user.disabledAt) {
-							return Effect.fail(unauthorized());
-						}
-						return Effect.succeed({
-							name: session.user.name,
-							email: session.user.email,
-							image: session.user.image,
-							id: UserId.make(session.user.id),
-							preferences: normalizeUserPreferences(session.user.preferences),
-						});
-					}),
+				resolveCurrentUser(
+					headers,
+					(options) => auth.api.getSession(options),
+					(userId) =>
+						db
+							.select({
+								id: authSchema.user.id,
+								name: authSchema.user.name,
+								email: authSchema.user.email,
+								image: authSchema.user.image,
+								disabledAt: authSchema.user.disabledAt,
+								preferences: authSchema.user.preferences,
+							})
+							.from(authSchema.user)
+							.where(eq(authSchema.user.id, userId))
+							.limit(1)
+							.pipe(Effect.map((users) => users[0] ?? null)),
 				),
 		};
 	}),
@@ -341,13 +496,24 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-export const makeAuthMiddleware = (auth: Pick<AuthService["Service"], "currentUser">) => {
+export const makeAuthMiddleware = (
+	auth: Pick<AuthService["Service"], "currentUser">,
+	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
+) => {
 	const authenticate = <A extends { readonly status: number }, E, R>(
 		httpEffect: Effect.Effect<A, E, CurrentUser | R>,
 	) =>
 		Effect.gen(function* () {
 			const request = yield* HttpServerRequest.HttpServerRequest;
 			const user = yield* auth.currentUser(new Headers(request.headers));
+			if (
+				request.method !== "GET" &&
+				request.method !== "HEAD" &&
+				request.method !== "OPTIONS" &&
+				(yield* lifecycle.isActive(user.id).pipe(Effect.orDie))
+			) {
+				return yield* unauthorized();
+			}
 			const span = yield* Effect.catchNoSuchElement(Effect.currentSpan);
 			const annotations = Option.isSome(span)
 				? { userId: user.id, traceId: span.value.traceId }
@@ -399,7 +565,11 @@ export const makeAuthMiddleware = (auth: Pick<AuthService["Service"], "currentUs
 
 export const AuthMiddlewareLive = Layer.effect(
 	AuthMiddleware,
-	Effect.map(AuthService, (auth) => ({ apiKey: makeAuthMiddleware(auth) })),
+	Effect.gen(function* () {
+		const auth = yield* AuthService;
+		const lifecycle = yield* LifecycleWriteGuard;
+		return { apiKey: makeAuthMiddleware(auth, lifecycle) };
+	}),
 );
 
 export const AdminMiddlewareLive = Layer.effect(

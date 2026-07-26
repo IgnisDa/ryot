@@ -33,6 +33,10 @@ const mapLogLevel = (config: SystemConfigValue) => {
 const configError = (message: string) =>
 	new Config.ConfigError(new Schema.SchemaError(new SchemaIssue.InvalidValue({ message })));
 
+const localSigningSecretConfigError = configError(
+	"FILE_STORAGE_LOCAL_SIGNING_SECRET is required and must not be empty.",
+);
+
 const isNonEmpty = (opt: Option.Option<string>): opt is Option.Some<string> =>
 	Option.isSome(opt) && opt.value.length > 0;
 
@@ -63,6 +67,16 @@ export const getSmtpCredentials = (
 
 export const isSmtpEnabled = (config: AppConfigValue): boolean =>
 	Option.isSome(getSmtpCredentials(config));
+
+export const isS3Configured = (config: AppConfigValue): boolean => {
+	const { accessKeyId, bucketName, secretAccessKey, url } = config.fileStorage;
+	return (
+		isNonEmpty(url) &&
+		isNonEmpty(bucketName) &&
+		isNonEmptyRedacted(accessKeyId) &&
+		isNonEmptyRedacted(secretAccessKey)
+	);
+};
 
 export const validateSystemConfig = (config: AppConfigValue) =>
 	Effect.gen(function* () {
@@ -104,8 +118,10 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
-		const localSecretConfigured = isNonEmptyRedacted(config.fileStorage.localSigningSecret);
-		if (localSecretConfigured && !/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localDir)) {
+		if (Redacted.value(config.fileStorage.localSigningSecret).length === 0) {
+			return yield* Effect.fail(localSigningSecretConfigError);
+		}
+		if (!/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localDir)) {
 			return yield* Effect.fail(configError("FILE_STORAGE_LOCAL_DIR must be an absolute path."));
 		}
 		if (!/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localTempDir)) {
@@ -113,17 +129,12 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 				configError("FILE_STORAGE_LOCAL_TEMP_DIR must be an absolute path."),
 			);
 		}
-		if (localSecretConfigured) {
-			const permanentPath = normalizePath(config.fileStorage.localDir);
-			const temporaryPath = normalizePath(config.fileStorage.localTempDir);
-			if (
-				pathsOverlap(permanentPath, temporaryPath) ||
-				pathsOverlap(temporaryPath, permanentPath)
-			) {
-				return yield* Effect.fail(
-					configError("FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_TEMP_DIR must not overlap."),
-				);
-			}
+		const permanentPath = normalizePath(config.fileStorage.localDir);
+		const temporaryPath = normalizePath(config.fileStorage.localTempDir);
+		if (pathsOverlap(permanentPath, temporaryPath) || pathsOverlap(temporaryPath, permanentPath)) {
+			return yield* Effect.fail(
+				configError("FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_TEMP_DIR must not overlap."),
+			);
 		}
 
 		// The cluster SQL runner permanently reserves one shared application/workflow-pool
@@ -154,7 +165,13 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 
 export class AppConfig extends Context.Service<AppConfig>()("AppConfig", {
 	make: Effect.gen(function* () {
-		const system = yield* SystemConfigSource;
+		const system = yield* SystemConfigSource.pipe(
+			Effect.mapError((error) =>
+				JSON.stringify(error).includes("FILE_STORAGE_LOCAL_SIGNING_SECRET")
+					? localSigningSecretConfigError
+					: error,
+			),
+		);
 		return yield* validateSystemConfig(yield* mapLogLevel(system));
 	}),
 }) {

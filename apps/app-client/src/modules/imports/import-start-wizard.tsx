@@ -4,9 +4,9 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useEffectEvent, useReducer, useState } from "react";
 import { Text } from "react-native";
 
+import { temporaryFileUploadOperation } from "@/api/files/upload";
 import { requestFailureMessage } from "@/api/request-failure";
 import { useApiScope } from "@/api/scope";
-import { temporaryFileUploadOperation } from "@/api/uploads";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { openExternalLink } from "@/modules/ui/external-link";
 import { CatalogPicker } from "@/modules/ui/plugin-catalog/catalog-picker";

@@ -32,10 +32,19 @@ services:
       - FRONTEND_URL=https://ryot.your-domain.com # IP address is fine too
       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres # REQUIRED
       - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # REQUIRED: set to a long random string
+      - FILE_STORAGE_LOCAL_SIGNING_SECRET=replace-with-a-long-random-secret # REQUIRED
+    volumes:
+      - ryot_storage:/home/ryot/storage
 
 volumes:
+  ryot_storage:
   postgres_storage:
 ```
+
+This example uses the persistent local fallback for permanent files. Temporary files always use
+the local, ephemeral `/home/ryot/work` directory; do not mount it. For production deployments,
+configure complete S3 storage so permanent files use S3 instead of the local volume. See the
+[file storage guide](./guides/file-storage.md).
 
 Some providers (eg: TMDB for movies, IGDB for video games) need access tokens. Please visit
 the [configuration](./configuration.md) page for more information.

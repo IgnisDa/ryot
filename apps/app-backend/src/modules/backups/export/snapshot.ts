@@ -15,7 +15,7 @@ import { EventsRepository } from "#modules/events/repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
-import { UploadsService } from "#modules/uploads/service";
+import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
 import {
 	collectV1EmbeddedEntityIds,
@@ -144,7 +144,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;
 			const events = yield* EventsRepository;
-			const uploads = yield* UploadsService;
+			const uploads = yield* ManagedAssetsService;
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
 			const definitions = yield* DefinitionRegistry;
@@ -167,7 +167,14 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				const referencedDependencies =
 					yield* entities.listReferencedGlobalEntitiesForBackup(userId);
 				const embeddedDependencies = yield* entities.listGlobalEntitiesByIdsForBackup(
-					collectV1EmbeddedEntityIds(userEntities).map((id) => EntityId.make(id)),
+					collectV1EmbeddedEntityIds(
+						userEntities.flatMap((entity) => {
+							const propertiesSchema = definitions.getEntitySchema(
+								entity.entitySchemaSlug,
+							)?.propertiesSchema;
+							return propertiesSchema ? [{ propertiesSchema, properties: entity.properties }] : [];
+						}),
+					).map((id) => EntityId.make(id)),
 				);
 				const dependencies = [
 					...new Map(

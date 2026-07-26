@@ -1,12 +1,11 @@
 import { InternalError, internalError } from "@ryot/contract/errors";
 import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
-import { CryptoHasher } from "bun";
 import { Context, DateTime, Effect, Layer, Result, Schema, Stream } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { UploadsService } from "#modules/uploads/service";
+import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { createV1ArchiveStream, V1_ARCHIVE_LIMITS } from "../archive-v1/archive";
 import { BackupsRepository } from "../runs/repository";
@@ -63,7 +62,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 	Effect.gen(function* () {
 		const database = yield* Database;
 		const snapshotService = yield* BackupExportSnapshot;
-		const uploads = yield* UploadsService;
+		const uploads = yield* ObjectStorageService;
 		const repository = yield* BackupsRepository;
 
 		const begin = (payload: ExportBackupWorkflowPayload) =>
@@ -118,21 +117,6 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 						}
 						assetsBySha.set(asset.sha256, asset);
 					}
-					for (const asset of assetsBySha.values()) {
-						let size = 0;
-						const hasher = new CryptoHasher("sha256");
-						const stream = yield* uploads.openObject({ type: asset.provider, key: asset.key });
-						yield* Stream.runForEach(stream, (chunk) =>
-							Effect.sync(() => {
-								size += chunk.byteLength;
-								hasher.update(chunk);
-							}),
-						);
-						if (size !== asset.size || hasher.digest("hex") !== asset.sha256) {
-							return yield* internalError("Backup asset does not match its registered metadata");
-						}
-					}
-
 					const assets = [];
 					for (const asset of [...assetsBySha.values()].sort((a, b) =>
 						a.sha256.localeCompare(b.sha256),
@@ -202,12 +186,17 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 		const fail = (payload: ExportBackupWorkflowPayload, artifact?: ExportArtifact) =>
 			asInternal(
 				Effect.gen(function* () {
-					if (artifact) {
+					const run = yield* repository.getRunById(payload);
+					const committedArtifact = yield* repository.getArtifactById(payload);
+					const committed = run?.status === "completed" || committedArtifact !== null;
+					if (artifact && !committed) {
 						yield* uploads
 							.deleteObject({ type: artifact.provider, key: artifact.key })
 							.pipe(Effect.ignore);
 					}
-					yield* repository.failRun({ ...payload, error: "Backup export failed" });
+					if (!committed) {
+						yield* repository.failRun({ ...payload, error: "Backup export failed" });
+					}
 				}),
 				"Backup export failure could not be recorded",
 			);

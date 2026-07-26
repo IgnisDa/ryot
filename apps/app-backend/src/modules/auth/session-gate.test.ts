@@ -18,20 +18,26 @@ function assertApiError(error: unknown): asserts error is APIError {
 }
 
 const makeMockDb = (
-	rows: ReadonlyArray<{
-		disabledAt: Date | null;
-		bootstrapCompletedAt: Date | null;
-	}>,
-) =>
-	Database.of(
+	rows: ReadonlyArray<{ disabledAt: Date | null; bootstrapCompletedAt: Date | null }>,
+	active = false,
+) => {
+	let selection = 0;
+	return Database.of(
 		Object.assign(Object.create(null), {
 			select: () => ({
 				from: () => ({
-					where: () => ({ limit: () => Effect.succeed(rows) }),
+					where: () => ({
+						limit: () => {
+							const activeRows = active ? [{ id: "op-1" }] : [];
+							const selected = selection++ === 0 ? activeRows : rows;
+							return Effect.succeed(selected);
+						},
+					}),
 				}),
 			}),
 		}),
 	);
+};
 
 const makeDeps = (
 	row: { disabledAt: Date | null; bootstrapCompletedAt: Date | null },
@@ -108,6 +114,15 @@ describe("gateSessionCreation", () => {
 			expect(error.statusCode).toBe(403);
 			expect(error.body?.code).toBe("USER_DISABLED");
 			expect(called).toBe(false);
+		}),
+	);
+
+	it.effect("throws USER_LIFECYCLE_ACTIVE before creating a session", () =>
+		Effect.gen(function* () {
+			const deps = [makeMockDb([], true), () => Effect.void] as const;
+			const error = extractError(yield* runGate(deps, "user-1"));
+			expect(error.statusCode).toBe(403);
+			expect(error.body?.code).toBe("USER_LIFECYCLE_ACTIVE");
 		}),
 	);
 

@@ -110,6 +110,48 @@ describe("AppSchema presentation metadata", () => {
 		).toMatchObject({ fields: { value: { format } } });
 	});
 
+	it.each(["entity-id", "relationship-id"] as const)(
+		"accepts explicit %s reference metadata",
+		(kind) => {
+			expect(
+				decodeSchema({
+					fields: {
+						value: {
+							type: "string",
+							label: "Reference",
+							description: "Reference value",
+							reference: { kind, required: true },
+						},
+					},
+				}),
+			).toMatchObject({ fields: { value: { reference: { kind, required: true } } } });
+		},
+	);
+
+	it.each([{ kind: "entity" }, { kind: "entity-id", required: false }])(
+		"rejects invalid reference metadata %#",
+		(reference) => {
+			expect(() =>
+				decodeSchema({
+					fields: {
+						value: {
+							reference,
+							type: "string",
+							label: "Reference",
+							description: "Reference value",
+						},
+					},
+				}),
+			).toThrow();
+		},
+	);
+
+	it("rejects reference metadata on non-string properties", () => {
+		expect(() =>
+			decodeSchema({ fields: { value: numberField({ reference: { kind: "entity-id" } }) } }),
+		).toThrow();
+	});
+
 	it("rejects defaults for upload string formats", () => {
 		expect(() =>
 			decodeSchema({

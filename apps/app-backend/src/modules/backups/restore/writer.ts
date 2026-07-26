@@ -25,11 +25,9 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import {
-	backupV1EntityReferenceRules,
-	backupV1EventReferenceRules,
-	rewriteV1EntityEmbeddedReferences,
 	rewriteV1EventReferences,
 	rewriteV1ManagedAssetLocators,
+	rewriteV1PropertyReferences,
 	rewriteV1RelationshipReferences,
 } from "../archive-v1/references";
 import {
@@ -199,16 +197,25 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				assetLocators: ReadonlyMap<string, AssetLocator>,
 			) {
 				const entityIdMap = new Map<string, EntityId>();
+				const relationshipIdMap = new Map<string, string>();
 				const entitySchemaById = new Map<EntityId, EntitySchemaSlug>();
 				const rewriteProperties = (
 					properties: Record<string, unknown>,
 					propertiesSchema: AppSchema,
 				) =>
-					rewriteV1ManagedAssetLocators(
-						decodeV1JsonObject(properties),
-						propertiesSchema,
-						assetLocators,
-					);
+					Effect.gen(function* () {
+						const references = yield* rewriteV1PropertyReferences(
+							decodeV1JsonObject(properties),
+							propertiesSchema,
+							entityIdMap,
+							relationshipIdMap,
+						);
+						return yield* rewriteV1ManagedAssetLocators(
+							references,
+							propertiesSchema,
+							assetLocators,
+						);
+					});
 				for (const dependency of records.entityDependencies) {
 					const schemaDefinition = definitions.getEntitySchema(dependency.entitySchemaSlug);
 					if (!schemaDefinition) {
@@ -349,12 +356,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (!propertiesSchema) {
 						return yield* badRequest("Backup references an unavailable entity schema");
 					}
-					const embedded = yield* rewriteV1EntityEmbeddedReferences(
-						entity,
-						entityIdMap,
-						backupV1EntityReferenceRules,
-					);
-					const properties = yield* rewriteProperties(embedded.properties, propertiesSchema);
+					const properties = yield* rewriteProperties(entity.properties, propertiesSchema);
 					yield* validateEntityProperties(entity.entitySchemaSlug, properties);
 					const id = yield* entities.restoreEntity({
 						userId,
@@ -372,7 +374,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					entitySchemaById.set(id, EntitySchemaSlug.make(entity.entitySchemaSlug));
 				}
 
-				const relationshipIdMap = new Map<string, string>();
 				for (const relationship of records.relationships) {
 					if (relationship.scope !== "user") {
 						return yield* badRequest("Backup contains a non-user relationship");
@@ -401,16 +402,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				}
 
 				for (const event of records.events) {
-					const rewritten = yield* rewriteV1EventReferences(
-						event,
-						entityIdMap,
-						relationshipIdMap,
-						backupV1EventReferenceRules,
-					);
-					const entityId = EntityId.make(rewritten.entityId);
-					const sessionEntityId = rewritten.sessionEntityId
-						? EntityId.make(rewritten.sessionEntityId)
-						: null;
+					const entityId = entityIdMap.get(event.entityId);
+					if (!entityId) {
+						return yield* badRequest("Backup event references an unknown entity");
+					}
 					const entitySchemaSlug = entitySchemaById.get(entityId);
 					if (!entitySchemaSlug) {
 						return yield* badRequest("Backup event references an unknown entity schema");
@@ -422,7 +417,20 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (!propertiesSchema) {
 						return yield* badRequest("Backup references an unavailable event schema");
 					}
-					const properties = yield* rewriteProperties(rewritten.properties, propertiesSchema);
+					const rewritten = yield* rewriteV1EventReferences(
+						event,
+						propertiesSchema,
+						entityIdMap,
+						relationshipIdMap,
+					);
+					const sessionEntityId = rewritten.sessionEntityId
+						? EntityId.make(rewritten.sessionEntityId)
+						: null;
+					const properties = yield* rewriteV1ManagedAssetLocators(
+						rewritten.properties,
+						propertiesSchema,
+						assetLocators,
+					);
 					yield* definitions
 						.validateEventProperties(entitySchemaSlug, event.eventSchemaSlug, properties)
 						.pipe(Effect.mapError((error) => badRequest(error.message)));

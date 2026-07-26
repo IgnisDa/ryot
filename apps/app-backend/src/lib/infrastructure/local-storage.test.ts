@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { it } from "@effect/vitest";
 import { BadRequest } from "@ryot/contract/errors";
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot/contract/modules/uploads/upload-policy";
-import { Effect, FileSystem, Layer, Option, Redacted, Stream } from "effect";
+import { Effect, FileSystem, Layer, Redacted, Stream } from "effect";
 import { expect } from "vitest";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -23,26 +23,7 @@ const makeLayer = () => {
 					fileStorage: {
 						localDir: ROOT,
 						localTempDir: TEMP_ROOT,
-						localSigningSecret: Option.some(Redacted.make("local-test-secret")),
-					},
-				}),
-				platform,
-			),
-		),
-	);
-	return Layer.merge(localStorage, platform);
-};
-
-const makePermanentOnlyLayer = () => {
-	const platform = BunServices.layer;
-	const localStorage = LocalStorageService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				makeAppConfigLayer({
-					fileStorage: {
-						localDir: ROOT,
-						localTempDir: "",
-						localSigningSecret: Option.some(Redacted.make("local-test-secret")),
+						localSigningSecret: Redacted.make("local-test-secret"),
 					},
 				}),
 				platform,
@@ -80,14 +61,13 @@ it.effect("signs and validates local upload targets", () =>
 	}).pipe(Effect.provide(makeLayer())),
 );
 
-it.effect("signs permanent upload targets without temporary storage", () =>
+it.effect("creates and configures the local temporary directory", () =>
 	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
 		const localStorage = yield* LocalStorageService;
-		const target = yield* localStorage.createUploadTarget("permanent-intent", 1_700_000_000);
-		yield* localStorage.verifyUploadTarget("PUT", target.uploadUrl, 1_700_000_899);
-		expect(localStorage.isConfiguredForKind("permanent")).toBe(true);
-		expect(localStorage.isConfiguredForKind("temporary")).toBe(false);
-	}).pipe(Effect.provide(makePermanentOnlyLayer())),
+		expect(yield* fs.exists(TEMP_ROOT)).toBe(true);
+		expect(localStorage.isConfiguredForKind("temporary")).toBe(true);
+	}).pipe(Effect.provide(makeLayer())),
 );
 
 it.effect("binds local download signatures to the key and content type", () =>
