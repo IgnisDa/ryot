@@ -3,8 +3,8 @@ import { Effect, Layer, Schedule } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { AtomHttpApi } from "effect/unstable/reactivity";
 
-import { getAuthCookie } from "@/modules/auth/client";
-import { serverStorageLayer, serverUrlReader } from "@/modules/server/state";
+import { getAuthCookie } from "@/modules/auth/storage";
+import { serverStorageLayer, serverUrlReader } from "@/modules/server/storage";
 
 const retrySchedule = Schedule.exponential("1 second").pipe(Schedule.upTo({ times: 3 }));
 
