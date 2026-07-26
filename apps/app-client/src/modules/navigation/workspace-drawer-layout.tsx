@@ -24,7 +24,9 @@ export function WorkspaceDrawerLayout() {
 
 	return (
 		<WorkspaceDrawer navigation={navigation}>
-			<Stack screenLayout={renderWorkspaceScreen} screenOptions={{ headerShown: false }} />
+			<Stack screenLayout={renderWorkspaceScreen} screenOptions={{ headerShown: false }}>
+				<Stack.Screen name="[workspace]/index" options={{ gestureEnabled: false }} />
+			</Stack>
 		</WorkspaceDrawer>
 	);
 }
