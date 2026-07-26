@@ -54,8 +54,17 @@ export const scalarExpressionKind = <Scope>(
 	if (expr.type === "concat" || expr.type === "transform") {
 		return "text";
 	}
+	if (expr.type === "aggregate") {
+		if (expr.aggregation.function === "minimum" || expr.aggregation.function === "maximum") {
+			return scalarExpressionKind(
+				expr.aggregation.expr,
+				resolver.correlated(expr.query, scope),
+				resolver,
+			);
+		}
+		return "number";
+	}
 	if (
-		expr.type === "aggregate" ||
 		expr.type === "arithmetic" ||
 		expr.type === "floor" ||
 		expr.type === "integer" ||

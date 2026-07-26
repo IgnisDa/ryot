@@ -25,8 +25,10 @@ import {
 	jsonPath,
 	kebabCase,
 	literal,
+	maximum,
 	measure,
 	measureDescending,
+	minimum,
 	rows,
 	round,
 	star,
@@ -969,6 +971,49 @@ it("validates correlated expression scopes and ordering", () => {
 			}),
 		),
 	).toBe("Query 'courses': Unknown table alias 'sibling'");
+});
+
+it("types minimum and maximum by their operand kind", () => {
+	const event = table("event", "event");
+	const latest = table("event", "latest");
+	const occurredAt = column(event, "occurredAt");
+	const latestOccurredAt = column(latest, "occurredAt");
+	const latestName = column(latest, "id");
+
+	expect(
+		validateRyotQLDocument(
+			document({
+				events: rows(event, {
+					fields: [],
+					where: eq(occurredAt, maximum(latest, latestOccurredAt)),
+				}),
+			}),
+		),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				events: rows(event, { fields: [field("earliest", minimum(latest, latestOccurredAt))] }),
+			}),
+		),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				events: rows(event, { fields: [], where: eq(occurredAt, maximum(latest, latestName)) }),
+			}),
+		),
+	).toBe("Query 'events': Comparison operands must have compatible types");
+	expect(
+		validateRyotQLDocument(
+			document({
+				events: rows(event, {
+					fields: [],
+					where: eq(literal(4), maximum(latest, latestOccurredAt)),
+				}),
+			}),
+		),
+	).toBe("Query 'events': Comparison operands must have compatible types");
 });
 
 it("enforces the correlated expression depth limit", () => {

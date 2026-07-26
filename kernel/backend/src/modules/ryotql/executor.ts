@@ -850,13 +850,21 @@ const compileAggregate = (
 	return sql`(SELECT ${value} ${querySetSql(expr.query, scopeExecution(ancestors), scope)})`;
 };
 
-const compileAggregation = (aggregation: AggregationSpec, scope: CompileScope) => {
+const compileAggregation = (
+	aggregation: AggregationSpec,
+	scope: CompileScope,
+	numericMinMax = false,
+) => {
 	let value: SqlFragment;
 	if (aggregation.function === "count") {
 		value = sql`COUNT(*)::double precision`;
 	} else if (aggregation.function === "countDistinct") {
 		value = sql`COUNT(DISTINCT ${compileExpression(aggregation.expr, scope)})::double precision`;
-	} else {
+	} else if (
+		aggregation.function === "sum" ||
+		aggregation.function === "average" ||
+		numericMinMax
+	) {
 		const operand = compileCast({ type: "cast", target: "number", expr: aggregation.expr }, scope);
 		if (aggregation.function === "sum") {
 			value = sql`SUM(${operand})`;
@@ -867,6 +875,9 @@ const compileAggregation = (aggregation: AggregationSpec, scope: CompileScope) =
 		} else {
 			value = sql`MAX(${operand})`;
 		}
+	} else {
+		const operand = compileExpression(aggregation.expr, scope);
+		value = aggregation.function === "minimum" ? sql`MIN(${operand})` : sql`MAX(${operand})`;
 	}
 	return value;
 };
@@ -1038,7 +1049,7 @@ const canonicalTimeSeriesBoundary = (value: string) => {
 const compileTimeSeriesQuery = (query: TimeSeriesQuery, executionScope: RyotQLExecutionScope) => {
 	const scope = buildScope(query, executionScope, "");
 	const time = compileExpression(query.output.time.expr, scope);
-	const measure = compileAggregation(query.output.measure.aggregation, scope);
+	const measure = compileAggregation(query.output.measure.aggregation, scope, true);
 	const endAt = canonicalTimeSeriesBoundary(query.output.time.range.endAt);
 	const startAt = canonicalTimeSeriesBoundary(query.output.time.range.startAt);
 	const { bucket } = query.output.time;
@@ -1148,6 +1159,16 @@ const reconstructInclude = (
 	return { items, pageInfo: { limit: include.limit, hasMore: raw["hasMore"] } };
 };
 
+const aggregationMeasureKind = (
+	measure: AggregateMeasure,
+	scope: CompileScope,
+): ScalarKind | undefined => {
+	if (measure.aggregation.function === "minimum" || measure.aggregation.function === "maximum") {
+		return scalarExpressionKind(measure.aggregation.expr, scope, kindResolver);
+	}
+	return "number";
+};
+
 const reconstructAggregateItem = (
 	row: Readonly<Record<string, unknown>>,
 	groups: readonly FieldSelection[],
@@ -1161,7 +1182,13 @@ const reconstructAggregateItem = (
 	});
 	const measured = measures.map((measure, index) => {
 		const value = row[`m${index}`];
-		return [measure.key, value === null ? null : Number(value)] as const;
+		if (value === null) {
+			return [measure.key, null] as const;
+		}
+		return [
+			measure.key,
+			normalizeValue(value, aggregationMeasureKind(measure, scope) ?? "number"),
+		] as const;
 	});
 	const item = Object.fromEntries([...grouped, ...measured]);
 	if (!isJsonValue(item)) {

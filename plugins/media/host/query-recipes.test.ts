@@ -5,6 +5,7 @@ import {
 	podcastDetailRecipe,
 	podcastsByLifecycleStateRecipe,
 	showsByLifecycleStateRecipe,
+	trendingLatestMediaRecipe,
 	trendingMediaRecipe,
 } from "./query-recipes";
 
@@ -141,6 +142,30 @@ describe("media query recipes", () => {
 		expect(fetchedAtPredicate).toMatchObject({
 			left: { type: "cast", target: "date" },
 			right: { type: "cast", target: "date" },
+		});
+	});
+
+	it("resolves the latest trending batch with a correlated maximum", () => {
+		const recipe = trendingLatestMediaRecipe({ limit: 10, entitySchemaSlug: "book" });
+		const trending = recipe.document.queries["trending"];
+		if (trending?.output.type !== "rows") {
+			throw new Error("Expected trending rows query");
+		}
+		expect(trending.output.pagination).toEqual({ limit: 10 });
+		const where = trending.where;
+		if (where?.type !== "and") {
+			throw new Error("Expected trending predicates");
+		}
+		const fetchedAtPredicate = where.predicates.at(-1);
+		expect(fetchedAtPredicate).toMatchObject({
+			operator: "eq",
+			type: "comparison",
+			left: { type: "cast", target: "date" },
+			right: {
+				type: "aggregate",
+				aggregation: { function: "maximum" },
+				query: { from: { alias: "latestRelationship" } },
+			},
 		});
 	});
 
