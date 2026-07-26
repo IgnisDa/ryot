@@ -10455,52 +10455,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#41507A",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#151827",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -10625,52 +10585,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#6A3F52",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#211520",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -10804,52 +10724,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#2F5A4E",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#12201C",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -10974,52 +10854,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#6E5730",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#231C12",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -11153,52 +10993,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#453C66",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#171525",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -11323,52 +11123,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#5A4136",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#1F1714",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -11781,52 +11541,12 @@
                           "clip": true,
                           "width": 70,
                           "height": 104,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#41507A",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#151827",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "cornerRadius": 6,
                           "stroke": "#FFFFFF1F",
                           "strokeWidth": 1,
@@ -11953,52 +11673,12 @@
                           "clip": true,
                           "width": 70,
                           "height": 104,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#6A3F52",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#211520",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "cornerRadius": 6,
                           "stroke": "#FFFFFF1F",
                           "strokeWidth": 1,
@@ -12125,52 +11805,12 @@
                           "clip": true,
                           "width": 70,
                           "height": 104,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#2F5A4E",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#12201C",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "cornerRadius": 6,
                           "stroke": "#FFFFFF1F",
                           "strokeWidth": 1,
@@ -12297,52 +11937,12 @@
                           "clip": true,
                           "width": 70,
                           "height": 104,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#6E5730",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#231C12",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "cornerRadius": 6,
                           "stroke": "#FFFFFF1F",
                           "strokeWidth": 1,
@@ -12469,52 +12069,12 @@
                           "clip": true,
                           "width": 70,
                           "height": 104,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#453C66",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#171525",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "cornerRadius": 6,
                           "stroke": "#FFFFFF1F",
                           "strokeWidth": 1,
@@ -12946,52 +12506,12 @@
                               "clip": true,
                               "width": 22,
                               "height": 32,
-                              "fill": [
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "linear",
-                                  "enabled": true,
-                                  "rotation": 180,
-                                  "size": {
-                                    "height": 1
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#41507A",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#151827",
-                                      "position": 1
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "radial",
-                                  "enabled": true,
-                                  "opacity": 0.45,
-                                  "rotation": 0,
-                                  "size": {
-                                    "width": 1.5,
-                                    "height": 1.2
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#FFFFFF3D",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#FFFFFF00",
-                                      "position": 1
-                                    }
-                                  ],
-                                  "center": {
-                                    "x": 0.32,
-                                    "y": 0.2
-                                  }
-                                }
-                              ],
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80",
+                                "mode": "fill"
+                              },
                               "cornerRadius": 3,
                               "stroke": "#FFFFFF24",
                               "strokeWidth": 1,
@@ -13117,52 +12637,12 @@
                               "clip": true,
                               "width": 22,
                               "height": 32,
-                              "fill": [
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "linear",
-                                  "enabled": true,
-                                  "rotation": 180,
-                                  "size": {
-                                    "height": 1
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#6A3F52",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#211520",
-                                      "position": 1
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "radial",
-                                  "enabled": true,
-                                  "opacity": 0.45,
-                                  "rotation": 0,
-                                  "size": {
-                                    "width": 1.5,
-                                    "height": 1.2
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#FFFFFF3D",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#FFFFFF00",
-                                      "position": 1
-                                    }
-                                  ],
-                                  "center": {
-                                    "x": 0.32,
-                                    "y": 0.2
-                                  }
-                                }
-                              ],
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+                                "mode": "fill"
+                              },
                               "cornerRadius": 3,
                               "stroke": "#FFFFFF24",
                               "strokeWidth": 1,
@@ -13288,52 +12768,12 @@
                               "clip": true,
                               "width": 22,
                               "height": 32,
-                              "fill": [
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "linear",
-                                  "enabled": true,
-                                  "rotation": 180,
-                                  "size": {
-                                    "height": 1
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#2F5A4E",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#12201C",
-                                      "position": 1
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "radial",
-                                  "enabled": true,
-                                  "opacity": 0.45,
-                                  "rotation": 0,
-                                  "size": {
-                                    "width": 1.5,
-                                    "height": 1.2
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#FFFFFF3D",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#FFFFFF00",
-                                      "position": 1
-                                    }
-                                  ],
-                                  "center": {
-                                    "x": 0.32,
-                                    "y": 0.2
-                                  }
-                                }
-                              ],
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=900&q=80",
+                                "mode": "fill"
+                              },
                               "cornerRadius": 3,
                               "stroke": "#FFFFFF24",
                               "strokeWidth": 1,
@@ -13459,52 +12899,12 @@
                               "clip": true,
                               "width": 22,
                               "height": 32,
-                              "fill": [
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "linear",
-                                  "enabled": true,
-                                  "rotation": 180,
-                                  "size": {
-                                    "height": 1
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#6E5730",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#231C12",
-                                      "position": 1
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "radial",
-                                  "enabled": true,
-                                  "opacity": 0.45,
-                                  "rotation": 0,
-                                  "size": {
-                                    "width": 1.5,
-                                    "height": 1.2
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#FFFFFF3D",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#FFFFFF00",
-                                      "position": 1
-                                    }
-                                  ],
-                                  "center": {
-                                    "x": 0.32,
-                                    "y": 0.2
-                                  }
-                                }
-                              ],
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                                "mode": "fill"
+                              },
                               "cornerRadius": 3,
                               "stroke": "#FFFFFF24",
                               "strokeWidth": 1,
@@ -13630,52 +13030,12 @@
                               "clip": true,
                               "width": 22,
                               "height": 32,
-                              "fill": [
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "linear",
-                                  "enabled": true,
-                                  "rotation": 180,
-                                  "size": {
-                                    "height": 1
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#453C66",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#171525",
-                                      "position": 1
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "radial",
-                                  "enabled": true,
-                                  "opacity": 0.45,
-                                  "rotation": 0,
-                                  "size": {
-                                    "width": 1.5,
-                                    "height": 1.2
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#FFFFFF3D",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#FFFFFF00",
-                                      "position": 1
-                                    }
-                                  ],
-                                  "center": {
-                                    "x": 0.32,
-                                    "y": 0.2
-                                  }
-                                }
-                              ],
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80",
+                                "mode": "fill"
+                              },
                               "cornerRadius": 3,
                               "stroke": "#FFFFFF24",
                               "strokeWidth": 1,
@@ -13801,52 +13161,12 @@
                               "clip": true,
                               "width": 22,
                               "height": 32,
-                              "fill": [
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "linear",
-                                  "enabled": true,
-                                  "rotation": 180,
-                                  "size": {
-                                    "height": 1
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#5A4136",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#1F1714",
-                                      "position": 1
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "radial",
-                                  "enabled": true,
-                                  "opacity": 0.45,
-                                  "rotation": 0,
-                                  "size": {
-                                    "width": 1.5,
-                                    "height": 1.2
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#FFFFFF3D",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#FFFFFF00",
-                                      "position": 1
-                                    }
-                                  ],
-                                  "center": {
-                                    "x": 0.32,
-                                    "y": 0.2
-                                  }
-                                }
-                              ],
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=900&q=80",
+                                "mode": "fill"
+                              },
                               "cornerRadius": 3,
                               "stroke": "#FFFFFF24",
                               "strokeWidth": 1,
@@ -13972,52 +13292,12 @@
                               "clip": true,
                               "width": 22,
                               "height": 32,
-                              "fill": [
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "linear",
-                                  "enabled": true,
-                                  "rotation": 180,
-                                  "size": {
-                                    "height": 1
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#5E3230",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#1E1211",
-                                      "position": 1
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "radial",
-                                  "enabled": true,
-                                  "opacity": 0.45,
-                                  "rotation": 0,
-                                  "size": {
-                                    "width": 1.5,
-                                    "height": 1.2
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#FFFFFF3D",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#FFFFFF00",
-                                      "position": 1
-                                    }
-                                  ],
-                                  "center": {
-                                    "x": 0.32,
-                                    "y": 0.2
-                                  }
-                                }
-                              ],
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                                "mode": "fill"
+                              },
                               "cornerRadius": 3,
                               "stroke": "#FFFFFF24",
                               "strokeWidth": 1,
@@ -14143,52 +13423,12 @@
                               "clip": true,
                               "width": 22,
                               "height": 32,
-                              "fill": [
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "linear",
-                                  "enabled": true,
-                                  "rotation": 180,
-                                  "size": {
-                                    "height": 1
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#4E5730",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#1B1E12",
-                                      "position": 1
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "radial",
-                                  "enabled": true,
-                                  "opacity": 0.45,
-                                  "rotation": 0,
-                                  "size": {
-                                    "width": 1.5,
-                                    "height": 1.2
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#FFFFFF3D",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#FFFFFF00",
-                                      "position": 1
-                                    }
-                                  ],
-                                  "center": {
-                                    "x": 0.32,
-                                    "y": 0.2
-                                  }
-                                }
-                              ],
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=900&q=80",
+                                "mode": "fill"
+                              },
                               "cornerRadius": 3,
                               "stroke": "#FFFFFF24",
                               "strokeWidth": 1,
@@ -14314,52 +13554,12 @@
                               "clip": true,
                               "width": 22,
                               "height": 32,
-                              "fill": [
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "linear",
-                                  "enabled": true,
-                                  "rotation": 180,
-                                  "size": {
-                                    "height": 1
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#2E4A63",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#121A23",
-                                      "position": 1
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "radial",
-                                  "enabled": true,
-                                  "opacity": 0.45,
-                                  "rotation": 0,
-                                  "size": {
-                                    "width": 1.5,
-                                    "height": 1.2
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#FFFFFF3D",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#FFFFFF00",
-                                      "position": 1
-                                    }
-                                  ],
-                                  "center": {
-                                    "x": 0.32,
-                                    "y": 0.2
-                                  }
-                                }
-                              ],
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+                                "mode": "fill"
+                              },
                               "cornerRadius": 3,
                               "stroke": "#FFFFFF24",
                               "strokeWidth": 1,
@@ -14485,52 +13685,12 @@
                               "clip": true,
                               "width": 22,
                               "height": 32,
-                              "fill": [
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "linear",
-                                  "enabled": true,
-                                  "rotation": 180,
-                                  "size": {
-                                    "height": 1
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#565046",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#1D1B18",
-                                      "position": 1
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "gradient",
-                                  "gradientType": "radial",
-                                  "enabled": true,
-                                  "opacity": 0.45,
-                                  "rotation": 0,
-                                  "size": {
-                                    "width": 1.5,
-                                    "height": 1.2
-                                  },
-                                  "colors": [
-                                    {
-                                      "color": "#FFFFFF3D",
-                                      "position": 0
-                                    },
-                                    {
-                                      "color": "#FFFFFF00",
-                                      "position": 1
-                                    }
-                                  ],
-                                  "center": {
-                                    "x": 0.32,
-                                    "y": 0.2
-                                  }
-                                }
-                              ],
+                              "fill": {
+                                "type": "image",
+                                "enabled": true,
+                                "url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80",
+                                "mode": "fill"
+                              },
                               "cornerRadius": 3,
                               "stroke": "#FFFFFF24",
                               "strokeWidth": 1,
@@ -14823,52 +13983,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#41507A",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#151827",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -14993,52 +14113,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#6A3F52",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#211520",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -15172,52 +14252,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#2F5A4E",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#12201C",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -15342,52 +14382,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#6E5730",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#231C12",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -15859,52 +14859,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#41507A",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#151827",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -16029,52 +14989,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#6A3F52",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#211520",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -16208,52 +15128,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#2F5A4E",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#12201C",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -16378,52 +15258,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#6E5730",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#231C12",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -16557,52 +15397,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#453C66",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#171525",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -16727,52 +15527,12 @@
                           "clip": true,
                           "width": 195,
                           "height": 281,
-                          "fill": [
-                            {
-                              "type": "gradient",
-                              "gradientType": "linear",
-                              "enabled": true,
-                              "rotation": 180,
-                              "size": {
-                                "height": 1
-                              },
-                              "colors": [
-                                {
-                                  "color": "#5A4136",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#1F1714",
-                                  "position": 1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "gradient",
-                              "gradientType": "radial",
-                              "enabled": true,
-                              "opacity": 0.45,
-                              "rotation": 0,
-                              "size": {
-                                "width": 1.5,
-                                "height": 1.2
-                              },
-                              "colors": [
-                                {
-                                  "color": "#FFFFFF3D",
-                                  "position": 0
-                                },
-                                {
-                                  "color": "#FFFFFF00",
-                                  "position": 1
-                                }
-                              ],
-                              "center": {
-                                "x": 0.32,
-                                "y": 0.2
-                              }
-                            }
-                          ],
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          },
                           "stroke": "#FFFFFF14",
                           "strokeWidth": 1,
                           "strokeAlignment": "inner",
@@ -17598,7 +16358,12 @@
                       "width": "fill_container",
                       "descendants": {
                         "Wngm1": {
-                          "fill": "#2A2F3A"
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          }
                         },
                         "g6vWF8": {
                           "content": "Piranesi"
@@ -17627,7 +16392,12 @@
                       "width": "fill_container",
                       "descendants": {
                         "Wngm1": {
-                          "fill": "#33291F"
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          }
                         },
                         "g6vWF8": {
                           "content": "Piranesi (Illustrated Edition)"
@@ -17645,7 +16415,12 @@
                       "width": "fill_container",
                       "descendants": {
                         "Wngm1": {
-                          "fill": "#24302A"
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          }
                         },
                         "g6vWF8": {
                           "content": "The Prisons of Piranesi"
@@ -17663,7 +16438,12 @@
                       "width": "fill_container",
                       "descendants": {
                         "Wngm1": {
-                          "fill": "#302430"
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=900&q=80",
+                            "mode": "fill"
+                          }
                         },
                         "g6vWF8": {
                           "content": "Giovanni Battista Piranesi: Complete Etchings"
