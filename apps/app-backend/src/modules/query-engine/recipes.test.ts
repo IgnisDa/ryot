@@ -1,13 +1,5 @@
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import {
-	buildExerciseListQueryDocument,
-	buildMeasurementListQueryDocument,
-	buildWorkoutDetailQueryDocument,
-	buildWorkoutListQueryDocument,
-	buildWorkoutTemplateDetailQueryDocument,
-	buildWorkoutTemplateListQueryDocument,
-} from "@ryot/fitness-plugin/query-recipes";
-import {
 	buildAllCollectionsQueryDocument,
 	buildDefaultSavedViewQueryDocument,
 	buildEntityDetailQueryDocument,
@@ -30,12 +22,6 @@ describe("shared query-engine recipes", () => {
 			}),
 			buildAllCollectionsQueryDocument({}),
 			buildDefaultSavedViewQueryDocument({ schemas: ["book"] }),
-			buildExerciseListQueryDocument({}),
-			buildWorkoutListQueryDocument({}),
-			buildMeasurementListQueryDocument({}),
-			buildWorkoutTemplateListQueryDocument({}),
-			buildWorkoutDetailQueryDocument({ entityId: "workout", templateLimit: 1 }),
-			buildWorkoutTemplateDetailQueryDocument({ entityId: "template", workoutLimit: 10 }),
 		] satisfies readonly QueryDocument[];
 
 		expect(documents.map(validateQueryDocument)).toEqual(documents.map(() => null));

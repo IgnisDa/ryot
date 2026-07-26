@@ -9,20 +9,21 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createWorkoutEntityFixture,
-	executeQueryEngine,
+	executeRyotQL,
 	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
 	findWorkoutSetEventSchema,
 	getEntity,
-	getQueryEngineFieldOrThrow,
 	insertRelationshipRow,
 	listEntitySchemas,
 	listSavedViews,
 	waitForEventCount,
 	waitForSeededExerciseId,
 	waitForSessionEventCount,
+	requireRyotQLFieldValue,
 } from "~/fixtures";
+import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Workouts E2E", () => {
@@ -152,10 +153,18 @@ describe("Workouts E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			yield* createWorkoutEntityFixture(client);
 
-			const result = yield* executeQueryEngine(client, buildWorkoutListQueryDocument({}));
+			const result = yield* executeRyotQL(client, buildWorkoutListQueryDocument({}));
+			const workouts = result.data["workouts"];
+			if (workouts?.type !== "rows") {
+				throw new Error("Expected workouts rows result");
+			}
 
-			expect(result.data.items.length).toBeGreaterThan(0);
-			expect(getQueryEngineFieldOrThrow(result.data.items[0], "startedAt").key).toBe("startedAt");
+			const firstWorkout = workouts.items[0];
+			assertPresent(firstWorkout, "Expected at least one workout item");
+			expect(workouts.items.length).toBeGreaterThan(0);
+			expect(requireRyotQLFieldValue(firstWorkout, "startedAt")).toMatchObject({
+				kind: "date",
+			});
 		}),
 	);
 
