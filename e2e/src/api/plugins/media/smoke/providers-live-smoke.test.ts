@@ -30,32 +30,38 @@ function schemaProvider(
 }
 
 describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
-	it.live("searches OpenLibrary and imports a real result", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
-			const provider = schemaProvider(schema, "OpenLibrary");
-			const search = yield* searchProviderEntities(client, {
-				page: 1,
-				pageSize: 5,
-				query: "The Hobbit",
-				providerId: provider.providerId,
-			});
-			expect(search.providerId).toBe(provider.providerId);
-			assertCondition(search.items.length > 0, "OpenLibrary returned no results for 'The Hobbit'");
-			const firstItem = search.items[0];
-			assertPresent(firstItem, "Expected the first OpenLibrary search item");
-			const externalId = firstItem.externalId;
+	it.live(
+		"searches OpenLibrary and imports a real result",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
+				const provider = schemaProvider(schema, "OpenLibrary");
+				const search = yield* searchProviderEntities(client, {
+					page: 1,
+					pageSize: 5,
+					query: "The Hobbit",
+					providerId: provider.providerId,
+				});
+				expect(search.providerId).toBe(provider.providerId);
+				assertCondition(
+					search.items.length > 0,
+					"OpenLibrary returned no results for 'The Hobbit'",
+				);
+				const firstItem = search.items[0];
+				assertPresent(firstItem, "Expected the first OpenLibrary search item");
+				const externalId = firstItem.externalId;
 
-			const { jobId: importJobId } = yield* enqueueProviderEntityImport(client, {
-				externalId,
-				providerId: search.providerId,
-			});
-			const imported = yield* pollProviderEntityImportResult(client, importJobId);
-			assertCompleted(imported, "OpenLibrary import");
-			expect(imported.data.name.length).toBeGreaterThan(0);
-			expect(imported.data.entitySchemaSlug).toBe(schema.id);
-		}),
+				const { jobId: importJobId } = yield* enqueueProviderEntityImport(client, {
+					externalId,
+					providerId: search.providerId,
+				});
+				const imported = yield* pollProviderEntityImportResult(client, importJobId);
+				assertCompleted(imported, "OpenLibrary import");
+				expect(imported.data.name.length).toBeGreaterThan(0);
+				expect(imported.data.entitySchemaSlug).toBe(schema.id);
+			}),
+		300_000,
 	);
 
 	it.live(
