@@ -7,7 +7,6 @@
 		"build": "bun --bun react-router build",
 		"dev": "bun --bun react-router dev --port 5200 --host",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
-		"lint": "biome check .",
 		"typecheck": "react-router typegen && safe-routes typegen && tsc"
 	},
 	"dependencies": {
