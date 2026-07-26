@@ -5,7 +5,8 @@ import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot/contract/schem
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
-import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { RedisService } from "#lib/infrastructure/redis";
+import { dbRunnerLayer, makeRedisService } from "#lib/test-utils/effect";
 import {
 	PluginRuntimeResolver,
 	UnsupportedProviderOperationError,
@@ -44,6 +45,18 @@ const optionsSchema = {
 	},
 } satisfies AppSchema;
 
+const dynamicOptionsSchema = {
+	unknownKeys: "strict",
+	fields: {
+		status: {
+			type: "enum",
+			label: "Status",
+			description: "Status",
+			choices: { kind: "dynamic", source: "statuses" },
+		},
+	},
+} satisfies AppSchema;
+
 const searchScript = {
 	providerId,
 	source: "source",
@@ -68,11 +81,31 @@ const searchScript = {
 	},
 };
 
+const searchOptionsScript = {
+	...searchScript,
+	name: "Books search options",
+	slug: "books.search-options",
+	contentHash: "books-search-options-hash",
+	id: SandboxScriptId.make("search-options-script-id"),
+	metadata: {
+		...searchScript.metadata,
+		name: "Books search options",
+		slug: "books.search-options",
+		providerOperation: "search-options" as const,
+	},
+};
+
 const makeLayer = (input?: {
+	readonly redis?: RedisService["Service"];
 	readonly optionsSchema?: AppSchema | null;
 	readonly provider?: typeof provider | null;
+	readonly optionsScript?: typeof searchOptionsScript;
 	readonly searchError?: "inactive_provider" | "unsupported_operation";
 	readonly execute?: SandboxExecutionService["Service"]["executeScript"];
+	readonly searchOptionsError?:
+		| "inactive_provider"
+		| "unsupported_operation"
+		| "script_unavailable";
 }) =>
 	ProviderEntitySearchService.layer.pipe(
 		Layer.provide(
@@ -92,6 +125,17 @@ const makeLayer = (input?: {
 									}),
 								)
 							: Effect.succeed({ ...searchScript, optionsSchema: input?.optionsSchema ?? null }),
+					resolveSearchOptionsScript: () =>
+						input?.searchOptionsError
+							? Effect.fail(
+									new UnsupportedProviderOperationError({
+										providerId,
+										operation: "search-options",
+										providerSlug: provider.slug,
+										reason: input.searchOptionsError,
+									}),
+								)
+							: Effect.succeed(input?.optionsScript ?? searchOptionsScript),
 				}),
 				Layer.mock(SandboxExecutionService)({
 					executeScript:
@@ -111,6 +155,7 @@ const makeLayer = (input?: {
 								},
 							})),
 				}),
+				Layer.succeed(RedisService, input?.redis ?? makeRedisService()),
 			),
 		),
 	);
@@ -123,6 +168,23 @@ const assertFailureInstance = <A, E>(
 	const failure = Cause.findErrorOption(exit.cause);
 	assert(Option.isSome(failure));
 	expect(failure.value).toBeInstanceOf(error);
+};
+
+const makeSearchOptionsRedis = (initial: string | null = null) => {
+	let value = initial;
+	let writes = 0;
+	return {
+		getValue: () => value,
+		getWrites: () => writes,
+		service: makeRedisService({
+			get: () => Effect.succeed(value),
+			set: (_key, nextValue) => {
+				value = nextValue;
+				writes += 1;
+				return Effect.void;
+			},
+		}),
+	};
 };
 
 it.effect("executes one provider search and returns its singular response", () => {
@@ -170,6 +232,303 @@ it.effect("executes one provider search and returns its singular response", () =
 								},
 							],
 						},
+					});
+				},
+			}),
+		),
+	);
+});
+
+it.effect("returns no schema when the provider search has no options", () =>
+	Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		expect(yield* service.resolveSearchOptionsSchema(user, providerId)).toBeNull();
+	}).pipe(Effect.provide(makeLayer())),
+);
+
+it.effect("returns static options without executing the auxiliary operation", () => {
+	let executions = 0;
+	return Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const schema = yield* service.resolveSearchOptionsSchema(user, providerId);
+		expect(schema).toEqual(optionsSchema);
+		expect(executions).toBe(0);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				optionsSchema,
+				execute: () => {
+					executions += 1;
+					return Effect.die("unused");
+				},
+			}),
+		),
+	);
+});
+
+it.effect("keeps required static options validation for omitted options", () =>
+	Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const exit = yield* Effect.exit(
+			service.search(user, { page: 1, providerId, pageSize: 20, query: "book" }),
+		);
+		assertFailureInstance(exit, BadRequest);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				optionsSchema: {
+					unknownKeys: "strict",
+					fields: {
+						status: {
+							type: "enum",
+							label: "Status",
+							description: "Status",
+							validation: { required: true },
+							choices: { kind: "static", values: [{ value: "active" }] },
+						},
+					},
+				} satisfies AppSchema,
+				execute: () => Effect.die("unused"),
+			}),
+		),
+	),
+);
+
+it.effect("executes and materializes dynamic search options", () => {
+	const redis = makeSearchOptionsRedis();
+	const executions: Array<Parameters<SandboxExecutionService["Service"]["executeScript"]>[0]> = [];
+	return Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const schema = yield* service.resolveSearchOptionsSchema(user, providerId);
+		expect(schema).toMatchObject({
+			fields: {
+				status: {
+					choices: { kind: "static", values: [{ value: "active", label: "Active" }] },
+				},
+			},
+		});
+		expect(executions).toHaveLength(1);
+		expect(executions[0]).toMatchObject({
+			input: {},
+			scriptId: searchOptionsScript.id,
+			authority: { type: "user", userId: user.id },
+		});
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				optionsSchema: dynamicOptionsSchema,
+				redis: redis.service,
+				execute: (input) => {
+					executions.push(input);
+					return Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: { sources: { statuses: [{ value: "active", label: "Active" }] } },
+					});
+				},
+			}),
+		),
+	);
+});
+
+it.effect("uses cached dynamic options without executing the auxiliary operation twice", () => {
+	const redis = makeSearchOptionsRedis();
+	let executions = 0;
+	return Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		yield* service.resolveSearchOptionsSchema(user, providerId);
+		yield* service.resolveSearchOptionsSchema(user, providerId);
+		expect(executions).toBe(1);
+		expect(redis.getWrites()).toBe(1);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				optionsSchema: dynamicOptionsSchema,
+				redis: redis.service,
+				execute: (input) => {
+					if (input.scriptId !== searchOptionsScript.id) {
+						return Effect.die("unexpected search execution");
+					}
+					executions += 1;
+					return Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: { sources: { statuses: [{ value: "active" }] } },
+					});
+				},
+			}),
+		),
+	);
+});
+
+it.effect("refreshes malformed cached dynamic options", () => {
+	const redis = makeSearchOptionsRedis("not-json");
+	let executions = 0;
+	return Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		expect(yield* service.resolveSearchOptionsSchema(user, providerId)).not.toBeNull();
+		expect(executions).toBe(1);
+		expect(redis.getWrites()).toBe(1);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				optionsSchema: dynamicOptionsSchema,
+				redis: redis.service,
+				execute: () => {
+					executions += 1;
+					return Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: { sources: { statuses: [{ value: "active" }] } },
+					});
+				},
+			}),
+		),
+	);
+});
+
+it.effect("refreshes a decodable stale cache missing a required source", () => {
+	const redis = makeSearchOptionsRedis(
+		JSON.stringify({ sources: { other: [{ value: "active" }] } }),
+	);
+	let executions = 0;
+	return Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const schema = yield* service.resolveSearchOptionsSchema(user, providerId);
+		expect(schema).toMatchObject({
+			fields: {
+				status: { choices: { kind: "static", values: [{ value: "active", label: "Active" }] } },
+			},
+		});
+		expect(executions).toBe(1);
+		expect(redis.getWrites()).toBe(1);
+		expect(redis.getValue()).toBe('{"sources":{"statuses":[{"value":"active","label":"Active"}]}}');
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				optionsSchema: dynamicOptionsSchema,
+				redis: redis.service,
+				execute: () => {
+					executions += 1;
+					return Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: { sources: { statuses: [{ value: "active", label: "Active" }] } },
+					});
+				},
+			}),
+		),
+	);
+});
+
+it.effect("does not cache malformed or unmaterializable search-options results", () => {
+	const cases = [
+		{ sources: { other: [{ value: "active" }] } },
+		{ sources: { statuses: [{ value: "" }] } },
+	];
+	return Effect.forEach(cases, (value) => {
+		const redis = makeSearchOptionsRedis();
+		return Effect.gen(function* () {
+			const service = yield* ProviderEntitySearchService;
+			const exit = yield* Effect.exit(service.resolveSearchOptionsSchema(user, providerId));
+			assertFailureInstance(exit, BadRequest);
+			expect(redis.getWrites()).toBe(0);
+		}).pipe(
+			Effect.provide(
+				makeLayer({
+					optionsSchema: dynamicOptionsSchema,
+					redis: redis.service,
+					execute: () =>
+						Effect.succeed({ value, logs: [], error: null, status: "completed" as const }),
+				}),
+			),
+		);
+	});
+});
+
+it.effect("keeps plain dynamic searches available when options resolution fails", () => {
+	const executions: Array<Parameters<SandboxExecutionService["Service"]["executeScript"]>[0]> = [];
+	return Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		yield* service.search(user, { page: 1, providerId, pageSize: 20, query: "book" });
+		expect(executions).toHaveLength(1);
+		expect(executions[0]).toMatchObject({ scriptId: searchScript.id, input: { query: "book" } });
+		expect(executions[0]?.input).not.toHaveProperty("options");
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				optionsSchema: dynamicOptionsSchema,
+				searchOptionsError: "unsupported_operation",
+				execute: (input) => {
+					executions.push(input);
+					return Effect.succeed({
+						logs: [],
+						error: null,
+						value: { items: [] },
+						status: "completed" as const,
+					});
+				},
+			}),
+		),
+	);
+});
+
+it.effect("rejects filtered dynamic searches when options resolution fails", () =>
+	Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const exit = yield* Effect.exit(
+			service.search(user, {
+				page: 1,
+				providerId,
+				pageSize: 20,
+				query: "book",
+				options: { status: "active" },
+			}),
+		);
+		assertFailureInstance(exit, BadRequest);
+	}).pipe(
+		Effect.provide(
+			makeLayer({ optionsSchema: dynamicOptionsSchema, searchOptionsError: "script_unavailable" }),
+		),
+	),
+);
+
+it.effect("validates dynamic option membership before provider search execution", () => {
+	const redis = makeSearchOptionsRedis();
+	const executions: Array<Parameters<SandboxExecutionService["Service"]["executeScript"]>[0]> = [];
+	return Effect.gen(function* () {
+		const service = yield* ProviderEntitySearchService;
+		const exit = yield* Effect.exit(
+			service.search(user, {
+				page: 1,
+				providerId,
+				pageSize: 20,
+				query: "book",
+				options: { status: "unknown" },
+			}),
+		);
+		assertFailureInstance(exit, BadRequest);
+		expect(executions).toHaveLength(1);
+		expect(executions[0]?.scriptId).toBe(searchOptionsScript.id);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				optionsSchema: dynamicOptionsSchema,
+				redis: redis.service,
+				execute: (input) => {
+					executions.push(input);
+					return Effect.succeed({
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value:
+							input.scriptId === searchOptionsScript.id
+								? { sources: { statuses: [{ value: "active" }] } }
+								: { items: [] },
 					});
 				},
 			}),

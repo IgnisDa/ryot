@@ -45,8 +45,8 @@ describe("config definitions", () => {
 					mode: enumField({
 						label: "Mode",
 						envKey: "MODE",
-						options: ["safe", "fast"],
 						description: "Server mode",
+						choices: { kind: "static", values: [{ value: "safe" }, { value: "fast" }] },
 					}),
 					enabled: booleanField({
 						label: "Enabled",
@@ -95,9 +95,9 @@ describe("config definitions", () => {
 				provider: {
 					type: "enum",
 					label: "Provider",
-					options: ["local", "remote"],
 					description: "Provider name",
 					validation: { required: true },
+					choices: { kind: "static", values: [{ value: "local" }, { value: "remote" }] },
 				},
 			},
 		} satisfies AppSchema;
@@ -113,9 +113,9 @@ describe("config definitions", () => {
 			mode: enumField({
 				label: "Mode",
 				envKey: "MODE",
-				options: ["safe", "fast"],
 				description: "Server mode",
 				validation: { required: true },
+				choices: { kind: "static", values: [{ value: "safe" }, { value: "fast" }] },
 			}),
 		});
 
