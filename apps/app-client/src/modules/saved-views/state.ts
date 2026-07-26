@@ -45,6 +45,8 @@ export type SavedViewResultState =
 			readonly assets: ReturnType<typeof collectManagedAssets>;
 	  } & SavedViewActiveData);
 
+export type SavedViewReadyState = Extract<SavedViewResultState, { status: "ready" }>;
+
 export type SavedViewManagedAssetsState =
 	| { readonly status: "ready"; readonly urls: ReadonlyMap<string, string> }
 	| { readonly status: "loading"; readonly urls: ReadonlyMap<string, string> }
@@ -118,6 +120,38 @@ export const mapSavedViewResult = (
 		status: "ready",
 		assets: collectManagedAssets(data.items),
 		entityIds: data.items.map((item) => item.entityId),
+	};
+};
+
+export const combineSavedViewPages = (
+	pages: readonly SavedViewReadyState[],
+): SavedViewReadyState => {
+	const latest = pages[pages.length - 1];
+	const allItems = pages.reduce<Array<SavedViewCardItem | SavedViewTableItem>>(
+		(accumulator, page) => accumulator.concat(page.data.items),
+		[],
+	);
+	const common = {
+		assets: collectManagedAssets(allItems),
+		entityIds: allItems.map((item) => item.entityId),
+	};
+	if (latest.layout === "table") {
+		return {
+			...latest,
+			...common,
+			data: {
+				...latest.data,
+				items: pages.flatMap((page) => (page.layout === "table" ? page.data.items : [])),
+			},
+		};
+	}
+	return {
+		...latest,
+		...common,
+		data: {
+			...latest.data,
+			items: pages.flatMap((page) => (page.layout === latest.layout ? page.data.items : [])),
+		},
 	};
 };
 
