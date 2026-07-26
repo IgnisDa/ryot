@@ -12,16 +12,32 @@ describe("entity-interest coordinator", () => {
 			declarations.push([...entityIds]);
 			return Promise.resolve([]);
 		});
-		const removeA = coordinator.setInterest("a", ["entity-1", "entity-2"]);
+		coordinator.setInterest("a", ["entity-1", "entity-2"]);
 		coordinator.setInterest("b", ["entity-2", "entity-3"]);
 		coordinator.setConnection("stream-1");
 		await tick();
 
 		expect(declarations.at(-1)).toEqual(["entity-1", "entity-2", "entity-3"]);
 
-		removeA();
+		coordinator.removeInterest("a");
 		await tick();
 		expect(declarations.at(-1)).toEqual(["entity-2", "entity-3"]);
+	});
+
+	it("does not redeclare an unchanged owner set", async () => {
+		const declarations: string[][] = [];
+		const coordinator = new EntityInterestCoordinator((_streamId, entityIds) => {
+			declarations.push([...entityIds]);
+			return Promise.resolve([]);
+		});
+		coordinator.setInterest("surface", ["entity-1", "entity-2"]);
+		coordinator.setConnection("stream-1");
+		await tick();
+
+		coordinator.setInterest("surface", ["entity-2", "entity-1"]);
+		await tick();
+
+		expect(declarations).toEqual([["entity-1", "entity-2"]]);
 	});
 
 	it("publishes terminal and stream updates and redeclares only after streamed population", async () => {
