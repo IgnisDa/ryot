@@ -92,7 +92,8 @@ function findSpan(predicate: (span: Record<string, unknown>) => boolean) {
 
 function findRequestSpan() {
 	return findSpan(
-		(span) => getStringAttribute(span["attributes"], "url.path") === "/api/notifications/channels/test",
+		(span) =>
+			getStringAttribute(span["attributes"], "url.path") === "/api/notifications/channels/test",
 	);
 }
 
