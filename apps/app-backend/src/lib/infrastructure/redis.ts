@@ -3,6 +3,10 @@ import Redis from "ioredis";
 
 import { AppConfig } from "./config/service";
 
+export const ENTITY_INTEREST_STREAM_TTL_SECONDS = 15 * 60;
+export const ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS = 30;
+export const ENTITY_INTEREST_STREAM_RENEWAL_INTERVAL_SECONDS = 5 * 60;
+
 export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
 	pluginRegistryChannel: "ryot:plugins:registry",
@@ -13,9 +17,14 @@ export const redisKeys = {
 	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
 	importSourcePayload: (runId: string) => `ryot:imports:source-payload:${runId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
+	entityInterestStream: (streamId: string) => `ryot:entity-interest:stream:${streamId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
 	uploadIntentCleanupLock: (intentId: string) => `ryot:upload:intent-cleanup-lock:${intentId}`,
+	entityInterestStreams: (entityId: string) => `ryot:entity-interest:entity:${entityId}:streams`,
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,
+	entityInterestProgressionLease: (entityId: string) => `ryot:entity-interest:progress:${entityId}`,
+	entityInterestStreamEntities: (streamId: string) =>
+		`ryot:entity-interest:stream:${streamId}:entities`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
 	providerHttpAdmission: (policyKey: string) =>

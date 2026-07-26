@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { NotFound } from "@ryot/contract/errors";
 import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Effect, Exit, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -75,6 +75,36 @@ it.effect("preserves provider provenance when enqueueing a translation fill", ()
 				},
 			},
 		]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("keeps the deterministic ID and exposes translation enqueue failure", () => {
+	let executionId: string | undefined;
+	const layer = makeServiceLayer(
+		makeTranslationsRepository(),
+		makeWorkflowEngine({
+			execute: (_workflow, options) => {
+				executionId = options.executionId;
+				return Effect.die("enqueue failed");
+			},
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* TranslationsService;
+		const exit = yield* Effect.exit(
+			service.requestFill({
+				language: "es",
+				externalId: "book-1",
+				entitySchemaSlug: "book",
+				properties: { title: "Book" },
+				entityId: EntityId.make("entity-1"),
+				providerId: SandboxProviderId.make("provider-1"),
+			}),
+		);
+
+		expect(executionId).toBe("translate-entity-1-es");
+		expect(Exit.isFailure(exit)).toBe(true);
 	}).pipe(Effect.provide(layer));
 });
 
