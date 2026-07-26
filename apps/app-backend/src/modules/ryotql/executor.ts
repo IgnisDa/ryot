@@ -17,6 +17,7 @@ import type {
 	TimeSeriesResult,
 } from "@ryot/contract/modules/ryotql/language";
 import { sql } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { DateTime, Effect, Option } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -837,6 +838,17 @@ const TIME_SERIES_BUCKET_STEPS: Record<TimeSeriesOutput["time"]["bucket"], strin
 	month: "1 month",
 };
 
+const pgDialect = new PgDialect();
+
+const executeSql = Effect.fn("executeRyotQLSql")(function* (query: SqlFragment, queryName: string) {
+	const db = yield* CurrentDb;
+	const { sql: statement } = pgDialect.sqlToQuery(query);
+	yield* Effect.logInfo("RyotQL SQL generated").pipe(
+		Effect.annotateLogs({ queryName, sql: statement }),
+	);
+	return yield* dbEffect(() => db.execute(query));
+});
+
 const timeSeriesBucketStart = (bucket: TimeSeriesOutput["time"]["bucket"], value: SqlFragment) =>
 	sql`date_trunc(${bucket}, ${value} AT TIME ZONE 'UTC')`;
 
@@ -953,9 +965,9 @@ const reconstructAggregateItem = (
 const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function* (
 	executionScope: RyotQLExecutionScope,
 	query: AggregateQuery,
+	queryName: string,
 ) {
-	const db = yield* CurrentDb;
-	const raw = yield* dbEffect(() => db.execute(compileAggregateQuery(query, executionScope)));
+	const raw = yield* executeSql(compileAggregateQuery(query, executionScope), queryName);
 	const rows = raw.rows as readonly Record<string, unknown>[];
 	const groups = query.output.groupBy ?? [];
 	const items = rows.map((row) => reconstructAggregateItem(row, groups, query.output.measures));
@@ -977,9 +989,9 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(function* (
 	executionScope: RyotQLExecutionScope,
 	query: TimeSeriesQuery,
+	queryName: string,
 ) {
-	const db = yield* CurrentDb;
-	const raw = yield* dbEffect(() => db.execute(compileTimeSeriesQuery(query, executionScope)));
+	const raw = yield* executeSql(compileTimeSeriesQuery(query, executionScope), queryName);
 	const buckets = (raw.rows as readonly Record<string, unknown>[]).map((row) => {
 		const startAt = normalizeValue(row["startAt"], "date");
 		const endAt = normalizeValue(row["endAt"], "date");
@@ -994,16 +1006,24 @@ const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(functio
 export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* (
 	executionScope: RyotQLExecutionScope,
 	query: NormalizedNamedQuery,
+	queryName: string,
 ) {
 	if (query.output.type === "aggregate") {
-		return yield* executeAggregateQuery(executionScope, { ...query, output: query.output });
+		return yield* executeAggregateQuery(
+			executionScope,
+			{ ...query, output: query.output },
+			queryName,
+		);
 	}
 	if (query.output.type === "timeSeries") {
-		return yield* executeTimeSeriesQuery(executionScope, { ...query, output: query.output });
+		return yield* executeTimeSeriesQuery(
+			executionScope,
+			{ ...query, output: query.output },
+			queryName,
+		);
 	}
-	const db = yield* CurrentDb;
 	const rowsQuery = { ...query, output: query.output };
-	const raw = yield* dbEffect(() => db.execute(compileRowsQuery(rowsQuery, executionScope)));
+	const raw = yield* executeSql(compileRowsQuery(rowsQuery, executionScope), queryName);
 	const rows = raw.rows as readonly Record<string, unknown>[];
 	const first = rows[0];
 	const total = first ? Number(first["totalCount"]) : 0;
