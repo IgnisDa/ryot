@@ -260,8 +260,9 @@ it.effect("rejects temporary uploads claimed from S3 storage", () => {
 
 it.effect("claims only the visible upload from mutually exclusive required fields", () => {
 	const executed: unknown[] = [];
-	const claimedTokens: string[] = [];
+	const claims: Array<{ claimId: string | undefined; token: string }> = [];
 	let createdInput: CreateImportRunInput | undefined;
+	let updatedInput: unknown;
 	const source = goodreadsSource({
 		slug: "movary",
 		name: "Movary",
@@ -302,19 +303,20 @@ it.effect("claims only the visible upload from mutually exclusive required field
 					createdInput = input;
 					return createdRun;
 				}),
+			updateRun: (input) => Effect.sync(() => void (updatedInput = input)),
 		}),
 		Layer.mergeAll(
 			makeImportSourceCatalog(source),
 			mockUploadsService({
-				claimTemporaryUpload: (value) =>
+				claimTemporaryUpload: (token, _userId, claimId) =>
 					Effect.sync(() => {
-						claimedTokens.push(value);
+						claims.push({ claimId, token });
 						return {
 							leaseExpiresAt: now,
-							intentId: `intent-${value}`,
-							fileName: `${value}-original.csv`,
-							resolvedPath: `/tmp/${value}.csv`,
-							locator: { type: "local" as const, key: `temporary/${value}.csv` },
+							intentId: `intent-${token}`,
+							fileName: `${token}-original.csv`,
+							resolvedPath: `/tmp/${token}.csv`,
+							locator: { type: "local" as const, key: `temporary/${token}.csv` },
 						};
 					}),
 				deleteTemporaryUpload: () => Effect.sync(() => undefined),
@@ -335,10 +337,14 @@ it.effect("claims only the visible upload from mutually exclusive required field
 			historyUploadToken: "history",
 		});
 
-		expect(claimedTokens).toEqual(["history"]);
-		expect(createdInput?.inputSummary).toEqual({
-			source: "movary",
-			fileNames: { historyUploadToken: "history-original.csv" },
+		expect(claims).toEqual([{ claimId: "run-1", token: "history" }]);
+		expect(createdInput?.inputSummary).toEqual({ source: "movary" });
+		expect(updatedInput).toEqual({
+			runId: "run-1",
+			inputSummary: {
+				source: "movary",
+				fileNames: { historyUploadToken: "history-original.csv" },
+			},
 		});
 		expect(executed[0]).toMatchObject({
 			payload: {

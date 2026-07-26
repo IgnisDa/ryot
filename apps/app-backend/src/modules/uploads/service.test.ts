@@ -3,15 +3,16 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest } from "@ryot/contract/errors";
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot/contract/modules/uploads/upload-policy";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Effect, FileSystem, Layer, Option, Path, Redacted } from "effect";
+import { Effect, FileSystem, Layer, Option, Path, Redacted, Stream } from "effect";
 import Redis from "ioredis";
 
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
+import { databaseLayer, makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
 
+import { type RegisterManagedAssetInput, UploadsRepository } from "./repository";
 import { UploadsService } from "./service";
 
 const user: CurrentUserValue = {
@@ -25,6 +26,7 @@ const user: CurrentUserValue = {
 const TEST_TMP_DIR = "/tmp/ryot-test-uploads";
 
 const mockS3Service = Layer.mock(S3Service);
+const mockUploadsRepository = Layer.mock(UploadsRepository);
 const mockLocalStorageService = Layer.mock(LocalStorageService);
 
 type S3Overrides = Omit<Parameters<typeof mockS3Service>[0], "_tag" | "isConfigured"> & {
@@ -34,6 +36,8 @@ type S3Overrides = Omit<Parameters<typeof mockS3Service>[0], "_tag" | "isConfigu
 const makeS3Layer = (overrides: S3Overrides = {}) =>
 	mockS3Service({
 		isConfigured: true,
+		openObject: () => Effect.succeed(Stream.make(new TextEncoder().encode("stored object"))),
+		writeObject: () => Effect.sync(() => undefined),
 		deleteObject: () => Effect.void,
 		presignUpload: () => Effect.succeed("https://example.com/upload"),
 		presignDownload: () => Effect.succeed("https://example.com/download"),
@@ -49,12 +53,36 @@ type LocalStorageOverrides = Omit<
 
 const makeLocalStorageLayer = (overrides: LocalStorageOverrides = {}) =>
 	mockLocalStorageService({
+		openObject: () => Effect.succeed(Stream.make(new TextEncoder().encode("stored object"))),
+		writeObject: () => Effect.sync(() => undefined),
+		deleteObject: () => Effect.void,
 		statObject: () => Effect.succeed(defaultFileInfo),
 		resolveObjectPath: () => Effect.succeed("/tmp/object"),
 		isConfiguredForKind: () => true,
 		createDownloadTarget: () => Effect.succeed("uploads/local/download?signature=local"),
 		verifyDownloadTarget: () =>
 			Effect.succeed({ contentType: "image/png", key: "permanent/object.png" }),
+		...overrides,
+	});
+
+const makeUploadsRepositoryLayer = (overrides: Partial<UploadsRepository["Service"]> = {}) =>
+	mockUploadsRepository({
+		listByOwner: () => Effect.succeed([]),
+		getByLocator: () => Effect.succeed(null),
+		listByOwnerAndLocators: (ownerUserId, locators) =>
+			Effect.succeed(
+				locators.map(({ key, type }) => ({
+					key,
+					size: 100,
+					ownerUserId,
+					provider: type,
+					contentType: "image/png",
+					sha256: "a".repeat(64),
+					createdAt: new Date("2026-01-01T00:00:00.000Z"),
+				})),
+			),
+		registerPermanentOwnedObject: (input) =>
+			Effect.succeed({ ...input, createdAt: new Date("2026-01-01T00:00:00.000Z") }),
 		...overrides,
 	});
 
@@ -106,6 +134,7 @@ const makeUploadsLayer = (
 		fsLayer?: ReturnType<typeof makeFsLayer>;
 		s3Service?: ReturnType<typeof makeS3Layer>;
 		redisService?: ReturnType<typeof makeRedisLayer>;
+		uploadsRepository?: ReturnType<typeof makeUploadsRepositoryLayer>;
 		config?: Parameters<typeof makeAppConfigLayer>[0];
 		localStorageService?: ReturnType<typeof makeLocalStorageLayer>;
 	} = {},
@@ -118,17 +147,20 @@ const makeUploadsLayer = (
 	const localStorage = LocalStorageService.layer.pipe(
 		Layer.provide(Layer.mergeAll(appConfig, fsLayer, Path.layer)),
 	);
-	return UploadsService.layer.pipe(
+	const uploads = UploadsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				appConfig,
+				databaseLayer,
 				fsLayer,
 				options.s3Service ?? makeS3Layer(),
 				options.redisService ?? makeRedisLayer(),
+				options.uploadsRepository ?? makeUploadsRepositoryLayer(),
 				options.localStorageService ?? localStorage,
 			),
 		),
 	);
+	return Layer.merge(uploads, databaseLayer);
 };
 
 it.effect("creates and indexes a local permanent upload intent", () => {
@@ -241,6 +273,7 @@ it.effect("completes an S3 intent idempotently after verification", () => {
 		],
 	]);
 	const removed: string[] = [];
+	const registered: RegisterManagedAssetInput[] = [];
 
 	return Effect.gen(function* () {
 		const service = yield* UploadsService;
@@ -249,6 +282,16 @@ it.effect("completes an S3 intent idempotently after verification", () => {
 		expect(first).toEqual({ type: "s3", key: "permanent/object.png" });
 		expect(second).toEqual(first);
 		expect(removed).toEqual([intentId]);
+		expect(registered).toEqual([
+			{
+				size: 100,
+				ownerUserId: user.id,
+				provider: "s3",
+				contentType: "image/png",
+				key: "permanent/object.png",
+				sha256: "0944c113cf83137f77217f86ab614aa5c3aac16cef2de6a4e2f410a529d7bd7a",
+			},
+		]);
 	}).pipe(
 		Effect.provide(
 			makeUploadsLayer({
@@ -268,6 +311,140 @@ it.effect("completes an S3 intent idempotently after verification", () => {
 							lastModified: new Date(),
 							type: "image/png; charset=binary",
 						}),
+				}),
+				uploadsRepository: makeUploadsRepositoryLayer({
+					registerPermanentOwnedObject: (input) => {
+						registered.push(input);
+						return Effect.succeed({ ...input, createdAt: new Date() });
+					},
+				}),
+			}),
+		),
+	);
+});
+
+it.effect("stages owner-scoped content without registering and cleans a matching orphan", () => {
+	const sha256 = "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81";
+	const objects = new Map<string, Uint8Array<ArrayBuffer>>();
+	const deleted: string[] = [];
+	let ownedMetadata: RegisterManagedAssetInput | undefined;
+	let registrations = 0;
+
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		const first = yield* service.stageContentAddressedPermanentAsset({
+			sha256,
+			size: 3,
+			provider: "s3",
+			ownerUserId: user.id,
+			contentType: "application/octet-stream",
+			stream: Stream.make(new Uint8Array([1, 2, 3])),
+		});
+		const repeated = yield* service.stageContentAddressedPermanentAsset({
+			sha256,
+			size: 3,
+			provider: "s3",
+			stream: Stream.empty,
+			ownerUserId: user.id,
+			contentType: "application/octet-stream",
+		});
+		const otherUser = yield* service.stageContentAddressedPermanentAsset({
+			sha256,
+			size: 3,
+			provider: "s3",
+			ownerUserId: UserId.make("other-user"),
+			contentType: "application/octet-stream",
+			stream: Stream.make(new Uint8Array([1, 2, 3])),
+		});
+		expect(repeated.locator).toEqual(first.locator);
+		expect(otherUser.locator.key).not.toBe(first.locator.key);
+		expect(registrations).toBe(0);
+		yield* service.cleanupStagedPermanentAsset(repeated);
+		expect(deleted).toEqual([first.locator.key]);
+		ownedMetadata = otherUser.metadata;
+		yield* service.cleanupStagedPermanentAsset(otherUser);
+		expect(deleted).toEqual([first.locator.key]);
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				s3Service: makeS3Layer({
+					openObject: (key) => Effect.succeed(Stream.make(objects.get(key) ?? new Uint8Array())),
+					statObject: (key) => {
+						const value = objects.get(key);
+						return value
+							? Effect.succeed({
+									size: value.byteLength,
+									etag: "etag",
+									lastModified: new Date(),
+									type: "application/octet-stream",
+								})
+							: Effect.fail(new BadRequest({ message: "missing" }));
+					},
+					writeObject: (key, stream) =>
+						Stream.runDrain(stream).pipe(
+							Effect.tap(() => {
+								objects.set(key, new Uint8Array([1, 2, 3]));
+								return Effect.void;
+							}),
+							Effect.mapError(() => new BadRequest({ message: "write failed" })),
+						),
+					deleteObject: (key) => {
+						objects.delete(key);
+						deleted.push(key);
+						return Effect.void;
+					},
+				}),
+				uploadsRepository: makeUploadsRepositoryLayer({
+					getByLocator: (locator) =>
+						Effect.succeed(
+							ownedMetadata?.key === locator.key
+								? { ...ownedMetadata, createdAt: new Date() }
+								: null,
+						),
+					registerPermanentOwnedObject: (input) => {
+						registrations += 1;
+						return Effect.succeed({ ...input, createdAt: new Date() });
+					},
+				}),
+			}),
+		),
+	);
+});
+
+it.effect("bounds S3 writes and deletes a partial object", () => {
+	const deleted: string[] = [];
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		const exit = yield* Effect.exit(
+			service.writeObject(
+				{ type: "s3", key: "temporary/archive.zip" },
+				Stream.make(new Uint8Array(2), new Uint8Array(2)),
+				"application/zip",
+				undefined,
+				3,
+			),
+		);
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Upload exceeds maximum allowed size of 3 bytes" }),
+		);
+		expect(deleted).toEqual(["temporary/archive.zip"]);
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				s3Service: makeS3Layer({
+					writeObject: (_key, stream) =>
+						Stream.runDrain(stream).pipe(
+							Effect.mapError((error) =>
+								error instanceof BadRequest
+									? error
+									: new BadRequest({ message: "S3 object write failed" }),
+							),
+						),
+					deleteObject: (key) => {
+						deleted.push(key);
+						return Effect.void;
+					},
 				}),
 			}),
 		),
@@ -299,51 +476,139 @@ it.effect("resolves local and S3 download URLs with their locators", () =>
 	),
 );
 
-it.effect("omits failed download resolutions without suppressing successful assets", () =>
-	Effect.gen(function* () {
+it.effect("rejects an unowned download batch before signing any locator", () => {
+	let signed = 0;
+	return Effect.gen(function* () {
 		const service = yield* UploadsService;
-		const result = yield* service.resolveDownloads(user, [
-			{ type: "s3", key: "permanent/missing.png" },
-			{ type: "s3", key: "permanent/image.png" },
-		]);
-		expect(result).toEqual([
-			{
-				asset: { type: "s3", key: "permanent/image.png" },
-				downloadUrl: "https://example.com/permanent/image.png",
-			},
-		]);
+		const exit = yield* Effect.exit(
+			service.resolveDownloads(user, [
+				{ type: "s3", key: "permanent/owned.png" },
+				{ type: "local", key: "permanent/unowned.png" },
+			]),
+		);
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "One or more managed assets do not belong to this user" }),
+		);
+		expect(signed).toBe(0);
 	}).pipe(
 		Effect.provide(
 			makeUploadsLayer({
+				uploadsRepository: makeUploadsRepositoryLayer({
+					listByOwnerAndLocators: (ownerUserId) =>
+						Effect.succeed([
+							{
+								size: 100,
+								ownerUserId,
+								provider: "s3",
+								contentType: "image/png",
+								key: "permanent/owned.png",
+								sha256: "a".repeat(64),
+								createdAt: new Date("2026-01-01T00:00:00.000Z"),
+							},
+						]),
+				}),
+				localStorageService: makeLocalStorageLayer({
+					createDownloadTarget: () => {
+						signed += 1;
+						return Effect.succeed("local");
+					},
+				}),
 				s3Service: makeS3Layer({
-					presignDownload: (key) =>
-						key.includes("missing")
-							? Effect.fail(new BadRequest({ message: "S3 upload object is missing or invalid" }))
-							: Effect.succeed(`https://example.com/${key}`),
+					presignDownload: () => {
+						signed += 1;
+						return Effect.succeed("s3");
+					},
 				}),
 			}),
 		),
-	),
-);
+	);
+});
 
-it.effect("returns an empty response when all download resolutions fail", () =>
+it.effect("rejects a locator owned by another user before signing it", () => {
+	let signed = false;
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		const exit = yield* Effect.exit(
+			service.resolveDownloads(user, [{ type: "s3", key: "permanent/other.png" }]),
+		);
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "One or more managed assets do not belong to this user" }),
+		);
+		expect(signed).toBe(false);
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				uploadsRepository: makeUploadsRepositoryLayer({
+					listByOwnerAndLocators: () => Effect.succeed([]),
+				}),
+				s3Service: makeS3Layer({
+					presignDownload: () => {
+						signed = true;
+						return Effect.succeed("s3");
+					},
+				}),
+			}),
+		),
+	);
+});
+
+it.effect("uses managed asset content type for restored local downloads", () => {
+	let signedContentType: string | null = null;
+	return Effect.gen(function* () {
+		const service = yield* UploadsService;
+		yield* service.resolveDownloads(user, [
+			{ type: "local", key: `permanent/${"a".repeat(64)}_${"b".repeat(64)}.bin` },
+		]);
+		expect(signedContentType).toBe("application/octet-stream");
+	}).pipe(
+		Effect.provide(
+			makeUploadsLayer({
+				uploadsRepository: makeUploadsRepositoryLayer({
+					listByOwnerAndLocators: (ownerUserId, [locator]) =>
+						Effect.succeed(
+							locator
+								? [
+										{
+											size: 3,
+											ownerUserId,
+											key: locator.key,
+											provider: locator.type,
+											sha256: "b".repeat(64),
+											contentType: "application/octet-stream",
+											createdAt: new Date("2026-01-01T00:00:00.000Z"),
+										},
+									]
+								: [],
+						),
+				}),
+				localStorageService: makeLocalStorageLayer({
+					createDownloadTarget: (_key, contentType) => {
+						signedContentType = contentType;
+						return Effect.succeed("local");
+					},
+				}),
+			}),
+		),
+	);
+});
+
+it.effect("rejects a missing owned object instead of omitting it", () =>
 	Effect.gen(function* () {
 		const service = yield* UploadsService;
-		const result = yield* service.resolveDownloads(user, [
-			{ type: "s3", key: "permanent/missing.png" },
-			{ type: "local", key: "permanent/missing.png" },
-		]);
-		expect(result).toEqual([]);
+		const exit = yield* Effect.exit(
+			service.resolveDownloads(user, [{ type: "local", key: "permanent/missing.png" }]),
+		);
+		assertExitFails(
+			exit,
+			new BadRequest({ message: "Local download object is missing or invalid" }),
+		);
 	}).pipe(
 		Effect.provide(
 			makeUploadsLayer({
 				localStorageService: makeLocalStorageLayer({
-					statObject: () =>
-						Effect.fail(new BadRequest({ message: "Local download object is missing or invalid" })),
-				}),
-				s3Service: makeS3Layer({
-					presignDownload: () =>
-						Effect.fail(new BadRequest({ message: "S3 upload object is missing or invalid" })),
+					statObject: () => Effect.fail(new BadRequest({ message: "missing" })),
 				}),
 			}),
 		),
@@ -582,13 +847,22 @@ it.effect("completes, claims, and deletes a local temporary intent", () => {
 		}
 		const otherUser = { ...user, id: UserId.make("other-user") };
 		const wrongUser = yield* Effect.exit(
-			service.claimTemporaryUpload(completed.token, otherUser.id),
+			service.claimTemporaryUpload(completed.token, otherUser.id, "import-run-1"),
 		);
 		assertExitFails(
 			wrongUser,
 			new BadRequest({ message: "Upload token does not belong to this user" }),
 		);
-		const claimed = yield* service.claimTemporaryUpload(completed.token, user.id);
+		const claimed = yield* service.claimTemporaryUpload(completed.token, user.id, "import-run-1");
+		const replayed = yield* service.claimTemporaryUpload(completed.token, user.id, "import-run-1");
+		const differentClaim = yield* Effect.exit(
+			service.claimTemporaryUpload(completed.token, user.id, "import-run-2"),
+		);
+		expect(replayed).toEqual(claimed);
+		assertExitFails(
+			differentClaim,
+			new BadRequest({ message: "Upload token was claimed by a different operation" }),
+		);
 		expect(claimed.fileName).toBe("report.csv");
 		expect(claimed.locator.type).toBe("local");
 		expect(claimed.locator.key).toMatch(/^temporary\/.+\.csv$/);
@@ -601,6 +875,9 @@ it.effect("completes, claims, and deletes a local temporary intent", () => {
 	}).pipe(
 		Effect.provide(
 			makeUploadsLayer({
+				uploadsRepository: makeUploadsRepositoryLayer({
+					registerPermanentOwnedObject: () => Effect.die("temporary upload must not register"),
+				}),
 				config: {
 					fileStorage: {
 						localDir: TEST_TMP_DIR,
@@ -681,7 +958,7 @@ it.effect("completes, claims, and deletes an S3 temporary intent", () => {
 		if (!("token" in completed)) {
 			throw new Error("Expected a temporary upload token");
 		}
-		const claimed = yield* service.claimTemporaryUpload(completed.token, user.id);
+		const claimed = yield* service.claimTemporaryUpload(completed.token, user.id, "import-run-1");
 		expect(claimed.fileName).toBe("report.csv");
 		expect(claimed.locator).toMatchObject({ type: "s3" });
 		expect(claimed.locator.key).toMatch(/^temporary\/.+\.csv$/);

@@ -26,6 +26,10 @@ export const ImportRunId = Schema.String.pipe(Schema.brand("ImportRunId"));
 
 export type ImportRunId = typeof ImportRunId.Type;
 
+export const BackupRunId = Schema.String.pipe(Schema.brand("BackupRunId"));
+
+export type BackupRunId = typeof BackupRunId.Type;
+
 export const RelationshipId = Schema.String.pipe(Schema.brand("RelationshipId"));
 
 export type RelationshipId = typeof RelationshipId.Type;

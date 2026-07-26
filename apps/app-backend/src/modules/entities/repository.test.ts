@@ -1,5 +1,11 @@
 import { expect, it } from "@effect/vitest";
-import { EntitySchemaSlug, SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	SandboxProviderId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
@@ -158,5 +164,71 @@ it.effect("locks and counts the complete global provenance scope", () => {
 		expect(executed).toHaveLength(1);
 		expect(executed[0]).toContain("pg_advisory_xact_lock");
 		expect(executed[0]).toContain("global-entities:person:provider-1");
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("restores an entity with its archived identity and timestamps", () => {
+	let persisted: Record<string, unknown> | undefined;
+	const db = {
+		insert: () => ({
+			values: (values: Record<string, unknown>) => ({
+				returning: () => {
+					persisted = values;
+					return Effect.succeed([{ id: values["id"] }]);
+				},
+			}),
+		}),
+	};
+	const input = {
+		name: "Archived",
+		externalId: null,
+		providerId: null,
+		populatedAt: null,
+		properties: { exact: true },
+		userId: UserId.make("user-id"),
+		id: EntityId.make("archived-id"),
+		createdAt: new Date("2024-01-01T00:00:00.000Z"),
+		updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+		entitySchemaSlug: EntitySchemaSlug.make("book"),
+	};
+
+	return Effect.gen(function* () {
+		const repository = yield* EntitiesRepository;
+		expect(yield* repository.restoreEntity(input)).toBe(input.id);
+		expect(persisted).toEqual(input);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("resolves restore globals by portable schema, plugin, provider, and external IDs", () => {
+	const dialect = new PgDialect();
+	let predicate: { sql: string; params: unknown[] } | undefined;
+	const db = {
+		select: () => ({
+			from: () => ({
+				leftJoin: () => ({
+					where: (condition: { getSQL: () => Parameters<typeof dialect.sqlToQuery>[0] }) => ({
+						limit: () => {
+							predicate = dialect.sqlToQuery(condition.getSQL());
+							return Effect.succeed([{ id: "existing-global", entitySchemaSlug: "book" }]);
+						},
+					}),
+				}),
+			}),
+		}),
+	};
+
+	return Effect.gen(function* () {
+		const repository = yield* EntitiesRepository;
+		expect(
+			yield* repository.findGlobalEntityForRestore({
+				externalId: "external-id",
+				entitySchemaSlug: EntitySchemaSlug.make("book"),
+				provider: { pluginSlug: "media", providerSlug: "open-library" },
+			}),
+		).toEqual({ id: "existing-global", entitySchemaSlug: "book" });
+		expect(predicate?.params).toEqual(
+			expect.arrayContaining(["external-id", "book", "media", "open-library"]),
+		);
+		expect(predicate?.params).not.toContain("archived-provider-db-id");
 	}).pipe(Effect.provide(makeLayer(db)));
 });

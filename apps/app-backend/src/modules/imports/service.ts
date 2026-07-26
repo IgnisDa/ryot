@@ -52,6 +52,7 @@ export type UpdateImportRunInput = {
 	totalItems?: number;
 	failedItems?: number;
 	errorSummary?: string;
+	inputSummary?: Record<string, unknown>;
 	importedItems?: number;
 	processedItems?: number;
 	status?: ImportRunStatus;
@@ -111,20 +112,30 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const fileNames: Record<string, string> = {};
 			const claimedUploadIntentIds: string[] = [];
 			const namedArtifactPaths: Record<string, string> = {};
-
 			const sourcePayload = buildImportSourcePayload(properties, registered) ?? {};
+			const created = yield* create({
+				userId: user.id,
+				source: body.source,
+				inputSummary: buildImportInputSummary(body.source, {}),
+			}).pipe(Effect.result);
+			if (Result.isFailure(created)) {
+				return yield* created.failure;
+			}
+			const run = created.success;
 
 			for (const sourceFileInput of sourceFileInputs) {
 				const claim = yield* uploads
-					.claimTemporaryUpload(sourceFileInput.uploadToken, user.id)
+					.claimTemporaryUpload(sourceFileInput.uploadToken, user.id, run.id)
 					.pipe(Effect.result);
 				if (Result.isFailure(claim)) {
 					yield* cleanupUploads(claimedUploadIntentIds);
+					yield* deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore);
 					return yield* claim.failure;
 				}
 				claimedUploadIntentIds.push(claim.success.intentId);
 				if (claim.success.locator.type !== "local" || !claim.success.resolvedPath) {
 					yield* cleanupUploads(claimedUploadIntentIds);
+					yield* deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore);
 					return yield* badRequest("Import uploads must use local storage");
 				}
 
@@ -135,7 +146,10 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					sourceFileInput.allowedExtensions,
 				).pipe(
 					Effect.catch((message) =>
-						cleanupUploads(claimedUploadIntentIds).pipe(Effect.flatMap(() => badRequest(message))),
+						cleanupUploads(claimedUploadIntentIds).pipe(
+							Effect.andThen(deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore)),
+							Effect.flatMap(() => badRequest(message)),
+						),
 					),
 				);
 
@@ -143,15 +157,15 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				namedArtifactPaths[sourceFileInput.key] = safePath;
 			}
 
-			const inputSummary = buildImportInputSummary(body.source, fileNames);
-			const created = yield* create({ inputSummary, userId: user.id, source: body.source }).pipe(
-				Effect.result,
-			);
-			if (Result.isFailure(created)) {
+			const summarized = yield* update({
+				runId: run.id,
+				inputSummary: buildImportInputSummary(body.source, fileNames),
+			}).pipe(Effect.result);
+			if (Result.isFailure(summarized)) {
 				yield* cleanupUploads(claimedUploadIntentIds);
-				return yield* created.failure;
+				yield* deleteRun({ runId: run.id, userId: user.id }).pipe(Effect.ignore);
+				return yield* summarized.failure;
 			}
-			const run = created.success;
 			const sandboxExecutionId = `${run.id}-import`;
 			const pin = yield* workflowPinning
 				.preRegister({

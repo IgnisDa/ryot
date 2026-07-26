@@ -1,6 +1,6 @@
-import { type BadRequest, badRequest } from "@ryot/contract/errors";
+import { BadRequest, badRequest } from "@ryot/contract/errors";
 import { S3Client } from "bun";
-import { Context, Effect, Layer, Option, Redacted } from "effect";
+import { Context, Effect, Layer, Option, Redacted, Stream } from "effect";
 
 import { AppConfig } from "./config/service";
 
@@ -93,6 +93,46 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 			);
 		});
 
+		const openObject = Effect.fn("S3Service.openObject")(function* (key: string) {
+			const configuredClient = yield* requireConfigured;
+			return Stream.fromReadableStream({
+				evaluate: () => configuredClient.file(key).stream(),
+				onError: () => badRequest("S3 object read failed"),
+			});
+		});
+
+		const writeObject = Effect.fn("S3Service.writeObject")(function* (
+			key: string,
+			stream: Stream.Stream<Uint8Array, unknown>,
+			contentType: string,
+		) {
+			const configuredClient = yield* requireConfigured;
+			const writer = configuredClient.file(key).writer({ type: contentType });
+			const upload = Stream.runForEach(stream, (chunk) =>
+				Effect.tryPromise({
+					try: () => Promise.resolve(writer.write(chunk)),
+					catch: () => badRequest("S3 object write failed"),
+				}),
+			).pipe(
+				Effect.mapError((error) =>
+					error instanceof BadRequest ? error : badRequest("S3 object write failed"),
+				),
+				Effect.andThen(
+					Effect.tryPromise({
+						try: () => Promise.resolve(writer.end()),
+						catch: () => badRequest("S3 object write failed"),
+					}),
+				),
+			);
+			yield* upload.pipe(
+				Effect.catchCause((cause) =>
+					Effect.tryPromise(() =>
+						Promise.resolve(writer.end(new Error("S3 object write failed"))),
+					).pipe(Effect.ignore, Effect.andThen(Effect.failCause(cause))),
+				),
+			);
+		});
+
 		const deleteObject = Effect.fn("S3Service.deleteObject")(function* (key: string) {
 			const configuredClient = yield* requireConfigured;
 			yield* Effect.tryPromise(() => configuredClient.file(key).delete()).pipe(
@@ -104,7 +144,15 @@ export class S3Service extends Context.Service<S3Service>()("S3Service", {
 			);
 		});
 
-		return { deleteObject, isConfigured, presignDownload, presignUpload, statObject };
+		return {
+			statObject,
+			openObject,
+			writeObject,
+			deleteObject,
+			isConfigured,
+			presignUpload,
+			presignDownload,
+		};
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

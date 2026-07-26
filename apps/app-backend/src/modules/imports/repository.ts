@@ -115,6 +115,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			totalItems?: number;
 			failedItems?: number;
 			errorSummary?: string;
+			inputSummary?: Record<string, unknown>;
 			importedItems?: number;
 			processedItems?: number;
 			status?: ImportRunStatus;
@@ -141,6 +142,9 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			}
 			if (input.errorSummary !== undefined) {
 				updates.errorSummary = input.errorSummary;
+			}
+			if (input.inputSummary !== undefined) {
+				updates.inputSummary = input.inputSummary;
 			}
 			if (input.importedItems !== undefined) {
 				updates.importedItems = input.importedItems;
