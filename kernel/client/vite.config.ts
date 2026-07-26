@@ -10,7 +10,7 @@ const config = defineConfig((_conf) => {
 		server: {
 			cors: true,
 			allowedHosts: true,
-			proxy: { "/api": { changeOrigin: true, target: "http://localhost:3000" } },
+			proxy: { "/api": { ws: true, changeOrigin: true, target: "http://localhost:3000" } },
 		},
 		plugins: [
 			devtools(),
