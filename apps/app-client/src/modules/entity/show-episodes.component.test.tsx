@@ -6,8 +6,18 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { RyotQLMalformedResultError } from "@/api/ryotql";
 
 import { ShowEpisodes } from "./show-episodes";
-import { decodeShowEpisodesResult, showEpisodeRow, showSeasonRow } from "./show-episodes-fixture";
-import { mapShowEpisodes, type ShowEpisodesState } from "./show-episodes-state";
+import {
+	decodeShowEpisodesResult,
+	decodeShowSeasonEpisodesResult,
+	showEpisodeRow,
+	showSeasonRow,
+} from "./show-episodes-fixture";
+import {
+	mapShowEpisodes,
+	mapShowSeasonEpisodes,
+	type ShowEpisodesState,
+	type ShowSeasonEpisodesState,
+} from "./show-episodes-state";
 
 type SeasonInput = Parameters<typeof decodeShowEpisodesResult>[0]["seasons"];
 
@@ -29,16 +39,41 @@ const specialsSeason = {
 	name: "Specials",
 	releaseDate: null,
 	description: null,
-	episodes: [
-		episode({ seasonNumber: 0, id: "special-1", state: "untracked", name: "Making Adolescence" }),
-	],
 };
 
 const readyState = (seasons?: SeasonInput): ShowEpisodesState =>
 	mapShowEpisodes(AsyncResult.success(decodeShowEpisodesResult({ seasons })));
 
-const renderEpisodes = (state: ShowEpisodesState, refresh: () => void = () => undefined) =>
-	render(<ShowEpisodes state={state} refresh={refresh} />);
+const readySeasonEpisodes = (
+	input: Parameters<typeof decodeShowSeasonEpisodesResult>[0] = {},
+): ShowSeasonEpisodesState =>
+	mapShowSeasonEpisodes(AsyncResult.success(decodeShowSeasonEpisodesResult(input)));
+
+type RenderOptions = {
+	readonly refresh?: () => void;
+	readonly selectedId?: string | null;
+	readonly onRefreshSeason?: () => void;
+	readonly onSelect?: (seasonId: string) => void;
+};
+
+const showEpisodesProps = (
+	state: ShowEpisodesState,
+	seasonEpisodes: ShowSeasonEpisodesState = readySeasonEpisodes(),
+	options: RenderOptions = {},
+) => ({
+	state,
+	seasonEpisodes,
+	selectedId: options.selectedId ?? null,
+	refresh: options.refresh ?? (() => undefined),
+	onSelect: options.onSelect ?? (() => undefined),
+	onRefreshSeason: options.onRefreshSeason ?? (() => undefined),
+});
+
+const renderEpisodes = (
+	state: ShowEpisodesState,
+	seasonEpisodes: ShowSeasonEpisodesState = readySeasonEpisodes(),
+	options: RenderOptions = {},
+) => render(<ShowEpisodes {...showEpisodesProps(state, seasonEpisodes, options)} />);
 
 describe("show episodes tab", () => {
 	it("renders the season header from the loaded season and episode state", async () => {
@@ -61,14 +96,12 @@ describe("show episodes tab", () => {
 
 	it("omits episode metadata the provider did not record", async () => {
 		await renderEpisodes(
-			readyState([
-				{
-					...showSeasonRow,
-					episodes: [
-						episode({ runtime: null, publishDate: null, description: null, state: "untracked" }),
-					],
-				},
-			]),
+			readyState([showSeasonRow]),
+			readySeasonEpisodes({
+				episodes: [
+					episode({ runtime: null, publishDate: null, description: null, state: "untracked" }),
+				],
+			}),
 		);
 
 		expect(screen.getByText("Episode 1: The Arrest")).toBeOnTheScreen();
@@ -79,16 +112,15 @@ describe("show episodes tab", () => {
 	});
 
 	it("never presents a partially loaded season as an exact total", async () => {
-		await renderEpisodes(
-			readyState([{ ...showSeasonRow, hasMore: true, episodes: [showEpisodeRow] }]),
-		);
+		await renderEpisodes(readyState([showSeasonRow]), readySeasonEpisodes({ hasMore: true }));
 
 		expect(screen.getByText("Released Mar 13, 2025 • 1+ episodes • 1 watched")).toBeOnTheScreen();
 	});
 
 	it("offers the next regular episode to continue with", async () => {
 		await renderEpisodes(
-			readyState([{ ...showSeasonRow, episodes: [showEpisodeRow, secondEpisode] }]),
+			readyState([showSeasonRow]),
+			readySeasonEpisodes({ episodes: [showEpisodeRow, secondEpisode] }),
 		);
 
 		expect(screen.getByText("Next up")).toBeOnTheScreen();
@@ -104,39 +136,92 @@ describe("show episodes tab", () => {
 
 	it("selects seasons from the season list and keeps specials last", async () => {
 		const user = userEvent.setup();
-		await renderEpisodes(
-			readyState([
-				specialsSeason,
-				{ ...showSeasonRow, episodes: [showEpisodeRow] },
-				{
-					...showSeasonRow,
-					id: "season-2",
-					seasonNumber: 2,
-					name: "Season 2",
-					episodes: [episode({ id: "episode-3", seasonNumber: 2, name: "Episode 1: Aftermath" })],
-				},
-			]),
-		);
+		const state = readyState([
+			specialsSeason,
+			showSeasonRow,
+			{ ...showSeasonRow, id: "season-2", seasonNumber: 2, name: "Season 2" },
+		]);
+		const seasonTwoEpisodes = readySeasonEpisodes({
+			season: { ...showSeasonRow, id: "season-2", seasonNumber: 2, name: "Season 2" },
+			episodes: [episode({ id: "episode-3", seasonNumber: 2, name: "Episode 1: Aftermath" })],
+		});
+		const selections: string[] = [];
+		let selectedId: string | null = null;
+		const onSelect = (seasonId: string) => {
+			selections.push(seasonId);
+			selectedId = seasonId;
+		};
+		const view = await renderEpisodes(state, readySeasonEpisodes(), { onSelect });
 
 		expect(screen.getByRole("radio", { name: "Season 1" })).toBeChecked();
 		expect(screen.getByText("Episode 1: The Arrest")).toBeOnTheScreen();
 
 		await user.press(screen.getByRole("radio", { name: "Season 2" }));
+		expect(selections).toEqual(["season-2"]);
+
+		await view.rerender(
+			<ShowEpisodes {...showEpisodesProps(state, seasonTwoEpisodes, { onSelect, selectedId })} />,
+		);
 
 		expect(screen.getByRole("radio", { name: "Season 2" })).toBeChecked();
 		expect(screen.getByText("Episode 1: Aftermath")).toBeOnTheScreen();
 		expect(screen.queryByText("Episode 1: The Arrest")).not.toBeOnTheScreen();
 	});
 
+	it("does not show old episodes while the selected season is loading", async () => {
+		const state = readyState([
+			showSeasonRow,
+			{ ...showSeasonRow, id: "season-2", seasonNumber: 2, name: "Season 2" },
+		]);
+		let selectedId: string | null = null;
+		const onSelect = (seasonId: string) => {
+			selectedId = seasonId;
+		};
+		const view = await renderEpisodes(state, readySeasonEpisodes(), { onSelect });
+
+		expect(screen.getByText("Episode 1: The Arrest")).toBeOnTheScreen();
+
+		selectedId = "season-2";
+		await view.rerender(
+			<ShowEpisodes
+				{...showEpisodesProps(state, mapShowSeasonEpisodes(AsyncResult.initial(true)), {
+					onSelect,
+					selectedId,
+				})}
+			/>,
+		);
+
+		expect(screen.getByText("Loading season...")).toBeOnTheScreen();
+		expect(screen.queryByText("Episode 1: The Arrest")).not.toBeOnTheScreen();
+	});
+
 	it("labels season zero as specials and drops next up while it is selected", async () => {
 		const user = userEvent.setup();
-		await renderEpisodes(
-			readyState([specialsSeason, { ...showSeasonRow, episodes: [showEpisodeRow, secondEpisode] }]),
-		);
+		const state = readyState([specialsSeason, showSeasonRow]);
+		const regularEpisodes = readySeasonEpisodes({ episodes: [showEpisodeRow, secondEpisode] });
+		const specialsEpisodes = readySeasonEpisodes({
+			season: specialsSeason,
+			episodes: [
+				episode({
+					seasonNumber: 0,
+					id: "special-1",
+					state: "untracked",
+					name: "Making Adolescence",
+				}),
+			],
+		});
+		let selectedId: string | null = null;
+		const onSelect = (seasonId: string) => {
+			selectedId = seasonId;
+		};
+		const view = await renderEpisodes(state, regularEpisodes, { onSelect });
 
 		expect(screen.getByText("Next up")).toBeOnTheScreen();
 
 		await user.press(screen.getByRole("radio", { name: "Specials" }));
+		await view.rerender(
+			<ShowEpisodes {...showEpisodesProps(state, specialsEpisodes, { onSelect, selectedId })} />,
+		);
 
 		expect(screen.getByText("Making Adolescence")).toBeOnTheScreen();
 		expect(screen.queryByText("Next up")).not.toBeOnTheScreen();
@@ -144,7 +229,20 @@ describe("show episodes tab", () => {
 	});
 
 	it("keeps a show with only specials readable", async () => {
-		await renderEpisodes(readyState([specialsSeason]));
+		await renderEpisodes(
+			readyState([specialsSeason]),
+			readySeasonEpisodes({
+				season: specialsSeason,
+				episodes: [
+					episode({
+						seasonNumber: 0,
+						id: "special-1",
+						state: "untracked",
+						name: "Making Adolescence",
+					}),
+				],
+			}),
+		);
 
 		expect(screen.getByText("Specials")).toBeOnTheScreen();
 		expect(screen.getByText("Making Adolescence")).toBeOnTheScreen();
@@ -152,7 +250,7 @@ describe("show episodes tab", () => {
 	});
 
 	it("explains a season that has no episodes recorded", async () => {
-		await renderEpisodes(readyState([{ ...showSeasonRow, episodes: [] }]));
+		await renderEpisodes(readyState([showSeasonRow]), readySeasonEpisodes({ episodes: [] }));
 
 		expect(
 			screen.getByText("No episodes have been recorded for this season yet."),
@@ -176,7 +274,8 @@ describe("show episodes tab", () => {
 		const retries: number[] = [];
 		await renderEpisodes(
 			mapShowEpisodes(AsyncResult.failure(Cause.fail(new Error("offline")))),
-			() => retries.push(1),
+			readySeasonEpisodes(),
+			{ refresh: () => retries.push(1) },
 		);
 
 		await user.press(screen.getByRole("button", { name: "Try again" }));
@@ -196,7 +295,8 @@ describe("show episodes tab", () => {
 	it("leaves the tab unchanged when a deferred episode action is pressed", async () => {
 		const user = userEvent.setup();
 		await renderEpisodes(
-			readyState([{ ...showSeasonRow, episodes: [showEpisodeRow, secondEpisode] }]),
+			readyState([showSeasonRow]),
+			readySeasonEpisodes({ episodes: [showEpisodeRow, secondEpisode] }),
 		);
 
 		await user.press(screen.getByRole("button", { name: "Open Episode 1: The Arrest" }));
