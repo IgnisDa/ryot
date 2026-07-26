@@ -4,11 +4,14 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 	type PluginInstallationItem,
+	type PluginPackage,
 	type UpdatePrivatePluginBody,
 	type UpdatePluginInstallationBody,
 } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
+import { readPluginArchiveStream } from "@ryot/plugin-archive";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Context, Effect, Layer, Result } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -22,6 +25,8 @@ import {
 	type DefinitionSnapshot,
 } from "#modules/definition-registry/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+import { UploadIntentsService } from "#modules/uploads/intents/service";
+import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { PluginDefinitionMaterializer } from "./definition-materializer";
 import {
@@ -46,17 +51,23 @@ import {
 	validatePrivateSlugAvailability,
 } from "./validation";
 
-type InstallPrivatePluginInput = {
+type PrivatePluginPackageInput = PluginPackage | { readonly uploadToken: string };
+
+type InstallPrivatePluginInput = PrivatePluginPackageInput & {
 	readonly userId: UserId;
-	readonly manifest: unknown;
 	readonly config: Record<string, unknown>;
-	readonly files: Readonly<Record<string, string>>;
 };
 
-type UpdatePrivatePluginInput = UpdatePrivatePluginBody & {
+type DecodedInstallPrivatePluginInput = PluginPackage & {
 	readonly userId: UserId;
-	readonly pluginSlug: string;
+	readonly config: Record<string, unknown>;
 };
+
+type UpdatePrivatePluginInput = PrivatePluginPackageInput &
+	Omit<UpdatePrivatePluginBody, "uploadToken"> & {
+		readonly userId: UserId;
+		readonly pluginSlug: string;
+	};
 
 type InstallationView = {
 	readonly sourceHash: string;
@@ -301,10 +312,38 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const database = yield* Database;
 			const loader = yield* PluginLoader;
 			const repository = yield* PluginRepository;
+			const uploadIntents = yield* UploadIntentsService;
+			const objectStorage = yield* ObjectStorageService;
 			const installations = yield* PluginInstallationRepository;
 			const definitionMaterializer = yield* PluginDefinitionMaterializer;
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 			const lifecycleDispatcher = yield* PluginInstallationLifecycleDispatcher;
+
+			const withPrivatePluginPackage = <A, E, R>(
+				input: PrivatePluginPackageInput,
+				userId: UserId,
+				consume: (pluginPackage: PluginPackage) => Effect.Effect<A, E, R>,
+			) => {
+				if (!("uploadToken" in input)) {
+					return consume(input);
+				}
+				return Effect.gen(function* () {
+					const claimed = yield* uploadIntents.claimTemporaryUpload(
+						input.uploadToken,
+						userId,
+						`plugin-package:${sha256Hex(input.uploadToken)}`,
+					);
+					return yield* Effect.gen(function* () {
+						const stream = yield* objectStorage.openObject(claimed.locator);
+						const pluginPackage = yield* readPluginArchiveStream(stream);
+						return yield* consume(pluginPackage);
+					}).pipe(
+						Effect.ensuring(
+							uploadIntents.deleteTemporaryUpload(claimed.intentId).pipe(Effect.ignore),
+						),
+					);
+				});
+			};
 
 			const validateConfigPatch = Effect.fn("PluginInstallationService.validateConfigPatch")(
 				function* (
@@ -504,7 +543,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			});
 
 			const installPrivateUnlocked = Effect.fn("PluginInstallationService.installPrivateUnlocked")(
-				function* (input: InstallPrivatePluginInput) {
+				function* (input: DecodedInstallPrivatePluginInput) {
 					const manifest = yield* decodePluginManifest(input.manifest);
 					const slug = manifest.metadata.slug;
 					const pluginSlug = PluginSlug.make(slug);
@@ -604,7 +643,13 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 			const installPrivatePlugin = Effect.fn("PluginInstallationService.installPrivatePlugin")(
 				(input: InstallPrivatePluginInput) =>
-					installPrivateUnlocked(input).pipe(structurePluginFailure),
+					withPrivatePluginPackage(input, input.userId, (pluginPackage) =>
+						installPrivateUnlocked({
+							...pluginPackage,
+							userId: input.userId,
+							config: input.config,
+						}),
+					).pipe(structurePluginFailure),
 			);
 
 			const updatePrivateUnlocked = Effect.fn("PluginInstallationService.updatePrivateUnlocked")(
@@ -629,112 +674,119 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							reason: { code: "plugin-not-found", pluginSlug },
 						});
 					}
-					const manifest = yield* decodePluginManifest(input.manifest);
-					if (manifest.metadata.slug !== plugin.slug) {
-						return yield* new PluginValidationError({
-							issues: [
-								`Plugin slug cannot change from ${plugin.slug} to ${manifest.metadata.slug}`,
-							],
-						});
-					}
-					yield* validatePluginPackageLimits(input.files, manifest);
-					yield* validatePrivateManifestSurfaces(manifest);
-					yield* validatePluginSourcePaths(input.files, manifest.scripts);
-					const effectiveDefinitions = yield* buildEffectiveDefinitions(
-						loader.getSnapshot().definitions,
-						[
-							...(yield* repository.listPrivateForUser(input.userId)).filter(
-								(candidate) => candidate.id !== plugin.id,
-							),
-							{ id: plugin.id, slug: plugin.slug, manifest },
-						],
-					);
-					yield* validateEffectiveSurfaceSlugs([
-						...Object.values(loader.getSnapshot().plugins),
-						...(yield* repository.listPrivateForUser(input.userId)).filter(
-							(candidate) => candidate.id !== plugin.id,
-						),
-						{ slug: plugin.slug, manifest },
-					]);
-					yield* validatePluginManifestReferences(manifest, effectiveDefinitions);
-					yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
-					yield* validateConfigPatch(manifest, installation.config, input);
-					const sourceHash = pluginSourceHash(manifest, input.files);
-					const normalized = yield* compilePluginPackage({
-						manifest,
-						sourceHash,
-						files: input.files,
-					});
-					yield* validatePluginExecutableScripts(normalized);
+					return yield* withPrivatePluginPackage(input, input.userId, (pluginPackage) =>
+						Effect.gen(function* () {
+							const manifest = yield* decodePluginManifest(pluginPackage.manifest);
+							if (manifest.metadata.slug !== plugin.slug) {
+								return yield* new PluginValidationError({
+									issues: [
+										`Plugin slug cannot change from ${plugin.slug} to ${manifest.metadata.slug}`,
+									],
+								});
+							}
+							yield* validatePluginPackageLimits(pluginPackage.files, manifest);
+							yield* validatePrivateManifestSurfaces(manifest);
+							yield* validatePluginSourcePaths(pluginPackage.files, manifest.scripts);
+							const effectiveDefinitions = yield* buildEffectiveDefinitions(
+								loader.getSnapshot().definitions,
+								[
+									...(yield* repository.listPrivateForUser(input.userId)).filter(
+										(candidate) => candidate.id !== plugin.id,
+									),
+									{ id: plugin.id, slug: plugin.slug, manifest },
+								],
+							);
+							yield* validateEffectiveSurfaceSlugs([
+								...Object.values(loader.getSnapshot().plugins),
+								...(yield* repository.listPrivateForUser(input.userId)).filter(
+									(candidate) => candidate.id !== plugin.id,
+								),
+								{ slug: plugin.slug, manifest },
+							]);
+							yield* validatePluginManifestReferences(manifest, effectiveDefinitions);
+							yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
+							yield* validateConfigPatch(manifest, installation.config, input);
+							const sourceHash = pluginSourceHash(manifest, pluginPackage.files);
+							const normalized = yield* compilePluginPackage({
+								manifest,
+								sourceHash,
+								files: pluginPackage.files,
+							});
+							yield* validatePluginExecutableScripts(normalized);
 
-					const updated = yield* Effect.uninterruptible(
-						mapDatabaseErrors(
-							database.transaction((transaction) =>
-								Effect.gen(function* () {
-									yield* repository.lockIngestion();
-									const current = yield* repository.findPrivateByIdForUser(plugin.id, input.userId);
-									const currentInstallation = yield* installations.findByUserAndPlugin(
-										input.userId,
-										plugin.id,
-									);
-									if (!current || currentInstallation?.id !== installation.id) {
-										return yield* new PluginNotFoundError({
-											reason: { code: "plugin-not-found", pluginSlug },
-										});
-									}
-									yield* validatePrivateSlugAvailability(
-										input.pluginSlug,
-										new Set(
-											(yield* repository.listActiveManifests()).map(
-												({ metadata }) => metadata.slug,
-											),
-										),
-									);
-									yield* validateAdditiveSchemaEvolution(current.manifest, manifest);
-									const config = yield* validateConfigPatch(
-										manifest,
-										currentInstallation.config,
-										input,
-									);
-									const persistedId = yield* repository.persist(normalized, {
-										scope: "user",
-										slug: current.slug,
-										ownerId: input.userId,
-									});
-									if (persistedId !== current.id) {
-										return yield* new PluginValidationError({
-											issues: ["Plugin update did not retain its stable identity"],
-										});
-									}
-									const state = yield* installations.updateState({
-										config,
-										id: currentInstallation.id,
-										sortOrder: currentInstallation.sortOrder,
-										isDisabled: currentInstallation.isDisabled,
-									});
-									const resolved = state ?? currentInstallation;
-									if (currentInstallation.health !== "incompatible") {
-										yield* definitionMaterializer.materialize(input.userId);
-										return resolved;
-									}
-									yield* installations.updateHealth({
-										healthReason: null,
-										health: "ready",
-										id: currentInstallation.id,
-									});
-									yield* definitionMaterializer.materialize(input.userId);
-									return { ...resolved, healthReason: null, health: "ready" as const };
-								}).pipe(Effect.provideService(Database, transaction)),
-							),
-						),
+							const updated = yield* Effect.uninterruptible(
+								mapDatabaseErrors(
+									database.transaction((transaction) =>
+										Effect.gen(function* () {
+											yield* repository.lockIngestion();
+											const current = yield* repository.findPrivateByIdForUser(
+												plugin.id,
+												input.userId,
+											);
+											const currentInstallation = yield* installations.findByUserAndPlugin(
+												input.userId,
+												plugin.id,
+											);
+											if (!current || currentInstallation?.id !== installation.id) {
+												return yield* new PluginNotFoundError({
+													reason: { code: "plugin-not-found", pluginSlug },
+												});
+											}
+											yield* validatePrivateSlugAvailability(
+												input.pluginSlug,
+												new Set(
+													(yield* repository.listActiveManifests()).map(
+														({ metadata }) => metadata.slug,
+													),
+												),
+											);
+											yield* validateAdditiveSchemaEvolution(current.manifest, manifest);
+											const config = yield* validateConfigPatch(
+												manifest,
+												currentInstallation.config,
+												input,
+											);
+											const persistedId = yield* repository.persist(normalized, {
+												scope: "user",
+												slug: current.slug,
+												ownerId: input.userId,
+											});
+											if (persistedId !== current.id) {
+												return yield* new PluginValidationError({
+													issues: ["Plugin update did not retain its stable identity"],
+												});
+											}
+											const state = yield* installations.updateState({
+												config,
+												id: currentInstallation.id,
+												sortOrder: currentInstallation.sortOrder,
+												isDisabled: currentInstallation.isDisabled,
+											});
+											const resolved = state ?? currentInstallation;
+											if (currentInstallation.health !== "incompatible") {
+												yield* definitionMaterializer.materialize(input.userId);
+												return resolved;
+											}
+											yield* installations.updateHealth({
+												healthReason: null,
+												health: "ready",
+												id: currentInstallation.id,
+											});
+											yield* definitionMaterializer.materialize(input.userId);
+											return { ...resolved, healthReason: null, health: "ready" as const };
+										}).pipe(Effect.provideService(Database, transaction)),
+									),
+								),
+							);
+							return toInstallationItem({
+								manifest,
+								sourceHash,
+								scope: "user",
+								state: updated,
+								defaultSortOrder: updated.sortOrder,
+							});
+						}),
 					);
-					return toInstallationItem({
-						manifest,
-						sourceHash,
-						scope: "user",
-						state: updated,
-						defaultSortOrder: updated.sortOrder,
-					});
 				},
 			);
 

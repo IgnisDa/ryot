@@ -1,18 +1,8 @@
-import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { Context, Data, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
+import { readPluginArchive } from "@ryot/plugin-archive";
+import { Context, Effect, FileSystem, Layer, Path } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-
-import { loadPluginSource } from "./source";
-import type { PluginSource } from "./types";
-
-type SystemPluginSource = Omit<PluginSource, "manifest"> & {
-	readonly manifest: Schema.Schema.Type<typeof PluginManifest>;
-};
-
-export class SystemPluginDiscoveryError extends Data.TaggedError("SystemPluginDiscoveryError")<{
-	readonly message: string;
-}> {}
 
 export const discoverSystemPlugins = Effect.fn("discoverSystemPlugins")(function* (root: string) {
 	const fs = yield* FileSystem.FileSystem;
@@ -21,31 +11,15 @@ export const discoverSystemPlugins = Effect.fn("discoverSystemPlugins")(function
 		return [];
 	}
 
-	const directories = yield* fs.readDirectory(root);
-	const sources: Array<SystemPluginSource> = [];
-	for (const directory of directories.sort()) {
-		const bundleRoot = path.join(root, directory);
-		const manifestPath = path.join(bundleRoot, "manifest.json");
-		if (!(yield* fs.exists(manifestPath))) {
+	const entries = yield* fs.readDirectory(root);
+	const sources: Array<PluginPackage> = [];
+	for (const filename of entries.filter((entry) => entry.endsWith(".zip")).sort()) {
+		const archivePath = path.join(root, filename);
+		const info = yield* fs.stat(archivePath);
+		if (info.type !== "File") {
 			continue;
 		}
-		const info = yield* fs.stat(bundleRoot);
-		if (info.type !== "Directory") {
-			continue;
-		}
-		const manifestSource = yield* fs.readFileString(manifestPath);
-		const manifest = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PluginManifest))(
-			manifestSource,
-		).pipe(
-			Effect.mapError(
-				(error) =>
-					new SystemPluginDiscoveryError({
-						message: `Invalid system plugin manifest at ${manifestPath}: ${String(error)}`,
-					}),
-			),
-		);
-		const source = yield* loadPluginSource(bundleRoot, manifest);
-		sources.push({ files: source.files, manifest });
+		sources.push(yield* readPluginArchive(yield* fs.readFile(archivePath)));
 	}
 	return sources;
 });

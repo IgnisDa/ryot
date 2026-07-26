@@ -1,4 +1,4 @@
-import type { ContractPayload } from "@ryot/contract/client";
+import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import {
 	EntityId,
@@ -51,15 +51,9 @@ import {
 } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-type PluginScript = ContractPayload<"plugins", "install">["manifest"]["scripts"][number];
-type PluginEntitySchema = ContractPayload<
-	"plugins",
-	"install"
->["manifest"]["entitySchemas"][number];
-type PluginRelationshipSchema = ContractPayload<
-	"plugins",
-	"install"
->["manifest"]["relationshipSchemas"][number];
+type PluginScript = PluginPackage["manifest"]["scripts"][number];
+type PluginEntitySchema = PluginPackage["manifest"]["entitySchemas"][number];
+type PluginRelationshipSchema = PluginPackage["manifest"]["relationshipSchemas"][number];
 
 type AuthorizationProbe = {
 	readonly slug: string;

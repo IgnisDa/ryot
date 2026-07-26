@@ -1,20 +1,20 @@
 import { renderConfigReference } from "@ryot/config";
-import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { appConfigDefinition } from "@ryot/kernel-backend/lib/infrastructure/config/definition";
-import { Schema } from "effect";
+import { readPluginArchive } from "@ryot/plugin-archive";
+import { Effect } from "effect";
 
 const slugs: ReadonlyArray<string> = await Bun.file(
 	new URL("../../server/shipped-plugins.json", import.meta.url),
 ).json();
 
 const manifests = await Promise.all(
-	slugs.map(async (slug) =>
-		Schema.decodeUnknownSync(PluginManifest)(
-			await Bun.file(
-				new URL(`../../../plugins/${slug}/dist/bundle/manifest.json`, import.meta.url),
-			).json(),
-		),
-	),
+	slugs.map(async (slug) => {
+		const archive = await Bun.file(
+			new URL(`../../../plugins/${slug}/dist/${slug}.zip`, import.meta.url),
+		).bytes();
+		const pluginPackage = await Effect.runPromise(readPluginArchive(archive));
+		return pluginPackage.manifest;
+	}),
 );
 
 const plugins = manifests.map((manifest) => ({

@@ -1,4 +1,4 @@
-import type { ContractPayload } from "@ryot/contract/client";
+import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import { Effect } from "effect";
 
 import {
@@ -11,7 +11,7 @@ import {
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
+type PluginManifest = PluginPackage["manifest"];
 
 const settingsSchema = {
 	unknownKeys: "strict",

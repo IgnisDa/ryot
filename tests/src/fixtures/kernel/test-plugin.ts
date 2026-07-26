@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { ContractPayload } from "@ryot/contract/client";
+import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug, type SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -11,9 +12,10 @@ import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { pollUntil } from "./polling";
 import { buildSavedViewLayouts } from "./saved-views";
+import { uploadPrivatePluginPackage } from "./temporary-archive";
 
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
-type TestPluginManifest = InstallPluginPayload["manifest"];
+type TestPluginManifest = PluginPackage["manifest"];
 type PluginScript = TestPluginManifest["scripts"][number];
 type PluginProvider = TestPluginManifest["providers"][number];
 
@@ -55,7 +57,7 @@ export type InstalledTestPlugin = {
 	scope: "system" | "user";
 	scriptId: SandboxScriptId;
 	manifest: TestPluginManifest;
-	files: InstallPluginPayload["files"];
+	files: PluginPackage["files"];
 	scriptIds: Record<string, SandboxScriptId>;
 };
 
@@ -156,7 +158,7 @@ export const installTestPlugin = (
 	} & TestPluginOwner,
 ) =>
 	Effect.gen(function* () {
-		const entry = `scripts/${input.script.kind}.sandbox.ts`;
+		const entry = `${input.scope === "system" ? "" : "backend/"}scripts/${input.script.kind}.sandbox.ts`;
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
 		const pluginSlugId = PluginSlug.make(pluginSlug);
 		const manifest = testPluginManifest({
@@ -179,8 +181,9 @@ export const installTestPlugin = (
 				adminHeaders,
 			);
 		} else {
+			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files, manifest });
 			yield* input.client.call((c) =>
-				c.plugins.install({ payload: { config: input.config ?? {}, files, manifest } }),
+				c.plugins.install({ payload: { config: input.config ?? {}, uploadToken } }),
 			);
 			yield* pollUntil(
 				`private test plugin '${pluginSlug}' installation`,
@@ -215,7 +218,7 @@ export const installTestPluginBundle = (
 		baseUrl?: string;
 		pluginSlug?: string;
 		crons?: TestPluginManifest["crons"];
-		files: InstallPluginPayload["files"];
+		files: PluginPackage["files"];
 		scripts: TestPluginManifest["scripts"];
 		config?: InstallPluginPayload["config"];
 		providers?: ReadonlyArray<PluginProvider>;
@@ -256,9 +259,14 @@ export const installTestPluginBundle = (
 				adminHeaders,
 			);
 		} else {
+			const uploadToken = yield* uploadPrivatePluginPackage(
+				input.client,
+				{ files: input.files, manifest },
+				input.baseUrl,
+			);
 			yield* input.client.call((c) =>
 				c.plugins.install({
-					payload: { config: input.config ?? {}, files: input.files, manifest },
+					payload: { config: input.config ?? {}, uploadToken },
 				}),
 			);
 			yield* pollUntil(
@@ -331,16 +339,16 @@ export const installTestDefinitions = (input: {
 			),
 		});
 		if (current) {
+			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files: {}, manifest });
 			yield* input.client.call((c) =>
 				c.plugins.update({
-					payload: { files: {}, manifest },
+					payload: { uploadToken },
 					params: { pluginSlug: PluginSlug.make(input.pluginSlug) },
 				}),
 			);
 		} else {
-			yield* input.client.call((c) =>
-				c.plugins.install({ payload: { config: {}, files: {}, manifest } }),
-			);
+			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files: {}, manifest });
+			yield* input.client.call((c) => c.plugins.install({ payload: { config: {}, uploadToken } }));
 			yield* pollUntil(
 				`private definition plugin '${input.pluginSlug}' installation`,
 				input.client
@@ -385,9 +393,10 @@ export const reinstallTestPluginScript = (
 			);
 		} else {
 			const client = requirePresent(installed.client, "User test plugin has no client");
+			const uploadToken = yield* uploadPrivatePluginPackage(client, { files, manifest });
 			yield* client.call((c) =>
 				c.plugins.update({
-					payload: { files, manifest },
+					payload: { uploadToken },
 					params: { pluginSlug: installed.pluginSlug },
 				}),
 			);

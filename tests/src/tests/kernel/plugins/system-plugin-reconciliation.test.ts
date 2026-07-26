@@ -192,7 +192,12 @@ describe("system plugin reconciliation", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(backendUrl());
 			const pluginSlug = PluginSlug.make(`e2e-shadowed-${randomUUID()}`);
-			const plugin = yield* installPrivatePlugin({ client, pluginSlug, config: privateConfig });
+			const plugin = yield* installPrivatePlugin({
+				client,
+				pluginSlug,
+				config: privateConfig,
+				baseUrl: backendUrl(),
+			});
 			expect(plugin.installation).toMatchObject({ health: "ready", healthReason: null });
 
 			const [owned] = yield* installationRows(client, pluginSlug, "user");
@@ -227,7 +232,12 @@ describe("system plugin reconciliation", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(backendUrl());
 			const pluginSlug = PluginSlug.make(`e2e-shadowed-removable-${randomUUID()}`);
-			yield* installPrivatePlugin({ client, pluginSlug, config: privateConfig });
+			yield* installPrivatePlugin({
+				client,
+				pluginSlug,
+				config: privateConfig,
+				baseUrl: backendUrl(),
+			});
 			yield* installShippedPlugin(pluginSlug);
 			yield* reconcilePluginInstallations();
 			expect((yield* ownedInstallation(client, pluginSlug)).health).toBe("incompatible");
@@ -253,6 +263,7 @@ describe("system plugin reconciliation", () => {
 				savedViews,
 				pluginSlug,
 				config: privateConfig,
+				baseUrl: backendUrl(),
 			});
 			expect(plugin.installation).toMatchObject({ health: "ready", healthReason: null });
 			expect(

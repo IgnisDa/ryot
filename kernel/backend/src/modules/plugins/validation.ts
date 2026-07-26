@@ -9,6 +9,7 @@ import {
 	type PluginScript,
 } from "@ryot/contract/modules/plugins/manifest";
 import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
+import { canonicalRelativePosixPathIssue } from "@ryot/ts-utils/path";
 import { Cron, Data, Effect, Result, Schema } from "effect";
 
 import {
@@ -45,22 +46,6 @@ export const decodePluginManifest = (input: unknown) =>
 	Schema.decodeUnknownEffect(PluginManifest)(input).pipe(
 		Effect.mapError((error) => new PluginValidationError({ issues: [String(error)] })),
 	);
-
-const canonicalRelativePosixPathIssue = (path: string) => {
-	if (path.length === 0) {
-		return "must not be empty";
-	}
-	if (path.startsWith("/")) {
-		return "must be relative";
-	}
-	if (path.includes("\\")) {
-		return "must use POSIX separators";
-	}
-	if (path.split("/").some((segment) => segment === "" || segment === "." || segment === "..")) {
-		return "must not contain empty, '.', or '..' segments";
-	}
-	return null;
-};
 
 export const validatePluginSourcePaths = (
 	files: Readonly<Record<string, string>>,
