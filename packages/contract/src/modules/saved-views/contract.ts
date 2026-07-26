@@ -8,8 +8,6 @@ import {
 	ListedSavedView,
 	ReorderSavedViewsBody,
 	ReorderSavedViewsResponse,
-	SearchSavedViewEntitiesBody,
-	SearchSavedViewEntitiesResponse,
 	UpdateSavedViewBody,
 } from "./schemas";
 
@@ -43,14 +41,6 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 			success: ListedSavedView.pipe(HttpApiSchema.status(201)),
 			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Clones a saved view by slug"),
-	)
-	.add(
-		HttpApiEndpoint.post("searchEntities", "/saved-views/:viewSlug/entity-search", {
-			params: { viewSlug: Schema.String },
-			payload: SearchSavedViewEntitiesBody,
-			success: SearchSavedViewEntitiesResponse,
-			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Searches configured entity providers for a saved view"),
 	)
 	.add(
 		HttpApiEndpoint.post("reorder", "/saved-views/reorder", {

@@ -16,9 +16,9 @@ import { dbRunnerLayer } from "#lib/test-utils/effect";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
+import { SavedViewsRepository } from "#modules/saved-views/repository";
 
-import { SavedViewEntitySearchService } from "./entity-search-service";
-import { SavedViewsRepository } from "./repository";
+import { ProviderEntitySearchService } from "./search-service";
 
 const user = {
 	name: "Test User",
@@ -84,7 +84,7 @@ const makeLayer = (input?: {
 	readonly unavailableScripts?: ReadonlySet<string>;
 	readonly execute?: SandboxExecutionService["Service"]["executeScript"];
 }) =>
-	SavedViewEntitySearchService.layer.pipe(
+	ProviderEntitySearchService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
@@ -124,8 +124,9 @@ const makeLayer = (input?: {
 it.effect("searches every allowed provider with user authority and result provenance", () => {
 	const executions: Array<Parameters<SandboxExecutionService["Service"]["executeScript"]>[0]> = [];
 	return Effect.gen(function* () {
-		const service = yield* SavedViewEntitySearchService;
-		const result = yield* service.search(user, view.slug, {
+		const service = yield* ProviderEntitySearchService;
+		const result = yield* service.search(user, {
+			savedViewSlug: view.slug,
 			page: 2,
 			pageSize: 10,
 			query: "matrix",
@@ -177,8 +178,9 @@ it.effect("searches every allowed provider with user authority and result proven
 
 it.effect("keeps successful provider results when another provider fails", () =>
 	Effect.gen(function* () {
-		const service = yield* SavedViewEntitySearchService;
-		const result = yield* service.search(user, view.slug, {
+		const service = yield* ProviderEntitySearchService;
+		const result = yield* service.search(user, {
+			savedViewSlug: view.slug,
 			page: 1,
 			pageSize: 20,
 			query: "matrix",
@@ -212,8 +214,9 @@ it.effect("keeps successful provider results when another provider fails", () =>
 
 it.effect("reports malformed provider output as a provider-level failure", () =>
 	Effect.gen(function* () {
-		const service = yield* SavedViewEntitySearchService;
-		const result = yield* service.search(user, view.slug, {
+		const service = yield* ProviderEntitySearchService;
+		const result = yield* service.search(user, {
+			savedViewSlug: view.slug,
 			page: 1,
 			pageSize: 20,
 			query: "matrix",
@@ -231,9 +234,14 @@ it.effect("reports malformed provider output as a provider-level failure", () =>
 
 it.effect("rejects unavailable configured scripts before provider execution", () =>
 	Effect.gen(function* () {
-		const service = yield* SavedViewEntitySearchService;
+		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, view.slug, { query: "matrix", page: 1, pageSize: 20 }),
+			service.search(user, {
+				savedViewSlug: view.slug,
+				query: "matrix",
+				page: 1,
+				pageSize: 20,
+			}),
 		);
 		assertExitFails(
 			exit,
@@ -247,9 +255,14 @@ it.effect("rejects unavailable configured scripts before provider execution", ()
 it.effect("loads the saved view only within the authenticated user scope", () => {
 	const requestedUsers: UserId[] = [];
 	return Effect.gen(function* () {
-		const service = yield* SavedViewEntitySearchService;
+		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, view.slug, { query: "matrix", page: 1, pageSize: 20 }),
+			service.search(user, {
+				savedViewSlug: view.slug,
+				query: "matrix",
+				page: 1,
+				pageSize: 20,
+			}),
 		);
 		assertExitFails(exit, new NotFound({ message: "Saved view not found" }));
 		expect(requestedUsers).toEqual([user.id]);
