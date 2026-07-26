@@ -1,5 +1,6 @@
 import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
 import {
+	PLUGIN_KIT_IMPORTS,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_IMPORTS,
 	SANDBOX_SDK_PROVIDER_IMPORT,
@@ -14,7 +15,27 @@ import {
 	sandboxPropertyName as propertyName,
 } from "./compiler-diagnostics";
 
+const SHARED_SOURCE_ROOT = "shared/";
 const allowedImports = new Set<string>(SANDBOX_SDK_IMPORTS);
+const sharedAllowedImports = new Set<string>(PLUGIN_KIT_IMPORTS);
+
+const normalizeRelativeSpecifier = (importer: string, specifier: string) => {
+	const normalized: string[] = [];
+	for (const part of [...importer.split("/").slice(0, -1), ...specifier.split("/")]) {
+		if (!part || part === ".") {
+			continue;
+		}
+		if (part === "..") {
+			if (normalized.length === 0) {
+				return null;
+			}
+			normalized.pop();
+			continue;
+		}
+		normalized.push(part);
+	}
+	return normalized.join("/");
+};
 
 const getModuleSpecifier = (node: ts.ImportDeclaration | ts.ExportDeclaration) =>
 	node.moduleSpecifier && ts.isStringLiteralLikeNode(node.moduleSpecifier)
@@ -184,7 +205,12 @@ export const inspectWorkflowImports = (file: ts.SourceFile) => {
 	return diagnostics;
 };
 
-const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
+const inspectImports = (
+	file: ts.SourceFile,
+	allowRelativeImports: boolean,
+	sourcePath?: string,
+) => {
+	const shared = sourcePath?.startsWith(SHARED_SOURCE_ROOT) === true;
 	const scriptHelpers = new Set<string>();
 	const providerHelpers = new Set<string>();
 	const manifestHelpers = new Set<string>();
@@ -210,13 +236,24 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	for (const statement of file.statements) {
 		if (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) {
 			const specifier = getModuleSpecifier(statement);
-			const isAllowedRelativeImport = allowRelativeImports && specifier?.startsWith(".");
-			if (specifier !== null && !allowedImports.has(specifier) && !isAllowedRelativeImport) {
+			const relative = specifier?.startsWith(".") === true;
+			const escapesSharedRoot =
+				shared &&
+				relative &&
+				normalizeRelativeSpecifier(sourcePath, specifier)?.startsWith(SHARED_SOURCE_ROOT) !== true;
+			const isAllowedRelativeImport = allowRelativeImports && relative && !escapesSharedRoot;
+			if (
+				specifier !== null &&
+				!(shared ? sharedAllowedImports : allowedImports).has(specifier) &&
+				!isAllowedRelativeImport
+			) {
 				diagnostics.push(
 					diagnosticAt(
 						statement.moduleSpecifier ?? statement,
 						"RYOT_IMPORT",
-						`Import "${specifier}" is not allowed; use an approved ${SANDBOX_SDK_ROOT_IMPORT} entry point`,
+						shared
+							? `Import "${specifier}" is not allowed; plugin shared sources may only import an approved @ryot-app/plugin-kit entry point or another shared source`
+							: `Import "${specifier}" is not allowed; use an approved ${SANDBOX_SDK_ROOT_IMPORT} entry point`,
 					),
 				);
 			}
@@ -470,8 +507,8 @@ const inspectScriptDefinition = (
 	};
 };
 
-export const inspectSandboxModuleImports = (file: ts.SourceFile) =>
-	inspectImports(file, true).diagnostics;
+export const inspectSandboxModuleImports = (file: ts.SourceFile, sourcePath: string) =>
+	inspectImports(file, true, sourcePath).diagnostics;
 
 export const sandboxDefinitionMismatch = (
 	inspection: {

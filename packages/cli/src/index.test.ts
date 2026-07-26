@@ -116,10 +116,13 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 					"client/index.tsx",
 					"client/logo.svg",
 					"client/styles.css",
+					"shared/util.ts",
 				]);
 				expect(pluginPackage.files["client/asset.png"]).toEqual(assetBytes);
 				expect(pluginPackage.files["client/ignored.PNG"]).toBeUndefined();
 				expect(pluginPackage.files["client/ignored.test.tsx"]).toBeUndefined();
+				expect(decoder.decode(pluginPackage.files["shared/util.ts"])).toContain("sharedLabel");
+				expect(pluginPackage.files["shared/ignored.test.ts"]).toBeUndefined();
 			}),
 	);
 

@@ -39,6 +39,7 @@
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/sandbox-sdk": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/typescript-compiler": "workspace:*",

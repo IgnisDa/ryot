@@ -11,11 +11,13 @@ export {
 	type EventReadResult,
 } from "@ryot-app/ryotql-recipes/sandbox";
 export { userLibraryRecipe } from "@ryot-app/ryotql-recipes/user-library";
+export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
 export {
 	eventIsAfter,
+	eventOrderAscending,
 	eventOrderDescending,
 	latestEventField,
-} from "@ryot-app/ryotql-recipes/events";
+} from "@ryot-app/ryotql-recipes/event-expressions";
 
 export const executeRyotqlRecipe = <Success, Error, Requirements>(
 	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, Error, Requirements>,
