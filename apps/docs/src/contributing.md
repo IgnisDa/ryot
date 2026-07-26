@@ -10,10 +10,23 @@ Prerequisites: [Bun](https://bun.sh) and [Docker](https://www.docker.com).
 2. Start required services:
 
    ```bash
-   docker compose up -f docker-compose.dev.yml -d
+   bun run docker:up
    ```
 
-3. Set `DATABASE_URL`, `REDIS_URL`, `FRONTEND_URL`and `SERVER_ADMIN_ACCESS_TOKEN` in `apps/server/.env`.
+3. Set these environment variables in `apps/server/.env`:
+
+   ```txt
+   REDIS_URL=redis://localhost:6379
+   FILE_STORAGE_S3_BUCKET_NAME=ryot
+   FRONTEND_URL=http://localhost:3005
+   FILE_STORAGE_S3_URL=http://localhost:9000
+   FILE_STORAGE_S3_ACCESS_KEY_ID=rustfsadmin
+   SERVER_OTLP_ENDPOINT=http://localhost:4318
+   FILE_STORAGE_S3_SECRET_ACCESS_KEY=rustfsadmin
+   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ryot
+   SERVER_ADMIN_ACCESS_TOKEN=super-secret-token-that-should-be-changed
+   ```
+
 4. Start development services with `bun turbo --filter=@ryot-app/server dev` and `bun turbo --filter=@ryot-app/kernel-client dev`.
 
 The server task builds and watches the shipped plugin bundles. Use `bun run build`,
