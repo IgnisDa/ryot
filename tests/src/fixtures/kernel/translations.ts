@@ -5,39 +5,7 @@ import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { getEntity } from "./entities";
-import { seedMediaEntity } from "./media";
 import { pollUntil } from "./polling";
-
-const markEntityPopulated = (entityId: string) =>
-	getBackendClient().call(
-		(c) =>
-			c.testSupport.setEntityPopulatedAt({
-				params: { entityId: EntityId.make(entityId) },
-				payload: { populatedAt: new Date().toISOString() },
-			}),
-		adminHeaders,
-	);
-
-export const seedPopulatedProviderEntity = (input: {
-	name: string;
-	externalId: string;
-	entitySchemaSlug: string;
-	providerId: string;
-	properties: Record<string, unknown>;
-}) =>
-	Effect.gen(function* () {
-		const seeded = yield* seedMediaEntity({
-			userId: null,
-			name: input.name,
-			externalId: input.externalId,
-			properties: input.properties,
-			entitySchemaSlug: input.entitySchemaSlug,
-			providerId: input.providerId,
-		});
-		yield* markEntityPopulated(seeded.id);
-
-		return seeded;
-	});
 
 export const seedEntityTranslation = (input: {
 	entityId: string;

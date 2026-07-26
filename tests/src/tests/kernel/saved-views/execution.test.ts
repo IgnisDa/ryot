@@ -10,11 +10,10 @@ import {
 	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	getSavedView,
-	insertLibraryMembership,
 	rowsLayouts,
 	rowsFields,
-	seedMediaEntity,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { insertLibraryMembership, seedMediaEntity } from "~/fixtures/plugins/media";
 import { assertPresent, resultToEffect } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

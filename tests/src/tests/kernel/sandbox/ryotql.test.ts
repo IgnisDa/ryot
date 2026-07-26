@@ -25,7 +25,7 @@ import {
 	requireRows,
 	systemRyotqlProbeSandboxSource,
 	uninstallTestPlugin,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

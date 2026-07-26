@@ -3,17 +3,19 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createNotificationChannel,
-	enableMediaMonitoring,
 	fakeProviderDetailsResult,
 	getBuiltinEntitySchemaSlug,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
 	installTestProvider,
-	seedMediaEntity,
 	startFakeAppriseServer,
-	triggerCronAndWaitForEntity,
 	pollUntil,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import {
+	enableMediaMonitoring,
+	seedMediaEntity,
+	triggerCronAndWaitForEntity,
+} from "~/fixtures/plugins/media";
 import { requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";

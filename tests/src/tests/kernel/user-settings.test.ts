@@ -5,7 +5,7 @@ import {
 	getUserSettings,
 	refreshUserAvatar,
 	updateUserSettingsPreferences,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("user settings", () => {

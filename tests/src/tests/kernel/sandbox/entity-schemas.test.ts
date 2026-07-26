@@ -7,7 +7,7 @@ import {
 	enqueueSandboxScript,
 	installSandboxScriptScoped,
 	pollSandboxResult,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertCompleted } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

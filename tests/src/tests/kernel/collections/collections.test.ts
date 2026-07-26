@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { createAuthenticatedClient, createCollection, getBackendClient } from "~/fixtures";
+import { createAuthenticatedClient, createCollection, getBackendClient } from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

@@ -7,7 +7,7 @@ import {
 	installTestPlugin,
 	integrationReadOperationSandboxSource,
 	uninstallTestPlugin,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("sandbox integration reads", () => {
