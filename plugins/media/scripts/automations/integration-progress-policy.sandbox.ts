@@ -1,9 +1,9 @@
+import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { defineAutomationPolicy, type AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { buildEventReadDocument } from "@ryot/sandbox-sdk/ryotql";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 
 import { decodeProgressEvents, type MediaProgressEvent } from "../../shared/ryotql";
 

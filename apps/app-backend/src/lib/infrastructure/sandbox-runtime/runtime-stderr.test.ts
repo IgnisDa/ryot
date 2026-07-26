@@ -1,6 +1,7 @@
+import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
 import { describe, expect, it } from "vitest";
 
-import { SANDBOX_LIMITS, utf8ByteLength } from "./limits";
+import { SANDBOX_LIMITS } from "./limits";
 import { formatSandboxStderr, makeSandboxStderrTail } from "./runtime";
 import type { SandboxStderrSnapshot } from "./runtime";
 
