@@ -41,7 +41,7 @@ function NavigationRow(props: {
 			<NavigationIcon className="text-text-muted" name={props.item.icon} size={15} />
 			<Text
 				className={clsx(
-					"flex-1 font-ui text-sm",
+					"flex-1 font-ui text-base",
 					props.isActive ? "font-ui-medium text-text" : "text-text-muted",
 				)}
 			>
