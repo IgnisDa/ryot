@@ -106,23 +106,6 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 	"AutomationsRepository",
 	{
 		make: Effect.sync(() => {
-			const listNotificationSubscriptions = Effect.fn(
-				"AutomationsRepository.listNotificationSubscriptions",
-			)(function* (userId: UserId) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
-					db
-						.select()
-						.from(schema.notificationSubscriptionState)
-						.where(eq(schema.notificationSubscriptionState.userId, userId))
-						.orderBy(
-							asc(schema.notificationSubscriptionState.signalSchemaSlug),
-							asc(schema.notificationSubscriptionState.id),
-						),
-				);
-				return yield* Effect.all(rows.map(toStoredNotificationSubscription));
-			});
-
 			const listActiveNotificationSubscriptions = Effect.fn(
 				"AutomationsRepository.listActiveNotificationSubscriptions",
 			)(function* (input: { userId: UserId; signalSchemaSlug: SignalSchemaSlug }) {
@@ -412,7 +395,6 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				findScriptExecution,
 				listRunsByExecutionUserId,
 				findNotificationSubscription,
-				listNotificationSubscriptions,
 				insertNotificationSubscription,
 				deleteNotificationSubscription,
 				setNotificationSubscriptionActive,

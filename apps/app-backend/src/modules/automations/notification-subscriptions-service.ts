@@ -64,24 +64,6 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 				return toCatalogSignalSchema(signalSchema);
 			});
 
-			const listRules = Effect.fn("NotificationSubscriptionsService.listRules")(function* (
-				userId: UserId,
-			) {
-				return yield* runWithDb(
-					Effect.gen(function* () {
-						const states = yield* repository.listNotificationSubscriptions(userId);
-						const rules = states.flatMap((state) => {
-							const signalSchema = resolveStateSignalSchema(state);
-							return signalSchema ? [toInstalledNotificationRule(state, signalSchema)] : [];
-						});
-						return rules.sort(
-							(left, right) =>
-								left.name.localeCompare(right.name) || left.id.localeCompare(right.id),
-						);
-					}),
-				);
-			});
-
 			const loadRule = Effect.fn("NotificationSubscriptionsService.loadRule")(function* (input: {
 				userId: UserId;
 				ruleId: AutomationRuleId;
@@ -95,14 +77,6 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 					return yield* notFound("Automation rule not found");
 				}
 				return { state, signalSchema };
-			});
-
-			const getRule = Effect.fn("NotificationSubscriptionsService.getRule")(function* (input: {
-				userId: UserId;
-				ruleId: AutomationRuleId;
-			}) {
-				const loaded = yield* runWithDb(loadRule(input));
-				return toInstalledNotificationRule(loaded.state, loaded.signalSchema);
 			});
 
 			const installRule = Effect.fn("NotificationSubscriptionsService.installRule")(
@@ -170,8 +144,6 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 			);
 
 			return {
-				getRule,
-				listRules,
 				deleteRule,
 				getCatalog,
 				installRule,

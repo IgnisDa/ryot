@@ -6,7 +6,15 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
+import {
+	buildNotificationSubscriptionStateDocument,
+	buildNotificationSubscriptionStatesDocument,
+	decodeNotificationSubscriptionStateResponse,
+	decodeNotificationSubscriptionStatesResponse,
+} from "@ryot/ryotql-recipes/notification-subscription-states";
 import { Effect } from "effect";
+
+import { resultToEffect } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
@@ -23,11 +31,26 @@ export const getAutomationCatalogSchema = (client: Client, signalSchemaSlug: str
 		}),
 	);
 
-export const listNotificationRules = (client: Client) =>
-	client.call((c) => c.automations.listRules());
+export const listNotificationSubscriptionStates = (
+	client: Client,
+	input: Parameters<typeof buildNotificationSubscriptionStatesDocument>[0],
+) =>
+	Effect.gen(function* () {
+		const response = yield* client.call((c) =>
+			c.ryotql.execute({ payload: buildNotificationSubscriptionStatesDocument(input) }),
+		);
+		const decoded = yield* resultToEffect(decodeNotificationSubscriptionStatesResponse(response));
 
-export const getNotificationRule = (client: Client, ruleId: string) =>
-	client.call((c) => c.automations.getRule({ params: { ruleId: AutomationRuleId.make(ruleId) } }));
+		return decoded.items;
+	});
+
+export const getNotificationSubscriptionState = (client: Client, ruleId: string) =>
+	Effect.gen(function* () {
+		const response = yield* client.call((c) =>
+			c.ryotql.execute({ payload: buildNotificationSubscriptionStateDocument({ id: ruleId }) }),
+		);
+		return yield* resultToEffect(decodeNotificationSubscriptionStateResponse(response));
+	});
 
 export const installNotificationRule = (client: Client, signalSchemaSlug: string) =>
 	client.call((c) =>

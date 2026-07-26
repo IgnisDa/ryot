@@ -128,6 +128,29 @@ it("exposes only approved application-table fields", () => {
 		user: { type: "owned", column: "user_id", includeGlobal: false },
 	});
 	expect(notificationChannel && "plugin" in notificationChannel.visibility).toBe(false);
+	const notificationSubscriptionState = getCatalogTable("notificationSubscriptionState");
+	expect(
+		Object.fromEntries(
+			Object.entries(notificationSubscriptionState?.fields ?? {}).map(([name, catalogField]) => [
+				name,
+				catalogField.kind,
+			]),
+		),
+	).toEqual({
+		id: "text",
+		createdAt: "date",
+		updatedAt: "date",
+		isActive: "boolean",
+		signalSchemaSlug: "text",
+	});
+	expect(notificationSubscriptionState?.name).toBe("notification_subscription_state");
+	expect(notificationSubscriptionState?.primaryKey).toBe("id");
+	expect(notificationSubscriptionState?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false },
+	});
+	expect(
+		notificationSubscriptionState && "plugin" in notificationSubscriptionState.visibility,
+	).toBe(false);
 	expect(new Set(Object.keys(getCatalogTable("integration")?.fields ?? {}))).toEqual(
 		new Set([
 			"id",
@@ -216,6 +239,8 @@ it("rejects hidden application-table fields", () => {
 		["notificationChannel", "userId"],
 		["notificationChannel", "channelSpecifics"],
 		["notificationChannel", "platform_specifics"],
+		["notificationSubscriptionState", "userId"],
+		["notificationSubscriptionState", "metadata"],
 		["integration", "userId"],
 		["integration", "providerSpecifics"],
 		["integration", "webhookUrl"],
