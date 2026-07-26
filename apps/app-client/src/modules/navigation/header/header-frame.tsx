@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useRef, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
 	PanResponder,
 	Platform,
@@ -40,11 +40,12 @@ export function HeaderFrame(props: {
 }) {
 	const insets = useSafeAreaInsets();
 	const contentOffset = useHeaderContentOffset();
-	const isRestored = useRef(false);
 	const heroHeight = props.heroHeight ?? 0;
 	const scrollRef = useAnimatedRef<Animated.ScrollView>();
 	const scrollOffset = useScrollOffset(scrollRef);
 	const restoredOffset = props.initialScrollOffset ?? 0;
+	const isRestored = useRef(restoredOffset === 0);
+	const [isScrollVisible, setIsScrollVisible] = useState(restoredOffset === 0);
 	const searchEdgeSwipe = useRef(
 		PanResponder.create({
 			onMoveShouldSetPanResponder: (_event, gesture) =>
@@ -71,12 +72,13 @@ export function HeaderFrame(props: {
 		props.onScrollOffsetChange?.(event.nativeEvent.contentOffset.y);
 	}
 
-	function restoreOffset(_width: number, height: number) {
-		if (isRestored.current || restoredOffset === 0 || height <= restoredOffset) {
+	function restoreOffset() {
+		if (isRestored.current) {
 			return;
 		}
 		isRestored.current = true;
 		scrollRef.current?.scrollTo({ y: restoredOffset, animated: false });
+		setIsScrollVisible(true);
 	}
 
 	return (
@@ -88,6 +90,8 @@ export function HeaderFrame(props: {
 				onScrollEndDrag={reportOffset}
 				onMomentumScrollEnd={reportOffset}
 				onContentSizeChange={restoreOffset}
+				style={{ opacity: isScrollVisible ? 1 : 0 }}
+				onScroll={Platform.OS === "web" ? reportOffset : undefined}
 				contentContainerClassName="min-h-full pb-8 md:px-8 md:pt-8"
 			>
 				{props.hero ?? <View className={clsx(MOBILE_ONLY)} style={{ height: contentOffset }} />}

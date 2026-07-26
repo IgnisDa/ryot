@@ -126,18 +126,20 @@ function ShowDescription(props: {
 function ShowIdentity(props: { readonly show: ShowSummary; readonly description: ReactNode }) {
 	const { show } = props;
 	return (
-		<View className="min-w-0 gap-2.5 pt-4 md:flex-1 md:pt-0">
-			<Text className="font-display-semibold text-[30px] leading-9 text-text md:text-[34px] md:leading-10">
-				{show.name}
-			</Text>
-			<ShowIdentityLine show={show} />
-			{show.genres === null || show.genres.length === 0 ? null : (
-				<View className="flex-row flex-wrap gap-1.5">
-					{show.genres.map((genre) => (
-						<ShowChip key={genre} label={genre} />
-					))}
-				</View>
-			)}
+		<View className="min-w-0 gap-4 md:flex-1 md:gap-2.5">
+			<View className="min-h-48 justify-end gap-2.5 pl-36 md:min-h-0 md:justify-start md:pl-0">
+				<Text className="font-display-semibold text-[22px] leading-7 text-text md:text-[34px] md:leading-10">
+					{show.name}
+				</Text>
+				<ShowIdentityLine show={show} />
+				{show.genres === null || show.genres.length === 0 ? null : (
+					<View className="flex-row flex-wrap gap-1.5">
+						{show.genres.map((genre) => (
+							<ShowChip key={genre} label={genre} />
+						))}
+					</View>
+				)}
+			</View>
 			<ShowFactRow show={show} />
 			{props.description}
 		</View>
@@ -245,7 +247,7 @@ export function ShowSummaryHeader(props: {
 				<ShowAssetImage
 					managedUrls={props.managedUrls}
 					asset={showPosterAsset(props.show)}
-					className="aspect-2/3 w-40 shrink-0 md:w-60"
+					className="absolute top-0 left-0 aspect-2/3 w-32 md:relative md:w-60 md:shrink-0"
 				/>
 				<ShowIdentity show={props.show} description={descriptionNode} />
 			</View>

@@ -18,7 +18,10 @@ function SavedViewContent(props: { record: SavedViewRecord }) {
 		slug: props.record.slug,
 		workspace: drawer.navigation.workspace.slug,
 	});
-	const result = useSavedViewResult(props.record, session.search.query);
+	const result = useSavedViewResult(props.record, session.search.query, {
+		initialController: session.initialController,
+		onControllerChange: session.onControllerChange,
+	});
 	return (
 		<SavedViewResultContent
 			state={result.state}
