@@ -9,7 +9,7 @@
 | `port` | `PORT` | HTTP port the server listens on | No | No | `8000` |
 | `timezone` | `TZ` | IANA timezone used for interpreting timezone-less datetimes during imports | No | No | `Etc/GMT` |
 | `redisUrl` | `REDIS_URL` | Redis connection string | Yes | Yes | — |
-| `frontendUrl` | `FRONTEND_URL` | Public URL of the frontend application | No | No | `http://localhost:3000` |
+| `frontendUrl` | `FRONTEND_URL` | Public URL of the frontend application | No | No | `https://app.ryot.io` |
 
 ### User account settings
 
@@ -50,7 +50,7 @@
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
-| `sandbox.denoDir` | `SANDBOX_DENO_DIR` | Directory used for the local sandbox dependency runtime and Deno cache | No | No | `/tmp/ryot-sandbox-deno` |
+| `sandbox.denoDir` | `SANDBOX_DENO_DIR` | Directory used for the local sandbox dependency runtime and Deno cache | No | No | `/tmp/ryot-sandbox` |
 | `sandbox.jobIdSecret` | `SANDBOX_JOB_ID_SECRET` | Secret used to sign sandbox job identifiers | No | Yes | `changeme` |
 
 ### PostgreSQL connection settings
