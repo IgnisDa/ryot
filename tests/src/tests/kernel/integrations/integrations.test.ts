@@ -12,7 +12,9 @@ import {
 	listIntegrations,
 	listManualImportRuns,
 	postIntegrationWebhookAndWait,
+	pollUntil,
 	pollImportRunUntilTerminal,
+	syncIntegrations,
 	updateUserSettingsPreferences,
 } from "~/fixtures";
 import {
@@ -235,6 +237,47 @@ describe("Integration CRUD", () => {
 			yield* deleteIntegration(client, id);
 
 			expect(yield* getIntegration(client, id)).toBeUndefined();
+		}),
+	);
+});
+
+describe("Integration sync", () => {
+	it.live("starts eligible yank integrations only for the authenticated user", () =>
+		Effect.gen(function* () {
+			const { client: clientA } = yield* createAuthenticatedClient();
+			const { client: clientB } = yield* createAuthenticatedClient();
+			const enabled = yield* createIntegration(clientA, {
+				provider: "audiobookshelf",
+				providerSpecifics: {
+					token: "test-token",
+					kind: "audiobookshelf",
+					baseUrl: "https://abs.example.com",
+				},
+			});
+			const disabled = yield* createAudiobookshelfIntegration(clientA);
+			const otherUser = yield* createIntegration(clientB, {
+				provider: "audiobookshelf",
+				providerSpecifics: {
+					token: "test-token",
+					kind: "audiobookshelf",
+					baseUrl: "https://abs.example.com",
+				},
+			});
+
+			const accepted = yield* syncIntegrations(clientA);
+			expect(accepted.executionId).toMatch(/^integration-sync-/);
+
+			yield* pollUntil(
+				"manual integration sync run",
+				listIntegrationImportRuns(clientA, enabled.id, undefined, 20).pipe(
+					Effect.map(({ items }) => items[0] ?? null),
+				),
+			);
+
+			const disabledRuns = yield* listIntegrationImportRuns(clientA, disabled.id, undefined, 20);
+			const otherUserRuns = yield* listIntegrationImportRuns(clientB, otherUser.id, undefined, 20);
+			expect(disabledRuns.items).toHaveLength(0);
+			expect(otherUserRuns.items).toHaveLength(0);
 		}),
 	);
 });

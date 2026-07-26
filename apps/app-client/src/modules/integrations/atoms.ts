@@ -65,6 +65,10 @@ const deleteIntegrationFamily = Atom.family((scope: ApiScope) =>
 	appClient(scope).mutation("integrations", "delete"),
 );
 
+const syncIntegrationsFamily = Atom.family((scope: ApiScope) =>
+	appClient(scope).mutation("integrations", "sync"),
+);
+
 export const integrationReactivityKeys = integrationKeys;
 
 export const integrationProvidersAtom = (scope: ApiScope) =>
@@ -78,6 +82,9 @@ export const updateIntegrationAtom = (scope: ApiScope) =>
 
 export const deleteIntegrationAtom = (scope: ApiScope) =>
 	deleteIntegrationFamily(canonicalApiScope(scope));
+
+export const syncIntegrationsAtom = (scope: ApiScope) =>
+	syncIntegrationsFamily(canonicalApiScope(scope));
 
 export const integrationsAtom = (request: { scope: ApiScope; limit: number }) =>
 	integrationsFamily({ limit: request.limit, scope: canonicalApiScope(request.scope) });
