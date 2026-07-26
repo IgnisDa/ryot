@@ -1,6 +1,6 @@
 import { makeContractClient } from "@ryot/contract/client";
 import { buildNavigationDocument } from "@ryot/ryotql-recipes/navigation";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { Atom } from "effect/unstable/reactivity";
 
@@ -9,6 +9,7 @@ import { serverStorageLayer, serverUrlSchema, workspaceSchema } from "@/modules/
 
 const publicApiRuntime = Atom.runtime(FetchHttpClient.layer);
 const storageRuntime = Atom.runtime(serverStorageLayer);
+const themeSchema = Schema.Literals(["light", "dark", "system"]);
 
 export const connectToServerAtom = publicApiRuntime.fn((serverUrl: string) =>
 	makeContractClient(`${serverUrl}/api`).pipe(Effect.flatMap((client) => client.system.health())),
@@ -34,6 +35,13 @@ export const serverUrlAtom = Atom.kvs({
 });
 
 export const systemConfigAtom = appQueryClient.query("system", "config", {});
+
+export const themeAtom = Atom.kvs({
+	key: "theme",
+	schema: themeSchema,
+	runtime: storageRuntime,
+	defaultValue: () => "system" as const,
+});
 
 export const workspaceAtom = Atom.kvs({
 	key: "workspace",
