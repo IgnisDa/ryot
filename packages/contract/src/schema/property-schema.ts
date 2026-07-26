@@ -716,6 +716,9 @@ export const getAppSchemaValueAtPath = (input: unknown, path: AppSchemaRulePath)
 	return value;
 };
 
+export const isMissingAppSchemaRequiredValue = (value: unknown) =>
+	value === undefined || value === null;
+
 export const evaluateAppSchemaRuleCondition = (
 	condition: AppSchemaRuleCondition,
 	input: unknown,
@@ -728,10 +731,10 @@ export const evaluateAppSchemaRuleCondition = (
 	}
 	const value = getAppSchemaValueAtPath(input, condition.path);
 	if (condition.operator === "exists") {
-		return value !== undefined;
+		return !isMissingAppSchemaRequiredValue(value);
 	}
 	if (condition.operator === "not_exists") {
-		return value === undefined;
+		return isMissingAppSchemaRequiredValue(value);
 	}
 	if (condition.operator === "eq") {
 		return Object.is(value, condition.value);
@@ -776,9 +779,6 @@ export const isAppSchemaPathEffectivelyRequired = (
 		)
 	);
 };
-
-export const isMissingAppSchemaRequiredValue = (value: unknown) =>
-	value === undefined || value === null;
 
 /**
  * Returns the top-level property keys a schema declares as translatable. These are
