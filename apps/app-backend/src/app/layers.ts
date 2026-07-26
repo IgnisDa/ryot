@@ -229,6 +229,7 @@ const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
 	AutomationsRepository.layer,
 	EntitiesRepository.layer,
 	EntitySchemasRepository.layer,
+	ManagedAssetsRepository.layer,
 	SavedViewsRepository.layer,
 	RelationshipSchemasRepository.layer,
 	SignalSchemasRepository.layer,
@@ -521,7 +522,9 @@ const MigrationSequenceLive = MigrationsComplete.layer.pipe(
 
 const MigrationInfrastructureLive = MigrationBootstrapServicesLive.pipe(
 	Layer.provideMerge(DatabaseLive),
+	Layer.provideMerge(ManagedAssetsRepository.layer),
 	Layer.provideMerge(RedisService.layer),
+	Layer.provideMerge(S3Service.layer),
 	Layer.provideMerge(ConfigLive),
 );
 
