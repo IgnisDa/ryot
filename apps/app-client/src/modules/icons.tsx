@@ -55,15 +55,21 @@ import {
 	X,
 	Zap,
 } from "lucide-react-native";
-import type { ComponentType } from "react";
+import type { LucideIcon } from "lucide-react-native";
+import { styled } from "nativewind";
+import type { ComponentProps, ComponentType } from "react";
 
-type IconComponent = ComponentType<{
-	size?: number;
-	color?: string;
-	strokeWidth?: number;
-}>;
+type StyledIcon = ComponentType<ComponentProps<LucideIcon> & { className: string }>;
 
-export const iconRegistry: Partial<Record<string, IconComponent>> = {
+const iconColorMapping = {
+	className: { target: "style", nativeStyleMapping: { color: "color" } },
+} as const;
+
+function createStyledIcon(Icon: LucideIcon) {
+	return styled(Icon, iconColorMapping) as StyledIcon;
+}
+
+const rawIconRegistry: Record<string, LucideIcon> = {
 	x: X,
 	tv: Tv,
 	sun: Sun,
@@ -123,7 +129,13 @@ export const iconRegistry: Partial<Record<string, IconComponent>> = {
 	"more-horizontal": MoreHorizontal,
 };
 
-export function AppIcon(props: { name: string; size?: number }) {
-	const Icon = iconRegistry[props.name] ?? Circle;
-	return <Icon color="currentColor" size={props.size ?? 16} strokeWidth={1.7} />;
+export const iconRegistry = Object.fromEntries(
+	Object.entries(rawIconRegistry).map(([name, Icon]) => [name, createStyledIcon(Icon)]),
+) as Record<string, StyledIcon>;
+
+const FallbackIcon = createStyledIcon(Circle);
+
+export function AppIcon(props: { name: string; className: string; size?: number }) {
+	const Icon = iconRegistry[props.name] ?? FallbackIcon;
+	return <Icon className={props.className} size={props.size ?? 16} strokeWidth={1.7} />;
 }
