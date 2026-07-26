@@ -12,6 +12,7 @@ import {
 	rowsFields,
 	updateSavedViewWithQueryDocument,
 } from "~/fixtures";
+import { assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const entity = table("entity", "entity");
@@ -110,9 +111,11 @@ describe("Saved views query documents E2E", () => {
 			});
 			const fetchedView = yield* getSavedView(client, createdView.slug);
 			const query = fetchedView.queryDocument.queries.savedView;
-			if (query?.output.type !== "rows") {
-				throw new Error("Expected the saved-view query to use rows output");
-			}
+			assertPresent(query, "Expected the saved-view query");
+			assertCondition(
+				query.output.type === "rows",
+				"Expected the saved-view query to use rows output",
+			);
 			const output = query.output;
 
 			expect(output.type).toBe("rows");
