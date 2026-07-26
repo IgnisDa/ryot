@@ -104,7 +104,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 			execute: (
 				workflowSlug,
 				input,
-				authority,
+				subject,
 				executionId,
 				_parentExecutionId,
 				callerScriptId,
@@ -123,7 +123,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						});
 					}
 					if (workflowSlug === KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW) {
-						if (authority.type !== "system") {
+						if (subject.type !== "system") {
 							return yield* new SandboxRunError({
 								message: `Kernel workflow '${workflowSlug}' is available only for system executions`,
 							});
@@ -207,7 +207,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
 						);
 					}
-					if (!("userId" in authority)) {
+					if (!("userId" in subject)) {
 						return yield* new SandboxRunError({
 							message: `Kernel workflow '${workflowSlug}' is not available for system executions`,
 						});
@@ -227,11 +227,11 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const payload = yield* Schema.decodeUnknownEffect(ProcessGenericImportChunksPayload)({
 							...decodedInput,
 							executionId,
-							userId: authority.userId,
+							userId: subject.userId,
 							artifactOwnerExecutionId: artifactOwner,
 							artifactReferenceExecutionId: executionId,
-							...("integrationId" in authority && authority.integrationId
-								? { integrationId: authority.integrationId }
+							...("integrationId" in subject && subject.integrationId
+								? { integrationId: subject.integrationId }
 								: {}),
 						}).pipe(
 							Effect.mapError(
@@ -242,7 +242,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							),
 						);
 						yield* validateAttribution({
-							userId: authority.userId,
+							userId: subject.userId,
 							importRunIds: [ImportRunId.make(payload.runId)],
 							integrationIds: payload.integrationId ? [payload.integrationId] : [],
 						});
@@ -278,7 +278,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const payload = yield* Schema.decodeUnknownEffect(EntityImportPayload)({
 							...rawInput,
 							executionId,
-							userId: authority.userId,
+							userId: subject.userId,
 							...(resolvedProvider
 								? {
 										providerId: resolvedProvider.provider.id,
@@ -294,7 +294,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							),
 						);
 						yield* validateAttribution({
-							userId: authority.userId,
+							userId: subject.userId,
 							...attributionIds(payload.origin),
 						});
 						const result = yield* engine
@@ -316,7 +316,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					const payload = yield* Schema.decodeUnknownEffect(EventCreateWorkflowPayload)({
 						...(isObjectRecord(input) ? input : {}),
 						executionId,
-						userId: authority.userId,
+						userId: subject.userId,
 					}).pipe(
 						Effect.mapError(
 							(error) =>
@@ -327,7 +327,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					);
 					const lifecycle = attributionIds(payload.lifecycleOrigin);
 					yield* validateAttribution({
-						userId: authority.userId,
+						userId: subject.userId,
 						importRunIds: [
 							...lifecycle.importRunIds,
 							...(payload.importRunId ? [payload.importRunId] : []),

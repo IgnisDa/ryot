@@ -220,7 +220,7 @@ it.effect("runs policies in position order and validates each replacement before
 				},
 			},
 		});
-		expect(test.sandboxPayloads[0]?.authority).toEqual({
+		expect(test.sandboxPayloads[0]?.subject).toEqual({
 			userId,
 			type: "subscription",
 			subscriptionRun: {

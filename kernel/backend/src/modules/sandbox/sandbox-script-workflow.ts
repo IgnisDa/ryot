@@ -1,6 +1,5 @@
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { jsonByteLength } from "@ryot/sandbox-compiler/limits";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
@@ -19,6 +18,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
+import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
 import {
 	SANDBOX_LIMITS,
@@ -31,7 +31,11 @@ import {
 import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
-import { processSandboxExecutionQueue, resolveSandboxExecutionPayload } from "./durable-queues";
+import {
+	processSandboxExecutionQueue,
+	resolveSandboxExecutionPayload,
+	type SandboxExecutionQueuePayload,
+} from "./durable-queues";
 import { SandboxExecutionResult as SandboxExecutionResultSchema } from "./execution-result";
 import type { SandboxExecutionResult } from "./execution-result";
 import {
@@ -50,9 +54,7 @@ const SANDBOX_WORKFLOW_MAX_PROJECTION_RETRIES = 3;
 
 const SandboxWorkflowPin = Schema.Struct({
 	startedAt: Schema.String,
-	scriptId: SandboxScriptId,
-	contentHash: Schema.String,
-	pluginId: Schema.NullOr(Schema.String),
+	principal: SandboxExecutionPrincipal,
 });
 
 const ObservedWorkflowReplay = Schema.Union([
@@ -116,38 +118,47 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 				const resolved = yield* resolveSandboxExecutionPayload(
 					{
 						context: payload.input,
+						subject: payload.subject,
 						scriptId: payload.scriptId,
-						authority: payload.authority,
 						executionId: payload.executionId,
 						...(payload.grants ? { grants: payload.grants } : {}),
 					},
 					payload.resolutionMode,
 				);
-				const pinned = yield* repository.getScriptPin(resolved.scriptId);
+				const pinned = yield* repository.getScriptPin(resolved.scriptId, payload.pluginRevision);
 				if (!pinned) {
 					return yield* sandboxFailure("Sandbox workflow script not found");
 				}
-				if (expectedPluginId && pinned.pluginId !== expectedPluginId) {
+				if (expectedPluginId && pinned.pluginRevision?.id !== expectedPluginId) {
 					return yield* sandboxFailure(
 						`Sandbox workflow script is not owned by plugin '${expectedPluginId}'`,
 					);
 				}
-				const registrationStatus = pinned.pluginId
+				const principal = {
+					subject: payload.subject,
+					scriptId: pinned.scriptId,
+					metadata: pinned.metadata,
+					providerId: pinned.providerId,
+					scriptSlug: pinned.scriptSlug,
+					contentHash: pinned.contentHash,
+					pluginRevision: pinned.pluginRevision,
+				} satisfies SandboxExecutionPrincipal;
+				const registrationStatus = principal.pluginRevision
 					? (yield* references.registerInTransaction({
 							executionId,
-							pluginId: pinned.pluginId,
-							scriptId: pinned.scriptId,
-							contentHash: pinned.contentHash,
-							...("userId" in payload.authority ? { userId: payload.authority.userId } : {}),
+							scriptId: principal.scriptId,
+							contentHash: principal.contentHash,
+							pluginId: principal.pluginRevision.id,
+							...("userId" in payload.subject ? { userId: payload.subject.userId } : {}),
 						})).status
 					: ("not-required" as const);
-				return { ...pinned, registrationStatus };
+				return { principal, registrationStatus };
 			}).pipe(Effect.provideService(Database, transaction)),
 		),
 	).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error))));
 });
 
-const processPinnedSandbox = (payload: SandboxExecutionPayload) =>
+const processPinnedSandbox = (payload: SandboxExecutionQueuePayload) =>
 	processSandboxExecutionQueue(payload);
 
 export const sandboxWorkflowChildExecutionId = (executionId: string, name: string, index: number) =>
@@ -236,7 +247,7 @@ export const validateWorkflowReplayEnvelope = (
 const observeWorkflowReplay = (
 	replayValue: unknown,
 	journal: ReadonlyArray<WorkflowReplayJournalEntry>,
-	workflowScriptId: SandboxScriptId,
+	pluginRevision: SandboxExecutionPrincipal["pluginRevision"],
 	step: number,
 ) =>
 	Activity.make({
@@ -258,7 +269,7 @@ const observeWorkflowReplay = (
 			const repository = yield* SandboxRepository;
 			const requests = yield* Effect.forEach(validated.requests, ({ request }) =>
 				Effect.gen(function* () {
-					const target = yield* repository.resolveWorkflowCallScript(workflowScriptId, request);
+					const target = yield* repository.resolveWorkflowCallScript(pluginRevision, request);
 					if (
 						request.kind !== "host" &&
 						request.kind !== "sleep" &&
@@ -283,6 +294,7 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 	request: WorkflowDurableCallRequest,
 	targetScriptId: SandboxScriptId | undefined,
 	payload: SandboxScriptWorkflowPayloadValue,
+	principal: SandboxExecutionPrincipal,
 	executionId: string,
 ) {
 	if (request.kind === "sleep") {
@@ -295,8 +307,12 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 	}
 	if (request.kind === "host") {
 		const dispatcher = yield* SandboxDurableHostDispatcher;
-		return yield* dispatcher.dispatch(request, payload, executionId);
+		return yield* dispatcher.dispatch(request, payload, principal, executionId);
 	}
+	const childPayload = {
+		...payload,
+		...(principal.pluginRevision ? { pluginRevision: principal.pluginRevision } : {}),
+	};
 
 	if (request.kind === "activity") {
 		return yield* performSandboxWorkflowChild(
@@ -307,12 +323,12 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 				args: { input: request.args.input, workflowSlug: request.args.scriptSlug },
 			},
 			targetScriptId,
-			payload,
+			childPayload,
 			executionId,
 		);
 	}
 	const child = yield* Effect.exit(
-		performSandboxWorkflowChild(request, targetScriptId, payload, executionId),
+		performSandboxWorkflowChild(request, targetScriptId, childPayload, executionId),
 	);
 	if (request.kind === "child") {
 		return child._tag === "Success" ? child.value : yield* Effect.failCause(child.cause);
@@ -370,7 +386,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 						.execute(
 							request.args.workflowSlug,
 							request.args.input,
-							payload.authority,
+							payload.subject,
 							childExecutionId,
 							executionId,
 							payload.scriptId,
@@ -386,11 +402,12 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 									executionId: childExecutionId,
 									payload: {
 										resolutionMode: "exact",
+										subject: payload.subject,
 										input: request.args.input,
-										authority: payload.authority,
 										executionId: childExecutionId,
 										scriptId: SandboxScriptId.make(targetScriptId),
 										grants: { ...payload.grants, artifactOwnerExecutionId },
+										...(payload.pluginRevision ? { pluginRevision: payload.pluginRevision } : {}),
 									},
 								})
 								.pipe(withoutWorkflowParent),
@@ -409,7 +426,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
 	processReplay: (
-		payload: SandboxExecutionPayload,
+		payload: SandboxExecutionQueuePayload,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, R>,
 ) {
 	const pin = yield* Activity.make({
@@ -418,13 +435,10 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		name: "pin-sandbox-workflow-script",
 		execute: Effect.gen(function* () {
 			const startedAt = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
-			const { scriptId, contentHash, pluginId } = yield* establishSandboxWorkflowPin(
-				payload,
-				executionId,
-			);
+			const { principal } = yield* establishSandboxWorkflowPin(payload, executionId);
 			const artifacts = yield* SandboxArtifactStore;
 			yield* artifacts.retain(payload.grants?.artifactOwnerExecutionId ?? executionId, executionId);
-			return { scriptId, startedAt, pluginId, contentHash };
+			return { startedAt, principal };
 		}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
 	});
 
@@ -437,7 +451,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				payload.grants?.artifactOwnerExecutionId ?? executionId,
 				executionId,
 			);
-			if (pin.pluginId) {
+			if (pin.principal.pluginRevision) {
 				const references = yield* SandboxWorkflowReferenceRepository;
 				yield* references.release(executionId);
 			}
@@ -453,9 +467,8 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			const replayExecutionId = `${executionId}-replay-${step}`;
 			const replay = yield* processReplay({
 				context: payload.input,
-				scriptId: pin.scriptId,
 				startedAt: pin.startedAt,
-				authority: payload.authority,
+				principal: pin.principal,
 				executionId: replayExecutionId,
 				workflowExecutionId: executionId,
 				...(payload.grants ? { grants: payload.grants } : {}),
@@ -476,7 +489,12 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 					`Workflow replay ${step} failed: ${replay.error.phase}: ${replay.error.message}`,
 				);
 			}
-			const observed = yield* observeWorkflowReplay(replay.value, journal, pin.scriptId, step);
+			const observed = yield* observeWorkflowReplay(
+				replay.value,
+				journal,
+				pin.principal.pluginRevision,
+				step,
+			);
 			if (observed.state === "failed") {
 				if (payload.resultMode === "execution") {
 					return toSandboxExecutionResult(replay, null, {
@@ -521,7 +539,8 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 					performSandboxWorkflowRequest(
 						request,
 						targetScriptId,
-						{ ...payload, scriptId: pin.scriptId, startedAt: pin.startedAt },
+						{ ...payload, startedAt: pin.startedAt, scriptId: pin.principal.scriptId },
+						pin.principal,
 						executionId,
 					),
 				{ concurrency: SANDBOX_LIMITS.bridge.concurrentHostCalls },

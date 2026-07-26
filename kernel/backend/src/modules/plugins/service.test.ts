@@ -303,7 +303,7 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 		const loader = yield* PluginLoader;
 		const ingestion = yield* PluginIngestionService;
 		const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
-		const plugin = yield* ingestion.ingestPlugin(source);
+		const plugin = yield* ingestion.ingestSystemPlugin(source);
 
 		expect(plugin.sourceHash).toMatch(/^[a-f0-9]{64}$/);
 		expect(plugin.scripts[0]?.contentHash).toMatch(/^[a-f0-9]{64}$/);
@@ -376,7 +376,7 @@ it.effect("preserves provider search options metadata through ingestion", () => 
 			],
 		} satisfies PluginManifest;
 		const source = yield* loadPluginSource(fixturePackageRoot(), manifest);
-		const plugin = yield* ingestion.ingestPlugin(source);
+		const plugin = yield* ingestion.ingestSystemPlugin(source);
 		const searchScript = plugin.scripts.find(({ slug }) => slug === "fixture.provider.search");
 
 		expect(searchScript?.metadata).toMatchObject({ searchOptionsSchema });
@@ -392,7 +392,7 @@ it.effect("returns a committed install when Redis publication fails", () => {
 		const loader = yield* PluginLoader;
 		const ingestion = yield* PluginIngestionService;
 		const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
-		const plugin = yield* ingestion.ingestPlugin(source);
+		const plugin = yield* ingestion.ingestSystemPlugin(source);
 
 		expect(persisted).toEqual([
 			{
@@ -434,7 +434,7 @@ const userBootstrapManifest = () => {
 	};
 };
 
-it.effect("rejects user bootstrap declarations through ordinary runtime ingestion", () => {
+it.effect("accepts user bootstrap declarations through explicit system ingestion", () => {
 	const persisted: Array<NormalizedPlugin> = [];
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
@@ -443,26 +443,7 @@ it.effect("rejects user bootstrap declarations through ordinary runtime ingestio
 			...manifest,
 			metadata: { ...manifest.metadata, slug: "example" },
 		});
-		const exit = yield* Effect.exit(ingestion.installPlugin(source));
-
-		expect(failureOf(exit)).toMatchObject({
-			_tag: "PluginRequestError",
-			reason: { code: "validation-failed" },
-		});
-		expect(persisted).toEqual([]);
-	}).pipe(Effect.provide(makeLayer({ persisted })));
-});
-
-it.effect("accepts user bootstrap declarations through trusted boot ingestion", () => {
-	const persisted: Array<NormalizedPlugin> = [];
-	return Effect.gen(function* () {
-		const ingestion = yield* PluginIngestionService;
-		const manifest = userBootstrapManifest();
-		const source = yield* loadPluginSource(fixturePackageRoot(), {
-			...manifest,
-			metadata: { ...manifest.metadata, slug: "example" },
-		});
-		const plugin = yield* ingestion.ingestTrustedPlugin(source);
+		const plugin = yield* ingestion.ingestSystemPlugin(source);
 
 		expect(plugin.manifest.userBootstrap).toEqual([
 			{
@@ -482,24 +463,6 @@ it.effect("accepts user bootstrap declarations through trusted boot ingestion", 
 	}).pipe(Effect.provide(makeLayer({ persisted })));
 });
 
-it.effect("accepts user bootstrap declarations for trusted slugs outside the boot set", () => {
-	const persisted: Array<NormalizedPlugin> = [];
-	return Effect.gen(function* () {
-		const ingestion = yield* PluginIngestionService;
-		const source = yield* loadPluginSource(fixturePackageRoot(), userBootstrapManifest());
-		const plugin = yield* ingestion.ingestTrustedPlugin(source);
-
-		expect(plugin.manifest.userBootstrap).toEqual([
-			{
-				slug: "fixture",
-				scriptSlug: "fixture.user-bootstrap",
-				description: "Bootstrap fixture user data",
-			},
-		]);
-		expect(persisted).toHaveLength(1);
-	}).pipe(Effect.provide(makeLayer({ persisted })));
-});
-
 it.effect("validates automation bindings against definitions from installed plugins", () => {
 	const installedExample = makeStoredPlugin(definitionOwnerManifest(), "example-source-hash");
 	return Effect.gen(function* () {
@@ -515,7 +478,7 @@ it.effect("validates automation bindings against definitions from installed plug
 			},
 		});
 
-		const plugin = yield* ingestion.ingestPlugin(source);
+		const plugin = yield* ingestion.ingestSystemPlugin(source);
 		expect(plugin.manifest.bindings.entityAutomations).toEqual([
 			{ operation: "create", entitySchemaSlug: "item", scriptSlug: "fixture.automation" },
 		]);
@@ -535,7 +498,7 @@ it.effect("accepts plugin-owned and cross-plugin notification formatters", () =>
 			signalSchemas: [{ ...signalSchema, notificationScriptSlug: "formatter-owner.notification" }],
 		});
 
-		const plugin = yield* ingestion.ingestPlugin(source);
+		const plugin = yield* ingestion.ingestSystemPlugin(source);
 		expect(plugin.manifest.signalSchemas[0]?.notificationScriptSlug).toBe(
 			"formatter-owner.notification",
 		);
@@ -553,7 +516,7 @@ it.effect("rejects plugin signals that reference a kernel source-zero formatter"
 			signalSchemas: [{ ...signalSchema, notificationScriptSlug: "automation.notification" }],
 		});
 
-		const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
+		const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
 		expect(failureOf(exit)).toMatchObject({
 			_tag: "PluginRequestError",
 			reason: { code: "validation-failed" },
@@ -578,7 +541,7 @@ it.effect("rejects missing and non-automation notification formatters", () =>
 					kind === "wrong-kind" ? [{ ...script, kind: "operation" as const }] : manifest.scripts,
 			});
 
-			const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
+			const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
 			expect(failureOf(exit)).toMatchObject({
 				_tag: "PluginRequestError",
 				reason: { code: "validation-failed" },
@@ -598,7 +561,7 @@ it.effect("rejects plugin scripts that collide with kernel source zero", () => {
 			scripts: [...manifest.scripts, { ...script, slug: "automation.notification" }],
 		});
 
-		const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
+		const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
 		expect(failureOf(exit)).toMatchObject({
 			_tag: "PluginRequestError",
 			reason: { code: "validation-failed" },
@@ -705,7 +668,7 @@ it.effect("completes the committed loader transition when installation is interr
 			const loader = yield* PluginLoader;
 			const ingestion = yield* PluginIngestionService;
 			const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
-			const fiber = yield* Effect.forkChild(ingestion.ingestPlugin(source));
+			const fiber = yield* Effect.forkChild(ingestion.ingestSystemPlugin(source));
 			yield* Deferred.await(persisted);
 			fiber.interruptUnsafe();
 			yield* Deferred.succeed(release, undefined);
@@ -787,7 +750,7 @@ it.effect("periodically rebuilds a peer after lost install and uninstall publica
 		);
 
 		const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
-		yield* writer.ingestPlugin(source).pipe(Effect.provide(writerContext));
+		yield* writer.ingestSystemPlugin(source).pipe(Effect.provide(writerContext));
 		expect(peerLoader.getSnapshot().plugins["fixture"]).toBeUndefined();
 
 		yield* Queue.offer(ticks, undefined);
@@ -1138,7 +1101,7 @@ it.effect("short-circuits compilation and persistence for a matching source hash
 		const ingestion = yield* PluginIngestionService;
 		const loader = yield* PluginLoader;
 		const source = yield* loadPluginSource(fixturePackageRoot("diagnostic"), fixtureManifest());
-		const plugin = yield* ingestion.ingestPlugin(source);
+		const plugin = yield* ingestion.ingestSystemPlugin(source);
 
 		expect(plugin.scripts[0]?.compiledCode).toBe("cached compiled");
 		expect(persisted).toHaveLength(0);
@@ -1180,7 +1143,7 @@ it.effect("validates the full authoritative active set before exposing a cached 
 		const ingestion = yield* PluginIngestionService;
 		const original = loader.getSnapshot();
 		const source = yield* loadPluginSource(fixturePackageRoot("diagnostic"), cachedManifest);
-		const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
+		const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
 
 		expect(failureOf(exit)).toMatchObject({
 			_tag: "PluginRequestError",
@@ -1249,7 +1212,7 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 		Effect.gen(function* () {
 			const ingestion = yield* PluginIngestionService;
 			const source = yield* loadPluginSource(testCase.packageRoot, testCase.manifest);
-			const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
+			const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
 			const failure = failureOf(exit);
 			expect(failure).toMatchObject({
 				_tag: "PluginRequestError",
@@ -1295,7 +1258,7 @@ it.effect("rejects non-canonical and missing plugin source paths as bad requests
 			const script = manifest.scripts[0];
 			assert(script);
 			const exit = yield* Effect.exit(
-				ingestion.ingestPlugin({
+				ingestion.ingestSystemPlugin({
 					files: path === entry ? {} : { ...source.files, [path]: "source" },
 					manifest: { ...manifest, scripts: [{ ...script, entry: scriptEntry }] },
 				}),
@@ -1318,7 +1281,7 @@ it.effect("rejects script slug collisions with another active plugin", () => {
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
 		const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
-		const exit = yield* Effect.exit(ingestion.ingestPlugin(source));
+		const exit = yield* Effect.exit(ingestion.ingestSystemPlugin(source));
 		expect(failureOf(exit)).toMatchObject({
 			reason: { code: "validation-failed" },
 			_tag: "PluginRequestError",

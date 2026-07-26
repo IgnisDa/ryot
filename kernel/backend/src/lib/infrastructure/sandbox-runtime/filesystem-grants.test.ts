@@ -1,5 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { it } from "@effect/vitest";
+import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot/sandbox-sdk/core";
 import { Cause, Effect, Option, type Scope, FileSystem, Path } from "effect";
 import { assert, describe, expect, it as vitestIt } from "vitest";
@@ -44,9 +45,15 @@ describe("sandbox filesystem grant gating", () => {
 		expect(
 			Object.keys(
 				selectSandboxHostFunctions(bound, {
-					metadata: { kind: "script" },
-					authority: { type: "system" },
-					allowedHostFunctions: ["scratch", "artifact-read", "httpCall"],
+					principal: {
+						contentHash: "",
+						providerId: null,
+						pluginRevision: null,
+						scriptSlug: "script",
+						subject: { type: "system" },
+						scriptId: SandboxScriptId.make("script-1"),
+						metadata: { kind: "script", capabilities: ["scratch", "artifact-read", "httpCall"] },
+					},
 				}),
 			),
 		).toEqual(["httpCall"]);

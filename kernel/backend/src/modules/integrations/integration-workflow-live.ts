@@ -61,7 +61,7 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 			input,
 			scriptId,
 			executionId: `${executionId}-import`,
-			authority: { type: "user", userId: integration.userId, integrationId: integration.id },
+			subject: { type: "user", userId: integration.userId, integrationId: integration.id },
 		})
 		.pipe(withoutWorkflowParent, Effect.mapError(toIntegrationWorkflowError));
 });

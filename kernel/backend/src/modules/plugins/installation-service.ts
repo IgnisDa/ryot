@@ -29,6 +29,7 @@ import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { PluginDefinitionMaterializer } from "./definition-materializer";
+import { PluginIngestionLock } from "./ingestion-lock";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationRow,
@@ -44,11 +45,10 @@ import {
 	decodePluginManifest,
 	PluginValidationError,
 	validatePluginExecutableScripts,
+	validatePluginManifestPolicy,
 	validatePluginManifestReferences,
 	validatePluginPackageLimits,
 	validatePluginSourcePaths,
-	validatePrivateManifestSurfaces,
-	validatePrivateSlugAvailability,
 } from "./validation";
 
 type PrivatePluginPackageInput = PluginPackage | { readonly uploadToken: string };
@@ -169,7 +169,10 @@ const detectShippedConflict = (
 	},
 ) =>
 	Effect.gen(function* () {
-		yield* validatePrivateSlugAvailability(plugin.pluginSlug, shipped.systemSlugs);
+		yield* validatePluginManifestPolicy(plugin.manifest, {
+			scope: "user",
+			systemSlugs: shipped.systemSlugs,
+		});
 		yield* validateEffectiveSurfaceSlugs([
 			...shipped.systemPlugins,
 			{ slug: plugin.pluginSlug, manifest: plugin.manifest },
@@ -312,6 +315,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const database = yield* Database;
 			const loader = yield* PluginLoader;
 			const repository = yield* PluginRepository;
+			const ingestionLock = yield* PluginIngestionLock;
 			const uploadIntents = yield* UploadIntentsService;
 			const objectStorage = yield* ObjectStorageService;
 			const installations = yield* PluginInstallationRepository;
@@ -548,12 +552,11 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					const slug = manifest.metadata.slug;
 					const pluginSlug = PluginSlug.make(slug);
 					yield* validatePluginPackageLimits(input.files, manifest);
-					yield* validatePrivateManifestSurfaces(manifest);
 					const systemManifests = yield* repository.listActiveManifests();
-					yield* validatePrivateSlugAvailability(
-						slug,
-						new Set(systemManifests.map(({ metadata }) => metadata.slug)),
-					);
+					yield* validatePluginManifestPolicy(manifest, {
+						scope: "user",
+						systemSlugs: new Set(systemManifests.map(({ metadata }) => metadata.slug)),
+					});
 					yield* validatePluginSourcePaths(input.files, manifest.scripts);
 					const owned = yield* repository.listPrivateForUser(input.userId);
 					if (owned.some((plugin) => plugin.slug === slug)) {
@@ -594,8 +597,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						mapDatabaseErrors(
 							database.transaction((transaction) =>
 								Effect.gen(function* () {
-									yield* repository.lockIngestion();
-									const pluginId = yield* repository.persist(normalized, {
+									const pluginId = yield* ingestionLock.persistUserPlugin(normalized, {
 										slug,
 										scope: "user",
 										ownerId: input.userId,
@@ -685,7 +687,12 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								});
 							}
 							yield* validatePluginPackageLimits(pluginPackage.files, manifest);
-							yield* validatePrivateManifestSurfaces(manifest);
+							yield* validatePluginManifestPolicy(manifest, {
+								scope: "user",
+								systemSlugs: new Set(
+									(yield* repository.listActiveManifests()).map(({ metadata }) => metadata.slug),
+								),
+							});
 							yield* validatePluginSourcePaths(pluginPackage.files, manifest.scripts);
 							const effectiveDefinitions = yield* buildEffectiveDefinitions(
 								loader.getSnapshot().definitions,
@@ -732,21 +739,13 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 													reason: { code: "plugin-not-found", pluginSlug },
 												});
 											}
-											yield* validatePrivateSlugAvailability(
-												input.pluginSlug,
-												new Set(
-													(yield* repository.listActiveManifests()).map(
-														({ metadata }) => metadata.slug,
-													),
-												),
-											);
 											yield* validateAdditiveSchemaEvolution(current.manifest, manifest);
 											const config = yield* validateConfigPatch(
 												manifest,
 												currentInstallation.config,
 												input,
 											);
-											const persistedId = yield* repository.persist(normalized, {
+											const persistedId = yield* ingestionLock.persistUserPlugin(normalized, {
 												scope: "user",
 												slug: current.slug,
 												ownerId: input.userId,

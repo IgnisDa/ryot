@@ -42,7 +42,7 @@ const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: 
 			scriptId,
 			input: { externalId: payload.externalId },
 			executionId: `${executionId}-sandbox-details`,
-			authority: payload.userId ? { type: "user", userId: payload.userId } : { type: "system" },
+			subject: payload.userId ? { type: "user", userId: payload.userId } : { type: "system" },
 		});
 	}).pipe(Effect.mapError(toSandboxRunError));
 
@@ -64,7 +64,7 @@ const runProviderImportAutomations = (
 		});
 		if (automations.length > 0 && !payload.userId) {
 			return yield* new SandboxRunError({
-				message: "Provider import automations require a user authority",
+				message: "Provider import automations require a user subject",
 			});
 		}
 		if (payload.userId) {
@@ -96,7 +96,7 @@ const runProviderImportAutomations = (
 						input: context,
 						executionId: hookExecutionId,
 						scriptId: automation.sandboxScriptId,
-						authority: { type: "user", userId: payload.userId },
+						subject: { type: "user", userId: payload.userId },
 					})
 					.pipe(Effect.mapError(toSandboxRunError));
 				if (result.error) {

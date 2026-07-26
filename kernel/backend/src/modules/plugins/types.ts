@@ -29,11 +29,10 @@ export type NormalizedPlugin = {
 	readonly sourceFiles: Readonly<Record<string, string>>;
 };
 
-export type StoredPluginIdentity = {
-	readonly id: string;
-	readonly slug: string;
-	readonly ownerId: string | null;
-	readonly scope: "system" | "user";
-};
+export type PluginPersistenceIdentity =
+	| { readonly slug: string; readonly ownerId: null; readonly scope: "system" }
+	| { readonly slug: string; readonly ownerId: string; readonly scope: "user" };
+
+export type StoredPluginIdentity = PluginPersistenceIdentity & { readonly id: string };
 
 export type StoredPlugin = NormalizedPlugin & StoredPluginIdentity & { readonly status: string };

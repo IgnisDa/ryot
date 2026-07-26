@@ -34,7 +34,7 @@ const processSandboxTranslation = Effect.fn("processSandboxTranslation")(functio
 		.executeScript({
 			scriptId,
 			executionId: `${executionId}-sandbox-translate`,
-			authority: { type: "user", userId: payload.userId },
+			subject: { type: "user", userId: payload.userId },
 			input: {
 				language: payload.language,
 				externalId: payload.externalId,

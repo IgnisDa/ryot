@@ -56,8 +56,8 @@ export const SubscriptionExecutionWorkflowOperationsLive = Layer.effect(
 			runSandbox: (payload: SandboxExecutionPayload) =>
 				sandbox.executeScript({
 					input: payload.context,
+					subject: payload.subject,
 					scriptId: payload.scriptId,
-					authority: payload.authority,
 					executionId: payload.executionId,
 				}),
 		} satisfies SubscriptionExecutionWorkflowOperationsValue;
@@ -173,7 +173,7 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("SubscriptionExecution
 			...(prepared.ruleMetadata === null ? {} : { ruleMetadata: prepared.ruleMetadata }),
 		};
 		const context = { automation } satisfies AutomationInput;
-		const authority: SandboxExecutionPayload["authority"] = prepared.executionUserId
+		const subject: SandboxExecutionPayload["subject"] = prepared.executionUserId
 			? {
 					type: "subscription",
 					userId: prepared.executionUserId,
@@ -187,7 +187,7 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("SubscriptionExecution
 		const result = yield* operations
 			.runSandbox({
 				context,
-				authority,
+				subject,
 				scriptId: prepared.sandboxScriptId,
 				executionId: `${prepared.runId}-sandbox`,
 			})
