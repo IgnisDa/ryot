@@ -2132,6 +2132,13 @@
                   "y": 0,
                   "name": "Topbar",
                   "width": 393,
+                  "height": 100,
+                  "fill": "$--background",
+                  "stroke": "$--border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "padding": [
                     44,
@@ -2145,26 +2152,8 @@
                       "id": "CRtHR",
                       "name": "Topbar Row",
                       "width": "fill_container",
-                      "fill": "$--nav-surface",
-                      "cornerRadius": "$--radius-xl",
-                      "stroke": "$--border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "effect": {
-                        "type": "shadow",
-                        "shadowType": "outer",
-                        "color": "#281E0F0D",
-                        "offset": {
-                          "x": 0,
-                          "y": 1
-                        },
-                        "blur": 2
-                      },
+                      "height": 56,
                       "gap": 12,
-                      "padding": [
-                        8,
-                        12
-                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
@@ -3611,6 +3600,13 @@
                   "y": 0,
                   "name": "Topbar",
                   "width": 393,
+                  "height": 100,
+                  "fill": "$--background",
+                  "stroke": "$--border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "padding": [
                     44,
@@ -3624,26 +3620,8 @@
                       "id": "jazpZ",
                       "name": "Topbar Row",
                       "width": "fill_container",
-                      "fill": "$--nav-surface",
-                      "cornerRadius": "$--radius-xl",
-                      "stroke": "$--border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "effect": {
-                        "type": "shadow",
-                        "shadowType": "outer",
-                        "color": "#281E0F0D",
-                        "offset": {
-                          "x": 0,
-                          "y": 1
-                        },
-                        "blur": 2
-                      },
+                      "height": 56,
                       "gap": 12,
-                      "padding": [
-                        8,
-                        12
-                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
@@ -4444,6 +4422,7 @@
                   "x": 16,
                   "y": 762,
                   "name": "Pill Tab Bar / More Views Open",
+                  "enabled": false,
                   "width": 290,
                   "height": 58,
                   "fill": "$--nav-surface",
@@ -5095,6 +5074,13 @@
                   "y": 0,
                   "name": "Topbar",
                   "width": 393,
+                  "height": 100,
+                  "fill": "$--background",
+                  "stroke": "$--border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "padding": [
                     44,
@@ -5108,26 +5094,8 @@
                       "id": "K2nk3",
                       "name": "Topbar Row",
                       "width": "fill_container",
-                      "fill": "$--nav-surface",
-                      "cornerRadius": "$--radius-xl",
-                      "stroke": "$--border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "effect": {
-                        "type": "shadow",
-                        "shadowType": "outer",
-                        "color": "#281E0F0D",
-                        "offset": {
-                          "x": 0,
-                          "y": 1
-                        },
-                        "blur": 2
-                      },
+                      "height": 56,
                       "gap": 12,
-                      "padding": [
-                        8,
-                        12
-                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
@@ -6769,6 +6737,13 @@
                   "y": 0,
                   "name": "Topbar",
                   "width": 393,
+                  "height": 100,
+                  "fill": "$--background",
+                  "stroke": "$--border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "padding": [
                     44,
@@ -6782,26 +6757,8 @@
                       "id": "p1EgA",
                       "name": "Topbar Row",
                       "width": "fill_container",
-                      "fill": "$--nav-surface",
-                      "cornerRadius": "$--radius-xl",
-                      "stroke": "$--border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "effect": {
-                        "type": "shadow",
-                        "shadowType": "outer",
-                        "color": "#281E0F0D",
-                        "offset": {
-                          "x": 0,
-                          "y": 1
-                        },
-                        "blur": 2
-                      },
+                      "height": 56,
                       "gap": 12,
-                      "padding": [
-                        8,
-                        12
-                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
@@ -8224,6 +8181,13 @@
                   "y": 0,
                   "name": "Topbar",
                   "width": 393,
+                  "height": 100,
+                  "fill": "$--background",
+                  "stroke": "$--border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "padding": [
                     44,
@@ -8237,26 +8201,8 @@
                       "id": "k9Fcpx",
                       "name": "Topbar Row",
                       "width": "fill_container",
-                      "fill": "$--nav-surface",
-                      "cornerRadius": "$--radius-xl",
-                      "stroke": "$--border",
-                      "strokeWidth": 1,
-                      "strokeAlignment": "inner",
-                      "effect": {
-                        "type": "shadow",
-                        "shadowType": "outer",
-                        "color": "#281E0F0D",
-                        "offset": {
-                          "x": 0,
-                          "y": 1
-                        },
-                        "blur": 2
-                      },
+                      "height": 56,
                       "gap": 12,
-                      "padding": [
-                        8,
-                        12
-                      ],
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
