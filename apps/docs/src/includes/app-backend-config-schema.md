@@ -81,6 +81,7 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `fileStorage.localDir` | `FILE_STORAGE_LOCAL_DIR` | Writable persistent directory for permanent local objects | No | No | — |
+| `fileStorage.localTempDir` | `FILE_STORAGE_LOCAL_TEMP_DIR` | Directory used for temporary uploads, imports, and sandbox working files | No | No | `/tmp` |
 | `fileStorage.localSigningSecret` | `FILE_STORAGE_LOCAL_SIGNING_SECRET` | Secret used to sign local upload and download paths | No | Yes | — |
 | `fileStorage.url` | `FILE_STORAGE_S3_URL` | S3-compatible endpoint URL | No | No | — |
 | `fileStorage.region` | `FILE_STORAGE_S3_REGION` | S3 bucket region | No | No | — |

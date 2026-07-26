@@ -216,7 +216,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					const engine = yield* WorkflowEngine;
 					if (workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW) {
 						const expectedHarvestDirectoryPrefix = path.join(
-							config.tmpDir,
+							config.fileStorage.localTempDir,
 							`${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`,
 							`${sanitizeSandboxExecutionSegment(parentExecutionId)}-activity-`,
 						);

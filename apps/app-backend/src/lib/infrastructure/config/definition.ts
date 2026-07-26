@@ -115,6 +115,12 @@ const fileStorage = group(
 			label: "Local permanent directory",
 			description: "Writable persistent directory for permanent local objects",
 		}),
+		localTempDir: stringField({
+			defaultValue: "/tmp",
+			label: "Local working directory",
+			envKey: "FILE_STORAGE_LOCAL_TEMP_DIR",
+			description: "Directory used for temporary uploads, imports, and sandbox working files",
+		}),
 		localSigningSecret: stringField({
 			secret: true,
 			label: "Local signing secret",
@@ -258,13 +264,6 @@ export const appConfigDefinition = defineConfig(
 			envKey: "PORT",
 			defaultValue: 8000,
 			description: "HTTP port the server listens on",
-		}),
-		tmpDir: stringField({
-			hidden: true,
-			envKey: "TMPDIR",
-			defaultValue: "/tmp",
-			label: "Temporary directory",
-			description: "Directory for temporary import and upload files",
 		}),
 		nodeEnv: stringField({
 			hidden: true,

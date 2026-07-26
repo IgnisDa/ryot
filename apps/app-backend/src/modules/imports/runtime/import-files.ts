@@ -151,7 +151,7 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 	const maxTotalBytes = options.maxTotalBytes ?? MAX_ZIP_TOTAL_BYTES;
 	const directoryPath = yield* fs.makeTempDirectory({
 		prefix: ZIP_TEMP_DIRECTORY_PREFIX,
-		directory: config.tmpDir,
+		directory: config.fileStorage.localTempDir,
 	});
 
 	const extractEntries = Effect.gen(function* () {
