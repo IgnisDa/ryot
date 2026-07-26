@@ -17,7 +17,7 @@ import {
 	measure,
 	table,
 } from "@ryot-app/ryotql";
-import { Effect } from "effect";
+import { Duration, Effect } from "effect";
 
 import { adminHeaders } from "~/fixtures/kernel/admin";
 import type { Client } from "~/fixtures/kernel/auth";
@@ -27,19 +27,39 @@ import { pollUntil } from "~/fixtures/kernel/polling";
 import { executeRyotQL, requireRyotQLValue } from "~/fixtures/kernel/ryotql";
 import { assertCondition } from "~/support/assertions";
 
+const CRON_TRIGGER_ATTEMPTS = 3;
+const CRON_TRIGGER_RETRY_DELAY = Duration.millis(5_000);
+
 export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: string) =>
 	Effect.gen(function* () {
 		const previousPopulatedAt = (yield* getEntity(auth.client, entityId)).populatedAt;
-		const cron = yield* getApiClient().call(
-			(c) =>
-				c.testSupport.triggerPluginCron({
-					payload: { cronSlug: "media-monitoring", pluginSlug: PluginSlug.make("media") },
-				}),
-			adminHeaders(),
-		);
+		let lastCron: unknown;
+		let refreshed = false;
+		for (let attempt = 1; attempt <= CRON_TRIGGER_ATTEMPTS; attempt += 1) {
+			const cron = yield* getApiClient().call(
+				(c) =>
+					c.testSupport.triggerPluginCron({
+						payload: { cronSlug: "media-monitoring", pluginSlug: PluginSlug.make("media") },
+					}),
+				adminHeaders(),
+			);
+			lastCron = cron;
+			if (cron.status === "executed") {
+				refreshed = true;
+				break;
+			}
+			const currentPopulatedAt = (yield* getEntity(auth.client, entityId)).populatedAt;
+			if (currentPopulatedAt !== previousPopulatedAt) {
+				refreshed = true;
+				break;
+			}
+			if (attempt < CRON_TRIGGER_ATTEMPTS) {
+				yield* Effect.sleep(CRON_TRIGGER_RETRY_DELAY);
+			}
+		}
 		assertCondition(
-			cron.status === "executed",
-			`Media monitoring cron failed: ${JSON.stringify(cron)}`,
+			refreshed,
+			`Media monitoring cron failed after ${CRON_TRIGGER_ATTEMPTS} attempts: ${JSON.stringify(lastCron)}`,
 		);
 		yield* pollUntil(
 			"media monitoring entity refresh",

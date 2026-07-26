@@ -101,6 +101,7 @@ export function buildApiEnv(input: {
 		DATABASE_URL: input.dbUrl,
 		REDIS_URL: input.redisUrl,
 		PORT: input.port.toString(),
+		SANDBOX_WORKER_CONCURRENCY: "5",
 		FRONTEND_URL: input.frontendUrl,
 		FILE_STORAGE_S3_REGION: "us-east-1",
 		FILE_STORAGE_S3_URL: input.s3Endpoint,

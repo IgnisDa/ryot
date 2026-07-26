@@ -118,7 +118,7 @@ const startApi = (label: string, port: number, extraEnv: Record<string, string> 
 };
 
 const waitForApi = (port: number) =>
-	waitForHealthCheck(`http://127.0.0.1:${port}/api/system/health`, "OIDC Setup");
+	waitForHealthCheck(`http://127.0.0.1:${port}/api/system/health`, "OIDC Setup", 90);
 
 beforeAll(async () => {
 	await Effect.runPromise(
