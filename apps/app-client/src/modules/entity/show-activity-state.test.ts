@@ -79,6 +79,7 @@ describe("show activity state", () => {
 		expect(cycles.map((cycle) => cycle.completedAt)).toEqual([null, "2025-11-06T12:00:00.000Z"]);
 		expect(cycles.at(0)?.events.map((event) => event.id)).toEqual([
 			"special-3-progress",
+			"watchlist-removed",
 			"show-review",
 		]);
 		expect(cycles.at(1)?.events.map((event) => event.id)).toEqual([
@@ -87,6 +88,7 @@ describe("show activity state", () => {
 			"episode-1-review",
 			"episode-1-complete",
 			"episode-1-progress",
+			"watchlist-added",
 			"show-backlog",
 		]);
 	});
@@ -108,11 +110,13 @@ describe("show activity state", () => {
 	it("collapses progress that a completion in the same cycle already supersedes", () => {
 		expect(entryLabels()).toEqual([
 			"Reached 40% in Making Adolescence",
+			"Removed from Watchlist",
 			"Rated 82/100",
 			"Completed the show",
 			"Watched Episode 2: The Interview",
 			"Rated 90/100",
 			"Watched Episode 1: The Arrest",
+			"Added to Watchlist",
 			"Added to backlog",
 		]);
 	});
@@ -128,8 +132,11 @@ describe("show activity state", () => {
 	it("keeps only the newest progress milestone for an unfinished episode", () => {
 		const older = { ...episodeProgressRow, id: "older", occurredAt: "2025-11-02T12:00:00.000Z" };
 		const collapsed = showActivityMilestones(
-			decodeShowActivity({ episodeEvents: [], episodeProgress: [episodeProgressRow, older] })
-				.events,
+			decodeShowActivity({
+				episodeEvents: [],
+				collectionEvents: [],
+				episodeProgress: [episodeProgressRow, older],
+			}).events,
 		);
 
 		expect(collapsed.map((event) => event.id)).toEqual([
@@ -147,6 +154,7 @@ describe("show activity state", () => {
 			"Nov 6, 2025",
 			"Nov 5, 2025",
 			"Nov 4, 2025",
+			"Nov 2, 2025",
 			"Nov 1, 2025",
 		]);
 		expect(completed?.days.at(1)?.entries.map((event) => event.id)).toEqual([
@@ -191,6 +199,7 @@ describe("show activity state", () => {
 				firstEvent({
 					episodeEvents: [],
 					episodeProgress: [],
+					collectionEvents: [],
 					parentEvents: [{ ...showBacklogEventRow, ...overrides }],
 				}),
 			);
@@ -201,6 +210,12 @@ describe("show activity state", () => {
 		expect(parentEvent({ eventSchemaSlug: "complete" })).toBe("Completed the show");
 		expect(parentEvent({ eventSchemaSlug: "review" })).toBe("Wrote a review");
 		expect(parentEvent({ eventSchemaSlug: "review", rating: 82.5 })).toBe("Rated 82.5/100");
+	});
+
+	it("names the collection a membership change moved the show through", () => {
+		expect(showActivityLabel(eventById("watchlist-added"))).toBe("Added to Watchlist");
+		expect(showActivityLabel(eventById("watchlist-removed"))).toBe("Removed from Watchlist");
+		expect(showActivityMetaLabel(eventById("watchlist-removed"))).toBe("");
 	});
 
 	it("shows the consumption source and recorded time only when they exist", () => {
@@ -236,6 +251,7 @@ describe("show activity state", () => {
 			firstEvent({
 				parentEvents: [],
 				episodeEvents: [],
+				collectionEvents: [],
 				episodeProgress: [{ ...specialProgressRow, progressPercent: null }],
 			}),
 		);
