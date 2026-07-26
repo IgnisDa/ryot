@@ -19,6 +19,7 @@ import {
 	getNavigationHref,
 	getNavigationItems,
 	getWorkspaceSummary,
+	getWorkspacePickerSummary,
 	type NavigationData,
 	type NavigationItem,
 	type NavigationItems,
@@ -391,28 +392,33 @@ function MobileWorkspaceSheet(props: {
 	return (
 		<Sheet title="Workspaces" onClose={props.onClose} className="h-116.25">
 			<View className="gap-2">
-				{props.data.workspaces.map((workspace) => (
-					<Pressable
-						key={workspace.slug}
-						accessibilityRole="button"
-						onPress={() => props.onSelect(workspace.slug)}
-						accessibilityLabel={`Switch to ${workspace.name} workspace`}
-						className="flex-row items-center gap-3 rounded-lg border border-border px-3 py-3"
-					>
-						<View className="h-11 w-11 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
-							<NavigationIcon name={workspace.icon} size={20} />
-						</View>
-						<View className="flex-1">
-							<Text className="font-ui-medium text-sm text-text">{workspace.name}</Text>
-							<Text className="font-ui text-xs text-text-muted">{workspace.description}</Text>
-						</View>
-						{workspace.slug === props.currentWorkspaceSlug ? (
-							<NavigationIcon name="check" size={17} />
-						) : (
-							<NavigationIcon name="chevron-right" size={17} />
-						)}
-					</Pressable>
-				))}
+				{props.data.workspaces.map((workspace) => {
+					const items = getNavigationItems({ data: props.data, workspaceSlug: workspace.slug });
+					return (
+						<Pressable
+							key={workspace.slug}
+							accessibilityRole="button"
+							onPress={() => props.onSelect(workspace.slug)}
+							accessibilityLabel={`Switch to ${workspace.name} workspace`}
+							className="flex-row items-center gap-3 rounded-lg border border-border px-3 py-3"
+						>
+							<View className="h-11 w-11 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
+								<NavigationIcon name={workspace.icon} size={20} />
+							</View>
+							<View className="flex-1">
+								<Text className="font-ui-medium text-sm text-text">{workspace.name}</Text>
+								<Text className="font-ui text-xs text-text-muted">
+									{getWorkspacePickerSummary(items)}
+								</Text>
+							</View>
+							{workspace.slug === props.currentWorkspaceSlug ? (
+								<NavigationIcon name="check" size={17} />
+							) : (
+								<NavigationIcon name="chevron-right" size={17} />
+							)}
+						</Pressable>
+					);
+				})}
 			</View>
 			<View className="mt-5 gap-2">
 				<Text className="font-ui-semibold text-[10px] uppercase tracking-[1.6px] text-text-subtle">
@@ -748,7 +754,9 @@ export function WorkspaceShell() {
 			{desktopWorkspaceOpen && (
 				<View className="absolute left-69.5 top-19.5 z-50 hidden w-[320px] rounded-xl border border-border bg-surface p-3 shadow-card md:flex">
 					<View className="flex-row items-center justify-between px-1 pb-2">
-						<Text className="font-ui-semibold text-xs text-text">Switch workspace</Text>
+						<Text className="font-ui-semibold text-[10px] uppercase tracking-[1.6px] text-text-subtle">
+							Workspaces
+						</Text>
 						<Pressable
 							accessibilityRole="button"
 							className="text-text-muted"
@@ -760,27 +768,32 @@ export function WorkspaceShell() {
 					</View>
 					<View className="h-8 flex-row items-center gap-2 rounded-md border border-border bg-bg px-2 text-text-muted">
 						<NavigationIcon name="search" size={14} />
-						<Text className="font-ui text-xs text-text-muted">Filter workspaces</Text>
+						<Text className="font-ui text-xs text-text-muted">Find workspace</Text>
 					</View>
 					<View className="mt-2 gap-1">
-						{data.workspaces.map((item) => (
-							<Pressable
-								key={item.slug}
-								accessibilityRole="button"
-								onPress={() => selectWorkspace(item.slug)}
-								accessibilityLabel={`Switch to ${item.name} workspace`}
-								className="flex-row items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-2"
-							>
-								<View className="h-8 w-8 items-center justify-center rounded-md bg-accent-soft text-accent-text">
-									<NavigationIcon name={item.icon} size={15} />
-								</View>
-								<View className="flex-1">
-									<Text className="font-ui-medium text-xs text-text">{item.name}</Text>
-									<Text className="font-ui text-[10px] text-text-muted">{item.description}</Text>
-								</View>
-								{item.slug === currentWorkspace.slug && <NavigationIcon name="check" size={15} />}
-							</Pressable>
-						))}
+						{data.workspaces.map((item) => {
+							const workspaceItems = getNavigationItems({ data, workspaceSlug: item.slug });
+							return (
+								<Pressable
+									key={item.slug}
+									accessibilityRole="button"
+									onPress={() => selectWorkspace(item.slug)}
+									accessibilityLabel={`Switch to ${item.name} workspace`}
+									className="flex-row items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-2"
+								>
+									<View className="h-8 w-8 items-center justify-center rounded-md bg-accent-soft text-accent-text">
+										<NavigationIcon name={item.icon} size={15} />
+									</View>
+									<View className="flex-1">
+										<Text className="font-ui-medium text-xs text-text">{item.name}</Text>
+										<Text className="font-ui text-[10px] text-text-muted">
+											{getWorkspacePickerSummary(workspaceItems)}
+										</Text>
+									</View>
+									{item.slug === currentWorkspace.slug && <NavigationIcon name="check" size={15} />}
+								</Pressable>
+							);
+						})}
 					</View>
 				</View>
 			)}
