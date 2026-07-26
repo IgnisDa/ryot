@@ -1,4 +1,4 @@
-import { pluginConfigEnvironmentKey } from "@ryot/config";
+import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";

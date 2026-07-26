@@ -1,3 +1,4 @@
+import type { ContractPayload } from "@ryot/contract/client";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
@@ -5,11 +6,13 @@ import { requireObjectRecord, requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
 
-export interface CreateCollectionOptions {
-	name?: string;
-	description?: string;
+type CreateCollectionPayload = ContractPayload<"collections", "create">;
+
+export type CreateCollectionOptions = Partial<
+	Omit<CreateCollectionPayload, "membershipPropertiesSchema">
+> & {
 	membershipPropertiesSchema?: AppSchema;
-}
+};
 
 export const createCollection = (client: Client, options: CreateCollectionOptions = {}) =>
 	Effect.gen(function* () {
