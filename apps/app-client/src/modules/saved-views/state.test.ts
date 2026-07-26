@@ -12,7 +12,6 @@ import {
 	mapSavedViewRecord,
 	mapSavedViewResult,
 	materializeSavedViewData,
-	patchSavedViewItems,
 	type SavedViewNormalizedState,
 	type SavedViewPage,
 } from "./state";
@@ -199,47 +198,26 @@ describe("saved-view application state", () => {
 	});
 
 	it("keeps managed asset loading and failure non-fatal", () => {
-		expect(mapManagedAssetResolution(AsyncResult.initial(), "https://server.test")).toEqual({
+		expect(mapManagedAssetResolution(AsyncResult.initial(), (url) => url)).toEqual({
 			urls: new Map(),
 			status: "loading",
 		});
 		expect(
-			mapManagedAssetResolution(AsyncResult.failure(Cause.fail("offline")), "https://server.test"),
+			mapManagedAssetResolution(AsyncResult.failure(Cause.fail("offline")), (url) => url),
 		).toMatchObject({ status: "unavailable", urls: new Map() });
-	});
-
-	it("patches an earlier page item without changing page order", () => {
-		const state = patchSavedViewItems(
-			appendSavedViewPage(
-				appendSavedViewPage(emptyCardState(), savedViewPage(["entity-1"])),
-				savedViewPage(["entity-2"]),
-			),
-			[cardItem("entity-1", "First"), cardItem("entity-2", "Second")],
-		);
-		const patched = patchSavedViewItems(state, [cardItem("entity-1", "Updated")]);
-		const materialized = materializeSavedViewData(patched, "grid");
-
-		expect(materialized.entityIds).toEqual(["entity-1", "entity-2"]);
-		expect(
-			materialized.data.items.map((item) => ("title" in item ? item.title : undefined)),
-		).toEqual(["Updated", "Second"]);
-		expect(patched.pages).toEqual(state.pages);
 	});
 
 	it("renders duplicate entity IDs once and derives card assets", () => {
 		const first = cardItem("entity-1", "First");
 		const second = cardItem("entity-2", "Second");
 		const third = cardItem("entity-3", "Third");
-		const state = patchSavedViewItems(
-			appendSavedViewPage(
-				appendSavedViewPage(emptyCardState(), savedViewPage(["entity-1", "entity-2", "entity-1"])),
-				savedViewPage(["entity-2", "entity-3", "entity-1"]),
-			),
-			[
+		const state = appendSavedViewPage(
+			appendSavedViewPage(emptyCardState(), savedViewPage(["entity-1", "entity-2", "entity-1"]), [
 				{ ...first, image: { type: "asset", locator: { key: "cover.jpg", type: "local" } } },
 				second,
-				third,
-			],
+			]),
+			savedViewPage(["entity-2", "entity-3", "entity-1"]),
+			[third],
 		);
 		const materialized = materializeSavedViewData(state, "list");
 
@@ -255,40 +233,20 @@ describe("saved-view application state", () => {
 	it("keeps missing rows unchanged and materializes table items", () => {
 		const first = tableItem("entity-1", "First");
 		const second = tableItem("entity-2", "Second");
-		const state = patchSavedViewItems(
-			appendSavedViewPage(
-				emptyState<SavedViewTableItem>(),
-				savedViewPage(["entity-1", "entity-2"]),
-			),
+		const state = appendSavedViewPage(
+			emptyState<SavedViewTableItem>(),
+			savedViewPage(["entity-1", "entity-2", "entity-3"]),
 			[first, second],
 		);
-		const patched = patchSavedViewItems(state, [tableItem("entity-1", "Updated")]);
-		const materialized = materializeSavedViewData(patched, "table");
+		const materialized = materializeSavedViewData(state, "table");
 
 		expect(materialized.layout).toBe("table");
 		expect(materialized.entityIds).toEqual(["entity-1", "entity-2"]);
 		expect(
 			materialized.data.items.map((item) => ("cells" in item ? item.cells[0]?.value : undefined)),
 		).toEqual([
-			{ kind: "text", value: "Updated" },
+			{ kind: "text", value: "First" },
 			{ kind: "text", value: "Second" },
 		]);
-		expect(patchSavedViewItems(patched, []).itemsById).toEqual(patched.itemsById);
-	});
-
-	it("keeps the canonical managed asset set when hydration changes only display data", () => {
-		const locator = { key: "cover.jpg", type: "local" } as const;
-		const state = appendSavedViewPage(emptyCardState(), savedViewPage(["entity-1"]), [
-			{ ...cardItem("entity-1", "First"), image: { type: "asset", locator } },
-		]);
-		const before = materializeSavedViewData(state, "grid");
-		const after = materializeSavedViewData(
-			patchSavedViewItems(state, [
-				{ ...cardItem("entity-1", "Updated"), image: { type: "asset", locator } },
-			]),
-			"grid",
-		);
-
-		expect(after.assets).toEqual(before.assets);
 	});
 });

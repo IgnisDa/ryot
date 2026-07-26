@@ -1,5 +1,6 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
+import { randomUUID } from "expo-crypto";
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -13,7 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { godModeUsersAtom } from "@/modules/god-mode/atoms";
+import { clearGodModeSession, godModeUsersAtom } from "@/modules/god-mode/atoms";
 import { isUnauthorizedCause } from "@/modules/god-mode/errors";
 import { TokenForm } from "@/modules/god-mode/token-form";
 import { GodModeUserList } from "@/modules/god-mode/user-list";
@@ -22,6 +23,7 @@ import { useServerUrl } from "@/modules/server/state";
 function UserManagement(props: {
 	serverUrl: string;
 	adminToken: string;
+	sessionId: string;
 	onUnauthorized: () => void;
 }) {
 	const onUnauthorized = props.onUnauthorized;
@@ -75,6 +77,7 @@ function UserManagement(props: {
 			users={users.value.users}
 			serverUrl={props.serverUrl}
 			adminToken={props.adminToken}
+			sessionId={props.sessionId}
 			onUnauthorized={onUnauthorized}
 		/>
 	);
@@ -85,15 +88,24 @@ export default function GodMode() {
 	const insets = useSafeAreaInsets();
 	const [token, setToken] = useState("");
 	const [tokenError, setTokenError] = useState<string | null>(null);
-	const [submittedToken, setSubmittedToken] = useState<string | null>(null);
+	const [submittedToken, setSubmittedToken] = useState<{
+		token: string;
+		sessionId: string;
+	} | null>(null);
 
 	function handleSubmit() {
 		const submitted = token.trim();
 		setTokenError(null);
-		setSubmittedToken(submitted);
+		setSubmittedToken({ token: submitted, sessionId: randomUUID() });
 	}
 
 	function handleUnauthorized() {
+		if (serverUrl && submittedToken) {
+			clearGodModeSession({
+				serverUrl,
+				sessionId: submittedToken.sessionId,
+			});
+		}
 		setToken("");
 		setSubmittedToken(null);
 		setTokenError("That admin access token is invalid.");
@@ -131,7 +143,8 @@ export default function GodMode() {
 					</View>
 					<UserManagement
 						serverUrl={serverUrl}
-						adminToken={submittedToken}
+						adminToken={submittedToken.token}
+						sessionId={submittedToken.sessionId}
 						onUnauthorized={handleUnauthorized}
 					/>
 				</ScrollView>

@@ -1,19 +1,14 @@
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import { Effect } from "effect";
 
-import { withSavedViewCursor } from "./atom-requests";
-import type { SavedViewCardItem, SavedViewTableItem } from "./display-data";
-import type { SavedViewLayout } from "./saved-view-layout-selector";
 import {
 	appendSavedViewPage,
 	materializeSavedViewData,
-	patchSavedViewItems,
 	type SavedViewNormalizedState,
 	type SavedViewReadyState,
 	type SavedViewResultState,
 } from "./state";
-
-type SavedViewItem = SavedViewCardItem | SavedViewTableItem;
+import type { SavedViewLayout } from "./storage";
 
 export type SavedViewOperationToken = {
 	readonly identity: string;
@@ -34,12 +29,11 @@ export type SavedViewRequestFailure = {
 
 type SavedViewOperation = {
 	readonly token: SavedViewOperationToken;
-	readonly phase: "initial" | "load-more" | "structural";
+	readonly phase: "initial" | "load-more" | "refresh";
 };
 
 type SavedViewLayoutState = {
 	readonly data: SavedViewNormalizedState;
-	readonly manual: boolean;
 	readonly failure: SavedViewRequestFailure | undefined;
 	readonly operation: SavedViewOperation | undefined;
 };
@@ -47,6 +41,8 @@ type SavedViewLayoutState = {
 export type SavedViewControllerState = {
 	readonly identity: string;
 	readonly generation: number;
+	readonly pendingRefresh: boolean;
+	readonly retryRefresh: boolean;
 	readonly activeLayout: SavedViewLayout;
 	readonly layouts: Partial<Record<SavedViewLayout, SavedViewLayoutState>>;
 };
@@ -58,8 +54,8 @@ export type SavedViewControllerEvent =
 			readonly layout: SavedViewLayout;
 	  }
 	| { readonly type: "layout-changed"; readonly layout: SavedViewLayout }
-	| { readonly type: "manual-started"; readonly token: Omit<SavedViewOperationToken, "generation"> }
-	| { readonly type: "manual-ended"; readonly token: Omit<SavedViewOperationToken, "generation"> }
+	| { readonly type: "refresh-requested" }
+	| { readonly type: "refresh-retry-elapsed" }
 	| {
 			readonly type: "request-started";
 			readonly token: SavedViewOperationToken;
@@ -74,18 +70,11 @@ export type SavedViewControllerEvent =
 			readonly type: "request-failed";
 			readonly token: SavedViewOperationToken;
 			readonly failure: SavedViewRequestFailure;
-	  }
-	| {
-			readonly type: "hydration-succeeded";
-			readonly token: SavedViewOperationToken;
-			readonly entityIds: readonly string[];
-			readonly items: readonly SavedViewItem[];
 	  };
 
 const emptyData = (): SavedViewNormalizedState => ({ itemsById: new Map(), pages: [] });
 
 const emptyLayout = (): SavedViewLayoutState => ({
-	manual: false,
 	data: emptyData(),
 	failure: undefined,
 	operation: undefined,
@@ -97,11 +86,13 @@ export const createSavedViewControllerState = (
 ): SavedViewControllerState => ({
 	identity,
 	generation: 0,
+	pendingRefresh: false,
+	retryRefresh: false,
 	activeLayout,
 	layouts: { [activeLayout]: emptyLayout() },
 });
 
-export const isSavedViewOperationCurrent = (
+const isSavedViewOperationCurrent = (
 	token: SavedViewOperationToken,
 	state: Pick<SavedViewControllerState, "identity" | "activeLayout" | "generation">,
 ) =>
@@ -139,24 +130,23 @@ export const savedViewControllerReducer = (
 		const layouts = Object.fromEntries(
 			Object.entries(state.layouts).map(([layout, current]) => [
 				layout,
-				{ ...current, manual: false, operation: undefined },
+				{ ...current, operation: undefined },
 			]),
 		) as SavedViewControllerState["layouts"];
 		return {
 			...state,
+			pendingRefresh: false,
+			retryRefresh: false,
 			layouts: { ...layouts, [event.layout]: layouts[event.layout] ?? emptyLayout() },
 			generation: state.generation + 1,
 			activeLayout: event.layout,
 		};
 	}
-	if (event.type === "manual-started" || event.type === "manual-ended") {
-		if (event.token.identity !== state.identity || event.token.layout !== state.activeLayout) {
-			return state;
-		}
-		return updateLayout(state, event.token.layout, (current) => ({
-			...current,
-			manual: event.type === "manual-started",
-		}));
+	if (event.type === "refresh-requested") {
+		return state.pendingRefresh ? state : { ...state, pendingRefresh: true };
+	}
+	if (event.type === "refresh-retry-elapsed") {
+		return { ...state, retryRefresh: false, pendingRefresh: true };
 	}
 	if (event.type === "request-started") {
 		if (
@@ -167,7 +157,12 @@ export const savedViewControllerReducer = (
 			return state;
 		}
 		return updateLayout(
-			{ ...state, generation: event.token.generation },
+			{
+				...state,
+				generation: event.token.generation,
+				retryRefresh: false,
+				pendingRefresh: event.phase === "refresh" ? false : state.pendingRefresh,
+			},
 			event.token.layout,
 			(current) => ({
 				...current,
@@ -180,39 +175,30 @@ export const savedViewControllerReducer = (
 		if (!isCurrentRequest(state, event.token)) {
 			return state;
 		}
-		return updateLayout(state, event.token.layout, (current) => ({
+		return updateLayout({ ...state, retryRefresh: false }, event.token.layout, (current) => ({
 			...current,
 			data: event.data,
-			manual: false,
 			failure: undefined,
 			operation: undefined,
 		}));
 	}
-	if (event.type === "request-failed") {
-		if (!isCurrentRequest(state, event.token)) {
-			return state;
-		}
-		return updateLayout(state, event.token.layout, (current) => ({
-			...current,
-			manual: false,
-			failure: event.failure,
-			operation: undefined,
-		}));
-	}
-	if (!isSavedViewOperationCurrent(event.token, state)) {
+	if (!isCurrentRequest(state, event.token)) {
 		return state;
 	}
-	return updateLayout(state, event.token.layout, (current) => {
-		const loaded = new Set(current.data.pages.flatMap((page) => page.entityIds));
-		const requested = new Set(event.entityIds);
-		return {
+	const phase = state.layouts[event.token.layout]?.operation?.phase;
+	return updateLayout(
+		{
+			...state,
+			retryRefresh: phase === "refresh",
+			pendingRefresh: phase === "initial" ? false : state.pendingRefresh,
+		},
+		event.token.layout,
+		(current) => ({
 			...current,
-			data: patchSavedViewItems(
-				current.data,
-				event.items.filter((item) => loaded.has(item.entityId) && requested.has(item.entityId)),
-			),
-		};
-	});
+			failure: event.failure,
+			operation: undefined,
+		}),
+	);
 };
 
 export const savedViewControllerResult = (
@@ -228,6 +214,11 @@ export const savedViewControllerResult = (
 export const isSavedViewLoadingMore = (state: SavedViewControllerState) =>
 	state.layouts[state.activeLayout]?.operation?.phase === "load-more";
 
+export const canRefreshSavedView = (state: SavedViewControllerState) => {
+	const current = state.layouts[state.activeLayout];
+	return state.pendingRefresh && !!current && current.data.pages.length > 0 && !current.operation;
+};
+
 export const executeSavedViewRequest = (input: {
 	readonly queryDocument: RyotQLDocument;
 	readonly execute: (queryDocument: RyotQLDocument) => Effect.Effect<unknown, unknown>;
@@ -239,6 +230,26 @@ export const executeSavedViewRequest = (input: {
 		Effect.mapError((cause): SavedViewRequestFailure => ({ cause, status: "transport-error" })),
 		Effect.flatMap(input.decode),
 	);
+
+export const withSavedViewCursor = (queryDocument: RyotQLDocument, after: string) => {
+	const [queryName, query] = Object.entries(queryDocument.queries)[0];
+	if (query.output.type !== "rows") {
+		return queryDocument;
+	}
+	return {
+		...queryDocument,
+		queries: {
+			...queryDocument.queries,
+			[queryName]: {
+				...query,
+				output: {
+					...query.output,
+					pagination: { ...query.output.pagination, after },
+				},
+			},
+		},
+	};
+};
 
 export const fetchSavedViewPages = (input: {
 	readonly pagesToLoad: number;
