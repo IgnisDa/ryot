@@ -585,8 +585,16 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							scriptSlug: binding.scriptSlug,
 							position: binding.kind === "policy" ? (binding.position ?? 1000) : null,
 							target: { kind: "event_schema", id: EventSchemaSlug.make(binding.eventSchemaSlug) },
-							metadata: binding.metadata?.inheritedProperties
-								? { inheritedProperties: [...binding.metadata.inheritedProperties] }
+							metadata: binding.metadata
+								? {
+										...(binding.metadata.origins ? { origins: [...binding.metadata.origins] } : {}),
+										...(binding.metadata.batchMode
+											? { batchMode: binding.metadata.batchMode }
+											: {}),
+										...(binding.metadata.inheritedProperties
+											? { inheritedProperties: [...binding.metadata.inheritedProperties] }
+											: {}),
+									}
 								: null,
 						});
 					}

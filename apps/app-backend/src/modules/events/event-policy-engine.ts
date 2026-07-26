@@ -4,6 +4,7 @@ import {
 	AutomationPolicyResult,
 	AutomationProperties,
 	AutomationRuleMetadata,
+	type AutomationOrigin,
 } from "@ryot/contract/modules/automations/schemas";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import type { EntitySchemaSlug, EventSchemaSlug } from "@ryot/contract/schema/brands";
@@ -28,6 +29,22 @@ import { resolveEventCreateItemScopes } from "./event-creation";
 
 const policyFailed = (detail: string) => badRequest(`Policy failed: ${detail}`);
 const invalidPolicyResultShape = "Policy returned invalid shape";
+
+export const isAutomationMetadataObject = (
+	metadata: AutomationRuleMetadata | null,
+): metadata is Readonly<Record<string, AutomationRuleMetadata>> =>
+	typeof metadata === "object" && metadata !== null && !Array.isArray(metadata);
+
+const runsForOrigin = (
+	metadata: AutomationRuleMetadata | null,
+	origin: AutomationOrigin["kind"],
+) => {
+	if (!isAutomationMetadataObject(metadata)) {
+		return true;
+	}
+	const origins = metadata["origins"];
+	return !Array.isArray(origins) || origins.includes(origin);
+};
 
 export const EventPolicyDraft = Schema.Struct({
 	occurredAt: Schema.String,
@@ -137,9 +154,9 @@ export const runEventCreatePolicies = Effect.fn(function* (
 ) {
 	const { userId } = payload;
 	const policyOrigin = yield* resolvePolicyOrigin(payload);
-	const steps = [...prepared.policies].sort(
-		(left, right) => left.position - right.position || left.id.localeCompare(right.id),
-	);
+	const steps = prepared.policies
+		.filter((policy) => runsForOrigin(policy.metadata, policyOrigin.kind))
+		.sort((left, right) => left.position - right.position || left.id.localeCompare(right.id));
 	let draft: EventPolicyDraft = {
 		properties: prepared.properties,
 		occurredAt: prepared.occurredAt,
