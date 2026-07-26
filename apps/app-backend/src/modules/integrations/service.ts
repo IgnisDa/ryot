@@ -227,17 +227,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				return { id: integrationId };
 			});
 
-			const listRuns = Effect.fn("IntegrationsService.listRuns")(function* (
-				user: CurrentUserValue,
-				integrationId: IntegrationId,
-			) {
-				yield* requireIntegration(user.id, integrationId);
-				return yield* importsService.listRunsByIntegrationId({
-					integrationId,
-					userId: user.id,
-				});
-			});
-
 			const handleWebhook = Effect.fn("IntegrationsService.handleWebhook")(function* (input: {
 				payload: IntegrationWebhookPayload;
 				integrationId: IntegrationId;
@@ -344,7 +333,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			return {
 				create,
 				update,
-				listRuns,
 				handleWebhook,
 				updateForClient,
 				disableIfEnabled,

@@ -152,6 +152,58 @@ it("exposes only approved application-table fields", () => {
 		user: { type: "owned", column: "user_id", includeGlobal: false },
 	});
 	expect(integration && "plugin" in integration.visibility).toBe(false);
+	expect(new Set(Object.keys(getCatalogTable("importRun")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"source",
+			"status",
+			"progress",
+			"totalItems",
+			"failedItems",
+			"importedItems",
+			"processedItems",
+			"errorSummary",
+			"inputSummary",
+			"integrationId",
+			"startedAt",
+			"finishedAt",
+			"createdAt",
+			"updatedAt",
+		]),
+	);
+	expect(new Set(Object.keys(getCatalogTable("importRunFailure")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"runId",
+			"stage",
+			"message",
+			"context",
+			"itemIndex",
+			"sourceLabel",
+			"sourceIdentifier",
+			"eventSchemaSlug",
+			"entitySchemaSlug",
+			"createdAt",
+		]),
+	);
+	const importRun = getCatalogTable("importRun");
+	const importRunFailure = getCatalogTable("importRunFailure");
+	expect(importRun?.name).toBe("import_run");
+	expect(importRun?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false },
+	});
+	expect(importRunFailure?.name).toBe("import_run_failure");
+	expect(importRunFailure?.visibility).toEqual({
+		user: {
+			column: "run_id",
+			parentColumn: "id",
+			type: "parentOwned",
+			parentTable: "import_run",
+			parentOwnerColumn: "user_id",
+		},
+	});
+	expect(importRun && "plugin" in importRun.visibility).toBe(false);
+	expect(importRunFailure && "plugin" in importRunFailure.visibility).toBe(false);
 });
 
 it("rejects hidden application-table fields", () => {
@@ -167,6 +219,7 @@ it("rejects hidden application-table fields", () => {
 		["integration", "userId"],
 		["integration", "providerSpecifics"],
 		["integration", "webhookUrl"],
+		["importRun", "userId"],
 	] as const) {
 		const source = table(tableName, "source");
 		const catalogName = getCatalogTable(tableName)?.name;
@@ -185,6 +238,17 @@ it("rejects hidden application-table fields", () => {
 				}),
 			),
 		).toBe(`Query 'rows': Unknown field '${fieldName}' on table '${catalogName}'`);
+	}
+});
+
+it("denies import catalog tables to plugin execution", () => {
+	for (const tableName of ["importRun", "importRunFailure"] as const) {
+		const source = table(tableName, "source");
+		expect(
+			validateRyotQLDocument(document({ rows: rows(source, { fields: [] }) }), {
+				type: "plugin",
+			}),
+		).toBe(`Query 'rows': Table '${tableName}' is not available to plugin execution`);
 	}
 });
 

@@ -392,6 +392,13 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 		if (policy.type === "public") {
 			return sql`(SELECT * FROM ${sql.raw(table.name)})`;
 		}
+		if (policy.type === "parentOwned") {
+			const column = sql.raw(`${table.name}.${policy.column}`);
+			const parentTable = sql.raw(policy.parentTable);
+			const parentColumn = sql.raw(`${policy.parentTable}.${policy.parentColumn}`);
+			const parentOwnerColumn = sql.raw(`${policy.parentTable}.${policy.parentOwnerColumn}`);
+			return sql`(SELECT * FROM ${sql.raw(table.name)} WHERE EXISTS (SELECT 1 FROM ${parentTable} WHERE ${parentColumn} = ${column} AND ${parentOwnerColumn} = ${scope.userId}))`;
+		}
 		const column = sql.raw(policy.column);
 		return policy.includeGlobal
 			? sql`(SELECT * FROM ${sql.raw(table.name)} WHERE (${column} = ${scope.userId} OR ${column} IS NULL))`
