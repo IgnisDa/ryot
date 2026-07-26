@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { PluginSlug, SavedViewId } from "../../schema/brands";
+import { EntitySchemaSlug, PluginSlug, SavedViewId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 
@@ -51,6 +51,7 @@ export const ListedSavedView = strictStruct({
 	layouts: SavedViewLayouts,
 	isDisabled: Schema.Boolean,
 	pluginSlug: Schema.NullOr(PluginSlug),
+	entitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
 });
 
 export type ListedSavedView = typeof ListedSavedView.Type;
@@ -60,6 +61,7 @@ export const CreateSavedViewBody = Schema.Struct({
 	name: Schema.String,
 	layouts: SavedViewLayouts,
 	pluginSlug: Schema.optional(PluginSlug),
+	entitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
 });
 
 export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
@@ -70,6 +72,7 @@ export const UpdateSavedViewBody = Schema.Struct({
 	layouts: SavedViewLayouts,
 	isDisabled: Schema.Boolean,
 	pluginSlug: Schema.optional(PluginSlug),
+	entitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
 });
 
 export type UpdateSavedViewBody = typeof UpdateSavedViewBody.Type;

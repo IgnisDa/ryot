@@ -145,6 +145,7 @@ it("exposes only approved application-table fields", () => {
 			"isBuiltin",
 			"isDisabled",
 			"pluginSlug",
+			"entitySchemaSlug",
 			"layouts",
 			"createdAt",
 			"updatedAt",

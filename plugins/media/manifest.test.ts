@@ -229,6 +229,29 @@ it("declares the complete media-owned source", () => {
 		}),
 	);
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);
+	expect(
+		mediaPlugin.savedViews.map(({ name, entitySchemaSlug }) => ({ name, entitySchemaSlug })),
+	).toEqual([
+		{ name: "All Persons", entitySchemaSlug: "person" },
+		{ name: "All Companies", entitySchemaSlug: "company" },
+		{ name: "All Shows", entitySchemaSlug: "show" },
+		{ name: "All Books", entitySchemaSlug: "book" },
+		{ name: "All Movies", entitySchemaSlug: "movie" },
+		{ name: "All Music", entitySchemaSlug: "music" },
+		{ name: "All Manga", entitySchemaSlug: "manga" },
+		{ name: "All Anime", entitySchemaSlug: "anime" },
+		{ name: "All Podcasts", entitySchemaSlug: "podcast" },
+		{ name: "All Audiobooks", entitySchemaSlug: "audiobook" },
+		{ name: "All Video Games", entitySchemaSlug: "video-game" },
+		{ name: "All Comic Books", entitySchemaSlug: "comic-book" },
+		{ name: "All Book Series", entitySchemaSlug: "book-group" },
+		{ name: "All Movie Series", entitySchemaSlug: "movie-group" },
+		{ name: "All Music Albums", entitySchemaSlug: "music-group" },
+		{ name: "All Visual Novels", entitySchemaSlug: "visual-novel" },
+		{ name: "All Audiobook Series", entitySchemaSlug: "audiobook-group" },
+		{ name: "All Comic Book Series", entitySchemaSlug: "comic-book-group" },
+		{ name: "All Video Game Franchises", entitySchemaSlug: "video-game-group" },
+	]);
 	expect(mediaPlugin.providers.find(({ slug }) => slug === "book.google-books")).toEqual(
 		expect.objectContaining({ rootEntitySchemaSlug: "book" }),
 	);

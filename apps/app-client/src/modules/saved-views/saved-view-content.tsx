@@ -1,3 +1,4 @@
+import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import clsx from "clsx";
 import { Platform, Pressable, Text, View } from "react-native";
@@ -17,23 +18,27 @@ import { SavedViewRuntime } from "./use-saved-view";
 
 const DESKTOP_HEADER_ONLY = Platform.OS === "web" ? "hidden md:flex" : "hidden";
 
-function EmptyState(props: { name: string }) {
+function EmptyState(props: { name: string; entitySchemaSlug: EntitySchemaSlug | null }) {
 	const providerAdd = useProviderAddFlow();
 	return (
 		<View className="min-h-96 items-center justify-center gap-3 px-6">
 			<AppIcon className="text-text-subtle" name="library" size={40} />
 			<Text className="text-center font-ui-semibold text-xl text-text">{props.name} is empty</Text>
 			<Text className="text-center font-ui text-sm text-text-muted">
-				Search online to add your first item.
+				{props.entitySchemaSlug === null
+					? "No items have been added to this view yet."
+					: "Search online to add your first item."}
 			</Text>
-			<Pressable
-				onPress={providerAdd.open}
-				accessibilityRole="button"
-				className="flex-row items-center gap-2 rounded-pill bg-accent px-4 py-2.5"
-			>
-				<AppIcon className="text-accent-ink" name="search" size={16} />
-				<Text className="font-ui-semibold text-accent-ink">Search online</Text>
-			</Pressable>
+			{props.entitySchemaSlug === null ? null : (
+				<Pressable
+					onPress={providerAdd.open}
+					accessibilityRole="button"
+					className="flex-row items-center gap-2 rounded-pill bg-accent px-4 py-2.5"
+				>
+					<AppIcon className="text-accent-ink" name="search" size={16} />
+					<Text className="font-ui-semibold text-accent-ink">Search online</Text>
+				</Pressable>
+			)}
 		</View>
 	);
 }
@@ -48,7 +53,12 @@ function SavedViewItems(props: SavedViewActiveData & { managedUrls: ReadonlyMap<
 	return <SavedViewTable items={props.data.items} managedUrls={props.managedUrls} />;
 }
 
-function SavedViewWebActions(props: { isEmpty: boolean; viewName: string; viewSlug: string }) {
+function SavedViewWebActions(props: {
+	readonly isEmpty: boolean;
+	readonly viewName: string;
+	readonly viewSlug: string;
+	readonly entitySchemaSlug: EntitySchemaSlug | null;
+}) {
 	const providerAdd = useProviderAddFlow();
 	const [layout, setLayout] = useSavedViewLayout(props.viewSlug);
 	return (
@@ -88,15 +98,17 @@ function SavedViewWebActions(props: { isEmpty: boolean; viewName: string; viewSl
 					<Text className="font-ui text-[11px] text-accent-text">3</Text>
 				</View>
 			</Pressable>
-			<Pressable
-				onPress={providerAdd.open}
-				accessibilityRole="button"
-				accessibilityLabel="Add to this view"
-				className="h-8.5 flex-row items-center gap-2 rounded-md bg-accent px-3.5"
-			>
-				<AppIcon className="text-accent-ink" name="plus" size={15} />
-				<Text className="font-ui-semibold text-[13px] text-accent-ink">Add</Text>
-			</Pressable>
+			{props.entitySchemaSlug === null ? null : (
+				<Pressable
+					onPress={providerAdd.open}
+					accessibilityRole="button"
+					accessibilityLabel="Add to this view"
+					className="h-8.5 flex-row items-center gap-2 rounded-md bg-accent px-3.5"
+				>
+					<AppIcon className="text-accent-ink" name="plus" size={15} />
+					<Text className="font-ui-semibold text-[13px] text-accent-ink">Add</Text>
+				</Pressable>
+			)}
 		</View>
 	);
 }
@@ -114,6 +126,7 @@ function SavedViewDisplay(
 	return (
 		<SavedViewFrame
 			viewSlug={props.record.slug}
+			entitySchemaSlug={props.record.entitySchemaSlug}
 			onImported={props.refresh}
 			title={{
 				loaded: items.length,
@@ -147,11 +160,12 @@ function SavedViewDisplay(
 						isEmpty={items.length === 0}
 						viewName={props.record.name}
 						viewSlug={props.record.slug}
+						entitySchemaSlug={props.record.entitySchemaSlug}
 					/>
 				</View>
 
 				{items.length === 0 ? (
-					<EmptyState name={props.record.name} />
+					<EmptyState name={props.record.name} entitySchemaSlug={props.record.entitySchemaSlug} />
 				) : (
 					<>
 						<SavedViewItems {...props} />
