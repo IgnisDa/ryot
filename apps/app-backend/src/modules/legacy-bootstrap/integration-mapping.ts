@@ -3,6 +3,7 @@ import { buildReportSql } from "./shared";
 export const buildIntegrationMigrationSql = () => `
 DO $$
 DECLARE
+	generic_json_rows int;
 	rows_inserted int;
 	started_at timestamptz := clock_timestamp();
 	unknown_providers text;
@@ -18,7 +19,7 @@ BEGIN
 	WHERE provider NOT IN (
 		'audiobookshelf', 'komga', 'plex_yank', 'youtube_music',
 		'kodi', 'emby', 'plex_sink', 'jellyfin_sink', 'ryot_browser_extension',
-		'radarr', 'sonarr', 'jellyfin_push'
+		'radarr', 'sonarr', 'jellyfin_push', 'generic_json'
 	);
 	IF unknown_providers IS NOT NULL THEN
 		RAISE EXCEPTION 'Legacy integrations with unknown providers cannot be migrated: %', unknown_providers;
@@ -164,9 +165,15 @@ BEGIN
 		oi.last_finished_at,
 		oi.created_on
 	FROM "old_integration" oi
+	WHERE oi.provider <> 'generic_json'
 	ON CONFLICT ("id") DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+	SELECT count(*)
+	INTO generic_json_rows
+	FROM "old_integration"
+	WHERE provider = 'generic_json';
 	${buildReportSql("old_integration -> integration", [{ message: "row(s) migrated", count: "rows_inserted" }])}
+	${buildReportSql("old_integration -> integration", [{ message: "generic_json integration row(s) skipped because the provider was removed in V2", count: "generic_json_rows" }])}
 END $$;
 `;
