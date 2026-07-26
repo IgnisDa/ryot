@@ -1,5 +1,4 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
+import { jsonValueSchema, type JsonValue } from "@ryot/sandbox-sdk/wire";
 import { Effect, Schema } from "effect";
 
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
