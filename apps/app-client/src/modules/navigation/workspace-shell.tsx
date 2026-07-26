@@ -1,5 +1,4 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import BottomSheet, { BottomSheetView } from "@expo/ui/community/bottom-sheet";
 import {
 	decodeNavigationResponse,
 	type NavigationData,
@@ -9,7 +8,7 @@ import clsx from "clsx";
 import { Cause, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { router, Slot, useGlobalSearchParams, usePathname } from "expo-router";
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import Animated, {
 	FadeIn,
@@ -26,6 +25,7 @@ import { navigationAtom, themeAtom } from "@/api/atoms";
 import { useAuthClient } from "@/modules/auth/client";
 import { AppIcon as NavigationIcon } from "@/modules/icons";
 import { useSetWorkspace, useWorkspace } from "@/modules/server/state";
+import { BottomSheet } from "@/modules/ui/bottom-sheet";
 
 import {
 	getActiveNavigationKey,
@@ -367,43 +367,6 @@ function MobileTabBar(props: {
 	);
 }
 
-function Sheet(props: {
-	children: ReactNode;
-	onClose: () => void;
-	snapPoints: (string | number)[];
-	title: string;
-}) {
-	const sheetRef = useRef<BottomSheet>(null);
-
-	return (
-		<BottomSheet
-			index={0}
-			ref={sheetRef}
-			enablePanDownToClose
-			onClose={props.onClose}
-			snapPoints={props.snapPoints}
-			backgroundStyle={{ backgroundColor: "transparent" }}
-		>
-			<BottomSheetView style={{ flex: 1 }}>
-				<View className="flex-1 rounded-t-2xl border-t border-border bg-surface px-4 pb-4 pt-2">
-					<View className="flex-row items-center justify-between py-4">
-						<Text className="font-display-semibold text-xl text-text">{props.title}</Text>
-						<Pressable
-							accessibilityRole="button"
-							className="p-1 text-text-muted"
-							accessibilityLabel="Close sheet"
-							onPress={() => sheetRef.current?.close()}
-						>
-							<NavigationIcon name="x" size={17} />
-						</Pressable>
-					</View>
-					{props.children}
-				</View>
-			</BottomSheetView>
-		</BottomSheet>
-	);
-}
-
 function MobileWorkspaceSheet(props: {
 	onClose: () => void;
 	data: NavigationData;
@@ -412,7 +375,12 @@ function MobileWorkspaceSheet(props: {
 	onSelect: (slug: string) => void;
 }) {
 	return (
-		<Sheet title="Workspaces" onClose={props.onClose} snapPoints={[465]}>
+		<BottomSheet
+			snapPoints={[465]}
+			title="Workspaces"
+			onClose={props.onClose}
+			description="Switch between workspaces and review saved views."
+		>
 			<View className="gap-2">
 				{props.data.workspaces.map((workspace) => {
 					const items = getNavigationItems({ data: props.data, workspaceSlug: workspace.slug });
@@ -466,7 +434,7 @@ function MobileWorkspaceSheet(props: {
 					)}
 				</ScrollView>
 			</View>
-		</Sheet>
+		</BottomSheet>
 	);
 }
 
@@ -477,7 +445,12 @@ function MobileMoreSheet(props: {
 }) {
 	const items = props.items;
 	return (
-		<Sheet title="More Views" onClose={props.onClose} snapPoints={[570]}>
+		<BottomSheet
+			title="More Views"
+			onClose={props.onClose}
+			snapPoints={[570]}
+			description="Open additional views and saved views."
+		>
 			<ScrollView
 				className="flex-1"
 				showsVerticalScrollIndicator={false}
@@ -529,7 +502,7 @@ function MobileMoreSheet(props: {
 					</View>
 				</View>
 			</ScrollView>
-		</Sheet>
+		</BottomSheet>
 	);
 }
 
@@ -542,7 +515,12 @@ function MobileAccountSheet(props: {
 	const setTheme = useAtomSet(themeAtom);
 
 	return (
-		<Sheet title="Account" onClose={props.onClose} snapPoints={[300]}>
+		<BottomSheet
+			title="Account"
+			onClose={props.onClose}
+			snapPoints={[300]}
+			description="View account details and change appearance."
+		>
 			<Pressable
 				accessibilityRole="button"
 				accessibilityLabel="Open account profile"
@@ -586,7 +564,7 @@ function MobileAccountSheet(props: {
 					))}
 				</View>
 			</View>
-		</Sheet>
+		</BottomSheet>
 	);
 }
 
