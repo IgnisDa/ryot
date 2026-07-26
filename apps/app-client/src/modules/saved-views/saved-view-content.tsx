@@ -364,6 +364,8 @@ export function SavedViewResultContent(props: {
 			{onAdd && entitySchemaSlug !== null ? (
 				<ProviderAddHost
 					onImported={props.refresh}
+					isOpen={providerAdd.isOpen}
+					onClose={providerAdd.close}
 					initialQuery={props.search.query}
 					entitySchemaSlug={entitySchemaSlug}
 				/>

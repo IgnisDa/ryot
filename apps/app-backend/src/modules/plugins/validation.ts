@@ -2,6 +2,7 @@ import {
 	importInternalPropertyNames,
 	isImportUploadTokenField,
 } from "@ryot/contract/modules/imports/schemas";
+import { integrationCommonPropertyNames } from "@ryot/contract/modules/integrations/schemas";
 import {
 	PluginManifest,
 	type PluginManifest as PluginManifestValue,
@@ -224,8 +225,18 @@ export const validatePluginManifestReferences = (
 export const validateIntegrationProviderSettingsSchemas = (manifest: PluginManifestValue) =>
 	Effect.forEach(
 		manifest.integrationProviders,
-		(provider) =>
-			parseLabeledPropertySchemaInput(
+		(provider) => {
+			const reservedField = Object.keys(provider.settingsSchema.fields).find((field) =>
+				integrationCommonPropertyNames.has(field),
+			);
+			if (reservedField) {
+				return Effect.fail(
+					fail(
+						`Integration provider ${provider.slug} in plugin ${manifest.metadata.slug} declares reserved settings field: ${reservedField}`,
+					),
+				);
+			}
+			return parseLabeledPropertySchemaInput(
 				provider.settingsSchema,
 				`Integration provider ${provider.slug} settings`,
 			).pipe(
@@ -234,7 +245,8 @@ export const validateIntegrationProviderSettingsSchemas = (manifest: PluginManif
 						`Integration provider ${provider.slug} in plugin ${manifest.metadata.slug} has an invalid settingsSchema: ${formatPropertyIssues(error.issues)}`,
 					),
 				),
-			),
+			);
+		},
 		{ discard: true },
 	);
 

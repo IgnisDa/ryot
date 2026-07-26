@@ -7,6 +7,7 @@ import type {
 } from "@ryot/ryotql-recipes/import-runs";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
+import { requestFailureCopy, type RequestFailureState } from "@/api/request-failure";
 import { classifyRyotQLResult, type MappedRyotQLResultState } from "@/api/ryotql";
 
 export type ImportRunListState = MappedRyotQLResultState<
@@ -32,8 +33,6 @@ export type ImportRunDetailState = MappedRyotQLResultState<
 			readonly failures: readonly ImportRunFailure[];
 	  }
 >;
-
-type ImportFailureState = { readonly status: "transport-error" | "malformed" };
 
 export const mapImportRunList = (
 	result: AsyncResult.AsyncResult<ImportRunList, unknown>,
@@ -89,26 +88,8 @@ export const mapImportSourceNames = (
 		: new Map();
 };
 
-export const importRunListError = (state: ImportFailureState) => ({
-	title: "Unable to load imports",
-	detail:
-		state.status === "transport-error"
-			? "Your import history could not be loaded. Check the server and try again."
-			: "Your import history came back in a form that could not be displayed. Try again later.",
-});
+export const importRunListError = (state: RequestFailureState) =>
+	requestFailureCopy(state, { subject: "Your import history", title: "Unable to load imports" });
 
-export const importSourceListError = (state: ImportFailureState) => ({
-	title: "Unable to load services",
-	detail:
-		state.status === "transport-error"
-			? "The list of services could not be loaded. Check the server and try again."
-			: "The list of services came back in a form that could not be displayed. Try again later.",
-});
-
-export const importRunDetailError = (state: ImportFailureState) => ({
-	title: "Unable to load this import",
-	detail:
-		state.status === "transport-error"
-			? "This import could not be loaded. Check the server and try again."
-			: "This import came back in a form that could not be displayed. Try again later.",
-});
+export const importRunDetailError = (state: RequestFailureState) =>
+	requestFailureCopy(state, { subject: "This import", title: "Unable to load this import" });

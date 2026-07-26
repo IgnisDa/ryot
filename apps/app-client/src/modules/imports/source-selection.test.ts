@@ -1,122 +1,84 @@
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { describe, expect, it } from "vitest";
 
-import { credentialImportSchema, listedImportSource, uploadImportSchema } from "./import-fixture";
+import { listedImportSource, uploadImportSchema } from "./import-fixture";
 import {
-	groupImportSources,
-	importPluginHeading,
+	importSourceChooseLabel,
+	importSourceEntry,
 	importSourceInputShape,
-	importSourceRequirement,
-	importSourceRow,
-	startableImportSources,
 } from "./source-selection";
 
-const twoFileSchema = {
+const serverSchema = {
+	unknownKeys: "strict",
+	fields: { apiKey: { type: "string", label: "API key", description: "API key" } },
+} satisfies AppSchema;
+
+const multiUploadSchema = {
 	unknownKeys: "strict",
 	fields: {
-		ratings: {
-			type: "string",
-			label: "Ratings",
-			description: "Ratings file",
-			format: { kind: "upload", allowedFileExtensions: ["csv"] },
-		},
-		history: {
+		historyUploadToken: {
 			type: "string",
 			label: "History",
-			description: "History file",
+			description: "History",
+			format: { kind: "upload", allowedFileExtensions: ["csv"] },
+		},
+		ratingsUploadToken: {
+			type: "string",
+			label: "Ratings",
+			description: "Ratings",
 			format: { kind: "upload", allowedFileExtensions: ["csv"] },
 		},
 	},
 } satisfies AppSchema;
 
-describe("import source input shape", () => {
-	it("names the single accepted file format", () => {
+describe("source selection", () => {
+	it("describes what the service needs from the user", () => {
+		expect(importSourceInputShape(serverSchema)).toBe("Server");
 		expect(importSourceInputShape(uploadImportSchema())).toBe("CSV file");
-		expect(importSourceInputShape(uploadImportSchema({ extensions: ["zip"] }))).toBe("ZIP file");
-	});
-
-	it("lists a few accepted formats for one file", () => {
-		expect(importSourceInputShape(uploadImportSchema({ extensions: ["csv", "json"] }))).toBe(
-			"CSV or JSON file",
+		expect(importSourceInputShape(uploadImportSchema({ extensions: ["csv", "zip"] }))).toBe(
+			"CSV or ZIP file",
 		);
-		expect(importSourceInputShape(uploadImportSchema({ extensions: ["csv", "json", "zip"] }))).toBe(
-			"CSV, JSON or ZIP file",
-		);
+		expect(importSourceInputShape(multiUploadSchema)).toBe("2 files");
 	});
 
-	it("counts the files when a service asks for more than one", () => {
-		expect(importSourceInputShape(twoFileSchema)).toBe("2 files");
+	it("maps a source onto a catalog entry carrying its input shape", () => {
+		expect(importSourceEntry(listedImportSource({ slug: "netflix", name: "Netflix" }))).toEqual({
+			slug: "netflix",
+			name: "Netflix",
+			badge: "CSV file",
+			isAvailable: true,
+			requirement: undefined,
+			description: "Bring your history over from Netflix",
+		});
 	});
 
-	it("reads as a server import when nothing is uploaded", () => {
-		expect(importSourceInputShape(credentialImportSchema)).toBe("Server");
-	});
-});
-
-describe("import source grouping", () => {
-	const sources = [
-		listedImportSource({ slug: "ledger", name: "Ledger" }),
-		listedImportSource({ slug: "archive", name: "Archive", description: "Bring over a backup" }),
-		listedImportSource({
-			slug: "scale",
-			name: "Scale",
-			pluginSlug: "fitness",
-			inputSchema: credentialImportSchema,
-		}),
-		listedImportSource({
-			slug: "vault",
-			name: "Vault",
-			isStartable: false,
-			inputSchema: credentialImportSchema,
-			missingPluginConfigKeys: ["RYOT_PLUGIN_MEDIA_ACCESS_TOKEN"],
-		}),
-	];
-
-	it("groups by contributing plugin and sorts each group by name", () => {
-		const groups = groupImportSources(sources, "");
-
-		expect(groups.map((group) => group.heading)).toEqual(["Media", "Fitness"]);
-		expect(groups.at(0)?.sources.map((source) => source.name)).toEqual([
-			"Archive",
-			"Ledger",
-			"Vault",
-		]);
-		expect(groups.at(1)?.sources.map((source) => source.inputShape)).toEqual(["Server"]);
-	});
-
-	it("filters on name and description and drops emptied groups", () => {
+	it("names the missing server config when that is why a source is unusable", () => {
 		expect(
-			groupImportSources(sources, "backup").flatMap((group) =>
-				group.sources.map((source) => source.slug),
-			),
-		).toEqual(["archive"]);
+			importSourceEntry(
+				listedImportSource({
+					slug: "netflix",
+					name: "Netflix",
+					isStartable: false,
+					missingPluginConfigKeys: ["tmdbAccessToken"],
+				}),
+			).requirement,
+		).toBe("Set tmdbAccessToken on your server to use this.");
+	});
+
+	it("falls back to a generic reason when no config key is named", () => {
 		expect(
-			groupImportSources(sources, "LEDG").flatMap((group) =>
-				group.sources.map((source) => source.slug),
-			),
-		).toEqual(["ledger"]);
-		expect(groupImportSources(sources, "nothing here")).toEqual([]);
-		expect(groupImportSources(sources, "  ")).toHaveLength(2);
+			importSourceEntry(
+				listedImportSource({ slug: "netflix", name: "Netflix", isStartable: false }),
+			).requirement,
+		).toBe("This service is not ready on your server yet.");
 	});
 
-	it("keeps an unconfigured service listed but out of the startable set", () => {
-		const groups = groupImportSources(sources, "vault");
-		const vault = groups.at(0)?.sources.at(0);
+	it("names the action differently when a source cannot be chosen", () => {
+		const source = listedImportSource({ slug: "netflix", name: "Netflix" });
 
-		expect(vault?.isStartable).toBe(false);
-		expect(startableImportSources(groups)).toEqual([]);
-		expect(importSourceRequirement(vault ?? importSourceRow(sources[0]))).toBe(
-			"Set RYOT_PLUGIN_MEDIA_ACCESS_TOKEN on your server to use this.",
+		expect(importSourceChooseLabel(importSourceEntry(source))).toBe("Import from Netflix");
+		expect(importSourceChooseLabel(importSourceEntry({ ...source, isStartable: false }))).toBe(
+			"Netflix is unavailable",
 		);
-	});
-
-	it("says nothing about requirements for a startable service", () => {
-		expect(importSourceRequirement(importSourceRow(sources[0]))).toBeUndefined();
-	});
-
-	it("titles a plugin heading from its slug", () => {
-		expect(importPluginHeading("media")).toBe("Media");
-		expect(importPluginHeading("home_media-library")).toBe("Home Media Library");
-		expect(importPluginHeading("")).toBe("Other");
 	});
 });
