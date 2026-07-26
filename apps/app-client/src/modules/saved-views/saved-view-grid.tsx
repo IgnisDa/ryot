@@ -20,6 +20,7 @@ export function SavedViewGrid(props: { items: readonly SavedViewCardItem[] }) {
 						<Link.AppleZoom>
 							<SavedViewImageView
 								image={item.image}
+								collapsable={false}
 								className="aspect-3/4 w-full rounded-lg bg-surface-2"
 							/>
 						</Link.AppleZoom>

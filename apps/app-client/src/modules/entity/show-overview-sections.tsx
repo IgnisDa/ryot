@@ -95,6 +95,7 @@ export function ShowPeopleSection(props: {
 								<Link.AppleZoom>
 									<ShowAssetImage
 										shape="circle"
+										collapsable={false}
 										asset={showPersonAsset(person)}
 										className="aspect-square w-full"
 									/>
@@ -156,7 +157,11 @@ export function ShowCompaniesSection(props: {
 								className="flex-row items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
 							>
 								<Link.AppleZoom>
-									<ShowAssetImage className="h-9 w-9 shrink-0" asset={showCompanyAsset(company)} />
+									<ShowAssetImage
+										collapsable={false}
+										className="h-9 w-9 shrink-0"
+										asset={showCompanyAsset(company)}
+									/>
 								</Link.AppleZoom>
 								<View className="min-w-0 flex-1">
 									<Text
@@ -202,6 +207,7 @@ export function ShowRecommendationsSection(props: {
 						>
 							<Link.AppleZoom>
 								<ShowAssetImage
+									collapsable={false}
 									className="aspect-2/3 w-full"
 									asset={showRecommendationAsset(recommendation)}
 								/>
