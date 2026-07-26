@@ -620,6 +620,7 @@ it("trusts only the published client SDK entry points and clsx", () => {
 		"@ryot-app/client-sdk/ryotql",
 		"@ryot-app/client-ui-sdk",
 		"@ryot-app/client-ui-sdk/icon",
+		"@ryot-app/client-ui-sdk/tint",
 		"@ryot-app/client-ui-sdk/table",
 		"@ryot-app/client-ui-sdk/schema-form",
 	]) {
