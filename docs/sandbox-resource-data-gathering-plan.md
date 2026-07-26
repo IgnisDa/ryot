@@ -84,7 +84,7 @@ The queue bound was honored. The missing data is why each worker was large, why 
 - PostgreSQL database UUID: `qqxjvomd4g3clbeura7oe9vr`
 - Image currently configured: `ignisda/ryot:pr-1832`
 - Current compose has no CPU or memory limits.
-- Current compose has no `SERVER_OTLP_ENDPOINT`, so telemetry export is disabled.
+- Current compose has no `OTEL_EXPORTER_OTLP_ENDPOINT`, so OTLP export is disabled.
 - Current compose has no `SANDBOX_PROCESS_MODE`, so the runtime uses `on-demand`.
 
 Use a root Coolify API token supplied at execution through a local `COOLIFY_TOKEN` environment variable. Never write a token, database password, admin access token, or complete environment response to the repository, terminal transcript, benchmark artifacts, or report.
@@ -112,7 +112,7 @@ If instrumentation exposes an unrelated correctness bug, record it in the report
 
 Create and commit:
 
-1. Production-safe Effect metrics exported through OTLP when `SERVER_OTLP_ENDPOINT` is configured.
+1. Production-safe Effect metrics exported through OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is configured.
 2. Correlating trace attributes for sandbox replay and import phases.
 3. An expanded admin-gated runtime snapshot suitable for sub-second benchmark sampling.
 4. A deterministic remote benchmark driver that targets an already deployed API instead of starting the normal local E2E global setup.
@@ -132,11 +132,11 @@ Raw secrets, authorization headers, complete SQL text, full provider responses, 
 Update `kernel/backend/src/lib/infrastructure/observability.ts`:
 
 - Import `OtlpMetrics` from `effect/unstable/observability`.
-- When `SERVER_OTLP_ENDPOINT` is configured, export metrics to `<base>/v1/metrics` with the same validated headers and resource used by traces.
+- When `OTEL_EXPORTER_OTLP_ENDPOINT` is configured, export metrics to `<base>/v1/metrics` with the same validated headers and resource used by traces.
 - Keep traces at `<base>/v1/traces`.
 - Use cumulative temporality.
 - Use the Effect default 10-second metric export interval. Do not add a production configuration option only for this investigation.
-- Keep telemetry disabled when the endpoint is absent.
+- Keep OTLP export disabled when the endpoint is absent.
 - Reuse `service.name=ryot-backend` and `deployment.environment`.
 - Merge logging, tracing, and metrics without creating two independent HTTP/serialization dependency graphs where a shared layer is sufficient.
 
@@ -431,7 +431,7 @@ Modify the benchmark service as needed to:
 - Keep `ghcr.io/ignisda/ryot:pr-1832` as the Ryot image.
 - Set `FRONTEND_URL=https://ur-testing.ryot.io`.
 - Use fresh benchmark-only database and admin secrets.
-- Set `SERVER_OTLP_ENDPOINT` to the benchmark OTLP capture receiver.
+- Set `OTEL_EXPORTER_OTLP_ENDPOINT` to the benchmark OTLP capture receiver.
 - Keep `SERVER_LOG_LEVEL=info` for every canonical scenario so debug span-completion logging does not distort CPU and disk measurements. A short preflight may use `debug` to verify correlation, but restore `info` and restart Ryot before idle stabilization and data collection.
 - Keep `SANDBOX_PROCESS_MODE=on-demand` explicitly.
 - Keep scheduler dispatchers disabled during hermetic measurements with `SCHEDULER_DISABLE_DISPATCHERS=true`; record this difference. Run a separate idle observation with dispatchers enabled if scheduler overhead is needed.

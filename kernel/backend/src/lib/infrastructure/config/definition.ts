@@ -230,33 +230,79 @@ const smtp = group(
 	},
 );
 
+const observability = group(
+	{ label: "Observability", description: "Logging and telemetry export settings" },
+	{
+		otlp: group(
+			{ label: "OTLP export", description: "OpenTelemetry Protocol export settings" },
+			{
+				endpoint: stringField({
+					label: "OTLP endpoint",
+					envKey: "OTEL_EXPORTER_OTLP_ENDPOINT",
+					description: "Base URL for OTLP logs, traces, and metrics export",
+				}),
+				headers: stringField({
+					secret: true,
+					label: "OTLP headers",
+					envKey: "OTEL_EXPORTER_OTLP_HEADERS",
+					description:
+						"Comma-separated key=value headers sent with OTLP exports, such as the API token a hosted collector requires",
+				}),
+			},
+		),
+		logging: group(
+			{ label: "Logging", description: "Server log output settings" },
+			{
+				level: stringField({
+					label: "Log level",
+					defaultValue: "info",
+					envKey: "SERVER_LOG_LEVEL",
+					description: "Minimum log level for file and OTLP logs; console logs always use info",
+				}),
+				file: group(
+					{ label: "Log file", description: "Rotating structured log file settings" },
+					{
+						path: stringField({
+							label: "Log file path",
+							envKey: "SERVER_LOG_FILE",
+							defaultValue: "./logs/ryot.log",
+							description: "File path for rotating structured logs",
+						}),
+						rotationSize: stringField({
+							defaultValue: "10M",
+							label: "Log rotation size",
+							envKey: "SERVER_LOG_ROTATION_SIZE",
+							description: "Maximum active log file size before rotation, such as 10M",
+						}),
+						rotationInterval: stringField({
+							defaultValue: "1d",
+							label: "Log rotation interval",
+							envKey: "SERVER_LOG_ROTATION_INTERVAL",
+							description: "UTC interval between log rotations, such as 1d",
+						}),
+						retentionFiles: integerField({
+							defaultValue: 7,
+							label: "Log retention files",
+							envKey: "SERVER_LOG_RETENTION_FILES",
+							description: "Maximum number of compressed rotated log files to retain",
+						}),
+					},
+				),
+			},
+		),
+	},
+);
+
 const server = group(
 	{ label: "Server", description: "Server settings" },
 	{
 		oidc,
 		smtp,
-		otlpEndpoint: stringField({
-			label: "OTLP endpoint",
-			envKey: "SERVER_OTLP_ENDPOINT",
-			description: "Base URL for OTLP logs, traces, and metrics export",
-		}),
 		proKey: stringField({
 			secret: true,
 			label: "Pro key",
 			envKey: "SERVER_PRO_KEY",
 			description: "The key that can be used to enable Ryot Pro features",
-		}),
-		logFile: stringField({
-			label: "Log file",
-			envKey: "SERVER_LOG_FILE",
-			defaultValue: "./logs/ryot.log",
-			description: "File path for rotating structured logs",
-		}),
-		logLevel: stringField({
-			label: "Log level",
-			defaultValue: "info",
-			envKey: "SERVER_LOG_LEVEL",
-			description: "Minimum log level for file and OTLP logs; console logs always use info",
 		}),
 		clientDir: stringField({
 			hidden: true,
@@ -271,24 +317,6 @@ const server = group(
 			envKey: "SERVER_DISABLE_NOTIFICATIONS",
 			description: "Disable delivery of all notifications",
 		}),
-		logRotationSize: stringField({
-			defaultValue: "10M",
-			label: "Log rotation size",
-			envKey: "SERVER_LOG_ROTATION_SIZE",
-			description: "Maximum active log file size before rotation, such as 10M",
-		}),
-		logRotationInterval: stringField({
-			defaultValue: "1d",
-			label: "Log rotation interval",
-			envKey: "SERVER_LOG_ROTATION_INTERVAL",
-			description: "UTC interval between log rotations, such as 1d",
-		}),
-		logRetentionFiles: integerField({
-			defaultValue: 7,
-			label: "Log retention files",
-			envKey: "SERVER_LOG_RETENTION_FILES",
-			description: "Maximum number of compressed rotated log files to retain",
-		}),
 		adminAccessToken: stringField({
 			secret: true,
 			label: "Admin access token",
@@ -302,13 +330,6 @@ const server = group(
 			defaultValue: "https://api.unkey.com",
 			envKey: "SERVER_PRO_KEY_VERIFICATION_URL",
 			description: "Base URL used to verify the Pro key",
-		}),
-		otlpHeaders: stringField({
-			secret: true,
-			label: "OTLP headers",
-			envKey: "SERVER_OTLP_HEADERS",
-			description:
-				"Comma-separated key=value headers sent with OTLP exports, such as the API token a hosted collector requires",
 		}),
 		pluginsSystemDir: stringField({
 			hidden: true,
@@ -330,6 +351,7 @@ export const appConfigDefinition = defineConfig(
 		frontend,
 		scheduler,
 		fileStorage,
+		observability,
 		port: integerField({
 			label: "Port",
 			envKey: "PORT",

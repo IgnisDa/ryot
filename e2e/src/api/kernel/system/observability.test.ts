@@ -209,8 +209,8 @@ beforeAll(async () => {
 		s3Endpoint: infrastructure.s3Endpoint,
 		extraEnv: {
 			SERVER_LOG_LEVEL: "debug",
-			SERVER_OTLP_ENDPOINT: server.url,
-			SERVER_OTLP_HEADERS: "x-ryot-collector-token=collector-secret",
+			OTEL_EXPORTER_OTLP_ENDPOINT: server.url,
+			OTEL_EXPORTER_OTLP_HEADERS: "x-ryot-collector-token=collector-secret",
 		},
 	});
 	logFile = requireString(env.SERVER_LOG_FILE, "Observability api log file is missing");

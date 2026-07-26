@@ -67,11 +67,11 @@ describe("system log config", () => {
 	it("loads the logging defaults", () => {
 		const result = loadSystemConfig();
 		assert(Exit.isSuccess(result));
-		expect(result.value.server.logLevel).toBe("Info");
-		expect(result.value.server.logFile).toBe("./logs/ryot.log");
-		expect(result.value.server.logRotationSize).toBe("10M");
-		expect(result.value.server.logRotationInterval).toBe("1d");
-		expect(result.value.server.logRetentionFiles).toBe(7);
+		expect(result.value.observability.logging.level).toBe("Info");
+		expect(result.value.observability.logging.file.path).toBe("./logs/ryot.log");
+		expect(result.value.observability.logging.file.rotationSize).toBe("10M");
+		expect(result.value.observability.logging.file.rotationInterval).toBe("1d");
+		expect(result.value.observability.logging.file.retentionFiles).toBe(7);
 	});
 
 	it("retains the infrequent scheduler phrase default", () => {
@@ -117,7 +117,7 @@ describe("system log config", () => {
 	it("parses values case-insensitively", () => {
 		const result = loadSystemConfig({ logLevel: "DeBuG" });
 		assert(Exit.isSuccess(result));
-		expect(result.value.server.logLevel).toBe("Debug");
+		expect(result.value.observability.logging.level).toBe("Debug");
 	});
 
 	it("fails with a config error for unsupported values", () => {
@@ -207,11 +207,11 @@ describe("FRONTEND_URL validation", () => {
 	});
 });
 
-describe("SERVER_OTLP_ENDPOINT validation", () => {
+describe("OTEL_EXPORTER_OTLP_ENDPOINT validation", () => {
 	it.each(["http://127.0.0.1:4318", "https://collector.example", "https://collector.example/otlp"])(
 		"accepts collector base URL %s",
 		(endpoint) => {
-			const result = validate({ server: { otlpEndpoint: Option.some(endpoint) } });
+			const result = validate({ observability: { otlp: { endpoint: Option.some(endpoint) } } });
 			expect(Exit.isSuccess(result)).toBe(true);
 		},
 	);
@@ -219,10 +219,10 @@ describe("SERVER_OTLP_ENDPOINT validation", () => {
 	it.each(["collector.example", "ftp://collector.example", "127.0.0.1:4318"])(
 		"rejects non-HTTP endpoint %s",
 		(endpoint) => {
-			const result = validate({ server: { otlpEndpoint: Option.some(endpoint) } });
+			const result = validate({ observability: { otlp: { endpoint: Option.some(endpoint) } } });
 			assert(Exit.isFailure(result));
 			expect(JSON.stringify(result.cause)).toContain(
-				"SERVER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL",
+				"OTEL_EXPORTER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL",
 			);
 		},
 	);
@@ -232,25 +232,26 @@ describe("SERVER_OTLP_ENDPOINT validation", () => {
 		"https://collector.example#fragment",
 		"https://user:secret@collector.example",
 	])("rejects endpoint %s carrying a query, fragment, or credentials", (endpoint) => {
-		const result = validate({ server: { otlpEndpoint: Option.some(endpoint) } });
+		const result = validate({ observability: { otlp: { endpoint: Option.some(endpoint) } } });
 		assert(Exit.isFailure(result));
 		expect(JSON.stringify(result.cause)).toContain(
-			"SERVER_OTLP_ENDPOINT must not contain a query, fragment, or credentials",
+			"OTEL_EXPORTER_OTLP_ENDPOINT must not contain a query, fragment, or credentials",
 		);
 	});
 
 	it.each([
+		"https://collector.example/v1/logs",
 		"https://api.honeycomb.io/v1/traces",
 		"https://collector.example/otlp/v1/traces/",
 		"https://collector.example/v1/metrics",
 	])("rejects endpoint %s that already carries the appended signal path", (endpoint) => {
-		const result = validate({ server: { otlpEndpoint: Option.some(endpoint) } });
+		const result = validate({ observability: { otlp: { endpoint: Option.some(endpoint) } } });
 		assert(Exit.isFailure(result));
 		expect(JSON.stringify(result.cause)).toContain("without an OTLP signal path");
 	});
 });
 
-describe("SERVER_OTLP_HEADERS validation", () => {
+describe("OTEL_EXPORTER_OTLP_HEADERS validation", () => {
 	it("parses comma-separated pairs and keeps separators inside values", () => {
 		const parsed = parseOtlpHeaders("x-honeycomb-team=abc123 , authorization=Basic dXNlcj1wdw==");
 		assert(Result.isSuccess(parsed));
@@ -286,11 +287,11 @@ describe("SERVER_OTLP_HEADERS validation", () => {
 
 	it("fails startup when the configured headers are malformed", () => {
 		const result = validate({
-			server: { otlpHeaders: Option.some(Redacted.make("s3cret-token")) },
+			observability: { otlp: { headers: Option.some(Redacted.make("s3cret-token")) } },
 		});
 		assert(Exit.isFailure(result));
 		expect(JSON.stringify(result.cause)).toContain(
-			"SERVER_OTLP_HEADERS is invalid: entry 1 is not a key=value pair",
+			"OTEL_EXPORTER_OTLP_HEADERS is invalid: entry 1 is not a key=value pair",
 		);
 	});
 });

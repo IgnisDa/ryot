@@ -27,17 +27,27 @@ const logLevels: Record<string, LogLevel.LogLevel> = {
 	warning: "Warn",
 };
 
-export type AppConfigValue = Omit<SystemConfigValue, "server"> & {
-	readonly server: Omit<SystemConfigValue["server"], "logLevel"> & {
-		readonly logLevel: LogLevel.LogLevel;
+export type AppConfigValue = Omit<SystemConfigValue, "observability"> & {
+	readonly observability: Omit<SystemConfigValue["observability"], "logging"> & {
+		readonly logging: Omit<SystemConfigValue["observability"]["logging"], "level"> & {
+			readonly level: LogLevel.LogLevel;
+		};
 	};
 };
 
 const mapLogLevel = (config: SystemConfigValue) => {
-	const level = logLevels[config.server.logLevel.toLowerCase()];
+	const level = logLevels[config.observability.logging.level.toLowerCase()];
 	return level
-		? Effect.succeed({ ...config, server: { ...config.server, logLevel: level } })
-		: Effect.fail(configError(`Unsupported SERVER_LOG_LEVEL '${config.server.logLevel}'`));
+		? Effect.succeed({
+				...config,
+				observability: {
+					...config.observability,
+					logging: { ...config.observability.logging, level },
+				},
+			})
+		: Effect.fail(
+				configError(`Unsupported SERVER_LOG_LEVEL '${config.observability.logging.level}'`),
+			);
 };
 
 const configError = (message: string) =>
@@ -76,17 +86,17 @@ const isValidRotationInterval = (value: string) => {
 const otlpEndpointError = (endpoint: string) => {
 	const parsed = Result.try(() => new URL(endpoint));
 	if (Result.isFailure(parsed)) {
-		return "SERVER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL.";
+		return "OTEL_EXPORTER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL.";
 	}
 	const url = parsed.success;
 	if (url.protocol !== "http:" && url.protocol !== "https:") {
-		return "SERVER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL.";
+		return "OTEL_EXPORTER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL.";
 	}
 	if (url.search !== "" || url.hash !== "" || url.username !== "" || url.password !== "") {
-		return "SERVER_OTLP_ENDPOINT must not contain a query, fragment, or credentials.";
+		return "OTEL_EXPORTER_OTLP_ENDPOINT must not contain a query, fragment, or credentials.";
 	}
-	if (/\/v1\/(?:traces|metrics)\/*$/i.test(url.pathname)) {
-		return "SERVER_OTLP_ENDPOINT must be the collector base URL without an OTLP signal path; '/v1/traces' and '/v1/metrics' are appended automatically.";
+	if (/\/v1\/(?:logs|traces|metrics)\/*$/i.test(url.pathname)) {
+		return "OTEL_EXPORTER_OTLP_ENDPOINT must be the collector base URL without an OTLP signal path; '/v1/logs', '/v1/traces', and '/v1/metrics' are appended automatically.";
 	}
 	return undefined;
 };
@@ -144,6 +154,8 @@ export const isS3Configured = (config: AppConfigValue): boolean => {
 
 export const validateSystemConfig = (config: AppConfigValue) =>
 	Effect.gen(function* () {
+		const logging = config.observability.logging;
+		const otlp = config.observability.otlp;
 		const frontendUrl = yield* Effect.try({
 			try: () => new URL(config.frontendUrl),
 			catch: () => configError("FRONTEND_URL must be an absolute HTTP or HTTPS origin."),
@@ -177,27 +189,27 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			).pipe(Effect.annotateLogs({ frontendUrl: frontendUrl.origin }));
 		}
 
-		if (Option.isSome(config.server.otlpEndpoint)) {
-			const endpointError = otlpEndpointError(config.server.otlpEndpoint.value);
+		if (Option.isSome(otlp.endpoint)) {
+			const endpointError = otlpEndpointError(otlp.endpoint.value);
 			if (endpointError !== undefined) {
 				return yield* Effect.fail(configError(endpointError));
 			}
 		}
 
-		if (Option.isSome(config.server.otlpHeaders)) {
-			const headers = parseOtlpHeaders(Redacted.value(config.server.otlpHeaders.value));
+		if (Option.isSome(otlp.headers)) {
+			const headers = parseOtlpHeaders(Redacted.value(otlp.headers.value));
 			if (Result.isFailure(headers)) {
 				return yield* Effect.fail(
-					configError(`SERVER_OTLP_HEADERS is invalid: ${headers.failure}.`),
+					configError(`OTEL_EXPORTER_OTLP_HEADERS is invalid: ${headers.failure}.`),
 				);
 			}
 		}
 
-		if (config.server.logFile.trim().length === 0) {
+		if (logging.file.path.trim().length === 0) {
 			return yield* Effect.fail(configError("SERVER_LOG_FILE must not be empty."));
 		}
 
-		if (!isValidRotationSize(config.server.logRotationSize)) {
+		if (!isValidRotationSize(logging.file.rotationSize)) {
 			return yield* Effect.fail(
 				configError(
 					"SERVER_LOG_ROTATION_SIZE must be a positive integer followed by B, K, M, or G.",
@@ -205,7 +217,7 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
-		if (!isValidRotationInterval(config.server.logRotationInterval)) {
+		if (!isValidRotationInterval(logging.file.rotationInterval)) {
 			return yield* Effect.fail(
 				configError(
 					"SERVER_LOG_ROTATION_INTERVAL must be a supported rotation interval such as 30m, 1h, or 1d.",
@@ -213,7 +225,7 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
-		if (!Number.isInteger(config.server.logRetentionFiles) || config.server.logRetentionFiles < 1) {
+		if (!Number.isInteger(logging.file.retentionFiles) || logging.file.retentionFiles < 1) {
 			return yield* Effect.fail(
 				configError("SERVER_LOG_RETENTION_FILES must be an integer of at least 1."),
 			);
