@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Generic File Storage](./README.md)
 
-**Status:** todo
+**Status:** partial
 
 ## What to build
 
@@ -19,17 +19,30 @@ behavior; it must not retain old APIs for operational convenience.
 
 ## Acceptance criteria
 
-- [ ] Generated configuration references include local permanent directory, local working directory, and local signing-secret settings
-- [ ] The file-storage guide documents simultaneous provider configuration and the complete upload-intent sequence
-- [ ] Documentation distinguishes durable local storage from the backend local working directory
-- [ ] Local volume persistence, writable non-root permissions, backup implications, capacity planning, and non-overlapping roots are documented
-- [ ] Local permanent storage is explicitly documented as single-replica only
-- [ ] S3 direct-PUT CORS requirements and supported headers/methods are documented
-- [ ] The 50 MiB limit, 15-minute intent and unclaimed lifetimes, 24-hour processing lease, and cron-delay semantics are documented
-- [ ] Deployment examples expose the required local directories as appropriate volumes without treating working storage as durable assets
-- [ ] Integration provisioning starts one backend with both S3 and isolated local storage available
+- [x] Generated configuration references include local permanent directory, local working directory, and local signing-secret settings
+- [x] The file-storage guide documents simultaneous provider configuration and the complete upload-intent sequence
+- [x] Documentation distinguishes durable local storage from the backend local working directory
+- [x] Local volume persistence, writable non-root permissions, backup implications, capacity planning, and non-overlapping roots are documented
+- [x] Local permanent storage is explicitly documented as single-replica only
+- [x] S3 direct-PUT CORS requirements and supported headers/methods are documented
+- [x] The 50 MiB limit, 15-minute intent and unclaimed lifetimes, 24-hour processing lease, and cron-delay semantics are documented
+- [x] Deployment examples expose the required local directories as appropriate volumes without treating working storage as durable assets
+- [x] Integration provisioning starts one backend with both S3 and isolated local storage available
 - [ ] The legacy backup client package is excluded from workspace build/check/test participation without modifying files inside that application
 - [ ] Backend package checks, backend tests, integration tests, and applicable monorepo checks pass with no compatibility upload routes
+
+## Verification
+
+- `bun turbo --filter=@ryot/docs build` passed.
+- `bun turbo --filter=@ryot/app-backend check` passed.
+- `bun turbo --filter=@ryot/app-backend test` passed.
+- `bun turbo --filter=@ryot/tests check` passed.
+- The affected e2e files passed separately: kernel uploads, kernel imports, media imports, and
+  fitness imports.
+- The full active-workspace check remains blocked by unrelated `@ryot/graphql` TypeScript
+  configuration errors and an `@ryot/frontend` Node heap exhaustion.
+- Workspace exclusion was intentionally not included in this scoped change; the legacy backup
+  client source remains untouched.
 
 ## User stories addressed
 
