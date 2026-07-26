@@ -10,6 +10,10 @@ import type {
 	Include,
 	IncludeResult,
 	Join,
+	JsonArrayCountExpression,
+	JsonArrayExistsExpression,
+	JsonArrayFirstExpression,
+	JsonElementExpression,
 	JsonValue,
 	LiteralExpression,
 	NamedQuery,
@@ -28,6 +32,7 @@ import { Result, Schema } from "effect";
 
 type CastExpression = Extract<ScalarExpression, { type: "cast" }>;
 type FirstExpression = Extract<ScalarExpression, { type: "first" }>;
+type JsonArrayWhereInput = { readonly where?: Predicate | undefined };
 type ComparisonPredicate = Extract<Predicate, { type: "comparison" }>;
 type JsonPathExpression = Extract<ScalarExpression, { type: "jsonPath" }>;
 type AggregateExpression = Extract<ScalarExpression, { type: "aggregate" }>;
@@ -234,6 +239,32 @@ export const first = (
 	query: correlatedQuery(from, input),
 	orderBy: [...input.orderBy] as [OrderBy, ...OrderBy[]],
 });
+
+export const jsonElement = (): JsonElementExpression => ({ type: "jsonElement" });
+
+export const jsonArrayExists = (
+	array: ScalarExpression,
+	where?: Predicate,
+): JsonArrayExistsExpression => ({ array, type: "jsonExists", ...(where ? { where } : {}) });
+
+export const jsonArrayFirst = (
+	array: ScalarExpression,
+	input: JsonArrayWhereInput & {
+		readonly select: ScalarExpression;
+		readonly orderBy: readonly [OrderBy, ...OrderBy[]];
+	},
+): JsonArrayFirstExpression => ({
+	array,
+	type: "jsonFirst",
+	select: input.select,
+	orderBy: [...input.orderBy] as [OrderBy, ...OrderBy[]],
+	...(input.where ? { where: input.where } : {}),
+});
+
+export const jsonArrayCount = (
+	array: ScalarExpression,
+	where?: Predicate,
+): JsonArrayCountExpression => ({ array, type: "jsonCount", ...(where ? { where } : {}) });
 
 const correlatedAggregate = (
 	from: TableReference,

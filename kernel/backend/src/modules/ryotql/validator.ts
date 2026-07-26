@@ -28,6 +28,7 @@ export const MAX_INCLUDE_DEPTH = 3;
 export const MAX_INCLUDE_LIMIT = 100;
 export const MAX_ROOT_PAGE_SIZE = 100;
 export const MAX_CORRELATED_DEPTH = 3;
+export const MAX_JSON_ELEMENT_DEPTH = 3;
 export const MAX_DOCUMENT_QUERIES = 10;
 export const MAX_TIME_SERIES_BUCKETS = 1000;
 export const MAX_GROUPED_AGGREGATE_LIMIT = 1000;
@@ -62,15 +63,34 @@ const validateExpression = (
 	scope: AliasScope,
 	correlatedDepth: number,
 	executionScope: Pick<RyotQLExecutionScope, "type">,
+	elementDepth = 0,
 ): string | null => {
 	if (expr.type === "literal") {
 		return null;
 	}
+	if (expr.type === "jsonElement") {
+		return elementDepth > 0 ? null : "JSON element expressions require a JSON array operator";
+	}
+	if (expr.type === "jsonExists" || expr.type === "jsonCount") {
+		return validateJsonArray(expr, scope, correlatedDepth, executionScope, elementDepth, null);
+	}
+	if (expr.type === "jsonFirst") {
+		return validateJsonArray(expr, scope, correlatedDepth, executionScope, elementDepth, {
+			select: expr.select,
+			orderBy: expr.orderBy,
+		});
+	}
 	if (expr.type === "cast") {
-		return validateExpression(expr.expr, scope, correlatedDepth, executionScope);
+		return validateExpression(expr.expr, scope, correlatedDepth, executionScope, elementDepth);
 	}
 	if (expr.type === "dateBucket") {
-		const expressionError = validateExpression(expr.expr, scope, correlatedDepth, executionScope);
+		const expressionError = validateExpression(
+			expr.expr,
+			scope,
+			correlatedDepth,
+			executionScope,
+			elementDepth,
+		);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -84,14 +104,18 @@ const validateExpression = (
 	if (expr.type === "coalesce") {
 		return (
 			expr.values
-				.map((value) => validateExpression(value, scope, correlatedDepth, executionScope))
+				.map((value) =>
+					validateExpression(value, scope, correlatedDepth, executionScope, elementDepth),
+				)
 				.find(Boolean) ?? null
 		);
 	}
 	if (expr.type === "concat") {
 		return (
 			expr.values
-				.map((value) => validateExpression(value, scope, correlatedDepth, executionScope))
+				.map((value) =>
+					validateExpression(value, scope, correlatedDepth, executionScope, elementDepth),
+				)
 				.find(Boolean) ?? null
 		);
 	}
@@ -101,17 +125,24 @@ const validateExpression = (
 			scope,
 			correlatedDepth,
 			executionScope,
+			elementDepth,
 		);
 		if (conditionError) {
 			return conditionError;
 		}
 		return (
-			validateExpression(expr.whenTrue, scope, correlatedDepth, executionScope) ??
-			validateExpression(expr.whenFalse, scope, correlatedDepth, executionScope)
+			validateExpression(expr.whenTrue, scope, correlatedDepth, executionScope, elementDepth) ??
+			validateExpression(expr.whenFalse, scope, correlatedDepth, executionScope, elementDepth)
 		);
 	}
 	if (expr.type === "transform") {
-		const expressionError = validateExpression(expr.expr, scope, correlatedDepth, executionScope);
+		const expressionError = validateExpression(
+			expr.expr,
+			scope,
+			correlatedDepth,
+			executionScope,
+			elementDepth,
+		);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -124,7 +155,13 @@ const validateExpression = (
 		expr.type === "isNotNull" ||
 		expr.type === "round"
 	) {
-		const expressionError = validateExpression(expr.expr, scope, correlatedDepth, executionScope);
+		const expressionError = validateExpression(
+			expr.expr,
+			scope,
+			correlatedDepth,
+			executionScope,
+			elementDepth,
+		);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -136,8 +173,8 @@ const validateExpression = (
 	}
 	if (expr.type === "arithmetic") {
 		return (
-			validateExpression(expr.left, scope, correlatedDepth, executionScope) ??
-			validateExpression(expr.right, scope, correlatedDepth, executionScope)
+			validateExpression(expr.left, scope, correlatedDepth, executionScope, elementDepth) ??
+			validateExpression(expr.right, scope, correlatedDepth, executionScope, elementDepth)
 		);
 	}
 	if (expr.type === "exists" || expr.type === "aggregate" || expr.type === "first") {
@@ -154,6 +191,7 @@ const validateExpression = (
 				nested.scope,
 				correlatedDepth + 1,
 				executionScope,
+				elementDepth,
 			);
 		}
 		if (expr.type === "first") {
@@ -162,6 +200,7 @@ const validateExpression = (
 				nested.scope,
 				correlatedDepth + 1,
 				executionScope,
+				elementDepth,
 			);
 			if (selectionError) {
 				return selectionError;
@@ -172,6 +211,7 @@ const validateExpression = (
 					nested.scope,
 					correlatedDepth + 1,
 					executionScope,
+					elementDepth,
 				);
 				if (orderError) {
 					return orderError;
@@ -184,7 +224,13 @@ const validateExpression = (
 		return null;
 	}
 	if (expr.type === "jsonPath") {
-		const expressionError = validateExpression(expr.expr, scope, correlatedDepth, executionScope);
+		const expressionError = validateExpression(
+			expr.expr,
+			scope,
+			correlatedDepth,
+			executionScope,
+			elementDepth,
+		);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -204,19 +250,77 @@ const validateExpression = (
 const compatibleKinds = (left: ScalarKind | undefined, right: ScalarKind | undefined) =>
 	left === "null" || right === "null" || left === right;
 
+const validateJsonArray = (
+	expr: Extract<ScalarExpression, { type: "jsonExists" | "jsonFirst" | "jsonCount" }>,
+	scope: AliasScope,
+	correlatedDepth: number,
+	executionScope: Pick<RyotQLExecutionScope, "type">,
+	elementDepth: number,
+	projection: { readonly select: ScalarExpression; readonly orderBy: readonly OrderBy[] } | null,
+): string | null => {
+	if (elementDepth >= MAX_JSON_ELEMENT_DEPTH) {
+		return `JSON array depth must not exceed ${MAX_JSON_ELEMENT_DEPTH}`;
+	}
+	const arrayError = validateExpression(
+		expr.array,
+		scope,
+		correlatedDepth,
+		executionScope,
+		elementDepth,
+	);
+	if (arrayError) {
+		return arrayError;
+	}
+	if (expressionKind(expr.array, scope) !== "json") {
+		return "JSON array operators require a JSON expression";
+	}
+	const nestedDepth = elementDepth + 1;
+	if (projection) {
+		const selectionError = validateExpression(
+			projection.select,
+			scope,
+			correlatedDepth,
+			executionScope,
+			nestedDepth,
+		);
+		if (selectionError) {
+			return selectionError;
+		}
+		for (const order of projection.orderBy) {
+			const orderError = validateExpression(
+				order.expr,
+				scope,
+				correlatedDepth,
+				executionScope,
+				nestedDepth,
+			);
+			if (orderError) {
+				return orderError;
+			}
+			if (expressionKind(order.expr, scope) === "json") {
+				return "Ordering expressions must resolve to scalar values";
+			}
+		}
+	}
+	return expr.where
+		? validatePredicate(expr.where, scope, correlatedDepth, executionScope, nestedDepth)
+		: null;
+};
+
 const validatePredicate = (
 	predicate: Predicate,
 	scope: AliasScope,
 	correlatedDepth: number,
 	executionScope: Pick<RyotQLExecutionScope, "type">,
+	elementDepth = 0,
 ): string | null => {
-	if (predicate.type === "exists") {
-		return validateExpression(predicate, scope, correlatedDepth, executionScope);
+	if (predicate.type === "exists" || predicate.type === "jsonExists") {
+		return validateExpression(predicate, scope, correlatedDepth, executionScope, elementDepth);
 	}
 	if (predicate.type === "comparison") {
 		const expressionError =
-			validateExpression(predicate.left, scope, correlatedDepth, executionScope) ??
-			validateExpression(predicate.right, scope, correlatedDepth, executionScope);
+			validateExpression(predicate.left, scope, correlatedDepth, executionScope, elementDepth) ??
+			validateExpression(predicate.right, scope, correlatedDepth, executionScope, elementDepth);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -232,20 +336,28 @@ const validatePredicate = (
 	if (predicate.type === "and" || predicate.type === "or") {
 		return (
 			predicate.predicates
-				.map((value) => validatePredicate(value, scope, correlatedDepth, executionScope))
+				.map((value) =>
+					validatePredicate(value, scope, correlatedDepth, executionScope, elementDepth),
+				)
 				.find(Boolean) ?? null
 		);
 	}
 	if (predicate.type === "not") {
-		return validatePredicate(predicate.predicate, scope, correlatedDepth, executionScope);
+		return validatePredicate(
+			predicate.predicate,
+			scope,
+			correlatedDepth,
+			executionScope,
+			elementDepth,
+		);
 	}
 	if (predicate.type === "isNull" || predicate.type === "isNotNull") {
-		return validateExpression(predicate.expr, scope, correlatedDepth, executionScope);
+		return validateExpression(predicate.expr, scope, correlatedDepth, executionScope, elementDepth);
 	}
 	if (predicate.type === "contains") {
 		const expressionError =
-			validateExpression(predicate.left, scope, correlatedDepth, executionScope) ??
-			validateExpression(predicate.right, scope, correlatedDepth, executionScope);
+			validateExpression(predicate.left, scope, correlatedDepth, executionScope, elementDepth) ??
+			validateExpression(predicate.right, scope, correlatedDepth, executionScope, elementDepth);
 		if (expressionError) {
 			return expressionError;
 		}
@@ -256,9 +368,11 @@ const validatePredicate = (
 			: "Containment operands must both be text or JSON";
 	}
 	const expressionError =
-		validateExpression(predicate.expr, scope, correlatedDepth, executionScope) ??
+		validateExpression(predicate.expr, scope, correlatedDepth, executionScope, elementDepth) ??
 		predicate.values
-			.map((value) => validateExpression(value, scope, correlatedDepth, executionScope))
+			.map((value) =>
+				validateExpression(value, scope, correlatedDepth, executionScope, elementDepth),
+			)
 			.find(Boolean) ??
 		null;
 	if (expressionError) {

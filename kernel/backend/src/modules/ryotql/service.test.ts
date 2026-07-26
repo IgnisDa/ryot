@@ -30,7 +30,12 @@ import {
 	integer,
 	isNotNull,
 	join,
+	jsonArrayCount,
+	jsonArrayExists,
+	jsonArrayFirst,
+	jsonElement,
 	jsonPath,
+	gt,
 	kebabCase,
 	literal,
 	maximum,
@@ -1224,6 +1229,53 @@ it.effect("compiles correlated scalar expressions with authorized query sets", (
 			hasEvents: true,
 			fallback: "none",
 		});
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
+it.effect("compiles JSON array operators into element subqueries", () => {
+	const statements: string[] = [];
+	const entity = table("entity", "entity");
+	const schedule = jsonPath(column(entity, "properties"), "airingSchedule");
+	const airingAt = castDate(jsonPath(jsonElement(), "airingAt"));
+	const upcoming = gt(airingAt, castDate(literal("2026-09-01T00:00:00.000Z")));
+	const nextAiringAt = jsonArrayFirst(schedule, {
+		where: upcoming,
+		select: airingAt,
+		orderBy: [ascending(airingAt)],
+	});
+	const document = {
+		queries: {
+			entities: rows(entity, {
+				orderBy: [ascending(nextAiringAt)],
+				where: jsonArrayExists(schedule, upcoming),
+				fields: [
+					field("nextAiringAt", nextAiringAt),
+					field("upcomingCount", jsonArrayCount(schedule, upcoming)),
+				],
+			}),
+		},
+	} satisfies RyotQLDocument;
+	const resultRows = [
+		{ f1v: 2, o1v: "entity-1", f0v: "2026-10-01T12:00:00.000Z", o0v: "2026-10-01T12:00:00.000Z" },
+	];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		const statement = statements[2];
+		expect(statement).toContain("jsonb_array_elements");
+		expect(statement).toContain("EXISTS (SELECT 1 FROM jsonb_array_elements");
+		expect(statement).toContain("LIMIT 1");
+		expect(statement).toContain("COUNT(*)::double precision");
+		expect(statement).toContain("ELSE '[]'::jsonb");
+		const entities = response.data["entities"];
+		if (entities?.type !== "rows") {
+			throw new Error("Expected entities rows result");
+		}
+		expect(entities.items).toEqual([
+			{ upcomingCount: 2, nextAiringAt: "2026-10-01T12:00:00.000Z" },
+		]);
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });
 

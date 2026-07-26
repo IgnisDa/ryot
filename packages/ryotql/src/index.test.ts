@@ -37,6 +37,10 @@ import {
 	include,
 	integer,
 	join,
+	jsonArrayCount,
+	jsonArrayExists,
+	jsonArrayFirst,
+	jsonElement,
 	jsonPath,
 	literal,
 	lt,
@@ -120,6 +124,33 @@ describe("RyotQL builders", () => {
 					},
 				},
 			],
+		});
+	});
+
+	it("builds JSON array operators with element-scope expressions", () => {
+		const entity = table("entity", "entity");
+		const schedule = jsonPath(column(entity, "properties"), "airingSchedule");
+		const airingAt = castDate(jsonPath(jsonElement(), "airingAt"));
+		const upcoming = gt(airingAt, castDate(literal("2026-09-01T00:00:00.000Z")));
+
+		expect(jsonArrayExists(schedule, upcoming)).toEqual({
+			array: schedule,
+			where: upcoming,
+			type: "jsonExists",
+		});
+		expect(jsonArrayCount(schedule)).toEqual({ array: schedule, type: "jsonCount" });
+		expect(
+			jsonArrayFirst(schedule, {
+				where: upcoming,
+				select: airingAt,
+				orderBy: [ascending(airingAt)],
+			}),
+		).toEqual({
+			array: schedule,
+			where: upcoming,
+			select: airingAt,
+			type: "jsonFirst",
+			orderBy: [{ expr: airingAt, direction: "asc" }],
 		});
 	});
 
