@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { RyotQLDocument, RyotQLResponse } from "./language";
+import { OutputFieldKey, Pagination, RyotQLDocument, RyotQLResponse } from "./language";
 
 const document = {
 	queries: {
@@ -169,6 +169,50 @@ describe("RyotQLDocument", () => {
 		} as const;
 
 		expect(Schema.decodeUnknownSync(RyotQLDocument)(correlated)).toEqual(correlated);
+	});
+
+	it("decodes scalar operations with recursive expressions and predicates", () => {
+		const value = { type: "column", tableAlias: "entity", field: "name" } as const;
+		const expressions = [
+			{ type: "concat", values: [value, { type: "literal", value: " suffix" }] },
+			{
+				type: "conditional",
+				whenFalse: { type: "literal", value: null },
+				condition: { type: "isNotNull", expr: value },
+				whenTrue: { type: "transform", expr: value, name: "titleCase" },
+			},
+			{ type: "transform", expr: value, name: "kebabCase" },
+			{ type: "round", expr: value },
+			{ type: "floor", expr: value },
+			{ type: "integer", expr: value },
+			{ type: "isNotNull", expr: value },
+		] as const;
+
+		for (const expr of expressions) {
+			expect(Schema.decodeUnknownSync(RyotQLDocument)(makeDocument(expr))).toEqual(
+				makeDocument(expr),
+			);
+		}
+	});
+
+	it("exports positive pagination and non-empty output field-key schemas", () => {
+		expect(Schema.decodeUnknownSync(Pagination)({ page: 1, limit: 20 })).toEqual({
+			page: 1,
+			limit: 20,
+		});
+		expect(Schema.decodeUnknownSync(OutputFieldKey)("value")).toBe("value");
+		for (const value of [""]) {
+			expect(() => Schema.decodeUnknownSync(OutputFieldKey)(value)).toThrow();
+		}
+	});
+
+	it("rejects empty concat values and legacy scalar expression keys", () => {
+		for (const expr of [
+			{ type: "concat", values: [] },
+			{ type: "transform", expression: { type: "literal", value: "value" }, name: "titleCase" },
+		]) {
+			expect(() => Schema.decodeUnknownSync(RyotQLDocument)(makeDocument(expr))).toThrow();
+		}
 	});
 
 	it("decodes grouped aggregate documents and responses", () => {

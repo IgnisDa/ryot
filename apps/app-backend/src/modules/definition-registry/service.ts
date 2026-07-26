@@ -1,6 +1,10 @@
-import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import type { PluginEntitySchema } from "@ryot/contract/modules/plugins/manifest";
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import type {
+	FieldSelection,
+	RyotQLDocument,
+	RowSelection,
+} from "@ryot/contract/modules/ryotql/language";
+import type { SavedViewDisplayConfiguration } from "@ryot/contract/modules/saved-views/schemas";
 import type { AppSchema, PropertyValidationError } from "@ryot/contract/schema/property-schema";
 import { Context, Data, Effect, Layer } from "effect";
 
@@ -9,6 +13,8 @@ import {
 	parseAppSchemaProperties,
 	validateAppSchemaDefinition,
 } from "#lib/property-schema/property-schema-runtime";
+import { getCatalogTable, type CatalogTable } from "#modules/ryotql/catalog";
+import { expressionKind, validateRyotQLDocument } from "#modules/ryotql/validator";
 
 import { kernelDefinitionSource } from "./kernel-source";
 
@@ -65,7 +71,7 @@ export type SavedViewDefinition = {
 	readonly sortOrder: number;
 	readonly pluginSlug: string | null;
 	readonly queryDocument: RyotQLDocument;
-	readonly displayConfiguration: DisplayConfiguration;
+	readonly displayConfiguration: SavedViewDisplayConfiguration;
 };
 
 export type DefinitionSource = {
@@ -121,6 +127,94 @@ const assertSchemaDefinition = (kind: string, slug: string, schema: AppSchema) =
 	}
 };
 
+const cardFields = (card: SavedViewDisplayConfiguration["grid"]) =>
+	[
+		card.titleField,
+		card.imageField,
+		card.eyebrowField,
+		card.calloutField,
+		card.primarySubtitleField,
+		card.secondarySubtitleField,
+	].filter((field): field is string => field !== null);
+
+const configuredFields = (displayConfiguration: SavedViewDisplayConfiguration) => [
+	displayConfiguration.entityIdField,
+	...cardFields(displayConfiguration.grid),
+	...cardFields(displayConfiguration.list),
+	...displayConfiguration.table.columns.map(({ field }) => field),
+];
+
+const rootScope = (document: RyotQLDocument) => {
+	const [query] = Object.values(document.queries);
+	const scope = new Map<string, CatalogTable>();
+	if (!query) {
+		return scope;
+	}
+	for (const reference of [query.from, ...(query.joins ?? []).map(({ table }) => table)]) {
+		const table = getCatalogTable(reference.table);
+		if (table) {
+			scope.set(reference.alias, table);
+		}
+	}
+	return scope;
+};
+
+const isFieldSelection = (selection: RowSelection): selection is FieldSelection =>
+	"key" in selection;
+
+const displayExpression = (fields: readonly FieldSelection[], field: string) =>
+	fields.find((selection) => selection.key === field);
+
+export const getSavedViewValidationError = (input: {
+	readonly queryDocument: RyotQLDocument;
+	readonly displayConfiguration: SavedViewDisplayConfiguration;
+}): string | null => {
+	const queries = Object.entries(input.queryDocument.queries);
+	if (queries.length !== 1) {
+		return "A saved view must contain exactly one named query";
+	}
+
+	const query = queries[0]?.[1];
+	if (query?.output.type !== "rows") {
+		return "Saved view query must have rows output";
+	}
+	if (query.output.pagination.page !== 1) {
+		return "Saved view query pagination page must be 1";
+	}
+	if (query.output.fields.some((selection) => !isFieldSelection(selection))) {
+		return "Saved view query must use explicit field selections";
+	}
+	if (query.output.include !== undefined) {
+		return "Saved view query must not include nested results";
+	}
+	if (input.displayConfiguration.table.columns.length === 0) {
+		return "At least one table column is required";
+	}
+
+	const semanticError = validateRyotQLDocument(input.queryDocument);
+	if (semanticError) {
+		return semanticError;
+	}
+
+	const rootFields = query.output.fields.filter(isFieldSelection);
+	const projectionKeys = new Set(rootFields.map((selection) => selection.key));
+	for (const field of configuredFields(input.displayConfiguration)) {
+		if (!projectionKeys.has(field)) {
+			return `Saved view display field '${field}' is not in the root projection`;
+		}
+	}
+
+	const entityIdSelection = displayExpression(rootFields, input.displayConfiguration.entityIdField);
+	if (!entityIdSelection) {
+		return `Saved view display field '${input.displayConfiguration.entityIdField}' is not in the root projection`;
+	}
+	if (expressionKind(entityIdSelection.expr, rootScope(input.queryDocument)) !== "text") {
+		return "Saved view entityIdField must resolve to text";
+	}
+
+	return null;
+};
+
 const validateDefinitionSource = (source: DefinitionSource) => {
 	assertUniqueSlugs("entity schema", source.entitySchemas);
 	assertUniqueSlugs("relationship schema", source.relationshipSchemas);
@@ -129,6 +223,13 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 
 	const entitySchemaSlugs = new Set(source.entitySchemas.map(({ slug }) => slug));
 	const relationshipSchemaSlugs = new Set(source.relationshipSchemas.map(({ slug }) => slug));
+
+	for (const savedView of source.savedViews) {
+		const validationError = getSavedViewValidationError(savedView);
+		if (validationError) {
+			throw new Error(`Invalid saved view ${savedView.slug}: ${validationError}`);
+		}
+	}
 
 	for (const entitySchema of source.entitySchemas) {
 		assertSchemaDefinition("entity", entitySchema.slug, entitySchema.propertiesSchema);

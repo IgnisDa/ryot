@@ -32,6 +32,5 @@ export * from "./plugins";
 export * from "./translations";
 export * from "./user-preferences";
 export * from "./user-state";
-export * from "./view-language";
 export * from "./workouts";
 export * from "./workout-templates";

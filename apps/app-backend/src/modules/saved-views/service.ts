@@ -12,9 +12,8 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
-import { RyotQLService } from "#modules/ryotql/service";
 
-import { validateDisplayConfiguration } from "./display-configuration-validation";
+import { validateSavedViewDefinition } from "./definition-validation";
 import { SavedViewsRepository } from "./repository";
 
 const savedViewNotFound = "Saved view not found";
@@ -23,7 +22,6 @@ const builtinViewMutationMessage = "Cannot modify built-in saved views";
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const ryotql = yield* RyotQLService;
 		const definitions = yield* DefinitionRegistry;
 		const repository = yield* SavedViewsRepository;
 
@@ -80,19 +78,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			) {
 				return yield* badRequest("A saved view with this name already exists");
 			}
-			yield* ryotql.validate(payload.queryDocument);
-			yield* validateDisplayConfiguration({
-				displayConfig: payload.displayConfiguration,
-				loadSchemas: (slugs) =>
-					Effect.succeed(
-						slugs.flatMap((schemaSlug) => {
-							const schema = definitions.getEntitySchema(schemaSlug);
-							return schema
-								? [{ slug: schema.slug, propertiesSchema: schema.propertiesSchema }]
-								: [];
-						}),
-					),
-			});
+			yield* validateSavedViewDefinition(payload);
 			const created = yield* runWithDb(
 				repository.create(user.id, {
 					slug,
@@ -138,19 +124,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			if (!name) {
 				return yield* badRequest("Saved view name is required");
 			}
-			yield* ryotql.validate(payload.queryDocument);
-			yield* validateDisplayConfiguration({
-				displayConfig: payload.displayConfiguration,
-				loadSchemas: (slugs) =>
-					Effect.succeed(
-						slugs.flatMap((schemaSlug) => {
-							const schema = definitions.getEntitySchema(schemaSlug);
-							return schema
-								? [{ slug: schema.slug, propertiesSchema: schema.propertiesSchema }]
-								: [];
-						}),
-					),
-			});
+			yield* validateSavedViewDefinition(payload);
 			const updated = yield* runWithDb(
 				repository.updateBySlug(
 					user.id,

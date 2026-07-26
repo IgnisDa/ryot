@@ -89,6 +89,15 @@ const expressionScope = (query: CorrelatedQuerySet, ancestors: CompileScope) => 
 	return scope;
 };
 
+const unifyExpressionKinds = (kinds: readonly (CatalogFieldKind | "null")[]) => {
+	const nonNullKinds = kinds.filter((kind) => kind !== "null");
+	if (nonNullKinds.length === 0) {
+		return "null" as const;
+	}
+	const first = nonNullKinds[0];
+	return first !== undefined && nonNullKinds.every((kind) => kind === first) ? first : "json";
+};
+
 const expressionKind = (expr: ScalarExpression, scope: CompileScope): CatalogFieldKind | "null" => {
 	if (expr.type === "literal") {
 		if (expr.value === null) {
@@ -114,6 +123,15 @@ const expressionKind = (expr: ScalarExpression, scope: CompileScope): CatalogFie
 	if (expr.type === "arithmetic" || expr.type === "aggregate") {
 		return "number";
 	}
+	if (expr.type === "concat" || expr.type === "transform") {
+		return "text";
+	}
+	if (expr.type === "isNotNull") {
+		return "boolean";
+	}
+	if (expr.type === "floor" || expr.type === "integer" || expr.type === "round") {
+		return "number";
+	}
 	if (expr.type === "first") {
 		return expressionKind(expr.select, expressionScope(expr.query, scope));
 	}
@@ -121,10 +139,13 @@ const expressionKind = (expr: ScalarExpression, scope: CompileScope): CatalogFie
 		return "json";
 	}
 	if (expr.type === "coalesce") {
-		const kinds = expr.values.map((value) => expressionKind(value, scope));
-		const nonNullKinds = kinds.filter((kind) => kind !== "null");
-		const first = nonNullKinds[0];
-		return first && nonNullKinds.every((kind) => kind === first) ? first : "json";
+		return unifyExpressionKinds(expr.values.map((value) => expressionKind(value, scope)));
+	}
+	if (expr.type === "conditional") {
+		return unifyExpressionKinds([
+			expressionKind(expr.whenTrue, scope),
+			expressionKind(expr.whenFalse, scope),
+		]);
 	}
 	const compileTable = requireCompileTable(scope, expr.tableAlias);
 	const field = resolveCatalogField(compileTable.table, expr.field);
@@ -241,6 +262,57 @@ const compileCast = (
 	return typedNull(expr.target);
 };
 
+const compileTextValue = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
+	const kind = expressionKind(expr, scope);
+	if (kind === "null") {
+		return sql`NULL::text`;
+	}
+	if (kind === "json") {
+		return sql`NULLIF((${compileJsonValue(expr, scope)} #>> '{}'), 'null')`;
+	}
+	if (kind === "text") {
+		return compileExpression(expr, scope);
+	}
+	return sql`(${compileExpression(expr, scope)})::text`;
+};
+
+const compileTextTransform = (
+	expr: Extract<ScalarExpression, { type: "transform" }>,
+	scope: CompileScope,
+) => {
+	const value = compileTextValue(expr.expr, scope);
+	const camelCase = sql`regexp_replace(${value}, ${String.raw`([a-z0-9])([A-Z])`}, ${String.raw`\1 \2`}, 'g')`;
+	if (expr.name === "titleCase") {
+		return sql`initcap(regexp_replace(${camelCase}, ${"[^A-Za-z0-9]+"}, ${" "}, 'g'))`;
+	}
+	const separated = sql`regexp_replace(${camelCase}, ${"[^A-Za-z0-9]+"}, ${"-"}, 'g')`;
+	return sql`btrim(lower(${separated}), '-')`;
+};
+
+const compileConditional = (
+	expr: Extract<ScalarExpression, { type: "conditional" }>,
+	scope: CompileScope,
+) => {
+	const kind = expressionKind(expr, scope);
+	const compileBranch = (branch: ScalarExpression) =>
+		kind === "json" ? compileJsonValue(branch, scope) : compileExpression(branch, scope);
+	return sql`CASE WHEN ${compilePredicate(expr.condition, scope)} THEN ${compileBranch(expr.whenTrue)} ELSE ${compileBranch(expr.whenFalse)} END`;
+};
+
+const compileUnary = (
+	expr: Extract<ScalarExpression, { type: "floor" | "integer" | "round" }>,
+	scope: CompileScope,
+) => {
+	const value = compileCast({ expr: expr.expr, target: "number", type: "cast" }, scope);
+	if (expr.type === "round") {
+		return sql`round(${value})`;
+	}
+	if (expr.type === "floor") {
+		return sql`floor(${value})`;
+	}
+	return sql`trunc(${value})`;
+};
+
 const compileArithmetic = (
 	expr: Extract<ScalarExpression, { type: "arithmetic" }>,
 	scope: CompileScope,
@@ -271,6 +343,24 @@ const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFrag
 	}
 	if (expr.type === "arithmetic") {
 		return compileArithmetic(expr, scope);
+	}
+	if (expr.type === "concat") {
+		return sql`concat(${sql.join(
+			expr.values.map((value) => compileTextValue(value, scope)),
+			sql`, `,
+		)})`;
+	}
+	if (expr.type === "conditional") {
+		return compileConditional(expr, scope);
+	}
+	if (expr.type === "transform") {
+		return compileTextTransform(expr, scope);
+	}
+	if (expr.type === "isNotNull") {
+		return sql`(${compileExpression(expr.expr, scope)} IS NOT NULL)`;
+	}
+	if (expr.type === "floor" || expr.type === "integer" || expr.type === "round") {
+		return compileUnary(expr, scope);
 	}
 	if (expr.type === "aggregate") {
 		return compileAggregate(expr, scope);
@@ -435,6 +525,10 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
 	if (expr.type === "jsonPath") {
 		const value = compileExpression(expr, scope);
+		return sql`CASE jsonb_typeof(${value}) WHEN 'string' THEN 'text' WHEN 'number' THEN 'number' WHEN 'boolean' THEN 'boolean' WHEN 'object' THEN 'json' WHEN 'array' THEN 'json' ELSE 'null' END`;
+	}
+	if (expr.type === "conditional" && expressionKind(expr, scope) === "json") {
+		const value = compileJsonValue(expr, scope);
 		return sql`CASE jsonb_typeof(${value}) WHEN 'string' THEN 'text' WHEN 'number' THEN 'number' WHEN 'boolean' THEN 'boolean' WHEN 'object' THEN 'json' WHEN 'array' THEN 'json' ELSE 'null' END`;
 	}
 	if (expr.type === "coalesce" && expressionKind(expr, scope) === "json") {

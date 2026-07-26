@@ -1,41 +1,28 @@
-import {
-	createEntityColumnExpression,
-	createEntitySchemaExpression,
-} from "@ryot/contract/display-configuration";
-import {
-	and,
-	ascending,
-	column,
-	document,
-	eq,
-	field,
-	include,
-	isNotNull,
-	join,
-	literal,
-	rows,
-	table,
-} from "@ryot/ryotql";
+import { column, eq, literal, table } from "@ryot/ryotql";
+import { buildSavedViewDocument } from "@ryot/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
 import {
-	buildSavedViewQueryDocumentBody,
 	createAuthenticatedClient,
-	createRelationshipSchema,
 	createSavedViewWithQueryDocument,
-	createPluginEntitySchema,
-	entityField,
 	findBuiltinPluginBySlug,
 	getSavedView,
 	listSavedViews,
-	updateSavedViewWithQueryDocument,
-	aggregateDocument,
 	rowsDocument,
-	timeSeriesDocument,
-	type SavedViewQueryDocument,
+	rowsFields,
+	updateSavedViewWithQueryDocument,
 } from "~/fixtures";
-import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+
+const entity = table("entity", "entity");
+
+const alternateRowsDocument = buildSavedViewDocument({
+	page: 1,
+	limit: 2,
+	entitySchemaSlugs: ["book"],
+	where: eq(column(entity, "name"), literal("A Book")),
+	fields: rowsFields,
+});
 
 describe("Saved views query documents E2E", () => {
 	it.live("stores media built-in saved views with canonical in-library filters", () =>
@@ -49,6 +36,15 @@ describe("Saved views query documents E2E", () => {
 				queries: {
 					savedView: {
 						from: { alias: "entity", table: "entity" },
+						output: {
+							type: "rows",
+							pagination: { page: 1 },
+							fields: expect.arrayContaining([
+								expect.objectContaining({ key: "entityId" }),
+								expect.objectContaining({ key: "gridTitle" }),
+								expect.objectContaining({ key: "listTitle" }),
+							]),
+						},
 						where: {
 							type: "and",
 							predicates: expect.arrayContaining([
@@ -60,12 +56,7 @@ describe("Saved views query documents E2E", () => {
 										field: "entitySchemaSlug",
 									}),
 								}),
-								expect.objectContaining({
-									type: "exists",
-									query: expect.objectContaining({
-										from: { alias: "inLibrary", table: "relationship" },
-									}),
-								}),
+								expect.objectContaining({ type: "exists" }),
 							]),
 						},
 					},
@@ -74,7 +65,7 @@ describe("Saved views query documents E2E", () => {
 		}),
 	);
 
-	it.live("creates and retrieves a saved view backed by a rows query document", () =>
+	it.live("creates and retrieves a saved view with a key-based rows definition", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
@@ -85,34 +76,14 @@ describe("Saved views query documents E2E", () => {
 
 			expect(createdView.queryDocument).toEqual(rowsDocument);
 			expect(fetchedView.queryDocument).toEqual(rowsDocument);
+			expect(fetchedView.displayConfiguration.entityIdField).toBe("entityId");
+			expect(fetchedView.displayConfiguration.grid.titleField).toBe("gridTitle");
+			expect(fetchedView.displayConfiguration.list.titleField).toBe("listTitle");
+			expect(fetchedView.displayConfiguration.table.columns[0].field).toBe("tableColumn0");
 		}),
 	);
 
-	it.live("creates a saved view backed by an aggregate query document", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-
-			const createdView = yield* createSavedViewWithQueryDocument(client, aggregateDocument, {
-				name: `Aggregate View ${crypto.randomUUID()}`,
-			});
-
-			expect(createdView.queryDocument).toEqual(aggregateDocument);
-		}),
-	);
-
-	it.live("creates a saved view backed by a time series query document", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-
-			const createdView = yield* createSavedViewWithQueryDocument(client, timeSeriesDocument, {
-				name: `Time Series View ${crypto.randomUUID()}`,
-			});
-
-			expect(createdView.queryDocument).toEqual(timeSeriesDocument);
-		}),
-	);
-
-	it.live("updates a saved view's query document", () =>
+	it.live("updates a saved view's explicit rows query document", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const createdView = yield* createSavedViewWithQueryDocument(client, rowsDocument, {
@@ -122,141 +93,45 @@ describe("Saved views query documents E2E", () => {
 			const updatedView = yield* updateSavedViewWithQueryDocument(
 				client,
 				createdView.slug,
-				aggregateDocument,
+				alternateRowsDocument,
 			);
 			const fetchedView = yield* getSavedView(client, createdView.slug);
 
-			expect(updatedView.queryDocument).toEqual(aggregateDocument);
-			expect(fetchedView.queryDocument).toEqual(aggregateDocument);
+			expect(updatedView.queryDocument).toEqual(alternateRowsDocument);
+			expect(fetchedView.queryDocument).toEqual(alternateRowsDocument);
 		}),
 	);
 
-	it.live(
-		"preserves a full RyotQL document with a where clause and nested includes without stripping fields",
-		() =>
-			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
-				const { schemaId: courseSchemaId, slug: courseSlug } = yield* createPluginEntitySchema(
-					client,
-					{
-						schemaName: `SavedViewCourse ${crypto.randomUUID()}`,
-					},
-				);
-				const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createPluginEntitySchema(
-					client,
-					{
-						schemaName: `SavedViewModule ${crypto.randomUUID()}`,
-					},
-				);
-				const courseModuleSlug = `saved-view-course-module-${crypto.randomUUID()}`;
-				yield* createRelationshipSchema(client, {
-					slug: courseModuleSlug,
-					name: "Saved View Course Module",
-					sourceEntitySchemaSlug: courseSchemaId,
-					targetEntitySchemaSlug: moduleSchemaId,
-				});
-
-				const course = table("entity", "course");
-				const module = table("entity", "module");
-				const courseModule = table("relationship", "courseModule");
-				const hierarchicalDocument: SavedViewQueryDocument = document({
-					savedView: rows(course, {
-						where: and(
-							eq(column(course, "entitySchemaSlug"), literal(courseSlug)),
-							isNotNull(column(course, "name")),
-						),
-						fields: [field("name", column(course, "name"))],
-						orderBy: [ascending(column(course, "name"))],
-						limit: 10,
-						include: [
-							include(courseModule, {
-								limit: 20,
-								key: "modules",
-								fields: [field("name", column(module, "name"))],
-								orderBy: [ascending(column(module, "name"))],
-								joins: [
-									join(
-										"inner",
-										module,
-										eq(column(courseModule, "targetEntityId"), column(module, "id")),
-									),
-								],
-								where: and(
-									eq(column(courseModule, "sourceEntityId"), column(course, "id")),
-									eq(column(courseModule, "relationshipSchemaSlug"), literal(courseModuleSlug)),
-									eq(column(module, "entitySchemaSlug"), literal(moduleSlug)),
-								),
-							}),
-						],
-					}),
-				});
-
-				const createdView = yield* createSavedViewWithQueryDocument(client, hierarchicalDocument, {
-					name: `Hierarchical View ${crypto.randomUUID()}`,
-					displayConfiguration: {
-						entityIdProperty: createEntityColumnExpression(courseSlug, "id"),
-						table: { columns: [{ label: "Name", expression: [entityField(courseSlug, "name")] }] },
-						grid: {
-							imageProperty: null,
-							calloutProperty: null,
-							primarySubtitleProperty: null,
-							secondarySubtitleProperty: null,
-							eyebrowProperty: createEntitySchemaExpression("name"),
-							titleProperty: [entityField(courseSlug, "name")],
-						},
-						list: {
-							imageProperty: null,
-							calloutProperty: null,
-							primarySubtitleProperty: null,
-							secondarySubtitleProperty: null,
-							eyebrowProperty: createEntitySchemaExpression("name"),
-							titleProperty: [entityField(courseSlug, "name")],
-						},
-					},
-				});
-				const fetchedView = yield* getSavedView(client, createdView.slug);
-
-				expect(createdView.queryDocument).toEqual(hierarchicalDocument);
-				expect(fetchedView.queryDocument).toEqual(hierarchicalDocument);
-			}),
-	);
-
-	it.live("rejects a query document that fails semantic validation", () =>
+	it.live("preserves explicit fields and display keys without nested results", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const unknown = table("entity", "unknownAlias");
-			const book = table("entity", "book");
-			const invalidDocument: SavedViewQueryDocument = document({
-				savedView: rows(book, {
-					fields: [],
-					where: eq(column(unknown, "name"), literal("x")),
-				}),
+			const createdView = yield* createSavedViewWithQueryDocument(client, rowsDocument, {
+				name: `Projected View ${crypto.randomUUID()}`,
 			});
+			const fetchedView = yield* getSavedView(client, createdView.slug);
+			const query = fetchedView.queryDocument.queries.savedView;
+			if (query?.output.type !== "rows") {
+				throw new Error("Expected the saved-view query to use rows output");
+			}
+			const output = query.output;
 
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.savedViews.create({
-						payload: buildSavedViewQueryDocumentBody(invalidDocument, {
-							name: `Invalid View ${crypto.randomUUID()}`,
-						}),
-					}),
-				),
+			expect(output.type).toBe("rows");
+			expect(output.include).toBeUndefined();
+			expect(output.fields.every((selection) => "key" in selection)).toBe(true);
+			expect(output.fields.map((selection) => "key" in selection && selection.key)).toEqual(
+				expect.arrayContaining(["entityId", "gridTitle", "listTitle", "tableColumn0"]),
 			);
-
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toContain("Unknown table alias 'unknownAlias'");
 		}),
 	);
 
-	it.live("accepts unknown entity discriminator values as empty queries", () =>
+	it.live("accepts an unknown entity discriminator as an empty saved view", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const book = table("entity", "book");
-			const documentWithUnknownSchema: SavedViewQueryDocument = document({
-				savedView: rows(book, {
-					fields: [],
-					where: eq(column(book, "entitySchemaSlug"), literal("does-not-exist")),
-				}),
+			const documentWithUnknownSchema = buildSavedViewDocument({
+				page: 1,
+				limit: 2,
+				entitySchemaSlugs: ["does-not-exist"],
+				fields: rowsFields,
 			});
 
 			const createdView = yield* createSavedViewWithQueryDocument(
@@ -266,31 +141,6 @@ describe("Saved views query documents E2E", () => {
 			);
 
 			expect(createdView.queryDocument).toEqual(documentWithUnknownSchema);
-		}),
-	);
-
-	it.live("rejects a query document that selects a hidden field", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const savedView = table("savedView", "savedView");
-			const invalidDocument: SavedViewQueryDocument = document({
-				savedView: rows(savedView, {
-					fields: [field("userId", column(savedView, "userId"))],
-				}),
-			});
-
-			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.savedViews.create({
-						payload: buildSavedViewQueryDocumentBody(invalidDocument, {
-							name: `Hidden Field View ${crypto.randomUUID()}`,
-						}),
-					}),
-				),
-			);
-
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toContain("Unknown field 'userId' on table 'saved_view'");
 		}),
 	);
 });

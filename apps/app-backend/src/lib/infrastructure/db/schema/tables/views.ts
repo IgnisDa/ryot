@@ -1,5 +1,5 @@
-import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import type { SavedViewDisplayConfiguration } from "@ryot/contract/modules/saved-views/schemas";
 import { generateId } from "better-auth";
 import {
 	boolean,
@@ -26,8 +26,8 @@ export const savedView = pgTable(
 		isBuiltin: boolean().notNull().default(false),
 		isDisabled: boolean().notNull().default(false),
 		queryDocument: jsonb().$type<RyotQLDocument>().notNull(),
-		displayConfiguration: jsonb().$type<DisplayConfiguration>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		displayConfiguration: jsonb().$type<SavedViewDisplayConfiguration>().notNull(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
