@@ -8,7 +8,7 @@ import clsx from "clsx";
 import { Cause, Result } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { router, Slot, useGlobalSearchParams, usePathname } from "expo-router";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import Animated, {
 	FadeInUp,
@@ -600,6 +600,8 @@ export function WorkspaceShell() {
 	const [mobileSheet, setMobileSheet] = useState<"more" | "workspace" | "account" | null>(null);
 	const [desktopWorkspaceOpen, setDesktopWorkspaceOpen] = useState(false);
 	const [isScrolled, setIsScrolled] = useState(false);
+	const isDragging = useRef(false);
+	const previousScrollOffset = useRef(0);
 
 	if (AsyncResult.isFailure(navigationResult)) {
 		return (
@@ -673,7 +675,23 @@ export function WorkspaceShell() {
 						className="flex-1"
 						scrollEventThrottle={16}
 						contentContainerClassName="min-h-full px-4 pb-[120px] md:px-8 md:pb-8 md:pt-8"
-						onScroll={(event) => setIsScrolled(event.nativeEvent.contentOffset.y > 24)}
+						onScrollBeginDrag={() => {
+							isDragging.current = true;
+						}}
+						onScrollEndDrag={() => {
+							isDragging.current = false;
+						}}
+						onScroll={(event) => {
+							const offsetY = event.nativeEvent.contentOffset.y;
+							const previousOffsetY = previousScrollOffset.current;
+							previousScrollOffset.current = offsetY;
+
+							if (offsetY > previousOffsetY && offsetY > 24) {
+								setIsScrolled(true);
+							} else if (isDragging.current && offsetY < previousOffsetY) {
+								setIsScrolled(false);
+							}
+						}}
 					>
 						<View
 							className="md:hidden"
