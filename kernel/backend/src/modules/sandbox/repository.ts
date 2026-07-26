@@ -157,7 +157,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				!row.pluginManifest ||
 				!row.compiledHashes ||
 				(row.pluginScope === "system") !== (row.pluginOwnerId === null) ||
-				row.compiledHashes?.[row.slug] !== row.contentHash ||
+				row.compiledHashes[row.slug] !== row.contentHash ||
 				declaration?.kind !== row.metadata.kind ||
 				(row.providerId !== null && row.providerPluginId !== row.pluginId)
 			) {
