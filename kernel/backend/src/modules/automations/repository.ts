@@ -3,17 +3,14 @@ import {
 	AutomationOccurrence,
 	AutomationRuleMetadata,
 	type AutomationOccurrence as AutomationOccurrenceValue,
-	type AutomationOperation,
 	type AutomationRuleMetadata as AutomationRuleMetadataValue,
-	type SubscriptionRunSourceKind,
 	type SubscriptionRunSkipReason,
 	type SubscriptionRunTiming,
 } from "@ryot-app/contract/modules/automations/schemas";
-import type { AutomationOccurrenceId } from "@ryot-app/contract/schema/brands";
+import type { AutomationOccurrenceId, SignalId } from "@ryot-app/contract/schema/brands";
 import {
 	AutomationRuleId,
 	SandboxScriptId,
-	SignalId,
 	SignalSchemaSlug,
 	SubscriptionRunId,
 	UserId,
@@ -26,7 +23,7 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type { AutomationRuleTarget as PluginAutomationRuleTarget } from "#modules/plugins/runtime-resolver";
 
-type NotificationSubscriptionStateRow = typeof schema.notificationSubscriptionState.$inferSelect;
+type NotificationSubscriptionRow = typeof schema.notificationSubscription.$inferSelect;
 type SubscriptionRunRow = typeof schema.subscriptionRun.$inferSelect;
 type AutomationOccurrenceRow = typeof schema.automationOccurrence.$inferSelect;
 
@@ -54,13 +51,9 @@ export type InsertSubscriptionRunInput = {
 	ruleName: string;
 	occurrenceId: string;
 	id: SubscriptionRunId;
-	recordId: string | null;
 	ruleId: AutomationRuleId;
-	signalId: SignalId | null;
-	operation: AutomationOperation;
 	executionUserId: UserId | null;
 	sandboxScriptId: SandboxScriptId;
-	sourceKind: SubscriptionRunSourceKind;
 	ruleMetadata: AutomationRuleMetadataValue | null;
 };
 
@@ -74,9 +67,9 @@ export type FinishSubscriptionRunInput = {
 };
 
 const toStoredNotificationSubscription: (
-	row: NotificationSubscriptionStateRow,
+	row: NotificationSubscriptionRow,
 ) => Effect.Effect<StoredNotificationSubscription, DbError> = Effect.fn(function* (
-	row: NotificationSubscriptionStateRow,
+	row: NotificationSubscriptionRow,
 ) {
 	const metadata =
 		row.metadata === null
@@ -100,8 +93,8 @@ const toStoredNotificationSubscription: (
 
 const signalSchemaPluginWhere = (pluginId: string | null) =>
 	pluginId === null
-		? isNull(schema.notificationSubscriptionState.signalSchemaPluginId)
-		: eq(schema.notificationSubscriptionState.signalSchemaPluginId, pluginId);
+		? isNull(schema.notificationSubscription.signalSchemaPluginId)
+		: eq(schema.notificationSubscription.signalSchemaPluginId, pluginId);
 
 const toStoredRun = (row: SubscriptionRunRow) => ({
 	...row,
@@ -112,7 +105,6 @@ const toStoredRun = (row: SubscriptionRunRow) => ({
 	finishedAt: row.finishedAt?.toISOString() ?? null,
 	sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
 	scriptUpdatedAt: row.scriptUpdatedAt?.toISOString() ?? null,
-	signalId: row.signalId ? SignalId.make(row.signalId) : null,
 	executionUserId: row.executionUserId ? UserId.make(row.executionUserId) : null,
 });
 
@@ -183,15 +175,15 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
-						.from(schema.notificationSubscriptionState)
-						.where(eq(schema.notificationSubscriptionState.userId, userId))
-						.orderBy(asc(schema.notificationSubscriptionState.id)),
+						.from(schema.notificationSubscription)
+						.where(eq(schema.notificationSubscription.userId, userId))
+						.orderBy(asc(schema.notificationSubscription.id)),
 				);
 				return yield* Effect.forEach(rows, toStoredNotificationSubscription);
 			});
 
-			const restoreNotificationSubscriptionState = Effect.fn(
-				"AutomationsRepository.restoreNotificationSubscriptionState",
+			const restoreNotificationSubscription = Effect.fn(
+				"AutomationsRepository.restoreNotificationSubscription",
 			)(function* (input: {
 				userId: UserId;
 				isActive: boolean;
@@ -202,7 +194,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
-						.update(schema.notificationSubscriptionState)
+						.update(schema.notificationSubscription)
 						.set({
 							isActive: input.isActive,
 							metadata: input.metadata,
@@ -210,8 +202,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 						})
 						.where(
 							and(
-								eq(schema.notificationSubscriptionState.userId, input.userId),
-								eq(schema.notificationSubscriptionState.signalSchemaSlug, input.signalSchemaSlug),
+								eq(schema.notificationSubscription.userId, input.userId),
+								eq(schema.notificationSubscription.signalSchemaSlug, input.signalSchemaSlug),
 								signalSchemaPluginWhere(input.signalSchemaPluginId),
 							),
 						)
@@ -231,16 +223,16 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
-						.from(schema.notificationSubscriptionState)
+						.from(schema.notificationSubscription)
 						.where(
 							and(
-								eq(schema.notificationSubscriptionState.userId, input.userId),
-								eq(schema.notificationSubscriptionState.isActive, true),
-								eq(schema.notificationSubscriptionState.signalSchemaSlug, input.signalSchemaSlug),
+								eq(schema.notificationSubscription.userId, input.userId),
+								eq(schema.notificationSubscription.isActive, true),
+								eq(schema.notificationSubscription.signalSchemaSlug, input.signalSchemaSlug),
 								signalSchemaPluginWhere(input.signalSchemaPluginId),
 							),
 						)
-						.orderBy(asc(schema.notificationSubscriptionState.id)),
+						.orderBy(asc(schema.notificationSubscription.id)),
 				);
 				return yield* Effect.forEach(rows, toStoredNotificationSubscription);
 			});
@@ -252,11 +244,11 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
-						.from(schema.notificationSubscriptionState)
+						.from(schema.notificationSubscription)
 						.where(
 							and(
-								eq(schema.notificationSubscriptionState.id, input.ruleId),
-								eq(schema.notificationSubscriptionState.userId, input.userId),
+								eq(schema.notificationSubscription.id, input.ruleId),
+								eq(schema.notificationSubscription.userId, input.userId),
 							),
 						)
 						.limit(1),
@@ -271,11 +263,11 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
-						.from(schema.notificationSubscriptionState)
+						.from(schema.notificationSubscription)
 						.where(
 							and(
-								eq(schema.notificationSubscriptionState.id, ruleId),
-								eq(schema.notificationSubscriptionState.isActive, true),
+								eq(schema.notificationSubscription.id, ruleId),
+								eq(schema.notificationSubscription.isActive, true),
 							),
 						)
 						.limit(1)
@@ -290,7 +282,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
-						.insert(schema.notificationSubscriptionState)
+						.insert(schema.notificationSubscription)
 						.values(input)
 						.onConflictDoNothing()
 						.returning(),
@@ -304,12 +296,12 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
-						.update(schema.notificationSubscriptionState)
+						.update(schema.notificationSubscription)
 						.set({ isActive: input.isActive })
 						.where(
 							and(
-								eq(schema.notificationSubscriptionState.id, input.ruleId),
-								eq(schema.notificationSubscriptionState.userId, input.userId),
+								eq(schema.notificationSubscription.id, input.ruleId),
+								eq(schema.notificationSubscription.userId, input.userId),
 							),
 						)
 						.returning(),
@@ -323,14 +315,14 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
-						.delete(schema.notificationSubscriptionState)
+						.delete(schema.notificationSubscription)
 						.where(
 							and(
-								eq(schema.notificationSubscriptionState.id, input.ruleId),
-								eq(schema.notificationSubscriptionState.userId, input.userId),
+								eq(schema.notificationSubscription.id, input.ruleId),
+								eq(schema.notificationSubscription.userId, input.userId),
 							),
 						)
-						.returning({ id: schema.notificationSubscriptionState.id }),
+						.returning({ id: schema.notificationSubscription.id }),
 				);
 				return row ? { id: AutomationRuleId.make(row.id) } : null;
 			});
@@ -342,8 +334,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ count: count() })
-						.from(schema.notificationSubscriptionState)
-						.where(eq(schema.notificationSubscriptionState.userId, userId)),
+						.from(schema.notificationSubscription)
+						.where(eq(schema.notificationSubscription.userId, userId)),
 				);
 				return row?.count ?? 0;
 			});
@@ -491,10 +483,16 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 					db
 						.select({ id: schema.subscriptionRun.id, status: schema.subscriptionRun.status })
 						.from(schema.subscriptionRun)
+						.innerJoin(
+							schema.automationOccurrence,
+							eq(schema.subscriptionRun.occurrenceId, schema.automationOccurrence.id),
+						)
 						.where(
 							and(
 								eq(schema.subscriptionRun.executionUserId, input.executionUserId),
-								input.signalId ? eq(schema.subscriptionRun.signalId, input.signalId) : undefined,
+								input.signalId
+									? eq(schema.automationOccurrence.signalId, input.signalId)
+									: undefined,
 							),
 						)
 						.orderBy(asc(schema.subscriptionRun.queuedAt), asc(schema.subscriptionRun.id)),
@@ -518,10 +516,10 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				findNotificationSubscription,
 				insertNotificationSubscription,
 				deleteNotificationSubscription,
+				restoreNotificationSubscription,
 				setNotificationSubscriptionActive,
 				lockActiveNotificationSubscription,
 				listActiveNotificationSubscriptions,
-				restoreNotificationSubscriptionState,
 				listNotificationSubscriptionsForBackup,
 			};
 		}),

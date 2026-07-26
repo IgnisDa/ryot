@@ -560,11 +560,9 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 									yield* plugins.persistClientArtifact(artifact);
 									return yield* repository.createBuild({
 										userId: user.id,
-										kernelRendererName,
 										graphHash: graph.graphHash,
 										artifactHash: artifact.hash,
 										graphIdentity: graph.identity,
-										publishedHash: kernelRenderer.sourceHash,
 									});
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
@@ -682,7 +680,6 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 								yield* plugins.persistClientArtifact(artifact);
 								return yield* repository.createBuild({
 									rendererId,
-									publishedHash,
 									userId: user.id,
 									graphHash: graph.graphHash,
 									artifactHash: artifact.hash,
