@@ -61,7 +61,9 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 				);
 				const completedRun = yield* pollImportRunUntilTerminal(client, created.id);
 				const membership = yield* queryInLibraryRelationship(client, showId, "show");
-				expect(membership.data.items).toHaveLength(1);
+				expect(
+					membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
+				).toHaveLength(1);
 
 				expect(completedRun).toMatchObject({ status: "completed", errorSummary: null });
 				expect(completedRun.progress).toBe(100);

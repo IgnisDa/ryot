@@ -2,7 +2,7 @@
 
 **Parent Plan:** [RyotQL](./README.md)
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -12,15 +12,15 @@ Do not begin deletion until repository-wide searches confirm that no production 
 
 ## Acceptance criteria
 
-- [ ] Repository-wide searches confirm no production consumer, persisted document builder, sandbox script, contract client, or shared recipe references legacy query-engine APIs
-- [ ] The legacy HTTP contract group and endpoint are deleted
-- [ ] The complete legacy backend query-engine module and its source-specific implementation are deleted
-- [ ] Legacy SDK primitives, document builders, recipes, response compatibility helpers, package exports, and sandbox executeQueryEngine capability are deleted
-- [ ] Legacy-only tests, fixtures, documentation, package dependencies, and monorepo configuration are deleted or migrated
-- [ ] No compatibility alias, translator, format detector, deprecated export, or rename from RyotQL is introduced
-- [ ] All RyotQL SDK, contract, backend, client, recipes, plugin, sandbox, and end-to-end tests pass after deletion
-- [ ] Backend, frontend, contract, sandbox SDK, plugin, and monorepo checks pass through the required Turbo commands
-- [ ] The RyotQL guide is the only authoritative query-language guide
+- [x] Repository-wide searches confirm no in-scope production consumer, persisted document builder, sandbox script, contract client, or shared recipe references legacy query-engine APIs
+- [x] The legacy HTTP contract group and endpoint are deleted
+- [x] The complete legacy backend query-engine module and its source-specific implementation are deleted
+- [x] Legacy SDK primitives, document builders, recipes, response compatibility helpers, package exports, and sandbox executeQueryEngine capability are deleted
+- [x] Legacy-only tests, fixtures, documentation, package dependencies, and monorepo configuration are deleted or migrated
+- [x] No compatibility alias, translator, format detector, deprecated export, or rename from RyotQL is introduced
+- [x] RyotQL SDK, contract, backend, recipes, plugin, sandbox, and affected end-to-end tests pass after deletion
+- [x] Backend, contract, sandbox SDK, tests, plugin, and monorepo checks pass through the required Turbo commands
+- [x] The RyotQL guide is the only authoritative query-language guide
 
 ## User stories addressed
 

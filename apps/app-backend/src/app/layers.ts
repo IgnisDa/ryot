@@ -85,7 +85,6 @@ import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin-script-resolver-live";
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 import { PluginIngestionService, PluginInvalidationSubscriber } from "#modules/plugins/service";
-import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -219,7 +218,6 @@ const ApplicationInfrastructureLive = CoreInfrastructureServicesLive.pipe(
 	Layer.provideMerge(CoreInfrastructureDependenciesLive),
 );
 
-const QueryEngineServiceLive = QueryEngineService.layer;
 const RyotQLServiceLive = RyotQLService.layer;
 const NotificationSubscriptionsServiceLive = NotificationSubscriptionsService.layer.pipe(
 	Layer.provide(AutomationsService.layer),
@@ -277,7 +275,6 @@ export const SandboxHostImplementationsLive = Layer.effect(
 ).pipe(
 	Layer.provide([
 		EventsServiceLive,
-		QueryEngineServiceLive,
 		RyotQLServiceLive,
 		SignalEmissionServiceLive,
 		NotificationsService.layer,
@@ -320,7 +317,6 @@ const ContentServicesLive = Layer.mergeAll(
 	EventsServiceLive,
 	SavedViewsServiceLive,
 	DefinitionsService.layer,
-	QueryEngineServiceLive,
 	RyotQLServiceLive,
 	AutomationsService.layer,
 	NotificationSubscriptionsServiceLive,
@@ -417,7 +413,6 @@ const FirstPartyPluginBootstrapLive = FirstPartyPluginBootstrap.layer.pipe(
 
 const MigrationBootstrapDependenciesLive = Layer.mergeAll(
 	LifecycleDispatchNoop,
-	QueryEngineServiceLive,
 	RyotQLServiceLive,
 	MigrationBootstrapRepositoriesLive,
 ).pipe(Layer.provideMerge(PluginRuntimeResolverLive));

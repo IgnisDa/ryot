@@ -32,7 +32,9 @@ describe("POST /events with global entities", () => {
 			const membership = yield* queryInLibraryRelationship(client, entity.id, schema.slug);
 
 			expect(createResult.count).toBe(1);
-			expect(membership.data.items).toHaveLength(1);
+			expect(
+				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
+			).toHaveLength(1);
 
 			const events = yield* waitForEventCount(client, entity.id, 1);
 			expect(events).toHaveLength(1);
@@ -69,7 +71,9 @@ describe("media membership event exclusions", () => {
 			yield* waitForEventCount(client, entity.id, 1);
 
 			const membership = yield* queryInLibraryRelationship(client, entity.id, schema.slug);
-			expect(membership.data.items).toEqual([]);
+			expect(membership.data.entity?.type === "rows" ? membership.data.entity.items : []).toEqual(
+				[],
+			);
 		}),
 	);
 
@@ -85,7 +89,9 @@ describe("media membership event exclusions", () => {
 			yield* waitForEventCount(client, entityId, 1);
 
 			const membership = yield* queryInLibraryRelationship(client, entityId, entitySchemaSlug);
-			expect(membership.data.items).toEqual([]);
+			expect(membership.data.entity?.type === "rows" ? membership.data.entity.items : []).toEqual(
+				[],
+			);
 		}),
 	);
 });

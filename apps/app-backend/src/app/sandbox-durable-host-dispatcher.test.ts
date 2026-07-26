@@ -44,7 +44,6 @@ const implementations: SandboxHostImplementations["Service"] = {
 		getEntitySchemas: unused,
 		listEventSchemas: unused,
 		listIntegrations: unused,
-		executeQueryEngine: unused,
 		getUserPreferences: unused,
 		ensureUserEntities: unused,
 		upsertGlobalEntities: unused,

@@ -198,7 +198,9 @@ describe("GET /entity-import/:jobId — provider entity import result", () => {
 			expect(result.data.entitySchemaSlug).toBe(schema.id);
 
 			const inLibrary = yield* queryInLibraryRelationship(client, result.data.id, schema.slug);
-			expect(inLibrary.data.items).toHaveLength(0);
+			expect(
+				inLibrary.data.entity?.type === "rows" ? inLibrary.data.entity.items : [],
+			).toHaveLength(0);
 		}),
 	);
 
