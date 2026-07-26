@@ -182,6 +182,91 @@ it.effect("selects notification channel descriptions with text output", () => {
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });
 
+it.effect("selects integrations with useful output kinds", () => {
+	const statements: string[] = [];
+	const integration = table("integration", "integration");
+	const document = {
+		queries: {
+			integrations: rows(integration, {
+				fields: [
+					field("id", column(integration, "id")),
+					field("lot", column(integration, "lot")),
+					field("name", column(integration, "name")),
+					field("provider", column(integration, "provider")),
+					field("createdAt", column(integration, "createdAt")),
+					field("updatedAt", column(integration, "updatedAt")),
+					field("pluginSlug", column(integration, "pluginSlug")),
+					field("isDisabled", column(integration, "isDisabled")),
+					field("syncOwnership", column(integration, "syncOwnership")),
+					field("extraSettings", column(integration, "extraSettings")),
+					field("lastFinishedAt", column(integration, "lastFinishedAt")),
+					field("minimumProgress", column(integration, "minimumProgress")),
+					field("maximumProgress", column(integration, "maximumProgress")),
+				],
+			}),
+		},
+	};
+	const resultRows = [
+		{
+			f7v: "2",
+			f8v: "95",
+			f6v: true,
+			f5v: false,
+			f0k: "text",
+			f1k: "text",
+			f2k: "text",
+			f3k: "text",
+			f9k: "json",
+			f4k: "text",
+			f3v: "komga",
+			f1v: "media",
+			f4v: "media",
+			f10k: "date",
+			f11k: "date",
+			f12k: "date",
+			f7k: "number",
+			f8k: "number",
+			totalCount: 1,
+			f6k: "boolean",
+			f5k: "boolean",
+			rowPresent: true,
+			f0v: "integration-1",
+			f2v: "Media integration",
+			f9v: { disableOnContinuousErrors: true },
+			f10v: new Date("2026-08-07T10:00:00.000Z"),
+			f11v: new Date("2026-08-01T10:00:00.000Z"),
+			f12v: new Date("2026-08-07T12:00:00.000Z"),
+		},
+	];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		expect(response.data["integrations"]).toEqual({
+			type: "rows",
+			pageInfo: { page: 1, limit: 20, total: 1, hasMore: false },
+			items: [
+				{
+					lot: { kind: "text", value: "media" },
+					provider: { kind: "text", value: "komga" },
+					pluginSlug: { kind: "text", value: "media" },
+					id: { kind: "text", value: "integration-1" },
+					isDisabled: { kind: "boolean", value: false },
+					minimumProgress: { kind: "number", value: 2 },
+					maximumProgress: { kind: "number", value: 95 },
+					syncOwnership: { kind: "boolean", value: true },
+					name: { kind: "text", value: "Media integration" },
+					createdAt: { kind: "date", value: "2026-08-01T10:00:00.000Z" },
+					updatedAt: { kind: "date", value: "2026-08-07T12:00:00.000Z" },
+					lastFinishedAt: { kind: "date", value: "2026-08-07T10:00:00.000Z" },
+					extraSettings: { kind: "json", value: { disableOnContinuousErrors: true } },
+				},
+			],
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
 it.effect("authorizes notification channels in every query occurrence", () => {
 	const statements: string[] = [];
 	const root = table("notificationChannel", "root");
@@ -217,6 +302,42 @@ it.effect("authorizes notification channels in every query occurrence", () => {
 		expect(statement?.match(/SELECT \* FROM notification_channel WHERE user_id =/g)).toHaveLength(
 			7,
 		);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("authorizes integrations in every query occurrence", () => {
+	const statements: string[] = [];
+	const root = table("integration", "root");
+	const joined = table("integration", "joined");
+	const included = table("integration", "included");
+	const correlated = table("integration", "correlated");
+	const document = {
+		queries: {
+			integrations: rows(root, {
+				fields: [],
+				joins: [join("left", joined, eq(column(root, "id"), column(joined, "id")))],
+				where: exists(correlated, {
+					where: eq(column(correlated, "id"), column(root, "id")),
+				}),
+				include: [
+					include(included, {
+						limit: 1,
+						key: "related",
+						fields: [field("id", column(included, "id"))],
+						orderBy: [ascending(column(included, "createdAt"))],
+						where: eq(column(included, "id"), column(root, "id")),
+					}),
+				],
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", null, document);
+
+		const statement = statements[2];
+		expect(statement?.match(/SELECT \* FROM integration WHERE user_id =/g)).toHaveLength(7);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 

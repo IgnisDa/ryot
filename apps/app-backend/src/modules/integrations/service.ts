@@ -147,17 +147,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				return { id: created.id };
 			});
 
-			const get = (user: CurrentUserValue, integrationId: IntegrationId) =>
-				requireIntegration(user.id, integrationId);
-
-			const list = (
-				user: CurrentUserValue,
-				query: {
-					provider?: CreateIntegrationBody["provider"] | undefined;
-					isDisabled?: boolean | undefined;
-				},
-			) => runWithDb(repository.listForUser({ userId: user.id, ...query }));
-
 			const update = Effect.fn("IntegrationsService.update")(function* (
 				userId: UserId,
 				integrationId: IntegrationId,
@@ -349,12 +338,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const redactForClient = (integration: IntegrationRecord) =>
 				redactIntegrationForClient(providerCatalog.findOwned, integration);
 
-			const getForClient = (user: CurrentUserValue, integrationId: IntegrationId) =>
-				get(user, integrationId).pipe(Effect.map(redactForClient));
-
-			const listForClient = (...input: Parameters<typeof list>) =>
-				list(...input).pipe(Effect.map((integrations) => integrations.map(redactForClient)));
-
 			const updateForClient = (...input: Parameters<typeof update>) =>
 				update(...input).pipe(Effect.map(redactForClient));
 
@@ -362,9 +345,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				create,
 				update,
 				listRuns,
-				getForClient,
 				handleWebhook,
-				listForClient,
 				updateForClient,
 				disableIfEnabled,
 				prepareScheduledYankRuns,
