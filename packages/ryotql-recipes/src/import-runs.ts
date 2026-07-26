@@ -231,13 +231,13 @@ const importRunFailureFields = (failure: ReturnType<typeof table>) => [
 ];
 
 export const buildManualImportRunsDocument = (input: {
-	readonly page: number;
+	readonly after?: string | undefined;
 	readonly limit: number;
 }) => {
 	const importRun = table("importRun", "importRun");
 	return document({
 		importRuns: rows(importRun, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			fields: importRunFields(importRun),
 			where: isNull(column(importRun, "integrationId")),
@@ -247,14 +247,14 @@ export const buildManualImportRunsDocument = (input: {
 };
 
 export const buildIntegrationImportRunsDocument = (input: {
-	readonly page: number;
+	readonly after?: string | undefined;
 	readonly limit: number;
 	readonly integrationId: string;
 }) => {
 	const importRun = table("importRun", "importRun");
 	return document({
 		importRuns: rows(importRun, {
-			page: input.page,
+			after: input.after,
 			limit: input.limit,
 			fields: importRunFields(importRun),
 			where: eq(column(importRun, "integrationId"), literal(input.integrationId)),
@@ -265,21 +265,20 @@ export const buildIntegrationImportRunsDocument = (input: {
 
 export const buildImportRunDocument = (input: {
 	readonly runId: string;
-	readonly failurePage: number;
+	readonly failureAfter?: string | undefined;
 	readonly failureLimit: number;
 }) => {
 	const run = table("importRun", "run");
 	const failure = table("importRunFailure", "failure");
 	return document({
 		run: rows(run, {
-			page: 1,
 			limit: 1,
 			fields: importRunFields(run),
 			orderBy: [ascending(column(run, "id"))],
 			where: eq(column(run, "id"), literal(input.runId)),
 		}),
 		failures: rows(failure, {
-			page: input.failurePage,
+			after: input.failureAfter,
 			limit: input.failureLimit,
 			fields: importRunFailureFields(failure),
 			where: eq(column(failure, "runId"), literal(input.runId)),

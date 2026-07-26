@@ -308,12 +308,17 @@ describe("Import run visibility", () => {
 					kodiPayload,
 				);
 
-				const allRuns = yield* listManualImportRuns(client, 1, 20);
+				const allRuns = yield* listManualImportRuns(client, undefined, 20);
 				expect(allRuns.items.find((r) => r.id === runId)).toBeUndefined();
 
 				expect(run.id).toBe(ImportRunId.make(runId));
 
-				const integrationRuns = yield* listIntegrationImportRuns(client, integrationId, 1, 20);
+				const integrationRuns = yield* listIntegrationImportRuns(
+					client,
+					integrationId,
+					undefined,
+					20,
+				);
 				expect(integrationRuns.items.find((r) => r.id === runId)).toBeDefined();
 			}),
 	);

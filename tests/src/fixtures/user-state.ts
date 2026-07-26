@@ -1,22 +1,11 @@
 import type { ContractPayload } from "@ryot/contract/client";
 import { EntityId } from "@ryot/contract/schema/brands";
-import {
-	and,
-	ascending,
-	column,
-	document,
-	eq,
-	field,
-	join,
-	literal,
-	rows,
-	table,
-} from "@ryot/ryotql";
+import { aggregate, and, column, document, eq, join, literal, measure, table } from "@ryot/ryotql";
 import { buildEventHistoryDocument } from "@ryot/ryotql-recipes/events";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
-import { executeRyotQL } from "./ryotql";
+import { executeRyotQL, requireRyotQLFieldValue } from "./ryotql";
 
 type MergeUserStateBody = ContractPayload<"userState", "mergeUserState">;
 
@@ -24,6 +13,16 @@ type RelationshipRoot = {
 	schema: string;
 	sourceSchema: string;
 	targetSchema: string;
+};
+
+const aggregateCount = (result: { data: Record<string, unknown> }, key: string) => {
+	const value = result.data[key];
+	if (!value || typeof value !== "object" || !("type" in value) || value.type !== "aggregate") {
+		return 0;
+	}
+	const items = "items" in value && Array.isArray(value.items) ? value.items : [];
+	const item = items[0];
+	return item ? Number(requireRyotQLFieldValue(item, "count").value) : 0;
 };
 
 export const mergeUserState = (client: Client, payload: MergeUserStateBody) =>
@@ -40,27 +39,25 @@ export const queryUserEntityStateCounts = (input: {
 	relationships: readonly [RelationshipRoot, ...RelationshipRoot[]];
 }) =>
 	Effect.gen(function* () {
+		const eventCountDocument = (filter: { entityId?: string; sessionEntityId?: string }) => {
+			const history = buildEventHistoryDocument({
+				limit: 1,
+				...filter,
+				eventSchemaSlugs: input.eventSchemaSlugs,
+				entitySchemaSlugs: input.entitySchemaSlugs,
+			});
+			const events = history.queries.events;
+			return document({
+				events: aggregate(events.from, {
+					measures: [measure("count", { function: "count" })],
+					...(events.where ? { where: events.where } : {}),
+					...(events.joins ? { joins: events.joins } : {}),
+				}),
+			});
+		};
 		const [entityEvents, sessionEvents, ...relationships] = yield* Effect.all([
-			executeRyotQL(
-				input.client,
-				buildEventHistoryDocument({
-					page: 1,
-					limit: 1,
-					entityId: input.entityId,
-					eventSchemaSlugs: input.eventSchemaSlugs,
-					entitySchemaSlugs: input.entitySchemaSlugs,
-				}),
-			),
-			executeRyotQL(
-				input.client,
-				buildEventHistoryDocument({
-					page: 1,
-					limit: 1,
-					sessionEntityId: input.entityId,
-					eventSchemaSlugs: input.eventSchemaSlugs,
-					entitySchemaSlugs: input.entitySchemaSlugs,
-				}),
-			),
+			executeRyotQL(input.client, eventCountDocument({ entityId: input.entityId })),
+			executeRyotQL(input.client, eventCountDocument({ sessionEntityId: input.entityId })),
 			...input.relationships.map((relationship) =>
 				executeRyotQL(
 					input.client,
@@ -69,10 +66,8 @@ export const queryUserEntityStateCounts = (input: {
 							const relationshipTable = table("relationship", "relationship");
 							const source = table("entity", "source");
 							const target = table("entity", "target");
-							return rows(relationshipTable, {
-								limit: 1,
-								fields: [field("id", column(relationshipTable, "id"))],
-								orderBy: [ascending(column(relationshipTable, "id"))],
+							return aggregate(relationshipTable, {
+								measures: [measure("count", { function: "count" })],
 								where: and(
 									eq(
 										column(relationshipTable, "relationshipSchemaSlug"),
@@ -102,15 +97,9 @@ export const queryUserEntityStateCounts = (input: {
 		]);
 
 		return {
-			eventCount:
-				(entityEvents.data.events?.type === "rows" ? entityEvents.data.events.pageInfo.total : 0) +
-				(sessionEvents.data.events?.type === "rows" ? sessionEvents.data.events.pageInfo.total : 0),
+			eventCount: aggregateCount(entityEvents, "events") + aggregateCount(sessionEvents, "events"),
 			relationshipCount: relationships.reduce(
-				(count, result) =>
-					count +
-					(result.data.relationships?.type === "rows"
-						? result.data.relationships.pageInfo.total
-						: 0),
+				(total, result) => total + aggregateCount(result, "relationships"),
 				0,
 			),
 		};
