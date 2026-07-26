@@ -29,6 +29,7 @@ const payload = {
 	pluginSlug: "media",
 	sourcePayloadKey: "run-1",
 	filePath: "/tmp/netflix.zip",
+	uploadIntentIds: ["intent-netflix"],
 	userId: UserId.make("user-1"),
 	runId: ImportRunId.make("run-1"),
 	workflowScriptId: SandboxScriptId.make("accepted.netflix-import"),
@@ -107,6 +108,7 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 			"mark-import-run-started",
 			"load-import-source-payload",
 			"cleanup-import-artifacts-on-success",
+			"cleanup-import-uploads-on-success",
 		]);
 		expect(harness.sandboxParents).toEqual([false]);
 	}).pipe(Effect.provide(harness.layer));
@@ -177,5 +179,6 @@ it.effect("releases the pre-registered pin when import orchestration fails termi
 		yield* runProcessImportRunWorkflow(payload, executionId);
 
 		expect(harness.activityNames).toContain("release-import-workflow-pin");
+		expect(harness.activityNames).toContain("cleanup-import-uploads-on-unexpected-failure");
 	}).pipe(Effect.provide(harness.layer));
 });

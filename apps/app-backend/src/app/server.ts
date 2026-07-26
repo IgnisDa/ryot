@@ -1,7 +1,6 @@
 import { BunHttpServer } from "@effect/platform-bun";
 import { AppContract } from "@ryot/contract/contract";
 import { BadRequest } from "@ryot/contract/errors";
-import { UploadBodyLimitMiddlewareLive } from "@ryot/contract/modules/uploads/middleware";
 import { Cause, Context, Effect, Layer, FileSystem, Result, Schema } from "effect";
 import type * as LayerTypes from "effect/Layer";
 import {
@@ -99,7 +98,6 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(Layer.mergeAll(QueryEngineRoutesLive, InterestRoutesLive)),
 	Layer.provide(AuthMiddlewareLive),
 	Layer.provide(AdminMiddlewareLive),
-	Layer.provide(UploadBodyLimitMiddlewareLive),
 );
 
 const ScalarLive = HttpApiScalar.layer(AppContract, { path: "/docs" });
