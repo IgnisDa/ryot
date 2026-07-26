@@ -93,11 +93,10 @@ describe("getNavigationItems", () => {
 		expect(items.collections.map((item) => item.slug)).toEqual(["collection-1"]);
 	});
 
-	it("formats the workspace view and saved view counts", () => {
+	it("formats the workspace view count", () => {
 		const items = getNavigationItems({ data, workspaceSlug: "media" });
 
-		expect(getWorkspaceSummary(items)).toBe("2 views · 1 saved view");
-		expect(getWorkspaceSummary({ ...items, savedViews: [] })).toBe("2 views · no saved views");
+		expect(getWorkspaceSummary(items)).toBe("2 views");
 	});
 
 	it("formats workspace picker labels from workspace views", () => {

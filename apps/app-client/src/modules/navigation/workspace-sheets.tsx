@@ -1,9 +1,7 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { NavigationData } from "@ryot/ryotql-recipes/navigation";
 import clsx from "clsx";
 import { Pressable, Text, View } from "react-native";
 
-import { themeAtom } from "@/api/atoms";
 import { AppIcon as NavigationIcon } from "@/modules/icons";
 import { BottomSheet } from "@/modules/ui/bottom-sheet";
 
@@ -96,72 +94,6 @@ export function WorkspaceSheet(props: {
 							</View>
 						))
 					)}
-				</View>
-			</View>
-		</BottomSheet>
-	);
-}
-
-export function AccountSheet(props: {
-	onClose: () => void;
-	accountName: string;
-	accountEmail: string;
-}) {
-	const theme = useAtomValue(themeAtom);
-	const setTheme = useAtomSet(themeAtom);
-
-	return (
-		<BottomSheet
-			title="Account"
-			snapPoints={[300]}
-			onClose={props.onClose}
-			description="View account details and change appearance."
-		>
-			<Pressable
-				accessibilityRole="button"
-				accessibilityLabel="Open account profile"
-				className="flex-row items-center gap-3 border-b border-border pb-4"
-			>
-				<View className="h-11 w-11 items-center justify-center rounded-full bg-surface-2">
-					<NavigationIcon className="text-text-muted" name="user" size={19} />
-				</View>
-				<View className="flex-1">
-					<Text className="font-ui-medium text-sm text-text">{props.accountName}</Text>
-					<Text className="font-ui text-xs text-text-muted">{props.accountEmail}</Text>
-				</View>
-				<NavigationIcon className="text-text-subtle" name="chevron-right" size={17} />
-			</Pressable>
-			<View className="mt-4 gap-2">
-				<Text className="font-ui-semibold text-xs uppercase tracking-[1.6px] text-text-subtle">
-					Appearance
-				</Text>
-				<View className="flex-row rounded-lg border border-border bg-bg p-1">
-					{(
-						[
-							["sun", "Light", "light"],
-							["moon", "Dark", "dark"],
-							["monitor", "System", "system"],
-						] as const
-					).map(([icon, label, value]) => (
-						<Pressable
-							key={label}
-							accessibilityRole="button"
-							onPress={() => setTheme(value)}
-							accessibilityLabel={`Use ${label} appearance`}
-							accessibilityState={{ selected: theme === value }}
-							className={clsx(
-								"flex-1 flex-row items-center justify-center gap-1 rounded-md py-2",
-								theme === value && "bg-nav-indicator",
-							)}
-						>
-							<NavigationIcon
-								size={14}
-								name={icon}
-								className={clsx(theme === value ? "text-text" : "text-text-muted")}
-							/>
-							<Text className="font-ui text-xs text-text">{label}</Text>
-						</Pressable>
-					))}
 				</View>
 			</View>
 		</BottomSheet>
