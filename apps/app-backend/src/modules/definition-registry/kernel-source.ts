@@ -168,8 +168,8 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 		{
 			sortOrder: 0,
 			pluginSlug: null,
-			name: "Collections",
 			slug: "collections",
+			name: "All Collections",
 			icon: collectionSchema.icon,
 			accentColor: collectionSchema.accentColor,
 			queryDocument: buildAllCollectionsDocument(),
