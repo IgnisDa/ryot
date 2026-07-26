@@ -63,7 +63,6 @@
 		"babel-plugin-module-resolver": "5.0.3",
 		"babel-preset-expo": "~57.0.0",
 		"tailwindcss": "^4.1.13",
-		"typescript": "~6.0.3",
 		"vitest": "4.1.9"
 	},
 	"overrides": {
