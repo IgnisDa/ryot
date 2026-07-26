@@ -43,6 +43,13 @@ A plugin screen draws its own bar from `leading`: back posts `navigate-back`, dr
 consequence is that closing the drawer can only return focus to the iframe element rather than to
 the exact button, since the button is in another document.
 
+When focus is inside a plugin iframe, its bootstrap recognizes `Mod+K` for the command center and
+`Mod+Shift+Space` for the desktop workspace switcher. It sends semantic
+`{ type: "kernel-shortcut", shortcut: "command-center" | "workspace-switcher" }` bridge messages,
+never raw `KeyboardEvent` or key payloads. The kernel owns the actions and desktop gating; these are
+not public `RyotClient` capabilities. An active plugin `OverlayScope` suppresses root forwarding, and
+plugin roots must not bind either reserved combination.
+
 ## Plugin Destinations
 
 The authenticated shell resolves the active committed URL to either kernel content or one plugin

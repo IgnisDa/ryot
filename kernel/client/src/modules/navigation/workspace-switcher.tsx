@@ -1,3 +1,4 @@
+import { KERNEL_SHORTCUTS } from "@ryot-app/client-plugin-contract";
 import { OverlayScope, useDismissOnOutside, useShortcut } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
@@ -12,20 +13,21 @@ import { workspacePickerSummary } from "#/modules/navigation/sidebar-sections";
 import { visibleWorkspaces } from "#/modules/navigation/workspace-state";
 
 type WorkspaceSwitcherProps = {
+	readonly open: boolean;
 	readonly summary: string;
 	readonly navigation: NavigationData;
 	readonly catalog: PluginClientCatalog;
 	readonly showShortcut?: boolean | undefined;
+	readonly onOpenChange: (open: boolean) => void;
 	readonly onCustomize?: (() => void) | undefined;
 	readonly current: PluginClientCatalogEntry | null;
 	readonly onSelect: (slug: string) => void | Promise<void>;
 };
 
-const WORKSPACE_SHORTCUT = "Mod+Shift+Space";
 const WORKSPACE_SHORTCUT_LABEL = "⌘⇧Space";
 
 function WorkspaceShortcut(props: { readonly enabled: boolean; readonly onOpen: () => void }) {
-	useShortcut(WORKSPACE_SHORTCUT, props.onOpen, { enabled: props.enabled });
+	useShortcut(KERNEL_SHORTCUTS.workspaceSwitcher, props.onOpen, { enabled: props.enabled });
 	return null;
 }
 
@@ -34,16 +36,16 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 	const trigger = useRef<HTMLButtonElement>(null);
 	const container = useRef<HTMLDivElement>(null);
 	const items = useRef<Array<HTMLButtonElement | null>>([]);
-	const [isOpen, setIsOpen] = useState(false);
 	const workspaces = visibleWorkspaces(props.catalog);
 	const menuLength = workspaces.length + (props.onCustomize === undefined ? 0 : 1);
+	const currentSlug = props.current?.slug;
 	const initialIndex = Math.max(
 		0,
-		workspaces.findIndex((workspace) => workspace.slug === props.current?.slug),
+		workspaces.findIndex((workspace) => workspace.slug === currentSlug),
 	);
 	const [activeIndex, setActiveIndex] = useState(initialIndex);
 	const close = (restoreFocus: boolean) => {
-		setIsOpen(false);
+		props.onOpenChange(false);
 		if (restoreFocus) {
 			queueMicrotask(() => trigger.current?.focus());
 		}
@@ -53,9 +55,10 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 			return;
 		}
 		setActiveIndex(initialIndex);
-		setIsOpen(true);
+		items.current[initialIndex]?.focus();
+		props.onOpenChange(true);
 	};
-	useShortcut(WORKSPACE_SHORTCUT, open, { enabled: props.showShortcut === true });
+	useShortcut(KERNEL_SHORTCUTS.workspaceSwitcher, open, { enabled: props.showShortcut === true });
 	const select = (workspace: PluginClientCatalogEntry) => {
 		close(true);
 		if (workspace.slug !== props.current?.slug) {
@@ -68,15 +71,16 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 	};
 
 	useEffect(() => {
-		if (isOpen) {
-			items.current[activeIndex]?.focus();
+		if (props.open) {
+			setActiveIndex(initialIndex);
+			items.current[initialIndex]?.focus();
 		}
-	}, [activeIndex, isOpen]);
+	}, [currentSlug, initialIndex, props.open]);
 
-	useDismissOnOutside([container], () => setIsOpen(false), { enabled: isOpen });
+	useDismissOnOutside([container], () => props.onOpenChange(false), { enabled: props.open });
 
 	return (
-		<OverlayScope enabled={isOpen} onEscape={() => close(true)}>
+		<OverlayScope enabled={props.open} onEscape={() => close(true)}>
 			<WorkspaceShortcut enabled={props.showShortcut === true} onOpen={open} />
 			<div ref={container} className="relative">
 				<button
@@ -84,18 +88,20 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					ref={trigger}
 					aria-haspopup="menu"
 					aria-controls={menuId}
-					aria-expanded={isOpen}
+					aria-expanded={props.open}
 					disabled={workspaces.length === 0}
-					onClick={() => (isOpen ? close(true) : open())}
-					aria-keyshortcuts={props.showShortcut === true ? WORKSPACE_SHORTCUT : undefined}
+					onClick={() => (props.open ? close(true) : open())}
 					className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface px-2.5 py-2 text-left shadow-sm"
+					aria-keyshortcuts={
+						props.showShortcut === true ? KERNEL_SHORTCUTS.workspaceSwitcher : undefined
+					}
 					aria-label={
 						props.current === null
 							? "No workspace, Plugin workspace"
 							: `${props.current.name} workspace, ${props.current.slug}`
 					}
 					onPointerDown={(event) => {
-						if (isOpen && event.button === 0) {
+						if (props.open && event.button === 0) {
 							event.preventDefault();
 						}
 					}}
@@ -120,7 +126,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					<AppIcon name="chevron-down" size={15} className="shrink-0 text-text-subtle" />
 				</button>
 
-				{isOpen && (
+				{props.open && (
 					<div
 						id={menuId}
 						role="menu"
@@ -148,6 +154,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 							if (nextIndex !== null) {
 								event.preventDefault();
 								setActiveIndex(nextIndex);
+								items.current[nextIndex]?.focus();
 							}
 						}}
 					>
@@ -159,9 +166,9 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 									role="menuitemradio"
 									aria-checked={isCurrent}
 									key={workspace.installationId}
+									onClick={() => select(workspace)}
 									tabIndex={index === activeIndex ? 0 : -1}
 									onFocus={() => setActiveIndex(index)}
-									onClick={() => select(workspace)}
 									aria-label={`Switch to ${workspace.name} workspace`}
 									ref={(item) => {
 										items.current[index] = item;

@@ -6,6 +6,8 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	KERNEL_SHORTCUTS,
+	KernelShortcut,
 	PluginAssetBridgeErrorReason,
 	PluginAssetOutcome,
 	PluginClientArtifact,
@@ -105,6 +107,31 @@ describe("plugin client bridge contract", () => {
 	it("uses exact protocol and compiler version 1", () => {
 		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(1);
 		expect(CLIENT_COMPILER_VERSION).toBe(1);
+	});
+
+	it("defines and admits semantic kernel shortcuts only from the plugin", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const decodeShortcut = Schema.decodeUnknownResult(KernelShortcut);
+
+		expect(KERNEL_SHORTCUTS).toEqual({
+			commandCenter: "Mod+K",
+			workspaceSwitcher: "Mod+Shift+Space",
+		});
+		for (const shortcut of ["command-center", "workspace-switcher"]) {
+			const message = { shortcut, type: "kernel-shortcut" };
+			expect(Result.isSuccess(decodeShortcut(shortcut))).toBe(true);
+			expect(Result.isSuccess(decodeClient(message))).toBe(true);
+			expect(Result.isFailure(decodeHost(message))).toBe(true);
+		}
+		expect(
+			Result.isFailure(decodeClient({ shortcut: "command-palette", type: "kernel-shortcut" })),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeClient({ extra: true, shortcut: "command-center", type: "kernel-shortcut" }),
+			),
+		).toBe(true);
 	});
 
 	it("accepts only strict leading intents and requires location ownership fields", () => {

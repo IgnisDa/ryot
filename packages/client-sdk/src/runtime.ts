@@ -5,6 +5,8 @@ import {
 	type PluginBridgeAssetRequest,
 	type PluginBridgeHeader,
 	type PluginBridgeInit,
+	type KernelShortcut,
+	type PluginBridgeKernelShortcut,
 	type PluginBridgeNavigate,
 	type PluginBridgeNavigateBack,
 	type PluginBridgeOpenDrawer,
@@ -284,6 +286,11 @@ export const createPluginRuntime = (
 	});
 
 	const fatal = () => finish("failed", "protocol", true);
+	const forwardKernelShortcut = (shortcut: KernelShortcut) => {
+		if (state === "active") {
+			post({ shortcut, type: "kernel-shortcut" } satisfies PluginBridgeKernelShortcut);
+		}
+	};
 
 	port.addEventListener(
 		"message",
@@ -405,5 +412,11 @@ export const createPluginRuntime = (
 		finish("failed", "transport", false);
 	}
 
-	return { fatal, client, navigation, dispose: () => finish("disposed", "disposed", true) };
+	return {
+		fatal,
+		client,
+		navigation,
+		forwardKernelShortcut,
+		dispose: () => finish("disposed", "disposed", true),
+	};
 };

@@ -116,6 +116,29 @@ afterEach(() => {
 });
 
 describe("plugin runtime", () => {
+	it("forwards semantic kernel shortcuts only while active", async () => {
+		const { channel, messages, runtime } = openRuntime();
+
+		runtime.forwardKernelShortcut("command-center");
+		activate(channel);
+		await delay();
+		runtime.forwardKernelShortcut("command-center");
+		runtime.forwardKernelShortcut("workspace-switcher");
+		await delay();
+
+		expect(messages).toContainEqual({ shortcut: "command-center", type: "kernel-shortcut" });
+		expect(messages).toContainEqual({ shortcut: "workspace-switcher", type: "kernel-shortcut" });
+		expect(
+			messages.filter(
+				(message) =>
+					typeof message === "object" &&
+					message !== null &&
+					"type" in message &&
+					message.type === "kernel-shortcut",
+			),
+		).toHaveLength(2);
+	});
+
 	it("publishes one atomic navigation snapshot and no header of its own", async () => {
 		const { channel, messages, runtime } = openRuntime();
 		const snapshots: unknown[] = [];
