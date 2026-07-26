@@ -195,6 +195,7 @@ type HttpOutcome = Readonly<{
 }>;
 
 type CapturedLog = Readonly<{
+	logLevel: string;
 	message: string;
 	annotations: Readonly<Record<string, unknown>>;
 }>;
@@ -224,6 +225,7 @@ const makeHttpHarness = (options: {
 	const logger = Logger.make<unknown, void>(
 		(entry: Parameters<LoggerType<unknown, unknown>["log"]>[0]) => {
 			logs.push({
+				logLevel: entry.logLevel,
 				message: String(entry.message),
 				annotations: entry.fiber.getRef(References.CurrentLogAnnotations),
 			});
@@ -346,6 +348,7 @@ const makeHttpHarness = (options: {
 			Layer.mergeAll(
 				layer,
 				Logger.layer([logger]),
+				Layer.succeed(References.MinimumLogLevel, "Trace"),
 				Layer.succeed(WorkflowEngine, engine),
 				Layer.succeed(WorkflowInstance, instance),
 			),
@@ -389,6 +392,7 @@ it.effect("admits an immediate matched reservation", () => {
 			expect.arrayContaining([
 				expect.objectContaining({
 					message: "sandbox HTTP policy resolution completed",
+					logLevel: "Trace",
 					annotations: expect.objectContaining({
 						status: "matched",
 						policyKey: "provider",
@@ -398,6 +402,7 @@ it.effect("admits an immediate matched reservation", () => {
 				}),
 				expect.objectContaining({
 					message: "sandbox HTTP admission reserved",
+					logLevel: "Trace",
 					annotations: expect.objectContaining({
 						status: "immediate",
 						policyKey: "provider",
