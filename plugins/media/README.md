@@ -6,9 +6,34 @@ Provider declarations explicitly identify their root entity schema. Saved views 
 
 ## Client
 
-The Media client currently provides a static workspace placeholder and a read-only `show` entity renderer. The renderer queries its own Show summary recipe on mount and focus, verifies that the requested persisted entity is still a Show, and publishes the Show name as the screen title. It renders the name, description, provider, release year, genres, production status, season and episode counts, and the first image whose purpose is `cover`, preserving provider order. Remote covers load directly; local and S3 covers resolve through the authenticated client asset capability and refresh before their signed URL expires. A failed refresh keeps the already-loaded image, while an initial resolution or image-load failure renders the unavailable cover state. The renderer does not fall back to a later cover.
+The Media client provides a static workspace placeholder and a `show` entity renderer. The renderer
+queries five client-owned RyotQL recipes (summary, overview, seasons, season episodes, activity) and
+renders a hero (backdrop, scrim, poster-sampled tint), a summary header (poster, title, identity line,
+genres, fact row, expandable description, status rail), and three tabs: Overview (image gallery, cast
+& crew, production companies, recommendations), Episodes (season selector, season header with
+progress, next-up, episode rows), and Activity (summary figures, per-season coverage, timeline,
+spoiler-gated reviews). Entity-to-entity links navigate through `PluginLink`.
 
-The client does not subscribe to entity-interest or WebSocket invalidation. Workspace discovery, tabs, overview data, cast, companies, recommendations, episode rows, activity, progress, monitoring, library and collection state, mutations, and managed artwork beyond the Show cover are deferred.
+Managed artwork loads through the authenticated client asset capability. `client.assets.resolve`
+takes 1–64 locators, so the page canonicalizes and dedupes the locators a screen currently needs,
+resolves them in chunks of 64, and refreshes each chunk shortly before its signed URLs expire. Remote
+images load directly and are not batched.
+
+A few affordances are deliberately inert pending real operation wiring: the monitoring toggle, Manage
+collections, Log activity, Write review, View all images, and View complete history. The client does
+not subscribe to entity-interest or WebSocket invalidation; that system existed on the old React
+Native screen and was not ported.
+
+Workspace discovery, mutations, and progress/monitoring/library write flows beyond the Show page
+remain deferred.
+
+## Client source roots
+
+- `backend/` is the sandboxed archived backend; it may import the sandbox SDK and `shared/`.
+- `client/` is the archived client plugin; it may import the client SDK/UI packages and `shared/`.
+- `shared/` is the plugin's neutral query layer: RyotQL recipes, lifecycle expression builders, and
+  other logic both sides need. It may import only `@ryot-app/plugin-kit`, never `backend/` or
+  `client/`. `shared/` is importable from the other two roots; the reverse is never allowed.
 
 ## Images
 
