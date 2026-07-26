@@ -2,13 +2,18 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { describe, expect, it } from "vitest";
 
 import {
-	describeOptionFields,
-	initialOptionValues,
-	toOptionsPayload,
-	validateOptionValues,
-} from "./options-form-state";
+	describeSchemaFormFields,
+	initialSchemaFormValues,
+	toSchemaFormPayload,
+	validateSchemaFormValues,
+} from "./schema-form-state";
 
 const described = (label: string) => ({ label, description: label });
+
+const choices = (...values: readonly string[]) => ({
+	kind: "static" as const,
+	values: values.map((value) => ({ value })),
+});
 
 const schema = {
 	rules: [
@@ -91,9 +96,9 @@ const cascadingVisibilitySchema = {
 	},
 } satisfies AppSchema;
 
-describe("provider-add options form state", () => {
+describe("schema form state", () => {
 	it("describes supported fields and reports unsupported property types", () => {
-		const { fields, unsupported } = describeOptionFields(schema);
+		const { fields, unsupported } = describeSchemaFormFields(schema);
 
 		expect(fields.map((field) => field.key).sort()).toEqual([
 			"adult",
@@ -123,7 +128,10 @@ describe("provider-add options form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(describeOptionFields(describedSchema)).toEqual({ fields: [], unsupported: ["region"] });
+		expect(describeSchemaFormFields(describedSchema)).toEqual({
+			fields: [],
+			unsupported: ["region"],
+		});
 	});
 
 	it("orders fields by position and preserves declaration order for ties", () => {
@@ -137,7 +145,7 @@ describe("provider-add options form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(describeOptionFields(positionedSchema).fields.map((field) => field.key)).toEqual([
+		expect(describeSchemaFormFields(positionedSchema).fields.map((field) => field.key)).toEqual([
 			"first",
 			"second",
 			"secondTie",
@@ -147,32 +155,34 @@ describe("provider-add options form state", () => {
 	});
 
 	it("toggles visibility and suppresses requiredness for hidden fields", () => {
-		expect(describeOptionFields(visibilitySchema, { advanced: false }).fields).toMatchObject([
+		expect(describeSchemaFormFields(visibilitySchema, { advanced: false }).fields).toMatchObject([
 			{ key: "advanced", required: false },
 		]);
-		expect(describeOptionFields(visibilitySchema, { advanced: true }).fields).toMatchObject([
+		expect(describeSchemaFormFields(visibilitySchema, { advanced: true }).fields).toMatchObject([
 			{ key: "advanced", required: false },
 			{ key: "secret", required: true },
 		]);
-		expect(validateOptionValues(visibilitySchema, { advanced: false, secret: "" }).size).toBe(0);
+		expect(validateSchemaFormValues(visibilitySchema, { advanced: false, secret: "" }).size).toBe(
+			0,
+		);
 		expect(
-			validateOptionValues(visibilitySchema, { advanced: true, secret: "" }).get("secret"),
+			validateSchemaFormValues(visibilitySchema, { advanced: true, secret: "" }).get("secret"),
 		).toBe("Secret is required");
 	});
 
 	it("removes stale hidden values until cascading visibility stabilizes", () => {
 		const values = { note: undefined, advanced: false, detail: "enabled", dependent: "retained" };
 
-		expect(describeOptionFields(cascadingVisibilitySchema, values).fields).toMatchObject([
+		expect(describeSchemaFormFields(cascadingVisibilitySchema, values).fields).toMatchObject([
 			{ key: "note", required: false },
 			{ key: "advanced" },
 		]);
-		expect(validateOptionValues(cascadingVisibilitySchema, values).size).toBe(0);
-		expect(toOptionsPayload(cascadingVisibilitySchema, values)).toEqual({ advanced: false });
+		expect(validateSchemaFormValues(cascadingVisibilitySchema, values).size).toBe(0);
+		expect(toSchemaFormPayload(cascadingVisibilitySchema, values)).toEqual({ advanced: false });
 	});
 
 	it("seeds values from declared defaults and leaves the rest undefined", () => {
-		expect(initialOptionValues(schema)).toEqual({
+		expect(initialSchemaFormValues(schema)).toEqual({
 			year: 2026,
 			region: "us",
 			adult: false,
@@ -185,17 +195,17 @@ describe("provider-add options form state", () => {
 	it("fires conditional required rules only when the condition holds", () => {
 		const base = { title: "Dune", note: undefined };
 
-		expect(validateOptionValues(schema, { ...base, region: "us" }).get("note")).toBeUndefined();
-		expect(validateOptionValues(schema, { ...base, region: "uk" }).get("note")).toBe(
+		expect(validateSchemaFormValues(schema, { ...base, region: "us" }).get("note")).toBeUndefined();
+		expect(validateSchemaFormValues(schema, { ...base, region: "uk" }).get("note")).toBe(
 			"Note is required for the UK region",
 		);
 		expect(
-			validateOptionValues(schema, { ...base, note: "  ", region: "uk" }).get("note"),
+			validateSchemaFormValues(schema, { ...base, note: "  ", region: "uk" }).get("note"),
 		).toBeUndefined();
 	});
 
 	it("reports declared required fields and treats empty selections as missing", () => {
-		const errors = validateOptionValues(schema, { title: "", genres: [], region: "us" });
+		const errors = validateSchemaFormValues(schema, { title: "", genres: [], region: "us" });
 
 		expect(errors.get("title")).toBe("Title is required");
 		expect(errors.get("genres")).toBeUndefined();
@@ -231,13 +241,13 @@ describe("provider-add options form state", () => {
 		} satisfies AppSchema;
 		const values = { note: undefined, text: "", selections: [] };
 
-		expect(describeOptionFields(defaultedSchema, values).fields).toContainEqual(
+		expect(describeSchemaFormFields(defaultedSchema, values).fields).toContainEqual(
 			expect.objectContaining({ key: "note", required: true }),
 		);
-		expect(validateOptionValues(defaultedSchema, values).get("note")).toBe(
+		expect(validateSchemaFormValues(defaultedSchema, values).get("note")).toBe(
 			"Defaults make note required",
 		);
-		expect(toOptionsPayload(defaultedSchema, values)).toEqual({});
+		expect(toSchemaFormPayload(defaultedSchema, values)).toEqual({});
 	});
 
 	it("restores nonblank default semantics when the UI value is cleared", () => {
@@ -261,9 +271,9 @@ describe("provider-add options form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(validateOptionValues(defaultedSchema, { region: "uk" }).has("note")).toBe(false);
-		expect(validateOptionValues(defaultedSchema, { region: "" }).has("note")).toBe(true);
-		expect(toOptionsPayload(defaultedSchema, { region: "" })).toEqual({});
+		expect(validateSchemaFormValues(defaultedSchema, { region: "uk" }).has("note")).toBe(false);
+		expect(validateSchemaFormValues(defaultedSchema, { region: "" }).has("note")).toBe(true);
+		expect(toSchemaFormPayload(defaultedSchema, { region: "" })).toEqual({});
 	});
 
 	it("prefers an active conditional message for a statically required field", () => {
@@ -283,7 +293,7 @@ describe("provider-add options form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(validateOptionValues(requiredSchema, { title: "", region: "uk" }).get("title")).toBe(
+		expect(validateSchemaFormValues(requiredSchema, { title: "", region: "uk" }).get("title")).toBe(
 			"A UK title is required",
 		);
 	});
@@ -298,19 +308,19 @@ describe("provider-add options form state", () => {
 		} as const;
 
 		expect(
-			validateOptionValues(
+			validateSchemaFormValues(
 				conditional([{ ...noteRule, when: { operator: "exists", path: ["region"] } }]),
 				values,
 			).get("note"),
 		).toBe("Note is required");
 		expect(
-			validateOptionValues(
+			validateSchemaFormValues(
 				conditional([{ ...noteRule, when: { operator: "not_exists", path: ["region"] } }]),
 				values,
 			).get("note"),
 		).toBeUndefined();
 		expect(
-			validateOptionValues(
+			validateSchemaFormValues(
 				conditional([
 					{ ...noteRule, when: { operator: "in", path: ["region"], value: ["uk", "us"] } },
 				]),
@@ -318,7 +328,7 @@ describe("provider-add options form state", () => {
 			).get("note"),
 		).toBe("Note is required");
 		expect(
-			validateOptionValues(
+			validateSchemaFormValues(
 				conditional([
 					{ ...noteRule, when: { operator: "not_in", path: ["region"], value: ["uk"] } },
 				]),
@@ -326,7 +336,7 @@ describe("provider-add options form state", () => {
 			).get("note"),
 		).toBeUndefined();
 		expect(
-			validateOptionValues(
+			validateSchemaFormValues(
 				conditional([
 					{
 						...noteRule,
@@ -343,7 +353,7 @@ describe("provider-add options form state", () => {
 			).get("note"),
 		).toBe("Note is required");
 		expect(
-			validateOptionValues(
+			validateSchemaFormValues(
 				conditional([
 					{
 						...noteRule,
@@ -385,15 +395,15 @@ describe("provider-add options form state", () => {
 		};
 		const values = { trigger: blank, note: undefined };
 
-		expect(validateOptionValues(conditional("exists"), values).get("note")).toBeUndefined();
-		expect(validateOptionValues(conditional("not_exists"), values).get("note")).toBe(
+		expect(validateSchemaFormValues(conditional("exists"), values).get("note")).toBeUndefined();
+		expect(validateSchemaFormValues(conditional("not_exists"), values).get("note")).toBe(
 			"Note is required",
 		);
 	});
 
 	it("omits undefined and empty-string values from the payload", () => {
 		expect(
-			toOptionsPayload(schema, {
+			toSchemaFormPayload(schema, {
 				note: "",
 				year: 2026,
 				adult: false,
@@ -402,16 +412,88 @@ describe("provider-add options form state", () => {
 				region: undefined,
 			}),
 		).toEqual({ year: 2026, adult: false, title: "Dune", genres: ["epic"] });
-		expect(toOptionsPayload(schema, { genres: [] })).toEqual({});
+		expect(toSchemaFormPayload(schema, { genres: [] })).toEqual({});
 	});
 
 	it("omits hidden values from the payload", () => {
-		expect(toOptionsPayload(visibilitySchema, { advanced: false, secret: "retained" })).toEqual({
+		expect(toSchemaFormPayload(visibilitySchema, { advanced: false, secret: "retained" })).toEqual({
 			advanced: false,
 		});
-		expect(toOptionsPayload(visibilitySchema, { advanced: true, secret: "included" })).toEqual({
+		expect(toSchemaFormPayload(visibilitySchema, { advanced: true, secret: "included" })).toEqual({
 			advanced: true,
 			secret: "included",
 		});
+	});
+
+	it("reports upload formats as unsupported and keeps them out of values", () => {
+		const uploadSchema = {
+			fields: {
+				name: { ...described("Name"), type: "string" },
+				archive: {
+					...described("Archive"),
+					type: "string",
+					validation: { required: true },
+					format: { kind: "upload", allowedFileExtensions: ["zip"] },
+				},
+			},
+		} satisfies AppSchema;
+
+		expect(describeSchemaFormFields(uploadSchema)).toEqual({
+			unsupported: ["archive"],
+			fields: [expect.objectContaining({ key: "name", control: "text", format: undefined })],
+		});
+		expect(initialSchemaFormValues(uploadSchema)).toEqual({ name: undefined });
+		expect(validateSchemaFormValues(uploadSchema, {}).size).toBe(0);
+		expect(toSchemaFormPayload(uploadSchema, { archive: "token" })).toEqual({});
+	});
+
+	it("projects secret and text-format declarations onto described fields", () => {
+		const annotatedSchema = {
+			fields: {
+				plain: { ...described("Plain"), type: "string" },
+				link: { ...described("Link"), type: "string", format: { kind: "url" } },
+				token: { ...described("Token"), type: "string", secret: true },
+				contact: { ...described("Contact"), type: "string", format: { kind: "email" } },
+			},
+		} satisfies AppSchema;
+
+		expect(describeSchemaFormFields(annotatedSchema).fields).toMatchObject([
+			{ key: "plain", secret: false, format: undefined },
+			{ key: "link", secret: false, format: "url" },
+			{ key: "token", secret: true, format: undefined },
+			{ key: "contact", secret: false, format: "email" },
+		]);
+	});
+
+	it("derives a control for each supported declaration", () => {
+		const controlSchema = {
+			fields: {
+				text: { ...described("Text"), type: "string" },
+				count: { ...described("Count"), type: "integer" },
+				flag: { ...described("Flag"), type: "boolean" },
+				pair: { ...described("Pair"), type: "enum", choices: choices("us", "uk") },
+				sole: { ...described("Sole"), type: "enum", choices: choices("only") },
+				many: { ...described("Many"), type: "enum", choices: choices("a", "b", "c", "d") },
+				wordy: {
+					...described("Wordy"),
+					type: "enum",
+					choices: choices("a", "an extremely long label"),
+				},
+				tags: { ...described("Tags"), type: "enum-array", choices: choices("epic", "scifi") },
+			},
+		} satisfies AppSchema;
+
+		expect(
+			describeSchemaFormFields(controlSchema).fields.map((field) => [field.key, field.control]),
+		).toEqual([
+			["text", "text"],
+			["count", "text"],
+			["flag", "switch"],
+			["pair", "segmented"],
+			["sole", "chips"],
+			["many", "chips"],
+			["wordy", "chips"],
+			["tags", "multi-select"],
+		]);
 	});
 });
