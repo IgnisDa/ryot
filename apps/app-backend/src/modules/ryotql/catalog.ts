@@ -12,10 +12,14 @@ export type CatalogField = {
 	readonly resolve: (context: CatalogFieldContext) => ReturnType<typeof sql>;
 };
 
+export type CatalogVisibility =
+	| { readonly type: "public" }
+	| { readonly type: "user"; readonly column: string; readonly includeGlobal: boolean };
+
 export type CatalogTable = {
 	readonly name: string;
 	readonly primaryKey: string;
-	readonly userIdColumn: string;
+	readonly visibility: CatalogVisibility;
 	readonly fields: Readonly<Record<string, CatalogField>>;
 };
 
@@ -65,7 +69,7 @@ const entityTranslationStatus: CatalogField = {
 const entity: CatalogTable = {
 	name: "entity",
 	primaryKey: "id",
-	userIdColumn: "user_id",
+	visibility: { type: "user", column: "user_id", includeGlobal: true },
 	fields: {
 		name: localizedEntityName,
 		properties: localizedEntityProperties,
@@ -84,7 +88,7 @@ const entity: CatalogTable = {
 const event: CatalogTable = {
 	name: "event",
 	primaryKey: "id",
-	userIdColumn: "user_id",
+	visibility: { type: "user", column: "user_id", includeGlobal: true },
 	fields: {
 		id: physicalField("id", "text"),
 		userId: physicalField("user_id", "text"),
@@ -101,7 +105,7 @@ const event: CatalogTable = {
 const relationship: CatalogTable = {
 	primaryKey: "id",
 	name: "relationship",
-	userIdColumn: "user_id",
+	visibility: { type: "user", column: "user_id", includeGlobal: true },
 	fields: {
 		id: physicalField("id", "text"),
 		userId: physicalField("user_id", "text"),
@@ -113,7 +117,62 @@ const relationship: CatalogTable = {
 	},
 };
 
-const tables: Readonly<Record<string, CatalogTable>> = { entity, event, relationship };
+const plugin: CatalogTable = {
+	name: "plugin",
+	primaryKey: "slug",
+	visibility: { type: "public" },
+	fields: {
+		slug: physicalField("slug", "text"),
+		status: physicalField("status", "text"),
+		version: physicalField("version", "text"),
+		manifest: physicalField("manifest", "json"),
+		ingestedAt: physicalField("ingested_at", "date"),
+	},
+};
+
+const pluginState: CatalogTable = {
+	primaryKey: "id",
+	name: "plugin_state",
+	visibility: { type: "user", column: "user_id", includeGlobal: false },
+	fields: {
+		id: physicalField("id", "text"),
+		createdAt: physicalField("created_at", "date"),
+		updatedAt: physicalField("updated_at", "date"),
+		pluginSlug: physicalField("plugin_slug", "text"),
+		sortOrder: physicalField("sort_order", "number"),
+		isDisabled: physicalField("is_disabled", "boolean"),
+	},
+};
+
+const savedView: CatalogTable = {
+	primaryKey: "id",
+	name: "saved_view",
+	visibility: { type: "user", column: "user_id", includeGlobal: false },
+	fields: {
+		id: physicalField("id", "text"),
+		slug: physicalField("slug", "text"),
+		name: physicalField("name", "text"),
+		icon: physicalField("icon", "text"),
+		createdAt: physicalField("created_at", "date"),
+		updatedAt: physicalField("updated_at", "date"),
+		sortOrder: physicalField("sort_order", "number"),
+		pluginSlug: physicalField("plugin_slug", "text"),
+		isBuiltin: physicalField("is_builtin", "boolean"),
+		accentColor: physicalField("accent_color", "text"),
+		isDisabled: physicalField("is_disabled", "boolean"),
+		queryDocument: physicalField("query_document", "json"),
+		displayConfiguration: physicalField("display_configuration", "json"),
+	},
+};
+
+const tables: Readonly<Record<string, CatalogTable>> = {
+	event,
+	entity,
+	plugin,
+	savedView,
+	pluginState,
+	relationship,
+};
 
 export const getCatalogTable = (name: string) => tables[name];
 

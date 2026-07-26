@@ -4,11 +4,11 @@ RyotQL is the focused read API at `POST /ryotql/execute`. It is independent from
 
 ## Current Capabilities
 
-- Authenticated user execution against the `entity`, `event`, and `relationship` tables.
+- Authenticated user execution against the `entity`, `event`, `relationship`, `plugin`, `pluginState`, and `savedView` tables.
 - Multiple independent named rows, aggregate, or time-series queries in one repeatable-read, read-only transaction.
 - Field selection, typed JSON expressions, predicates, arithmetic, correlated scalar expressions, inner and left joins, ordering, pagination, and correlated row includes.
 - Localized entity names and properties with translation status as a normal catalog field.
-- User visibility for every table occurrence: a caller can read their own rows and global rows.
+- Visibility for every table occurrence: entity, event, and relationship rows are user-or-global, plugin metadata is public, and plugin state and saved views are user-only.
 - Runtime field kinds: `text`, `date`, `number`, `boolean`, `json`, and `null`.
 
 The entity catalog currently exposes `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `translationStatus`, and `entitySchemaSlug`. Other physical columns are not queryable.
@@ -17,9 +17,13 @@ The event catalog exposes `id`, `userId`, `entityId`, `createdAt`, `updatedAt`, 
 
 The relationship catalog exposes `id`, `userId`, `sourceEntityId`, `targetEntityId`, `createdAt`, `properties`, and `relationshipSchemaSlug`.
 
+The plugin catalog exposes `slug`, `status`, `version`, `manifest`, and `ingestedAt`. The plugin-state catalog exposes `id`, `pluginSlug`, `sortOrder`, `isDisabled`, `createdAt`, and `updatedAt`. The saved-view catalog exposes `id`, `slug`, `name`, `icon`, `accentColor`, `sortOrder`, `isBuiltin`, `isDisabled`, `pluginSlug`, `queryDocument`, `displayConfiguration`, `createdAt`, and `updatedAt`. Plugin source and compiled hashes, plugin-state configuration, and application-table ownership columns are not queryable.
+
 ## Document Shape
 
 Every document contains a non-empty `queries` object. Each entry is independent and has an explicit root table and alias, an optional predicate and joins, and one rows, aggregate, or time-series output.
+
+RyotQL validates the complete document before execution. Named queries execute sequentially in declaration order inside one repeatable-read, read-only transaction, so they share one database snapshot. Any validation or execution failure fails the complete request; partial result envelopes are not returned.
 
 ```json
 {
@@ -69,6 +73,28 @@ The response is keyed by the same query name:
 ```
 
 Rows default to page 1, limit 20, and root primary-key ascending order when built with the SDK. The compiler appends joined and root primary keys when needed to keep multiplied rows deterministic, uses `NULLS LAST` in both directions, and reports the true total for pages beyond the final row.
+
+## Application Tables
+
+Application tables use the same table references, joins, expressions, and row outputs as entity data. Public plugin metadata can left join the current user's policy-filtered plugin state. A missing state row keeps the plugin and returns null state fields; another user's state cannot satisfy the join. Saved-view roots return only the authenticated user's rows.
+
+The shared navigation recipe builds one document with independent `workspaces`, `savedViews`, and `collections` queries. It selects only navigation fields, reads plugin metadata through safe JSON paths, and relies on the response `data` keys to map each section.
+
+```ts
+const plugin = table("plugin", "plugin");
+const state = table("pluginState", "state");
+
+document({
+	workspaces: rows(plugin, {
+		joins: [join("left", state, eq(column(plugin, "slug"), column(state, "pluginSlug")))],
+		fields: [
+			field("slug", column(plugin, "slug")),
+			field("sortOrder", column(state, "sortOrder")),
+			field("isDisabled", column(state, "isDisabled")),
+		],
+	}),
+});
+```
 
 ## Expressions And JSON
 
@@ -273,4 +299,4 @@ document({
 - 3 correlated query levels.
 - 30-second transaction-local statement timeout.
 
-Plugin execution and application tables other than `entity`, `event`, and `relationship` are not available yet.
+Plugin execution is not available yet.
