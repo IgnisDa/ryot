@@ -1,9 +1,9 @@
-// FIXME: Expo does not support typescript 7 yet (https://github.com/expo/expo/issues/47627)
+import type { ExpoConfig } from "expo/config";
+
 const MAIN_COLOR = "#fd7e14";
 const isDebug = process.env.APP_VARIANT === "development";
 
-/** @type {import("expo/config").ExpoConfig} */
-const config = {
+const config: ExpoConfig = {
 	slug: "ryot",
 	scheme: "ryot",
 	version: "1.0.0",
@@ -47,4 +47,4 @@ const config = {
 	},
 };
 
-module.exports = config;
+export default config;
