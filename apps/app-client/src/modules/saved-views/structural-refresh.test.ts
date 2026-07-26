@@ -163,6 +163,36 @@ it.effect("retries a failed refresh after the 30-second dirty bound", () =>
 	}),
 );
 
+it.effect("does not bypass failed refresh backoff when controller completion activates", () =>
+	Effect.gen(function* () {
+		let attempts = 0;
+		const events: string[] = [];
+		const service = yield* SavedViewStructuralRefresh.make;
+		const work = request(
+			Effect.suspend(() => {
+				attempts += 1;
+				return attempts === 1 ? Effect.fail("failed") : Effect.succeed(true);
+			}),
+			events,
+		);
+
+		yield* service.refresh(work, false);
+		yield* settle;
+		expect(attempts).toBe(1);
+
+		// Mirrors use-saved-view activating after the failed controller operation commits idle.
+		yield* service.activate(work);
+		yield* settle;
+		yield* TestClock.adjust("29999 millis");
+		yield* settle;
+		expect(attempts).toBe(1);
+
+		yield* TestClock.adjust("1 millis");
+		yield* settle;
+		expect(attempts).toBe(2);
+	}),
+);
+
 it.effect("never overlaps refresh effects", () =>
 	Effect.gen(function* () {
 		let active = 0;
