@@ -1,14 +1,14 @@
 # RyotQL Guide
 
-RyotQL is the focused read API at `POST /ryotql/execute`.
+RyotQL is the focused read API at `POST /ryotql/execute`. `POST /ryotql/execute` is the only authenticated HTTP endpoint for user-facing relational reads. Metadata, operational, streaming, administrative, test-support, and command APIs remain explicit exceptions.
 
 ## Current Capabilities
 
-- Authenticated user execution against the `entity`, `event`, `relationship`, `plugin`, `pluginState`, and `savedView` tables, plus capability-gated pinned-plugin execution against owned entity, event, and relationship data.
+- Authenticated user execution against the `entity`, `event`, `relationship`, `plugin`, `pluginState`, `savedView`, `notificationChannel`, `integration`, `importRun`, `importRunFailure`, and `notificationSubscriptionState` tables, plus capability-gated pinned-plugin execution against owned entity, event, and relationship data.
 - Multiple independent named rows, aggregate, or time-series queries in one repeatable-read, read-only transaction.
 - Field selection, typed JSON expressions, predicates, arithmetic, correlated scalar expressions, inner and left joins, ordering, pagination, and correlated row includes.
 - Localized entity names and properties with translation status as a normal catalog field.
-- Visibility for every table occurrence: entity, event, and relationship rows are user-or-global, plugin metadata is public, and plugin state and saved views are user-only.
+- Visibility for every table occurrence: plugin is public; entity, event, and relationship are user-or-global; `pluginState`, `savedView`, `notificationChannel`, `integration`, `importRun`, and `notificationSubscriptionState` are user-owned; `importRunFailure` is parent-owned through `importRun`.
 - Runtime field kinds: `text`, `date`, `number`, `boolean`, `json`, and `null`.
 - Row and include fields may use the SDK `star(table)` helper to select every approved catalog field for that table alias.
 
@@ -80,6 +80,8 @@ Rows default to page 1, limit 20, and root primary-key ascending order when buil
 ## Application Tables
 
 Application tables use the same table references, joins, expressions, and row outputs as entity data. Public plugin metadata can left join the current user's policy-filtered plugin state. A missing state row keeps the plugin and returns null state fields; another user's state cannot satisfy the join. Saved-view roots return only the authenticated user's rows.
+
+The `notificationChannel` catalog exposes `id`, `channel`, `description`, `isDisabled`, `createdAt`, and `updatedAt`. The `integration` catalog exposes `id`, `lot`, `name`, `provider`, `pluginSlug`, `isDisabled`, `syncOwnership`, `minimumProgress`, `maximumProgress`, `extraSettings`, `lastFinishedAt`, `createdAt`, and `updatedAt`. The `importRun` catalog exposes `id`, `source`, `status`, `progress`, `totalItems`, `failedItems`, `importedItems`, `processedItems`, `errorSummary`, `inputSummary`, `integrationId`, `startedAt`, `finishedAt`, `createdAt`, and `updatedAt`. The `importRunFailure` catalog exposes `id`, `runId`, `stage`, `message`, `context`, `itemIndex`, `sourceLabel`, `sourceIdentifier`, `eventSchemaSlug`, `entitySchemaSlug`, and `createdAt`. The `notificationSubscriptionState` catalog exposes `id`, `signalSchemaSlug`, `isActive`, `createdAt`, and `updatedAt`. Notification channel raw specifics and integration provider specifics are not queryable.
 
 The shared navigation recipe builds one document with independent `workspaces`, `savedViews`, and `collections` queries. It selects only navigation fields, reads plugin metadata through safe JSON paths, and relies on the response `data` keys to map each section.
 
