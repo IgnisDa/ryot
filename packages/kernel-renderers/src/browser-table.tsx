@@ -15,12 +15,15 @@ import type {
 import { CellThumbnail, CellValue, cellText, isAssetCell } from "./display-value";
 
 type BrowserItem = EntityBrowserResult["items"][number];
-type BrowserColumns = (typeof EntityBrowserPageInput.Type)["settings"]["tableColumns"];
+type DeclaredBrowserColumns = NonNullable<
+	(typeof EntityBrowserPageInput.Type)["settings"]["tableColumns"]
+>;
+export type BrowserColumns = readonly DeclaredBrowserColumns[number][];
 
 const rowThumbnail = (item: BrowserItem) => item.cells.find(isAssetCell)?.value.value;
 
 const browserColumns = (
-	declared: BrowserColumns,
+	declared: BrowserColumns | null,
 	settled: EntitySettle,
 ): readonly DataTableColumn<BrowserItem>[] =>
 	(declared ?? [])
@@ -72,7 +75,7 @@ export function BrowserTable({
 	columns,
 }: {
 	readonly settled: EntitySettle;
-	readonly columns: BrowserColumns;
+	readonly columns: BrowserColumns | null;
 	readonly items: readonly BrowserItem[];
 }) {
 	return (
