@@ -7,10 +7,7 @@ import type { SavedViewCardItem } from "./display-data";
 import { SavedViewImageView } from "./saved-view-image";
 import { SavedViewValue } from "./saved-view-value";
 
-export function SavedViewGrid(props: {
-	items: readonly SavedViewCardItem[];
-	managedUrls: ReadonlyMap<string, string>;
-}) {
+export function SavedViewGrid(props: { items: readonly SavedViewCardItem[] }) {
 	return (
 		<View className="-mx-1.5 flex-row flex-wrap md:-mx-2.5">
 			{props.items.map((item) => (
@@ -23,7 +20,6 @@ export function SavedViewGrid(props: {
 						<Link.AppleZoom>
 							<SavedViewImageView
 								image={item.image}
-								managedUrls={props.managedUrls}
 								className="aspect-3/4 w-full rounded-lg bg-surface-2"
 							/>
 						</Link.AppleZoom>
