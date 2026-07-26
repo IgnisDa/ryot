@@ -8,6 +8,7 @@ import {
 	type PluginManifest as PluginManifestValue,
 	type PluginScript,
 } from "@ryot/contract/modules/plugins/manifest";
+import { reservedPluginSlugs } from "@ryot/contract/modules/plugins/schemas";
 import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
 import { canonicalRelativePosixPathIssue } from "@ryot/ts-utils/path";
 import { Cron, Data, Effect, Result, Schema } from "effect";
@@ -131,6 +132,10 @@ export const validatePluginManifestPolicy = (
 		| { readonly scope: "user"; readonly systemSlugs: ReadonlySet<string> },
 ) =>
 	Effect.gen(function* () {
+		const pluginSlug = manifest.metadata.slug;
+		if (reservedPluginSlugs.has(pluginSlug)) {
+			return yield* new PluginSlugReservedError({ pluginSlug });
+		}
 		if (policy.scope === "system") {
 			return yield* Effect.void;
 		}
@@ -138,7 +143,6 @@ export const validatePluginManifestPolicy = (
 		if (surfaces.length > 0) {
 			return yield* new PluginSurfaceError({ surfaces });
 		}
-		const pluginSlug = manifest.metadata.slug;
 		if (policy.systemSlugs.has(pluginSlug)) {
 			return yield* new PluginSlugReservedError({ pluginSlug });
 		}
