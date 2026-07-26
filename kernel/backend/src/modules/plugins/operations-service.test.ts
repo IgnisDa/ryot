@@ -8,7 +8,7 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { IntegrationId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { Headers } from "effect/unstable/http";
@@ -103,12 +103,15 @@ const resolvedOperation = (available: AvailableOperation) => ({
 
 const makeIntegration = (input: {
 	userId: UserId;
+	lot?: IntegrationRecord["lot"];
 	isDisabled?: boolean;
 	pluginInstallationId: string;
 }) =>
 	// oxlint-disable-next-line no-unsafe-type-assertion -- the scope resolver only reads these fields
 	({
 		userId: input.userId,
+		lot: input.lot ?? "push",
+		id: IntegrationId.make("int-1"),
 		isDisabled: input.isDisabled ?? false,
 		pluginInstallationId: input.pluginInstallationId,
 	}) as unknown as IntegrationRecord;
@@ -126,6 +129,7 @@ const makeLayer = (input: {
 }) => {
 	const integrationsRepository = Layer.mock(IntegrationsRepository)({
 		getByIdAnyUser: () => Effect.succeed(input.integration ?? null),
+		getByWebhookToken: () => Effect.succeed(input.integration ?? null),
 	});
 	const integrationScopeResolver = IntegrationOperationScopeResolverLive.pipe(
 		Layer.provide(Layer.mergeAll(databaseLayer, integrationsRepository)),
@@ -473,6 +477,32 @@ it.effect(
 	},
 );
 
+it.effect("requires the webhook capability for a sink integration operation", () => {
+	const events: string[] = [];
+	return Effect.gen(function* () {
+		expectError(
+			yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG, payload: { integrationId: "int-1" } })),
+			PluginNotFoundError,
+		);
+		expect(
+			yield* invoke({ pluginSlug: SYSTEM_SLUG, payload: { webhookToken: "webhook-token-1" } }),
+		).toBe("ok");
+		expect(events).toEqual(["dispatch"]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				events,
+				available: [systemIntegrationOperation],
+				integration: makeIntegration({
+					lot: "sink",
+					userId: USER_ONE,
+					pluginInstallationId: "install-fixture-user-1",
+				}),
+			}),
+		),
+	);
+});
+
 it.effect("rejects an integration from another installation owned by the same user", () => {
 	const captured: Array<unknown> = [];
 	return Effect.gen(function* () {
@@ -597,7 +627,7 @@ it.effect("rejects a foreign integration for a private integration operation", (
 	);
 });
 
-it.effect("rejects an authenticated integration operation without an integrationId payload", () =>
+it.effect("rejects an authenticated integration operation without a scope payload", () =>
 	Effect.gen(function* () {
 		expectError(yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG })), PluginRequestError);
 	}).pipe(

@@ -403,7 +403,9 @@ describe("integration detail", () => {
 			makeIntegrationsApi({
 				get: () => {
 					gets++;
-					return Effect.succeed(makeListed({ webhookUrl: "https://ryot.example/_i/int_1" }));
+					return Effect.succeed(
+						makeListed({ webhookUrl: "https://ryot.example/_i/webhook-token-1" }),
+					);
 				},
 			}),
 			makeIntegrationQueries(),
@@ -457,7 +459,7 @@ describe("integration detail", () => {
 							lot: "sink",
 							provider: "kodi",
 							providerSpecifics: {},
-							webhookUrl: "https://ryot.example/_i/int_1",
+							webhookUrl: "https://ryot.example/_i/webhook-token-1",
 						}),
 					),
 			}),
@@ -465,7 +467,7 @@ describe("integration detail", () => {
 		);
 
 		await screen.findByRole("heading", { level: 1, name: "Kodi" });
-		expect(screen.getByText("https://ryot.example/_i/int_1")).not.toBeNull();
+		expect(screen.getByText("https://ryot.example/_i/webhook-token-1")).not.toBeNull();
 		expect(screen.getByRole("img", { name: "Completed" })).not.toBeNull();
 		expect(screen.getByText("12 added")).not.toBeNull();
 	});

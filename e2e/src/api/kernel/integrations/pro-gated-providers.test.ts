@@ -1,5 +1,6 @@
 import type { ChildProcess } from "node:child_process";
 
+import type { ListedIntegration } from "@ryot-app/contract/modules/integrations/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { Effect } from "effect";
 import getPort from "get-port";
@@ -41,7 +42,7 @@ const unkeyEnvelope = (data: { valid: boolean; code: string; meta?: Record<strin
 
 let keyedClient: Client;
 let providerSlug: string;
-let existingIntegrationId: string;
+let existingIntegration: ListedIntegration;
 
 let keyedApiUrl: string;
 let lapsedApiUrl: string;
@@ -109,12 +110,12 @@ beforeAll(async () => {
 			});
 			const { client } = yield* createAuthenticatedClient(keyedApiUrl);
 			const integration = yield* createIntegration(client, { provider: slug, providerSpecifics });
-			return { client, providerSlug: slug, integrationId: integration.id };
+			return { client, integration, providerSlug: slug };
 		}),
 	);
 	providerSlug = setup.providerSlug;
 	keyedClient = setup.client;
-	existingIntegrationId = setup.integrationId;
+	existingIntegration = setup.integration;
 
 	keylessProcess = startApi("keyless", keylessPort, { SERVER_PRO_KEY: "" });
 	lapsedProcess = startApi("lapsed", lapsedPort, {
@@ -166,7 +167,7 @@ describe("Without a valid Pro Key", () => {
 		() =>
 			Effect.gen(function* () {
 				const lapsedSession = makeSession(lapsedApiUrl);
-				const { runId } = yield* postIntegrationWebhook(lapsedSession, existingIntegrationId, {});
+				const { runId } = yield* postIntegrationWebhook(lapsedSession, existingIntegration, {});
 				const run = yield* pollImportRunUntilTerminal(keyedClient, runId);
 				expect(run).toMatchObject({
 					status: "failed",
@@ -201,7 +202,7 @@ describe("With a valid Pro Key", () => {
 
 	it.live("does not refuse the webhook run for pro-key-required", () =>
 		Effect.gen(function* () {
-			const { run } = yield* postIntegrationWebhookAndWait(keyedClient, existingIntegrationId, {});
+			const { run } = yield* postIntegrationWebhookAndWait(keyedClient, existingIntegration, {});
 			expect(run.failureReason).not.toEqual({ code: "pro-key-required" });
 		}),
 	);

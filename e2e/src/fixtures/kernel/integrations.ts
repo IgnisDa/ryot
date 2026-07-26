@@ -1,6 +1,7 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
+import type { ListedIntegration } from "@ryot-app/contract/modules/integrations/schemas";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import { IntegrationId } from "@ryot-app/contract/schema/brands";
+import { IntegrationId, IntegrationWebhookToken } from "@ryot-app/contract/schema/brands";
 import { integrationRecipe, integrationsRecipe } from "@ryot-app/ryotql-recipes/integrations";
 import { Effect } from "effect";
 
@@ -52,21 +53,36 @@ export const deleteIntegration = (client: Client, id: string) =>
 
 export const syncIntegrations = (client: Client) => client.call((c) => c.integrations.sync());
 
-export const postIntegrationWebhook = (client: Client, integrationId: string, body: JsonValue) =>
+export const integrationWebhookToken = (
+	integration: Pick<ListedIntegration, "webhookUrl">,
+): IntegrationWebhookToken => {
+	const webhookUrl = requirePresent(
+		integration.webhookUrl,
+		"Expected sink integration webhook URL",
+	);
+	const token = new URL(webhookUrl).pathname.match(/\/_i\/([^/]+)\/?$/)?.[1];
+	return IntegrationWebhookToken.make(requirePresent(token, "Webhook URL is missing its token"));
+};
+
+export const postIntegrationWebhook = (
+	client: Client,
+	integration: Pick<ListedIntegration, "webhookUrl">,
+	body: JsonValue,
+) =>
 	client.call((c) =>
 		c.integrations.webhook({
 			payload: JSON.stringify(body),
-			params: { integrationId: IntegrationId.make(integrationId) },
+			params: { webhookToken: integrationWebhookToken(integration) },
 		}),
 	);
 
 export const postIntegrationWebhookAndWait = (
 	client: Client,
-	integrationId: string,
+	integration: Pick<ListedIntegration, "webhookUrl">,
 	body: JsonValue,
 ) =>
 	Effect.gen(function* () {
-		const data = yield* postIntegrationWebhook(client, integrationId, body);
+		const data = yield* postIntegrationWebhook(client, integration, body);
 		const runId = requirePresent(data.runId, "Expected runId from webhook");
 		const run = yield* pollImportRunUntilTerminal(client, runId);
 		return { run, data, runId };

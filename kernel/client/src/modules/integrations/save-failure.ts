@@ -41,6 +41,7 @@ const presentReason = (reason: IntegrationRequestFailureReason): IntegrationSave
 			detail: "This service is no longer available on your server. Choose another one.",
 		})),
 		Match.when({ code: "integration-not-found" }, () => fallback),
+		Match.when({ code: "integration-webhook-not-found" }, () => fallback),
 		Match.when({ code: "wrong-integration-lot" }, () => fallback),
 		Match.when({ code: "queue-unavailable" }, () => fallback),
 		Match.exhaustive,

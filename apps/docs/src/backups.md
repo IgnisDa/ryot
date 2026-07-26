@@ -15,6 +15,8 @@ The archive also identifies catalog items without contacting providers during re
 
 - Passwords, sign-in sessions, connected accounts, or API keys.
 - Integration credentials or notification destination secrets.
+- Sink webhook tokens. Restored sink integrations receive new webhook URLs that must be configured
+  in the sending service.
 - Server settings and background task history.
 - Files linked from other websites.
 

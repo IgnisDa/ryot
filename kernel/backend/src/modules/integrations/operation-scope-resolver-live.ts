@@ -1,5 +1,5 @@
 import { badRequest, notFound } from "@ryot-app/contract/errors";
-import { IntegrationId } from "@ryot-app/contract/schema/brands";
+import { IntegrationId, IntegrationWebhookToken } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
@@ -7,7 +7,10 @@ import { IntegrationOperationScopeResolver } from "#modules/plugins/operations-s
 
 import { IntegrationsRepository } from "./repository";
 
-const IntegrationPayload = Schema.Struct({ integrationId: Schema.String });
+const IntegrationPayload = Schema.Union([
+	Schema.Struct({ integrationId: Schema.String }),
+	Schema.Struct({ webhookToken: Schema.String }),
+]);
 
 export const IntegrationOperationScopeResolverLive = Layer.effect(
 	IntegrationOperationScopeResolver,
@@ -19,18 +22,24 @@ export const IntegrationOperationScopeResolverLive = Layer.effect(
 			resolve: (payload: unknown) =>
 				Effect.gen(function* () {
 					const decoded = yield* Schema.decodeUnknownEffect(IntegrationPayload)(payload).pipe(
-						Effect.mapError(() => badRequest("integrationId is required")),
+						Effect.mapError(() => badRequest("integrationId or webhookToken is required")),
 					);
-					const integrationId = IntegrationId.make(decoded.integrationId);
-					const integration = yield* repository
-						.getByIdAnyUser({ integrationId })
-						.pipe(Effect.provideService(Database, database));
+					const integration = yield* (
+						"webhookToken" in decoded
+							? repository.getByWebhookToken(IntegrationWebhookToken.make(decoded.webhookToken))
+							: repository.getByIdAnyUser({
+									integrationId: IntegrationId.make(decoded.integrationId),
+								})
+					).pipe(Effect.provideService(Database, database));
 					if (!integration || integration.isDisabled) {
 						return yield* notFound("Integration not found");
 					}
+					if ("integrationId" in decoded && integration.lot === "sink") {
+						return yield* notFound("Integration not found");
+					}
 					return {
-						integrationId,
 						userId: integration.userId,
+						integrationId: integration.id,
 						pluginInstallationId: integration.pluginInstallationId,
 					};
 				}),
