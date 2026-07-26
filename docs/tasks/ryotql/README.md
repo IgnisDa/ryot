@@ -1,8 +1,8 @@
 ## Tasks
 
-**Overall Progress:** 10 of 15 tasks completed
+**Overall Progress:** 11 of 15 tasks completed
 
-**Current Task:** [Task 11](./11-media-recipe-migration.md) (todo)
+**Current Task:** [Task 12](./12-fitness-recipe-migration.md) (todo)
 
 ### Task List
 
@@ -18,7 +18,7 @@
 | 08  | [Time-Series Outputs](./08-time-series-outputs.md)                         | completed |
 | 09  | [Focused Navigation Queries](./09-focused-navigation-queries.md)           | completed |
 | 10  | [Sandbox Execution And Media Monitoring](./10-sandbox-media-monitoring.md) | completed |
-| 11  | [Media Recipe Migration](./11-media-recipe-migration.md)                   | todo      |
+| 11  | [Media Recipe Migration](./11-media-recipe-migration.md)                   | completed |
 | 12  | [Fitness Recipe Migration](./12-fitness-recipe-migration.md)               | todo      |
 | 13  | [Saved-View Migration](./13-saved-view-migration.md)                       | todo      |
 | 14  | [Legacy Query Engine Deletion](./14-legacy-query-engine-deletion.md)       | todo      |

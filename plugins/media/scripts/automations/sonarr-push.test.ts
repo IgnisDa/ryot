@@ -13,7 +13,7 @@ import {
 	httpFailure,
 	httpSuccess,
 	integrationRecord,
-	queryEngineRows,
+	ryotqlRows,
 	toRecord,
 } from "./automation-test-utils";
 import definition, { manifest } from "./sonarr-push.sandbox";
@@ -73,8 +73,8 @@ const createHost = (options: {
 		getEntitySchemas: () => hostSuccess([schema]),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
 		getUserPreferences: () => hostSuccess({ isNsfw: false, disableIntegrations: false }),
-		executeQueryEngine: () =>
-			options.entity ? hostSuccess(queryEngineRows([options.entity])) : hostFailure(),
+		executeRyotql: () =>
+			options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure(),
 	});
 
 describe("sonarr-push sandbox script", () => {

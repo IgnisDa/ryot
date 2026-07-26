@@ -8,15 +8,14 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createQueryEngineEvent,
-	executeQueryEngine,
+	executeRyotQL,
 	findBuiltinSchemaBySlug,
 	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
-	requireQueryEngineFieldValue,
-	requireQueryEngineIncludeValue,
+	requireRyotQLFieldValue,
 	requireRelationshipSchemaBySlug,
 	seedMediaEntity,
 	waitForEventCount,
@@ -99,29 +98,34 @@ describe("Relationship includes", () => {
 			yield* waitForEventCount(client, firstEpisode.id, 2);
 			yield* createQueryEngineEvent(client, {
 				entityId: secondEpisode.id,
-				eventSchemaSlug: episodeCompleteSchema.id,
 				properties: { completionMode: "unknown" },
+				eventSchemaSlug: episodeCompleteSchema.id,
 			});
 
 			const detailDoc = buildPodcastDetailQueryDocument({ entityId: podcast.id, episodeLimit: 10 });
 
-			const detailResult = yield* executeQueryEngine(client, detailDoc);
-			const podcastRow = detailResult.data.items[0];
+			const detailResult = yield* executeRyotQL(client, detailDoc);
+			const podcastResult = detailResult.data.podcast;
+			if (podcastResult?.type !== "rows") {
+				throw new Error("Expected podcast rows result");
+			}
+			const podcastRow = podcastResult.items[0];
 			assertPresent(podcastRow, "Expected podcast row");
-			const episodes = requireQueryEngineIncludeValue(podcastRow, "episodes");
+			const episodes = podcastRow.episodes;
+			if (!episodes || !("items" in episodes)) {
+				throw new Error("Expected episodes include");
+			}
 			expect(
-				episodes.items.map(
-					(episode) => requireQueryEngineFieldValue(episode, "episodeNumber").value,
-				),
+				episodes.items.map((episode) => requireRyotQLFieldValue(episode, "episodeNumber").value),
 			).toEqual([1, 2]);
 			const firstEpisodeRow = episodes.items[0];
 			assertPresent(firstEpisodeRow, "Expected first podcast episode row");
-			expect(requireQueryEngineFieldValue(firstEpisodeRow, "name").value).toBe("Episode One");
-			expect(requireQueryEngineFieldValue(firstEpisodeRow, "hasProgress")).toEqual({
+			expect(requireRyotQLFieldValue(firstEpisodeRow, "name").value).toBe("Episode One");
+			expect(requireRyotQLFieldValue(firstEpisodeRow, "hasProgress")).toEqual({
 				value: true,
 				kind: "boolean",
 			});
-			expect(requireQueryEngineFieldValue(firstEpisodeRow, "isComplete")).toEqual({
+			expect(requireRyotQLFieldValue(firstEpisodeRow, "isComplete")).toEqual({
 				value: true,
 				kind: "boolean",
 			});
@@ -204,40 +208,64 @@ describe("Relationship includes", () => {
 			yield* waitForEventCount(client, firstEpisode.id, 2);
 
 			const currentlyWatchingDoc = buildInProgressPodcastsQueryDocument({
-				entityId: podcast.id,
 				limit: 10,
+				entityId: podcast.id,
 			});
 			const fullyWatchedDoc = buildCompletedPodcastsQueryDocument({
-				entityId: podcast.id,
 				limit: 10,
+				entityId: podcast.id,
 			});
 
-			const phaseOneCurrentlyWatching = yield* executeQueryEngine(client, currentlyWatchingDoc);
-			expect(phaseOneCurrentlyWatching.data.items).toHaveLength(1);
-			const phaseOneFullyWatched = yield* executeQueryEngine(client, fullyWatchedDoc);
-			expect(phaseOneFullyWatched.data.items).toHaveLength(0);
+			const phaseOneCurrentlyWatching = yield* executeRyotQL(client, currentlyWatchingDoc);
+			const phaseOneWatchingRows = phaseOneCurrentlyWatching.data.podcasts;
+			if (phaseOneWatchingRows?.type !== "rows") {
+				throw new Error("Expected in-progress podcast rows result");
+			}
+			expect(phaseOneWatchingRows.items).toHaveLength(1);
+			const phaseOneFullyWatched = yield* executeRyotQL(client, fullyWatchedDoc);
+			const phaseOneCompletedRows = phaseOneFullyWatched.data.podcasts;
+			if (phaseOneCompletedRows?.type !== "rows") {
+				throw new Error("Expected completed podcast rows result");
+			}
+			expect(phaseOneCompletedRows.items).toHaveLength(0);
 
 			yield* createQueryEngineEvent(client, {
 				entityId: secondEpisode.id,
-				eventSchemaSlug: episodeCompleteSchema.id,
 				properties: { completionMode: "unknown" },
+				eventSchemaSlug: episodeCompleteSchema.id,
 			});
 
-			const phaseTwoCurrentlyWatching = yield* executeQueryEngine(client, currentlyWatchingDoc);
-			expect(phaseTwoCurrentlyWatching.data.items).toHaveLength(1);
-			const phaseTwoFullyWatched = yield* executeQueryEngine(client, fullyWatchedDoc);
-			expect(phaseTwoFullyWatched.data.items).toHaveLength(1);
+			const phaseTwoCurrentlyWatching = yield* executeRyotQL(client, currentlyWatchingDoc);
+			const phaseTwoWatchingRows = phaseTwoCurrentlyWatching.data.podcasts;
+			if (phaseTwoWatchingRows?.type !== "rows") {
+				throw new Error("Expected in-progress podcast rows result");
+			}
+			expect(phaseTwoWatchingRows.items).toHaveLength(1);
+			const phaseTwoFullyWatched = yield* executeRyotQL(client, fullyWatchedDoc);
+			const phaseTwoCompletedRows = phaseTwoFullyWatched.data.podcasts;
+			if (phaseTwoCompletedRows?.type !== "rows") {
+				throw new Error("Expected completed podcast rows result");
+			}
+			expect(phaseTwoCompletedRows.items).toHaveLength(1);
 
 			yield* createQueryEngineEvent(client, {
 				entityId: podcast.id,
-				eventSchemaSlug: podcastCompleteSchema.id,
 				properties: { completionMode: "unknown" },
+				eventSchemaSlug: podcastCompleteSchema.id,
 			});
 
-			const phaseThreeCurrentlyWatching = yield* executeQueryEngine(client, currentlyWatchingDoc);
-			expect(phaseThreeCurrentlyWatching.data.items).toHaveLength(0);
-			const phaseThreeFullyWatched = yield* executeQueryEngine(client, fullyWatchedDoc);
-			expect(phaseThreeFullyWatched.data.items).toHaveLength(1);
+			const phaseThreeCurrentlyWatching = yield* executeRyotQL(client, currentlyWatchingDoc);
+			const phaseThreeWatchingRows = phaseThreeCurrentlyWatching.data.podcasts;
+			if (phaseThreeWatchingRows?.type !== "rows") {
+				throw new Error("Expected in-progress podcast rows result");
+			}
+			expect(phaseThreeWatchingRows.items).toHaveLength(0);
+			const phaseThreeFullyWatched = yield* executeRyotQL(client, fullyWatchedDoc);
+			const phaseThreeCompletedRows = phaseThreeFullyWatched.data.podcasts;
+			if (phaseThreeCompletedRows?.type !== "rows") {
+				throw new Error("Expected completed podcast rows result");
+			}
+			expect(phaseThreeCompletedRows.items).toHaveLength(1);
 		}),
 	);
 });
