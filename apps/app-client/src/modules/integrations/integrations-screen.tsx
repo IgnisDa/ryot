@@ -43,6 +43,7 @@ export function IntegrationsScreen() {
 				providerNames={mapIntegrationProviderNames(providers)}
 				onOpenImports={() => router.push("/settings/import-data")}
 				onShowMore={() => setLimit(limit + INTEGRATIONS_PAGE_SIZE)}
+				onSyncAll={() => console.log("TODO: trigger a sync for all integrations")}
 				onOpen={(integrationId) =>
 					router.push({
 						params: { integrationId },
