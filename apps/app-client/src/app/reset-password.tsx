@@ -58,7 +58,7 @@ export default function ResetPassword() {
 						This password reset link is missing its token. Ask your administrator for a new link.
 					</Text>
 					<Pressable accessibilityRole="button" onPress={() => router.replace("/auth")}>
-						<Text className="font-ui-medium text-accent-text">Back to sign in</Text>
+						<Text className="font-ui-medium text-base text-accent-text">Back to sign in</Text>
 					</Pressable>
 				</View>
 			</View>
