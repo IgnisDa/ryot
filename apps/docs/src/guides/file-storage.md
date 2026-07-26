@@ -5,16 +5,6 @@ creates an upload intent; clients do not choose a provider. Temporary files alwa
 storage. Permanent files prefer S3 when its configuration is complete and otherwise use local
 storage.
 
-## Required signing secret
-
-`FILE_STORAGE_LOCAL_SIGNING_SECRET` is required on every Ryot deployment, including deployments
-that use S3 for permanent files. Use a long, random, dedicated secret and keep it stable across
-restarts:
-
-```sh
-FILE_STORAGE_LOCAL_SIGNING_SECRET=replace-with-a-long-random-secret
-```
-
 ## Temporary files
 
 Temporary uploads, imports, backup archives while they are being processed, and sandbox working
@@ -44,8 +34,6 @@ mount `/home/ryot/work`:
 ```yaml
 services:
   ryot:
-    environment:
-      FILE_STORAGE_LOCAL_SIGNING_SECRET: replace-with-a-long-random-secret
     volumes:
       - ryot_local_storage:/home/ryot/storage
 volumes:

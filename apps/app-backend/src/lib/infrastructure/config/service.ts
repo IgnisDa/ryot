@@ -33,10 +33,6 @@ const mapLogLevel = (config: SystemConfigValue) => {
 const configError = (message: string) =>
 	new Config.ConfigError(new Schema.SchemaError(new SchemaIssue.InvalidValue({ message })));
 
-const localSigningSecretConfigError = configError(
-	"FILE_STORAGE_LOCAL_SIGNING_SECRET is required and must not be empty.",
-);
-
 const isNonEmpty = (opt: Option.Option<string>): opt is Option.Some<string> =>
 	Option.isSome(opt) && opt.value.length > 0;
 
@@ -118,9 +114,6 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
-		if (Redacted.value(config.fileStorage.localSigningSecret).length === 0) {
-			return yield* Effect.fail(localSigningSecretConfigError);
-		}
 		if (!/^([A-Za-z]:[\\/]|\/)/.test(config.fileStorage.localDir)) {
 			return yield* Effect.fail(configError("FILE_STORAGE_LOCAL_DIR must be an absolute path."));
 		}
@@ -165,13 +158,7 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 
 export class AppConfig extends Context.Service<AppConfig>()("AppConfig", {
 	make: Effect.gen(function* () {
-		const system = yield* SystemConfigSource.pipe(
-			Effect.mapError((error) =>
-				JSON.stringify(error).includes("FILE_STORAGE_LOCAL_SIGNING_SECRET")
-					? localSigningSecretConfigError
-					: error,
-			),
-		);
+		const system = yield* SystemConfigSource;
 		return yield* validateSystemConfig(yield* mapLogLevel(system));
 	}),
 }) {

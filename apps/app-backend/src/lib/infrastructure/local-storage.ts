@@ -62,7 +62,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			const fs = yield* FileSystem.FileSystem;
 			const localDir = config.fileStorage.localDir;
 			const localTempDir = config.fileStorage.localTempDir;
-			const signingSecret = Redacted.value(config.fileStorage.localSigningSecret);
+			const signingSecret = Redacted.value(config.server.adminAccessToken);
 			const permanentConfigured = localDir.length > 0;
 			const signingKey = yield* Effect.tryPromise(() =>
 				crypto.subtle.importKey(
