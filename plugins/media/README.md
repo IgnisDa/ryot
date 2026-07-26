@@ -14,6 +14,11 @@ genres, fact row, expandable description, status rail), and three tabs: Overview
 progress, next-up, episode rows), and Activity (summary figures, per-season coverage, timeline,
 spoiler-gated reviews). Entity-to-entity links navigate through `PluginLink`.
 
+The hero declares its art height to the frame, which uses it as the bar's collapse threshold, and
+sizes the art band itself from `useRyotSafeArea()` plus `SCREEN_BAR_HEIGHT`. The hook reports the
+device inset alone while the frame draws content under its own sticky bar, so the bar height is the
+plugin's to add; without it the band falls 54px short and the bar hides the top of the poster.
+
 Managed artwork loads through the authenticated client asset capability. `client.assets.resolve`
 takes 1–64 locators, so the page canonicalizes and dedupes the locators a screen currently needs,
 resolves them in chunks of 64, and refreshes each chunk shortly before its signed URLs expire. Remote
