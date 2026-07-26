@@ -1,8 +1,8 @@
 # Default values for the Ryot chart.
 # This is a YAML-formatted file. Declare variables to be passed into the templates.
 
-# -- Number of Ryot replicas. Ryot is stateless (state lives in Postgres), but
-# leave at 1 unless you know your setup supports multiple replicas.
+# -- Number of Ryot replicas. Persistent state lives in PostgreSQL and Redis,
+# but leave at 1 unless you know your setup supports multiple replicas.
 replicaCount: 1
 
 image:
@@ -88,6 +88,44 @@ secretEnv: {}
 #       existingSecret: ryot-providers
 #       key: mal-client-id
 secretEnvFrom: {}
+
+# =====================================================================
+# Bundled Redis (optional). When enabled, the chart deploys a single-node Redis
+# StatefulSet and wires REDIS_URL automatically. Set redis.enabled=false to use
+# an external Redis instance (see externalRedis).
+# =====================================================================
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    # -- Optional Redis password (REDIS_PASSWORD). Keep it URL-safe when using
+    # the bundled instance because it is embedded in REDIS_URL.
+    password: ""
+    # -- Reference an existing secret holding the Redis password instead of
+    # storing the value here.
+    existingSecret: ""
+    # -- Key inside the existing secret that holds the Redis password.
+    existingSecretPasswordKey: redis-password
+  service:
+    port: 6379
+  persistence:
+    enabled: false
+    # -- Size of the Redis data volume.
+    size: 1Gi
+    # -- StorageClass for the data volume. Empty uses the cluster default.
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+    mountPath: /data
+  podSecurityContext: {}
+  securityContext: {}
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
 
 # =====================================================================
 # Bundled PostgreSQL (optional). When enabled, the chart deploys a
@@ -187,9 +225,21 @@ externalDatabase:
     existingSecret: ""
     existingSecretKey: password
 
+# =====================================================================
+# External Redis (used only when redis.enabled=false).
+# =====================================================================
+externalRedis:
+  # -- Full connection string, e.g. redis://:pass@redis.example.com:6379/0.
+  # Stored in a chart-managed Secret when set.
+  url: ""
+  # -- Reference an existing secret holding the full REDIS_URL instead.
+  existingSecret: ""
+  # -- Key inside the existing secret that holds the connection string.
+  existingSecretKey: redis-url
+
 service:
   type: ClusterIP
-  # -- Service port. Ryot's internal Caddy proxy listens on 8000.
+  # -- Service port. The TypeScript backend listens on port 8000 by default.
   port: 8000
 
 ingress:
@@ -206,10 +256,10 @@ ingress:
   #    hosts:
   #      - ryot.your-domain.com
 
-# -- Liveness probe. Ryot exposes /health on the service port.
+# -- Liveness probe. Ryot exposes /api/health on the service port.
 livenessProbe:
   httpGet:
-    path: /health
+    path: /api/health
     port: http
   initialDelaySeconds: 30
   periodSeconds: 30
@@ -219,7 +269,7 @@ livenessProbe:
 # -- Readiness probe.
 readinessProbe:
   httpGet:
-    path: /health
+    path: /api/health
     port: http
   initialDelaySeconds: 15
   periodSeconds: 15

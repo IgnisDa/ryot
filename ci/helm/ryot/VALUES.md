@@ -42,6 +42,9 @@ The only self-hosted tracker you will ever need - track movies, shows, video gam
 | externalDatabase.username.existingSecret | string | `""` |  |
 | externalDatabase.username.existingSecretKey | string | `"username"` |  |
 | externalDatabase.username.value | string | `""` |  |
+| externalRedis.existingSecret | string | `""` | Reference an existing secret holding the full REDIS_URL instead. |
+| externalRedis.existingSecretKey | string | `"redis-url"` | Key inside the existing secret that holds the connection string. |
+| externalRedis.url | string | `""` | Full connection string, e.g. redis://:pass@redis.example.com:6379/0. Stored in a chart-managed Secret when set. |
 | fullnameOverride | string | `""` | Override the full release name. |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/ignisda/ryot"` |  |
@@ -54,7 +57,7 @@ The only self-hosted tracker you will ever need - track movies, shows, video gam
 | ingress.hosts[0].paths[0].path | string | `"/"` |  |
 | ingress.hosts[0].paths[0].pathType | string | `"Prefix"` |  |
 | ingress.tls | list | `[]` |  |
-| livenessProbe | object | `{"failureThreshold":6,"httpGet":{"path":"/health","port":"http"},"initialDelaySeconds":30,"periodSeconds":30,"timeoutSeconds":10}` | Liveness probe. Ryot exposes /health on the service port. |
+| livenessProbe | object | `{"failureThreshold":6,"httpGet":{"path":"/api/health","port":"http"},"initialDelaySeconds":30,"periodSeconds":30,"timeoutSeconds":10}` | Liveness probe. Ryot exposes /api/health on the service port. |
 | nameOverride | string | `""` | Override the chart name. |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
@@ -81,8 +84,27 @@ The only self-hosted tracker you will ever need - track movies, shows, video gam
 | postgres.securityContext | object | `{}` |  |
 | postgres.service.port | int | `5432` |  |
 | postgres.tolerations | list | `[]` |  |
-| readinessProbe | object | `{"failureThreshold":6,"httpGet":{"path":"/health","port":"http"},"initialDelaySeconds":15,"periodSeconds":15,"timeoutSeconds":10}` | Readiness probe. |
-| replicaCount | int | `1` | Number of Ryot replicas. Ryot is stateless (state lives in Postgres), but leave at 1 unless you know your setup supports multiple replicas. |
+| readinessProbe | object | `{"failureThreshold":6,"httpGet":{"path":"/api/health","port":"http"},"initialDelaySeconds":15,"periodSeconds":15,"timeoutSeconds":10}` | Readiness probe. |
+| redis.affinity | object | `{}` |  |
+| redis.auth.existingSecret | string | `""` | Reference an existing secret holding the Redis password instead of storing the value here. |
+| redis.auth.existingSecretPasswordKey | string | `"redis-password"` | Key inside the existing secret that holds the Redis password. |
+| redis.auth.password | string | `""` | Optional Redis password (REDIS_PASSWORD). Keep it URL-safe when using the bundled instance because it is embedded in REDIS_URL. |
+| redis.enabled | bool | `true` |  |
+| redis.image.pullPolicy | string | `"IfNotPresent"` |  |
+| redis.image.repository | string | `"redis"` |  |
+| redis.image.tag | string | `"7-alpine"` |  |
+| redis.nodeSelector | object | `{}` |  |
+| redis.persistence.accessModes[0] | string | `"ReadWriteOnce"` |  |
+| redis.persistence.enabled | bool | `false` |  |
+| redis.persistence.mountPath | string | `"/data"` |  |
+| redis.persistence.size | string | `"1Gi"` | Size of the Redis data volume. |
+| redis.persistence.storageClass | string | `""` | StorageClass for the data volume. Empty uses the cluster default. |
+| redis.podSecurityContext | object | `{}` |  |
+| redis.resources | object | `{}` |  |
+| redis.securityContext | object | `{}` |  |
+| redis.service.port | int | `6379` |  |
+| redis.tolerations | list | `[]` |  |
+| replicaCount | int | `1` | Number of Ryot replicas. Persistent state lives in PostgreSQL and Redis, but leave at 1 unless you know your setup supports multiple replicas. |
 | resources | object | `{}` |  |
 | secret.adminAccessToken.existingSecret | string | `""` | Reference an existing secret instead of storing the value here. |
 | secret.adminAccessToken.existingSecretKey | string | `"SERVER_ADMIN_ACCESS_TOKEN"` | Key inside the existing secret that holds the admin access token. |
@@ -93,7 +115,7 @@ The only self-hosted tracker you will ever need - track movies, shows, video gam
 | secretEnv | object | `{}` |  |
 | secretEnvFrom | object | `{}` |  |
 | securityContext | object | `{"runAsNonRoot":true,"runAsUser":1001}` | Container security context. The image already runs as the unprivileged user 1001 (ryot). |
-| service.port | int | `8000` | Service port. Ryot's internal Caddy proxy listens on 8000. |
+| service.port | int | `8000` | Service port. The TypeScript backend listens on port 8000 by default. |
 | service.type | string | `"ClusterIP"` |  |
 | tolerations | list | `[]` |  |
 

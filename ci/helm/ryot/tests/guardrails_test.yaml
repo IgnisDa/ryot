@@ -113,6 +113,56 @@ tests:
       - failedTemplate:
           errorPattern: "postgres.persistence.mountPath is required when postgres.persistence.enabled is true"
 
+  # ---- bundled redis ----
+  - it: fails when bundled redis image tag is blank
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      redis.image.tag: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "redis.image.tag is required when redis.enabled is true"
+
+  - it: fails when redis existingSecret has no password key
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      redis.auth.existingSecret: redis-secret
+      redis.auth.existingSecretPasswordKey: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "redis.auth.existingSecretPasswordKey is required when redis.auth.existingSecret is set"
+
+  - it: fails when redis persistence is enabled without size
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      redis.persistence.enabled: true
+      redis.persistence.size: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "redis.persistence.size is required when redis.persistence.enabled is true"
+
+  - it: fails when external redis is not configured
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      redis.enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "redis.enabled is false: set externalRedis.url or reference one via externalRedis.existingSecret"
+
+  - it: fails when external redis existingSecret has no key
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      redis.enabled: false
+      externalRedis.existingSecret: redis-secret
+      externalRedis.existingSecretKey: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "externalRedis.existingSecretKey is required when externalRedis.existingSecret is set"
+
   # ---- external database ----
   - it: fails when external db has no url and no host component
     set:
