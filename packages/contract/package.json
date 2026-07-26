@@ -12,7 +12,7 @@
 	},
 	"dependencies": {
 		"@ryot/ts-utils": "workspace:*",
-		"effect": "4.0.0-beta.105"
+		"effect": "4.0.0-beta.107"
 	},
 	"devDependencies": {
 		"@ryot/testing": "workspace:*",
