@@ -14,7 +14,12 @@ import {
 	selectedField,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import { EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PopulationStatus,
+	TranslationStatus,
+} from "@ryot-app/plugin-kit/schema";
 
 export type Table = ReturnType<typeof table>;
 
@@ -23,10 +28,16 @@ export const entityId = (entity: Table, id: string) => eq(column(entity, "id"), 
 export const entitySchema = (entity: Table, slug: string) =>
 	eq(column(entity, "entitySchemaSlug"), literal(slug));
 
+export const entitySyncSelection = (entity: Table) => ({
+	populationStatus: selectedField(column(entity, "populationStatus"), PopulationStatus),
+	translationStatus: selectedField(column(entity, "translationStatus"), TranslationStatus),
+});
+
 export const entityIdentitySelection = (entity: Table) => ({
 	id: selectedField(column(entity, "id"), EntityId),
 	name: selectedField(column(entity, "name"), Schema.String),
 	schemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
+	...entitySyncSelection(entity),
 });
 
 export const propertyJson = (entity: Table, property: string) =>

@@ -17,6 +17,10 @@
 			"types": "./src/icon.tsx",
 			"default": "./src/icon.tsx"
 		},
+		"./sync": {
+			"types": "./src/sync.tsx",
+			"default": "./src/sync.tsx"
+		},
 		"./tint": {
 			"types": "./src/tint.tsx",
 			"default": "./src/tint.tsx"

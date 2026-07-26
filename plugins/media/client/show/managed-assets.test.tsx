@@ -112,7 +112,7 @@ describe("ManagedAssetImage", () => {
 		const { container, unmount } = mountRyotClient(
 			recordingAdapter([]),
 			<ManagedAssetProvider assets={[asset]}>
-				<ManagedAssetImage asset={asset} className="w-10" />
+				<ManagedAssetImage asset={asset} className="w-10" monogram="Cover" state="absent" />
 			</ManagedAssetProvider>,
 		);
 
@@ -132,7 +132,7 @@ describe("ManagedAssetImage", () => {
 		const { container, unmount } = mountRyotClient(
 			adapter,
 			<ManagedAssetProvider assets={[asset]}>
-				<ManagedAssetImage asset={asset} className="w-10" />
+				<ManagedAssetImage asset={asset} className="w-10" monogram="Cover" state="absent" />
 			</ManagedAssetProvider>,
 		);
 

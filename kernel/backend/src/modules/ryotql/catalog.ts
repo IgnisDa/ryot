@@ -139,6 +139,21 @@ const entityTranslationStatus: CatalogField = {
 	},
 };
 
+const entityPopulationStatus: CatalogField = {
+	kind: "text",
+	nullable: false,
+	resolve: ({ sqlAlias }) => {
+		const providerId = sql.raw(`${sqlAlias}.provider_id`);
+		const externalId = sql.raw(`${sqlAlias}.external_id`);
+		const populatedAt = sql.raw(`${sqlAlias}.populated_at`);
+		return sql`CASE
+			WHEN ${populatedAt} IS NOT NULL THEN 'ready'
+			WHEN ${providerId} IS NULL OR ${externalId} IS NULL THEN 'none'
+			ELSE 'pending'
+		END`;
+	},
+};
+
 const entity: CatalogTable = {
 	name: "entity",
 	primaryKey: "id",
@@ -154,6 +169,7 @@ const entity: CatalogTable = {
 	fields: {
 		name: localizedEntityName,
 		properties: localizedEntityProperties,
+		populationStatus: entityPopulationStatus,
 		translationStatus: entityTranslationStatus,
 		userId: physicalField("user_id", "text"),
 		id: physicalField("id", "text", false),

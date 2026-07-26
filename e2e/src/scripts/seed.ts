@@ -430,11 +430,11 @@ function buildSeedLayouts(
 		throw new Error("Seed saved view requires at least one schema");
 	}
 	const projections = buildSavedViewLayoutProjections({
-		grid: { entityId: column(seedEntity, "id"), card: grid },
-		list: { entityId: column(seedEntity, "id"), card: list },
+		grid: { card: grid, entity: seedEntity },
+		list: { card: list, entity: seedEntity },
 		table: {
 			image: seedImage(),
-			entityId: column(seedEntity, "id"),
+			entity: seedEntity,
 			columns: columns as [SeedTableColumn, ...SeedTableColumn[]],
 		},
 	});

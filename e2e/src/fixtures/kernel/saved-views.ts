@@ -36,29 +36,29 @@ const entityProperty = (...path: [string | number, ...(string | number)[]]) =>
 
 const defaultProjections = buildSavedViewLayoutProjections({
 	grid: {
-		entityId: column(entity, "id"),
+		entity,
 		card: {
 			callout: null,
 			secondaryMetadata: null,
-			overline: { displayKind: "text", expression: literal("Book") },
 			title: column(entity, "name"),
-			primaryMetadata: { displayKind: "number", expression: entityProperty("publishYear") },
 			image: castJson(entityProperty("images", 0)),
+			overline: { displayKind: "text", expression: literal("Book") },
+			primaryMetadata: { displayKind: "number", expression: entityProperty("publishYear") },
 		},
 	},
 	list: {
-		entityId: column(entity, "id"),
+		entity,
 		card: {
 			callout: null,
 			secondaryMetadata: null,
-			overline: { displayKind: "text", expression: literal("Book list") },
 			title: column(entity, "name"),
-			primaryMetadata: { displayKind: "number", expression: entityProperty("publishYear") },
 			image: castJson(entityProperty("images", 0)),
+			overline: { displayKind: "text", expression: literal("Book list") },
+			primaryMetadata: { displayKind: "number", expression: entityProperty("publishYear") },
 		},
 	},
 	table: {
-		entityId: column(entity, "id"),
+		entity,
 		image: castJson(entityProperty("images", 0)),
 		columns: [
 			{ label: "Name", displayKind: "text", expression: column(entity, "name") },

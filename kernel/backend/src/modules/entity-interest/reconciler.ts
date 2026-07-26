@@ -32,19 +32,20 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 
 			const handleRow = (principal: InterestPrincipal, row: EntityInterestResult[number]) =>
 				Effect.gen(function* () {
-					if (row.populatedAt === null) {
-						if (row.externalId !== null && row.providerId !== null) {
-							yield* populationTrigger.request({
-								entityId: row.id,
-								origin: { kind: "api" },
-								userId: principal.userId,
-								externalId: row.externalId,
-								providerId: row.providerId,
-								entitySchemaSlug: row.entitySchemaSlug,
-							});
-							return null;
-						}
-						return { entityId: row.id, reason: "populated" } satisfies TerminalUpdate;
+					if (
+						row.populationStatus === "pending" &&
+						row.externalId !== null &&
+						row.providerId !== null
+					) {
+						yield* populationTrigger.request({
+							entityId: row.id,
+							origin: { kind: "api" },
+							userId: principal.userId,
+							externalId: row.externalId,
+							providerId: row.providerId,
+							entitySchemaSlug: row.entitySchemaSlug,
+						});
+						return null;
 					}
 
 					if (row.translationStatus === "pending") {

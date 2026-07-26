@@ -22,7 +22,7 @@ import {
 const entity = table("entity", "entity");
 const projections = buildSavedViewLayoutProjections({
 	grid: {
-		entityId: column(entity, "id"),
+		entity,
 		card: {
 			image: column(entity, "image"),
 			title: column(entity, "name"),
@@ -33,7 +33,7 @@ const projections = buildSavedViewLayoutProjections({
 		},
 	},
 	list: {
-		entityId: column(entity, "id"),
+		entity,
 		card: {
 			image: null,
 			callout: null,
@@ -44,7 +44,7 @@ const projections = buildSavedViewLayoutProjections({
 		},
 	},
 	table: {
-		entityId: column(entity, "id"),
+		entity,
 		image: column(entity, "image"),
 		columns: [
 			{ label: "Name", displayKind: "text", expression: column(entity, "name") },
@@ -114,11 +114,13 @@ describe("saved-view recipes", () => {
 							type: "rows",
 							items: [
 								{
-									entityId: "book-1",
-									title: "Piranesi",
 									callout: 4.5,
 									overline: "Book",
+									title: "Piranesi",
+									entityId: "book-1",
+									populationStatus: "ready",
 									primaryMetadata: "2026-08-12",
+									translationStatus: "pending",
 									image: { type: "remote", url: "https://example.com/cover.jpg" },
 								},
 							],
@@ -130,13 +132,14 @@ describe("saved-view recipes", () => {
 			pageInfo,
 			items: [
 				{
-					entityId: "book-1",
 					title: "Piranesi",
-					image: { type: "remote", url: "https://example.com/cover.jpg" },
+					entityId: "book-1",
+					secondaryMetadata: undefined,
 					callout: { displayKind: "number", value: 4.5 },
 					overline: { displayKind: "text", value: "Book" },
 					primaryMetadata: { displayKind: "date", value: "2026-08-12" },
-					secondaryMetadata: undefined,
+					image: { type: "remote", url: "https://example.com/cover.jpg" },
+					sync: { populationStatus: "ready", translationStatus: "pending" },
 				},
 			],
 		});
@@ -145,11 +148,7 @@ describe("saved-view recipes", () => {
 	it("decodes every table display kind and preserves null as a value state", () => {
 		const prepared = savedViewRecipe({
 			layout: { type: "table", mapping: projections.table.mappings },
-			source: {
-				type: "generated",
-				fields: projections.table.fields,
-				entitySchemaSlugs: ["book"],
-			},
+			source: { type: "generated", entitySchemaSlugs: ["book"], fields: projections.table.fields },
 		});
 		const decoded = Result.getOrThrow(
 			prepared.decode({
@@ -159,13 +158,15 @@ describe("saved-view recipes", () => {
 						type: "rows",
 						items: [
 							{
-								entityId: "book-1",
 								image: null,
-								column0: "Piranesi",
 								column1: null,
 								column2: true,
+								entityId: "book-1",
+								column0: "Piranesi",
 								column3: "2026-08-12",
 								column4: { pages: 272 },
+								translationStatus: "none",
+								populationStatus: "pending",
 							},
 						],
 					},
@@ -176,6 +177,7 @@ describe("saved-view recipes", () => {
 		expect(decoded.items[0]).toEqual({
 			entityId: "book-1",
 			image: null,
+			sync: { populationStatus: "pending", translationStatus: "none" },
 			cells: [
 				{ key: "column0", label: "Name", value: { displayKind: "text", value: "Piranesi" } },
 				{ key: "column1", label: "Score", value: { displayKind: "number", value: null } },
@@ -218,6 +220,8 @@ describe("saved-view recipes", () => {
 									callout: "4.5",
 									overline: "Book",
 									entityId: "book-1",
+									populationStatus: "none",
+									translationStatus: "none",
 									primaryMetadata: "not-a-date",
 								},
 							],

@@ -3,6 +3,9 @@
 Rationale for these rules lives in `README.md`.
 
 - Ship no CSS beyond `theme.css` and `palette.css`; components style themselves with Tailwind classes only. Keep `theme.css`'s `@layer base` block to accessibility primitives that must hold everywhere.
+- Keep every `@keyframes` and `--animate-*` token in `theme.css`, outside its `@layer base` block. That is the whole of the "no CSS beyond theme.css and palette.css" allowance for animation; a component never ships a stylesheet of its own.
+- Guard every animated element with `motion-reduce:` in the component itself, never in a stylesheet — a plugin document gets only `theme.css` and `palette.css`, never the kernel's reduced-motion base layer.
+- Keep the sync marks on the `./sync` subpath and never re-export them from the root barrel. `EntityArtWell` is the only missing-image placeholder in the product: a call site that needs one takes it from here rather than drawing its own well.
 - Give every token mapped in `theme.css` a value in `palette.css`, whose `:root` block is the complete set; the dark blocks redefine only what changes. Adding a token never touches `@ryot-app/contract`.
 - Keep source scannable by Tailwind: the client plugin compiler treats this package's `.ts`/`.tsx` files as an extra scan source.
 - Keep `SCREEN_BAR_HEIGHT` off the root barrel. The frame owns every offset its own chrome introduces, so a call site that needs the bar height is a call site doing the frame's arithmetic.
