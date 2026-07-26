@@ -13,6 +13,7 @@ export const settingsSections = [
 		icon: "clipboard-list",
 		href: "/settings/import-data",
 	},
+	{ icon: "archive", slug: "backups", label: "Backups", href: "/settings/backups" },
 	{ icon: "user", slug: "account", label: "Account", href: "/settings/account" },
 ] as const;
 

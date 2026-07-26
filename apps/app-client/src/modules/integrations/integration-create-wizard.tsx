@@ -4,7 +4,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useEffectEvent, useReducer, useState } from "react";
 import { Text } from "react-native";
 
-import { badRequestMessage } from "@/api/request-failure";
+import { requestFailureMessage } from "@/api/request-failure";
 import { useApiScope } from "@/api/scope";
 import { temporaryFileUploadOperation } from "@/api/uploads";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
@@ -15,6 +15,7 @@ import type { SchemaFormValues } from "@/modules/ui/schema-form/schema-form-stat
 import { WizardShell } from "@/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
+	WIZARD_STEPS,
 	wizardReducer,
 	wizardStepLabel,
 	type WizardStepHeadings,
@@ -83,7 +84,7 @@ export function IntegrationCreateWizard(props: { readonly onClose: () => void })
 		});
 		setPending(false);
 		if (Exit.isFailure(exit)) {
-			const mapped = integrationSaveFailure(badRequestMessage(exit.cause));
+			const mapped = integrationSaveFailure(requestFailureMessage(exit.cause));
 			setSaveCause(exit.cause);
 			setFailure(mapped);
 			if (mapped.step !== undefined) {
@@ -184,7 +185,7 @@ export function IntegrationCreateWizard(props: { readonly onClose: () => void })
 			onClose={props.onClose}
 			title={INTEGRATION_WIZARD_TITLE}
 			closeLabel="Close the integration wizard"
-			stepLabel={wizardStepLabel(state.step, stepHeadings)}
+			stepLabel={wizardStepLabel(state.step, WIZARD_STEPS, stepHeadings)}
 		>
 			{stepBody}
 		</WizardShell>

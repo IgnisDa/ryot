@@ -1,9 +1,9 @@
-import { BadRequest } from "@ryot/contract/errors";
+import { BadRequest, Conflict, NotFound } from "@ryot/contract/errors";
 import { Cause } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
-	badRequestMessage,
+	requestFailureMessage,
 	requestFailureCopy,
 	resolveRequestFailure,
 	type RequestFailureRule,
@@ -35,9 +35,11 @@ describe("request failure", () => {
 		expect(requestFailureCopy({ status: "malformed" }, copy).title).toBe(copy.title);
 	});
 
-	it("reads the message only from a bad request cause", () => {
-		expect(badRequestMessage(Cause.fail(new BadRequest({ message: "nope" })))).toBe("nope");
-		expect(badRequestMessage(Cause.fail(new Error("boom")))).toBeUndefined();
+	it("reads the message only from a failure the server explained", () => {
+		expect(requestFailureMessage(Cause.fail(new BadRequest({ message: "nope" })))).toBe("nope");
+		expect(requestFailureMessage(Cause.fail(new Conflict({ message: "busy" })))).toBe("busy");
+		expect(requestFailureMessage(Cause.fail(new NotFound({ message: "gone" })))).toBe("gone");
+		expect(requestFailureMessage(Cause.fail(new Error("boom")))).toBeUndefined();
 	});
 
 	it("routes a recognized message to the step that can fix it", () => {

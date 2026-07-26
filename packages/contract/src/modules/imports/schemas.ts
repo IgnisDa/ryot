@@ -1,9 +1,9 @@
 import { Schema } from "effect";
 
 import { ImportRunId } from "../../schema/brands";
+import { RunStatus } from "../../schema/run-status";
 import { PluginImportSource } from "../plugins/manifest";
 import { jsonValueSchema } from "../sandbox/wire";
-import { importRunStatuses } from "./types";
 
 export const importInternalPropertyNames: ReadonlySet<string> = new Set([
 	"integrationId",
@@ -13,8 +13,6 @@ export const importInternalPropertyNames: ReadonlySet<string> = new Set([
 
 export const isImportUploadTokenField = (field: string) =>
 	field === "uploadToken" || field.endsWith("UploadToken");
-
-const ImportRunStatus = Schema.Literals([...importRunStatuses]);
 
 const InputSummary = Schema.Record(Schema.String, Schema.Unknown);
 
@@ -29,8 +27,8 @@ export type ListedImportSource = typeof ListedImportSource.Type;
 
 export const ListedImportRun = Schema.Struct({
 	id: ImportRunId,
+	status: RunStatus,
 	source: Schema.String,
-	status: ImportRunStatus,
 	progress: Schema.Number,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,

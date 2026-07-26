@@ -1,12 +1,12 @@
 import clsx from "clsx";
 import { View } from "react-native";
 
-import type { ImportRunProgress, ImportRunProgressValue } from "./run-presentation";
+import type { RunProgress, RunProgressValue } from "./run-status";
 
-export function ImportProgressBar(props: {
+export function RunProgressBar(props: {
 	readonly className?: string;
-	readonly progress: ImportRunProgress;
-	readonly value: ImportRunProgressValue;
+	readonly progress: RunProgress;
+	readonly value: RunProgressValue;
 }) {
 	return (
 		<View
