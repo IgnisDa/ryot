@@ -280,12 +280,6 @@ const observability = group(
 							envKey: "SERVER_LOG_ROTATION_INTERVAL",
 							description: "UTC interval between log rotations, such as 1d",
 						}),
-						retentionFiles: integerField({
-							defaultValue: 7,
-							label: "Log retention files",
-							envKey: "SERVER_LOG_RETENTION_FILES",
-							description: "Maximum number of compressed rotated log files to retain",
-						}),
 					},
 				),
 			},
