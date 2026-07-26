@@ -6,7 +6,7 @@ import { createMediaImportRunBody, MediaCreateImportRunBody } from "./import-sou
 import { TraktImportParserInput } from "./imports/schemas";
 import { mediaPlugin } from "./manifest";
 
-const uploadToken = { token: "upload-1", expiresAt: "2026-08-24T00:00:00.000Z" };
+const uploadToken = "upload-1";
 
 it("builds a typed media request accepted by the open import envelope", () => {
 	const body = createMediaImportRunBody({
@@ -182,6 +182,13 @@ it("accepts either MyAnimeList export and rejects an empty pair", () => {
 	}
 	expect(() =>
 		Schema.decodeUnknownSync(MediaCreateImportRunBody)({ source: "myanimelist" }),
+	).toThrow();
+	expect(() =>
+		Schema.decodeUnknownSync(MediaCreateImportRunBody)({
+			source: "myanimelist",
+			animeUploadToken: null,
+			mangaUploadToken: null,
+		}),
 	).toThrow();
 });
 

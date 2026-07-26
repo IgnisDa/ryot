@@ -116,7 +116,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 
 			for (const sourceFileInput of sourceFileInputs) {
 				const claim = yield* uploads
-					.claimTemporaryUpload(sourceFileInput.uploadToken.token, user.id)
+					.claimTemporaryUpload(sourceFileInput.uploadToken, user.id)
 					.pipe(Effect.result);
 				if (Result.isFailure(claim)) {
 					yield* cleanupUploads(claimedUploadIntentIds);
