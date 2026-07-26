@@ -15,6 +15,7 @@ import {
 	conditional,
 	count,
 	countDistinct,
+	dateBucket,
 	descending,
 	divide,
 	eq,
@@ -22,6 +23,7 @@ import {
 	field,
 	first,
 	floor,
+	groupDescending,
 	gte,
 	include,
 	inArray,
@@ -366,18 +368,26 @@ it.effect("returns plain aggregate and time-series values", () => {
 				],
 			}),
 			grouped: aggregate(entity, {
-				groupBy: [field("createdAt", column(entity, "createdAt"))],
 				limit: 10,
 				measures: [
 					measure("count", { function: "count" }),
 					measure("total", { expr: literal(2), function: "sum" }),
 				],
-				orderBy: [measureDescending("count")],
+				orderBy: [groupDescending("day"), measureDescending("count")],
+				groupBy: [
+					field(
+						"day",
+						dateBucket(column(entity, "createdAt"), {
+							bucket: "day",
+							timeZone: "America/New_York",
+						}),
+					),
+				],
 			}),
 			series: timeSeries(entity, {
 				bucket: "day",
-				endAt: "2026-08-03T00:00:00.000Z",
 				measure: { function: "count" },
+				endAt: "2026-08-03T00:00:00.000Z",
 				startAt: "2026-08-01T00:00:00.000Z",
 				time: column(entity, "createdAt"),
 			}),
@@ -385,39 +395,38 @@ it.effect("returns plain aggregate and time-series values", () => {
 	};
 	const resultRows = [
 		{
-			endAt: new Date("2026-08-02T00:00:00.000Z"),
-			g0k: "date",
-			g0v: new Date("2026-08-01T00:00:00.000Z"),
 			m0: "3",
 			m1: null,
-			startAt: new Date("2026-08-01T00:00:00.000Z"),
-			totalGroups: "1",
 			value: "2",
+			g0k: "date",
+			totalGroups: "1",
+			g0v: new Date("2026-08-01T00:00:00.000Z"),
+			endAt: new Date("2026-08-02T00:00:00.000Z"),
+			startAt: new Date("2026-08-01T00:00:00.000Z"),
 		},
 	];
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
 		const response = yield* service.executeForUser("user-1", null, document);
+		const groupedStatement = statements.find((statement) => statement.includes('AS "g0v"'));
 
+		expect(groupedStatement).toContain("date_trunc($1, t0.created_at, $2)");
+		expect(groupedStatement).toContain('ORDER BY "g0v" DESC NULLS LAST, "m0" DESC NULLS LAST');
 		expect(response.data["totals"]).toEqual({
-			items: [{ count: 3, total: null }],
 			type: "aggregate",
+			items: [{ count: 3, total: null }],
 		});
 		expect(response.data["grouped"]).toEqual({
-			items: [{ count: 3, createdAt: "2026-08-01T00:00:00.000Z", total: null }],
-			pageInfo: { hasMore: false, limit: 10 },
 			type: "aggregate",
+			pageInfo: { hasMore: false, limit: 10 },
+			items: [{ count: 3, day: "2026-08-01T00:00:00.000Z", total: null }],
 		});
 		expect(response.data["series"]).toEqual({
-			buckets: [
-				{
-					endAt: "2026-08-02T00:00:00.000Z",
-					startAt: "2026-08-01T00:00:00.000Z",
-					value: 2,
-				},
-			],
 			type: "timeSeries",
+			buckets: [
+				{ value: 2, endAt: "2026-08-02T00:00:00.000Z", startAt: "2026-08-01T00:00:00.000Z" },
+			],
 		});
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });
@@ -438,8 +447,8 @@ it.effect("selects notification channel descriptions with text output", () => {
 
 		expect(response.data["channels"]).toEqual({
 			type: "rows",
-			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 			items: [{ description: "Discord configured" }],
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 		});
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });

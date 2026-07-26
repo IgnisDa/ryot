@@ -5,9 +5,12 @@ import {
 	castBoolean,
 	castNumber,
 	column,
+	dateBucket,
 	document,
 	eq,
 	field,
+	groupAscending,
+	groupDescending,
 	inArray,
 	join,
 	jsonPath,
@@ -21,6 +24,8 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
+	createEventFixture,
+	createEventSchema,
 	createEntityFixture,
 	createPluginEntitySchema,
 	createRelationship,
@@ -39,6 +44,107 @@ const requireAggregate = (result: RyotQLResult | undefined, key: string): Aggreg
 };
 
 describe("RyotQL aggregate outputs", () => {
+	it.live("groups joined metadata by timezone-aware local dates across DST", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schemaId, slug } = yield* createPluginEntitySchema(client, {
+				schemaName: "RyotQLDateBucketEpisode",
+			});
+			const eventSchema = yield* createEventSchema(client, {
+				entitySchemaSlug: schemaId,
+				name: "RyotQL Date Bucket Watch",
+				slug: `ryotql-date-bucket-watch-${crypto.randomUUID()}`,
+				propertiesSchema: {
+					fields: {
+						timeSpent: { type: "integer", label: "Time spent", description: "Minutes watched" },
+					},
+				},
+			});
+			const [episodeOne, episodeTwo] = yield* Effect.all([
+				createEntityFixture(client, { entitySchemaSlug: schemaId, name: "Episode One" }),
+				createEntityFixture(client, { entitySchemaSlug: schemaId, name: "Episode Two" }),
+			]);
+			for (const [entityId, occurredAt, timeSpent] of [
+				[episodeOne.id, "2026-03-08T04:30:00.000Z", 20],
+				[episodeOne.id, "2026-03-08T04:45:00.000Z", 20],
+				[episodeTwo.id, "2026-03-08T05:30:00.000Z", 57],
+				[episodeTwo.id, "2026-03-09T04:30:00.000Z", 10],
+			] as const) {
+				yield* createEventFixture(client, {
+					entityId,
+					occurredAt,
+					properties: { timeSpent },
+					eventSchemaSlug: eventSchema.slug,
+				});
+			}
+
+			const event = table("event", "watch");
+			const episode = table("entity", "episode");
+			const timeSpent = castNumber(jsonPath(column(event, "properties"), "timeSpent"));
+			const query = (timeZone: string) =>
+				aggregate(event, {
+					limit: 20,
+					orderBy: [groupDescending("day"), groupAscending("episodeName")],
+					measures: [measure("minutes", { expr: timeSpent, function: "sum" })],
+					joins: [join("inner", episode, eq(column(event, "entityId"), column(episode, "id")))],
+					where: and(
+						eq(column(event, "eventSchemaSlug"), literal(eventSchema.slug)),
+						eq(column(episode, "entitySchemaSlug"), literal(slug)),
+					),
+					groupBy: [
+						field("day", dateBucket(column(event, "occurredAt"), { bucket: "day", timeZone })),
+						field("episodeId", column(episode, "id")),
+						field("episodeName", column(episode, "name")),
+					],
+				});
+			const result = yield* executeRyotQL(
+				client,
+				document({ newYork: query("America/New_York"), utc: query("UTC") }),
+			);
+
+			expect(requireAggregate(result.data["newYork"], "newYork").items).toEqual([
+				{
+					minutes: 10,
+					episodeId: episodeTwo.id,
+					episodeName: "Episode Two",
+					day: "2026-03-09T04:00:00.000Z",
+				},
+				{
+					minutes: 57,
+					episodeId: episodeTwo.id,
+					episodeName: "Episode Two",
+					day: "2026-03-08T05:00:00.000Z",
+				},
+				{
+					minutes: 40,
+					episodeId: episodeOne.id,
+					episodeName: "Episode One",
+					day: "2026-03-07T05:00:00.000Z",
+				},
+			]);
+			expect(requireAggregate(result.data["utc"], "utc").items).toEqual([
+				{
+					minutes: 10,
+					episodeId: episodeTwo.id,
+					episodeName: "Episode Two",
+					day: "2026-03-09T00:00:00.000Z",
+				},
+				{
+					minutes: 40,
+					episodeId: episodeOne.id,
+					episodeName: "Episode One",
+					day: "2026-03-08T00:00:00.000Z",
+				},
+				{
+					minutes: 57,
+					episodeId: episodeTwo.id,
+					episodeName: "Episode Two",
+					day: "2026-03-08T00:00:00.000Z",
+				},
+			]);
+		}),
+	);
+
 	it.live("returns grouped, ungrouped, empty, null, and typed aggregate values", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();

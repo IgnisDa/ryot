@@ -258,21 +258,41 @@ rows(course, {
 
 `add`, `subtract`, `multiply`, and `divide` operate on safe numeric values. Invalid operands and division by zero return null. `coalesce` returns the first non-null value and preserves the selected branch's internal runtime kind, including values selected by `first`.
 
+`dateBucket` truncates a date expression to an `hour`, `day`, `week`, or `month` boundary in an explicit IANA time zone. It returns that local boundary as an unambiguous ISO UTC instant. Weeks start on Monday. PostgreSQL applies the named zone when calculating the boundary, so daylight-saving changes produce the correct UTC offset for each local date. Invalid time zones and non-date operands are rejected before execution. Date buckets are ordinary date expressions and can be selected, compared, ordered, or used as aggregate group fields. Time-series outputs retain their separate UTC bucket behavior.
+
+```ts
+const event = table("event", "event");
+const localDay = dateBucket(column(event, "occurredAt"), {
+	bucket: "day",
+	timeZone: "America/New_York",
+});
+```
+
 ## Aggregate Outputs
 
 Root aggregate outputs run over the same generic table, joins, predicates, localized field resolvers, and authorized relations as rows. Measures support count, count distinct, sum, average, minimum, and maximum. Count operations return zero for an empty input; the other measures return null. Ordinary SQL join multiplicity applies, so use count distinct when multiplied rows must count once.
 
-Ungrouped aggregates return one item without `pageInfo` and otherwise remain unchanged. Grouped aggregates require at least one group field, an explicit limit, and non-empty ordering by measure key. Their page info remains `{ limit, hasMore }`; they support at most 1000 groups and do not support aggregate pagination or ordering by arbitrary expressions. Group values return directly as strings, ISO date strings, numbers, booleans, JSON values, or null. Both aggregate ordering directions place null measures last.
+Ungrouped aggregates return one item without `pageInfo` and otherwise remain unchanged. Grouped aggregates require at least one group field, an explicit limit, and non-empty ordering by group or measure key. JSON group fields cannot be ordering keys. Their page info remains `{ limit, hasMore }`; they support at most 1000 groups and do not support aggregate pagination or ordering by arbitrary expressions. The limit counts unique combinations of all group fields, not distinct values of one field such as a calendar day. Group values return directly as strings, ISO date strings, numbers, booleans, JSON values, or null. Both aggregate ordering directions place null values last; text group ordering uses deterministic `C` collation.
 
 ```ts
 const lesson = table("entity", "lesson");
 const duration = castNumber(jsonPath(column(lesson, "properties"), "durationMinutes"));
 
 document({
-	durationsBySchema: aggregate(lesson, {
+	durationsByDayAndLesson: aggregate(lesson, {
 		limit: 100,
-		orderBy: [measureDescending("count")],
-		groupBy: [field("schema", column(lesson, "entitySchemaSlug"))],
+		orderBy: [groupDescending("day"), groupAscending("name")],
+		groupBy: [
+			field(
+				"day",
+				dateBucket(column(lesson, "createdAt"), {
+					bucket: "day",
+					timeZone: "America/New_York",
+				}),
+			),
+			field("id", column(lesson, "id")),
+			field("name", column(lesson, "name")),
+		],
 		measures: [
 			measure("count", { function: "count" }),
 			measure("totalDuration", { expr: duration, function: "sum" }),

@@ -134,6 +134,9 @@ const expressionKind = (expr: ScalarExpression, scope: CompileScope): CatalogFie
 	if (expr.type === "cast") {
 		return expr.target;
 	}
+	if (expr.type === "dateBucket") {
+		return "date";
+	}
 	if (expr.type === "exists") {
 		return "boolean";
 	}
@@ -354,6 +357,9 @@ const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFrag
 	}
 	if (expr.type === "cast") {
 		return compileCast(expr, scope);
+	}
+	if (expr.type === "dateBucket") {
+		return sql`date_trunc(${expr.bucket}, ${compileExpression(expr.expr, scope)}, ${expr.timeZone})`;
 	}
 	if (expr.type === "exists") {
 		return compileExists(expr, scope);
@@ -1008,26 +1014,36 @@ const compileAggregateQuery = (query: AggregateQuery, executionScope: RyotQLExec
 		const count = hasRuntimeOutputKind(group.expr, scope) ? 2 : 1;
 		return Array.from({ length: count }, () => groupOrdinal++);
 	});
+	const groupIndexes = new Map(groups.map((group, index) => [group.key, index]));
 	const measureIndexes = new Map(
 		query.output.measures.map((measure, index) => [measure.key, index]),
 	);
 	const ordering = query.output.orderBy.map((order) => {
-		const index = measureIndexes.get(order.key);
-		if (index === undefined) {
-			throw new Error(`RyotQL compiler received unknown aggregate measure '${order.key}'`);
+		const groupIndex = groupIndexes.get(order.key);
+		const measureIndex = measureIndexes.get(order.key);
+		if (groupIndex === undefined && measureIndex === undefined) {
+			throw new Error(`RyotQL compiler received unknown aggregate order key '${order.key}'`);
 		}
+		const group = groupIndex === undefined ? undefined : groups[groupIndex];
+		const value = identifier(group === undefined ? `m${measureIndex}` : `g${groupIndex}v`);
+		const collation =
+			group !== undefined && expressionKind(group.expr, scope) === "text"
+				? sql` COLLATE "C"`
+				: sql``;
 		const direction = order.direction === "asc" ? sql`ASC` : sql`DESC`;
-		return sql`${identifier(`m${index}`)} ${direction} NULLS LAST`;
+		return sql`${value}${collation} ${direction} NULLS LAST`;
 	});
 	return sql`
-		SELECT
-			${sql.join([...groupColumns, ...measureColumns], sql`, `)},
-			COUNT(*) OVER()::integer AS "totalGroups"
-		${querySetSql(query, executionScope, scope)}
-		GROUP BY ${sql.join(
-			groupOrdinals.map((ordinal) => sql.raw(String(ordinal))),
-			sql`, `,
-		)}
+		SELECT * FROM (
+			SELECT
+				${sql.join([...groupColumns, ...measureColumns], sql`, `)},
+				COUNT(*) OVER()::integer AS "totalGroups"
+			${querySetSql(query, executionScope, scope)}
+			GROUP BY ${sql.join(
+				groupOrdinals.map((ordinal) => sql.raw(String(ordinal))),
+				sql`, `,
+			)}
+		) "aggregateGroups"
 		ORDER BY ${sql.join(ordering, sql`, `)}
 		LIMIT ${query.output.limit}
 	`;
