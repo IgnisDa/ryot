@@ -19,7 +19,7 @@ export const jsonValueSchema: Schema.Codec<JsonValue, JsonValue> = Schema.suspen
 		Schema.Record(Schema.String, jsonValueSchema),
 	]),
 ).pipe(Schema.annotate({ identifier: "JsonValue" }));
-const sandboxHostErrorSchema = strictStruct({
+export const sandboxHostErrorSchema = strictStruct({
 	message: Schema.String,
 	data: Schema.optional(jsonValueSchema),
 });

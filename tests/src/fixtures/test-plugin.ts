@@ -214,6 +214,7 @@ export const installTestPluginBundle = (input: {
 	linkToEntitySchemaSlug?: string;
 	configSchema?: PluginConfigSchema;
 	providers?: ReadonlyArray<TestPluginProvider>;
+	operations?: ReadonlyArray<TestPluginOperation>;
 	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
 	scripts: ReadonlyArray<TestPluginScript & { entry: string }>;
 	workflows?: Parameters<typeof testPluginManifest>[0]["workflows"];
@@ -233,6 +234,7 @@ export const installTestPluginBundle = (input: {
 			workflows: input.workflows,
 			providers: input.providers ?? [],
 			configSchema: input.configSchema,
+			operations: input.operations ?? [],
 			importSources: input.importSources,
 			entitySchemas: input.entitySchemas,
 			eventAutomations: input.eventAutomations,

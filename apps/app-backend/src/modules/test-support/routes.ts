@@ -32,6 +32,12 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.getSandboxResult(query.executingUserId, params.jobId);
 			}).pipe(dieOnDbError),
 		)
+		.handle("deleteSandboxReplayProjection", ({ payload }) =>
+			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
+				return yield* svc.deleteSandboxReplayProjection(payload.executionId);
+			}).pipe(dieOnDbError),
+		)
 		.handle("startWorkflowLoadGate", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* OperationalGateService;

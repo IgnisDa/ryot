@@ -111,6 +111,7 @@ export const SandboxExecutionPayload = strictStruct({
 	scriptId: SandboxScriptId,
 	executionId: Schema.String,
 	authority: ExecutionAuthority,
+	startedAt: Schema.optional(Schema.String),
 	grants: Schema.optional(SandboxExecutionGrants),
 	workflowExecutionId: Schema.optional(Schema.String),
 });

@@ -18,6 +18,7 @@ export type SandboxRunInput = {
 	readonly context: unknown;
 	readonly scriptId: string;
 	readonly metadata: unknown;
+	readonly startedAt?: string;
 	readonly executionId: string;
 	readonly contentHash: string;
 	readonly compiledCode: string;

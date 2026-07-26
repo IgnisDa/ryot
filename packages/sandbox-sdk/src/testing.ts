@@ -9,7 +9,7 @@ import { Effect, Schema } from "./effect";
 
 type SandboxTestHost<Manifest extends SandboxManifest> = Omit<
 	SandboxHost<Manifest["capabilities"]>,
-	"getPluginConfig" | "getSystemConfig"
+	"executeWorkflow" | "getPluginConfig" | "getSystemConfig"
 > &
 	("getPluginConfig" extends Manifest["capabilities"][number]
 		? {

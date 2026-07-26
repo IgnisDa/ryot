@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Durable Sandbox - Phase 1](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -21,17 +21,31 @@ this task.
 
 ## Acceptance criteria
 
-- [ ] A role-specific test plugin executes through `SandboxScriptWorkflow` without using explicit
+- [x] A role-specific test plugin executes through `SandboxScriptWorkflow` without using explicit
       `replay.activity` authoring.
-- [ ] Recorded host successes and typed failures replay without repeating completed operations.
-- [ ] Caught pending control flow still yields a pending workflow result.
-- [ ] Deterministic sequential/parallel calls validate index, capability, arguments, and result order.
-- [ ] The tracer composes both an activity-safe service write and an owning child workflow write.
-- [ ] Forced interruption tests prove no duplicated application write.
-- [ ] The runner rejects return with detached/in-flight host work.
-- [ ] Redis projection loss can be reconstructed from authoritative workflow completion state.
-- [ ] Focused SDK, compiler, backend, plugin-kit, and kernel sandbox E2E tests pass.
-- [ ] The tracer benchmark is recorded and catalog migration remains blocked pending Task 03.
+- [x] Recorded host successes and typed failures replay without repeating completed operations.
+- [x] Caught pending control flow still yields a pending workflow result.
+- [x] Deterministic sequential/parallel calls validate index, capability, arguments, and result order.
+- [x] The tracer composes both an activity-safe service write and an owning child workflow write.
+- [x] Forced interruption tests prove no duplicated application write.
+- [x] The runner rejects return with detached/in-flight host work.
+- [x] Redis projection loss can be reconstructed from authoritative workflow completion state.
+- [x] Focused SDK, compiler, backend, plugin-kit, and kernel sandbox E2E tests pass.
+- [x] The tracer benchmark is recorded and catalog migration remains blocked pending Task 03.
+
+## Completion evidence
+
+- The runtime-installed operation tracer durably exercises preference and query reads, a persistent
+  claim, `createEvents`, successful and typed-failure HTTP calls, parallel cache reads, a nested
+  workflow, and replay-tagged diagnostics.
+- Backend tests cover caught pending control flow, deterministic parallel collection, detached work,
+  replay identity, typed success/failure, and interruption after a completed write. The kernel E2E
+  deletes the Redis projection after both writes and completes without duplicate HTTP or event writes.
+- Checks passed for `@ryot/app-backend`, `@ryot/sandbox-sdk`, `@ryot/tests`, and the fitness and media
+  plugins. Their affected unit suites and the focused tracer E2E passed.
+- The opt-in benchmark passed with controlled-provider p50/p95 of `253/471 ms` and durable-provider
+  p50/p95 of `858/1,352 ms`. The review threshold did not trigger because the durable p95 was under
+  both `3x` baseline and `+1 second`. Catalog migration remains blocked until Task 03 completes.
 
 ## User stories addressed
 
