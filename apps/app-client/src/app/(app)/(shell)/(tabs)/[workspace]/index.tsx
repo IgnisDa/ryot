@@ -95,11 +95,11 @@ export default function AppHome() {
 						.onSuccess((response) => (
 							<View className="gap-2">
 								<Text className="font-ui text-sm text-text-muted">
-									Showing {Math.min(response.length, 5)} of {response.length} saved views
+									Showing {Math.min(response.length, 10)} of {response.length} saved views
 								</Text>
 								<Text selectable className="font-mono text-sm text-text">
 									{JSON.stringify(
-										response.slice(0, 5).map((savedView) => ({
+										response.slice(0, 10).map((savedView) => ({
 											id: savedView.id,
 											icon: savedView.icon,
 											name: savedView.name,
