@@ -212,14 +212,12 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		});
 
 		return {
-			list,
 			clone,
 			create,
 			update,
 			reorder,
 			delete: deleteView,
 			ensureBuiltinViews,
-			get: requireSavedView,
 		};
 	}),
 }) {
