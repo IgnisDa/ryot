@@ -131,6 +131,16 @@ const requiredRule = (targetPath: string[], condition: AppSchemaRuleCondition): 
 	validation: { required: true },
 });
 
+const visibilityRule = (
+	targetPath: string[],
+	condition: AppSchemaRuleCondition,
+): AppSchemaRule => ({
+	when: condition,
+	path: targetPath,
+	kind: "visibility",
+	visibility: { hidden: true },
+});
+
 describe("parseAppSchemaPropertiesSafe - non-object input", () => {
 	it("fails when properties is a string", () => {
 		const result = parse({ name: str() }, "hello");
@@ -284,6 +294,57 @@ describe("parseAppSchemaPropertiesSafe - string property", () => {
 		const field = str({ defaultValue: "default" });
 		const result = parse({ name: field }, {});
 		expect(result).toMatchObject({ success: true, data: { name: "default" } });
+	});
+
+	it("validates URL and email formats", () => {
+		expect(
+			parse({ value: str({ format: { kind: "url" } }) }, { value: "https://example.com" }).success,
+		).toBe(true);
+		expect(
+			parse({ value: str({ format: { kind: "url" } }) }, { value: "ftp://example.com" }).success,
+		).toBe(false);
+		expect(
+			parse({ value: str({ format: { kind: "email" } }) }, { value: "person@example.com" }).success,
+		).toBe(true);
+		expect(parse({ value: str({ format: { kind: "email" } }) }, { value: "invalid" }).success).toBe(
+			false,
+		);
+	});
+
+	it("accepts a complete temporary upload token object", () => {
+		const field = str({ format: { kind: "upload", allowedFileExtensions: ["pdf"] } });
+		const result = parse(
+			{ attachment: field },
+			{ attachment: { token: "temporary-token", expiresAt: "2026-08-23T12:00:00Z" } },
+		);
+
+		expect(result).toMatchObject({
+			success: true,
+			data: { attachment: { token: "temporary-token", expiresAt: "2026-08-23T12:00:00Z" } },
+		});
+	});
+
+	it("rejects a string or malformed temporary upload token", () => {
+		const field = str({ format: { kind: "upload", allowedFileExtensions: ["pdf"] } });
+
+		expect(parse({ attachment: field }, { attachment: "temporary-token" }).success).toBe(false);
+		expect(parse({ attachment: field }, { attachment: { token: "temporary-token" } }).success).toBe(
+			false,
+		);
+	});
+
+	it("applies string validation to an upload token", () => {
+		const field = str({
+			validation: { pattern: "^upload_" },
+			format: { kind: "upload", allowedFileExtensions: ["pdf"] },
+		});
+
+		expect(
+			parse(
+				{ attachment: field },
+				{ attachment: { token: "invalid", expiresAt: "2026-08-23T12:00:00Z" } },
+			).success,
+		).toBe(false);
 	});
 });
 
@@ -517,12 +578,77 @@ describe("parseAppSchemaPropertiesSafe - object property", () => {
 });
 
 describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
+	it("allows an omitted required property while it is hidden", () => {
+		const s = schema(
+			{ enabled: bool(), secret: str({ validation: { required: true } }) },
+			{ rules: [visibilityRule(["secret"], { operator: "eq", path: ["enabled"], value: false })] },
+		);
+
+		expect(
+			parseAppSchemaPropertiesSafe({ properties: { enabled: false }, propertiesSchema: s }),
+		).toEqual({ success: true, data: { enabled: false } });
+	});
+
+	it("rejects a submitted hidden property with the rule message", () => {
+		const rule = visibilityRule(["secret"], {
+			value: false,
+			operator: "eq",
+			path: ["enabled"],
+		});
+		const s = schema(
+			{ enabled: bool(), secret: str() },
+			{ rules: [{ ...rule, message: "secret is not accepted while disabled" }] },
+		);
+		const result = parseAppSchemaPropertiesSafe({
+			propertiesSchema: s,
+			properties: { enabled: false, secret: "submitted" },
+		});
+
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			expect(result.issues).toEqual([
+				{ path: ["secret"], message: "secret is not accepted while disabled" },
+			]);
+		}
+	});
+
+	it("lets visibility override both property and conditional requiredness", () => {
+		const fields = { status: str(), secret: str({ validation: { required: true } }) };
+		const s = schema(fields, {
+			rules: [
+				requiredRule(["secret"], { operator: "eq", path: ["status"], value: "hidden" }),
+				visibilityRule(["secret"], { operator: "eq", value: "hidden", path: ["status"] }),
+			],
+		});
+
+		expect(
+			parseAppSchemaPropertiesSafe({ properties: { status: "hidden" }, propertiesSchema: s })
+				.success,
+		).toBe(true);
+		expect(
+			parseAppSchemaPropertiesSafe({ properties: { status: "visible" }, propertiesSchema: s })
+				.success,
+		).toBe(false);
+	});
+
+	it("evaluates visibility from defaults and omits a hidden generated default", () => {
+		const s = schema(
+			{ status: str({ defaultValue: "hidden" }), secret: str({ defaultValue: "generated" }) },
+			{
+				rules: [visibilityRule(["secret"], { operator: "eq", value: "hidden", path: ["status"] })],
+			},
+		);
+
+		expect(parseAppSchemaPropertiesSafe({ properties: {}, propertiesSchema: s })).toEqual({
+			success: true,
+			data: { status: "hidden" },
+		});
+	});
+
 	it("eq: enforces required when condition matches", () => {
 		const s = schema(
 			{ status: str(), progress: num() },
-			{
-				rules: [requiredRule(["progress"], { operator: "eq", path: ["status"], value: "done" })],
-			},
+			{ rules: [requiredRule(["progress"], { operator: "eq", path: ["status"], value: "done" })] },
 		);
 
 		const match = parseAppSchemaPropertiesSafe({
@@ -541,9 +667,7 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 	it("treats null as missing for a conditionally required property", () => {
 		const s = schema(
 			{ status: str(), progress: num() },
-			{
-				rules: [requiredRule(["progress"], { operator: "eq", path: ["status"], value: "done" })],
-			},
+			{ rules: [requiredRule(["progress"], { operator: "eq", path: ["status"], value: "done" })] },
 		);
 
 		expect(
@@ -551,6 +675,25 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 				propertiesSchema: s,
 				properties: { status: "done", progress: null },
 			}).success,
+		).toBe(false);
+	});
+
+	it("enforces a conditionally required nested property when its parent is absent", () => {
+		const s = schema(
+			{ status: str(), metadata: objectProp({ progress: num() }) },
+			{
+				rules: [
+					requiredRule(["metadata", "progress"], {
+						value: "done",
+						operator: "eq",
+						path: ["status"],
+					}),
+				],
+			},
+		);
+
+		expect(
+			parseAppSchemaPropertiesSafe({ properties: { status: "done" }, propertiesSchema: s }).success,
 		).toBe(false);
 	});
 
@@ -835,14 +978,48 @@ describe("validateAppSchemaDefinition", () => {
 		const issues = validateAppSchemaDefinition(s);
 		expect(issues.length).toBeGreaterThan(0);
 	});
+
+	it("validates visibility target and condition paths", () => {
+		const missingTarget = schema(
+			{ status: str() },
+			{
+				rules: [
+					visibilityRule(["nonexistent"], { operator: "eq", value: "hidden", path: ["status"] }),
+				],
+			},
+		);
+		const missingCondition = schema(
+			{ secret: str() },
+			{
+				rules: [
+					visibilityRule(["secret"], { operator: "eq", value: "hidden", path: ["nonexistent"] }),
+				],
+			},
+		);
+
+		expect(validateAppSchemaDefinition(missingTarget)[0]?.message).toContain("nonexistent");
+		expect(validateAppSchemaDefinition(missingCondition)[0]?.message).toContain("nonexistent");
+	});
+
+	it("rejects nested upload declarations unless explicitly allowed", () => {
+		const upload = str({
+			format: { kind: "upload", allowedFileExtensions: ["pdf"] },
+		});
+		const s = schema({ metadata: objectProp({ attachments: arrayProp(upload) }) });
+
+		expect(validateAppSchemaDefinition(s)).toEqual([
+			{
+				message: "Upload properties are only allowed in import schemas",
+				path: ["fields", "metadata", "properties", "attachments", "items", "format"],
+			},
+		]);
+		expect(validateAppSchemaDefinition(s, { allowUpload: true })).toEqual([]);
+	});
 });
 
 describe("getAppPropertyDefinitionAtPath", () => {
 	const meta = objectProp({ title: str(), count: int() });
-	const fields = {
-		name: str(),
-		meta,
-	};
+	const fields = { meta, name: str() };
 
 	it("returns the definition for a top-level field", () => {
 		const result = getAppPropertyDefinitionAtPath(fields, ["name"]);

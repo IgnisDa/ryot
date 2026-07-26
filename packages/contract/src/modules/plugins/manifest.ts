@@ -1,6 +1,7 @@
 import { Result, Schema, SchemaGetter } from "effect";
 
 import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
+import { HttpUrl } from "../../schema/utils";
 import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 import { SavedViewCardMapping, SavedViewTableMapping } from "../saved-views/schemas";
@@ -12,7 +13,46 @@ const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 const strictParseOptions = {
 	parseOptions: { onExcessProperty: "error" },
 } satisfies Schema.Annotations.Filter;
-const PluginAppSchema = Schema.toType(AppSchema);
+
+const hasDynamicChoices = (property: AppPropertyDefinition): boolean => {
+	if (
+		(property.type === "enum" || property.type === "enum-array") &&
+		property.choices.kind === "dynamic"
+	) {
+		return true;
+	}
+	if (property.type === "array") {
+		return hasDynamicChoices(property.items);
+	}
+	if (property.type === "object") {
+		return Object.values(property.properties).some(hasDynamicChoices);
+	}
+	return false;
+};
+
+const hasUploadFormat = (property: AppPropertyDefinition): boolean => {
+	if (property.type === "string") {
+		return property.format?.kind === "upload";
+	}
+	if (property.type === "array") {
+		return hasUploadFormat(property.items);
+	}
+	if (property.type === "object") {
+		return Object.values(property.properties).some(hasUploadFormat);
+	}
+	return false;
+};
+
+const PluginAppSchema = Schema.toType(AppSchema).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(schema) =>
+				Object.values(schema.fields).every((property) => !hasUploadFormat(property)) ||
+				"Upload fields are only supported by import input schemas",
+			strictParseOptions,
+		),
+	),
+);
 const PluginQueryDocument = Schema.toType(RyotQLDocument);
 
 export const PluginMetadata = strictStruct({
@@ -378,39 +418,44 @@ const PluginImportSourceFields = {
 	requiredPluginConfigKeys: Schema.Array(sandboxManifestString),
 };
 
-const PluginNamedImportArtifact = strictStruct({
-	required: Schema.Boolean,
-	key: sandboxManifestString,
-	uploadTokenField: sandboxManifestString,
-	allowedFileExtensions: Schema.Array(sandboxManifestString),
-});
-
-export const PluginImportSource = Schema.Union([
-	strictStruct({ ...PluginImportSourceFields, input: Schema.Literal("payload") }),
-	strictStruct({
-		...PluginImportSourceFields,
-		lot: Schema.Literal("single"),
-		input: Schema.Literal("file"),
-		allowedFileExtensions: Schema.Array(sandboxManifestString),
-	}),
-	strictStruct({
-		...PluginImportSourceFields,
-		lot: Schema.Literal("named"),
-		input: Schema.Literal("file"),
-		artifacts: Schema.Array(PluginNamedImportArtifact),
-	}).pipe(
-		Schema.check(
-			Schema.makeFilter(
-				({ artifacts }) =>
-					artifacts.length > 0 &&
-					new Set(artifacts.map(({ key }) => key)).size === artifacts.length &&
-					new Set(artifacts.map(({ uploadTokenField }) => uploadTokenField)).size ===
-						artifacts.length,
-				strictParseOptions,
-			),
+const ImportInputSchema = Schema.toType(AppSchema).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(schema) =>
+				schema.unknownKeys === "strict" &&
+				Object.values(schema.fields).every((property) => !hasDynamicChoices(property)) &&
+				Object.values(schema.fields).every(
+					(property) => property.type === "string" || !hasUploadFormat(property),
+				)
+					? true
+					: "Expected a strict import input schema with static choices and only top-level uploads",
+			strictParseOptions,
 		),
 	),
-]);
+);
+
+const PluginImportExportHelp = strictStruct({
+	docsUrl: Schema.optional(HttpUrl),
+	steps: Schema.optional(
+		Schema.Array(sandboxManifestString).pipe(Schema.check(Schema.isMinLength(1))),
+	),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(value) =>
+				value.docsUrl !== undefined ||
+				value.steps !== undefined ||
+				"Expected import export help documentation or steps",
+			strictParseOptions,
+		),
+	),
+);
+
+export const PluginImportSource = strictStruct({
+	...PluginImportSourceFields,
+	inputSchema: ImportInputSchema,
+	exportHelp: Schema.optional(PluginImportExportHelp),
+});
 
 export type PluginImportSource = Schema.Schema.Type<typeof PluginImportSource>;
 
@@ -506,22 +551,6 @@ const PluginManifestFields = strictStruct({
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
 });
-
-const hasDynamicChoices = (property: AppPropertyDefinition): boolean => {
-	if (
-		(property.type === "enum" || property.type === "enum-array") &&
-		property.choices.kind === "dynamic"
-	) {
-		return true;
-	}
-	if (property.type === "array") {
-		return hasDynamicChoices(property.items);
-	}
-	if (property.type === "object") {
-		return Object.values(property.properties).some(hasDynamicChoices);
-	}
-	return false;
-};
 
 const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.Type) => {
 	const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));

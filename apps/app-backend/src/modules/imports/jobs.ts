@@ -8,7 +8,6 @@ export const ImportRunJobData = Schema.Struct({
 	source: Schema.String,
 	pluginSlug: Schema.String,
 	workflowScriptId: SandboxScriptId,
-	filePath: Schema.optional(Schema.String),
 	sourcePayloadKey: Schema.optional(Schema.String),
 	uploadIntentIds: Schema.optional(Schema.Array(Schema.String)),
 	sourcePayload: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),

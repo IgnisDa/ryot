@@ -1,17 +1,18 @@
+import { TemporaryUploadToken } from "@ryot/contract/modules/uploads/schemas";
 import { HttpUrl, strictStruct } from "@ryot/contract/schema/utils";
 import { Schema } from "effect";
 
 const uploadTokenInput = <const Source extends string>(source: Source) =>
-	Schema.Struct({ source: Schema.Literal(source), uploadToken: Schema.NonEmptyString }).pipe(
+	strictStruct({ source: Schema.Literal(source), uploadToken: TemporaryUploadToken }).pipe(
 		Schema.annotate({ identifier: `MediaImportInput_${source}` }),
 	);
 
 const urlAndKeyInput = <const Source extends string>(source: Source) =>
-	Schema.Struct({
+	strictStruct({
 		apiUrl: HttpUrl,
 		apiKey: Schema.NonEmptyString,
 		source: Schema.Literal(source),
-		allowInsecureConnections: Schema.optional(Schema.Boolean),
+		allowInsecureConnections: Schema.optional(Schema.NullOr(Schema.Boolean)),
 	}).pipe(Schema.annotate({ identifier: `MediaImportInput_${source}` }));
 
 const traktUserInput = strictStruct({
@@ -40,33 +41,50 @@ export const MediaCreateImportRunBody = Schema.Union([
 	urlAndKeyInput("audiobookshelf"),
 	traktUserInput,
 	traktListInput,
-	Schema.Struct({
+	strictStruct({
 		collection: Schema.NonEmptyString,
-		uploadToken: Schema.NonEmptyString,
+		uploadToken: TemporaryUploadToken,
 		source: Schema.Literal("igdb"),
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_igdb" })),
-	Schema.Struct({
-		uploadToken: Schema.NonEmptyString,
+	strictStruct({
+		uploadToken: TemporaryUploadToken,
 		source: Schema.Literal("netflix"),
-		profileName: Schema.optional(Schema.String),
+		profileName: Schema.optional(Schema.NullOr(Schema.String)),
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_netflix" })),
-	Schema.Struct({
+	strictStruct({
 		source: Schema.Literal("movary"),
-		historyUploadToken: Schema.NonEmptyString,
-		ratingsUploadToken: Schema.NonEmptyString,
-		watchlistUploadToken: Schema.NonEmptyString,
+		historyUploadToken: TemporaryUploadToken,
+		ratingsUploadToken: TemporaryUploadToken,
+		watchlistUploadToken: TemporaryUploadToken,
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_movary" })),
-	Schema.Struct({
+	strictStruct({
+		mode: Schema.Literal("export"),
+		source: Schema.Literal("trakt"),
+		exportUploadToken: TemporaryUploadToken,
+	}).pipe(Schema.annotate({ identifier: "MediaImportInput_trakt_export" })),
+	strictStruct({
 		source: Schema.Literal("myanimelist"),
-		animeUploadToken: Schema.optional(Schema.NonEmptyString),
-		mangaUploadToken: Schema.optional(Schema.NonEmptyString),
-	}).pipe(Schema.annotate({ identifier: "MediaImportInput_myanimelist" })),
-	Schema.Struct({
+		animeUploadToken: Schema.optional(TemporaryUploadToken),
+		mangaUploadToken: Schema.optional(TemporaryUploadToken),
+	}).pipe(
+		Schema.check(
+			Schema.makeFilter(({ animeUploadToken, mangaUploadToken }) =>
+				animeUploadToken !== undefined || mangaUploadToken !== undefined
+					? true
+					: "At least one MyAnimeList export is required",
+			),
+		),
+		Schema.annotate({
+			identifier: "MediaImportInput_myanimelist",
+			parseOptions: { onExcessProperty: "error" },
+		}),
+	),
+	strictStruct({
 		apiUrl: HttpUrl,
 		username: Schema.NonEmptyString,
 		source: Schema.Literal("jellyfin"),
-		password: Schema.optional(Schema.NonEmptyString),
-		allowInsecureConnections: Schema.optional(Schema.Boolean),
+		password: Schema.optional(Schema.NullOr(Schema.NonEmptyString)),
+		allowInsecureConnections: Schema.optional(Schema.NullOr(Schema.Boolean)),
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_jellyfin" })),
 ]);
 

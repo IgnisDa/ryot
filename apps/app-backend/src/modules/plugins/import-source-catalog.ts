@@ -26,13 +26,33 @@ const fromSnapshot = (snapshot: PluginRegistrySnapshot): ReadonlyArray<Registere
 				left.pluginSlug.localeCompare(right.pluginSlug) || left.slug.localeCompare(right.slug),
 		);
 
+const findWorkflowInSnapshot = (
+	snapshot: PluginRegistrySnapshot,
+	pluginSlug: string,
+	workflowSlug: string,
+) =>
+	findActiveWorkflowScriptInSnapshot(snapshot, {
+		pluginSlug,
+		workflowSlug,
+	}).pipe(Effect.map((script) => (script ? { id: script.id } : null)));
+
 export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
 	"ImportSourceCatalog",
 	{
 		make: Effect.gen(function* () {
 			const loader = yield* PluginLoader;
 
-			const list = () => fromSnapshot(loader.getSnapshot());
+			const listWithWorkflowStatus = Effect.suspend(() => {
+				const snapshot = loader.getSnapshot();
+				return Effect.forEach(fromSnapshot(snapshot), (source) =>
+					findWorkflowInSnapshot(snapshot, source.pluginSlug, source.workflowSlug).pipe(
+						Effect.map((script) => ({
+							source,
+							hasActiveWorkflow: script !== null,
+						})),
+					),
+				);
+			});
 
 			const resolve = (sourceSlug: string) => {
 				const snapshot = loader.getSnapshot();
@@ -40,15 +60,12 @@ export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
 				return source
 					? {
 							source,
-							script: findActiveWorkflowScriptInSnapshot(snapshot, {
-								pluginSlug: source.pluginSlug,
-								workflowSlug: source.workflowSlug,
-							}).pipe(Effect.map((script) => (script ? { id: script.id } : null))),
+							script: findWorkflowInSnapshot(snapshot, source.pluginSlug, source.workflowSlug),
 						}
 					: null;
 			};
 
-			return { list, resolve };
+			return { resolve, listWithWorkflowStatus };
 		}),
 	},
 ) {

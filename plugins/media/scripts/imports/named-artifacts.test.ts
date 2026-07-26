@@ -5,6 +5,7 @@ import { afterEach, expect, it } from "vitest";
 
 import movary from "./movary.sandbox";
 import myanimelist from "./myanimelist.sandbox";
+import { readImportArtifactText } from "./shared";
 import trakt from "./trakt.sandbox";
 
 const filesystemKey = Symbol.for("@ryot/sandbox-sdk/filesystem");
@@ -19,6 +20,21 @@ afterEach(() => {
 	Reflect.deleteProperty(globalThis, filesystemKey);
 });
 
+it("reads a single upload by the schema field key", async () => {
+	const keys: string[] = [];
+	Reflect.set(globalThis, filesystemKey, {
+		readArtifact: () => Promise.reject(new Error("single artifact must not be read")),
+		readNamedArtifact: (key: string) => {
+			keys.push(key);
+			return Promise.resolve(encoder.encode("export"));
+		},
+		writeScratchChunks: () => Promise.resolve(),
+	});
+
+	await expect(Effect.runPromise(readImportArtifactText())).resolves.toBe("export");
+	expect(keys).toEqual(["uploadToken"]);
+});
+
 it("reads all three Movary uploads by their declared artifact keys", async () => {
 	const keys: string[] = [];
 	Reflect.set(globalThis, filesystemKey, {
@@ -26,9 +42,9 @@ it("reads all three Movary uploads by their declared artifact keys", async () =>
 		readNamedArtifact: (key: string) => {
 			keys.push(key);
 			const files: Record<string, string> = {
-				historyFilePath: "title,tmdb_id,watched_at\nArrival,42,2026-01-03",
-				ratingsFilePath: "title,tmdb_id,user_rating\nArrival,42,8",
-				watchlistFilePath: "title,tmdb_id\nArrival,42",
+				historyUploadToken: "title,tmdb_id,watched_at\nArrival,42,2026-01-03",
+				ratingsUploadToken: "title,tmdb_id,user_rating\nArrival,42,8",
+				watchlistUploadToken: "title,tmdb_id\nArrival,42",
 			};
 			const text = files[key] ?? "";
 			return Promise.resolve(encoder.encode(text));
@@ -37,7 +53,7 @@ it("reads all three Movary uploads by their declared artifact keys", async () =>
 	});
 
 	const result = await Effect.runPromise(movary.run({ start: 0, limit: 25 }, host, execution));
-	expect(keys).toEqual(["historyFilePath", "ratingsFilePath", "watchlistFilePath"]);
+	expect(keys).toEqual(["historyUploadToken", "ratingsUploadToken", "watchlistUploadToken"]);
 	expect(result.totalItems).toBe(3);
 });
 
@@ -65,7 +81,7 @@ it("reads only the supplied optional MyAnimeList named artifact", async () => {
 			execution,
 		),
 	);
-	expect(keys).toEqual(["mangaFilePath"]);
+	expect(keys).toEqual(["mangaUploadToken"]);
 	expect(result.entityGroups[0]?.entityRef).toMatchObject({
 		externalId: "202",
 		providerSlug: "manga.myanimelist",
@@ -96,7 +112,7 @@ it("imports a Trakt ZIP without reading plugin configuration", async () => {
 			execution,
 		),
 	);
-	expect(keys).toEqual(["exportFilePath"]);
+	expect(keys).toEqual(["exportUploadToken"]);
 	expect(result).toMatchObject({
 		failures: [],
 		totalItems: 2,

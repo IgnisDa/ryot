@@ -17,5 +17,6 @@ This module owns one-time import dispatch, artifacts, progress, failures, and ge
 
 ## Changes
 
+- Import sources declare every input, including files, in one strict `AppSchema`; upload field keys are also sandbox artifact keys.
 - New sources declare metadata and workflows in their plugin manifest, parse artifacts in a plugin activity, and compose the kernel generic-import child.
 - Keep orchestration tests beside the owning workflow, helper tests beside helpers, and source-specific tests in the plugin package.
