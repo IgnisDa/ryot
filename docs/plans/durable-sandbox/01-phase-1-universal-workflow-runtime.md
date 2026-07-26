@@ -58,6 +58,45 @@ Only reconsider a standard-script fast path if those measures fail and the owner
 Decision 1. The owner may accept a measured miss; record the result and rationale in this section
 before proceeding.
 
+### Current-runtime baseline (2026-08-06)
+
+Run the warm hermetic harness with:
+
+```bash
+RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full --filter=@ryot/tests test --only -- 'src/tests/kernel/sandbox/sandbox-runtime-benchmark.test.ts'
+```
+
+The measured host was an Apple M4 (`arm64`, 10 logical CPUs, 16 GiB RAM) on macOS 26.3.1, using
+Bun 1.3.14 and Deno 2.8.1. The standard test backend and sandbox pools were warmed by three discarded
+runs before 15 measured runs of each direct workload. The bounded population used one discarded run
+before five measured 10-item chunks. Tests ran as one isolated Vitest file against the standard
+shared-backend configuration. The controlled HTTP endpoint was loopback-only and added exactly 25 ms
+per request; provider and Youtubei workloads each made two sequential requests, so orchestration
+subtracts 50 ms of known upstream delay.
+
+| Workload                                                        | Submission-to-terminal p50 / p95 | Ryot orchestration p50 / p95 | Sandbox execution p50 / p95 | Executions / body replays / module loads | Workflow / Redis observation                           |                           Throughput |
+| --------------------------------------------------------------- | -------------------------------: | ---------------------------: | --------------------------: | ---------------------------------------: | ------------------------------------------------------ | -----------------------------------: |
+| No-host automation early return                                 |                     221 / 266 ms |                 221 / 266 ms |                   8 / 11 ms |                                1 / 1 / 1 | 0 journal projections; high-water 0                    |                                  n/a |
+| Full automation, one mutable read and one cache write           |                     229 / 251 ms |                 229 / 251 ms |                  17 / 21 ms |                                1 / 1 / 1 | 0 journal projections; high-water 0                    |                                  n/a |
+| Provider, two controlled HTTP calls                             |                     222 / 274 ms |                 172 / 224 ms |                  75 / 99 ms |                                1 / 1 / 1 | 0 journal projections; high-water 0                    |                                  n/a |
+| Youtubei, local session plus two internal controlled HTTP calls |                     234 / 430 ms |                 184 / 380 ms |                105 / 115 ms |                                1 / 1 / 1 | 0 journal projections; high-water 0                    |                                  n/a |
+| Bounded 10-item media population chunk                          |                 6,563 / 6,855 ms |             6,563 / 6,855 ms |         n/a (21 executions) |                             21 / 21 / 21 | 1 projection key; maximum activity/child high-water 10 | 1.524 items/s p50; 1.580 items/s p95 |
+
+The direct role workloads use the current standard body, so their business host calls create no
+sandbox workflow journal entries. The current test-support surface exposes sandbox process totals,
+Redis projection-key count, and maximum journal high-water, but not exact workflow-engine transport
+or Redis command round trips. Exact transport counts are therefore recorded as unavailable rather
+than adding production instrumentation during this evidence-only task. The available counters are
+sufficient to compare process/replay/module-load growth and journal boundary growth after the
+tracers; any changed transport shape must explain its implied round trips explicitly.
+
+The production-size media population operational gate was not run for this baseline. The owner
+waived it for Task 01 on 2026-08-06 because that existing test is known to time out for a separate
+issue and no production behavior changed in this task. The runnable 10-item population benchmark
+above covers query, provider, write, workflow, Redis, database, and sandbox paths without inheriting
+that unrelated timeout. This waiver does not claim a production-size throughput result and does not
+remove the final Phase 1 operational gate.
+
 ## 1. Establish the Two Tracers
 
 Build the runtime against two deliberately small reference paths before migrating the catalog.
