@@ -219,7 +219,16 @@ export function Sidebar(props: {
 				</View>
 			</ScrollView>
 			<View className="border-t border-border px-3 py-3">
-				<View className="flex-row items-center gap-2.5 rounded-md px-2 py-2">
+				<Pressable
+					accessibilityRole="button"
+					onPress={props.onOpenSettings}
+					accessibilityLabel="Open settings"
+					accessibilityState={{ selected: props.activeKey === "settings" }}
+					className={clsx(
+						"flex-row items-center gap-2.5 rounded-md px-2 py-2",
+						props.activeKey === "settings" && "bg-nav-indicator",
+					)}
+				>
 					<AppAvatar
 						url={props.accountImage}
 						iconClassName="text-text-muted"
@@ -229,15 +238,10 @@ export function Sidebar(props: {
 						<Text className="font-ui-medium text-sm text-text">{props.accountName}</Text>
 						<Text className="font-ui text-xs text-text-muted">{props.accountEmail}</Text>
 					</View>
-					<Pressable
-						className="p-1"
-						accessibilityRole="button"
-						onPress={props.onOpenSettings}
-						accessibilityLabel="Open settings"
-					>
+					<View className="p-1">
 						<NavigationIcon className="text-text-subtle" name="settings" size={15} />
-					</Pressable>
-				</View>
+					</View>
+				</Pressable>
 			</View>
 		</View>
 	);
