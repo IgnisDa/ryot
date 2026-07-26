@@ -5,6 +5,14 @@ import { AsyncResult } from "effect/unstable/reactivity";
 
 import { RyotQLMalformedResultError } from "@/api/ryotql";
 
+import {
+	decodeShowOverview,
+	emptyShowOverview,
+	showCompanyRow,
+	showPersonRow,
+	showRecommendationRow,
+} from "./show-overview-fixture";
+import { mapShowOverview, type ShowOverviewState } from "./show-overview-state";
 import { ShowScreenContent } from "./show-screen-content";
 import { decodeShowSummaryResult, showSummaryRow } from "./show-summary-fixture";
 import { mapShowSummary, type ShowSummaryState } from "./show-summary-state";
@@ -12,6 +20,9 @@ import { mapShowSummary, type ShowSummaryState } from "./show-summary-state";
 const NO_MANAGED_URLS: ReadonlyMap<string, string> = new Map();
 
 const description = () => screen.getByText("A four-part limited series.");
+
+const overviewState = (rows: Parameters<typeof decodeShowOverview>[0] = {}): ShowOverviewState =>
+	mapShowOverview(AsyncResult.success(decodeShowOverview(rows)));
 
 const readyState = (overrides: Record<string, unknown> = {}): ShowSummaryState =>
 	mapShowSummary(
@@ -26,8 +37,24 @@ const readyState = (overrides: Record<string, unknown> = {}): ShowSummaryState =
 const unavailableState = (requested: readonly Record<string, unknown>[]): ShowSummaryState =>
 	mapShowSummary(AsyncResult.success(decodeShowSummaryResult({ requested, show: [] })));
 
-const renderContent = (state: ShowSummaryState, refresh: () => void = () => undefined) =>
-	render(<ShowScreenContent state={state} refresh={refresh} managedUrls={NO_MANAGED_URLS} />);
+const renderContent = (
+	state: ShowSummaryState,
+	options: {
+		readonly refresh?: () => void;
+		readonly overview?: ShowOverviewState;
+		readonly refreshOverview?: () => void;
+	} = {},
+) =>
+	render(
+		<ShowScreenContent
+			state={state}
+			managedUrls={NO_MANAGED_URLS}
+			overviewManagedUrls={NO_MANAGED_URLS}
+			refresh={options.refresh ?? (() => undefined)}
+			overview={options.overview ?? overviewState()}
+			refreshOverview={options.refreshOverview ?? (() => undefined)}
+		/>,
+	);
 
 describe("show screen content", () => {
 	it("renders the loading branch while the summary query is pending", async () => {
@@ -40,9 +67,9 @@ describe("show screen content", () => {
 	it("offers a retry from the transport error branch", async () => {
 		const user = userEvent.setup();
 		const retries: number[] = [];
-		await renderContent(mapShowSummary(AsyncResult.failure(Cause.fail(new Error("offline")))), () =>
-			retries.push(1),
-		);
+		await renderContent(mapShowSummary(AsyncResult.failure(Cause.fail(new Error("offline")))), {
+			refresh: () => retries.push(1),
+		});
 
 		await user.press(screen.getByRole("button", { name: "Try again" }));
 
@@ -79,19 +106,16 @@ describe("show screen content", () => {
 
 		expect(screen.getByText("Adolescence")).toBeOnTheScreen();
 		expect(screen.getByText("TV Show • TMDB • 2025")).toBeOnTheScreen();
-		expect(screen.getAllByText("TMDB")).toHaveLength(2);
+		expect(screen.getByText("TMDB")).toBeOnTheScreen();
 		expect(screen.getByText("Drama")).toBeOnTheScreen();
 		expect(screen.getByText("TMDB rating")).toBeOnTheScreen();
 		expect(screen.getByText("78.25 / 100")).toBeOnTheScreen();
-		expect(screen.getByText("78.25")).toBeOnTheScreen();
-		expect(screen.getAllByText("Ended")).toHaveLength(2);
+		expect(screen.getByText("Ended")).toBeOnTheScreen();
 		expect(screen.getByText("Season")).toBeOnTheScreen();
 		expect(screen.getByText("1")).toBeOnTheScreen();
 		expect(screen.getByText("4")).toBeOnTheScreen();
-		expect(screen.getByText("1 season")).toBeOnTheScreen();
-		expect(screen.getByText("4 episodes")).toBeOnTheScreen();
 		expect(screen.getByText("A four-part limited series.")).toBeOnTheScreen();
-		expect(screen.getByText("show-1")).toBeOnTheScreen();
+		expect(screen.queryByText("show-1")).not.toBeOnTheScreen();
 	});
 
 	it("renders library, ownership, collection and status facts in the rail", async () => {
@@ -137,7 +161,6 @@ describe("show screen content", () => {
 		expect(screen.queryByText("Provider rating")).not.toBeOnTheScreen();
 		expect(screen.queryByText("Production status")).not.toBeOnTheScreen();
 		expect(screen.queryByText("Season")).not.toBeOnTheScreen();
-		expect(screen.queryByText("1 season")).not.toBeOnTheScreen();
 	});
 
 	it("keeps Overview selected and leaves state unchanged for deferred controls", async () => {
@@ -167,5 +190,123 @@ describe("show screen content", () => {
 		await user.press(screen.getByRole("button", { name: "Less" }));
 
 		expect(description()).toHaveProp("numberOfLines", 3);
+	});
+	it("renders images, credits, companies and recommendations in the overview", async () => {
+		await renderContent(readyState());
+
+		expect(screen.getByText("Images")).toBeOnTheScreen();
+		expect(screen.getByText("Cast & crew")).toBeOnTheScreen();
+		expect(screen.getByText("Owen Cooper")).toBeOnTheScreen();
+		expect(screen.getByText("Actor, Guest Star")).toBeOnTheScreen();
+		expect(screen.getByText("as Jamie")).toBeOnTheScreen();
+		expect(screen.getByText("Production companies")).toBeOnTheScreen();
+		expect(screen.getByText("Warp Films")).toBeOnTheScreen();
+		expect(screen.getByText("Production Company")).toBeOnTheScreen();
+		expect(screen.getByText("More like this")).toBeOnTheScreen();
+		expect(screen.getByText("Bad Girls")).toBeOnTheScreen();
+	});
+
+	it("omits credit detail that the provider did not record", async () => {
+		await renderContent(readyState(), {
+			overview: overviewState({
+				companies: [{ ...showCompanyRow, roles: null }],
+				people: [{ ...showPersonRow, roles: [], character: null }],
+			}),
+		});
+
+		expect(screen.getByText("Owen Cooper")).toBeOnTheScreen();
+		expect(screen.getByText("Warp Films")).toBeOnTheScreen();
+		expect(screen.queryByText("as Jamie")).not.toBeOnTheScreen();
+		expect(screen.queryByText("Actor, Guest Star")).not.toBeOnTheScreen();
+		expect(screen.queryByText("Production Company")).not.toBeOnTheScreen();
+	});
+
+	it("keeps layout placeholders for credits and suggestions without images", async () => {
+		await renderContent(readyState({ images: null }), {
+			overview: overviewState({
+				people: [{ ...showPersonRow, images: null }],
+				companies: [{ ...showCompanyRow, images: null }],
+				recommendations: [{ ...showRecommendationRow, images: null }],
+			}),
+		});
+
+		expect(screen.queryByText("Images")).not.toBeOnTheScreen();
+		expect(screen.getByText("Owen Cooper")).toBeOnTheScreen();
+		expect(screen.getByText("Warp Films")).toBeOnTheScreen();
+		expect(screen.getByText("Bad Girls")).toBeOnTheScreen();
+	});
+
+	it("omits overview sections that hold no relationships", async () => {
+		await renderContent(readyState(), {
+			overview: overviewState({ people: [], recommendations: [] }),
+		});
+
+		expect(screen.getByText("Production companies")).toBeOnTheScreen();
+		expect(screen.queryByText("Cast & crew")).not.toBeOnTheScreen();
+		expect(screen.queryByText("More like this")).not.toBeOnTheScreen();
+		expect(screen.queryByRole("button", { name: "View all people" })).not.toBeOnTheScreen();
+	});
+
+	it("renders nothing relational when the show has no credits or suggestions", async () => {
+		await renderContent(readyState(), {
+			overview: mapShowOverview(AsyncResult.success(emptyShowOverview())),
+		});
+
+		expect(screen.getByText("Images")).toBeOnTheScreen();
+		expect(screen.queryByText("Cast & crew")).not.toBeOnTheScreen();
+		expect(screen.queryByText("Production companies")).not.toBeOnTheScreen();
+		expect(screen.queryByText("More like this")).not.toBeOnTheScreen();
+	});
+
+	it("links each recommendation to its own entity route", async () => {
+		await renderContent(readyState());
+
+		expect(screen.getByRole("link", { name: "Open Bad Girls" })).toHaveProp("href", "/e/show-2");
+	});
+
+	it("leaves the overview unchanged for deferred view-all actions", async () => {
+		const user = userEvent.setup();
+		await renderContent(readyState());
+
+		await user.press(screen.getByRole("button", { name: "View all images" }));
+		await user.press(screen.getByRole("button", { name: "View all people" }));
+		await user.press(screen.getByRole("button", { name: "View all" }));
+
+		expect(screen.getByRole("tab", { name: "Overview" })).toBeSelected();
+		expect(screen.getByText("Owen Cooper")).toBeOnTheScreen();
+		expect(screen.getByText("Bad Girls")).toBeOnTheScreen();
+	});
+
+	it("keeps the summary hero readable while the overview query is pending", async () => {
+		await renderContent(readyState(), { overview: mapShowOverview(AsyncResult.initial(true)) });
+
+		expect(screen.getByText("Adolescence")).toBeOnTheScreen();
+		expect(screen.getByText("Loading details...")).toBeOnTheScreen();
+		expect(screen.queryByText("Cast & crew")).not.toBeOnTheScreen();
+	});
+
+	it("keeps the summary hero readable and offers a retry when the overview fails", async () => {
+		const user = userEvent.setup();
+		const retries: number[] = [];
+		await renderContent(readyState(), {
+			refreshOverview: () => retries.push(1),
+			overview: mapShowOverview(AsyncResult.failure(Cause.fail(new Error("offline")))),
+		});
+
+		await user.press(screen.getByRole("button", { name: "Try again" }));
+
+		expect(screen.getByText("Adolescence")).toBeOnTheScreen();
+		expect(screen.getByText("Images")).toBeOnTheScreen();
+		expect(screen.getByText("Unable to load these details")).toBeOnTheScreen();
+		expect(retries).toEqual([1]);
+	});
+
+	it("hides overview decoder internals behind a stable message", async () => {
+		const cause = Cause.fail(new RyotQLMalformedResultError("bad credit row"));
+		await renderContent(readyState(), { overview: mapShowOverview(AsyncResult.failure(cause)) });
+
+		expect(screen.getByText("Adolescence")).toBeOnTheScreen();
+		expect(screen.getByText("Unable to load these details")).toBeOnTheScreen();
+		expect(screen.queryByText(/bad credit row/)).not.toBeOnTheScreen();
 	});
 });
