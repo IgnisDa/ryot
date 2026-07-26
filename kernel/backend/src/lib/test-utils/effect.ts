@@ -135,6 +135,7 @@ export const makeAppConfigLayer = (
 		server: {
 			logLevel: "Info",
 			proKey: Option.none(),
+			clientDir: "./client",
 			logFile: Option.none(),
 			corsOrigins: Option.none(),
 			otlpEndpoint: Option.none(),
