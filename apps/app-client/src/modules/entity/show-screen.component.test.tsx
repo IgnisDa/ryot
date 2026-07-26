@@ -234,7 +234,7 @@ describe("show screen content", () => {
 		expect(loads).toEqual([1]);
 		expect(screen.getByRole("tab", { name: "Activity" })).toBeSelected();
 		expect(screen.getByText("Adolescence")).toBeOnTheScreen();
-		expect(screen.getByText("Completed the show")).toBeOnTheScreen();
+		expect(screen.getByText("Finished the show")).toBeOnTheScreen();
 		expect(screen.queryByText("Cast & crew")).not.toBeOnTheScreen();
 	});
 
