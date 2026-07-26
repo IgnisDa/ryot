@@ -1,7 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { NotFound } from "@ryot/contract/errors";
-import type { FieldValue } from "@ryot/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -12,7 +11,6 @@ import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
-import { RyotQLService } from "#modules/ryotql/service";
 
 import { LifecycleDispatch, LifecycleDispatchNoop } from "./lifecycle-dispatch";
 import { EntitiesRepository } from "./repository";
@@ -33,71 +31,13 @@ const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({ ...overrides });
 
-const mockRyotQL = Layer.mock(RyotQLService);
-
-const makeRyotQL = (overrides: MockOverrides<typeof mockRyotQL> = {}) => mockRyotQL(overrides);
-
-const makeServiceLayer = (
-	repository = makeEntitiesRepository(),
-	options: { ryotql?: Layer.Layer<RyotQLService> } = {},
-) =>
+const makeServiceLayer = (repository = makeEntitiesRepository()) =>
 	Layer.mergeAll(
 		EntitiesService.layer.pipe(
-			Layer.provide(
-				Layer.mergeAll(
-					dbRunnerLayer,
-					LifecycleDispatchNoop,
-					options.ryotql ?? makeRyotQL(),
-					repository,
-				),
-			),
+			Layer.provide(Layer.mergeAll(dbRunnerLayer, LifecycleDispatchNoop, repository)),
 		),
 		transactionLayer,
 	);
-
-const field = (kind: FieldValue["kind"], value: unknown): FieldValue => ({ kind, value });
-
-const makeEntityRow = (overrides: Record<string, FieldValue> = {}): Record<string, FieldValue> => ({
-	id: field("text", "entity-1"),
-	name: field("text", "Cooper"),
-	properties: field("json", {}),
-	createdAt: field("date", now),
-	updatedAt: field("date", now),
-	populatedAt: field("null", null),
-	externalId: field("text", "ext-1"),
-	providerId: field("text", "provider-1"),
-	translationStatus: field("text", "pending"),
-	entitySchemaSlug: field("text", "schema-1"),
-	...overrides,
-});
-
-const rowsResponse = (item: Record<string, FieldValue>) => ({
-	data: {
-		entity: {
-			items: [item],
-			type: "rows" as const,
-			pageInfo: { page: 1, limit: 1, total: 1, hasMore: false },
-		},
-	},
-});
-
-const setupGetById = (row: Record<string, FieldValue>) => {
-	const layer = makeServiceLayer(
-		makeEntitiesRepository({
-			getEntityScopeForUser: () =>
-				Effect.succeed({
-					isBuiltin: false,
-					entityName: "Cooper",
-					entityUserId: user.id,
-					propertiesSchema: { fields: {} },
-					entityId: EntityId.make("entity-1"),
-					entitySchemaSlug: EntitySchemaSlug.make("person"),
-				}),
-		}),
-		{ ryotql: makeRyotQL({ execute: () => Effect.succeed(rowsResponse(row)) }) },
-	);
-	return { layer };
-};
 
 it.effect("returns existing entity when provenance already exists", () => {
 	let insertCalled = false;
@@ -212,7 +152,7 @@ it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatc
 				},
 			}),
 	});
-	const dependencies = Layer.mergeAll(dbRunnerLayer, makeRyotQL(), repository);
+	const dependencies = Layer.mergeAll(dbRunnerLayer, repository);
 	const bootstrap = Layer.fresh(EntitiesService.layer).pipe(
 		Layer.provide(Layer.mergeAll(dependencies, LifecycleDispatchNoop)),
 	);
@@ -279,7 +219,6 @@ it.effect(
 				Layer.provide(
 					Layer.mergeAll(
 						dbRunnerLayer,
-						makeRyotQL(),
 						repository,
 						Layer.succeed(LifecycleDispatch, {
 							dispatch: (input) => Effect.sync(() => dispatched.push(input)).pipe(Effect.asVoid),
@@ -309,18 +248,6 @@ it.effect(
 		}).pipe(Effect.provide(layer));
 	},
 );
-
-it.effect("returns the translationStatus sourced from RyotQL", () => {
-	const { layer } = setupGetById(makeEntityRow({ translationStatus: field("text", "ready") }));
-
-	return Effect.gen(function* () {
-		const service = yield* EntitiesService;
-		const entity = yield* service.getById(user, EntityId.make("entity-1"));
-
-		expect(entity.id).toBe("entity-1");
-		expect(entity.translationStatus).toBe("ready");
-	}).pipe(Effect.provide(layer));
-});
 
 const titlePropertiesSchema = {
 	fields: { title: { type: "string" as const, label: "Title", description: "Title" } },

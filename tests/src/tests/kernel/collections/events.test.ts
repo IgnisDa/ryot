@@ -25,7 +25,7 @@ describe("collection events", () => {
 			const relationshipId = addData.memberOf.id;
 			yield* waitForEventWithSchema(client, collection.id, "add-entity-to-collection");
 
-			const events = yield* listEventsForEntity(client, collection.id);
+			const events = yield* listEventsForEntity(client, collection.id, 1, 100);
 			const addEvents = events.filter((e) => e.eventSchemaSlug === "add-entity-to-collection");
 
 			expect(addEvents).toHaveLength(1);
@@ -54,7 +54,7 @@ describe("collection events", () => {
 
 			yield* waitForEventWithSchema(client, collection.id, "add-entity-to-collection");
 
-			const events = yield* listEventsForEntity(client, collection.id);
+			const events = yield* listEventsForEntity(client, collection.id, 1, 100);
 			const addEvents = events.filter((e) => e.eventSchemaSlug === "add-entity-to-collection");
 
 			expect(addEvents).toHaveLength(1);
@@ -79,7 +79,7 @@ describe("collection events", () => {
 
 			yield* waitForEventWithSchema(client, collection.id, "remove-entity-from-collection");
 
-			const events = yield* listEventsForEntity(client, collection.id);
+			const events = yield* listEventsForEntity(client, collection.id, 1, 100);
 			const removeEvents = events.filter(
 				(e) => e.eventSchemaSlug === "remove-entity-from-collection",
 			);
@@ -110,7 +110,7 @@ describe("collection events", () => {
 
 			assertTaggedError(error, "NotFound");
 
-			const events = yield* listEventsForEntity(client, collection.id);
+			const events = yield* listEventsForEntity(client, collection.id, 1, 100);
 			const removeEvents = events.filter(
 				(e) => e.eventSchemaSlug === "remove-entity-from-collection",
 			);

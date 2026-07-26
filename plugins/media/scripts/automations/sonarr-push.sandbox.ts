@@ -87,7 +87,7 @@ export default defineAutomation({
 			if (matching.length === 0) {
 				return null;
 			}
-			const entity = yield* fetchEntity(host, entityId, entitySchemaSlug);
+			const entity = yield* fetchEntity(host, entityId);
 			const providerName = yield* resolveEntityProviderName(host, entity);
 			const externalId = entity.externalId;
 			if (providerName !== "TVDB" || !externalId) {

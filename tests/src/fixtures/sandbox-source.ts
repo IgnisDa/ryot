@@ -223,14 +223,12 @@ export function entityRowsSandboxSource(input: SandboxSourceIdentity) {
     typeof field === "object" && field !== null && "value" in field ? field.value : null,
   ])))
 );`,
-		inputSchema:
-			"Schema.Struct({ ids: Schema.Array(Schema.String), entitySchemaSlug: Schema.String })",
+		inputSchema: "Schema.Struct({ ids: Schema.Array(Schema.String) })",
 		run: `(input, host) => input.ids.length === 0
     ? Effect.succeed([])
 	    : host.executeRyotql(buildEntityReadDocument({
 				entityIds: input.ids as [string, ...string[]],
-				entitySchemaSlugs: [input.entitySchemaSlug],
-	      })).pipe(Effect.map(unwrapRows))`,
+		      })).pipe(Effect.map(unwrapRows))`,
 	});
 }
 

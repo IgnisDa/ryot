@@ -12,6 +12,7 @@ import {
 	getBackendClient,
 	getMediaMonitoringStatus,
 	getBuiltinEntitySchemaSlug,
+	getEntity,
 	providerSandboxSource,
 	queryInLibraryRelationship,
 	replaceSandboxScriptCompiledRepresentation,
@@ -315,9 +316,7 @@ describe("media monitoring infrequent refresh", () => {
 				yield* pollUntil(
 					"media monitoring baseline population",
 					Effect.gen(function* () {
-						const entity = yield* first.client.call((contract) =>
-							contract.entities.get({ params: { entityId: EntityId.make(cronEntityId) } }),
-						);
+						const entity = yield* getEntity(first.client, cronEntityId);
 						const properties = requireObjectRecord(entity.properties, "Missing entity properties");
 						return entity.populatedAt && properties.productionStatus === "Continuing"
 							? entity
@@ -340,9 +339,7 @@ describe("media monitoring infrequent refresh", () => {
 				yield* pollUntil(
 					"media monitoring changed provider refresh",
 					Effect.gen(function* () {
-						const entity = yield* first.client.call((contract) =>
-							contract.entities.get({ params: { entityId: EntityId.make(cronEntityId) } }),
-						);
+						const entity = yield* getEntity(first.client, cronEntityId);
 						const properties = requireObjectRecord(entity.properties, "Missing entity properties");
 						return properties.productionStatus === "Ended" ? true : null;
 					}),
