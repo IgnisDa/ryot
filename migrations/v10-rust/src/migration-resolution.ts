@@ -1,11 +1,13 @@
 import type { PluginIntegrationProvider } from "@ryot/contract/modules/plugins/manifest";
+import * as schema from "@ryot/kernel-backend/lib/infrastructure/db/schema/tables/combined";
+import { Database, mapDatabaseErrors } from "@ryot/kernel-backend/lib/infrastructure/db/service";
+import type { DefinitionSnapshot } from "@ryot/kernel-backend/modules/definition-registry/service";
+import {
+	PluginLoader,
+	type PluginRegistryEntry,
+} from "@ryot/kernel-backend/modules/plugins/loader";
 import { and, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
-
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import type { DefinitionSnapshot } from "#modules/definition-registry/service";
-import { PluginLoader, type PluginRegistryEntry } from "#modules/plugins/loader";
 
 import { quoteSqlString, withReservedConnection } from "./shared";
 

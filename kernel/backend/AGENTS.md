@@ -31,7 +31,6 @@
 - Services choose transaction boundaries; repositories use the active executor from context.
 - Do not hold a transaction across sandbox execution, network calls, durable workflow boundaries, sleeps, or fan-out work.
 - Provider-backed population composes the import workflow. External event creation evaluates automation policies and dispatches lifecycle subscriptions.
-- Migration and `legacy-bootstrap` code are the only exceptions to normal write paths.
 
 ## Durable Work
 

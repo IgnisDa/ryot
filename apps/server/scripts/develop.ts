@@ -51,7 +51,9 @@ const program = Effect.gen(function* () {
 
 	const runServer = Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
-		while (true) {
+		let restart = true;
+		let outerExitCode = 0;
+		while (restart) {
 			const result = yield* Effect.raceFirst(
 				runCommand([process.execPath, "run", "--watch", "src/main.ts"]).pipe(
 					Effect.map((exitCode) => ({ exitCode, restart: false as const })),
@@ -64,10 +66,12 @@ const program = Effect.gen(function* () {
 						Effect.as({ restart: true as const }),
 					),
 			);
+			restart = result.restart;
 			if (!result.restart) {
-				return result.exitCode;
+				outerExitCode = result.exitCode;
 			}
 		}
+		return outerExitCode;
 	});
 
 	const exitCode = yield* Effect.raceFirst(
