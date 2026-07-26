@@ -19,6 +19,9 @@ describe("settings sections", () => {
 		["/media/settings/integrations", "integrations"],
 		["/settings/notification-channels", "notification-channels"],
 		["/settings/import-data", "import-data"],
+		["/settings/import-data/run-1", "import-data"],
+		["/media/settings/import-data/run-1", "import-data"],
+		["/settings/account-recovery", "general"],
 		["/settings/account", "account"],
 	] as const)("resolves %s to %s", (pathname, expected) => {
 		expect(getActiveSettingsSection(pathname)).toBe(expected);
