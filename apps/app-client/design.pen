@@ -11300,7 +11300,7 @@
                   "type": "frame",
                   "id": "R7IEo",
                   "x": 281,
-                  "y": 722,
+                  "y": 784,
                   "name": "Layout Switcher",
                   "width": 96,
                   "height": 36,
@@ -11405,87 +11405,6 @@
                       ]
                     }
                   ]
-                },
-                {
-                  "type": "frame",
-                  "id": "APcxG",
-                  "x": 16,
-                  "y": 770,
-                  "name": "Tab Bar",
-                  "width": 296,
-                  "height": 58,
-                  "fill": "$--nav-surface",
-                  "cornerRadius": 999,
-                  "stroke": "$--nav-border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "effect": {
-                    "type": "background_blur",
-                    "radius": 18
-                  },
-                  "gap": 4,
-                  "padding": [
-                    0,
-                    8
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "id": "qMAFK",
-                      "type": "ref",
-                      "ref": "W0hEjl",
-                      "name": "Tab / Home",
-                      "descendants": {
-                        "vlofh": {
-                          "icon": "house"
-                        }
-                      }
-                    },
-                    {
-                      "id": "yeUh2",
-                      "type": "ref",
-                      "ref": "df303",
-                      "name": "Tab / Library",
-                      "descendants": {
-                        "VMRfA": {
-                          "icon": "library-big"
-                        },
-                        "xaEEl": {
-                          "content": "Library"
-                        }
-                      }
-                    },
-                    {
-                      "id": "iJ8B3",
-                      "type": "ref",
-                      "ref": "W0hEjl",
-                      "name": "Tab / Fitness",
-                      "descendants": {
-                        "vlofh": {
-                          "icon": "dumbbell"
-                        }
-                      }
-                    },
-                    {
-                      "id": "DE2WD",
-                      "type": "ref",
-                      "ref": "W0hEjl",
-                      "name": "Tab / Profile",
-                      "descendants": {
-                        "vlofh": {
-                          "icon": "user"
-                        }
-                      }
-                    }
-                  ]
-                },
-                {
-                  "id": "hkYDv",
-                  "type": "ref",
-                  "ref": "Z8Bh9",
-                  "name": "Search FAB",
-                  "x": 323,
-                  "y": 770
                 },
                 {
                   "id": "iLzh2",
@@ -12536,7 +12455,7 @@
                   "type": "frame",
                   "id": "rBNGV",
                   "x": 281,
-                  "y": 722,
+                  "y": 784,
                   "name": "Layout Switcher",
                   "width": 96,
                   "height": 36,
@@ -12641,87 +12560,6 @@
                       ]
                     }
                   ]
-                },
-                {
-                  "type": "frame",
-                  "id": "dEo0g",
-                  "x": 16,
-                  "y": 770,
-                  "name": "Tab Bar",
-                  "width": 296,
-                  "height": 58,
-                  "fill": "$--nav-surface",
-                  "cornerRadius": 999,
-                  "stroke": "$--nav-border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "effect": {
-                    "type": "background_blur",
-                    "radius": 18
-                  },
-                  "gap": 4,
-                  "padding": [
-                    0,
-                    8
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "id": "a2YInw",
-                      "type": "ref",
-                      "ref": "W0hEjl",
-                      "name": "Tab / Home",
-                      "descendants": {
-                        "vlofh": {
-                          "icon": "house"
-                        }
-                      }
-                    },
-                    {
-                      "id": "l9cj7I",
-                      "type": "ref",
-                      "ref": "df303",
-                      "name": "Tab / Library",
-                      "descendants": {
-                        "VMRfA": {
-                          "icon": "library-big"
-                        },
-                        "xaEEl": {
-                          "content": "Library"
-                        }
-                      }
-                    },
-                    {
-                      "id": "vTSeV",
-                      "type": "ref",
-                      "ref": "W0hEjl",
-                      "name": "Tab / Fitness",
-                      "descendants": {
-                        "vlofh": {
-                          "icon": "dumbbell"
-                        }
-                      }
-                    },
-                    {
-                      "id": "aV3ZH",
-                      "type": "ref",
-                      "ref": "W0hEjl",
-                      "name": "Tab / Profile",
-                      "descendants": {
-                        "vlofh": {
-                          "icon": "user"
-                        }
-                      }
-                    }
-                  ]
-                },
-                {
-                  "id": "VYVZ2",
-                  "type": "ref",
-                  "ref": "Z8Bh9",
-                  "name": "Search FAB",
-                  "x": 323,
-                  "y": 770
                 },
                 {
                   "id": "X9tFe",
@@ -14751,7 +14589,7 @@
                   "type": "frame",
                   "id": "XDeUA",
                   "x": 281,
-                  "y": 722,
+                  "y": 784,
                   "name": "Layout Switcher",
                   "width": 96,
                   "height": 36,
@@ -14856,87 +14694,6 @@
                       ]
                     }
                   ]
-                },
-                {
-                  "type": "frame",
-                  "id": "He5yE",
-                  "x": 16,
-                  "y": 770,
-                  "name": "Tab Bar",
-                  "width": 296,
-                  "height": 58,
-                  "fill": "$--nav-surface",
-                  "cornerRadius": 999,
-                  "stroke": "$--nav-border",
-                  "strokeWidth": 1,
-                  "strokeAlignment": "inner",
-                  "effect": {
-                    "type": "background_blur",
-                    "radius": 18
-                  },
-                  "gap": 4,
-                  "padding": [
-                    0,
-                    8
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "id": "yty7D",
-                      "type": "ref",
-                      "ref": "W0hEjl",
-                      "name": "Tab / Home",
-                      "descendants": {
-                        "vlofh": {
-                          "icon": "house"
-                        }
-                      }
-                    },
-                    {
-                      "id": "X3l7s6",
-                      "type": "ref",
-                      "ref": "df303",
-                      "name": "Tab / Library",
-                      "descendants": {
-                        "VMRfA": {
-                          "icon": "library-big"
-                        },
-                        "xaEEl": {
-                          "content": "Library"
-                        }
-                      }
-                    },
-                    {
-                      "id": "LH8uf",
-                      "type": "ref",
-                      "ref": "W0hEjl",
-                      "name": "Tab / Fitness",
-                      "descendants": {
-                        "vlofh": {
-                          "icon": "dumbbell"
-                        }
-                      }
-                    },
-                    {
-                      "id": "r6FFRG",
-                      "type": "ref",
-                      "ref": "W0hEjl",
-                      "name": "Tab / Profile",
-                      "descendants": {
-                        "vlofh": {
-                          "icon": "user"
-                        }
-                      }
-                    }
-                  ]
-                },
-                {
-                  "id": "t2v0KK",
-                  "type": "ref",
-                  "ref": "Z8Bh9",
-                  "name": "Search FAB",
-                  "x": 323,
-                  "y": 770
                 },
                 {
                   "id": "zncVO",
