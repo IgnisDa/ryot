@@ -9,7 +9,6 @@ import {
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
-	buildSavedViewLayouts,
 	getBackendClient,
 	installTestPluginBundle,
 	pollProviderEntityImportResult,
@@ -41,7 +40,6 @@ describe("plugins", () => {
 			const externalId = `plugin-entity-${crypto.randomUUID()}`;
 			const schemaSlug = `e2e-lifecycle-entity-${suffix}`;
 			const providerSlug = `e2e-lifecycle-provider-${suffix}`;
-			const viewSlug = `e2e-lifecycle-search-${suffix}`;
 			const automationSlug = `automation.e2e-lifecycle-${suffix}`;
 			const eventSchemaSlug = `${schemaSlug}:${eventSlug}`;
 			const detailsSlug = `${providerSlug}.details`;
@@ -128,7 +126,6 @@ export default defineAutomation({
 			const provider = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					pluginSlug,
-					linkToEntitySchemaSlug: schemaSlug,
 					scripts: [detailsScript, searchScript, automationScript],
 					files: {
 						[searchEntry]: initialSearchSource,
@@ -138,6 +135,7 @@ export default defineAutomation({
 					providers: [
 						{
 							slug: providerSlug,
+							rootEntitySchemaSlug: schemaSlug,
 							information: { source: "e2e" },
 							name: "E2E Lifecycle Provider",
 							operations: { details: detailsSlug, search: searchSlug },
@@ -181,17 +179,6 @@ export default defineAutomation({
 									},
 								},
 							],
-						},
-					],
-					savedViews: [
-						{
-							pluginSlug,
-							icon: "box",
-							name: "Lifecycle Provider Search",
-							slug: viewSlug,
-							sortOrder: 0,
-							layouts: buildSavedViewLayouts({}, [schemaSlug]),
-							sandboxScripts: { search: [searchSlug] },
 						},
 					],
 					eventAutomations: [{ eventSchemaSlug, kind: "subscription", scriptSlug: automationSlug }],
@@ -294,21 +281,14 @@ export default defineAutomation({
 
 			const { client, userId } = yield* createAuthenticatedClient();
 			const search = yield* searchProviderEntities(client, {
-				savedViewSlug: viewSlug,
+				providerId,
 				query: "hot",
 				page: 1,
 				pageSize: 5,
 			});
-			const searchResult = search.providers.find(
-				(candidate) => candidate.providerId === providerId,
-			);
-			assertPresent(searchResult, "Missing reingested provider search result");
-			expect(searchResult.status).toBe("success");
-			if (searchResult.status !== "success") {
-				throw new Error("Expected reingested provider search to succeed");
-			}
-			expect(searchResult.items).toHaveLength(1);
-			const searchItem = searchResult.items[0];
+			expect(search.providerId).toBe(providerId);
+			expect(search.items).toHaveLength(1);
+			const searchItem = search.items[0];
 			assertPresent(searchItem, "Missing provider search item");
 			expect(searchItem.titleProperty).toEqual({
 				kind: "text",
@@ -317,8 +297,7 @@ export default defineAutomation({
 
 			const imported = yield* enqueueProviderEntityImport(client, {
 				externalId: searchItem.externalId,
-				providerId: searchResult.providerId,
-				entitySchemaSlug: searchResult.entitySchemaSlug,
+				providerId: search.providerId,
 			});
 			const importResult = yield* pollProviderEntityImportResult(client, imported.jobId);
 			assertCompleted(importResult, "hot-installed provider import");

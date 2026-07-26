@@ -96,6 +96,14 @@ export const validatePluginManifestReferences = (
 		for (const definition of manifest.savedViews) {
 			yield* assertSlug("saved view", definition.slug);
 		}
+		for (const provider of manifest.providers) {
+			yield* assertSlug("provider", provider.slug);
+			yield* assertReference(
+				"Provider root entity schema",
+				provider.rootEntitySchemaSlug,
+				new Set(Object.keys(snapshot.entitySchemas)),
+			);
+		}
 		for (const script of manifest.scripts) {
 			yield* assertSlug("script", script.slug);
 			if (scriptSlugs.has(script.slug)) {
@@ -164,13 +172,6 @@ export const validatePluginManifestReferences = (
 				),
 			),
 		);
-		for (const binding of manifest.bindings.schemaProviderLinks) {
-			yield* assertReference(
-				"Schema provider binding",
-				binding.entitySchemaSlug,
-				new Set(Object.keys(snapshot.entitySchemas)),
-			);
-		}
 		for (const binding of manifest.bindings.entityAutomations) {
 			yield* assertReference("Entity automation", binding.scriptSlug, scriptSlugs);
 			yield* assertReference(

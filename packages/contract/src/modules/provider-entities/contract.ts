@@ -17,7 +17,7 @@ export const ProviderEntitiesGroup = HttpApiGroup.make("providerEntities")
 			payload: SearchProviderEntitiesBody,
 			success: SearchProviderEntitiesResponse,
 			error: [BadRequest.pipe(HttpApiSchema.status(400)), NotFound.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Searches configured entity providers for a saved view."),
+		}).annotate(OpenApi.Description, "Searches a configured entity provider."),
 	)
 	.add(
 		HttpApiEndpoint.post("import", "/provider-entities/imports", {

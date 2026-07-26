@@ -1,8 +1,12 @@
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import type {
+	PluginManifest,
+	PluginProviderOperation,
+} from "@ryot/contract/modules/plugins/manifest";
 import type {
 	ProviderInformation,
 	SandboxScriptMetadata,
 } from "@ryot/contract/modules/sandbox/schemas";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
@@ -61,6 +65,7 @@ export const sandboxProvider = pgTable(
 	{
 		slug: text().notNull(),
 		name: text().notNull(),
+		rootEntitySchemaSlug: text().notNull(),
 		information: jsonb().$type<ProviderInformation>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		pluginSlug: text()
@@ -77,6 +82,7 @@ export const sandboxProvider = pgTable(
 	},
 	(table) => [
 		index("sandbox_provider_plugin_slug_idx").on(table.pluginSlug),
+		index("sandbox_provider_root_entity_schema_slug_idx").on(table.rootEntitySchemaSlug),
 		unique("sandbox_provider_plugin_slug_unique").on(table.pluginSlug, table.slug),
 	],
 );
@@ -114,6 +120,38 @@ export const sandboxScript = pgTable(
 		uniqueIndex("sandbox_script_kernel_slug_content_hash_unique")
 			.on(table.slug, table.contentHash)
 			.where(sql`${table.pluginSlug} is null`),
+	],
+);
+
+export const sandboxProviderOperation = pgTable(
+	"sandbox_provider_operation",
+	{
+		optionsSchema: jsonb().$type<AppSchema | null>(),
+		operation: text().$type<PluginProviderOperation>().notNull(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		scriptId: text()
+			.notNull()
+			.references(() => sandboxScript.id, { onDelete: "restrict" }),
+		providerId: text()
+			.notNull()
+			.references(() => sandboxProvider.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+	},
+	(table) => [
+		index("sandbox_provider_operation_provider_id_idx").on(table.providerId),
+		index("sandbox_provider_operation_script_id_idx").on(table.scriptId),
+		unique("sandbox_provider_operation_provider_operation_unique").on(
+			table.providerId,
+			table.operation,
+		),
+		unique("sandbox_provider_operation_script_id_unique").on(table.scriptId),
 	],
 );
 

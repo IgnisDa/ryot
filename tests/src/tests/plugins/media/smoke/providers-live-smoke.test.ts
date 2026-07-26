@@ -41,28 +41,20 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
 			const provider = schemaProvider(schema, "OpenLibrary");
 			const search = yield* searchProviderEntities(client, {
-				savedViewSlug: "all-books",
-				query: "The Hobbit",
 				page: 1,
 				pageSize: 5,
+				query: "The Hobbit",
+				providerId: provider.providerId,
 			});
-			const result = search.providers.find(
-				(candidate) =>
-					candidate.providerId === provider.providerId && candidate.status === "success",
-			);
-			assertPresent(result, "Expected OpenLibrary successful provider search result");
-			if (result.status !== "success") {
-				throw new Error("Expected OpenLibrary provider search to succeed");
-			}
-			assertCondition(result.items.length > 0, "OpenLibrary returned no results for 'The Hobbit'");
-			const firstItem = result.items[0];
+			expect(search.providerId).toBe(provider.providerId);
+			assertCondition(search.items.length > 0, "OpenLibrary returned no results for 'The Hobbit'");
+			const firstItem = search.items[0];
 			assertPresent(firstItem, "Expected the first OpenLibrary search item");
 			const externalId = firstItem.externalId;
 
 			const { jobId: importJobId } = yield* enqueueProviderEntityImport(client, {
 				externalId,
-				providerId: result.providerId,
-				entitySchemaSlug: result.entitySchemaSlug,
+				providerId: search.providerId,
 			});
 			const imported = yield* pollProviderEntityImportResult(client, importJobId);
 			assertCompleted(imported, "OpenLibrary import");
