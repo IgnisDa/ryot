@@ -11,7 +11,7 @@ export const requireRowsResult = Effect.fn("requireRyotQLRowsResult")(function* 
 	queryName: string,
 ) {
 	const result = response.data[queryName];
-	if (!result) {
+	if (result?.type !== "rows") {
 		return yield* Effect.die(`Expected RyotQL rows result '${queryName}'`);
 	}
 	return result;

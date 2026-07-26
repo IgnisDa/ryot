@@ -1,8 +1,8 @@
 ## Tasks
 
-**Overall Progress:** 6 of 15 tasks completed
+**Overall Progress:** 7 of 15 tasks completed
 
-**Current Task:** [Task 07](./07-aggregate-outputs.md) (todo)
+**Current Task:** [Task 08](./08-time-series-outputs.md) (todo)
 
 ### Task List
 
@@ -14,7 +14,7 @@
 | 04  | [Event History Migration](./04-event-history-migration.md)                 | completed |
 | 05  | [Relationship Rows And Includes](./05-relationship-rows-and-includes.md)   | completed |
 | 06  | [Correlated Query Expressions](./06-correlated-query-expressions.md)       | completed |
-| 07  | [Aggregate Outputs](./07-aggregate-outputs.md)                             | todo      |
+| 07  | [Aggregate Outputs](./07-aggregate-outputs.md)                             | completed |
 | 08  | [Time-Series Outputs](./08-time-series-outputs.md)                         | todo      |
 | 09  | [Focused Navigation Queries](./09-focused-navigation-queries.md)           | todo      |
 | 10  | [Sandbox Execution And Media Monitoring](./10-sandbox-media-monitoring.md) | todo      |

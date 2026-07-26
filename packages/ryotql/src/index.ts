@@ -1,4 +1,7 @@
 import type {
+	AggregateMeasure,
+	AggregateOrderBy,
+	AggregateOutput,
 	AggregationSpec,
 	ColumnExpression,
 	CorrelatedQuerySet,
@@ -12,6 +15,7 @@ import type {
 	OrderBy,
 	Predicate,
 	RyotQLDocument,
+	RowsOutput,
 	ScalarExpression,
 	TableReference,
 } from "@ryot/contract/modules/ryotql/language";
@@ -177,39 +181,47 @@ export const first = (
 	orderBy: [...input.orderBy] as [OrderBy, ...OrderBy[]],
 });
 
-const aggregate = (
+const correlatedAggregate = (
 	from: TableReference,
 	aggregation: AggregationSpec,
 	input: CorrelatedQueryInput,
 ): AggregateExpression => ({ aggregation, type: "aggregate", query: correlatedQuery(from, input) });
 
 export const count = (from: TableReference, input: CorrelatedQueryInput = {}) =>
-	aggregate(from, { function: "count" }, input);
+	correlatedAggregate(from, { function: "count" }, input);
 export const countDistinct = (
 	from: TableReference,
 	expr: ScalarExpression,
 	input: CorrelatedQueryInput = {},
-) => aggregate(from, { expr, function: "countDistinct" }, input);
+) => correlatedAggregate(from, { expr, function: "countDistinct" }, input);
 export const sum = (
 	from: TableReference,
 	expr: ScalarExpression,
 	input: CorrelatedQueryInput = {},
-) => aggregate(from, { expr, function: "sum" }, input);
+) => correlatedAggregate(from, { expr, function: "sum" }, input);
 export const average = (
 	from: TableReference,
 	expr: ScalarExpression,
 	input: CorrelatedQueryInput = {},
-) => aggregate(from, { expr, function: "average" }, input);
+) => correlatedAggregate(from, { expr, function: "average" }, input);
 export const minimum = (
 	from: TableReference,
 	expr: ScalarExpression,
 	input: CorrelatedQueryInput = {},
-) => aggregate(from, { expr, function: "minimum" }, input);
+) => correlatedAggregate(from, { expr, function: "minimum" }, input);
 export const maximum = (
 	from: TableReference,
 	expr: ScalarExpression,
 	input: CorrelatedQueryInput = {},
-) => aggregate(from, { expr, function: "maximum" }, input);
+) => correlatedAggregate(from, { expr, function: "maximum" }, input);
+
+export const measure = (key: string, aggregation: AggregationSpec): AggregateMeasure => ({
+	key,
+	aggregation,
+});
+
+export const measureAscending = (key: string): AggregateOrderBy => ({ direction: "asc", key });
+export const measureDescending = (key: string): AggregateOrderBy => ({ direction: "desc", key });
 
 export const include = (
 	from: TableReference,
@@ -248,7 +260,7 @@ export const rows = (
 		readonly include?: readonly Include[] | undefined;
 		readonly orderBy?: readonly OrderBy[] | undefined;
 	},
-): NamedQuery => ({
+): NamedQuery & { readonly output: RowsOutput } => ({
 	from,
 	...(input.where ? { where: input.where } : {}),
 	...(input.joins && input.joins.length > 0
@@ -265,6 +277,33 @@ export const rows = (
 	},
 });
 
-export const document = (queries: Readonly<Record<string, NamedQuery>>): RyotQLDocument => ({
-	queries: { ...queries },
+export const aggregate = (
+	from: TableReference,
+	input: {
+		readonly limit?: number | undefined;
+		readonly where?: Predicate | undefined;
+		readonly joins?: readonly Join[] | undefined;
+		readonly groupBy?: readonly FieldSelection[] | undefined;
+		readonly measures: readonly [AggregateMeasure, ...AggregateMeasure[]];
+		readonly orderBy?: readonly [AggregateOrderBy, ...AggregateOrderBy[]] | undefined;
+	},
+): NamedQuery & { readonly output: AggregateOutput } => ({
+	from,
+	...(input.where ? { where: input.where } : {}),
+	...(input.joins && input.joins.length > 0
+		? { joins: [...input.joins] as [Join, ...Join[]] }
+		: {}),
+	output: {
+		type: "aggregate",
+		measures: [...input.measures] as [AggregateMeasure, ...AggregateMeasure[]],
+		...(input.limit !== undefined ? { limit: input.limit } : {}),
+		...(input.groupBy && input.groupBy.length > 0 ? { groupBy: [...input.groupBy] } : {}),
+		...(input.orderBy && input.orderBy.length > 0
+			? { orderBy: [...input.orderBy] as [AggregateOrderBy, ...AggregateOrderBy[]] }
+			: {}),
+	},
 });
+
+export const document = <const Queries extends Readonly<Record<string, NamedQuery>>>(
+	queries: Queries,
+) => ({ queries: { ...queries } }) satisfies RyotQLDocument;

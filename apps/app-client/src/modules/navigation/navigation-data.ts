@@ -53,7 +53,11 @@ function getTextField(row: RowItem, key: string) {
 }
 
 export function mapCollectionsResponse(response: RyotQLResponse) {
-	return response.data.collections.items.flatMap((row, index) => {
+	const collections = response.data.collections;
+	if (collections?.type !== "rows") {
+		return [];
+	}
+	return collections.items.flatMap((row, index) => {
 		const slug = getTextField(row, "id");
 		const name = getTextField(row, "name");
 		if (!slug || !name) {
