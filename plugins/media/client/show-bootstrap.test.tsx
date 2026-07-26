@@ -26,6 +26,7 @@ const metadata = {
 const init: PluginBridgeInit = {
 	mode: "light",
 	safeAreaTop: 0,
+	safeAreaBottom: 0,
 	format: metadata.format,
 	artifactHash: metadata.hash,
 	sessionId: "media-session-id",
@@ -330,7 +331,6 @@ describe("ShowScreen", () => {
 				image.getAttribute("src"),
 			),
 		).toEqual([
-			"https://images.test/backdrop.jpg",
 			"https://images.test/backdrop.jpg",
 			"https://images.test/cover.jpg",
 			"https://images.test/backdrop.jpg",

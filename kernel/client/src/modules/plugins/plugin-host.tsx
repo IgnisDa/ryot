@@ -18,6 +18,7 @@ import {
 	openPluginBridge,
 	type PluginBridgeNavigationState,
 	type PluginBridgeSession,
+	type PluginBridgeViewportInsets,
 	type PluginScreenReadiness,
 } from "#/modules/plugins/bridge";
 import type { PluginOperationDispatchOutcome } from "#/modules/plugins/operations";
@@ -124,12 +125,12 @@ function resolvePluginArtifact(installation: PluginClientCatalogEntry): PluginAr
 
 export function PluginHost(props: {
 	readonly theme: ThemeStore;
-	readonly safeAreaTop: number;
 	readonly onOpenDrawer: () => void;
 	readonly chromeLeading: ReactNode;
 	readonly onStaleSession: () => void;
 	readonly onNavigateBack: () => void;
 	readonly artifactSessionScopeKey: string;
+	readonly viewport: PluginBridgeViewportInsets;
 	readonly installation: PluginClientCatalogEntry;
 	readonly navigation: PluginBridgeNavigationState;
 	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
@@ -157,8 +158,8 @@ export function PluginHost(props: {
 	const resolution = resolvePluginArtifact(props.installation);
 	const chrome = {
 		leading: props.chromeLeading,
-		safeAreaTop: props.safeAreaTop,
 		compact: props.navigation.compact,
+		safeAreaTop: props.viewport.safeAreaTop,
 	};
 	if (resolution.kind === "blocked") {
 		return <PluginNotice {...chrome} status={resolution.status} />;
@@ -168,11 +169,11 @@ export function PluginHost(props: {
 		<PluginFrame
 			theme={props.theme}
 			onQuery={props.onQuery}
+			viewport={props.viewport}
 			onAssets={props.onAssets}
 			onHeader={props.onHeader}
 			onNavigate={props.onNavigate}
 			navigation={props.navigation}
-			safeAreaTop={props.safeAreaTop}
 			onOpenDrawer={props.onOpenDrawer}
 			onScreenState={props.onScreenState}
 			chromeLeading={props.chromeLeading}
@@ -198,7 +199,6 @@ function PluginFrame(props: {
 	readonly theme: ThemeStore;
 	readonly pluginSlug: string;
 	readonly sourceHash: string;
-	readonly safeAreaTop: number;
 	readonly artifactHash: string;
 	readonly installationId: string;
 	readonly chromeLeading: ReactNode;
@@ -206,6 +206,7 @@ function PluginFrame(props: {
 	readonly onStaleSession: () => void;
 	readonly onNavigateBack: () => void;
 	readonly artifactSessionScopeKey: string;
+	readonly viewport: PluginBridgeViewportInsets;
 	readonly navigation: PluginBridgeNavigationState;
 	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
@@ -425,8 +426,8 @@ function PluginFrame(props: {
 	);
 
 	useEffect(() => {
-		bridge.current?.sendViewport(props.safeAreaTop);
-	}, [props.safeAreaTop]);
+		bridge.current?.sendViewport(props.viewport);
+	}, [props.viewport]);
 
 	function connect() {
 		if (artifact.status !== "active") {
@@ -444,8 +445,8 @@ function PluginFrame(props: {
 		const nextBridge = openPluginBridge({
 			target: plugin,
 			artifactHash: props.artifactHash,
+			viewport: latest.current.viewport,
 			navigation: latest.current.navigation,
-			safeAreaTop: latest.current.safeAreaTop,
 			theme: latest.current.theme.getSnapshot(),
 			onReady: () => setFrameStatus("ready"),
 			onOpenDrawer: () => latest.current.onOpenDrawer(),
@@ -506,7 +507,7 @@ function PluginFrame(props: {
 		}
 	}
 
-	const chrome = { compact, leading: props.chromeLeading, safeAreaTop: props.safeAreaTop };
+	const chrome = { compact, leading: props.chromeLeading, safeAreaTop: props.viewport.safeAreaTop };
 	if (artifact.status === "creating") {
 		return <PluginNotice {...chrome} status="loading" />;
 	}
@@ -537,7 +538,7 @@ function PluginFrame(props: {
 						compact={compact}
 						title="Loading plugin"
 						leading={props.chromeLeading}
-						safeAreaTop={props.safeAreaTop}
+						safeAreaTop={props.viewport.safeAreaTop}
 					>
 						<PluginNoticePanel status="loading" />
 					</PluginChromeFrame>

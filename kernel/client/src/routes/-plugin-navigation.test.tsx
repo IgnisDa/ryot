@@ -173,7 +173,12 @@ const connectFrame = (element: HTMLIFrameElement) => {
 	if (init === undefined || pluginPort === undefined) {
 		throw new Error("Plugin bridge did not connect");
 	}
-	const { mode: _mode, safeAreaTop: _safeAreaTop, ...ready } = init;
+	const {
+		mode: _mode,
+		safeAreaTop: _safeAreaTop,
+		safeAreaBottom: _safeAreaBottom,
+		...ready
+	} = init;
 	return { init, ready, messages, pluginPort };
 };
 

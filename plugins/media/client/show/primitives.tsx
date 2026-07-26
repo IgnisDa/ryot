@@ -43,6 +43,7 @@ export function ShowProgressBar(props: { readonly percent: number }) {
 export function ShowRailRow(props: {
 	readonly icon: string;
 	readonly title: string;
+	readonly compact: boolean;
 	readonly detail?: string;
 	readonly divided?: boolean;
 	readonly trailing?: ReactNode;
@@ -55,9 +56,7 @@ export function ShowRailRow(props: {
 			)}
 		>
 			<div className="flex items-center gap-3">
-				<div className="md:hidden">
-					<AppIcon name={props.icon} size={18} className="text-text-subtle" />
-				</div>
+				{props.compact && <AppIcon name={props.icon} size={18} className="text-text-subtle" />}
 				<div className="min-w-0 flex-1">
 					<p className="font-ui font-medium text-[14px] text-text">{props.title}</p>
 					{props.detail === undefined ? null : (
@@ -72,17 +71,23 @@ export function ShowRailRow(props: {
 
 export function ShowOverviewSection(props: {
 	readonly title: string;
+	readonly compact: boolean;
 	readonly divided?: boolean;
 	readonly action?: ReactNode;
-	readonly className?: string;
 	readonly children: ReactNode;
+	readonly className?: string | undefined;
 }) {
 	return (
 		<section
 			className={clsx(props.divided !== false && "border-t border-border pt-5", props.className)}
 		>
 			<div className="flex items-center justify-between gap-3 pb-4">
-				<h2 className="font-display font-semibold text-[17px] text-text md:text-xl">
+				<h2
+					className={clsx(
+						"font-display font-semibold text-text",
+						props.compact ? "text-[17px]" : "text-xl",
+					)}
+				>
 					{props.title}
 				</h2>
 				{props.action}
@@ -113,6 +118,7 @@ export function ShowLinkButton(props: {
 
 export function ShowActionButton(props: {
 	readonly label: string;
+	readonly compact: boolean;
 	readonly onClick: () => void;
 	readonly variant: "primary" | "secondary";
 }) {
@@ -122,7 +128,8 @@ export function ShowActionButton(props: {
 			type="button"
 			onClick={props.onClick}
 			className={clsx(
-				"flex h-12 flex-1 items-center justify-center rounded-md md:h-8 md:w-full md:flex-none",
+				"flex items-center justify-center rounded-md",
+				props.compact ? "h-12 flex-1" : "h-8 w-full flex-none",
 				isPrimary ? "bg-accent" : "border border-border bg-surface-2",
 			)}
 		>
