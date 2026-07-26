@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { Slot } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -56,49 +57,55 @@ function WorkspaceShellContent() {
 						accessibilityLabel="Close navigation overlay"
 						onPress={() => setIsWorkspaceOpen(false)}
 					/>
-					<View className="absolute left-69.5 top-19.5 z-50 hidden w-[320px] rounded-xl border border-border bg-surface p-3 shadow-card md:flex">
-						<View className="flex-row items-center justify-between px-1 pb-2">
-							<Text className="font-ui-semibold text-xs uppercase tracking-[1.6px] text-text-subtle">
-								Workspaces
-							</Text>
-							<Pressable
-								accessibilityRole="button"
-								accessibilityLabel="Close workspace switcher"
-								onPress={() => setIsWorkspaceOpen(false)}
-							>
-								<NavigationIcon className="text-text-muted" name="x" size={15} />
-							</Pressable>
-						</View>
-						<View className="h-8 flex-row items-center gap-2 rounded-md border border-border bg-bg px-2">
+					<View className="absolute left-3.5 top-19.5 z-50 hidden w-[320px] flex-col gap-2.5 rounded-[14px] border border-border bg-surface p-3 shadow-card md:flex">
+						<Text className="font-mono text-[10px] font-normal uppercase tracking-[1.1px] text-text-subtle">
+							Workspaces
+						</Text>
+						<View className="flex-row items-center gap-2 rounded-lg border border-border-strong bg-transparent px-2.5 py-2">
 							<NavigationIcon className="text-text-muted" name="search" size={14} />
 							<Text className="font-ui text-xs text-text-muted">Find workspace</Text>
 						</View>
-						<View className="mt-2 gap-1">
+						<View className="w-full gap-2">
 							{navigation.data.workspaces.map((item) => {
 								const workspaceItems = getNavigationItems({
 									data: navigation.data,
 									workspaceSlug: item.slug,
 								});
+								const isCurrent = item.slug === navigation.workspace.slug;
 								return (
 									<Pressable
 										key={item.slug}
 										accessibilityRole="button"
 										onPress={() => selectWorkspace(item.slug)}
 										accessibilityLabel={`Switch to ${item.name} workspace`}
-										className="flex-row items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-2"
+										className={clsx(
+											"w-full flex-row items-center gap-3 rounded-xl border px-3 py-3",
+											isCurrent ? "border-accent bg-accent-soft" : "border-border bg-surface",
+										)}
 									>
-										<View className="h-8 w-8 items-center justify-center rounded-md bg-accent-soft">
-											<NavigationIcon className="text-accent-text" name={item.icon} size={15} />
+										<View
+											className={clsx(
+												"h-9 w-9 items-center justify-center rounded-[10px]",
+												isCurrent ? "bg-accent" : "bg-surface-2",
+											)}
+										>
+											<NavigationIcon
+												size={18}
+												name={item.icon}
+												className={clsx(isCurrent ? "text-accent-ink" : "text-text")}
+											/>
 										</View>
 										<View className="flex-1">
-											<Text className="font-ui-medium text-xs text-text">{item.name}</Text>
+											<Text className="font-ui text-[15px] text-text">{item.name}</Text>
 											<Text className="font-ui text-xs text-text-muted">
 												{getWorkspacePickerSummary(workspaceItems)}
 											</Text>
 										</View>
-										{item.slug === navigation.workspace.slug && (
-											<NavigationIcon className="text-accent-text" name="check" size={15} />
-										)}
+										<NavigationIcon
+											size={16}
+											name={isCurrent ? "circle-check" : "chevron-right"}
+											className={clsx(isCurrent ? "text-accent-text" : "text-text-subtle")}
+										/>
 									</Pressable>
 								);
 							})}
