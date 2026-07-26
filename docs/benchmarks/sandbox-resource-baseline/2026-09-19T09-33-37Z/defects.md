@@ -213,6 +213,31 @@ provenance fields in defect 16, which were declared for a whole baseline before 
 The completion notification for the `soak-hermetic-import` process reported exit 0 for a process that
 exited 1. The `exit=` line in the captured log was correct. Trust the log line, not the notification.
 
+### 26. The teardown record describes a state that never existed
+
+**Status:** open; the manifest record was corrected by hand.
+
+`run.ts teardown` reads `remaining` (the contents of the tools directory) and `processes` **before**
+`--remove-samples` deletes the files, so the manifest records the pre-teardown listing as the
+outcome of teardown. This run's record named `app.jsonl`, `host.jsonl`, `profiles`,
+`watchdog-drill.jsonl` and `watchdog-triggers.jsonl` as remaining; the same command had just deleted
+all five.
+
+The `processes` probe is worse: `pgrep -f ryot-benchmark-host` runs inside a shell whose own command
+line contains the pattern, so it matches itself. It returns `running` whether or not a sampler is
+alive — verified after teardown, with `pgrep -f` reporting a match and `pgrep -af` listing only the
+probe's own `bash -c`. The field is invariant to the thing it reports, the same failure mode as
+`stall-check.sh` in defect 19.
+
+**Effect:** the one record of how the benchmark VM was left is wrong in both fields, and neither is
+recoverable after the fact because the files are gone. The verified state — `ryot-benchmark-host`,
+`smoke.jsonl`, `smoke.pid` and `watchdog-triggers.attempt1-archive.jsonl` remaining, no sampler
+process — was captured over ssh after the command returned and is recorded in the manifest under
+`remainingAfterRemoval` and `processesVerified`.
+
+The fix is to read both fields after the removal step and to anchor the process probe so it cannot
+match its own invocation.
+
 ## Harness defects fixed during the run
 
 Each of these aborted or corrupted at least one phase before it was fixed. They are listed in the
@@ -346,6 +371,7 @@ Recorded in `manifest.json`; summarized here.
 5. The manifest was completed by hand after defect 12.
 6. The seven phase invocation records were reconstructed from the artifacts, per defect 11.
 7. The manifest `profiles` block was filled by hand from `profiles/summary.json`, per defect 13.
+8. The manifest `teardown` block was corrected by hand, per defect 26.
 
 ## Open follow-up
 
@@ -356,6 +382,9 @@ When Effect publishes a release that fixes #8312:
 2. Deploy to the benchmark service and pass sampling preflight.
 3. Rerun the Phase 12 live concurrency matrix **and** `soak-hermetic-import` into a new run
    directory. The soak is required for a retention figure; the one in this run accrued under stall.
+   This run's benchmark infrastructure was torn down on 2026-09-21 — samplers stopped, sample files
+   and raw profiles removed from the VM, admin token deleted — so the rerun starts from a fresh
+   provision and preflight, not from what is left on `ur-testing.ryot.io`.
 4. ~~Consider a longer `soak-control` at a higher operation count, to separate a slow leak from
    allocator high-water.~~ Done, twice. `soak-control-extended` ran 1 000 direct executions on
    2026-09-20 and again on 2026-09-21, returning fitted slopes of 38.5 and 35.5 MiB per 1 000
