@@ -1,10 +1,4 @@
-import type {
-	FieldValue,
-	IncludeResult,
-	RowItem,
-	RowsResult,
-	RyotQLResult,
-} from "@ryot/contract/modules/ryotql/language";
+import type { FieldValue, IncludeResult, RowItem } from "@ryot/contract/modules/ryotql/language";
 import {
 	and,
 	ascending,
@@ -35,16 +29,10 @@ import {
 	createRelationship,
 	createRelationshipSchema,
 	executeRyotQL,
+	requireRows,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-const requireRows = (result: RyotQLResult | undefined, key: string): RowsResult => {
-	if (result?.type !== "rows") {
-		throw new Error(`Expected '${key}' rows`);
-	}
-	return result;
-};
 
 const requireField = (item: RowItem, key: string): FieldValue => {
 	const value = item[key];

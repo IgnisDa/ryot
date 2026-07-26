@@ -26,6 +26,7 @@ import {
 	listSavedViews,
 	waitForSeededExerciseIds,
 	requireRyotQLFieldValue,
+	requireRows,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -249,10 +250,7 @@ describe("Workout Templates E2E", () => {
 					client,
 					buildWorkoutTemplateListQueryDocument({ entityId: workoutTemplateId }),
 				);
-				const templates = result.data["workoutTemplates"];
-				if (templates?.type !== "rows") {
-					throw new Error("Expected workout templates rows result");
-				}
+				const templates = requireRows(result.data["workoutTemplates"], "workoutTemplates");
 
 				const firstTemplate = templates.items[0];
 				assertPresent(firstTemplate, "Expected at least one workout template item");
@@ -395,10 +393,7 @@ describe("Workout Templates E2E", () => {
 				client,
 				buildWorkoutDetailQueryDocument({ entityId: workoutId, templateLimit: 1 }),
 			);
-			const workouts = result.data["workout"];
-			if (workouts?.type !== "rows") {
-				throw new Error("Expected workout rows result");
-			}
+			const workouts = requireRows(result.data["workout"], "workout");
 			expect(workouts.items).toHaveLength(1);
 			const workoutRow = workouts.items[0];
 			assertPresent(workoutRow, "Expected workout row");
@@ -446,10 +441,7 @@ describe("Workout Templates E2E", () => {
 				client,
 				buildWorkoutTemplateDetailQueryDocument({ entityId: workoutTemplateId, workoutLimit: 10 }),
 			);
-			const templates = result.data["workoutTemplate"];
-			if (templates?.type !== "rows") {
-				throw new Error("Expected workout template rows result");
-			}
+			const templates = requireRows(result.data["workoutTemplate"], "workoutTemplate");
 			expect(templates.items).toHaveLength(1);
 			const templateRow = templates.items[0];
 			assertPresent(templateRow, "Expected workout template row");

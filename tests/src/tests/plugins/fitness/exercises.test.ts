@@ -22,6 +22,7 @@ import {
 	mergeUserState,
 	pollUntil,
 	requireRyotQLFieldValue,
+	requireRows,
 } from "~/fixtures";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -39,10 +40,7 @@ const waitForSeededExercise = (client: Client) =>
 				buildExerciseListQueryDocument({ limit: 1, name: seededExerciseName }),
 			);
 
-			const exercises = result.data["exercises"];
-			if (exercises?.type !== "rows") {
-				throw new Error("Expected exercises rows result");
-			}
+			const exercises = requireRows(result.data["exercises"], "exercises");
 			return exercises.items[0] ?? null;
 		}),
 	);

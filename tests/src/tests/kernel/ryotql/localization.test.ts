@@ -1,4 +1,3 @@
-import type { RowsResult, RyotQLResult } from "@ryot/contract/modules/ryotql/language";
 import {
 	and,
 	ascending,
@@ -26,6 +25,7 @@ import {
 	getBackendClient,
 	installTestProvider,
 	requireRyotQLFieldValue,
+	requireRows,
 	seedEntityTranslation,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
@@ -34,13 +34,6 @@ import {
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-const requireRows = (result: RyotQLResult | undefined, name: string): RowsResult => {
-	if (result?.type !== "rows") {
-		throw new Error(`Expected '${name}' rows`);
-	}
-	return result;
-};
 
 const localizedDocument = (schemaSlug: string) => {
 	const entity = table("entity", "entity");

@@ -9,6 +9,7 @@ import {
 	makeSession,
 	requireRyotQLFieldValue,
 	requireRyotQLTextField,
+	requireRows,
 	signInWithPassword,
 } from "~/fixtures";
 import { assert, describe, expect, it } from "~/support/effect-test";
@@ -66,8 +67,7 @@ describe("Email sign-up", () => {
 						}),
 					}),
 				);
-				const libraries = libraryResponse.data.libraries;
-				assert(libraries?.type === "rows");
+				const libraries = requireRows(libraryResponse.data.libraries, "libraries");
 				expect(libraries.items).toHaveLength(1);
 				const libraryRow = libraries.items[0];
 				assert(libraryRow);

@@ -22,6 +22,7 @@ import {
 	waitForSeededExerciseId,
 	waitForSessionEventCount,
 	requireRyotQLFieldValue,
+	requireRows,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -163,10 +164,7 @@ describe("Workouts E2E", () => {
 			yield* createWorkoutEntityFixture(client);
 
 			const result = yield* executeRyotQL(client, buildWorkoutListQueryDocument({}));
-			const workouts = result.data["workouts"];
-			if (workouts?.type !== "rows") {
-				throw new Error("Expected workouts rows result");
-			}
+			const workouts = requireRows(result.data["workouts"], "workouts");
 
 			const firstWorkout = workouts.items[0];
 			assertPresent(firstWorkout, "Expected at least one workout item");

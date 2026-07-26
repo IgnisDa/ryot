@@ -15,6 +15,7 @@ import {
 	listEntitySchemas,
 	listSavedViews,
 	requireRyotQLFieldValue,
+	requireRows,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -126,10 +127,7 @@ describe("Measurements E2E", () => {
 			yield* createMeasurementEntityFixture(client);
 
 			const result = yield* executeRyotQL(client, buildMeasurementListQueryDocument({}));
-			const measurements = result.data["measurements"];
-			if (measurements?.type !== "rows") {
-				throw new Error("Expected measurements rows result");
-			}
+			const measurements = requireRows(result.data["measurements"], "measurements");
 
 			const firstItem = measurements.items[0];
 			assertPresent(firstItem, "Expected at least one measurement item");
