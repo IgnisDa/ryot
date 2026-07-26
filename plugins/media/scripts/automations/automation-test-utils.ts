@@ -132,8 +132,10 @@ export const hostSuccess = <Data>(data: Data) => Effect.succeed(data);
 
 export const hostFailure = (message = "not found") => Effect.fail({ message });
 
+const stringifyJson = (value: unknown): string | undefined => JSON.stringify(value);
+
 const ryotqlField = (key: string, value: unknown) => {
-	const textValue = typeof value === "string" ? value : (JSON.stringify(value) ?? "");
+	const textValue = typeof value === "string" ? value : (stringifyJson(value) ?? "");
 	if (value === null) {
 		return { kind: "null" as const, value };
 	}
