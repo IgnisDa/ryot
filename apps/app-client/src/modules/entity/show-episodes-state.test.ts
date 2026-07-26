@@ -25,6 +25,7 @@ import {
 	showSeasonCompletionPercent,
 	showSeasonDescription,
 	showSeasonEpisodeCountLabel,
+	showSeasonEpisodeEntityIds,
 	showSeasonLabel,
 	showSeasonReleaseLabel,
 } from "./show-episodes-state";
@@ -78,6 +79,20 @@ describe("show episodes state", () => {
 			status: "ready",
 			season: { id: "season-1", episodes: { items: [{ id: "episode-1" }] } },
 		});
+	});
+
+	it("selects loaded episode IDs for entity interest", () => {
+		const loading = mapShowSeasonEpisodes(AsyncResult.initial(true));
+		const ready = mapShowSeasonEpisodes(
+			AsyncResult.success(
+				decodeShowSeasonEpisodesResult({
+					episodes: [showEpisodeRow, episode({ id: "episode-2", episodeNumber: 2 })],
+				}),
+			),
+		);
+
+		expect(showSeasonEpisodeEntityIds(loading)).toEqual([]);
+		expect(showSeasonEpisodeEntityIds(ready)).toEqual(["episode-1", "episode-2"]);
 	});
 
 	it("keeps error copy free of decoder and transport internals", () => {

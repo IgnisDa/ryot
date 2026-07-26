@@ -8,9 +8,11 @@ Consumers register an owner string, an entity-ID set, a `foreground`, `visible`,
 
 Every connection starts with a complete revision-1 `replace` snapshot. Later commands contain only additions and removals. Additions are batched for 100 ms, removals have a two-second grace period, and only one command can await `applied` at a time. Changes made while waiting are coalesced into the next revision. Reconnects discard socket revision state and send a new snapshot.
 
-The provider acquires a new short-lived ticket for every attempt, authenticates as the first frame, and retries with exponential delays from one to 30 seconds. App foreground and network recovery use the shared app revalidation signal. The WebSocket URL contains no ticket or long-lived credentials.
+The provider loads the current metadata language before connecting, acquires a new short-lived ticket for every attempt, authenticates as the first frame, and retries with exponential delays from one to 30 seconds. A metadata-language change invalidates user settings and replaces the connection so the new ticket and session use the current preference. App foreground and network recovery use the shared app revalidation signal. The WebSocket URL contains no ticket or long-lived credentials.
 
 Incoming `entity-updated` messages are routed only to owners currently registered for that entity. The coordinator is not an entity cache.
+
+Translation is demand-driven for each exact entity ID. Consumers must register every loaded entity whose localized fields they display, not only the root entity that led to it.
 
 ## Consumer Batching
 
@@ -27,3 +29,7 @@ Each batched entity update triggers one structural refetch of the loaded page ra
 ## Show Overview
 
 The show overview registers its root entity and loaded people, companies, and recommendations at `visible` priority. Updates for any registered entity refresh the overview.
+
+## Show Episodes
+
+The episodes tab registers the show, the selected season, and every loaded episode at `visible` priority. This requests missing translations for episode names and descriptions, and any completion refreshes the selected-season query.

@@ -13,6 +13,7 @@ import {
 	showSeasonEpisodesAtom,
 	showSummaryAtom,
 } from "./atoms";
+import { showSeasonEpisodeEntityIds } from "./show-episodes-state";
 import { showOverviewEntityIds } from "./show-overview-state";
 
 function useShowQuery<State extends { readonly status: string }>(props: {
@@ -82,7 +83,8 @@ export const useShowSeasonEpisodes = (entityId: string, seasonId: string | null)
 		label: "show season episodes",
 		owner: `show-season-episodes:${seasonId ?? entityId}`,
 		atom: showSeasonEpisodesAtom({ scope, entityId, seasonId }),
-		selectEntityIds: () => (seasonId === null ? [entityId] : [entityId, seasonId]),
+		selectEntityIds: (state) =>
+			seasonId === null ? [entityId] : [entityId, seasonId, ...showSeasonEpisodeEntityIds(state)],
 	});
 };
 

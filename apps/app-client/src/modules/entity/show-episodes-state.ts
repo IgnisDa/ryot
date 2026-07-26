@@ -159,6 +159,9 @@ export const showSeasonDescription = (season: ShowSeason) => optionalText(season
 
 export const showEpisodeSynopsis = (episode: ShowEpisode) => optionalText(episode.description);
 
+export const showSeasonEpisodeEntityIds = (state: ShowSeasonEpisodesState) =>
+	state.status === "ready" ? state.season.episodes.items.map(({ id }) => id) : [];
+
 export const showSeasonReleaseLabel = (season: ShowSeason) => mediaDateLabel(season.releaseDate);
 
 export const showEpisodeAirDateLabel = (episode: ShowEpisode) =>
