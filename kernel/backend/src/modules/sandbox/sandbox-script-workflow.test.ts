@@ -888,7 +888,7 @@ it.effect("dispatches migrated script activity requests as child workflows", () 
 				index: 0,
 				name: "parse",
 				kind: "activity",
-				args: { input: {}, scriptSlug: "import.watcharr" },
+				args: { input: {}, scriptSlug: "import.kappa" },
 			},
 			SandboxScriptId.make("import-script"),
 			{
@@ -931,7 +931,7 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 				index: 4,
 				kind: "child",
 				name: "import-3",
-				args: { input: { externalId: "book-1" }, workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW },
+				args: { input: { externalId: "record-1" }, workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW },
 			},
 			undefined,
 			{
@@ -948,7 +948,7 @@ it.effect("dispatches library imports with the parent workflow authority", () =>
 		expect(calls).toEqual([
 			{
 				parentExecutionId: "parent",
-				input: { externalId: "book-1" },
+				input: { externalId: "record-1" },
 				callerScriptId: "parent-script",
 				executionId: "parent-child-import-3-4",
 				workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,

@@ -56,14 +56,18 @@ const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
 	lastFinishedAt: null,
 	userId: input.userId,
 	syncOwnership: false,
-	provider: "plex_yank",
+	provider: "lambda_yank",
 	pluginSlug: "fixture",
 	id: input.integrationId,
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
-	pluginInstallationId: "media-installation",
+	pluginInstallationId: "example-installation",
 	extraSettings: { disableOnContinuousErrors: false },
-	providerSpecifics: { kind: "plex_yank", token: "plex-token", baseUrl: "https://plex.example" },
+	providerSpecifics: {
+		kind: "lambda_yank",
+		token: "lambda-token",
+		baseUrl: "https://lambda.example",
+	},
 });
 
 const runInput = (
@@ -145,9 +149,9 @@ describe("getCurrentIntegration", () => {
 			expect(integration.id).toBe("int-trusted");
 			expect(integration).not.toHaveProperty("pluginSlug");
 			expect(integration.providerSpecifics).toEqual({
-				kind: "plex_yank",
-				token: "plex-token",
-				baseUrl: "https://plex.example",
+				kind: "lambda_yank",
+				token: "lambda-token",
+				baseUrl: "https://lambda.example",
 			});
 		}),
 	);
@@ -230,9 +234,9 @@ const ryotqlResponse = {
 
 const systemPluginScope = {
 	eventSchemas: [],
-	pluginSlug: "media",
-	entitySchemaSlugs: ["media"],
-	relationshipSchemaSlugs: ["media-monitoring"],
+	pluginSlug: "example",
+	entitySchemaSlugs: ["example"],
+	relationshipSchemaSlugs: ["example-monitoring"],
 };
 
 const runExecuteRyotql = (
@@ -293,9 +297,9 @@ describe("executeRyotql", () => {
 					document: ryotqlDocument,
 					scope: {
 						eventSchemas: [],
-						pluginSlug: "media",
-						entitySchemaSlugs: ["media"],
-						relationshipSchemaSlugs: ["media-monitoring"],
+						pluginSlug: "example",
+						entitySchemaSlugs: ["example"],
+						relationshipSchemaSlugs: ["example-monitoring"],
 					},
 				},
 			]);
@@ -628,7 +632,7 @@ const runEnsureUserEntities = (options: {
 						name: "Workspace",
 						mergeIdentityProperties: [],
 						propertiesSchema: { fields: {} },
-						pluginSlug: options.schemaPluginSlug ?? "media",
+						pluginSlug: options.schemaPluginSlug ?? "example",
 					}),
 				}),
 			),
@@ -643,7 +647,7 @@ describe("ensureUserEntities", () => {
 			const run = () =>
 				runEnsureUserEntities({
 					authority: { type: "user", userId: UserId.make("trusted-user") },
-					caller: { pluginSlug: "media", entitySchemaSlugs: ["workspace"] },
+					caller: { pluginSlug: "example", entitySchemaSlugs: ["workspace"] },
 					ensure: (userId, items) => {
 						calls.push({ userId, items });
 						attempt += 1;
@@ -673,7 +677,7 @@ describe("ensureUserEntities", () => {
 
 	it.effect("rejects delegated, system, untrusted, and foreign-schema executions", () =>
 		Effect.gen(function* () {
-			const trusted = { pluginSlug: "media", entitySchemaSlugs: ["workspace"] };
+			const trusted = { pluginSlug: "example", entitySchemaSlugs: ["workspace"] };
 			const delegated = yield* runEnsureUserEntities({
 				caller: trusted,
 				authority: subscriptionAuthority({ kind: "api" }),
@@ -688,7 +692,7 @@ describe("ensureUserEntities", () => {
 			});
 			const foreign = yield* runEnsureUserEntities({
 				caller: trusted,
-				schemaPluginSlug: "fitness",
+				schemaPluginSlug: "sample",
 				authority: { type: "user", userId: UserId.make("user-1") },
 			});
 

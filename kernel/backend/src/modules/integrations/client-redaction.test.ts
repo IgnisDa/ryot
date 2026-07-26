@@ -10,7 +10,7 @@ const integration = (): IntegrationRecord => ({
 	lot: "yank",
 	isDisabled: false,
 	minimumProgress: 2,
-	pluginSlug: "media",
+	pluginSlug: "example",
 	maximumProgress: 95,
 	syncOwnership: false,
 	lastFinishedAt: null,
@@ -19,7 +19,7 @@ const integration = (): IntegrationRecord => ({
 	userId: UserId.make("user-1"),
 	createdAt: "2026-07-27T00:00:00.000Z",
 	updatedAt: "2026-07-27T00:00:00.000Z",
-	pluginInstallationId: "media-installation",
+	pluginInstallationId: "example-installation",
 	id: IntegrationId.make("integration-1"),
 	extraSettings: { disableOnContinuousErrors: false },
 	providerSpecifics: { token: "secret-token", endpoint: "https://provider.test" },
@@ -29,16 +29,16 @@ const registered = (
 	fields: RegisteredIntegrationProvider["settingsSchema"]["fields"],
 ): RegisteredIntegrationProvider => ({
 	lot: "yank",
-	pluginSlug: "media",
+	pluginSlug: "example",
 	name: "Test provider",
 	pluginScope: "system",
 	slug: "test-provider",
 	description: "Test yank",
 	settingsSchema: { fields },
-	pluginId: "media-plugin-id",
-	installationId: "media-installation",
+	pluginId: "example-plugin-id",
+	installationId: "example-installation",
 	scriptSlug: "integration.test-provider",
-	configContext: { kind: "environment", pluginSlug: "media", configSchema: { fields: {} } },
+	configContext: { kind: "environment", pluginSlug: "example", configSchema: { fields: {} } },
 });
 
 it("omits top-level secret settings and keeps nonsecret siblings", () => {

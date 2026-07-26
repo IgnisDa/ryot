@@ -429,7 +429,7 @@ it.effect("awaits EventCreateWorkflow for a newly inserted membership", () => {
 			getEntityForMembership: () =>
 				Effect.succeed({
 					userId: user.id,
-					entitySchemaSlug: "book",
+					entitySchemaSlug: "record",
 					id: EntityId.make("entity-id"),
 				}),
 			getCollectionById: () =>
@@ -490,7 +490,7 @@ it.effect("awaits the same stable child for existing membership calls without co
 			getEntityForMembership: () =>
 				Effect.succeed({
 					userId: user.id,
-					entitySchemaSlug: "book",
+					entitySchemaSlug: "record",
 					id: EntityId.make("entity-id"),
 				}),
 			getCollectionById: () =>
@@ -553,7 +553,11 @@ it.effect("compensates a newly inserted membership when the awaited policy fails
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
-				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+				Effect.succeed({
+					userId: null,
+					entitySchemaSlug: "record",
+					id: EntityId.make("entity-id"),
+				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					name: "Coll",
@@ -612,7 +616,11 @@ it.effect("compensates when child workflow execution fails", () => {
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
-				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+				Effect.succeed({
+					userId: null,
+					entitySchemaSlug: "record",
+					id: EntityId.make("entity-id"),
+				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					name: "Coll",
@@ -668,7 +676,11 @@ it.effect("compensates a non-inserting caller when the shared child fails", () =
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
-				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+				Effect.succeed({
+					userId: null,
+					entitySchemaSlug: "record",
+					id: EntityId.make("entity-id"),
+				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					name: "Coll",
@@ -742,7 +754,11 @@ it.effect("can insert and run policy again after a compensated failure", () => {
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
-				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+				Effect.succeed({
+					userId: null,
+					entitySchemaSlug: "record",
+					id: EntityId.make("entity-id"),
+				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					name: "Coll",
@@ -831,7 +847,11 @@ it.effect("retries compensation after a prior compensation failure", () => {
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
-				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+				Effect.succeed({
+					userId: null,
+					entitySchemaSlug: "record",
+					id: EntityId.make("entity-id"),
+				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					name: "Coll",
@@ -907,7 +927,11 @@ it.effect("writes only member-of for a global collection member", () => {
 		}),
 		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
-				Effect.succeed({ userId: null, entitySchemaSlug: "book", id: EntityId.make("entity-id") }),
+				Effect.succeed({
+					userId: null,
+					entitySchemaSlug: "record",
+					id: EntityId.make("entity-id"),
+				}),
 			getCollectionById: () =>
 				Effect.succeed({
 					name: "Coll",
@@ -942,7 +966,7 @@ it.effect("returns not found when removing entity not in collection", () => {
 			getEntityForMembership: () =>
 				Effect.succeed({
 					userId: user.id,
-					entitySchemaSlug: "book",
+					entitySchemaSlug: "record",
 					id: EntityId.make("entity-id"),
 				}),
 			getCollectionById: () =>
@@ -1010,7 +1034,7 @@ it.effect("creates remove event on successful membership deletion", () => {
 			getEntityForMembership: () =>
 				Effect.succeed({
 					userId: user.id,
-					entitySchemaSlug: "book",
+					entitySchemaSlug: "record",
 					id: EntityId.make("entity-id"),
 				}),
 			getCollectionById: () =>

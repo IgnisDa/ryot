@@ -55,9 +55,9 @@ it.effect("preserves provider provenance when enqueueing a translation fill", ()
 		const service = yield* TranslationsService;
 		yield* service.requestFill({
 			language: "es",
-			externalId: "book-1",
-			entitySchemaSlug: "book",
-			properties: { title: "Book" },
+			externalId: "record-1",
+			entitySchemaSlug: "record",
+			properties: { title: "Record" },
 			userId: UserId.make("user-1"),
 			entityId: EntityId.make("entity-1"),
 			providerId: SandboxProviderId.make("provider-1"),
@@ -69,9 +69,9 @@ it.effect("preserves provider provenance when enqueueing a translation fill", ()
 					language: "es",
 					userId: "user-1",
 					entityId: "entity-1",
-					externalId: "book-1",
+					externalId: "record-1",
 					providerId: "provider-1",
-					entitySchemaSlug: "book",
+					entitySchemaSlug: "record",
 				},
 			},
 		]);
@@ -95,9 +95,9 @@ it.effect("keeps the deterministic ID and exposes translation enqueue failure", 
 		const exit = yield* Effect.exit(
 			service.requestFill({
 				language: "es",
-				externalId: "book-1",
-				entitySchemaSlug: "book",
-				properties: { title: "Book" },
+				externalId: "record-1",
+				entitySchemaSlug: "record",
+				properties: { title: "Record" },
 				userId: UserId.make("user-1"),
 				entityId: EntityId.make("entity-1"),
 				providerId: SandboxProviderId.make("provider-1"),

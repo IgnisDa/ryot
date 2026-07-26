@@ -76,8 +76,8 @@ const runSystemConfig = (
 
 describe("getPluginConfig", () => {
 	it("derives stable environment keys from the plugin slug and config key", () => {
-		expect(pluginConfigEnvironmentKey("media-tools", "apiToken")).toBe(
-			"RYOT_PLUGIN_MEDIA_TOOLS_API_TOKEN",
+		expect(pluginConfigEnvironmentKey("example-tools", "apiToken")).toBe(
+			"RYOT_PLUGIN_EXAMPLE_TOOLS_API_TOKEN",
 		);
 	});
 

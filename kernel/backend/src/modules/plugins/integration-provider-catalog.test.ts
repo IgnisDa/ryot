@@ -99,23 +99,23 @@ const catalogLayer = () => {
 	const loader = makePluginLoader(makeDefinitionRegistry());
 	loader.rebuild([
 		pluginWithProviders("zebra", [
-			{ settingsSchema, slug: "radarr", lot: "push", name: "Radarr", description: "Radarr push" },
+			{ settingsSchema, slug: "iota", lot: "push", name: "Iota", description: "Iota push" },
 		]),
 		pluginWithProviders("apple", [
 			{
 				lot: "sink",
-				name: "Plex",
-				slug: "plex",
+				name: "Lambda",
+				slug: "lambda",
 				settingsSchema,
-				description: "Plex sink",
+				description: "Lambda sink",
 				scriptSlug: "apple.automation",
 			},
 			{
 				lot: "yank",
-				slug: "komga",
-				name: "Komga",
+				slug: "theta",
+				name: "Theta",
 				settingsSchema,
-				description: "Komga yank",
+				description: "Theta yank",
 				scriptSlug: "apple.automation",
 			},
 		]),
@@ -134,7 +134,7 @@ it.effect("lists providers from every plugin ordered by plugin slug then provide
 
 		expect(
 			(yield* catalog.listForUser(userId)).map(({ pluginSlug, slug }) => `${pluginSlug}/${slug}`),
-		).toEqual(["apple/komga", "apple/plex", "zebra/radarr"]);
+		).toEqual(["apple/lambda", "apple/theta", "zebra/iota"]);
 	}).pipe(Effect.provide(catalogLayer())),
 );
 
@@ -142,7 +142,7 @@ it.effect("resolves a provider lot, script binding and installation identity by 
 	Effect.gen(function* () {
 		const catalog = yield* IntegrationProviderCatalog;
 
-		expect(yield* catalog.findForUser(userId, "komga")).toMatchObject({
+		expect(yield* catalog.findForUser(userId, "theta")).toMatchObject({
 			lot: "yank",
 			pluginSlug: "apple",
 			pluginScope: "system",
@@ -151,11 +151,11 @@ it.effect("resolves a provider lot, script binding and installation identity by 
 			installationId: "apple-plugin-id-installation",
 			configContext: { kind: "environment", pluginSlug: "apple" },
 		});
-		expect(yield* catalog.findForUser(userId, "radarr")).toMatchObject({
+		expect(yield* catalog.findForUser(userId, "iota")).toMatchObject({
 			lot: "push",
 			scriptSlug: null,
 		});
-		expect(yield* catalog.findForUser(userId, "audiobookshelf")).toBeNull();
+		expect(yield* catalog.findForUser(userId, "mu")).toBeNull();
 	}).pipe(Effect.provide(catalogLayer())),
 );
 
@@ -164,10 +164,10 @@ it.effect("does not resolve a provider for another installation", () =>
 		const catalog = yield* IntegrationProviderCatalog;
 
 		expect(
-			yield* catalog.findOwnedForUser(userId, "komga", "apple-plugin-id-installation"),
-		).toMatchObject({ slug: "komga", pluginSlug: "apple" });
-		expect(yield* catalog.findOwnedForUser(userId, "komga", "other-installation")).toBeNull();
-		expect(yield* catalog.resolveOwnedForUser(userId, "komga", "other-installation")).toBeNull();
+			yield* catalog.findOwnedForUser(userId, "theta", "apple-plugin-id-installation"),
+		).toMatchObject({ slug: "theta", pluginSlug: "apple" });
+		expect(yield* catalog.findOwnedForUser(userId, "theta", "other-installation")).toBeNull();
+		expect(yield* catalog.resolveOwnedForUser(userId, "theta", "other-installation")).toBeNull();
 	}).pipe(Effect.provide(catalogLayer())),
 );
 
@@ -182,8 +182,8 @@ it.effect(
 				pluginWithProviders("apple", [
 					{
 						lot: "yank",
-						slug: "komga",
-						name: "Komga",
+						slug: "theta",
+						name: "Theta",
 						settingsSchema,
 						description: "Old provider",
 						scriptSlug: "apple.automation",
@@ -226,7 +226,7 @@ it.effect(
 			);
 			const fiber = yield* Effect.forkChild(
 				Effect.flatMap(IntegrationProviderCatalog, (catalog) =>
-					catalog.resolveOwnedForUser(userId, "komga", "apple-plugin-id-installation"),
+					catalog.resolveOwnedForUser(userId, "theta", "apple-plugin-id-installation"),
 				).pipe(Effect.provide(layer)),
 			);
 			yield* Deferred.await(selected);
@@ -234,7 +234,7 @@ it.effect(
 			yield* Deferred.succeed(release, undefined);
 
 			expect(yield* Fiber.join(fiber)).toMatchObject({
-				provider: { description: "Old provider", slug: "komga" },
+				provider: { description: "Old provider", slug: "theta" },
 				script: { id: "old-script", contentHash: "script-apple" },
 			});
 		}),
