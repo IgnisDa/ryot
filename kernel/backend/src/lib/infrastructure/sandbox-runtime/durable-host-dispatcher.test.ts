@@ -1,25 +1,31 @@
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationExecutionId,
 	AutomationRunId,
 	AutomationTriggerId,
+	SandboxProviderId,
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Cause, Duration, Effect, Exit, Layer, Logger, References } from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
+import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import {
 	type ProviderHttpAdmissionConfirmation,
 	ProviderHttpAdmissionService,
 	type ProviderHttpAdmissionToken,
 } from "#lib/infrastructure/provider-http-admission";
+import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import { SandboxLifecycleHostFailure } from "#lib/infrastructure/sandbox-runtime/host-functions";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { NotificationDeliveryWorkflow } from "#modules/notifications/notification-delivery-workflow";
@@ -37,7 +43,23 @@ import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow"
 import { SandboxDurableHostDispatcherLive } from "./durable-host-dispatcher";
 
 const unused = () => Effect.fail({ message: "unused" });
+const unusedStep = {
+	value: () => [],
+	validate: unused,
+	commit: () => Effect.die("unused"),
+	prepare: () => Effect.die("unused"),
+	applyPolicies: () => Effect.die("unused"),
+};
+const unusedLifecycle: SandboxHostImplementations["Service"]["lifecycle"] = {
+	upsertGlobalEntities: unusedStep,
+	changeUserRelationships: unusedStep,
+	upsertGlobalRelationships: unusedStep,
+};
+const unusedLifecycleExecution = Layer.mock(LifecycleExecution)({
+	dispatch: () => Effect.die("unused"),
+});
 const implementations: SandboxHostImplementations["Service"] = {
+	lifecycle: unusedLifecycle,
 	automation: { emitSignal: unused, sendNotification: unused },
 	runtime: {
 		httpCall: unused,
@@ -151,6 +173,7 @@ it.effect("dispatches workflow-owned capabilities through their deterministic ch
 				databaseLayer,
 				Layer.succeed(WorkflowEngine, engine),
 				Layer.succeed(WorkflowInstance, instance),
+				unusedLifecycleExecution,
 				Layer.succeed(SandboxHostImplementations, implementations),
 				Layer.mock(PluginHttpRateLimitAuthority)({ resolve: () => Effect.die("unused") }),
 				Layer.mock(ProviderHttpAdmissionService)({
@@ -339,6 +362,7 @@ const makeHttpHarness = (options: {
 				databaseLayer,
 				Layer.succeed(WorkflowEngine, engine),
 				Layer.succeed(WorkflowInstance, instance),
+				unusedLifecycleExecution,
 				Layer.succeed(SandboxHostImplementations, httpImplementations),
 				Layer.mock(SandboxRepository)({ getScript: () => Effect.succeed(httpScript) }),
 				Layer.mock(PluginHttpRateLimitAuthority)({
@@ -627,6 +651,7 @@ it.effect("does not swallow coordination interruption", () => {
 				databaseLayer,
 				Layer.succeed(WorkflowEngine, engine),
 				Layer.succeed(WorkflowInstance, instance),
+				unusedLifecycleExecution,
 				Layer.succeed(SandboxHostImplementations, implementations),
 				Layer.mock(SandboxRepository)({
 					getScript: () =>
@@ -666,3 +691,281 @@ it.effect("does not swallow coordination interruption", () => {
 		Effect.provideService(WorkflowInstance, instance),
 	);
 });
+
+const lifecycleCapabilities = ["changeUserRelationships", "upsertGlobalEntities"] as const;
+const lifecycleScript = {
+	...script,
+	metadata: { ...script.metadata, capabilities: [...lifecycleCapabilities] },
+};
+const lifecyclePrincipal = { ...principal, metadata: lifecycleScript.metadata };
+const lifecyclePayload = {
+	subject,
+	scriptId,
+	input: {},
+	resolutionMode: "exact" as const,
+	executionId: "sandbox-lifecycle",
+	startedAt: "2026-09-17T00:00:00.000Z",
+};
+
+const runLifecycleDispatch = (options: {
+	readonly recorded: string[];
+	readonly args: ReadonlyArray<JsonValue>;
+	readonly capability: (typeof lifecycleCapabilities)[number];
+	readonly lifecycle: SandboxHostImplementations["Service"]["lifecycle"];
+	readonly warnings?: ReadonlyArray<AutomationWarning>;
+	readonly logs?: Array<string>;
+	readonly principal?: SandboxExecutionPrincipal;
+}) => {
+	const executionId = lifecyclePayload.executionId;
+	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+	let engine: WorkflowEngine["Service"];
+	engine = makeWorkflowActivityEngine(instance, {
+		activityExecute: (activity) =>
+			Effect.gen(function* () {
+				options.recorded.push(activity.name);
+				const exit = yield* Effect.exit(
+					activity.execute.pipe(
+						Effect.provideService(WorkflowEngine, engine),
+						Effect.provideService(WorkflowInstance, instance),
+					),
+				);
+				return new Workflow.Complete({ exit });
+			}),
+	});
+	const logger = Logger.make<unknown, void>((entry) => {
+		options.logs?.push(String(entry.message));
+	});
+	const layer = SandboxDurableHostDispatcherLive.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				databaseLayer,
+				Layer.succeed(WorkflowEngine, engine),
+				Layer.succeed(WorkflowInstance, instance),
+				Layer.succeed(SandboxHostImplementations, {
+					...implementations,
+					lifecycle: options.lifecycle,
+				}),
+				Layer.mock(LifecycleExecution)({
+					dispatch: (plans) =>
+						Effect.sync(() => {
+							options.recorded.push(`dispatch:${plans.length}`);
+							return options.warnings ?? [];
+						}),
+				}),
+				Layer.mock(PluginHttpRateLimitAuthority)({ resolve: () => Effect.die("unused") }),
+				Layer.mock(ProviderHttpAdmissionService)({
+					block: () => Effect.die("unused"),
+					confirm: () => Effect.die("unused"),
+					reserve: () => Effect.die("unused"),
+				}),
+				Layer.mock(SandboxRepository)({ getScript: () => Effect.succeed(lifecycleScript) }),
+			),
+		),
+	);
+	return Effect.flatMap(SandboxDurableHostDispatcher, (dispatcher) =>
+		dispatcher.dispatch(
+			{
+				index: 4,
+				kind: "host",
+				name: options.capability,
+				args: { args: options.args, capability: options.capability },
+			},
+			lifecyclePayload,
+			options.principal ?? lifecyclePrincipal,
+			executionId,
+		),
+	).pipe(
+		Effect.provide(Layer.merge(layer, Logger.layer([logger]))),
+		Effect.provideService(WorkflowEngine, engine),
+		Effect.provideService(WorkflowInstance, instance),
+	);
+};
+
+const lifecycleSteps = (overrides: Record<string, unknown>) =>
+	({ ...unusedLifecycle, ...overrides }) as SandboxHostImplementations["Service"]["lifecycle"];
+
+const batch = { creates: [], deletes: [] };
+
+it.effect("writes each relationship batch as its own step and dispatches between them", () => {
+	const recorded: string[] = [];
+	const logs: string[] = [];
+	const warning = {
+		omittedHooks: [],
+		hasRequiredHooks: true,
+		code: "automation-limit-reached" as const,
+		triggerId: AutomationTriggerId.make("batch-trigger"),
+	};
+
+	return Effect.gen(function* () {
+		const result = yield* runLifecycleDispatch({
+			logs,
+			recorded,
+			warnings: [warning],
+			args: [[batch, batch]],
+			capability: "changeUserRelationships",
+			lifecycle: lifecycleSteps({
+				changeUserRelationships: {
+					commit: () => Effect.die("no commit"),
+					applyPolicies: () => Effect.die("no policies"),
+					value: (results: ReadonlyArray<{ created: number; deleted: number }>) =>
+						results.map(({ created, deleted }) => ({ created, deleted })),
+					prepare: (_input: unknown, _batch: unknown, index: number) =>
+						Effect.succeed({
+							_tag: "Committed",
+							result: { updated: 0, deleted: 0, created: index },
+							dispatch: [{ runs: [], blockedReason: null, triggerId: `batch-${index}` }],
+						}),
+					validate: () =>
+						Effect.succeed({
+							batches: [batch, batch],
+							userId: UserId.make("user-1"),
+							_tag: "ChangeUserRelationships",
+							command: {
+								causation,
+								occurredAt: "2026-09-17T00:00:00.000Z",
+								itemIdentity: "changeUserRelationships",
+							},
+						}),
+				},
+			}),
+		});
+		expect(result).toEqual({
+			state: "success",
+			value: [
+				{ created: 0, deleted: 0 },
+				{ created: 1, deleted: 0 },
+			],
+		});
+		expect(recorded).toEqual([
+			"sandbox-host-4-changeUserRelationships-input",
+			"sandbox-host-4-changeUserRelationships-0:prepare",
+			"dispatch:1",
+			"sandbox-host-4-changeUserRelationships-1:prepare",
+			"dispatch:1",
+		]);
+		expect(logs.filter((message) => message.includes("automation warnings"))).toHaveLength(1);
+	});
+});
+
+it.effect("records the policy outcome for a global entity upsert before committing", () => {
+	const recorded: string[] = [];
+	const pending = { planned: [], pending: { policies: [] } };
+	const providerPrincipal = {
+		...lifecyclePrincipal,
+		subject: { type: "system" as const },
+		providerId: SandboxProviderId.make("provider-1"),
+		metadata: { ...lifecycleScript.metadata, kind: "script" as const },
+	};
+
+	return Effect.gen(function* () {
+		const result = yield* runLifecycleDispatch({
+			recorded,
+			args: [[]],
+			principal: providerPrincipal,
+			capability: "upsertGlobalEntities",
+			lifecycle: lifecycleSteps({
+				upsertGlobalEntities: {
+					value: (results: ReadonlyArray<{ status: string }>) => results,
+					prepare: () => Effect.succeed({ pending, _tag: "PoliciesRequired" }),
+					applyPolicies: (value: unknown) =>
+						Effect.sync(() => {
+							recorded.push("policies");
+							return value;
+						}),
+					commit: () =>
+						Effect.succeed({
+							_tag: "Committed",
+							result: [{ status: "skipped" }],
+							dispatch: [{ runs: [], blockedReason: null, triggerId: "upsert-trigger" }],
+						}),
+					validate: () =>
+						Effect.succeed({
+							items: [],
+							options: null,
+							_tag: "UpsertGlobalEntities",
+							providerId: SandboxProviderId.make("provider-1"),
+							command: {
+								causation,
+								itemIdentity: "upsertGlobalEntities",
+								occurredAt: "2026-09-17T00:00:00.000Z",
+							},
+						}),
+				},
+			}),
+		});
+		expect(result).toEqual({ state: "success", value: [{ status: "skipped" }] });
+		expect(recorded).toEqual([
+			"sandbox-host-4-upsertGlobalEntities-input",
+			"sandbox-host-4-upsertGlobalEntities-0:prepare",
+			"policies",
+			"sandbox-host-4-upsertGlobalEntities-0:policy-outcome",
+			"sandbox-host-4-upsertGlobalEntities-0:commit",
+			"dispatch:1",
+		]);
+	});
+});
+
+it.effect(
+	"reports invalid arguments, denied limits, and policy rejections as host failures",
+	() => {
+		const recorded: string[] = [];
+		const validated = {
+			batches: [batch],
+			userId: UserId.make("user-1"),
+			_tag: "ChangeUserRelationships",
+			command: {
+				causation,
+				occurredAt: "2026-09-17T00:00:00.000Z",
+				itemIdentity: "changeUserRelationships",
+			},
+		};
+
+		return Effect.gen(function* () {
+			expect(
+				yield* runLifecycleDispatch({
+					recorded,
+					args: [],
+					lifecycle: lifecycleSteps({}),
+					capability: "changeUserRelationships",
+				}),
+			).toEqual({
+				state: "failure",
+				error: { message: "changeUserRelationships received an invalid number of arguments" },
+			});
+			expect(
+				yield* runLifecycleDispatch({
+					recorded,
+					args: [[batch]],
+					capability: "changeUserRelationships",
+					lifecycle: lifecycleSteps({
+						changeUserRelationships: {
+							...unusedLifecycle.changeUserRelationships,
+							validate: () =>
+								Effect.fail({ message: "changeUserRelationships exceeds 500 changes" }),
+						},
+					}),
+				}),
+			).toEqual({
+				state: "failure",
+				error: { message: "changeUserRelationships exceeds 500 changes" },
+			});
+			expect(
+				yield* runLifecycleDispatch({
+					recorded,
+					args: [[batch]],
+					capability: "changeUserRelationships",
+					lifecycle: lifecycleSteps({
+						changeUserRelationships: {
+							value: () => [],
+							commit: () => Effect.die("no commit"),
+							validate: () => Effect.succeed(validated),
+							prepare: () => Effect.succeed({ pending: { items: [] }, _tag: "PoliciesRequired" }),
+							applyPolicies: () =>
+								Effect.fail(new SandboxLifecycleHostFailure({ message: "policy-rejected" })),
+						},
+					}),
+				}),
+			).toEqual({ state: "failure", error: { message: "policy-rejected" } });
+		});
+	},
+);

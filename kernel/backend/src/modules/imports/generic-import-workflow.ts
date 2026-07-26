@@ -1,9 +1,6 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
-import {
-	AutomationWarning,
-	type AutomationWarning as AutomationWarningValue,
-} from "@ryot-app/contract/modules/automations/lifecycle";
-import { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
+import type { AutomationWarning as AutomationWarningValue } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
 import {
@@ -23,24 +20,35 @@ import {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, DateTime, Effect, FileSystem, Schema } from "effect";
-import { Activity, Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import {
+	mapCommittedResult,
+	runLifecycleWriteStep,
+	type LifecycleCommittedStep,
+	type LifecyclePreparedStep,
+} from "#lib/infrastructure/lifecycle-workflow-step";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { slugify } from "#lib/shared/slug";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
-import { CollectionsService } from "#modules/collections/service";
+import { CollectionEntityResult, CollectionsService } from "#modules/collections/service";
 import {
 	DefinitionSnapshot,
 	definitionSourceFromSnapshot,
 	makeDefinitionRegistry,
 } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
+import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import {
+	PendingRelationshipMutations,
+	RelationshipSingleResult,
+} from "#modules/relationships/mutation-pipeline";
 import { RelationshipsService } from "#modules/relationships/service";
 
 import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/import-run-status";
@@ -103,19 +111,7 @@ export const ProcessGenericImportChunksWorkflow = Workflow.make(
 	},
 );
 
-const ItemWriteOutcome = Schema.Union([
-	Schema.TaggedStruct("failed", {
-		message: Schema.String,
-		warnings: Schema.Array(AutomationWarning),
-	}),
-	Schema.TaggedStruct("ready", {
-		events: Schema.Array(CreateEventItem),
-		warnings: Schema.Array(AutomationWarning),
-		collectionMemberships: Schema.Array(
-			Schema.Struct({ entityId: EntityId, collectionId: EntityId }),
-		),
-	}),
-]);
+const GenericImportEntity = Schema.Struct({ entityId: EntityId });
 
 const valuesMatch = (properties: Record<string, unknown>, expected: Record<string, unknown>) =>
 	Object.entries(expected).every(
@@ -132,281 +128,332 @@ const itemCommand = (
 	itemIdentity: stableStringify([command.itemIdentity, "item", itemIndex, phase, identity]),
 });
 
-const resolveEntityIntents = Effect.fn("imports.resolveGenericEntityIntents")(function* (
-	item: GenericImportWriteItem,
+const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImportEntity")(function* (
+	intent: GenericImportWriteItem["entities"][number],
 	userId: UserId,
-	itemIndex: number,
-	command: LifecycleCommand,
+	lifecycle: LifecycleCommand,
 ) {
 	const entities = yield* EntitiesService;
-	const aliases = new Map<string, EntityId>();
-	const warnings: AutomationWarningValue[] = [];
 	const repository = yield* EntitiesRepository;
-
-	for (const [intentIndex, intent] of item.entities.entries()) {
-		if (aliases.has(intent.alias)) {
+	let entityId: EntityId | undefined;
+	if (intent.entityId) {
+		const existing = yield* repository.getByIdForUser({
+			userId,
+			entityId: EntityId.make(intent.entityId),
+		});
+		if (!existing || existing.entitySchemaSlug !== intent.entitySchemaSlug) {
 			return yield* new ImportRunError({
-				message: `Duplicate import entity alias '${intent.alias}'`,
+				message: "Import entity id is unavailable or has the wrong schema",
 			});
 		}
-		let entityId: EntityId | undefined;
-		if (intent.entityId) {
-			const existing = yield* repository.getByIdForUser({
-				userId,
-				entityId: EntityId.make(intent.entityId),
-			});
-			if (!existing || existing.entitySchemaSlug !== intent.entitySchemaSlug) {
-				return yield* new ImportRunError({
-					message: "Import entity id is unavailable or has the wrong schema",
-				});
-			}
-			entityId = existing.id;
-		} else if (intent.match) {
-			const candidates = yield* repository.listMatchCandidatesBySchema({
-				userId,
-				entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
-			});
-			const scopedCandidates = intent.scope
-				? yield* Effect.forEach(candidates, (candidate) =>
-						repository
-							.getEntityScopeForUser({ userId, entityId: candidate.id })
-							.pipe(
-								Effect.map((scope) =>
-									(
-										intent.scope === "user"
-											? scope?.entityUserId === userId
-											: scope?.entityUserId === null
-									)
-										? [candidate]
-										: [],
-								),
+		entityId = existing.id;
+	} else if (intent.match) {
+		const candidates = yield* repository.listMatchCandidatesBySchema({
+			userId,
+			entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+		});
+		const scopedCandidates = intent.scope
+			? yield* Effect.forEach(candidates, (candidate) =>
+					repository
+						.getEntityScopeForUser({ userId, entityId: candidate.id })
+						.pipe(
+							Effect.map((scope) =>
+								(
+									intent.scope === "user"
+										? scope?.entityUserId === userId
+										: scope?.entityUserId === null
+								)
+									? [candidate]
+									: [],
 							),
-					).pipe(Effect.map((groups) => groups.flat()))
-				: candidates;
-			const expectedName =
-				intent.match.nameNormalization === "slug" ? slugify(intent.match.name) : intent.match.name;
-			const existing = scopedCandidates.find((candidate) => {
-				const candidateName =
-					intent.match?.nameNormalization === "slug" ? slugify(candidate.name) : candidate.name;
-				return (
-					candidateName === expectedName &&
-					isObjectRecord(candidate.properties) &&
-					valuesMatch(candidate.properties, intent.match?.properties ?? {})
-				);
-			});
-			entityId = existing?.id;
-		}
-		if (entityId && intent.scope && intent.entityId) {
-			const scope = yield* repository.getEntityScopeForUser({ userId, entityId });
-			const matchesScope =
-				intent.scope === "user" ? scope?.entityUserId === userId : scope?.entityUserId === null;
-			if (!matchesScope) {
-				entityId = undefined;
-			}
-		}
-		if (!entityId && intent.existingOnly) {
-			return yield* new ImportRunError({
-				message: `Required import entity '${intent.alias}' was not found`,
-			});
-		}
-		if (!entityId) {
-			const created = yield* entities.create({
-				userId,
-				scope: "user",
-				name: intent.name,
-				properties: intent.properties,
-				entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
-				lifecycle: itemCommand(command, itemIndex, "entity", intentIndex),
-			});
-			entityId = created.entity.id;
-			warnings.push(...created.warnings);
-		}
-		aliases.set(intent.alias, entityId);
+						),
+				).pipe(Effect.map((groups) => groups.flat()))
+			: candidates;
+		const expectedName =
+			intent.match.nameNormalization === "slug" ? slugify(intent.match.name) : intent.match.name;
+		const existing = scopedCandidates.find((candidate) => {
+			const candidateName =
+				intent.match?.nameNormalization === "slug" ? slugify(candidate.name) : candidate.name;
+			return (
+				candidateName === expectedName &&
+				isObjectRecord(candidate.properties) &&
+				valuesMatch(candidate.properties, intent.match?.properties ?? {})
+			);
+		});
+		entityId = existing?.id;
 	}
-	return { aliases, warnings };
+	if (entityId && intent.scope && intent.entityId) {
+		const scope = yield* repository.getEntityScopeForUser({ userId, entityId });
+		const matchesScope =
+			intent.scope === "user" ? scope?.entityUserId === userId : scope?.entityUserId === null;
+		if (!matchesScope) {
+			entityId = undefined;
+		}
+	}
+	if (!entityId && intent.existingOnly) {
+		return yield* new ImportRunError({
+			message: `Required import entity '${intent.alias}' was not found`,
+		});
+	}
+	if (entityId) {
+		return {
+			dispatch: [],
+			_tag: "Committed",
+			result: { entityId },
+		} satisfies LifecycleCommittedStep<typeof GenericImportEntity.Type>;
+	}
+	const prepared = yield* entities.prepareCreateStep({
+		userId,
+		lifecycle,
+		scope: "user",
+		name: intent.name,
+		properties: intent.properties,
+		entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+	});
+	return mapCommittedResult(prepared, ({ entity }) => ({ entityId: entity.id }));
 });
 
 type GenericImportDefinitions = ReturnType<typeof makeDefinitionRegistry>;
 
-const writeGenericItem = (
+const validateGenericItem = (
+	item: GenericImportWriteItem,
+	userId: UserId,
+	index: number,
+	definitions: GenericImportDefinitions,
+) =>
+	makeActivity({
+		error: ImportRunError,
+		name: `validate-generic-import-item-${index}`,
+		execute: Effect.gen(function* () {
+			const entitiesRepository = yield* EntitiesRepository;
+			const entitySchemasByAlias = new Map(
+				item.entities.map(({ alias, entitySchemaSlug }) => [alias, entitySchemaSlug]),
+			);
+			if (!entitySchemasByAlias.has(item.subjectEntityAlias)) {
+				return yield* new ImportRunError({
+					message: "Import subject references an unknown entity alias",
+				});
+			}
+			yield* Effect.forEach(
+				item.entities,
+				(entity) =>
+					definitions.validateEntityProperties(entity.entitySchemaSlug, entity.properties),
+				{ discard: true },
+			);
+			for (const event of item.events) {
+				const subject =
+					event.subjectEntityId !== undefined
+						? yield* entitiesRepository.getByIdForUser({
+								userId,
+								entityId: EntityId.make(event.subjectEntityId),
+							})
+						: null;
+				if (event.subjectEntityId !== undefined && !subject) {
+					return yield* new ImportRunError({
+						message: "Import event references an unknown subject entity",
+					});
+				}
+				const entitySchemaSlug =
+					subject?.entitySchemaSlug ?? entitySchemasByAlias.get(event.entityAlias);
+				if (!entitySchemaSlug) {
+					return yield* new ImportRunError({
+						message: "Import event references an unknown entity alias or subject",
+					});
+				}
+				yield* definitions.validateEventProperties(
+					entitySchemaSlug,
+					event.eventSchemaSlug,
+					event.properties,
+				);
+			}
+			for (const relationship of item.relationships) {
+				const sourceEntitySchemaSlug = entitySchemasByAlias.get(relationship.sourceAlias);
+				const targetEntitySchemaSlug = entitySchemasByAlias.get(relationship.targetAlias);
+				if (!sourceEntitySchemaSlug || !targetEntitySchemaSlug) {
+					return yield* new ImportRunError({
+						message: "Import relationship references an unknown entity alias",
+					});
+				}
+				const relationshipSchema = definitions.getRelationshipSchema(
+					relationship.relationshipSchemaSlug,
+				);
+				if (!relationshipSchema) {
+					return yield* new ImportRunError({
+						message: `Relationship schema '${relationship.relationshipSchemaSlug}' not found`,
+					});
+				}
+				if (
+					relationshipSchema.sourceEntitySchemaSlug !== null &&
+					relationshipSchema.sourceEntitySchemaSlug !== sourceEntitySchemaSlug
+				) {
+					return yield* new ImportRunError({
+						message: "Import relationship source entity schema does not match",
+					});
+				}
+				if (
+					relationshipSchema.targetEntitySchemaSlug !== null &&
+					relationshipSchema.targetEntitySchemaSlug !== targetEntitySchemaSlug
+				) {
+					return yield* new ImportRunError({
+						message: "Import relationship target entity schema does not match",
+					});
+				}
+				yield* definitions.validateRelationshipProperties(
+					relationship.relationshipSchemaSlug,
+					relationship.properties,
+				);
+			}
+			return undefined;
+		}).pipe(Effect.mapError(toWorkflowError)),
+	});
+
+const runImportWriteStep = <Result, Pending, R1, R2, R3>(options: {
+	readonly name: string;
+	readonly result: Schema.Codec<Result, unknown>;
+	readonly pending: Schema.Codec<Pending, unknown>;
+	readonly prepare: Effect.Effect<LifecyclePreparedStep<Result, Pending>, unknown, R1>;
+	readonly applyPolicies: (pending: Pending) => Effect.Effect<Pending, unknown, R2>;
+	readonly commit: (
+		pending: Pending,
+	) => Effect.Effect<LifecyclePreparedStep<Result, Pending>, unknown, R3>;
+}) =>
+	runLifecycleWriteStep({
+		name: options.name,
+		error: ImportRunError,
+		result: options.result,
+		pending: options.pending,
+		prepare: options.prepare.pipe(Effect.mapError(toWorkflowError)),
+		commit: (pending) => options.commit(pending).pipe(Effect.mapError(toWorkflowError)),
+		applyPolicies: (pending) =>
+			options.applyPolicies(pending).pipe(Effect.mapError(toWorkflowError)),
+	});
+
+const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	item: GenericImportWriteItem,
 	userId: UserId,
 	index: number,
 	definitions: GenericImportDefinitions,
 	command: LifecycleCommand,
-) =>
-	Activity.make({
-		success: ItemWriteOutcome,
-		name: `write-generic-import-item-${index}`,
-		execute: Effect.gen(function* () {
-			const warnings: AutomationWarningValue[] = [];
-			return yield* Effect.gen(function* () {
-				const collections = yield* CollectionsService;
-				const relationships = yield* RelationshipsService;
-				const entitiesRepository = yield* EntitiesRepository;
-				const entitySchemasByAlias = new Map(
-					item.entities.map(({ alias, entitySchemaSlug }) => [alias, entitySchemaSlug]),
-				);
-				if (!entitySchemasByAlias.has(item.subjectEntityAlias)) {
-					return yield* new ImportRunError({
-						message: "Import subject references an unknown entity alias",
-					});
-				}
-				yield* Effect.forEach(
-					item.entities,
-					(entity) =>
-						definitions.validateEntityProperties(entity.entitySchemaSlug, entity.properties),
-					{ discard: true },
-				);
-				for (const event of item.events) {
-					const subject =
-						event.subjectEntityId !== undefined
-							? yield* entitiesRepository.getByIdForUser({
-									userId,
-									entityId: EntityId.make(event.subjectEntityId),
-								})
-							: null;
-					if (event.subjectEntityId !== undefined && !subject) {
-						return yield* new ImportRunError({
-							message: "Import event references an unknown subject entity",
-						});
-					}
-					const entitySchemaSlug =
-						subject?.entitySchemaSlug ?? entitySchemasByAlias.get(event.entityAlias);
-					if (!entitySchemaSlug) {
-						return yield* new ImportRunError({
-							message: "Import event references an unknown entity alias or subject",
-						});
-					}
-					yield* definitions.validateEventProperties(
-						entitySchemaSlug,
-						event.eventSchemaSlug,
-						event.properties,
-					);
-				}
-				for (const relationship of item.relationships) {
-					const sourceEntitySchemaSlug = entitySchemasByAlias.get(relationship.sourceAlias);
-					const targetEntitySchemaSlug = entitySchemasByAlias.get(relationship.targetAlias);
-					if (!sourceEntitySchemaSlug || !targetEntitySchemaSlug) {
-						return yield* new ImportRunError({
-							message: "Import relationship references an unknown entity alias",
-						});
-					}
-					const relationshipSchema = definitions.getRelationshipSchema(
-						relationship.relationshipSchemaSlug,
-					);
-					if (!relationshipSchema) {
-						return yield* new ImportRunError({
-							message: `Relationship schema '${relationship.relationshipSchemaSlug}' not found`,
-						});
-					}
-					if (
-						relationshipSchema.sourceEntitySchemaSlug !== null &&
-						relationshipSchema.sourceEntitySchemaSlug !== sourceEntitySchemaSlug
-					) {
-						return yield* new ImportRunError({
-							message: "Import relationship source entity schema does not match",
-						});
-					}
-					if (
-						relationshipSchema.targetEntitySchemaSlug !== null &&
-						relationshipSchema.targetEntitySchemaSlug !== targetEntitySchemaSlug
-					) {
-						return yield* new ImportRunError({
-							message: "Import relationship target entity schema does not match",
-						});
-					}
-					yield* definitions.validateRelationshipProperties(
-						relationship.relationshipSchemaSlug,
-						relationship.properties,
-					);
-				}
-				const resolved = yield* resolveEntityIntents(item, userId, index, command);
-				warnings.push(...resolved.warnings);
-				const { aliases } = resolved;
-				for (const [relationshipIndex, intent] of item.relationships.entries()) {
-					const sourceEntityId = aliases.get(intent.sourceAlias);
-					const targetEntityId = aliases.get(intent.targetAlias);
-					if (!sourceEntityId || !targetEntityId) {
-						return yield* new ImportRunError({
-							message: "Import relationship references an unknown entity alias",
-						});
-					}
-					const relationshipSchema = definitions.getRelationshipSchema(
-						intent.relationshipSchemaSlug,
-					);
-					if (!relationshipSchema) {
-						return yield* new ImportRunError({
-							message: `Relationship schema '${intent.relationshipSchemaSlug}' not found`,
-						});
-					}
-					const input = {
-						userId,
-						scope: "user",
-						sourceEntityId,
-						targetEntityId,
-						properties: intent.properties,
-						relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
-						relationshipSchemaSlug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
-					} as const;
-					const result = yield* intent.propertiesMode === "merge"
-						? relationships.mergeUserProperties(
-								input,
-								itemCommand(command, index, "relationship", relationshipIndex),
-							)
-						: relationships.create(
-								input,
-								itemCommand(command, index, "relationship", relationshipIndex),
-							);
-					warnings.push(...result.warnings);
-				}
-				const events: CreateEventItem[] = [];
-				const collectionMemberships: Array<{ entityId: EntityId; collectionId: EntityId }> = [];
-				for (const intent of item.events) {
-					const entityId =
-						intent.subjectEntityId !== undefined
-							? EntityId.make(intent.subjectEntityId)
-							: aliases.get(intent.entityAlias);
-					const sessionEntityId = intent.sessionEntityAlias
-						? aliases.get(intent.sessionEntityAlias)
-						: undefined;
-					if (!entityId || (intent.sessionEntityAlias && !sessionEntityId)) {
-						return yield* new ImportRunError({
-							message: "Import event references an unknown entity alias",
-						});
-					}
-					events.push({
-						entityId,
-						properties: intent.properties,
-						occurredAt: intent.occurredAt,
-						eventSchemaSlug: EventSchemaSlug.make(intent.eventSchemaSlug),
-						...(sessionEntityId ? { sessionEntityId } : {}),
-					});
-				}
-				for (const membership of item.collectionMemberships ?? []) {
-					const entityId = aliases.get(membership.entityAlias);
-					if (!entityId) {
-						return yield* new ImportRunError({
-							message: "Import collection membership references an unknown entity alias",
-						});
-					}
-					const collection = yield* collections.getOrCreateCollection(
-						userId,
-						membership.collectionName,
-					);
-					collectionMemberships.push({ entityId, collectionId: collection.id });
-				}
-				return { events, warnings, collectionMemberships, _tag: "ready" as const };
-			}).pipe(
-				Effect.catch((error) =>
-					Effect.succeed({ warnings, _tag: "failed" as const, message: unknownToMessage(error) }),
+) {
+	const entities = yield* EntitiesService;
+	const collections = yield* CollectionsService;
+	const relationships = yield* RelationshipsService;
+	const warnings: AutomationWarningValue[] = [];
+	return yield* Effect.gen(function* () {
+		yield* validateGenericItem(item, userId, index, definitions);
+		const aliases = new Map<string, EntityId>();
+		for (const [intentIndex, intent] of item.entities.entries()) {
+			if (aliases.has(intent.alias)) {
+				return yield* new ImportRunError({
+					message: `Duplicate import entity alias '${intent.alias}'`,
+				});
+			}
+			const written = yield* runImportWriteStep({
+				result: GenericImportEntity,
+				pending: PendingEntityMutation,
+				applyPolicies: entities.applyMutationPolicies,
+				name: `generic-import-item-${index}-entity-${intentIndex}`,
+				prepare: prepareGenericImportEntity(
+					intent,
+					userId,
+					itemCommand(command, index, "entity", intentIndex),
 				),
-			);
-		}),
-	});
+				commit: (pending) =>
+					entities
+						.commitMutation(pending)
+						.pipe(Effect.map((step) => ({ ...step, result: { entityId: step.result.entity.id } }))),
+			});
+			warnings.push(...written.warnings);
+			aliases.set(intent.alias, written.result.entityId);
+		}
+		for (const [relationshipIndex, intent] of item.relationships.entries()) {
+			const sourceEntityId = aliases.get(intent.sourceAlias);
+			const targetEntityId = aliases.get(intent.targetAlias);
+			if (!sourceEntityId || !targetEntityId) {
+				return yield* new ImportRunError({
+					message: "Import relationship references an unknown entity alias",
+				});
+			}
+			const relationshipSchema = definitions.getRelationshipSchema(intent.relationshipSchemaSlug);
+			if (!relationshipSchema) {
+				return yield* new ImportRunError({
+					message: `Relationship schema '${intent.relationshipSchemaSlug}' not found`,
+				});
+			}
+			const input = {
+				userId,
+				scope: "user",
+				sourceEntityId,
+				targetEntityId,
+				properties: intent.properties,
+				relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
+				relationshipSchemaSlug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
+			} as const;
+			const relationshipCommand = itemCommand(command, index, "relationship", relationshipIndex);
+			const written = yield* runImportWriteStep({
+				result: RelationshipSingleResult,
+				commit: relationships.commitSingle,
+				pending: PendingRelationshipMutations,
+				applyPolicies: relationships.applyPolicies,
+				name: `generic-import-item-${index}-relationship-${relationshipIndex}`,
+				prepare:
+					intent.propertiesMode === "merge"
+						? relationships.prepareMergeUserProperties(input, relationshipCommand)
+						: relationships.prepareCreate(input, relationshipCommand),
+			});
+			warnings.push(...written.warnings);
+		}
+		const events: CreateEventItem[] = [];
+		const collectionMemberships: Array<{ entityId: EntityId; collectionId: EntityId }> = [];
+		for (const intent of item.events) {
+			const entityId =
+				intent.subjectEntityId !== undefined
+					? EntityId.make(intent.subjectEntityId)
+					: aliases.get(intent.entityAlias);
+			const sessionEntityId = intent.sessionEntityAlias
+				? aliases.get(intent.sessionEntityAlias)
+				: undefined;
+			if (!entityId || (intent.sessionEntityAlias && !sessionEntityId)) {
+				return yield* new ImportRunError({
+					message: "Import event references an unknown entity alias",
+				});
+			}
+			events.push({
+				entityId,
+				properties: intent.properties,
+				occurredAt: intent.occurredAt,
+				eventSchemaSlug: EventSchemaSlug.make(intent.eventSchemaSlug),
+				...(sessionEntityId ? { sessionEntityId } : {}),
+			});
+		}
+		for (const [membershipIndex, membership] of (item.collectionMemberships ?? []).entries()) {
+			const entityId = aliases.get(membership.entityAlias);
+			if (!entityId) {
+				return yield* new ImportRunError({
+					message: "Import collection membership references an unknown entity alias",
+				});
+			}
+			const collection = yield* runImportWriteStep({
+				result: CollectionEntityResult,
+				pending: PendingEntityMutation,
+				commit: collections.commitCollection,
+				applyPolicies: collections.applyCollectionPolicies,
+				name: `generic-import-item-${index}-collection-${membershipIndex}`,
+				prepare: collections.prepareGetOrCreateCollection(userId, membership.collectionName),
+			});
+			warnings.push(...collection.warnings);
+			collectionMemberships.push({ entityId, collectionId: collection.result.id });
+		}
+		return { events, warnings, collectionMemberships, _tag: "ready" as const };
+	}).pipe(
+		Effect.catch((error) =>
+			Effect.succeed({ warnings, _tag: "failed" as const, message: unknownToMessage(error) }),
+		),
+	);
+});
 
 const readChunk = (ownerExecutionId: string, handle: string, index: number) =>
-	Activity.make({
+	makeActivity({
 		error: ImportRunError,
 		success: genericImportChunkSchema,
 		name: `read-generic-import-chunk-${index}`,
@@ -427,7 +474,7 @@ const artifactReference = (
 	ownerExecutionId: string,
 	referenceExecutionId: string,
 ) =>
-	Activity.make({
+	makeActivity({
 		error: ImportRunError,
 		name: `${operation}-generic-import-artifacts`,
 		execute: Effect.gen(function* () {
@@ -437,7 +484,7 @@ const artifactReference = (
 	});
 
 const updateRun = (name: string, input: UpdateImportRunInput) =>
-	Activity.make({
+	makeActivity({
 		name,
 		error: ImportRunError,
 		execute: Effect.gen(function* () {
@@ -447,7 +494,7 @@ const updateRun = (name: string, input: UpdateImportRunInput) =>
 	});
 
 const resolveGenericImportDefinitions = (userId: UserId) =>
-	Activity.make({
+	makeActivity({
 		name: "resolve-generic-import-definitions",
 		error: ImportRunError satisfies DurableSchema,
 		success: DefinitionSnapshot satisfies DurableSchema,
@@ -484,7 +531,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 				yield* Effect.logWarning("plugin import item failed", failure.message).pipe(
 					Effect.annotateLogs({ runId, stage, itemIndex: failure.itemIndex }),
 				);
-				yield* Activity.make({
+				yield* makeActivity({
 					error: ImportRunError,
 					name: `record-generic-import-failure-${processedItems}`,
 					execute: recordImportRunFailure({
@@ -562,7 +609,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 					yield* Effect.logError("generic import item write failed", message).pipe(
 						Effect.annotateLogs({ runId, itemIndex: item.itemIndex }),
 					);
-					yield* Activity.make({
+					yield* makeActivity({
 						error: ImportRunError,
 						name: `record-generic-write-failure-${processedItems}`,
 						execute: recordImportRunFailure({
@@ -646,5 +693,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 	);
 });
 
-export const ProcessGenericImportChunksWorkflowDefinitionsLive =
-	ProcessGenericImportChunksWorkflow.toLayer(runProcessGenericImportChunksWorkflow);
+export const ProcessGenericImportChunksWorkflowDefinitionsLive = implementWorkflow(
+	ProcessGenericImportChunksWorkflow,
+	runProcessGenericImportChunksWorkflow,
+);

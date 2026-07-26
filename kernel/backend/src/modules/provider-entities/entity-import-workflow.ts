@@ -11,6 +11,7 @@ import {
 	type ProviderImportPhase,
 } from "#lib/infrastructure/runtime-metrics";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
@@ -112,5 +113,7 @@ export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(functio
 	);
 });
 
-export const EntityImportWorkflowDefinitionsLive =
-	EntityImportWorkflow.toLayer(runEntityImportWorkflow);
+export const EntityImportWorkflowDefinitionsLive = implementWorkflow(
+	EntityImportWorkflow,
+	runEntityImportWorkflow,
+);

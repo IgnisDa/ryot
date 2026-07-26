@@ -6,6 +6,7 @@ import type { AutomationWarning } from "@ryot-app/contract/modules/automations/l
 import {
 	AutomationHookSlug,
 	AutomationExecutionId,
+	AutomationTriggerId,
 	AutomationRunId,
 	EntityId,
 	EntitySchemaSlug,
@@ -71,10 +72,15 @@ const transactionDatabaseLayer = Layer.succeed(
 		}),
 	),
 );
+const dispatchPlan = (triggerId: string) => ({
+	runs: [],
+	blockedReason: null,
+	triggerId: AutomationTriggerId.make(triggerId),
+});
 const lifecycleDependencies = Layer.mergeAll(
 	Layer.succeed(PgClient.PgClient, Object.create(null)),
 	Layer.mock(LifecyclePlanner)({}),
-	Layer.mock(LifecycleExecution)({}),
+	Layer.mock(LifecycleExecution)({ dispatch: (plans) => Effect.succeed(plans.map(() => warning)) }),
 );
 const warning = {
 	code: "required-hook-failed",
@@ -425,22 +431,15 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 				makeAppConfigLayer(),
 				makePluginRuntime(),
 				Layer.mock(CollectionsService)({
-					getOrCreateCollection: () =>
+					prepareGetOrCreateCollection: () =>
 						Effect.succeed({
-							warnings: [],
-							properties: {},
-							providerId: null,
-							externalId: null,
-							populatedAt: null,
-							name: "Favorites",
-							createdAt: "2026-01-01T00:00:00.000Z",
-							updatedAt: "2026-01-01T00:00:00.000Z",
-							id: EntityId.make("favorites-collection"),
-							entitySchemaSlug: EntitySchemaSlug.make("collection"),
+							dispatch: [],
+							_tag: "Committed",
+							result: { id: EntityId.make("favorites-collection") },
 						}),
 				}),
 				Layer.mock(RelationshipsService)({
-					mergeUserProperties: (input, command) =>
+					prepareMergeUserProperties: (input, command) =>
 						Effect.sync(() => relationshipCommands.push(command)).pipe(
 							Effect.andThen(
 								input.targetEntityId === "library-collection" &&
@@ -448,25 +447,33 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 									? Effect.fail(new DbError({ message: "membership write failed" }))
 									: Effect.sync(() => {
 											relationships.push(input);
-											return { relationship: null, warnings: [warning] };
+											return {
+												_tag: "Committed" as const,
+												result: { relationship: null },
+												dispatch: [dispatchPlan("relationship-merge")],
+											};
 										}),
 							),
 						),
-					create: (input, command) =>
+					prepareCreate: (input, command) =>
 						Effect.sync(() => {
 							relationships.push(input);
 							relationshipCommands.push(command);
 							assert(isObjectRecord(input.properties));
 							return {
-								warnings: [warning],
-								relationship: {
-									wasInserted: true,
-									properties: input.properties,
-									sourceEntityId: input.sourceEntityId,
-									targetEntityId: input.targetEntityId,
-									createdAt: "2026-01-01T00:00:00.000Z",
-									id: RelationshipId.make("relationship-1"),
-									relationshipSchemaSlug: input.relationshipSchemaSlug,
+								_tag: "Committed" as const,
+								dispatch: [dispatchPlan("relationship-create")],
+								result: {
+									relationship: {
+										wasInserted: true,
+										properties: input.properties,
+										sourceEntityId: input.sourceEntityId,
+										targetEntityId: input.targetEntityId,
+										createdAt: "2026-01-01T00:00:00.000Z",
+										updatedAt: "2026-01-01T00:00:00.000Z",
+										id: RelationshipId.make("relationship-1"),
+										relationshipSchemaSlug: input.relationshipSchemaSlug,
+									},
 								},
 							};
 						}),
@@ -533,23 +540,33 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 						]),
 				}),
 				Layer.mock(EntitiesService)({
-					create: (input) =>
+					prepareCreateStep: (input) =>
 						Effect.sync(() => {
 							entities.push(input);
 							entityCommands.push(input.lifecycle);
 							assert(isObjectRecord(input.properties));
+							const entity = {
+								name: input.name,
+								externalId: null,
+								providerId: null,
+								populatedAt: null,
+								properties: input.properties,
+								createdAt: "2026-01-01T00:00:00.000Z",
+								updatedAt: "2026-01-01T00:00:00.000Z",
+								id: EntityId.make("created-collection"),
+								entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							};
 							return {
-								warnings: [warning],
-								entity: {
-									name: input.name,
-									externalId: null,
-									providerId: null,
-									populatedAt: null,
-									properties: input.properties,
-									createdAt: "2026-01-01T00:00:00.000Z",
-									updatedAt: "2026-01-01T00:00:00.000Z",
-									id: EntityId.make("created-collection"),
-									entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+								_tag: "Committed" as const,
+								dispatch: [dispatchPlan("entity-create")],
+								result: {
+									entity,
+									wasInserted: true,
+									outcome: {
+										before: null,
+										operation: "create" as const,
+										after: { ...entity, properties: {} },
+									},
 								},
 							};
 						}),
@@ -725,42 +742,56 @@ it.effect("imports private event and relationship schemas from one effective sna
 				}),
 				Layer.mock(EntitiesRepository)({}),
 				Layer.mock(EntitiesService)({
-					create: (input) =>
+					prepareCreateStep: (input) =>
 						Effect.sync(() => {
 							entityWrites.push(input.name);
 							commands.push(input.lifecycle);
 							assert(isObjectRecord(input.properties));
+							const entity = {
+								name: input.name,
+								providerId: null,
+								externalId: null,
+								populatedAt: null,
+								properties: input.properties,
+								createdAt: "2026-01-01T00:00:00.000Z",
+								updatedAt: "2026-01-01T00:00:00.000Z",
+								id: EntityId.make(`${input.name}-id`),
+								entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							};
 							return {
-								warnings: [],
-								entity: {
-									name: input.name,
-									providerId: null,
-									externalId: null,
-									populatedAt: null,
-									properties: input.properties,
-									createdAt: "2026-01-01T00:00:00.000Z",
-									updatedAt: "2026-01-01T00:00:00.000Z",
-									id: EntityId.make(`${input.name}-id`),
-									entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+								dispatch: [],
+								_tag: "Committed" as const,
+								result: {
+									entity,
+									wasInserted: true,
+									outcome: {
+										before: null,
+										operation: "create" as const,
+										after: { ...entity, properties: {} },
+									},
 								},
 							};
 						}),
 				}),
 				Layer.mock(RelationshipsService)({
-					create: (input, command) =>
+					prepareCreate: (input, command) =>
 						Effect.sync(() => {
 							relationshipWrites.push(input);
 							commands.push(command);
 							return {
-								warnings: [],
-								relationship: {
-									properties: {},
-									wasInserted: true,
-									sourceEntityId: input.sourceEntityId,
-									targetEntityId: input.targetEntityId,
-									createdAt: "2026-01-01T00:00:00.000Z",
-									id: RelationshipId.make("relationship-1"),
-									relationshipSchemaSlug: input.relationshipSchemaSlug,
+								dispatch: [],
+								_tag: "Committed" as const,
+								result: {
+									relationship: {
+										properties: {},
+										wasInserted: true,
+										sourceEntityId: input.sourceEntityId,
+										targetEntityId: input.targetEntityId,
+										createdAt: "2026-01-01T00:00:00.000Z",
+										updatedAt: "2026-01-01T00:00:00.000Z",
+										id: RelationshipId.make("relationship-1"),
+										relationshipSchemaSlug: input.relationshipSchemaSlug,
+									},
 								},
 							};
 						}),

@@ -9,7 +9,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -31,12 +31,19 @@ type RelationshipSnapshotWithProvenanceRow = RelationshipSnapshotRow & {
 
 type RelationshipRow = RelationshipSnapshotRow & { readonly wasInserted: boolean };
 
-export type RelationshipIdentityInput = {
-	sourceEntityId: EntityId;
-	targetEntityId: EntityId;
-	relationshipSchemaSlug: RelationshipSchemaSlug;
-	relationshipSchemaPluginId?: string | null | undefined;
-} & ({ scope: "global" } | { scope: "user"; userId: UserId });
+const relationshipIdentityFields = {
+	sourceEntityId: EntityId,
+	targetEntityId: EntityId,
+	relationshipSchemaSlug: RelationshipSchemaSlug,
+	relationshipSchemaPluginId: Schema.optional(Schema.NullOr(Schema.String)),
+};
+
+export const RelationshipIdentityInput = Schema.Union([
+	Schema.Struct({ ...relationshipIdentityFields, scope: Schema.Literal("global") }),
+	Schema.Struct({ ...relationshipIdentityFields, userId: UserId, scope: Schema.Literal("user") }),
+]);
+
+export type RelationshipIdentityInput = typeof RelationshipIdentityInput.Type;
 
 export type CreateRelationshipInput = RelationshipIdentityInput & {
 	properties: Record<string, unknown>;
@@ -69,13 +76,22 @@ type RestoreRelationshipInput = Pick<
 	| "relationshipSchemaSlug"
 >;
 
-export type GlobalRelationshipListInput = {
-	relationshipSchemaSlug: RelationshipSchemaSlug;
-	relationshipSchemaPluginId?: string | null | undefined;
-} & (
-	| { type: "self" }
-	| { type: "anchored"; direction: "incoming" | "outgoing"; anchorEntityId: EntityId }
-);
+const globalRelationshipListFields = {
+	relationshipSchemaSlug: RelationshipSchemaSlug,
+	relationshipSchemaPluginId: Schema.optional(Schema.NullOr(Schema.String)),
+};
+
+export const GlobalRelationshipListInput = Schema.Union([
+	Schema.Struct({ ...globalRelationshipListFields, type: Schema.Literal("self") }),
+	Schema.Struct({
+		...globalRelationshipListFields,
+		anchorEntityId: EntityId,
+		type: Schema.Literal("anchored"),
+		direction: Schema.Literals(["incoming", "outgoing"]),
+	}),
+]);
+
+export type GlobalRelationshipListInput = typeof GlobalRelationshipListInput.Type;
 
 export type RelationshipReconciliationListInput = GlobalRelationshipListInput &
 	({ scope: "global" } | { scope: "user"; userId: UserId });
