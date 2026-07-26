@@ -27,6 +27,7 @@ import {
 	resolveCatalogField,
 	type CatalogFieldKind,
 	type CatalogTable,
+	type RyotQLExecutionScope,
 } from "./catalog";
 
 type SqlFragment = ReturnType<typeof sql>;
@@ -37,9 +38,8 @@ type TimeSeriesQuery = NamedQuery & { readonly output: TimeSeriesOutput };
 type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | CorrelatedQuerySet | Include;
 type CompileTable = {
 	readonly alias: string;
-	readonly userId: string;
 	readonly table: CatalogTable;
-	readonly language: string | null;
+	readonly executionScope: RyotQLExecutionScope;
 };
 
 const identifier = (value: string): SqlFragment => sql.raw(`"${value}"`);
@@ -60,22 +60,30 @@ const requireCompileTable = (scope: CompileScope, alias: string) => {
 	return table;
 };
 
-const scopeLanguage = (scope: CompileScope) => scope.values().next().value?.language ?? null;
-const scopeUserId = (scope: CompileScope) => scope.values().next().value?.userId ?? "";
+const scopeExecution = (scope: CompileScope) => {
+	const executionScope = scope.values().next().value?.executionScope;
+	if (!executionScope) {
+		throw new Error("RyotQL compiler received an empty scope");
+	}
+	return executionScope;
+};
+
+const scopeLanguage = (scope: CompileScope) => {
+	const executionScope = scopeExecution(scope);
+	return executionScope.type === "user" ? executionScope.language : null;
+};
 
 const expressionScope = (query: CorrelatedQuerySet, ancestors: CompileScope) => {
-	const language = scopeLanguage(ancestors);
-	const userId = scopeUserId(ancestors);
+	const executionScope = scopeExecution(ancestors);
 	const scope = new Map(ancestors);
 	for (const [index, reference] of [
 		query.from,
 		...(query.joins ?? []).map((join) => join.table),
 	].entries()) {
 		scope.set(reference.alias, {
-			userId,
-			language,
 			alias: `kind${ancestors.size}_t${index}`,
 			table: requireTable(reference.table),
+			executionScope,
 		});
 	}
 	return scope;
@@ -293,7 +301,7 @@ const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFrag
 	if (!field) {
 		throw new Error(`RyotQL compiler received unknown field '${expr.field}'`);
 	}
-	return field.resolve({ language: compileTable.language, sqlAlias: compileTable.alias });
+	return field.resolve({ language: scopeLanguage(scope), sqlAlias: compileTable.alias });
 };
 
 const compileComparableExpression = (
@@ -378,14 +386,50 @@ const compilePredicate = (predicate: Predicate, scope: CompileScope): SqlFragmen
 	)}), false)`;
 };
 
-const authorizedTable = (table: CatalogTable, userId: string): SqlFragment => {
-	if (table.visibility.type === "public") {
-		return sql`(SELECT * FROM ${sql.raw(table.name)})`;
+const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlFragment => {
+	if (scope.type === "user") {
+		const policy = table.visibility.user;
+		if (policy.type === "public") {
+			return sql`(SELECT * FROM ${sql.raw(table.name)})`;
+		}
+		const column = sql.raw(policy.column);
+		return policy.includeGlobal
+			? sql`(SELECT * FROM ${sql.raw(table.name)} WHERE (${column} = ${scope.userId} OR ${column} IS NULL))`
+			: sql`(SELECT * FROM ${sql.raw(table.name)} WHERE ${column} = ${scope.userId})`;
 	}
-	const column = sql.raw(table.visibility.column);
-	return table.visibility.includeGlobal
-		? sql`(SELECT * FROM ${sql.raw(table.name)} WHERE (${column} = ${userId} OR ${column} IS NULL))`
-		: sql`(SELECT * FROM ${sql.raw(table.name)} WHERE ${column} = ${userId})`;
+	const policy = "plugin" in table.visibility ? table.visibility.plugin : undefined;
+	if (!policy) {
+		throw new Error(`RyotQL compiler received plugin-denied table '${table.name}'`);
+	}
+	if (policy.type === "eventDefinition") {
+		if (scope.eventSchemas.length === 0) {
+			return sql`(SELECT * FROM ${sql.raw(table.name)} WHERE false)`;
+		}
+		const ownership = scope.eventSchemas.map(
+			(eventSchema) =>
+				sql`(event.event_schema_slug = ${eventSchema.eventSchemaSlug}::text AND event_scope_entity.entity_schema_slug = ${eventSchema.entitySchemaSlug}::text)`,
+		);
+		return sql`(
+			SELECT * FROM event
+			WHERE EXISTS (
+				SELECT 1 FROM entity event_scope_entity
+				WHERE event_scope_entity.id = event.entity_id
+				AND (${sql.join(ownership, sql` OR `)})
+			)
+		)`;
+	}
+	const ownedSlugs = scope[policy.ownership];
+	if (ownedSlugs.length === 0) {
+		return sql`(SELECT * FROM ${sql.raw(table.name)} WHERE false)`;
+	}
+	const discriminator = sql.raw(policy.column);
+	const ownership = sql`${discriminator} IN (${sql.join(
+		ownedSlugs.map((slug) => sql`${slug}::text`),
+		sql`, `,
+	)})`;
+	return policy.globalOnly
+		? sql`(SELECT * FROM ${sql.raw(table.name)} WHERE user_id IS NULL AND ${ownership})`
+		: sql`(SELECT * FROM ${sql.raw(table.name)} WHERE ${ownership})`;
 };
 
 const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment => {
@@ -412,18 +456,16 @@ const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment =>
 
 const buildScope = (
 	query: QuerySet,
-	userId: string,
-	language: string | null,
+	executionScope: RyotQLExecutionScope,
 	prefix: string,
 	ancestors: CompileScope = new Map(),
 ) => {
 	const root = requireTable(query.from.table);
 	const scope = new Map(ancestors);
-	scope.set(query.from.alias, { userId, language, alias: `${prefix}t0`, table: root });
+	scope.set(query.from.alias, { executionScope, alias: `${prefix}t0`, table: root });
 	(query.joins ?? []).forEach((join, index) => {
 		scope.set(join.table.alias, {
-			userId,
-			language,
+			executionScope,
 			alias: `${prefix}t${index + 1}`,
 			table: requireTable(join.table.table),
 		});
@@ -433,7 +475,7 @@ const buildScope = (
 
 const querySetSql = (
 	query: QuerySet,
-	userId: string,
+	executionScope: RyotQLExecutionScope,
 	scope: CompileScope,
 	additionalConditions: readonly SqlFragment[] = [],
 ): SqlFragment => {
@@ -441,14 +483,14 @@ const querySetSql = (
 	const joins = (query.joins ?? []).map((join) => {
 		const joined = requireCompileTable(scope, join.table.alias);
 		const joinType = join.type === "inner" ? sql`INNER JOIN` : sql`LEFT JOIN`;
-		return sql`${joinType} ${authorizedTable(joined.table, userId)} ${sql.raw(joined.alias)} ON ${compilePredicate(join.on, scope)}`;
+		return sql`${joinType} ${authorizedTable(joined.table, executionScope)} ${sql.raw(joined.alias)} ON ${compilePredicate(join.on, scope)}`;
 	});
 	const conditions = [
 		...(query.where ? [compilePredicate(query.where, scope)] : []),
 		...additionalConditions,
 	];
 	return sql`
-		FROM ${authorizedTable(root.table, userId)} ${sql.raw(root.alias)}
+		FROM ${authorizedTable(root.table, executionScope)} ${sql.raw(root.alias)}
 		${sql.join(joins, sql` `)}
 		${conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
 	`;
@@ -505,20 +547,14 @@ const appendPrimaryKeyOrders = (
 ];
 
 const correlatedScope = (query: CorrelatedQuerySet, ancestors: CompileScope) =>
-	buildScope(
-		query,
-		scopeUserId(ancestors),
-		scopeLanguage(ancestors),
-		`c${ancestors.size}_`,
-		ancestors,
-	);
+	buildScope(query, scopeExecution(ancestors), `c${ancestors.size}_`, ancestors);
 
 const compileExists = (
 	expr: Extract<ScalarExpression, { type: "exists" }>,
 	ancestors: CompileScope,
 ) => {
 	const scope = correlatedScope(expr.query, ancestors);
-	return sql`EXISTS (SELECT 1 ${querySetSql(expr.query, scopeUserId(ancestors), scope)})`;
+	return sql`EXISTS (SELECT 1 ${querySetSql(expr.query, scopeExecution(ancestors), scope)})`;
 };
 
 const compileFirst = (
@@ -528,7 +564,7 @@ const compileFirst = (
 ) => {
 	const scope = correlatedScope(expr.query, ancestors);
 	const orders = appendPrimaryKeyOrders(expr.query, expr.orderBy);
-	return sql`(SELECT ${select(scope)} ${querySetSql(expr.query, scopeUserId(ancestors), scope)} ORDER BY ${expressionOrderSql(orders, scope)} LIMIT 1)`;
+	return sql`(SELECT ${select(scope)} ${querySetSql(expr.query, scopeExecution(ancestors), scope)} ORDER BY ${expressionOrderSql(orders, scope)} LIMIT 1)`;
 };
 
 const compileAggregate = (
@@ -537,7 +573,7 @@ const compileAggregate = (
 ) => {
 	const scope = correlatedScope(expr.query, ancestors);
 	const value = compileAggregation(expr.aggregation, scope);
-	return sql`(SELECT ${value} ${querySetSql(expr.query, scopeUserId(ancestors), scope)})`;
+	return sql`(SELECT ${value} ${querySetSql(expr.query, scopeExecution(ancestors), scope)})`;
 };
 
 const compileAggregation = (aggregation: AggregationSpec, scope: CompileScope) => {
@@ -563,12 +599,11 @@ const compileAggregation = (aggregation: AggregationSpec, scope: CompileScope) =
 
 const compileInclude = (
 	include: Include,
-	userId: string,
-	language: string | null,
+	executionScope: RyotQLExecutionScope,
 	ancestors: CompileScope,
 	path: readonly number[],
 ): SqlFragment => {
-	const scope = buildScope(include, userId, language, `i${path.join("_")}`, ancestors);
+	const scope = buildScope(include, executionScope, `i${path.join("_")}`, ancestors);
 	const orderMetadata = include.orderBy.map((order) => ({
 		direction: order.direction,
 		kind: expressionKind(order.expr, scope),
@@ -580,7 +615,7 @@ const compileInclude = (
 		outputKind(field.expr, scope),
 	]);
 	const nestedValues = (include.include ?? []).map((nested, index) =>
-		compileInclude(nested, userId, language, scope, [...path, index]),
+		compileInclude(nested, executionScope, scope, [...path, index]),
 	);
 	const itemValues = [...fieldValues, ...nestedValues];
 	const item = sql`jsonb_build_array(${sql.join(itemValues, sql`, `)})`;
@@ -602,7 +637,7 @@ const compileInclude = (
 			SELECT "orderedIncludeRows".*, ROW_NUMBER() OVER (ORDER BY ${ordering}) AS "includeIndex"
 			FROM (
 				SELECT ${sql.join(columns, sql`, `)}
-				${querySetSql(include, userId, scope)}
+				${querySetSql(include, executionScope, scope)}
 				ORDER BY ${queryOrdering}
 				LIMIT ${include.limit + 1}
 			) "orderedIncludeRows"
@@ -610,12 +645,8 @@ const compileInclude = (
 	)`;
 };
 
-const compileRowsQuery = (
-	query: RowsQuery,
-	userId: string,
-	language: string | null,
-): SqlFragment => {
-	const scope = buildScope(query, userId, language, "");
+const compileRowsQuery = (query: RowsQuery, executionScope: RyotQLExecutionScope): SqlFragment => {
+	const scope = buildScope(query, executionScope, "");
 	const orders = appendPrimaryKeyOrders(query, query.output.orderBy);
 	const orderMetadata = orders.map((order) => ({
 		direction: order.direction,
@@ -630,7 +661,7 @@ const compileRowsQuery = (
 	);
 	const includeColumns = (query.output.include ?? []).map(
 		(include, index) =>
-			sql`${compileInclude(include, userId, language, scope, [index])} AS ${identifier(`i${index}`)}`,
+			sql`${compileInclude(include, executionScope, scope, [index])} AS ${identifier(`i${index}`)}`,
 	);
 	const columns = [...fieldColumns, ...includeColumns, ...orderColumns, sql`true AS "rowPresent"`];
 	const pagination = query.output.pagination;
@@ -641,10 +672,10 @@ const compileRowsQuery = (
 	return sql`
 		WITH "queryTotal" AS (
 			SELECT COUNT(*)::integer AS "totalCount"
-			${querySetSql(query, userId, scope)}
+			${querySetSql(query, executionScope, scope)}
 		), "queryRows" AS (
 			SELECT ${sql.join(columns, sql`, `)}
-			${querySetSql(query, userId, scope)}
+			${querySetSql(query, executionScope, scope)}
 			ORDER BY ${queryOrdering}
 			LIMIT ${pagination.limit} OFFSET ${offset}
 		)
@@ -655,8 +686,8 @@ const compileRowsQuery = (
 	`;
 };
 
-const compileAggregateQuery = (query: AggregateQuery, userId: string, language: string | null) => {
-	const scope = buildScope(query, userId, language, "");
+const compileAggregateQuery = (query: AggregateQuery, executionScope: RyotQLExecutionScope) => {
+	const scope = buildScope(query, executionScope, "");
 	const groups = query.output.groupBy ?? [];
 	const groupColumns = groups.flatMap((group, index) => [
 		sql`${compileExpression(group.expr, scope)} AS ${identifier(`g${index}v`)}`,
@@ -667,7 +698,7 @@ const compileAggregateQuery = (query: AggregateQuery, userId: string, language: 
 			sql`${compileAggregation(measure.aggregation, scope)} AS ${identifier(`m${index}`)}`,
 	);
 	if (groups.length === 0) {
-		return sql`SELECT ${sql.join(measureColumns, sql`, `)} ${querySetSql(query, userId, scope)}`;
+		return sql`SELECT ${sql.join(measureColumns, sql`, `)} ${querySetSql(query, executionScope, scope)}`;
 	}
 	if (query.output.limit === undefined || query.output.orderBy === undefined) {
 		throw new Error("RyotQL grouped aggregate is missing limit or orderBy after validation");
@@ -688,7 +719,7 @@ const compileAggregateQuery = (query: AggregateQuery, userId: string, language: 
 		SELECT
 			${sql.join([...groupColumns, ...measureColumns], sql`, `)},
 			COUNT(*) OVER()::integer AS "totalGroups"
-		${querySetSql(query, userId, scope)}
+		${querySetSql(query, executionScope, scope)}
 		GROUP BY ${sql.join(
 			groupOrdinals.map((ordinal) => sql.raw(String(ordinal))),
 			sql`, `,
@@ -716,12 +747,8 @@ const canonicalTimeSeriesBoundary = (value: string) => {
 	return DateTime.formatIso(parsed.value);
 };
 
-const compileTimeSeriesQuery = (
-	query: TimeSeriesQuery,
-	userId: string,
-	language: string | null,
-) => {
-	const scope = buildScope(query, userId, language, "");
+const compileTimeSeriesQuery = (query: TimeSeriesQuery, executionScope: RyotQLExecutionScope) => {
+	const scope = buildScope(query, executionScope, "");
 	const time = compileExpression(query.output.time.expr, scope);
 	const measure = compileAggregation(query.output.measure.aggregation, scope);
 	const endAt = canonicalTimeSeriesBoundary(query.output.time.range.endAt);
@@ -737,7 +764,7 @@ const compileTimeSeriesQuery = (
 	return sql`
 		WITH "timeSeriesAggregate" AS (
 			SELECT ${timeSeriesBucketStart(bucket, time)} AS "bucketStart", ${measure} AS "value"
-			${querySetSql(query, userId, scope, [range])}
+			${querySetSql(query, executionScope, scope, [range])}
 			GROUP BY 1
 		)
 		SELECT
@@ -820,12 +847,11 @@ const reconstructAggregateItem = (
 };
 
 const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function* (
-	userId: string,
-	language: string | null,
+	executionScope: RyotQLExecutionScope,
 	query: AggregateQuery,
 ) {
 	const db = yield* CurrentDb;
-	const raw = yield* dbEffect(() => db.execute(compileAggregateQuery(query, userId, language)));
+	const raw = yield* dbEffect(() => db.execute(compileAggregateQuery(query, executionScope)));
 	const rows = raw.rows as readonly Record<string, unknown>[];
 	const groups = query.output.groupBy ?? [];
 	const items = rows.map((row) => reconstructAggregateItem(row, groups, query.output.measures));
@@ -845,12 +871,11 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 });
 
 const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(function* (
-	userId: string,
-	language: string | null,
+	executionScope: RyotQLExecutionScope,
 	query: TimeSeriesQuery,
 ) {
 	const db = yield* CurrentDb;
-	const raw = yield* dbEffect(() => db.execute(compileTimeSeriesQuery(query, userId, language)));
+	const raw = yield* dbEffect(() => db.execute(compileTimeSeriesQuery(query, executionScope)));
 	const buckets = (raw.rows as readonly Record<string, unknown>[]).map((row) => {
 		const startAt = normalizeValue(row["startAt"], "date");
 		const endAt = normalizeValue(row["endAt"], "date");
@@ -863,19 +888,18 @@ const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(functio
 });
 
 export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* (
-	userId: string,
-	language: string | null,
+	executionScope: RyotQLExecutionScope,
 	query: NamedQuery,
 ) {
 	if (query.output.type === "aggregate") {
-		return yield* executeAggregateQuery(userId, language, { ...query, output: query.output });
+		return yield* executeAggregateQuery(executionScope, { ...query, output: query.output });
 	}
 	if (query.output.type === "timeSeries") {
-		return yield* executeTimeSeriesQuery(userId, language, { ...query, output: query.output });
+		return yield* executeTimeSeriesQuery(executionScope, { ...query, output: query.output });
 	}
 	const db = yield* CurrentDb;
 	const rowsQuery = { ...query, output: query.output };
-	const raw = yield* dbEffect(() => db.execute(compileRowsQuery(rowsQuery, userId, language)));
+	const raw = yield* dbEffect(() => db.execute(compileRowsQuery(rowsQuery, executionScope)));
 	const rows = raw.rows as readonly Record<string, unknown>[];
 	const first = rows[0];
 	const total = first ? Number(first["totalCount"]) : 0;

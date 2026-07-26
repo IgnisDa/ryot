@@ -2,7 +2,7 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineOperation } from "@ryot/sandbox-sdk/operation";
 
-import { buildUserLibraryQuery, queryFirstEntityId } from "../../media-monitoring";
+import { buildUserLibraryDocument, decodeUserLibraryId } from "../../media-monitoring-ryotql";
 import { MediaMonitoringEnableInput, MediaMonitoringOutput } from "../../operations/schemas";
 import {
 	alignedMediaMonitoringResults,
@@ -15,7 +15,7 @@ export const manifest = defineManifest({
 	slug: "operation.media-monitoring-enable",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["executeQueryEngine", "changeUserRelationships"],
+	capabilities: ["executeRyotql", "changeUserRelationships"],
 });
 
 export default defineOperation({
@@ -25,10 +25,10 @@ export default defineOperation({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const [targets, libraryResponse] = yield* Effect.all([
-				queryMediaMonitoringTargets(input.entityIds, host.executeQueryEngine),
-				host.executeQueryEngine(buildUserLibraryQuery()),
+				queryMediaMonitoringTargets(input.entityIds, host.executeRyotql),
+				host.executeRyotql(buildUserLibraryDocument()),
 			]);
-			const libraryEntityId = queryFirstEntityId(libraryResponse);
+			const libraryEntityId = decodeUserLibraryId(libraryResponse);
 			if (!libraryEntityId) {
 				return yield* Effect.fail(new Error("Library entity not found for user"));
 			}
