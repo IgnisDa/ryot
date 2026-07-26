@@ -50,6 +50,12 @@ const actions = (overrides: Partial<GodModeUserActions> = {}): GodModeUserAction
 	...overrides,
 });
 
+const pressSheetControl = async (role: "button" | "menuitem", name: string) =>
+	act(async () => {
+		screen.getByRole(role, { name }).props.onClick({ nativeEvent: {} });
+		await Promise.resolve();
+	});
+
 describe("God-mode user lifecycle actions", () => {
 	it("keeps destructive actions locked and exposes the completed reset result", async () => {
 		const appUser = userEvent.setup();
@@ -70,15 +76,12 @@ describe("God-mode user lifecycle actions", () => {
 			/>,
 		);
 
-		await appUser.press(screen.getByRole("button", { name: `Reset account for ${userRow.email}` }));
-		await act(async () => {
-			screen.getByRole("button", { name: "Reset account" }).props.onClick({ nativeEvent: {} });
-			await Promise.resolve();
-		});
+		await appUser.press(screen.getByRole("button", { name: `Actions for ${userRow.email}` }));
+		await pressSheetControl("menuitem", "Reset account");
+		await pressSheetControl("button", "Reset account");
 
 		expect(await screen.findByRole("button", { name: "Resetting..." })).toBeDisabled();
-		expect(screen.getByRole("button", { name: `Delete ${userRow.email}` })).toBeDisabled();
-		await appUser.press(screen.getByRole("button", { name: "Resetting..." }));
+		await pressSheetControl("button", "Resetting...");
 		expect(resetCount).toBe(1);
 
 		finish(Exit.succeed(resetResult));
@@ -108,13 +111,50 @@ describe("God-mode user lifecycle actions", () => {
 			/>,
 		);
 
-		await appUser.press(screen.getByRole("button", { name: `Reset account for ${userRow.email}` }));
-		await act(async () => {
-			screen.getByRole("button", { name: "Reset account" }).props.onClick({ nativeEvent: {} });
-			await Promise.resolve();
-		});
+		await appUser.press(screen.getByRole("button", { name: `Actions for ${userRow.email}` }));
+		await pressSheetControl("menuitem", "Reset account");
+		await pressSheetControl("button", "Reset account");
 
 		expect(await screen.findByText("Could not reset this user. Try again.")).toBeOnTheScreen();
 		expect(screen.queryByText(/database cleanup|step 4/)).not.toBeOnTheScreen();
+	});
+
+	it("blocks reset links for OIDC-only users while keeping other actions available", async () => {
+		const appUser = userEvent.setup();
+		let deleteCount = 0;
+		await render(
+			<GodModeUserRow
+				onUnauthorized={() => undefined}
+				user={{ ...userRow, authState: "oidc" }}
+				actions={actions({
+					deleteUser: () => {
+						deleteCount += 1;
+						return Promise.resolve(
+							Exit.succeed({
+								error: null,
+								kind: "delete",
+								startedAt: null,
+								resetResult: null,
+								id: "operation-1",
+								status: "completed",
+								createdAt: "2026-08-24T00:00:00.000Z",
+								userId: UserId.make(userRow.id),
+								finishedAt: "2026-08-24T00:00:00.000Z",
+							}),
+						);
+					},
+				})}
+			/>,
+		);
+
+		await appUser.press(screen.getByRole("button", { name: `Actions for ${userRow.email}` }));
+
+		expect(screen.getByRole("menuitem", { name: "Generate reset link" })).toBeDisabled();
+		expect(screen.getByText("OIDC-only user")).toBeOnTheScreen();
+
+		await pressSheetControl("menuitem", "Delete user");
+		await pressSheetControl("button", "Delete user");
+
+		expect(deleteCount).toBe(1);
 	});
 });
