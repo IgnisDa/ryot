@@ -27,7 +27,7 @@
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
-		"effect": "4.0.0-rc.116"
+		"effect": "4.0.0-rc.117"
 	},
 	"devDependencies": {
 		"@ryot-app/testing": "workspace:*",
