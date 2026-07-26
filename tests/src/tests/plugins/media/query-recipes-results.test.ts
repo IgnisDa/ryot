@@ -3,6 +3,7 @@ import {
 	personalMediaSuggestionsRecipe,
 	podcastDetailRecipe,
 	podcastsByLifecycleStateRecipe,
+	showActivityRecipe,
 	showDetailRecipe,
 	showOverviewRecipe,
 	showSummaryRecipe,
@@ -114,6 +115,127 @@ const seedCredit = (input: {
 		externalId: `overview-${crypto.randomUUID()}`,
 		properties: { images: input.images, description: null, sourceUrl: null },
 	});
+
+const seedActivityShow = (client: Client) =>
+	Effect.gen(function* () {
+		const { schema: showSchema } = yield* findBuiltinSchemaBySlug(client, "show");
+		const showSeasonSchemaId = yield* getBuiltinEntitySchemaSlug("show-season");
+		const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("show-episode");
+		const relationshipSchemas = yield* listRelationshipSchemas(client, {
+			slugs: ["show-to-show-season", "show-season-to-show-episode"],
+		});
+		const showToSeason = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"show-to-show-season",
+		);
+		const seasonToEpisode = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"show-season-to-show-episode",
+		);
+		const suffix = crypto.randomUUID();
+		const show = yield* seedMediaEntity({
+			userId: null,
+			providerId: null,
+			name: `Activity Show ${suffix}`,
+			entitySchemaSlug: showSchema.id,
+			externalId: `activity-show-${suffix}`,
+			properties: { totalSeasons: 1, totalEpisodes: 2 },
+		});
+		const [regularSeason, specialsSeason] = yield* Effect.all(
+			[1, 0].map((seasonNumber) =>
+				seedMediaEntity({
+					userId: null,
+					providerId: null,
+					properties: { seasonNumber },
+					entitySchemaSlug: showSeasonSchemaId,
+					name: `Activity Season ${seasonNumber} ${suffix}`,
+					externalId: `activity-season-${seasonNumber}-${suffix}`,
+				}),
+			),
+		);
+		const [firstEpisode, secondEpisode, specialEpisode] = yield* Effect.all(
+			[
+				{ seasonNumber: 1, episodeNumber: 1 },
+				{ seasonNumber: 1, episodeNumber: 2 },
+				{ seasonNumber: 0, episodeNumber: 1 },
+			].map(({ seasonNumber, episodeNumber }) =>
+				seedMediaEntity({
+					userId: null,
+					providerId: null,
+					entitySchemaSlug: showEpisodeSchemaId,
+					name: `Activity S${seasonNumber}E${episodeNumber} ${suffix}`,
+					externalId: `activity-episode-${seasonNumber}-${episodeNumber}-${suffix}`,
+					properties: {
+						seasonNumber,
+						episodeNumber,
+						images: [
+							{
+								type: "remote",
+								purpose: "still",
+								url: `https://images.test/activity-${seasonNumber}-${episodeNumber}.jpg`,
+							},
+						],
+					},
+				}),
+			),
+		);
+		assertPresent(regularSeason, "Missing regular activity season");
+		assertPresent(specialsSeason, "Missing specials activity season");
+		assertPresent(firstEpisode, "Missing first activity episode");
+		assertPresent(secondEpisode, "Missing second activity episode");
+		assertPresent(specialEpisode, "Missing special activity episode");
+		yield* Effect.all([
+			insertGlobalRelationship({
+				sourceEntityId: show.id,
+				targetEntityId: regularSeason.id,
+				relationshipSchemaSlug: showToSeason.id,
+			}),
+			insertGlobalRelationship({
+				sourceEntityId: show.id,
+				targetEntityId: specialsSeason.id,
+				relationshipSchemaSlug: showToSeason.id,
+			}),
+			insertGlobalRelationship({
+				targetEntityId: firstEpisode.id,
+				sourceEntityId: regularSeason.id,
+				relationshipSchemaSlug: seasonToEpisode.id,
+			}),
+			insertGlobalRelationship({
+				targetEntityId: secondEpisode.id,
+				sourceEntityId: regularSeason.id,
+				relationshipSchemaSlug: seasonToEpisode.id,
+			}),
+			insertGlobalRelationship({
+				targetEntityId: specialEpisode.id,
+				sourceEntityId: specialsSeason.id,
+				relationshipSchemaSlug: seasonToEpisode.id,
+			}),
+		]);
+		const showEventSchemas = yield* listEventSchemas(client, showSchema.id);
+		const episodeEventSchemas = yield* listEventSchemas(client, showEpisodeSchemaId);
+		return {
+			show,
+			firstEpisode,
+			secondEpisode,
+			specialEpisode,
+			showEvents: {
+				review: requireEventSchemaBySlug(showEventSchemas, "review").id,
+				backlog: requireEventSchemaBySlug(showEventSchemas, "backlog").id,
+				complete: requireEventSchemaBySlug(showEventSchemas, "complete").id,
+			},
+			episodeEvents: {
+				review: requireEventSchemaBySlug(episodeEventSchemas, "review").id,
+				progress: requireEventSchemaBySlug(episodeEventSchemas, "progress").id,
+				complete: requireEventSchemaBySlug(episodeEventSchemas, "complete").id,
+			},
+		};
+	});
+
+const ACTIVITY_LIMITS = {
+	parentEventLimit: 60,
+	episodeEventLimit: 100,
+	episodeProgressLimit: 100,
+} as const;
 
 describe("Media RyotQL query recipe results", () => {
 	it.live("reconstructs show details with nested state and independent limits", () =>
@@ -958,5 +1080,265 @@ describe("Media RyotQL query recipe results", () => {
 				expect(secondResult.id).toBe(secondBook.entity.id);
 				expect(secondResult.rank).toBe(2);
 			}),
+	);
+
+	it.live("journals parent, regular episode and special activity in one ordered history", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const seeded = yield* seedActivityShow(client);
+			yield* createEventFixture(client, {
+				entityId: seeded.show.id,
+				occurredAt: "2024-03-01T12:00:00.000Z",
+				eventSchemaSlug: seeded.showEvents.backlog,
+			});
+			for (const [occurredAt, progressPercent] of [
+				["2024-03-02T12:00:00.000Z", 10],
+				["2024-03-03T12:00:00.000Z", 60],
+				["2024-03-04T12:00:00.000Z", 90],
+			] as const) {
+				yield* createEventFixture(client, {
+					occurredAt,
+					entityId: seeded.firstEpisode.id,
+					eventSchemaSlug: seeded.episodeEvents.progress,
+					properties: { progressPercent, consumedOn: "Jellyfin" },
+				});
+			}
+			yield* createEventFixture(client, {
+				entityId: seeded.firstEpisode.id,
+				occurredAt: "2024-03-05T12:00:00.000Z",
+				eventSchemaSlug: seeded.episodeEvents.complete,
+				properties: { timeSpent: 45, consumedOn: "Jellyfin", completionMode: "unknown" },
+			});
+			yield* createEventFixture(client, {
+				entityId: seeded.firstEpisode.id,
+				occurredAt: "2024-03-06T12:00:00.000Z",
+				eventSchemaSlug: seeded.episodeEvents.review,
+				properties: { rating: 90, isSpoiler: true, text: "The arrest scene is the whole show." },
+			});
+			yield* createEventFixture(client, {
+				entityId: seeded.secondEpisode.id,
+				properties: { progressPercent: 35 },
+				occurredAt: "2024-03-07T12:00:00.000Z",
+				eventSchemaSlug: seeded.episodeEvents.progress,
+			});
+			yield* createEventFixture(client, {
+				entityId: seeded.specialEpisode.id,
+				properties: { progressPercent: 20 },
+				occurredAt: "2024-03-08T12:00:00.000Z",
+				eventSchemaSlug: seeded.episodeEvents.progress,
+			});
+			yield* createEventFixture(client, {
+				entityId: seeded.show.id,
+				occurredAt: "2024-03-09T12:00:00.000Z",
+				properties: { completionMode: "unknown" },
+				eventSchemaSlug: seeded.showEvents.complete,
+			});
+			yield* createEventFixture(client, {
+				entityId: seeded.show.id,
+				properties: { rating: 75 },
+				occurredAt: "2024-03-10T12:00:00.000Z",
+				eventSchemaSlug: seeded.showEvents.review,
+			});
+
+			const activity = yield* executeRyotQLRecipe(
+				client,
+				showActivityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+			);
+			const identity = activity.events.map((event) => ({
+				kind: event.kind,
+				occurredAt: event.occurredAt,
+				eventSchemaSlug: event.eventSchemaSlug,
+				seasonNumber: event.kind === "episode" ? event.episode.seasonNumber : null,
+				episodeNumber: event.kind === "episode" ? event.episode.episodeNumber : null,
+			}));
+
+			expect(activity.truncated).toBe(false);
+			expect(new Set(activity.events.map((event) => event.id)).size).toBe(activity.events.length);
+			expect(identity).toEqual([
+				{
+					kind: "parent",
+					seasonNumber: null,
+					episodeNumber: null,
+					eventSchemaSlug: "review",
+					occurredAt: "2024-03-10T12:00:00.000Z",
+				},
+				{
+					kind: "parent",
+					seasonNumber: null,
+					episodeNumber: null,
+					eventSchemaSlug: "complete",
+					occurredAt: "2024-03-09T12:00:00.000Z",
+				},
+				{
+					kind: "episode",
+					seasonNumber: 0,
+					episodeNumber: 1,
+					eventSchemaSlug: "progress",
+					occurredAt: "2024-03-08T12:00:00.000Z",
+				},
+				{
+					kind: "episode",
+					seasonNumber: 1,
+					episodeNumber: 2,
+					eventSchemaSlug: "progress",
+					occurredAt: "2024-03-07T12:00:00.000Z",
+				},
+				{
+					kind: "episode",
+					seasonNumber: 1,
+					episodeNumber: 1,
+					eventSchemaSlug: "review",
+					occurredAt: "2024-03-06T12:00:00.000Z",
+				},
+				{
+					kind: "episode",
+					seasonNumber: 1,
+					episodeNumber: 1,
+					eventSchemaSlug: "complete",
+					occurredAt: "2024-03-05T12:00:00.000Z",
+				},
+				{
+					kind: "episode",
+					seasonNumber: 1,
+					episodeNumber: 1,
+					eventSchemaSlug: "progress",
+					occurredAt: "2024-03-04T12:00:00.000Z",
+				},
+				{
+					kind: "parent",
+					seasonNumber: null,
+					episodeNumber: null,
+					eventSchemaSlug: "backlog",
+					occurredAt: "2024-03-01T12:00:00.000Z",
+				},
+			]);
+		}),
+	);
+
+	it.live("collapses dense episode progress into the latest milestone per episode", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const seeded = yield* seedActivityShow(client);
+			for (const [occurredAt, progressPercent] of [
+				["2024-04-01T12:00:00.000Z", 5],
+				["2024-04-02T12:00:00.000Z", 45],
+				["2024-04-03T12:00:00.000Z", 85],
+			] as const) {
+				yield* createEventFixture(client, {
+					occurredAt,
+					entityId: seeded.firstEpisode.id,
+					eventSchemaSlug: seeded.episodeEvents.progress,
+					properties: { progressPercent, consumedOn: "Plex" },
+				});
+			}
+
+			const activity = yield* executeRyotQLRecipe(
+				client,
+				showActivityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+			);
+
+			expect(activity.events).toHaveLength(1);
+			expect(activity.events[0]).toMatchObject({
+				kind: "episode",
+				consumedOn: "Plex",
+				progressPercent: 85,
+				eventSchemaSlug: "progress",
+				occurredAt: "2024-04-03T12:00:00.000Z",
+			});
+		}),
+	);
+
+	it.live("keeps optional event properties absent instead of failing the activity result", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const seeded = yield* seedActivityShow(client);
+			yield* createEventFixture(client, {
+				entityId: seeded.show.id,
+				occurredAt: "2024-05-01T12:00:00.000Z",
+				eventSchemaSlug: seeded.showEvents.backlog,
+			});
+			yield* createEventFixture(client, {
+				entityId: seeded.secondEpisode.id,
+				occurredAt: "2024-05-02T12:00:00.000Z",
+				properties: { completionMode: "unknown" },
+				eventSchemaSlug: seeded.episodeEvents.complete,
+			});
+
+			const activity = yield* executeRyotQLRecipe(
+				client,
+				showActivityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+			);
+
+			expect(activity.events[0]).toMatchObject({
+				text: null,
+				rating: null,
+				timeSpent: null,
+				isSpoiler: null,
+				consumedOn: null,
+				kind: "episode",
+				eventSchemaSlug: "complete",
+				episode: {
+					seasonNumber: 1,
+					episodeNumber: 2,
+					images: [{ type: "remote", purpose: "still" }],
+				},
+			});
+			expect(activity.events[1]).toMatchObject({
+				kind: "parent",
+				timeSpent: null,
+				consumedOn: null,
+				eventSchemaSlug: "backlog",
+			});
+		}),
+	);
+
+	it.live("reads special-episode activity that no session entity links to the show", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const seeded = yield* seedActivityShow(client);
+			yield* createEventFixture(client, {
+				entityId: seeded.specialEpisode.id,
+				occurredAt: "2024-06-01T12:00:00.000Z",
+				properties: { completionMode: "unknown" },
+				sessionEntityId: seeded.specialEpisode.id,
+				eventSchemaSlug: seeded.episodeEvents.complete,
+			});
+
+			const activity = yield* executeRyotQLRecipe(
+				client,
+				showActivityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+			);
+
+			expect(activity.events).toHaveLength(1);
+			expect(activity.events[0]).toMatchObject({
+				kind: "episode",
+				eventSchemaSlug: "complete",
+				episode: { seasonNumber: 0, episodeNumber: 1 },
+			});
+		}),
+	);
+
+	it.live("reports truncation when the recorded activity outgrows the requested page", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const seeded = yield* seedActivityShow(client);
+			for (const occurredAt of ["2024-07-01T12:00:00.000Z", "2024-07-02T12:00:00.000Z"]) {
+				yield* createEventFixture(client, {
+					occurredAt,
+					entityId: seeded.show.id,
+					properties: { completionMode: "unknown" },
+					eventSchemaSlug: seeded.showEvents.complete,
+				});
+			}
+
+			const activity = yield* executeRyotQLRecipe(
+				client,
+				showActivityRecipe({ ...ACTIVITY_LIMITS, parentEventLimit: 1, entityId: seeded.show.id }),
+			);
+
+			expect(activity.truncated).toBe(true);
+			expect(activity.events).toHaveLength(1);
+			expect(activity.events[0]).toMatchObject({ occurredAt: "2024-07-02T12:00:00.000Z" });
+		}),
 	);
 });

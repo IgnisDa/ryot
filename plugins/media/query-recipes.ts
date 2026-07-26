@@ -8,8 +8,8 @@ import {
 	RemoteAssetLocator,
 	S3AssetLocator,
 } from "@ryot/contract/modules/uploads/schemas";
-import { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
-import type { Recipe } from "@ryot/ryotql";
+import { EntityId, EntitySchemaSlug, EventId } from "@ryot/contract/schema/brands";
+import type { Recipe, SelectedRow } from "@ryot/ryotql";
 import {
 	and,
 	ascending,
@@ -24,6 +24,7 @@ import {
 	eq,
 	exists,
 	first,
+	inArray,
 	join,
 	jsonPath,
 	literal,
@@ -37,6 +38,8 @@ import {
 	selectedRows,
 	table,
 } from "@ryot/ryotql";
+import { IsoDateString } from "@ryot/ryotql-recipes/codecs";
+import { eventOrderDescending } from "@ryot/ryotql-recipes/events";
 import { savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 import { Result, Schema } from "effect";
 
@@ -387,6 +390,9 @@ const propertyJson = (entity: Table, property: string) =>
 const propertyText = (entity: Table, property: string) =>
 	castText(jsonPath(column(entity, "properties"), property));
 
+const propertyBoolean = (entity: Table, property: string) =>
+	castBoolean(jsonPath(column(entity, "properties"), property));
+
 export const showSummaryRecipe = defineRecipe(
 	(input: { readonly entityId: string; readonly collectionLimit: number }) => {
 		const entity = table("entity", "entity");
@@ -581,6 +587,211 @@ export const showOverviewRecipe = defineRecipe(
 	},
 );
 
+const showActivityEpisodeSlugs = ["complete", "review"] as const;
+
+const showActivityParentSlugs = ["backlog", "on_hold", "dropped", "complete", "review"] as const;
+
+const eventSchemaIsOneOf = (event: Table, slugs: readonly string[]) =>
+	inArray(
+		column(event, "eventSchemaSlug"),
+		slugs.map((slug) => literal(slug)),
+	);
+
+const showEpisodeMembership = (episode: Table, showEntityId: string, alias: string) => {
+	const season = table("entity", `${alias}Season`);
+	const showSeason = table("relationship", `${alias}ShowSeason`);
+	const seasonEpisode = table("relationship", `${alias}SeasonEpisode`);
+	return exists(showSeason, {
+		joins: [
+			join("inner", season, eq(column(showSeason, "targetEntityId"), column(season, "id"))),
+			join(
+				"inner",
+				seasonEpisode,
+				eq(column(seasonEpisode, "sourceEntityId"), column(season, "id")),
+			),
+		],
+		where: and(
+			entitySchema(season, "show-season"),
+			eq(column(showSeason, "sourceEntityId"), literal(showEntityId)),
+			eq(column(showSeason, "relationshipSchemaSlug"), literal("show-to-show-season")),
+			relationshipTo(seasonEpisode, season, episode, "show-season-to-show-episode"),
+		),
+	});
+};
+
+const showActivityEventSelection = (event: Table) => ({
+	id: selectedField(column(event, "id"), EventId),
+	createdAt: selectedField(column(event, "createdAt"), IsoDateString),
+	occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
+	text: selectedField(propertyText(event, "text"), Schema.NullOr(Schema.String)),
+	rating: selectedField(propertyNumber(event, "rating"), Schema.NullOr(Schema.Number)),
+	timeSpent: selectedField(propertyNumber(event, "timeSpent"), Schema.NullOr(Schema.Number)),
+	isSpoiler: selectedField(propertyBoolean(event, "isSpoiler"), Schema.NullOr(Schema.Boolean)),
+	consumedOn: selectedField(propertyText(event, "consumedOn"), Schema.NullOr(Schema.String)),
+});
+
+const showActivityEpisodeSelection = (episode: Table) => ({
+	episodeId: selectedField(column(episode, "id"), EntityId),
+	episodeName: selectedField(column(episode, "name"), Schema.String),
+	episodeImages: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
+	seasonNumber: selectedField(propertyNumber(episode, "seasonNumber"), Schema.Number),
+	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Number),
+});
+
+const showActivityEpisode = (
+	row: SelectedRow<ReturnType<typeof showActivityEpisodeSelection>>,
+) => ({
+	id: row.episodeId,
+	name: row.episodeName,
+	images: row.episodeImages,
+	seasonNumber: row.seasonNumber,
+	episodeNumber: row.episodeNumber,
+});
+
+const compareShowActivityDescending = (
+	left: { readonly id: string; readonly createdAt: string; readonly occurredAt: string },
+	right: { readonly id: string; readonly createdAt: string; readonly occurredAt: string },
+) =>
+	right.occurredAt.localeCompare(left.occurredAt) ||
+	right.createdAt.localeCompare(left.createdAt) ||
+	right.id.localeCompare(left.id);
+
+export const showActivityRecipe = defineRecipe(
+	(input: {
+		readonly entityId: string;
+		readonly parentEventLimit: number;
+		readonly episodeEventLimit: number;
+		readonly episodeProgressLimit: number;
+	}) => {
+		const parentEvent = table("event", "parentEvent");
+		const episodeEvent = table("event", "episodeEvent");
+		const eventEpisode = table("entity", "eventEpisode");
+		const progressEvent = table("event", "progressEvent");
+		const progressProbe = table("event", "progressProbe");
+		const progressEpisode = table("entity", "progressEpisode");
+		const isProgressOf = (event: Table) =>
+			and(
+				eq(column(event, "entityId"), column(progressEpisode, "id")),
+				eq(column(event, "eventSchemaSlug"), literal("progress")),
+			);
+		return {
+			queries: {
+				parentEvents: selectedRows(parentEvent, {
+					limit: input.parentEventLimit,
+					orderBy: eventOrderDescending(parentEvent),
+					selection: {
+						...showActivityEventSelection(parentEvent),
+						eventSchemaSlug: selectedField(
+							column(parentEvent, "eventSchemaSlug"),
+							Schema.Literals(showActivityParentSlugs),
+						),
+					},
+					where: and(
+						eq(column(parentEvent, "entityId"), literal(input.entityId)),
+						eventSchemaIsOneOf(parentEvent, showActivityParentSlugs),
+					),
+				}),
+				episodeEvents: selectedRows(episodeEvent, {
+					limit: input.episodeEventLimit,
+					orderBy: eventOrderDescending(episodeEvent),
+					joins: [
+						join(
+							"inner",
+							eventEpisode,
+							eq(column(episodeEvent, "entityId"), column(eventEpisode, "id")),
+						),
+					],
+					selection: {
+						...showActivityEventSelection(episodeEvent),
+						...showActivityEpisodeSelection(eventEpisode),
+						eventSchemaSlug: selectedField(
+							column(episodeEvent, "eventSchemaSlug"),
+							Schema.Literals(showActivityEpisodeSlugs),
+						),
+					},
+					where: and(
+						entitySchema(eventEpisode, "show-episode"),
+						eventSchemaIsOneOf(episodeEvent, showActivityEpisodeSlugs),
+						showEpisodeMembership(eventEpisode, input.entityId, "episodeEventShow"),
+					),
+				}),
+				episodeProgress: selectedRows(progressEpisode, {
+					limit: input.episodeProgressLimit,
+					orderBy: [
+						ascending(propertyNumber(progressEpisode, "seasonNumber")),
+						ascending(propertyNumber(progressEpisode, "episodeNumber")),
+						ascending(column(progressEpisode, "id")),
+					],
+					selection: showActivityEpisodeSelection(progressEpisode),
+					include: {
+						milestone: selectedInclude(progressEvent, {
+							limit: 1,
+							where: isProgressOf(progressEvent),
+							orderBy: eventOrderDescending(progressEvent),
+							selection: {
+								id: selectedField(column(progressEvent, "id"), EventId),
+								createdAt: selectedField(column(progressEvent, "createdAt"), IsoDateString),
+								occurredAt: selectedField(column(progressEvent, "occurredAt"), IsoDateString),
+								consumedOn: selectedField(
+									propertyText(progressEvent, "consumedOn"),
+									Schema.NullOr(Schema.String),
+								),
+								progressPercent: selectedField(
+									propertyNumber(progressEvent, "progressPercent"),
+									Schema.NullOr(Schema.Number),
+								),
+							},
+						}),
+					},
+					where: and(
+						entitySchema(progressEpisode, "show-episode"),
+						exists(progressProbe, { where: isProgressOf(progressProbe) }),
+						showEpisodeMembership(progressEpisode, input.entityId, "progressEpisodeShow"),
+					),
+				}),
+			},
+			map: ({ parentEvents, episodeEvents, episodeProgress }) => {
+				const events = [
+					...parentEvents.items.map((row) => ({ ...row, kind: "parent" as const })),
+					...episodeEvents.items.map(
+						({ episodeId, episodeName, seasonNumber, episodeImages, episodeNumber, ...row }) => ({
+							...row,
+							kind: "episode" as const,
+							progressPercent: null,
+							episode: showActivityEpisode({
+								episodeId,
+								episodeName,
+								seasonNumber,
+								episodeImages,
+								episodeNumber,
+							}),
+						}),
+					),
+					...episodeProgress.items.flatMap((row) =>
+						row.milestone.items.map((milestone) => ({
+							...milestone,
+							text: null,
+							rating: null,
+							timeSpent: null,
+							isSpoiler: null,
+							kind: "episode" as const,
+							episode: showActivityEpisode(row),
+							eventSchemaSlug: "progress" as const,
+						})),
+					),
+				];
+				return Result.succeed({
+					events: events.sort(compareShowActivityDescending),
+					truncated:
+						parentEvents.pageInfo.hasMore ||
+						episodeEvents.pageInfo.hasMore ||
+						episodeProgress.pageInfo.hasMore,
+				});
+			},
+		};
+	},
+);
+
 const recommendationQuery = (input: {
 	readonly limit: number;
 	readonly entitySchemaSlug: string;
@@ -749,11 +960,14 @@ export const defaultMediaSavedViewRecipe = (input: {
 	return savedViewRecipe({ layout: input.layout, source });
 };
 
+export type ShowActivityEvent = ShowActivityResult["events"][number];
 export type ShowDetailResult = Recipe.Success<typeof showDetailRecipe>;
 export type ShowSummaryResult = Recipe.Success<typeof showSummaryRecipe>;
+export type ShowActivityResult = Recipe.Success<typeof showActivityRecipe>;
 export type ShowOverviewResult = Recipe.Success<typeof showOverviewRecipe>;
 export type PodcastDetailResult = Recipe.Success<typeof podcastDetailRecipe>;
 export type TrendingMediaResult = Recipe.Success<typeof trendingMediaRecipe>;
+export type ShowActivityEpisode = Extract<ShowActivityEvent, { kind: "episode" }>["episode"];
 export type DefaultMediaSavedViewResult = Recipe.Success<typeof defaultMediaSavedViewRecipe>;
 export type ShowsByLifecycleStateResult = Recipe.Success<typeof showsByLifecycleStateRecipe>;
 export type PodcastsByLifecycleStateResult = Recipe.Success<typeof podcastsByLifecycleStateRecipe>;
