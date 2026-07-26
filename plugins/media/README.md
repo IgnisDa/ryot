@@ -10,6 +10,10 @@ Media images use `{ type, url/key, purpose }`; remote assets use `url`, local an
 
 Providers put the preferred foreground image at `images[0]` when one is available; otherwise, the first available image remains the default. Within each purpose, preserve provider order. URL deduplication retains the first classification. Localized image overlays may replace the complete `images` array for a language; an omitted overlay keeps the canonical images.
 
+## Provider Details
+
+Provider details normalize source-specific payloads into common entity properties and relationship groups. Consumers query those properties and relationships without branching on provider identity. Providers emit authoritative empty groups when a supported relationship category has no source data, allowing refresh to remove stale relationships; an empty group remains a valid result for consumers.
+
 ## Operations
 
 Every media operation accepts a list and returns `results`. Per-item misses are values such as `status: "notFound"` or `entityId: null`, not operation failures.
