@@ -60,6 +60,10 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
 	security: {
 		apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }),
 		cookie: HttpApiSecurity.apiKey({ in: "cookie", key: "better-auth.session_token" }),
+		secureCookie: HttpApiSecurity.apiKey({
+			in: "cookie",
+			key: "__Secure-better-auth.session_token",
+		}),
 	},
 }) {}
 

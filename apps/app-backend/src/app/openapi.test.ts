@@ -29,4 +29,13 @@ describe("OpenAPI documentation", () => {
 		expect(spec.paths["/plugins"]?.post?.description).toContain("source file map");
 		expect(spec.paths["/plugins/{pluginSlug}"]?.delete?.responses["409"]).toBeDefined();
 	});
+
+	it("accepts development and secure session cookies", () => {
+		const spec = OpenApi.fromApi(AppContract);
+		expect(spec.paths["/ryotql/execute"]?.post?.security).toEqual([
+			{ apiKey: [] },
+			{ cookie: [] },
+			{ secureCookie: [] },
+		]);
+	});
 });
