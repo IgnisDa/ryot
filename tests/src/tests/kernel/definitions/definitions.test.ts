@@ -15,7 +15,6 @@ describe("Definitions E2E", () => {
 			expect(firstSchema?.name).toBeDefined();
 			expect(firstSchema?.slug).toBeDefined();
 			expect(firstSchema?.icon).toBeDefined();
-			expect(firstSchema?.accentColor).toBeDefined();
 			expect(firstSchema?.propertiesSchema).toBeDefined();
 		}),
 	);
@@ -33,7 +32,6 @@ describe("Definitions E2E", () => {
 			expect(collectionSchema).toMatchObject({
 				icon: "folders",
 				name: "Collection",
-				accentColor: "#F59E0B",
 				propertiesSchema: {
 					fields: {
 						description: { type: "string", label: "Description" },

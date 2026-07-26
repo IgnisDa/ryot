@@ -474,7 +474,6 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 			pluginSlug: null,
 			eventSchemas: [],
 			propertiesSchema,
-			accentColor: "#000000",
 		})),
 		relationshipSchemas: [
 			{

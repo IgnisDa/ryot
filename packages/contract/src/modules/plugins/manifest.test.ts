@@ -106,7 +106,6 @@ const manifest = definePlugin({
 		name: "Test",
 		slug: "test",
 		version: "1.0.0",
-		accentColor: "blue",
 		description: "Test plugin",
 	},
 	bindings: {
@@ -343,7 +342,6 @@ describe("definePlugin", () => {
 					name: "Entity",
 					slug: "entity",
 					eventSchemas: [],
-					accentColor: "blue",
 					mergeIdentityProperties: ["kind"],
 					propertiesSchema: {
 						fields: { kind: { type: "string", label: "Kind", description: "Entity kind" } },
@@ -362,7 +360,6 @@ describe("definePlugin", () => {
 				{
 					icon: "box",
 					eventSchemas: [],
-					accentColor: "blue",
 					name: "Protected Entity",
 					slug: "protected-entity",
 					propertiesSchema: { fields: {} },
@@ -373,7 +370,6 @@ describe("definePlugin", () => {
 					name: "Entity",
 					slug: "entity",
 					eventSchemas: [],
-					accentColor: "blue",
 					propertiesSchema: { fields: {} },
 				},
 			],

@@ -14,7 +14,6 @@ export const ListedSavedView = Schema.Struct({
 	updatedAt: Schema.String,
 	isBuiltin: Schema.Boolean,
 	isDisabled: Schema.Boolean,
-	accentColor: Schema.String,
 	queryDocument: RyotQLDocument,
 	pluginSlug: Schema.NullOr(PluginSlug),
 	displayConfiguration: DisplayConfiguration,
@@ -25,7 +24,6 @@ export type ListedSavedView = typeof ListedSavedView.Type;
 export const CreateSavedViewBody = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
-	accentColor: Schema.String,
 	queryDocument: RyotQLDocument,
 	displayConfiguration: DisplayConfiguration,
 	pluginSlug: Schema.optional(PluginSlug),
@@ -37,7 +35,6 @@ export const UpdateSavedViewBody = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
 	isDisabled: Schema.Boolean,
-	accentColor: Schema.String,
 	queryDocument: RyotQLDocument,
 	displayConfiguration: DisplayConfiguration,
 	pluginSlug: Schema.optional(PluginSlug),

@@ -49,7 +49,6 @@ describe("Saved views lifecycle E2E", () => {
 			expect(collectionsView).toMatchObject({
 				icon: "folders",
 				isBuiltin: true,
-				accentColor: "#F59E0B",
 				name: "All Collections",
 			});
 			expect(collectionsView?.queryDocument).toMatchObject({
@@ -78,7 +77,6 @@ describe("Saved views lifecycle E2E", () => {
 						isDisabled: true,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						accentColor: builtinView.accentColor,
 						queryDocument: builtinView.queryDocument,
 						displayConfiguration: builtinView.displayConfiguration,
 						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
@@ -180,7 +178,6 @@ describe("Saved views lifecycle E2E", () => {
 						isDisabled: true,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						accentColor: builtinView.accentColor,
 						queryDocument: builtinView.queryDocument,
 						displayConfiguration: builtinView.displayConfiguration,
 						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
@@ -196,7 +193,6 @@ describe("Saved views lifecycle E2E", () => {
 						isDisabled: false,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						accentColor: builtinView.accentColor,
 						queryDocument: builtinView.queryDocument,
 						displayConfiguration: builtinView.displayConfiguration,
 						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),

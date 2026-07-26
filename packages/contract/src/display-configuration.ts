@@ -34,7 +34,6 @@ export const entitySchemaBuiltinColumns: ReadonlySet<string> = new Set([
 	"createdAt",
 	"isBuiltin",
 	"updatedAt",
-	"accentColor",
 ]);
 
 const EventAggregation = Schema.Literals(["avg", "count", "max", "min", "sum"]);

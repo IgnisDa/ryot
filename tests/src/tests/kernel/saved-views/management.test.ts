@@ -63,7 +63,6 @@ const buildBuiltinUpdatePayload = (view: Effect.Success<ReturnType<typeof getSav
 	icon: view.icon,
 	name: view.name,
 	isDisabled: view.isDisabled,
-	accentColor: view.accentColor,
 	queryDocument: view.queryDocument,
 	displayConfiguration: view.displayConfiguration,
 	...(view.pluginSlug ? { pluginSlug: view.pluginSlug } : {}),

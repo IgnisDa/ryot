@@ -202,7 +202,6 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const foreignScriptSlug = `e2e-ryotql-auth-foreign-script-${suffix}`;
 			const foreignEntitySchemas: PluginEntitySchema[] = [
 				{
-					accentColor: "#991b1b",
 					eventSchemas: [
 						{
 							name: "Foreign event",
@@ -221,7 +220,6 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					eventSchemas: [],
 					icon: "circle-slash",
 					name: "Foreign target",
-					accentColor: "#7f1d1d",
 					slug: foreignTargetSlug,
 					propertiesSchema: { fields: {} },
 				},
@@ -279,7 +277,6 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					icon: "box",
 					slug: rootSlug,
 					name: "Owned root",
-					accentColor: "#0f766e",
 					propertiesSchema: {
 						fields: { score: { description: "Score", label: "Score", type: "integer" } },
 					},
@@ -298,14 +295,12 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					slug: targetSlug,
 					eventSchemas: [],
 					name: "Owned target",
-					accentColor: "#115e59",
 					propertiesSchema: { fields: {} },
 				},
 				{
 					eventSchemas: [],
 					icon: "database",
 					slug: markerSlug,
-					accentColor: "#334155",
 					name: "Authorization marker",
 					propertiesSchema: { fields: {}, unknownKeys: "passthrough" },
 				},

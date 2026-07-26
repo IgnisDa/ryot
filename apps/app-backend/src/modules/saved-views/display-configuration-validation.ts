@@ -32,7 +32,6 @@ const entitySchemaBuiltinTypeMap = {
 	createdAt: "date",
 	updatedAt: "date",
 	isBuiltin: "boolean",
-	accentColor: "string",
 } satisfies Record<string, DisplayExpressionType>;
 
 const eventBuiltinTypeMap = {

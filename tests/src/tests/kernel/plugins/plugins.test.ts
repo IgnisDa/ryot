@@ -153,7 +153,6 @@ export default defineAutomation({
 						{
 							icon: "box",
 							slug: schemaSlug,
-							accentColor: "#64748b",
 							name: "Lifecycle Entity",
 							propertiesSchema: {
 								unknownKeys: "strict",

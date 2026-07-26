@@ -10,7 +10,6 @@ const listed = (
 	name: definition.name,
 	icon: definition.icon,
 	slug: definition.slug,
-	accentColor: definition.accentColor,
 	id: EntitySchemaSlug.make(definition.slug),
 	propertiesSchema: definition.propertiesSchema,
 });

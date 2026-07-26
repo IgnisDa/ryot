@@ -19,7 +19,6 @@ const data = {
 			slug: "media",
 			isDisabled: false,
 			icon: "clapperboard",
-			accentColor: "#fd7e14",
 		},
 	],
 	savedViews: [
@@ -30,7 +29,6 @@ const data = {
 			slug: "movies",
 			isDisabled: false,
 			pluginSlug: "media",
-			accentColor: "#fd7e14",
 		},
 		{
 			sortOrder: 1,
@@ -39,7 +37,6 @@ const data = {
 			slug: "training",
 			isDisabled: false,
 			pluginSlug: "fitness",
-			accentColor: "#3d6d2f",
 		},
 		{
 			sortOrder: 2,
@@ -48,7 +45,6 @@ const data = {
 			isDisabled: false,
 			name: "Everything",
 			slug: "everything",
-			accentColor: "#a24e08",
 		},
 		{
 			sortOrder: 1,
@@ -57,13 +53,11 @@ const data = {
 			pluginSlug: null,
 			isDisabled: true,
 			icon: "bookmark",
-			accentColor: "#a24e08",
 		},
 	],
 	collections: [
 		{
 			sortOrder: 0,
-			accentColor: "",
 			pluginSlug: null,
 			icon: "layers-3",
 			isDisabled: false,

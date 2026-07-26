@@ -178,7 +178,6 @@ export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): Create
 	return {
 		icon: "star",
 		displayConfiguration,
-		accentColor: "#FF5733",
 		name: `Saved View ${crypto.randomUUID()}`,
 		queryDocument: queryDocument ?? defaultQueryDocument,
 		...rest,
@@ -221,7 +220,6 @@ export function buildUpdatedSavedViewBody(
 		icon: "heart",
 		isDisabled: false,
 		displayConfiguration,
-		accentColor: "#00AA88",
 		name: `Updated View ${crypto.randomUUID()}`,
 		queryDocument: queryDocument ?? defaultQueryDocument,
 		...rest,

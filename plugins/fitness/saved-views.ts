@@ -46,7 +46,6 @@ export const fitnessSavedViews = () => {
 			slug: input.slug,
 			icon: schema.icon,
 			pluginSlug: "fitness",
-			accentColor: schema.accentColor,
 			displayConfiguration: buildDisplayConfig(input.entitySchemaSlug),
 			queryDocument:
 				input.queryDocument ??
